@@ -213,9 +213,16 @@ What CI must do when it returns:
 
 `check-pull-request.yml`, on every pull request to `main`:
 
-- Branch-name check. Note the deleted version required a `ENGA-` or `PLAT-` ticket in the branch,
-  which contradicts the current commit rule. The commit rule no longer requires an issue key, so
-  align the branch pattern before you restore it.
+- Branch-name check, using this pattern and no other:
+
+  ```
+  ^(feat|fix|chore|refactor|test|docs|style|perf|ci|build)/((ENGA|PLAT)-[0-9]+-)?[a-z0-9]+(-[a-z0-9]+)*$
+  ```
+
+  The version in `256c510` **required** a `ENGA-` or `PLAT-` ticket. Do not restore that line. The
+  commit rule makes the issue key optional, so a branch check that demands one would block every
+  ticket-free contributor and undo the commit rule. The pattern above makes the key optional in the
+  branch too, which is the aligned behavior.
 - `make format-check`. Never `make format`, because a job that rewrites files hides the difference it
   should report.
 - `flutter analyze`.
@@ -255,7 +262,6 @@ Both workflows pinned `FLUTTER_VERSION: 3.44.8` and used `subosito/flutter-actio
 - `freezed` is pinned to `^3.2.5` and `mockito` to `^5.6.4`. Both stable. `freezed` stable needs
   `analyzer <11 or ^12`; `mockito >=5.7.0` needs `analyzer >=13`. They cannot both be newest.
   Revisit when `freezed` 4 reaches stable.
-- The branch-name convention is `type/short-description`. The original specification fixed the commit
-  format but not the branch format, and nothing enforces the branch now. Confirm it with the owner
-  before CI returns.
+- Nothing enforces the branch name now that CI is removed. The convention is documented in
+  `CLAUDE.md` and the exact pattern for the restored CI check is above.
 - Windows and Linux have never been compiled, on any machine.

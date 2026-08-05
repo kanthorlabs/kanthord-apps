@@ -223,8 +223,21 @@ link.
 `commitlint` runs in a husky `commit-msg` hook. It needs Node. Commit linting is optional for a
 contributor without Node, and `make bootstrap` prints a skip message.
 
-Branch: `type/short-description`, for example `chore/project-scaffold`. Nothing enforces it now that
-CI is removed.
+Branch: `type/short-description`, using the same type list. Lower case, hyphen separated. An issue
+key is optional, exactly as it is in the commit.
+
+```
+^(feat|fix|chore|refactor|test|docs|style|perf|ci|build)/((ENGA|PLAT)-[0-9]+-)?[a-z0-9]+(-[a-z0-9]+)*$
+```
+
+```
+chore/project-scaffold
+feat/agent-chat-streaming
+feat/ENGA-123-agent-chat
+fix/PLAT-9-sse-crlf
+```
+
+Nothing enforces the pattern now that CI is removed.
 
 ## Repository state
 
