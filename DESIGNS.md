@@ -33,13 +33,13 @@ rename a component in one place only.
 Design around components, not around whole screens. Build the smallest independent parts first,
 then compose them.
 
-| Layer | Definition | Examples |
-|---|---|---|
-| Atom | The smallest element. You cannot subdivide it | text label, button, input field, icon |
-| Molecule | A group of atoms that delivers one piece of data or one purpose | search field, card, check box, radio button, switch |
-| Organism | A group of molecules that forms a complete, self-explanatory part of the UI | check box list, card list, card grid, app bar, tab bar |
-| Template | A mixture of organisms that forms a complete page with demo or empty content | empty state view, dialog template |
-| Page | A template plus real content | any feature screen |
+| Layer    | Definition                                                                   | Examples                                               |
+| -------- | ---------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Atom     | The smallest element. You cannot subdivide it                                | text label, button, input field, icon                  |
+| Molecule | A group of atoms that delivers one piece of data or one purpose              | search field, card, check box, radio button, switch    |
+| Organism | A group of molecules that forms a complete, self-explanatory part of the UI  | check box list, card list, card grid, app bar, tab bar |
+| Template | A mixture of organisms that forms a complete page with demo or empty content | empty state view, dialog template                      |
+| Page     | A template plus real content                                                 | any feature screen                                     |
 
 An organism must stay understandable next to another context. A template defines order and
 structure only. A page adds data.
@@ -89,15 +89,15 @@ placeholder component. Create a directory when you put the first file in it.
 
 ### Technical document sections
 
-| Section | Content |
-|---|---|
-| Overview | Component name, usage, design link |
+| Section           | Content                                                                          |
+| ----------------- | -------------------------------------------------------------------------------- |
+| Overview          | Component name, usage, design link                                               |
 | Component anatomy | The named UI elements inside the component. Molecules, organisms, templates only |
-| Setup | How to use the component in the codebase |
-| Properties | Every property a developer reads or writes, plus every interaction callback |
-| Methods | Every method that changes the component behavior or UI programmatically |
-| Related classes | Controllers and delegates the component needs |
-| Technical notes | Notes for the developer who implements the component |
+| Setup             | How to use the component in the codebase                                         |
+| Properties        | Every property a developer reads or writes, plus every interaction callback      |
+| Methods           | Every method that changes the component behavior or UI programmatically          |
+| Related classes   | Controllers and delegates the component needs                                    |
+| Technical notes   | Notes for the developer who implements the component                             |
 
 An atom needs Overview, Properties, and Setup only.
 
@@ -105,10 +105,10 @@ An atom needs Overview, Properties, and Setup only.
 
 Two families only.
 
-| Family | Layout | Width |
-|---|---|---|
-| `KDLayoutFamily.mobile` | one pane, bottom navigation, full-screen routes | below `600` |
-| `KDLayoutFamily.wide` | navigation rail, multi-pane, dialogs | `600` and above |
+| Family                  | Layout                                          | Width           |
+| ----------------------- | ----------------------------------------------- | --------------- |
+| `KDLayoutFamily.mobile` | one pane, bottom navigation, full-screen routes | below `600`     |
+| `KDLayoutFamily.wide`   | navigation rail, multi-pane, dialogs            | `600` and above |
 
 **The family comes from the available width, never from the platform.**
 
@@ -129,10 +129,10 @@ Two families only.
 The table below is the expected result on a normal window. It is an expectation, not a rule. The
 width rule always wins.
 
-| Platform | Expected family on a normal window |
-|---|---|
-| iOS, Android phone | `mobile` |
-| macOS, Windows, Linux, web | `wide` |
+| Platform                   | Expected family on a normal window |
+| -------------------------- | ---------------------------------- |
+| iOS, Android phone         | `mobile`                           |
+| macOS, Windows, Linux, web | `wide`                             |
 
 A large Android tablet gets `wide`. A desktop window dragged below `600` gets `mobile`. Both results
 are correct and intended.

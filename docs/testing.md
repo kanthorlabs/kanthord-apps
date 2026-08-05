@@ -57,14 +57,14 @@ Assert three things per method: the request path, the request body, and the deco
 
 The wire format is stricter than it looks. Cover every one of these cases:
 
-| Case | What it proves |
-|---|---|
-| A multiline `data:` | The values join with a newline, in order |
-| A `\r\n` stream | All three line breaks are accepted: `\n`, `\r\n`, `\r` |
-| A comment heartbeat | A line starting with `:` is skipped, not parsed |
-| A multi-byte character split across two chunks | Decoding is incremental through a `StreamTransformer`, not `utf8.decode` per chunk |
-| An unknown field name | It is ignored, and nothing throws |
-| A stream that ends without a trailing blank line | The trailing partial event is discarded |
+| Case                                             | What it proves                                                                     |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| A multiline `data:`                              | The values join with a newline, in order                                           |
+| A `\r\n` stream                                  | All three line breaks are accepted: `\n`, `\r\n`, `\r`                             |
+| A comment heartbeat                              | A line starting with `:` is skipped, not parsed                                    |
+| A multi-byte character split across two chunks   | Decoding is incremental through a `StreamTransformer`, not `utf8.decode` per chunk |
+| An unknown field name                            | It is ignored, and nothing throws                                                  |
+| A stream that ends without a trailing blank line | The trailing partial event is discarded                                            |
 
 Also assert that a blank line dispatches the buffered event and that a field line alone dispatches
 nothing.

@@ -9,10 +9,14 @@
   },
   "packageManager": "npm@11.18.0",
   "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "prepare": "husky"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.2.0",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "prettier": "^3.9.5"
   }
 }

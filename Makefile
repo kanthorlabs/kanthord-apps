@@ -31,8 +31,8 @@ help:
 	@echo ""
 	@echo "  bootstrap     Install the Flutter SDK, the Dart packages, and the commit hooks"
 	@echo "  generate      Run build_runner one time"
-	@echo "  format        Rewrite every Dart file to the project format"
-	@echo "  format-check  Fail when a Dart file is not formatted. Run it before you push"
+	@echo "  format        Rewrite every Dart, Markdown, YAML and JSON file to the project format"
+	@echo "  format-check  Fail when a file is not formatted. Run it before you push"
 	@echo "  analyze       Run the static analyzer"
 	@echo "  test          Run the Flutter test suite"
 	@echo "  clean         Delete the build output and the generated files"
@@ -71,9 +71,19 @@ generate:
 
 format:
 	$(DART) format .
+ifeq ($(NODE_FOUND),)
+	@echo "node is not installed. Skipping the markdown, YAML and JSON format."
+else
+	npm run format
+endif
 
 format-check:
 	$(DART) format --output=none --set-exit-if-changed .
+ifeq ($(NODE_FOUND),)
+	@echo "node is not installed. Skipping the markdown, YAML and JSON check."
+else
+	npm run format:check
+endif
 
 analyze:
 	$(FLUTTER) analyze

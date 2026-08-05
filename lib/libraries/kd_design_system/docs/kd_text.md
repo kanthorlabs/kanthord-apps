@@ -23,25 +23,25 @@ KDText('The request failed.', tone: KDTextTone.error);
 
 ## Properties
 
-| Property | Type | Default | Purpose |
-|---|---|---|---|
-| `text` | `String` | required, positional | The string to render |
-| `role` | `KDTextRole` | `bodyMedium` | Selects the `TextTheme` style |
-| `tone` | `KDTextTone` | `primary` | Selects the `ColorScheme` color |
-| `maxLines` | `int?` | `null` | Caps the line count |
-| `textAlign` | `TextAlign?` | `null` | Horizontal alignment |
-| `overflow` | `TextOverflow?` | `null` | Overflow behavior. Defaults to `ellipsis` when `maxLines` is set |
+| Property    | Type            | Default              | Purpose                                                          |
+| ----------- | --------------- | -------------------- | ---------------------------------------------------------------- |
+| `text`      | `String`        | required, positional | The string to render                                             |
+| `role`      | `KDTextRole`    | `bodyMedium`         | Selects the `TextTheme` style                                    |
+| `tone`      | `KDTextTone`    | `primary`            | Selects the `ColorScheme` color                                  |
+| `maxLines`  | `int?`          | `null`               | Caps the line count                                              |
+| `textAlign` | `TextAlign?`    | `null`               | Horizontal alignment                                             |
+| `overflow`  | `TextOverflow?` | `null`               | Overflow behavior. Defaults to `ellipsis` when `maxLines` is set |
 
 `KDTextRole` has one value per Material 3 type scale role, from `displayLarge` to
 `labelSmall`.
 
 `KDTextTone` maps to `ColorScheme` roles:
 
-| Tone | Color |
-|---|---|
-| `primary` | `onSurface` |
+| Tone        | Color              |
+| ----------- | ------------------ |
+| `primary`   | `onSurface`        |
 | `secondary` | `onSurfaceVariant` |
-| `error` | `error` |
-| `onAccent` | `onPrimary` |
+| `error`     | `error`            |
+| `onAccent`  | `onPrimary`        |
 
 `KDText` has no interaction callback. It is not interactive.

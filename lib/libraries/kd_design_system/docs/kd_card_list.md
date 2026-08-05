@@ -12,13 +12,13 @@ state.
 
 ## Component anatomy
 
-| Element | Type | Required | Purpose |
-|---|---|---|---|
-| Scroll viewport | `ListView.separated` | yes | Owns the scroll and the item recycling |
-| Item | `KDCard` | yes | One record per item |
-| Separator | `SizedBox` of `KDTokens.spacing.sm` | yes | Vertical gap between two items |
-| Outer padding | `EdgeInsets` of `KDTokens.spacing.lg` | yes | Inset from the pane edge |
-| Empty placeholder | `Widget?` | no | Replaces the whole viewport when `items` is empty |
+| Element           | Type                                  | Required | Purpose                                           |
+| ----------------- | ------------------------------------- | -------- | ------------------------------------------------- |
+| Scroll viewport   | `ListView.separated`                  | yes      | Owns the scroll and the item recycling            |
+| Item              | `KDCard`                              | yes      | One record per item                               |
+| Separator         | `SizedBox` of `KDTokens.spacing.sm`   | yes      | Vertical gap between two items                    |
+| Outer padding     | `EdgeInsets` of `KDTokens.spacing.lg` | yes      | Inset from the pane edge                          |
+| Empty placeholder | `Widget?`                             | no       | Replaces the whole viewport when `items` is empty |
 
 The list has no header and no footer. A caller that needs a header composes it above the list
 in a `Column` and wraps `KDCardList` in `Expanded`.
@@ -44,15 +44,15 @@ KDCardList(
 
 ## Properties
 
-| Property | Type | Default | Purpose |
-|---|---|---|---|
-| `items` | `List<KDCardListItem>` | required | The records to render, in order |
-| `highlightedId` | `String?` | `null` | The `id` that renders as highlighted |
-| `onItemTap` | `ValueChanged<KDCardListItem>?` | `null` | Fires with the tapped item |
-| `onItemLongPress` | `ValueChanged<KDCardListItem>?` | `null` | Fires with the long-pressed item |
-| `emptyPlaceholder` | `Widget?` | `null` | Shown when `items` is empty. Falls back to an empty box |
-| `scrollController` | `ScrollController?` | `null` | External scroll control |
-| `padding` | `EdgeInsetsGeometry?` | `null` | Overrides the default outer padding |
+| Property           | Type                            | Default  | Purpose                                                 |
+| ------------------ | ------------------------------- | -------- | ------------------------------------------------------- |
+| `items`            | `List<KDCardListItem>`          | required | The records to render, in order                         |
+| `highlightedId`    | `String?`                       | `null`   | The `id` that renders as highlighted                    |
+| `onItemTap`        | `ValueChanged<KDCardListItem>?` | `null`   | Fires with the tapped item                              |
+| `onItemLongPress`  | `ValueChanged<KDCardListItem>?` | `null`   | Fires with the long-pressed item                        |
+| `emptyPlaceholder` | `Widget?`                       | `null`   | Shown when `items` is empty. Falls back to an empty box |
+| `scrollController` | `ScrollController?`             | `null`   | External scroll control                                 |
+| `padding`          | `EdgeInsetsGeometry?`           | `null`   | Overrides the default outer padding                     |
 
 Selection is a property, not internal state. The parent owns `highlightedId` and updates it in
 `onItemTap`.
@@ -68,14 +68,14 @@ pass in.
 
 An immutable value class that describes one row.
 
-| Property | Type | Default | Purpose |
-|---|---|---|---|
-| `id` | `String` | required | Identity. Compared against `highlightedId` |
-| `title` | `String` | required | Forwarded to `KDCard.title` |
-| `description` | `String?` | `null` | Forwarded to `KDCard.description` |
-| `leading` | `Widget?` | `null` | Forwarded to `KDCard.leading` |
-| `trailing` | `Widget?` | `null` | Forwarded to `KDCard.trailing` |
-| `isEnabled` | `bool` | `true` | Forwarded to `KDCard.isEnabled` |
+| Property      | Type      | Default  | Purpose                                    |
+| ------------- | --------- | -------- | ------------------------------------------ |
+| `id`          | `String`  | required | Identity. Compared against `highlightedId` |
+| `title`       | `String`  | required | Forwarded to `KDCard.title`                |
+| `description` | `String?` | `null`   | Forwarded to `KDCard.description`          |
+| `leading`     | `Widget?` | `null`   | Forwarded to `KDCard.leading`              |
+| `trailing`    | `Widget?` | `null`   | Forwarded to `KDCard.trailing`             |
+| `isEnabled`   | `bool`    | `true`   | Forwarded to `KDCard.isEnabled`            |
 
 `KDCardList` needs no controller class. Scroll control uses the Flutter `ScrollController`.
 

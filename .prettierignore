@@ -1,0 +1,14 @@
+node_modules/
+build/
+.dart_tool/
+.fvm/
+package-lock.json
+pubspec.lock
+android/
+ios/
+linux/
+macos/
+windows/
+web/
+docs/api/openapi.yaml
+pubspec.yaml
