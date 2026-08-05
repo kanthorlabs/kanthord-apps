@@ -11,7 +11,7 @@ Status date: 2026-08-05.
 | Step | Scope | Verification |
 |---|---|---|
 | 1 | Project scaffold, six platform targets | `flutter build macos --debug`, `flutter build web`, `flutter build ios --debug --no-codesign`, `flutter build apk --debug` all pass. Windows and Linux never compiled |
-| 2 | Tooling | `make analyze` clean, `make format-check` passes. Commitlint accepts `feat(api): [ENGA-123] subject` and rejects a missing ticket and an unknown type |
+| 2 | Tooling | `make analyze` clean, `make format-check` passes. Commitlint accepts `feat(api): add the sessions resource` and rejects an unknown type, a malformed header, and a trailing period |
 | 3 | KD design system: tokens, layout family, `KDText`, `KDCard`, `KDCardList`, `KDAdaptiveScaffold` | `make test` 6/6. Gallery checked on the real macOS app in light and dark, at 520 pt (`mobile`) and 1100 pt (`wide`) |
 
 Windows and Linux were never compiled. No Windows host and no Linux host exist here, and CI is
@@ -216,13 +216,10 @@ What CI must do when it returns:
 - Branch-name check, using this pattern and no other:
 
   ```
-  ^(feat|fix|chore|refactor|test|docs|style|perf|ci|build)/((ENGA|PLAT)-[0-9]+-)?[a-z0-9]+(-[a-z0-9]+)*$
+  ^(feat|fix|chore|refactor|test|docs|style|perf|ci|build)/[a-z0-9]+(-[a-z0-9]+)*$
   ```
 
-  The version in `256c510` **required** a `ENGA-` or `PLAT-` ticket. Do not restore that line. The
-  commit rule makes the issue key optional, so a branch check that demands one would block every
-  ticket-free contributor and undo the commit rule. The pattern above makes the key optional in the
-  branch too, which is the aligned behavior.
+  The version in `256c510` enforced an issue key. Drop that line when you restore the workflow.
 - `make format-check`. Never `make format`, because a job that rewrites files hides the difference it
   should report.
 - `flutter analyze`.

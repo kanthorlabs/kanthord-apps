@@ -217,24 +217,19 @@ Types: `feat`, `fix`, `chore`, `refactor`, `test`, `docs`, `style`, `perf`, `ci`
 The subject starts lower case and takes no trailing period. The header caps at 100 characters. The
 scope is optional.
 
-No issue key is required. `commitlint` does not check for one. Add one in the body if you want the
-link.
-
 `commitlint` runs in a husky `commit-msg` hook. It needs Node. Commit linting is optional for a
 contributor without Node, and `make bootstrap` prints a skip message.
 
-Branch: `type/short-description`, using the same type list. Lower case, hyphen separated. An issue
-key is optional, exactly as it is in the commit.
+Branch: `type/short-description`, using the same type list. Lower case, hyphen separated.
 
 ```
-^(feat|fix|chore|refactor|test|docs|style|perf|ci|build)/((ENGA|PLAT)-[0-9]+-)?[a-z0-9]+(-[a-z0-9]+)*$
+^(feat|fix|chore|refactor|test|docs|style|perf|ci|build)/[a-z0-9]+(-[a-z0-9]+)*$
 ```
 
 ```
 chore/project-scaffold
 feat/agent-chat-streaming
-feat/ENGA-123-agent-chat
-fix/PLAT-9-sse-crlf
+fix/sse-crlf
 ```
 
 Nothing enforces the pattern now that CI is removed.
