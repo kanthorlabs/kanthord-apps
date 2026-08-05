@@ -1,0 +1,33 @@
+targets:
+  $default:
+    sources:
+      - lib/**
+      - test/**
+      - $package$
+    builders:
+      freezed:freezed:
+        enabled: true
+        generate_for:
+          - lib/api/models/**.dart
+          - lib/features/**_state.dart
+      json_serializable:
+        enabled: true
+        generate_for:
+          - lib/api/models/**.dart
+        options:
+          field_rename: snake
+          explicit_to_json: true
+          create_to_json: true
+          include_if_null: false
+      go_router_builder:go_router_builder:
+        enabled: true
+        generate_for:
+          - lib/features/**_routes.dart
+      envied_generator:envied:
+        enabled: true
+        generate_for:
+          - lib/app/env/**.dart
+      mockito:mockBuilder:
+        enabled: true
+        generate_for:
+          - test/**.dart
