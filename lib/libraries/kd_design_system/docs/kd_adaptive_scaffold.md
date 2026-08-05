@@ -13,14 +13,14 @@ two-family simplification.
 
 ## Component anatomy
 
-| Element | Type | Family | Purpose |
-|---|---|---|---|
-| Shell | `Scaffold` | both | Owns the app bar slot and the body slot |
-| Bottom navigation | `NavigationBar` | `mobile` | Destination switch at the bottom edge |
-| Navigation rail | `NavigationRail` | `wide` | Destination switch at the start edge, labels always visible |
-| Rail divider | `VerticalDivider` of 1 px | `wide` | Separates the rail from the body |
-| Body | `Widget` | both | The screen content |
-| App bar | `PreferredSizeWidget?` | both | Optional title and actions |
+| Element           | Type                      | Family   | Purpose                                                     |
+| ----------------- | ------------------------- | -------- | ----------------------------------------------------------- |
+| Shell             | `Scaffold`                | both     | Owns the app bar slot and the body slot                     |
+| Bottom navigation | `NavigationBar`           | `mobile` | Destination switch at the bottom edge                       |
+| Navigation rail   | `NavigationRail`          | `wide`   | Destination switch at the start edge, labels always visible |
+| Rail divider      | `VerticalDivider` of 1 px | `wide`   | Separates the rail from the body                            |
+| Body              | `Widget`                  | both     | The screen content                                          |
+| App bar           | `PreferredSizeWidget?`    | both     | Optional title and actions                                  |
 
 In the `wide` family the body sits in a `Row` next to the rail and expands. In the `mobile`
 family the body fills the whole `Scaffold` body.
@@ -32,26 +32,26 @@ import '../../libraries/kd_design_system/kd_design_system.dart';
 
 KDAdaptiveScaffold(
   destinations: const [
-    KDDestination(label: 'Chat', icon: Icons.chat_outlined, selectedIcon: Icons.chat),
-    KDDestination(label: 'Agents', icon: Icons.smart_toy_outlined, selectedIcon: Icons.smart_toy),
+    KDDestination(label: 'Plan', icon: Icons.account_tree_outlined, selectedIcon: Icons.account_tree),
+    KDDestination(label: 'Activity', icon: Icons.history_outlined, selectedIcon: Icons.history),
   ],
   selectedIndex: index,
   onDestinationSelected: (next) => setState(() => index = next),
   appBar: AppBar(title: const Text('KanthorD')),
-  body: const AgentChatView(),
+  body: const NodeListView(),
 );
 ```
 
 ## Properties
 
-| Property | Type | Default | Purpose |
-|---|---|---|---|
-| `destinations` | `List<KDDestination>` | required | The navigation targets, in order |
-| `selectedIndex` | `int` | required | The active destination |
-| `onDestinationSelected` | `ValueChanged<int>` | required | Fires with the tapped index |
-| `body` | `Widget` | required | The screen content |
-| `appBar` | `PreferredSizeWidget?` | `null` | Optional app bar |
-| `floatingActionButton` | `Widget?` | `null` | Optional action button |
+| Property                | Type                   | Default  | Purpose                          |
+| ----------------------- | ---------------------- | -------- | -------------------------------- |
+| `destinations`          | `List<KDDestination>`  | required | The navigation targets, in order |
+| `selectedIndex`         | `int`                  | required | The active destination           |
+| `onDestinationSelected` | `ValueChanged<int>`    | required | Fires with the tapped index      |
+| `body`                  | `Widget`               | required | The screen content               |
+| `appBar`                | `PreferredSizeWidget?` | `null`   | Optional app bar                 |
+| `floatingActionButton`  | `Widget?`              | `null`   | Optional action button           |
 
 The selected index is a property, not internal state. The parent owns it.
 
@@ -66,11 +66,11 @@ The selected index is a property, not internal state. The parent owns it.
 
 An immutable value class that describes one navigation target.
 
-| Property | Type | Purpose |
-|---|---|---|
-| `label` | `String` | Shown under the icon in both families |
-| `icon` | `IconData` | The unselected icon |
-| `selectedIcon` | `IconData` | The selected icon |
+| Property       | Type       | Purpose                               |
+| -------------- | ---------- | ------------------------------------- |
+| `label`        | `String`   | Shown under the icon in both families |
+| `icon`         | `IconData` | The unselected icon                   |
+| `selectedIcon` | `IconData` | The selected icon                     |
 
 ### `KDLayout`
 

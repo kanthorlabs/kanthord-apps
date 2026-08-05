@@ -4,15 +4,20 @@ Read `CLAUDE.md` first for the architecture and the naming, `DESIGNS.md` for the
 `docs/operations.md` for the commands and the platform specifics, and `docs/testing.md` for the test
 conventions. This document holds what is not built and what blocks it.
 
+**Read `docs/api/` before step 4 or step 5.** It is the daemon contract, snapshotted from the
+`kanthord-engine` repository at commit `a5b957d`, daemon version `27.8.1`. It answers the API and
+auth blockers below, and it changes the scope of both steps. Start at `docs/api/README.md`, then read
+`docs/api/blockers.md` for what is still open and who owns it.
+
 Status date: 2026-08-05.
 
 ## Done and verified
 
-| Step | Scope | Verification |
-|---|---|---|
-| 1 | Project scaffold, six platform targets | `flutter build macos --debug`, `flutter build web`, `flutter build ios --debug --no-codesign`, `flutter build apk --debug` all pass. Windows and Linux never compiled |
-| 2 | Tooling | `make analyze` clean, `make format-check` passes. Commitlint accepts `feat(api): add the sessions resource` and rejects an unknown type, a malformed header, and a trailing period |
-| 3 | KD design system: tokens, layout family, `KDText`, `KDCard`, `KDCardList`, `KDAdaptiveScaffold` | `make test` 6/6. Gallery checked on the real macOS app in light and dark, at 520 pt (`mobile`) and 1100 pt (`wide`) |
+| Step | Scope                                                                                           | Verification                                                                                                                                                                       |
+| ---- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Project scaffold, six platform targets                                                          | `flutter build macos --debug`, `flutter build web`, `flutter build ios --debug --no-codesign`, `flutter build apk --debug` all pass. Windows and Linux never compiled              |
+| 2    | Tooling                                                                                         | `make analyze` clean, `make format-check` passes. Commitlint accepts `feat(api): add the sessions resource` and rejects an unknown type, a malformed header, and a trailing period |
+| 3    | KD design system: tokens, layout family, `KDText`, `KDCard`, `KDCardList`, `KDAdaptiveScaffold` | `make test` 6/6. Gallery checked on the real macOS app in light and dark, at 520 pt (`mobile`) and 1100 pt (`wide`)                                                                |
 
 Windows and Linux were never compiled. No Windows host and no Linux host exist here, and CI is
 removed, so no machine builds them at all.
@@ -21,40 +26,90 @@ removed, so no machine builds them at all.
 
 Do not guess any of these. Each one blocks the work named next to it.
 
-| Question | Blocks |
-|---|---|
-| The API contract: endpoints, request shapes, response shapes, SSE event names | The models, the resource classes, the SSE event type |
-| The auth flow: how a user signs in, the refresh endpoint path and payload, the token lifetime | The auth interceptor, the sign-in feature |
-| The LAN IP of the development machine | Running on a physical device |
-| The HTTPS base URL | A production web bundle |
-| The real color palette, type scale, and spacing scale from the design file | Replacing every `// TODO(tokens)` value |
+| Question                                                                                      | Blocks                                               | State                                                                                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The API contract: endpoints, request shapes, response shapes, SSE event names                 | The models, the resource classes, the SSE event type | **Partly answered.** Endpoints, errors, conventions and auth are in `docs/api/`. Request and response shapes do not exist yet on 51 of 53 operations. There are no SSE event names, because SSE is withdrawn — the client long-polls. See `docs/api/blockers.md` E2 and `docs/api/polling.md` |
+| The auth flow: how a user signs in, the refresh endpoint path and payload, the token lifetime | The auth interceptor, the sign-in feature            | **Answered.** There is no sign-in, no refresh and no lifetime. One static bearer token. See `docs/api/auth.md`                                                                                                                                                                                |
+| The LAN IP of the development machine                                                         | Running on a physical device                         | Still open. It is a value the human enters, not a constant. See `docs/api/connectivity.md`                                                                                                                                                                                                    |
+| The HTTPS base URL                                                                            | A production web bundle                              | **Answered.** Web is supported. A direct HTTPS page cannot call a plain-HTTP daemon, so an HTTPS bundle goes through a reverse proxy that serves the app and forwards a same-origin path. See `docs/api/connectivity.md`                                                                      |
+| The real color palette, type scale, and spacing scale from the design file                    | Replacing every `// TODO(tokens)` value              | Still open                                                                                                                                                                                                                                                                                    |
+
+Step 5 is settled: it is `daemon_connect`. **D1** is now only the feature _after_ it, and every
+candidate is gated on engine work rather than on a product debate. **D2** (web is supported), **E7**
+(the idempotency key) and the removal of the chat feature are decided. **D3** (the LAN cleartext
+posture) travels with device testing. All of them are in `docs/api/blockers.md`.
+
+## The daemon serves two operations today, and the client does not wait
+
+The engine registry declares 53 operations. The daemon wires **two** handlers: `GET /v1/health` and
+`GET /v1/db/status`. Every other operation, including `project.list`, `node.list` and `event.list`,
+answers `501 not-implemented`.
+
+The owner has decided that the client builds the UI in parallel and integrates per operation as each
+handler lands. **`docs/api/parallel-development.md` is the working plan, and it is binding.** Read it
+before writing any UI code. In summary:
+
+- Build the whole transport, the design system, the router, and every view state now, against a
+  fixture-backed **mock HTTP daemon on loopback**. Not against a fake `KanthordApi` — a fake proves only
+  that Dart compiles, and the defects live in the real Dio path.
+- Build `daemon_connect` against the **real** daemon. `system.health` works today.
+- Do not hand-write a wire model and treat it as the contract. The engine authors schemas ahead of its
+  handlers in EPIC 004.5, and models come from that artifact.
+- Simulation must be impossible to mistake for integration. Six safeguards, all required, listed in that
+  document. A polished build whose writes reach nothing is the way this plan fails.
 
 ## Step 4: the `lib/api/` SDK
 
-Target layout and every rule live in `CLAUDE.md`. Verification is the `test/api/` suite.
+Target layout and every rule live in `CLAUDE.md`. The contract lives in `docs/api/`. Verification is
+the `test/api/` suite.
+
+**Read `docs/api/` first.** It changes six things in the plan below, and each is a correction rather
+than a detail:
+
+- Step 4c collapses. There is no refresh flow to build. Read `docs/api/auth.md`.
+- **The SSE client is withdrawn entirely.** `sse/` becomes `polling/`. Read `docs/api/polling.md`.
+- `models/` comes from the engine's schemas, not from this repository's reading of engine prose. A
+  provisional DTO is allowed under stated terms. Read 4b below and
+  `docs/api/parallel-development.md`.
+- `build.yaml` has dropped `field_rename: snake`. The wire is camelCase. Read
+  `docs/api/conventions.md`.
+- The retry rule changes: `GET` always, a keyed `POST` yes, nothing else. Read the retry and
+  idempotency sections of `docs/api/errors.md`.
+- Web is supported. Read `docs/api/connectivity.md`.
 
 ### 4a. Buildable now, no answer needed
 
-Roughly two thirds of step 4 does not depend on the contract. Build this first.
+**`api_config.dart`** — hold the base URL and the timeouts. **Do not hard-code a host or a port.**
+The daemon has no default port, and `localhost` on a phone is the phone. The base URL is a value the
+human enters. Read `docs/api/connectivity.md` for the per-target table and the platform traps, and
+`docs/api/auth.md` for the provisioning flow that supplies it.
 
-**`api_config.dart`** — resolve the base URL per target using the table in `CLAUDE.md`. Use
-`defaultTargetPlatform` plus `kIsWeb`. Hold the connect, receive, and send timeouts.
+Send `X-Kanthord-Client: <version>` on every request. Set the receive timeout per operation, not
+once: `repository.inspect` and `repository.register` reach a network forge and take seconds.
 
-**`api_exception.dart`** — `sealed class ApiException` with these subclasses: no network, timeout,
-response error, decode error, unauthorized, cancelled. Throw them. Never return an error object.
-Never use `Either` and never use `Result`.
+**`api_exception.dart`** — `sealed class ApiException`. Seven subclasses, one more than the original
+list: no network, timeout, unauthorized, **not implemented**, response error, decode error,
+cancelled. `docs/api/errors.md` holds the full code-to-subclass mapping and the 21 error codes.
 
-For the web CORS case: a browser reports a CORS failure as a generic network failure with no
-detail. Map it to the no-network exception and name CORS as a likely cause in the message. Do not
-promise a precise CORS exception.
+`ApiNotImplementedException` is new and it earns its place: 51 of 53 operations answer
+`501 not-implemented` today. A screen must render "the daemon does not do this yet" and not a red
+error banner.
 
-**`token_provider.dart`** — the Dart-only interface:
+Every error is one envelope: `{"error":{"code","message","details"}}`. Branch on `code`. Never parse
+`message`. Tolerate an unknown code.
+
+For the web case: a browser reports an origin rejection, a host rejection, a daemon that is down and a
+DNS failure identically, as a generic network error with no status and no body. A web build cannot tell
+them apart, so name all four causes in the message and name the two daemon config keys. Do not claim a
+precise cause on web. Keep the precise messages on native, where the failures are distinguishable.
+Read `docs/api/connectivity.md`.
+
+**`token_provider.dart`** — one token, because there is no refresh token:
 
 ```dart
 abstract class TokenProviderType {
-  Future<String?> accessToken();
-  Future<String?> refreshToken();
-  Future<void> save({required String access, required String refresh});
+  Future<String?> token();
+  Future<void> save(String token);
   Future<void> clear();
 }
 ```
@@ -66,121 +121,186 @@ Two implementations in the app layer, not in `lib/api/`:
   any same-origin script reads what it holds. A web session ends when the tab closes. That is
   intended.
 
-Never write a refresh token to `shared_preferences` and never to `localStorage`.
+Never write the token to `shared_preferences` and never to `localStorage`. The daemon token never
+expires and cannot be revoked from the client, so a leak does not age out.
 
-**`interceptors/retry_interceptor.dart`** — fully specified, no answer needed:
+**`interceptors/retry_interceptor.dart`**:
 
-- Retry `GET`, `HEAD`, `PUT`, `DELETE` only. Never retry `POST`, because the server may have
-  processed it.
-- Retry on a connection error, on a timeout, and on 502, 503, 504. Never on another 4xx.
-- Three attempts total. Backoff 200 ms then 800 ms, with jitter.
+- **Retry `GET` always. Retry a `POST` that carries an `Idempotency-Key`. Retry nothing else
+  automatically.** A `PUT` and a `DELETE` are each a human action behind a button, and HTTP method
+  semantics prove nothing about an implementation. `HEAD` is not in the contract at all.
+- Retry on a connection error, on a timeout, and on 502, 503, 504. Never on another 4xx, and never on
+  a 501.
+- Three attempts total. Backoff 200 ms then 800 ms, with jitter. **Take the `Random` in the
+  constructor** and seed it in the test, or the backoff cannot be asserted.
 - Stop immediately when the caller cancels. A cancelled request is never retried.
-- Never retry a stream.
+- Never retry `host-key-mismatch`, `idempotency-mismatch`, `unauthenticated` or `not-implemented`.
 
-**`sse/`** — the parser is fully specified. It is the highest-risk piece in the SDK and it needs no
-contract answer, because only the event *names* are unknown, not the wire format. Build it early.
+**`interceptors/idempotency_interceptor.dart`** — attach `Idempotency-Key` to a `POST`. The key comes
+from the call site, not from the interceptor, because it belongs to the user's intent: **one key per
+logical operation, never one per HTTP attempt.** A new key on each retry makes the whole mechanism a
+no-op. Serialize the body once and resend the same bytes, because the daemon fingerprints them.
 
-Put it behind `SseClientType` and select the implementation with a conditional import. The bloc
-sees one interface.
+The engine guarantee is bounded same-process duplicate suppression, not exactly-once. Read the
+idempotency section of `docs/api/errors.md` before writing this, and never render "safe to retry" in
+the UI.
 
-Parser rules, all mandatory:
+**`polling/` replaces `sse/`.** Build no framing parser, no `SseClientType`, no conditional import, no
+browser `fetch` reader, no `AbortController`, no `EventSource`, and no `AgentEvent`. The client watches
+work by polling `event.list` with a cursor.
 
-- A blank line dispatches the buffered event. A field line alone dispatches nothing.
-- `data:` repeats. Join the values with a newline, in order.
-- Accept `\n`, `\r\n`, and `\r` as line breaks.
-- A line that starts with `:` is a comment. Skip it. Servers send comments as heartbeats.
-- Strip one optional space after the field colon.
-- Decode UTF-8 incrementally. A multi-byte character splits across two chunks. Use `utf8.decoder`
-  with `allowMalformed: false` inside a `StreamTransformer`. Do not call `utf8.decode` per chunk.
-- Ignore an unknown field name. Do not throw.
-- Discard a trailing partial event when the stream ends without a blank line.
-- Cancel the underlying request when the subscription cancels or the bloc closes.
+`docs/api/polling.md` holds the whole design and every rule is mandatory: cursor advancement, draining a
+full page immediately, sleeping only on a short page, the four failure classes, the difference between a
+daemon-side wait elapsing and a receive timeout, backpressure, restart position, and the four
+web-specific costs. Take the clock and the `Random` in the constructor.
 
-Web transport constraints:
+The web transport needs nothing special. Long polling runs on the ordinary Dio browser adapter once the
+daemon allows the origin, which is the main reason SSE was withdrawn: a browser cannot use `EventSource`
+against a bearer-token API at all.
 
-- The Dio browser adapter does not stream a response body. Use the browser `fetch` streaming reader
-  from `package:web` and read the response body reader.
-- Do **not** use the browser `EventSource`. It cannot send a POST body and it cannot set an
-  `Authorization` header. Both are required here.
-- Implement cancellation with `AbortController`. Pass its signal to `fetch` and abort it when the
-  subscription cancels. Without it the browser holds the connection open.
-- Any proxy in front of the server must have response buffering off. A buffering proxy makes the
-  stream arrive as one block at the end.
+### 4b. The wire models, and the mock daemon that lets the UI proceed without them
 
-### 4b. Blocked on the API contract
+Read `docs/api/parallel-development.md` first. This is a summary of it, not a replacement.
 
-- `models/` — one file per model, `@freezed` plus `@JsonSerializable`. `build.yaml` already points
-  `generate_for` at `lib/api/models/**` with `field_rename: snake`.
-- `resources/` — one class per REST resource group, grouped by server path, not by screen.
+- **`test/mock_daemon/` comes first.** A fixture-backed `HttpServer` on `127.0.0.1:0` that the real Dio
+  talks to. It enforces the contract it stands for: no token is a real `401` envelope, a missing fixture
+  is a real `501`, and `after` plus `limit` page a real list. It serves the scenarios a happy path never
+  produces. This is buildable today and it unblocks every screen.
+- `models/` — the shapes come from the engine, not from this repository.
+  `kanthord-engine/.agent/plan/epics/004.5-contract-schemas.md` authors a zod schema and a validated
+  example per operation **ahead of the handlers**, which is what makes this the shortest path. Generate
+  or hand-write a model against that artifact when it lands.
+- **The SDK stays thin. There is no mapping layer and no view-model layer.** One model per wire shape,
+  and the UI reads it: `NodeListState.loaded(List<Node>)` is correct, and a row widget may take a `Node`.
+  Where a field is volatile or a row widget is reused widely, project primitives or a Dart record inside
+  the state file — no mapper class, no repository, no use case, no extra `get_it` entry. `CLAUDE.md`
+  forbids each of those and none is needed.
+- When you write a model: `@freezed` plus `@JsonSerializable`, `@JsonKey(name:)` on every field, and
+  **no `field_rename`**. `build.yaml` already has it removed. See
+  `docs/api/conventions.md`.
+- **`@JsonKey(name:)` hides a wire rename from the compiler**, so the contract suite asserts the wire
+  field names against the engine's example — not merely that decoding succeeded. Three other changes are
+  also runtime failures rather than compile errors: a field becoming nullable, an unknown enum value, and
+  a daemon version skew. `docs/api/parallel-development.md` lists the assertion each one needs.
+- `resources/` — nine classes, listed with their operations at the end of `docs/api/operations.md`. A
+  method for an operation with no schema is a guess that compiles.
 - `kanthord_api.dart` — holds one `Dio`, built from `ApiConfig` when the caller passes none, and
   exposes the resource groups so a call site reads as an SDK.
-- The `AgentEvent` type the SSE client emits. Its variants come from the SSE event names.
+- **The contract suite runs from day one**, against the mock, on every `make test`. It is never a skipped
+  test. The same suite runs against a live daemon per operation as each handler lands.
 
-### 4c. Blocked on the auth flow
+### 4c. Deleted, not blocked
 
-`interceptors/auth_interceptor.dart`:
+There is no auth flow to wait for. One static bearer token, no sign-in, no refresh endpoint, no
+lifetime. `docs/api/auth.md` holds the whole interceptor and lists every item deleted from the
+original 4c plan: the single-flight refresh `Future`, the second `Dio`, the refresh-once-per-token
+rule, `refreshToken()`, and the three-concurrent-401s test.
 
-- Read the token through `TokenProviderType`. Attach it as a bearer token.
-- On a 401, refresh once **per token**, not once per request. A second 401 with the same fresh
-  token becomes the unauthorized exception.
-- Hold the refresh in a single shared `Future`. Ten concurrent 401s await one refresh call, then all
-  retry. Do not fire ten refresh calls.
-- Send the refresh request on a `Dio` instance **without** the auth interceptor. A refresh that
-  re-enters the interceptor recurses forever.
-- On a failed refresh, clear the tokens and throw the unauthorized exception. The app layer decides
-  what the user sees.
+`interceptors/auth_interceptor.dart`, in full:
+
+- Read the token through `TokenProviderType`. Attach `Authorization: Bearer <token>`.
+- A null or empty token throws `ApiUnauthorizedException` before the request leaves.
+- On a `401`, throw `ApiUnauthorizedException`. Never retry and never refresh.
+- **Do not clear the stored token on a 401.** It is the only value the human typed, and they need to
+  see it to fix it. Only an explicit user action clears it.
 
 ### Step 4 verification
 
 `test/api/` must cover, at minimum:
 
-- Each resource method against a `Dio` mock adapter. Assert the path, the body, and the decoded
-  model.
-- SSE parser: a multiline `data:`, a `\r\n` stream, a comment heartbeat, a multi-byte character
-  split across two chunks, an unknown field, and a stream that ends without a trailing blank line.
-- Auth interceptor: fire three concurrent 401s and assert the refresh endpoint receives exactly one
-  call.
-- Retry interceptor: assert a `POST` is never retried.
+- `system.health` and `system.db` against a `Dio` mock adapter. Assert the path, the headers and the
+  decoded model. They are the only two operations with a schema and a handler, so they are the only
+  two that can be asserted against real daemon bytes.
+- `EventPoller`, with a mock adapter, an injected clock and a seeded `Random`. Assert: the cursor
+  advances only after delivery; a full page is drained without sleeping; a short page sleeps; nothing
+  is emitted after cancellation, including when the response wins the race; a `401` stops the poller
+  and a `503` backs off; and a receive timeout is reported as a transport failure, not as an empty
+  page.
+- Error envelope: each of the seven `ApiException` subclasses from a mock response. Assert that an
+  unknown `code` becomes `ApiResponseException` and never a decode error.
+- Auth interceptor: assert the bearer header, assert a 401 throws, and assert the stored token
+  survives a 401.
+- Retry interceptor: assert a `POST` with no key is never retried, assert a `POST` with an
+  `Idempotency-Key` is retried **with the same key and the same body bytes**, assert a `PUT` is never
+  retried, and assert the backoff schedule with a seeded `Random`.
 
 Also assert by inspection that `lib/api/` imports nothing from `lib/features/`, `lib/app/`, or
 `lib/libraries/`.
 
-## Step 5: the `agent_chat` feature
+## Step 5: the `daemon_connect` feature
 
-Blocked by step 4. Do not start it before the SDK tests pass.
+There is no chat feature in the MVP. The owner has removed it from both repositories. The daemon ships
+no route that accepts a prompt and no route that streams, and the engine records the refusal as an
+invariant in `kanthord-engine/docs/proposal/after-the-mvp.md`: no operation invokes an agent outside a
+project, a run, a node, an attempt and a durable audit record.
 
-Scope: one vertical slice that sends a prompt and streams the answer.
+The daemon is a plan-and-DAG execution engine. A human imports a plan of initiative, objective and task
+nodes, the daemon runs a scheduler pass, a coding agent executes a task, and a reviewer agent judges it.
+This client is a **control surface for that engine**. Do not add a chat page, a prompt box, a message
+list, or an `AgentEvent` type. Do not name a branch or a feature `agent-chat`.
+
+### Scope
+
+The base URL and token provisioning flow of `docs/api/auth.md`, verified against `GET /v1/health`.
+
+This is step 5 because it is forced rather than chosen: no other screen works without it, and it is the
+only slice that reaches a live daemon today. It exercises the whole SDK — config, transport, auth, the
+error envelope and model decoding — against the two operations that have a handler.
 
 ```
-features/agent_chat/
-├── agent_chat.dart              # barrel: routes only
-├── agent_chat_routes.dart       # @TypedGoRoute
-└── chat/
-    ├── chat_bloc.dart           # takes KanthordApi in the constructor
-    ├── chat_state.dart          # @freezed sealed class
-    ├── chat_page.dart
+features/daemon_connect/
+├── daemon_connect.dart          # barrel: routes only
+├── daemon_connect_routes.dart   # @TypedGoRoute
+└── connect/
+    ├── connect_bloc.dart        # takes KanthordApi and TokenProviderType
+    ├── connect_state.dart       # @freezed sealed class
+    ├── connect_page.dart
     └── widgets/
 ```
 
-- The bloc calls the SDK, maps the result to state, and maps an `ApiException` to an error state.
-- The route creates the bloc and passes `getIt<KanthordApi>()`. Add no `Dependencies` file.
-- The page renders `KD` components and contains no API call.
-- Cancel the stream subscription when the bloc closes.
+The `GET /v1/health` probe distinguishes four failures, and the page must render each differently: a
+`200` proves the URL, the `Host` allow list and the token together; a `401` names the token; a `403`
+names the daemon configuration and shows the host the client sent; a connection failure names the URL.
+On web the four are indistinguishable — read `docs/api/connectivity.md` for the operator message each
+one needs, and for the web wording.
 
-### Design system work this step needs
+Warn the human when the base URL is not loopback. The token then crosses the network in clear text and
+it never expires.
+
+Also render the `system.health` body once connected: the roll-up plus each dependency. It is the only
+real data the daemon serves today, and it proves the decode path end to end.
+
+### What comes after, and what gates it
+
+Nothing else is scheduled. The client can render agent output only through `node.attempts`,
+`attempt.show`, `node.checks` and `blob.show`, and it can start work only through `run.start`. **All of
+those are engine phase 2, and no phase-2 epic exists yet.** The graph read routes — `project.list`,
+`node.list`, `edge.list`, `event.list` — are phase 1 and still answer `501`.
+
+So the next feature is an owner decision, and it is **D1** in `docs/api/blockers.md`. Do not pick one.
+Two rules will apply to it whatever it is:
+
+- Progress comes from polling `event.list` with the cursor, never from a stream. Read
+  `docs/api/polling.md`. Do not poll at 1 Hz to animate progress.
+- A blob is fetched lazily, when the user opens it. An attempt cites a prompt, a diff and a check log as
+  hashes, and three attempts multiply that. Read the blob section of `docs/api/conventions.md`.
+
+### Design system work step 5 needs
 
 Build each one in the order from `DESIGNS.md`: document, implement, add to `KDGalleryPage`, verify in
 four combinations.
 
-| Component | Layer | Why |
-|---|---|---|
-| `KDInputField` | atom | The prompt box |
-| `KDButton` | atom | Send |
-| `KDPaneView` | layout | One pane on `mobile`, list-detail split on `wide` |
-| `KDDialog` | layout | A destination that is a full screen on `mobile` becomes a dialog on `wide` |
+| Component      | Layer  | Needed by                                                                           |
+| -------------- | ------ | ----------------------------------------------------------------------------------- |
+| `KDInputField` | atom   | Stage one. The base URL field and the token field                                   |
+| `KDButton`     | atom   | Stage one. Connect                                                                  |
+| `KDDialog`     | layout | Stage one. The settings destination, full screen on `mobile` and a dialog on `wide` |
+| `KDPaneView`   | layout | Stage two. A node list and a node detail, split on `wide`                           |
 
 `KDPaneView` and `KDDialog` are defined in the design system spec but were deferred, because
 nothing consumed them and step 3 capped the build at three components.
+
+A token field needs an obscured text mode and a reveal control. `KDInputField` must carry both.
 
 ### App layer work this step needs
 
@@ -192,13 +312,27 @@ nothing consumed them and step 3 capped the build at three components.
   Keep a route to the gallery for development if you want one, but it is not a product destination.
 - Add `lib/app/env/` with the `envied` classes, plus `.env.staging` and `.env.production`. Put no
   server secret in either file. A web build ships readable JavaScript, so anything in the bundle is
-  public.
+  public. **Put no daemon token in either file** — one token serves one human and it never expires.
+- Register the settings store for the base URL. It is not a build-time constant. Read
+  `docs/api/connectivity.md`.
+- Pin the development web port in the `Makefile`: `flutter run -d chrome --web-port=8080`. The daemon
+  matches an origin exactly, so a random port cannot be configured. Read `docs/api/connectivity.md`.
+- Add the cleartext-HTTP platform exceptions for Android and iOS, scoped to the configured host. Never
+  a blanket exception. Read `docs/api/connectivity.md`.
 
 ### Step 5 verification
 
 - The bloc test, with `KanthordApi` mocked. Do not mock a repository, because none exists.
-- Run against the real server on macOS and on web. The server must send CORS headers for the client
-  origin and must expose the SSE content type.
+- Run stage one against a real daemon on macOS. The daemon needs `KANTHORD_HTTP_PORT` and
+  `KANTHORD_HTTP_TOKEN` set, and `KANTHORD_HTTP_ALLOWED_HOSTS` must admit the host the client sends.
+- Run stage one against a real daemon from a physical device. It needs a non-loopback daemon bind, the
+  LAN address in the client, that address in the daemon `Host` allow list, and the cleartext-HTTP
+  platform exception of `docs/api/connectivity.md`.
+- **Run stage one on web.** It needs the pinned web port and
+  `KANTHORD_HTTP_ALLOWED_ORIGINS=http://localhost:8080` on the daemon, and it needs engine EPIC 010.5
+  to have landed. Assert that a wrong origin still answers `403 origin-forbidden`, so the allow list is
+  proved to be a list rather than an opening. Name the browsers the product supports and run it on
+  each. Read `docs/api/connectivity.md`.
 
 ## Deferred: continuous integration
 
@@ -220,6 +354,7 @@ What CI must do when it returns:
   ```
 
   The version in `256c510` enforced an issue key. Drop that line when you restore the workflow.
+
 - `make format-check`. Never `make format`, because a job that rewrites files hides the difference it
   should report.
 - `flutter analyze`.
@@ -227,11 +362,11 @@ What CI must do when it returns:
 
 `build-matrix.yml`, on a push to `main` and on manual dispatch, one job per host:
 
-| Host | Targets |
-|---|---|
-| `ubuntu-latest` | Linux, web. Needs `clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev` |
-| `macos-latest` | macOS, iOS (`--no-codesign`), Android. Needs Java 17 |
-| `windows-latest` | Windows |
+| Host             | Targets                                                                         |
+| ---------------- | ------------------------------------------------------------------------------- |
+| `ubuntu-latest`  | Linux, web. Needs `clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev` |
+| `macos-latest`   | macOS, iOS (`--no-codesign`), Android. Needs Java 17                            |
+| `windows-latest` | Windows                                                                         |
 
 Six declared platforms need six compile checks, or a broken target stays hidden for months. Do not
 run the matrix on every pull request; it is slow and most changes touch no platform code.
@@ -241,12 +376,14 @@ Both workflows pinned `FLUTTER_VERSION: 3.44.8` and used `subosito/flutter-actio
 
 ## Step 6: documentation
 
-- `lib/api/README.md` — the resource table (resource, method, HTTP verb, path, model) plus the auth
-  and retry rules. Write it with the SDK.
+- `lib/api/README.md` — do not restate the resource table. `docs/api/operations.md` owns it. Write
+  only what is specific to the Dart SDK: the resource-class-to-operation map, and a pointer to
+  `docs/api/`.
 - Update `CLAUDE.md`: move each item out of "Current state" as it lands, and delete the bootstrap
-  exceptions once the router and the first feature exist.
-- Update `docs/operations.md` when the `build.yaml` paths start producing output, and when
-  `.env.staging` and `.env.production` exist.
+  exceptions once the router and the first feature exist. Its premise, base URL, progress and web-interop
+  statements are already corrected, and `package:web` is already removed from `pubspec.yaml`.
+- Update `docs/operations.md` when the `build.yaml` paths start producing output, when
+  `.env.staging` and `.env.production` exist, and with the pinned `--web-port` command.
 - Update `lib/libraries/kd_design_system/README.md` with every new component.
 - A technical document per new molecule, organism, and template.
 

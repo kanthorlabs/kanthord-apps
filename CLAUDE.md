@@ -1,28 +1,37 @@
 # KanthorD
 
-A Flutter client for an agentic system. The server owns the agents. The client sends requests,
-renders agent output, and streams intermediate agent steps.
+A Flutter control surface for the kanthord daemon, which is a plan-and-DAG execution engine. A human
+imports a plan of initiative, objective and task nodes; the daemon runs a scheduler pass, a coding agent
+executes a task, and a reviewer agent judges it. The client drives that engine and reads what it did.
+
+**It is not a chat client.** The MVP has no conversational surface: the daemon ships no route that
+accepts a prompt and no route that streams. Read `docs/api/blockers.md` R1 for the invariant. Build no
+chat page, no prompt box, no message list, and no `AgentEvent` type.
+
+The client shows lifecycle progress by polling the event log with a cursor, and it opens a completed
+prompt, diff or check log from a blob. It never renders live agent output, because nothing in this
+product produces any.
 
 Six platforms: iOS, Android, macOS, Windows, Linux, web.
 
-| Parameter | Value |
-|---|---|
-| Package name | `kanthord` |
-| Display name | `KanthorD` |
-| Organization | `com.kanthorlabs.kanthord` |
-| Flutter | 3.44.8, pinned in `.fvmrc` |
-| API base URL | `http://localhost:31415`, resolved per target |
+| Parameter    | Value                                                                         |
+| ------------ | ----------------------------------------------------------------------------- |
+| Package name | `kanthord`                                                                    |
+| Display name | `KanthorD`                                                                    |
+| Organization | `com.kanthorlabs.kanthord`                                                    |
+| Flutter      | 3.44.8, pinned in `.fvmrc`                                                    |
+| API base URL | No default. The human enters it, per install. Read `docs/api/connectivity.md` |
 
 ## Where the rules live
 
-| Document | Holds |
-|---|---|
-| `CLAUDE.md` | Architecture, naming, stack, commits, current state |
-| `DESIGNS.md` | Design rules: Material 3 only, the `KD` prefix, atomic layering, tokens, layout family, input |
-| `docs/operations.md` | Commands, building, platform specifics, lints, formatting, codegen, dependencies, secrets |
-| `docs/testing.md` | Test layout, structure, what to mock, SDK and design system test cases |
-| `HANDOFF.md` | Deferred work and the open questions that block it |
-| `lib/libraries/kd_design_system/README.md` | Token values and the component list |
+| Document                                   | Holds                                                                                         |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `CLAUDE.md`                                | Architecture, naming, stack, commits, current state                                           |
+| `DESIGNS.md`                               | Design rules: Material 3 only, the `KD` prefix, atomic layering, tokens, layout family, input |
+| `docs/operations.md`                       | Commands, building, platform specifics, lints, formatting, codegen, dependencies, secrets     |
+| `docs/testing.md`                          | Test layout, structure, what to mock, SDK and design system test cases                        |
+| `HANDOFF.md`                               | Deferred work and the open questions that block it                                            |
+| `lib/libraries/kd_design_system/README.md` | Token values and the component list                                                           |
 
 Read the specific document before you work in its area. Do not restate its rules here.
 
@@ -30,11 +39,11 @@ Read the specific document before you work in its area. Do not restate its rules
 
 This document mixes three kinds of statement. Check which one you are reading before you act.
 
-| Kind | Meaning |
-|---|---|
-| **State** | A fact about the repository right now. The "Current state" section holds these |
+| Kind       | Meaning                                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| **State**  | A fact about the repository right now. The "Current state" section holds these                                     |
 | **Target** | The structure code must take when it is written. The `lib/api/` and feature sections are targets, not descriptions |
-| **Policy** | A rule that binds every contributor and every agent |
+| **Policy** | A rule that binds every contributor and every agent                                                                |
 
 A target section describes code that does not exist yet. Do not read it as a description of the
 tree.
@@ -70,8 +79,8 @@ deliberate and both end when the first feature lands.
 
 ## When a rule says "ask first"
 
-Several rules require approval: a new dependency, a new layer, a third layout family, SSE
-reconnection. The approver is the repository owner.
+Several rules require approval: a new dependency, a new layer, a third layout family, a change to the
+polling cadence or its restart position. The approver is the repository owner.
 
 An agent that cannot reach the owner must stop at that boundary and report the blocker. Do not
 assume approval, and do not pick a default and continue.
@@ -168,40 +177,40 @@ Feature code builds pages only. It defines no atom and hard-codes no design valu
 
 ## Stack
 
-| Concern | Choice |
-|---|---|
-| State management | `flutter_bloc` + `freezed` sealed states |
-| Dependency injection | `get_it` |
-| Routing | `go_router` + `go_router_builder` typed routes |
-| HTTP | `dio` with interceptors for auth, retry, and logging |
-| Streaming | Server-Sent Events over `dio` response streams |
-| Serialization | `json_serializable`, `fieldRename: FieldRename.snake` |
-| Web interop | `package:web` for the browser streaming reader |
-| Secrets | `envied`. `.env.staging` and `.env.production` are not written yet |
-| Token storage | `flutter_secure_storage` on native, memory on web |
-| Settings storage | `shared_preferences` |
-| Logging | `logger` |
-| Codegen | `build_runner`, `freezed`, `json_serializable`, `go_router_builder` |
-| Lints | `flutter_lints` |
-| Tests | `flutter_test`, `mockito` |
+| Concern              | Choice                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| State management     | `flutter_bloc` + `freezed` sealed states                                                  |
+| Dependency injection | `get_it`                                                                                  |
+| Routing              | `go_router` + `go_router_builder` typed routes                                            |
+| HTTP                 | `dio` with interceptors for auth, retry, idempotency, and logging                         |
+| Progress             | Long polling `event.list` with a cursor. **Not SSE.** Read `docs/api/polling.md`          |
+| Serialization        | `json_serializable`, no `fieldRename`, `@JsonKey(name:)` per field. The wire is camelCase |
+| Web interop          | None. Nothing streams, so `package:web` is not needed                                     |
+| Secrets              | `envied`. `.env.staging` and `.env.production` are not written yet                        |
+| Token storage        | `flutter_secure_storage` on native, memory on web                                         |
+| Settings storage     | `shared_preferences`                                                                      |
+| Logging              | `logger`                                                                                  |
+| Codegen              | `build_runner`, `freezed`, `json_serializable`, `go_router_builder`                       |
+| Lints                | `flutter_lints`                                                                           |
+| Tests                | `flutter_test`, `mockito`                                                                 |
 
 Add no dependency without approval. Read `docs/operations.md` for the version pins and the reason
 behind them.
 
 ## Naming
 
-| Element | Convention |
-|---|---|
-| Files | `snake_case.dart` |
-| Concrete classes | `final class`. A `State` subclass stays a plain `class`, because the framework extends it |
-| Class hierarchies | `sealed class` |
-| Abstract interfaces | `<Name>Type` suffix |
-| Implementations | no suffix |
-| SDK resource groups | `<Name>Resource`, exposed as `api.<name>` |
-| SDK models | `<Name>` for a payload, `<Action><Name>Request` for a request body |
-| Blocs | `<Feature>Bloc`, state `<Feature>State` |
-| Design system symbols | `KD` prefix on every exported symbol. Read `DESIGNS.md` for the scope |
-| Private constants | `_kCamelCase` |
+| Element               | Convention                                                                                |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| Files                 | `snake_case.dart`                                                                         |
+| Concrete classes      | `final class`. A `State` subclass stays a plain `class`, because the framework extends it |
+| Class hierarchies     | `sealed class`                                                                            |
+| Abstract interfaces   | `<Name>Type` suffix                                                                       |
+| Implementations       | no suffix                                                                                 |
+| SDK resource groups   | `<Name>Resource`, exposed as `api.<name>`                                                 |
+| SDK models            | `<Name>` for a payload, `<Action><Name>Request` for a request body                        |
+| Blocs                 | `<Feature>Bloc`, state `<Feature>State`                                                   |
+| Design system symbols | `KD` prefix on every exported symbol. Read `DESIGNS.md` for the scope                     |
+| Private constants     | `_kCamelCase`                                                                             |
 
 ## Commits
 
@@ -228,8 +237,8 @@ Branch: `type/short-description`, using the same type list. Lower case, hyphen s
 
 ```
 chore/project-scaffold
-feat/agent-chat-streaming
-fix/sse-crlf
+feat/daemon-connect
+fix/event-poller-cursor
 ```
 
 Nothing enforces the pattern now that CI is removed.
