@@ -10,12 +10,12 @@ Status date: 2026-08-05.
 
 | Step | Scope | Verification |
 |---|---|---|
-| 1 | Project scaffold, six platform targets | `flutter build macos --debug`, `flutter build web`, `flutter build ios --debug --no-codesign`, `flutter build apk --debug` all pass. Windows and Linux need CI |
+| 1 | Project scaffold, six platform targets | `flutter build macos --debug`, `flutter build web`, `flutter build ios --debug --no-codesign`, `flutter build apk --debug` all pass. Windows and Linux never compiled |
 | 2 | Tooling | `make analyze` clean, `make format-check` passes. Commitlint accepts `feat(api): [ENGA-123] subject` and rejects a missing ticket and an unknown type |
 | 3 | KD design system: tokens, layout family, `KDText`, `KDCard`, `KDCardList`, `KDAdaptiveScaffold` | `make test` 6/6. Gallery checked on the real macOS app in light and dark, at 520 pt (`mobile`) and 1100 pt (`wide`) |
 
-Windows and Linux were never compiled. No Windows host and no Linux host exist here.
-`build-matrix.yml` is the only check for them and it has never run.
+Windows and Linux were never compiled. No Windows host and no Linux host exist here, and CI is
+removed, so no machine builds them at all.
 
 ## Blocked: answers needed from the owner
 
@@ -200,6 +200,41 @@ nothing consumed them and step 3 capped the build at three components.
 - Run against the real server on macOS and on web. The server must send CORS headers for the client
   origin and must expose the SSE content type.
 
+## Deferred: continuous integration
+
+CI is removed until the MVP lands. Both workflows were written and verified as YAML, then deleted.
+**Restore them from commit `256c510` (`ci: add the pull request check and the six-target build
+matrix`) rather than writing them again.**
+
+Until then every check is local and manual. Nothing prevents an unformatted, failing, or
+non-compiling change from reaching `main`.
+
+What CI must do when it returns:
+
+`check-pull-request.yml`, on every pull request to `main`:
+
+- Branch-name check. Note the deleted version required a `ENGA-` or `PLAT-` ticket in the branch,
+  which contradicts the current commit rule. The commit rule no longer requires an issue key, so
+  align the branch pattern before you restore it.
+- `make format-check`. Never `make format`, because a job that rewrites files hides the difference it
+  should report.
+- `flutter analyze`.
+- `flutter test`.
+
+`build-matrix.yml`, on a push to `main` and on manual dispatch, one job per host:
+
+| Host | Targets |
+|---|---|
+| `ubuntu-latest` | Linux, web. Needs `clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev` |
+| `macos-latest` | macOS, iOS (`--no-codesign`), Android. Needs Java 17 |
+| `windows-latest` | Windows |
+
+Six declared platforms need six compile checks, or a broken target stays hidden for months. Do not
+run the matrix on every pull request; it is slow and most changes touch no platform code.
+
+Both workflows pinned `FLUTTER_VERSION: 3.44.8` and used `subosito/flutter-action@v2` with
+`cache: true`. Keep the pin equal to `.fvmrc`.
+
 ## Step 6: documentation
 
 - `lib/api/README.md` — the resource table (resource, method, HTTP verb, path, model) plus the auth
@@ -220,8 +255,7 @@ nothing consumed them and step 3 capped the build at three components.
 - `freezed` is pinned to `^3.2.5` and `mockito` to `^5.6.4`. Both stable. `freezed` stable needs
   `analyzer <11 or ^12`; `mockito >=5.7.0` needs `analyzer >=13`. They cannot both be newest.
   Revisit when `freezed` 4 reaches stable.
-- The branch-name pattern in `check-pull-request.yml` is `type/ENGA-123-short-description`. The
-  original specification fixed the commit format but not the branch format. Confirm it with the
-  owner.
-- `build-matrix.yml` has never run. The first push to `main` is the first real Windows and Linux
-  compile.
+- The branch-name convention is `type/short-description`. The original specification fixed the commit
+  format but not the branch format, and nothing enforces the branch now. Confirm it with the owner
+  before CI returns.
+- Windows and Linux have never been compiled, on any machine.

@@ -4,23 +4,34 @@ Commands, platform specifics, lints, and formatting. `CLAUDE.md` references this
 
 ## Toolchain
 
-Flutter is pinned to **3.44.8** in `.fvmrc`. Use `fvm` so every contributor and CI compile with the
-same SDK. Node is pinned in `.nvmrc` and is needed only for the commit hooks.
+Flutter is pinned to **3.44.8** in `.fvmrc`. Use `fvm` so every contributor compiles with the same
+SDK. Node is pinned in `.nvmrc` and is needed only for the commit hooks.
+
+## There is no CI
+
+This repository has no continuous integration. It is deferred until the MVP lands. Read `HANDOFF.md`
+for what CI must do when it returns.
+
+**Every check is local and manual.** Nothing stops an unformatted, failing, or non-compiling change
+from reaching `main`. Before you push, run all three:
+
+```
+make format-check
+make analyze
+make test
+```
 
 ## Commands
 
-Run every **local** command through `make`. The `Makefile` detects `fvm` and the host, so a Make
-target uses the pinned Flutter and a bare `flutter` call may not.
-
-CI is the exception. The workflows install a pinned Flutter themselves and then call `flutter`
-directly, except `make format-check`. Do not "fix" a workflow to route every step through Make.
+Run every command through `make`. The `Makefile` detects `fvm` and the host, so a Make target uses
+the pinned Flutter and a bare `flutter` call may not.
 
 | Command | Purpose |
 |---|---|
 | `make bootstrap` | Install the pinned Flutter through `fvm install`, then the Dart packages, then the commit hooks |
 | `make generate` | Run `build_runner` one time |
-| `make format` | Rewrite every Dart file. Never run in CI |
-| `make format-check` | Fail on an unformatted file. CI runs this target |
+| `make format` | Rewrite every Dart file |
+| `make format-check` | Fail on an unformatted file. Run it before you push |
 | `make analyze` | Run the static analyzer |
 | `make test` | Run the test suite |
 | `make clean` | Delete the build output and the generated files |
@@ -52,21 +63,13 @@ the targets it supports.
 | Linux | `flutter build linux` | Linux |
 | Windows | `flutter build windows` | Windows |
 
-A Mac host verifies macOS, iOS, Android, and web locally. Windows and Linux need CI.
+A Mac host verifies macOS, iOS, Android, and web locally.
 
-## CI: two workflows, two different jobs
+**Windows and Linux are unverified.** Neither has ever been compiled. With CI removed there is no
+machine that builds them, so a change that breaks either target stays hidden until somebody builds it
+by hand. Treat both as declared but untested.
 
-| Workflow | Trigger | Does |
-|---|---|---|
-| `check-pull-request.yml` | every pull request to `main` | branch-name check, `make format-check`, `flutter analyze`, `flutter test`. **It compiles no target** |
-| `build-matrix.yml` | push to `main`, or manual dispatch | compiles all six targets across `ubuntu-latest`, `macos-latest`, and `windows-latest` |
-
-**A pull request never proves a target still compiles.** A broken Windows or Linux build surfaces
-only after the merge. Run `build-matrix.yml` by manual dispatch before you merge a change that
-touches a platform folder or a plugin dependency.
-
-`build-matrix.yml` has never run. The first push to `main` is the first real Windows and Linux
-compile.
+Six declared platforms need six compile checks. Until CI returns, that check does not exist.
 
 ## Platform files carry hand-written changes
 
@@ -120,8 +123,8 @@ makes an SSE stream arrive as one block at the end.
 `analysis_options.yaml` is the authority. Read it rather than a copy of its values. Three settings
 you need before you write a line:
 
-- The formatter page width is **100**. `dart format` enforces it, and `make format-check` fails a
-  pull request on any difference.
+- The formatter page width is **100**. `dart format` enforces it, and `make format-check` fails on
+  any difference.
 - `strict-casts` and `strict-raw-types` are on. `strict-inference` is off. An implicit downcast and a
   raw generic are both analyzer errors.
 - The base lint set is `package:flutter_lints/flutter.yaml`.
@@ -129,7 +132,8 @@ you need before you write a line:
 Generated files (`*.g.dart`, `*.freezed.dart`, `*.mocks.dart`, `*.gen.dart`) and `build/` are
 excluded from analysis. `test/**` is analyzed, so test code passes the same lints.
 
-CI runs `format-check`, never `format`. `format` rewrites files, so it must never run in a job.
+`format` rewrites files and `format-check` does not. When CI returns it must call `format-check`
+only, because a job that rewrites files hides the very difference it should report.
 
 ## Code generation
 
@@ -146,8 +150,9 @@ CI runs `format-check`, never `format`. `format` rewrites files, so it must neve
 Several of those paths do not exist yet, so `make generate` currently writes no output. That is
 correct for the current tree, not a broken configuration.
 
-`pubspec.lock` and every generated file are **committed**. The pull request job runs `format-check`,
-`analyze`, and `test` with no codegen step, so the generated files must be in the tree.
+`pubspec.lock` and every generated file are **committed**, so a fresh clone analyzes and tests
+without running codegen first. Run `make generate` and commit the result whenever you change a model,
+a state class, or a route.
 
 ## Dependencies
 

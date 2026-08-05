@@ -32,7 +32,7 @@ help:
 	@echo "  bootstrap     Install the Flutter SDK, the Dart packages, and the commit hooks"
 	@echo "  generate      Run build_runner one time"
 	@echo "  format        Rewrite every Dart file to the project format"
-	@echo "  format-check  Fail when a Dart file is not formatted. CI runs this target"
+	@echo "  format-check  Fail when a Dart file is not formatted. Run it before you push"
 	@echo "  analyze       Run the static analyzer"
 	@echo "  test          Run the Flutter test suite"
 	@echo "  clean         Delete the build output and the generated files"

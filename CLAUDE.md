@@ -19,7 +19,7 @@ Six platforms: iOS, Android, macOS, Windows, Linux, web.
 |---|---|
 | `CLAUDE.md` | Architecture, naming, stack, commits, current state |
 | `DESIGNS.md` | Design rules: Material 3 only, the `KD` prefix, atomic layering, tokens, layout family, input |
-| `docs/operations.md` | Commands, building, CI, platform specifics, lints, formatting, codegen, dependencies, secrets |
+| `docs/operations.md` | Commands, building, platform specifics, lints, formatting, codegen, dependencies, secrets |
 | `docs/testing.md` | Test layout, structure, what to mock, SDK and design system test cases |
 | `HANDOFF.md` | Deferred work and the open questions that block it |
 | `lib/libraries/kd_design_system/README.md` | Token values and the component list |
@@ -44,14 +44,16 @@ tree.
 Built and verified:
 
 - Project scaffold with all six platform targets.
-- Tooling: `Makefile`, `.fvmrc`, `analysis_options.yaml`, `build.yaml`, commitlint plus husky, two
-  GitHub workflows.
+- Tooling: `Makefile`, `.fvmrc`, `analysis_options.yaml`, `build.yaml`, commitlint plus husky.
 - `lib/libraries/kd_design_system/`: tokens, layout family, `KDText`, `KDCard`, `KDCardList`,
   `KDAdaptiveScaffold`, and `KDGalleryPage`.
 - `lib/app/kanthord_app.dart`: the root widget.
 
-Verified builds on a Mac host: macOS, web, iOS, Android. Windows and Linux compile in CI only, and
-that job has never run.
+Verified builds on a Mac host: macOS, web, iOS, Android. **Windows and Linux have never been
+compiled.**
+
+There is no CI. It is deferred until the MVP lands, so every check is local and manual. Run
+`make format-check`, `make analyze`, and `make test` before you push.
 
 Not written yet: `lib/api/`, `lib/features/`, `lib/gen/`, `.env.staging`, `.env.production`,
 `lib/app/env/`. Read `HANDOFF.md` for the deferred work and its open questions.
@@ -221,10 +223,11 @@ link.
 `commitlint` runs in a husky `commit-msg` hook. It needs Node. Commit linting is optional for a
 contributor without Node, and `make bootstrap` prints a skip message.
 
-Branch: `type/ENGA-123-short-description`, checked by `check-pull-request.yml`.
+Branch: `type/short-description`, for example `chore/project-scaffold`. Nothing enforces it now that
+CI is removed.
 
 ## Repository state
 
-`pubspec.lock` and every generated file (`*.g.dart`, `*.freezed.dart`) are committed. The pull
-request job runs `format-check`, `analyze`, and `test` with no codegen step, so the generated
-files must be in the tree.
+`pubspec.lock` and every generated file (`*.g.dart`, `*.freezed.dart`) are committed, so a fresh
+clone analyzes and tests without running codegen first. Run `make generate` and commit the result
+whenever you change a model, a state class, or a route.
