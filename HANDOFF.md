@@ -13,11 +13,12 @@ Status date: 2026-08-05.
 
 ## Done and verified
 
-| Step | Scope                                                                                           | Verification                                                                                                                                                                       |
-| ---- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | Project scaffold, six platform targets                                                          | `flutter build macos --debug`, `flutter build web`, `flutter build ios --debug --no-codesign`, `flutter build apk --debug` all pass. Windows and Linux never compiled              |
-| 2    | Tooling                                                                                         | `make analyze` clean, `make format-check` passes. Commitlint accepts `feat(api): add the sessions resource` and rejects an unknown type, a malformed header, and a trailing period |
-| 3    | KD design system: tokens, layout family, `KDText`, `KDCard`, `KDCardList`, `KDAdaptiveScaffold` | `make test` 6/6. Gallery checked on the real macOS app in light and dark, at 520 pt (`mobile`) and 1100 pt (`wide`)                                                                |
+| Step | Scope                                                                                                                                                                                                            | Verification                                                                                                                                                                                    |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | Project scaffold, six platform targets                                                                                                                                                                           | `flutter build macos --debug`, `flutter build web`, `flutter build ios --debug --no-codesign`, `flutter build apk --debug` all pass. Windows and Linux never compiled                           |
+| 2    | Tooling                                                                                                                                                                                                          | `make analyze` clean, `make format-check` passes. Commitlint accepts `feat(api): add the sessions resource` and rejects an unknown type, a malformed header, and a trailing period              |
+| 3    | KD design system: tokens, layout family, `KDText`, `KDCard`, `KDCardList`, `KDAdaptiveScaffold`                                                                                                                  | `make test` 6/6. Gallery checked on the real macOS app in light and dark, at 520 pt (`mobile`) and 1100 pt (`wide`)                                                                             |
+| 3b   | The two page layouts, the `expanded` family at 840, `KDButton`, `KDInputField`, `KDBrand`, `KDTopBar`, `KDSideBar`, `KDStatusView`, `KDPaneView`, `KDDialog`, plus `KDTokens.sizing` and `KDTokens.statusColors` | `make test` 104/104, `make analyze` clean, `make format-check` passes. Gallery checked on the real macOS app in light and dark, at 520 pt (`mobile`), 760 pt (`wide`), and 1200 pt (`expanded`) |
 
 Windows and Linux were never compiled. No Windows host and no Linux host exist here, and CI is
 removed, so no machine builds them at all.
@@ -290,17 +291,21 @@ Two rules will apply to it whatever it is:
 Build each one in the order from `DESIGNS.md`: document, implement, add to `KDGalleryPage`, verify in
 four combinations.
 
-| Component      | Layer  | Needed by                                                                           |
-| -------------- | ------ | ----------------------------------------------------------------------------------- |
-| `KDInputField` | atom   | Stage one. The base URL field and the token field                                   |
-| `KDButton`     | atom   | Stage one. Connect                                                                  |
-| `KDDialog`     | layout | Stage one. The settings destination, full screen on `mobile` and a dialog on `wide` |
-| `KDPaneView`   | layout | Stage two. A node list and a node detail, split on `wide`                           |
+| Component      | Layer  | State     | Needed by                                                                          |
+| -------------- | ------ | --------- | ---------------------------------------------------------------------------------- |
+| `KDButton`     | atom   | **built** | Stage one. Connect                                                                 |
+| `KDInputField` | atom   | **built** | Stage one. The base URL field and the token field                                  |
+| `KDDialog`     | layout | **built** | Stage one. The settings destination, full screen on `mobile` and above it a dialog |
+| `KDPaneView`   | layout | **built** | Stage two. A node list and a node detail, split above `mobile`                     |
 
-`KDPaneView` and `KDDialog` are defined in the design system spec but were deferred, because
-nothing consumed them and step 3 capped the build at three components.
+Neither `KDPaneView` nor `KDDialog` is a page layout: the pane view belongs in the content region of
+`KDShellLayout` and the dialog belongs above either page layout. Read the page layout section of
+`DESIGNS.md`.
 
-A token field needs an obscured text mode and a reveal control. `KDInputField` must carry both.
+The connect page, the unauthorized page and the boot page use `KDFullScreenLayout` with
+`KDStatusView`. **Step 5 needs no new design system component.** Every one in the table is built.
+
+`KDInputField` carries the obscured text mode and the reveal control the token field needs.
 
 ### App layer work this step needs
 
@@ -390,7 +395,10 @@ Both workflows pinned `FLUTTER_VERSION: 3.44.8` and used `subosito/flutter-actio
 ## Known gaps carried forward
 
 - Every design token is seeded from the Material 3 baseline and marked `// TODO(tokens)`. The seed
-  is `0xFF6750A4`. Nothing here is a brand value.
+  is `0xFF6750A4`. Nothing here is a brand value. **Every seeded value now lives in `KDTokens`**,
+  including `sizing` and `statusColors`, so the design file lands as one edit per token rather than a
+  hunt through the components. The mark in `KDBrand` is the exception: it is a placeholder icon and
+  it waits on a brand asset, not on a token value.
 - `styles/kd_fonts.dart` and `styles/kd_shadow_styles.dart` are absent on purpose. No font asset
   exists, and Material 3 expresses depth with elevation. Create each when a real value arrives.
 - `freezed` is pinned to `^3.2.5` and `mockito` to `^5.6.4`. Both stable. `freezed` stable needs

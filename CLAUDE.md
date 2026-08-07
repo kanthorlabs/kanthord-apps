@@ -54,8 +54,11 @@ Built and verified:
 
 - Project scaffold with all six platform targets.
 - Tooling: `Makefile`, `.fvmrc`, `analysis_options.yaml`, `build.yaml`, commitlint plus husky.
-- `lib/libraries/kd_design_system/`: tokens, layout family, `KDText`, `KDCard`, `KDCardList`,
-  `KDAdaptiveScaffold`, and `KDGalleryPage`.
+- `lib/libraries/kd_design_system/`: tokens, three layout families, `KDText`, `KDButton`,
+  `KDInputField`, `KDCard`, `KDBrand`, `KDCardList`, `KDTopBar`, `KDSideBar`, `KDAdaptiveScaffold`,
+  `KDStatusView`, `KDPaneView`, `KDDialog`, and `KDGalleryPage`.
+- The two page layouts: `KDFullScreenLayout` and `KDShellLayout`. Read `DESIGNS.md` for the rule
+  that chooses between them.
 - `lib/app/kanthord_app.dart`: the root widget.
 
 Verified builds on a Mac host: macOS, web, iOS, Android. **Windows and Linux have never been

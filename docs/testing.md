@@ -88,8 +88,8 @@ Assert that a cancelled request is never retried.
 
 Write a widget test for any component whose behavior changes with the layout family.
 
-`KDAdaptiveScaffold` is the reference case. Set the surface size below `600` and at or above `600`.
-Assert bottom navigation in one case and a navigation rail in the other.
+`KDAdaptiveScaffold` is the reference case. Set the surface size in each of the three width bands.
+Assert bottom navigation, a navigation rail, and a `KDSideBar`, one per band.
 
 Set the surface size like this, and always register the reset:
 
@@ -99,14 +99,15 @@ tester.view.physicalSize = size;
 addTearDown(tester.view.reset);
 ```
 
-Test the boundary value. `600` belongs to `wide`, so assert `599` and `600`, not `500` and `700`.
+Test every boundary value. `600` belongs to `wide` and `840` belongs to `expanded`, so assert `599`,
+`600`, `839`, and `840`, never `500` and `700`.
 
 Also assert that the family follows the **pane** width, not the window width: place the component in
 a narrow `SizedBox` inside a wide surface and assert the `mobile` shell.
 
 ## Verification beyond tests
 
-A passing suite is not a verified component. Read `DESIGNS.md` for the four-way check every
-component needs: light theme, dark theme, `mobile` layout, `wide` layout.
+A passing suite is not a verified component. Read `DESIGNS.md` for the check every component needs:
+the light theme and the dark theme, at the `mobile`, `wide`, and `expanded` widths.
 
 Report no success for an unverified step. Name every target you did not build and say why.

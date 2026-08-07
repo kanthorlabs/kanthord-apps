@@ -111,24 +111,93 @@ final class KDElevation {
 }
 
 @immutable
+final class KDSizing {
+  const KDSizing({
+    required this.contentMaxWidth,
+    required this.sideBarWidth,
+    required this.paneListWidth,
+    required this.dialogLargeWidth,
+  });
+
+  // TODO(tokens): seeded measures. Replace them with the design file layout scale.
+  const KDSizing.seeded()
+    : contentMaxWidth = 480,
+      sideBarWidth = 280,
+      paneListWidth = 320,
+      dialogLargeWidth = 800;
+
+  final double contentMaxWidth;
+  final double sideBarWidth;
+  final double paneListWidth;
+  final double dialogLargeWidth;
+
+  KDSizing lerpTo(KDSizing other, double t) {
+    return KDSizing(
+      contentMaxWidth: lerpDouble(contentMaxWidth, other.contentMaxWidth, t)!,
+      sideBarWidth: lerpDouble(sideBarWidth, other.sideBarWidth, t)!,
+      paneListWidth: lerpDouble(paneListWidth, other.paneListWidth, t)!,
+      dialogLargeWidth: lerpDouble(dialogLargeWidth, other.dialogLargeWidth, t)!,
+    );
+  }
+}
+
+@immutable
+final class KDStatusColors {
+  const KDStatusColors({
+    required this.healthy,
+    required this.warning,
+    required this.danger,
+    required this.neutral,
+  });
+
+  // TODO(tokens): Material 3 defines no success role and no warning role, so primary and tertiary
+  // stand in. Replace them with the design file status palette.
+  KDStatusColors.seeded(ColorScheme scheme)
+    : healthy = scheme.primary,
+      warning = scheme.tertiary,
+      danger = scheme.error,
+      neutral = scheme.onSurfaceVariant;
+
+  final Color healthy;
+  final Color warning;
+  final Color danger;
+  final Color neutral;
+
+  KDStatusColors lerpTo(KDStatusColors other, double t) {
+    return KDStatusColors(
+      healthy: Color.lerp(healthy, other.healthy, t)!,
+      warning: Color.lerp(warning, other.warning, t)!,
+      danger: Color.lerp(danger, other.danger, t)!,
+      neutral: Color.lerp(neutral, other.neutral, t)!,
+    );
+  }
+}
+
+@immutable
 final class KDTokens extends ThemeExtension<KDTokens> {
   const KDTokens({
     required this.spacing,
     required this.radius,
     required this.duration,
     required this.elevation,
+    required this.sizing,
+    required this.statusColors,
   });
 
-  const KDTokens.seeded()
+  KDTokens.seeded(ColorScheme scheme)
     : spacing = const KDSpacing.seeded(),
       radius = const KDRadius.seeded(),
       duration = const KDDuration.seeded(),
-      elevation = const KDElevation.seeded();
+      elevation = const KDElevation.seeded(),
+      sizing = const KDSizing.seeded(),
+      statusColors = KDStatusColors.seeded(scheme);
 
   final KDSpacing spacing;
   final KDRadius radius;
   final KDDuration duration;
   final KDElevation elevation;
+  final KDSizing sizing;
+  final KDStatusColors statusColors;
 
   @override
   KDTokens copyWith({
@@ -136,12 +205,16 @@ final class KDTokens extends ThemeExtension<KDTokens> {
     KDRadius? radius,
     KDDuration? duration,
     KDElevation? elevation,
+    KDSizing? sizing,
+    KDStatusColors? statusColors,
   }) {
     return KDTokens(
       spacing: spacing ?? this.spacing,
       radius: radius ?? this.radius,
       duration: duration ?? this.duration,
       elevation: elevation ?? this.elevation,
+      sizing: sizing ?? this.sizing,
+      statusColors: statusColors ?? this.statusColors,
     );
   }
 
@@ -153,6 +226,8 @@ final class KDTokens extends ThemeExtension<KDTokens> {
       radius: radius.lerpTo(other.radius, t),
       duration: t < 0.5 ? duration : other.duration,
       elevation: elevation.lerpTo(other.elevation, t),
+      sizing: sizing.lerpTo(other.sizing, t),
+      statusColors: statusColors.lerpTo(other.statusColors, t),
     );
   }
 }

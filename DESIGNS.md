@@ -82,7 +82,7 @@ Follow this order every time. The document comes first.
 1. Write the technical document at `lib/libraries/kd_design_system/docs/<component>.md`.
 2. Implement the component.
 3. Add the component to `KDGalleryPage`.
-4. Verify it in the light theme, the dark theme, the `mobile` layout, and the `wide` layout.
+4. Verify it in the light theme and the dark theme, at the `mobile`, `wide`, and `expanded` widths.
 
 Write no document for a component you have not built. Create no empty file and create no
 placeholder component. Create a directory when you put the first file in it.
@@ -101,30 +101,59 @@ placeholder component. Create a directory when you put the first file in it.
 
 An atom needs Overview, Properties, and Setup only.
 
+## Page layout
+
+Two page layouts only. Every screen is one of them.
+
+| Layout               | Structure                           | Used for                                 |
+| -------------------- | ----------------------------------- | ---------------------------------------- |
+| `KDFullScreenLayout` | One centered column, no navigation  | Connect, unauthorized, boot, unreachable |
+| `KDShellLayout`      | Top bar, navigation, content region | Every product destination                |
+
+**Choose the layout by what is reachable, not by what failed.** A client with no daemon reaches no
+destination, so it gets the full screen. A destination that answers `501`, returns no row, or fails a
+reload keeps every other destination working, so the top bar and the navigation stay up and only the
+content region reports the state.
+
+Three components carry the work the two layouts do not do themselves. None of them is a page layout:
+
+| Component      | Sits                  | Carries                                                |
+| -------------- | --------------------- | ------------------------------------------------------ |
+| `KDStatusView` | Inside either         | Loading, error, empty, and `501`                       |
+| `KDPaneView`   | In the content region | The list-detail split of a node list and a node detail |
+| `KDDialog`     | Above either          | A confirmation, a blob viewer, and the plan import     |
+
+All three are built. None of them is a page layout, so none of them counts against the two.
+
+Add no third page layout. Ask the owner first.
+
 ## Layout family
 
-Two families only.
+Three families. They set the navigation of `KDShellLayout`, not the page layout.
 
-| Family                  | Layout                                          | Width           |
-| ----------------------- | ----------------------------------------------- | --------------- |
-| `KDLayoutFamily.mobile` | one pane, bottom navigation, full-screen routes | below `600`     |
-| `KDLayoutFamily.wide`   | navigation rail, multi-pane, dialogs            | `600` and above |
+| Family                    | Layout                                          | Width           |
+| ------------------------- | ----------------------------------------------- | --------------- |
+| `KDLayoutFamily.mobile`   | one pane, bottom navigation, full-screen routes | below `600`     |
+| `KDLayoutFamily.wide`     | navigation rail, multi-pane, dialogs            | `600` to `839`  |
+| `KDLayoutFamily.expanded` | permanent sidebar, multi-pane, dialogs          | `840` and above |
 
 **The family comes from the available width, never from the platform.**
 
-- `600` is the Material 3 boundary between the compact class and the medium class. The boundary
-  value `600` belongs to `wide`.
+- `600` is the Material 3 boundary between the compact class and the medium class. `840` is the
+  boundary between the medium class and the expanded class. Each boundary value belongs to the
+  family above it.
 - `context.kdLayout` is the only source of the family. Do not put `KDLayoutFamily` in `ThemeData`.
 - `KDLayout` measures with `LayoutBuilder`, not `MediaQuery`, because a nested pane cares about the
   width it receives, not about the window width. Do not read `MediaQuery` for layout inside a
   feature widget.
 - Branch on `KDLayoutFamily` for layout. Branch on `Theme.of(context).platform` only for platform
   behavior, such as a file picker or a window control.
-- **Build each screen one time.** Branch inside the widget tree. Do not fork a screen into two files
+- **Build each screen one time.** Branch inside the widget tree. Do not fork a screen into one file
   per family.
-- Every feature uses `KDAdaptiveScaffold`.
-- `KDPaneView` renders one pane for `mobile` and a list-detail split for `wide`.
-- Route a destination that is a full screen on `mobile` to a `KDDialog` on `wide`.
+- Every product destination uses `KDShellLayout`, which owns the branch through
+  `KDAdaptiveScaffold`. Use `KDAdaptiveScaffold` directly only for a shell that needs no top bar.
+- `KDPaneView` renders one pane for `mobile` and a list-detail split above it.
+- Route a destination that is a full screen on `mobile` to a `KDDialog` above it.
 
 The table below is the expected result on a normal window. It is an expectation, not a rule. The
 width rule always wins.
@@ -132,22 +161,20 @@ width rule always wins.
 | Platform                   | Expected family on a normal window |
 | -------------------------- | ---------------------------------- |
 | iOS, Android phone         | `mobile`                           |
-| macOS, Windows, Linux, web | `wide`                             |
+| Android tablet             | `wide` or `expanded`               |
+| macOS, Windows, Linux, web | `expanded`                         |
 
-A large Android tablet gets `wide`. A desktop window dragged below `600` gets `mobile`. Both results
-are correct and intended.
+A desktop window dragged below `840` gets `wide`, and below `600` it gets `mobile`. Every result is
+correct and intended.
 
-### The two-family simplification
-
-Material 3 defines a third size class, `expanded`, at `840` logical pixels, where a permanent drawer
-replaces the rail. This project does not implement it. The rail is used at every width at or above
-`600`.
-
-Ask the owner before you add a third family.
+A nested pane resolves its own family. On an `840` window the sidebar takes `sizing.sideBarWidth`, so the
+content region receives about `559` and resolves to `mobile`. That is what measuring the pane means.
 
 macOS, Windows, and Linux set a minimum window size of 480 by 640 logical pixels in native code, so
 no window becomes narrower than the `mobile` layout supports. Read `docs/operations.md` before you
 touch a platform folder.
+
+Add no fourth family. Ask the owner first.
 
 ## Input
 
@@ -163,6 +190,7 @@ A minimum check before a screen is done:
 ## The gallery
 
 `KDGalleryPage` in `lib/libraries/kd_design_system/gallery/` is the showcase. It is a development
-surface, not a product screen. It renders every component in both themes and both layout families.
+surface, not a product screen. It renders every component in both themes and all three layout
+families, and it builds itself with `KDShellLayout`.
 
 Do not route to it from a feature and do not ship it as a product destination.

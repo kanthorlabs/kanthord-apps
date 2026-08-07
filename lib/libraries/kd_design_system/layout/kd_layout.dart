@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'kd_layout_family.dart';
 
 const double kdWideBreakpoint = 600;
+const double kdExpandedBreakpoint = 840;
 
 final class _KDLayoutScope extends InheritedWidget {
   const _KDLayoutScope({required this.family, required super.child});
@@ -19,7 +20,9 @@ final class KDLayout extends StatelessWidget {
   final Widget child;
 
   static KDLayoutFamily familyForWidth(double width) {
-    return width < kdWideBreakpoint ? KDLayoutFamily.mobile : KDLayoutFamily.wide;
+    if (width < kdWideBreakpoint) return KDLayoutFamily.mobile;
+    if (width < kdExpandedBreakpoint) return KDLayoutFamily.wide;
+    return KDLayoutFamily.expanded;
   }
 
   @override

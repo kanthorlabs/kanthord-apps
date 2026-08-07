@@ -10,11 +10,11 @@ abstract final class KDTheme {
   static ThemeData dark() => _build(KDColors.dark());
 
   static ThemeData _build(ColorScheme scheme) {
-    const tokens = KDTokens.seeded();
+    final tokens = KDTokens.seeded(scheme);
     return ThemeData(
       colorScheme: scheme,
       textTheme: KDTextStyles.textTheme(scheme.brightness),
-      extensions: const <ThemeExtension<dynamic>>[tokens],
+      extensions: <ThemeExtension<dynamic>>[tokens],
       cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(tokens.radius.md)),
       ),
