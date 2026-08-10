@@ -7,8 +7,8 @@ failures=0
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
-mkdir -p "$work/lib/api/resources" "$work/lib/api/models" "$work/lib/features/connect" \
-  "$work/lib/libraries/kd_design_system/atoms"
+mkdir -p "$work/lib/api/resources" "$work/lib/api/models" "$work/lib/api/polling" \
+  "$work/lib/features/connect" "$work/lib/libraries/kd_design_system/atoms"
 
 run() { (cd "$work" && "$guard" "$@" 2>&1); }
 
@@ -55,8 +55,14 @@ case_fail "Navigator.push" lib/features/connect/bad.dart \
   "void go() => Navigator.push(context, route);"
 case_fail "an AgentEvent type" lib/features/connect/bad.dart \
   "final class AgentEvent {}"
-case_fail "an SDK method returning a Stream" lib/api/bad.dart \
+case_fail "a resource method returning a Stream" lib/api/resources/bad.dart \
   "Stream<int> watch() => throw 1;"
+
+# docs/api/polling.md gives EventPoller a Stream. CLAUDE.md bans one on a
+# resource method, so the rule stops at lib/api/resources/.
+printf 'Stream<int> pages() => throw 1;\n' >"$work/lib/api/polling/event_poller.dart"
+case_pass "the event poller exposing a Stream"
+rm -f "$work/lib/api/polling/event_poller.dart"
 case_fail "print in production" lib/features/connect/bad.dart \
   "void go() { print('x'); }"
 case_fail "a comment in hand-written Dart" lib/features/connect/bad.dart \

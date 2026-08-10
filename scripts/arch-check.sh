@@ -74,7 +74,7 @@ scan "navigation is go_router only, no Navigator.push (CLAUDE.md)" \
 scan "nothing in this product streams (CLAUDE.md, docs/api/polling.md)" \
   "\b(AgentEvent|SseClientType|EventSource|SseClient)\b"
 scan "a resource method never returns a Stream (CLAUDE.md, the SDK)" \
-  "(Stream|StreamSubscription)<" '^lib/api/'
+  "(Stream|StreamSubscription)<" '^lib/api/resources/'
 
 # --- CLAUDE.md: logging -----------------------------------------------------
 scan "logging is logger, never print or debugPrint (CLAUDE.md)" \
