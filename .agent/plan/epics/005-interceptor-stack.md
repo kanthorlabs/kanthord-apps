@@ -25,7 +25,17 @@ exists until EPIC 006.
   applied to the headers, the query string and the body. The list starts with `authorization` and
   `idempotency-key`. It uses `logger` and never `print`.
 - **G7** — `KanthordApi` installs the interceptors in one declared order — auth, idempotency, retry,
-  logging — and a test asserts the order.
+  logging — and a test asserts the order. **Every one is installed by the `KanthordApi` constructor,
+  never onto a `Dio` from outside**, so the candidate client of EPIC 001.1 G7 probes with the same
+  stack as the client it came from.
+- **G8** — Amended 2026-08-10. **A retry stays pinned to the daemon the first attempt resolved.** The
+  product holds more than one daemon, and EPIC 001.1 G4 writes the resolved id into
+  `options.extra[kDaemonIdKey]` at the first interceptor. A retry re-sends the same `RequestOptions`,
+  so it must not re-resolve the selection and must not re-read `endpoint()`. A test switches the
+  selection between the failed attempt and the retry and asserts the retry still carries the original
+  id, the original base URL and the original token.
+- **G9** — An `Idempotency-Key` is scoped to the pinned daemon. A key minted for daemon A is never
+  replayed against daemon B, which follows from G8 and is asserted separately.
 
 ## Non-goals
 

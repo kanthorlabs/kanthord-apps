@@ -36,12 +36,27 @@ the whole transport against a real daemon before it writes 21 models against han
 | EPIC                                 | Delivers                                                            | Depends on |
 | ------------------------------------ | ------------------------------------------------------------------- | ---------- |
 | 001 — Transport foundation           | `ApiConfig`, `ApiException`, `TokenProviderType`, auth, `system.*`  | none       |
-| 002 — App composition                | `get_it`, `go_router`, token store, base URL store, env             | 001        |
+| 001.1 — Candidate client and pinning | `withCandidate`, `DaemonEndpoint`, one daemon resolved per request  | 001        |
+| 002 — App composition                | `get_it`, `go_router`, the daemon registry, credentials, env        | 001.1      |
 | 003 — `daemon_connect`               | The provisioning flow, live against `GET /v1/health`                | 002        |
+| 003.1 — Daemon management            | Add, name, select, edit, remove, the active daemon in `KDTopBar`    | 003        |
 | 004 — Mock daemon and contract suite | A fixture-backed daemon on loopback, the four-part suite            | 001, 002.3 |
-| 005 — Interceptor stack              | Retry, idempotency, redacting logger                                | 004        |
+| 005 — Interceptor stack              | Retry, idempotency, redacting logger, retry pinned to its daemon    | 004        |
 | 006 — Models and resources           | Every schema-carrying operation, nine resource classes, `blob.show` | 005        |
 | 007 — Event poller                   | `lib/api/polling/`, the acknowledged handler, `PollerStatus`        | 006        |
+
+Amended 2026-08-10. The owner decided the product holds **more than one daemon** — a local one and a
+remote one — so two epics joined the set and three changed:
+
+- **001.1** exists because `001-transport-foundation.md` is under implementation and must not be
+  edited. It adds the candidate client EPIC 003 needs and the per-request daemon pinning that stops a
+  base URL and a token coming from two different daemons.
+- **002** was re-authored around a daemon registry and a per-daemon credential store. Its Stories
+  `01`, `02` and `03` are superseded and await re-expansion.
+- **003.1** is **mandatory**: EPIC 003 provisions the selected daemon, and nothing before 003.1 can
+  hold a second one. Multi-daemon is not delivered until it ships.
+- **005** pins a retry to the daemon its first attempt resolved. **007** scopes a persisted cursor to
+  the daemon id plus the base URL it was recorded against.
 
 004 may start as soon as 001 lands and runs beside 002 and 003. Its last Story is the exception:
 the composition-root guard of G7 inspects the registrations `configureDependencies` makes, so it

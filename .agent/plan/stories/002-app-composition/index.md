@@ -1,7 +1,23 @@
 # EPIC 002 — App composition — stories
 
 Epic: `.agent/plan/epics/002-app-composition.md`
-Prereq: EPIC 001 (sequence order). `lib/api/` must exist and answer `api.system.health()`.
+Prereq: EPIC 001 and EPIC 001.1 (sequence order). `lib/api/` must exist, answer `api.system.health()`,
+and carry `DaemonEndpoint`, `endpoint()`, `tokenOf(id)` and the pinning interceptors.
+
+> **STOP — Stories `01`, `02` and `03` are SUPERSEDED and must not be implemented.**
+>
+> The owner decided on 2026-08-10 that the product holds **more than one daemon**. EPIC 002 was
+> re-authored around a daemon registry, and the three Stories below still describe the scalar draft:
+> one base URL under `kanthord.base_url`, one token under `kanthord.daemon_token`, and an injection
+> root that registers them. Every one of those contracts is gone.
+>
+> Nothing was implemented against them, so there is no migration. They stay on disk only as the
+> record of what was replaced.
+>
+> **Re-expand `01`, `02` and `03` with `/author` before `/work` starts.** The new Stories are the
+> first five bullets of the re-authored EPIC: the `Daemon` model, the credential store, the daemon
+> registry, the selected-daemon provider, and the injection root. Stories `04` through `08` stand,
+> with the two amendments noted under "Amendments" below.
 
 After these eight Stories, `get_it` holds one `KanthordApi`, the token and the base URL have a store
 each, `go_router` replaces `home: KDGalleryPage(...)`, and the two mobile targets declare the
@@ -71,6 +87,16 @@ in commit `365fb2c`.
 `06` delivers no `PASS` marker. The EPIC lists the `lib` must not import `test` rule under
 **Hermetic coverage required beyond the Proof**, and `PASS 002-G4-NAVIGATION` is the
 `Navigator.push` grep that `scripts/arch-check.sh:70-71` already implements.
+
+## Amendments — 2026-08-10
+
+- **Story `04` (the router).** `main()` must `await getIt<DaemonRegistryType>().seedDefault()` before
+  `runApp`, and `BootPage` becomes the splash entrypoint of EPIC 003 Story `09`. The three route
+  paths and the `GoRoute(` grep are unchanged.
+- **Story `05` (the env classes).** `Env.apiEndpoint` is now read by the registry seed of G5, not by
+  a connect field default. `test/app/env_test.dart` keeps its guard that
+  `lib/app/settings/` holds no `Env.` reference **except** the registry seed.
+- Stories `06`, `07` and `08` are unchanged.
 
 ## Decisions this expansion makes
 

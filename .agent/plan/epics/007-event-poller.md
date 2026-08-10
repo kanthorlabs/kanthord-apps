@@ -53,9 +53,18 @@ one changes the public API, so none of them may be re-opened at build time.
 - No visibility detection and no tab lifecycle. Those need Flutter, and the poller imports none. The
   bloc that owns the handler handles them.
 - No cursor persistence store. This epic takes the starting cursor as an argument. The bloc persists
-  the last **accepted** id and scopes it to the base URL, in the feature that needs one. A cursor from
-  another daemon is a meaningless bound in this one, and it stalls the poller silently. Read the
-  `after` section of `docs/api/conventions.md`.
+  the last **accepted** id, in the feature that needs one. A cursor from another daemon is a
+  meaningless bound in this one, and it stalls the poller silently. Read the `after` section of
+  `docs/api/conventions.md`.
+
+  **Amended 2026-08-10 — the cursor scope.** The product holds more than one daemon, and a daemon has
+  a stable `id` with an **editable** `baseUrl`. Scoping by base URL alone loses continuity on a
+  harmless spelling change; scoping by id alone survives an edit that re-points the entry at a
+  different machine, which is worse. The scope is therefore **the pair**: a persisted cursor is keyed
+  by daemon `id` and carries the `baseUrl` it was recorded against, and it is discarded when that
+  `baseUrl` no longer matches the entry. EPIC 002 G3 makes `id` stable and EPIC 003.1 G5 clears
+  `confirmedAt` on the same edit, so the two invalidations agree.
+
 - No exactly-once delivery. A consumer that dies between the page and the acknowledgement sees that
   page again, and a handler that mutates must tolerate a repeat.
 - No cursor validation and no invalid-cursor state. `after` is an exclusive lower bound — `id > after`

@@ -10,11 +10,14 @@ proves them against `GET /v1/health`, and renders the only real data the daemon 
 - **G1** — `lib/features/daemon_connect/` follows the feature layout of `CLAUDE.md`: a barrel of
   routes, `daemon_connect_routes.dart` with `@TypedGoRoute`, and a `connect/` screen with a bloc, a
   `@freezed` sealed state, a page and its widgets.
-- **G2** — `ConnectBloc` takes `KanthordApi`, `TokenProviderType` and `BaseUrlProviderType`. It calls
-  the SDK directly. There is no repository and no use case.
-- **G3** — The probe runs against a **candidate** configuration. The entered base URL and token are
-  written to the stores only after a `200`. A failed probe leaves the previous working configuration
-  in place.
+- **G2** — `ConnectBloc` takes `KanthordApi`, `DaemonRegistryType` and `DaemonCredentialStoreType`. It
+  calls the SDK directly. There is no repository and no use case. Amended 2026-08-10: EPIC 001.1 adds
+  `KanthordApi.withCandidate`, so the bloc takes the registered client and still probes a candidate;
+  EPIC 002 replaces the two scalar stores with the registry and the credential store.
+- **G3** — The probe runs against a **candidate** configuration built by
+  `api.withCandidate(baseUrl:, token:)`. The entered base URL and token are written to the registry
+  and the credential store only after a `200`, and that write also sets the daemon's `confirmedAt`. A
+  failed probe leaves the previous working configuration in place.
 - **G4** — The probe renders four outcomes as four states: a `200` proves the URL, the `Host` allow
   list and the token together; a `401` names the token; a `403` names the daemon configuration and
   shows the host the client sent and the config key; a connection failure names the URL.
@@ -24,8 +27,12 @@ proves them against `GET /v1/health`, and renders the only real data the daemon 
   clear text and it never expires.
 - **G7** — A connected state renders the `system.health` body: the roll-up plus every dependency, in
   the order the daemon returned them, with `not-implemented` rendered as neither `ok` nor a failure.
-- **G8** — A settings destination replaces both values, and an unauthorized state shows the current
-  base URL and offers to re-enter the token. Only an explicit action clears the token.
+- **G8** — A settings destination replaces the selected daemon's values, and an unauthorized state
+  shows that daemon's name and base URL and offers to re-enter the token. Only an explicit action
+  clears the token.
+- **G9** — Every screen in this epic acts on **the selected daemon**. When `selected()` is null the
+  screen renders the unselected state and calls no daemon. Adding, switching and removing a daemon are
+  EPIC 003.1.
 
 ## Non-goals
 
@@ -33,6 +40,9 @@ proves them against `GET /v1/health`, and renders the only real data the daemon 
   named `agent-chat`. `docs/api/blockers.md` R1.
 - No second feature. The feature after this one is owner decision D1, and every candidate is gated on
   engine work.
+- No daemon list, no switcher, no add and no remove. **EPIC 003.1** owns every one, it is mandatory,
+  and multi-daemon is not delivered until it ships. This epic provisions and proves the **selected**
+  daemon only.
 - No read screen over the graph. `project.list`, `node.list`, `edge.list` and `event.list` answer
   `501`.
 - No poller subscription. Nothing on this screen changes over time.
@@ -76,10 +86,14 @@ reviewer-engineer judgement and it is named in the review, not in the gate.
 
 Hermetic coverage required beyond the Proof:
 
-- The bloc test mocks `KanthordApi` and mocks no repository, because none exists.
-- A `401` leaves the stored token in place. The test reads the store after the probe.
-- A failed probe leaves the stored base URL in place.
+- The bloc test drives a **real `KanthordApi` over a mocked transport** and mocks no repository,
+  because none exists. Amended 2026-08-10: `KanthordApi` and `SystemResource` are `final class`, so
+  neither can be mocked. The seam is `test/api/dio_mock_adapter.dart` under the `adapterFactory` of
+  EPIC 001.1 G8.
+- A `401` leaves the stored token in place. The test reads the credential store after the probe.
+- A failed probe leaves the selected daemon's base URL and `confirmedAt` in place.
 - The four outcomes are asserted on the state, never on a rendered string.
+- A commit that fails halfway restores the daemon entry and the credential it replaced.
 
 These are `NEEDS-HUMAN:` items. `make verify` is headless and proves none of them. **The first one
 gates this epic. The rest are carried forward.**

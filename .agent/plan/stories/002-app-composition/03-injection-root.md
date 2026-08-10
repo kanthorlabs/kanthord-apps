@@ -1,5 +1,9 @@
 # Story 03 — the injection root
 
+> **SUPERSEDED on 2026-08-10 — do not implement.** The product holds more than one daemon.
+> Read the STOP block in `index.md` and the re-authored `.agent/plan/epics/002-app-composition.md`.
+> This file is the record of the scalar draft it replaced.
+
 Epic: `.agent/plan/epics/002-app-composition.md`
 Depends on: Story 01, Story 02. EPIC 001 Story 10 (`lib/api/api.dart` exists).
 
