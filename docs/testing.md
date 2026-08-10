@@ -53,21 +53,22 @@ reason, so never construct `Dio` inside a resource class.
 
 Assert three things per method: the request path, the request body, and the decoded model.
 
-### The SSE parser
+### The event poller
 
-The wire format is stricter than it looks. Cover every one of these cases:
+Nothing streams, so there is no framing parser to test. Read `docs/api/polling.md` for the protocol
+and `docs/api/parallel-development.md` for the mock daemon the poller runs against.
 
-| Case                                             | What it proves                                                                     |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| A multiline `data:`                              | The values join with a newline, in order                                           |
-| A `\r\n` stream                                  | All three line breaks are accepted: `\n`, `\r\n`, `\r`                             |
-| A comment heartbeat                              | A line starting with `:` is skipped, not parsed                                    |
-| A multi-byte character split across two chunks   | Decoding is incremental through a `StreamTransformer`, not `utf8.decode` per chunk |
-| An unknown field name                            | It is ignored, and nothing throws                                                  |
-| A stream that ends without a trailing blank line | The trailing partial event is discarded                                            |
+| Case                                       | What it proves                                                   |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| A page of events followed by an empty page | The cursor advances once per delivered event and then holds      |
+| A restart with a stored cursor             | Delivery resumes after the last delivered event, never before it |
+| An empty `200` after the wait elapses      | A quiet daemon is not an error and does not reset the cursor     |
+| A dropped connection mid-poll              | The poller backs off and retries; it delivers no duplicate event |
+| A cancelled poller                         | The loop stops and issues no further request                     |
+| Two pages where the second repeats an id   | A duplicate is dropped, because delivery is at-least-once        |
 
-Also assert that a blank line dispatches the buffered event and that a field line alone dispatches
-nothing.
+The four failure classes in `docs/api/polling.md` are distinct states, not one error. Assert that an
+unreachable daemon, an unauthorized poll, a quiet daemon and a cancelled poller are told apart.
 
 ### The auth interceptor
 

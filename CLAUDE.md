@@ -123,7 +123,6 @@ api/
 ├── api_config.dart           # base URL per platform, timeouts, headers
 ├── token_provider.dart       # abstract TokenProviderType, Dart only
 ├── interceptors/             # auth, retry, logging
-├── sse/                      # streaming client, native and web
 ├── models/                   # @freezed + @JsonSerializable, one file per model
 └── resources/                # one file per API resource group
 ```
@@ -136,9 +135,9 @@ Rules:
   keeps it testable and keeps it extractable into its own package later.
 - One resource class per REST resource group. Group by the server path, not by the screen.
 - One method maps to one endpoint. Name it after the action: `list`, `get`, `create`, `update`,
-  `delete`, `send`, `stream`.
-- A method returns the model, or `Stream<T>` when the endpoint streams. It never returns a raw
-  `Response` and never returns a `Map`.
+  `delete`, `send`.
+- A method returns the model. It never returns a `Stream`, never a raw `Response`, and never a
+  `Map`. **Nothing in this product streams.** Read `docs/api/polling.md`.
 - A method throws a typed `ApiException`. It never returns an error object. Do not use `Either`
   and do not use `Result`.
 - Models live in `models/` and are shared by every resource. Do not duplicate a model per
@@ -221,7 +220,7 @@ Format: `type(scope): subject`.
 
 ```
 feat(api): add the sessions resource
-fix(sse): join a multiline data field in order
+fix(polling): restart the cursor at the last delivered event
 ```
 
 Types: `feat`, `fix`, `chore`, `refactor`, `test`, `docs`, `style`, `perf`, `ci`, `build`.

@@ -6,7 +6,7 @@ no framing parser, no `SseClientType`, no conditional import, no browser `fetch`
 
 ## Why long polling, not SSE
 
-Three reasons, and the first is decisive for a six-target client.
+Four reasons, and the first is decisive for a six-target client.
 
 1. **A browser cannot use `EventSource` against this API.** `EventSource` cannot set an
    `Authorization` header, and the daemon requires a bearer token on every route and uses no cookie.
@@ -15,6 +15,10 @@ Three reasons, and the first is decisive for a six-target client.
 2. **There is no stream to consume.** `GET /v1/event/stream` is `post-mvp` and answers `404`. The
    daemon-side wait the engine will add is a filtered `GET` on `event.list`, not a stream.
 3. **One code path on six platforms.** Long polling runs on the ordinary Dio adapter everywhere.
+4. **The connection is not stable.** The daemon runs on a host the client reaches over a link that
+   drops. SSE holds one long-lived connection and rebuilds its whole delivery guarantee on
+   reconnection; long polling treats every poll as a fresh request and carries the cursor, so a drop
+   costs one retry and never a lost event.
 
 Long polling is not free on web. Read "Web behaviour" below before scoping a screen around it.
 
