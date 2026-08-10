@@ -21,6 +21,7 @@ targets:
       go_router_builder:go_router_builder:
         enabled: true
         generate_for:
+          - lib/app/**_routes.dart
           - lib/features/**_routes.dart
       envied_generator:envied:
         enabled: true
