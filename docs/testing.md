@@ -40,9 +40,15 @@ void main() {
 
 ## What to mock
 
-- Mock `KanthordApi` in a bloc test.
+- **Mock the transport, never `KanthordApi`.** A bloc test builds a real `KanthordApi` over a `Dio`
+  that uses a mock adapter. `KanthordApi` and `SystemResource` are `final class`, so a Dart library
+  outside `lib/api/` cannot implement either one and `@GenerateMocks([KanthordApi])` does not
+  compile. The seam is `test/api/dio_mock_adapter.dart`, and it proves more: the request path, the
+  bearer token, the decoded model and the `ApiException` the bloc maps to state.
 - **Do not mock a repository.** None exists. Read `CLAUDE.md` for the no-Clean-Architecture rule.
 - Do not mock a `KD` component. Render it.
+- Mock a store. `DaemonRegistryType` and `DaemonCredentialStoreType` are abstract, and a fake or a
+  `mockito` mock of either is correct.
 
 ## Testing the SDK
 
@@ -52,6 +58,10 @@ Test it with a `Dio` that uses a mock adapter. `KanthordApi` takes an optional `
 reason, so never construct `Dio` inside a resource class.
 
 Assert three things per method: the request path, the request body, and the decoded model.
+
+When the code under test creates its own client — a bloc that probes a candidate through
+`KanthordApi.withCandidate` — pass `adapterFactory` to the parent instead. The candidate inherits the
+factory, so the mock adapter reaches a client the test never touches.
 
 ### The event poller
 
