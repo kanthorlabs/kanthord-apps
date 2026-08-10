@@ -24,7 +24,7 @@ else
 endif
 
 .PHONY: help bootstrap generate generate-lib generate-test format format-check \
-	analyze arch-check test pipeline-test verify clean \
+	analyze arch-check test test-one pipeline-test verify clean \
 	dev run-ios run-android run-macos run-windows run-linux run-web
 
 # The development host is Chrome. The daemon matches an origin exactly, so the
@@ -43,6 +43,7 @@ help:
 	@echo "  format-check  Fail when a file is not formatted. Run it before you push"
 	@echo "  analyze       Run the static analyzer"
 	@echo "  test          Run the Flutter test suite"
+	@echo "  test-one      Run one test file: make test-one T=<path>"
 	@echo "  arch-check    Check the mechanical CLAUDE.md and DESIGNS.md rules over lib/"
 	@echo "  pipeline-test Run the TDD pipeline guard self-tests"
 	@echo "  verify        The full gate: format-check, analyze, arch-check, test, pipeline-test"
@@ -108,6 +109,9 @@ analyze:
 
 test:
 	$(FLUTTER) test
+
+test-one:
+	$(FLUTTER) test $(T)
 
 arch-check:
 	scripts/arch-check.sh
