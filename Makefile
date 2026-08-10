@@ -25,7 +25,12 @@ endif
 
 .PHONY: help bootstrap generate generate-lib generate-test format format-check \
 	analyze arch-check test pipeline-test verify clean \
-	run-ios run-android run-macos run-windows run-linux run-web
+	dev run-ios run-android run-macos run-windows run-linux run-web
+
+# The development host is Chrome. The daemon matches an origin exactly, so the
+# port is pinned and never random. Read docs/api/connectivity.md.
+WEB_PORT ?= 8080
+WEB_ORIGIN := http://localhost:$(WEB_PORT)
 
 help:
 	@echo "Kanthord targets (host: $(HOST), flutter: $(FLUTTER))"
@@ -48,7 +53,8 @@ help:
 	@echo "  run-macos     Run on macOS"
 	@echo "  run-windows   Run on Windows"
 	@echo "  run-linux     Run on Linux"
-	@echo "  run-web       Run on Chrome"
+	@echo "  run-web       Run on Chrome at $(WEB_ORIGIN). The development host"
+	@echo "  dev           Alias for run-web. The default development loop"
 
 bootstrap:
 ifeq ($(FVM_FOUND),)
@@ -133,5 +139,10 @@ run-windows:
 run-linux:
 	$(FLUTTER) run -d linux
 
+# dev is the default development loop: Chrome at the pinned port, no simulator
+# and no emulator. The daemon needs KANTHORD_HTTP_ALLOWED_ORIGINS=$(WEB_ORIGIN).
+dev: run-web
+
 run-web:
-	$(FLUTTER) run -d chrome
+	@echo "origin: $(WEB_ORIGIN)  (the daemon must allow it)"
+	$(FLUTTER) run -d chrome --web-port=$(WEB_PORT) --web-hostname=localhost

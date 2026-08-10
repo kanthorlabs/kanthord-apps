@@ -44,7 +44,8 @@ the pinned Flutter and a bare `flutter` call may not.
 | `make pipeline-test`                                                                                  | Run the TDD pipeline guard self-tests                                                           |
 | `make verify`                                                                                         | The full gate: `format-check`, `analyze`, `arch-check`, `test`, `pipeline-test`                 |
 | `make clean`                                                                                          | Delete the build output and the generated files                                                 |
-| `make run-ios` `make run-android` `make run-macos` `make run-windows` `make run-linux` `make run-web` | Run on one platform                                                                             |
+| `make dev`                                                                                            | The development loop: Chrome at `http://localhost:8080`. No simulator and no emulator           |
+| `make run-ios` `make run-android` `make run-macos` `make run-windows` `make run-linux` `make run-web` | Run on one platform. `run-web` pins `--web-port=8080`                                           |
 | `make help`                                                                                           | List every target                                                                               |
 
 The `Makefile` works on macOS, Windows, and Linux. No target other than `bootstrap` calls a
@@ -109,17 +110,20 @@ code in three files.
 per-target host table, the daemon configuration keys, the platform traps and the browser rules. Four
 facts from it that change how you run the app:
 
-- **There is no default port and no default base URL.** The daemon requires `KANTHORD_HTTP_PORT` and has
-  no default, so the human enters the base URL per install. `http://localhost:31415` appeared in an
-  earlier draft and that port was invented.
+- **The port is `31415` by convention.** The daemon serves `http://127.0.0.1:31415` and
+  `http://localhost:31415`. `KANTHORD_HTTP_PORT` still has no daemon default, so an operator always
+  sets it. The client prefills the base URL field with the convention and never falls back to it
+  silently.
 - **`localhost` is the device.** A physical phone needs the development machine's LAN address, and the
-  daemon must bind a non-loopback address to answer it. The Android emulator uses `10.0.2.2`.
-- **Web needs the daemon to list the page origin.** Run the web build on a pinned port —
-  `flutter run -d chrome --web-port=8080` — and set `KANTHORD_HTTP_ALLOWED_ORIGINS` on the daemon to
-  match. An unlisted origin is `403 origin-forbidden`, and in a browser that failure is
-  indistinguishable from the daemon being down.
-- **Cleartext HTTP needs a platform exception** on Android and iOS, scoped to the configured host. This
-  repository does not add it yet.
+  daemon must bind a non-loopback address to answer it. The Android emulator uses `10.0.2.2:31415`.
+- **Web needs the daemon to list the page origin.** `make dev` runs Chrome on the pinned port, and the
+  daemon needs `KANTHORD_HTTP_ALLOWED_ORIGINS=http://localhost:8080`. An unlisted origin is
+  `403 origin-forbidden`, and in a browser that failure is indistinguishable from the daemon being
+  down.
+- **The `Host` allow list matches the whole header, port included.** `localhost:31415` and
+  `127.0.0.1:31415` are two entries and neither covers the other.
+- **Cleartext HTTP needs a platform exception** on Android and iOS, permitted to any host in every
+  build variant. This repository does not add it yet.
 
 An HTTPS production web bundle cannot call a plain-HTTP daemon directly. It goes through a reverse proxy
 that serves the bundle and forwards a same-origin path. There is no SSE and no streaming, so no proxy

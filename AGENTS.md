@@ -14,13 +14,38 @@ product produces any.
 
 Six platforms: iOS, Android, macOS, Windows, Linux, web.
 
-| Parameter    | Value                                                                         |
-| ------------ | ----------------------------------------------------------------------------- |
-| Package name | `kanthord`                                                                    |
-| Display name | `KanthorD`                                                                    |
-| Organization | `com.kanthorlabs.kanthord`                                                    |
-| Flutter      | 3.44.8, pinned in `.fvmrc`                                                    |
-| API base URL | No default. The human enters it, per install. Read `docs/api/connectivity.md` |
+| Parameter    | Value                                                                      |
+| ------------ | -------------------------------------------------------------------------- |
+| Package name | `kanthord`                                                                 |
+| Display name | `KanthorD`                                                                 |
+| Organization | `com.kanthorlabs.kanthord`                                                 |
+| Flutter      | 3.44.8, pinned in `.fvmrc`                                                 |
+| API base URL | `http://localhost:31415` by convention. Prefilled, never a silent fallback |
+
+## The development host is Chrome, and the target layout is desktop
+
+**Run the app with `make dev`.** It is Chrome at `http://localhost:8080`, and it needs no simulator
+and no emulator. The port is pinned, because the daemon matches an allowed origin exactly. Start the
+daemon with the four variables below, and read `docs/api/connectivity.md`.
+
+```bash
+KANTHORD_HTTP_PORT=31415
+KANTHORD_HTTP_ALLOWED_HOSTS=127.0.0.1:31415,localhost:31415
+KANTHORD_HTTP_ALLOWED_ORIGINS=http://localhost:8080
+KANTHORD_HTTP_TOKEN=<the value you type into the client>
+```
+
+The client then connects to `http://localhost:31415`, which the connect field already shows. The port
+is a convention both repositories keep, not a daemon default — the daemon still requires
+`KANTHORD_HTTP_PORT`.
+
+A browser window is a desktop window, so `make dev` resolves the `expanded` layout family above
+`840` and `wide` between `600` and `840`. **Design and verify a page at `expanded` first.** `mobile`
+is still a supported family and still verified — read `DESIGNS.md` — and it is not the family the
+daily loop shows you.
+
+`make run-macos`, `make run-ios`, `make run-android`, `make run-windows` and `make run-linux` still
+exist. None of them is required by any gate, and none of them is the development loop.
 
 ## Where the rules live
 
