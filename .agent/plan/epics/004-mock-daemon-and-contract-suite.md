@@ -2,6 +2,10 @@
 
 Status: **ready**.
 
+Depends on EPIC 001, and its last Story depends on EPIC 002 Story 03. The composition-root guard of
+G7 inspects the registrations `configureDependencies` makes, so it cannot run before
+`lib/app/injection.dart` exists. Every other Story needs nothing from EPIC 002.
+
 `docs/api/parallel-development.md` is binding: the client builds against a fixture-backed HTTP daemon
 on loopback, never against a fake `KanthordApi`. This epic builds that daemon, the suite that runs
 against it on every `make test`, and the three release-safety guards that need no integration
@@ -29,7 +33,7 @@ harness.
   operations only.
 - **G7** — Three release-safety guards hold: every fixture lives under `test/`, no file under `lib/`
   imports a path under `test/`, and the production composition root resolves no type from the
-  simulated set.
+  simulated set. The third guard needs EPIC 002 Story 03.
 
 ## Non-goals
 

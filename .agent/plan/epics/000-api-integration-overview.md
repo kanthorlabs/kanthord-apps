@@ -38,12 +38,15 @@ the whole transport against a real daemon before it writes 21 models against han
 | 001 — Transport foundation           | `ApiConfig`, `ApiException`, `TokenProviderType`, auth, `system.*`  | none       |
 | 002 — App composition                | `get_it`, `go_router`, token store, base URL store, env             | 001        |
 | 003 — `daemon_connect`               | The provisioning flow, live against `GET /v1/health`                | 002        |
-| 004 — Mock daemon and contract suite | A fixture-backed daemon on loopback, the four-part suite            | 001        |
+| 004 — Mock daemon and contract suite | A fixture-backed daemon on loopback, the four-part suite            | 001, 002.3 |
 | 005 — Interceptor stack              | Retry, idempotency, redacting logger                                | 004        |
 | 006 — Models and resources           | Every schema-carrying operation, nine resource classes, `blob.show` | 005        |
 | 007 — Event poller                   | `lib/api/polling/`, the acknowledged handler, `PollerStatus`        | 006        |
 
-004 may start as soon as 001 lands and runs beside 002 and 003.
+004 may start as soon as 001 lands and runs beside 002 and 003. Its last Story is the exception:
+the composition-root guard of G7 inspects the registrations `configureDependencies` makes, so it
+needs EPIC 002 Story 03. Ten of the eleven Stories need nothing from 002. `002.3` in the table means
+that one Story, not the whole EPIC.
 
 ## What the set does not do
 

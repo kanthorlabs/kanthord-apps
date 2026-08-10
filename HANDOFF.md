@@ -190,6 +190,14 @@ Read `docs/api/parallel-development.md` first. This is a summary of it, not a re
   exposes the resource groups so a call site reads as an SDK.
 - **The contract suite runs from day one**, against the mock, on every `make test`. It is never a skipped
   test. The same suite runs against a live daemon per operation as each handler lands.
+- **Three mock scenarios are deferred to the epic that builds the graph screen.**
+  `docs/api/parallel-development.md:98-107` asks for a node in every state with **each of the five
+  block reasons**, a **waived edge**, and a **large graph for layout**. EPIC 004 builds one
+  `blocked-node` scenario and neither of the other two, because nothing consumes them yet —
+  `lib/features/` is empty. Each one is a fixture directory derived from a published example, and
+  none needs a model, because the mock serves raw JSON and decodes nothing. Build them with the
+  screen that reads them, and derive each from `docs/api/contract/examples/node.list.json` or
+  `edge.list.json` with a declared parent, exactly as `test/mock_daemon/scenarios/` already does.
 
 ### 4c. Deleted, not blocked
 
