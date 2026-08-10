@@ -1,0 +1,20 @@
+{
+  "success": {
+    "projects": [
+      {
+        "id": "project_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "name": "atlas",
+        "repositories": [
+          "repo_01JQ8Z7G3HZZZZZZZZZZZZZZZZ"
+        ],
+        "updatedAt": 1738368000000
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "service-unavailable",
+      "message": "the daemon is shutting down"
+    }
+  }
+}

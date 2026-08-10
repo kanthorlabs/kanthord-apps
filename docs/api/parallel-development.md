@@ -13,7 +13,11 @@ view-model layer. Read "The SDK is thin" below for the design and the trade it a
 ## What the daemon can do today
 
 Two operations: `GET /v1/health` and `GET /v1/db/status`. Every other declared operation answers
-`501 not-implemented`, and only those two carry a schema. Read [README.md](README.md).
+`501 not-implemented`. Read [README.md](README.md).
+
+A schema is a separate question from a handler, and the two have separated. 23 of 54 operations now
+carry a schema and a validated example in `contract/`, and most of them still answer `501`. So a model
+is buildable long before its screen has a daemon behind it.
 
 So integration is not a step at the end. It is one operation at a time, as each handler lands.
 
@@ -43,16 +47,27 @@ beside it rather than a guess:
 - **Logging** must never print a bearer token, an `Idempotency-Key`, a credential in a
   `provider.register` body, or a `credential-rejected` detail. Redact by field name, and add a test.
 
-### Lane B — needs one short engine increment
+### Lane B — open for 23 operations, waiting for 31
 
-`lib/api/models/`. The engine can author zod request and response schemas **without implementing a single
-handler**, because its architecture already puts every schema in `src/http/contract/`. That is the
-cheapest real unblock, and it is specified in
-`kanthord-engine/.agent/plan/epics/004.5-contract-schemas.md`.
+`lib/api/models/`. The engine authors zod request and response schemas **without implementing a single
+handler**, because its architecture already puts every schema in `src/http/contract/`. That is
+`kanthord-engine/.agent/plan/epics/004.5-contract-schemas.md`, and its first slice has landed.
 
-When those schemas exist, the client generates or hand-writes each model against a published artifact
-rather than against prose, and the mock daemon serves the examples the engine authored. One model per
-wire shape — there is no DTO-and-model pair, because there is no mapping layer.
+**Open now.** Write the model, the resource method and the decode test for every operation that carries
+a schema in `contract/`. Read [README.md](README.md) for the per-feature table. The whole of `system`,
+`project`, `repository`, `plan` and `provider`'s read set is in that group, plus `node.list`,
+`node.show`, `edge.list` and `event.list` — which is `EventPoller`'s wire shape, so lane A's poller can
+now be tested against the real envelope.
+
+Take the shape from `contract/features/<name>.yaml` and the fixture from `contract/examples/<op>.json`.
+Copy an example into `test/mock_daemon/fixtures/` rather than inventing bytes; the engine validated it
+against the schema in a test.
+
+**Still waiting.** `agent`, `attempt`, `binding`, `blob`, `gitOperation`, `instructions`, `profile`,
+`run`, `template`, `worker`, and the operations the table marks as having no schema. The next section
+binds for these.
+
+One model per wire shape — there is no DTO-and-model pair, because there is no mapping layer.
 
 ### Lane C — waits, and cannot be simulated away
 
@@ -94,14 +109,16 @@ Requirements:
 A small in-memory fake of a resource interface is still fine for a **bloc unit test**. It is not the
 integration surrogate.
 
-## Do not write a model before lane B lands
+## Do not write a model for an operation that has no schema
 
-The right answer to "the schemas do not exist yet" is **sequence, not architecture**. EPIC 004.5 depends
-only on the engine's domain enums and its route registry, both of which are complete and committed, and
-it writes no behaviour and touches no database. So it lands quickly, and a model written against it is
-written against an authored schema rather than against prose.
+The right answer to "this schema does not exist yet" is **sequence, not architecture**. EPIC 004.5
+depends only on the engine's domain enums and its route registry, both of which are complete and
+committed, and it writes no behaviour and touches no database. So each slice lands quickly, and a model
+written against it is written against an authored schema rather than against prose.
 
-Write no model until it does. Lane A is weeks of work and none of it needs a shape.
+The rule is per operation, not per repository. A schema in `contract/` is authority: build on it today.
+An operation absent from the schema table has none, so write no model for it and wait for the next
+snapshot. Lane A still holds weeks of work that needs no shape at all.
 
 Four things prose cannot tell you, and each is a real wire decision the engine must make: required
 versus optional, absent versus explicitly `null`, whether an enum is closed, and the shape of `details`
@@ -185,8 +202,7 @@ So the protections that matter are contract controls, not application layers:
   unknown enum values and the error envelope.
 - State the compatibility policy. [blockers.md](blockers.md) E6.
 - Detect a breaking change between two published artifacts. This one needs CI, which this repository
-  does not have yet, so until then the pinned commit plus the checksum in [README.md](README.md) is the
-  mechanism.
+  does not have yet, so until then the commit pinned in `contract/manifest.json` is the mechanism.
 
 ## Contract tests are executable now, and never skipped
 

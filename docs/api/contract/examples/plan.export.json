@@ -1,0 +1,17 @@
+{
+  "success": {
+    "revision": "revision_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "documents": [
+      {
+        "path": "initiative/atlas.md",
+        "content": "# atlas\n"
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "not-found",
+      "message": "no project project_01JQ8Z7G3HZZZZZZZZZZZZZZZZ"
+    }
+  }
+}

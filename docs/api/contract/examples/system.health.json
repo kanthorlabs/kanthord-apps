@@ -1,0 +1,17 @@
+{
+  "success": {
+    "status": "ok",
+    "dependencies": [
+      {
+        "name": "storage",
+        "status": "ok"
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "service-unavailable",
+      "message": "the daemon is shutting down"
+    }
+  }
+}

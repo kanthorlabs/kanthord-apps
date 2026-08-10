@@ -127,8 +127,8 @@ Two formatters, one command. `make format` runs both, and `make format-check` fa
 | `*.{md,json,yml,yaml,mjs,js}` | `prettier`                                        | `.prettierrc.json`, print width 100     |
 
 `.prettierignore` holds what prettier must not touch. Three entries earn their place: `pubspec.yaml`,
-because the Flutter tooling owns it; `docs/api/openapi.yaml`, because the engine generates it
-canonically and a reformat breaks the checksum recorded in `docs/api/README.md`; and every platform
+because the Flutter tooling owns it; `docs/api/contract/`, because the engine generates it
+canonically and `publish-contract.ts` overwrites it on every refresh; and every platform
 directory, because their files are generated.
 
 **A `pre-commit` hook runs both on staged files**, through `husky` plus `lint-staged`.

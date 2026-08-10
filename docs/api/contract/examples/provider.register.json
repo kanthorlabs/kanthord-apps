@@ -1,0 +1,33 @@
+{
+  "request": {
+    "name": "github",
+    "kind": "git",
+    "payload": {
+      "transport": "http-basic",
+      "forge": "github",
+      "username": "atlas",
+      "password": "x"
+    }
+  },
+  "success": {
+    "id": "provider_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "name": "github",
+    "kind": "git",
+    "projection": {
+      "transport": "http-basic",
+      "forge": "github",
+      "username": "atlas"
+    },
+    "setDefaultAt": null,
+    "updatedAt": 1738368000000
+  },
+  "error": {
+    "error": {
+      "code": "invalid-request",
+      "message": "a provider named github is already registered",
+      "details": {
+        "refusal": "name-taken"
+      }
+    }
+  }
+}

@@ -1,0 +1,818 @@
+openapi: 3.0.3
+info:
+  title: kanthord
+  version: 27.8.1
+security:
+  - bearerAuth: []
+paths:
+  /v1/provider:
+    get:
+      operationId: provider.list
+      responses:
+        "200":
+          description: provider.list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/provider.list.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/provider.list.error"
+    post:
+      operationId: provider.register
+      responses:
+        "200":
+          description: provider.register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/provider.register.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/provider.register.error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/provider.register.request"
+  /v1/provider/{id}:
+    delete:
+      operationId: provider.remove
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: provider.show
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: provider.show
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/provider.show.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/provider.show.error"
+  /v1/provider/{id}/default:
+    put:
+      operationId: provider.setDefault
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/provider/{id}/rename:
+    post:
+      operationId: provider.rename
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    provider.list.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    provider.list.response:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              kind:
+                type: string
+                enum:
+                  - llm
+                  - git
+              projection:
+                nullable: true
+                anyOf:
+                  - type: object
+                    properties:
+                      provider:
+                        type: string
+                      defaultModel:
+                        type: string
+                      baseUrl:
+                        nullable: true
+                        type: string
+                    required:
+                      - provider
+                      - defaultModel
+                      - baseUrl
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      transport:
+                        type: string
+                        enum:
+                          - http-basic
+                          - ssh
+                      forge:
+                        nullable: true
+                        type: string
+                        enum:
+                          - github
+                          - gitlab
+                          - bitbucket
+                      username:
+                        nullable: true
+                        type: string
+                    required:
+                      - transport
+                      - forge
+                      - username
+                    additionalProperties: false
+              setDefaultAt:
+                nullable: true
+                type: number
+              updatedAt:
+                type: number
+            required:
+              - id
+              - name
+              - kind
+              - projection
+              - setDefaultAt
+              - updatedAt
+            additionalProperties: false
+      required:
+        - providers
+      additionalProperties: false
+    provider.register.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    provider.register.request:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        kind:
+          type: string
+          enum:
+            - llm
+            - git
+        payload: {}
+      required:
+        - name
+        - kind
+        - payload
+      additionalProperties: false
+    provider.register.response:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - llm
+            - git
+        projection:
+          nullable: true
+          anyOf:
+            - type: object
+              properties:
+                provider:
+                  type: string
+                defaultModel:
+                  type: string
+                baseUrl:
+                  nullable: true
+                  type: string
+              required:
+                - provider
+                - defaultModel
+                - baseUrl
+              additionalProperties: false
+            - type: object
+              properties:
+                transport:
+                  type: string
+                  enum:
+                    - http-basic
+                    - ssh
+                forge:
+                  nullable: true
+                  type: string
+                  enum:
+                    - github
+                    - gitlab
+                    - bitbucket
+                username:
+                  nullable: true
+                  type: string
+              required:
+                - transport
+                - forge
+                - username
+              additionalProperties: false
+        setDefaultAt:
+          nullable: true
+          type: number
+        updatedAt:
+          type: number
+      required:
+        - id
+        - name
+        - kind
+        - projection
+        - setDefaultAt
+        - updatedAt
+      additionalProperties: false
+    provider.show.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    provider.show.response:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - llm
+            - git
+        projection:
+          nullable: true
+          anyOf:
+            - type: object
+              properties:
+                provider:
+                  type: string
+                defaultModel:
+                  type: string
+                baseUrl:
+                  nullable: true
+                  type: string
+              required:
+                - provider
+                - defaultModel
+                - baseUrl
+              additionalProperties: false
+            - type: object
+              properties:
+                transport:
+                  type: string
+                  enum:
+                    - http-basic
+                    - ssh
+                forge:
+                  nullable: true
+                  type: string
+                  enum:
+                    - github
+                    - gitlab
+                    - bitbucket
+                username:
+                  nullable: true
+                  type: string
+              required:
+                - transport
+                - forge
+                - username
+              additionalProperties: false
+        setDefaultAt:
+          nullable: true
+          type: number
+        updatedAt:
+          type: number
+      required:
+        - id
+        - name
+        - kind
+        - projection
+        - setDefaultAt
+        - updatedAt
+      additionalProperties: false

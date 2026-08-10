@@ -1,0 +1,1189 @@
+openapi: 3.0.3
+info:
+  title: kanthord
+  version: 27.8.1
+security:
+  - bearerAuth: []
+paths:
+  /v1/repository:
+    get:
+      operationId: repository.list
+      responses:
+        "200":
+          description: repository.list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.list.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.list.error"
+    post:
+      operationId: repository.register
+      responses:
+        "200":
+          description: repository.register
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.register.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.register.error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/repository.register.request"
+  /v1/repository/inspect:
+    post:
+      operationId: repository.inspect
+      responses:
+        "200":
+          description: repository.inspect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.inspect.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.inspect.error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/repository.inspect.request"
+  /v1/repository/{id}:
+    get:
+      operationId: repository.show
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: repository.show
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.show.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/repository.show.error"
+  /v1/repository/{id}/landing-branch:
+    post:
+      operationId: repository.landingBranch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/repository/{id}/publish:
+    post:
+      operationId: repository.publish
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/repository/{id}/reconcile:
+    post:
+      operationId: repository.reconcile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    repository.inspect.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-key-mismatch
+                message:
+                  type: string
+                details:
+                  anyOf:
+                    - type: object
+                      properties:
+                        presented:
+                          type: array
+                          items:
+                            type: string
+                        confirmed:
+                          nullable: true
+                          type: string
+                      required:
+                        - presented
+                        - confirmed
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        failure:
+                          type: string
+                          enum:
+                            - host-key-mismatch
+                      required:
+                        - failure
+                      additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - credential-rejected
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    failure:
+                      type: string
+                      enum:
+                        - auth-failed
+                        - permission-denied
+                  required:
+                    - failure
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    repository.inspect.request:
+      type: object
+      properties:
+        remoteUrl:
+          type: string
+          minLength: 1
+        credentialId:
+          type: string
+          minLength: 1
+      required:
+        - remoteUrl
+        - credentialId
+      additionalProperties: false
+    repository.inspect.response:
+      type: object
+      properties:
+        defaultBranch:
+          nullable: true
+          type: string
+        branches:
+          type: array
+          items:
+            type: string
+        credential:
+          type: object
+          properties:
+            reachable:
+              type: boolean
+            refusal:
+              nullable: true
+              type: string
+          required:
+            - reachable
+            - refusal
+          additionalProperties: false
+        hostKey:
+          nullable: true
+          type: object
+          properties:
+            algorithm:
+              type: string
+            fingerprint:
+              type: string
+          required:
+            - algorithm
+            - fingerprint
+          additionalProperties: false
+      required:
+        - defaultBranch
+        - branches
+        - credential
+        - hostKey
+      additionalProperties: false
+    repository.list.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    repository.list.response:
+      type: object
+      properties:
+        repositories:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              remoteUrl:
+                type: string
+              credential:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                required:
+                  - id
+                  - name
+                additionalProperties: false
+              upstreamBranch:
+                type: string
+              landingBranch:
+                type: string
+              landingRef:
+                type: string
+              trackingRef:
+                type: string
+              publishRef:
+                type: string
+              publishOnApproval:
+                type: boolean
+              state:
+                type: string
+                enum:
+                  - ready
+                  - needs-reconcile
+              landingOid:
+                nullable: true
+                type: string
+              trackingOid:
+                nullable: true
+                type: string
+              fetchedUpstreamOid:
+                nullable: true
+                type: string
+              divergedLandingOid:
+                nullable: true
+                type: string
+              divergedUpstreamOid:
+                nullable: true
+                type: string
+              updatedAt:
+                type: number
+            required:
+              - id
+              - name
+              - remoteUrl
+              - credential
+              - upstreamBranch
+              - landingBranch
+              - landingRef
+              - trackingRef
+              - publishRef
+              - publishOnApproval
+              - state
+              - landingOid
+              - trackingOid
+              - fetchedUpstreamOid
+              - divergedLandingOid
+              - divergedUpstreamOid
+              - updatedAt
+            additionalProperties: false
+      required:
+        - repositories
+      additionalProperties: false
+    repository.register.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-key-mismatch
+                message:
+                  type: string
+                details:
+                  anyOf:
+                    - type: object
+                      properties:
+                        presented:
+                          type: array
+                          items:
+                            type: string
+                        confirmed:
+                          nullable: true
+                          type: string
+                      required:
+                        - presented
+                        - confirmed
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        failure:
+                          type: string
+                          enum:
+                            - host-key-mismatch
+                      required:
+                        - failure
+                      additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - credential-rejected
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    failure:
+                      type: string
+                      enum:
+                        - auth-failed
+                        - permission-denied
+                  required:
+                    - failure
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    repository.register.request:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: ^[a-z0-9][a-z0-9._-]*$
+        remoteUrl:
+          type: string
+          minLength: 1
+        credentialId:
+          type: string
+          minLength: 1
+        upstreamBranch:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._\/-]*$
+        landingBranch:
+          type: string
+          minLength: 1
+          maxLength: 255
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._\/-]*$
+        publishRef:
+          type: string
+          minLength: 1
+          pattern: ^refs\/[A-Za-z0-9][A-Za-z0-9._\/-]*$
+        publishOnApproval:
+          default: true
+          type: boolean
+        hostFingerprint:
+          default: null
+          nullable: true
+          type: string
+          pattern: ^SHA256:[A-Za-z0-9+/]{43}$
+      required:
+        - name
+        - remoteUrl
+        - credentialId
+        - upstreamBranch
+        - landingBranch
+        - publishRef
+      additionalProperties: false
+    repository.register.response:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        remoteUrl:
+          type: string
+        credential:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+          required:
+            - id
+            - name
+          additionalProperties: false
+        upstreamBranch:
+          type: string
+        landingBranch:
+          type: string
+        landingRef:
+          type: string
+        trackingRef:
+          type: string
+        publishRef:
+          type: string
+        publishOnApproval:
+          type: boolean
+        state:
+          type: string
+          enum:
+            - ready
+            - needs-reconcile
+        landingOid:
+          nullable: true
+          type: string
+        trackingOid:
+          nullable: true
+          type: string
+        fetchedUpstreamOid:
+          nullable: true
+          type: string
+        divergedLandingOid:
+          nullable: true
+          type: string
+        divergedUpstreamOid:
+          nullable: true
+          type: string
+        updatedAt:
+          type: number
+      required:
+        - id
+        - name
+        - remoteUrl
+        - credential
+        - upstreamBranch
+        - landingBranch
+        - landingRef
+        - trackingRef
+        - publishRef
+        - publishOnApproval
+        - state
+        - landingOid
+        - trackingOid
+        - fetchedUpstreamOid
+        - divergedLandingOid
+        - divergedUpstreamOid
+        - updatedAt
+      additionalProperties: false
+    repository.show.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    repository.show.response:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        remoteUrl:
+          type: string
+        credential:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+          required:
+            - id
+            - name
+          additionalProperties: false
+        upstreamBranch:
+          type: string
+        landingBranch:
+          type: string
+        landingRef:
+          type: string
+        trackingRef:
+          type: string
+        publishRef:
+          type: string
+        publishOnApproval:
+          type: boolean
+        state:
+          type: string
+          enum:
+            - ready
+            - needs-reconcile
+        landingOid:
+          nullable: true
+          type: string
+        trackingOid:
+          nullable: true
+          type: string
+        fetchedUpstreamOid:
+          nullable: true
+          type: string
+        divergedLandingOid:
+          nullable: true
+          type: string
+        divergedUpstreamOid:
+          nullable: true
+          type: string
+        updatedAt:
+          type: number
+      required:
+        - id
+        - name
+        - remoteUrl
+        - credential
+        - upstreamBranch
+        - landingBranch
+        - landingRef
+        - trackingRef
+        - publishRef
+        - publishOnApproval
+        - state
+        - landingOid
+        - trackingOid
+        - fetchedUpstreamOid
+        - divergedLandingOid
+        - divergedUpstreamOid
+        - updatedAt
+      additionalProperties: false

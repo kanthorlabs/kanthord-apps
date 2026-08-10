@@ -1,0 +1,26 @@
+{
+  "request": {
+    "remoteUrl": "https://example.test/atlas.git",
+    "credentialId": "provider_01JQ8Z7G3HZZZZZZZZZZZZZZZZ"
+  },
+  "success": {
+    "defaultBranch": "main",
+    "branches": [
+      "main"
+    ],
+    "credential": {
+      "reachable": true,
+      "refusal": null
+    },
+    "hostKey": null
+  },
+  "error": {
+    "error": {
+      "code": "credential-rejected",
+      "message": "the forge refused the credential",
+      "details": {
+        "failure": "auth-failed"
+      }
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "request": {
+    "name": "atlas"
+  },
+  "success": {
+    "id": "project_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "name": "atlas",
+    "repositories": [],
+    "updatedAt": 1738368000000
+  },
+  "error": {
+    "error": {
+      "code": "invalid-request",
+      "message": "a project named atlas already exists",
+      "details": {
+        "refusal": "name-taken"
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "request": {
+    "fromRevision": null,
+    "importId": "import-0001",
+    "documents": [
+      {
+        "path": "initiative/atlas.md",
+        "content": "# atlas\n"
+      }
+    ],
+    "choices": [],
+    "validatedRevision": null,
+    "documentsHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "success": {
+    "revision": "revision_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "documents": [
+      {
+        "path": "initiative/atlas.md",
+        "content": "# atlas\n"
+      }
+    ],
+    "absent": []
+  },
+  "error": {
+    "error": {
+      "code": "stale-revision",
+      "message": "the import names null, the newest revision is revision_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+      "details": {
+        "expected": null,
+        "current": "revision_01JQ8Z7G3HZZZZZZZZZZZZZZZZ"
+      }
+    }
+  }
+}

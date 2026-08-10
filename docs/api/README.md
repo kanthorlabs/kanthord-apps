@@ -3,32 +3,64 @@
 This directory is the client-side copy of the daemon contract. It answers the first blocker in
 `../../HANDOFF.md`: endpoints, request shapes, response shapes, error codes, auth, and streaming.
 
-## Provenance
+## The contract snapshot: `contract/`
 
-| Field                 | Value                                                              |
-| --------------------- | ------------------------------------------------------------------ |
-| Source repository     | `kanthord-engine`                                                  |
-| Daemon version        | `27.8.1`                                                           |
-| Engine commit         | `a5b957dc9cac64ee5f8fa292f85cd3e3b2d939de`                         |
-| Snapshot date         | 2026-08-05                                                         |
-| `openapi.yaml` sha256 | `e6f037709fd5b5575f4d148b8e4427309bb892b8d4f283f1c62fe9d35f843278` |
+`contract/` is a published snapshot of the engine contract. It is generated, so edit no file in it.
 
-Regenerate `openapi.yaml` from the engine checkout at the commit above:
+```
+contract/
+├── manifest.json         # version, engine commit, feature list, operation list
+├── features/<name>.yaml  # one self-contained OpenAPI document per feature
+└── examples/<op>.json    # one example set per operation with a schema
+```
+
+There is no single `openapi.yaml` here any more. One 162 KB document is not readable, by a human or
+by an agent. Read the one feature file that holds the operation you implement. Every feature file
+repeats the shared `Error` schema and the `bearerAuth` scheme, so one file is enough to write one
+resource class.
+
+An example file holds up to four keys, in this order: `query`, `request`, `success`, `error`. The
+engine validates each one against the schema in a test, so an example is safe to use as a Flutter
+decode fixture.
+
+### Provenance
+
+Read `contract/manifest.json` for the authoritative values. The snapshot in this commit:
+
+| Field         | Value                                      |
+| ------------- | ------------------------------------------ |
+| Source        | `kanthord-engine`                          |
+| Version       | `27.8.1`                                   |
+| Engine commit | `1a2db63a28093808cc9db04fa30a0d3d26d32c93` |
+| Engine tree   | **dirty**                                  |
+| Snapshot date | 2026-08-10                                 |
+
+`dirty: true` says the engine tree carried uncommitted work when the snapshot was published. The
+commit alone does not reproduce it. Take a clean snapshot before the client pins a release.
+
+### Refresh the snapshot
+
+The engine owns the generator. Run it from an engine checkout:
 
 ```bash
 cd kanthord-engine
-printf 'import YAML from "yaml";\nimport { buildOpenApiDocument } from "./src/http/contract/openapi.ts";\nprocess.stdout.write(YAML.stringify(buildOpenApiDocument(), { lineWidth: 0 }));\n' > .gen-openapi.mts
-node .gen-openapi.mts > ../kanthord-apps/docs/api/openapi.yaml
-rm .gen-openapi.mts
+node scripts/publish-contract.ts ../kanthord-apps/docs/api/contract
+rm ../kanthord-apps/docs/api/contract/openapi.yaml
 ```
 
-The engine does not commit `openapi.yaml`. This repository commits a snapshot, because the client
-must build against a fixed contract. Update the four provenance fields above with every refresh. A
-snapshot with a stale commit is worse than no snapshot.
+The script wipes `features/`, `examples/` and `manifest.json` in the output directory, then writes
+them again. It also writes the merged `openapi.yaml`, which this repository does not keep, so the
+second command removes it.
+
+The script refuses an output directory that contains the engine repository. `prettier` ignores
+`docs/api/contract/`, because the engine formats it canonically.
+
+Update the provenance table above with every refresh. A snapshot with a stale commit is worse than no
+snapshot.
 
 ## Read this first: the daemon serves two operations today
 
-The registry declares 53 operations. The daemon wires **two** handlers: `system.health` and
+The registry declares 54 operations. The daemon wires **two** handlers: `system.health` and
 `system.db`. Every other operation answers `501 not-implemented` and writes no state.
 
 | Class                                | Count | Behaviour today                       |
@@ -38,13 +70,40 @@ The registry declares 53 operations. The daemon wires **two** handlers: `system.
 | Declared and `stubbed` (later phase) | 31    | `501 not-implemented`                 |
 | `post-mvp`, no route                 | —     | `404 not-found`                       |
 
+The three counts total 53, the 2026-08-05 registry. The 2026-08-10 snapshot declares 54. Nobody has
+re-read the daemon handler list since, so the class of the new operation is unverified.
+
 `501` and `404` mean different things. `501` says the daemon will do it, not yet. `404` says this
 daemon does not have the operation. See [operations.md](operations.md).
 
-So `openapi.yaml` is a **route directory, not an interoperability contract**. Two of 53 operations
-carry a response schema. It cannot generate models. It fixes the paths, the methods, the bearer
-scheme, the error envelope, and the lifecycle. [operations.md](operations.md) is the more honest
-document until the engine adds schemas.
+A `501` is a missing handler, not a missing schema. The two are now separate: **23 of 54 operations
+carry a request or response schema and a validated example**, and most of them still answer `501`.
+
+| Feature        | Operations | Operations with a schema                           |
+| -------------- | ---------- | -------------------------------------------------- |
+| `system`       | 3          | `system.db`, `system.health`, `system.status`      |
+| `project`      | 5          | `create`, `list`, `repositories`, `show`, `status` |
+| `repository`   | 7          | `inspect`, `list`, `register`, `show`              |
+| `plan`         | 4          | `export`, `import`, `revisions`, `validate`        |
+| `provider`     | 6          | `list`, `register`, `show`                         |
+| `node`         | 10         | `list`, `show`                                     |
+| `edge`         | 1          | `list`                                             |
+| `event`        | 1          | `list`                                             |
+| `agent`        | 1          | none                                               |
+| `attempt`      | 1          | none                                               |
+| `binding`      | 1          | none                                               |
+| `blob`         | 1          | none                                               |
+| `gitOperation` | 1          | none                                               |
+| `instructions` | 1          | none                                               |
+| `profile`      | 4          | none                                               |
+| `run`          | 4          | none                                               |
+| `template`     | 2          | none                                               |
+| `worker`       | 1          | none                                               |
+
+A feature with a schema **can** generate a model and a decode test today, ahead of its handler. A
+feature with no schema fixes the path, the method, the bearer scheme and the error envelope, and
+nothing else. Do not hand-write a wire model for the second group.
+[operations.md](operations.md) still owns the per-operation state.
 
 ## Documents
 
@@ -58,7 +117,9 @@ document until the engine adds schemas.
 | [connectivity.md](connectivity.md)                 | Base URL per platform, the `Host` allow list, browser access             | `api_config.dart`                              |
 | [blockers.md](blockers.md)                         | The decisions the owner must make, and the engine work each needs        | Steps 4 and 5                                  |
 | [parallel-development.md](parallel-development.md) | How the UI gets built before the daemon is ready                         | **Read this before writing any UI**            |
-| `openapi.yaml`                                     | The generated route directory                                            | Route discovery only                           |
+| `contract/features/<name>.yaml`                    | One OpenAPI document per feature. Read the one you implement             | `resources/`, `models/`                        |
+| `contract/examples/<op>.json`                      | A validated example per operation that carries a schema                  | Decode tests, mock daemon fixtures             |
+| `contract/manifest.json`                           | The published version, engine commit and operation list                  | Provenance                                     |
 
 ## Start here if you are about to write code
 
@@ -69,12 +130,12 @@ splits the work into three lanes, and only one of them is blocked on the engine.
 The short version: build the whole transport, the design system, the router and every view state now,
 against a **fixture-backed mock HTTP daemon on loopback** — not against a fake `KanthordApi`, because a
 fake proves only that Dart compiles. Build `daemon_connect` against the real daemon, because
-`system.health` works today. Do not hand-write a wire model and call it the contract; the engine authors
-schemas ahead of its handlers in EPIC 004.5, and that is what models are generated from.
+`system.health` works today. Do not hand-write a wire model and call it the contract: build a model from
+a schema in `contract/`, and for an operation that has none, wait for the next snapshot.
 
 ## What this handover does not do
 
-- It does not gain `models/` yet. 51 operations have no schema, and
+- It does not gain `models/` for every operation. 31 of 54 operations still have no schema, and
   [parallel-development.md](parallel-development.md) says what to do in the meantime and what not to do.
 - Step 5 is `daemon_connect`, the token and base-URL provisioning flow. The chat feature is removed
   from the MVP in both repositories: the daemon has no prompt route and no stream, in any phase. Read

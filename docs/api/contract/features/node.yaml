@@ -1,0 +1,697 @@
+openapi: 3.0.3
+info:
+  title: kanthord
+  version: 27.8.1
+security:
+  - bearerAuth: []
+paths:
+  /v1/node:
+    get:
+      operationId: node.list
+      responses:
+        "200":
+          description: node.list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/node.list.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/node.list.error"
+  /v1/node/{id}:
+    get:
+      operationId: node.show
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: node.show
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/node.show.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/node.show.error"
+  /v1/node/{id}/abandon:
+    post:
+      operationId: node.abandon
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/node/{id}/approval:
+    get:
+      operationId: node.approvalEvidence
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/node/{id}/approve:
+    post:
+      operationId: node.approve
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/node/{id}/attempt:
+    get:
+      operationId: node.attempts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/node/{id}/check:
+    get:
+      operationId: node.checks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/node/{id}/discard:
+    post:
+      operationId: node.discard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/node/{id}/unblock:
+    post:
+      operationId: node.unblock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /v1/node/{id}/waive:
+    post:
+      operationId: node.waive
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    node.list.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    node.list.response:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              projectId:
+                type: string
+              kind:
+                type: string
+                enum:
+                  - initiative
+                  - objective
+                  - task
+              title:
+                type: string
+              state:
+                type: string
+                enum:
+                  - pending
+                  - ready
+                  - running
+                  - blocked
+                  - awaiting_approval
+                  - done
+                  - partial
+                  - discarded
+              blockReason:
+                nullable: true
+                type: string
+                enum:
+                  - attempt-limit
+                  - dependency-discarded
+                  - stale-base
+                  - dirty-recovery
+                  - e2e-failed
+                  - abandoned
+              discardReason:
+                nullable: true
+                type: string
+              parentId:
+                nullable: true
+                type: string
+              dependencies:
+                type: array
+                items:
+                  type: string
+            required:
+              - id
+              - projectId
+              - kind
+              - title
+              - state
+              - blockReason
+              - discardReason
+              - parentId
+              - dependencies
+            additionalProperties: false
+      required:
+        - nodes
+      additionalProperties: false
+    node.show.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    node.show.response:
+      type: object
+      properties:
+        id:
+          type: string
+        projectId:
+          type: string
+        kind:
+          type: string
+          enum:
+            - initiative
+            - objective
+            - task
+        title:
+          type: string
+        state:
+          type: string
+          enum:
+            - pending
+            - ready
+            - running
+            - blocked
+            - awaiting_approval
+            - done
+            - partial
+            - discarded
+        blockReason:
+          nullable: true
+          type: string
+          enum:
+            - attempt-limit
+            - dependency-discarded
+            - stale-base
+            - dirty-recovery
+            - e2e-failed
+            - abandoned
+        discardReason:
+          nullable: true
+          type: string
+        parentId:
+          nullable: true
+          type: string
+        dependencies:
+          type: array
+          items:
+            type: string
+        instructionBlob:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+        acceptanceBlob:
+          nullable: true
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+        worker:
+          nullable: true
+          type: string
+        repositoryId:
+          nullable: true
+          type: string
+        revision:
+          type: string
+        updatedAt:
+          type: number
+      required:
+        - id
+        - projectId
+        - kind
+        - title
+        - state
+        - blockReason
+        - discardReason
+        - parentId
+        - dependencies
+        - instructionBlob
+        - acceptanceBlob
+        - worker
+        - repositoryId
+        - revision
+        - updatedAt
+      additionalProperties: false

@@ -1,0 +1,45 @@
+{
+  "success": {
+    "version": "27.8.1",
+    "bind": "127.0.0.1:7777",
+    "startedAt": "2025-02-01T00:00:00.000Z",
+    "status": "ok",
+    "dependencies": [
+      {
+        "name": "storage",
+        "status": "ok"
+      }
+    ],
+    "nodes": [
+      {
+        "kind": "task",
+        "state": "ready",
+        "blockReason": null,
+        "count": 1
+      }
+    ],
+    "repositories": [
+      {
+        "id": "repo_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "name": "atlas",
+        "divergedLandingOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "divergedUpstreamOid": "cccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "leases": [
+      {
+        "subjectKind": "node",
+        "subjectId": "task_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "owner": null,
+        "fence": 1,
+        "expiresAt": 1738368000000
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "service-unavailable",
+      "message": "the daemon is shutting down"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "success": {
+    "providers": [
+      {
+        "id": "provider_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "name": "github",
+        "kind": "git",
+        "projection": {
+          "transport": "http-basic",
+          "forge": "github",
+          "username": "atlas"
+        },
+        "setDefaultAt": null,
+        "updatedAt": 1738368000000
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "service-unavailable",
+      "message": "the daemon is shutting down"
+    }
+  }
+}

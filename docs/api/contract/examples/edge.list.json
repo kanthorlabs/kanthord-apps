@@ -1,0 +1,18 @@
+{
+  "success": {
+    "edges": [
+      {
+        "id": "edge_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "fromNode": "task_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "toNode": "objective_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "waivedAt": null
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "not-found",
+      "message": "no project project_01JQ8Z7G3HZZZZZZZZZZZZZZZZ"
+    }
+  }
+}

@@ -1,0 +1,144 @@
+openapi: 3.0.3
+info:
+  title: kanthord
+  version: 27.8.1
+security:
+  - bearerAuth: []
+paths:
+  /v1/git-operation:
+    get:
+      operationId: gitOperation.list
+      responses:
+        "501":
+          description: not implemented
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false

@@ -71,7 +71,8 @@ that has no handler.** Every other item here is secondary to this one.
 
 ### E2 — schemas ahead of the handlers. SPECIFIED, and it is the critical path
 
-51 of 53 operations carry no zod request or response schema, so `openapi.yaml` generates no model.
+31 of 54 operations carry no zod request or response schema, so their feature document generates no
+model. The other 23 landed with the 2026-08-10 snapshot. Read `../api/README.md` for the split.
 
 **The unblock is that schema authorship does not depend on handler implementation.** The engine's
 `src/http/contract/` is pure — it imports no storage and no command — so every shape can be authored
@@ -105,13 +106,15 @@ decode test can actually assert, and it removes the client's need to invent byte
 release ownership. An example emitted incidentally by a test run and copied by hand is drift waiting to
 happen.
 
-### E4 — publish `openapi.yaml` as a release artifact
+### E4 — publish the contract as a release artifact. DELIVERED, one gap left
 
-The engine deliberately does not commit it, and the client has copied a snapshot with a checksum and
-a commit pin. That snapshot will drift, and this repository has no CI to catch it.
+`kanthord-engine/scripts/publish-contract.ts` writes the artifact: one OpenAPI document per feature,
+one example set per operation, and a `manifest.json` that carries the version, the engine commit and
+the operation list. The client copies that output into `docs/api/contract/`.
 
-Publish the generated document as a named, versioned artifact of a daemon release, alongside E3's
-fixtures. The client then pins an artifact rather than copying a local generation result.
+The gap is release ownership. The script runs on demand from a working tree, so it can publish a
+dirty tree, and the 2026-08-10 snapshot did. Bind the publish to a tagged release, and refuse a dirty
+tree. The client then pins an artifact rather than copying a local generation result.
 
 ### E5 — a daemon-side wait on `event.list`
 

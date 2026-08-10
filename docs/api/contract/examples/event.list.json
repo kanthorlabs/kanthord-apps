@@ -1,0 +1,33 @@
+{
+  "query": {
+    "limit": 100,
+    "subjectKind": "node",
+    "subject": "task_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "type": "node.state.changed",
+    "actorKind": "daemon",
+    "actor": "kanthord"
+  },
+  "success": {
+    "events": [
+      {
+        "id": "event_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "type": "node.state.changed",
+        "subjectKind": "node",
+        "subjectId": "task_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+        "actorKind": "daemon",
+        "actorId": "kanthord",
+        "payload": {
+          "from": "pending",
+          "to": "ready"
+        },
+        "createdAt": 1738368000000
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "invalid-request",
+      "message": "limit must not exceed 500"
+    }
+  }
+}

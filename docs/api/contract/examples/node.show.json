@@ -1,0 +1,25 @@
+{
+  "success": {
+    "id": "task_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "projectId": "project_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "kind": "task",
+    "title": "add the health route",
+    "state": "ready",
+    "blockReason": null,
+    "discardReason": null,
+    "parentId": "objective_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "dependencies": [],
+    "instructionBlob": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "acceptanceBlob": null,
+    "worker": null,
+    "repositoryId": "repo_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "revision": "revision_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "updatedAt": 1738368000000
+  },
+  "error": {
+    "error": {
+      "code": "not-found",
+      "message": "no node task_01JQ8Z7G3HZZZZZZZZZZZZZZZZ"
+    }
+  }
+}

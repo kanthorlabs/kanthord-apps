@@ -1,0 +1,30 @@
+{
+  "success": {
+    "id": "repo_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+    "name": "atlas",
+    "remoteUrl": "https://example.test/atlas.git",
+    "credential": {
+      "id": "provider_01JQ8Z7G3HZZZZZZZZZZZZZZZZ",
+      "name": "github"
+    },
+    "upstreamBranch": "main",
+    "landingBranch": "kanthord/landing",
+    "landingRef": "refs/heads/kanthord/landing",
+    "trackingRef": "refs/kanthord/upstream/main",
+    "publishRef": "refs/heads/main",
+    "publishOnApproval": true,
+    "state": "ready",
+    "landingOid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "trackingOid": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "fetchedUpstreamOid": "cccccccccccccccccccccccccccccccccccccccc",
+    "divergedLandingOid": null,
+    "divergedUpstreamOid": null,
+    "updatedAt": 1738368000000
+  },
+  "error": {
+    "error": {
+      "code": "not-found",
+      "message": "no repository repo_01JQ8Z7G3HZZZZZZZZZZZZZZZZ"
+    }
+  }
+}

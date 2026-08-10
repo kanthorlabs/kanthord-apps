@@ -1,0 +1,39 @@
+{
+  "request": {
+    "fromRevision": null,
+    "documents": [
+      {
+        "path": "initiative/atlas.md",
+        "content": "# atlas\n"
+      }
+    ]
+  },
+  "success": {
+    "findings": [],
+    "documents": [
+      {
+        "path": "initiative/atlas.md",
+        "content": "# atlas\n"
+      }
+    ],
+    "documentsHash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "revision": null,
+    "choices": []
+  },
+  "error": {
+    "error": {
+      "code": "plan-invalid",
+      "message": "the submission is not a valid plan",
+      "details": {
+        "findings": [
+          {
+            "code": "acceptance-heading-duplicated",
+            "path": "initiative/atlas.md",
+            "id": null,
+            "message": "the acceptance heading appears twice"
+          }
+        ]
+      }
+    }
+  }
+}

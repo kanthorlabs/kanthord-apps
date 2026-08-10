@@ -1,0 +1,18 @@
+{
+  "success": {
+    "migrations": [
+      {
+        "version": 1,
+        "name": "core-entities",
+        "applied": true,
+        "appliedAt": 1738368000000
+      }
+    ]
+  },
+  "error": {
+    "error": {
+      "code": "service-unavailable",
+      "message": "the daemon is shutting down"
+    }
+  }
+}

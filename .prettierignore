@@ -10,5 +10,5 @@ linux/
 macos/
 windows/
 web/
-docs/api/openapi.yaml
+docs/api/contract/
 pubspec.yaml

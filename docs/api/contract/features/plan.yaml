@@ -1,0 +1,1343 @@
+openapi: 3.0.3
+info:
+  title: kanthord
+  version: 27.8.1
+security:
+  - bearerAuth: []
+paths:
+  /v1/project/{id}/plan/export:
+    get:
+      operationId: plan.export
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: plan.export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.export.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.export.error"
+  /v1/project/{id}/plan/import:
+    post:
+      operationId: plan.import
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: plan.import
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.import.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.import.error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/plan.import.request"
+  /v1/project/{id}/plan/revision:
+    get:
+      operationId: plan.revisions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: plan.revisions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.revisions.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.revisions.error"
+  /v1/project/{id}/plan/validate:
+    post:
+      operationId: plan.validate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: plan.validate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.validate.response"
+        default:
+          description: error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/plan.validate.error"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/plan.validate.request"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    plan.export.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    plan.export.response:
+      type: object
+      properties:
+        revision:
+          nullable: true
+          type: string
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+                minLength: 1
+              content:
+                type: string
+            required:
+              - path
+              - content
+            additionalProperties: false
+      required:
+        - revision
+        - documents
+      additionalProperties: false
+    plan.import.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - stale-revision
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    expected:
+                      nullable: true
+                      type: string
+                    current:
+                      nullable: true
+                      type: string
+                  required:
+                    - expected
+                    - current
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - idempotency-mismatch
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    differed:
+                      type: string
+                  required:
+                    - differed
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - choices-stale
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    conflicts:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          suggested:
+                            type: string
+                            enum:
+                              - submitted
+                              - database
+                        required:
+                          - id
+                          - suggested
+                        additionalProperties: false
+                  required:
+                    - conflicts
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - choices-changed
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    conflicts:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          reason:
+                            type: string
+                        required:
+                          - id
+                          - reason
+                        additionalProperties: false
+                  required:
+                    - conflicts
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - plan-invalid
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    findings:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                            enum:
+                              - acceptance-heading-duplicated
+                              - acceptance-heading-not-at-line-start
+                              - acceptance-missing
+                              - acceptance-unexpected
+                              - dependency-cross-parent
+                              - dependency-cycle
+                              - dependency-self
+                              - document-unparsable
+                              - frontmatter-invalid
+                              - identity-duplicate
+                              - identity-invalid
+                              - identity-kind-mismatch
+                              - initiative-without-objective
+                              - objective-without-task
+                              - parent-missing
+                              - path-duplicate
+                              - path-invalid
+                              - reference-ambiguous
+                              - reference-unresolved
+                              - repo-missing
+                              - repo-on-task
+                              - repository-unbound
+                              - repository-unknown
+                              - worker-unknown
+                          path:
+                            nullable: true
+                            type: string
+                          id:
+                            nullable: true
+                            type: string
+                          message:
+                            type: string
+                        required:
+                          - code
+                          - path
+                          - id
+                          - message
+                        additionalProperties: false
+                  required:
+                    - findings
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - choices-invalid
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    findings:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                            enum:
+                              - acceptance-heading-duplicated
+                              - acceptance-heading-not-at-line-start
+                              - acceptance-missing
+                              - acceptance-unexpected
+                              - dependency-cross-parent
+                              - dependency-cycle
+                              - dependency-self
+                              - document-unparsable
+                              - frontmatter-invalid
+                              - identity-duplicate
+                              - identity-invalid
+                              - identity-kind-mismatch
+                              - initiative-without-objective
+                              - objective-without-task
+                              - parent-missing
+                              - path-duplicate
+                              - path-invalid
+                              - reference-ambiguous
+                              - reference-unresolved
+                              - repo-missing
+                              - repo-on-task
+                              - repository-unbound
+                              - repository-unknown
+                              - worker-unknown
+                          path:
+                            nullable: true
+                            type: string
+                          id:
+                            nullable: true
+                            type: string
+                          message:
+                            type: string
+                        required:
+                          - code
+                          - path
+                          - id
+                          - message
+                        additionalProperties: false
+                  required:
+                    - findings
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    plan.import.request:
+      type: object
+      properties:
+        fromRevision:
+          nullable: true
+          type: string
+        importId:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: ^[\x21-\x7E](?:[\x20-\x7E]{0,98}[\x21-\x7E])?$
+        documents:
+          minItems: 1
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+                minLength: 1
+              content:
+                type: string
+            required:
+              - path
+              - content
+            additionalProperties: false
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                minLength: 1
+              take:
+                type: string
+                enum:
+                  - submitted
+                  - database
+            required:
+              - id
+              - take
+            additionalProperties: false
+        validatedRevision:
+          nullable: true
+          type: string
+        documentsHash:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+      required:
+        - fromRevision
+        - importId
+        - documents
+        - choices
+        - validatedRevision
+        - documentsHash
+      additionalProperties: false
+    plan.import.response:
+      type: object
+      properties:
+        revision:
+          type: string
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+                minLength: 1
+              content:
+                type: string
+            required:
+              - path
+              - content
+            additionalProperties: false
+        absent:
+          type: array
+          items:
+            type: string
+      required:
+        - revision
+        - documents
+        - absent
+      additionalProperties: false
+    plan.revisions.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    plan.revisions.response:
+      type: object
+      properties:
+        revisions:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              parentId:
+                nullable: true
+                type: string
+              importId:
+                type: string
+              submittedBlob:
+                type: string
+                pattern: ^sha256:[0-9a-f]{64}$
+              choicesBlob:
+                type: string
+                pattern: ^sha256:[0-9a-f]{64}$
+              acceptedBlob:
+                type: string
+                pattern: ^sha256:[0-9a-f]{64}$
+            required:
+              - id
+              - parentId
+              - importId
+              - submittedBlob
+              - choicesBlob
+              - acceptedBlob
+            additionalProperties: false
+      required:
+        - revisions
+      additionalProperties: false
+    plan.validate.error:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - invalid-request
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    refusal:
+                      type: string
+                      minLength: 1
+                    detail:
+                      type: string
+                    ids:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - refusal
+                  additionalProperties: false
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - unauthenticated
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - origin-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - host-forbidden
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-found
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - plan-invalid
+                message:
+                  type: string
+                details:
+                  type: object
+                  properties:
+                    findings:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          code:
+                            type: string
+                            enum:
+                              - acceptance-heading-duplicated
+                              - acceptance-heading-not-at-line-start
+                              - acceptance-missing
+                              - acceptance-unexpected
+                              - dependency-cross-parent
+                              - dependency-cycle
+                              - dependency-self
+                              - document-unparsable
+                              - frontmatter-invalid
+                              - identity-duplicate
+                              - identity-invalid
+                              - identity-kind-mismatch
+                              - initiative-without-objective
+                              - objective-without-task
+                              - parent-missing
+                              - path-duplicate
+                              - path-invalid
+                              - reference-ambiguous
+                              - reference-unresolved
+                              - repo-missing
+                              - repo-on-task
+                              - repository-unbound
+                              - repository-unknown
+                              - worker-unknown
+                          path:
+                            nullable: true
+                            type: string
+                          id:
+                            nullable: true
+                            type: string
+                          message:
+                            type: string
+                        required:
+                          - code
+                          - path
+                          - id
+                          - message
+                        additionalProperties: false
+                  required:
+                    - findings
+                  additionalProperties: false
+              required:
+                - code
+                - message
+                - details
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - internal-error
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - not-implemented
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+            - type: object
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - service-unavailable
+                message:
+                  type: string
+              required:
+                - code
+                - message
+              additionalProperties: false
+      required:
+        - error
+      additionalProperties: false
+    plan.validate.request:
+      type: object
+      properties:
+        fromRevision:
+          nullable: true
+          type: string
+        documents:
+          minItems: 1
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+                minLength: 1
+              content:
+                type: string
+            required:
+              - path
+              - content
+            additionalProperties: false
+      required:
+        - fromRevision
+        - documents
+      additionalProperties: false
+    plan.validate.response:
+      type: object
+      properties:
+        findings:
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                enum:
+                  - acceptance-heading-duplicated
+                  - acceptance-heading-not-at-line-start
+                  - acceptance-missing
+                  - acceptance-unexpected
+                  - dependency-cross-parent
+                  - dependency-cycle
+                  - dependency-self
+                  - document-unparsable
+                  - frontmatter-invalid
+                  - identity-duplicate
+                  - identity-invalid
+                  - identity-kind-mismatch
+                  - initiative-without-objective
+                  - objective-without-task
+                  - parent-missing
+                  - path-duplicate
+                  - path-invalid
+                  - reference-ambiguous
+                  - reference-unresolved
+                  - repo-missing
+                  - repo-on-task
+                  - repository-unbound
+                  - repository-unknown
+                  - worker-unknown
+              path:
+                nullable: true
+                type: string
+              id:
+                nullable: true
+                type: string
+              message:
+                type: string
+            required:
+              - code
+              - path
+              - id
+              - message
+            additionalProperties: false
+        documents:
+          type: array
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+                minLength: 1
+              content:
+                type: string
+            required:
+              - path
+              - content
+            additionalProperties: false
+        documentsHash:
+          type: string
+          pattern: ^sha256:[0-9a-f]{64}$
+        revision:
+          nullable: true
+          type: string
+        choices:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              kind:
+                type: string
+                enum:
+                  - initiative
+                  - objective
+                  - task
+              presence:
+                type: string
+                enum:
+                  - both
+                  - document-only
+                  - database-only
+              state:
+                nullable: true
+                type: string
+                enum:
+                  - pending
+                  - ready
+                  - running
+                  - blocked
+                  - awaiting_approval
+                  - done
+                  - partial
+                  - discarded
+              suggested:
+                type: string
+                enum:
+                  - submitted
+                  - database
+              fields:
+                type: array
+                items:
+                  type: string
+                  enum:
+                    - body
+                    - depends_on
+                    - parent
+                    - repo
+                    - title
+                    - worker
+              submitted:
+                type: object
+                properties:
+                  legal:
+                    type: boolean
+                  reason:
+                    nullable: true
+                    type: string
+                required:
+                  - legal
+                  - reason
+                additionalProperties: false
+              database:
+                type: object
+                properties:
+                  legal:
+                    type: boolean
+                  reason:
+                    nullable: true
+                    type: string
+                required:
+                  - legal
+                  - reason
+                additionalProperties: false
+            required:
+              - id
+              - kind
+              - presence
+              - state
+              - suggested
+              - fields
+              - submitted
+              - database
+            additionalProperties: false
+      required:
+        - findings
+        - documents
+        - documentsHash
+        - revision
+        - choices
+      additionalProperties: false
