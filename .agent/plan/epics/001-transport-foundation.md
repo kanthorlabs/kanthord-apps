@@ -26,7 +26,7 @@ a library slice. EPIC 003 is the slice a human can run.
 - **G6** — `lib/api/kanthord_api.dart` takes an optional `Dio`, builds a default one from
   `ApiConfig`, and exposes `api.system`.
 - **G7** — `SystemResource.health()` and `SystemResource.db()` return models built from
-  `contract/features/system.yaml` and decoded from the published examples.
+  `docs/api/contract/features/system.yaml` and decoded from the published examples.
 - **G8** — `make arch-check` passes. It proves four greps and no more: no import of `features/`,
   `app/` or `libraries/` from `lib/api/`; no `package:flutter/` import there; no `Stream<` under
   `lib/api/resources/`; no `Either<` and no `Result<`.
@@ -88,6 +88,10 @@ build, and `make verify` boots no browser.
 
 ## Stories
 
+The order below is the dispatch order, and it is a compile order: no story references a symbol a
+later story creates. `.agent/plan/stories/001-transport-foundation/` numbers the files `01` to `10`
+in this same order.
+
 - **`make test-one`** — the `Makefile` target every later proof uses.
 - **`BaseUrlProviderType` and `ApiConfig`** — the interface, plus the config that reads it. The
   connect, send and default receive timeout are named constants. `receiveTimeoutFor(operation)`
@@ -107,15 +111,17 @@ build, and `make verify` boots no browser.
 - **`TokenProviderType`** — the interface alone.
 - **`AuthInterceptor`** — the four rules of `docs/api/auth.md`. A `401` never clears the stored token,
   and a test asserts the stored value survives.
-- **`KanthordApi`** — one `Dio`, built from `ApiConfig` when the caller passes none, with the auth
-  interceptor installed and the resource groups exposed as lazily built fields.
-- **The `system` models** — `Health`, `HealthDependency`, `DbStatus` and `Migration`, each `@freezed`
-  plus `@JsonSerializable`, `@JsonKey(name:)` on every field, no `field_rename`. `appliedAt` is a
-  nullable epoch-millisecond integer.
 - **The open enum** — a Dart `enum` cannot keep an unknown wire value. `status` on the roll-up and on
   a dependency uses one shared representation: a `@freezed` value type holding the known case and the
   raw string, with a `JsonConverter` that never throws. This story fixes the representation once, and
-  EPIC 006 reuses it for every wire enum.
+  EPIC 006 reuses it for every wire enum. It precedes the models, because they are typed by it.
+- **The `system` models** — `Health`, `HealthDependency`, `DbStatus` and `Migration`, each `@freezed`
+  plus `@JsonSerializable`, `@JsonKey(name:)` on every field, no `field_rename`. `appliedAt` is a
+  nullable epoch-millisecond integer.
 - **`SystemResource`** — `health()` on `GET /v1/health` and `db()` on `GET /v1/db/status`. Each test
   asserts the path, the headers and the decoded model, and decodes the `success` key of
-  `contract/examples/system.health.json` and `system.db.json` rather than invented bytes.
+  `docs/api/contract/examples/system.health.json` and `docs/api/contract/examples/system.db.json`
+  rather than invented bytes.
+- **`KanthordApi`** — one `Dio`, built from `ApiConfig` when the caller passes none, with the auth
+  interceptor installed and the resource groups exposed as lazily built fields. It follows
+  `SystemResource`, because `api.system` returns that class.
