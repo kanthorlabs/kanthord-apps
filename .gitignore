@@ -34,3 +34,5 @@ windows/flutter/ephemeral/
 **/*.info.json
 **/*.js.deps
 **/*.js.map
+
+.data/opencode-*
