@@ -30,6 +30,7 @@ Six platforms: iOS, Android, macOS, Windows, Linux, web.
 | `DESIGNS.md`                               | Design rules: Material 3 only, the `KD` prefix, atomic layering, tokens, layout family, input |
 | `docs/operations.md`                       | Commands, building, platform specifics, lints, formatting, codegen, dependencies, secrets     |
 | `docs/testing.md`                          | Test layout, structure, what to mock, SDK and design system test cases                        |
+| `docs/tdd.md`                              | The TDD pipeline: the three agents, their lanes, the commands, the guards                     |
 | `HANDOFF.md`                               | Deferred work and the open questions that block it                                            |
 | `lib/libraries/kd_design_system/README.md` | Token values and the component list                                                           |
 

@@ -14,13 +14,16 @@ This repository has no continuous integration. It is deferred until the MVP land
 for what CI must do when it returns.
 
 **Every check is local and manual.** Nothing stops an unformatted, failing, or non-compiling change
-from reaching `main`. Before you push, run all three:
+from reaching `main`. Before you push, run one command:
 
 ```
-make format-check
-make analyze
-make test
+make verify
 ```
+
+It runs `format-check`, `analyze`, `arch-check`, `test` and `pipeline-test` in that order. It is the
+canonical gate, and the TDD pipeline's EPIC `Gates:` command is the same target. Read `docs/tdd.md`.
+
+`make verify` needs a POSIX shell for the script targets. **On Windows, work inside WSL.**
 
 ## Commands
 
@@ -30,11 +33,16 @@ the pinned Flutter and a bare `flutter` call may not.
 | Command                                                                                               | Purpose                                                                                         |
 | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `make bootstrap`                                                                                      | Install the pinned Flutter through `fvm install`, then the Dart packages, then the commit hooks |
-| `make generate`                                                                                       | Run `build_runner` one time                                                                     |
+| `make generate`                                                                                       | Run `build_runner` one time over `lib/` and `test/`                                             |
+| `make generate-lib`                                                                                   | Run `build_runner` over `lib/` only. The software-engineer lane                                 |
+| `make generate-test`                                                                                  | Run `build_runner` over `test/` only. The test-engineer lane                                    |
 | `make format`                                                                                         | Rewrite every Dart, Markdown, YAML and JSON file                                                |
 | `make format-check`                                                                                   | Fail on an unformatted file. Run it before you push                                             |
 | `make analyze`                                                                                        | Run the static analyzer                                                                         |
 | `make test`                                                                                           | Run the test suite                                                                              |
+| `make arch-check`                                                                                     | Check the mechanical `CLAUDE.md` and `DESIGNS.md` rules over `lib/`                             |
+| `make pipeline-test`                                                                                  | Run the TDD pipeline guard self-tests                                                           |
+| `make verify`                                                                                         | The full gate: `format-check`, `analyze`, `arch-check`, `test`, `pipeline-test`                 |
 | `make clean`                                                                                          | Delete the build output and the generated files                                                 |
 | `make run-ios` `make run-android` `make run-macos` `make run-windows` `make run-linux` `make run-web` | Run on one platform                                                                             |
 | `make help`                                                                                           | List every target                                                                               |

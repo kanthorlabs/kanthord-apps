@@ -1,0 +1,95 @@
+# The TDD pipeline
+
+Three agents and three commands drive one EPIC from a plan to a reviewed implementation. The
+pipeline is ported from `kanthord-engine` and adapted to Flutter.
+
+The definitions live in two places, one per frontend, with identical bodies and different
+frontmatter: `.claude/` for Claude Code, `.opencode/` for opencode. Change one, change the other.
+
+## The roles
+
+| Agent               | Owns                                                              | Lane                                |
+| ------------------- | ----------------------------------------------------------------- | ----------------------------------- |
+| `test-engineer`     | RED. Writes the failing test, runs the suite, confirms GREEN      | `test/**`, `integration_test/**`    |
+| `software-engineer` | GREEN plus the named REFACTOR. Never writes or runs a test        | `lib/**`, `assets/**`, `scripts/**` |
+| `reviewer-engineer` | The review verdict. Never edits a file and never mutates the tree | nothing                             |
+
+## The commands
+
+| Command        | Does                                                                              |
+| -------------- | --------------------------------------------------------------------------------- |
+| `/author`      | Expands one EPIC into deterministic Story/Task files under `.agent/plan/stories/` |
+| `/work`        | Drives the TDD loop, the reviewer gate, and the pause for the human verdict       |
+| `/review-epic` | The human-side review of one EPIC's implementation                                |
+
+`/e2e` is **not ported**. A Flutter acceptance run means `integration_test` driving the six targets
+against the mock daemon, and that harness does not exist yet.
+
+## State
+
+Nothing carries status frontmatter. Lifecycle state lives in the discussion file alone.
+
+```
+.agent/
+├── plan/epics/<NNN>-<slug>.md          # the EPIC. Locked to both engineers
+├── plan/stories/<epic-slug>/           # the Story/Task files. Locked to both engineers
+└── tdd/
+    ├── history/<date>-<epic-slug>.md   # the discussion file. Append-only
+    └── memory/
+        ├── flutter-gotchas.md          # read before touching the area it covers
+        └── <role>/<date>.md            # the per-role decision journal. Append-only
+```
+
+An EPIC is in progress once its discussion file exists, and done once that file contains
+`HUMAN_REVIEW: PASS`.
+
+## The guards
+
+Four scripts enforce what the personas only state. `make pipeline-test` runs their self-tests, and
+`make verify` includes it — a guard that cannot pass its own test makes every other verdict
+worthless.
+
+| Script                          | Enforces                                                          |
+| ------------------------------- | ----------------------------------------------------------------- |
+| `scripts/lane-check.sh`         | One role, one lane. Exit 0 means the path is in lane              |
+| `scripts/turn-snapshot.sh`      | The content fingerprint `/work` diffs to attribute a turn's edits |
+| `scripts/verify-handoff.sh`     | Independent re-verification of a role's handoff gate              |
+| `scripts/memory-append-only.sh` | The discussion file and the journals are never rewritten in place |
+| `scripts/arch-check.sh`         | The mechanical `CLAUDE.md` and `DESIGNS.md` rules over `lib/`     |
+
+`scripts/verify-handoff.sh <role>` is the load-bearing one. It checks the `.fvmrc` SDK pin, runs the
+role's scoped codegen, **fails when that codegen changes anything** — stale generated output the role
+did not commit — runs the analyzer over the role's lane, and for the software-engineer runs
+`scripts/arch-check.sh`.
+
+`scripts/arch-check.sh` turns the rules a grep can decide into a gate: the import direction out of
+`lib/api/`, a repository or use-case class name, `Either`/`Result` in an SDK return type,
+`Navigator.push`, a streaming symbol, `print`, a comment in hand-written Dart, a non-`KD`
+design-system symbol, a hard-coded design value in a feature. Generated output is exempt. Everything
+that needs judgment stays with the reviewer-engineer.
+
+## The pipeline needs a POSIX shell
+
+The guards are bash and use process substitution and NUL-delimited reads. macOS and Linux run them
+as they are. **On Windows, run the pipeline inside WSL** — development on this repository happens in
+WSL, not in PowerShell or `cmd`. The Flutter Windows target is a build target, not a development
+host.
+
+## Code generation crosses the lanes
+
+`build_runner` runs `freezed`, `json_serializable`, `go_router_builder` and `envied` over `lib/**`,
+and `mockito` over `test/**`. So a bare `make generate` rewrites the other role's generated files and
+the lane guard rejects the turn.
+
+Each role runs its own scoped target: `make generate-lib` for the software-engineer,
+`make generate-test` for the test-engineer. A `.mocks.dart` gone stale because the software-engineer
+changed the API is regenerated by the **test-engineer on its next turn**.
+
+## What the gate does not prove
+
+`make verify` is headless. It boots no simulator, no emulator, no browser and no daemon, and
+`flutter analyze` does not catch a `dart:io` import that breaks the web build. Windows and Linux have
+never been compiled here.
+
+So the ready marker declares `scope: widget-and-unit`, and any platform, integration or visual proof
+is carried forward as a `NEEDS-HUMAN:` item. A green gate is never evidence for one.

@@ -23,18 +23,24 @@ else
 	DART := fvm dart
 endif
 
-.PHONY: help bootstrap generate format format-check analyze test clean \
+.PHONY: help bootstrap generate generate-lib generate-test format format-check \
+	analyze arch-check test pipeline-test verify clean \
 	run-ios run-android run-macos run-windows run-linux run-web
 
 help:
 	@echo "Kanthord targets (host: $(HOST), flutter: $(FLUTTER))"
 	@echo ""
 	@echo "  bootstrap     Install the Flutter SDK, the Dart packages, and the commit hooks"
-	@echo "  generate      Run build_runner one time"
+	@echo "  generate      Run build_runner one time over lib/ and test/"
+	@echo "  generate-lib  Run build_runner over lib/ only. The software-engineer lane"
+	@echo "  generate-test Run build_runner over test/ only. The test-engineer lane"
 	@echo "  format        Rewrite every Dart, Markdown, YAML and JSON file to the project format"
 	@echo "  format-check  Fail when a file is not formatted. Run it before you push"
 	@echo "  analyze       Run the static analyzer"
 	@echo "  test          Run the Flutter test suite"
+	@echo "  arch-check    Check the mechanical CLAUDE.md and DESIGNS.md rules over lib/"
+	@echo "  pipeline-test Run the TDD pipeline guard self-tests"
+	@echo "  verify        The full gate: format-check, analyze, arch-check, test, pipeline-test"
 	@echo "  clean         Delete the build output and the generated files"
 	@echo ""
 	@echo "  run-ios       Run on an iOS simulator"
@@ -69,6 +75,12 @@ endif
 generate:
 	$(DART) run build_runner build
 
+generate-lib:
+	$(DART) run build_runner build --build-filter "lib/**"
+
+generate-test:
+	$(DART) run build_runner build --build-filter "test/**"
+
 format:
 	$(DART) format .
 ifeq ($(NODE_FOUND),)
@@ -90,6 +102,17 @@ analyze:
 
 test:
 	$(FLUTTER) test
+
+arch-check:
+	scripts/arch-check.sh
+
+pipeline-test:
+	scripts/lane-check.test.sh
+	scripts/turn-snapshot.test.sh
+	scripts/memory-append-only.test.sh
+	scripts/arch-check.test.sh
+
+verify: format-check analyze arch-check test pipeline-test
 
 clean:
 	$(FLUTTER) clean
