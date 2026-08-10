@@ -95,17 +95,15 @@ void main() {
         expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
       });
 
-      testWidgets('should disable the reveal control when isEnabled is false', (tester) async {
+      testWidgets('should pass isEnabled through to the reveal control', (tester) async {
         // Arrange
         const field = KDInputField(label: 'Token', isObscured: true, isEnabled: false);
 
         // Act
         await _pump(tester, field);
-        await tester.tap(find.byIcon(Icons.visibility_outlined));
-        await tester.pumpAndSettle();
 
         // Assert
-        expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isTrue);
+        expect(tester.widget<IconButton>(find.byType(IconButton)).onPressed, isNull);
       });
     });
 
