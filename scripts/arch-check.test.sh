@@ -57,6 +57,10 @@ case_fail "an AgentEvent type" lib/features/connect/bad.dart \
   "final class AgentEvent {}"
 case_fail "a resource method returning a Stream" lib/api/resources/bad.dart \
   "Stream<int> watch() => throw 1;"
+case_fail "lib importing the test tree" lib/features/connect/bad.dart \
+  "import '../../../test/api/dio_mock_adapter.dart';"
+case_fail "lib importing the test tree with double quotes" lib/features/connect/bad.dart \
+  "import \"../../../test/api/dio_mock_adapter.dart\";"
 
 # docs/api/polling.md gives EventPoller a Stream. CLAUDE.md bans one on a
 # resource method, so the rule stops at lib/api/resources/.

@@ -70,6 +70,10 @@ scan "a resource method returns a model, never Either or Result (CLAUDE.md)" \
 scan "navigation is go_router only, no Navigator.push (CLAUDE.md)" \
   "Navigator\.(push|pushNamed|pushReplacement|of\(context\)\.push)"
 
+# --- CLAUDE.md: the production tree never imports the test tree --------------
+scan "lib must not import the test tree (CLAUDE.md)" \
+  "^[[:space:]]*import[[:space:]]+['\"](\.\./)*test/" '^lib/'
+
 # --- CLAUDE.md: no chat surface, nothing streams ----------------------------
 scan "nothing in this product streams (CLAUDE.md, docs/api/polling.md)" \
   "\b(AgentEvent|SseClientType|EventSource|SseClient)\b"
