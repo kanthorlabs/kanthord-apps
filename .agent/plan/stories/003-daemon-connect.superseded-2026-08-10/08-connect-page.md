@@ -1,9 +1,13 @@
 # Story 08 — the connect page
 
+> **SUPERSEDED on 2026-08-10 — re-expand before implementing.** The product holds more than
+> one daemon, and `KanthordApi.withCandidate` replaces `ProbeClientBuilder`. Read the STOP
+> block in `index.md` for this file's delta specification. Everything below still shows the
+> shape, the guards and the tests that survive.
+
 Epic: `.agent/plan/epics/003-daemon-connect.md`
-Depends on: Story 03 (`isCleartextRisk`, `isUsableBaseUrl`), Story 04 (`ConnectBloc`, the events,
-`test/features/daemon_connect/daemon_fakes.dart`), Story 05 (`HealthView`), Story 06
-(`UnauthorizedNotice`), Story 07 (`SettingsDialog`, `SettingsValues`).
+Depends on: Story 03 (`isCleartextRisk`), Story 04 (`ConnectBloc`), Story 05 (`HealthView`),
+Story 06 (`UnauthorizedNotice`), Story 07 (`SettingsDialog`).
 
 Atomic layer: a **page**. It defines no atom. `DESIGNS.md:110` assigns `KDFullScreenLayout` to the
 connect screen.
@@ -57,24 +61,18 @@ class _ConnectPageState extends State<ConnectPage> {
   }
 
   void _sync(BuildContext context, ConnectState state) {
-    final target = targetOf(state);
-    if (target == null) return;
-    if (_baseUrl.text != target.baseUrl) _baseUrl.text = target.baseUrl;
-    if (_token.text != target.token) _token.text = target.token;
+    if (_baseUrl.text != state.baseUrl) _baseUrl.text = state.baseUrl;
+    if (_token.text != state.token) _token.text = state.token;
   }
 
-  Future<void> _openSettings(BuildContext context, ConnectTarget target) async {
+  Future<void> _openSettings(BuildContext context, ConnectState state) async {
     final bloc = context.read<ConnectBloc>();
     final result = await KDDialog.show<SettingsValues>(
       context,
-      builder: (_) => SettingsDialog(
-        name: target.daemonName,
-        baseUrl: target.baseUrl,
-        token: target.token,
-      ),
+      builder: (_) => SettingsDialog(baseUrl: state.baseUrl, token: state.token),
     );
     if (result == null) return;
-    bloc.add(ConnectDaemonEdited(name: result.name, baseUrl: result.baseUrl));
+    bloc.add(ConnectBaseUrlChanged(result.baseUrl));
     if (result.token.isEmpty) {
       bloc.add(const ConnectTokenCleared());
     } else {
@@ -82,9 +80,8 @@ class _ConnectPageState extends State<ConnectPage> {
     }
   }
 
-  Widget _buildOutcome(ConnectState state, ConnectTarget target) {
+  Widget _buildOutcome(ConnectState state) {
     return switch (state) {
-      ConnectUnselected() => const SizedBox.shrink(),
       ConnectIdle() => const SizedBox.shrink(),
       ConnectProbing() => const KDStatusView(
         kind: KDStatusKind.loading,
@@ -92,8 +89,7 @@ class _ConnectPageState extends State<ConnectPage> {
       ),
       ConnectConnected(:final health) => HealthView(health: health),
       ConnectTokenRejected(:final detail) => UnauthorizedNotice(
-        daemonName: target.daemonName,
-        baseUrl: target.baseUrl,
+        baseUrl: state.baseUrl,
         detail: detail,
       ),
       ConnectDaemonRejected(:final code, :final host, :final configKey) => KDStatusView(
@@ -119,33 +115,21 @@ class _ConnectPageState extends State<ConnectPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bloc = context.read<ConnectBloc>();
+    final tokens = context.kdTokens;
     return BlocConsumer<ConnectBloc, ConnectState>(
       listener: _sync,
       builder: (context, state) {
-        final target = targetOf(state);
-        if (target == null) {
-          return const KDFullScreenLayout(
-            child: KDStatusView(
-              kind: KDStatusKind.empty,
-              title: 'No daemon is selected',
-              message: 'Add a daemon, then select it, to connect to it.',
-            ),
-          );
-        }
-        final bloc = context.read<ConnectBloc>();
-        final tokens = context.kdTokens;
         final isProbing = state is ConnectProbing;
         return KDFullScreenLayout(
           footer: KDButton(
             label: 'Settings',
             variant: KDButtonVariant.text,
-            onPressed: () => _openSettings(context, target),
+            onPressed: () => _openSettings(context, state),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              KDText(target.daemonName, role: KDTextRole.titleMedium),
-              SizedBox(height: tokens.spacing.lg),
               KDInputField(
                 label: 'Daemon base URL',
                 controller: _baseUrl,
@@ -162,7 +146,7 @@ class _ConnectPageState extends State<ConnectPage> {
                 onChanged: (value) => bloc.add(ConnectTokenChanged(value)),
               ),
               SizedBox(height: tokens.spacing.lg),
-              if (isCleartextRisk(target.baseUrl)) ...[
+              if (isCleartextRisk(state.baseUrl)) ...[
                 const KDText(
                   _kCleartextWarning,
                   role: KDTextRole.bodySmall,
@@ -173,11 +157,11 @@ class _ConnectPageState extends State<ConnectPage> {
               KDButton(
                 label: 'Connect',
                 isBusy: isProbing,
-                isEnabled: isUsableBaseUrl(target.baseUrl),
+                isEnabled: isUsableBaseUrl(state.baseUrl),
                 onPressed: () => bloc.add(const ConnectProbeRequested()),
               ),
               SizedBox(height: tokens.spacing.xl),
-              _buildOutcome(state, target),
+              _buildOutcome(state),
             ],
           ),
         );
@@ -196,17 +180,20 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kanthord/api/api.dart';
+import 'package:kanthord/app/settings/base_url_store.dart';
+import 'package:kanthord/features/daemon_connect/connect/candidate_client.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_bloc.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_event.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_page.dart';
 import 'package:kanthord/features/daemon_connect/connect/widgets/health_view.dart';
 import 'package:kanthord/features/daemon_connect/connect/widgets/unauthorized_notice.dart';
 import 'package:kanthord/libraries/kd_design_system/atoms/kd_button.dart';
-import 'package:kanthord/libraries/kd_design_system/layout/kd_status_view.dart';
+import 'package:kanthord/libraries/kd_design_system/atoms/kd_input_field.dart';
 import 'package:kanthord/libraries/kd_design_system/styles/kd_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../api/dio_mock_adapter.dart';
-import '../daemon_fakes.dart';
 
 const Size _kExpanded = Size(1280, 900);
 
@@ -229,19 +216,17 @@ Finder _fieldOf(String label) =>
 
 void main() {
   late MockHttpClientAdapter adapter;
-  late FakeDaemonRegistry registry;
-  late FakeDaemonCredentialStore credentials;
+  late BaseUrlStoreType baseUrls;
+  late TokenProviderType tokens;
   late ConnectBloc bloc;
 
-  void buildBloc() {
-    bloc = ConnectBloc(
-      api: fakeApi(adapter),
-      registry: registry,
-      credentials: credentials,
-      isWeb: false,
-      now: () => DateTime.utc(2026, 8, 10),
+  KanthordApi buildProbe({required String baseUrl, required String token}) {
+    final dio = Dio()..httpClientAdapter = adapter;
+    return KanthordApi(
+      config: ApiConfig(baseUrlProvider: CandidateBaseUrlProvider(baseUrl)),
+      tokens: CandidateTokenProvider(token),
+      dio: dio,
     );
-    addTearDown(bloc.close);
   }
 
   Future<void> pump(WidgetTester tester) async {
@@ -258,71 +243,25 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  setUp(() {
+  setUp(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    baseUrls = PreferencesBaseUrlProvider(await SharedPreferences.getInstance());
+    tokens = CandidateTokenProvider(null);
     adapter = MockHttpClientAdapter();
-    registry = FakeDaemonRegistry(
-      daemons: <Daemon>[fakeDaemon()],
-      selected: kFakeDaemonId,
+    bloc = ConnectBloc(
+      tokens: tokens,
+      baseUrls: baseUrls,
+      probeClientBuilder: buildProbe,
+      isWeb: false,
     );
-    credentials = FakeDaemonCredentialStore();
+    addTearDown(bloc.close);
   });
 
   group('ConnectPage', () {
-    group('the unselected state', () {
-      testWidgets('should say no daemon is selected when the registry holds none', (tester) async {
-        // Arrange
-        registry = FakeDaemonRegistry();
-        buildBloc();
-        bloc.add(const ConnectStarted());
-
-        // Act
-        await pump(tester);
-
-        // Assert
-        expect(find.text('No daemon is selected'), findsOneWidget);
-        expect(
-          tester.widget<KDStatusView>(find.byType(KDStatusView)).kind,
-          KDStatusKind.empty,
-        );
-      });
-
-      testWidgets('should offer no field and no Connect when no daemon is selected', (
-        tester,
-      ) async {
-        // Arrange
-        registry = FakeDaemonRegistry();
-        buildBloc();
-        bloc.add(const ConnectStarted());
-
-        // Act
-        await pump(tester);
-
-        // Assert
-        expect(find.byType(TextField), findsNothing);
-        expect(find.text('Connect'), findsNothing);
-        expect(find.text('Settings'), findsNothing);
-        expect(adapter.requests, isEmpty);
-      });
-    });
-
-    group('the daemon name', () {
-      testWidgets('should show the selected daemon name when the page opens', (tester) async {
-        // Arrange
-        buildBloc();
-        bloc.add(const ConnectStarted());
-
-        // Act
-        await pump(tester);
-
-        // Assert
-        expect(find.text(kFakeDaemonName), findsOneWidget);
-      });
-    });
-
     group('the base URL field', () {
-      testWidgets('should show the selected daemon base URL when the page opens', (tester) async {
+      testWidgets('should show the convention when the store is empty', (tester) async {
         // Arrange
-        buildBloc();
         bloc.add(const ConnectStarted());
 
         // Act
@@ -331,15 +270,14 @@ void main() {
         // Assert
         expect(
           tester.widget<TextField>(_fieldOf('Daemon base URL')).controller!.text,
-          kFakeBaseUrl,
+          'http://localhost:31415',
         );
       });
 
-      testWidgets('should send no request when the page opens and nothing is confirmed', (
+      testWidgets('should send no request when the store is empty and nothing is confirmed', (
         tester,
       ) async {
         // Arrange
-        buildBloc();
         bloc.add(const ConnectStarted());
 
         // Act
@@ -349,15 +287,26 @@ void main() {
         expect(adapter.requests, isEmpty);
       });
 
-      testWidgets('should show the daemon base URL when the bloc settled before the page mounts', (
+      testWidgets('should show the stored value when the store holds a base URL', (tester) async {
+        // Arrange
+        await baseUrls.save('http://192.168.1.24:31415');
+        bloc.add(const ConnectStarted());
+
+        // Act
+        await pump(tester);
+
+        // Assert
+        expect(
+          tester.widget<TextField>(_fieldOf('Daemon base URL')).controller!.text,
+          'http://192.168.1.24:31415',
+        );
+      });
+
+      testWidgets('should show the stored value when the bloc settled before the page mounts', (
         tester,
       ) async {
         // Arrange
-        registry = FakeDaemonRegistry(
-          daemons: <Daemon>[fakeDaemon(baseUrl: 'http://192.168.1.24:31415')],
-          selected: kFakeDaemonId,
-        );
-        buildBloc();
+        await baseUrls.save('http://192.168.1.24:31415');
         bloc.add(const ConnectStarted());
         await bloc.stream.first;
 
@@ -375,7 +324,6 @@ void main() {
     group('the token field', () {
       testWidgets('should obscure the token when the page opens', (tester) async {
         // Arrange
-        buildBloc();
         bloc.add(const ConnectStarted());
 
         // Act
@@ -388,7 +336,6 @@ void main() {
 
       testWidgets('should reveal the token when the reveal control is pressed', (tester) async {
         // Arrange
-        buildBloc();
         bloc.add(const ConnectStarted());
         await pump(tester);
 
@@ -404,7 +351,6 @@ void main() {
     group('the cleartext warning', () {
       testWidgets('should show no warning when the base URL is loopback', (tester) async {
         // Arrange
-        buildBloc();
         bloc.add(const ConnectStarted());
 
         // Act
@@ -416,12 +362,7 @@ void main() {
 
       testWidgets('should warn when the base URL is not loopback', (tester) async {
         // Arrange
-        registry = FakeDaemonRegistry(
-          daemons: <Daemon>[fakeDaemon(baseUrl: 'http://192.168.1.24:31415')],
-          selected: kFakeDaemonId,
-        );
-        buildBloc();
-        bloc.add(const ConnectStarted());
+        bloc.add(const ConnectBaseUrlChanged('http://192.168.1.24:31415'));
 
         // Act
         await pump(tester);
@@ -435,7 +376,6 @@ void main() {
     group('the Connect control', () {
       testWidgets('should offer Connect when the base URL is usable', (tester) async {
         // Arrange
-        buildBloc();
         bloc.add(const ConnectStarted());
 
         // Act
@@ -450,12 +390,7 @@ void main() {
 
       testWidgets('should refuse Connect when the base URL is not usable', (tester) async {
         // Arrange
-        registry = FakeDaemonRegistry(
-          daemons: <Daemon>[fakeDaemon(baseUrl: 'not a url')],
-          selected: kFakeDaemonId,
-        );
-        buildBloc();
-        bloc.add(const ConnectStarted());
+        bloc.add(const ConnectBaseUrlChanged('not a url'));
 
         // Act
         await pump(tester);
@@ -475,7 +410,6 @@ void main() {
       ) async {
         // Arrange
         adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
-        buildBloc();
         bloc.add(const ConnectStarted());
         await pump(tester);
 
@@ -505,7 +439,6 @@ void main() {
         // Arrange
         adapter.respond = (options) =>
             jsonResponse(_errorBody('unauthenticated', 'the token is wrong'), 401);
-        buildBloc();
         bloc.add(const ConnectStarted());
         await pump(tester);
 
@@ -515,8 +448,8 @@ void main() {
 
         // Assert
         expect(find.byType(UnauthorizedNotice), findsOneWidget);
-        expect(find.text(kFakeDaemonName), findsWidgets);
-        expect(find.text(kFakeBaseUrl), findsWidgets);
+        expect(find.text('http://localhost:31415'), findsWidgets);
+        expect(tester.widget<KDInputField>(find.byType(KDInputField).last).isEnabled, isTrue);
       });
 
       testWidgets('should name the host and the host key when the daemon answers host-forbidden', (
@@ -525,7 +458,6 @@ void main() {
         // Arrange
         adapter.respond = (options) =>
             jsonResponse(_errorBody('host-forbidden', 'the host is not allowed'), 403);
-        buildBloc();
         bloc.add(const ConnectStarted());
         await pump(tester);
 
@@ -544,7 +476,6 @@ void main() {
           // Arrange
           adapter.respond = (options) =>
               jsonResponse(_errorBody('origin-forbidden', 'the origin is not allowed'), 403);
-          buildBloc();
           bloc.add(const ConnectStarted());
           await pump(tester);
 
@@ -563,7 +494,6 @@ void main() {
         // Arrange
         adapter.respond = (options) =>
             throw DioException(requestOptions: options, type: DioExceptionType.connectionError);
-        buildBloc();
         bloc.add(const ConnectStarted());
         await pump(tester);
 
@@ -587,19 +517,23 @@ New file `test/features/daemon_connect/settings/settings_flow_test.dart`, verbat
 the whole of G8, not the dialog alone.
 
 ```dart
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kanthord/api/api.dart';
+import 'package:kanthord/app/settings/base_url_store.dart';
+import 'package:kanthord/features/daemon_connect/connect/candidate_client.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_bloc.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_event.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_page.dart';
-import 'package:kanthord/features/daemon_connect/connect/connect_state.dart';
 import 'package:kanthord/features/daemon_connect/connect/widgets/unauthorized_notice.dart';
+import 'package:kanthord/libraries/kd_design_system/atoms/kd_input_field.dart';
 import 'package:kanthord/libraries/kd_design_system/layout/kd_dialog.dart';
 import 'package:kanthord/libraries/kd_design_system/styles/kd_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../api/dio_mock_adapter.dart';
-import '../daemon_fakes.dart';
 
 const Size _kExpanded = Size(1280, 900);
 
@@ -615,19 +549,17 @@ Finder _dialogFieldOf(String label) =>
 
 void main() {
   late MockHttpClientAdapter adapter;
-  late FakeDaemonRegistry registry;
-  late FakeDaemonCredentialStore credentials;
+  late BaseUrlStoreType baseUrls;
+  late TokenProviderType tokens;
   late ConnectBloc bloc;
 
-  void buildBloc() {
-    bloc = ConnectBloc(
-      api: fakeApi(adapter),
-      registry: registry,
-      credentials: credentials,
-      isWeb: false,
-      now: () => DateTime.utc(2026, 8, 10),
+  KanthordApi buildProbe({required String baseUrl, required String token}) {
+    final dio = Dio()..httpClientAdapter = adapter;
+    return KanthordApi(
+      config: ApiConfig(baseUrlProvider: CandidateBaseUrlProvider(baseUrl)),
+      tokens: CandidateTokenProvider(token),
+      dio: dio,
     );
-    addTearDown(bloc.close);
   }
 
   Future<void> pump(WidgetTester tester) async {
@@ -649,24 +581,28 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  setUp(() {
+  setUp(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    baseUrls = PreferencesBaseUrlProvider(await SharedPreferences.getInstance());
+    tokens = CandidateTokenProvider(null);
     adapter = MockHttpClientAdapter();
-    registry = FakeDaemonRegistry(
-      daemons: <Daemon>[fakeDaemon()],
-      selected: kFakeDaemonId,
+    bloc = ConnectBloc(
+      tokens: tokens,
+      baseUrls: baseUrls,
+      probeClientBuilder: buildProbe,
+      isWeb: false,
     );
-    credentials = FakeDaemonCredentialStore();
+    addTearDown(bloc.close);
   });
 
   group('the settings destination', () {
     group('Replace', () {
-      testWidgets('should replace all three values when the dialog returns them', (tester) async {
+      testWidgets('should replace both values when the dialog returns them', (tester) async {
         // Arrange
-        buildBloc();
         bloc.add(const ConnectStarted());
         await pump(tester);
         await openSettings(tester);
-        await tester.enterText(_dialogFieldOf('Daemon name'), 'vps');
         await tester.enterText(_dialogFieldOf('Daemon base URL'), 'http://10.0.2.2:31415');
         await tester.enterText(_dialogFieldOf('Daemon token'), 'a-new-token');
 
@@ -676,57 +612,19 @@ void main() {
 
         // Assert
         expect(find.byType(KDDialog), findsNothing);
-        final target = targetOf(bloc.state)!;
-        expect(target.daemonName, 'vps');
-        expect(target.baseUrl, 'http://10.0.2.2:31415');
-        expect(target.token, 'a-new-token');
-      });
-
-      testWidgets('should show the replaced name and base URL when the dialog returns them', (
-        tester,
-      ) async {
-        // Arrange
-        buildBloc();
-        bloc.add(const ConnectStarted());
-        await pump(tester);
-        await openSettings(tester);
-        await tester.enterText(_dialogFieldOf('Daemon name'), 'vps');
-        await tester.enterText(_dialogFieldOf('Daemon base URL'), 'http://10.0.2.2:31415');
-
-        // Act
-        await tester.tap(find.text('Replace'));
-        await tester.pumpAndSettle();
-
-        // Assert
-        expect(find.text('vps'), findsOneWidget);
+        expect(bloc.state.baseUrl, 'http://10.0.2.2:31415');
+        expect(bloc.state.token, 'a-new-token');
         expect(
           tester.widget<TextField>(_fieldOf('Daemon base URL')).controller!.text,
           'http://10.0.2.2:31415',
         );
       });
-
-      testWidgets('should keep the daemon id when the dialog replaces every value', (tester) async {
-        // Arrange
-        buildBloc();
-        bloc.add(const ConnectStarted());
-        await pump(tester);
-        await openSettings(tester);
-        await tester.enterText(_dialogFieldOf('Daemon name'), 'vps');
-
-        // Act
-        await tester.tap(find.text('Replace'));
-        await tester.pumpAndSettle();
-
-        // Assert
-        expect(targetOf(bloc.state)!.daemonId, kFakeDaemonId);
-      });
     });
 
     group('Clear the token', () {
-      testWidgets('should delete the stored credential when the dialog clears it', (tester) async {
+      testWidgets('should clear the stored token when the dialog clears it', (tester) async {
         // Arrange
-        credentials.tokens[kFakeDaemonId] = 'a-token';
-        buildBloc();
+        await tokens.save('a-token');
         bloc.add(const ConnectStarted());
         await pump(tester);
         await openSettings(tester);
@@ -736,20 +634,14 @@ void main() {
         await tester.pumpAndSettle();
 
         // Assert
-        expect(targetOf(bloc.state)!.token, '');
-        expect(credentials.tokens.containsKey(kFakeDaemonId), isFalse);
+        expect(bloc.state.token, '');
+        expect(await tokens.token(), isNull);
       });
 
-      testWidgets('should keep the name and the base URL when the dialog clears the token', (
-        tester,
-      ) async {
+      testWidgets('should keep the base URL when the dialog clears the token', (tester) async {
         // Arrange
-        registry = FakeDaemonRegistry(
-          daemons: <Daemon>[fakeDaemon(baseUrl: 'http://10.0.2.2:31415')],
-          selected: kFakeDaemonId,
-        );
-        credentials.tokens[kFakeDaemonId] = 'a-token';
-        buildBloc();
+        await baseUrls.save('http://10.0.2.2:31415');
+        await tokens.save('a-token');
         bloc.add(const ConnectStarted());
         await pump(tester);
         await openSettings(tester);
@@ -759,25 +651,19 @@ void main() {
         await tester.pumpAndSettle();
 
         // Assert
-        final target = targetOf(bloc.state)!;
-        expect(target.daemonName, kFakeDaemonName);
-        expect(target.baseUrl, 'http://10.0.2.2:31415');
-        expect((await registry.selected())!.baseUrl, 'http://10.0.2.2:31415');
+        expect(bloc.state.baseUrl, 'http://10.0.2.2:31415');
+        expect(await baseUrls.read(), 'http://10.0.2.2:31415');
       });
     });
 
     group('the unauthorized state', () {
-      testWidgets('should show the daemon name and the base URL and keep the token when the '
-          'daemon answers 401', (tester) async {
+      testWidgets('should show the current base URL and keep the token when the daemon answers '
+          '401', (tester) async {
         // Arrange
-        registry = FakeDaemonRegistry(
-          daemons: <Daemon>[fakeDaemon(name: 'vps', baseUrl: 'http://10.0.2.2:31415')],
-          selected: kFakeDaemonId,
-        );
-        credentials.tokens[kFakeDaemonId] = 'a-token';
+        await baseUrls.save('http://10.0.2.2:31415');
+        await tokens.save('a-token');
         adapter.respond = (options) =>
             jsonResponse(_errorBody('unauthenticated', 'the token is wrong'), 401);
-        buildBloc();
         bloc.add(const ConnectStarted());
         await pump(tester);
 
@@ -787,9 +673,9 @@ void main() {
 
         // Assert
         expect(find.byType(UnauthorizedNotice), findsOneWidget);
-        expect(find.text('vps'), findsWidgets);
         expect(find.text('http://10.0.2.2:31415'), findsWidgets);
-        expect(credentials.tokens[kFakeDaemonId], 'a-token');
+        expect(await tokens.token(), 'a-token');
+        expect(tester.widget<KDInputField>(find.byType(KDInputField).last).isEnabled, isTrue);
         expect(find.text('Clear the token'), findsNothing);
       });
     });
@@ -799,34 +685,22 @@ void main() {
 
 ## Constraints
 
-- **The page renders the unselected state and calls nothing.** When `targetOf(state)` is `null` it
-  builds a `KDStatusView` of kind `empty` inside `KDFullScreenLayout`, with no field, no `Connect`
-  and no `Settings` footer. Adding a daemon is EPIC 003.1. EPIC G9.
-- **The daemon name is the page header.** It is the first child of the column, so the operator always
-  knows which daemon the fields describe.
-- **The page maps the dialog's three values to two events**, in this order:
-  `ConnectDaemonEdited(name:, baseUrl:)`, then `ConnectTokenCleared()` when the returned token is
-  empty and `ConnectTokenChanged(token)` otherwise. The order is fixed, so the name and the base URL
-  are always applied even when the token event clears.
 - The page contains no API call. It reads state and dispatches events. `AGENTS.md:203-208`.
 - The page creates no bloc. Story 09's route creates it.
-- The page holds two controllers, for the base URL and the token. **It holds no name controller**: the
-  name is edited in the dialog alone.
 - The two controllers live in the `State` and are disposed. `didChangeDependencies` seeds them from
   the state that is already current, and the `BlocConsumer` listener carries every later change, so
   the fields never depend on whether `ConnectStarted` settled before or after the mount.
-- `_sync` returns early when `targetOf(state)` is `null`, and it writes into a controller only when
-  the value differs, so a keystroke never re-enters the controller.
+- `_sync` writes into a controller only when the value differs, so a keystroke never re-enters the
+  controller.
 - The 403 message branches on `code`. It never tells the operator to add the daemon host to
   `KANTHORD_HTTP_ALLOWED_ORIGINS`: the value that key takes is the page origin, which is a different
   value (`docs/api/connectivity.md:121-123`).
 - The probe runs on an explicit press. There is no automatic retry and no probe on `initState`.
-- `Connect` is disabled while `isUsableBaseUrl(target.baseUrl)` is `false`, so an unusable value never
+- `Connect` is disabled while `isUsableBaseUrl(state.baseUrl)` is `false`, so an unusable value never
   reaches `Dio`. The bloc guards the same case, and the two guards are deliberate: the button states
   the rule to the human, and the bloc enforces it.
-- The `switch` over `ConnectState` is exhaustive and lists all eight variants, `ConnectUnselected`
-  included. `_buildOutcome` is only reached with a non-null target, so its `ConnectUnselected` arm is
-  a compile requirement and never renders.
+- The `switch` over `ConnectState` is exhaustive and lists `ConnectStorageFailed`. That state means
+  the daemon answered `200` and the client failed to persist the pair, so its title says both things.
 - Every design value comes from `context.kdTokens`. No `Color(0x`, no `Colors.`, no `TextStyle(`,
   no `BorderRadius.circular(<digit>)`.
 - No `Navigator.push`. The settings destination uses `KDDialog.show`.

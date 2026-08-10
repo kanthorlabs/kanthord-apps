@@ -1,7 +1,7 @@
 # Story 02 — the probe outcome map
 
 Epic: `.agent/plan/epics/003-daemon-connect.md`
-Depends on: Story 01 (`ConnectState`, `ConnectTarget`).
+Depends on: Story 01 (`ConnectState`).
 
 ## Change
 
@@ -20,22 +20,25 @@ const Set<String> _kDaemonConfigCodes = <String>{'host-forbidden', 'origin-forbi
 
 ConnectState probeFailure(
   ApiException error, {
-  required ConnectTarget target,
+  required String baseUrl,
+  required String token,
   required bool isWeb,
 }) {
   if (error is ApiUnauthorizedException) {
-    return ConnectState.tokenRejected(target: target, detail: error.message);
+    return ConnectState.tokenRejected(baseUrl: baseUrl, token: token, detail: error.message);
   }
   if (error is ApiResponseException && _kDaemonConfigCodes.contains(error.code)) {
     return ConnectState.daemonRejected(
-      target: target,
+      baseUrl: baseUrl,
+      token: token,
       code: error.code,
-      host: Uri.parse(target.baseUrl).authority,
+      host: Uri.parse(baseUrl).authority,
       configKey: error.code == 'origin-forbidden' ? kAllowedOriginsKey : kAllowedHostsKey,
     );
   }
   return ConnectState.unreachable(
-    target: target,
+    baseUrl: baseUrl,
+    token: token,
     detail: error.message,
     isOpaque: isWeb && error is ApiNoNetworkException,
   );
@@ -55,17 +58,11 @@ ConnectState probeFailure(
 | `ApiDecodeException`                               | `ConnectUnreachable(isOpaque: false)`                             |
 | `ApiCancelledException`                            | `ConnectUnreachable(isOpaque: false)`                             |
 | `ApiNotImplementedException`                       | `ConnectUnreachable(isOpaque: false)`                             |
-| `ApiNotConfiguredException`                        | `ConnectUnreachable(isOpaque: false)`                             |
 | any other `ApiResponseException` code              | `ConnectUnreachable(isOpaque: false)`                             |
 
 `isOpaque` is `true` for `ApiNoNetworkException` on web alone. A `401` and a `403` reach the browser
 with a status and a body, so they keep their own outcome on every platform.
 `.agent/plan/stories/001-transport-foundation/04-web-opaque-failure-message.md:34-35`.
-
-`ApiNotConfiguredException` is EPIC 001.1 G6, the eighth `ApiException` subclass. A candidate always
-carries a static endpoint, so `BaseUrlInterceptor` never rejects a probe with it. It falls to
-`ConnectUnreachable` by the same default arm as every other unnamed subclass, and the table records
-that rather than leaving it to be discovered.
 
 ### `test/**`
 
@@ -78,19 +75,16 @@ import 'package:kanthord/api/models/health.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_state.dart';
 import 'package:kanthord/features/daemon_connect/connect/probe_outcome.dart';
 
-const ConnectTarget _kTarget = ConnectTarget(
-  daemonId: 'daemon-1',
-  daemonName: 'local',
-  baseUrl: 'http://localhost:31415',
-  token: 'a-token',
-);
+const String _kBaseUrl = 'http://localhost:31415';
+const String _kToken = 'a-token';
 
 const Map<String, dynamic> _kHealthBody = <String, dynamic>{
   'status': 'ok',
   'dependencies': <dynamic>[],
 };
 
-ConnectState _map(ApiException error) => probeFailure(error, target: _kTarget, isWeb: false);
+ConnectState _map(ApiException error) =>
+    probeFailure(error, baseUrl: _kBaseUrl, token: _kToken, isWeb: false);
 
 void main() {
   group('the four probe outcomes', () {
@@ -100,12 +94,17 @@ void main() {
         final health = Health.fromJson(_kHealthBody);
 
         // Act
-        final state = ConnectState.connected(target: _kTarget, health: health);
+        final state = ConnectState.connected(
+          baseUrl: _kBaseUrl,
+          token: _kToken,
+          health: health,
+        );
 
         // Assert
         expect(state, isA<ConnectConnected>());
         expect((state as ConnectConnected).health.status.raw, 'ok');
-        expect(targetOf(state), _kTarget);
+        expect(state.baseUrl, _kBaseUrl);
+        expect(state.token, _kToken);
       });
 
       test('should never come from the failure map when the daemon answers 200', () {
@@ -133,19 +132,8 @@ void main() {
         // Assert
         expect(state, isA<ConnectTokenRejected>());
         expect((state as ConnectTokenRejected).detail, 'the daemon refused the token');
-        expect(targetOf(state), _kTarget);
-      });
-
-      test('should carry the daemon name and id when the daemon answers unauthenticated', () {
-        // Arrange
-        const error = ApiUnauthorizedException('the daemon refused the token');
-
-        // Act
-        final state = _map(error);
-
-        // Assert
-        expect(targetOf(state)!.daemonId, 'daemon-1');
-        expect(targetOf(state)!.daemonName, 'local');
+        expect(state.baseUrl, _kBaseUrl);
+        expect(state.token, _kToken);
       });
     });
 
@@ -265,18 +253,6 @@ void main() {
         // Assert
         expect(state, isA<ConnectUnreachable>());
       });
-
-      test('should stay the URL outcome when the client holds no daemon', () {
-        // Arrange
-        const error = ApiNotConfiguredException('no daemon is selected');
-
-        // Act
-        final state = _map(error);
-
-        // Assert
-        expect(state, isA<ConnectUnreachable>());
-        expect((state as ConnectUnreachable).isOpaque, isFalse);
-      });
     });
   });
 }
@@ -292,13 +268,7 @@ import 'package:kanthord/features/daemon_connect/connect/connect_state.dart';
 import 'package:kanthord/features/daemon_connect/connect/probe_outcome.dart';
 
 const String _kBaseUrl = 'http://localhost:31415';
-
-const ConnectTarget _kTarget = ConnectTarget(
-  daemonId: 'daemon-1',
-  daemonName: 'local',
-  baseUrl: _kBaseUrl,
-  token: 'a-token',
-);
+const String _kToken = 'a-token';
 
 ApiException _connectionFailure({required bool isWeb}) => ApiException.fromDio(
   DioException(
@@ -309,7 +279,7 @@ ApiException _connectionFailure({required bool isWeb}) => ApiException.fromDio(
 );
 
 ConnectState _map(ApiException error, {required bool isWeb}) =>
-    probeFailure(error, target: _kTarget, isWeb: isWeb);
+    probeFailure(error, baseUrl: _kBaseUrl, token: _kToken, isWeb: isWeb);
 
 void main() {
   group('probeFailure on web', () {
@@ -384,22 +354,15 @@ void main() {
 ## Constraints
 
 - `probeFailure` is a top-level function. It builds no widget, reads no store and calls no daemon.
-- **`probeFailure` takes the `ConnectTarget` and passes it through unchanged.** It resolves no daemon
-  identity and it never reads a registry. The caller supplies the identity, so the outcome always
-  names the daemon the probe ran against.
 - It never inspects `ApiResponseException.status`. It branches on `code` alone.
   `docs/api/errors.md:18` — "Branch on `code`. Never parse `message`."
-- `host` comes from `Uri.parse(target.baseUrl).authority`, never from the response body. The
-  `host-forbidden` schema carries no `details`
-  (`docs/api/contract/features/system.yaml:118-129`), and `ApiException.fromDio` already rewrote the
-  message with the same authority (`lib/api/api_exception.dart:66-76`).
+- `host` comes from `Uri.parse(baseUrl).authority`, never from the response body. The
+  `host-forbidden` schema carries no `details` (`docs/api/contract/features/system.yaml:118-129`).
 - `host` is **the daemon host the client sent**, and it is the value to add for `host-forbidden`
   only. For `origin-forbidden` the value to add is the page origin, such as
   `http://localhost:8080`, which is a different value (`docs/api/connectivity.md:121-123`). Story 08
   therefore renders two different sentences and never tells the operator to add `host` to
   `KANTHORD_HTTP_ALLOWED_ORIGINS`.
-- `probeFailure` never returns `ConnectConnected`, `ConnectStorageFailed`, `ConnectIdle`,
-  `ConnectProbing` or `ConnectUnselected`. It returns one of exactly three variants.
 - Neither test file imports `dart:io`, so both run under `flutter test --platform chrome`.
 
 ## Verify

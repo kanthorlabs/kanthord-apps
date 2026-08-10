@@ -1,5 +1,10 @@
 # Story 07 — the settings destination
 
+> **SUPERSEDED on 2026-08-10 — re-expand before implementing.** The product holds more than
+> one daemon, and `KanthordApi.withCandidate` replaces `ProbeClientBuilder`. Read the STOP
+> block in `index.md` for this file's delta specification. Everything below still shows the
+> shape, the guards and the tests that survive.
+
 Epic: `.agent/plan/epics/003-daemon-connect.md`
 
 Atomic layer: a **page part** over the `KDDialog` template. `KDDialog` already renders full screen
@@ -19,22 +24,15 @@ import '../../../libraries/kd_design_system/kd_design_system.dart';
 
 @immutable
 final class SettingsValues {
-  const SettingsValues({required this.name, required this.baseUrl, required this.token});
+  const SettingsValues({required this.baseUrl, required this.token});
 
-  final String name;
   final String baseUrl;
   final String token;
 }
 
 final class SettingsDialog extends StatefulWidget {
-  const SettingsDialog({
-    required this.name,
-    required this.baseUrl,
-    required this.token,
-    super.key,
-  });
+  const SettingsDialog({required this.baseUrl, required this.token, super.key});
 
-  final String name;
   final String baseUrl;
   final String token;
 
@@ -43,28 +41,22 @@ final class SettingsDialog extends StatefulWidget {
 }
 
 class _SettingsDialogState extends State<SettingsDialog> {
-  late final TextEditingController _name = TextEditingController(text: widget.name);
   late final TextEditingController _baseUrl = TextEditingController(text: widget.baseUrl);
   late final TextEditingController _token = TextEditingController(text: widget.token);
 
   @override
   void dispose() {
-    _name.dispose();
     _baseUrl.dispose();
     _token.dispose();
     super.dispose();
   }
 
   void _replace() {
-    Navigator.of(context).pop(
-      SettingsValues(name: _name.text, baseUrl: _baseUrl.text, token: _token.text),
-    );
+    Navigator.of(context).pop(SettingsValues(baseUrl: _baseUrl.text, token: _token.text));
   }
 
   void _clearToken() {
-    Navigator.of(context).pop(
-      SettingsValues(name: _name.text, baseUrl: _baseUrl.text, token: ''),
-    );
+    Navigator.of(context).pop(SettingsValues(baseUrl: _baseUrl.text, token: ''));
   }
 
   @override
@@ -84,8 +76,6 @@ class _SettingsDialogState extends State<SettingsDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          KDInputField(label: 'Daemon name', controller: _name),
-          SizedBox(height: tokens.spacing.lg),
           KDInputField(label: 'Daemon base URL', controller: _baseUrl),
           SizedBox(height: tokens.spacing.lg),
           KDInputField(label: 'Daemon token', controller: _token, isObscured: true),
@@ -111,7 +101,6 @@ const Size _kMobile = Size(599, 900);
 const Size _kWide = Size(600, 900);
 const Size _kExpanded = Size(1280, 900);
 
-const String _kName = 'local';
 const String _kBaseUrl = 'http://localhost:31415';
 const String _kToken = 'a-token';
 
@@ -133,11 +122,8 @@ Future<void> _open(WidgetTester tester, Size size) async {
               onPressed: () async {
                 result = await KDDialog.show<SettingsValues>(
                   context,
-                  builder: (_) => const SettingsDialog(
-                    name: _kName,
-                    baseUrl: _kBaseUrl,
-                    token: _kToken,
-                  ),
+                  builder: (_) =>
+                      const SettingsDialog(baseUrl: _kBaseUrl, token: _kToken),
                 );
               },
               child: const Text('open'),
@@ -162,12 +148,10 @@ void main() {
         await _open(tester, _kExpanded);
 
         // Act
-        final name = tester.widget<TextField>(_fieldOf('Daemon name')).controller!.text;
         final baseUrl = tester.widget<TextField>(_fieldOf('Daemon base URL')).controller!.text;
         final token = tester.widget<TextField>(_fieldOf('Daemon token')).controller!.text;
 
         // Assert
-        expect(name, _kName);
         expect(baseUrl, _kBaseUrl);
         expect(token, _kToken);
       });
@@ -181,18 +165,6 @@ void main() {
 
         // Assert
         expect(field.obscureText, isTrue);
-      });
-
-      testWidgets('should offer no daemon list when the dialog is shown', (tester) async {
-        // Arrange
-        await _open(tester, _kExpanded);
-
-        // Act
-        final fields = find.byType(TextField);
-
-        // Assert
-        expect(fields, findsNWidgets(3));
-        expect(find.text('Add a daemon'), findsNothing);
       });
 
       testWidgets('should render a dialog when the width is 600', (tester) async {
@@ -220,10 +192,9 @@ void main() {
     });
 
     group('Replace', () {
-      testWidgets('should return all three entered values when Replace is pressed', (tester) async {
+      testWidgets('should return both entered values when Replace is pressed', (tester) async {
         // Arrange
         await _open(tester, _kExpanded);
-        await tester.enterText(_fieldOf('Daemon name'), 'vps');
         await tester.enterText(_fieldOf('Daemon base URL'), 'http://10.0.2.2:31415');
         await tester.enterText(_fieldOf('Daemon token'), 'a-new-token');
 
@@ -233,7 +204,6 @@ void main() {
 
         // Assert
         expect(find.byType(KDDialog), findsNothing);
-        expect(result!.name, 'vps');
         expect(result!.baseUrl, 'http://10.0.2.2:31415');
         expect(result!.token, 'a-new-token');
       });
@@ -251,7 +221,6 @@ void main() {
         // Assert
         expect(find.byType(KDDialog), findsNothing);
         expect(result!.token, '');
-        expect(result!.name, _kName);
         expect(result!.baseUrl, _kBaseUrl);
       });
     });
@@ -276,21 +245,15 @@ void main() {
 
 ## Constraints
 
-- **The dialog carries three values for the selected daemon: `name`, `baseUrl` and `token`.** It
-  takes no `Daemon` and no `daemonId`: the id is the identity and it is never editable, so the dialog
-  never sees it and can never change it.
-- **The dialog gains no list and no switcher.** EPIC 003.1 reuses this dialog as its surface and adds
-  those. A test asserts exactly three `TextField` widgets, so a list added here fails this Story
-  rather than passing unnoticed.
 - The dialog returns a `SettingsValues` through `Navigator.of(context).pop`. It dispatches no bloc
   event and it reads no store. The connect page of Story 08 maps the result to events.
 - `Navigator.of(context).pop` is legal. `scripts/arch-check.sh:70-71` bans the `push` forms alone.
 - The dialog is the only place that clears the token. `Clear the token` returns an empty token, and
   Story 08 maps an empty token to `ConnectTokenCleared`.
-- `Clear the token` never clears the name and never clears the base URL. It returns both as typed.
+- `Clear the token` never clears the base URL.
 - The file holds no comment and hard-codes no design value.
 - The test asserts the two layout branches at the boundary values `599` and `600`.
-  `docs/testing.md:130-131`.
+  `docs/testing.md:118-124`.
 
 ## Verify
 

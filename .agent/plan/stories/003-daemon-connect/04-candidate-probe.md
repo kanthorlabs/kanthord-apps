@@ -1,65 +1,16 @@
 # Story 04 — the candidate probe and `ConnectBloc`
 
-> **SUPERSEDED on 2026-08-10 — re-expand before implementing.** The product holds more than
-> one daemon, and `KanthordApi.withCandidate` replaces `ProbeClientBuilder`. Read the STOP
-> block in `index.md` for this file's delta specification. Everything below still shows the
-> shape, the guards and the tests that survive.
-
 Epic: `.agent/plan/epics/003-daemon-connect.md`
-Depends on: Story 01 (`ConnectState`), Story 02 (`probeFailure`), EPIC 002
-(`BaseUrlStoreType`, `Env`).
+Depends on: Story 01 (`ConnectState`, `ConnectTarget`, `targetOf`), Story 02 (`probeFailure`),
+Story 03 (`isUsableBaseUrl`), EPIC 001.1 (`KanthordApi.withCandidate`, `adapterFactory`,
+`StaticBaseUrlProvider`, `StaticTokenProvider`, `DaemonEndpoint`), EPIC 002 (`Daemon`,
+`DaemonRegistryType`, `DaemonCredentialStoreType`).
 
-**Blocked on owner decision B1 and B2. Read `index.md`.** The EPIC requires the bloc to take
-`KanthordApi` and requires the bloc test to mock it. `KanthordApi` and `SystemResource` are
-`final class` (`.agent/plan/stories/001-transport-foundation/10-kanthord-api.md:19`,
-`09-system-resource.md:19`), and a Dart `final` class cannot be implemented outside its own library,
-so `@GenerateMocks([KanthordApi])` does not compile. This Story is written against the transport
-seam instead — a real `KanthordApi` over a `Dio` carrying `MockHttpClientAdapter`, which is the seam
-`KanthordApi`'s optional `Dio?` exists for (`docs/testing.md:49-55`).
+Read the **assumed EPIC 002 contract** in `index.md` before you start. This Story cites four members
+of it and nothing else: `registry.selected()`, `registry.update(daemon)`, `credentials.read(id)` and
+`credentials.save(id, token)`, plus `credentials.delete(id)` for the explicit clear.
 
 ## Change
-
-### `lib/**` — the candidate client
-
-New file `lib/features/daemon_connect/connect/candidate_client.dart`, verbatim:
-
-```dart
-import '../../../api/api.dart';
-
-final class CandidateBaseUrlProvider implements BaseUrlProviderType {
-  const CandidateBaseUrlProvider(this._baseUrl);
-
-  final String _baseUrl;
-
-  @override
-  Future<String> baseUrl() async => _baseUrl;
-}
-
-final class CandidateTokenProvider implements TokenProviderType {
-  CandidateTokenProvider(this._token);
-
-  String? _token;
-
-  @override
-  Future<String?> token() async => _token;
-
-  @override
-  Future<void> save(String token) async => _token = token;
-
-  @override
-  Future<void> clear() async => _token = null;
-}
-
-typedef ProbeClientBuilder = KanthordApi Function({
-  required String baseUrl,
-  required String token,
-});
-
-KanthordApi buildProbeClient({required String baseUrl, required String token}) => KanthordApi(
-  config: ApiConfig(baseUrlProvider: CandidateBaseUrlProvider(baseUrl)),
-  tokens: CandidateTokenProvider(token),
-);
-```
 
 ### `lib/**` — the events
 
@@ -86,6 +37,13 @@ final class ConnectTokenChanged extends ConnectEvent {
   final String token;
 }
 
+final class ConnectDaemonEdited extends ConnectEvent {
+  const ConnectDaemonEdited({required this.name, required this.baseUrl});
+
+  final String name;
+  final String baseUrl;
+}
+
 final class ConnectProbeRequested extends ConnectEvent {
   const ConnectProbeRequested();
 }
@@ -103,106 +61,279 @@ New file `lib/features/daemon_connect/connect/connect_bloc.dart`, verbatim:
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../api/api.dart';
-import '../../../app/env/env.dart';
-import '../../../app/settings/base_url_store.dart';
+import '../../../app/settings/daemon.dart';
+import '../../../app/settings/daemon_registry.dart';
+import '../../../app/token/daemon_credential_store.dart';
 import 'base_url_rule.dart';
-import 'candidate_client.dart';
 import 'connect_event.dart';
 import 'connect_state.dart';
 import 'probe_outcome.dart';
 
+DateTime _systemNow() => DateTime.now();
+
 final class ConnectBloc extends Bloc<ConnectEvent, ConnectState> {
   ConnectBloc({
-    required TokenProviderType tokens,
-    required BaseUrlStoreType baseUrls,
-    ProbeClientBuilder probeClientBuilder = buildProbeClient,
+    required KanthordApi api,
+    required DaemonRegistryType registry,
+    required DaemonCredentialStoreType credentials,
     bool isWeb = kApiIsWeb,
-  }) : _tokens = tokens,
-       _baseUrls = baseUrls,
-       _probeClientBuilder = probeClientBuilder,
+    DateTime Function() now = _systemNow,
+  }) : _api = api,
+       _registry = registry,
+       _credentials = credentials,
        _isWeb = isWeb,
-       super(const ConnectState.idle(baseUrl: Env.apiEndpoint, token: '')) {
+       _now = now,
+       super(const ConnectState.unselected()) {
     on<ConnectStarted>(_onStarted);
     on<ConnectBaseUrlChanged>(_onBaseUrlChanged);
     on<ConnectTokenChanged>(_onTokenChanged);
+    on<ConnectDaemonEdited>(_onDaemonEdited);
     on<ConnectProbeRequested>(_onProbeRequested);
     on<ConnectTokenCleared>(_onTokenCleared);
   }
 
-  final TokenProviderType _tokens;
-  final BaseUrlStoreType _baseUrls;
-  final ProbeClientBuilder _probeClientBuilder;
+  final KanthordApi _api;
+  final DaemonRegistryType _registry;
+  final DaemonCredentialStoreType _credentials;
   final bool _isWeb;
+  final DateTime Function() _now;
 
   Future<void> _onStarted(ConnectStarted event, Emitter<ConnectState> emit) async {
-    final stored = await _baseUrls.read();
-    final token = await _tokens.token();
-    emit(ConnectState.idle(baseUrl: stored ?? Env.apiEndpoint, token: token ?? ''));
+    final daemon = await _registry.selected();
+    if (daemon == null) {
+      emit(const ConnectState.unselected());
+      return;
+    }
+    final token = await _credentials.read(daemon.id);
+    emit(
+      ConnectState.idle(
+        target: ConnectTarget(
+          daemonId: daemon.id,
+          daemonName: daemon.name,
+          baseUrl: daemon.baseUrl,
+          token: token ?? '',
+        ),
+      ),
+    );
   }
 
   void _onBaseUrlChanged(ConnectBaseUrlChanged event, Emitter<ConnectState> emit) {
     if (state is ConnectProbing) return;
-    emit(ConnectState.idle(baseUrl: event.baseUrl, token: state.token));
+    final target = targetOf(state);
+    if (target == null) return;
+    emit(ConnectState.idle(target: target.copyWith(baseUrl: event.baseUrl)));
   }
 
   void _onTokenChanged(ConnectTokenChanged event, Emitter<ConnectState> emit) {
     if (state is ConnectProbing) return;
-    emit(ConnectState.idle(baseUrl: state.baseUrl, token: event.token));
+    final target = targetOf(state);
+    if (target == null) return;
+    emit(ConnectState.idle(target: target.copyWith(token: event.token)));
+  }
+
+  void _onDaemonEdited(ConnectDaemonEdited event, Emitter<ConnectState> emit) {
+    if (state is ConnectProbing) return;
+    final target = targetOf(state);
+    if (target == null) return;
+    emit(
+      ConnectState.idle(
+        target: target.copyWith(daemonName: event.name, baseUrl: event.baseUrl),
+      ),
+    );
   }
 
   Future<void> _onProbeRequested(ConnectProbeRequested event, Emitter<ConnectState> emit) async {
     if (state is ConnectProbing) return;
-    final baseUrl = state.baseUrl;
-    final token = state.token;
-    if (!isUsableBaseUrl(baseUrl)) return;
-    emit(ConnectState.probing(baseUrl: baseUrl, token: token));
-    final api = _probeClientBuilder(baseUrl: baseUrl, token: token);
+    final target = targetOf(state);
+    if (target == null) return;
+    if (!isUsableBaseUrl(target.baseUrl)) return;
+    emit(ConnectState.probing(target: target));
+    final candidate = _api.withCandidate(baseUrl: target.baseUrl, token: target.token);
     try {
-      final health = await api.system.health();
-      final committed = await _commit(baseUrl, token);
+      final health = await candidate.system.health();
+      final committed = await _commit(target);
       emit(
         committed
-            ? ConnectState.connected(baseUrl: baseUrl, token: token, health: health)
+            ? ConnectState.connected(target: target, health: health)
             : ConnectState.storageFailed(
-                baseUrl: baseUrl,
-                token: token,
+                target: target,
                 detail: 'the client could not store the proven configuration',
               ),
       );
     } on ApiException catch (error) {
-      emit(probeFailure(error, baseUrl: baseUrl, token: token, isWeb: _isWeb));
+      emit(probeFailure(error, target: target, isWeb: _isWeb));
     } finally {
-      api.dio.close(force: true);
+      candidate.dio.close(force: true);
     }
   }
 
-  Future<bool> _commit(String baseUrl, String token) async {
-    final previousBaseUrl = await _baseUrls.read();
-    final previousToken = await _tokens.token();
+  Future<bool> _commit(ConnectTarget target) async {
+    final previousDaemon = await _registry.selected();
+    if (previousDaemon == null) return false;
+    final previousToken = await _credentials.read(target.daemonId);
     try {
-      await _baseUrls.save(baseUrl);
-      await _tokens.save(token);
+      await _registry.update(
+        previousDaemon.copyWith(
+          name: target.daemonName,
+          baseUrl: target.baseUrl,
+          confirmedAt: _now(),
+        ),
+      );
+      await _credentials.save(target.daemonId, target.token);
       return true;
     } on Exception {
-      await _restoreQuietly(previousBaseUrl, previousToken);
+      await _restoreQuietly(previousDaemon, previousToken);
       return false;
     }
   }
 
-  Future<void> _restoreQuietly(String? baseUrl, String? token) async {
+  Future<void> _restoreQuietly(Daemon daemon, String? token) async {
     try {
-      await (baseUrl == null ? _baseUrls.clear() : _baseUrls.save(baseUrl));
-      await (token == null ? _tokens.clear() : _tokens.save(token));
+      await _registry.update(daemon);
+      await (token == null
+          ? _credentials.delete(daemon.id)
+          : _credentials.save(daemon.id, token));
     } on Exception {
       return;
     }
   }
 
   Future<void> _onTokenCleared(ConnectTokenCleared event, Emitter<ConnectState> emit) async {
-    await _tokens.clear();
-    emit(ConnectState.idle(baseUrl: state.baseUrl, token: ''));
+    final target = targetOf(state);
+    if (target == null) return;
+    await _credentials.delete(target.daemonId);
+    emit(ConnectState.idle(target: target.copyWith(token: '')));
   }
 }
+```
+
+### `test/**` — the shared fakes
+
+New file `test/features/daemon_connect/daemon_fakes.dart`, verbatim. It is a helper, not a test, and
+it is the one place the EPIC 002 store contract is faked. Stories 04 and 08 both import it.
+
+```dart
+import 'package:kanthord/api/api.dart';
+import 'package:kanthord/app/settings/daemon.dart';
+import 'package:kanthord/app/settings/daemon_registry.dart';
+import 'package:kanthord/app/token/daemon_credential_store.dart';
+
+import '../../api/dio_mock_adapter.dart';
+
+export 'package:kanthord/app/settings/daemon.dart' show Daemon;
+
+const String kFakeDaemonId = 'daemon-1';
+const String kFakeDaemonName = 'local';
+const String kFakeBaseUrl = 'http://localhost:31415';
+
+Daemon fakeDaemon({
+  String id = kFakeDaemonId,
+  String name = kFakeDaemonName,
+  String baseUrl = kFakeBaseUrl,
+  DateTime? confirmedAt,
+}) => Daemon(id: id, name: name, baseUrl: baseUrl, confirmedAt: confirmedAt);
+
+final class FakeDaemonRegistry implements DaemonRegistryType {
+  FakeDaemonRegistry({List<Daemon>? daemons, String? selected})
+    : _daemons = <Daemon>[...?daemons],
+      _selectedId = selected;
+
+  final List<Daemon> _daemons;
+  String? _selectedId;
+
+  int updates = 0;
+  bool failUpdate = false;
+
+  @override
+  Future<List<Daemon>> list() async => List<Daemon>.unmodifiable(_daemons);
+
+  @override
+  Future<Daemon> add({required String name, required String baseUrl}) async {
+    final daemon = Daemon(id: 'daemon-${_daemons.length + 1}', name: name, baseUrl: baseUrl);
+    _daemons.add(daemon);
+    return daemon;
+  }
+
+  @override
+  Future<void> update(Daemon daemon) async {
+    updates++;
+    if (failUpdate) {
+      throw Exception('the registry refused the write');
+    }
+    final index = _daemons.indexWhere((entry) => entry.id == daemon.id);
+    if (index < 0) {
+      throw StateError('no daemon holds the id ${daemon.id}');
+    }
+    _daemons[index] = daemon;
+  }
+
+  @override
+  Future<void> remove(String id) async {
+    _daemons.removeWhere((entry) => entry.id == id);
+    if (_selectedId == id) {
+      _selectedId = null;
+    }
+  }
+
+  @override
+  Future<void> select(String id) async => _selectedId = id;
+
+  @override
+  Future<String?> selectedId() async => _selectedId;
+
+  @override
+  Future<Daemon?> selected() async {
+    final id = _selectedId;
+    if (id == null) {
+      return null;
+    }
+    for (final entry in _daemons) {
+      if (entry.id == id) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<void> seedDefault() async {
+    if (_daemons.isNotEmpty) {
+      return;
+    }
+    final daemon = await add(name: kFakeDaemonName, baseUrl: kFakeBaseUrl);
+    _selectedId = daemon.id;
+  }
+}
+
+final class FakeDaemonCredentialStore implements DaemonCredentialStoreType {
+  final Map<String, String> tokens = <String, String>{};
+
+  bool failSave = false;
+
+  @override
+  Future<String?> read(String daemonId) async => tokens[daemonId];
+
+  @override
+  Future<void> save(String daemonId, String token) async {
+    if (failSave) {
+      throw Exception('the keychain refused the write');
+    }
+    tokens[daemonId] = token;
+  }
+
+  @override
+  Future<void> delete(String daemonId) async => tokens.remove(daemonId);
+}
+
+KanthordApi fakeApi(MockHttpClientAdapter adapter) => KanthordApi(
+  config: const ApiConfig(
+    baseUrlProvider: StaticBaseUrlProvider(
+      DaemonEndpoint(id: 'parent', name: 'parent', baseUrl: 'http://localhost:1'),
+    ),
+  ),
+  tokens: const StaticTokenProvider('parent-token'),
+  adapterFactory: () => adapter,
+);
 ```
 
 ### `test/**` — the bloc test
@@ -212,17 +343,13 @@ New file `test/features/daemon_connect/connect/connect_bloc_test.dart`, verbatim
 ```dart
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kanthord/api/api.dart';
-import 'package:kanthord/app/settings/base_url_store.dart';
-import 'package:kanthord/features/daemon_connect/connect/candidate_client.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_bloc.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_event.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_state.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../api/dio_mock_adapter.dart';
+import '../daemon_fakes.dart';
 
-const String _kBaseUrl = 'http://127.0.0.1:31415';
 const String _kToken = 'a-token';
 
 const Map<String, dynamic> _kHealthBody = <String, dynamic>{
@@ -236,53 +363,70 @@ Map<String, dynamic> _errorBody(String code, String message) => <String, dynamic
   'error': <String, dynamic>{'code': code, 'message': message},
 };
 
-final class _FailingTokenProvider implements TokenProviderType {
-  _FailingTokenProvider(this._delegate);
-
-  final TokenProviderType _delegate;
-
-  @override
-  Future<String?> token() => _delegate.token();
-
-  @override
-  Future<void> save(String token) async => throw Exception('the keychain refused the write');
-
-  @override
-  Future<void> clear() => _delegate.clear();
-}
-
 void main() {
   late MockHttpClientAdapter adapter;
-  late BaseUrlStoreType baseUrls;
-  late TokenProviderType tokens;
-  late int builds;
+  late FakeDaemonRegistry registry;
+  late FakeDaemonCredentialStore credentials;
 
-  KanthordApi buildProbe({required String baseUrl, required String token}) {
-    builds++;
-    final dio = Dio()..httpClientAdapter = adapter;
-    return KanthordApi(
-      config: ApiConfig(baseUrlProvider: CandidateBaseUrlProvider(baseUrl)),
-      tokens: CandidateTokenProvider(token),
-      dio: dio,
-    );
+  ConnectBloc buildBloc() => ConnectBloc(
+    api: fakeApi(adapter),
+    registry: registry,
+    credentials: credentials,
+    isWeb: false,
+    now: () => DateTime.utc(2026, 8, 10),
+  );
+
+  Future<ConnectBloc> started() async {
+    final bloc = buildBloc();
+    addTearDown(bloc.close);
+    bloc.add(const ConnectStarted());
+    await bloc.stream.first;
+    return bloc;
   }
 
-  ConnectBloc buildBloc() =>
-      ConnectBloc(tokens: tokens, baseUrls: baseUrls, probeClientBuilder: buildProbe, isWeb: false);
-
-  setUp(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    baseUrls = PreferencesBaseUrlProvider(await SharedPreferences.getInstance());
-    tokens = CandidateTokenProvider(null);
+  setUp(() {
     adapter = MockHttpClientAdapter();
-    builds = 0;
+    registry = FakeDaemonRegistry(
+      daemons: <Daemon>[fakeDaemon()],
+      selected: kFakeDaemonId,
+    );
+    credentials = FakeDaemonCredentialStore();
   });
 
   group('ConnectBloc', () {
     group('ConnectStarted', () {
-      test('should open on the convention when the store holds no base URL', () async {
+      test('should render the unselected state when no daemon is selected', () async {
         // Arrange
+        registry = FakeDaemonRegistry();
+        final bloc = buildBloc();
+        addTearDown(bloc.close);
+
+        // Act
+        bloc.add(const ConnectStarted());
+        final state = await bloc.stream.first;
+
+        // Assert
+        expect(state, isA<ConnectUnselected>());
+        expect(adapter.requests, isEmpty);
+      });
+
+      test('should render the unselected state when the selected id matches no entry', () async {
+        // Arrange
+        registry = FakeDaemonRegistry(daemons: <Daemon>[fakeDaemon()], selected: 'gone');
+        final bloc = buildBloc();
+        addTearDown(bloc.close);
+
+        // Act
+        bloc.add(const ConnectStarted());
+        final state = await bloc.stream.first;
+
+        // Assert
+        expect(state, isA<ConnectUnselected>());
+      });
+
+      test('should open on the selected daemon when the registry holds one', () async {
+        // Arrange
+        credentials.tokens[kFakeDaemonId] = 'stored-token';
         final bloc = buildBloc();
         addTearDown(bloc.close);
 
@@ -292,15 +436,16 @@ void main() {
 
         // Assert
         expect(state, isA<ConnectIdle>());
-        expect(state.baseUrl, 'http://localhost:31415');
-        expect(state.token, '');
+        final target = targetOf(state)!;
+        expect(target.daemonId, kFakeDaemonId);
+        expect(target.daemonName, kFakeDaemonName);
+        expect(target.baseUrl, kFakeBaseUrl);
+        expect(target.token, 'stored-token');
         expect(adapter.requests, isEmpty);
       });
 
-      test('should open on the stored values when the store holds them', () async {
+      test('should open on an empty token when the credential store holds none', () async {
         // Arrange
-        await baseUrls.save('http://10.0.2.2:31415');
-        await tokens.save('stored-token');
         final bloc = buildBloc();
         addTearDown(bloc.close);
 
@@ -309,8 +454,7 @@ void main() {
         final state = await bloc.stream.first;
 
         // Assert
-        expect(state.baseUrl, 'http://10.0.2.2:31415');
-        expect(state.token, 'stored-token');
+        expect(targetOf(state)!.token, '');
       });
     });
 
@@ -318,27 +462,25 @@ void main() {
       test('should reach the connected state when the daemon answers the health body', () async {
         // Arrange
         adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
-        bloc.add(const ConnectBaseUrlChanged(_kBaseUrl));
+        final bloc = await started();
         bloc.add(const ConnectTokenChanged(_kToken));
+        await bloc.stream.first;
 
         // Act
         bloc.add(const ConnectProbeRequested());
-        final states = await bloc.stream.take(4).toList();
+        final states = await bloc.stream.take(2).toList();
 
         // Assert
-        expect(states[2], isA<ConnectProbing>());
-        expect(states[3], isA<ConnectConnected>());
-        expect((states[3] as ConnectConnected).health.dependencies.single.name, 'storage');
+        expect(states[0], isA<ConnectProbing>());
+        expect(states[1], isA<ConnectConnected>());
+        expect((states[1] as ConnectConnected).health.dependencies.single.name, 'storage');
       });
 
       test('should reach the token outcome when the daemon answers 401', () async {
         // Arrange
         adapter.respond = (options) =>
             jsonResponse(_errorBody('unauthenticated', 'the token is wrong'), 401);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
+        final bloc = await started();
 
         // Act
         bloc.add(const ConnectProbeRequested());
@@ -346,32 +488,30 @@ void main() {
 
         // Assert
         expect(states[1], isA<ConnectTokenRejected>());
+        expect(targetOf(states[1])!.daemonName, kFakeDaemonName);
       });
 
       test('should reach the daemon outcome when the daemon answers 403 host-forbidden', () async {
         // Arrange
         adapter.respond = (options) =>
             jsonResponse(_errorBody('host-forbidden', 'the host is not allowed'), 403);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
-        bloc.add(const ConnectBaseUrlChanged(_kBaseUrl));
+        final bloc = await started();
 
         // Act
         bloc.add(const ConnectProbeRequested());
-        final states = await bloc.stream.take(3).toList();
+        final states = await bloc.stream.take(2).toList();
 
         // Assert
-        expect(states[2], isA<ConnectDaemonRejected>());
-        expect((states[2] as ConnectDaemonRejected).host, '127.0.0.1:31415');
-        expect((states[2] as ConnectDaemonRejected).configKey, 'KANTHORD_HTTP_ALLOWED_HOSTS');
+        expect(states[1], isA<ConnectDaemonRejected>());
+        expect((states[1] as ConnectDaemonRejected).host, 'localhost:31415');
+        expect((states[1] as ConnectDaemonRejected).configKey, 'KANTHORD_HTTP_ALLOWED_HOSTS');
       });
 
       test('should reach the daemon outcome when the daemon answers 403 origin-forbidden', () async {
         // Arrange
         adapter.respond = (options) =>
             jsonResponse(_errorBody('origin-forbidden', 'the origin is not allowed'), 403);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
+        final bloc = await started();
 
         // Act
         bloc.add(const ConnectProbeRequested());
@@ -386,8 +526,7 @@ void main() {
         // Arrange
         adapter.respond = (options) =>
             throw DioException(requestOptions: options, type: DioExceptionType.connectionError);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
+        final bloc = await started();
 
         // Act
         bloc.add(const ConnectProbeRequested());
@@ -398,11 +537,25 @@ void main() {
         expect((states[1] as ConnectUnreachable).isOpaque, isFalse);
       });
 
+      test('should send no request when no daemon is selected', () async {
+        // Arrange
+        registry = FakeDaemonRegistry();
+        final bloc = buildBloc();
+        addTearDown(bloc.close);
+
+        // Act
+        bloc.add(const ConnectProbeRequested());
+        await Future<void>.delayed(Duration.zero);
+
+        // Assert
+        expect(bloc.state, isA<ConnectUnselected>());
+        expect(adapter.requests, isEmpty);
+      });
+
       test('should probe one time when the button is pressed twice in a row', () async {
         // Arrange
         adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
+        final bloc = await started();
 
         // Act
         bloc.add(const ConnectProbeRequested());
@@ -412,69 +565,99 @@ void main() {
 
         // Assert
         expect(states[1], isA<ConnectConnected>());
-        expect(builds, 1);
         expect(adapter.requests, hasLength(1));
       });
 
       test('should send no request when the base URL is not usable', () async {
         // Arrange
         adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
+        final bloc = await started();
+        bloc.add(const ConnectBaseUrlChanged('not a url'));
+        await bloc.stream.first;
 
         // Act
-        bloc.add(const ConnectBaseUrlChanged('not a url'));
         bloc.add(const ConnectProbeRequested());
-        final states = await bloc.stream.take(1).toList();
         await Future<void>.delayed(Duration.zero);
 
         // Assert
-        expect(states.single, isA<ConnectIdle>());
-        expect(builds, 0);
+        expect(bloc.state, isA<ConnectIdle>());
         expect(adapter.requests, isEmpty);
       });
 
-      test('should report a storage failure and restore the previous values when the token '
-          'write fails', () async {
+      test('should report a storage failure and restore both values when the credential write '
+          'fails', () async {
         // Arrange
-        await baseUrls.save('http://localhost:31415');
-        await tokens.save('the-working-token');
+        credentials.tokens[kFakeDaemonId] = 'the-working-token';
         adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
-        final failing = _FailingTokenProvider(tokens);
-        final bloc = ConnectBloc(
-          tokens: failing,
-          baseUrls: baseUrls,
-          probeClientBuilder: buildProbe,
-          isWeb: false,
-        );
-        addTearDown(bloc.close);
+        final bloc = await started();
+        bloc.add(const ConnectBaseUrlChanged('http://127.0.0.1:31415'));
+        await bloc.stream.first;
+        credentials.failSave = true;
 
         // Act
-        bloc.add(const ConnectBaseUrlChanged(_kBaseUrl));
         bloc.add(const ConnectProbeRequested());
-        final states = await bloc.stream.take(3).toList();
+        final states = await bloc.stream.take(2).toList();
 
         // Assert
-        expect(states[2], isA<ConnectStorageFailed>());
-        expect(await baseUrls.read(), 'http://localhost:31415');
-        expect(await tokens.token(), 'the-working-token');
+        expect(states[1], isA<ConnectStorageFailed>());
+        expect((await registry.selected())!.baseUrl, kFakeBaseUrl);
+        expect((await registry.selected())!.confirmedAt, isNull);
+        expect(credentials.tokens[kFakeDaemonId], 'the-working-token');
+      });
+
+      test('should report a storage failure and keep the credential when the registry write '
+          'fails', () async {
+        // Arrange
+        credentials.tokens[kFakeDaemonId] = 'the-working-token';
+        adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
+        final bloc = await started();
+        bloc.add(const ConnectTokenChanged('a-new-token'));
+        await bloc.stream.first;
+        registry.failUpdate = true;
+
+        // Act
+        bloc.add(const ConnectProbeRequested());
+        final states = await bloc.stream.take(2).toList();
+
+        // Assert
+        expect(states[1], isA<ConnectStorageFailed>());
+        expect(credentials.tokens[kFakeDaemonId], 'the-working-token');
+      });
+    });
+
+    group('ConnectDaemonEdited', () {
+      test('should replace the name and the base URL when the dialog returns them', () async {
+        // Arrange
+        final bloc = await started();
+
+        // Act
+        bloc.add(const ConnectDaemonEdited(name: 'vps', baseUrl: 'http://10.0.2.2:31415'));
+        final state = await bloc.stream.first;
+
+        // Assert
+        final target = targetOf(state)!;
+        expect(target.daemonName, 'vps');
+        expect(target.baseUrl, 'http://10.0.2.2:31415');
+        expect(target.daemonId, kFakeDaemonId);
       });
     });
 
     group('ConnectTokenCleared', () {
-      test('should empty the token when the human clears it explicitly', () async {
+      test('should delete the credential of the selected daemon when the human clears it '
+          'explicitly', () async {
         // Arrange
-        await tokens.save('stored-token');
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
+        credentials.tokens[kFakeDaemonId] = 'stored-token';
+        credentials.tokens['daemon-2'] = 'another-token';
+        final bloc = await started();
 
         // Act
         bloc.add(const ConnectTokenCleared());
         final state = await bloc.stream.first;
 
         // Assert
-        expect(state.token, '');
-        expect(await tokens.token(), isNull);
+        expect(targetOf(state)!.token, '');
+        expect(credentials.tokens.containsKey(kFakeDaemonId), isFalse);
+        expect(credentials.tokens['daemon-2'], 'another-token');
       });
     });
   });
@@ -488,20 +671,18 @@ New file `test/features/daemon_connect/connect/connect_candidate_test.dart`, ver
 ```dart
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:kanthord/api/api.dart';
-import 'package:kanthord/app/settings/base_url_store.dart';
-import 'package:kanthord/features/daemon_connect/connect/candidate_client.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_bloc.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_event.dart';
 import 'package:kanthord/features/daemon_connect/connect/connect_state.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../api/dio_mock_adapter.dart';
+import '../daemon_fakes.dart';
 
-const String _kBaseUrl = 'http://127.0.0.1:31415';
-const String _kToken = 'a-token';
-const String _kStoredBaseUrl = 'http://localhost:31415';
+const String _kEnteredBaseUrl = 'http://127.0.0.1:31415';
+const String _kEnteredToken = 'a-token';
 const String _kStoredToken = 'the-working-token';
+
+final DateTime _kConfirmedAt = DateTime.utc(2026, 8, 10);
 
 const Map<String, dynamic> _kHealthBody = <String, dynamic>{
   'status': 'ok',
@@ -514,35 +695,38 @@ const Map<String, dynamic> _kUnauthenticatedBody = <String, dynamic>{
 
 void main() {
   late MockHttpClientAdapter adapter;
-  late BaseUrlStoreType baseUrls;
-  late TokenProviderType tokens;
+  late FakeDaemonRegistry registry;
+  late FakeDaemonCredentialStore credentials;
 
-  KanthordApi buildProbe({required String baseUrl, required String token}) {
-    final dio = Dio()..httpClientAdapter = adapter;
-    return KanthordApi(
-      config: ApiConfig(baseUrlProvider: CandidateBaseUrlProvider(baseUrl)),
-      tokens: CandidateTokenProvider(token),
-      dio: dio,
-    );
-  }
+  ConnectBloc buildBloc() => ConnectBloc(
+    api: fakeApi(adapter),
+    registry: registry,
+    credentials: credentials,
+    isWeb: false,
+    now: () => _kConfirmedAt,
+  );
 
-  ConnectBloc buildBloc() =>
-      ConnectBloc(tokens: tokens, baseUrls: baseUrls, probeClientBuilder: buildProbe, isWeb: false);
-
-  Future<ConnectState> probe(ConnectBloc bloc) async {
-    bloc.add(const ConnectBaseUrlChanged(_kBaseUrl));
-    bloc.add(const ConnectTokenChanged(_kToken));
+  Future<ConnectState> probe() async {
+    final bloc = buildBloc();
+    addTearDown(bloc.close);
+    bloc.add(const ConnectStarted());
+    await bloc.stream.first;
+    bloc.add(const ConnectBaseUrlChanged(_kEnteredBaseUrl));
+    await bloc.stream.first;
+    bloc.add(const ConnectTokenChanged(_kEnteredToken));
+    await bloc.stream.first;
     bloc.add(const ConnectProbeRequested());
-    final states = await bloc.stream.take(4).toList();
-    return states[3];
+    final states = await bloc.stream.take(2).toList();
+    return states[1];
   }
 
-  setUp(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-    baseUrls = PreferencesBaseUrlProvider(await SharedPreferences.getInstance());
-    tokens = CandidateTokenProvider(null);
+  setUp(() {
     adapter = MockHttpClientAdapter();
+    registry = FakeDaemonRegistry(
+      daemons: <Daemon>[fakeDaemon()],
+      selected: kFakeDaemonId,
+    );
+    credentials = FakeDaemonCredentialStore();
   });
 
   group('the candidate probe', () {
@@ -550,84 +734,149 @@ void main() {
       test('should send the entered base URL and the entered token when the probe runs', () async {
         // Arrange
         adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
 
         // Act
-        await probe(bloc);
+        await probe();
 
         // Assert
         expect(adapter.requests, hasLength(1));
-        expect(adapter.requests.single.uri.toString(), '$_kBaseUrl/v1/health');
-        expect(adapter.requests.single.headers['Authorization'], 'Bearer $_kToken');
+        expect(adapter.requests.single.uri.toString(), '$_kEnteredBaseUrl/v1/health');
+        expect(adapter.requests.single.headers['Authorization'], 'Bearer $_kEnteredToken');
+      });
+
+      test('should pin the candidate daemon id on the request when the probe runs', () async {
+        // Arrange
+        adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
+
+        // Act
+        await probe();
+
+        // Assert
+        expect(adapter.requests.single.extra['kanthord.daemonId'], 'kanthord.candidate');
       });
     });
 
     group('a proven candidate', () {
-      test('should commit both values when the daemon answers 200', () async {
+      test('should commit the entered base URL to the daemon entry when the daemon answers '
+          '200', () async {
         // Arrange
         adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
 
         // Act
-        final state = await probe(bloc);
+        final state = await probe();
 
         // Assert
         expect(state, isA<ConnectConnected>());
-        expect(await baseUrls.read(), _kBaseUrl);
-        expect(await tokens.token(), _kToken);
+        expect((await registry.selected())!.baseUrl, _kEnteredBaseUrl);
+      });
+
+      test('should set confirmedAt when the daemon answers 200', () async {
+        // Arrange
+        adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
+
+        // Act
+        await probe();
+
+        // Assert
+        expect((await registry.selected())!.confirmedAt, _kConfirmedAt);
+      });
+
+      test('should commit the entered token under the daemon id when the daemon answers '
+          '200', () async {
+        // Arrange
+        adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
+
+        // Act
+        await probe();
+
+        // Assert
+        expect(credentials.tokens[kFakeDaemonId], _kEnteredToken);
+      });
+
+      test('should keep the daemon id when the base URL is replaced', () async {
+        // Arrange
+        adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
+
+        // Act
+        await probe();
+
+        // Assert
+        expect((await registry.selected())!.id, kFakeDaemonId);
       });
     });
 
     group('a rejected candidate', () {
       test('should leave the stored token in place when the daemon answers 401', () async {
         // Arrange
-        await baseUrls.save(_kStoredBaseUrl);
-        await tokens.save(_kStoredToken);
+        credentials.tokens[kFakeDaemonId] = _kStoredToken;
         adapter.respond = (options) => jsonResponse(_kUnauthenticatedBody, 401);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
 
         // Act
-        final state = await probe(bloc);
+        final state = await probe();
 
         // Assert
         expect(state, isA<ConnectTokenRejected>());
-        expect(await tokens.token(), _kStoredToken);
+        expect(credentials.tokens[kFakeDaemonId], _kStoredToken);
       });
 
-      test('should leave the stored base URL in place when the daemon answers 401', () async {
+      test('should leave the daemon base URL in place when the daemon answers 401', () async {
         // Arrange
-        await baseUrls.save(_kStoredBaseUrl);
-        await tokens.save(_kStoredToken);
+        credentials.tokens[kFakeDaemonId] = _kStoredToken;
         adapter.respond = (options) => jsonResponse(_kUnauthenticatedBody, 401);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
 
         // Act
-        await probe(bloc);
+        await probe();
 
         // Assert
-        expect(await baseUrls.read(), _kStoredBaseUrl);
+        expect((await registry.selected())!.baseUrl, kFakeBaseUrl);
+      });
+
+      test('should leave confirmedAt unset when the daemon answers 401', () async {
+        // Arrange
+        adapter.respond = (options) => jsonResponse(_kUnauthenticatedBody, 401);
+
+        // Act
+        await probe();
+
+        // Assert
+        expect((await registry.selected())!.confirmedAt, isNull);
+        expect(registry.updates, 0);
       });
 
       test('should leave both stored values in place when the connection fails', () async {
         // Arrange
-        await baseUrls.save(_kStoredBaseUrl);
-        await tokens.save(_kStoredToken);
+        credentials.tokens[kFakeDaemonId] = _kStoredToken;
         adapter.respond = (options) =>
             throw DioException(requestOptions: options, type: DioExceptionType.connectionError);
-        final bloc = buildBloc();
-        addTearDown(bloc.close);
 
         // Act
-        final state = await probe(bloc);
+        final state = await probe();
 
         // Assert
         expect(state, isA<ConnectUnreachable>());
-        expect(await baseUrls.read(), _kStoredBaseUrl);
-        expect(await tokens.token(), _kStoredToken);
+        expect((await registry.selected())!.baseUrl, kFakeBaseUrl);
+        expect(credentials.tokens[kFakeDaemonId], _kStoredToken);
+      });
+    });
+
+    group('the candidate lifetime', () {
+      test('should answer a second probe when the first candidate is closed', () async {
+        // Arrange
+        adapter.respond = (options) => jsonResponse(_kHealthBody, 200);
+        final bloc = buildBloc();
+        addTearDown(bloc.close);
+        bloc.add(const ConnectStarted());
+        await bloc.stream.first;
+
+        // Act
+        bloc.add(const ConnectProbeRequested());
+        await bloc.stream.take(2).toList();
+        bloc.add(const ConnectProbeRequested());
+        final states = await bloc.stream.take(2).toList();
+
+        // Assert
+        expect(states[1], isA<ConnectConnected>());
+        expect(adapter.requests, hasLength(2));
       });
     });
   });
@@ -636,27 +885,49 @@ void main() {
 
 ## Constraints
 
-- The bloc mocks no repository. None exists. `docs/testing.md:41-45`.
-- No `@GenerateMocks` and no `.mocks.dart` in this Story. Neither test file runs `make generate-test`.
-- The registered `getIt<KanthordApi>()` singleton is never used for a probe. The bloc builds a
-  candidate client per press through `ProbeClientBuilder`.
+- **The bloc takes the registered `KanthordApi` and probes a candidate.** It calls
+  `_api.withCandidate(baseUrl:, token:)` per press, and it closes the candidate in `finally`. The
+  registered client is never used to issue a request from this bloc, and it is never mutated.
+  EPIC 001.1 G7.
+- **`ProbeClientBuilder` does not exist and neither does
+  `lib/features/daemon_connect/connect/candidate_client.dart`.** Write no
+  `CandidateBaseUrlProvider` and no `CandidateTokenProvider`. EPIC 001.1 `StaticBaseUrlProvider` and
+  `StaticTokenProvider` already serve that role inside `withCandidate`.
+- **The transport seam is `adapterFactory`, never a mock of `KanthordApi`.** `KanthordApi` and
+  `SystemResource` are `final class`, so neither can be implemented outside `lib/api/`.
+  `fakeApi` passes `adapterFactory: () => adapter`, the parent hands the same factory to every
+  candidate, and the candidate's request therefore lands in `adapter.requests`.
+  `docs/testing.md:43-47` and `:62-64`.
+- The bloc mocks no repository. None exists. `docs/testing.md:48`.
+- No `@GenerateMocks` and no `.mocks.dart` in this Story. No test file here runs `make generate-test`.
 - **Single flight.** `_onProbeRequested` returns immediately while `state is ConnectProbing`, so two
-  presses build one client and send one request. `_onBaseUrlChanged` and `_onTokenChanged` return
-  the same way, so an in-flight probe always commits the values it was started with.
-- The commit order is fixed: `_baseUrls.save` then `_tokens.save`, and both run only after
+  presses build one candidate and send one request. `_onBaseUrlChanged`, `_onTokenChanged` and
+  `_onDaemonEdited` return the same way, so an in-flight probe always commits the values it started
+  with.
+- **Every handler returns early when `targetOf(state)` is `null`.** No handler acts while no daemon
+  is selected, and none of them calls a daemon. EPIC G9.
+- **The commit order is fixed:** `registry.update` then `credentials.save`, and both run only after
   `health()` returns.
-- **The commit is restorable.** `_commit` reads both previous values first, and a write that raises
-  restores both and answers `false`. The bloc then emits `ConnectStorageFailed`, never `connected`.
-  `_restoreQuietly` swallows a second failure, because there is nothing left to try. This closes
-  risk S1.
+- **The commit is restorable.** `_commit` reads the previous `Daemon` and the previous token first. A
+  write that raises restores both and answers `false`. The bloc then emits `ConnectStorageFailed`,
+  never `connected`. `_restoreQuietly` swallows a second failure, because there is nothing left to
+  try.
+- **`confirmedAt` comes from the injected `now`.** The default is `_systemNow`; every test passes a
+  fixed `DateTime.utc(2026, 8, 10)`, so the committed value is asserted exactly and the suite is
+  deterministic. Never call `DateTime.now()` inside a handler.
+- **`confirmedAt` travels inside the same `registry.update` call as `name` and `baseUrl`.** The
+  commit is two awaited writes, not three: one entry write carrying all three fields, and one
+  credential write. `select` is never called, because the daemon is already the selected one.
 - **An unusable base URL never reaches `Dio`.** `_onProbeRequested` returns before it builds a
-  client. This closes risk S2, and the page of Story 08 also disables the button.
+  candidate. The page of Story 08 also disables the button.
 - A failure path writes nothing to either store. `docs/api/auth.md:52` — "Do not clear the stored
-  token on a 401."
+  token on a 401." `registry.updates` is asserted at `0` after a `401` to prove it.
 - The bloc catches `ApiException` from the probe and `Exception` from the two stores. It does not
   catch `Object` and it does not catch `StateError`.
-- `api.dio.close(force: true)` runs in `finally`, so a probe client leaks no connection.
+- `candidate.dio.close(force: true)` runs in `finally`, so a probe client leaks no connection.
 - No automatic retry. `ConnectProbeRequested` is the only path that calls `health()`.
+- The bloc reads no `Env`. The base URL prefill is the registry seed of EPIC 002 G5, so the
+  convention reaches this bloc as the selected daemon's `baseUrl` and never as a fallback here.
 - The bloc holds no comment and hard-codes no design value.
 
 ## Verify
@@ -668,21 +939,21 @@ void main() {
 
 ## Tasks
 
-### Task 004.1 — the bloc test and the candidate test
+### Task 004.1 — the fakes, the bloc test and the candidate test
 
-**Input:** `test/features/daemon_connect/connect/connect_bloc_test.dart`,
+**Input:** `test/features/daemon_connect/daemon_fakes.dart`,
+`test/features/daemon_connect/connect/connect_bloc_test.dart`,
 `test/features/daemon_connect/connect/connect_candidate_test.dart`
 
-**Action — RED:** write both files verbatim. Run no codegen.
+**Action — RED:** write the three files verbatim. Run no codegen.
 
 **Action — GREEN:** Task 004.2 creates the seam.
 
-### Task 004.2 — the candidate client, the events and the bloc
+### Task 004.2 — the events and the bloc
 
-**Input:** `lib/features/daemon_connect/connect/candidate_client.dart`,
-`lib/features/daemon_connect/connect/connect_event.dart`,
+**Input:** `lib/features/daemon_connect/connect/connect_event.dart`,
 `lib/features/daemon_connect/connect/connect_bloc.dart`
 
-**Action — GREEN:** write the three files verbatim.
+**Action — GREEN:** write the two files verbatim.
 
 **Action — REFACTOR:** none.

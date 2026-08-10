@@ -1,5 +1,10 @@
 # Story 06 — the unauthorized state
 
+> **SUPERSEDED on 2026-08-10 — re-expand before implementing.** The product holds more than
+> one daemon, and `KanthordApi.withCandidate` replaces `ProbeClientBuilder`. Read the STOP
+> block in `index.md` for this file's delta specification. Everything below still shows the
+> shape, the guards and the tests that survive.
+
 Epic: `.agent/plan/epics/003-daemon-connect.md`
 Depends on: Story 01 (`ConnectState`).
 
@@ -17,14 +22,8 @@ import 'package:flutter/material.dart';
 import '../../../../libraries/kd_design_system/kd_design_system.dart';
 
 final class UnauthorizedNotice extends StatelessWidget {
-  const UnauthorizedNotice({
-    required this.daemonName,
-    required this.baseUrl,
-    required this.detail,
-    super.key,
-  });
+  const UnauthorizedNotice({required this.baseUrl, required this.detail, super.key});
 
-  final String daemonName;
   final String baseUrl;
   final String detail;
 
@@ -35,7 +34,6 @@ final class UnauthorizedNotice extends StatelessWidget {
       title: 'The daemon refused the token',
       message: detail,
       actions: <Widget>[
-        KDText(daemonName, role: KDTextRole.titleSmall),
         KDText(baseUrl, role: KDTextRole.bodyMedium, tone: KDTextTone.secondary),
         const KDText(
           'Enter the token again, then press Connect.',
@@ -59,12 +57,6 @@ import 'package:kanthord/features/daemon_connect/connect/widgets/unauthorized_no
 import 'package:kanthord/libraries/kd_design_system/layout/kd_status_view.dart';
 import 'package:kanthord/libraries/kd_design_system/styles/kd_theme.dart';
 
-const UnauthorizedNotice _kNotice = UnauthorizedNotice(
-  daemonName: 'local',
-  baseUrl: 'http://localhost:31415',
-  detail: 'the daemon refused the token',
-);
-
 Future<void> _pump(WidgetTester tester, UnauthorizedNotice notice) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(1280, 900);
@@ -81,20 +73,12 @@ Future<void> _pump(WidgetTester tester, UnauthorizedNotice notice) async {
 void main() {
   group('UnauthorizedNotice', () {
     group('build', () {
-      testWidgets('should show the daemon name when the token is refused', (tester) async {
-        // Arrange
-        const notice = _kNotice;
-
-        // Act
-        await _pump(tester, notice);
-
-        // Assert
-        expect(find.text('local'), findsOneWidget);
-      });
-
       testWidgets('should show the current base URL when the token is refused', (tester) async {
         // Arrange
-        const notice = _kNotice;
+        const notice = UnauthorizedNotice(
+          baseUrl: 'http://localhost:31415',
+          detail: 'the daemon refused the token',
+        );
 
         // Act
         await _pump(tester, notice);
@@ -103,26 +87,12 @@ void main() {
         expect(find.text('http://localhost:31415'), findsOneWidget);
       });
 
-      testWidgets('should tell the two daemons apart when only the name differs', (tester) async {
-        // Arrange
-        const notice = UnauthorizedNotice(
-          daemonName: 'vps',
-          baseUrl: 'http://10.0.2.2:31415',
-          detail: 'the daemon refused the token',
-        );
-
-        // Act
-        await _pump(tester, notice);
-
-        // Assert
-        expect(find.text('vps'), findsOneWidget);
-        expect(find.text('local'), findsNothing);
-        expect(find.text('http://10.0.2.2:31415'), findsOneWidget);
-      });
-
       testWidgets('should name the token when the token is refused', (tester) async {
         // Arrange
-        const notice = _kNotice;
+        const notice = UnauthorizedNotice(
+          baseUrl: 'http://localhost:31415',
+          detail: 'the daemon refused the token',
+        );
 
         // Act
         await _pump(tester, notice);
@@ -136,19 +106,28 @@ void main() {
         tester,
       ) async {
         // Arrange
-        const notice = _kNotice;
+        const notice = UnauthorizedNotice(
+          baseUrl: 'http://localhost:31415',
+          detail: 'the daemon refused the token',
+        );
 
         // Act
         await _pump(tester, notice);
 
         // Assert
         expect(find.text('Enter the token again, then press Connect.'), findsOneWidget);
-        expect(tester.widget<KDStatusView>(find.byType(KDStatusView)).kind, KDStatusKind.error);
+        expect(
+          tester.widget<KDStatusView>(find.byType(KDStatusView)).kind,
+          KDStatusKind.error,
+        );
       });
 
       testWidgets('should offer no clear control when the token is refused', (tester) async {
         // Arrange
-        const notice = _kNotice;
+        const notice = UnauthorizedNotice(
+          baseUrl: 'http://localhost:31415',
+          detail: 'the daemon refused the token',
+        );
 
         // Act
         await _pump(tester, notice);
@@ -163,14 +142,9 @@ void main() {
 
 ## Constraints
 
-- **The notice shows the daemon name and the base URL together**, so an operator holding two daemons
-  knows which one refused the token. The name is the identity a human reads; the base URL
-  disambiguates two daemons that share a name.
 - The notice clears nothing and signs nothing out. The settings dialog of Story 07 is the only place
   that clears the token. EPIC G8.
 - The notice takes no callback. It is a display widget.
-- The notice reads no store and takes no `Daemon`. It takes three strings, so it renders without the
-  registry and its test needs no fake.
 - The file holds no comment and hard-codes no design value.
 
 ## Verify
