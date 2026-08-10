@@ -31,12 +31,13 @@ Read `contract/manifest.json` for the authoritative values. The snapshot in this
 | ------------- | ------------------------------------------ |
 | Source        | `kanthord-engine`                          |
 | Version       | `27.8.1`                                   |
-| Engine commit | `1a2db63a28093808cc9db04fa30a0d3d26d32c93` |
-| Engine tree   | **dirty**                                  |
+| Engine commit | `a925f37be9d52dedb1c14019c2ab14ce58a84451` |
+| Engine tree   | clean                                      |
 | Snapshot date | 2026-08-10                                 |
 
-`dirty: true` says the engine tree carried uncommitted work when the snapshot was published. The
-commit alone does not reproduce it. Take a clean snapshot before the client pins a release.
+`dirty: false` says the commit reproduces the snapshot. The 2026-08-10 snapshot was first published
+from a dirty tree and republished from a clean one at `a925f37`; the two are byte-equal apart from
+the provenance. Refuse a snapshot that reports `dirty: true`.
 
 ### Refresh the snapshot
 
@@ -66,12 +67,12 @@ The registry declares 54 operations. The daemon wires **two** handlers: `system.
 | Class                                | Count | Behaviour today                       |
 | ------------------------------------ | ----- | ------------------------------------- |
 | Live                                 | 2     | `GET /v1/health`, `GET /v1/db/status` |
-| Declared and `routed`, no handler    | 20    | `501 not-implemented`                 |
-| Declared and `stubbed` (later phase) | 31    | `501 not-implemented`                 |
+| Declared and `routed`, no handler    | 22    | `501 not-implemented`                 |
+| Declared and `stubbed` (later phase) | 30    | `501 not-implemented`                 |
 | `post-mvp`, no route                 | —     | `404 not-found`                       |
 
-The three counts total 53, the 2026-08-05 registry. The 2026-08-10 snapshot declares 54. Nobody has
-re-read the daemon handler list since, so the class of the new operation is unverified.
+The three counts total 54, read from the engine registry at `a925f37`: 24 `routed` and 30 `stubbed`.
+[operations.md](operations.md) lists all 54.
 
 `501` and `404` mean different things. `501` says the daemon will do it, not yet. `404` says this
 daemon does not have the operation. See [operations.md](operations.md).
@@ -110,7 +111,7 @@ nothing else. Do not hand-write a wire model for the second group.
 | File                                               | Holds                                                                    | Unblocks                                       |
 | -------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------- |
 | [operations.md](operations.md)                     | Every operation, its state today, and the resource grouping              | `resources/` layout                            |
-| [errors.md](errors.md)                             | The error envelope, the 21 codes, the exception mapping                  | `api_exception.dart`                           |
+| [errors.md](errors.md)                             | The error envelope, the 22 codes, the exception mapping                  | `api_exception.dart`                           |
 | [auth.md](auth.md)                                 | The static-token model. There is no sign-in and no refresh               | `auth_interceptor.dart`, `token_provider.dart` |
 | [conventions.md](conventions.md)                   | camelCase, identities, paging, blobs, the version header                 | `models/`, `api_config.dart`                   |
 | [polling.md](polling.md)                           | Long polling replaces SSE. The delivery protocol and the failure classes | `lib/api/polling/`, the step-5 scope           |

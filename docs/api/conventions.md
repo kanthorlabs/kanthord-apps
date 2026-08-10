@@ -72,7 +72,57 @@ A query is `GET`.
 `after` takes the **id of the last row read**, and `limit` caps the page. An offset cannot page an
 append-only log that grows while a human reads it.
 
-Documented on `event.list` only. Assume it for every future list route, and do not build offset
+The engine declares one cursor schema and every paged route extends it. From
+`src/http/contract/cursor.ts`:
+
+```ts
+z.strictObject({
+  after: z.string().min(1).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+});
+```
+
+Four rules follow, and each one is a client decision it removes:
+
+- **`limit` defaults to 100 and caps at 500.** Send no `limit` and get 100. `limit=501` is
+  `400 invalid-request`, and so is `limit=0` and a non-integer. Never send a page size the client
+  invented above 500.
+- **`after` is optional, and omitting it starts at the beginning.** There is no "start at the end"
+  form. **An empty `after` is not the same as an absent one**: `min(1)` refuses `after=`, so build
+  the query by omitting the key rather than by sending an empty value.
+
+### `after` is an exclusive lower bound, not a row reference. DECIDED
+
+`src/services/event/sqlite.ts` builds `WHERE id > ?` with `ORDER BY id ASC`. So `after` selects every
+row whose id sorts after the given string, and the daemon never checks that the string names a real
+row. **The schema is right to stay permissive, and the client must not read an absent id as an
+error.**
+
+The alternative was to validate that `after` names an existing event. It is refused: it costs a
+lookup on every page, it invents a failure the client cannot recover from, and it defends against a
+case the client never produces. The client only ever echoes an id the daemon emitted.
+
+Three consequences, and the third is the one that bites:
+
+- **An `after` between two ids is legal and useful.** A ULID is not dense, so a bound that names no
+  row still pages correctly. This is why gaps are harmless.
+- **A rewound cursor replays.** Delivery is at-least-once by construction, so a consumer that
+  re-reads must tolerate a repeat.
+- **An `after` above every existing id returns an empty page forever, and that is indistinguishable
+  from a quiet daemon.** No error, no signal, no recovery. It is a silent stall.
+
+Two client rules make that third case unreachable, and both are mandatory:
+
+- **Persist only an id the daemon delivered.** Never mint a cursor, never derive one from a clock,
+  and never carry one in from a fixture or a log line.
+- **Scope a persisted cursor to its base URL.** Two daemons have two logs, so a cursor from one is a
+  meaningless bound in the other. Discard the stored cursor when the base URL changes.
+- **The object is strict, so an unknown query parameter is `400 invalid-request`.** A client that
+  adds a debug parameter breaks the request. Send the declared keys and no others.
+- **A short page means the end.** Read until the response holds fewer rows than the effective limit.
+  Reading a whole log is a sequence of requests, by design.
+
+`event.list` documents it and every future list route extends the same schema. Do not build offset
 pagination anywhere.
 
 **Order carries no gap information.** A ULID is not dense, so two adjacent ids do not prove nothing

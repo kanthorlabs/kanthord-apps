@@ -103,7 +103,7 @@ Requirements:
   teaches the client to be wrong.
 - Serve the scenarios a happy path never produces: an empty list, a node in every state including
   `blocked` with each of the five block reasons, a waived edge, a large graph for layout, each of the
-  21 error codes, a slow response, and a connection that closes mid-body.
+  22 error codes, a slow response, and a connection that closes mid-body.
 - Support the cursor. `after` and `limit` must page a real fixture list, or `EventPoller` is untested.
 
 A small in-memory fake of a resource interface is still fine for a **bloc unit test**. It is not the

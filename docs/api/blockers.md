@@ -38,9 +38,13 @@ Do not start any of them before E1 and E2 land. A screen against a `501` is not 
 
 ### D2 — the web target. DECIDED: supported
 
-The owner has decided that Flutter web is supported. The engine gains a browser-access mode — an
-allowed-origin list, empty by default — specified in
-`kanthord-engine/.agent/plan/epics/010.5-browser-access.md`, with the policy in
+The owner has decided that Flutter web is supported, and **web is now the development host**. Read
+the web section of [connectivity.md](connectivity.md) and `AGENTS.md`.
+
+The engine browser-access mode is **delivered**: `kanthord-engine/.agent/plan/epics/010.5-browser-access.md`
+is merged and human-reviewed, `originMiddleware` is in `src/http/server/origin.ts`, and
+`KANTHORD_HTTP_ALLOWED_ORIGINS` is in the daemon configuration. The list is empty by default, so an
+unconfigured daemon still refuses every `Origin`. The policy is in
 `kanthord-engine/docs/proposal/phase-1/transport.md`.
 
 Read [connectivity.md](connectivity.md) for the supported topologies, the pinned development port, the
@@ -51,19 +55,30 @@ failure. Three residual items travel with the decision and are not blockers:
 - Re-check Private Network Access behaviour per release. The policy is still evolving.
 - Accept that a configured origin is an authority, so every script at that origin reaches the daemon.
 
-### D3 — the LAN and cleartext posture
+### D3 — the LAN and cleartext posture. DECIDED: permitted in every build
 
 A physical device needs a non-loopback bind, which needs a token, which crosses the LAN in clear text
-and never expires. Approve that, or restrict device testing to a trusted network, or fund transport
-encryption on the daemon. Read the last section of [auth.md](auth.md).
+and never expires. Read the last section of [auth.md](auth.md).
+
+The owner has decided: **cleartext is permitted to any host, in every build variant.** The client
+connects to a daemon at an address and port the operator gives it, and that is the product. A
+build-time platform file cannot be scoped to a runtime host, so the honest choice is a broad
+permission that matches the requirement. Read the cleartext section of
+[connectivity.md](connectivity.md).
+
+The consequence belongs to the operator, not to the manifest: a permanent bearer token crosses the
+network in clear text. The mitigations are the non-loopback warning in the client and the network
+boundary. **A reverse proxy is not part of this decision.** It exists in
+[connectivity.md](connectivity.md) for one case only — an HTTPS-served web bundle, which a browser
+forbids from calling a plain-HTTP daemon directly.
 
 ## What the engine must add
 
 Ordered by what the client is blocked on, not by engine effort.
 
-### E1 — implement the 20 declared-but-unhandled operations
+### E1 — implement the 22 declared-but-unhandled operations
 
-The registry declares 22 operations as `routed`. The daemon wires **two** handlers. The other 20
+The registry declares 24 operations as `routed`. The daemon wires **two** handlers. The other 22
 answer `501`, including `system.status`, `project.list`, `node.list` and `event.list`.
 
 This is the real blocker, and it is bigger than the contract. **A schema does not unblock a screen
@@ -176,14 +191,18 @@ Four properties of the engine design the client depends on, so raise it if any c
 - The guarantee is **bounded same-process duplicate suppression**, not exactly-once. The client must
   still read state back after an uncertain failure.
 
-### E8 — a conventional default port
+### E8 — a conventional default port. HALF DECIDED
 
-`KANTHORD_HTTP_PORT` has no default, so the client can ship no default base URL.
+**The convention is `31415`**, agreed across both repositories and written into
+[connectivity.md](connectivity.md). Every document, example and development script uses
+`http://127.0.0.1:31415` and `http://localhost:31415`, and the client prefills the connect field with
+it.
 
-This is the smallest item here and it is also the least valuable. It helps a desktop-local
-developer and it does nothing for a phone, which needs a LAN address the client cannot guess. Fix it
-for convenience, not as a solution to configuration. The client still needs the provisioning flow of
-[auth.md](auth.md) either way.
+What remains is engine-side and optional: make `31415` the `KANTHORD_HTTP_PORT` default so an
+operator can omit the variable. It is the smallest item on this list. It helps a desktop-local
+developer and does nothing for a phone, which needs a LAN address nobody can guess. The client needs
+the provisioning flow of [auth.md](auth.md) either way, because a convention is a prefill and never a
+fallback.
 
 ## What the engine will not add
 

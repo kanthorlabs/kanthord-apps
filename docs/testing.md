@@ -60,30 +60,47 @@ and `docs/api/parallel-development.md` for the mock daemon the poller runs again
 
 | Case                                       | What it proves                                                   |
 | ------------------------------------------ | ---------------------------------------------------------------- |
-| A page of events followed by an empty page | The cursor advances once per delivered event and then holds      |
-| A restart with a stored cursor             | Delivery resumes after the last delivered event, never before it |
+| A page of events followed by an empty page | The cursor advances once per accepted page and then holds        |
+| A handler future that has not completed    | The poller issues no further request. Backpressure holds         |
+| A handler that throws                      | The poller stops and the cursor never passes the failed page     |
+| A restart with a stored cursor             | Delivery resumes after the last accepted event, never before it  |
+| A null cursor                              | The log is drained from the beginning through the same handler   |
 | An empty `200` after the wait elapses      | A quiet daemon is not an error and does not reset the cursor     |
 | A dropped connection mid-poll              | The poller backs off and retries; it delivers no duplicate event |
 | A cancelled poller                         | The loop stops and issues no further request                     |
 | Two pages where the second repeats an id   | A duplicate is dropped, because delivery is at-least-once        |
 
 The four failure classes in `docs/api/polling.md` are distinct states, not one error. Assert that an
-unreachable daemon, an unauthorized poll, a quiet daemon and a cancelled poller are told apart.
+unreachable daemon, an unauthorized poll, a quiet daemon and a cancelled poller are told apart on
+`PollerStatus`, never on a message string.
+
+The poller delivers through an acknowledged handler, not a `Stream`. Read the delivery section of
+`docs/api/polling.md` before writing a poller test that awaits a stream event.
 
 ### The auth interceptor
 
-Fire **three concurrent 401s** and assert the refresh endpoint receives **exactly one** call. The
-refresh is held in a single shared `Future`, so ten requests that get a 401 together await one
-refresh and then all retry.
+**There is no refresh.** `docs/api/auth.md` deletes the sign-in, the refresh endpoint and the token
+lifetime, so the concurrent-401 test this section once specified counts a call that no code makes.
 
-Assert that a second 401 with the same fresh token becomes the unauthorized exception rather than a
-second refresh.
+Assert four things:
+
+- The request carries `Authorization: Bearer <token>`.
+- A null or empty token throws `ApiUnauthorizedException` **before** the request leaves.
+- A `401` throws `ApiUnauthorizedException`, with no retry and no second request.
+- The stored token **survives** a `401`. Only an explicit user action clears it.
 
 ### The retry interceptor
 
-Assert that a `POST` is **never** retried, because the server may have processed it.
+Read the retry table of `docs/api/errors.md`. The rule is by method **and** by idempotency key, not
+by method alone.
 
-Assert that a cancelled request is never retried.
+- A `GET` is retried. A `PUT` and a `DELETE` are not.
+- A `POST` with no `Idempotency-Key` is **never** retried, because the server may have processed it.
+- A `POST` **with** an `Idempotency-Key` is retried, and every attempt carries the same key and the
+  same body bytes. The daemon fingerprints the raw bytes, so a re-serialization that reorders a JSON
+  object is `409 idempotency-mismatch`.
+- A cancelled request is never retried.
+- The backoff schedule is asserted with a seeded `Random` passed to the constructor.
 
 ## Testing the design system
 

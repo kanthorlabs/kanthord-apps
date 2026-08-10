@@ -29,7 +29,7 @@ Do not guess any of these. Each one blocks the work named next to it.
 
 | Question                                                                                      | Blocks                                               | State                                                                                                                                                                                                                                                                                         |
 | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The API contract: endpoints, request shapes, response shapes, SSE event names                 | The models, the resource classes, the SSE event type | **Partly answered.** Endpoints, errors, conventions and auth are in `docs/api/`. Request and response shapes do not exist yet on 51 of 53 operations. There are no SSE event names, because SSE is withdrawn — the client long-polls. See `docs/api/blockers.md` E2 and `docs/api/polling.md` |
+| The API contract: endpoints, request shapes, response shapes, SSE event names                 | The models, the resource classes, the SSE event type | **Partly answered.** Endpoints, errors, conventions and auth are in `docs/api/`. Request and response shapes do not exist yet on 31 of 54 operations. There are no SSE event names, because SSE is withdrawn — the client long-polls. See `docs/api/blockers.md` E2 and `docs/api/polling.md` |
 | The auth flow: how a user signs in, the refresh endpoint path and payload, the token lifetime | The auth interceptor, the sign-in feature            | **Answered.** There is no sign-in, no refresh and no lifetime. One static bearer token. See `docs/api/auth.md`                                                                                                                                                                                |
 | The LAN IP of the development machine                                                         | Running on a physical device                         | Still open. It is a value the human enters, not a constant. See `docs/api/connectivity.md`                                                                                                                                                                                                    |
 | The HTTPS base URL                                                                            | A production web bundle                              | **Answered.** Web is supported. A direct HTTPS page cannot call a plain-HTTP daemon, so an HTTPS bundle goes through a reverse proxy that serves the app and forwards a same-origin path. See `docs/api/connectivity.md`                                                                      |
@@ -42,7 +42,7 @@ posture) travels with device testing. All of them are in `docs/api/blockers.md`.
 
 ## The daemon serves two operations today, and the client does not wait
 
-The engine registry declares 53 operations. The daemon wires **two** handlers: `GET /v1/health` and
+The engine registry declares 54 operations. The daemon wires **two** handlers: `GET /v1/health` and
 `GET /v1/db/status`. Every other operation, including `project.list`, `node.list` and `event.list`,
 answers `501 not-implemented`.
 
@@ -81,8 +81,9 @@ than a detail:
 ### 4a. Buildable now, no answer needed
 
 **`api_config.dart`** — hold the base URL and the timeouts. **Do not hard-code a host or a port.**
-The daemon has no default port, and `localhost` on a phone is the phone. The base URL is a value the
-human enters. Read `docs/api/connectivity.md` for the per-target table and the platform traps, and
+The base URL is a stored value. `http://localhost:31415` is the agreed convention and the app layer
+prefills it, so the SDK never substitutes it for a missing value, and `localhost` on a phone is still
+the phone. Read `docs/api/connectivity.md` for the per-target table and the platform traps, and
 `docs/api/auth.md` for the provisioning flow that supplies it.
 
 Send `X-Kanthord-Client: <version>` on every request. Set the receive timeout per operation, not
@@ -90,9 +91,9 @@ once: `repository.inspect` and `repository.register` reach a network forge and t
 
 **`api_exception.dart`** — `sealed class ApiException`. Seven subclasses, one more than the original
 list: no network, timeout, unauthorized, **not implemented**, response error, decode error,
-cancelled. `docs/api/errors.md` holds the full code-to-subclass mapping and the 21 error codes.
+cancelled. `docs/api/errors.md` holds the full code-to-subclass mapping and the 22 error codes.
 
-`ApiNotImplementedException` is new and it earns its place: 51 of 53 operations answer
+`ApiNotImplementedException` is new and it earns its place: 52 of 54 operations answer
 `501 not-implemented` today. A screen must render "the daemon does not do this yet" and not a red
 error banner.
 

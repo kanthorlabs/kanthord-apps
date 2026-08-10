@@ -22,7 +22,7 @@ message.
 `details` is absent on some codes and present on others. Treat it as a nullable
 `Map<String, dynamic>`. Do not model it as a typed field, because its shape differs per code.
 
-## The 21 codes
+## The 22 codes
 
 | Status | Code                       | Meaning                                                                      |
 | ------ | -------------------------- | ---------------------------------------------------------------------------- |
@@ -47,9 +47,38 @@ message.
 | 422    | `credential-rejected`      | The forge refused the credential. `details` holds its response               |
 | 500    | `internal-error`           | The daemon failed unexpectedly. The message is the constant `internal error` |
 | 501    | `not-implemented`          | The route ships in a later phase, and it wrote no state                      |
+| 503    | `service-unavailable`      | The daemon declined the request. It is shutting down, or a dependency is out |
 
-The list is closed at this commit. Tolerate an unknown code: map it to the response-error exception
-and keep the raw code on the exception. Never throw a decode error because a code is unfamiliar.
+The engine declares the set in `src/http/contract/errors.ts`, and that file is the authority. Every
+operation with a schema repeats eight of these codes, so the eight are the envelope baseline:
+`invalid-request`, `unauthenticated`, `origin-forbidden`, `host-forbidden`, `not-found`,
+`internal-error`, `not-implemented` and `service-unavailable`. The rest are declared per operation.
+
+Five codes in the table are not in any published schema yet — `illegal-transition`,
+`binding-in-use`, `needs-reconcile`, `acknowledgement-required` and `lease-held`. Each belongs to an
+operation that carries no schema, so each arrives with the snapshot that schemas it.
+
+`identity-kind-mismatch` is in the table and appears in the snapshot **only as a plan finding code**,
+never yet as a top-level error code. Read the finding-code section below.
+
+Tolerate an unknown code: map it to the response-error exception and keep the raw code on the
+exception. Never throw a decode error because a code is unfamiliar. The set grows with the daemon,
+so treat this table as the codes known at the pinned commit and never as a closed union.
+
+## `plan-invalid` carries its own code set, and they are not error codes
+
+`plan.validate` and `plan.import` answer `422 plan-invalid` with `details.findings`, an array. Each
+finding carries its own `code` from a separate 24-value set: `acceptance-heading-duplicated`,
+`acceptance-heading-not-at-line-start`, `acceptance-missing`, `acceptance-unexpected`,
+`dependency-cross-parent`, `dependency-cycle`, `dependency-self`, `document-unparsable`,
+`frontmatter-invalid`, `identity-duplicate`, `identity-invalid`, `identity-kind-mismatch`,
+`initiative-without-objective`, `objective-without-task`, `parent-missing`, `path-duplicate`,
+`path-invalid`, `reference-ambiguous`, `reference-unresolved`, `repo-missing`, `repo-on-task`,
+`repository-unbound`, `repository-unknown` and `worker-unknown`.
+
+**Never map a finding code to an `ApiException`.** A finding is data a screen renders, not a
+transport failure. It reaches the client inside one `ApiResponseException` whose code is
+`plan-invalid`.
 
 ## The mapping to `ApiException`
 
@@ -67,7 +96,7 @@ and keep the raw code on the exception. Never throw a decode error because a cod
 
 Two subclasses beyond the `HANDOFF.md` list, and each earns its place.
 
-`ApiNotImplementedException` is separate because 51 of 53 operations answer it today. It is not an
+`ApiNotImplementedException` is separate because 52 of 54 operations answer it today. It is not an
 error the user caused and not a failure the user can fix. A screen must render "this daemon does not
 do this yet" and not a red error banner. Collapsing it into the response error would make every
 unfinished screen look broken.

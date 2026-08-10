@@ -6,7 +6,7 @@ Every operation the daemon declares. Provenance is [README.md](README.md).
 
 - `phase` — the daemon phase that implements the behaviour.
 - `declared` — `routed` or `stubbed` in the engine registry.
-- `today` — what a request gets from the daemon at commit `a5b957d`.
+- `today` — what a request gets from the daemon at the commit `README.md` pins.
 
 `live` answers a real response. `501` answers the error envelope with code `not-implemented` and
 writes no state. A path absent from this table answers `404 not-found` and never ships in this
@@ -31,8 +31,8 @@ action route — `unblock`, `waive`, `abandon`, `discard`, `approve` — never a
 | `system.status` | `GET /v1/status`     | 1     | routed   | 501      |
 | `blob.show`     | `GET /v1/blob/:hash` | 1     | routed   | 501      |
 
-`system.health` and `system.db` are the only two operations with a response schema in the registry,
-and the only two with a handler. Build the SDK smoke test against them.
+`system.health` and `system.db` are the only two operations with a handler. Build the SDK smoke test
+against them. 23 operations now carry a schema, so a schema is no longer evidence of a handler.
 
 ```json
 {
@@ -59,7 +59,7 @@ the body field, never the HTTP status.
 
 `system.status` is the route a dashboard wants: the daemon version, the bind address, the process
 start time, every node by kind and state with `blockReason`, every repository in `needs-reconcile`
-with both object ids, and every expired lease with its owner and fence. It has no schema and no
+with both object ids, and every expired lease with its owner and fence. It carries a schema and no
 handler. See [blockers.md](blockers.md).
 
 ## Credential and provider
@@ -101,11 +101,16 @@ fingerprints. See [errors.md](errors.md).
 | `project.create`         | `POST /v1/project`                   | 1     | routed   | 501   |
 | `project.list`           | `GET /v1/project`                    | 1     | routed   | 501   |
 | `project.show`           | `GET /v1/project/:id`                | 1     | routed   | 501   |
+| `project.status`         | `GET /v1/project/:id/status`         | 1     | routed   | 501   |
 | `project.repositories`   | `PUT /v1/project/:id/repository`     | 1     | routed   | 501   |
 | `binding.worker.project` | `PUT /v1/project/:id/binding/worker` | 2     | stubbed  | 501   |
 
 `project.repositories` replaces the whole list. A binding set is a value, so a partial edit has no
 meaning. The MVP accepts one entry, and the daemon refuses a longer list.
+
+`project.status` returns the roll-up a project dashboard needs. It carries a schema and an example in
+`contract/features/project.yaml`, and it was absent from this table until the 2026-08-10 snapshot was
+re-read.
 
 ## Graph
 
@@ -211,7 +216,11 @@ run is active is `409 lease-held`.
 
 Filters are `subjectKind`, `subject`, `type`, `actorKind` and `actor`. `subject` takes a prefixed id,
 so one filter serves every subject kind. Paging is a cursor: `after` takes the **id** of the last
-event read, and `limit` caps the page. An offset cannot page an append-only log.
+event read, and `limit` caps the page at **100 by default and 500 at most**. An offset cannot page an
+append-only log. Read the paging section of [conventions.md](conventions.md) for the whole schema.
+
+The response is `{"events":[...]}`. A field is `subjectId` and `actorId`, while the matching filter is
+`subject` and `actor`.
 
 Every event carries its id, the type, the subject kind and identity, the actor kind and identity, the
 payload, and a timestamp the daemon decodes from the ULID. Do not decode a ULID in the client.
@@ -223,7 +232,7 @@ do not prove nothing is missing. Never assert a contiguous sequence.
 
 ## The resource grouping for `lib/api/resources/`
 
-Group by the server path, as `CLAUDE.md` requires. Nine resource classes cover all 53 operations.
+Group by the server path, as `CLAUDE.md` requires. Nine resource classes cover all 54 operations.
 
 | Class                 | Exposed as        | Owns                                               |
 | --------------------- | ----------------- | -------------------------------------------------- |
