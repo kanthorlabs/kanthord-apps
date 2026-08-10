@@ -9,11 +9,13 @@ targets:
         enabled: true
         generate_for:
           - lib/api/models/**.dart
+          - lib/app/settings/**.dart
           - lib/features/**_state.dart
       json_serializable:
         enabled: true
         generate_for:
           - lib/api/models/**.dart
+          - lib/app/settings/**.dart
         options:
           explicit_to_json: true
           create_to_json: true
