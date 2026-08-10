@@ -23,6 +23,10 @@ else
 	DART := fvm dart
 endif
 
+DART_SOURCES = $(shell find lib test -name '*.dart' \
+	! -name '*.g.dart' ! -name '*.freezed.dart' \
+	! -name '*.mocks.dart' ! -name '*.gen.dart')
+
 .PHONY: help bootstrap generate generate-lib generate-test format format-check \
 	analyze arch-check test test-one pipeline-test verify clean \
 	dev run-ios run-android run-macos run-windows run-linux run-web
@@ -89,7 +93,7 @@ generate-test:
 	$(DART) run build_runner build --build-filter "test/**"
 
 format:
-	$(DART) format .
+	$(DART) format $(DART_SOURCES)
 ifeq ($(NODE_FOUND),)
 	@echo "node is not installed. Skipping the markdown, YAML and JSON format."
 else
@@ -97,7 +101,7 @@ else
 endif
 
 format-check:
-	$(DART) format --output=none --set-exit-if-changed .
+	$(DART) format --output=none --set-exit-if-changed $(DART_SOURCES)
 ifeq ($(NODE_FOUND),)
 	@echo "node is not installed. Skipping the markdown, YAML and JSON check."
 else
