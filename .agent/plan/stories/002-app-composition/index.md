@@ -4,187 +4,248 @@ Epic: `.agent/plan/epics/002-app-composition.md`
 Prereq: EPIC 001 and EPIC 001.1 (sequence order). `lib/api/` must exist, answer `api.system.health()`,
 and carry `DaemonEndpoint`, `endpoint()`, `tokenOf(id)` and the pinning interceptors.
 
-> **STOP — Stories `01`, `02` and `03` are SUPERSEDED and must not be implemented.**
->
-> The owner decided on 2026-08-10 that the product holds **more than one daemon**. EPIC 002 was
-> re-authored around a daemon registry, and the three Stories below still describe the scalar draft:
-> one base URL under `kanthord.base_url`, one token under `kanthord.daemon_token`, and an injection
-> root that registers them. Every one of those contracts is gone.
->
-> Nothing was implemented against them, so there is no migration. They stay on disk only as the
-> record of what was replaced.
->
-> **Re-expand `01`, `02` and `03` with `/author` before `/work` starts.** The new Stories are the
-> first five bullets of the re-authored EPIC: the `Daemon` model, the credential store, the daemon
-> registry, the selected-daemon provider, and the injection root. Stories `04` through `08` stand,
-> with the two amendments noted under "Amendments" below.
-
-After these eight Stories, `get_it` holds one `KanthordApi`, the token and the base URL have a store
-each, `go_router` replaces `home: KDGalleryPage(...)`, and the two mobile targets declare the
-cleartext permission.
+After these ten Stories, `get_it` holds one `KanthordApi`, `shared_preferences` holds a registry of
+named daemons with one selected, each daemon's token sits in its own credential entry, `go_router`
+replaces `home: KDGalleryPage(...)`, and the two mobile targets declare the cleartext permission.
 
 ## Dispatch order
 
-Take the files in number order, `01` through `08`. The order is a compile order.
+Take the files in number order, `01` through `10`. The order is a compile order, so no Story
+references a symbol a later Story creates.
 
-**The file order is not the EPIC bullet order.** The EPIC lists the injection root first, and the
-injection root registers the two stores, so it cannot compile before them. The map:
+**The file order is not the EPIC bullet order.** The map:
 
 | File | EPIC `## Stories` bullet              |
 | ---- | ------------------------------------- |
-| `01` | The token providers                   |
-| `02` | The base URL store                    |
-| `03` | The injection root                    |
-| `04` | The router                            |
-| `05` | The env classes and `.env.example`    |
-| `06` | The `lib` must not import `test` rule |
-| `07` | The platform posture                  |
-| `08` | The desktop-first check               |
+| `01` | The `lib` must not import `test` rule |
+| `02` | The env classes and `.env.example`    |
+| `03` | The `Daemon` model                    |
+| `04` | The credential store                  |
+| `05` | The daemon registry                   |
+| `06` | The selected-daemon provider          |
+| `07` | The injection root                    |
+| `08` | The router                            |
+| `09` | The platform posture                  |
+| `10` | The desktop-first check               |
 
-Four Stories carried a **human pre-step**, because `scripts/lane-check.sh` denies those files to
-every role. **All four are satisfied. `/work` can start.**
+Three deviations from the bullet order are forced:
 
-- `06` is human-applied in full — `scripts/arch-check.sh` and `scripts/arch-check.test.sh`. Applied
-  first, because `01` through `05` each verify `make arch-check`.
-- `04` needed the `build.yaml` glob for `go_router_builder`. Applied at `build.yaml:21-25`.
-- `05` needed `.env.example` at the repository root. `c127229` created it; the owner renamed its key
-  to `KANTHORD_API_ENDPOINT` on 2026-08-10. Applied, one line.
-- `07` needed the Android network security file, the two `AndroidManifest.xml` attributes and the iOS
-  `NSAppTransportSecurity` entry. Applied. Only `scripts/platform-config-check.sh` is dispatchable,
-  and it is Task 007.1.
+- `01` is first because Stories `02` through `09` each verify `make arch-check` over the enlarged rule
+  set.
+- `02` is second because the G5 registry seed in `05` imports `Env.apiEndpoint`.
+- `10` is last because it verifies the pages `08` renders. The EPIC lists it sixth.
 
-`08` is verification only and needs no Task. `Makefile` is locked and its half of G6 already landed
-in commit `365fb2c`.
+Coupled chains:
 
-`01`, `02` and `03` are a coupled chain: `03` registers the two implementations `01` and `02` write.
-`03` and `04` are a coupled pair: `04` reads `getIt<BaseUrlStoreType>()` and
-`getIt<ThemeModeController>()`, both registered by `03`.
+- `03` → `05`: the registry persists a JSON list of `Daemon`.
+- `04` → `05`: `remove(id)` deletes the daemon's credential, which is G6.
+- `04` + `05` → `06`: the provider reads both.
+- `06` → `07`: the injection root registers the one provider instance under two interfaces.
+- `07` → `08`: `BootPage` reads `getIt<DaemonRegistryType>()`, and `KanthorDApp` reads
+  `getIt<ThemeModeController>()`.
+
+## Human pre-steps
+
+Four paths are denied to every role by `scripts/lane-check.sh`, so the human applies them.
+
+| Pre-step                                                                                                            | Story | State                                |
+| ------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------ |
+| `scripts/arch-check.sh` + `scripts/arch-check.test.sh`, the lib/test rule                                           | `01`  | **APPLIED** at `:73-75` and `:60-63` |
+| `.env.example` at the repository root, key `KANTHORD_API_ENDPOINT`                                                  | `02`  | **APPLIED**, one line                |
+| `build.yaml` — the `freezed` and `json_serializable` globs for `lib/app/settings/**.dart`                           | `03`  | **APPLIED** at `:11-12` and `:16-17` |
+| `build.yaml` — the `go_router_builder` glob for `lib/app/**_routes.dart`                                            | `08`  | **APPLIED** at `:21-25`              |
+| The Android network security file, the two `AndroidManifest.xml` attributes, the iOS `NSAppTransportSecurity` entry | `09`  | **APPLIED**                          |
+
+**Every pre-step is applied. `/work` can start.** `build.yaml:11-12` and `:16-17` now carry
+`- lib/app/settings/**.dart` under `freezed` and under `json_serializable`, so `make generate-lib`
+writes `daemon.freezed.dart` and `daemon.g.dart` and Story `03` compiles. No `options:` value changed.
+
+`10` is verification only and needs no Task. `09` dispatches one Task, `scripts/platform-config-check.sh`.
+`01` dispatches none.
 
 ## Stories
 
-- `01` — `MemoryTokenProvider` and `SecureStorageTokenProvider` → `01-token-providers.md`
-- `02` — `BaseUrlStoreType` and `PreferencesBaseUrlProvider` → `02-base-url-store.md`
-- `03` — `injection.dart`, `ThemeModeController` and the new `main.dart` → `03-injection-root.md`
-- `04` — `app_routes.dart`, `router.dart`, the two pages and the new `kanthord_app.dart` → `04-router.md`
-- `05` — `lib/app/env/env.dart` and `.env.example` → `05-env-classes.md`
-- `06` — the `arch-check` rule and its self-test → `06-lib-must-not-import-test.md`
-- `07` — the cleartext posture and `scripts/platform-config-check.sh` → `07-platform-posture.md`
-- `08` — the Chrome launch at three bands → `08-desktop-first-check.md`
+- `01` — the `arch-check` rule and its self-test, both already on disk → `01-lib-must-not-import-test.md`
+- `02` — `lib/app/env/env.dart` over the committed `.env.example` → `02-env-classes.md`
+- `03` — `Daemon`, `@freezed` plus `@JsonSerializable` → `03-daemon-model.md`
+- `04` — `DaemonCredentialStoreType` and the memory and secure-storage stores → `04-credential-store.md`
+- `05` — `DaemonRegistryType` and `PreferencesDaemonRegistry` → `05-daemon-registry.md`
+- `06` — `SelectedDaemonProvider` under both provider interfaces → `06-selected-daemon-provider.md`
+- `07` — `injection.dart`, `ThemeModeController` and the new `main.dart` → `07-injection-root.md`
+- `08` — `app_routes.dart`, `router.dart`, the two pages and the new `kanthord_app.dart` → `08-router.md`
+- `09` — the cleartext posture and `scripts/platform-config-check.sh` → `09-platform-posture.md`
+- `10` — the Chrome launch at three bands → `10-desktop-first-check.md`
 
 ## Proof coverage
 
-| EPIC Proof marker            | Story |
-| ---------------------------- | ----- |
-| `PASS 002-G1-DI`             | `03`  |
-| `PASS 002-G2-TOKEN-STORE`    | `01`  |
-| `PASS 002-G3-BASE-URL-STORE` | `02`  |
-| `PASS 002-G4-ROUTER`         | `04`  |
-| `PASS 002-G4-NAVIGATION`     | `04`  |
-| `PASS 002-G5-ENV`            | `05`  |
-| `PASS 002-G6-DEV-HOST`       | `08`  |
-| `PASS 002-G7-PLATFORM`       | `07`  |
+| EPIC Proof marker         | Story |
+| ------------------------- | ----- |
+| `PASS 002-G1-DI`          | `07`  |
+| `PASS 002-G2-CREDENTIALS` | `04`  |
+| `PASS 002-G3-REGISTRY`    | `05`  |
+| `PASS 002-G4-UNSELECTED`  | `05`  |
+| `PASS 002-G5-SEED`        | `05`  |
+| `PASS 002-G6-REMOVE`      | `05`  |
+| `PASS 002-G7-ROUTER`      | `08`  |
+| `PASS 002-G7-NAVIGATION`  | `08`  |
+| `PASS 002-G8-ENV`         | `02`  |
+| `PASS 002-G9-DEV-HOST`    | `10`  |
+| `PASS 002-G10-PLATFORM`   | `09`  |
 
-`06` delivers no `PASS` marker. The EPIC lists the `lib` must not import `test` rule under
-**Hermetic coverage required beyond the Proof**, and `PASS 002-G4-NAVIGATION` is the
-`Navigator.push` grep that `scripts/arch-check.sh:70-71` already implements.
+`01`, `03` and `06` deliver no `PASS` marker of their own.
 
-## Amendments — 2026-08-10
-
-- **Story `04` (the router).** `main()` must `await getIt<DaemonRegistryType>().seedDefault()` before
-  `runApp`, and `BootPage` becomes the splash entrypoint of EPIC 003 Story `09`. The three route
-  paths and the `GoRoute(` grep are unchanged.
-- **Story `05` (the env classes).** `Env.apiEndpoint` is now read by the registry seed of G5, not by
-  a connect field default. `test/app/env_test.dart` keeps its guard that
-  `lib/app/settings/` holds no `Env.` reference **except** the registry seed.
-- Stories `06`, `07` and `08` are unchanged.
+- `01` is listed under **Hermetic coverage required beyond the Proof**, and both edits are already on
+  disk.
+- `03` and `06` land under `PASS 002-G3-REGISTRY`, because that marker runs
+  `make test-one T=test/app/settings`, which is the whole directory: `daemon_test.dart`,
+  `selected_daemon_provider_test.dart` and the four registry files all run inside it.
 
 ## Decisions this expansion makes
 
-Four things are not named in the EPIC. Each is a decision taken at authoring time so that no
-implementer decides at build time. **The owner approved all four on 2026-08-10.**
+Six things the EPIC does not name. Each is fixed here so no implementer decides at build time.
+**The owner approved all six on 2026-08-10.**
 
-- **`BaseUrlStoreType`.** EPIC 001 fixed `BaseUrlProviderType.baseUrl()` as `Future<String>`,
-  non-nullable, while EPIC 002 G3 needs an unset state and EPIC 003 G3 needs a write after a `200`.
-  **Approved: the widening interface.** Amending the EPIC 001 contract to a nullable `baseUrl()` was
-  rejected, because it pushes null handling into `BaseUrlInterceptor`, which EPIC 001 explicitly
-  defers to EPIC 003.
-- **`PreferencesBaseUrlProvider.baseUrl()` throws `StateError`.** It follows from the non-nullable
-  return plus the ban on a default. **Approved as authored.** Read the Constraints of
-  `02-base-url-store.md` for why it stays untyped rather than becoming an `ApiException`.
-- **`ThemeModeController`, registered in `get_it`.** G1 does not list it. `KDGalleryPage` requires
-  `onThemeModeChanged`, the value lives in `_KanthorDAppState` today, and a generated typed route
-  builder is static and captures no widget state. The alternatives are to drop the gallery toggle or
-  to drop the gallery route, and both were rejected. **Approved.** It is app-lifetime and it is never
-  disposed, which is correct for a singleton that outlives every route.
-- **The `build.yaml` glob.** Enabling configuration rather than product scope: without it G4 cannot
-  compile at the location G4 names.
+- **The seed method is `DaemonRegistryType.seedDefault()`.** G3 lists seven members and G5 describes
+  the seed without naming it. `seedDefault` matches the archived amendment that `main()` awaits.
+- **The id rule is `d<n>`, one above the highest `d<digits>` already in the list.** G3 requires an
+  opaque, registry-generated, never-changing id; the EPIC bans a new dependency, so `uuid` is out. The
+  rule is a pure function of the stored list, so it needs no third preferences key and the same input
+  always yields the same id.
+- **`baseUrl()` answers `''` when nothing is selected.** The EPIC 001 contract is non-nullable and the
+  scalar draft's `StateError` is withdrawn. `''` matches `_UnselectedBaseUrlProvider` in EPIC 001.1
+  Story 04, and `BaseUrlInterceptor` never calls `baseUrl()` — it calls `endpoint()` once per request
+  and rejects a `null` with `ApiNotConfiguredException`.
+- **`SelectedDaemonProvider.save(token)` and `.clear()` act on the selected daemon and no-op when
+  nothing is selected.** Both members come from the EPIC 001 `TokenProviderType` and neither may throw
+  under G4. EPIC 003 and EPIC 003.1 write a credential through `DaemonCredentialStoreType` with an
+  explicit id instead.
+- **`remove(id)` clears `kanthord.selected_daemon_id` when the removed id was selected**, and
+  `selected()` answers `null` on a stale id besides. G4 names both routes to the unselected state, so
+  both are implemented.
+- **`ThemeModeController`, registered in `get_it`.** G1 does not list it. G7 keeps the development
+  gallery route, `KDGalleryPage` requires `onThemeModeChanged` at
+  `lib/libraries/kd_design_system/gallery/kd_gallery_page.dart:22`, and a generated typed route builder
+  is static and captures no widget state. It is app-lifetime and never disposed, which is correct for a
+  singleton that outlives every route.
 
 ## Test specification form
 
 Every `test/**` file in these Stories appears **verbatim**, imports and `setUp` included. The
-implementer copies the file and changes nothing. This differs from the EPIC 001 Stories, which give
-an assertion list, and the owner chose the verbatim form on 2026-08-10 so that no import, matcher,
-pump order or teardown is decided at build time.
+implementer copies the file and changes nothing, so no import, matcher, pump order or teardown is
+decided at build time.
 
-Stories `06`, `07` and `08` carry no Dart test: `06` and `07` are shell, and `08` is verification
-only.
+`01`, `09` and `10` carry no Dart test: `01` and `09` are shell, and `10` is verification only.
 
 ## Facts (needed for implementation)
 
-- **`lib/app/` holds one file today**, `kanthord_app.dart`. `lib/api/`, `lib/features/`,
-  `lib/gen/` and `lib/app/env/` do not exist. `test/` holds `test/libraries/` only, so `test/app/`
-  is new.
-- **`build.yaml:21-25`** now runs `go_router_builder` over `lib/app/**_routes.dart` and
-  `lib/features/**_routes.dart`. Before the applied pre-step it named `lib/features/` alone, and a
-  `@TypedGoRoute` under `lib/app/` generated nothing. `build.yaml:26-29` points `envied_generator`
-  at `lib/app/env/**.dart`, and it always did.
-- **`scripts/lane-check.sh` lane table**: `test/**` and `integration_test/**` are the test-engineer;
-  `lib/**`, `assets/**` and `scripts/**` are the software-engineer. Every other path is denied to
-  every role, including `Makefile`, `build.yaml`, `android/**`, `ios/**`, `scripts/arch-check.sh`,
-  `scripts/*.test.sh` and the repository root.
-- **`scripts/arch-check.sh:88-89` bans a comment in `lib/(api|features)/` only.** `lib/app/` is
-  outside that filter, and CLAUDE.md still forbids the comment.
-- **`scripts/arch-check.sh:70-71` already bans `Navigator.push`.** G4 needs no new navigation rule.
+- **`lib/app/` holds one file today**, `lib/app/kanthord_app.dart` (26 lines), and `lib/main.dart`
+  holds a synchronous seven-line `main()`. `lib/app/env/`, `lib/app/settings/`, `lib/app/token/`,
+  `lib/app/pages/`, `lib/features/` and `lib/gen/` do not exist. `test/` holds `test/api/` and
+  `test/libraries/` only, so `test/app/` is new.
+- **The post-EPIC-001.1 contracts are the ones to implement against.** After EPIC 001.1 Story 02,
+  `BaseUrlProviderType` is `Future<String> baseUrl()` plus `Future<DaemonEndpoint?> endpoint()`, and
+  `TokenProviderType` is `Future<String?> token()`, `Future<String?> tokenOf(String daemonId)`,
+  `Future<void> save(String token)` and `Future<void> clear()`. On disk today the two files still hold
+  the narrower EPIC 001 shape at `lib/api/base_url_provider.dart:1-3` and
+  `lib/api/token_provider.dart:1-5`. **Do not start EPIC 002 before EPIC 001.1 lands.**
+- **`DaemonEndpoint` carries `id`, `name`, `baseUrl` and nothing else** (EPIC 001.1 Story 01). It has
+  no `confirmedAt`, so `SelectedDaemonProvider.endpoint()` drops that field. `kDaemonIdKey` is
+  `'kanthord.daemonId'` and `kCandidateDaemonId` is `'kanthord.candidate'`.
+- **`ApiConfig` takes one required named parameter**, `BaseUrlProviderType baseUrlProvider`
+  (`lib/api/api_config.dart:10`), and gains `Future<DaemonEndpoint?> endpoint()` in EPIC 001.1.
+- **`KanthordApi` takes `config`, `tokens` and an optional `Dio`** (`lib/api/kanthord_api.dart:10`) and
+  exposes one resource group, `system` (`:24`).
+- **`build.yaml:11-12` and `:16-17` now include `lib/app/settings/**.dart`** under `freezed` and under
+  `json_serializable`, which is what lets `Daemon` generate. `build.yaml:22-26` covers
+  `go_router_builder` for `lib/app/**_routes.dart` and `lib/features/**_routes.dart`, and
+  `build.yaml:27-30` covers `envied_generator` for `lib/app/env/**.dart`.
+- **`json_serializable` runs with `explicit_to_json: true`, `create_to_json: true` and
+  `include_if_null: false`** (`build.yaml:17-20`). The last one omits a null `confirmedAt` from the
+  persisted JSON.
+- **The `freezed` 3.2.5 idiom in this repository is `@freezed abstract class X with _$X`** plus a
+  `const factory` and `@JsonKey(name:)` on every field. Mirror `lib/api/models/migration.dart:6-16`.
+- **`scripts/arch-check.sh:73-75` already bans a `lib/**` file importing `test/**`**, and
+  `scripts/arch-check.test.sh:60-63` already covers both quote styles. Story `01` writes nothing.
+- **`scripts/arch-check.sh:70-71` already bans `Navigator.push`**, `pushNamed`, `pushReplacement` and
+  `of(context).push`. G7 needs no new navigation rule.
+- **`scripts/arch-check.sh:88-89` bans a comment in `lib/(api|features)/` only.** `lib/app/` is outside
+  that filter, and CLAUDE.md still forbids the comment.
 - **Generated output is exempt from `arch-check`** through the `find` filter at
-  `scripts/arch-check.sh:25-29`. The `$BootRoute` mixin `go_router_builder` writes contains
-  `context.pushReplacement`, and it is never scanned.
-- **`go_router_builder` 4.4.0 emits `mixin $<Name> on GoRouteData`** and one top-level
-  `List<RouteBase> get $appRoutes` per annotated file. EPIC 002 declares one such file, so there is
-  one `$appRoutes`. EPIC 003 adds its routes to the same file or it produces a second, conflicting
-  symbol.
-- **`KANTHORD_API_ENDPOINT` is the one env key name for every environment file.** `.env.example`
-  carries the development value; `.env.staging` and `.env.production` carry their own endpoint under
-  the same key, and a later EPIC adds the class that reads each. This EPIC ships the development
-  class alone.
-- **`@Envied` points at `.env.example`, the committed file, never at `.env`.** `.env` is gitignored
-  and per-developer, so a generator pointed at it makes the committed `env.g.dart` differ per clone
-  and breaks `test/app/env_test.dart` for anyone holding a different value. `envied` 1.3.8 defaults
-  `requireEnvFile` to `false` and `EnviedField.defaultValue` fills a missing key, so the default is
-  a second guard, not the mechanism.
-- **`FlutterSecureStorage.setMockInitialValues(<String, String>{})`** exists at
-  `flutter_secure_storage` 10.3.1 and replaces `FlutterSecureStoragePlatform.instance` with an
-  in-memory implementation. It is the hermetic seam. No method-channel handler is needed.
-- **`SharedPreferences.setMockInitialValues(<String, Object>{})`** exists at `shared_preferences`
-  2.5.5 through the legacy API. `SharedPreferences.getInstance()` is the matching read.
-- **`BaseUrlProviderType.baseUrl()` returns `Future<String>`**, non-nullable, fixed by EPIC 001
-  Story 02. The unset case therefore needs a second method. `BaseUrlStoreType` adds
-  `read()`/`save()`/`clear()` on top, and `baseUrl()` throws `StateError` when the key is absent.
-  EPIC 003 G3 takes `BaseUrlStoreType`, because it writes after a `200`.
-- **`KDGalleryPage` requires `onThemeModeChanged`** at
-  `lib/libraries/kd_design_system/gallery/kd_gallery_page.dart:22`. The theme mode lives in
-  `_KanthorDAppState` today, and a typed route builder is static, so `ThemeModeController` moves the
-  value into `get_it` and keeps the toggle working.
-- **`DESIGNS.md:110` assigns `KDFullScreenLayout` to the connect, unauthorized, boot and unreachable
-  screens.** Both pages of Story 04 use it with `KDStatusView`.
-- **`KDStatusView` takes `kind`, `title`, `message` and `actions`**, and `KDStatusKind` has
-  `loading`, `error`, `empty` and `notImplemented`
-  (`lib/libraries/kd_design_system/layout/kd_status_view.dart:7-21`).
-- **`Makefile:148` and `Makefile:152`** already satisfy the G6 greps. Commit `365fb2c` landed them.
-- **`.gitignore:17-18`** already reads `.env*` then `!.env.example`.
-- **`make verify` is not the EPIC Proof.** `Makefile:125` expands it to `format-check analyze
-arch-check test pipeline-test`, and every one of those passes at the end of every Story. The EPIC
-  `Proof:` block is the aggregate, it names files later Stories create, and it runs one time at the
-  end. A Story `Verify` section asks for `make verify` plus its own Proof line, never the whole
+  `scripts/arch-check.sh:25-29`. The `$BootRoute` mixin contains `context.pushReplacement` and is never
+  scanned.
+- **`scripts/lane-check.sh` lane table**: `test/**` and `integration_test/**` are the test-engineer
+  (`:77-79`); `lib/**`, `assets/**` and `scripts/**` are the software-engineer (`:81-88`). Every other
+  path is denied to every role (`:35-53`), `Makefile`, `build.yaml`, `pubspec.yaml`, `android/**`,
+  `ios/**`, `docs/**`, `scripts/arch-check.sh` and `scripts/*.test.sh` included.
+- **`make verify` is not the EPIC Proof.** `Makefile:129` expands it to
+  `format-check analyze arch-check test pipeline-test`, and every one of those passes at the end of
+  every Story. A Story `Verify` section asks for `make verify` plus its own Proof line, never the whole
   block.
-- **`make generate` is forbidden to both roles.** The software-engineer runs `make generate-lib`,
-  the test-engineer runs `make generate-test`, and the generated files are committed.
+- **`make pipeline-test` runs four self-tests** (`Makefile:123-127`): `lane-check.test.sh`,
+  `turn-snapshot.test.sh`, `memory-append-only.test.sh` and `arch-check.test.sh`. A new
+  `scripts/*.test.sh` would be neither writable nor run.
+- **`make generate` is forbidden to both roles.** The software-engineer runs `make generate-lib`, the
+  test-engineer runs `make generate-test`, and the generated files are committed.
+- **`SharedPreferences.setMockInitialValues(<String, Object>{})`** exists at `shared_preferences` 2.5.5
+  on the legacy API, and `SharedPreferences.getInstance()` is the matching read on the same class. It
+  swaps `SharedPreferencesStorePlatform.instance` for an in-memory store and nulls the singleton
+  completer. `SharedPreferencesAsync` has no such method and is not used here.
+- **`FlutterSecureStorage.setMockInitialValues(<String, String>{})`** exists at
+  `flutter_secure_storage` 10.3.1 and replaces `FlutterSecureStoragePlatform.instance` with the
+  in-memory double the package ships. No method-channel handler is needed.
+- **`FlutterSecureStorage.read`, `.write` and `.delete` take `key` as a named required parameter.**
+  Never positional. `write` takes `required String? value`, and a null value routes to a delete.
+- **`go_router_builder` 4.4.0 emits `mixin $<Name> on GoRouteData`** and one top-level
+  `List<RouteBase> get $appRoutes` **per annotated library**. It throws `Missing mixin clause` when the
+  annotated class omits `with $<Name>`. EPIC 002 declares one such library, `lib/app/app_routes.dart`.
+  A later EPIC declares its own under `lib/features/<name>/<name>_routes.dart`, and the two
+  `$appRoutes` getters do **not** conflict: each is a member of its own library, and
+  `lib/app/router.dart` imports each under a prefix and spreads both. Story `08` therefore imports
+  `app_routes.dart` as `app` in both `lib/app/router.dart` and `test/app/router_test.dart`, so a later
+  EPIC adds one prefixed import and one spread and rewrites no existing reference.
+- **`envied` 1.3.8 defaults `requireEnvFile` to `false`**, and `EnviedField.defaultValue` fills a
+  missing key with a `String`, `bool` or `num`. `@Envied(path:)` defaults to `.env`, so the path must be
+  named explicitly.
+- **`@Envied` points at `.env.example`, the committed file, never at `.env`.** `.env` is gitignored
+  (`.gitignore:17-18`) and per-developer, so a generator pointed at it makes the committed `env.g.dart`
+  differ per clone.
+- **`KANTHORD_API_ENDPOINT` is the one env key name for every environment file.** `.env.example` carries
+  `http://localhost:31415`. `.env.staging` and `.env.production` carry their own endpoint under the same
+  key, and a later EPIC adds the class that reads each. This EPIC ships the development class alone.
+- **`KDGalleryPage` requires `onThemeModeChanged`**, a `ValueChanged<ThemeMode>`, at
+  `lib/libraries/kd_design_system/gallery/kd_gallery_page.dart:22`. It is the only required parameter.
+  The value lives in `_KanthorDAppState` today (`lib/app/kanthord_app.dart:14`, one `setState` at
+  `:23`).
+- **`KDStatusView` takes `kind`, `title`, `message` and `actions`**
+  (`lib/libraries/kd_design_system/layout/kd_status_view.dart:10-16`); only `kind` and `title` are
+  required. `KDStatusKind` is `loading`, `error`, `empty`, `notImplemented` (`:7`).
+- **`KDFullScreenLayout` requires `child` alone**
+  (`lib/libraries/kd_design_system/layout/kd_full_screen_layout.dart:8-14`).
+- **`DESIGNS.md:110` assigns `KDFullScreenLayout` to the connect, unauthorized, boot and unreachable
+  screens.** Both pages of Story `08` use it with `KDStatusView`.
+- **A page imports the `KD` leaf file, never the barrel.** No file in `lib/` or `test/` imports
+  `kd_design_system.dart`. `lib/app/kanthord_app.dart:3-4` is the pattern for `lib/`, and
+  `test/libraries/kd_design_system/layout/kd_full_screen_layout_test.dart:3` is the pattern for
+  `test/`.
+- **The widget-test surface convention is a private `_pumpAt`-style helper** that sets
+  `tester.view.devicePixelRatio`, `tester.view.physicalSize` and `addTearDown(tester.view.reset)`
+  before the first `pumpWidget` (`docs/testing.md:122-128`). There is no shared wrapper.
+- **`test/api/` uses no `setUp`.** These Stories do, because `SharedPreferences`,
+  `FlutterSecureStorage` and `getIt` each need a per-test reset. `docs/testing.md` states no rule
+  against it.
+- **`docs/testing.md:41-51` says to mock a store and never `KanthordApi`.** It names
+  `DaemonRegistryType` and `DaemonCredentialStoreType` as correct fake or `mockito` targets. These
+  Stories use hand-written fakes and the two real in-memory stores, so they add no
+  `@GenerateMocks` and run no `make generate-test`.
+- **`Makefile:36` pins `WEB_PORT ?= 8080`**, `:152` is `dev: run-web`, and `:156` carries
+  `--web-port=$(WEB_PORT)`. Both G9 greps already answer 0.
+- **`scripts/platform-config-check.sh` does not exist.** It is the one dispatchable Task of Story `09`.
+- **The Android and iOS cleartext files are on disk**:
+  `android/app/src/main/res/xml/network_security_config.xml:3` holds
+  `<base-config cleartextTrafficPermitted="true" />`, `android/app/src/main/AndroidManifest.xml:6-7`
+  holds both attributes, and `ios/Runner/Info.plist:69-73` holds `NSAppTransportSecurity` with
+  `NSAllowsArbitraryLoads` set to `<true/>`. The debug and profile manifests carry neither attribute,
+  which is correct.
+- **No new dependency.** `get_it` 9.2.1, `go_router` 17.4.0, `shared_preferences` 2.5.5,
+  `flutter_secure_storage` 10.3.1, `envied` 1.3.8, `freezed_annotation` 3.1.0 and `json_annotation`
+  4.12.0 are in `pubspec.yaml` already.
