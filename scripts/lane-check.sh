@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  echo "usage: scripts/lane-check.sh <test-engineer|software-engineer|reviewer-engineer> <path>" >&2
+  exit 2
+}
+
+[ "$#" -eq 2 ] || usage
+
+role=$1
+path=$2
+
+case $role in
+test-engineer | software-engineer | reviewer-engineer) ;;
+*) usage ;;
+esac
+
+[ -n "$path" ] || usage
+
+path=${path#./}
+
+deny() {
+  echo "lane violation: $role changed $path ($1)" >&2
+  exit 1
+}
+
+case $path in
+/*) deny "path is not repo-relative" ;;
+../* | */../*) deny "path escapes the repo root" ;;
+*" -> "*) deny "a porcelain rename record — the caller must pass each side alone" ;;
+'"'*) deny "a quoted porcelain path — the caller must unquote it" ;;
+esac
+
+case $path in
+.agents/plan/*) deny "the plan tree is locked" ;;
+.claude/* | .opencode/*) deny "the pipeline definition is locked" ;;
+.husky/*) deny "the git hooks are locked" ;;
+docs/*) deny "the contract documents are locked" ;;
+scripts/lane-check.sh | scripts/turn-snapshot.sh | scripts/verify-handoff.mjs | scripts/*.test.sh)
+  deny "the pipeline guards are locked"
+  ;;
+package.json) deny "the toolchain manifest is locked" ;;
+pnpm-lock.yaml) deny "the dependency lock is locked" ;;
+tsconfig*.json) deny "the toolchain config is locked" ;;
+AGENTS.md) deny "the architecture contract is locked" ;;
+test/setup.ts) deny "the test bootstrap is locked" ;;
+esac
+
+case ${path##*/} in
+*.config.* | .nvmrc | .npmrc | .editorconfig) deny "the toolchain config is locked" ;;
+esac
+
+if [ "$role" = reviewer-engineer ]; then
+  deny "the reviewer-engineer edits nothing"
+fi
+
+case $path in
+.agents/tdd/*) exit 0 ;;
+esac
+
+is_test=no
+case $path in
+*.test.ts | *.test.tsx) is_test=yes ;;
+esac
+
+case $path in
+src/*)
+  if [ "$is_test" = yes ]; then
+    [ "$role" = test-engineer ] || deny "a test file is not the software-engineer lane"
+  else
+    [ "$role" = software-engineer ] || deny "production source is not the test-engineer lane"
+  fi
+  exit 0
+  ;;
+test/helpers/*)
+  [ "$role" = test-engineer ] || deny "test helpers are the test-engineer lane"
+  exit 0
+  ;;
+scripts/*)
+  [ "$role" = software-engineer ] || deny "scripts are the software-engineer lane"
+  exit 0
+  ;;
+esac
+
+deny "outside every lane"

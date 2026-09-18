@@ -1,0 +1,4 @@
+# esbuild links its platform binary in a postinstall step, so it must build.
+# pnpm 11 stops on an undeclared build script, so every one is declared.
+allowBuilds:
+  esbuild: true
