@@ -38,6 +38,13 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/components/ui/**/*.tsx", "src/hooks/use-mobile.ts"],
+    rules: {
+      "react-hooks/purity": "off",
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
+  {
     files: ["**/*.test.{ts,tsx}", "test/**/*.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",

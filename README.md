@@ -7,6 +7,7 @@ A React control surface for the kanthord daemon, a plan-and-DAG execution engine
 ```
 .
 ├── src/        # the application
+├── mock/       # a development stand-in for the daemon
 └── test/       # the vitest bootstrap and its helpers
 ```
 
@@ -18,6 +19,7 @@ Run every command from this directory.
 | ---------------- | --------------------------------------- |
 | `pnpm install`   | Install every dependency                |
 | `pnpm dev`       | Start the app on http://localhost:27182 |
+| `pnpm dev:all`   | Start the mock daemon and the app       |
 | `pnpm build`     | Build the app                           |
 | `pnpm test`      | Run the test suite                      |
 | `pnpm typecheck` | Typecheck the repository                |
@@ -25,12 +27,19 @@ Run every command from this directory.
 
 ## The daemon
 
-The app expects the daemon at `http://localhost:31415`. Start it with these
-variables, because the daemon matches an allowed origin exactly.
+The app expects the daemon at `http://localhost:31415` and signs in with a username and a password.
+The daemon returns a token, and every later request carries it.
+
+The daemon does not exist yet, so `mock/` serves the API contract defined in `src/api`.
+It is a development stand-in, it is not part of the application, and no module under `src/` reaches it.
 
 ```bash
-KANTHORD_HTTP_PORT=31415
-KANTHORD_HTTP_ALLOWED_HOSTS=127.0.0.1:31415,localhost:31415
-KANTHORD_HTTP_ALLOWED_ORIGINS=http://localhost:27182
-KANTHORD_HTTP_TOKEN=<the value you type into the client>
+pnpm dev:all     # the mock daemon and the app together
+pnpm mock        # the mock daemon alone
 ```
+
+The pre-configured account is `ulrich` / `kanthord`. Override it, the port and the allowed origin
+with `KANTHORD_USERNAME`, `KANTHORD_PASSWORD`, `KANTHORD_HTTP_PORT` and
+`KANTHORD_HTTP_ALLOWED_ORIGINS`. Point the app at another daemon with `VITE_KANTHORD_URL`.
+
+When the real daemon arrives it must serve the same contract. `src/api/types.ts` is the whole of it.

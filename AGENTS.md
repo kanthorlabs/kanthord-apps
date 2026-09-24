@@ -7,7 +7,8 @@ section is normative: a change that breaks a rule in it is a defect, not a style
 
 - One package at the repository root. Node 24.15.0 (`.nvmrc`), pnpm, ESM only.
 - TypeScript strict, `verbatimModuleSyntax`, `noUncheckedIndexedAccess`. Bundler resolution, so a
-  relative import carries no file extension.
+  relative import carries no file extension. `@/` resolves to `src/`.
+- Tailwind CSS v4 through `@tailwindcss/vite`. The theme tokens live in `src/index.css`.
 - React 19 on Vite. Tests run on vitest with jsdom and `@testing-library/react`.
 
 ## Architecture
@@ -23,6 +24,13 @@ Four layers. Each one may import the layer below it and never the layer above it
 3. `src/components/**` — application-wide composition. It knows the router. It does not know an
    operation id.
 4. `src/lib/**` — pure helpers with no React and no I/O.
+
+Two shelves sit beside the four layers and belong to no screen:
+
+- `src/components/ui/**` — the vendored shadcn primitives, owned by `components.json` and rewritten by
+  the shadcn CLI. Compose them; never hand-edit one to suit a screen.
+- `src/hooks/**` — React hooks that more than one screen shares. A hook that one screen needs lives
+  beside that screen instead.
 
 Rules that hold across the layers:
 
