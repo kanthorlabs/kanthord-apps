@@ -2,10 +2,10 @@ import { request } from "../client";
 import type {
   Attempt,
   BlockedNode,
+  ControlResult,
   DependencyClosure,
   MissionNode,
   NodeRevision,
-  UnblockRecord,
 } from "../types";
 
 export async function listNodes(projectId: string): Promise<readonly MissionNode[]> {
@@ -70,8 +70,8 @@ export async function unblock(
     readonly requestIdentifier: string;
     readonly contentChange?: { readonly goal?: string; readonly steps?: readonly string[] };
   },
-): Promise<UnblockRecord> {
-  return request<UnblockRecord>(`/v1/projects/${projectId}/mission/nodes/${nodeId}/unblock`, {
+): Promise<ControlResult> {
+  return request<ControlResult>(`/v1/projects/${projectId}/mission/nodes/${nodeId}/unblock`, {
     method: "POST",
     body: input,
   });

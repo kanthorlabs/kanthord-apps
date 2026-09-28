@@ -192,13 +192,13 @@ export interface BlockedNode {
   readonly condition: BlockCondition;
 }
 
-export interface UnblockRecord {
-  readonly id: string;
-  readonly nodeId: string;
-  readonly clearedAttemptId: string;
-  readonly expectedRevisionId: string;
+export interface ControlResult {
+  readonly node: MissionNode;
+  readonly attempt: Attempt | null;
+  readonly outcome: Outcome | null;
+  readonly taskOutcomeIds: readonly string[];
   readonly actor: string;
-  readonly time: string;
+  readonly acceptedAt: string;
 }
 
 export interface WorkQueueEntry {
