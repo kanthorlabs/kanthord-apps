@@ -163,9 +163,9 @@ export function NodeActions({
               <AlertDialogDescription asChild>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p>
-                    This writes a successful outcome whose basis is a human assertion. It closes the
-                    current attempt by force and marks this node Completed, which is terminal and
-                    unreversible. Every dependent node is satisfied immediately.
+                    This writes a human assessment and a successful outcome that names it. It closes
+                    the current attempt by force and marks this node Completed, which is terminal
+                    and unreversible. Every dependent node is satisfied immediately.
                   </p>
                   {dependents.length > 0 && (
                     <div>

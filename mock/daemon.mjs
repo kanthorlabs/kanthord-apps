@@ -113,7 +113,8 @@ on("GET", /^\/v1\/projects\/[^/]+\/mission\/blocked$/, (_m, _b, res) =>
           node,
           closedAttempt,
           condition:
-            closedAttempt?.outcome?.basis === "human assertion"
+            closedAttempt?.assessments.find((a) => a.id === closedAttempt.outcome?.assessmentId)
+              ?.actor.kind === "human"
               ? "human reason on a paused node"
               : closedAttempt?.outcome?.assertedResult === "nothing established"
                 ? "an External.Failed observation"

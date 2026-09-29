@@ -36,6 +36,8 @@ const mockOverview: Overview = {
   inboxDepth: 2,
 };
 
+const mockBlockedTime = new Date().toISOString();
+
 const mockBlockedNode: BlockedNode = {
   node: {
     id: "node-1",
@@ -62,19 +64,31 @@ const mockBlockedNode: BlockedNode = {
     openedAt: new Date().toISOString(),
     closedAt: new Date().toISOString(),
     evidence: [],
-    assessments: [],
+    assessments: [
+      {
+        id: "as-1-human",
+        attemptId: "att-1",
+        nodeRevisionId: "rev-1",
+        evidenceIds: [],
+        childOutcomeIds: [],
+        verdict: "neither established",
+        method: "human block",
+        actor: { kind: "human", account: "ulrich", name: "ulrich" },
+        time: mockBlockedTime,
+        currency: null,
+      },
+    ],
     outcome: {
       id: "oc-1",
       attemptId: "att-1",
-      basis: "human assertion",
       assertedResult: "nothing established",
       closingEvent: "Blocked by a human.",
       stoppingReason: "The signing key rotation landed first.",
-      assessmentId: null,
+      assessmentId: "as-1-human",
       evidenceIds: [],
       previousOutcomeId: null,
       actor: "ulrich",
-      time: new Date().toISOString(),
+      time: mockBlockedTime,
     },
     externalObjects: [],
   },

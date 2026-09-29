@@ -62,11 +62,23 @@ const BLOCKED_WITH_OUTCOME: BlockedNode = {
     openedAt: "2025-01-01T00:00:00Z",
     closedAt: "2025-01-01T01:00:00Z",
     evidence: [],
-    assessments: [],
+    assessments: [
+      {
+        id: "as-1",
+        attemptId: "att-1",
+        nodeRevisionId: "rev-2",
+        evidenceIds: [],
+        childOutcomeIds: [],
+        verdict: "does not meet",
+        method: "model judgement",
+        actor: { kind: "execution", executionId: "exec-as-1", clientId: null, name: "re@1" },
+        time: "2025-01-01T01:00:00Z",
+        currency: { context: true, authority: true, order: true },
+      },
+    ],
     outcome: {
       id: "oc-1",
       attemptId: "att-1",
-      basis: "assessment",
       assertedResult: "criteria not met",
       closingEvent: "The current assessment does not pass.",
       stoppingReason: "The reset link accepted a second password change.",
@@ -105,15 +117,27 @@ const BLOCKED_NO_EXTERNAL: BlockedNode = {
     openedAt: "2025-01-01T00:00:00Z",
     closedAt: "2025-01-01T02:00:00Z",
     evidence: [],
-    assessments: [],
+    assessments: [
+      {
+        id: "as-2-human",
+        attemptId: "att-2",
+        nodeRevisionId: "rev-1",
+        evidenceIds: [],
+        childOutcomeIds: [],
+        verdict: "neither established",
+        method: "human block",
+        actor: { kind: "human", account: "ulrich", name: "ulrich" },
+        time: "2025-01-01T02:00:00Z",
+        currency: null,
+      },
+    ],
     outcome: {
       id: "oc-2",
       attemptId: "att-2",
-      basis: "human assertion",
       assertedResult: "nothing established",
       closingEvent: "A human blocked the paused node.",
       stoppingReason: "The signing key rotation landed first.",
-      assessmentId: null,
+      assessmentId: "as-2-human",
       evidenceIds: [],
       previousOutcomeId: null,
       actor: "ulrich",
@@ -150,7 +174,7 @@ describe("BlockedScreen", () => {
     ).toBeDefined();
     expect(screen.getByText("The current assessment does not pass.")).toBeDefined();
     expect(screen.getByText("criteria not met")).toBeDefined();
-    expect(screen.getByText("assessment")).toBeDefined();
+    expect(screen.getByText("execution assessment")).toBeDefined();
   });
 
   it("renders the external objects with observed and expected states", async () => {
@@ -174,6 +198,7 @@ describe("BlockedScreen", () => {
     await screen.findByText("The signing key rotation landed first.");
 
     expect(screen.queryByText("External actions")).toBeNull();
+    expect(screen.getByText("human assessment")).toBeDefined();
   });
 
   it("links each node to its mission route", async () => {

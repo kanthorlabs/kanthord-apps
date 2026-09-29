@@ -33,7 +33,14 @@ export type Role = "executor" | "reviewer";
 
 export type ClaimKind = "steps" | "evaluation";
 
-export type Basis = "assessment" | "human assertion";
+export type AssessmentActor =
+  | { readonly kind: "human"; readonly account: string; readonly name: string }
+  | {
+      readonly kind: "execution";
+      readonly executionId: string;
+      readonly clientId: string | null;
+      readonly name: string;
+    };
 
 export type AssertedResult = "success" | "criteria not met" | "nothing established";
 
@@ -138,20 +145,19 @@ export interface Assessment {
   readonly childOutcomeIds: readonly string[];
   readonly verdict: AssessmentVerdict;
   readonly method: string;
-  readonly actor: string;
+  readonly actor: AssessmentActor;
   readonly time: string;
   /** An assessment is current only when all three checks admit it. */
-  readonly currency: Readonly<Record<CurrencyCheck, boolean>>;
+  readonly currency: Readonly<Record<CurrencyCheck, boolean>> | null;
 }
 
 export interface Outcome {
   readonly id: string;
   readonly attemptId: string;
-  readonly basis: Basis;
   readonly assertedResult: AssertedResult;
   readonly closingEvent: string;
   readonly stoppingReason: string;
-  readonly assessmentId: string | null;
+  readonly assessmentId: string;
   readonly evidenceIds: readonly string[];
   /** Set when this outcome corrects one. kanthord keeps the previous outcome. */
   readonly previousOutcomeId: string | null;
@@ -196,7 +202,6 @@ export interface ControlResult {
   readonly node: MissionNode;
   readonly attempt: Attempt | null;
   readonly outcome: Outcome | null;
-  readonly taskOutcomeIds: readonly string[];
   readonly actor: string;
   readonly acceptedAt: string;
 }

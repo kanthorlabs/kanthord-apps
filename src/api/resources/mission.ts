@@ -77,7 +77,7 @@ export async function unblock(
   });
 }
 
-/** Writes a successful outcome whose basis is a human assertion. Terminal. */
+/** Writes a human assessment and a successful outcome that names it. Terminal. */
 export async function overrideSuccess(
   projectId: string,
   nodeId: string,

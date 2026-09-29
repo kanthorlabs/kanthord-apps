@@ -74,7 +74,7 @@ const currentAssessment: Assessment = {
   childOutcomeIds: [],
   verdict: "does not meet",
   method: "model judgement",
-  actor: "re@1",
+  actor: { kind: "execution", executionId: "exec-current", clientId: null, name: "re@1" },
   time: new Date(Date.now() - 30_000).toISOString(),
   currency: { context: true, authority: true, order: true },
 };
@@ -87,7 +87,7 @@ const nonCurrentAssessment: Assessment = {
   childOutcomeIds: [],
   verdict: "meets",
   method: "model judgement",
-  actor: "re@1",
+  actor: { kind: "execution", executionId: "exec-stale", clientId: null, name: "re@1" },
   time: new Date(Date.now() - 300_000).toISOString(),
   currency: { context: false, authority: true, order: false },
 };
@@ -100,7 +100,7 @@ const passingAssessment: Assessment = {
   childOutcomeIds: [],
   verdict: "meets",
   method: "model judgement",
-  actor: "re@1",
+  actor: { kind: "execution", executionId: "exec-passing", clientId: null, name: "re@1" },
   time: new Date(Date.now() - 60_000).toISOString(),
   currency: { context: true, authority: true, order: true },
 };
@@ -132,7 +132,6 @@ const externalFailedAttempt: Attempt = {
   outcome: {
     id: "oc-ef",
     attemptId: "att-ef",
-    basis: "assessment",
     assertedResult: "nothing established",
     closingEvent: "An External.Failed observation ended the attempt.",
     stoppingReason: "The pull request closed without a merge.",
@@ -223,6 +222,36 @@ describe("NodeScreen currency verdict rendering", () => {
   });
 });
 
+describe("NodeScreen human assessment", () => {
+  it("shows a human basis without a currency badge", async () => {
+    const humanAssessment: Assessment = {
+      ...currentAssessment,
+      id: "as-human",
+      attemptId: "att-ef",
+      method: "human block",
+      verdict: "neither established",
+      actor: { kind: "human", account: "ulrich", name: "ulrich" },
+      currency: null,
+    };
+    setupDefaultMocks({
+      attempts: [
+        {
+          ...externalFailedAttempt,
+          assessments: [humanAssessment],
+          outcome: { ...externalFailedAttempt.outcome!, assessmentId: "as-human" },
+        },
+      ],
+    });
+    renderNodeScreen();
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+
+    expect(screen.getByText("human assessment")).toBeInTheDocument();
+    expect(screen.getByText("ulrich")).toBeInTheDocument();
+    expect(screen.queryByText("CURRENT")).not.toBeInTheDocument();
+  });
+});
+
 describe("NodeScreen External.Failed with passing assessment", () => {
   it("states the non-success outcome explicitly without implying the assessment failed", async () => {
     setupDefaultMocks({ attempts: [externalFailedAttempt] });
@@ -237,6 +266,7 @@ describe("NodeScreen External.Failed with passing assessment", () => {
     expect(
       screen.getByText(/This outcome is non-success\. The basis assessment passes/),
     ).toBeInTheDocument();
+    expect(screen.getByText("execution assessment")).toBeInTheDocument();
   });
 });
 

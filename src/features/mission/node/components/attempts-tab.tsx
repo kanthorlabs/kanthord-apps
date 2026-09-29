@@ -1,21 +1,26 @@
 import type { Assessment, Attempt, CurrencyCheck } from "@/api/types";
 import { relativeTime } from "@/lib/format";
+import { basisAssessment, basisKind } from "@/lib/outcome-basis";
 
-function isCurrent(assessment: Assessment): boolean {
-  return assessment.currency.context && assessment.currency.authority && assessment.currency.order;
+type Currency = Readonly<Record<CurrencyCheck, boolean>>;
+
+function isCurrent(currency: Currency): boolean {
+  return currency.context && currency.authority && currency.order;
 }
 
-function failingChecks(assessment: Assessment): readonly CurrencyCheck[] {
+function failingChecks(currency: Currency): readonly CurrencyCheck[] {
   const failing: CurrencyCheck[] = [];
-  if (!assessment.currency.context) failing.push("context");
-  if (!assessment.currency.authority) failing.push("authority");
-  if (!assessment.currency.order) failing.push("order");
+  if (!currency.context) failing.push("context");
+  if (!currency.authority) failing.push("authority");
+  if (!currency.order) failing.push("order");
   return failing;
 }
 
 function CurrencyBadge({ assessment }: { assessment: Assessment }) {
-  const current = isCurrent(assessment);
-  const failing = failingChecks(assessment);
+  if (assessment.currency === null) return null;
+
+  const current = isCurrent(assessment.currency);
+  const failing = failingChecks(assessment.currency);
 
   if (current) {
     return (
@@ -54,7 +59,7 @@ function AssessmentSection({ assessment }: { assessment: Assessment }) {
         </div>
         <div className="flex gap-1">
           <dt>Actor:</dt>
-          <dd className="text-foreground">{assessment.actor}</dd>
+          <dd className="text-foreground">{assessment.actor.name}</dd>
         </div>
         <div className="flex gap-1">
           <dt>Node revision:</dt>
@@ -73,8 +78,8 @@ function OutcomeSection({ attempt }: { attempt: Attempt }) {
   const { outcome } = attempt;
   if (outcome === null) return null;
 
-  const basisAssessment = attempt.assessments.find((a) => a.id === outcome.assessmentId);
-  const basisPasses = basisAssessment !== undefined && basisAssessment.verdict === "meets";
+  const assessment = basisAssessment(attempt, outcome);
+  const basisPasses = assessment.verdict === "meets";
   const isNonSuccess = outcome.assertedResult !== "success";
   const externalFailedWithPassingBasis = isNonSuccess && basisPasses;
 
@@ -90,7 +95,7 @@ function OutcomeSection({ attempt }: { attempt: Attempt }) {
       <dl className="grid grid-cols-1 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
         <div className="flex gap-1">
           <dt>Basis:</dt>
-          <dd className="text-foreground">{outcome.basis}</dd>
+          <dd className="text-foreground">{basisKind(assessment)}</dd>
         </div>
         <div className="flex gap-1">
           <dt>Asserted result:</dt>
@@ -104,12 +109,10 @@ function OutcomeSection({ attempt }: { attempt: Attempt }) {
           <dt>Stopping reason:</dt>
           <dd className="text-foreground">{outcome.stoppingReason}</dd>
         </div>
-        {outcome.assessmentId !== null && (
-          <div className="flex gap-1">
-            <dt>Assessment:</dt>
-            <dd className="font-mono text-foreground">{outcome.assessmentId}</dd>
-          </div>
-        )}
+        <div className="flex gap-1">
+          <dt>Assessment:</dt>
+          <dd className="font-mono text-foreground">{outcome.assessmentId}</dd>
+        </div>
       </dl>
     </div>
   );

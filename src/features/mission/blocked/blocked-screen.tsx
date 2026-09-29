@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectId } from "@/features/projects/project-context";
 import { useResource } from "@/hooks/use-resource";
+import { basisAssessment, basisKind } from "@/lib/outcome-basis";
 import { NodeActions } from "./node-actions";
 import { useBlocked } from "./use-blocked";
 
@@ -69,14 +70,12 @@ function BlockedNodeCard({
               </div>
               <div className="flex flex-wrap gap-1">
                 <dt className="text-muted-foreground">Basis:</dt>
-                <dd>{outcome.basis}</dd>
+                <dd>{basisKind(basisAssessment(closedAttempt, outcome))}</dd>
               </div>
-              {outcome.assessmentId !== null && (
-                <div className="flex flex-wrap gap-1">
-                  <dt className="text-muted-foreground">Assessment:</dt>
-                  <dd className="font-mono text-xs">{outcome.assessmentId}</dd>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-1">
+                <dt className="text-muted-foreground">Assessment:</dt>
+                <dd className="font-mono text-xs">{outcome.assessmentId}</dd>
+              </div>
             </dl>
           </div>
         )}
