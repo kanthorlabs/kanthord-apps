@@ -15,7 +15,7 @@ interface State<T> {
   readonly loading: boolean;
 }
 
-function asApiError(cause: unknown): ApiError {
+export function asApiError(cause: unknown): ApiError {
   return cause instanceof ApiError
     ? cause
     : new ApiError("malformed", "The response could not be read.", 0);
