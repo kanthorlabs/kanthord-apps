@@ -101,6 +101,33 @@ on("GET", /^\/api\/project$/, (_m, _b, res) =>
 );
 
 on("GET", /^\/v1\/workers\/templates$/, (_m, _b, res) => json(res, 200, fx.TEMPLATES));
+on("GET", /^\/api\/worker\/agent$/, (_m, _b, res) =>
+  json(res, 200, {
+    items: fx.AGENT_DECLARATIONS.map(({ agentName, workerNames, enablement }) => ({
+      agentName,
+      workerNames,
+      enablement,
+    })),
+    nextCursor: null,
+  }),
+);
+on("GET", /^\/api\/worker\/agent\/([^/]+)$/, (m, _b, res) => {
+  const declaration = fx.AGENT_DECLARATIONS.find((a) => a.agentName === decodeURIComponent(m[1]));
+  if (declaration === undefined) {
+    return refuse(res, 404, "not_found", "The agent name is absent from the worker catalog.");
+  }
+  const { agentName, configurationSchema, overridableFields, enablement } = declaration;
+  const { basePrompt, agentPrompt, tools } = declaration;
+  return json(res, 200, {
+    agentName,
+    configurationSchema,
+    overridableFields,
+    enablement,
+    basePrompt,
+    agentPrompt,
+    tools,
+  });
+});
 
 on("GET", /^\/v1\/projects\/([^/]+)\/overview$/, (m, _b, res) => {
   const tallies = {};
@@ -309,9 +336,6 @@ on("POST", /^\/v1\/projects\/[^/]+\/client-identities\/([^/]+)\/rotate$/, (_m, _
   }),
 );
 on("GET", /^\/v1\/projects\/[^/]+\/deliveries$/, (_m, _b, res) => json(res, 200, fx.DELIVERIES));
-on("GET", /^\/v1\/projects\/[^/]+\/observations$/, (_m, _b, res) =>
-  json(res, 200, fx.OBSERVATIONS),
-);
 
 createServer((req, res) => {
   if (req.method === "OPTIONS") return json(res, 204, null);

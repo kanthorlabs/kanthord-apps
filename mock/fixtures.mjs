@@ -1146,19 +1146,71 @@ export const DELIVERIES = [
   },
 ];
 
-export const OBSERVATIONS = [
+const BASE_PROMPT = `You are a senior software engineer.
+
+## Principles
+
+1. **Think before you act.** Investigate the evidence first.`;
+
+const TOOL_INPUT = { type: "object" };
+
+const AGENT_CONFIGURATION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["agentProvider", "provider", "credential", "modelIdentifier", "reasoningEffort"],
+};
+
+export const AGENT_DECLARATIONS = [
   {
-    id: "ob-1",
-    externalObjectId: "eo-42",
-    observedState: "open",
-    observedAt: at(56),
-    landedCommitIds: [],
+    agentName: "re@1",
+    workerNames: ["reviewer@1"],
+    configurationSchema: AGENT_CONFIGURATION_SCHEMA,
+    overridableFields: ["agentProvider", "modelIdentifier", "reasoningEffort"],
+    enablement: null,
+    basePrompt: BASE_PROMPT,
+    agentPrompt: `## Role
+
+Your role is \`re@1\`, the reviewer.
+Your responsibility is the assessment of a node.
+Judge the evidence against the criterion of the node and the default standard.
+Change no file of the repository.`,
+    tools: ["read", "grep", "find", "ls"].map((name) => ({
+      name,
+      source: "builtin",
+      inputSchema: TOOL_INPUT,
+    })),
   },
   {
-    id: "ob-2",
-    externalObjectId: "eo-51",
-    observedState: "closed without merge",
-    observedAt: at(401),
-    landedCommitIds: [],
+    agentName: "swe@1",
+    workerNames: ["general@1"],
+    configurationSchema: AGENT_CONFIGURATION_SCHEMA,
+    overridableFields: ["agentProvider", "modelIdentifier", "reasoningEffort"],
+    enablement: {
+      agentName: "swe@1",
+      state: "enabled",
+      agentProviders: [
+        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" },
+        { name: "openai-org", provider: "openai-compatible", credential: "openai-main" },
+      ],
+      defaultConfiguration: {
+        agentProvider: "atlas-llm",
+        modelIdentifier: "qwen3-coder",
+        reasoningEffort: "off",
+      },
+      revision: 2,
+    },
+    basePrompt: BASE_PROMPT,
+    agentPrompt: `## Role
+
+Your role is \`swe@1\`, the software engineer that performs the steps of a task.
+Your responsibility is the change that the task describes, in the workspace, to the default standard.`,
+    tools: [
+      ...["read", "edit", "write", "grep", "find", "ls", "bash"].map((name) => ({
+        name,
+        source: "builtin",
+        inputSchema: TOOL_INPUT,
+      })),
+      { name: "evidence-upload", source: "host", inputSchema: TOOL_INPUT },
+    ],
   },
 ];

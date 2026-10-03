@@ -103,9 +103,7 @@ describe("AppShell", () => {
   it("signs out from the sidebar footer", async () => {
     mount();
 
-    const [footerSignOut] = screen.getAllByRole("button", { name: "Sign out" });
-    if (footerSignOut === undefined) throw new Error("no sign out control");
-    await userEvent.click(footerSignOut);
+    await userEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(window.sessionStorage.getItem("kanthord.session")).toBeNull();
     expect(setConnection).toHaveBeenLastCalledWith(null);

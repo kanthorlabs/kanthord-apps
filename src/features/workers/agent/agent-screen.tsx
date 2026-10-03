@@ -1,0 +1,147 @@
+import { useParams } from "react-router-dom";
+
+import type { AgentEnablement, AgentTool } from "@/api/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Skeleton } from "@/components/ui/skeleton";
+import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
+import { useAgent } from "./use-agent";
+
+function EnablementSection({ enablement }: { enablement: AgentEnablement | null }) {
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="font-semibold leading-none">Enablement</h2>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        {enablement === null ? (
+          <p className="text-sm text-muted-foreground">
+            No enablement exists. A human enables the agent before a worker binding can use it.
+          </p>
+        ) : (
+          <>
+            <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
+              <dt className="text-muted-foreground">Revision</dt>
+              <dd className="tabular-nums">{enablement.revision}</dd>
+              <dt className="text-muted-foreground">Default agent provider</dt>
+              <dd className="font-mono break-all">
+                {enablement.defaultConfiguration.agentProvider}
+              </dd>
+              <dt className="text-muted-foreground">Default model</dt>
+              <dd className="font-mono break-all">
+                {enablement.defaultConfiguration.modelIdentifier}
+              </dd>
+              <dt className="text-muted-foreground">Default reasoning effort</dt>
+              <dd className="font-mono">{enablement.defaultConfiguration.reasoningEffort}</dd>
+            </dl>
+            <ItemGroup aria-label="Agent providers" className="gap-2">
+              {enablement.agentProviders.map((p) => (
+                <Item key={p.name} variant="outline" size="sm" role="listitem">
+                  <ItemContent className="min-w-0">
+                    <ItemTitle>
+                      <span className="font-mono">{p.name}</span>
+                    </ItemTitle>
+                    <p className="text-sm break-all text-muted-foreground">
+                      {p.provider} · credential {p.credential}
+                    </p>
+                  </ItemContent>
+                </Item>
+              ))}
+            </ItemGroup>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ToolsSection({ tools }: { tools: readonly AgentTool[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="font-semibold leading-none">Tools</h2>
+      </CardHeader>
+      <CardContent>
+        <ItemGroup aria-label="Tools" className="gap-2">
+          {tools.map((tool) => (
+            <Item key={tool.name} variant="outline" size="sm" role="listitem">
+              <ItemContent className="min-w-0">
+                <ItemTitle>
+                  <span className="font-mono">{tool.name}</span>
+                </ItemTitle>
+              </ItemContent>
+              <Badge variant="outline">{tool.source}</Badge>
+            </Item>
+          ))}
+        </ItemGroup>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PromptSection({ title, text }: { title: string; text: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="font-semibold leading-none">{title}</h2>
+      </CardHeader>
+      <CardContent>
+        <pre className="font-mono text-xs break-words whitespace-pre-wrap">{text}</pre>
+      </CardContent>
+    </Card>
+  );
+}
+
+export function AgentScreen() {
+  const { agentName = "" } = useParams<{ agentName: string }>();
+  const { data: agent, error, loading, reload } = useAgent(agentName);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  if (error !== null || agent === null) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-destructive">{error?.message}</p>
+        <Button variant="outline" size="sm" onClick={reload}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="font-mono text-lg font-semibold">{agent.agentName}</h2>
+        <Badge variant={enablementVariant(agent.enablement)}>
+          {enablementLabel(agent.enablement)}
+        </Badge>
+      </div>
+      <div className="flex flex-wrap items-center gap-1 text-sm">
+        <span className="text-muted-foreground">Overridable in a worker binding:</span>
+        {agent.overridableFields.map((field) => (
+          <Badge key={field} variant="outline">
+            {field}
+          </Badge>
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <EnablementSection enablement={agent.enablement} />
+        <ToolsSection tools={agent.tools} />
+      </div>
+      <PromptSection title="Agent prompt" text={agent.agentPrompt} />
+      {agent.basePrompt !== undefined && (
+        <PromptSection title="Base prompt" text={agent.basePrompt} />
+      )}
+    </div>
+  );
+}

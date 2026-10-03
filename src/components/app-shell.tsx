@@ -1,11 +1,12 @@
 import { LogOut } from "lucide-react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
+import logoReversed from "@/assets/logo/logo-reversed.svg";
+import logo from "@/assets/logo/logo.svg";
 import { useSession } from "@/features/auth/session/session-context";
 import { useProject } from "@/features/projects/project-context";
 import { NAV_GROUPS, NAV_ITEMS } from "./app-nav";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { Button } from "./ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Separator } from "./ui/separator";
@@ -47,15 +48,18 @@ export function AppShell() {
     <SidebarProvider>
       <Sidebar collapsible="icon">
         <SidebarHeader>
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-              kd
-            </div>
-            <div className="grid text-left leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="truncate text-sm font-semibold">kanthord</span>
-              <span className="truncate text-xs text-muted-foreground">Control surface</span>
-            </div>
-          </div>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" render={<NavLink to="/" />} tooltip="kanthord">
+                <img src={logo} alt="" className="size-8 shrink-0 dark:hidden" />
+                <img src={logoReversed} alt="" className="hidden size-8 shrink-0 dark:block" />
+                <div className="grid text-left leading-tight">
+                  <span className="truncate text-sm font-semibold">kanthord</span>
+                  <span className="truncate text-xs text-muted-foreground">Control surface</span>
+                </div>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
         </SidebarHeader>
         <SidebarContent>
           {NAV_GROUPS.map((group) => (
@@ -130,15 +134,6 @@ export function AppShell() {
                 </SelectContent>
               </Select>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={signOut}
-              aria-label="Sign out"
-              className="hidden sm:inline-flex"
-            >
-              <LogOut />
-            </Button>
           </div>
         </header>
         <div className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">

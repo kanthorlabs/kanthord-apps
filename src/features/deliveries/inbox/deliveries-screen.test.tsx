@@ -12,7 +12,6 @@ vi.mock("@/features/projects/project-context", () => ({
 
 vi.mock("@/api/resources/deliveries", () => ({
   listDeliveries: vi.fn(),
-  listObservations: vi.fn(),
 }));
 
 import { listDeliveries } from "@/api/resources/deliveries";

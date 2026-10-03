@@ -290,6 +290,56 @@ export interface WorkerInstance {
   readonly executionId: string | null;
 }
 
+export type AgentEnablementState = "enabled" | "disabled";
+
+export type AgentProviderKind = "github-copilot" | "anthropic" | "openai-compatible";
+
+export type ReasoningEffort = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
+export interface AgentProvider {
+  readonly name: string;
+  readonly provider: AgentProviderKind;
+  readonly credential: string;
+}
+
+export interface AgentDefaultConfiguration {
+  readonly agentProvider: string;
+  readonly modelIdentifier: string;
+  readonly reasoningEffort: ReasoningEffort;
+}
+
+export interface AgentEnablement {
+  readonly agentName: string;
+  readonly state: AgentEnablementState;
+  readonly agentProviders: readonly AgentProvider[];
+  readonly defaultConfiguration: AgentDefaultConfiguration;
+  readonly revision: number;
+}
+
+export interface AgentSummary {
+  readonly agentName: string;
+  readonly workerNames: readonly string[];
+  readonly enablement: AgentEnablement | null;
+}
+
+export type AgentToolSource = "builtin" | "kanthord-mcp" | "host";
+
+export interface AgentTool {
+  readonly name: string;
+  readonly source: AgentToolSource;
+  readonly inputSchema: Readonly<Record<string, unknown>>;
+}
+
+export interface AgentDeclaration {
+  readonly agentName: string;
+  readonly configurationSchema: Readonly<Record<string, unknown>>;
+  readonly overridableFields: readonly string[];
+  readonly enablement: AgentEnablement | null;
+  readonly basePrompt?: string;
+  readonly agentPrompt: string;
+  readonly tools: readonly AgentTool[];
+}
+
 export interface CredentialReference {
   readonly capability: string;
   readonly recordId: string;
@@ -350,14 +400,6 @@ export interface Delivery {
   readonly attemptId: string | null;
   readonly decodedEventType: string | null;
   readonly refusalReason: string | null;
-}
-
-export interface ObservationRecord {
-  readonly id: string;
-  readonly externalObjectId: string;
-  readonly observedState: string;
-  readonly observedAt: string;
-  readonly landedCommitIds: readonly string[];
 }
 
 export interface StateTally {
