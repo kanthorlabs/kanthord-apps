@@ -107,7 +107,7 @@ export function AppShell() {
               </div>
             )}
           </header>
-          <div className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">
+          <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-4 lg:p-6">
             {project !== null || servesWithoutProject(pathname) ? (
               <Outlet />
             ) : loading ? null : error !== null ? (

@@ -3,13 +3,17 @@ import { Link, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { utcDateTime } from "@/lib/format";
 import { useCrumbLabel } from "@/components/crumb-labels";
+import { MissionPanel } from "./components/mission-panel";
 import { useProjectDetail } from "./use-project-detail";
+import { useProjectTab, type ProjectTab } from "./use-project-tab";
 
 export function ProjectScreen() {
   const { projectId = "" } = useParams<{ projectId: string }>();
   const { data: project, error, loading, reload } = useProjectDetail(projectId);
+  const { tab, selectTab } = useProjectTab();
   useCrumbLabel(`/projects/${encodeURIComponent(projectId)}`, project?.name);
 
   if (loading) {
@@ -38,33 +42,47 @@ export function ProjectScreen() {
   }
 
   return (
-    <section aria-label="Project" className="flex flex-col gap-1 border-b pb-3">
-      <div className="flex items-start justify-between gap-2">
-        <h2 className="min-w-0 text-lg font-semibold break-words">{project.name}</h2>
-        <Button
-          nativeButton={false}
-          render={<Link to={`/projects/${encodeURIComponent(project.id)}/edit`} />}
-          variant="outline"
-          size="sm"
-        >
-          <PencilIcon aria-hidden="true" data-icon="inline-start" />
-          Edit
-        </Button>
-      </div>
-      <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <div className="flex min-w-0 gap-1">
-          <dt>Identity</dt>
-          <dd className="min-w-0 font-mono break-all text-foreground">{project.id}</dd>
+    <div className="flex flex-1 flex-col gap-3">
+      <section aria-label="Project" className="flex flex-col gap-1 border-b pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="min-w-0 text-lg font-semibold break-words">{project.name}</h2>
+          <Button
+            nativeButton={false}
+            render={<Link to={`/projects/${encodeURIComponent(project.id)}/edit`} />}
+            variant="outline"
+            size="sm"
+          >
+            <PencilIcon aria-hidden="true" data-icon="inline-start" />
+            Edit
+          </Button>
         </div>
-        <div className="flex gap-1">
-          <dt>Binding set version</dt>
-          <dd className="tabular-nums text-foreground">{project.bindingSetVersion}</dd>
-        </div>
-        <div className="flex gap-1">
-          <dt>Created</dt>
-          <dd className="text-foreground">{utcDateTime(project.createdAt)}</dd>
-        </div>
-      </dl>
-    </section>
+        <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <div className="flex min-w-0 gap-1">
+            <dt>Identity</dt>
+            <dd className="min-w-0 font-mono break-all text-foreground">{project.id}</dd>
+          </div>
+          <div className="flex gap-1">
+            <dt>Binding set version</dt>
+            <dd className="tabular-nums text-foreground">{project.bindingSetVersion}</dd>
+          </div>
+          <div className="flex gap-1">
+            <dt>Created</dt>
+            <dd className="text-foreground">{utcDateTime(project.createdAt)}</dd>
+          </div>
+        </dl>
+      </section>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => selectTab(value as ProjectTab)}
+        className="flex flex-1 flex-col gap-3"
+      >
+        <TabsList>
+          <TabsTrigger value="mission">Mission</TabsTrigger>
+        </TabsList>
+        <TabsContent value="mission" className="flex flex-1 flex-col">
+          <MissionPanel projectId={project.id} projectName={project.name} />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

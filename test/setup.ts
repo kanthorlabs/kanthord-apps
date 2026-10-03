@@ -13,6 +13,7 @@ Element.prototype.hasPointerCapture ??= () => false;
 Element.prototype.setPointerCapture ??= () => undefined;
 Element.prototype.releasePointerCapture ??= () => undefined;
 Element.prototype.scrollIntoView ??= () => undefined;
+window.PointerEvent ??= MouseEvent as unknown as typeof PointerEvent;
 window.matchMedia ??= () =>
   ({
     matches: false,

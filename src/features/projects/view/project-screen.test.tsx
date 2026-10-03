@@ -1,12 +1,14 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import type { Project } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
+vi.mock("@/api/resources/mission");
 
 import { ProjectScreen } from "./project-screen";
 
@@ -28,6 +30,14 @@ function mount() {
 }
 
 describe("ProjectScreen", () => {
+  beforeEach(() => {
+    vi.mocked(missionApi.readMission).mockResolvedValue({
+      id: "mission_1",
+      projectId: KANTHORD.id,
+      version: 1,
+    });
+  });
+
   it("shows the information of the project in the path", async () => {
     vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
     mount();
