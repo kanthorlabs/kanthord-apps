@@ -2,7 +2,6 @@ import { PencilIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
 import { useCrumbLabel } from "@/components/crumb-labels";
@@ -39,36 +38,33 @@ export function ProjectScreen() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section aria-label="Project" className="flex flex-col gap-1 border-b pb-3">
+      <div className="flex items-start justify-between gap-2">
         <h2 className="min-w-0 text-lg font-semibold break-words">{project.name}</h2>
         <Button
           nativeButton={false}
           render={<Link to={`/projects/${encodeURIComponent(project.id)}/edit`} />}
           variant="outline"
-          size="lg"
+          size="sm"
         >
           <PencilIcon aria-hidden="true" data-icon="inline-start" />
           Edit
         </Button>
       </div>
-      <Card>
-        <CardHeader>
-          <h3 className="font-semibold leading-none">Project</h3>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[auto_1fr]">
-            <dt className="text-muted-foreground">Name</dt>
-            <dd className="min-w-0 break-words">{project.name}</dd>
-            <dt className="text-muted-foreground">Identity</dt>
-            <dd className="min-w-0 font-mono break-all">{project.id}</dd>
-            <dt className="text-muted-foreground">Binding set version</dt>
-            <dd className="tabular-nums">{project.bindingSetVersion}</dd>
-            <dt className="text-muted-foreground">Created</dt>
-            <dd>{utcDateTime(project.createdAt)}</dd>
-          </dl>
-        </CardContent>
-      </Card>
-    </div>
+      <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+        <div className="flex min-w-0 gap-1">
+          <dt>Identity</dt>
+          <dd className="min-w-0 font-mono break-all text-foreground">{project.id}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt>Binding set version</dt>
+          <dd className="tabular-nums text-foreground">{project.bindingSetVersion}</dd>
+        </div>
+        <div className="flex gap-1">
+          <dt>Created</dt>
+          <dd className="text-foreground">{utcDateTime(project.createdAt)}</dd>
+        </div>
+      </dl>
+    </section>
   );
 }
