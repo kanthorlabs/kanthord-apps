@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,9 +20,9 @@ const KANTHORD: Project = {
   createdAt: Date.UTC(2026, 9, 3, 14, 5),
 };
 
-function mount() {
+function mount(search = "") {
   return render(
-    <MemoryRouter initialEntries={[`/projects/${KANTHORD.id}`]}>
+    <MemoryRouter initialEntries={[`/projects/${KANTHORD.id}${search}`]}>
       <Routes>
         <Route path="/projects/:projectId" element={<ProjectScreen />} />
       </Routes>
@@ -64,5 +65,18 @@ describe("ProjectScreen", () => {
       "href",
       "/projects",
     );
+  });
+
+  it("opens the tab that the link names and switches tabs", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({ version: 1, bindings: {} });
+    mount("?tab=bindings");
+
+    expect(await screen.findByRole("tab", { name: "Bindings", selected: true })).toBeTruthy();
+    expect(await screen.findByText("No repositories binding.")).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Mission" }));
+    expect(screen.getByRole("tab", { name: "Mission", selected: true })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Mission graph" })).toBeTruthy();
   });
 });

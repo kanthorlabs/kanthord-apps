@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { utcDateTime } from "@/lib/format";
 import { useCrumbLabel } from "@/components/crumb-labels";
+import { BindingsPanel } from "./components/bindings-panel";
 import { MissionPanel } from "./components/mission-panel";
 import { useProjectDetail } from "./use-project-detail";
 import { useProjectTab, type ProjectTab } from "./use-project-tab";
@@ -78,9 +79,13 @@ export function ProjectScreen() {
       >
         <TabsList>
           <TabsTrigger value="mission">Mission</TabsTrigger>
+          <TabsTrigger value="bindings">Bindings</TabsTrigger>
         </TabsList>
         <TabsContent value="mission" className="flex flex-1 flex-col">
           <MissionPanel projectId={project.id} projectName={project.name} />
+        </TabsContent>
+        <TabsContent value="bindings">
+          <BindingsPanel projectId={project.id} />
         </TabsContent>
       </Tabs>
     </div>

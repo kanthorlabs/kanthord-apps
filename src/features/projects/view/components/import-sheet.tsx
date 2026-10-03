@@ -61,7 +61,7 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg">
+      <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
         <SheetHeader>
           <SheetTitle>Import mission</SheetTitle>
           <SheetDescription>

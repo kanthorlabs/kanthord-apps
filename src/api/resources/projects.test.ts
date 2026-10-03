@@ -4,7 +4,13 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setConnection } from "../client";
-import { createProject, listProjectPage, listProjects, renameProject } from "./projects";
+import {
+  createProject,
+  listProjectPage,
+  listProjects,
+  renameProject,
+  writeBindingSet,
+} from "./projects";
 
 let server: Server | null = null;
 const seen: IncomingMessage[] = [];
@@ -88,6 +94,20 @@ describe("renameProject", () => {
     expect(await renameProject("prj-1", "first")).toEqual(SECOND);
     expect(seen[0]?.method).toBe("PATCH");
     expect(seen[0]?.url).toBe("/api/project/prj-1");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
+describe("writeBindingSet", () => {
+  it("puts the whole set at the expected version with an idempotency key", async () => {
+    const base = await serve([
+      { projectId: "prj-1", bindingSetVersion: 3, bindings: {}, changes: [] },
+    ]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    await writeBindingSet("prj-1", 2, {});
+    expect(seen[0]?.method).toBe("PUT");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/binding-set");
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 });

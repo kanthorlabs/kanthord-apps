@@ -1,0 +1,268 @@
+import type {
+  BindingSetEntry,
+  BindingSetKind,
+  RepositoryActionFollows,
+  RepositoryActionName,
+  WorkerAgentEntry,
+} from "@/api/types";
+
+export const REASONING_EFFORTS = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+
+export interface AgentEntryDraft {
+  readonly agent: string;
+  readonly agentProvider: string;
+  readonly modelIdentifier: string;
+  readonly reasoningEffort: string;
+}
+
+export interface RepositoryDraft {
+  readonly kind: "repository";
+  readonly name: string;
+  readonly available: boolean;
+  readonly address: string;
+  readonly baseBranch: string;
+  readonly actionName: RepositoryActionName | "";
+  readonly follows: RepositoryActionFollows;
+  readonly credential: string;
+  readonly projectPrompt: string;
+}
+
+export interface WorkerDraft {
+  readonly kind: "worker";
+  readonly name: string;
+  readonly worker: string;
+  readonly instanceCount: string;
+  readonly turns: string;
+  readonly wallTimeMs: string;
+  readonly entries: readonly AgentEntryDraft[];
+}
+
+export interface StorageDraft {
+  readonly kind: "storage";
+  readonly name: string;
+  readonly available: boolean;
+  readonly endpoint: string;
+  readonly bucket: string;
+  readonly region: string;
+  readonly prefix: string;
+  readonly credential: string;
+}
+
+export type BindingDraft = RepositoryDraft | WorkerDraft | StorageDraft;
+
+export type DraftErrors = Readonly<Record<string, string>>;
+
+export type DraftResult =
+  | { readonly ok: true; readonly entry: BindingSetEntry }
+  | { readonly ok: false; readonly errors: DraftErrors };
+
+const BINDING_NAME = /^[a-z][a-z0-9-]{0,62}$/;
+const REPOSITORY_ADDRESS = /^git@github\.com:[^/\s:]+\/[^/\s:]+\.git$/;
+const ASSESSMENT_PASSED: RepositoryActionFollows = { type: "assessment_passed" };
+const REQUIRED = "Enter a value.";
+
+export function emptyDraft(kind: BindingSetKind): BindingDraft {
+  if (kind === "repository") {
+    return {
+      kind,
+      name: "",
+      available: true,
+      address: "",
+      baseBranch: "main",
+      actionName: "",
+      follows: ASSESSMENT_PASSED,
+      credential: "",
+      projectPrompt: "",
+    };
+  }
+  if (kind === "worker") {
+    return {
+      kind,
+      name: "",
+      worker: "",
+      instanceCount: "1",
+      turns: "",
+      wallTimeMs: "",
+      entries: [],
+    };
+  }
+  return {
+    kind,
+    name: "",
+    available: true,
+    endpoint: "",
+    bucket: "",
+    region: "",
+    prefix: "",
+    credential: "",
+  };
+}
+
+function agentDraftOf(entry: WorkerAgentEntry): AgentEntryDraft {
+  return {
+    agent: entry.agent,
+    agentProvider: entry.agentProvider ?? "",
+    modelIdentifier: entry.modelIdentifier ?? "",
+    reasoningEffort: entry.reasoningEffort ?? "",
+  };
+}
+
+export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
+  if (entry.kind === "repository") {
+    const { config } = entry;
+    return {
+      kind: "repository",
+      name,
+      available: config.available,
+      address: config.address,
+      baseBranch: config.strategy.baseBranch,
+      actionName: config.strategy.action?.name ?? "",
+      follows: config.strategy.action?.follows ?? ASSESSMENT_PASSED,
+      credential: config.credential,
+      projectPrompt: config.projectPrompt ?? "",
+    };
+  }
+  if (entry.kind === "worker") {
+    const { config } = entry;
+    return {
+      kind: "worker",
+      name,
+      worker: config.worker,
+      instanceCount: String(config.instanceCount),
+      turns: config.resourceBudget === undefined ? "" : String(config.resourceBudget.turns),
+      wallTimeMs:
+        config.resourceBudget === undefined ? "" : String(config.resourceBudget.wallTimeMs),
+      entries: (config.entries ?? []).map(agentDraftOf),
+    };
+  }
+  return { kind: "storage", name, ...entry.config };
+}
+
+function blank(value: string): boolean {
+  return value.trim().length === 0;
+}
+
+function wholeNumber(value: string, minimum: number): number | null {
+  if (!/^\d+$/.test(value.trim())) return null;
+  const parsed = Number(value.trim());
+  return Number.isSafeInteger(parsed) && parsed >= minimum ? parsed : null;
+}
+
+function nameError(name: string, takenNames: readonly string[]): string | null {
+  if (!BINDING_NAME.test(name)) {
+    return "Start with a lowercase letter. Use at most 63 lowercase letters, digits and hyphens.";
+  }
+  return takenNames.includes(name) ? "Another binding of this project uses this name." : null;
+}
+
+function optional(value: string): string | undefined {
+  return blank(value) ? undefined : value.trim();
+}
+
+function agentEntryOf(draft: AgentEntryDraft): WorkerAgentEntry {
+  const agentProvider = optional(draft.agentProvider);
+  const modelIdentifier = optional(draft.modelIdentifier);
+  const reasoningEffort = optional(draft.reasoningEffort);
+  return {
+    agent: draft.agent.trim(),
+    ...(agentProvider === undefined ? {} : { agentProvider }),
+    ...(modelIdentifier === undefined ? {} : { modelIdentifier }),
+    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+  };
+}
+
+function repositoryEntryOf(
+  draft: RepositoryDraft,
+  errors: Record<string, string>,
+): BindingSetEntry {
+  if (!REPOSITORY_ADDRESS.test(draft.address.trim())) {
+    errors["address"] = "Use a GitHub SSH address, for example git@github.com:owner/repo.git.";
+  }
+  if (blank(draft.baseBranch)) errors["baseBranch"] = REQUIRED;
+  if (blank(draft.credential)) errors["credential"] = REQUIRED;
+  const projectPrompt = optional(draft.projectPrompt);
+  return {
+    kind: "repository",
+    config: {
+      available: draft.available,
+      platform: "github",
+      address: draft.address.trim(),
+      strategy: {
+        baseBranch: draft.baseBranch.trim(),
+        ...(draft.actionName === ""
+          ? {}
+          : { action: { name: draft.actionName, follows: draft.follows } }),
+      },
+      credential: draft.credential.trim(),
+      ...(projectPrompt === undefined ? {} : { projectPrompt }),
+    },
+  };
+}
+
+function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): BindingSetEntry {
+  if (blank(draft.worker)) errors["worker"] = REQUIRED;
+  const instanceCount = wholeNumber(draft.instanceCount, 0);
+  if (instanceCount === null) errors["instanceCount"] = "Enter a whole number, 0 or more.";
+  const budgetGiven = !blank(draft.turns) || !blank(draft.wallTimeMs);
+  const turns = wholeNumber(draft.turns, 1);
+  const wallTimeMs = wholeNumber(draft.wallTimeMs, 1);
+  if (budgetGiven && turns === null) errors["turns"] = "Enter a whole number above 0.";
+  if (budgetGiven && wallTimeMs === null) errors["wallTimeMs"] = "Enter a whole number above 0.";
+  draft.entries.forEach((entry, index) => {
+    if (blank(entry.agent)) errors[`entries.${index}.agent`] = REQUIRED;
+  });
+  return {
+    kind: "worker",
+    config: {
+      worker: draft.worker.trim(),
+      instanceCount: instanceCount ?? 0,
+      ...(budgetGiven && turns !== null && wallTimeMs !== null
+        ? { resourceBudget: { turns, wallTimeMs } }
+        : {}),
+      ...(draft.entries.length === 0 ? {} : { entries: draft.entries.map(agentEntryOf) }),
+    },
+  };
+}
+
+function storageEntryOf(draft: StorageDraft, errors: Record<string, string>): BindingSetEntry {
+  try {
+    new URL(draft.endpoint.trim());
+  } catch {
+    errors["endpoint"] = "Enter a full URL, for example https://s3.eu-central-1.amazonaws.com.";
+  }
+  if (blank(draft.bucket)) errors["bucket"] = REQUIRED;
+  if (blank(draft.region)) errors["region"] = REQUIRED;
+  if (blank(draft.credential)) errors["credential"] = REQUIRED;
+  return {
+    kind: "storage",
+    config: {
+      available: draft.available,
+      endpoint: draft.endpoint.trim(),
+      bucket: draft.bucket.trim(),
+      region: draft.region.trim(),
+      prefix: draft.prefix.trim(),
+      credential: draft.credential.trim(),
+    },
+  };
+}
+
+export function entryOfDraft(draft: BindingDraft, takenNames: readonly string[]): DraftResult {
+  const errors: Record<string, string> = {};
+  const invalidName = nameError(draft.name, takenNames);
+  if (invalidName !== null) errors["name"] = invalidName;
+  const entry =
+    draft.kind === "repository"
+      ? repositoryEntryOf(draft, errors)
+      : draft.kind === "worker"
+        ? workerEntryOf(draft, errors)
+        : storageEntryOf(draft, errors);
+  return Object.keys(errors).length === 0 ? { ok: true, entry } : { ok: false, errors };
+}
