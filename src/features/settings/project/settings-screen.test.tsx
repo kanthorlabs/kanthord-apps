@@ -146,7 +146,7 @@ describe("SettingsScreen — fire-and-forget expected end state", () => {
     renderScreen();
 
     const notifyHeading = await screen.findByText("notify-repo");
-    const cardEl = notifyHeading.closest('[data-slot="card"]');
+    const cardEl = notifyHeading.closest('[role="listitem"]');
     expect(cardEl).toBeTruthy();
     expect(cardEl?.textContent).toContain("fire-and-forget");
     expect(cardEl?.textContent).toContain("none");

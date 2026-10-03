@@ -3,19 +3,13 @@ import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { duration, relativeTime } from "@/lib/format";
 
-import { useExecutions } from "./use-executions";
+import { type ClaimState, useExecutions } from "./use-executions";
 
 export function ExecutionsScreen() {
   const exec = useExecutions();
@@ -45,300 +39,141 @@ export function ExecutionsScreen() {
     <div className="flex flex-col gap-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-lg font-semibold">Executions</h2>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
-          <button
-            type="button"
-            className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-              exec.scope === "live"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => exec.setScope("live")}
-            aria-pressed={exec.scope === "live"}
-          >
-            Live
-          </button>
-          <button
-            type="button"
-            className={`rounded-md px-3 py-1 text-sm font-medium transition-colors ${
-              exec.scope === "all"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => exec.setScope("all")}
-            aria-pressed={exec.scope === "all"}
-          >
-            All
-          </button>
-        </div>
+        <ToggleGroup
+          type="single"
+          variant="outline"
+          aria-label="Execution scope"
+          value={exec.scope}
+          onValueChange={exec.selectScope}
+        >
+          <ToggleGroupItem value="live">Live</ToggleGroupItem>
+          <ToggleGroupItem value="all">All</ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {exec.views.length === 0 && (
-        <p className="text-sm text-muted-foreground">No executions found.</p>
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No executions found.</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
       )}
 
-      <div className="hidden md:block">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Node</TableHead>
-              <TableHead>Claimant</TableHead>
-              <TableHead>Kind / Attempt</TableHead>
-              <TableHead>Lease</TableHead>
-              <TableHead>Budget</TableHead>
-              <TableHead>Started / Ended</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {exec.views.map((view) => (
-              <TableRow
-                key={view.execution.id}
-                className={view.overBudget ? "bg-amber-500/10" : ""}
-              >
-                <TableCell>
+      {exec.views.length > 0 && (
+        <ItemGroup aria-label="Executions" className="gap-2">
+          {exec.views.map((view) => (
+            <Item key={view.execution.id} role="listitem" variant="outline">
+              <ItemContent className="min-w-0 basis-64">
+                <ItemTitle className="flex-wrap">
                   <Link
                     to={`/mission/${view.execution.nodeId}`}
-                    className="text-primary hover:underline"
+                    className="underline underline-offset-4"
                   >
                     {view.execution.nodeTitle}
                   </Link>
-                </TableCell>
-                <TableCell>
-                  <ClaimantCell
-                    kind={view.execution.claimantKind}
-                    claimantId={view.execution.claimantId}
-                    instanceRuntimeId={view.execution.instanceRuntimeId}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm">{view.execution.claimKind}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {view.execution.attemptId} · rev {view.execution.pinnedRevisionId}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <LeaseCell
-                    lease={view.execution.lease}
-                    live={view.execution.live}
-                    leaseExpired={view.leaseExpired}
-                  />
-                </TableCell>
-                <TableCell>
-                  <BudgetCell
-                    turnsUsed={view.execution.turnsUsed}
-                    turnBudget={view.execution.turnBudget}
-                    turnPct={view.turnPct}
-                    turnOverBudget={view.turnOverBudget}
-                    wallTimeUsedSeconds={view.execution.wallTimeUsedSeconds}
-                    wallTimeBudgetSeconds={view.execution.wallTimeBudgetSeconds}
-                    wallTimePct={view.wallTimePct}
-                    wallTimeOverBudget={view.wallTimeOverBudget}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div className="text-xs">
-                    <span>{relativeTime(view.execution.startedAt)}</span>
-                    {view.execution.endedAt !== null && (
-                      <span className="block text-muted-foreground">
-                        ended {relativeTime(view.execution.endedAt)}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <div className="flex flex-col gap-3 md:hidden">
-        {exec.views.map((view) => (
-          <Card key={view.execution.id} className={view.overBudget ? "border-amber-500" : ""}>
-            <CardContent className="flex flex-col gap-3 py-4">
-              <div className="flex items-start justify-between gap-2">
-                <Link
-                  to={`/mission/${view.execution.nodeId}`}
-                  className="font-medium text-primary hover:underline"
-                >
-                  {view.execution.nodeTitle}
-                </Link>
-                {view.overBudget && (
-                  <Badge variant="outline" className="border-amber-500 text-amber-600">
-                    <AlertTriangleIcon className="size-3" aria-hidden="true" />
-                    Over budget
-                  </Badge>
-                )}
-              </div>
-              <ClaimantCell
-                kind={view.execution.claimantKind}
-                claimantId={view.execution.claimantId}
-                instanceRuntimeId={view.execution.instanceRuntimeId}
-              />
-              <div className="text-xs text-muted-foreground">
-                {view.execution.claimKind} · {view.execution.attemptId} · rev{" "}
-                {view.execution.pinnedRevisionId}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Started {relativeTime(view.execution.startedAt)}
-                {view.execution.endedAt !== null && (
-                  <span> · ended {relativeTime(view.execution.endedAt)}</span>
-                )}
-              </div>
-              <LeaseCell
-                lease={view.execution.lease}
-                live={view.execution.live}
-                leaseExpired={view.leaseExpired}
-              />
-              <BudgetCell
-                turnsUsed={view.execution.turnsUsed}
-                turnBudget={view.execution.turnBudget}
-                turnPct={view.turnPct}
-                turnOverBudget={view.turnOverBudget}
-                wallTimeUsedSeconds={view.execution.wallTimeUsedSeconds}
-                wallTimeBudgetSeconds={view.execution.wallTimeBudgetSeconds}
-                wallTimePct={view.wallTimePct}
-                wallTimeOverBudget={view.wallTimeOverBudget}
-              />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  {view.overBudget && (
+                    <Badge variant="outline">
+                      <AlertTriangleIcon aria-hidden="true" />
+                      Over budget
+                    </Badge>
+                  )}
+                </ItemTitle>
+                <ItemDescription>Execution {view.execution.id}</ItemDescription>
+                <ClaimantLine
+                  kind={view.execution.claimantKind}
+                  claimantId={view.execution.claimantId}
+                  instanceRuntimeId={view.execution.instanceRuntimeId}
+                />
+                <ItemDescription>
+                  {view.execution.claimKind} claim · attempt {view.execution.attemptId} · pinned
+                  revision {view.execution.pinnedRevisionId}
+                </ItemDescription>
+              </ItemContent>
+              <ItemContent className="min-w-0 basis-56">
+                <ClaimStateLines claimState={view.claimState} deadline={view.deadline} />
+                <ItemDescription>
+                  Claimed {relativeTime(view.execution.startedAt)}
+                  {view.execution.endedAt !== null &&
+                    ` · ended ${relativeTime(view.execution.endedAt)}`}
+                </ItemDescription>
+                <BudgetLine
+                  label="Turns"
+                  used={String(view.execution.turnsUsed)}
+                  budget={String(view.execution.turnBudget)}
+                  pct={view.turnPct}
+                  overBudget={view.turnOverBudget}
+                />
+                <BudgetLine
+                  label="Wall time"
+                  used={duration(view.execution.wallTimeUsedSeconds)}
+                  budget={duration(view.execution.wallTimeBudgetSeconds)}
+                  pct={view.wallTimePct}
+                  overBudget={view.wallTimeOverBudget}
+                />
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
+      )}
     </div>
   );
 }
 
-interface ClaimantCellProps {
+interface ClaimantLineProps {
   readonly kind: "worker binding" | "client identity";
   readonly claimantId: string;
   readonly instanceRuntimeId: string | null;
 }
 
-function ClaimantCell({ kind, claimantId, instanceRuntimeId }: ClaimantCellProps) {
-  if (kind === "worker binding") {
-    return (
-      <div className="text-sm">
-        <span>{claimantId}</span>
-        {instanceRuntimeId !== null && (
-          <span className="block text-xs text-muted-foreground">instance {instanceRuntimeId}</span>
-        )}
-      </div>
-    );
-  }
-
+function ClaimantLine({ kind, claimantId, instanceRuntimeId }: ClaimantLineProps) {
+  const claimant = kind === "worker binding" ? "Binding" : "Client identity";
   return (
-    <div className="text-sm">
-      <span>{claimantId}</span>
-      <span className="block text-xs text-muted-foreground">external harness</span>
-    </div>
+    <ItemDescription>
+      {claimant} {claimantId}
+      {instanceRuntimeId !== null && ` · runtime ${instanceRuntimeId}`}
+    </ItemDescription>
   );
 }
 
-interface LeaseCellProps {
-  readonly lease: { readonly expiresAt: string; readonly renewedAt: string } | null;
-  readonly live: boolean;
-  readonly leaseExpired: boolean;
+const CLAIM_STATE_BADGE: Record<
+  ClaimState,
+  { readonly label: string; readonly variant: "secondary" | "destructive" | "outline" }
+> = {
+  running: { label: "Running", variant: "secondary" },
+  lost: { label: "Lost", variant: "destructive" },
+  finished: { label: "Finished", variant: "outline" },
+};
+
+interface ClaimStateLinesProps {
+  readonly claimState: ClaimState | null;
+  readonly deadline: string | null;
 }
 
-function LeaseCell({ lease, live, leaseExpired }: LeaseCellProps) {
-  if (!live || lease === null) {
-    return <span className="text-xs text-muted-foreground">Not live</span>;
-  }
-
-  if (leaseExpired) {
-    return (
-      <div className="flex flex-col gap-1">
-        <Badge
-          variant="destructive"
-          aria-label="Lease expired, no renewal received — Scheduler may declare a loss"
-        >
-          <AlertTriangleIcon className="size-3" aria-hidden="true" />
-          Lease expired — no renewal received
-        </Badge>
-        <span className="text-xs text-muted-foreground">
-          Expired {relativeTime(lease.expiresAt)}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          Last renewal {relativeTime(lease.renewedAt)}
-        </span>
-      </div>
-    );
-  }
-
+function ClaimStateLines({ claimState, deadline }: ClaimStateLinesProps) {
+  const badge = claimState === null ? null : CLAIM_STATE_BADGE[claimState];
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs">Expires {relativeTime(lease.expiresAt)}</span>
-      <span className="text-xs text-muted-foreground">Renewed {relativeTime(lease.renewedAt)}</span>
-    </div>
+    <>
+      {badge !== null && <Badge variant={badge.variant}>{badge.label}</Badge>}
+      {deadline !== null && <ItemDescription>Deadline {relativeTime(deadline)}</ItemDescription>}
+      {claimState === "lost" && (
+        <ItemDescription>Expiry is not proof that the runtime stopped.</ItemDescription>
+      )}
+    </>
   );
 }
 
-interface BudgetCellProps {
-  readonly turnsUsed: number;
-  readonly turnBudget: number;
-  readonly turnPct: number;
-  readonly turnOverBudget: boolean;
-  readonly wallTimeUsedSeconds: number;
-  readonly wallTimeBudgetSeconds: number;
-  readonly wallTimePct: number;
-  readonly wallTimeOverBudget: boolean;
+interface BudgetLineProps {
+  readonly label: string;
+  readonly used: string;
+  readonly budget: string;
+  readonly pct: number;
+  readonly overBudget: boolean;
 }
 
-function BudgetCell({
-  turnsUsed,
-  turnBudget,
-  turnPct,
-  turnOverBudget,
-  wallTimeUsedSeconds,
-  wallTimeBudgetSeconds,
-  wallTimePct,
-  wallTimeOverBudget,
-}: BudgetCellProps) {
+function BudgetLine({ label, used, budget, pct, overBudget }: BudgetLineProps) {
   return (
-    <div className="flex flex-col gap-2 text-xs">
-      <div>
-        <div className="flex justify-between gap-2">
-          <span className={turnOverBudget ? "font-medium text-amber-600" : "text-muted-foreground"}>
-            Turns
-          </span>
-          <span className={turnOverBudget ? "font-medium text-amber-600" : ""}>
-            {turnsUsed} / {turnBudget}
-          </span>
-        </div>
-        <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className={`h-full rounded-full ${turnOverBudget ? "bg-amber-500" : "bg-primary"}`}
-            style={{ width: `${turnPct}%` }}
-            role="progressbar"
-            aria-valuenow={turnPct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`Turns used: ${turnsUsed} of ${turnBudget}`}
-          />
-        </div>
-      </div>
-      <div>
-        <div className="flex justify-between gap-2">
-          <span
-            className={wallTimeOverBudget ? "font-medium text-amber-600" : "text-muted-foreground"}
-          >
-            Wall time
-          </span>
-          <span className={wallTimeOverBudget ? "font-medium text-amber-600" : ""}>
-            {duration(wallTimeUsedSeconds)} / {duration(wallTimeBudgetSeconds)}
-          </span>
-        </div>
-        <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className={`h-full rounded-full ${wallTimeOverBudget ? "bg-amber-500" : "bg-primary"}`}
-            style={{ width: `${wallTimePct}%` }}
-            role="progressbar"
-            aria-valuenow={wallTimePct}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`Wall time used: ${duration(wallTimeUsedSeconds)} of ${duration(wallTimeBudgetSeconds)}`}
-          />
-        </div>
-      </div>
-    </div>
+    <ItemDescription>
+      {label} {used} / {budget} ({pct}%{overBudget && ", over budget"})
+    </ItemDescription>
   );
 }

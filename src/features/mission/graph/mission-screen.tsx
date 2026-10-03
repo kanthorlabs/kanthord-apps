@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { StateFilter } from "./components/state-filter";
@@ -40,7 +41,7 @@ export function MissionScreen() {
       <StateFilter
         activeStates={graph.activeStates}
         stateCounts={graph.stateCounts}
-        onToggle={graph.toggleState}
+        onSelectStates={graph.selectStates}
         titleFilter={graph.titleFilter}
         onTitleFilter={graph.setTitleFilter}
       />
@@ -48,17 +49,16 @@ export function MissionScreen() {
         {graph.tree.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">No nodes match the current filter.</p>
         ) : (
-          <div className="p-2">
+          <ItemGroup aria-label="Mission nodes">
             {graph.tree.map((treeNode) => (
               <TreeNodeRow
                 key={treeNode.node.id}
                 treeNode={treeNode}
                 nodeById={graph.nodeById}
                 visibleIds={graph.visibleIds}
-                depth={0}
               />
             ))}
-          </div>
+          </ItemGroup>
         )}
       </div>
     </div>

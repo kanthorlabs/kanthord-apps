@@ -4,11 +4,12 @@ import type { DeliveryDisposition } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemHeader } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { DeliveryFilter, DeliveryGroup } from "./use-deliveries";
-import { useDeliveries } from "./use-deliveries";
+import { DELIVERY_FILTERS, useDeliveries } from "./use-deliveries";
 
 const FILTER_LABELS: Record<DeliveryFilter, string> = {
   all: "All",
@@ -17,14 +18,6 @@ const FILTER_LABELS: Record<DeliveryFilter, string> = {
   refusal: "Refused",
   "a duplicate": "Duplicates",
 };
-
-const FILTERS: readonly DeliveryFilter[] = [
-  "all",
-  "acceptance as an observation",
-  "acceptance as a human act",
-  "refusal",
-  "a duplicate",
-];
 
 function DispositionBadge({ disposition }: { disposition: DeliveryDisposition }) {
   const variants: Record<DeliveryDisposition, "default" | "secondary" | "destructive" | "outline"> =
@@ -37,26 +30,23 @@ function DispositionBadge({ disposition }: { disposition: DeliveryDisposition })
   return <Badge variant={variants[disposition]}>{disposition}</Badge>;
 }
 
-function DeliveryGroupCard({ group }: { group: DeliveryGroup }) {
+function DeliveryGroupItem({ group }: { group: DeliveryGroup }) {
   const { primary, duplicates } = group;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center gap-2">
-          <DispositionBadge disposition={primary.disposition} />
-          <span className="font-mono text-xs text-muted-foreground">
-            {primary.platformDeliveryIdentity}
-          </span>
-          <span className="text-xs text-muted-foreground">{primary.source}</span>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <Item variant="outline" role="listitem">
+      <ItemHeader className="flex-wrap justify-start">
+        <DispositionBadge disposition={primary.disposition} />
+        <span className="font-mono text-xs text-muted-foreground">
+          {primary.platformDeliveryIdentity}
+        </span>
+        <span className="text-xs text-muted-foreground">{primary.source}</span>
+      </ItemHeader>
+      <ItemContent className="min-w-0">
         {primary.decodedEventType !== null && (
-          <p className="text-sm">
-            <span className="text-muted-foreground">Event: </span>
-            <span className="font-mono">{primary.decodedEventType}</span>
-          </p>
+          <ItemDescription className="line-clamp-none">
+            Event: <span className="font-mono">{primary.decodedEventType}</span>
+          </ItemDescription>
         )}
 
         {primary.disposition === "refusal" && primary.refusalReason !== null && (
@@ -66,7 +56,7 @@ function DeliveryGroupCard({ group }: { group: DeliveryGroup }) {
         )}
 
         {primary.nodeId !== null && (
-          <div className="text-sm space-y-0.5">
+          <div className="space-y-0.5 text-sm">
             <p className="text-muted-foreground">Resolved to</p>
             <Link
               to={`/mission/${primary.nodeId}`}
@@ -87,25 +77,21 @@ function DeliveryGroupCard({ group }: { group: DeliveryGroup }) {
           </div>
         )}
 
-        {duplicates.length > 0 && (
-          <div className="rounded-md border border-dashed p-3 space-y-1">
-            {duplicates.map((dup) => (
-              <div key={dup.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <Badge variant="outline">a duplicate</Badge>
-                <span className="text-muted-foreground">
-                  received {new Date(dup.receivedAt).toLocaleTimeString()} — no second effect
-                </span>
-              </div>
-            ))}
+        {duplicates.map((dup) => (
+          <div key={dup.id} className="flex flex-wrap items-center gap-2 text-sm">
+            <Badge variant="outline">a duplicate</Badge>
+            <span className="text-muted-foreground">
+              received {new Date(dup.receivedAt).toLocaleTimeString()} — no second effect
+            </span>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        ))}
+      </ItemContent>
+    </Item>
   );
 }
 
 export function DeliveriesScreen() {
-  const { resource, filter, setFilter, groups } = useDeliveries();
+  const { resource, filter, selectFilter, groups } = useDeliveries();
 
   return (
     <div className="grid gap-4">
@@ -116,17 +102,22 @@ export function DeliveriesScreen() {
         </AlertDescription>
       </Alert>
 
-      <div className="overflow-x-auto">
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as DeliveryFilter)}>
-          <TabsList>
-            {FILTERS.map((f) => (
-              <TabsTrigger key={f} value={f}>
-                {FILTER_LABELS[f]}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
+      <ToggleGroup
+        type="single"
+        variant="outline"
+        size="sm"
+        spacing={2}
+        value={filter}
+        onValueChange={selectFilter}
+        aria-label="Filter deliveries"
+        className="w-full flex-wrap"
+      >
+        {DELIVERY_FILTERS.map((f) => (
+          <ToggleGroupItem key={f} value={f}>
+            {FILTER_LABELS[f]}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
 
       {resource.loading && (
         <div className="space-y-3">
@@ -147,13 +138,17 @@ export function DeliveriesScreen() {
       {!resource.loading && resource.error === null && (
         <>
           {groups.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No deliveries.</p>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No deliveries.</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <div className="grid gap-3">
+            <ItemGroup className="gap-3">
               {groups.map((group) => (
-                <DeliveryGroupCard key={group.primary.id} group={group} />
+                <DeliveryGroupItem key={group.primary.id} group={group} />
               ))}
-            </div>
+            </ItemGroup>
           )}
         </>
       )}

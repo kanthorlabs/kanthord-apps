@@ -192,6 +192,39 @@ describe("NodeScreen header", () => {
 
     expect(screen.getByText("Blocked")).toBeInTheDocument();
   });
+
+  it("opens on the Content tab with the CLI content vocabulary", async () => {
+    setupDefaultMocks();
+    renderNodeScreen();
+
+    expect(await screen.findByRole("tab", { name: "Content", selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Requirement" })).toBeInTheDocument();
+  });
+
+  it("shows no attempt and no priority for a task", async () => {
+    setupDefaultMocks();
+    vi.mocked(readNode).mockResolvedValue({ ...baseNode, kind: "task", state: null });
+    renderNodeScreen();
+
+    await waitFor(() => {
+      expect(screen.getByText("Add password reset")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/^Attempt:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Priority:/)).not.toBeInTheDocument();
+  });
+});
+
+describe("NodeScreen result vocabulary", () => {
+  it("names the assessment result and the outcome result as the CLI does", async () => {
+    setupDefaultMocks({ attempts: [externalFailedAttempt] });
+    renderNodeScreen();
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+
+    expect(screen.getByText("success")).toBeInTheDocument();
+    expect(screen.getByText("undetermined")).toBeInTheDocument();
+  });
 });
 
 describe("NodeScreen currency verdict rendering", () => {
@@ -218,7 +251,8 @@ describe("NodeScreen currency verdict rendering", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: "Attempts" }));
 
-    expect(screen.getByText(/NOT CURRENT — failing: context, order/)).toBeInTheDocument();
+    expect(screen.getByText("NOT CURRENT")).toBeInTheDocument();
+    expect(screen.getByText("failing: context, order")).toBeInTheDocument();
   });
 });
 
@@ -264,7 +298,7 @@ describe("NodeScreen External.Failed with passing assessment", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Attempts" }));
 
     expect(
-      screen.getByText(/This outcome is non-success\. The basis assessment passes/),
+      screen.getByText(/This outcome is not success\. The basis assessment passes/),
     ).toBeInTheDocument();
     expect(screen.getByText("execution assessment")).toBeInTheDocument();
   });
@@ -338,5 +372,18 @@ describe("NodeScreen why not running tab", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Why not running" }));
 
     expect(screen.getByText("The daemon reports no eligibility checks.")).toBeInTheDocument();
+  });
+});
+
+describe("NodeScreen section select", () => {
+  it("shows the panel of the section chosen in the select", async () => {
+    setupDefaultMocks();
+    renderNodeScreen();
+
+    await userEvent.click(await screen.findByRole("combobox", { name: "Section" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Dependencies" }));
+
+    expect(screen.getByText("Prerequisite node")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Dependencies", selected: true })).toBeInTheDocument();
   });
 });

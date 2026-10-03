@@ -12,10 +12,18 @@ export interface DeliveryGroup {
 
 export type DeliveryFilter = DeliveryDisposition | "all";
 
+export const DELIVERY_FILTERS: readonly DeliveryFilter[] = [
+  "all",
+  "acceptance as an observation",
+  "acceptance as a human act",
+  "refusal",
+  "a duplicate",
+];
+
 export interface DeliveriesData {
   readonly resource: Resource<readonly Delivery[]>;
   readonly filter: DeliveryFilter;
-  readonly setFilter: (f: DeliveryFilter) => void;
+  readonly selectFilter: (value: string) => void;
   readonly groups: readonly DeliveryGroup[];
 }
 
@@ -23,6 +31,11 @@ export function useDeliveries(): DeliveriesData {
   const projectId = useProjectId();
   const resource = useResource(() => listDeliveries(projectId), [projectId]);
   const [filter, setFilter] = useState<DeliveryFilter>("all");
+
+  const selectFilter = (value: string) => {
+    const known = DELIVERY_FILTERS.find((f) => f === value);
+    if (known !== undefined) setFilter(known);
+  };
 
   const groups = useMemo<readonly DeliveryGroup[]>(() => {
     const deliveries = resource.data ?? [];
@@ -54,5 +67,5 @@ export function useDeliveries(): DeliveriesData {
     });
   }, [resource.data, filter]);
 
-  return { resource, filter, setFilter, groups };
+  return { resource, filter, selectFilter, groups };
 }

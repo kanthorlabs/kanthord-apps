@@ -10,11 +10,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemHeader,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -26,13 +35,15 @@ import { useSetInstanceCount } from "./use-set-instance-count";
 import type { EffectiveEntry, WorkerBindingView } from "./use-workers";
 import { useWorkers } from "./use-workers";
 
-function TemplateCard({ template }: { template: WorkerTemplate }) {
+function TemplateItem({ template }: { template: WorkerTemplate }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-mono text-sm">{template.name}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Item variant="outline" role="listitem">
+      <ItemHeader>
+        <ItemTitle>
+          <span className="font-mono">{template.name}</span>
+        </ItemTitle>
+      </ItemHeader>
+      <ItemContent className="min-w-0 gap-4">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-muted-foreground">Method</p>
@@ -55,54 +66,52 @@ function TemplateCard({ template }: { template: WorkerTemplate }) {
           </div>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground mb-1">Declared node states</p>
+          <p className="mb-1 text-sm text-muted-foreground">Declared node states</p>
           <div className="flex flex-wrap gap-1">
             {template.declaredNodeStates.map((s) => (
-              <Badge key={s} variant="outline" className="font-mono text-xs">
+              <Badge key={s} variant="outline">
                 {s}
               </Badge>
             ))}
           </div>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground mb-1">Default configuration</p>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm font-mono">
+          <p className="mb-1 text-sm text-muted-foreground">Default configuration</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 font-mono text-sm">
             {Object.entries(template.defaultConfiguration).map(([k, v]) => (
               <Fragment key={k}>
-                <dt className="text-muted-foreground truncate">{k}</dt>
-                <dd>{v}</dd>
+                <dt className="truncate text-muted-foreground">{k}</dt>
+                <dd className="break-all">{v}</dd>
               </Fragment>
             ))}
           </dl>
         </div>
         <div>
-          <p className="text-sm text-muted-foreground mb-1">Overridable options</p>
+          <p className="mb-1 text-sm text-muted-foreground">Overridable options</p>
           <div className="flex flex-wrap gap-1">
             {template.overridableOptions.map((o) => (
-              <Badge key={o} variant="secondary" className="font-mono text-xs">
+              <Badge key={o} variant="secondary">
                 {o}
               </Badge>
             ))}
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </ItemContent>
+    </Item>
   );
 }
 
-function EffectiveConfigTable({ entries }: { entries: readonly EffectiveEntry[] }) {
+function EffectiveConfigList({ entries }: { entries: readonly EffectiveEntry[] }) {
   return (
-    <dl className="grid grid-cols-[auto_1fr_auto] gap-x-4 gap-y-1 text-sm font-mono">
+    <dl className="grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-1 font-mono text-sm">
       {entries.map((entry) => (
         <Fragment key={entry.key}>
-          <dt className="text-muted-foreground truncate">{entry.key}</dt>
-          <dd>{entry.value}</dd>
+          <dt className="truncate text-muted-foreground">{entry.key}</dt>
+          <dd className="break-all">{entry.value}</dd>
           <dd>
-            {entry.inherited ? (
-              <span className="text-xs text-muted-foreground">inherited</span>
-            ) : (
-              <span className="text-xs font-semibold text-foreground">overridden</span>
-            )}
+            <Badge variant={entry.inherited ? "outline" : "secondary"}>
+              {entry.inherited ? "inherited" : "overridden"}
+            </Badge>
           </dd>
         </Fragment>
       ))}
@@ -110,7 +119,7 @@ function EffectiveConfigTable({ entries }: { entries: readonly EffectiveEntry[] 
   );
 }
 
-function WorkerBindingCard({
+function WorkerBindingItem({
   view,
   onSetAvailability,
   onSetInstanceCount,
@@ -136,32 +145,30 @@ function WorkerBindingCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm">
+    <Item variant="outline" role="listitem">
+      <ItemHeader>
+        <ItemTitle className="flex-wrap">
           <span className="font-mono">{view.binding.identity}</span>
-          <span className="ml-2 text-muted-foreground font-normal">
+          <span className="font-normal text-muted-foreground">
             {view.binding.workerName} · rev {view.binding.revision}
           </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-3">
+        </ItemTitle>
+      </ItemHeader>
+      <ItemContent className="min-w-0 gap-4">
+        <Field orientation="horizontal">
           <Switch
             id={`avail-${view.binding.id}`}
             checked={available}
             onCheckedChange={(checked) => onSetAvailability(view.binding.id, checked)}
             aria-label={`Availability for ${view.binding.identity}`}
           />
-          <Label htmlFor={`avail-${view.binding.id}`}>
+          <FieldLabel htmlFor={`avail-${view.binding.id}`}>
             {available ? "Available" : "Unavailable"}
-          </Label>
-        </div>
+          </FieldLabel>
+        </Field>
         <div className="flex items-end gap-2">
-          <div className="flex-1 max-w-[8rem]">
-            <Label htmlFor={`count-${view.binding.id}`} className="mb-1 block text-sm">
-              Instance count
-            </Label>
+          <Field className="max-w-32">
+            <FieldLabel htmlFor={`count-${view.binding.id}`}>Instance count</FieldLabel>
             <Input
               id={`count-${view.binding.id}`}
               type="number"
@@ -170,19 +177,19 @@ function WorkerBindingCard({
               onChange={(e) => setCountInput(e.target.value)}
               aria-label={`Instance count for ${view.binding.identity}`}
             />
-          </div>
+          </Field>
           <Button variant="outline" size="sm" onClick={handleApplyCount}>
             Apply
           </Button>
         </div>
         {view.effectiveEntries.length > 0 && (
           <div>
-            <p className="text-sm text-muted-foreground mb-2">Effective configuration</p>
-            <EffectiveConfigTable entries={view.effectiveEntries} />
+            <p className="mb-2 text-sm text-muted-foreground">Effective configuration</p>
+            <EffectiveConfigList entries={view.effectiveEntries} />
           </div>
         )}
-      </CardContent>
-    </Card>
+      </ItemContent>
+    </Item>
   );
 }
 
@@ -191,34 +198,37 @@ function PoolSection({ views }: { views: readonly WorkerBindingView[] }) {
     <div className="space-y-4">
       {views.map((view) => (
         <div key={view.binding.id}>
-          <p className="text-sm font-medium mb-2 font-mono">{view.binding.identity}</p>
-          <div className="space-y-2">
-            {view.instances.length === 0 && (
-              <p className="text-sm text-muted-foreground">No instances.</p>
-            )}
-            {view.instances.map((inst) => (
-              <Card key={inst.runtimeId}>
-                <CardContent className="pt-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm">{inst.runtimeId}</span>
-                    <Badge variant={inst.busy ? "default" : "secondary"}>
-                      {inst.busy ? "busy" : "idle"}
-                    </Badge>
-                  </div>
-                  {inst.healthcheckPasses ? (
-                    <p className="text-sm text-muted-foreground">Healthcheck passing</p>
-                  ) : (
-                    <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3">
-                      <p className="text-sm font-medium text-destructive mb-1">
-                        Healthcheck failing
-                      </p>
-                      <p className="text-sm text-destructive">{inst.healthcheckDetail}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <p className="mb-2 font-mono text-sm font-medium">{view.binding.identity}</p>
+          {view.instances.length === 0 ? (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No instances.</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <ItemGroup className="gap-2">
+              {view.instances.map((inst) => (
+                <Item key={inst.runtimeId} variant="outline" size="sm" role="listitem">
+                  <ItemContent className="min-w-0">
+                    <ItemTitle>
+                      <span className="font-mono">{inst.runtimeId}</span>
+                      <Badge variant={inst.busy ? "default" : "secondary"}>
+                        {inst.busy ? "busy" : "idle"}
+                      </Badge>
+                    </ItemTitle>
+                    {inst.healthcheckPasses ? (
+                      <ItemDescription>Healthcheck passing</ItemDescription>
+                    ) : (
+                      <Alert variant="destructive">
+                        <AlertTitle>Healthcheck failing</AlertTitle>
+                        <AlertDescription>{inst.healthcheckDetail}</AlertDescription>
+                      </Alert>
+                    )}
+                  </ItemContent>
+                </Item>
+              ))}
+            </ItemGroup>
+          )}
         </div>
       ))}
     </div>
@@ -281,11 +291,11 @@ export function WorkersScreen() {
           </div>
         )}
         {!templatesLoading && templatesError === null && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {templates.map((t) => (
-              <TemplateCard key={t.name} template={t} />
+              <TemplateItem key={t.name} template={t} />
             ))}
-          </div>
+          </ItemGroup>
         )}
       </section>
 
@@ -310,16 +320,16 @@ export function WorkersScreen() {
           </div>
         )}
         {!bindingsLoading && !instancesLoading && bindingsError === null && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {bindingViews.map((view) => (
-              <WorkerBindingCard
+              <WorkerBindingItem
                 key={view.binding.id}
                 view={view}
                 onSetAvailability={handleSetAvailability}
                 onSetInstanceCount={handleSetInstanceCount}
               />
             ))}
-          </div>
+          </ItemGroup>
         )}
       </section>
 

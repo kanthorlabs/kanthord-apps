@@ -5,7 +5,8 @@ import type { BlockedNode, MissionNode } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Item, ItemContent, ItemGroup, ItemHeader, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectId } from "@/features/projects/project-context";
 import { useResource } from "@/hooks/use-resource";
@@ -22,7 +23,7 @@ function dependentsOf(
     .map((n) => ({ id: n.id, title: n.title }));
 }
 
-function BlockedNodeCard({
+function BlockedNodeItem({
   entry,
   allNodes,
   projectId,
@@ -37,28 +38,23 @@ function BlockedNodeCard({
   const { outcome, externalObjects } = closedAttempt;
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="space-y-1">
-            <Link
-              to={`/mission/${node.id}`}
-              className="text-base font-semibold underline-offset-4 hover:underline"
-            >
-              {node.title}
-            </Link>
-            <p className="text-xs text-muted-foreground capitalize">{node.kind}</p>
-          </div>
-          <Badge variant="destructive">{condition}</Badge>
+    <Item variant="outline" role="listitem">
+      <ItemHeader className="flex-wrap items-start">
+        <div className="min-w-0 space-y-1">
+          <Link
+            to={`/mission/${node.id}`}
+            className="text-base font-semibold underline-offset-4 hover:underline"
+          >
+            {node.title}
+          </Link>
+          <p className="text-xs text-muted-foreground capitalize">{node.kind}</p>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        <Badge variant="destructive">{condition}</Badge>
+      </ItemHeader>
+      <ItemContent className="min-w-0 gap-4">
         {outcome !== null && (
           <div className="space-y-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">{outcome.stoppingReason}</p>
-            </div>
-
+            <p className="text-sm font-semibold text-foreground">{outcome.stoppingReason}</p>
             <dl className="grid grid-cols-1 gap-y-1 text-sm sm:grid-cols-2">
               <div className="flex flex-wrap gap-1">
                 <dt className="text-muted-foreground">Closing event:</dt>
@@ -74,7 +70,7 @@ function BlockedNodeCard({
               </div>
               <div className="flex flex-wrap gap-1">
                 <dt className="text-muted-foreground">Assessment:</dt>
-                <dd className="font-mono text-xs">{outcome.assessmentId}</dd>
+                <dd className="font-mono text-xs break-all">{outcome.assessmentId}</dd>
               </div>
             </dl>
           </div>
@@ -83,37 +79,41 @@ function BlockedNodeCard({
         {externalObjects.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-medium">External actions</p>
-            <div className="space-y-2">
+            <ItemGroup className="gap-2">
               {externalObjects.map((obj) => (
-                <div key={obj.id} className="rounded-md border p-3 text-sm space-y-1">
-                  <p className="font-medium">{obj.action}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span>
-                      Observed:{" "}
-                      <span className="font-medium text-foreground">
-                        {obj.observedState ?? "—"}
-                      </span>
-                    </span>
-                    {obj.expectedEndState !== null && (
+                <Item key={obj.id} variant="outline" size="sm" role="listitem">
+                  <ItemContent className="min-w-0">
+                    <ItemTitle>{obj.action}</ItemTitle>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>
-                        Expected:{" "}
-                        <span className="font-medium text-foreground">{obj.expectedEndState}</span>
+                        Observed:{" "}
+                        <span className="font-medium text-foreground">
+                          {obj.observedState ?? "—"}
+                        </span>
                       </span>
+                      {obj.expectedEndState !== null && (
+                        <span>
+                          Expected:{" "}
+                          <span className="font-medium text-foreground">
+                            {obj.expectedEndState}
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                    {obj.address && (
+                      <a
+                        href={obj.address}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary underline-offset-4 hover:underline"
+                      >
+                        {obj.label}
+                      </a>
                     )}
-                  </div>
-                  {obj.address && (
-                    <a
-                      href={obj.address}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-primary underline-offset-4 hover:underline"
-                    >
-                      {obj.label}
-                    </a>
-                  )}
-                </div>
+                  </ItemContent>
+                </Item>
               ))}
-            </div>
+            </ItemGroup>
           </div>
         )}
 
@@ -124,8 +124,8 @@ function BlockedNodeCard({
           clearedAttemptId={closedAttempt.id}
           onSuccess={onSuccess}
         />
-      </CardContent>
-    </Card>
+      </ItemContent>
+    </Item>
   );
 }
 
@@ -156,9 +156,11 @@ export function BlockedScreen() {
 
   if (blocked === null || blocked.length === 0) {
     return (
-      <div className="p-4">
-        <p className="text-sm text-muted-foreground">No blocked nodes.</p>
-      </div>
+      <Empty>
+        <EmptyHeader>
+          <EmptyTitle>No blocked nodes.</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
     );
   }
 
@@ -171,9 +173,9 @@ export function BlockedScreen() {
         </AlertDescription>
       </Alert>
 
-      <div className="grid gap-4">
+      <ItemGroup className="gap-4">
         {blocked.map((entry) => (
-          <BlockedNodeCard
+          <BlockedNodeItem
             key={entry.node.id}
             entry={entry}
             allNodes={allNodes ?? []}
@@ -181,7 +183,7 @@ export function BlockedScreen() {
             onSuccess={reload}
           />
         ))}
-      </div>
+      </ItemGroup>
     </div>
   );
 }

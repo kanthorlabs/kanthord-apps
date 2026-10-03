@@ -2,10 +2,12 @@ import { Link } from "react-router-dom";
 
 import type { BlockedNode, Execution, Overview, StateTally } from "@/api/types";
 import type { ApiError } from "@/api/errors";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { meaningOf, stateClasses } from "@/lib/node-state";
+import { badgeVariantOf } from "@/lib/node-state";
 import { useOverview } from "./use-overview";
 
 function SectionSkeleton() {
@@ -56,31 +58,30 @@ function BlockedSection({
             {data.length === 0 ? (
               <p className="text-sm text-muted-foreground">No blocked nodes.</p>
             ) : (
-              <ul className="space-y-3">
+              <ItemGroup aria-label="Blocked nodes" className="gap-2">
                 {data.map((item) => (
-                  <li key={item.node.id} className="space-y-0.5">
-                    <Link
-                      to={`/mission/${item.node.id}`}
-                      className="text-sm font-medium underline-offset-4 hover:underline"
-                    >
-                      {item.node.title}
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      {item.closedAttempt.outcome?.stoppingReason ?? item.condition}
-                    </p>
-                  </li>
+                  <Item key={item.node.id} role="listitem" variant="outline" size="sm">
+                    <ItemContent className="min-w-0">
+                      <ItemTitle>
+                        <Link
+                          to={`/mission/${item.node.id}`}
+                          className="break-words underline-offset-4 hover:underline"
+                        >
+                          {item.node.title}
+                        </Link>
+                      </ItemTitle>
+                      <p className="text-sm break-words text-muted-foreground">
+                        {item.closedAttempt.outcome?.stoppingReason ?? item.condition}
+                      </p>
+                    </ItemContent>
+                  </Item>
                 ))}
-              </ul>
+              </ItemGroup>
             )}
             {data.length > 0 && (
-              <div className="mt-4">
-                <Link
-                  to="/blocked"
-                  className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  View all blocked nodes ({data.length})
-                </Link>
-              </div>
+              <Button asChild variant="outline" size="sm" className="mt-4">
+                <Link to="/blocked">View all blocked nodes ({data.length})</Link>
+              </Button>
             )}
           </>
         )}
@@ -113,23 +114,20 @@ function RunningSection({
             {data.length === 0 ? (
               <p className="text-sm text-muted-foreground">No live executions.</p>
             ) : (
-              <ul className="space-y-2">
+              <ItemGroup aria-label="Live executions" className="gap-2">
                 {data.map((exec) => (
-                  <li key={exec.id} className="flex flex-col gap-0.5 text-sm">
-                    <span className="font-medium">{exec.nodeTitle}</span>
-                    <span className="text-muted-foreground">{exec.claimantId}</span>
-                  </li>
+                  <Item key={exec.id} role="listitem" variant="outline" size="sm">
+                    <ItemContent className="min-w-0">
+                      <ItemTitle>{exec.nodeTitle}</ItemTitle>
+                      <p className="text-sm break-all text-muted-foreground">{exec.claimantId}</p>
+                    </ItemContent>
+                  </Item>
                 ))}
-              </ul>
+              </ItemGroup>
             )}
-            <div className="mt-4">
-              <Link
-                to="/executions"
-                className="text-sm text-muted-foreground underline-offset-4 hover:underline"
-              >
-                View executions
-              </Link>
-            </div>
+            <Button asChild variant="outline" size="sm" className="mt-4">
+              <Link to="/executions">View executions</Link>
+            </Button>
           </>
         )}
       </CardContent>
@@ -157,26 +155,28 @@ function TallySection({
         {loading && <SectionSkeleton />}
         {!loading && error !== null && <ErrorMessage error={error} reload={reload} />}
         {!loading && error === null && (
-          <ul className="space-y-1.5">
-            {tallies.map((tally) => (
-              <li key={tally.state} className="flex items-center gap-3">
-                <Link to="/mission" className="flex items-center gap-3 group">
-                  <span
-                    className={`inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium ${stateClasses(tally.state)}`}
-                    title={meaningOf(tally.state)}
-                  >
-                    {tally.state}
-                  </span>
-                  <span className="tabular-nums text-sm font-semibold">{tally.count}</span>
-                </Link>
-              </li>
-            ))}
-            {tallies.length === 0 && (
-              <li>
-                <p className="text-sm text-muted-foreground">No nodes.</p>
-              </li>
+          <>
+            {tallies.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No nodes.</p>
+            ) : (
+              <ItemGroup aria-label="Node states" className="gap-1">
+                {tallies.map((tally) => (
+                  <div key={tally.state} role="listitem">
+                    <Item asChild size="sm">
+                      <Link to="/mission">
+                        <ItemMedia>
+                          <Badge variant={badgeVariantOf(tally.state)}>{tally.state}</Badge>
+                        </ItemMedia>
+                        <ItemContent>
+                          <span className="tabular-nums">{tally.count}</span>
+                        </ItemContent>
+                      </Link>
+                    </Item>
+                  </div>
+                ))}
+              </ItemGroup>
             )}
-          </ul>
+          </>
         )}
       </CardContent>
     </Card>

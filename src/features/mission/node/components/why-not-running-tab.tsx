@@ -1,4 +1,6 @@
 import type { EligibilityReport } from "@/api/types";
+import { Badge } from "@/components/ui/badge";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 
 interface WhyNotRunningTabProps {
   readonly report: EligibilityReport;
@@ -14,20 +16,22 @@ export function WhyNotRunningTab({ report }: WhyNotRunningTabProps) {
   }
 
   return (
-    <div className="space-y-2 p-4">
-      {report.checks.map((check) => (
-        <div key={check.name} className="flex flex-col gap-1 rounded-md border p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-xs font-semibold ${check.holds ? "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" : "border-red-300 bg-red-100 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-200"}`}
-            >
-              {check.holds ? "pass" : "fail"}
-            </span>
-            <span className="text-sm font-medium">{check.name}</span>
-          </div>
-          <p className="text-xs text-muted-foreground">{check.detail}</p>
-        </div>
-      ))}
+    <div className="p-4">
+      <ItemGroup aria-label="Eligibility checks" className="gap-2">
+        {report.checks.map((check) => (
+          <Item key={check.name} role="listitem" variant="outline" size="sm">
+            <ItemContent className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={check.holds ? "secondary" : "destructive"}>
+                  {check.holds ? "pass" : "fail"}
+                </Badge>
+                <ItemTitle>{check.name}</ItemTitle>
+              </div>
+              <p className="text-xs break-words text-muted-foreground">{check.detail}</p>
+            </ItemContent>
+          </Item>
+        ))}
+      </ItemGroup>
     </div>
   );
 }

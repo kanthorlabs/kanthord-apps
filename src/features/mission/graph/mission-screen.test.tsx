@@ -143,7 +143,7 @@ describe("MissionScreen tree nesting", () => {
     });
 
     const taskLink = screen.getByRole("link", { name: "Generate codes" });
-    const taskRow = taskLink.closest("div");
+    const taskRow = taskLink.closest('[role="listitem"]');
     expect(taskRow).not.toBeNull();
     expect(taskRow?.textContent).not.toMatch(/Blocked|Completed/);
   });

@@ -13,7 +13,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemHeader,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Binding, CredentialReference, PermittedClientIdentity } from "@/api/types";
@@ -26,30 +36,34 @@ function CredentialReferenceList({ refs }: { refs: readonly CredentialReference[
       <p className="text-xs text-muted-foreground">
         The secret stays in custody inside the daemon. Only provenance fields are shown below.
       </p>
-      {refs.map((ref) => (
-        <div
-          key={`${ref.capability}-${ref.recordId}`}
-          className="rounded-md border p-3 text-sm space-y-1"
-        >
-          <div className="flex items-center gap-2">
-            <span className="font-medium">{ref.capability}</span>
-            <Badge variant="outline" className="text-xs">
-              {ref.recordType}
-            </Badge>
-          </div>
-          <p className="text-muted-foreground">
-            Record: <span className="font-mono">{ref.recordId}</span>
-          </p>
-          <p className="text-muted-foreground">
-            Principal: {ref.upstreamPrincipal} · Configured by {ref.configuringActor}
-          </p>
-        </div>
-      ))}
+      <ItemGroup className="gap-2">
+        {refs.map((ref) => (
+          <Item
+            key={`${ref.capability}-${ref.recordId}`}
+            variant="outline"
+            size="sm"
+            role="listitem"
+          >
+            <ItemContent className="min-w-0">
+              <ItemTitle>
+                {ref.capability}
+                <Badge variant="outline">{ref.recordType}</Badge>
+              </ItemTitle>
+              <ItemDescription className="line-clamp-none">
+                Record: <span className="font-mono break-all">{ref.recordId}</span>
+              </ItemDescription>
+              <ItemDescription className="line-clamp-none">
+                Principal: {ref.upstreamPrincipal} · Configured by {ref.configuringActor}
+              </ItemDescription>
+            </ItemContent>
+          </Item>
+        ))}
+      </ItemGroup>
     </div>
   );
 }
 
-function RepositoryBindingCard({ binding }: { binding: Binding }) {
+function RepositoryBindingItem({ binding }: { binding: Binding }) {
   const strategy = binding.strategy;
   const expectedEndState =
     strategy?.actionKind === "fire-and-forget action" || strategy?.expectedEndState === null
@@ -57,11 +71,13 @@ function RepositoryBindingCard({ binding }: { binding: Binding }) {
       : (strategy?.expectedEndState ?? "none");
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-mono">{binding.identity}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Item variant="outline" role="listitem">
+      <ItemHeader>
+        <ItemTitle>
+          <span className="font-mono break-all">{binding.identity}</span>
+        </ItemTitle>
+      </ItemHeader>
+      <ItemContent className="min-w-0 gap-4">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-muted-foreground">Platform</p>
@@ -78,10 +94,10 @@ function RepositoryBindingCard({ binding }: { binding: Binding }) {
         </div>
         {binding.requiredCapabilities && binding.requiredCapabilities.length > 0 && (
           <div>
-            <p className="text-sm text-muted-foreground mb-1">Required capabilities</p>
+            <p className="mb-1 text-sm text-muted-foreground">Required capabilities</p>
             <div className="flex flex-wrap gap-1">
               {binding.requiredCapabilities.map((c) => (
-                <Badge key={c} variant="secondary" className="text-xs">
+                <Badge key={c} variant="secondary">
                   {c}
                 </Badge>
               ))}
@@ -90,7 +106,7 @@ function RepositoryBindingCard({ binding }: { binding: Binding }) {
         )}
         {strategy !== undefined && (
           <div>
-            <p className="text-sm text-muted-foreground mb-2">Repository strategy</p>
+            <p className="mb-2 text-sm text-muted-foreground">Repository strategy</p>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
               <dt className="text-muted-foreground">Base branch</dt>
               <dd className="font-mono">{strategy.baseBranch}</dd>
@@ -106,18 +122,20 @@ function RepositoryBindingCard({ binding }: { binding: Binding }) {
         {binding.credentialReferences.length > 0 && (
           <CredentialReferenceList refs={binding.credentialReferences} />
         )}
-      </CardContent>
-    </Card>
+      </ItemContent>
+    </Item>
   );
 }
 
-function WorkerBindingCard({ binding }: { binding: Binding }) {
+function WorkerBindingItem({ binding }: { binding: Binding }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-mono">{binding.identity}</CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm space-y-2">
+    <Item variant="outline" role="listitem">
+      <ItemHeader>
+        <ItemTitle>
+          <span className="font-mono break-all">{binding.identity}</span>
+        </ItemTitle>
+      </ItemHeader>
+      <ItemContent className="min-w-0 text-sm">
         <p>
           Worker: <span className="font-mono">{binding.workerName ?? "—"}</span> · rev{" "}
           {binding.revision}
@@ -129,25 +147,21 @@ function WorkerBindingCard({ binding }: { binding: Binding }) {
           </Link>{" "}
           for instance count, availability and effective configuration.
         </p>
-      </CardContent>
-    </Card>
+      </ItemContent>
+    </Item>
   );
 }
 
-function ProviderBindingCard({ binding }: { binding: Binding }) {
+function ProviderBindingItem({ binding }: { binding: Binding }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-sm">
-          <span className="font-mono">{binding.identity}</span>
-          {binding.isDefaultAccount === true && (
-            <Badge variant="default" className="text-xs">
-              default
-            </Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <Item variant="outline" role="listitem">
+      <ItemHeader>
+        <ItemTitle>
+          <span className="font-mono break-all">{binding.identity}</span>
+          {binding.isDefaultAccount === true && <Badge variant="default">default</Badge>}
+        </ItemTitle>
+      </ItemHeader>
+      <ItemContent className="min-w-0 gap-3">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-muted-foreground">Provider</p>
@@ -161,18 +175,20 @@ function ProviderBindingCard({ binding }: { binding: Binding }) {
         {binding.credentialReferences.length > 0 && (
           <CredentialReferenceList refs={binding.credentialReferences} />
         )}
-      </CardContent>
-    </Card>
+      </ItemContent>
+    </Item>
   );
 }
 
-function SourceBindingCard({ binding }: { binding: Binding }) {
+function SourceBindingItem({ binding }: { binding: Binding }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-mono">{binding.identity}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
+    <Item variant="outline" role="listitem">
+      <ItemHeader>
+        <ItemTitle>
+          <span className="font-mono break-all">{binding.identity}</span>
+        </ItemTitle>
+      </ItemHeader>
+      <ItemContent className="min-w-0 gap-3 text-sm">
         <div>
           <p className="text-muted-foreground">Delivery source</p>
           <p>{binding.deliverySource ?? "—"}</p>
@@ -180,12 +196,12 @@ function SourceBindingCard({ binding }: { binding: Binding }) {
         {binding.credentialReferences.length > 0 && (
           <CredentialReferenceList refs={binding.credentialReferences} />
         )}
-      </CardContent>
-    </Card>
+      </ItemContent>
+    </Item>
   );
 }
 
-function ClientIdentityRow({
+function ClientIdentityItem({
   identity,
   onRotate,
 }: {
@@ -193,29 +209,29 @@ function ClientIdentityRow({
   onRotate: (identityId: string) => void;
 }) {
   return (
-    <Card>
-      <CardContent className="pt-4 space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-1">
-            <p className="font-mono text-sm">{identity.clientIdentity}</p>
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <span>
-                Role: <Badge variant="outline">{identity.role}</Badge>
-              </span>
-              <span>Executions: {identity.executionCount}</span>
-              <span>Live: {identity.liveExecutions}</span>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => onRotate(identity.id)}>
-            Rotate secret
-          </Button>
+    <Item variant="outline" role="listitem">
+      <ItemContent className="min-w-0">
+        <ItemTitle>
+          <span className="font-mono break-all">{identity.clientIdentity}</span>
+        </ItemTitle>
+        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span>
+            Role: <Badge variant="outline">{identity.role}</Badge>
+          </span>
+          <span>Executions: {identity.executionCount}</span>
+          <span>Live: {identity.liveExecutions}</span>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <ItemDescription className="line-clamp-none text-xs">
           The role of a permitted client identity never changes. A different role requires a
           different client identity.
-        </p>
-      </CardContent>
-    </Card>
+        </ItemDescription>
+      </ItemContent>
+      <ItemActions>
+        <Button variant="outline" size="sm" onClick={() => onRotate(identity.id)}>
+          Rotate secret
+        </Button>
+      </ItemActions>
+    </Item>
   );
 }
 
@@ -225,30 +241,28 @@ function RevealedSecretPanel({ secret, onDismiss }: { secret: string; onDismiss:
   }
 
   return (
-    <div className="rounded-md border border-amber-400 bg-amber-50 p-4 space-y-3 dark:border-amber-700 dark:bg-amber-950">
-      <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-        New client secret — shown once only
-      </p>
-      <p className="text-xs text-amber-800 dark:text-amber-300">
-        Copy this secret now. The daemon keeps only its hash. This value will not be shown again.
-      </p>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 break-all rounded bg-background p-2 text-xs font-mono border">
-          {secret}
-        </code>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleCopy}
-          aria-label="Copy new client secret"
-        >
-          Copy
-        </Button>
-      </div>
-      <Button variant="ghost" size="sm" onClick={onDismiss}>
-        Dismiss
-      </Button>
-    </div>
+    <Alert>
+      <AlertTitle>New client secret — shown once only</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p>
+          Copy this secret now. The daemon keeps only its hash. This value will not be shown again.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <code className="min-w-0 flex-1 font-mono text-xs break-all">{secret}</code>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCopy}
+            aria-label="Copy new client secret"
+          >
+            Copy
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onDismiss}>
+            Dismiss
+          </Button>
+        </div>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -300,14 +314,18 @@ export function SettingsScreen() {
           <SectionError message={bindingsError.message} onRetry={reloadBindings} />
         )}
         {!bindingsLoading && bindingsError === null && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {repositoryBindings.length === 0 && (
-              <p className="text-sm text-muted-foreground">No repository bindings.</p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No repository bindings.</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             )}
             {repositoryBindings.map((b) => (
-              <RepositoryBindingCard key={b.id} binding={b} />
+              <RepositoryBindingItem key={b.id} binding={b} />
             ))}
-          </div>
+          </ItemGroup>
         )}
       </section>
 
@@ -322,14 +340,18 @@ export function SettingsScreen() {
           <SectionError message={bindingsError.message} onRetry={reloadBindings} />
         )}
         {!bindingsLoading && bindingsError === null && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {workerBindings.length === 0 && (
-              <p className="text-sm text-muted-foreground">No worker bindings.</p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No worker bindings.</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             )}
             {workerBindings.map((b) => (
-              <WorkerBindingCard key={b.id} binding={b} />
+              <WorkerBindingItem key={b.id} binding={b} />
             ))}
-          </div>
+          </ItemGroup>
         )}
       </section>
 
@@ -344,14 +366,18 @@ export function SettingsScreen() {
           <SectionError message={bindingsError.message} onRetry={reloadBindings} />
         )}
         {!bindingsLoading && bindingsError === null && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {providerBindings.length === 0 && (
-              <p className="text-sm text-muted-foreground">No provider account bindings.</p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No provider account bindings.</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             )}
             {providerBindings.map((b) => (
-              <ProviderBindingCard key={b.id} binding={b} />
+              <ProviderBindingItem key={b.id} binding={b} />
             ))}
-          </div>
+          </ItemGroup>
         )}
       </section>
 
@@ -366,14 +392,18 @@ export function SettingsScreen() {
           <SectionError message={bindingsError.message} onRetry={reloadBindings} />
         )}
         {!bindingsLoading && bindingsError === null && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {sourceBindings.length === 0 && (
-              <p className="text-sm text-muted-foreground">No source bindings.</p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No source bindings.</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             )}
             {sourceBindings.map((b) => (
-              <SourceBindingCard key={b.id} binding={b} />
+              <SourceBindingItem key={b.id} binding={b} />
             ))}
-          </div>
+          </ItemGroup>
         )}
       </section>
 
@@ -388,14 +418,18 @@ export function SettingsScreen() {
           <SectionError message={identitiesError.message} onRetry={reloadIdentities} />
         )}
         {!identitiesLoading && identitiesError === null && (
-          <div className="space-y-3">
+          <ItemGroup className="gap-3">
             {clientIdentities.length === 0 && (
-              <p className="text-sm text-muted-foreground">No client identities.</p>
+              <Empty>
+                <EmptyHeader>
+                  <EmptyTitle>No client identities.</EmptyTitle>
+                </EmptyHeader>
+              </Empty>
             )}
             {clientIdentities.map((ci) => (
-              <ClientIdentityRow key={ci.id} identity={ci} onRotate={handleRotate} />
+              <ClientIdentityItem key={ci.id} identity={ci} onRotate={handleRotate} />
             ))}
-          </div>
+          </ItemGroup>
         )}
         {rotateSecret.revealedSecret !== null && (
           <div className="mt-4">

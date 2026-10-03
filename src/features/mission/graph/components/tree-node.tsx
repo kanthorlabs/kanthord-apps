@@ -3,8 +3,11 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { MissionNode } from "@/api/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { meaningOf, stateClasses } from "@/lib/node-state";
+import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
+import { badgeVariantOf } from "@/lib/node-state";
 
 import type { TreeNode as TreeNodeData } from "../use-mission-graph";
 
@@ -17,24 +20,17 @@ function DependencyOverlay({ node, nodeById }: DependencyOverlayProps) {
   if (node.dependsOn.length === 0) return null;
 
   return (
-    <div className="mt-1 flex flex-wrap gap-1.5" aria-label="Depends on">
+    <div className="flex flex-wrap items-center gap-1.5" aria-label="Depends on">
       <span className="text-xs text-muted-foreground">Depends on:</span>
       {node.dependsOn.map((depId) => {
         const dep = nodeById.get(depId);
         const title = dep?.title ?? depId;
         const completed = dep?.state === "Completed";
         return (
-          <span
-            key={depId}
-            className={`inline-flex items-center rounded border px-1.5 py-0 text-xs font-medium ${
-              completed
-                ? "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
-                : "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
-            }`}
-          >
+          <Badge key={depId} variant={completed ? "secondary" : "outline"}>
             {title}
             {completed ? " ✓" : " (not Completed)"}
-          </span>
+          </Badge>
         );
       })}
     </div>
@@ -45,76 +41,63 @@ interface NodeRowProps {
   readonly treeNode: TreeNodeData;
   readonly nodeById: ReadonlyMap<string, MissionNode>;
   readonly visibleIds: ReadonlySet<string>;
-  readonly depth: number;
 }
 
-export function TreeNodeRow({ treeNode, nodeById, visibleIds, depth }: NodeRowProps) {
+export function TreeNodeRow({ treeNode, nodeById, visibleIds }: NodeRowProps) {
   const { node, children } = treeNode;
   const [open, setOpen] = useState(true);
 
   if (!visibleIds.has(node.id)) return null;
 
-  const indentClass = depth === 0 ? "" : depth === 1 ? "ml-4 sm:ml-6" : "ml-8 sm:ml-12";
-
   const isLeaf = node.kind === "task" || children.length === 0;
 
-  const badge =
-    node.state !== null ? (
-      <span
-        className={`mt-0.5 inline-flex shrink-0 items-center rounded border px-1.5 py-0 text-xs font-medium ${stateClasses(node.state)}`}
-        title={meaningOf(node.state)}
-      >
-        {node.state}
-      </span>
-    ) : null;
-
-  const kindBadge = (
-    <span className="inline-flex shrink-0 items-center rounded border border-border bg-muted px-1.5 py-0 text-xs text-muted-foreground">
-      {node.kind}
-    </span>
-  );
-
   const row = (
-    <div className={`${indentClass} py-1.5`}>
-      <div className="flex flex-wrap items-start gap-x-2 gap-y-0.5">
-        {!isLeaf && (
-          <CollapsibleTrigger
-            className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
-            aria-label={open ? "Collapse" : "Expand"}
-          >
-            {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+    <Item size="sm" className="flex-nowrap items-start">
+      {!isLeaf && (
+        <ItemMedia>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label={open ? "Collapse" : "Expand"}>
+              {open ? <ChevronDown /> : <ChevronRight />}
+            </Button>
           </CollapsibleTrigger>
-        )}
-        <Link
-          to={`/mission/${node.id}`}
-          className="text-sm font-medium underline-offset-4 hover:underline"
-        >
-          {node.title}
-        </Link>
-        {kindBadge}
-        {badge}
-      </div>
-      <DependencyOverlay node={node} nodeById={nodeById} />
-    </div>
+        </ItemMedia>
+      )}
+      <ItemContent className="min-w-0">
+        <ItemTitle>
+          <Link
+            to={`/mission/${node.id}`}
+            className="break-words underline-offset-4 hover:underline"
+          >
+            {node.title}
+          </Link>
+        </ItemTitle>
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="outline">{node.kind}</Badge>
+          {node.state !== null && <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>}
+        </div>
+        <DependencyOverlay node={node} nodeById={nodeById} />
+      </ItemContent>
+    </Item>
   );
 
   if (isLeaf) {
-    return row;
+    return <div role="listitem">{row}</div>;
   }
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <Collapsible role="listitem" open={open} onOpenChange={setOpen}>
       {row}
       <CollapsibleContent>
-        {children.map((child) => (
-          <TreeNodeRow
-            key={child.node.id}
-            treeNode={child}
-            nodeById={nodeById}
-            visibleIds={visibleIds}
-            depth={depth + 1}
-          />
-        ))}
+        <ItemGroup className="ml-4 sm:ml-6">
+          {children.map((child) => (
+            <TreeNodeRow
+              key={child.node.id}
+              treeNode={child}
+              nodeById={nodeById}
+              visibleIds={visibleIds}
+            />
+          ))}
+        </ItemGroup>
       </CollapsibleContent>
     </Collapsible>
   );

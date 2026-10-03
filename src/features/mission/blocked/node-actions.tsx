@@ -22,7 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import type { Dependent } from "./use-node-actions";
 import { useNodeActions } from "./use-node-actions";
@@ -86,20 +86,20 @@ export function NodeActions({
                 Leaving the node in Paused keeps the attempt resumable.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-2">
-              <Label htmlFor="block-reason">Reason (required)</Label>
+            <Field>
+              <FieldLabel htmlFor="block-reason">Reason (required)</FieldLabel>
               <Textarea
                 id="block-reason"
                 placeholder="Describe why this node is being blocked."
                 value={actions.blockReason}
                 onChange={(e) => actions.setBlockReason(e.target.value)}
               />
-            </div>
+            </Field>
             {actions.blockError !== null && (
-              <p className="text-sm text-destructive">
+              <FieldError>
                 {actions.blockError}
                 {actions.blockErrorDetail ? ` — ${actions.blockErrorDetail}` : ""}
-              </p>
+              </FieldError>
             )}
             <DialogFooter>
               <DialogClose asChild>
@@ -133,10 +133,10 @@ export function NodeActions({
               </DialogDescription>
             </DialogHeader>
             {actions.unblockError !== null && (
-              <p className="text-sm text-destructive" role="alert">
+              <FieldError>
                 {actions.unblockError}
                 {actions.unblockErrorDetail ? ` — ${actions.unblockErrorDetail}` : ""}
-              </p>
+              </FieldError>
             )}
             <DialogFooter>
               <DialogClose asChild>
@@ -187,24 +187,26 @@ export function NodeActions({
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="override-reason">Reason for asserting success (required)</Label>
+              <Field>
+                <FieldLabel htmlFor="override-reason">
+                  Reason for asserting success (required)
+                </FieldLabel>
                 <Textarea
                   id="override-reason"
                   placeholder="State why success is being asserted."
                   value={actions.overrideReason}
                   onChange={(e) => actions.setOverrideReason(e.target.value)}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="override-commit">Landed commit identity (optional)</Label>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="override-commit">Landed commit identity (optional)</FieldLabel>
                 <Input
                   id="override-commit"
                   placeholder="e.g. sha256:abc123"
                   value={actions.overrideLandedCommitId}
                   onChange={(e) => actions.setOverrideLandedCommitId(e.target.value)}
                 />
-              </div>
+              </Field>
             </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -252,15 +254,15 @@ export function NodeActions({
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <div className="space-y-2">
-              <Label htmlFor="discard-reason">Stopping reason (required)</Label>
+            <Field>
+              <FieldLabel htmlFor="discard-reason">Stopping reason (required)</FieldLabel>
               <Textarea
                 id="discard-reason"
                 placeholder="State why this node is being discarded."
                 value={actions.discardReason}
                 onChange={(e) => actions.setDiscardReason(e.target.value)}
               />
-            </div>
+            </Field>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
@@ -279,14 +281,11 @@ export function NodeActions({
 
       {actions.canSetPriority && (
         <div className="flex items-center gap-2">
-          <Label htmlFor={`priority-${node.id}`} className="sr-only">
-            Priority
-          </Label>
           <Input
             id={`priority-${node.id}`}
             type="number"
             aria-label="Priority"
-            className="w-20 text-sm"
+            className="w-20"
             value={actions.priorityValue}
             onChange={(e) => actions.setPriorityValue(e.target.value)}
             placeholder="0"

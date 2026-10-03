@@ -7,6 +7,8 @@ import { useProjectId } from "@/features/projects/project-context";
 import { useResource } from "@/hooks/use-resource";
 import { percent } from "@/lib/format";
 
+export type ClaimState = "running" | "lost" | "finished";
+
 export interface ExecutionView {
   readonly execution: Execution;
   readonly turnPct: number;
@@ -14,7 +16,8 @@ export interface ExecutionView {
   readonly turnOverBudget: boolean;
   readonly wallTimeOverBudget: boolean;
   readonly overBudget: boolean;
-  readonly leaseExpired: boolean;
+  readonly claimState: ClaimState | null;
+  readonly deadline: string | null;
 }
 
 export interface ExecutionsState {
@@ -23,7 +26,7 @@ export interface ExecutionsState {
   readonly reload: () => void;
   readonly views: readonly ExecutionView[];
   readonly scope: "live" | "all";
-  readonly setScope: (scope: "live" | "all") => void;
+  readonly selectScope: (value: string) => void;
 }
 
 function useNow(): number {
@@ -32,6 +35,19 @@ function useNow(): number {
     Promise.resolve().then(() => setNow(Date.now()));
   }, []);
   return now;
+}
+
+function deriveClaimState(
+  endedAt: string | null,
+  deadline: string | null,
+  now: number,
+): ClaimState | null {
+  const deadlineMs = deadline === null ? null : new Date(deadline).getTime();
+  if (endedAt === null) {
+    return deadlineMs !== null && now > 0 && now >= deadlineMs ? "lost" : "running";
+  }
+  if (deadlineMs === null) return null;
+  return new Date(endedAt).getTime() >= deadlineMs ? "lost" : "finished";
 }
 
 export function useExecutions(): ExecutionsState {
@@ -51,10 +67,8 @@ export function useExecutions(): ExecutionsState {
         const turnOverBudget = execution.turnsUsed >= execution.turnBudget;
         const wallTimeOverBudget = execution.wallTimeUsedSeconds >= execution.wallTimeBudgetSeconds;
         const overBudget = turnOverBudget || wallTimeOverBudget;
-        const leaseExpired =
-          now > 0 &&
-          execution.lease !== null &&
-          new Date(execution.lease.expiresAt).getTime() < now;
+        const deadline = execution.lease?.expiresAt ?? null;
+        const claimState = deriveClaimState(execution.endedAt, deadline, now);
 
         return {
           execution,
@@ -63,11 +77,16 @@ export function useExecutions(): ExecutionsState {
           turnOverBudget,
           wallTimeOverBudget,
           overBudget,
-          leaseExpired,
+          claimState,
+          deadline,
         };
       }),
     [data, now],
   );
 
-  return { loading, error, reload, views, scope, setScope };
+  const selectScope = (value: string) => {
+    if (value === "live" || value === "all") setScope(value);
+  };
+
+  return { loading, error, reload, views, scope, selectScope };
 }

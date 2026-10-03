@@ -1,6 +1,7 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemHeader } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { relativeTime } from "@/lib/format";
 import { useObservations } from "./use-observations";
@@ -38,42 +39,41 @@ export function ObservationsScreen() {
       {!loading && error === null && data !== null && (
         <>
           {data.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No observations.</p>
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No observations.</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
           ) : (
-            <div className="grid gap-3">
+            <ItemGroup className="gap-3">
               {data.map((obs) => (
-                <Card key={obs.id}>
-                  <CardHeader>
-                    <div className="flex flex-wrap items-baseline gap-3">
-                      <span className="font-mono text-sm font-semibold">
-                        {obs.externalObjectId}
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {relativeTime(obs.observedAt)}
-                      </span>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-sm">
-                      <span className="text-muted-foreground">Observed state: </span>
-                      <span className="font-medium">{obs.observedState}</span>
-                    </p>
+                <Item key={obs.id} variant="outline" role="listitem">
+                  <ItemHeader className="flex-wrap justify-start">
+                    <span className="font-mono text-sm font-semibold">{obs.externalObjectId}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {relativeTime(obs.observedAt)}
+                    </span>
+                  </ItemHeader>
+                  <ItemContent className="min-w-0">
+                    <ItemDescription className="line-clamp-none">
+                      Observed state: <span className="font-medium">{obs.observedState}</span>
+                    </ItemDescription>
                     {obs.landedCommitIds.length > 0 && (
                       <div>
-                        <p className="text-sm text-muted-foreground mb-1">Landed commits</p>
+                        <p className="mb-1 text-sm text-muted-foreground">Landed commits</p>
                         <ul className="space-y-0.5">
                           {obs.landedCommitIds.map((commitId) => (
-                            <li key={commitId} className="font-mono text-xs">
+                            <li key={commitId} className="font-mono text-xs break-all">
                               {commitId}
                             </li>
                           ))}
                         </ul>
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                  </ItemContent>
+                </Item>
               ))}
-            </div>
+            </ItemGroup>
           )}
         </>
       )}

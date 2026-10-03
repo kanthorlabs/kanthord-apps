@@ -1,7 +1,23 @@
 import { CheckCircleIcon, XCircleIcon } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useEligibility } from "./use-eligibility";
@@ -24,7 +40,10 @@ export function EligibilityDialog({ nodeId, nodeTitle, onClose }: Props) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Why is &ldquo;{nodeTitle}&rdquo; not running?</DialogTitle>
+          <DialogTitle>Admission conditions for &ldquo;{nodeTitle}&rdquo;</DialogTitle>
+          <DialogDescription>
+            Failing conditions come first. The Scheduler rechecks every condition at the claim.
+          </DialogDescription>
         </DialogHeader>
 
         {eligibility.loading && (
@@ -45,39 +64,43 @@ export function EligibilityDialog({ nodeId, nodeTitle, onClose }: Props) {
         )}
 
         {!eligibility.loading && eligibility.error === null && !eligibility.hasChecks && (
-          <p className="text-sm text-muted-foreground">The daemon reports no checks.</p>
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>The daemon reports no admission conditions.</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
 
         {!eligibility.loading && eligibility.error === null && eligibility.hasChecks && (
-          <ul className="space-y-2" aria-label="Eligibility checks">
+          <ItemGroup aria-label="Admission conditions" className="gap-2">
             {eligibility.failingFirst.map((check) => (
-              <li
+              <Item
                 key={check.name}
-                className={`flex gap-3 rounded-md p-2 ${check.holds ? "" : "bg-destructive/10"}`}
+                role="listitem"
+                variant={check.holds ? "outline" : "muted"}
+                size="sm"
               >
-                {check.holds ? (
-                  <CheckCircleIcon
-                    className="mt-0.5 size-4 shrink-0 text-green-600"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <XCircleIcon
-                    className="mt-0.5 size-4 shrink-0 text-destructive"
-                    aria-hidden="true"
-                  />
-                )}
-                <div>
-                  <p
-                    className={`text-sm font-medium ${check.holds ? "" : "text-destructive"}`}
-                    aria-label={check.holds ? `Pass: ${check.name}` : `Fail: ${check.name}`}
-                  >
-                    {check.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{check.detail}</p>
-                </div>
-              </li>
+                <ItemMedia>
+                  {check.holds ? (
+                    <CheckCircleIcon aria-hidden="true" />
+                  ) : (
+                    <XCircleIcon aria-hidden="true" />
+                  )}
+                </ItemMedia>
+                <ItemContent className="min-w-0">
+                  <ItemTitle>{check.name}</ItemTitle>
+                  <p className="text-sm text-muted-foreground">{check.detail}</p>
+                </ItemContent>
+                <ItemActions>
+                  {check.holds ? (
+                    <Badge variant="secondary">Pass</Badge>
+                  ) : (
+                    <Badge variant="destructive">Fail</Badge>
+                  )}
+                </ItemActions>
+              </Item>
             ))}
-          </ul>
+          </ItemGroup>
         )}
       </DialogContent>
     </Dialog>

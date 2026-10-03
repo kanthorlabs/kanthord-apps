@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { ApiError } from "@/api/errors";
 import { listNodes } from "@/api/resources/mission";
 import type { MissionNode, NodeState } from "@/api/types";
+import { NODE_STATES } from "@/api/types";
 import { useProjectId } from "@/features/projects/project-context";
 import { useResource } from "@/hooks/use-resource";
 
@@ -12,6 +13,12 @@ export interface TreeNode {
 }
 
 export type FilterState = NodeState | "task";
+
+export const FILTER_STATES: readonly FilterState[] = [...NODE_STATES, "task"];
+
+function isFilterState(value: string): value is FilterState {
+  return (FILTER_STATES as readonly string[]).includes(value);
+}
 
 function collectVisibleIds(
   nodes: readonly MissionNode[],
@@ -79,7 +86,7 @@ export interface MissionGraphResult {
   readonly loading: boolean;
   readonly error: ApiError | null;
   readonly reload: () => void;
-  readonly toggleState: (s: FilterState) => void;
+  readonly selectStates: (values: readonly string[]) => void;
   readonly setTitleFilter: (v: string) => void;
 }
 
@@ -113,13 +120,8 @@ export function useMissionGraph(): MissionGraphResult {
     [allNodes, activeStates, titleFilter],
   );
 
-  const toggleState = (s: FilterState) => {
-    setActiveStates((prev) => {
-      const next = new Set(prev);
-      if (next.has(s)) next.delete(s);
-      else next.add(s);
-      return next;
-    });
+  const selectStates = (values: readonly string[]) => {
+    setActiveStates(new Set(values.filter(isFilterState)));
   };
 
   return {
@@ -132,7 +134,7 @@ export function useMissionGraph(): MissionGraphResult {
     loading,
     error,
     reload,
-    toggleState,
+    selectStates,
     setTitleFilter,
   };
 }

@@ -1,5 +1,7 @@
 import type { DependencyClosure } from "@/api/types";
-import { stateClasses } from "@/lib/node-state";
+import { Badge } from "@/components/ui/badge";
+import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { badgeVariantOf } from "@/lib/node-state";
 
 interface DependenciesTabProps {
   readonly closure: DependencyClosure;
@@ -13,40 +15,37 @@ export function DependenciesTab({ closure }: DependenciesTabProps) {
           The dependency closure gates the transition from{" "}
           <span className="font-semibold">Pending</span> to{" "}
           <span className="font-semibold">Available</span>. The closure holds when every member is{" "}
-          <span className="font-semibold">Completed</span>.
+          <span className="font-semibold">Completed</span>. A{" "}
+          <span className="font-semibold">Discarded</span> member satisfies no dependency. An
+          unsatisfied dependency makes the node unavailable; it does not block the node.
         </p>
         <p className="mt-2 text-sm font-semibold">
           Closure status:{" "}
-          <span
-            className={`inline-flex items-center rounded border px-1.5 py-0 text-xs ${closure.holds ? "border-emerald-300 bg-emerald-100 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200" : "border-amber-300 bg-amber-100 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"}`}
-          >
+          <Badge variant={closure.holds ? "secondary" : "outline"}>
             {closure.holds ? "holds" : "does not hold"}
-          </span>
+          </Badge>
         </p>
       </div>
 
       {closure.members.length === 0 ? (
         <p className="text-sm text-muted-foreground">No dependency members.</p>
       ) : (
-        <div className="space-y-2">
+        <ItemGroup aria-label="Dependency members" className="gap-2">
           {closure.members.map((member) => (
-            <div
-              key={member.nodeId}
-              className="flex flex-wrap items-center gap-2 rounded-md border p-2 text-sm"
-            >
-              <span className="flex-1 font-medium">{member.title}</span>
-              {member.state !== null ? (
-                <span
-                  className={`inline-flex items-center rounded border px-1.5 py-0 text-xs font-medium ${stateClasses(member.state)}`}
-                >
-                  {member.state}
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">task</span>
-              )}
-            </div>
+            <Item key={member.nodeId} role="listitem" variant="outline" size="sm">
+              <ItemContent className="min-w-0">
+                <ItemTitle>{member.title}</ItemTitle>
+              </ItemContent>
+              <ItemActions>
+                {member.state !== null ? (
+                  <Badge variant={badgeVariantOf(member.state)}>{member.state}</Badge>
+                ) : (
+                  <Badge variant="outline">task</Badge>
+                )}
+              </ItemActions>
+            </Item>
           ))}
-        </div>
+        </ItemGroup>
       )}
     </div>
   );

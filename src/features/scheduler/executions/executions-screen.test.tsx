@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -68,15 +68,32 @@ describe("ExecutionsScreen", () => {
 
     expect(vi.mocked(listExecutions)).toHaveBeenCalledWith("prj-test", "live");
 
-    const allBtn = screen.getByRole("button", { name: "All" });
-    await user.click(allBtn);
+    expect(screen.getByRole("radio", { name: "Live" })).toBeChecked();
+
+    await user.click(screen.getByRole("radio", { name: "All" }));
 
     await waitFor(() => {
       expect(vi.mocked(listExecutions)).toHaveBeenCalledWith("prj-test", "all");
     });
   });
 
-  it("renders expired lease as at risk", async () => {
+  it("names a running claim with its fixed deadline and no renewal", async () => {
+    vi.mocked(listExecutions).mockResolvedValue([execution("run")]);
+
+    renderScreen();
+
+    const item = await screen.findByRole("listitem");
+    expect(within(item).getByText("Running")).toBeInTheDocument();
+    expect(within(item).getByText("Deadline in 2m")).toBeInTheDocument();
+    expect(within(item).getByText("Execution run")).toBeInTheDocument();
+    expect(within(item).getByText("Binding bnd-wkr-general · runtime rt-0001")).toBeInTheDocument();
+    expect(
+      within(item).getByText("steps claim · attempt att-run · pinned revision rev-run"),
+    ).toBeInTheDocument();
+    expect(within(item).queryByText(/renew/i)).toBeNull();
+  });
+
+  it("names a claim past its deadline as lost without claiming the runtime failed", async () => {
     vi.mocked(listExecutions).mockResolvedValue([
       execution("expired", {
         lease: {
@@ -89,33 +106,30 @@ describe("ExecutionsScreen", () => {
 
     renderScreen();
 
-    await screen.findAllByText("Node expired");
-    expect(screen.getAllByText(/Lease expired/)).not.toHaveLength(0);
+    expect(await screen.findByText("Lost")).toBeInTheDocument();
+    expect(screen.getByText("Expiry is not proof that the runtime stopped.")).toBeInTheDocument();
+    expect(screen.queryAllByText(/failed/i)).toHaveLength(0);
     expect(screen.queryAllByText(/at risk/i)).toHaveLength(0);
   });
 
-  it("expired-lease badge names the observable fact without claiming the execution failed or stopped", async () => {
+  it("names a claim that ended before its deadline as finished", async () => {
     vi.mocked(listExecutions).mockResolvedValue([
-      execution("fact", {
-        lease: {
-          expiresAt: new Date(now - 30_000).toISOString(),
-          renewedAt: at(5),
-        },
-        live: true,
+      execution("done", {
+        live: false,
+        endedAt: at(1),
+        claimantKind: "client identity",
+        claimantId: "client-1",
+        instanceRuntimeId: null,
       }),
     ]);
 
     renderScreen();
 
-    await screen.findAllByText("Node fact");
-
-    expect(screen.queryAllByText(/at risk/i)).toHaveLength(0);
-    expect(screen.queryAllByText(/failed/i)).toHaveLength(0);
-    expect(screen.queryAllByText(/stopped/i)).toHaveLength(0);
-    expect(screen.getAllByText(/Lease expired/)).not.toHaveLength(0);
+    expect(await screen.findByText("Finished")).toBeInTheDocument();
+    expect(screen.getByText("Client identity client-1")).toBeInTheDocument();
   });
 
-  it("marks over-budget execution and caps the progress bar at 100", async () => {
+  it("marks over-budget execution and caps the reported percentage at 100", async () => {
     vi.mocked(listExecutions).mockResolvedValue([
       execution("over", {
         turnsUsed: 88,
@@ -130,15 +144,11 @@ describe("ExecutionsScreen", () => {
 
     renderScreen();
 
-    await screen.findAllByText("Node over");
+    const item = await screen.findByRole("listitem");
+    expect(within(item).getByRole("link", { name: "Node over" })).toBeInTheDocument();
 
-    expect(screen.getAllByText(/Over budget/)).not.toHaveLength(0);
-
-    const bars = screen.getAllByRole("progressbar", {
-      name: /Wall time used:/i,
-    });
-    for (const bar of bars) {
-      expect(Number(bar.getAttribute("aria-valuenow"))).toBeLessThanOrEqual(100);
-    }
+    expect(screen.getByText("Over budget")).toBeInTheDocument();
+    expect(screen.getByText("Wall time 2h 20m / 2h 0m (100%, over budget)")).toBeInTheDocument();
+    expect(screen.getByText("Turns 88 / 200 (44%)")).toBeInTheDocument();
   });
 });

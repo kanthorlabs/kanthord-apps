@@ -70,8 +70,23 @@ describe("SchedulerScreen", () => {
 
     renderScreen();
 
-    await screen.findAllByText("Node held");
-    expect(screen.getAllByText(/The landing observation of pull request 42\./)).not.toHaveLength(0);
+    const items = await screen.findAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Node held");
+    expect(within(items[0]!).getByText("Held out")).toBeInTheDocument();
+    expect(
+      within(items[0]!).getByText("Waits for: The landing observation of pull request 42."),
+    ).toBeInTheDocument();
+    expect(within(items[1]!).getByText("Claimable")).toBeInTheDocument();
+  });
+
+  it("names priority, claim kind and queue age in that order", async () => {
+    vi.mocked(listQueue).mockResolvedValue([
+      entry("one", { priority: 2, admittedClaimKind: "evaluation" }),
+    ]);
+
+    renderScreen();
+
+    expect(await screen.findByText(/^Priority 2 · evaluation claim · queued /)).toBeInTheDocument();
   });
 
   it("held-out filter shows only held-out entries", async () => {
@@ -96,7 +111,7 @@ describe("SchedulerScreen", () => {
     expect(screen.getAllByText("Node held")).not.toHaveLength(0);
   });
 
-  it("eligibility dialog names the failing check first", async () => {
+  it("admission conditions dialog names the failing condition first", async () => {
     const user = userEvent.setup();
 
     vi.mocked(listQueue).mockResolvedValue([entry("revoke", { nodeId: "obj-revoke" })]);
@@ -121,10 +136,12 @@ describe("SchedulerScreen", () => {
 
     await screen.findAllByText("Node revoke");
 
-    await user.click(screen.getByRole("button", { name: /Show eligibility for/i }));
+    await user.click(
+      screen.getByRole("button", { name: "Show admission conditions for Node revoke" }),
+    );
 
     const dialog = await screen.findByRole("dialog");
-    const list = within(dialog).getByRole("list", { name: "Eligibility checks" });
+    const list = within(dialog).getByRole("list", { name: "Admission conditions" });
     const items = within(list).getAllByRole("listitem");
 
     expect(items[0]?.textContent).toContain("2 live executions against count of 2.");
