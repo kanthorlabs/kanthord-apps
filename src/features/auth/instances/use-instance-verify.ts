@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import { isApiError } from "@/api/errors";
 import { readLiveness } from "@/api/resources/gateway";
@@ -15,6 +16,18 @@ export interface InstanceVerifyState {
   readonly states: Readonly<Record<string, VerifyState>>;
   readonly verify: (key: string, baseUrl: string) => Promise<void>;
   readonly clear: (key: string) => void;
+}
+
+const REACHABLE_TOAST_MS = 3000;
+
+function without(
+  states: Readonly<Record<string, VerifyState>>,
+  key: string,
+): Readonly<Record<string, VerifyState>> {
+  if (!(key in states)) return states;
+  const next = { ...states };
+  delete next[key];
+  return next;
 }
 
 function failingComponents(services: ServiceMaps): string[] {
@@ -46,16 +59,16 @@ export function useInstanceVerify(): InstanceVerifyState {
   const verify = useCallback(async (key: string, baseUrl: string) => {
     setStates((current) => ({ ...current, [key]: { status: "checking" } }));
     const next = await check(baseUrl);
+    if (next.status === "reachable") {
+      toast.success(`${baseUrl} is reachable.`, { duration: REACHABLE_TOAST_MS });
+      setStates((current) => without(current, key));
+      return;
+    }
     setStates((current) => ({ ...current, [key]: next }));
   }, []);
 
   const clear = useCallback((key: string) => {
-    setStates((current) => {
-      if (!(key in current)) return current;
-      const next = { ...current };
-      delete next[key];
-      return next;
-    });
+    setStates((current) => without(current, key));
   }, []);
 
   return { states, verify, clear };

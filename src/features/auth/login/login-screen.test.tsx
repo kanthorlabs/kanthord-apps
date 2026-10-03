@@ -1,5 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
+import type * as Sonner from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setConnection } from "@/api/client";
@@ -17,9 +19,15 @@ vi.mock("@/api/client", () => ({
   setConnection: vi.fn(),
 }));
 
+vi.mock("sonner", async (importOriginal) => ({
+  ...(await importOriginal<typeof Sonner>()),
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
+
 const verifyMock = vi.mocked(verifyHumanToken);
 const livenessMock = vi.mocked(readLiveness);
 const setConnectionMock = vi.mocked(setConnection);
+const toastSuccessMock = vi.mocked(toast.success);
 
 const LOCAL = {
   id: "i-local",
@@ -155,7 +163,7 @@ describe("LoginScreen", () => {
     expect(token).toHaveAttribute("autocomplete", "off");
   });
 
-  it("verifies the endpoint of the form with the liveness check", async () => {
+  it("toasts a reachable endpoint of the form for 3 seconds", async () => {
     livenessMock.mockResolvedValue({ healthy: true, services: {} });
     mount();
 
@@ -163,7 +171,23 @@ describe("LoginScreen", () => {
     await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
 
     expect(livenessMock).toHaveBeenCalledWith("http://localhost:31415");
-    expect(await within(form()).findByText("Reachable")).toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(toastSuccessMock).toHaveBeenCalledWith("http://localhost:31415 is reachable.", {
+        duration: 3000,
+      }),
+    );
+    expect(within(form()).queryByRole("status")).toBeNull();
+  });
+
+  it("keeps an unreachable endpoint of the form inline", async () => {
+    livenessMock.mockRejectedValue(new ApiError("unreachable", "The daemon did not answer.", 0));
+    mount();
+
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+
+    expect(await within(form()).findByText("Unreachable")).toBeInTheDocument();
+    expect(toastSuccessMock).not.toHaveBeenCalled();
   });
 
   it("logs in and saves the instance named after its endpoint", async () => {
@@ -258,7 +282,7 @@ describe("LoginScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("verifies a saved instance with the liveness check", async () => {
+  it("toasts a reachable saved instance", async () => {
     seed(LOCAL);
     livenessMock.mockResolvedValue({ healthy: true, services: {} });
     mount();
@@ -266,7 +290,12 @@ describe("LoginScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Verify local" }));
 
     expect(livenessMock).toHaveBeenCalledWith("http://localhost:31415");
-    expect(await within(row("local")).findByText("Reachable")).toBeInTheDocument();
+    await vi.waitFor(() =>
+      expect(toastSuccessMock).toHaveBeenCalledWith("http://localhost:31415 is reachable.", {
+        duration: 3000,
+      }),
+    );
+    expect(within(row("local")).queryByRole("status")).toBeNull();
   });
 
   it("asks before it deletes and keeps the instance on Keep", async () => {

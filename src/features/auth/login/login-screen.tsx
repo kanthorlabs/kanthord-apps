@@ -1,4 +1,5 @@
 import { DataList } from "@/components/data-list";
+import { Toaster } from "@/components/ui/sonner";
 import { useInstances } from "@/features/auth/instances/use-instances";
 import { SavedInstanceEditor } from "./components/saved-instance-editor";
 import { SavedInstanceItem } from "./components/saved-instance-item";
@@ -51,6 +52,7 @@ export function LoginScreen() {
           </div>
         )}
       </div>
+      <Toaster position="top-right" />
     </main>
   );
 }
