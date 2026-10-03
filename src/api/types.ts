@@ -68,9 +68,19 @@ export type WorkerMethod = "steps method" | "evaluation method";
 
 export type AgentKind = "native agent" | "coding agent";
 
-export interface Session {
-  readonly token: string;
-  readonly username: string;
+export interface HumanIdentity {
+  readonly kind: "human";
+  readonly sub: string;
+  readonly name: string;
+}
+
+export type ComponentCode = 200 | 503;
+
+export type ServiceMaps = Readonly<Record<string, Readonly<Record<string, ComponentCode>>>>;
+
+export interface LivenessReport {
+  readonly healthy: boolean;
+  readonly services: ServiceMaps;
 }
 
 export interface Project {

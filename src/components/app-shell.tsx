@@ -80,10 +80,20 @@ export function AppShell() {
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
+            {session !== null && (
+              <SidebarMenuItem>
+                <div className="grid min-w-0 px-2 py-1.5 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-medium">{session.identity.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {session.instance.name}
+                  </span>
+                </div>
+              </SidebarMenuItem>
+            )}
             <SidebarMenuItem>
               <SidebarMenuButton onClick={signOut} tooltip="Sign out">
                 <LogOut />
-                <span className="truncate">{session?.username ?? "Sign out"}</span>
+                <span>Sign out</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

@@ -38,8 +38,9 @@ pnpm dev:all     # the mock daemon and the app together
 pnpm mock        # the mock daemon alone
 ```
 
-The pre-configured account is `ulrich` / `kanthord`. Override it, the port and the allowed origin
-with `KANTHORD_USERNAME`, `KANTHORD_PASSWORD`, `KANTHORD_HTTP_PORT` and
-`KANTHORD_HTTP_ALLOWED_ORIGINS`. Point the app at another daemon with `VITE_KANTHORD_URL`.
+The login page manages the instances: add the base URL of a daemon, then paste a human JWT. The mock
+daemon accepts the dev token `dev-human-token`. Override the token, the port and the allowed origin
+with `KANTHORD_DEV_TOKEN`, `KANTHORD_HTTP_PORT` and `KANTHORD_HTTP_ALLOWED_ORIGINS`. Set
+`KANTHORD_MOCK_UNHEALTHY=1` to make `/api/liveness` answer 503.
 
 When the real daemon arrives it must serve the same contract. `src/api/types.ts` is the whole of it.

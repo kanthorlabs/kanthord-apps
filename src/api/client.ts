@@ -1,19 +1,25 @@
 import { ApiError, API_ERROR_CODES, type ApiErrorCode } from "./errors";
 
-const BASE_URL = import.meta.env["VITE_KANTHORD_URL"] ?? "http://localhost:31415";
-
-let token: string | null = null;
-
-export function setToken(next: string | null): void {
-  token = next;
+export interface Connection {
+  readonly baseUrl: string;
+  readonly token: string | null;
 }
 
-export function getToken(): string | null {
-  return token;
+let current: Connection | null = null;
+
+export function setConnection(next: Connection | null): void {
+  current = next;
 }
 
-function codeOf(status: number, body: unknown): ApiErrorCode {
-  const named = (body as { code?: unknown } | null)?.code;
+function joinUrl(baseUrl: string, path: string): string {
+  return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function codeOf(status: number, named: unknown): ApiErrorCode {
   if (typeof named === "string" && (API_ERROR_CODES as readonly string[]).includes(named)) {
     return named as ApiErrorCode;
   }
@@ -23,41 +29,60 @@ function codeOf(status: number, body: unknown): ApiErrorCode {
   if (status === 409) return "conflict";
   if (status === 412) return "precondition_failed";
   if (status === 422) return "refused";
+  if (status === 503) return "unavailable";
   return "malformed";
+}
+
+function failureOf(status: number, body: unknown): ApiError {
+  const envelope = isRecord(body) && isRecord(body["error"]) ? body["error"] : null;
+  const source = envelope ?? (isRecord(body) ? body : {});
+  const message = source["message"];
+  const detail = envelope === null ? source["detail"] : source["code"];
+  return new ApiError(
+    codeOf(status, envelope === null ? source["code"] : undefined),
+    typeof message === "string" ? message : "The daemon refused the request.",
+    status,
+    typeof detail === "string" ? detail : "",
+    envelope === null ? undefined : envelope["details"],
+  );
 }
 
 export async function request<T>(
   path: string,
   init: { method?: string; body?: unknown } = {},
+  connection?: Connection,
 ): Promise<T> {
+  const target = connection ?? current;
+  if (target === null) throw new ApiError("unreachable", "No instance is connected.", 0);
+
+  const url = joinUrl(target.baseUrl, path);
   const headers: Record<string, string> = { accept: "application/json" };
   if (init.body !== undefined) headers["content-type"] = "application/json";
-  if (token !== null) headers["authorization"] = `Bearer ${token}`;
+  if (target.token !== null) headers["authorization"] = `Bearer ${target.token}`;
 
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    response = await fetch(url, {
       method: init.method ?? "GET",
       headers,
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     });
   } catch {
-    throw new ApiError("unreachable", "The daemon did not answer.", 0, `${BASE_URL}${path}`);
+    throw new ApiError("unreachable", "The daemon did not answer.", 0, url);
   }
 
   const text = await response.text();
-  const body: unknown = text.length === 0 ? null : JSON.parse(text);
-
-  if (!response.ok) {
-    const message = (body as { message?: unknown } | null)?.message;
-    const detail = (body as { detail?: unknown } | null)?.detail;
-    throw new ApiError(
-      codeOf(response.status, body),
-      typeof message === "string" ? message : `The daemon refused the request.`,
-      response.status,
-      typeof detail === "string" ? detail : "",
-    );
+  let body: unknown = null;
+  if (text.length > 0) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      if (response.ok)
+        throw new ApiError("malformed", "The daemon answered no JSON.", response.status);
+    }
   }
+
+  if (!response.ok) throw failureOf(response.status, body);
 
   return body as T;
 }

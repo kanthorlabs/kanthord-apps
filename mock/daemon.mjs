@@ -11,10 +11,20 @@ import * as fx from "./fixtures.mjs";
 
 const PORT = Number(process.env.KANTHORD_HTTP_PORT ?? 31415);
 const ORIGIN = process.env.KANTHORD_HTTP_ALLOWED_ORIGINS ?? "http://localhost:27182";
-const USERNAME = process.env.KANTHORD_USERNAME ?? "ulrich";
-const PASSWORD = process.env.KANTHORD_PASSWORD ?? "kanthord";
+const USERNAME = "kanthorlabs";
+const DEV_TOKEN = process.env.KANTHORD_DEV_TOKEN ?? "dev-human-token";
+const UNHEALTHY = process.env.KANTHORD_MOCK_UNHEALTHY === "1";
 
-const tokens = new Set();
+const HEALTHY_SERVICES = {
+  server: { gateway: 200, store: 200, log: 200 },
+  gateway: { listener: 200, authentication: 200, idempotency: 200, registry: 200, invocation: 200 },
+  custody: { credential: 200 },
+  scheduler: { queue: 200 },
+  worker: { registrations: 200 },
+  repository: { toolchain: 200 },
+  project: { bindings: 200 },
+  mission: { operations: 200 },
+};
 const nodes = structuredClone(fx.NODES);
 const bindings = structuredClone(fx.BINDINGS);
 
@@ -55,6 +65,7 @@ const json = (res, status, body) => {
   res.writeHead(status, {
     "content-type": "application/json",
     "access-control-allow-origin": ORIGIN,
+    vary: "origin",
     "access-control-allow-headers": "authorization,content-type,accept",
     "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
     "cache-control": "no-store",
@@ -65,19 +76,24 @@ const json = (res, status, body) => {
 const refuse = (res, status, code, message, detail = "") =>
   json(res, status, { code, message, detail });
 
-on("POST", /^\/v1\/session$/, (_m, body, res) => {
-  if (body?.username !== USERNAME || body?.password !== PASSWORD) {
-    return refuse(res, 401, "unauthorized", "The username or the password is wrong.");
-  }
-  const token = `tok-${Math.random().toString(36).slice(2)}`;
-  tokens.add(token);
-  return json(res, 200, { token, username: USERNAME });
+const PUBLIC = [{ method: "GET", path: "/api/liveness" }];
+
+on("GET", /^\/api\/liveness$/, (_m, _b, res) => {
+  if (!UNHEALTHY) return json(res, 200, { status: "ok", services: HEALTHY_SERVICES });
+  const services = structuredClone(HEALTHY_SERVICES);
+  services.server.store = 503;
+  return json(res, 503, {
+    error: {
+      code: "gateway.liveness.unhealthy",
+      message: "A component is unavailable.",
+      details: services,
+    },
+    requestId: `req-${Math.random().toString(36).slice(2, 10)}`,
+  });
 });
 
-on("GET", /^\/v1\/session$/, (_m, _b, res, token) =>
-  tokens.has(token)
-    ? json(res, 200, { token, username: USERNAME })
-    : refuse(res, 401, "unauthorized", "The session is not current."),
+on("GET", /^\/api\/auth\/verify$/, (_m, _b, res) =>
+  json(res, 200, { kind: "human", sub: USERNAME, name: "Kanthor Labs" }),
 );
 
 on("GET", /^\/v1\/projects$/, (_m, _b, res) => json(res, 200, [fx.PROJECT]));
@@ -308,9 +324,9 @@ createServer((req, res) => {
     const route = routes.find((r) => r.method === req.method && r.pattern.test(url.pathname));
     if (!route) return refuse(res, 404, "not_found", "No such operation.", url.pathname);
 
-    const open = url.pathname === "/v1/session" && req.method === "POST";
-    if (!open && !tokens.has(token)) {
-      return refuse(res, 401, "unauthorized", "The request carries no current session.");
+    const open = PUBLIC.some((p) => p.method === req.method && p.path === url.pathname);
+    if (!open && token !== DEV_TOKEN) {
+      return refuse(res, 401, "unauthorized", "The request carries no valid human token.");
     }
     try {
       route.handler(route.pattern.exec(url.pathname), body, res, token, url);
@@ -320,6 +336,6 @@ createServer((req, res) => {
   });
 }).listen(PORT, () => {
   process.stdout.write(
-    `mock daemon on http://localhost:${PORT} (origin ${ORIGIN}, account ${USERNAME})\n`,
+    `mock daemon on http://localhost:${PORT} (origin ${ORIGIN}, account ${USERNAME})\ndev token: ${DEV_TOKEN}\n`,
   );
 });
