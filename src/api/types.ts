@@ -416,3 +416,146 @@ export interface Overview {
   readonly instancesHealthy: number;
   readonly inboxDepth: number;
 }
+
+export interface Mission {
+  readonly id: string;
+  readonly projectId: string;
+  readonly version: number;
+}
+
+export interface MissionPlanEntry {
+  readonly filename: string;
+  readonly id?: string;
+  readonly kind: NodeKind;
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+  readonly verifications: readonly string[];
+  readonly bindings: readonly string[];
+  readonly parent?: string;
+  readonly dependsOn?: readonly string[];
+}
+
+export interface MissionPlanFile {
+  readonly filename: string;
+  readonly content: string;
+}
+
+export interface MissionJsonExport {
+  readonly missionId: string;
+  readonly missionVersion: number;
+  readonly entries: readonly MissionPlanEntry[];
+}
+
+interface MissionImportBase {
+  readonly missionId: string;
+  readonly missionVersion: number;
+  readonly reason: string;
+}
+
+export type MissionImportSnapshot =
+  | (MissionImportBase & { readonly format: "json"; readonly entries: readonly MissionPlanEntry[] })
+  | (MissionImportBase & {
+      readonly format: "markdown";
+      readonly files: readonly MissionPlanFile[];
+    });
+
+export type MissionImportApply = MissionImportSnapshot & {
+  readonly previewDigest: string;
+  readonly confirmedRetirements: readonly string[];
+};
+
+export type MissionRemovedEdge =
+  | { readonly kind: "containment"; readonly parentId: string; readonly childId: string }
+  | { readonly kind: "dependency"; readonly dependentId: string; readonly dependsOnId: string };
+
+export interface MissionImportViolation {
+  readonly code: string;
+  readonly message: string;
+  readonly filename: string | null;
+  readonly nodeId: string | null;
+  readonly details: unknown;
+}
+
+export interface MissionImportPreview {
+  readonly missionId: string;
+  readonly expectedMissionVersion: number;
+  readonly previewDigest: string;
+  readonly creates: readonly string[];
+  readonly updates: readonly string[];
+  readonly retirements: readonly string[];
+  readonly removedEdges: readonly MissionRemovedEdge[];
+  readonly noOps: readonly string[];
+  readonly violations: readonly MissionImportViolation[];
+}
+
+export interface MissionImportResult {
+  readonly missionId: string;
+  readonly missionVersion: number;
+  readonly assignedIds: readonly { readonly filename: string; readonly nodeId: string }[];
+}
+
+export type BindingSetKind = "repository" | "worker" | "storage";
+
+export type RepositoryActionName = "pull_request" | "merge_push";
+
+export type RepositoryActionFollows =
+  | { readonly type: "assessment_passed" }
+  | { readonly type: "action_end_state"; readonly binding: string };
+
+export interface RepositoryBindingConfig {
+  readonly available: boolean;
+  readonly platform: "github";
+  readonly address: string;
+  readonly strategy: {
+    readonly baseBranch: string;
+    readonly action?: {
+      readonly name: RepositoryActionName;
+      readonly follows: RepositoryActionFollows;
+    };
+  };
+  readonly credential: string;
+  readonly projectPrompt?: string;
+}
+
+export interface WorkerAgentEntry {
+  readonly agent: string;
+  readonly agentProvider?: string;
+  readonly modelIdentifier?: string;
+  readonly reasoningEffort?: string;
+}
+
+export interface WorkerBindingConfig {
+  readonly worker: string;
+  readonly instanceCount: number;
+  readonly resourceBudget?: { readonly turns: number; readonly wallTimeMs: number };
+  readonly entries?: readonly WorkerAgentEntry[];
+}
+
+export interface StorageBindingConfig {
+  readonly available: boolean;
+  readonly endpoint: string;
+  readonly bucket: string;
+  readonly region: string;
+  readonly prefix: string;
+  readonly credential: string;
+}
+
+export type BindingSetEntry =
+  | { readonly kind: "repository"; readonly config: RepositoryBindingConfig }
+  | { readonly kind: "worker"; readonly config: WorkerBindingConfig }
+  | { readonly kind: "storage"; readonly config: StorageBindingConfig };
+
+export interface BindingSet {
+  readonly version: number;
+  readonly bindings: Readonly<Record<string, BindingSetEntry>>;
+}
+
+export interface BindingSetWriteResult {
+  readonly projectId: string;
+  readonly bindingSetVersion: number;
+  readonly changes: readonly {
+    readonly kind: "created" | "revised" | "removed" | "unchanged";
+    readonly bindingId: string;
+  }[];
+}

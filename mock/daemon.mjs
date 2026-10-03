@@ -5,6 +5,7 @@
  * dashboard runs before the daemon exists. It is not part of the application
  * and no module under src/ reaches it.
  */
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 
 import * as fx from "./fixtures.mjs";
@@ -27,6 +28,9 @@ const HEALTHY_SERVICES = {
 };
 const nodes = structuredClone(fx.NODES);
 const projects = [structuredClone(fx.PROJECT)];
+const mission = { ...structuredClone(fx.MISSION), entries: structuredClone(fx.MISSION_ENTRIES) };
+const bindingSet = structuredClone(fx.BINDING_SET);
+let nodeSequence = 10;
 const bindings = structuredClone(fx.BINDINGS);
 
 const byId = (id) => nodes.find((n) => n.id === id);
@@ -68,7 +72,7 @@ const json = (res, status, body) => {
     "access-control-allow-origin": ORIGIN,
     vary: "origin",
     "access-control-allow-headers": "authorization,content-type,accept,idempotency-key",
-    "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     "cache-control": "no-store",
   });
   res.end(body === null ? "" : JSON.stringify(body));
@@ -407,6 +411,177 @@ on("POST", /^\/v1\/projects\/[^/]+\/client-identities\/([^/]+)\/rotate$/, (_m, _
   }),
 );
 on("GET", /^\/v1\/projects\/[^/]+\/deliveries$/, (_m, _b, res) => json(res, 200, fx.DELIVERIES));
+
+const nodeIdOf = () => `node_01J9ZQ4XKM3B6V8N2R5T7W0Y${String(nodeSequence++).padStart(2, "0")}`;
+
+const planOf = (body) =>
+  body.format === "json"
+    ? body.entries
+    : body.files.map((file) => {
+        const known = mission.entries.find((entry) => entry.filename === file.filename);
+        const heading = /^#\s+(.+)$/m.exec(file.content);
+        return {
+          ...(known ?? {
+            kind: "task",
+            requirement: "-",
+            criterion: "-",
+            verifications: ["-"],
+            bindings: [],
+          }),
+          filename: file.filename,
+          name: heading ? heading[1] : file.filename,
+        };
+      });
+
+const previewOf = (body) => {
+  const plan = planOf(body).map((entry) => {
+    const known = mission.entries.find((current) => current.filename === entry.filename);
+    return entry.id === undefined && known ? { ...entry, id: known.id } : entry;
+  });
+  const ids = new Set(plan.filter((entry) => entry.id !== undefined).map((entry) => entry.id));
+  const creates = plan.filter((entry) => entry.id === undefined).map((entry) => entry.filename);
+  const updates = [];
+  const noOps = [];
+  for (const entry of plan.filter((candidate) => candidate.id !== undefined)) {
+    const current = mission.entries.find((candidate) => candidate.id === entry.id);
+    if (JSON.stringify(current) === JSON.stringify(entry)) noOps.push(entry.id);
+    else updates.push(entry.id);
+  }
+  const retirements = mission.entries
+    .filter((entry) => !ids.has(entry.id))
+    .map((entry) => entry.id);
+  const violations =
+    plan.length === 0
+      ? [
+          {
+            code: "mission.import.plan_invalid",
+            message: "The import holds no plan file.",
+            filename: null,
+            nodeId: null,
+            details: null,
+          },
+        ]
+      : [];
+  const previewDigest = createHash("sha256")
+    .update(JSON.stringify({ plan, retirements, version: mission.version }))
+    .digest("hex");
+  return {
+    plan,
+    preview: {
+      missionId: mission.id,
+      expectedMissionVersion: mission.version,
+      previewDigest,
+      creates,
+      updates,
+      retirements,
+      removedEdges: [],
+      noOps,
+      violations,
+    },
+  };
+};
+
+const refuseMissionVersion = (res, body) => {
+  if (body.missionVersion === mission.version) return null;
+  return projectEnvelope(
+    res,
+    409,
+    "mission.version.conflict",
+    "The expected mission version differs from the current version.",
+  );
+};
+
+on("GET", /^\/api\/mission\/project\/([^/]+)$/, (m, _b, res) =>
+  json(res, 200, { id: mission.id, projectId: decodeURIComponent(m[1]), version: mission.version }),
+);
+
+on("GET", /^\/api\/mission\/([^/]+)\/export$/, (_m, _b, res, _t, url) =>
+  url.searchParams.get("format") === "json"
+    ? json(res, 200, {
+        missionId: mission.id,
+        missionVersion: mission.version,
+        entries: mission.entries,
+      })
+    : json(res, 200, {
+        missionId: mission.id,
+        missionVersion: mission.version,
+        files: mission.entries.map((entry) => ({
+          filename: entry.filename,
+          content: `# ${entry.name}\n`,
+        })),
+      }),
+);
+
+on("POST", /^\/api\/mission\/([^/]+)\/import\/preview$/, (_m, b, res) => {
+  const refused = refuseMissionVersion(res, b);
+  if (refused !== null) return refused;
+  return json(res, 200, previewOf(b).preview);
+});
+
+on("POST", /^\/api\/mission\/([^/]+)\/import$/, (_m, b, res) => {
+  const refused = refuseMissionVersion(res, b);
+  if (refused !== null) return refused;
+  const { plan, preview } = previewOf(b);
+  const confirmed = [...b.confirmedRetirements].sort().join(",");
+  if (
+    b.previewDigest !== preview.previewDigest ||
+    confirmed !== [...preview.retirements].sort().join(",")
+  ) {
+    return projectEnvelope(
+      res,
+      409,
+      "mission.import.retirement_mismatch",
+      "The digest or confirmed retirements differ from preview.",
+    );
+  }
+  const assignedIds = [];
+  mission.entries = plan.map((entry) => {
+    if (entry.id !== undefined) return entry;
+    const nodeId = nodeIdOf();
+    assignedIds.push({ filename: entry.filename, nodeId });
+    return { ...entry, id: nodeId };
+  });
+  mission.version += 1;
+  return json(res, 200, { missionId: mission.id, missionVersion: mission.version, assignedIds });
+});
+
+on("GET", /^\/api\/project\/([^/]+)\/binding-set$/, (_m, _b, res) => json(res, 200, bindingSet));
+
+on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
+  if (b.version !== bindingSet.version) {
+    return projectEnvelope(
+      res,
+      409,
+      "project.binding_set.version_conflict",
+      "The submitted binding-set version differs from the current version.",
+    );
+  }
+  bindingSet.bindings = b.bindings;
+  bindingSet.version += 1;
+  const projectId = decodeURIComponent(m[1]);
+  const stored = Object.fromEntries(
+    Object.entries(b.bindings).map(([name, entry]) => [
+      name,
+      {
+        id: `binding_${name}`,
+        projectId,
+        name,
+        kind: entry.kind,
+        resourceIdentity: `${entry.kind}:${name}`,
+        revision: 1,
+        config: entry.config,
+        createdAt: Date.now(),
+        removedAt: null,
+      },
+    ]),
+  );
+  return json(res, 200, {
+    projectId,
+    bindingSetVersion: bindingSet.version,
+    bindings: stored,
+    changes: [],
+  });
+});
 
 createServer((req, res) => {
   if (req.method === "OPTIONS") return json(res, 204, null);

@@ -1,9 +1,16 @@
+import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
 import type {
   Attempt,
   BlockedNode,
   ControlResult,
   DependencyClosure,
+  Mission,
+  MissionImportApply,
+  MissionImportPreview,
+  MissionImportResult,
+  MissionImportSnapshot,
+  MissionJsonExport,
   MissionNode,
   NodeRevision,
 } from "../types";
@@ -109,5 +116,32 @@ export async function setPriority(
   return request<MissionNode>(`/v1/projects/${projectId}/mission/nodes/${nodeId}/priority`, {
     method: "PUT",
     body: { priority },
+  });
+}
+
+export async function readMission(projectId: string): Promise<Mission> {
+  return request<Mission>(`/api/mission/project/${encodeURIComponent(projectId)}`);
+}
+
+export async function exportMissionJson(missionId: string): Promise<MissionJsonExport> {
+  return request<MissionJsonExport>(
+    `/api/mission/${encodeURIComponent(missionId)}/export?format=json`,
+  );
+}
+
+export async function previewMissionImport(
+  snapshot: MissionImportSnapshot,
+): Promise<MissionImportPreview> {
+  return request<MissionImportPreview>(
+    `/api/mission/${encodeURIComponent(snapshot.missionId)}/import/preview`,
+    { method: "POST", body: snapshot },
+  );
+}
+
+export async function applyMissionImport(body: MissionImportApply): Promise<MissionImportResult> {
+  return request<MissionImportResult>(`/api/mission/${encodeURIComponent(body.missionId)}/import`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
   });
 }

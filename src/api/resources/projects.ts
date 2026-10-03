@@ -1,6 +1,15 @@
 import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
-import type { Binding, Overview, Page, PermittedClientIdentity, Project } from "../types";
+import type {
+  Binding,
+  BindingSet,
+  BindingSetEntry,
+  BindingSetWriteResult,
+  Overview,
+  Page,
+  PermittedClientIdentity,
+  Project,
+} from "../types";
 
 const PROJECT_PAGE_LIMIT = 1000;
 
@@ -88,5 +97,20 @@ export async function rotateClientSecret(
   return request<{ readonly clientSecret: string }>(
     `/v1/projects/${projectId}/client-identities/${identityId}/rotate`,
     { method: "POST" },
+  );
+}
+
+export async function readBindingSet(projectId: string): Promise<BindingSet> {
+  return request<BindingSet>(`/api/project/${encodeURIComponent(projectId)}/binding-set`);
+}
+
+export async function writeBindingSet(
+  projectId: string,
+  version: number,
+  bindings: Readonly<Record<string, BindingSetEntry>>,
+): Promise<BindingSetWriteResult> {
+  return request<BindingSetWriteResult>(
+    `/api/project/${encodeURIComponent(projectId)}/binding-set`,
+    { method: "PUT", body: { version, bindings }, headers: { "idempotency-key": newUlid() } },
   );
 }

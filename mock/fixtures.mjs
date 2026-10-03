@@ -1214,3 +1214,86 @@ Your responsibility is the change that the task describes, in the workspace, to 
     ],
   },
 ];
+
+export const MISSION = {
+  id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM1",
+  version: 3,
+};
+
+export const MISSION_ENTRIES = [
+  {
+    filename: "onboarding.md",
+    id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA1",
+    kind: "initiative",
+    name: "Onboarding",
+    requirement: "A new account reaches a usable workspace.",
+    criterion: "A new account reaches the workspace in one session.",
+    verifications: ["pnpm test"],
+    bindings: ["kanthord-repo", "evidence"],
+  },
+  {
+    filename: "reset-email.md",
+    id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2",
+    kind: "objective",
+    name: "Add password reset",
+    requirement: "A human resets a forgotten password by email.",
+    criterion: "The reset link signs the human in once.",
+    verifications: ["pnpm test --filter reset"],
+    bindings: ["kanthord-repo", "general-main", "reviewer-main", "evidence"],
+    parent: "onboarding.md",
+  },
+  {
+    filename: "reset-expiry.md",
+    id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA3",
+    kind: "task",
+    name: "Add reset token expiry",
+    requirement: "A reset token expires after 30 minutes.",
+    criterion: "An expired token refuses the reset.",
+    verifications: ["pnpm test --filter expiry"],
+    bindings: [],
+    parent: "reset-email.md",
+  },
+];
+
+export const BINDING_SET = {
+  version: 2,
+  bindings: {
+    "kanthord-repo": {
+      kind: "repository",
+      config: {
+        available: true,
+        platform: "github",
+        address: "git@github.com:kanthorlabs/kanthord.git",
+        strategy: {
+          baseBranch: "main",
+          action: { name: "pull_request", follows: { type: "assessment_passed" } },
+        },
+        credential: "github-main",
+      },
+    },
+    "general-main": {
+      kind: "worker",
+      config: {
+        worker: "general@1",
+        instanceCount: 2,
+        resourceBudget: { turns: 200, wallTimeMs: 7200000 },
+        entries: [{ agent: "swe@1", reasoningEffort: "high" }],
+      },
+    },
+    "reviewer-main": {
+      kind: "worker",
+      config: { worker: "reviewer@1", instanceCount: 1 },
+    },
+    evidence: {
+      kind: "storage",
+      config: {
+        available: true,
+        endpoint: "https://s3.eu-central-1.amazonaws.com",
+        bucket: "kanthord-evidence",
+        region: "eu-central-1",
+        prefix: "kanthord/",
+        credential: "aws-evidence",
+      },
+    },
+  },
+};
