@@ -1777,7 +1777,7 @@ export const GRAPH_EXECUTIONS = [
   ["EC2", ids.webhook, "finished", 290, 255, GRAPH_BINDINGS.worker],
   ["EC9", ids.webhook, "finished", 250, 235, GRAPH_BINDINGS.reviewer],
   ["EC3", ids.invoices, "finished", 200, 150, GRAPH_BINDINGS.worker],
-  ["EC5", ids.invoices, "lost", 140, 20, GRAPH_BINDINGS.reviewer],
+  ["EC5", ids.invoices, "lost", 300, 20, GRAPH_BINDINGS.reviewer],
 ].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding], index) => ({
   executionId: `execution_01J9ZQ4XKM3B6V8N2R5T7W0${suffix}`,
   projectId: PROJECT.id,
@@ -1792,7 +1792,7 @@ export const GRAPH_EXECUTIONS = [
   pinnedRevision: 1,
   credentials: ["credential_01J9ZQ4XKM3B6V8N2R5T7W0CR1"],
   claimState,
-  expiredAt: minutes(startedAgo - 120),
+  expiredAt: minutes(startedAgo - 240),
   createdAt: minutes(startedAgo),
   endedAt: endedAgo === null ? null : minutes(endedAgo),
   traceId: `${suffix.toLowerCase()}${"0".repeat(30)}`,

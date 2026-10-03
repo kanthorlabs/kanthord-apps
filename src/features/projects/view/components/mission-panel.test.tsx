@@ -133,6 +133,11 @@ describe("MissionPanel", () => {
     vi.mocked(missionApi.exportMissionJson).mockResolvedValue(CURRENT);
     vi.mocked(missionApi.previewMissionImport).mockResolvedValue(PREVIEW);
     vi.mocked(missionApi.listMissionNodes).mockResolvedValue(GRAPH);
+    vi.mocked(missionApi.readMissionNode).mockImplementation(async (nodeId) => {
+      const node = GRAPH.find((item) => item.id === nodeId);
+      if (node === undefined) throw new ApiError("not_found", "No such node.", 404);
+      return node;
+    });
     vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
       { kind: "dependency", dependentId: "node_4", dependsOnId: "node_3" },
     ]);
@@ -157,13 +162,16 @@ describe("MissionPanel", () => {
     expect(await screen.findByText("Objectives: 1 of 2 terminal")).toBeTruthy();
   });
 
-  it("marks the selected node", async () => {
+  it("marks the selected node and opens its details", async () => {
     renderPanel();
 
     const node = await screen.findByRole("button", { name: "Add recovery codes" });
     await userEvent.click(node);
 
     expect(node).toHaveAttribute("aria-current", "true");
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("objective · node_3.md")).toBeTruthy();
+    expect(await within(sheet).findByText("Content of revision 1")).toBeTruthy();
   });
 
   it("says that the mission holds no nodes", async () => {

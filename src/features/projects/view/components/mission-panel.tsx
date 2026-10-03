@@ -14,6 +14,7 @@ import { useNodeSelection } from "../use-node-selection";
 import { GraphDiagnostics } from "./graph-diagnostics";
 import { ImportSheet } from "./import-sheet";
 import { MissionGraph } from "./mission-graph";
+import { NodeSheet } from "./node-sheet";
 
 interface MissionPanelProps {
   readonly projectId: string;
@@ -103,6 +104,12 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
               onReload={graph.reload}
             />
             <MissionGraph
+              model={graph.data.model}
+              selectedId={selection.selectedId}
+              onSelect={selection.select}
+            />
+            <NodeSheet
+              projectId={projectId}
               model={graph.data.model}
               selectedId={selection.selectedId}
               onSelect={selection.select}
