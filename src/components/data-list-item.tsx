@@ -23,7 +23,11 @@ export function DataListItem({ title, status, description, fields, actions }: Da
           <span className="min-w-0 break-words">{title}</span>
           {status}
         </ItemTitle>
-        {description !== undefined && <ItemDescription>{description}</ItemDescription>}
+        {description !== undefined && (
+          <ItemDescription>
+            <span className="break-words">{description}</span>
+          </ItemDescription>
+        )}
         {fields !== undefined && fields.length > 0 && (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
             {fields.map((field) => (

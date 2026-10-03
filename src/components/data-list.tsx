@@ -90,13 +90,21 @@ export function DataList<T>({
         <nav aria-label={`${label} pages`} className="flex justify-between gap-2">
           <Button
             variant="outline"
+            size="lg"
+            className="flex-1 md:flex-none"
             disabled={pending || !pager.hasPrevious}
             onClick={pager.onPrevious}
           >
             <ChevronLeftIcon aria-hidden="true" data-icon="inline-start" />
             Previous
           </Button>
-          <Button variant="outline" disabled={pending || !pager.hasNext} onClick={pager.onNext}>
+          <Button
+            variant="outline"
+            size="lg"
+            className="flex-1 md:flex-none"
+            disabled={pending || !pager.hasNext}
+            onClick={pager.onNext}
+          >
             Next
             <ChevronRightIcon aria-hidden="true" data-icon="inline-end" />
           </Button>
