@@ -66,10 +66,16 @@ function row(name: string) {
     .find((item) => within(item).queryByText(name) !== null) as HTMLElement;
 }
 
+async function replace(label: string, value: string) {
+  const field = within(form()).getByLabelText(label);
+  await userEvent.clear(field);
+  if (value !== "") await userEvent.type(field, value);
+}
+
 async function fill(endpoint: string, token: string, name = "") {
-  if (name !== "") await userEvent.type(within(form()).getByLabelText("Name"), name);
-  await userEvent.type(within(form()).getByLabelText("Endpoint"), endpoint);
-  await userEvent.type(within(form()).getByLabelText("JWT token"), token);
+  await replace("Name", name);
+  await replace("Endpoint", endpoint);
+  await replace("JWT token", token);
 }
 
 describe("LoginScreen", () => {
@@ -86,6 +92,24 @@ describe("LoginScreen", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("hides the list and fills the localhost instance when nothing is saved", () => {
+    mount();
+
+    expect(screen.queryByRole("list", { name: "Saved instances" })).toBeNull();
+    expect(screen.queryByText("Saved instances")).toBeNull();
+    expect(within(form()).getByLabelText("Name")).toHaveValue("localhost");
+    expect(within(form()).getByLabelText("Endpoint")).toHaveValue("http://localhost:31415");
+    expect(within(form()).getByLabelText("JWT token")).toHaveValue("");
+  });
+
+  it("starts with an empty form when an instance is saved", () => {
+    seed(LOCAL);
+    mount();
+
+    expect(within(form()).getByLabelText("Name")).toHaveValue("");
+    expect(within(form()).getByLabelText("Endpoint")).toHaveValue("");
+  });
+
   it("disables Verify and Login until the endpoint and the token are filled", async () => {
     mount();
 
@@ -94,12 +118,33 @@ describe("LoginScreen", () => {
     expect(verify).toBeDisabled();
     expect(login).toBeDisabled();
 
-    await userEvent.type(within(form()).getByLabelText("Endpoint"), "http://localhost:31415");
-    expect(login).toBeDisabled();
-    await userEvent.type(within(form()).getByLabelText("JWT token"), "jwt-1");
-
+    await replace("JWT token", "jwt-1");
     expect(verify).toBeEnabled();
     expect(login).toBeEnabled();
+
+    await replace("Endpoint", "");
+    expect(verify).toBeDisabled();
+    expect(login).toBeDisabled();
+  });
+
+  it("logs in with the filled localhost instance and saves it", async () => {
+    verifyMock.mockResolvedValue(IDENTITY);
+    mount();
+
+    await replace("JWT token", "dev-human-token");
+    await userEvent.click(within(form()).getByRole("button", { name: "Login" }));
+
+    await screen.findByText("Signed in as Ulrich");
+    expect(stored()).toEqual({
+      instances: [
+        {
+          id: expect.any(String),
+          name: "localhost",
+          baseUrl: "http://localhost:31415",
+          token: "dev-human-token",
+        },
+      ],
+    });
   });
 
   it("takes the token as a hidden field with no autocomplete", () => {

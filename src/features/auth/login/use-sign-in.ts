@@ -16,6 +16,12 @@ const VERIFY_KEY = "form";
 
 const BLANK: InstanceDraft = { name: "", baseUrl: "", token: "" };
 
+const LOCALHOST: InstanceDraft = {
+  name: "localhost",
+  baseUrl: "http://localhost:31415",
+  token: "",
+};
+
 export interface SignInFormState {
   readonly draft: InstanceDraft;
   readonly errors: InstanceErrors;
@@ -31,7 +37,9 @@ export interface SignInFormState {
 export function useSignIn(store: Pick<InstancesState, "instances" | "put">): SignInFormState {
   const { signIn } = useSession();
   const { states, verify: runVerify, clear } = useInstanceVerify();
-  const [draft, setDraft] = useState<InstanceDraft>(BLANK);
+  const [draft, setDraft] = useState<InstanceDraft>(() =>
+    store.instances.length === 0 ? LOCALHOST : BLANK,
+  );
   const [errors, setErrors] = useState<InstanceErrors>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
