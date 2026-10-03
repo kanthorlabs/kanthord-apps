@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
+import { useCrumbLabel } from "@/components/crumb-labels";
 import { useProjectDetail } from "./use-project-detail";
 
 export function ProjectScreen() {
   const { projectId = "" } = useParams<{ projectId: string }>();
   const { data: project, error, loading, reload } = useProjectDetail(projectId);
+  useCrumbLabel(`/projects/${encodeURIComponent(projectId)}`, project?.name);
 
   if (loading) {
     return (

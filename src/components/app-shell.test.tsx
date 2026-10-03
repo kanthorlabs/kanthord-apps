@@ -22,7 +22,6 @@ const projectState = vi.hoisted(() => ({
   value: {
     projects: [] as unknown[],
     project: null as unknown,
-    select: () => undefined,
     loading: false,
     error: null as string | null,
     reload: () => undefined,
@@ -61,7 +60,6 @@ describe("AppShell", () => {
     projectState.value = {
       projects: [PROJECT],
       project: PROJECT,
-      select: () => undefined,
       loading: false,
       error: null,
       reload: () => undefined,

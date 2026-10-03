@@ -7,7 +7,6 @@ import { useResource } from "@/hooks/use-resource";
 interface ProjectValue {
   readonly projects: readonly Project[];
   readonly project: Project | null;
-  readonly select: (id: string) => void;
   readonly loading: boolean;
   readonly error: string | null;
   readonly reload: () => void;
@@ -25,7 +24,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return {
       projects,
       project,
-      select: setSelected,
       loading,
       error: error === null ? null : error.message,
       reload: () => {

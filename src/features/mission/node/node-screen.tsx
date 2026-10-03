@@ -18,6 +18,7 @@ import { DependenciesTab } from "./components/dependencies-tab";
 import { RevisionsTab } from "./components/revisions-tab";
 import { WhatTab } from "./components/what-tab";
 import { WhyNotRunningTab } from "./components/why-not-running-tab";
+import { useCrumbLabel } from "@/components/crumb-labels";
 import { useNode } from "./use-node";
 import { NODE_SECTIONS, useNodeSection } from "./use-node-section";
 
@@ -34,6 +35,7 @@ function HeaderSkeleton() {
 export function NodeScreen() {
   const { nodeId = "" } = useParams<{ nodeId: string }>();
   const resources = useNode(nodeId);
+  useCrumbLabel(`/mission/${encodeURIComponent(nodeId)}`, resources.node.data?.title);
   const { section, selectSection } = useNodeSection();
 
   if (resources.loading) return <HeaderSkeleton />;

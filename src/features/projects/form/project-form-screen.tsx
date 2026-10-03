@@ -6,12 +6,14 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCrumbLabel } from "@/components/crumb-labels";
 import { useProjectForm } from "./use-project-form";
 
 export function ProjectFormScreen() {
   const { projectId } = useParams<{ projectId: string }>();
   const form = useProjectForm(projectId ?? null);
   const creating = form.mode === "create";
+  useCrumbLabel(`/projects/${encodeURIComponent(projectId ?? "")}`, form.current?.name);
 
   if (form.loading) {
     return <Skeleton className="h-40 w-full max-w-xl" />;
