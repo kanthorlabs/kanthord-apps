@@ -290,3 +290,19 @@ export function objectiveProgress(model: GraphModel, initiativeId: string): Obje
 export function nameOf(model: GraphModel, nodeId: string): string {
   return model.nodeById.get(nodeId)?.content.name ?? nodeId;
 }
+
+export function dependencyNames(model: GraphModel, nodeId: string): readonly string[] {
+  return (model.dependsOn.get(nodeId) ?? []).map((id) => nameOf(model, id));
+}
+
+export function diagnosticText(model: GraphModel, diagnostic: GraphDiagnostic): string {
+  if (diagnostic.kind === "unresolved-dependency") {
+    const { dependentId, dependsOnId } = diagnostic.link;
+    return `A dependency of ${nameOf(model, dependentId)} names ${nameOf(model, dependsOnId)}, and the read does not hold that node.`;
+  }
+  if (diagnostic.kind === "unplaced-node") {
+    return `The node ${nameOf(model, diagnostic.nodeId)} has no place under an initiative, so the graph does not show it.`;
+  }
+  const names = diagnostic.nodeIds.map((id) => nameOf(model, id)).join(", ");
+  return `The dependencies of ${names} form a cycle. The graph shows these nodes in the last row.`;
+}

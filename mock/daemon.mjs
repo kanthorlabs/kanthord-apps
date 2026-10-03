@@ -583,6 +583,161 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   });
 });
 
+const page = (items) => ({ items, nextCursor: null });
+
+const graphNodeRead = (node) => {
+  if (node.state !== "Blocked") return node;
+  const outcome = fx.GRAPH_OUTCOMES.filter((item) => item.nodeId === node.id).at(-1);
+  return outcome === undefined ? node : { ...node, blockedContext: { outcome, requests: [] } };
+};
+
+const graphNodeById = (id) => fx.GRAPH_NODES.find((node) => node.id === id);
+
+const graphRevisions = (node) => {
+  const owner = node.kind === "task" ? graphNodeById(node.parentId) : node;
+  const tasks = fx.GRAPH_NODES.filter(
+    (child) => child.parentId === owner.id && child.kind === "task",
+  );
+  const first = {
+    nodeId: owner.id,
+    filename: owner.filename,
+    revision: 1,
+    reason: "Import the mission plan.",
+    actor: fx.GRAPH_HUMAN,
+    createdAt: Date.now() - 9_000 * 60_000,
+    content: fx.GRAPH_ORIGINAL_CONTENT[owner.id] ?? owner.content,
+    change: { write: "import", previousRevision: null, changedFields: [] },
+    pinnedByAttempts: owner.pinnedByAttempts,
+  };
+  const later = (fx.GRAPH_EXTRA_REVISIONS[owner.id] ?? []).map(({ contentAt, ...revision }) => ({
+    nodeId: owner.id,
+    filename: owner.filename,
+    content: contentAt(owner),
+    pinnedByAttempts: [],
+    ...revision,
+  }));
+  const revisions = [first, ...later].map((revision) =>
+    owner.kind === "objective"
+      ? {
+          ...revision,
+          tasks: tasks.map((child) => ({
+            id: child.id,
+            filename: child.filename,
+            content: child.content,
+          })),
+        }
+      : revision,
+  );
+  const selected =
+    node.kind === "task"
+      ? revisions.map((revision) => ({
+          ...revision,
+          nodeId: node.id,
+          filename: node.filename,
+          content: node.content,
+        }))
+      : revisions;
+  return selected.reverse();
+};
+
+const byAttempt = (records, nodeId, url) => {
+  const attempt = url.searchParams.get("attempt");
+  return records.filter(
+    (record) =>
+      record.nodeId === nodeId && (attempt === null || String(record.attempt) === attempt),
+  );
+};
+
+on("GET", /^\/api\/mission\/([^/]+)\/node$/, (_m, _b, res) =>
+  json(res, 200, page(fx.GRAPH_NODES.map(graphNodeRead))),
+);
+
+on("GET", /^\/api\/mission\/([^/]+)\/edge$/, (_m, _b, res, _t, url) => {
+  const kind = url.searchParams.get("kind");
+  return json(res, 200, page(fx.GRAPH_EDGES.filter((edge) => kind === null || edge.kind === kind)));
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)$/, (m, _b, res) => {
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.record.not_found", "No such node.");
+  return json(res, 200, graphNodeRead(node));
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/revision$/, (m, _b, res) => {
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.record.not_found", "No such node.");
+  return json(res, 200, page(graphRevisions(node)));
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/revision\/(\d+)$/, (m, _b, res) => {
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const revision = node && graphRevisions(node).find((item) => item.revision === Number(m[2]));
+  if (!revision) return projectEnvelope(res, 404, "mission.record.not_found", "No such revision.");
+  return json(res, 200, revision);
+});
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/attempt$/, (m, _b, res) =>
+  json(res, 200, page(fx.GRAPH_ATTEMPTS[decodeURIComponent(m[1])] ?? [])),
+);
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/evidence$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(byAttempt(fx.GRAPH_EVIDENCE, decodeURIComponent(m[1]), url))),
+);
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/assessment$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(byAttempt(fx.GRAPH_ASSESSMENTS, decodeURIComponent(m[1]), url))),
+);
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(byAttempt(fx.GRAPH_OUTCOMES, decodeURIComponent(m[1]), url))),
+);
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
+  const nodeId = decodeURIComponent(m[1]);
+  const actions = (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
+    attempt.requiredExternalActions.map((action) => {
+      const request = fx.GRAPH_EVIDENCE.find(
+        (item) =>
+          item.nodeId === nodeId &&
+          item.attempt === attempt.attempt &&
+          item.requirementKey === action.key,
+      );
+      return {
+        nodeId,
+        attempt: attempt.attempt,
+        action,
+        requested: request !== undefined,
+        requestEvidenceId: request?.id ?? null,
+        resolution: request === undefined ? "unrequested" : "unresolved",
+      };
+    }),
+  );
+  return json(res, 200, page(byAttempt(actions, nodeId, url)));
+});
+
+on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined) {
+    return projectEnvelope(res, 404, "project.binding.not_found", "No such binding.");
+  }
+  return json(res, 200, { ...binding, projectId: decodeURIComponent(m[1]), config: {} });
+});
+
+on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (_m, _b, res, _t, url) => {
+  const nodeId = url.searchParams.get("nodeId");
+  const attempt = url.searchParams.get("attempt");
+  const items = fx.GRAPH_EXECUTIONS.filter(
+    (item) =>
+      (nodeId === null || item.nodeId === nodeId) &&
+      (attempt === null || String(item.attempt) === attempt),
+  );
+  return json(res, 200, page(items));
+});
+
 createServer((req, res) => {
   if (req.method === "OPTIONS") return json(res, 204, null);
 

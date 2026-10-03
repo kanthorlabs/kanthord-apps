@@ -1,10 +1,16 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
-import type { MissionImportPreview, MissionJsonExport } from "@/api/types";
+import type {
+  MissionImportPreview,
+  MissionJsonExport,
+  MissionNodeRecord,
+  MissionRunnableNode,
+} from "@/api/types";
 
 vi.mock("@/api/resources/mission");
 
@@ -52,6 +58,60 @@ const PREVIEW: MissionImportPreview = {
   violations: [],
 };
 
+function runnable(
+  id: string,
+  kind: "initiative" | "objective",
+  name: string,
+  parentId: string | null,
+  state: MissionRunnableNode["state"],
+): MissionRunnableNode {
+  return {
+    id,
+    kind,
+    filename: `${id}.md`,
+    missionId: "mission_1",
+    parentId,
+    visibleRevision: 1,
+    content: { name, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
+    retiredAt: null,
+    pinnedByAttempts: [],
+    state,
+    attempt: 0,
+    priority: 0,
+  };
+}
+
+const GRAPH: readonly MissionNodeRecord[] = [
+  runnable("node_1", "initiative", "Onboarding", null, "Available"),
+  runnable("node_3", "objective", "Add recovery codes", "node_1", "Completed"),
+  runnable("node_4", "objective", "Add password reset", "node_1", "Pending"),
+  {
+    id: "node_2",
+    kind: "task",
+    filename: "reset-expiry.md",
+    missionId: "mission_1",
+    parentId: "node_4",
+    visibleRevision: 1,
+    content: {
+      name: "Add reset token expiry",
+      requirement: "r",
+      criterion: "c",
+      verifications: ["v"],
+      bindings: [],
+    },
+    retiredAt: null,
+    pinnedByAttempts: [],
+  },
+];
+
+function renderPanel() {
+  return render(
+    <MemoryRouter>
+      <MissionPanel projectId="project_1" projectName="kanthord" />
+    </MemoryRouter>,
+  );
+}
+
 function planFile(): File {
   return new File([JSON.stringify({ entries: [CURRENT.entries[0]] })], "plan.json", {
     type: "application/json",
@@ -59,7 +119,7 @@ function planFile(): File {
 }
 
 async function previewImport() {
-  render(<MissionPanel projectId="project_1" projectName="kanthord" />);
+  renderPanel();
   await userEvent.click(await screen.findByRole("button", { name: "Import" }));
   await userEvent.upload(screen.getByLabelText("Plan files"), planFile());
   await userEvent.type(screen.getByLabelText("Reason"), "Drop the expiry task");
@@ -72,15 +132,83 @@ describe("MissionPanel", () => {
     vi.mocked(missionApi.readMission).mockResolvedValue(MISSION);
     vi.mocked(missionApi.exportMissionJson).mockResolvedValue(CURRENT);
     vi.mocked(missionApi.previewMissionImport).mockResolvedValue(PREVIEW);
+    vi.mocked(missionApi.listMissionNodes).mockResolvedValue(GRAPH);
+    vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
+      { kind: "dependency", dependentId: "node_4", dependsOnId: "node_3" },
+    ]);
   });
 
-  it("shows the mission version and the graph placeholder", async () => {
-    render(<MissionPanel projectId="project_1" projectName="kanthord" />);
+  it("shows every node of the mission as a rectangle with its state", async () => {
+    renderPanel();
 
     expect(await screen.findByText("version 3")).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Mission graph" })).toHaveTextContent(
-      "The graph view comes next.",
+    const graph = await screen.findByRole("list", { name: "Initiatives" });
+    expect(within(graph).getByRole("button", { name: "Onboarding" })).toBeTruthy();
+    const objectives = within(graph).getByRole("list", { name: "Objectives of Onboarding" });
+    expect(within(objectives).getByText("Completed")).toBeTruthy();
+    expect(within(objectives).getByText("Depends on: Add recovery codes")).toBeTruthy();
+    const tasks = within(graph).getByRole("list", { name: "Tasks of Add password reset" });
+    expect(within(tasks).getByRole("button", { name: "Add reset token expiry" })).toBeTruthy();
+  });
+
+  it("states the progress of the objectives of an initiative", async () => {
+    renderPanel();
+
+    expect(await screen.findByText("Objectives: 1 of 2 terminal")).toBeTruthy();
+  });
+
+  it("marks the selected node", async () => {
+    renderPanel();
+
+    const node = await screen.findByRole("button", { name: "Add recovery codes" });
+    await userEvent.click(node);
+
+    expect(node).toHaveAttribute("aria-current", "true");
+  });
+
+  it("says that the mission holds no nodes", async () => {
+    vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
+    vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([]);
+    renderPanel();
+
+    expect(await screen.findByText("The mission holds no nodes.")).toBeTruthy();
+  });
+
+  it("warns when a dependency names a node that the read does not hold", async () => {
+    vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
+      { kind: "dependency", dependentId: "node_4", dependsOnId: "node_9" },
+    ]);
+    renderPanel();
+
+    expect(await screen.findByText("The graph can be incomplete.")).toBeTruthy();
+    expect(missionApi.listMissionNodes).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByText(
+        "A dependency of Add password reset names node_9, and the read does not hold that node.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("reads the graph again when the mission version moves during the read", async () => {
+    vi.mocked(missionApi.readMission)
+      .mockResolvedValueOnce(MISSION)
+      .mockResolvedValueOnce(MISSION)
+      .mockResolvedValue({ ...MISSION, version: 4 });
+    renderPanel();
+
+    expect(await screen.findByRole("button", { name: "Onboarding" })).toBeTruthy();
+    expect(missionApi.listMissionNodes).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("The graph can be incomplete.")).toBeNull();
+  });
+
+  it("offers a retry when the graph read fails", async () => {
+    vi.mocked(missionApi.listMissionNodes).mockRejectedValue(
+      new ApiError("unavailable", "The daemon is unavailable.", 503),
     );
+    renderPanel();
+
+    expect(await screen.findByText("The daemon is unavailable.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
   it("previews with the current mission version and names the retired nodes", async () => {

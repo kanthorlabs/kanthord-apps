@@ -1,5 +1,5 @@
 import { DownloadIcon, UploadIcon } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -8,8 +8,12 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMission } from "../use-mission";
 import { useMissionExport } from "../use-mission-export";
+import { useMissionGraph } from "../use-mission-graph";
 import { useMissionImport } from "../use-mission-import";
+import { useNodeSelection } from "../use-node-selection";
+import { GraphDiagnostics } from "./graph-diagnostics";
 import { ImportSheet } from "./import-sheet";
+import { MissionGraph } from "./mission-graph";
 
 interface MissionPanelProps {
   readonly projectId: string;
@@ -18,8 +22,16 @@ interface MissionPanelProps {
 
 export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
   const mission = useMission(projectId);
+  const graph = useMissionGraph(projectId);
+  const selection = useNodeSelection();
+  const { reload: reloadMission } = mission;
+  const { reload: reloadGraph } = graph;
+  const reloadAll = useCallback(() => {
+    reloadMission();
+    reloadGraph();
+  }, [reloadMission, reloadGraph]);
   const exporter = useMissionExport(mission.data?.id ?? null, projectName);
-  const importer = useMissionImport(projectId, mission.reload);
+  const importer = useMissionImport(projectId, reloadAll);
   const [importing, setImporting] = useState(false);
 
   return (
@@ -60,19 +72,42 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
           <AlertDescription>{exporter.error.message}</AlertDescription>
         </Alert>
       )}
-      <section
-        aria-label="Mission graph"
-        className="flex min-h-80 flex-1 items-center justify-center rounded-lg border border-dashed"
-      >
-        {mission.loading ? (
-          <Skeleton className="h-full w-full" />
+      <section aria-label="Mission graph" className="flex min-h-80 flex-1 flex-col gap-3">
+        {graph.loading ? (
+          <Skeleton className="h-80 w-full" />
+        ) : graph.error !== null || graph.data === null ? (
+          <Alert variant="destructive">
+            <AlertDescription className="flex flex-col items-start gap-2">
+              {graph.error?.message}
+              <Button variant="outline" size="sm" onClick={graph.reload}>
+                Retry
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : graph.data.model.nodeById.size === 0 ? (
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed">
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>The mission holds no nodes.</EmptyTitle>
+                <EmptyDescription>
+                  Import a plan to create its initiatives and objectives.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </div>
         ) : (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>Mission graph</EmptyTitle>
-              <EmptyDescription>The graph view comes next.</EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <>
+            <GraphDiagnostics
+              model={graph.data.model}
+              changedDuringRead={graph.data.changedDuringRead}
+              onReload={graph.reload}
+            />
+            <MissionGraph
+              model={graph.data.model}
+              selectedId={selection.selectedId}
+              onSelect={selection.select}
+            />
+          </>
         )}
       </section>
       <ImportSheet
