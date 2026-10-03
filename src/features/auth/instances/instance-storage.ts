@@ -4,14 +4,11 @@ export interface Instance {
   readonly baseUrl: string;
 }
 
-export interface InstanceStore {
-  readonly instances: readonly Instance[];
-  readonly defaultId: string | null;
+export interface SavedInstance extends Instance {
+  readonly token: string;
 }
 
 const STORAGE_KEY = "kanthord.instances";
-
-const EMPTY_STORE: InstanceStore = { instances: [], defaultId: null };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -26,28 +23,28 @@ export function isInstance(value: unknown): value is Instance {
   );
 }
 
-function parseStore(value: unknown): InstanceStore {
-  if (!isRecord(value) || !Array.isArray(value["instances"])) return EMPTY_STORE;
-  const instances = value["instances"].filter(isInstance);
-  const defaultId = value["defaultId"];
-  const hasDefault =
-    typeof defaultId === "string" && instances.some((instance) => instance.id === defaultId);
-  return { instances, defaultId: hasDefault ? defaultId : null };
+function isSavedInstance(value: unknown): value is SavedInstance {
+  return isInstance(value) && isRecord(value) && typeof value["token"] === "string";
 }
 
-export function loadInstanceStore(): InstanceStore {
+function parseInstances(value: unknown): readonly SavedInstance[] {
+  if (!isRecord(value) || !Array.isArray(value["instances"])) return [];
+  return value["instances"].filter(isSavedInstance);
+}
+
+export function loadInstances(): readonly SavedInstance[] {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return EMPTY_STORE;
-    return parseStore(JSON.parse(raw));
+    if (raw === null) return [];
+    return parseInstances(JSON.parse(raw));
   } catch {
-    return EMPTY_STORE;
+    return [];
   }
 }
 
-export function saveInstanceStore(store: InstanceStore): void {
+export function saveInstances(instances: readonly SavedInstance[]): void {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ instances }));
   } catch {
     return;
   }

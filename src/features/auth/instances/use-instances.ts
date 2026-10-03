@@ -1,68 +1,37 @@
 import { useCallback, useState } from "react";
 
-import {
-  loadInstanceStore,
-  saveInstanceStore,
-  type Instance,
-  type InstanceStore,
-} from "./instance-storage";
-import { validateDraft, type InstanceDraft, type InstanceErrors } from "./instance-validation";
+import { loadInstances, saveInstances, type SavedInstance } from "./instance-storage";
 
 export interface InstancesState {
-  readonly instances: readonly Instance[];
-  readonly defaultId: string | null;
-  readonly save: (draft: InstanceDraft, id: string | null) => InstanceErrors | null;
+  readonly instances: readonly SavedInstance[];
+  readonly put: (instance: SavedInstance) => void;
   readonly remove: (id: string) => void;
-  readonly setDefault: (id: string) => void;
 }
 
 export function useInstances(): InstancesState {
-  const [store, setStore] = useState<InstanceStore>(loadInstanceStore);
+  const [instances, setInstances] = useState<readonly SavedInstance[]>(loadInstances);
 
-  const commit = useCallback((next: InstanceStore) => {
-    saveInstanceStore(next);
-    setStore(next);
+  const commit = useCallback((next: readonly SavedInstance[]) => {
+    saveInstances(next);
+    setInstances(next);
   }, []);
 
-  const save = useCallback(
-    (draft: InstanceDraft, id: string | null): InstanceErrors | null => {
-      const others = store.instances.filter((instance) => instance.id !== id);
-      const { errors, baseUrl } = validateDraft(draft, others);
-      if (errors !== null || baseUrl === null) return errors;
-      const saved: Instance = { id: id ?? crypto.randomUUID(), name: draft.name.trim(), baseUrl };
-      const instances =
-        id === null
-          ? [...store.instances, saved]
-          : store.instances.map((instance) => (instance.id === id ? saved : instance));
-      const defaultId = store.instances.length === 0 ? saved.id : store.defaultId;
-      commit({ instances, defaultId });
-      return null;
+  const put = useCallback(
+    (instance: SavedInstance) => {
+      const exists = instances.some((current) => current.id === instance.id);
+      commit(
+        exists
+          ? instances.map((current) => (current.id === instance.id ? instance : current))
+          : [...instances, instance],
+      );
     },
-    [store, commit],
+    [instances, commit],
   );
 
   const remove = useCallback(
-    (id: string) => {
-      commit({
-        instances: store.instances.filter((instance) => instance.id !== id),
-        defaultId: store.defaultId === id ? null : store.defaultId,
-      });
-    },
-    [store, commit],
+    (id: string) => commit(instances.filter((instance) => instance.id !== id)),
+    [instances, commit],
   );
 
-  const setDefault = useCallback(
-    (id: string) => {
-      commit({ instances: store.instances, defaultId: id });
-    },
-    [store, commit],
-  );
-
-  return {
-    instances: store.instances,
-    defaultId: store.defaultId,
-    save,
-    remove,
-    setDefault,
-  };
+  return { instances, put, remove };
 }

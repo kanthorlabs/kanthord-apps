@@ -1,83 +1,93 @@
 import { useCallback, useState } from "react";
 
-import { isApiError } from "@/api/errors";
-import type { Instance } from "@/features/auth/instances/instance-storage";
+import {
+  INVALID_BASE_URL,
+  normalizeBaseUrl,
+  validateSignIn,
+  type InstanceDraft,
+  type InstanceErrors,
+} from "@/features/auth/instances/instance-validation";
 import type { InstancesState } from "@/features/auth/instances/use-instances";
+import { useInstanceVerify, type VerifyState } from "@/features/auth/instances/use-instance-verify";
 import { useSession } from "@/features/auth/session/session-context";
+import { signInMessage } from "./sign-in-message";
 
-export interface SignInState {
-  readonly selected: Instance | null;
-  readonly select: (id: string) => void;
-  readonly token: string;
-  readonly setToken: (token: string) => void;
-  readonly instanceMissing: string | null;
-  readonly tokenMissing: string | null;
-  readonly canSubmit: boolean;
+const VERIFY_KEY = "form";
+
+const BLANK: InstanceDraft = { name: "", baseUrl: "", token: "" };
+
+export interface SignInFormState {
+  readonly draft: InstanceDraft;
+  readonly errors: InstanceErrors;
+  readonly setField: (field: keyof InstanceDraft, value: string) => void;
+  readonly canAct: boolean;
   readonly pending: boolean;
   readonly error: string | null;
+  readonly verifyState: VerifyState | undefined;
+  readonly verify: () => void;
   readonly submit: () => Promise<void>;
 }
 
-function messageOf(cause: unknown): string {
-  if (!isApiError(cause)) return "The sign in failed.";
-  if (cause.code === "unauthorized") {
-    return "The instance refused the token. Use a human token from kanthord jwt generate.";
-  }
-  if (cause.code === "unreachable") {
-    return `The instance did not answer. Its configured origins may not include this dashboard origin, ${window.location.origin}.`;
-  }
-  return cause.message;
-}
-
-export function useSignIn(store: Pick<InstancesState, "instances" | "defaultId">): SignInState {
+export function useSignIn(store: Pick<InstancesState, "instances" | "put">): SignInFormState {
   const { signIn } = useSession();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [token, setTokenValue] = useState("");
+  const { states, verify: runVerify, clear } = useInstanceVerify();
+  const [draft, setDraft] = useState<InstanceDraft>(BLANK);
+  const [errors, setErrors] = useState<InstanceErrors>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { instances, put } = store;
 
-  const selected =
-    store.instances.find((instance) => instance.id === selectedId) ??
-    store.instances.find((instance) => instance.id === store.defaultId) ??
-    null;
-  const trimmed = token.trim();
-  const instanceMissing = selected === null ? "Select an instance to sign in to." : null;
-  const tokenMissing = trimmed === "" ? "Paste a token to sign in." : null;
-  const canSubmit = selected !== null && trimmed !== "" && !pending;
+  const filled = draft.baseUrl.trim() !== "" && draft.token.trim() !== "";
+  const canAct = filled && !pending;
 
-  const setToken = useCallback((next: string) => {
-    setTokenValue(next);
-    setError(null);
-  }, []);
+  const setField = useCallback(
+    (field: keyof InstanceDraft, value: string) => {
+      if (field === "baseUrl") clear(VERIFY_KEY);
+      setDraft((current) => ({ ...current, [field]: value }));
+      setErrors((current) => ({ ...current, [field]: undefined }));
+      setError(null);
+    },
+    [clear],
+  );
 
-  const select = useCallback((id: string) => {
-    setSelectedId(id);
-    setError(null);
-  }, []);
+  const verify = useCallback(() => {
+    if (!canAct) return;
+    const baseUrl = normalizeBaseUrl(draft.baseUrl);
+    if (baseUrl === null) {
+      setErrors((current) => ({ ...current, baseUrl: INVALID_BASE_URL }));
+      return;
+    }
+    void runVerify(VERIFY_KEY, baseUrl);
+  }, [canAct, draft.baseUrl, runVerify]);
 
   const submit = useCallback(async () => {
-    if (selected === null || trimmed === "" || pending) return;
+    if (!canAct) return;
+    const result = validateSignIn(draft, instances);
+    if (result.fields === null) {
+      setErrors(result.errors ?? {});
+      return;
+    }
+    const instance = { id: result.id ?? crypto.randomUUID(), ...result.fields };
     setPending(true);
     setError(null);
     try {
-      await signIn(selected, trimmed);
+      await signIn(instance, instance.token);
+      put(instance);
     } catch (cause) {
-      setError(messageOf(cause));
-    } finally {
+      setError(signInMessage(cause));
       setPending(false);
     }
-  }, [selected, trimmed, pending, signIn]);
+  }, [canAct, draft, instances, signIn, put]);
 
   return {
-    selected,
-    select,
-    token,
-    setToken,
-    instanceMissing,
-    tokenMissing,
-    canSubmit,
+    draft,
+    errors,
+    setField,
+    canAct,
     pending,
     error,
+    verifyState: states[VERIFY_KEY],
+    verify,
     submit,
   };
 }

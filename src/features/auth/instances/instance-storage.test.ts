@@ -1,34 +1,31 @@
 import { describe, expect, it } from "vitest";
 
-import { loadInstanceStore, saveInstanceStore } from "./instance-storage";
+import { loadInstances, saveInstances } from "./instance-storage";
 
-const LOCAL = { id: "i-1", name: "local", baseUrl: "http://localhost:31415" };
+const LOCAL = { id: "i-1", name: "local", baseUrl: "http://localhost:31415", token: "jwt-1" };
 
 describe("instance storage", () => {
   it("reads an empty list when nothing is stored", () => {
-    expect(loadInstanceStore()).toEqual({ instances: [], defaultId: null });
+    expect(loadInstances()).toEqual([]);
   });
 
   it("reads an empty list when the stored data is corrupt", () => {
     window.localStorage.setItem("kanthord.instances", "{not json");
-    expect(loadInstanceStore()).toEqual({ instances: [], defaultId: null });
+    expect(loadInstances()).toEqual([]);
   });
 
-  it("reads back what it saved", () => {
-    saveInstanceStore({ instances: [LOCAL], defaultId: "i-1" });
-    expect(loadInstanceStore()).toEqual({ instances: [LOCAL], defaultId: "i-1" });
+  it("reads back what it saved, token included", () => {
+    saveInstances([LOCAL]);
+    expect(loadInstances()).toEqual([LOCAL]);
   });
 
-  it("drops a default that names no stored instance", () => {
-    saveInstanceStore({ instances: [LOCAL], defaultId: "i-gone" });
-    expect(loadInstanceStore()).toEqual({ instances: [LOCAL], defaultId: null });
-  });
-
-  it("drops an entry that is not an instance", () => {
+  it("drops an entry that is not a saved instance", () => {
     window.localStorage.setItem(
       "kanthord.instances",
-      JSON.stringify({ instances: [LOCAL, { id: 7 }], defaultId: null }),
+      JSON.stringify({
+        instances: [LOCAL, { id: 7 }, { id: "i-2", name: "old", baseUrl: "http://old" }],
+      }),
     );
-    expect(loadInstanceStore().instances).toEqual([LOCAL]);
+    expect(loadInstances()).toEqual([LOCAL]);
   });
 });

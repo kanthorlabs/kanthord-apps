@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setConnection } from "@/api/client";
 import { ApiError } from "@/api/errors";
-import { verifyHumanToken } from "@/api/resources/gateway";
+import { readLiveness, verifyHumanToken } from "@/api/resources/gateway";
 import { SessionProvider, useSession } from "@/features/auth/session/session-context";
 import { LoginScreen } from "./login-screen";
 
@@ -18,17 +18,29 @@ vi.mock("@/api/client", () => ({
 }));
 
 const verifyMock = vi.mocked(verifyHumanToken);
+const livenessMock = vi.mocked(readLiveness);
 const setConnectionMock = vi.mocked(setConnection);
 
-const LOCAL = { id: "i-local", name: "local", baseUrl: "http://localhost:31415" };
-const STAGING = { id: "i-staging", name: "staging", baseUrl: "https://kd.example.com" };
+const LOCAL = {
+  id: "i-local",
+  name: "local",
+  baseUrl: "http://localhost:31415",
+  token: "jwt-local",
+};
+const STAGING = {
+  id: "i-staging",
+  name: "staging",
+  baseUrl: "https://kd.example.com",
+  token: "jwt-staging",
+};
 const IDENTITY = { kind: "human", sub: "kanthorlabs", name: "Ulrich" } as const;
 
-function seed(defaultId: string | null) {
-  window.localStorage.setItem(
-    "kanthord.instances",
-    JSON.stringify({ instances: [LOCAL, STAGING], defaultId }),
-  );
+function seed(...instances: (typeof LOCAL)[]) {
+  window.localStorage.setItem("kanthord.instances", JSON.stringify({ instances }));
+}
+
+function stored(): unknown {
+  return JSON.parse(window.localStorage.getItem("kanthord.instances") ?? "null");
 }
 
 function SignedIn() {
@@ -44,123 +56,241 @@ function mount() {
   );
 }
 
+function form() {
+  return screen.getByRole("form", { name: "Login" });
+}
+
+function row(name: string) {
+  return within(screen.getByRole("list", { name: "Saved instances" }))
+    .getAllByRole("listitem")
+    .find((item) => within(item).queryByText(name) !== null) as HTMLElement;
+}
+
+async function fill(endpoint: string, token: string, name = "") {
+  if (name !== "") await userEvent.type(within(form()).getByLabelText("Name"), name);
+  await userEvent.type(within(form()).getByLabelText("Endpoint"), endpoint);
+  await userEvent.type(within(form()).getByLabelText("JWT token"), token);
+}
+
 describe("LoginScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("preselects the default instance and fills the Instance field", () => {
-    seed(STAGING.id);
+  it("renders the form and the list on one page with no dialog", () => {
+    seed(LOCAL);
     mount();
 
-    expect(screen.getByRole("combobox", { name: "KanthorD instance" })).toHaveTextContent(
-      "staging",
-    );
-    expect(screen.getByLabelText("Instance")).toHaveValue("https://kd.example.com");
+    expect(form()).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Saved instances" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("fills the Instance field from the selected instance", async () => {
-    seed(STAGING.id);
+  it("disables Verify and Login until the endpoint and the token are filled", async () => {
     mount();
 
-    await userEvent.click(screen.getByRole("combobox", { name: "KanthorD instance" }));
-    await userEvent.click(await screen.findByRole("option", { name: "local" }));
+    const verify = within(form()).getByRole("button", { name: "Verify" });
+    const login = within(form()).getByRole("button", { name: "Login" });
+    expect(verify).toBeDisabled();
+    expect(login).toBeDisabled();
 
-    expect(screen.getByLabelText("Instance")).toHaveValue("http://localhost:31415");
-  });
+    await userEvent.type(within(form()).getByLabelText("Endpoint"), "http://localhost:31415");
+    expect(login).toBeDisabled();
+    await userEvent.type(within(form()).getByLabelText("JWT token"), "jwt-1");
 
-  it("names what is missing before sign in is possible", () => {
-    seed(null);
-    mount();
-
-    expect(screen.getByRole("button", { name: "Sign in" })).toBeDisabled();
-    expect(screen.getByText("Select an instance to sign in to.")).toBeTruthy();
-    const token = screen.getByLabelText("JWT token");
-    expect(token).toHaveAccessibleDescription(
-      expect.stringMatching(/^Generate a human token with kanthord jwt generate/),
-    );
-    expect(token).toHaveAccessibleDescription(expect.stringContaining("Paste a token to sign in."));
+    expect(verify).toBeEnabled();
+    expect(login).toBeEnabled();
   });
 
   it("takes the token as a hidden field with no autocomplete", () => {
-    seed(LOCAL.id);
     mount();
 
-    const token = screen.getByLabelText("JWT token");
+    const token = within(form()).getByLabelText("JWT token");
     expect(token).toHaveAttribute("type", "password");
     expect(token).toHaveAttribute("autocomplete", "off");
   });
 
-  it("signs in with the selected instance and the pasted token", async () => {
-    seed(LOCAL.id);
+  it("verifies the endpoint of the form with the liveness check", async () => {
+    livenessMock.mockResolvedValue({ healthy: true, services: {} });
+    mount();
+
+    await fill("http://localhost:31415/", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+
+    expect(livenessMock).toHaveBeenCalledWith("http://localhost:31415");
+    expect(await within(form()).findByText("Reachable")).toBeInTheDocument();
+  });
+
+  it("logs in and saves the instance named after its endpoint", async () => {
     verifyMock.mockResolvedValue(IDENTITY);
     mount();
 
-    await userEvent.type(screen.getByLabelText("JWT token"), "jwt-1");
-    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await fill("http://localhost:31415/", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Login" }));
 
-    expect(await screen.findByText("Signed in as Ulrich")).toBeTruthy();
+    expect(await screen.findByText("Signed in as Ulrich")).toBeInTheDocument();
     expect(verifyMock).toHaveBeenCalledWith("http://localhost:31415", "jwt-1");
     expect(setConnectionMock).toHaveBeenCalledWith({
       baseUrl: "http://localhost:31415",
       token: "jwt-1",
     });
-    expect(JSON.parse(window.sessionStorage.getItem("kanthord.session") ?? "null")).toEqual({
-      instance: LOCAL,
-      token: "jwt-1",
-      identity: IDENTITY,
+    expect(stored()).toEqual({
+      instances: [
+        {
+          id: expect.any(String),
+          name: "http://localhost:31415",
+          baseUrl: "http://localhost:31415",
+          token: "jwt-1",
+        },
+      ],
     });
   });
 
-  it("explains a refused token", async () => {
-    seed(LOCAL.id);
+  it("updates the saved instance that already uses the endpoint", async () => {
+    seed(LOCAL, STAGING);
+    verifyMock.mockResolvedValue(IDENTITY);
+    mount();
+
+    await fill("http://localhost:31415", "jwt-new", "dev");
+    await userEvent.click(within(form()).getByRole("button", { name: "Login" }));
+
+    await screen.findByText("Signed in as Ulrich");
+    expect(stored()).toEqual({ instances: [{ ...LOCAL, name: "dev", token: "jwt-new" }, STAGING] });
+  });
+
+  it("explains a refused token and saves nothing", async () => {
     verifyMock.mockRejectedValue(new ApiError("unauthorized", "Unauthorized.", 401));
     mount();
 
-    await userEvent.type(screen.getByLabelText("JWT token"), "machine-jwt");
-    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await fill("http://localhost:31415", "machine-jwt");
+    await userEvent.click(within(form()).getByRole("button", { name: "Login" }));
 
     expect(
       await screen.findByText(
         "The instance refused the token. Use a human token from kanthord jwt generate.",
       ),
-    ).toBeTruthy();
-    expect(window.sessionStorage.getItem("kanthord.session")).toBeNull();
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem("kanthord.instances")).toBeNull();
     expect(setConnectionMock).not.toHaveBeenCalled();
   });
 
   it("explains an instance that does not answer", async () => {
-    seed(LOCAL.id);
     verifyMock.mockRejectedValue(new ApiError("unreachable", "The daemon did not answer.", 0));
     mount();
 
-    await userEvent.type(screen.getByLabelText("JWT token"), "jwt-1");
-    await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Login" }));
 
     expect(
       await screen.findByText(
         `The instance did not answer. Its configured origins may not include this dashboard origin, ${window.location.origin}.`,
       ),
-    ).toBeTruthy();
+    ).toBeInTheDocument();
   });
 
-  it("opens the instance manager from the empty state", async () => {
+  it("signs in with the saved token from a tap on the instance", async () => {
+    seed(LOCAL, STAGING);
+    verifyMock.mockResolvedValue(IDENTITY);
     mount();
 
-    expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Add an instance" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sign in to staging" }));
 
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByLabelText("Name")).toBeTruthy();
-    expect(within(dialog).queryByRole("button", { name: "Add instance" })).toBeNull();
+    expect(await screen.findByText("Signed in as Ulrich")).toBeInTheDocument();
+    expect(verifyMock).toHaveBeenCalledWith("https://kd.example.com", "jwt-staging");
   });
 
-  it("opens the list from Manage instances", async () => {
+  it("shows a refused saved token on its row", async () => {
+    seed(LOCAL);
+    verifyMock.mockRejectedValue(new ApiError("unauthorized", "Unauthorized.", 401));
     mount();
 
-    await userEvent.click(screen.getByRole("button", { name: "Manage instances" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sign in to local" }));
 
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole("button", { name: "Add instance" })).toBeTruthy();
+    expect(
+      await within(row("local")).findByText(
+        "The instance refused the token. Use a human token from kanthord jwt generate.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("verifies a saved instance with the liveness check", async () => {
+    seed(LOCAL);
+    livenessMock.mockResolvedValue({ healthy: true, services: {} });
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Verify local" }));
+
+    expect(livenessMock).toHaveBeenCalledWith("http://localhost:31415");
+    expect(await within(row("local")).findByText("Reachable")).toBeInTheDocument();
+  });
+
+  it("asks before it deletes and keeps the instance on Keep", async () => {
+    seed(LOCAL, STAGING);
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete local" }));
+    expect(within(row("local")).getByRole("alert")).toHaveTextContent(
+      "Delete local? This browser forgets its endpoint and token.",
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Keep" }));
+    expect(stored()).toEqual({ instances: [LOCAL, STAGING] });
+    expect(screen.getByRole("button", { name: "Delete local" })).toBeInTheDocument();
+  });
+
+  it("deletes the instance after the confirmation", async () => {
+    seed(LOCAL, STAGING);
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete local" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete instance" }));
+
+    expect(stored()).toEqual({ instances: [STAGING] });
+    expect(screen.queryByRole("button", { name: "Sign in to local" })).toBeNull();
+  });
+
+  it("edits a saved instance inline", async () => {
+    seed(LOCAL, STAGING);
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit local" }));
+    const editor = screen.getByRole("form", { name: "Edit local" });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const name = within(editor).getByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "dev");
+    await userEvent.click(within(editor).getByRole("button", { name: "Save" }));
+
+    expect(stored()).toEqual({ instances: [{ ...LOCAL, name: "dev" }, STAGING] });
+    expect(screen.getByRole("button", { name: "Sign in to dev" })).toBeInTheDocument();
+  });
+
+  it("refuses an edit that takes the endpoint of another instance", async () => {
+    seed(LOCAL, STAGING);
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit local" }));
+    const editor = screen.getByRole("form", { name: "Edit local" });
+    const endpoint = within(editor).getByLabelText("Endpoint");
+    await userEvent.clear(endpoint);
+    await userEvent.type(endpoint, "https://kd.example.com");
+    await userEvent.click(within(editor).getByRole("button", { name: "Save" }));
+
+    expect(
+      within(editor).getByText("The instance staging already uses this URL."),
+    ).toBeInTheDocument();
+    expect(stored()).toEqual({ instances: [LOCAL, STAGING] });
+  });
+
+  it("closes the editor on Cancel without a change", async () => {
+    seed(LOCAL);
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit local" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("form", { name: "Edit local" })).toBeNull();
+    expect(stored()).toEqual({ instances: [LOCAL] });
   });
 });

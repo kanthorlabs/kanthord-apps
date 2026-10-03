@@ -1,13 +1,26 @@
-import type { Instance } from "./instance-storage";
+import type { Instance, SavedInstance } from "./instance-storage";
 
 export interface InstanceDraft {
   readonly name: string;
   readonly baseUrl: string;
+  readonly token: string;
 }
 
 export interface InstanceErrors {
   readonly name?: string;
   readonly baseUrl?: string;
+  readonly token?: string;
+}
+
+export type InstanceFields = Omit<SavedInstance, "id">;
+
+export interface Validated {
+  readonly errors: InstanceErrors | null;
+  readonly fields: InstanceFields | null;
+}
+
+export interface ValidatedSignIn extends Validated {
+  readonly id: string | null;
 }
 
 export const INVALID_BASE_URL =
@@ -25,11 +38,9 @@ export function normalizeBaseUrl(raw: string): string | null {
 }
 
 function nameError(name: string, others: readonly Instance[]): string | undefined {
-  const trimmed = name.trim();
-  if (trimmed === "") return "Type a name.";
-  const key = trimmed.toLowerCase();
+  const key = name.toLowerCase();
   if (others.some((instance) => instance.name.toLowerCase() === key)) {
-    return `Another instance is already named ${trimmed}.`;
+    return `Another instance is already named ${name}.`;
   }
   return undefined;
 }
@@ -41,13 +52,38 @@ function baseUrlError(baseUrl: string | null, others: readonly Instance[]): stri
   return undefined;
 }
 
-export function validateDraft(
-  draft: InstanceDraft,
-  others: readonly Instance[],
-): { readonly errors: InstanceErrors | null; readonly baseUrl: string | null } {
+function validate(draft: InstanceDraft, others: readonly Instance[]): Validated {
   const baseUrl = normalizeBaseUrl(draft.baseUrl);
-  const name = nameError(draft.name, others);
-  const url = baseUrlError(baseUrl, others);
-  const errors = name === undefined && url === undefined ? null : { name, baseUrl: url };
-  return { errors, baseUrl };
+  const name = draft.name.trim() === "" ? (baseUrl ?? "") : draft.name.trim();
+  const token = draft.token.trim();
+  const errors: InstanceErrors = {
+    name: baseUrl === null ? undefined : nameError(name, others),
+    baseUrl: baseUrlError(baseUrl, others),
+    token: token === "" ? "Paste a token." : undefined,
+  };
+  if (errors.name !== undefined || errors.baseUrl !== undefined || errors.token !== undefined) {
+    return { errors, fields: null };
+  }
+  return { errors: null, fields: { name, baseUrl: baseUrl ?? "", token } };
+}
+
+export function validateEdit(
+  draft: InstanceDraft,
+  instances: readonly Instance[],
+  id: string,
+): Validated {
+  return validate(
+    draft,
+    instances.filter((instance) => instance.id !== id),
+  );
+}
+
+export function validateSignIn(
+  draft: InstanceDraft,
+  instances: readonly Instance[],
+): ValidatedSignIn {
+  const baseUrl = normalizeBaseUrl(draft.baseUrl);
+  const twin = instances.find((instance) => instance.baseUrl === baseUrl) ?? null;
+  const others = instances.filter((instance) => instance !== twin);
+  return { ...validate(draft, others), id: twin?.id ?? null };
 }
