@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,5 +42,38 @@ describe("DataListItem", () => {
     expect(screen.getByRole("listitem")).toHaveTextContent("Write the release notes");
     expect(screen.queryByRole("term")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("renders the notice inside the item", () => {
+    render(<DataListItem title="local" notice={<p>The instance did not answer.</p>} />);
+
+    expect(screen.getByRole("listitem")).toHaveTextContent("The instance did not answer.");
+  });
+
+  it("turns the title into the select control of the item", async () => {
+    const onSelect = vi.fn();
+    render(
+      <DataListItem
+        title="local"
+        select={{ label: "Sign in to local", disabled: false, onSelect }}
+        actions={<Button size="sm">Edit</Button>}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Sign in to local" }));
+
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+  });
+
+  it("disables the select control on request", () => {
+    render(
+      <DataListItem
+        title="local"
+        select={{ label: "Sign in to local", disabled: true, onSelect: () => undefined }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Sign in to local" })).toBeDisabled();
   });
 });
