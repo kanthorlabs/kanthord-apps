@@ -559,3 +559,284 @@ export interface BindingSetWriteResult {
     readonly bindingId: string;
   }[];
 }
+
+export type MissionActor =
+  | { readonly kind: "human"; readonly account: string; readonly name: string }
+  | {
+      readonly kind: "execution";
+      readonly executionId: string;
+      readonly clientId: string | null;
+      readonly name: string | null;
+    }
+  | {
+      readonly kind: "service";
+      readonly service: "scheduler" | "mission";
+      readonly inbound_event_id?: string;
+    };
+
+export interface MissionContent {
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+  readonly verifications: readonly string[];
+  readonly bindings: readonly string[];
+}
+
+export type MissionAssessmentResult = "success" | "criterion-not-met" | "undetermined";
+
+export type MissionClosingEvent =
+  | "success-override"
+  | "human-discard"
+  | "human-block"
+  | "assessment-not-passed"
+  | "external-failed"
+  | "assessment-passed"
+  | "external-success";
+
+export interface MissionRepositoryAddress {
+  readonly kind: "repository";
+  readonly bindingId: string;
+  readonly commit: string;
+}
+
+export interface MissionProducedAddress {
+  readonly kind: "produced";
+  readonly sha256: string;
+}
+
+export interface MissionObjectAddress {
+  readonly kind: "object";
+  readonly location: string;
+  readonly version?: string;
+  readonly sha256?: string;
+}
+
+export type MissionPlatformAddress =
+  | { readonly kind: "pull_request"; readonly resourceIdentity: string; readonly number: number }
+  | {
+      readonly kind: "branch_push";
+      readonly resourceIdentity: string;
+      readonly branch: string;
+      readonly commit: string;
+    };
+
+export type MissionAddress =
+  MissionRepositoryAddress | MissionProducedAddress | MissionObjectAddress;
+
+export type MissionTestedInput = MissionAddress | readonly MissionRepositoryAddress[];
+
+export interface MissionVerification {
+  readonly testedInput: MissionTestedInput;
+  readonly results: readonly {
+    readonly command: string;
+    readonly exitCode: number | null;
+    readonly signal: string | null;
+    readonly timedOut: boolean;
+  }[];
+}
+
+interface MissionAssetBase {
+  readonly id: string;
+  readonly publishedAt: number | null;
+  readonly expiredAt: number | null;
+}
+
+export type MissionEvidenceAsset =
+  | (MissionAssetBase & { readonly kind: "repository"; readonly address: MissionRepositoryAddress })
+  | (MissionAssetBase & { readonly kind: "produced"; readonly address: MissionProducedAddress })
+  | (MissionAssetBase & {
+      readonly kind: "object";
+      readonly address: MissionObjectAddress;
+      readonly storageBindingId: string;
+      readonly size: number;
+      readonly mediaType: string;
+    })
+  | (MissionAssetBase & { readonly kind: "platform"; readonly address: MissionPlatformAddress });
+
+export interface MissionEvidence {
+  readonly id: string;
+  readonly nodeId: string;
+  readonly attempt: number;
+  readonly subject: string;
+  readonly assets: readonly MissionEvidenceAsset[];
+  readonly provenance: MissionActor;
+  readonly createdAt: number;
+  readonly requirementKey?: string;
+  readonly endState?: "expected" | "other";
+  readonly verification?: MissionVerification;
+}
+
+export interface MissionCurrency {
+  readonly current: boolean;
+  readonly contextMatches: boolean;
+  readonly authorityAdmits: boolean;
+  readonly orderSelected: boolean;
+  readonly reasons: readonly string[];
+}
+
+export interface MissionAssessment {
+  readonly id: string;
+  readonly nodeId: string;
+  readonly executionId: string | null;
+  readonly attempt: number;
+  readonly nodeRevision: number;
+  readonly evidenceIds: readonly string[];
+  readonly childOutcomeIds: readonly string[];
+  readonly result: MissionAssessmentResult;
+  readonly rationale: string;
+  readonly testedInput: MissionTestedInput | null;
+  readonly actor: MissionActor;
+  readonly createdAt: number;
+  readonly currency: MissionCurrency | null;
+  readonly childNodeIds: readonly string[];
+  readonly workerVersion: string | null;
+}
+
+export interface MissionOutcome {
+  readonly id: string;
+  readonly nodeId: string;
+  readonly attempt: number;
+  readonly nodeRevision: number;
+  readonly closingEvent: MissionClosingEvent;
+  readonly result: MissionAssessmentResult;
+  readonly assessmentId: string;
+  readonly evidenceIds: readonly string[];
+  readonly createdAt: number;
+}
+
+export interface FrozenAction {
+  readonly key: string;
+  readonly bindingId: string;
+  readonly action: RepositoryActionName;
+  readonly expectedEndState: "pull_request_merged" | "base_branch_pushed";
+  readonly follows: string | null;
+  readonly configuration: { readonly baseBranch: string };
+}
+
+export interface MissionAttempt {
+  readonly nodeId: string;
+  readonly attempt: number;
+  readonly nodeRevision: number;
+  readonly requiredExternalActions: readonly FrozenAction[];
+  readonly openedAt: number;
+  readonly closedAt: number | null;
+  readonly outcomeIds: readonly string[];
+  readonly openedBy: MissionActor;
+}
+
+export interface MissionExternalAction {
+  readonly nodeId: string;
+  readonly attempt: number;
+  readonly action: FrozenAction;
+  readonly requested: boolean;
+  readonly requestEvidenceId: string | null;
+  readonly resolution: "unrequested" | "unresolved" | "expected-end" | "other-end";
+}
+
+export interface MissionBlockedContext {
+  readonly outcome: MissionOutcome;
+  readonly requests: readonly MissionEvidence[];
+}
+
+interface MissionNodeBase {
+  readonly id: string;
+  readonly filename: string;
+  readonly missionId: string;
+  readonly parentId: string | null;
+  readonly visibleRevision: number;
+  readonly content: MissionContent;
+  readonly retiredAt: number | null;
+  readonly pinnedByAttempts: readonly number[];
+}
+
+export interface MissionRunnableNode extends MissionNodeBase {
+  readonly kind: "initiative" | "objective";
+  readonly state: NodeState;
+  readonly attempt: number;
+  readonly priority: number;
+  readonly blockedContext?: MissionBlockedContext;
+}
+
+export interface MissionTaskNode extends MissionNodeBase {
+  readonly kind: "task";
+}
+
+export type MissionNodeRecord = MissionRunnableNode | MissionTaskNode;
+
+export type MissionEdge =
+  | { readonly kind: "containment"; readonly parentId: string; readonly childId: string }
+  | { readonly kind: "dependency"; readonly dependentId: string; readonly dependsOnId: string };
+
+export type MissionRevisionWrite =
+  | "import"
+  | "node.create"
+  | "node.update"
+  | "node.move"
+  | "node.retire"
+  | "node.rebind"
+  | "criterion.set"
+  | "unblock";
+
+export interface MissionTaskContent {
+  readonly id: string;
+  readonly filename: string;
+  readonly content: MissionContent;
+}
+
+export interface MissionRevision {
+  readonly nodeId: string;
+  readonly filename: string;
+  readonly revision: number;
+  readonly reason: string;
+  readonly actor: MissionActor;
+  readonly createdAt: number;
+  readonly content: MissionContent;
+  readonly tasks?: readonly MissionTaskContent[];
+  readonly change: {
+    readonly write: MissionRevisionWrite;
+    readonly previousRevision: number | null;
+    readonly changedFields: readonly string[];
+    readonly tasks?: readonly {
+      readonly id: string;
+      readonly change: "created" | "updated" | "moved-in" | "moved-out" | "retired";
+      readonly changedFields: readonly string[];
+    }[];
+  };
+  readonly pinnedByAttempts: readonly number[];
+}
+
+export interface ProjectBindingRecord {
+  readonly id: string;
+  readonly projectId: string;
+  readonly name: string;
+  readonly kind: BindingSetKind;
+  readonly resourceIdentity: string;
+  readonly revision: number;
+  readonly config: unknown;
+  readonly createdAt: number;
+  readonly removedAt: number | null;
+}
+
+export type ClaimState = "running" | "lost" | "finished";
+
+export interface SchedulerExecutionRecord {
+  readonly executionId: string;
+  readonly projectId: string;
+  readonly nodeId: string;
+  readonly claimant: {
+    readonly workerBindingId: string;
+    readonly resourceIdentity: string;
+    readonly runtimeIdentity: string;
+    readonly clientId?: string;
+    readonly name?: string;
+  };
+  readonly attempt: number;
+  readonly pinnedRevision: number;
+  readonly credentials: readonly string[];
+  readonly claimState: ClaimState;
+  readonly expiredAt: number;
+  readonly createdAt: number;
+  readonly endedAt: number | null;
+  readonly traceId: string;
+  readonly rootSpanId: string;
+}

@@ -9,6 +9,7 @@ import type {
   Page,
   PermittedClientIdentity,
   Project,
+  ProjectBindingRecord,
 } from "../types";
 
 const PROJECT_PAGE_LIMIT = 1000;
@@ -112,5 +113,14 @@ export async function writeBindingSet(
   return request<BindingSetWriteResult>(
     `/api/project/${encodeURIComponent(projectId)}/binding-set`,
     { method: "PUT", body: { version, bindings }, headers: { "idempotency-key": newUlid() } },
+  );
+}
+
+export async function readBinding(
+  projectId: string,
+  bindingId: string,
+): Promise<ProjectBindingRecord> {
+  return request<ProjectBindingRecord>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}`,
   );
 }

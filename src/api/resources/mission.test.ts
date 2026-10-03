@@ -7,8 +7,12 @@ import { setConnection } from "../client";
 import {
   applyMissionImport,
   exportMissionJson,
+  listMissionDependencies,
+  listMissionNodes,
+  listNodeEvidence,
   previewMissionImport,
   readMission,
+  readNodeRevision,
 } from "./mission";
 
 let server: Server | null = null;
@@ -91,5 +95,35 @@ describe("mission plan resources", () => {
       confirmedRetirements: ["node_1"],
     });
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+  });
+});
+
+describe("mission graph resources", () => {
+  it("reads every node of a mission through mission.node.list", async () => {
+    await serve({ items: [], nextCursor: null });
+
+    await listMissionNodes("mission_1");
+    expect(seen[0]?.req.url).toBe("/api/mission/mission_1/node?limit=1000");
+  });
+
+  it("reads only the dependency edges through mission.edge.list", async () => {
+    await serve({ items: [], nextCursor: null });
+
+    await listMissionDependencies("mission_1");
+    expect(seen[0]?.req.url).toBe("/api/mission/mission_1/edge?kind=dependency&limit=1000");
+  });
+
+  it("reads the evidence of one attempt through mission.evidence.list", async () => {
+    await serve({ items: [], nextCursor: null });
+
+    await listNodeEvidence("node_1", 2);
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/evidence?attempt=2&limit=1000");
+  });
+
+  it("reads one revision through mission.node.revision.get", async () => {
+    await serve({});
+
+    await readNodeRevision("node_1", 3);
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/revision/3");
   });
 });
