@@ -137,7 +137,11 @@ describe("LoginScreen", () => {
     await userEvent.type(screen.getByLabelText("JWT token"), "jwt-1");
     await userEvent.click(screen.getByRole("button", { name: "Sign in" }));
 
-    expect(await screen.findByText("The instance did not answer.")).toBeTruthy();
+    expect(
+      await screen.findByText(
+        `The instance did not answer. Its configured origins may not include this dashboard origin, ${window.location.origin}.`,
+      ),
+    ).toBeTruthy();
   });
 
   it("opens the instance manager from the empty state", async () => {
