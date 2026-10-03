@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -104,11 +104,12 @@ describe("AppShell", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("The daemon did not answer.");
   });
 
-  it("names the signed-in human and the instance in the sidebar footer", () => {
+  it("names the signed-in human and the instance in the topbar", () => {
     mount();
 
-    expect(screen.getByText("Ulrich")).toBeTruthy();
-    expect(screen.getByText("local")).toBeTruthy();
+    const topbar = screen.getByRole("banner");
+    expect(within(topbar).getByText("Ulrich")).toBeTruthy();
+    expect(within(topbar).getByText("local")).toBeTruthy();
   });
 
   it("signs out from the sidebar footer", async () => {
