@@ -16,8 +16,20 @@ vi.mock("@/api/client", () => ({
   setConnection: vi.fn(),
 }));
 
+const PROJECT = { id: "prj-1", name: "kanthord", bindingSetVersion: 1, createdAt: 1 };
+
+const projectState = vi.hoisted(() => ({
+  value: {
+    projects: [] as unknown[],
+    project: null as unknown,
+    select: () => undefined,
+    loading: false,
+    error: null as string | null,
+  },
+}));
+
 vi.mock("@/features/projects/project-context", () => ({
-  useProject: () => ({ projects: [], project: null, select: () => undefined }),
+  useProject: () => projectState.value,
 }));
 
 const STORED = {
@@ -44,6 +56,41 @@ describe("AppShell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     window.sessionStorage.setItem("kanthord.session", JSON.stringify(STORED));
+    projectState.value = {
+      projects: [PROJECT],
+      project: PROJECT,
+      select: () => undefined,
+      loading: false,
+      error: null,
+    };
+  });
+
+  it("renders the screen when a project is selected", () => {
+    mount();
+
+    expect(screen.getByText("Overview body")).toBeTruthy();
+  });
+
+  it("explains an instance that holds no project", () => {
+    projectState.value = { ...projectState.value, projects: [], project: null };
+    mount();
+
+    expect(screen.queryByText("Overview body")).toBeNull();
+    expect(screen.getByText("No projects")).toBeTruthy();
+    expect(screen.getByText("kanthord project create")).toBeTruthy();
+  });
+
+  it("reports a project list that failed", () => {
+    projectState.value = {
+      ...projectState.value,
+      projects: [],
+      project: null,
+      error: "The daemon did not answer.",
+    };
+    mount();
+
+    expect(screen.queryByText("Overview body")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("The daemon did not answer.");
   });
 
   it("names the signed-in human and the instance in the sidebar footer", () => {

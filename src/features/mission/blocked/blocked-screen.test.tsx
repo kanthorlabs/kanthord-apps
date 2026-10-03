@@ -32,7 +32,7 @@ import { listBlocked, listNodes } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
 import { BlockedScreen } from "./blocked-screen";
 
-const PROJECT = { id: "prj-1", name: "Test", missionRevision: "mr-1" };
+const PROJECT = { id: "prj-1", name: "Test", bindingSetVersion: 1, createdAt: 1 };
 
 const BASE_NODE: MissionNode = {
   id: "node-blocked",

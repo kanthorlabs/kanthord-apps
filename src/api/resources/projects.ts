@@ -1,8 +1,19 @@
 import { request } from "../client";
-import type { Binding, Overview, PermittedClientIdentity, Project } from "../types";
+import type { Binding, Overview, Page, PermittedClientIdentity, Project } from "../types";
+
+const PROJECT_PAGE_LIMIT = 1000;
 
 export async function listProjects(): Promise<readonly Project[]> {
-  return request<readonly Project[]>("/v1/projects");
+  const projects: Project[] = [];
+  let cursor: string | null = null;
+  do {
+    const query = new URLSearchParams({ limit: String(PROJECT_PAGE_LIMIT) });
+    if (cursor !== null) query.set("cursor", cursor);
+    const page: Page<Project> = await request<Page<Project>>(`/api/project?${query}`);
+    projects.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor !== null);
+  return projects;
 }
 
 export async function readOverview(projectId: string): Promise<Overview> {

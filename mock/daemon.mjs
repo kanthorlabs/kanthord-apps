@@ -96,7 +96,9 @@ on("GET", /^\/api\/auth\/verify$/, (_m, _b, res) =>
   json(res, 200, { kind: "human", sub: USERNAME, name: "Kanthor Labs" }),
 );
 
-on("GET", /^\/v1\/projects$/, (_m, _b, res) => json(res, 200, [fx.PROJECT]));
+on("GET", /^\/api\/project$/, (_m, _b, res) =>
+  json(res, 200, { items: [fx.PROJECT], nextCursor: null }),
+);
 
 on("GET", /^\/v1\/workers\/templates$/, (_m, _b, res) => json(res, 200, fx.TEMPLATES));
 

@@ -4,7 +4,9 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useSession } from "@/features/auth/session/session-context";
 import { useProject } from "@/features/projects/project-context";
 import { NAV_GROUPS, NAV_ITEMS } from "./app-nav";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Separator } from "./ui/separator";
 import {
@@ -38,7 +40,7 @@ function isActive(pathname: string, to: string): boolean {
 
 export function AppShell() {
   const { session, signOut } = useSession();
-  const { projects, project, select } = useProject();
+  const { projects, project, select, loading, error } = useProject();
   const { pathname } = useLocation();
 
   return (
@@ -140,7 +142,24 @@ export function AppShell() {
           </div>
         </header>
         <div className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">
-          <Outlet />
+          {project !== null ? (
+            <Outlet />
+          ) : loading ? null : error !== null ? (
+            <Alert variant="destructive">
+              <AlertTitle>The projects could not be read</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          ) : (
+            <Empty>
+              <EmptyHeader>
+                <EmptyTitle>No projects</EmptyTitle>
+                <EmptyDescription>
+                  This instance holds no project. Create one with{" "}
+                  <code>kanthord project create</code>.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          )}
         </div>
       </SidebarInset>
     </SidebarProvider>

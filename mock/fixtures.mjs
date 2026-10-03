@@ -1,7 +1,12 @@
 const now = Date.now();
 const at = (minutesAgo) => new Date(now - minutesAgo * 60_000).toISOString();
 
-export const PROJECT = { id: "prj-kanthord", name: "kanthord", missionRevision: "mr-118" };
+export const PROJECT = {
+  id: "prj-kanthord",
+  name: "kanthord",
+  bindingSetVersion: 1,
+  createdAt: now,
+};
 
 const criterion = (id, text) => ({ id, text });
 

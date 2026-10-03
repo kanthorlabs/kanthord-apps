@@ -83,10 +83,16 @@ export interface LivenessReport {
   readonly services: ServiceMaps;
 }
 
+export interface Page<T> {
+  readonly items: readonly T[];
+  readonly nextCursor: string | null;
+}
+
 export interface Project {
   readonly id: string;
   readonly name: string;
-  readonly missionRevision: string;
+  readonly bindingSetVersion: number;
+  readonly createdAt: number;
 }
 
 export interface ValidationCriterion {
