@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { duration, percent, relativeTime } from "./format";
+import { duration, percent, relativeTime, utcDateTime } from "./format";
 
 const base = Date.parse("2026-09-18T12:00:00.000Z");
 const iso = (secondsAgo: number) => new Date(base - secondsAgo * 1000).toISOString();
@@ -34,5 +34,11 @@ describe("percent", () => {
 
   it("reads zero against no budget", () => {
     expect(percent(5, 0)).toBe(0);
+  });
+});
+
+describe("utcDateTime", () => {
+  it("renders a millisecond time as a UTC minute", () => {
+    expect(utcDateTime(Date.UTC(2026, 9, 3, 14, 5, 59))).toBe("2026-10-03 14:05 UTC");
   });
 });

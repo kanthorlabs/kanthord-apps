@@ -26,6 +26,7 @@ const HEALTHY_SERVICES = {
   mission: { operations: 200 },
 };
 const nodes = structuredClone(fx.NODES);
+const projects = [structuredClone(fx.PROJECT)];
 const bindings = structuredClone(fx.BINDINGS);
 
 const byId = (id) => nodes.find((n) => n.id === id);
@@ -66,8 +67,8 @@ const json = (res, status, body) => {
     "content-type": "application/json",
     "access-control-allow-origin": ORIGIN,
     vary: "origin",
-    "access-control-allow-headers": "authorization,content-type,accept",
-    "access-control-allow-methods": "GET,POST,PUT,OPTIONS",
+    "access-control-allow-headers": "authorization,content-type,accept,idempotency-key",
+    "access-control-allow-methods": "GET,POST,PUT,PATCH,OPTIONS",
     "cache-control": "no-store",
   });
   res.end(body === null ? "" : JSON.stringify(body));
@@ -96,9 +97,79 @@ on("GET", /^\/api\/auth\/verify$/, (_m, _b, res) =>
   json(res, 200, { kind: "human", sub: USERNAME, name: "Kanthor Labs" }),
 );
 
-on("GET", /^\/api\/project$/, (_m, _b, res) =>
-  json(res, 200, { items: [fx.PROJECT], nextCursor: null }),
-);
+const PROJECT_NAME = /^[a-z][a-z0-9-]{0,62}$/;
+
+const projectEnvelope = (res, status, code, message) =>
+  json(res, status, {
+    error: { code, message, details: null },
+    requestId: "request_01J00000000000000000000000",
+  });
+
+const refuseProjectName = (res, name, selfId) => {
+  if (typeof name !== "string" || !PROJECT_NAME.test(name)) {
+    return projectEnvelope(res, 400, "project.request.invalid", "The project name is invalid.");
+  }
+  if (projects.some((p) => p.name === name && p.id !== selfId)) {
+    return projectEnvelope(
+      res,
+      409,
+      "project.name.conflict",
+      "Another project already uses the requested name.",
+    );
+  }
+  return null;
+};
+
+on("GET", /^\/api\/project$/, (_m, _b, res, _t, url) => {
+  const limit = Number(url.searchParams.get("limit") ?? 100);
+  const offset = Number(url.searchParams.get("cursor") ?? 0);
+  const ordered = [...projects].sort((a, b) => (a.id < b.id ? 1 : -1));
+  const items = ordered.slice(offset, offset + limit);
+  const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
+  return json(res, 200, { items, nextCursor });
+});
+
+on("POST", /^\/api\/project$/, (_m, b, res) => {
+  const refused = refuseProjectName(res, b?.name, null);
+  if (refused !== null) return refused;
+  const project = {
+    id: `project_${Date.now().toString(36)}`,
+    name: b.name,
+    bindingSetVersion: 1,
+    createdAt: Date.now(),
+  };
+  projects.push(project);
+  return json(res, 200, project);
+});
+
+on("GET", /^\/api\/project\/([^/]+)$/, (m, _b, res) => {
+  const project = projects.find((p) => p.id === decodeURIComponent(m[1]));
+  if (project === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "project.project.not_found",
+      "The project identity does not exist.",
+    );
+  }
+  return json(res, 200, project);
+});
+
+on("PATCH", /^\/api\/project\/([^/]+)$/, (m, b, res) => {
+  const project = projects.find((p) => p.id === decodeURIComponent(m[1]));
+  if (project === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "project.project.not_found",
+      "The project identity does not exist.",
+    );
+  }
+  const refused = refuseProjectName(res, b?.name, project.id);
+  if (refused !== null) return refused;
+  project.name = b.name;
+  return json(res, 200, project);
+});
 
 on("GET", /^\/v1\/workers\/templates$/, (_m, _b, res) => json(res, 200, fx.TEMPLATES));
 on("GET", /^\/api\/worker\/agent$/, (_m, _b, res) =>

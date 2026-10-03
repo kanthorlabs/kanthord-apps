@@ -1,0 +1,58 @@
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { describe, expect, it, vi } from "vitest";
+
+import { ApiError } from "@/api/errors";
+import * as projectsApi from "@/api/resources/projects";
+import type { Project } from "@/api/types";
+
+vi.mock("@/api/resources/projects");
+
+import { ProjectScreen } from "./project-screen";
+
+const KANTHORD: Project = {
+  id: "project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
+  name: "kanthord",
+  bindingSetVersion: 3,
+  createdAt: Date.UTC(2026, 9, 3, 14, 5),
+};
+
+function mount() {
+  return render(
+    <MemoryRouter initialEntries={[`/projects/${KANTHORD.id}`]}>
+      <Routes>
+        <Route path="/projects/:projectId" element={<ProjectScreen />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("ProjectScreen", () => {
+  it("shows the information of the project in the path", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    mount();
+
+    expect(await screen.findByRole("heading", { name: "kanthord" })).toBeTruthy();
+    expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
+    expect(screen.getByText(KANTHORD.id)).toBeTruthy();
+    expect(screen.getByText("3")).toBeTruthy();
+    expect(screen.getByText("2026-10-03 14:05 UTC")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute(
+      "href",
+      `/projects/${KANTHORD.id}/edit`,
+    );
+  });
+
+  it("reports an unknown project", async () => {
+    vi.mocked(projectsApi.readProject).mockRejectedValue(
+      new ApiError("not_found", "The project identity does not exist.", 404),
+    );
+    mount();
+
+    expect(await screen.findByText("The project identity does not exist.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Back to projects" })).toHaveAttribute(
+      "href",
+      "/projects",
+    );
+  });
+});

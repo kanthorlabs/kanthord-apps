@@ -49,14 +49,14 @@ function failureOf(status: number, body: unknown): ApiError {
 
 export async function request<T>(
   path: string,
-  init: { method?: string; body?: unknown } = {},
+  init: { method?: string; body?: unknown; headers?: Readonly<Record<string, string>> } = {},
   connection?: Connection,
 ): Promise<T> {
   const target = connection ?? current;
   if (target === null) throw new ApiError("unreachable", "No instance is connected.", 0);
 
   const url = joinUrl(target.baseUrl, path);
-  const headers: Record<string, string> = { accept: "application/json" };
+  const headers: Record<string, string> = { ...init.headers, accept: "application/json" };
   if (init.body !== undefined) headers["content-type"] = "application/json";
   if (target.token !== null) headers["authorization"] = `Bearer ${target.token}`;
 

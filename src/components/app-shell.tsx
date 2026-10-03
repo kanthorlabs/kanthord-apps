@@ -7,7 +7,8 @@ import { useSession } from "@/features/auth/session/session-context";
 import { useProject } from "@/features/projects/project-context";
 import { NAV_GROUPS, NAV_ITEMS } from "./app-nav";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
+import { Button } from "./ui/button";
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "./ui/empty";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Separator } from "./ui/separator";
 import {
@@ -33,6 +34,10 @@ function currentLabel(pathname: string): string {
     pathname.startsWith(item.to),
   );
   return prefix?.label ?? "Overview";
+}
+
+function servesWithoutProject(pathname: string): boolean {
+  return pathname === "/projects" || pathname.startsWith("/projects/");
 }
 
 function isActive(pathname: string, to: string): boolean {
@@ -137,7 +142,7 @@ export function AppShell() {
           </div>
         </header>
         <div className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">
-          {project !== null ? (
+          {project !== null || servesWithoutProject(pathname) ? (
             <Outlet />
           ) : loading ? null : error !== null ? (
             <Alert variant="destructive">
@@ -148,11 +153,13 @@ export function AppShell() {
             <Empty>
               <EmptyHeader>
                 <EmptyTitle>No projects</EmptyTitle>
-                <EmptyDescription>
-                  This instance holds no project. Create one with{" "}
-                  <code>kanthord project create</code>.
-                </EmptyDescription>
+                <EmptyDescription>This instance holds no project.</EmptyDescription>
               </EmptyHeader>
+              <EmptyContent>
+                <Button nativeButton={false} render={<NavLink to="/projects/new" />} size="lg">
+                  New project
+                </Button>
+              </EmptyContent>
             </Empty>
           )}
         </div>

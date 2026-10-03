@@ -1,3 +1,4 @@
+import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
 import type { Binding, Overview, Page, PermittedClientIdentity, Project } from "../types";
 
@@ -14,6 +15,33 @@ export async function listProjects(): Promise<readonly Project[]> {
     cursor = page.nextCursor;
   } while (cursor !== null);
   return projects;
+}
+
+export async function listProjectPage(cursor: string | null): Promise<Page<Project>> {
+  const query = new URLSearchParams();
+  if (cursor !== null) query.set("cursor", cursor);
+  const suffix = query.size === 0 ? "" : `?${query}`;
+  return request<Page<Project>>(`/api/project${suffix}`);
+}
+
+export async function readProject(projectId: string): Promise<Project> {
+  return request<Project>(`/api/project/${encodeURIComponent(projectId)}`);
+}
+
+export async function createProject(name: string): Promise<Project> {
+  return request<Project>("/api/project", {
+    method: "POST",
+    body: { name },
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function renameProject(projectId: string, name: string): Promise<Project> {
+  return request<Project>(`/api/project/${encodeURIComponent(projectId)}`, {
+    method: "PATCH",
+    body: { name },
+    headers: { "idempotency-key": newUlid() },
+  });
 }
 
 export async function readOverview(projectId: string): Promise<Overview> {

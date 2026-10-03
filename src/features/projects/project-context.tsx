@@ -10,12 +10,13 @@ interface ProjectValue {
   readonly select: (id: string) => void;
   readonly loading: boolean;
   readonly error: string | null;
+  readonly reload: () => void;
 }
 
 const ProjectContext = createContext<ProjectValue | null>(null);
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const { data, error, loading } = useResource(() => listProjects(), []);
+  const { data, error, loading, reload } = useResource(() => listProjects(), []);
   const [selected, setSelected] = useState<string | null>(null);
 
   const value = useMemo<ProjectValue>(() => {
@@ -27,8 +28,12 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       select: setSelected,
       loading,
       error: error === null ? null : error.message,
+      reload: () => {
+        if (project !== null) setSelected(project.id);
+        reload();
+      },
     };
-  }, [data, selected, loading, error]);
+  }, [data, selected, loading, error, reload]);
 
   return <ProjectContext value={value}>{children}</ProjectContext>;
 }

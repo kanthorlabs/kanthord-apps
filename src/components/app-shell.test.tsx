@@ -25,6 +25,7 @@ const projectState = vi.hoisted(() => ({
     select: () => undefined,
     loading: false,
     error: null as string | null,
+    reload: () => undefined,
   },
 }));
 
@@ -38,13 +39,14 @@ const STORED = {
   identity: { kind: "human", sub: "kanthorlabs", name: "Ulrich" },
 };
 
-function mount() {
+function mount(path = "/") {
   return render(
     <SessionProvider>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<p>Overview body</p>} />
+            <Route path="projects/new" element={<p>New project body</p>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -62,6 +64,7 @@ describe("AppShell", () => {
       select: () => undefined,
       loading: false,
       error: null,
+      reload: () => undefined,
     };
   });
 
@@ -77,7 +80,17 @@ describe("AppShell", () => {
 
     expect(screen.queryByText("Overview body")).toBeNull();
     expect(screen.getByText("No projects")).toBeTruthy();
-    expect(screen.getByText("kanthord project create")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "New project" })).toHaveAttribute(
+      "href",
+      "/projects/new",
+    );
+  });
+
+  it("serves the project pages to an instance that holds no project", () => {
+    projectState.value = { ...projectState.value, projects: [], project: null };
+    mount("/projects/new");
+
+    expect(screen.getByText("New project body")).toBeTruthy();
   });
 
   it("reports a project list that failed", () => {

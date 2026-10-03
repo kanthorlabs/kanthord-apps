@@ -2,11 +2,10 @@ import {
   Activity,
   Bot,
   Boxes,
+  FolderKanban,
   Inbox,
   LayoutDashboard,
   ListOrdered,
-  Network,
-  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -21,8 +20,7 @@ export const NAV_GROUPS = ["Work", "Runs", "Workforce"] as const;
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard, group: "Work" },
-  { to: "/settings", label: "Project", icon: Settings, group: "Work" },
-  { to: "/mission", label: "Mission", icon: Network, group: "Work" },
+  { to: "/projects", label: "Projects", icon: FolderKanban, group: "Work" },
   { to: "/deliveries", label: "Deliveries", icon: Inbox, group: "Work" },
   { to: "/scheduler", label: "Scheduler", icon: ListOrdered, group: "Runs" },
   { to: "/executions", label: "Executions", icon: Activity, group: "Runs" },

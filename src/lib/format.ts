@@ -23,3 +23,7 @@ export function percent(used: number, budget: number): number {
   if (budget <= 0) return 0;
   return Math.min(100, Math.round((used / budget) * 100));
 }
+
+export function utcDateTime(ms: number): string {
+  return `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}

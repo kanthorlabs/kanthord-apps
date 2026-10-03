@@ -4,7 +4,7 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setConnection } from "../client";
-import { listProjects } from "./projects";
+import { createProject, listProjectPage, listProjects, renameProject } from "./projects";
 
 let server: Server | null = null;
 const seen: IncomingMessage[] = [];
@@ -49,5 +49,45 @@ describe("listProjects", () => {
       "/api/project?limit=1000&cursor=c-1",
     ]);
     expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
+  });
+});
+
+const IDEMPOTENCY_KEY = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+
+describe("listProjectPage", () => {
+  it("reads one page at the cursor", async () => {
+    const base = await serve([
+      { items: [FIRST], nextCursor: "c-1" },
+      { items: [SECOND], nextCursor: null },
+    ]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await listProjectPage(null)).toEqual({ items: [FIRST], nextCursor: "c-1" });
+    expect(await listProjectPage("c-1")).toEqual({ items: [SECOND], nextCursor: null });
+    expect(seen.map((req) => req.url)).toEqual(["/api/project", "/api/project?cursor=c-1"]);
+  });
+});
+
+describe("createProject", () => {
+  it("posts project.create with an idempotency key", async () => {
+    const base = await serve([FIRST]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await createProject("second")).toEqual(FIRST);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
+describe("renameProject", () => {
+  it("patches project.rename with an idempotency key", async () => {
+    const base = await serve([SECOND]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await renameProject("prj-1", "first")).toEqual(SECOND);
+    expect(seen[0]?.method).toBe("PATCH");
+    expect(seen[0]?.url).toBe("/api/project/prj-1");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 });

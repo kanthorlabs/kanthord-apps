@@ -7,7 +7,10 @@ import { BlockedScreen } from "@/features/mission/blocked/blocked-screen";
 import { MissionScreen } from "@/features/mission/graph/mission-screen";
 import { NodeScreen } from "@/features/mission/node/node-screen";
 import { OverviewScreen } from "@/features/overview/overview-screen";
+import { ProjectFormScreen } from "@/features/projects/form/project-form-screen";
+import { ProjectsScreen } from "@/features/projects/list/projects-screen";
 import { ProjectProvider } from "@/features/projects/project-context";
+import { ProjectScreen } from "@/features/projects/view/project-screen";
 import { ExecutionsScreen } from "@/features/scheduler/executions/executions-screen";
 import { SchedulerScreen } from "@/features/scheduler/queue/scheduler-screen";
 import { SettingsScreen } from "@/features/settings/project/settings-screen";
@@ -28,6 +31,10 @@ export function AppRouter() {
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<OverviewScreen />} />
+            <Route path="projects" element={<ProjectsScreen />} />
+            <Route path="projects/new" element={<ProjectFormScreen />} />
+            <Route path="projects/:projectId" element={<ProjectScreen />} />
+            <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
             <Route path="mission" element={<MissionScreen />} />
             <Route path="mission/:nodeId" element={<NodeScreen />} />
             <Route path="blocked" element={<BlockedScreen />} />
