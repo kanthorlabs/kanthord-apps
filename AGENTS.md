@@ -59,6 +59,43 @@ Rules that hold across the layers:
 
 - **One responsibility per file.** A file exports one screen, one resource, or one helper group.
 
+## Design
+
+The `## Design` section is normative. A change that breaks a rule in it is a defect.
+
+- **shadcn is the only source of primitives.** Use the installed primitives in `src/components/ui`
+  first. If a screen needs a primitive that is not installed, check the shadcn registry and add it
+  with `pnpm dlx shadcn@latest add <name>`. Never hand-write or copy-paste a primitive.
+- **Never hand-build a control that shadcn provides.** Outside `src/components/ui`, JSX does not use
+  `<button>`, `<input>`, `<select>`, `<textarea>` or `<table>`. Use `Button`, `Input`, `InputGroup`,
+  `Select`, `Textarea`, `ToggleGroup` and `Item`. A router `Link` that acts as a control renders
+  through `Button asChild`. A plain text link inside prose stays a plain `Link`. ESLint enforces the
+  element ban; the review enforces the rest.
+- **No tables.** A collection renders as a list of `Item` inside `ItemGroup`. The list keeps every
+  field, navigation path and action that the screen needs on both widths. One collection has one
+  rendering: a screen never renders the same data twice behind `hidden md:block` and `md:hidden`.
+- **Application components compose primitives.** A screen or the shell can extract a component that
+  composes shadcn primitives and takes typed domain props. Introduce a new primitive only when no
+  registry primitive and no composition meets the need. Give a component no styling props.
+- **Use the stock appearance.** Use the `variant` and `size` props that a primitive already has.
+  `className` on a primitive carries layout only: width, flex or grid placement, margin and gap. It
+  does not override color, border, radius, typography, height or padding. Never add a variant to a
+  file in `src/components/ui`. If a usability or accessibility defect remains after composition and
+  layout changes, make the smallest adjustment outside `src/components/ui` and name the defect in the
+  commit message.
+- **State shows as text.** A status renders as a `Badge` with a stock variant and the state's label.
+  Text distinguishes every state without color. Add an icon only when it improves recognition. Theme
+  changes go through the tokens in `src/index.css` only.
+- **Desktop and mobile are both first-class.** The baselines are 390×844 CSS px (iPhone 14) and
+  1280×800. At both baselines, every screen offers the same information and the same actions, with no
+  horizontal page scroll. Hover never holds information alone: a `Tooltip` repeats what is visible
+  elsewhere. Responsiveness comes from breakpoint classes on layout wrappers, not from a second
+  component tree. Navigation and overlay containers can adapt to the width, as `Sidebar` becomes a
+  sheet below `md`.
+- **Review at both baselines.** jsdom cannot assert layout. Before approval, the reviewer runs the
+  dev server with the mock daemon and exercises each changed screen at both baselines: touch and
+  keyboard use, focus, overflow, long content, and the empty, loading and error states.
+
 ## Tests
 
 - One `*.test.ts` or `*.test.tsx` beside the unit it covers. `src/foo/bar.ts` is covered by

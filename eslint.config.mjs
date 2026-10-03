@@ -45,6 +45,37 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/components/ui/**/*.tsx"],
+    rules: {
+      "jsx-a11y/click-events-have-key-events": "off",
+      "jsx-a11y/no-noninteractive-element-interactions": "off",
+    },
+  },
+  {
+    files: ["src/features/**/*.tsx", "src/components/*.tsx"],
+    ignores: ["**/*.test.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXOpeningElement[name.name=/^(button|input|select|textarea|table)$/]",
+          message: "Use the shadcn primitive. See the Design section of AGENTS.md.",
+        },
+      ],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@/components/ui/table",
+              message: "Render a collection as an Item list. See the Design section of AGENTS.md.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["**/*.test.{ts,tsx}", "test/**/*.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
