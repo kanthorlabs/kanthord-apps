@@ -63,13 +63,14 @@ Rules that hold across the layers:
 
 The `## Design` section is normative. A change that breaks a rule in it is a defect.
 
-- **shadcn is the only source of primitives.** Use the installed primitives in `src/components/ui`
-  first. If a screen needs a primitive that is not installed, check the shadcn registry and add it
+- **shadcn is the only source of primitives.** `components.json` selects the `base-vega` style, so
+  every primitive is built on `@base-ui/react`. No module imports `radix-ui` or a `@radix-ui/*`
+  package. Use the installed primitives in `src/components/ui` first. If a screen needs a primitive that is not installed, check the shadcn registry and add it
   with `pnpm dlx shadcn@latest add <name>`. Never hand-write or copy-paste a primitive.
 - **Never hand-build a control that shadcn provides.** Outside `src/components/ui`, JSX does not use
   `<button>`, `<input>`, `<select>`, `<textarea>` or `<table>`. Use `Button`, `Input`, `InputGroup`,
   `Select`, `Textarea`, `ToggleGroup` and `Item`. A router `Link` that acts as a control renders
-  through `Button asChild`. A plain text link inside prose stays a plain `Link`. ESLint enforces the
+  through `Button render={<Link />}`. A plain text link inside prose stays a plain `Link`. ESLint enforces the
   element ban; the review enforces the rest.
 - **No tables.** A collection renders as a list of `Item` inside `ItemGroup`. The list keeps every
   field, navigation path and action that the screen needs on both widths. One collection has one

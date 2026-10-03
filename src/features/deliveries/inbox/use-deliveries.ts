@@ -23,7 +23,7 @@ export const DELIVERY_FILTERS: readonly DeliveryFilter[] = [
 export interface DeliveriesData {
   readonly resource: Resource<readonly Delivery[]>;
   readonly filter: DeliveryFilter;
-  readonly selectFilter: (value: string) => void;
+  readonly selectFilter: (value: readonly string[]) => void;
   readonly groups: readonly DeliveryGroup[];
 }
 
@@ -32,8 +32,8 @@ export function useDeliveries(): DeliveriesData {
   const resource = useResource(() => listDeliveries(projectId), [projectId]);
   const [filter, setFilter] = useState<DeliveryFilter>("all");
 
-  const selectFilter = (value: string) => {
-    const known = DELIVERY_FILTERS.find((f) => f === value);
+  const selectFilter = (values: readonly string[]) => {
+    const known = DELIVERY_FILTERS.find((f) => f === values[0]);
     if (known !== undefined) setFilter(known);
   };
 

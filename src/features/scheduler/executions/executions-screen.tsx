@@ -40,10 +40,9 @@ export function ExecutionsScreen() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-lg font-semibold">Executions</h2>
         <ToggleGroup
-          type="single"
           variant="outline"
           aria-label="Execution scope"
-          value={exec.scope}
+          value={[exec.scope]}
           onValueChange={exec.selectScope}
         >
           <ToggleGroupItem value="live">Live</ToggleGroupItem>

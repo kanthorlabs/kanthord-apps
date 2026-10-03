@@ -12,13 +12,13 @@ export type NodeSection = (typeof NODE_SECTIONS)[number]["value"];
 
 export interface NodeSectionState {
   readonly section: NodeSection;
-  readonly selectSection: (value: string) => void;
+  readonly selectSection: (value: string | null) => void;
 }
 
 export function useNodeSection(): NodeSectionState {
   const [section, setSection] = useState<NodeSection>("content");
 
-  const selectSection = (value: string) => {
+  const selectSection = (value: string | null) => {
     const known = NODE_SECTIONS.find((s) => s.value === value);
     if (known !== undefined) setSection(known.value);
   };

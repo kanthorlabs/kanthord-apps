@@ -68,9 +68,9 @@ describe("ExecutionsScreen", () => {
 
     expect(vi.mocked(listExecutions)).toHaveBeenCalledWith("prj-test", "live");
 
-    expect(screen.getByRole("radio", { name: "Live" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Live", pressed: true })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("radio", { name: "All" }));
+    await user.click(screen.getByRole("button", { name: "All" }));
 
     await waitFor(() => {
       expect(vi.mocked(listExecutions)).toHaveBeenCalledWith("prj-test", "all");

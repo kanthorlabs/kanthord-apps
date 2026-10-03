@@ -103,11 +103,10 @@ export function DeliveriesScreen() {
       </Alert>
 
       <ToggleGroup
-        type="single"
         variant="outline"
         size="sm"
         spacing={2}
-        value={filter}
+        value={[filter]}
         onValueChange={selectFilter}
         aria-label="Filter deliveries"
         className="w-full flex-wrap"

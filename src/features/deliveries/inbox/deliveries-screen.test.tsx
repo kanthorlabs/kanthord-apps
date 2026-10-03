@@ -144,7 +144,7 @@ describe("DeliveriesScreen", () => {
       expect(screen.getByText("refusal")).toBeDefined();
     });
 
-    const refusedTab = screen.getByRole("radio", { name: "Refused" });
+    const refusedTab = screen.getByRole("button", { name: "Refused" });
     await userEvent.click(refusedTab);
 
     await waitFor(() => {
@@ -160,11 +160,11 @@ describe("DeliveriesScreen", () => {
 
     renderScreen();
 
-    const refusedItem = await screen.findByRole("radio", { name: "Refused" });
+    const refusedItem = await screen.findByRole("button", { name: "Refused" });
     await userEvent.click(refusedItem);
     await userEvent.click(refusedItem);
 
-    expect(screen.getByRole("radio", { name: "Refused", checked: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refused", pressed: true })).toBeInTheDocument();
     expect(screen.queryByText("pull_request.opened")).toBeNull();
   });
 });

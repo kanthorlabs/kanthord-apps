@@ -49,6 +49,7 @@ export default tseslint.config(
     rules: {
       "jsx-a11y/click-events-have-key-events": "off",
       "jsx-a11y/no-noninteractive-element-interactions": "off",
+      "jsx-a11y/label-has-associated-control": "off",
     },
   },
   {
@@ -65,6 +66,12 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
+          patterns: [
+            {
+              group: ["radix-ui", "@radix-ui/*"],
+              message: "Use the shadcn base-vega primitive. See the Design section of AGENTS.md.",
+            },
+          ],
           paths: [
             {
               name: "@/components/ui/table",

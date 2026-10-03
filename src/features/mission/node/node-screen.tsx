@@ -94,7 +94,7 @@ export function NodeScreen() {
         </div>
 
         <div className="sm:hidden">
-          <Select value={section} onValueChange={selectSection}>
+          <Select items={NODE_SECTIONS} value={section} onValueChange={selectSection}>
             <SelectTrigger aria-label="Section" className="w-full">
               <SelectValue />
             </SelectTrigger>

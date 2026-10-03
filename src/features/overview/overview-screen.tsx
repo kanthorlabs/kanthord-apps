@@ -79,8 +79,14 @@ function BlockedSection({
               </ItemGroup>
             )}
             {data.length > 0 && (
-              <Button asChild variant="outline" size="sm" className="mt-4">
-                <Link to="/blocked">View all blocked nodes ({data.length})</Link>
+              <Button
+                nativeButton={false}
+                render={<Link to="/blocked" />}
+                variant="outline"
+                size="sm"
+                className="mt-4"
+              >
+                View all blocked nodes ({data.length})
               </Button>
             )}
           </>
@@ -125,8 +131,14 @@ function RunningSection({
                 ))}
               </ItemGroup>
             )}
-            <Button asChild variant="outline" size="sm" className="mt-4">
-              <Link to="/executions">View executions</Link>
+            <Button
+              nativeButton={false}
+              render={<Link to="/executions" />}
+              variant="outline"
+              size="sm"
+              className="mt-4"
+            >
+              View executions
             </Button>
           </>
         )}
@@ -162,15 +174,13 @@ function TallySection({
               <ItemGroup aria-label="Node states" className="gap-1">
                 {tallies.map((tally) => (
                   <div key={tally.state} role="listitem">
-                    <Item asChild size="sm">
-                      <Link to="/mission">
-                        <ItemMedia>
-                          <Badge variant={badgeVariantOf(tally.state)}>{tally.state}</Badge>
-                        </ItemMedia>
-                        <ItemContent>
-                          <span className="tabular-nums">{tally.count}</span>
-                        </ItemContent>
-                      </Link>
+                    <Item render={<Link to="/mission" />} size="sm">
+                      <ItemMedia>
+                        <Badge variant={badgeVariantOf(tally.state)}>{tally.state}</Badge>
+                      </ItemMedia>
+                      <ItemContent>
+                        <span className="tabular-nums">{tally.count}</span>
+                      </ItemContent>
                     </Item>
                   </div>
                 ))}

@@ -26,7 +26,7 @@ export interface ExecutionsState {
   readonly reload: () => void;
   readonly views: readonly ExecutionView[];
   readonly scope: "live" | "all";
-  readonly selectScope: (value: string) => void;
+  readonly selectScope: (value: readonly string[]) => void;
 }
 
 function useNow(): number {
@@ -84,7 +84,8 @@ export function useExecutions(): ExecutionsState {
     [data, now],
   );
 
-  const selectScope = (value: string) => {
+  const selectScope = (values: readonly string[]) => {
+    const value = values[0];
     if (value === "live" || value === "all") setScope(value);
   };
 

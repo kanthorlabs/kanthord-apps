@@ -64,14 +64,12 @@ export function AppShell() {
                   {NAV_ITEMS.filter((item) => item.group === group).map((item) => (
                     <SidebarMenuItem key={item.to}>
                       <SidebarMenuButton
-                        asChild
+                        render={<NavLink to={item.to} end={item.to === "/"} />}
                         tooltip={item.label}
                         isActive={isActive(pathname, item.to)}
                       >
-                        <NavLink to={item.to} end={item.to === "/"}>
-                          <item.icon />
-                          <span>{item.label}</span>
-                        </NavLink>
+                        <item.icon />
+                        <span>{item.label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -98,7 +96,16 @@ export function AppShell() {
           <h1 className="truncate text-sm font-semibold sm:text-base">{currentLabel(pathname)}</h1>
           <div className="ml-auto flex items-center gap-2">
             {project !== null && (
-              <Select value={project.id} onValueChange={select}>
+              <Select
+                items={projects.map((candidate) => ({
+                  value: candidate.id,
+                  label: candidate.name,
+                }))}
+                value={project.id}
+                onValueChange={(id) => {
+                  if (id !== null) select(id);
+                }}
+              >
                 <SelectTrigger className="w-[9rem] sm:w-[12rem]" aria-label="Project">
                   <SelectValue />
                 </SelectTrigger>

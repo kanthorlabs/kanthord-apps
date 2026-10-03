@@ -102,8 +102,7 @@ describe("SchedulerScreen", () => {
     await screen.findAllByText("Node held");
     await screen.findAllByText("Node free");
 
-    const toggle = screen.getByRole("switch");
-    await user.click(toggle);
+    await user.click(screen.getByText("Held out only", { selector: "label" }));
 
     await waitFor(() => {
       expect(screen.queryByText("Node free")).toBeNull();

@@ -55,10 +55,11 @@ export function TreeNodeRow({ treeNode, nodeById, visibleIds }: NodeRowProps) {
     <Item size="sm" className="flex-nowrap items-start">
       {!isLeaf && (
         <ItemMedia>
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label={open ? "Collapse" : "Expand"}>
-              {open ? <ChevronDown /> : <ChevronRight />}
-            </Button>
+          <CollapsibleTrigger
+            render={<Button variant="ghost" size="icon" />}
+            aria-label={open ? "Collapse" : "Expand"}
+          >
+            {open ? <ChevronDown /> : <ChevronRight />}
           </CollapsibleTrigger>
         </ItemMedia>
       )}
@@ -88,16 +89,18 @@ export function TreeNodeRow({ treeNode, nodeById, visibleIds }: NodeRowProps) {
     <Collapsible role="listitem" open={open} onOpenChange={setOpen}>
       {row}
       <CollapsibleContent>
-        <ItemGroup className="ml-4 sm:ml-6">
-          {children.map((child) => (
-            <TreeNodeRow
-              key={child.node.id}
-              treeNode={child}
-              nodeById={nodeById}
-              visibleIds={visibleIds}
-            />
-          ))}
-        </ItemGroup>
+        <div className="pl-4 sm:pl-6">
+          <ItemGroup>
+            {children.map((child) => (
+              <TreeNodeRow
+                key={child.node.id}
+                treeNode={child}
+                nodeById={nodeById}
+                visibleIds={visibleIds}
+              />
+            ))}
+          </ItemGroup>
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );

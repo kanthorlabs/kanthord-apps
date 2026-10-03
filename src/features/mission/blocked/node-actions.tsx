@@ -72,11 +72,7 @@ export function NodeActions({
 
       {actions.canBlock && (
         <Dialog open={actions.blockOpen} onOpenChange={actions.setBlockOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              Block…
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger render={<Button variant="outline" size="sm" />}>Block…</DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Block this node</DialogTitle>
@@ -102,9 +98,7 @@ export function NodeActions({
               </FieldError>
             )}
             <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogClose>
+              <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
               <Button
                 variant="destructive"
                 disabled={!actions.blockReason.trim() || actions.isBlocking}
@@ -119,11 +113,7 @@ export function NodeActions({
 
       {actions.canUnblock && (
         <Dialog open={actions.unblockOpen} onOpenChange={actions.setUnblockOpen}>
-          <DialogTrigger asChild>
-            <Button variant="default" size="sm">
-              Unblock…
-            </Button>
-          </DialogTrigger>
+          <DialogTrigger render={<Button variant="default" size="sm" />}>Unblock…</DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Unblock this node</DialogTitle>
@@ -139,9 +129,7 @@ export function NodeActions({
               </FieldError>
             )}
             <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Cancel</Button>
-              </DialogClose>
+              <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
               <Button disabled={actions.isUnblocking} onClick={actions.handleUnblock}>
                 Unblock
               </Button>
@@ -152,38 +140,32 @@ export function NodeActions({
 
       {actions.canOverride && (
         <AlertDialog open={actions.overrideOpen} onOpenChange={actions.setOverrideOpen}>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm">
-              Override success…
-            </Button>
+          <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
+            Override success…
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Override asserting success</AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    This writes a human assessment and a successful outcome that names it. It closes
-                    the current attempt by force and marks this node Completed, which is terminal
-                    and unreversible. Every dependent node is satisfied immediately.
-                  </p>
-                  {dependents.length > 0 && (
-                    <div>
-                      <p className="font-medium text-foreground">
-                        Dependents that will be released:
-                      </p>
-                      <ul className="mt-1 list-inside list-disc">
-                        {dependents.map((d) => (
-                          <li key={d.id}>{d.title}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <p>
-                    An optional landed commit identity is accepted with no check against the
-                    repository.
-                  </p>
-                </div>
+              <AlertDialogDescription render={<div />} className="space-y-2">
+                <p>
+                  This writes a human assessment and a successful outcome that names it. It closes
+                  the current attempt by force and marks this node Completed, which is terminal and
+                  unreversible. Every dependent node is satisfied immediately.
+                </p>
+                {dependents.length > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground">Dependents that will be released:</p>
+                    <ul className="mt-1 list-inside list-disc">
+                      {dependents.map((d) => (
+                        <li key={d.id}>{d.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p>
+                  An optional landed commit identity is accepted with no check against the
+                  repository.
+                </p>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="space-y-4">
@@ -226,32 +208,28 @@ export function NodeActions({
 
       {actions.canDiscard && (
         <AlertDialog open={actions.discardOpen} onOpenChange={actions.setDiscardOpen}>
-          <AlertDialogTrigger asChild>
-            <Button variant="destructive" size="sm">
-              Discard…
-            </Button>
+          <AlertDialogTrigger render={<Button variant="destructive" size="sm" />}>
+            Discard…
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Discard this node</AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="space-y-2 text-sm text-muted-foreground">
-                  <p>
-                    This writes an outcome whose asserted result is that nothing is established. It
-                    is terminal and unreversible. A discarded node satisfies no dependency.
-                  </p>
-                  {dependents.length > 0 && (
-                    <div>
-                      <p className="font-medium text-foreground">Dependents that will strand:</p>
-                      <ul className="mt-1 list-inside list-disc">
-                        {dependents.map((d) => (
-                          <li key={d.id}>{d.title}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {dependents.length === 0 && <p>No dependent nodes will strand.</p>}
-                </div>
+              <AlertDialogDescription render={<div />} className="space-y-2">
+                <p>
+                  This writes an outcome whose asserted result is that nothing is established. It is
+                  terminal and unreversible. A discarded node satisfies no dependency.
+                </p>
+                {dependents.length > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground">Dependents that will strand:</p>
+                    <ul className="mt-1 list-inside list-disc">
+                      {dependents.map((d) => (
+                        <li key={d.id}>{d.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {dependents.length === 0 && <p>No dependent nodes will strand.</p>}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <Field>

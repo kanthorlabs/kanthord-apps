@@ -28,7 +28,7 @@ export function StateFilter({
         onChange={(e) => onTitleFilter(e.target.value)}
       />
       <ToggleGroup
-        type="multiple"
+        multiple
         variant="outline"
         size="sm"
         spacing={2}
