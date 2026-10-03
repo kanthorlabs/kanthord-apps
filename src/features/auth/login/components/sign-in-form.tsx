@@ -81,10 +81,10 @@ export function SignInForm({ form }: { form: SignInFormState }) {
                 type="button"
                 variant="outline"
                 size="lg"
-                disabled={!form.canAct}
+                disabled={!form.canAct || form.verifying}
                 onClick={form.verify}
               >
-                Verify
+                {form.verifying ? "Verifying…" : "Verify"}
               </Button>
               <Button type="submit" size="lg" disabled={!form.canAct}>
                 {form.pending ? "Logging in…" : "Login"}

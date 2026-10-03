@@ -47,7 +47,7 @@ function Detail({ state }: { state: VerifyState }) {
 }
 
 export function VerifyStatus({ state }: { state: VerifyState | undefined }) {
-  if (state === undefined) return null;
+  if (state === undefined || state.status === "checking") return null;
   return (
     <div role="status" className="flex min-w-0 flex-col gap-1 text-sm text-muted-foreground">
       <Badge variant={VARIANT[state.status]}>{LABEL[state.status]}</Badge>

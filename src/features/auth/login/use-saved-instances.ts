@@ -17,6 +17,7 @@ export interface SavedInstanceRow {
   readonly instance: SavedInstance;
   readonly mode: SavedInstanceMode;
   readonly verifyState: VerifyState | undefined;
+  readonly verifying: boolean;
   readonly signingIn: boolean;
   readonly signInError: string | null;
 }
@@ -112,6 +113,7 @@ export function useSavedInstances(store: InstancesState): SavedInstancesState {
           ? "delete"
           : "view",
     verifyState: verifier.states[instance.id],
+    verifying: verifier.states[instance.id]?.status === "checking",
     signingIn: instance.id === signingInId,
     signInError: signInErrors[instance.id] ?? null,
   }));

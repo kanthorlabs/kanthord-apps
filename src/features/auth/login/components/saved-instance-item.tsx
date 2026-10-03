@@ -67,10 +67,11 @@ export function SavedInstanceItem({
           <Button
             variant="outline"
             size="lg"
-            aria-label={`Verify ${instance.name}`}
+            aria-label={`${row.verifying ? "Verifying" : "Verify"} ${instance.name}`}
+            disabled={row.verifying}
             onClick={() => onVerify(instance)}
           >
-            Verify
+            {row.verifying ? "Verifying…" : "Verify"}
           </Button>
           <Button
             variant="outline"

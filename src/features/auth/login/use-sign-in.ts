@@ -30,6 +30,7 @@ export interface SignInFormState {
   readonly pending: boolean;
   readonly error: string | null;
   readonly verifyState: VerifyState | undefined;
+  readonly verifying: boolean;
   readonly verify: () => void;
   readonly submit: () => Promise<void>;
 }
@@ -47,6 +48,8 @@ export function useSignIn(store: Pick<InstancesState, "instances" | "put">): Sig
 
   const filled = draft.baseUrl.trim() !== "" && draft.token.trim() !== "";
   const canAct = filled && !pending;
+  const verifyState = states[VERIFY_KEY];
+  const verifying = verifyState?.status === "checking";
 
   const setField = useCallback(
     (field: keyof InstanceDraft, value: string) => {
@@ -59,14 +62,14 @@ export function useSignIn(store: Pick<InstancesState, "instances" | "put">): Sig
   );
 
   const verify = useCallback(() => {
-    if (!canAct) return;
+    if (!canAct || verifying) return;
     const baseUrl = normalizeBaseUrl(draft.baseUrl);
     if (baseUrl === null) {
       setErrors((current) => ({ ...current, baseUrl: INVALID_BASE_URL }));
       return;
     }
     void runVerify(VERIFY_KEY, baseUrl);
-  }, [canAct, draft.baseUrl, runVerify]);
+  }, [canAct, verifying, draft.baseUrl, runVerify]);
 
   const submit = useCallback(async () => {
     if (!canAct) return;
@@ -94,7 +97,8 @@ export function useSignIn(store: Pick<InstancesState, "instances" | "put">): Sig
     canAct,
     pending,
     error,
-    verifyState: states[VERIFY_KEY],
+    verifyState,
+    verifying,
     verify,
     submit,
   };

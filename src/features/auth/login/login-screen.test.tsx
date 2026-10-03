@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setConnection } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { readLiveness, verifyHumanToken } from "@/api/resources/gateway";
+import type { LivenessReport } from "@/api/types";
 import { SessionProvider, useSession } from "@/features/auth/session/session-context";
 import { LoginScreen } from "./login-screen";
 
@@ -177,6 +178,27 @@ describe("LoginScreen", () => {
       }),
     );
     expect(within(form()).queryByRole("status")).toBeNull();
+  });
+
+  it("shows the check on the Verify button and renders no chip while it runs", async () => {
+    let answer: (report: LivenessReport) => void = () => undefined;
+    livenessMock.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    seed(LOCAL);
+    mount();
+
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+    await userEvent.click(screen.getByRole("button", { name: "Verify local" }));
+
+    expect(within(form()).getByRole("button", { name: "Verifying…" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Verifying local" })).toBeDisabled();
+    expect(screen.queryByRole("status")).toBeNull();
+
+    answer({ healthy: true, services: {} });
+
+    expect(await within(form()).findByRole("button", { name: "Verify" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Verify local" })).toBeEnabled();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("keeps an unreachable endpoint of the form inline", async () => {
