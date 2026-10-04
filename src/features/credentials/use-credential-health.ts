@@ -16,25 +16,36 @@ export interface CredentialHealth {
   readonly verify: () => void;
 }
 
-export function useCredentialHealth(): CredentialHealth {
+export type HealthFailureHandler = (message: string, retry: () => void) => void;
+
+export function useCredentialHealth(onFailure: HealthFailureHandler): CredentialHealth {
   const [state, setState] = useState<CredentialHealthState>({ status: "idle" });
   const checking = useRef(false);
 
-  const verify = useCallback(() => {
-    if (checking.current) return;
-    checking.current = true;
-    setState({ status: "checking" });
-    readHealthReport().then(
-      (report) => {
-        checking.current = false;
-        setState({ status: "ready", entries: report.shared.custody.global, checkedAt: Date.now() });
-      },
-      (cause: unknown) => {
-        checking.current = false;
-        setState({ status: "failed", message: credentialMessage(asApiError(cause)) });
-      },
-    );
-  }, []);
+  const verify = useCallback(
+    function run() {
+      if (checking.current) return;
+      checking.current = true;
+      setState({ status: "checking" });
+      readHealthReport().then(
+        (report) => {
+          checking.current = false;
+          setState({
+            status: "ready",
+            entries: report.shared.custody.global,
+            checkedAt: Date.now(),
+          });
+        },
+        (cause: unknown) => {
+          checking.current = false;
+          const message = credentialMessage(asApiError(cause));
+          setState({ status: "failed", message });
+          onFailure(message, run);
+        },
+      );
+    },
+    [onFailure],
+  );
 
   return { state, verify };
 }

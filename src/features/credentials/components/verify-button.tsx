@@ -32,7 +32,14 @@ export function VerifyButton({
 
   if (verifiable) {
     return (
-      <Button variant="outline" size="sm" aria-label={label} disabled={checking} onClick={onVerify}>
+      <Button
+        variant="outline"
+        size="sm"
+        aria-label={label}
+        aria-busy={checking}
+        disabled={checking}
+        onClick={onVerify}
+      >
         <VerifyLabel />
       </Button>
     );

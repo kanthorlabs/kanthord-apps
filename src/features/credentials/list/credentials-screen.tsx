@@ -16,12 +16,12 @@ import {
 } from "@/lib/credential-revisions";
 import { platformEntryOf } from "@/lib/credential-platforms";
 import { utcDateTime } from "@/lib/format";
-import { CredentialHealthLine } from "../components/credential-health-line";
+import { CheckStatusBadge } from "../components/check-status-badge";
 import { MetadataSheet } from "../components/metadata-sheet";
 import { PlatformCombobox } from "../components/platform-combobox";
 import { RotateSheet } from "../components/rotate-sheet";
 import { VerifyButton } from "../components/verify-button";
-import { useCredentialHealth } from "../use-credential-health";
+import { useCredentialCheck } from "../use-credential-check";
 import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
 import { ALL_PLATFORMS, useCredentialList } from "./use-credential-list";
@@ -38,7 +38,7 @@ interface CredentialItemProps {
 
 function CredentialItem({ credential, entry, reload }: CredentialItemProps) {
   const navigate = useNavigate();
-  const health = useCredentialHealth();
+  const check = useCredentialCheck(credential.name);
   const rotate = useCredentialRotate(credential, entry, reload);
   const metadata = useMetadataEdit(credential, entry, reload);
   const newest = newestLiveRevision(credential);
@@ -51,7 +51,12 @@ function CredentialItem({ credential, entry, reload }: CredentialItemProps) {
     <>
       <DataListItem
         title={name}
-        status={archived ? <Badge variant="secondary">Archived</Badge> : undefined}
+        status={
+          <>
+            {archived && <Badge variant="secondary">Archived</Badge>}
+            <CheckStatusBadge badge={check.badge} />
+          </>
+        }
         select={{ label: `Open ${name}`, disabled: false, onSelect: () => navigate(detailPath) }}
         fields={[
           { label: "Platform", value: <span className="font-mono">{credential.platform}</span> },
@@ -68,11 +73,6 @@ function CredentialItem({ credential, entry, reload }: CredentialItemProps) {
             ? { label: "Updated", value: newest === null ? "—" : utcDateTime(newest.createdAt) }
             : { label: "Archived", value: utcDateTime(archivedAt) },
         ]}
-        notice={
-          health.state.status === "idle" ? undefined : (
-            <CredentialHealthLine name={name} state={health.state} onVerify={health.verify} />
-          )
-        }
         actions={
           <div className="flex flex-wrap gap-2 md:w-[27rem]">
             {!archived && (
@@ -80,8 +80,8 @@ function CredentialItem({ credential, entry, reload }: CredentialItemProps) {
                 label={`Verify ${name}`}
                 platform={credential.platform}
                 verifiable={entry?.verifiable ?? true}
-                checking={health.state.status === "checking"}
-                onVerify={health.verify}
+                checking={check.checking}
+                onVerify={check.verify}
               />
             )}
             {!archived && rotate.available && (

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type * as Sonner from "sonner";
@@ -12,6 +12,7 @@ import type {
   CredentialPlatformEntry,
   CredentialPlatformList,
   HealthOwner,
+  HealthReport,
 } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
@@ -89,6 +90,16 @@ const GATEWAY: Credential = {
 };
 
 const EMPTY_OWNER: HealthOwner = { global: {}, projects: {} };
+
+const HEALTHY: HealthReport = {
+  services: { project: EMPTY_OWNER, intake: EMPTY_OWNER, worker: EMPTY_OWNER },
+  shared: {
+    custody: {
+      global: { router: { status: "healthy", capability: "model-list read" } },
+      projects: {},
+    },
+  },
+};
 
 function mount() {
   return render(
@@ -291,22 +302,63 @@ describe("CredentialScreen", () => {
     expect(await within(sheet).findByText(/In use: qwen-plus \(agents: swe@1\)\./)).toBeTruthy();
   });
 
-  it("verifies the credential through the health report", async () => {
-    vi.mocked(gatewayApi.readHealthReport).mockResolvedValue({
-      services: { project: EMPTY_OWNER, intake: EMPTY_OWNER, worker: EMPTY_OWNER },
-      shared: {
-        custody: {
-          global: { router: { status: "healthy", capability: "model-list read" } },
-          projects: {},
-        },
-      },
-    });
+  it("verifies the credential with a header badge and fixed report facts", async () => {
+    let answer: (report: HealthReport) => void = () => {};
+    vi.mocked(gatewayApi.readHealthReport).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    mount();
+
+    const verify = await screen.findByRole("button", { name: "Verify" });
+    const section = screen.getByRole("region", { name: "Credential" });
+    expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("—");
+    expect(screen.getByText("Checked").nextElementSibling?.textContent).toBe("—");
+
+    await userEvent.click(verify);
+
+    expect(within(section).getByRole("status").textContent).toBe("Checking");
+    expect(verify).toBeDisabled();
+    expect(verify).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByText(/can take up to 2 minutes/)).toBeNull();
+
+    answer(HEALTHY);
+
+    await waitFor(() => expect(within(section).getByRole("status").textContent).toBe("Healthy"));
+    expect(verify).toBeEnabled();
+    expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("model-list read");
+    expect(screen.getByText("Checked").nextElementSibling?.textContent).toMatch(/ UTC$/);
+  });
+
+  it("reports a failed health report with a badge and a toast that retries", async () => {
+    vi.mocked(gatewayApi.readHealthReport).mockRejectedValueOnce(
+      new ApiError("unavailable", "Down.", 503, "gateway.healthcheck.inventory_failed", {
+        missingInventories: ["custody"],
+      }),
+    );
+    vi.mocked(gatewayApi.readHealthReport).mockResolvedValueOnce(HEALTHY);
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Verify" }));
 
-    expect(await screen.findByText("healthy")).toBeTruthy();
-    expect(screen.getByText("Capability: model-list read")).toBeTruthy();
+    const section = screen.getByRole("region", { name: "Credential" });
+    await waitFor(() =>
+      expect(within(section).getByRole("status").textContent).toBe("Check failed"),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "Verify" })).toBeEnabled();
+    expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("—");
+    expect(toast.error).toHaveBeenCalledWith("The health report of router failed.", {
+      description: "The health report could not read the inventory of: custody. Try again later.",
+      action: { label: "Retry", onClick: expect.any(Function) },
+    });
+
+    const retry = vi.mocked(toast.error).mock.calls[0]![1]!.action as Sonner.Action;
+    act(() => retry.onClick({} as Parameters<Sonner.Action["onClick"]>[0]));
+
+    await waitFor(() => expect(within(section).getByRole("status").textContent).toBe("Healthy"));
+    expect(gatewayApi.readHealthReport).toHaveBeenCalledTimes(2);
   });
 
   it("offers no metadata edit for a platform without metadata", async () => {

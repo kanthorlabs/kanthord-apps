@@ -6,8 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CredentialHealthLine } from "../components/credential-health-line";
-import { useCredentialHealth } from "../use-credential-health";
+import { CheckStatusBadge } from "../components/check-status-badge";
+import { type CredentialCheck, useCredentialCheck } from "../use-credential-check";
 import { useCredentialPlatforms } from "../use-credential-platforms";
 import { VerifyButton } from "../components/verify-button";
 import { MetadataSheet } from "../components/metadata-sheet";
@@ -23,9 +23,12 @@ import { isArchived } from "@/lib/credential-revisions";
 import { platformEntryOf } from "@/lib/credential-platforms";
 import { useRevisionRevoke } from "./use-revision-revoke";
 
-function HealthSection({ name, entry }: { name: string; entry: CredentialPlatformEntry | null }) {
-  const health = useCredentialHealth();
+interface HealthSectionProps {
+  readonly entry: CredentialPlatformEntry | null;
+  readonly check: CredentialCheck;
+}
 
+function HealthSection({ entry, check }: HealthSectionProps) {
   return (
     <Card>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
@@ -33,18 +36,21 @@ function HealthSection({ name, entry }: { name: string; entry: CredentialPlatfor
         <VerifyButton
           platform={entry?.platform ?? ""}
           verifiable={entry?.verifiable ?? true}
-          checking={health.state.status === "checking"}
-          onVerify={health.verify}
+          checking={check.checking}
+          onVerify={check.verify}
         />
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
-        {health.state.status === "idle" && (
-          <p className="text-sm text-muted-foreground">
-            Verify runs the resource healthcheck of the daemon. Custody makes no remote call at
-            create or rotate.
-          </p>
-        )}
-        <CredentialHealthLine name={name} state={health.state} onVerify={health.verify} />
+        <p className="text-sm text-muted-foreground">
+          Verify runs the resource healthcheck of the daemon. Custody makes no remote call at create
+          or rotate.
+        </p>
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">
+          <dt className="text-muted-foreground">Capability</dt>
+          <dd className="min-w-0 break-words">{check.capability}</dd>
+          <dt className="text-muted-foreground">Checked</dt>
+          <dd className="min-w-0 break-words tabular-nums">{check.checkedAt}</dd>
+        </dl>
       </CardContent>
     </Card>
   );
@@ -57,6 +63,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
   const revoke = useRevisionRevoke(credential, reload);
   const archive = useCredentialArchive(credential);
   const archived = isArchived(credential);
+  const check = useCredentialCheck(credential.name);
 
   return (
     <div className="flex flex-col gap-4">
@@ -66,6 +73,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
             <h2 className="min-w-0 font-mono text-lg font-semibold break-all">{credential.name}</h2>
             <Badge variant="outline">{credential.platform}</Badge>
             {archived && <Badge variant="secondary">Archived</Badge>}
+            <CheckStatusBadge badge={check.badge} />
           </div>
           <div className="flex flex-wrap gap-2">
             {!archived && rotate.available && (
@@ -89,7 +97,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
           </div>
         </div>
       </section>
-      {!archived && <HealthSection name={credential.name} entry={entry} />}
+      {!archived && <HealthSection entry={entry} check={check} />}
       <section aria-labelledby="credential-revisions" className="flex flex-col gap-2">
         <h3 id="credential-revisions" className="font-semibold">
           Revisions
