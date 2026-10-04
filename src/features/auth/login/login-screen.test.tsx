@@ -111,12 +111,12 @@ describe("LoginScreen", () => {
     expect(within(form()).getByLabelText("JWT token")).toHaveValue("");
   });
 
-  it("starts with an empty form when an instance is saved", () => {
+  it("starts with the default endpoint and an empty name when an instance is saved", () => {
     seed(LOCAL);
     mount();
 
     expect(within(form()).getByLabelText("Name")).toHaveValue("");
-    expect(within(form()).getByLabelText("Endpoint")).toHaveValue("");
+    expect(within(form()).getByLabelText("Endpoint")).toHaveValue("http://localhost:31415");
   });
 
   it("disables Verify and Login until the endpoint and the token are filled", async () => {

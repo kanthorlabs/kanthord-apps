@@ -14,7 +14,7 @@ import { signInMessage } from "./sign-in-message";
 
 const VERIFY_KEY = "form";
 
-const BLANK: InstanceDraft = { name: "", baseUrl: "", token: "" };
+const BLANK: InstanceDraft = { name: "", baseUrl: "http://localhost:31415", token: "" };
 
 const LOCALHOST: InstanceDraft = {
   name: "localhost",
