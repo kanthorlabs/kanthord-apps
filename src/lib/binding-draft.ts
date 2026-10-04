@@ -65,7 +65,7 @@ export type DraftResult =
   | { readonly ok: false; readonly errors: DraftErrors };
 
 const BINDING_NAME = /^[a-z][a-z0-9-]{0,62}$/;
-const REPOSITORY_ADDRESS = /^git@github\.com:[^/\s:]+\/[^/\s:]+\.git$/;
+const REPOSITORY_ADDRESS = /^git@[A-Za-z0-9][A-Za-z0-9.-]*:[^/\s:]+\/[^/\s:]+\.git(?![\s\S])/;
 const ASSESSMENT_PASSED: RepositoryActionFollows = { type: "assessment_passed" };
 const REQUIRED = "Enter a value.";
 
@@ -184,7 +184,8 @@ function repositoryEntryOf(
   errors: Record<string, string>,
 ): BindingSetEntry {
   if (!REPOSITORY_ADDRESS.test(draft.address.trim())) {
-    errors["address"] = "Use a GitHub SSH address, for example git@github.com:owner/repo.git.";
+    errors["address"] =
+      "Use an SSH address git@<host>:<owner>/<repository>.git. The host can be an alias of ~/.ssh/config.";
   }
   if (blank(draft.baseBranch)) errors["baseBranch"] = REQUIRED;
   if (blank(draft.credential)) errors["credential"] = REQUIRED;

@@ -67,6 +67,22 @@ describe("entryOfDraft", () => {
     });
   });
 
+  it("accepts an SSH alias host in a repository address", () => {
+    const draft = {
+      ...draftOf("repo", REPO),
+      address: "git@kanthorlabs.github.com:kanthorlabs/kanthord.git",
+    };
+    expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
+  });
+
+  it("refuses a host that starts with a dash", () => {
+    const draft = { ...draftOf("repo", REPO), address: "git@-oProxy.com:kanthorlabs/kanthord.git" };
+    expect(entryOfDraft(draft, [])).toMatchObject({
+      ok: false,
+      errors: { address: expect.any(String) },
+    });
+  });
+
   it("requires both budget values or neither", () => {
     const draft = { ...(draftOf("general-main", WORKER) as WorkerDraft), wallTimeMs: "" };
     expect(entryOfDraft(draft, [])).toMatchObject({

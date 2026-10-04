@@ -39,7 +39,7 @@ export function RepositoryForm({ draft, errors, onEdit }: RepositoryFormProps) {
         label="Address"
         value={draft.address}
         error={errors["address"]}
-        description="A GitHub SSH address. A new address replaces the binding."
+        description="An SSH address of GitHub or of an alias of ~/.ssh/config. A new owner or repository replaces the binding."
         onChange={(address) => onEdit({ ...draft, address })}
       />
       <DraftField

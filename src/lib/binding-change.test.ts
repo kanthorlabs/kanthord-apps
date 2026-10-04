@@ -44,6 +44,12 @@ function withConfig<T extends BindingSetEntry>(entry: T, config: Partial<T["conf
 describe("resourceIdentityOf", () => {
   it("derives each kind as the engine does", () => {
     expect(resourceIdentityOf("repo", REPO)).toBe("repository:github:kanthorlabs/kanthord");
+    expect(
+      resourceIdentityOf(
+        "repo",
+        withConfig(REPO, { address: "git@kanthorlabs.github.com:kanthorlabs/kanthord.git" }),
+      ),
+    ).toBe("repository:github:kanthorlabs/kanthord");
     expect(resourceIdentityOf("general-main", WORKER)).toBe("worker:general-main");
     expect(resourceIdentityOf("evidence", STORAGE)).toBe(
       "storage:s3:s3.eu-central-1.amazonaws.com/evidence",
@@ -74,6 +80,16 @@ describe("classifyChange", () => {
     expect(classifyChange("evidence", STORAGE, withConfig(STORAGE, { region: "us-east-1" }))).toBe(
       "revise",
     );
+  });
+
+  it("names a host-only change of a repository address a revision", () => {
+    expect(
+      classifyChange(
+        "repo",
+        REPO,
+        withConfig(REPO, { address: "git@kanthorlabs.github.com:kanthorlabs/kanthord.git" }),
+      ),
+    ).toBe("revise");
   });
 
   it("names a switch to unavailable a disable", () => {

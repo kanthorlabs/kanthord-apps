@@ -2,7 +2,7 @@ import type { BindingSetEntry, MissionPlanEntry } from "@/api/types";
 
 export type BindingChangeKind = "create" | "revise" | "replace" | "disable" | "remove";
 
-const REPOSITORY_ADDRESS = /^git@github\.com:([^/\s:]+)\/([^/\s:]+)\.git$/;
+const REPOSITORY_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git(?![\s\S])/;
 
 export function isAvailable(entry: BindingSetEntry): boolean {
   return entry.kind === "worker" ? entry.config.instanceCount > 0 : entry.config.available;
@@ -12,7 +12,7 @@ export function resourceIdentityOf(name: string, entry: BindingSetEntry): string
   if (entry.kind === "worker") return `worker:${name}`;
   if (entry.kind === "repository") {
     const match = REPOSITORY_ADDRESS.exec(entry.config.address);
-    return match === null ? null : `repository:github:${match[1]}/${match[2]}`;
+    return match === null ? null : `repository:github:${match[2]}/${match[3]}`;
   }
   try {
     return `storage:s3:${new URL(entry.config.endpoint).host}/${entry.config.bucket}`;
