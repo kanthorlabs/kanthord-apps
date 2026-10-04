@@ -55,7 +55,7 @@ export function ProjectFormScreen() {
                 <AlertDescription>{form.submitError.message}</AlertDescription>
               </Alert>
             )}
-            <Field data-invalid={form.nameError !== null}>
+            <Field data-invalid={form.nameError !== null} className="md:col-span-2">
               <FieldLabel htmlFor="project-name">Name</FieldLabel>
               <Input
                 id="project-name"

@@ -96,7 +96,7 @@ The `## Design` section is normative. A change that breaks a rule in it is a def
 - **A form takes the full width of the content area.** Never cap a form with a fixed width such as
   `max-w-xl`. Below `md` the fields stack in one column. From `md` the field group is a grid of two
   columns, and a wide field, for example a textarea, a metadata set or the action row, spans both
-  columns.
+  columns. The field of a form with one field spans both columns.
 - **A data list row is compact by default.** A field of a `DataListItem` shows its label and its value
   on one line, and the fields wrap as a flow. A long value wraps inside its field and never widens
   the page.
