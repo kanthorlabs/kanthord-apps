@@ -26,7 +26,6 @@ const HEALTHY_SERVICES = {
   project: { bindings: 200 },
   mission: { operations: 200 },
 };
-const nodes = structuredClone(fx.NODES);
 const projects = [structuredClone(fx.PROJECT)];
 const mission = { ...structuredClone(fx.MISSION), entries: structuredClone(fx.MISSION_ENTRIES) };
 const bindingSet = structuredClone(fx.BINDING_SET);
@@ -173,45 +172,6 @@ on("GET", /^\/api\/worker\/agent\/([^/]+)$/, (m, _b, res) => {
     tools,
   });
 });
-
-on("GET", /^\/v1\/projects\/([^/]+)\/overview$/, (m, _b, res) => {
-  const tallies = {};
-  for (const n of nodes) if (n.state) tallies[n.state] = (tallies[n.state] ?? 0) + 1;
-  return json(res, 200, {
-    projectId: m[1],
-    tallies: Object.entries(tallies).map(([state, count]) => ({ state, count })),
-    blockedCount: nodes.filter((n) => n.state === "Blocked").length,
-    liveExecutionCount: fx.EXECUTIONS.filter((e) => e.live).length,
-    instanceCapacity: fx.INSTANCES.length,
-    instancesHealthy: fx.INSTANCES.filter((i) => i.healthcheckPasses).length,
-    inboxDepth: fx.DELIVERIES.length,
-  });
-});
-
-on("GET", /^\/v1\/projects\/[^/]+\/mission\/blocked$/, (_m, _b, res) =>
-  json(
-    res,
-    200,
-    nodes
-      .filter((n) => n.state === "Blocked")
-      .map((node) => {
-        const attempts = fx.ATTEMPTS[node.id] ?? [];
-        const closedAttempt = attempts.find((a) => !a.open) ?? attempts[0] ?? null;
-        return {
-          node,
-          closedAttempt,
-          condition:
-            closedAttempt?.assessments.find((a) => a.id === closedAttempt.outcome?.assessmentId)
-              ?.actor.kind === "human"
-              ? "human reason on a paused node"
-              : closedAttempt?.outcome?.assertedResult === "nothing established"
-                ? "an External.Failed observation"
-                : "a current assessment that does not pass",
-        };
-      })
-      .filter((b) => b.closedAttempt !== null),
-  ),
-);
 
 on("GET", /^\/v1\/projects\/[^/]+\/scheduler\/queue$/, (_m, _b, res) =>
   json(

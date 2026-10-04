@@ -5,7 +5,6 @@ import type {
   BindingSet,
   BindingSetEntry,
   BindingSetWriteResult,
-  Overview,
   Page,
   PermittedClientIdentity,
   Project,
@@ -52,10 +51,6 @@ export async function renameProject(projectId: string, name: string): Promise<Pr
     body: { name },
     headers: { "idempotency-key": newUlid() },
   });
-}
-
-export async function readOverview(projectId: string): Promise<Overview> {
-  return request<Overview>(`/v1/projects/${projectId}/overview`);
 }
 
 export async function listBindings(projectId: string): Promise<readonly Binding[]> {

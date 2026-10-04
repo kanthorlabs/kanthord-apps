@@ -1,14 +1,15 @@
 import { Link } from "react-router-dom";
 
-import type { BlockedNode, Execution, Overview, StateTally } from "@/api/types";
+import type { Execution, MissionRunnableNode } from "@/api/types";
 import type { ApiError } from "@/api/errors";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { closingEventText } from "@/lib/mission-labels";
 import { badgeVariantOf } from "@/lib/node-state";
-import { useOverview } from "./use-overview";
+import { useOverview, type StateTally } from "./use-overview";
 
 function SectionSkeleton() {
   return (
@@ -39,7 +40,7 @@ function BlockedSection({
   reload,
 }: {
   projectId: string;
-  data: readonly BlockedNode[] | null;
+  data: readonly MissionRunnableNode[];
   loading: boolean;
   error: ApiError | null;
   reload: () => void;
@@ -55,26 +56,28 @@ function BlockedSection({
       <CardContent>
         {loading && <SectionSkeleton />}
         {!loading && error !== null && <ErrorMessage error={error} reload={reload} />}
-        {!loading && error === null && data !== null && (
+        {!loading && error === null && (
           <>
             {data.length === 0 ? (
               <p className="text-sm text-muted-foreground">No blocked nodes.</p>
             ) : (
               <ItemGroup aria-label="Blocked nodes" className="gap-2">
-                {data.map((item) => (
-                  <Item key={item.node.id} role="listitem" variant="outline" size="sm">
+                {data.map((node) => (
+                  <Item key={node.id} role="listitem" variant="outline" size="sm">
                     <ItemContent className="min-w-0">
                       <ItemTitle>
                         <Link
                           to={`/projects/${projectId}`}
                           className="break-words underline-offset-4 hover:underline"
                         >
-                          {item.node.title}
+                          {node.content.name}
                         </Link>
                       </ItemTitle>
-                      <p className="text-sm break-words text-muted-foreground">
-                        {item.closedAttempt.outcome?.stoppingReason ?? item.condition}
-                      </p>
+                      {node.blockedContext !== undefined && (
+                        <p className="text-sm break-words text-muted-foreground">
+                          {closingEventText(node.blockedContext.outcome.closingEvent)}
+                        </p>
+                      )}
                     </ItemContent>
                   </Item>
                 ))}
@@ -186,64 +189,17 @@ function TallySection({
   );
 }
 
-function CapacitySection({
-  data,
-  loading,
-  error,
-  reload,
-}: {
-  data: Overview | null;
-  loading: boolean;
-  error: ApiError | null;
-  reload: () => void;
-}) {
-  return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <h2 className="font-semibold leading-none">Instances</h2>
-        </CardHeader>
-        <CardContent>
-          {loading && <Skeleton className="h-8 w-24" />}
-          {!loading && error !== null && <ErrorMessage error={error} reload={reload} />}
-          {!loading && error === null && data !== null && (
-            <p className="text-2xl font-bold tabular-nums">
-              {data.instancesHealthy}
-              <span className="text-base font-normal text-muted-foreground">
-                {" "}
-                / {data.instanceCapacity}
-              </span>
-            </p>
-          )}
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <h2 className="font-semibold leading-none">Inbox depth</h2>
-        </CardHeader>
-        <CardContent>
-          {loading && <Skeleton className="h-8 w-16" />}
-          {!loading && error !== null && <ErrorMessage error={error} reload={reload} />}
-          {!loading && error === null && data !== null && (
-            <p className="text-2xl font-bold tabular-nums">{data.inboxDepth}</p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export function OverviewScreen() {
-  const { projectId, overview, blocked, liveExecutions, orderedTallies } = useOverview();
+  const { projectId, nodes, blocked, liveExecutions, orderedTallies } = useOverview();
 
   return (
     <div className="grid gap-4">
       <BlockedSection
         projectId={projectId}
-        data={blocked.data}
-        loading={blocked.loading}
-        error={blocked.error}
-        reload={blocked.reload}
+        data={blocked}
+        loading={nodes.loading}
+        error={nodes.error}
+        reload={nodes.reload}
       />
       <div className="grid gap-4 lg:grid-cols-2">
         <RunningSection
@@ -255,17 +211,11 @@ export function OverviewScreen() {
         <TallySection
           projectId={projectId}
           tallies={orderedTallies}
-          loading={overview.loading}
-          error={overview.error}
-          reload={overview.reload}
+          loading={nodes.loading}
+          error={nodes.error}
+          reload={nodes.reload}
         />
       </div>
-      <CapacitySection
-        data={overview.data}
-        loading={overview.loading}
-        error={overview.error}
-        reload={overview.reload}
-      />
     </div>
   );
 }

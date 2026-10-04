@@ -2,7 +2,6 @@ import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
-  BlockedNode,
   Mission,
   MissionImportApply,
   MissionImportPreview,
@@ -18,10 +17,6 @@ import type {
   MissionOutcome,
   MissionRevision,
 } from "../types";
-
-export async function listBlocked(projectId: string): Promise<readonly BlockedNode[]> {
-  return request<readonly BlockedNode[]>(`/v1/projects/${projectId}/mission/blocked`);
-}
 
 export async function readMission(projectId: string): Promise<Mission> {
   return request<Mission>(`/api/mission/project/${encodeURIComponent(projectId)}`);

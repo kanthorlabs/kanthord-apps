@@ -2,98 +2,61 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import type { BlockedNode, Execution, Overview } from "@/api/types";
+import type { Execution, MissionNodeRecord, MissionOutcome, NodeState } from "@/api/types";
 import { NODE_STATES } from "@/api/types";
+import { closingEventText } from "@/lib/mission-labels";
 import { OverviewScreen } from "./overview-screen";
 
 vi.mock("@/features/projects/project-context", () => ({
   useProjectId: () => "prj-test",
 }));
 
-vi.mock("@/api/resources/projects", () => ({
-  readOverview: vi.fn(),
-}));
-
 vi.mock("@/api/resources/mission", () => ({
-  listBlocked: vi.fn(),
+  readMission: vi.fn(),
+  listMissionNodes: vi.fn(),
 }));
 
 vi.mock("@/api/resources/scheduler", () => ({
   listExecutions: vi.fn(),
 }));
 
-import { readOverview } from "@/api/resources/projects";
-import { listBlocked } from "@/api/resources/mission";
+import { listMissionNodes, readMission } from "@/api/resources/mission";
 import { listExecutions } from "@/api/resources/scheduler";
 
-const mockOverview: Overview = {
-  projectId: "prj-test",
-  tallies: [],
-  blockedCount: 0,
-  liveExecutionCount: 0,
-  instanceCapacity: 4,
-  instancesHealthy: 3,
-  inboxDepth: 2,
+const blockedOutcome: MissionOutcome = {
+  id: "outcome_1",
+  nodeId: "node_1",
+  attempt: 2,
+  nodeRevision: 1,
+  closingEvent: "human-block",
+  result: "undetermined",
+  assessmentId: "assessment_1",
+  evidenceIds: [],
+  createdAt: Date.now(),
 };
 
-const mockBlockedTime = new Date().toISOString();
-
-const mockBlockedNode: BlockedNode = {
-  node: {
-    id: "node-1",
-    kind: "objective",
-    title: "Add password reset",
-    state: "Blocked",
+function objective(id: string, name: string, state: NodeState): MissionNodeRecord {
+  return {
+    id,
+    filename: `${id}.md`,
+    missionId: "mission_1",
     parentId: null,
-    dependsOn: [],
-    goal: "A user resets a forgotten password.",
-    steps: [],
-    validationCriteria: [],
-    verificationCommand: null,
-    repositoryBindingId: null,
+    visibleRevision: 1,
+    content: { name, requirement: "", criterion: "", verifications: [], bindings: [] },
+    retiredAt: null,
+    pinnedByAttempts: [],
+    kind: "objective",
+    state,
+    attempt: 2,
     priority: 0,
-    attemptCounter: 2,
-    currentRevisionId: "rev-1",
-  },
-  closedAttempt: {
-    id: "att-1",
-    nodeId: "node-1",
-    ordinal: 1,
-    pinnedRevisionId: "rev-1",
-    open: false,
-    openedAt: new Date().toISOString(),
-    closedAt: new Date().toISOString(),
-    evidence: [],
-    assessments: [
-      {
-        id: "as-1-human",
-        attemptId: "att-1",
-        nodeRevisionId: "rev-1",
-        evidenceIds: [],
-        childOutcomeIds: [],
-        verdict: "neither established",
-        method: "human block",
-        actor: { kind: "human", account: "ulrich", name: "ulrich" },
-        time: mockBlockedTime,
-        currency: null,
-      },
-    ],
-    outcome: {
-      id: "oc-1",
-      attemptId: "att-1",
-      assertedResult: "nothing established",
-      closingEvent: "Blocked by a human.",
-      stoppingReason: "The signing key rotation landed first.",
-      assessmentId: "as-1-human",
-      evidenceIds: [],
-      previousOutcomeId: null,
-      actor: "ulrich",
-      time: mockBlockedTime,
-    },
-    externalObjects: [],
-  },
-  condition: "a human reason on a paused node",
-};
+    ...(state === "Blocked" ? { blockedContext: { outcome: blockedOutcome, requests: [] } } : {}),
+  };
+}
+
+function mockNodes(nodes: readonly MissionNodeRecord[]) {
+  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", projectId: "prj-test", version: 1 });
+  vi.mocked(listMissionNodes).mockResolvedValue(nodes);
+}
 
 const mockExecution: Execution = {
   id: "exec-1",
@@ -125,15 +88,15 @@ function renderScreen() {
 }
 
 describe("OverviewScreen", () => {
-  it("renders the blocked section first and shows the stopping reason", async () => {
-    vi.mocked(readOverview).mockResolvedValue(mockOverview);
-    vi.mocked(listBlocked).mockResolvedValue([mockBlockedNode]);
+  it("renders the blocked section first and shows the closing event", async () => {
+    mockNodes([objective("node_1", "Add password reset", "Blocked")]);
     vi.mocked(listExecutions).mockResolvedValue([mockExecution]);
 
     renderScreen();
 
     await waitFor(() => {
-      expect(screen.getByText("The signing key rotation landed first.")).toBeDefined();
+      expect(screen.getByText("Add password reset")).toBeDefined();
+      expect(screen.getByText(closingEventText("human-block"))).toBeDefined();
     });
 
     const needsHuman = screen.getByText("Needs a human");
@@ -145,8 +108,7 @@ describe("OverviewScreen", () => {
   });
 
   it("shows a plain message when there are no blocked nodes", async () => {
-    vi.mocked(readOverview).mockResolvedValue(mockOverview);
-    vi.mocked(listBlocked).mockResolvedValue([]);
+    mockNodes([objective("node_2", "Add recovery codes", "Pending")]);
     vi.mocked(listExecutions).mockResolvedValue([]);
 
     renderScreen();
@@ -163,8 +125,13 @@ describe("OverviewScreen", () => {
       { state: "Executing" as const, count: 1 },
       { state: "Available" as const, count: 3 },
     ];
-    vi.mocked(readOverview).mockResolvedValue({ ...mockOverview, tallies });
-    vi.mocked(listBlocked).mockResolvedValue([]);
+    mockNodes(
+      tallies.flatMap((tally) =>
+        Array.from({ length: tally.count }, (_, index) =>
+          objective(`node_${tally.state}_${index}`, `${tally.state} ${index}`, tally.state),
+        ),
+      ),
+    );
     vi.mocked(listExecutions).mockResolvedValue([]);
 
     renderScreen();

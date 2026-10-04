@@ -48,11 +48,6 @@ export type AssessmentVerdict = "meets" | "does not meet" | "neither established
 
 export type CurrencyCheck = "context" | "authority" | "order";
 
-export type BlockCondition =
-  | "a current assessment that does not pass"
-  | "an External.Failed observation"
-  | "a human reason on a paused node";
-
 export type BindingKind = "repository" | "worker" | "provider account" | "source";
 
 export type TransportForm = "SSH" | "HTTPS";
@@ -93,31 +88,6 @@ export interface Project {
   readonly name: string;
   readonly bindingSetVersion: number;
   readonly createdAt: number;
-}
-
-export interface ValidationCriterion {
-  readonly id: string;
-  readonly text: string;
-}
-
-export interface MissionNode {
-  readonly id: string;
-  readonly kind: NodeKind;
-  readonly title: string;
-  /** A task holds no state. The worker instance manages it inside its execution. */
-  readonly state: NodeState | null;
-  readonly parentId: string | null;
-  /** Only an initiative or an objective carries a dependency edge. */
-  readonly dependsOn: readonly string[];
-  readonly goal: string;
-  readonly steps: readonly string[];
-  readonly validationCriteria: readonly ValidationCriterion[];
-  readonly verificationCommand: string | null;
-  /** An objective names exactly one repository binding of its project. */
-  readonly repositoryBindingId: string | null;
-  readonly priority: number;
-  readonly attemptCounter: number;
-  readonly currentRevisionId: string;
 }
 
 export interface EvidenceRecord {
@@ -185,12 +155,6 @@ export interface Attempt {
   readonly assessments: readonly Assessment[];
   readonly outcome: Outcome | null;
   readonly externalObjects: readonly ExternalObject[];
-}
-
-export interface BlockedNode {
-  readonly node: MissionNode;
-  readonly closedAttempt: Attempt;
-  readonly condition: BlockCondition;
 }
 
 export interface WorkQueueEntry {
@@ -371,21 +335,6 @@ export interface Delivery {
   readonly attemptId: string | null;
   readonly decodedEventType: string | null;
   readonly refusalReason: string | null;
-}
-
-export interface StateTally {
-  readonly state: NodeState;
-  readonly count: number;
-}
-
-export interface Overview {
-  readonly projectId: string;
-  readonly tallies: readonly StateTally[];
-  readonly blockedCount: number;
-  readonly liveExecutionCount: number;
-  readonly instanceCapacity: number;
-  readonly instancesHealthy: number;
-  readonly inboxDepth: number;
 }
 
 export interface Mission {
