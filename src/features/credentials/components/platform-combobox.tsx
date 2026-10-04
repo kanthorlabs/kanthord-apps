@@ -9,7 +9,7 @@ import {
   ComboboxLabel,
   ComboboxList,
 } from "@/components/ui/combobox";
-import type { PlatformGroupItems } from "@/lib/credential-platforms";
+import { platformKindLabelOf, type PlatformGroupItems } from "@/lib/credential-platforms";
 
 interface PlatformComboboxProps {
   readonly id: string;
@@ -39,7 +39,9 @@ export function PlatformCombobox({
         <ComboboxList>
           {(group: PlatformGroupItems) => (
             <ComboboxGroup key={group.value} items={group.items}>
-              {group.value !== "" && <ComboboxLabel>{group.value}</ComboboxLabel>}
+              {group.value !== "" && (
+                <ComboboxLabel>{platformKindLabelOf(group.value)}</ComboboxLabel>
+              )}
               <ComboboxCollection>
                 {(item: string) => (
                   <ComboboxItem key={item} value={item}>

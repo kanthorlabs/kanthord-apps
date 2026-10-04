@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CredentialPlatformList } from "@/api/types";
-import { platformEntryOf, platformGroupsOf } from "./credential-platforms";
+import { platformEntryOf, platformGroupsOf, platformKindLabelOf } from "./credential-platforms";
 
 const GITHUB = {
   platform: "github",
@@ -45,5 +45,11 @@ describe("platformGroupsOf", () => {
       { value: "storage", items: ["s3"] },
     ]);
     expect(platformGroupsOf(null)).toEqual([]);
+  });
+});
+
+describe("platformKindLabelOf", () => {
+  it("labels each kind for display", () => {
+    expect(["git", "llm", "storage"].map(platformKindLabelOf)).toEqual(["Git", "LLM", "Storage"]);
   });
 });

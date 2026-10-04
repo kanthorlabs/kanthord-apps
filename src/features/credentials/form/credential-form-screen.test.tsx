@@ -190,15 +190,15 @@ describe("CredentialFormScreen", () => {
     const input = screen.getByRole("combobox", { name: "Platform" });
     await userEvent.clear(input);
     await userEvent.type(input, "s");
-    expect(await screen.findByRole("group", { name: "llm" })).toBeTruthy();
-    expect(screen.getByRole("group", { name: "storage" })).toBeTruthy();
-    expect(screen.queryByRole("group", { name: "git" })).toBeNull();
+    expect(await screen.findByRole("group", { name: "LLM" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Storage" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Git" })).toBeNull();
     expect(screen.getByRole("option", { name: "acme-sso" })).toBeTruthy();
 
     await userEvent.type(input, "3");
     expect(screen.getByRole("option", { name: "s3" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "acme-sso" })).toBeNull();
-    expect(screen.queryByRole("group", { name: "llm" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "LLM" })).toBeNull();
   });
 
   it("renders one text input for each metadata field and sends it under its name", async () => {

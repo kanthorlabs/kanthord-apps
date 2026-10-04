@@ -1,12 +1,23 @@
 import type {
   CredentialPlatform,
   CredentialPlatformEntry,
+  CredentialPlatformKind,
   CredentialPlatformList,
 } from "@/api/types";
 
 export interface PlatformGroupItems {
   readonly value: string;
   readonly items: readonly CredentialPlatform[];
+}
+
+const PLATFORM_KIND_LABELS: Readonly<Record<CredentialPlatformKind, string>> = {
+  git: "Git",
+  llm: "LLM",
+  storage: "Storage",
+};
+
+export function platformKindLabelOf(kind: string): string {
+  return PLATFORM_KIND_LABELS[kind as CredentialPlatformKind] ?? kind;
 }
 
 export function platformEntryOf(

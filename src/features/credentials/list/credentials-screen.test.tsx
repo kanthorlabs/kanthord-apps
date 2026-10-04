@@ -195,13 +195,13 @@ describe("CredentialsScreen", () => {
 
     const options = await screen.findAllByRole("option");
     expect(options[0]?.textContent).toBe("All platforms");
-    expect(screen.getByRole("group", { name: "llm" })).toBeTruthy();
-    expect(screen.queryByRole("group", { name: "git" })).toBeNull();
+    expect(screen.getByRole("group", { name: "LLM" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Git" })).toBeNull();
 
     await userEvent.type(input, "mazon");
     expect(screen.getByRole("option", { name: "amazon-bedrock" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "openrouter" })).toBeNull();
-    expect(screen.queryByRole("group", { name: "storage" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Storage" })).toBeNull();
   });
 
   it("disables Verify for a platform that is not verifiable and says why on a tap", async () => {
