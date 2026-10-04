@@ -184,6 +184,21 @@ describe("editMetadataOf", () => {
       },
     });
   });
+
+  it("flags the repeated row of a model id after trimming", () => {
+    const draft = {
+      ...EMPTY_METADATA,
+      models: [
+        { ...EMPTY_MODEL, id: "qwen" },
+        { ...EMPTY_MODEL, id: "other" },
+        { ...EMPTY_MODEL, id: " qwen " },
+      ],
+    };
+    expect(editMetadataOf("openai-compatible", OPENAI, draft)).toEqual({
+      ok: false,
+      errors: { "models.2.id": "Use an id that no other model uses." },
+    });
+  });
 });
 
 describe("metadataDraftOf", () => {

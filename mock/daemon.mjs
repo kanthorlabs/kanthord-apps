@@ -594,7 +594,8 @@ const metadataIsValid = (platform, metadata) => {
       typeof metadata.baseUrl === "string" &&
       BASE_URL.test(metadata.baseUrl) &&
       Array.isArray(metadata.models) &&
-      metadata.models.every((model) => isNonblank(model?.id))
+      metadata.models.every((model) => isNonblank(model?.id)) &&
+      new Set(metadata.models.map((model) => model.id.trim())).size === metadata.models.length
     );
   }
   if (platform === "s3") {

@@ -243,6 +243,16 @@ export function rotateMetadataOf(
   return { ok: true, value: undefined };
 }
 
+function flagRepeatedModelIds(models: readonly ModelDraft[], errors: Record<string, string>): void {
+  const seen = new Set<string>();
+  models.forEach((model, index) => {
+    const id = model.id.trim();
+    if (id.length === 0) return;
+    if (seen.has(id)) errors[`models.${index}.id`] = "Use an id that no other model uses.";
+    seen.add(id);
+  });
+}
+
 export function editMetadataOf(
   platform: CredentialPlatform,
   current: Readonly<Record<string, unknown>> | null,
@@ -251,6 +261,7 @@ export function editMetadataOf(
   const errors: Record<string, string> = {};
   if (platform === "openai-compatible") {
     const models = draft.models.map((model, index) => modelOfDraft(model, index, errors));
+    flagRepeatedModelIds(draft.models, errors);
     return finish(errors, { baseUrl: openAiMetadataOf(current).baseUrl, models });
   }
   if (platform === "s3") return finish(errors, s3MetadataOfDraft(draft, errors));
