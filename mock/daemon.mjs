@@ -584,6 +584,10 @@ const CREDENTIAL_PLATFORM_LIST = {
   items: [
     { kind: "git", platforms: [platformEntry("github", "api_key", [], [], true)] },
     {
+      kind: "storage",
+      platforms: [platformEntry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"], true)],
+    },
+    {
       kind: "llm",
       platforms: [
         platformEntry("github-copilot", "oauth", ["device"], [], true),
@@ -598,10 +602,6 @@ const CREDENTIAL_PLATFORM_LIST = {
         platformEntry("google", "api_key", [], [], false),
         platformEntry("mistral", "api_key", [], [], false),
       ],
-    },
-    {
-      kind: "storage",
-      platforms: [platformEntry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"], true)],
     },
   ],
 };
