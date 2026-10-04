@@ -3,45 +3,20 @@ import type {
   CredentialLoginMode,
   CredentialMetadata,
   CredentialModel,
-  CredentialPlatform,
+  CredentialPlatformEntry,
   CredentialSecret,
   OpenAiCompatibleMetadata,
   ReasoningEffort,
-  S3Metadata,
   SecretShape,
 } from "@/api/types";
 import { REASONING_EFFORTS } from "@/lib/binding-draft";
 
-export const SECRET_SHAPES: Readonly<Record<CredentialPlatform, SecretShape>> = {
-  github: "api_key",
-  "github-copilot": "oauth",
-  "openai-codex": "oauth",
-  anthropic: "api_key",
-  openrouter: "api_key",
-  "openai-compatible": "api_key",
-  s3: "s3_access_key",
-};
-
-export function isOAuthPlatform(platform: CredentialPlatform): boolean {
-  return SECRET_SHAPES[platform] === "oauth";
-}
-
-export const LOGIN_MODES: Readonly<
-  Partial<Record<CredentialPlatform, readonly CredentialLoginMode[]>>
-> = {
-  "openai-codex": ["browser", "device"],
-  "github-copilot": ["device"],
-};
-
-export function loginModesOf(platform: CredentialPlatform): readonly CredentialLoginMode[] {
-  return LOGIN_MODES[platform] ?? [];
-}
+export const OPENAI_COMPATIBLE = "openai-compatible";
 
 export function loginModeOf(
-  platform: CredentialPlatform,
+  modes: readonly CredentialLoginMode[],
   selected: CredentialLoginMode | null,
 ): CredentialLoginMode | null {
-  const modes = loginModesOf(platform);
   if (selected !== null && modes.includes(selected)) return selected;
   return modes.includes("browser") ? "browser" : null;
 }
@@ -71,10 +46,7 @@ export interface ModelDraft {
 }
 
 export interface MetadataDraft {
-  readonly baseUrl: string;
-  readonly endpoint: string;
-  readonly bucket: string;
-  readonly region: string;
+  readonly fields: Readonly<Record<string, string>>;
   readonly models: readonly ModelDraft[];
 }
 
@@ -88,10 +60,7 @@ export const EMPTY_SECRET: SecretDraft = {
 };
 
 export const EMPTY_METADATA: MetadataDraft = {
-  baseUrl: "",
-  endpoint: "",
-  bucket: "",
-  region: "",
+  fields: {},
   models: [],
 };
 
@@ -112,10 +81,6 @@ const BLANK = "Enter a value.";
 
 function isBlank(value: string): boolean {
   return value.trim().length === 0;
-}
-
-export function hasMetadata(platform: CredentialPlatform): boolean {
-  return platform === "openai-compatible" || platform === "s3";
 }
 
 export function credentialNameError(name: string): string | null {
@@ -164,12 +129,36 @@ function baseUrlError(baseUrl: string): string | null {
     : "Use an http or https address with no query, no fragment and no trailing slash.";
 }
 
-function s3MetadataOfDraft(draft: MetadataDraft, errors: Record<string, string>): S3Metadata {
-  if (!URL.canParse(draft.endpoint))
-    errors["endpoint"] = "Enter a full URL, for example https://s3.amazonaws.com.";
-  if (isBlank(draft.bucket)) errors["bucket"] = BLANK;
-  if (isBlank(draft.region)) errors["region"] = BLANK;
-  return { endpoint: draft.endpoint, bucket: draft.bucket, region: draft.region };
+function fieldError(name: string, value: string): string | null {
+  if (name === "baseUrl") return baseUrlError(value);
+  if (name === "endpoint" && !URL.canParse(value)) {
+    return "Enter a full URL, for example https://s3.amazonaws.com.";
+  }
+  return isBlank(value) ? BLANK : null;
+}
+
+function fieldsOfDraft(
+  names: readonly string[],
+  draft: MetadataDraft,
+  errors: Record<string, string>,
+): Readonly<Record<string, string>> {
+  const fields: Record<string, string> = {};
+  for (const name of names) {
+    const value = draft.fields[name] ?? "";
+    const invalid = fieldError(name, value);
+    if (invalid !== null) errors[name] = invalid;
+    fields[name] = value;
+  }
+  return fields;
+}
+
+function metadataOf(
+  entry: CredentialPlatformEntry,
+  fields: Readonly<Record<string, string>>,
+  models: readonly CredentialModel[],
+): CredentialMetadata {
+  if (entry.platform !== OPENAI_COMPATIBLE) return fields;
+  return { baseUrl: fields["baseUrl"] ?? "", models };
 }
 
 function limitOf(value: string, key: string, errors: Record<string, string>): number | undefined {
@@ -209,59 +198,49 @@ function modelOfDraft(
 
 export function createBodyOf(
   name: string,
-  platform: CredentialPlatform,
+  entry: CredentialPlatformEntry,
   secretDraft: SecretDraft,
   metadataDraft: MetadataDraft,
 ): DraftResult<CredentialCreateBody> {
   const errors: Record<string, string> = {};
   const nameError = credentialNameError(name);
   if (nameError !== null) errors["name"] = nameError;
-  if (isOAuthPlatform(platform)) {
+  if (entry.secretShape === "oauth") {
     return {
       ok: false,
       errors: { ...errors, platform: "This platform takes its credential through a sign-in." },
     };
   }
-  const secret = secretOfDraft(SECRET_SHAPES[platform], secretDraft);
+  const secret = secretOfDraft(entry.secretShape, secretDraft);
   if (!secret.ok) Object.assign(errors, secret.errors);
-  let metadata: CredentialMetadata = null;
-  if (platform === "openai-compatible") {
-    const invalid = baseUrlError(metadataDraft.baseUrl);
-    if (invalid !== null) errors["baseUrl"] = invalid;
-    metadata = { baseUrl: metadataDraft.baseUrl, models: [] };
-  }
-  if (platform === "s3") metadata = s3MetadataOfDraft(metadataDraft, errors);
+  const metadata =
+    entry.metadataFields.length === 0
+      ? null
+      : metadataOf(entry, fieldsOfDraft(entry.metadataFields, metadataDraft, errors), []);
   if (!secret.ok || Object.keys(errors).length > 0) return { ok: false, errors };
   return {
     ok: true,
-    value: { name, platform, metadata, secret: secret.value as CredentialCreateBody["secret"] },
+    value: {
+      name,
+      platform: entry.platform,
+      metadata,
+      secret: secret.value as CredentialCreateBody["secret"],
+    },
   };
 }
 
 export function rotateMetadataOf(
-  platform: CredentialPlatform,
+  entry: CredentialPlatformEntry,
   current: Readonly<Record<string, unknown>> | null,
   draft: MetadataDraft,
 ): DraftResult<CredentialMetadata | undefined> {
+  const unchanged = entry.metadataFields.every(
+    (name) => (draft.fields[name] ?? "") === textOf(current?.[name]),
+  );
+  if (unchanged) return { ok: true, value: undefined };
   const errors: Record<string, string> = {};
-  if (platform === "openai-compatible") {
-    const existing = openAiMetadataOf(current);
-    if (draft.baseUrl === existing.baseUrl) return { ok: true, value: undefined };
-    const invalid = baseUrlError(draft.baseUrl);
-    if (invalid !== null) errors["baseUrl"] = invalid;
-    return finish(errors, { baseUrl: draft.baseUrl, models: existing.models });
-  }
-  if (platform === "s3") {
-    const existing = s3MetadataOf(current);
-    const next = s3MetadataOfDraft(draft, errors);
-    const unchanged =
-      next.endpoint === existing.endpoint &&
-      next.bucket === existing.bucket &&
-      next.region === existing.region;
-    if (unchanged) return { ok: true, value: undefined };
-    return finish(errors, next);
-  }
-  return { ok: true, value: undefined };
+  const fields = fieldsOfDraft(entry.metadataFields, draft, errors);
+  return finish(errors, metadataOf(entry, fields, openAiMetadataOf(current).models));
 }
 
 function flagRepeatedModelIds(models: readonly ModelDraft[], errors: Record<string, string>): void {
@@ -275,18 +254,18 @@ function flagRepeatedModelIds(models: readonly ModelDraft[], errors: Record<stri
 }
 
 export function editMetadataOf(
-  platform: CredentialPlatform,
+  entry: CredentialPlatformEntry,
   current: Readonly<Record<string, unknown>> | null,
   draft: MetadataDraft,
 ): DraftResult<CredentialMetadata> {
   const errors: Record<string, string> = {};
-  if (platform === "openai-compatible") {
+  if (entry.platform === OPENAI_COMPATIBLE) {
     const models = draft.models.map((model, index) => modelOfDraft(model, index, errors));
     flagRepeatedModelIds(draft.models, errors);
     return finish(errors, { baseUrl: openAiMetadataOf(current).baseUrl, models });
   }
-  if (platform === "s3") return finish(errors, s3MetadataOfDraft(draft, errors));
-  return { ok: true, value: null };
+  if (entry.metadataFields.length === 0) return { ok: true, value: null };
+  return finish(errors, fieldsOfDraft(entry.metadataFields, draft, errors));
 }
 
 function textOf(value: unknown): string {
@@ -324,31 +303,21 @@ export function openAiMetadataOf(
   };
 }
 
-export function s3MetadataOf(metadata: Readonly<Record<string, unknown>> | null): S3Metadata {
-  return {
-    endpoint: textOf(metadata?.["endpoint"]),
-    bucket: textOf(metadata?.["bucket"]),
-    region: textOf(metadata?.["region"]),
-  };
-}
-
 export function metadataDraftOf(
-  platform: CredentialPlatform,
+  entry: CredentialPlatformEntry,
   metadata: Readonly<Record<string, unknown>> | null,
 ): MetadataDraft {
-  if (platform === "openai-compatible") {
-    const current = openAiMetadataOf(metadata);
-    return {
-      ...EMPTY_METADATA,
-      baseUrl: current.baseUrl,
-      models: current.models.map((model) => ({
-        id: model.id,
-        contextWindow: model.contextWindow === undefined ? "" : String(model.contextWindow),
-        maxTokens: model.maxTokens === undefined ? "" : String(model.maxTokens),
-        reasoningLevels: model.reasoningLevels ?? [],
-      })),
-    };
-  }
-  if (platform === "s3") return { ...EMPTY_METADATA, ...s3MetadataOf(metadata) };
-  return EMPTY_METADATA;
+  const fields = Object.fromEntries(
+    entry.metadataFields.map((name) => [name, textOf(metadata?.[name])]),
+  );
+  if (entry.platform !== OPENAI_COMPATIBLE) return { fields, models: [] };
+  return {
+    fields,
+    models: openAiMetadataOf(metadata).models.map((model) => ({
+      id: model.id,
+      contextWindow: model.contextWindow === undefined ? "" : String(model.contextWindow),
+      maxTokens: model.maxTokens === undefined ? "" : String(model.maxTokens),
+      reasoningLevels: model.reasoningLevels ?? [],
+    })),
+  };
 }

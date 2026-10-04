@@ -573,15 +573,43 @@ on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (_m, _b, res, _t, u
   return json(res, 200, page(items));
 });
 
-const CREDENTIAL_PLATFORMS = {
-  github: "api_key",
-  "github-copilot": "oauth",
-  "openai-codex": "oauth",
-  anthropic: "api_key",
-  openrouter: "api_key",
-  "openai-compatible": "api_key",
-  s3: "s3_access_key",
+const platformEntry = (platform, secretShape, loginModes, metadataFields, verifiable) => ({
+  platform,
+  secretShape,
+  loginModes,
+  metadataFields,
+  verifiable,
+});
+const CREDENTIAL_PLATFORM_LIST = {
+  items: [
+    { kind: "git", platforms: [platformEntry("github", "api_key", [], [], true)] },
+    {
+      kind: "llm",
+      platforms: [
+        platformEntry("github-copilot", "oauth", ["device"], [], true),
+        platformEntry("openai-codex", "oauth", ["browser", "device"], [], true),
+        platformEntry("anthropic", "api_key", [], [], true),
+        platformEntry("openai-compatible", "api_key", [], ["baseUrl"], true),
+        platformEntry("openrouter", "api_key", [], [], true),
+        platformEntry("openai", "api_key", [], [], true),
+        platformEntry("amazon-bedrock", "api_key", [], ["region"], false),
+        platformEntry("google-vertex", "api_key", [], ["project", "location"], false),
+        platformEntry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"], false),
+        platformEntry("google", "api_key", [], [], false),
+        platformEntry("mistral", "api_key", [], [], false),
+      ],
+    },
+    {
+      kind: "storage",
+      platforms: [platformEntry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"], true)],
+    },
+  ],
 };
+const CREDENTIAL_PLATFORMS = Object.fromEntries(
+  CREDENTIAL_PLATFORM_LIST.items.flatMap((group) =>
+    group.platforms.map((entry) => [entry.platform, entry]),
+  ),
+);
 const HEALTH_CAPABILITIES = {
   github: "rate-limit read",
   "github-copilot": "copilot-token read",
@@ -648,16 +676,15 @@ const metadataIsValid = (platform, metadata) => {
       new Set(metadata.models.map((model) => model.id.trim())).size === metadata.models.length
     );
   }
-  if (platform === "s3") {
-    return (
-      typeof metadata === "object" &&
-      metadata !== null &&
-      URL.canParse(metadata.endpoint) &&
-      isNonblank(metadata.bucket) &&
-      isNonblank(metadata.region)
-    );
-  }
-  return metadata === null;
+  const fields = CREDENTIAL_PLATFORMS[platform]?.metadataFields ?? [];
+  if (fields.length === 0) return metadata === null;
+  return (
+    typeof metadata === "object" &&
+    metadata !== null &&
+    Object.keys(metadata).length === fields.length &&
+    fields.every((field) => isNonblank(metadata[field])) &&
+    (platform !== "s3" || URL.canParse(metadata.endpoint))
+  );
 };
 
 const findCredential = (res, encoded) => {
@@ -709,6 +736,10 @@ const addRevision = (credential, metadata, res) => {
   return json(res, 200, credential);
 };
 
+on("GET", /^\/api\/credential\/platform$/, (_m, _b, res) =>
+  json(res, 200, CREDENTIAL_PLATFORM_LIST),
+);
+
 on("GET", /^\/api\/credential$/, (_m, _b, res, _t, url) => {
   const platform = url.searchParams.get("platform");
   const includeArchived = url.searchParams.get("includeArchived") === "true";
@@ -725,7 +756,7 @@ on("GET", /^\/api\/credential$/, (_m, _b, res, _t, url) => {
 });
 
 on("POST", /^\/api\/credential$/, (_m, b, res) => {
-  const shape = CREDENTIAL_PLATFORMS[b?.platform];
+  const shape = CREDENTIAL_PLATFORMS[b?.platform]?.secretShape;
   if (shape === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
@@ -772,7 +803,7 @@ on("POST", /^\/api\/credential$/, (_m, b, res) => {
 });
 
 on("POST", /^\/api\/credential\/login$/, (_m, b, res) => {
-  const shape = CREDENTIAL_PLATFORMS[b?.platform];
+  const shape = CREDENTIAL_PLATFORMS[b?.platform]?.secretShape;
   if (shape === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
@@ -902,7 +933,7 @@ on("POST", /^\/api\/credential\/([^/]+)\/revision$/, (m, b, res) => {
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
-  if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform], b.secret)) {
+  if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform].secretShape, b.secret)) {
     return refuseInvalidInput(res);
   }
   const metadata = b.metadata === undefined ? newestLive(credential).metadata : b.metadata;

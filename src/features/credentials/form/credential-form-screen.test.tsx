@@ -6,7 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
-import type { Credential, CredentialLoginSession } from "@/api/types";
+import type {
+  Credential,
+  CredentialLoginSession,
+  CredentialPlatformEntry,
+  CredentialPlatformList,
+} from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
 vi.mock("sonner", async (importOriginal) => ({
@@ -30,6 +35,36 @@ const ROUTER: Credential = {
   ],
 };
 
+function entry(
+  platform: string,
+  secretShape: CredentialPlatformEntry["secretShape"],
+  loginModes: CredentialPlatformEntry["loginModes"],
+  metadataFields: readonly string[],
+): CredentialPlatformEntry {
+  return { platform, secretShape, loginModes, metadataFields, verifiable: true };
+}
+
+const PLATFORMS: CredentialPlatformList = {
+  items: [
+    { kind: "git", platforms: [entry("github", "api_key", [], [])] },
+    {
+      kind: "llm",
+      platforms: [
+        entry("github-copilot", "oauth", ["device"], []),
+        entry("openai-codex", "oauth", ["browser", "device"], []),
+        entry("openai-compatible", "api_key", [], ["baseUrl"]),
+        entry("openrouter", "api_key", [], []),
+        entry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"]),
+        entry("acme-sso", "oauth", ["device"], []),
+      ],
+    },
+    {
+      kind: "storage",
+      platforms: [entry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"])],
+    },
+  ],
+};
+
 const SESSION: CredentialLoginSession = {
   sessionId: "login_session_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
   address: "https://github.com/login/device",
@@ -37,8 +72,8 @@ const SESSION: CredentialLoginSession = {
   expiresAt: Date.UTC(2026, 9, 4, 7, 15),
 };
 
-function mount() {
-  return render(
+async function mount() {
+  render(
     <MemoryRouter initialEntries={["/credentials/new"]}>
       <Routes>
         <Route path="/credentials/new" element={<CredentialFormScreen />} />
@@ -46,15 +81,19 @@ function mount() {
       </Routes>
     </MemoryRouter>,
   );
+  await screen.findByLabelText("Name");
 }
 
 async function choosePlatform(platform: string) {
-  await userEvent.click(screen.getByRole("combobox", { name: "Platform" }));
+  const input = screen.getByRole("combobox", { name: "Platform" });
+  await userEvent.clear(input);
+  await userEvent.type(input, platform);
   await userEvent.click(await screen.findByRole("option", { name: platform }));
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
 });
 
 describe("CredentialFormScreen", () => {
@@ -64,7 +103,7 @@ describe("CredentialFormScreen", () => {
       name: "ci-github",
       platform: "github",
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "ci-github");
     const key = screen.getByLabelText("API key");
@@ -83,12 +122,12 @@ describe("CredentialFormScreen", () => {
 
   it("creates an openai-compatible credential with a base URL and no models", async () => {
     vi.mocked(credentialsApi.createCredential).mockResolvedValue(ROUTER);
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openai-compatible");
     await userEvent.type(screen.getByLabelText("API key"), "sk-1");
-    await userEvent.type(screen.getByLabelText("Base URL"), "https://openrouter.ai/api/v1");
+    await userEvent.type(screen.getByLabelText("baseUrl"), "https://openrouter.ai/api/v1");
     await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(credentialsApi.createCredential).toHaveBeenCalledWith({
@@ -104,12 +143,12 @@ describe("CredentialFormScreen", () => {
       ...ROUTER,
       platform: "openrouter",
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
     await userEvent.type(screen.getByLabelText("API key"), "sk-or");
-    expect(screen.queryByLabelText("Base URL")).toBeNull();
+    expect(screen.queryByLabelText("baseUrl")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(credentialsApi.createCredential).toHaveBeenCalledWith({
@@ -126,15 +165,15 @@ describe("CredentialFormScreen", () => {
       name: "evidence",
       platform: "s3",
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "evidence");
     await choosePlatform("s3");
     await userEvent.type(screen.getByLabelText("Access key ID"), "AKIA1");
     await userEvent.type(screen.getByLabelText("Secret access key"), "s3-secret");
-    await userEvent.type(screen.getByLabelText("Endpoint"), "https://s3.amazonaws.com");
-    await userEvent.type(screen.getByLabelText("Bucket"), "evidence");
-    await userEvent.type(screen.getByLabelText("Region"), "us-east-1");
+    await userEvent.type(screen.getByLabelText("endpoint"), "https://s3.amazonaws.com");
+    await userEvent.type(screen.getByLabelText("bucket"), "evidence");
+    await userEvent.type(screen.getByLabelText("region"), "us-east-1");
     await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(credentialsApi.createCredential).toHaveBeenCalledWith({
@@ -145,8 +184,70 @@ describe("CredentialFormScreen", () => {
     });
   });
 
+  it("offers the platforms grouped by kind and filters them by the typed id", async () => {
+    await mount();
+
+    const input = screen.getByRole("combobox", { name: "Platform" });
+    await userEvent.clear(input);
+    await userEvent.type(input, "s");
+    expect(await screen.findByRole("group", { name: "llm" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "storage" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "git" })).toBeNull();
+    expect(screen.getByRole("option", { name: "acme-sso" })).toBeTruthy();
+
+    await userEvent.type(input, "3");
+    expect(screen.getByRole("option", { name: "s3" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "acme-sso" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "llm" })).toBeNull();
+  });
+
+  it("renders one text input for each metadata field and sends it under its name", async () => {
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "gateway",
+      platform: "cloudflare-ai-gateway",
+    });
+    await mount();
+
+    await userEvent.type(screen.getByLabelText("Name"), "gateway");
+    await choosePlatform("cloudflare-ai-gateway");
+    await userEvent.type(screen.getByLabelText("API key"), "cf-1");
+    await userEvent.type(screen.getByLabelText("account_id"), "acc-1");
+    await userEvent.type(screen.getByLabelText("gateway_id"), "gw-1");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    expect(credentialsApi.createCredential).toHaveBeenCalledWith({
+      name: "gateway",
+      platform: "cloudflare-ai-gateway",
+      metadata: { account_id: "acc-1", gateway_id: "gw-1" },
+      secret: { key: "cf-1" },
+    });
+  });
+
+  it("chooses the sign-in from the secret shape of the platform entry", async () => {
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      sessionId: SESSION.sessionId,
+      state: "pending",
+      lastMessage: null,
+      failureReason: null,
+    });
+    await mount();
+
+    await userEvent.type(screen.getByLabelText("Name"), "acme");
+    await choosePlatform("acme-sso");
+    expect(screen.queryByLabelText("API key")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+
+    expect(await screen.findByText("ABCD-1234")).toBeTruthy();
+    expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
+      platform: "acme-sso",
+      name: "acme",
+    });
+  });
+
   it("refuses an invalid draft before any request", async () => {
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "login");
     await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
@@ -162,7 +263,7 @@ describe("CredentialFormScreen", () => {
         id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
       }),
     );
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "ci-github");
     await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
@@ -184,7 +285,7 @@ describe("CredentialFormScreen", () => {
       lastMessage: null,
       failureReason: null,
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
@@ -211,7 +312,7 @@ describe("CredentialFormScreen", () => {
       lastMessage: null,
       failureReason: null,
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
@@ -232,7 +333,7 @@ describe("CredentialFormScreen", () => {
     vi.mocked(credentialsApi.submitCredentialLoginCode).mockResolvedValue({
       sessionId: SESSION.sessionId,
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
@@ -256,7 +357,7 @@ describe("CredentialFormScreen", () => {
       lastMessage: null,
       failureReason: null,
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "codex");
     await choosePlatform("openai-codex");
@@ -284,7 +385,7 @@ describe("CredentialFormScreen", () => {
       lastMessage: null,
       failureReason: null,
     });
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "codex");
     await choosePlatform("openai-codex");
@@ -305,7 +406,7 @@ describe("CredentialFormScreen", () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockRejectedValue(
       new ApiError("conflict", "Pending.", 409, "credential.login.pending"),
     );
-    mount();
+    await mount();
 
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");

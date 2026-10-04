@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as gatewayApi from "@/api/resources/gateway";
-import type { Credential, HealthOwner } from "@/api/types";
+import type {
+  Credential,
+  CredentialPlatformEntry,
+  CredentialPlatformList,
+  HealthOwner,
+} from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/gateway");
@@ -47,6 +52,54 @@ const ROUTER: Credential = {
     },
   ],
 };
+const BEDROCK: Credential = {
+  name: "bedrock",
+  platform: "amazon-bedrock",
+  revisions: [
+    {
+      id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAF",
+      revision: 1,
+      metadata: { region: "us-east-1" },
+      createdAt: Date.UTC(2026, 9, 1, 8, 0),
+      endedAt: null,
+    },
+  ],
+};
+
+function apiKey(
+  platform: string,
+  metadataFields: readonly string[],
+  verifiable: boolean,
+): CredentialPlatformEntry {
+  return { platform, secretShape: "api_key", loginModes: [], metadataFields, verifiable };
+}
+
+const PLATFORMS: CredentialPlatformList = {
+  items: [
+    { kind: "git", platforms: [apiKey("github", [], true)] },
+    {
+      kind: "llm",
+      platforms: [
+        apiKey("openai-compatible", ["baseUrl"], true),
+        apiKey("openrouter", [], true),
+        apiKey("amazon-bedrock", ["region"], false),
+      ],
+    },
+    {
+      kind: "storage",
+      platforms: [
+        {
+          platform: "s3",
+          secretShape: "s3_access_key",
+          loginModes: [],
+          metadataFields: ["endpoint", "bucket", "region"],
+          verifiable: true,
+        },
+      ],
+    },
+  ],
+};
+
 const EMPTY_OWNER: HealthOwner = { global: {}, projects: {} };
 
 function mount() {
@@ -61,8 +114,16 @@ function mount() {
   );
 }
 
+async function filterBy(text: string, option: string) {
+  const input = await screen.findByRole("combobox", { name: "Platform" });
+  await userEvent.clear(input);
+  await userEvent.type(input, text);
+  await userEvent.click(await screen.findByRole("option", { name: option }));
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
 });
 
 describe("CredentialsScreen", () => {
@@ -101,8 +162,8 @@ describe("CredentialsScreen", () => {
     });
     mount();
 
-    await userEvent.click(await screen.findByRole("combobox", { name: "Platform" }));
-    await userEvent.click(await screen.findByRole("option", { name: "openai-compatible" }));
+    await screen.findByRole("button", { name: "Verify ci-github" });
+    await filterBy("openai-compatible", "openai-compatible");
 
     expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(
       "openai-compatible",
@@ -110,10 +171,87 @@ describe("CredentialsScreen", () => {
       false,
     );
 
-    await userEvent.click(screen.getByRole("combobox", { name: "Platform" }));
-    await userEvent.click(await screen.findByRole("option", { name: "openrouter" }));
+    await filterBy("openrouter", "openrouter");
 
     expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("openrouter", null, false);
+
+    await filterBy("All", "All platforms");
+
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(null, null, false);
+  });
+
+  it("offers All platforms first and the platforms grouped by kind", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [GITHUB],
+      nextCursor: null,
+    });
+    mount();
+
+    await screen.findByRole("button", { name: "Verify ci-github" });
+    const input = screen.getByRole("combobox", { name: "Platform" });
+    expect((input as HTMLInputElement).value).toBe("All platforms");
+    await userEvent.clear(input);
+    await userEvent.type(input, "a");
+
+    const options = await screen.findAllByRole("option");
+    expect(options[0]?.textContent).toBe("All platforms");
+    expect(screen.getByRole("group", { name: "llm" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "git" })).toBeNull();
+
+    await userEvent.type(input, "mazon");
+    expect(screen.getByRole("option", { name: "amazon-bedrock" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "openrouter" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "storage" })).toBeNull();
+  });
+
+  it("disables Verify for a platform that is not verifiable and says why on a tap", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [BEDROCK, GITHUB],
+      nextCursor: null,
+    });
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Verify ci-github" })).toBeEnabled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Verify bedrock" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+
+    await userEvent.pointer({
+      keys: "[TouchA]",
+      target: screen.getByRole("button", { name: "Verify bedrock" }),
+    });
+
+    expect(
+      await screen.findByText("Verification is not supported yet for amazon-bedrock.", undefined, {
+        timeout: 300,
+      }),
+    ).toBeTruthy();
+    expect(gatewayApi.readHealthReport).not.toHaveBeenCalled();
+  });
+
+  it("opens the Verify tooltip on hover", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [BEDROCK],
+      nextCursor: null,
+    });
+    mount();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Verify bedrock" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await userEvent.hover(screen.getByRole("button", { name: "Verify bedrock" }));
+
+    expect(
+      await screen.findByText("Verification is not supported yet for amazon-bedrock.", undefined, {
+        timeout: 2000,
+      }),
+    ).toBeTruthy();
   });
 
   it("includes archived credentials on request and offers only Revisions on them", async () => {

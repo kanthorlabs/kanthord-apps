@@ -1,11 +1,21 @@
 import { useCallback, useState } from "react";
 
 import { listCredentialPage } from "@/api/resources/credentials";
-import { CREDENTIAL_PLATFORMS, type Credential, type CredentialPlatform } from "@/api/types";
+import type { Credential, CredentialPlatform, CredentialPlatformList } from "@/api/types";
 import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
+import {
+  platformEntryOf,
+  platformGroupsOf,
+  type PlatformGroupItems,
+} from "@/lib/credential-platforms";
+import { useCredentialPlatforms } from "../use-credential-platforms";
+
+export const ALL_PLATFORMS = "all";
 
 export interface CredentialList {
   readonly pages: CursorPages<Credential>;
+  readonly platforms: CredentialPlatformList | null;
+  readonly groups: readonly PlatformGroupItems[];
   readonly platform: CredentialPlatform | null;
   readonly includeArchived: boolean;
   readonly selectPlatform: (value: string | null) => void;
@@ -13,6 +23,7 @@ export interface CredentialList {
 }
 
 export function useCredentialList(): CredentialList {
+  const platforms = useCredentialPlatforms();
   const [platform, setPlatform] = useState<CredentialPlatform | null>(null);
   const [includeArchived, setIncludeArchived] = useState(false);
   const pages = useCursorPages(
@@ -20,9 +31,18 @@ export function useCredentialList(): CredentialList {
     [platform, includeArchived],
   );
   const selectPlatform = useCallback(
-    (value: string | null) =>
-      setPlatform(CREDENTIAL_PLATFORMS.find((candidate) => candidate === value) ?? null),
-    [],
+    (value: string | null) => {
+      if (value !== null) setPlatform(platformEntryOf(platforms.data, value)?.platform ?? null);
+    },
+    [platforms.data],
   );
-  return { pages, platform, includeArchived, selectPlatform, setIncludeArchived };
+  return {
+    pages,
+    platforms: platforms.data,
+    groups: [{ value: "", items: [ALL_PLATFORMS] }, ...platformGroupsOf(platforms.data)],
+    platform,
+    includeArchived,
+    selectPlatform,
+    setIncludeArchived,
+  };
 }

@@ -21,12 +21,13 @@ describe("metadataFacts", () => {
     ).toEqual({ label: "Models", value: "none approved" });
   });
 
-  it("lists the s3 fields and nothing for null metadata", () => {
+  it("lists each metadata field by its wire name and nothing for null metadata", () => {
     expect(
-      metadataFacts("s3", { endpoint: "https://s3.test", bucket: "b", region: "r" }).map(
-        (fact) => fact.label,
-      ),
-    ).toEqual(["Endpoint", "Bucket", "Region"]);
+      metadataFacts("cloudflare-ai-gateway", { account_id: "acc-1", gateway_id: "gw-1" }),
+    ).toEqual([
+      { label: "account_id", value: "acc-1" },
+      { label: "gateway_id", value: "gw-1" },
+    ]);
     expect(metadataFacts("github", null)).toEqual([]);
   });
 });

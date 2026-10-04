@@ -1,19 +1,12 @@
-import { FileCogIcon, HistoryIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
+import { FileCogIcon, HistoryIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { CREDENTIAL_PLATFORMS, type Credential } from "@/api/types";
+import type { Credential, CredentialPlatformEntry } from "@/api/types";
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   archiveTime,
@@ -21,32 +14,33 @@ import {
   liveRevisionCount,
   newestLiveRevision,
 } from "@/lib/credential-revisions";
+import { platformEntryOf } from "@/lib/credential-platforms";
 import { utcDateTime } from "@/lib/format";
 import { CredentialHealthLine } from "../components/credential-health-line";
 import { MetadataSheet } from "../components/metadata-sheet";
+import { PlatformCombobox } from "../components/platform-combobox";
 import { RotateSheet } from "../components/rotate-sheet";
+import { VerifyButton } from "../components/verify-button";
 import { useCredentialHealth } from "../use-credential-health";
 import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
-import { useCredentialList } from "./use-credential-list";
+import { ALL_PLATFORMS, useCredentialList } from "./use-credential-list";
 
-const ALL_PLATFORMS = "all";
-
-const PLATFORM_ITEMS = [
-  { value: ALL_PLATFORMS, label: "All platforms" },
-  ...CREDENTIAL_PLATFORMS.map((platform) => ({ value: platform, label: platform })),
-];
+function platformLabel(value: string): string {
+  return value === ALL_PLATFORMS ? "All platforms" : value;
+}
 
 interface CredentialItemProps {
   readonly credential: Credential;
+  readonly entry: CredentialPlatformEntry | null;
   readonly reload: () => void;
 }
 
-function CredentialItem({ credential, reload }: CredentialItemProps) {
+function CredentialItem({ credential, entry, reload }: CredentialItemProps) {
   const navigate = useNavigate();
   const health = useCredentialHealth();
-  const rotate = useCredentialRotate(credential, reload);
-  const metadata = useMetadataEdit(credential, reload);
+  const rotate = useCredentialRotate(credential, entry, reload);
+  const metadata = useMetadataEdit(credential, entry, reload);
   const newest = newestLiveRevision(credential);
   const archived = isArchived(credential);
   const archivedAt = archiveTime(credential);
@@ -82,18 +76,15 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
         actions={
           <div className="flex flex-wrap gap-2 md:w-[27rem]">
             {!archived && (
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`Verify ${name}`}
-                disabled={health.state.status === "checking"}
-                onClick={health.verify}
-              >
-                <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
-                Verify
-              </Button>
+              <VerifyButton
+                label={`Verify ${name}`}
+                platform={credential.platform}
+                verifiable={entry?.verifiable ?? true}
+                checking={health.state.status === "checking"}
+                onVerify={health.verify}
+              />
             )}
-            {!archived && rotate.expectedRevision !== null && (
+            {!archived && rotate.available && (
               <Button
                 variant="outline"
                 size="sm"
@@ -128,37 +119,35 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
           </div>
         }
       />
-      <RotateSheet name={name} platform={credential.platform} rotate={rotate} />
-      <MetadataSheet name={name} platform={credential.platform} edit={metadata} />
+      {entry !== null && <RotateSheet name={name} entry={entry} rotate={rotate} />}
+      {entry !== null && <MetadataSheet name={name} entry={entry} edit={metadata} />}
     </>
   );
 }
 
 export function CredentialsScreen() {
-  const { pages, platform, includeArchived, selectPlatform, setIncludeArchived } =
-    useCredentialList();
+  const {
+    pages,
+    platforms,
+    groups,
+    platform,
+    includeArchived,
+    selectPlatform,
+    setIncludeArchived,
+  } = useCredentialList();
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <Field className="md:max-w-56">
           <FieldLabel htmlFor="credential-platform-filter">Platform</FieldLabel>
-          <Select
-            items={PLATFORM_ITEMS}
+          <PlatformCombobox
+            id="credential-platform-filter"
+            groups={groups}
             value={platform ?? ALL_PLATFORMS}
+            labelOf={platformLabel}
             onValueChange={selectPlatform}
-          >
-            <SelectTrigger id="credential-platform-filter" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PLATFORM_ITEMS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </Field>
         <Field orientation="horizontal" className="md:ml-auto md:w-auto">
           <Switch
@@ -178,7 +167,11 @@ export function CredentialsScreen() {
         items={pages.items}
         getKey={(credential) => credential.name}
         renderItem={(credential) => (
-          <CredentialItem credential={credential} reload={pages.reload} />
+          <CredentialItem
+            credential={credential}
+            entry={platformEntryOf(platforms, credential.platform)}
+            reload={pages.reload}
+          />
         )}
         status={pages.status}
         error={pages.error?.message ?? null}

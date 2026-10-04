@@ -2,11 +2,10 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { rotateCredential } from "@/api/resources/credentials";
-import type { Credential, CredentialRotateBody, SecretShape } from "@/api/types";
+import type { Credential, CredentialPlatformEntry, CredentialRotateBody } from "@/api/types";
 import {
   EMPTY_METADATA,
   EMPTY_SECRET,
-  SECRET_SHAPES,
   metadataDraftOf,
   rotateMetadataOf,
   secretOfDraft,
@@ -18,9 +17,9 @@ import { newestLiveRevision } from "@/lib/credential-revisions";
 import { writeFailureOf, type WriteFailure } from "./write-failure";
 
 export interface CredentialRotateState {
+  readonly available: boolean;
   readonly open: boolean;
   readonly expectedRevision: number | null;
-  readonly shape: SecretShape;
   readonly secret: SecretDraft;
   readonly metadata: MetadataDraft;
   readonly errors: DraftErrors;
@@ -38,6 +37,7 @@ const NO_ERRORS: DraftErrors = {};
 
 export function useCredentialRotate(
   credential: Credential,
+  entry: CredentialPlatformEntry | null,
   reload: () => void,
 ): CredentialRotateState {
   const [open, setOpen] = useState(false);
@@ -47,15 +47,15 @@ export function useCredentialRotate(
   const [failure, setFailure] = useState<WriteFailure | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const newest = newestLiveRevision(credential);
-  const shape = SECRET_SHAPES[credential.platform];
 
   const start = useCallback(() => {
+    if (entry === null) return;
     setSecret(EMPTY_SECRET);
-    setMetadata(metadataDraftOf(credential.platform, newest?.metadata ?? null));
+    setMetadata(metadataDraftOf(entry, newest?.metadata ?? null));
     setErrors(NO_ERRORS);
     setFailure(null);
     setOpen(true);
-  }, [credential.platform, newest]);
+  }, [entry, newest]);
 
   const close = useCallback(() => {
     setSecret(EMPTY_SECRET);
@@ -69,9 +69,9 @@ export function useCredentialRotate(
   }, [reload]);
 
   const submit = useCallback(() => {
-    if (submitting || newest === null) return;
-    const nextSecret = secretOfDraft(shape, secret);
-    const nextMetadata = rotateMetadataOf(credential.platform, newest.metadata, metadata);
+    if (submitting || newest === null || entry === null) return;
+    const nextSecret = secretOfDraft(entry.secretShape, secret);
+    const nextMetadata = rotateMetadataOf(entry, newest.metadata, metadata);
     if (!nextSecret.ok || !nextMetadata.ok) {
       setErrors({
         ...(nextSecret.ok ? {} : nextSecret.errors),
@@ -102,12 +102,12 @@ export function useCredentialRotate(
         setFailure(writeFailureOf(cause));
       },
     );
-  }, [submitting, newest, shape, secret, metadata, credential, reload]);
+  }, [submitting, newest, entry, secret, metadata, credential, reload]);
 
   return {
+    available: entry !== null && newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,
-    shape,
     secret,
     metadata,
     errors,

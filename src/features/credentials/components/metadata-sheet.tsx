@@ -1,6 +1,6 @@
 import { PlusIcon } from "lucide-react";
 
-import type { CredentialPlatform } from "@/api/types";
+import type { CredentialPlatformEntry } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
@@ -12,6 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { OPENAI_COMPATIBLE } from "@/lib/credential-draft";
 import { CredentialField } from "./credential-field";
 import { MetadataFields } from "./metadata-fields";
 import type { MetadataEditState } from "../use-metadata-edit";
@@ -20,7 +21,7 @@ import { WriteFailureAlert } from "./write-failure-alert";
 
 interface MetadataSheetProps {
   readonly name: string;
-  readonly platform: CredentialPlatform;
+  readonly entry: CredentialPlatformEntry;
   readonly edit: MetadataEditState;
 }
 
@@ -30,7 +31,7 @@ function ModelsEditor({ edit }: { edit: MetadataEditState }) {
       <CredentialField
         id="credential-base-url"
         label="Base URL"
-        value={edit.draft.baseUrl}
+        value={edit.draft.fields["baseUrl"] ?? ""}
         error={undefined}
         readOnly
         description="A metadata edit keeps the base URL. Rotate the secret to set another one."
@@ -67,7 +68,7 @@ function ModelsEditor({ edit }: { edit: MetadataEditState }) {
   );
 }
 
-export function MetadataSheet({ name, platform, edit }: MetadataSheetProps) {
+export function MetadataSheet({ name, entry, edit }: MetadataSheetProps) {
   return (
     <Sheet open={edit.open} onOpenChange={(open) => !open && edit.close()}>
       <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
@@ -96,11 +97,11 @@ export function MetadataSheet({ name, platform, edit }: MetadataSheetProps) {
               />
             )}
             <FieldGroup>
-              {platform === "openai-compatible" ? (
+              {entry.platform === OPENAI_COMPATIBLE ? (
                 <ModelsEditor edit={edit} />
               ) : (
                 <MetadataFields
-                  platform={platform}
+                  fields={entry.metadataFields}
                   draft={edit.draft}
                   errors={edit.errors}
                   baseUrlDescription=""

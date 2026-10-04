@@ -1,13 +1,15 @@
-import { ArchiveIcon, FileCogIcon, RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
+import { ArchiveIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
-import type { Credential } from "@/api/types";
+import type { Credential, CredentialPlatformEntry } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CredentialHealthLine } from "../components/credential-health-line";
 import { useCredentialHealth } from "../use-credential-health";
+import { useCredentialPlatforms } from "../use-credential-platforms";
+import { VerifyButton } from "../components/verify-button";
 import { MetadataSheet } from "../components/metadata-sheet";
 import { ArchiveDialog } from "./components/archive-dialog";
 import { RevisionList } from "./components/revision-list";
@@ -18,24 +20,22 @@ import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
 import { useCredentialArchive } from "./use-credential-archive";
 import { isArchived } from "@/lib/credential-revisions";
+import { platformEntryOf } from "@/lib/credential-platforms";
 import { useRevisionRevoke } from "./use-revision-revoke";
 
-function HealthSection({ name }: { name: string }) {
+function HealthSection({ name, entry }: { name: string; entry: CredentialPlatformEntry | null }) {
   const health = useCredentialHealth();
 
   return (
     <Card>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="font-semibold leading-none">Health</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={health.state.status === "checking"}
-          onClick={health.verify}
-        >
-          <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
-          Verify
-        </Button>
+        <VerifyButton
+          platform={entry?.platform ?? ""}
+          verifiable={entry?.verifiable ?? true}
+          checking={health.state.status === "checking"}
+          onVerify={health.verify}
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {health.state.status === "idle" && (
@@ -51,8 +51,9 @@ function HealthSection({ name }: { name: string }) {
 }
 
 function CredentialDetail({ credential, reload }: { credential: Credential; reload: () => void }) {
-  const rotate = useCredentialRotate(credential, reload);
-  const metadata = useMetadataEdit(credential, reload);
+  const entry = platformEntryOf(useCredentialPlatforms().data, credential.platform);
+  const rotate = useCredentialRotate(credential, entry, reload);
+  const metadata = useMetadataEdit(credential, entry, reload);
   const revoke = useRevisionRevoke(credential, reload);
   const archive = useCredentialArchive(credential);
   const archived = isArchived(credential);
@@ -67,7 +68,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
             {archived && <Badge variant="secondary">Archived</Badge>}
           </div>
           <div className="flex flex-wrap gap-2">
-            {!archived && rotate.expectedRevision !== null && (
+            {!archived && rotate.available && (
               <Button variant="outline" size="sm" onClick={rotate.start}>
                 <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
                 Rotate secret
@@ -88,7 +89,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
           </div>
         </div>
       </section>
-      {!archived && <HealthSection name={credential.name} />}
+      {!archived && <HealthSection name={credential.name} entry={entry} />}
       <section aria-labelledby="credential-revisions" className="flex flex-col gap-2">
         <h3 id="credential-revisions" className="font-semibold">
           Revisions
@@ -99,8 +100,8 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
           onRevoke={revoke.request}
         />
       </section>
-      <RotateSheet name={credential.name} platform={credential.platform} rotate={rotate} />
-      <MetadataSheet name={credential.name} platform={credential.platform} edit={metadata} />
+      {entry !== null && <RotateSheet name={credential.name} entry={entry} rotate={rotate} />}
+      {entry !== null && <MetadataSheet name={credential.name} entry={entry} edit={metadata} />}
       <RevokeDialog revoke={revoke} />
       <ArchiveDialog name={credential.name} archive={archive} />
     </div>

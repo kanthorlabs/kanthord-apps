@@ -8,7 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { CredentialPlatform } from "@/api/types";
+import type { CredentialPlatformEntry } from "@/api/types";
 import { MetadataFields } from "./metadata-fields";
 import { SecretFields } from "./secret-fields";
 import type { CredentialRotateState } from "../use-credential-rotate";
@@ -16,11 +16,11 @@ import { WriteFailureAlert } from "./write-failure-alert";
 
 interface RotateSheetProps {
   readonly name: string;
-  readonly platform: CredentialPlatform;
+  readonly entry: CredentialPlatformEntry;
   readonly rotate: CredentialRotateState;
 }
 
-export function RotateSheet({ name, platform, rotate }: RotateSheetProps) {
+export function RotateSheet({ name, entry, rotate }: RotateSheetProps) {
   return (
     <Sheet open={rotate.open} onOpenChange={(open) => !open && rotate.close()}>
       <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
@@ -50,13 +50,13 @@ export function RotateSheet({ name, platform, rotate }: RotateSheetProps) {
             )}
             <FieldGroup>
               <SecretFields
-                shape={rotate.shape}
+                shape={entry.secretShape}
                 draft={rotate.secret}
                 errors={rotate.errors}
                 onEdit={rotate.setSecret}
               />
               <MetadataFields
-                platform={platform}
+                fields={entry.metadataFields}
                 draft={rotate.metadata}
                 errors={rotate.errors}
                 baseUrlDescription="A rotation can set another base URL. Leave it unchanged to keep it. The approved models stay."

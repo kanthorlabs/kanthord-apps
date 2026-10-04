@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 
-import { CREDENTIAL_PLATFORMS } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -12,25 +11,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { loginModesOf } from "@/lib/credential-draft";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { CredentialPlatformEntry } from "@/api/types";
 import { CredentialField } from "../components/credential-field";
 import { MetadataFields } from "../components/metadata-fields";
+import { PlatformCombobox } from "../components/platform-combobox";
 import { SecretFields } from "../components/secret-fields";
 import { LoginSession } from "./components/login-session";
 import { useCredentialForm, type CredentialFormState } from "./use-credential-form";
-
-const PLATFORM_ITEMS = CREDENTIAL_PLATFORMS.map((platform) => ({
-  value: platform,
-  label: platform,
-}));
 
 const MODE_LABELS = {
   browser: "Browser",
   device: "Headless (device code)",
 };
 
-function SignInFields({ form }: { form: CredentialFormState }) {
-  const modes = loginModesOf(form.platform);
+function platformLabel(platform: string): string {
+  return platform;
+}
+
+function SignInFields({
+  form,
+  entry,
+}: {
+  form: CredentialFormState;
+  entry: CredentialPlatformEntry;
+}) {
+  const modes = entry.loginModes;
   const items = modes.map((mode) => ({ value: mode, label: MODE_LABELS[mode] }));
   return (
     <Field>
@@ -88,32 +94,27 @@ function CreateForm({ form }: { form: CredentialFormState }) {
         />
         <Field data-invalid={form.errors["platform"] !== undefined}>
           <FieldLabel htmlFor="credential-platform">Platform</FieldLabel>
-          <Select items={PLATFORM_ITEMS} value={form.platform} onValueChange={form.selectPlatform}>
-            <SelectTrigger id="credential-platform" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PLATFORM_ITEMS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PlatformCombobox
+            id="credential-platform"
+            groups={form.groups}
+            value={form.platform}
+            labelOf={platformLabel}
+            onValueChange={form.selectPlatform}
+          />
           <FieldError>{form.errors["platform"]}</FieldError>
         </Field>
-        {form.oauth ? (
-          <SignInFields form={form} />
+        {form.entry === null ? null : form.oauth ? (
+          <SignInFields form={form} entry={form.entry} />
         ) : (
           <>
             <SecretFields
-              shape={form.shape}
+              shape={form.entry.secretShape}
               draft={form.secret}
               errors={form.errors}
               onEdit={form.setSecret}
             />
             <MetadataFields
-              platform={form.platform}
+              fields={form.entry.metadataFields}
               draft={form.metadata}
               errors={form.errors}
               baseUrlDescription="Fixed for the revision. Only a rotation sets another base URL. Add approved models after creation."
@@ -151,7 +152,16 @@ export function CredentialFormScreen() {
         </h2>
       </CardHeader>
       <CardContent>
-        {session === null ? (
+        {form.platforms.loading ? (
+          <Skeleton className="h-32 w-full" />
+        ) : form.platforms.error !== null ? (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-destructive">{form.platforms.error.message}</p>
+            <Button variant="outline" size="sm" onClick={form.platforms.reload}>
+              Retry
+            </Button>
+          </div>
+        ) : session === null ? (
           <CreateForm form={form} />
         ) : (
           <LoginSession login={form.login} session={session} />

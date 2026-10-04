@@ -597,19 +597,28 @@ export interface SchedulerExecutionRecord {
   readonly rootSpanId: string;
 }
 
-export const CREDENTIAL_PLATFORMS = [
-  "github",
-  "github-copilot",
-  "openai-codex",
-  "anthropic",
-  "openrouter",
-  "openai-compatible",
-  "s3",
-] as const;
-
-export type CredentialPlatform = (typeof CREDENTIAL_PLATFORMS)[number];
+export type CredentialPlatform = string;
 
 export type SecretShape = "api_key" | "oauth" | "s3_access_key";
+
+export type CredentialPlatformKind = "git" | "llm" | "storage";
+
+export interface CredentialPlatformEntry {
+  readonly platform: CredentialPlatform;
+  readonly secretShape: SecretShape;
+  readonly loginModes: readonly CredentialLoginMode[];
+  readonly metadataFields: readonly string[];
+  readonly verifiable: boolean;
+}
+
+export interface CredentialPlatformGroup {
+  readonly kind: CredentialPlatformKind;
+  readonly platforms: readonly CredentialPlatformEntry[];
+}
+
+export interface CredentialPlatformList {
+  readonly items: readonly CredentialPlatformGroup[];
+}
 
 export interface CredentialRevision {
   readonly id: string;
@@ -637,13 +646,7 @@ export interface OpenAiCompatibleMetadata {
   readonly models: readonly CredentialModel[];
 }
 
-export interface S3Metadata {
-  readonly endpoint: string;
-  readonly bucket: string;
-  readonly region: string;
-}
-
-export type CredentialMetadata = OpenAiCompatibleMetadata | S3Metadata | null;
+export type CredentialMetadata = OpenAiCompatibleMetadata | Readonly<Record<string, string>> | null;
 
 export interface ApiKeySecret {
   readonly key: string;

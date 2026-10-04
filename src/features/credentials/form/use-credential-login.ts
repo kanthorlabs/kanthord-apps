@@ -45,11 +45,11 @@ function failureMessage(cause: unknown): string {
   return credentialMessage(asApiError(cause));
 }
 
-export function useCredentialLogin(platform: CredentialPlatform): CredentialLoginState {
+export function useCredentialLogin(modes: readonly CredentialLoginMode[]): CredentialLoginState {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<CredentialLoginMode | null>(null);
   const [sessionMode, setSessionMode] = useState<CredentialLoginMode | null>(null);
-  const mode = loginModeOf(platform, selected);
+  const mode = loginModeOf(modes, selected);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [name, setName] = useState("");

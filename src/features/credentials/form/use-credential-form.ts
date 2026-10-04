@@ -3,27 +3,38 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { createCredential } from "@/api/resources/credentials";
-import { CREDENTIAL_PLATFORMS, type CredentialPlatform, type SecretShape } from "@/api/types";
-import { asApiError } from "@/hooks/use-resource";
+import type {
+  CredentialLoginMode,
+  CredentialPlatform,
+  CredentialPlatformEntry,
+  CredentialPlatformList,
+} from "@/api/types";
+import { asApiError, type Resource } from "@/hooks/use-resource";
 import {
   EMPTY_METADATA,
   EMPTY_SECRET,
-  SECRET_SHAPES,
   createBodyOf,
   credentialNameError,
-  isOAuthPlatform,
   type DraftErrors,
   type MetadataDraft,
   type SecretDraft,
 } from "@/lib/credential-draft";
+import {
+  platformEntryOf,
+  platformGroupsOf,
+  type PlatformGroupItems,
+} from "@/lib/credential-platforms";
 import { credentialMessage } from "../credential-message";
+import { useCredentialPlatforms } from "../use-credential-platforms";
 import { useCredentialLogin, type CredentialLoginState } from "./use-credential-login";
 
 export interface CredentialFormState {
   readonly name: string;
+  readonly platforms: Resource<CredentialPlatformList>;
+  readonly groups: readonly PlatformGroupItems[];
   readonly platform: CredentialPlatform;
+  readonly entry: CredentialPlatformEntry | null;
   readonly oauth: boolean;
-  readonly shape: SecretShape;
   readonly secret: SecretDraft;
   readonly metadata: MetadataDraft;
   readonly errors: DraftErrors;
@@ -38,34 +49,37 @@ export interface CredentialFormState {
 }
 
 const NO_ERRORS: DraftErrors = {};
+const NO_LOGIN_MODES: readonly CredentialLoginMode[] = [];
 
 export function useCredentialForm(): CredentialFormState {
   const navigate = useNavigate();
   const [name, setNameValue] = useState("");
+  const platforms = useCredentialPlatforms();
   const [platform, setPlatform] = useState<CredentialPlatform>("github");
-  const login = useCredentialLogin(platform);
+  const entry = platformEntryOf(platforms.data, platform);
+  const login = useCredentialLogin(entry?.loginModes ?? NO_LOGIN_MODES);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
   const [metadata, setMetadata] = useState<MetadataDraft>(EMPTY_METADATA);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const oauth = isOAuthPlatform(platform);
+  const oauth = entry?.secretShape === "oauth";
   const { start: startLogin, clearStartError } = login;
 
   const setName = useCallback((next: string) => setNameValue(next), []);
 
   const selectPlatform = useCallback(
     (value: string | null) => {
-      const next = CREDENTIAL_PLATFORMS.find((candidate) => candidate === value);
-      if (next === undefined) return;
-      setPlatform(next);
+      const next = platformEntryOf(platforms.data, value);
+      if (next === null) return;
+      setPlatform(next.platform);
       setSecret(EMPTY_SECRET);
       setMetadata(EMPTY_METADATA);
       setErrors(NO_ERRORS);
       setSubmitError(null);
       clearStartError();
     },
-    [clearStartError],
+    [platforms.data, clearStartError],
   );
 
   const submitLogin = useCallback(() => {
@@ -75,7 +89,8 @@ export function useCredentialForm(): CredentialFormState {
   }, [name, platform, startLogin]);
 
   const submitCreate = useCallback(() => {
-    const body = createBodyOf(name, platform, secret, metadata);
+    if (entry === null) return;
+    const body = createBodyOf(name, entry, secret, metadata);
     if (!body.ok) {
       setErrors(body.errors);
       return;
@@ -95,7 +110,7 @@ export function useCredentialForm(): CredentialFormState {
         setSubmitError(credentialMessage(asApiError(cause)));
       },
     );
-  }, [name, platform, secret, metadata, navigate]);
+  }, [name, entry, secret, metadata, navigate]);
 
   const submit = useCallback(() => {
     if (submitting || login.starting) return;
@@ -105,9 +120,11 @@ export function useCredentialForm(): CredentialFormState {
 
   return {
     name,
+    platforms,
+    groups: platformGroupsOf(platforms.data),
     platform,
+    entry,
     oauth,
-    shape: SECRET_SHAPES[platform],
     secret,
     metadata,
     errors,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { CredentialPlatformEntry } from "@/api/types";
 import {
   EMPTY_METADATA,
   EMPTY_MODEL,
@@ -7,13 +8,37 @@ import {
   createBodyOf,
   credentialNameError,
   editMetadataOf,
-  isOAuthPlatform,
   loginModeOf,
-  loginModesOf,
   metadataDraftOf,
   rotateMetadataOf,
   secretOfDraft,
 } from "./credential-draft";
+
+function apiKey(platform: string, metadataFields: readonly string[] = []): CredentialPlatformEntry {
+  return { platform, secretShape: "api_key", loginModes: [], metadataFields, verifiable: true };
+}
+
+const GITHUB = apiKey("github");
+const OPENROUTER = apiKey("openrouter");
+const OPENAI_COMPATIBLE = apiKey("openai-compatible", ["baseUrl"]);
+const CLOUDFLARE_AI_GATEWAY: CredentialPlatformEntry = {
+  ...apiKey("cloudflare-ai-gateway", ["account_id", "gateway_id"]),
+  verifiable: false,
+};
+const S3: CredentialPlatformEntry = {
+  platform: "s3",
+  secretShape: "s3_access_key",
+  loginModes: [],
+  metadataFields: ["endpoint", "bucket", "region"],
+  verifiable: true,
+};
+const GITHUB_COPILOT: CredentialPlatformEntry = {
+  platform: "github-copilot",
+  secretShape: "oauth",
+  loginModes: ["device"],
+  metadataFields: [],
+  verifiable: true,
+};
 
 const OPENAI = {
   baseUrl: "https://openrouter.ai/api/v1",
@@ -65,7 +90,7 @@ describe("secretOfDraft", () => {
 describe("createBodyOf", () => {
   it("sends null metadata for github", () => {
     expect(
-      createBodyOf("ci-github", "github", { ...EMPTY_SECRET, key: "k" }, EMPTY_METADATA),
+      createBodyOf("ci-github", GITHUB, { ...EMPTY_SECRET, key: "k" }, EMPTY_METADATA),
     ).toEqual({
       ok: true,
       value: { name: "ci-github", platform: "github", metadata: null, secret: { key: "k" } },
@@ -75,9 +100,9 @@ describe("createBodyOf", () => {
   it("starts an openai-compatible credential with no models", () => {
     const result = createBodyOf(
       "router",
-      "openai-compatible",
+      OPENAI_COMPATIBLE,
       { ...EMPTY_SECRET, key: "k" },
-      { ...EMPTY_METADATA, baseUrl: OPENAI.baseUrl },
+      { ...EMPTY_METADATA, fields: { baseUrl: OPENAI.baseUrl } },
     );
     expect(result).toMatchObject({
       ok: true,
@@ -89,18 +114,18 @@ describe("createBodyOf", () => {
     for (const baseUrl of ["https://api.openai.com/v1/", "https://x.test/v1?a=1", "ftp://x.test"]) {
       const result = createBodyOf(
         "router",
-        "openai-compatible",
+        OPENAI_COMPATIBLE,
         { ...EMPTY_SECRET, key: "k" },
-        { ...EMPTY_METADATA, baseUrl },
+        { ...EMPTY_METADATA, fields: { baseUrl } },
       );
       expect(result.ok).toBe(false);
     }
   });
 
   it("reports every invalid s3 field", () => {
-    const result = createBodyOf("bucket-key", "s3", EMPTY_SECRET, {
+    const result = createBodyOf("bucket-key", S3, EMPTY_SECRET, {
       ...EMPTY_METADATA,
-      endpoint: "not a url",
+      fields: { endpoint: "not a url" },
     });
     expect(result).toEqual({
       ok: false,
@@ -115,18 +140,56 @@ describe("createBodyOf", () => {
   });
 });
 
+describe("createBodyOf with metadata fields", () => {
+  it("sends each metadata field under its exact name", () => {
+    expect(
+      createBodyOf(
+        "gateway",
+        CLOUDFLARE_AI_GATEWAY,
+        { ...EMPTY_SECRET, key: "k" },
+        { ...EMPTY_METADATA, fields: { account_id: "acc-1", gateway_id: "gw-1" } },
+      ),
+    ).toEqual({
+      ok: true,
+      value: {
+        name: "gateway",
+        platform: "cloudflare-ai-gateway",
+        metadata: { account_id: "acc-1", gateway_id: "gw-1" },
+        secret: { key: "k" },
+      },
+    });
+  });
+
+  it("refuses a blank metadata field", () => {
+    expect(
+      createBodyOf(
+        "gateway",
+        CLOUDFLARE_AI_GATEWAY,
+        { ...EMPTY_SECRET, key: "k" },
+        { ...EMPTY_METADATA, fields: { account_id: " " } },
+      ),
+    ).toEqual({
+      ok: false,
+      errors: { account_id: "Enter a value.", gateway_id: "Enter a value." },
+    });
+  });
+});
+
 describe("rotateMetadataOf", () => {
   it("omits unchanged metadata so custody copies it", () => {
-    const draft = metadataDraftOf("openai-compatible", OPENAI);
-    expect(rotateMetadataOf("openai-compatible", OPENAI, draft)).toEqual({
+    const draft = metadataDraftOf(OPENAI_COMPATIBLE, OPENAI);
+    expect(rotateMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toEqual({
       ok: true,
       value: undefined,
     });
   });
 
   it("sends a new base URL with the current models", () => {
-    const draft = { ...metadataDraftOf("openai-compatible", OPENAI), baseUrl: "https://x.test/v1" };
-    expect(rotateMetadataOf("openai-compatible", OPENAI, draft)).toEqual({
+    const draft = {
+      ...metadataDraftOf(OPENAI_COMPATIBLE, OPENAI),
+      fields: { baseUrl: "https://x.test/v1" },
+    };
+    expect(rotateMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toEqual({
       ok: true,
       value: { baseUrl: "https://x.test/v1", models: OPENAI.models },
     });
@@ -134,8 +197,9 @@ describe("rotateMetadataOf", () => {
 
   it("sends changed s3 metadata whole", () => {
     const current = { endpoint: "https://s3.test", bucket: "a", region: "eu-1" };
-    const draft = { ...metadataDraftOf("s3", current), bucket: "b" };
-    expect(rotateMetadataOf("s3", current, draft)).toEqual({
+    const base = metadataDraftOf(S3, current);
+    const draft = { ...base, fields: { ...base.fields, bucket: "b" } };
+    expect(rotateMetadataOf(S3, current, draft)).toEqual({
       ok: true,
       value: { ...current, bucket: "b" },
     });
@@ -145,8 +209,8 @@ describe("rotateMetadataOf", () => {
 describe("editMetadataOf", () => {
   it("keeps the base URL and writes the edited models", () => {
     const draft = {
-      ...metadataDraftOf("openai-compatible", OPENAI),
-      baseUrl: "https://changed.test/v1",
+      ...metadataDraftOf(OPENAI_COMPATIBLE, OPENAI),
+      fields: { baseUrl: "https://changed.test/v1" },
       models: [
         {
           ...EMPTY_MODEL,
@@ -156,7 +220,7 @@ describe("editMetadataOf", () => {
         },
       ],
     };
-    expect(editMetadataOf("openai-compatible", OPENAI, draft)).toEqual({
+    expect(editMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toEqual({
       ok: true,
       value: {
         baseUrl: OPENAI.baseUrl,
@@ -170,7 +234,7 @@ describe("editMetadataOf", () => {
       ...EMPTY_METADATA,
       models: [{ ...EMPTY_MODEL, id: "m", contextWindow: "1000", maxTokens: "2000" }],
     };
-    expect(editMetadataOf("openai-compatible", OPENAI, draft)).toEqual({
+    expect(editMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toEqual({
       ok: false,
       errors: { "models.0.maxTokens": "Use at most the context window." },
     });
@@ -178,7 +242,7 @@ describe("editMetadataOf", () => {
 
   it("refuses a blank model id and a non-positive limit", () => {
     const draft = { ...EMPTY_METADATA, models: [{ ...EMPTY_MODEL, contextWindow: "0" }] };
-    expect(editMetadataOf("openai-compatible", OPENAI, draft)).toMatchObject({
+    expect(editMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toMatchObject({
       ok: false,
       errors: {
         "models.0.id": "Enter a value.",
@@ -196,7 +260,7 @@ describe("editMetadataOf", () => {
         { ...EMPTY_MODEL, id: " qwen " },
       ],
     };
-    expect(editMetadataOf("openai-compatible", OPENAI, draft)).toEqual({
+    expect(editMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toEqual({
       ok: false,
       errors: { "models.2.id": "Use an id that no other model uses." },
     });
@@ -205,16 +269,23 @@ describe("editMetadataOf", () => {
 
 describe("metadataDraftOf", () => {
   it("reads the models of a revision into text fields", () => {
-    expect(metadataDraftOf("openai-compatible", OPENAI).models).toEqual([
+    expect(metadataDraftOf(OPENAI_COMPATIBLE, OPENAI).models).toEqual([
       { id: "qwen-plus", contextWindow: "32000", maxTokens: "", reasoningLevels: ["off", "high"] },
     ]);
+  });
+
+  it("reads each metadata field of the platform as text", () => {
+    expect(metadataDraftOf(S3, { endpoint: "https://s3.test", bucket: "b", region: "r" })).toEqual({
+      fields: { endpoint: "https://s3.test", bucket: "b", region: "r" },
+      models: [],
+    });
   });
 });
 
 describe("openrouter", () => {
   it("creates an api key credential with null metadata", () => {
     expect(
-      createBodyOf("router", "openrouter", { ...EMPTY_SECRET, key: "sk-or" }, EMPTY_METADATA),
+      createBodyOf("router", OPENROUTER, { ...EMPTY_SECRET, key: "sk-or" }, EMPTY_METADATA),
     ).toEqual({
       ok: true,
       value: { name: "router", platform: "openrouter", metadata: null, secret: { key: "sk-or" } },
@@ -222,17 +293,10 @@ describe("openrouter", () => {
   });
 });
 
-describe("isOAuthPlatform", () => {
-  it("reads the secret shape of the platform", () => {
-    expect(isOAuthPlatform("github-copilot")).toBe(true);
-    expect(isOAuthPlatform("openai-codex")).toBe(true);
-    expect(isOAuthPlatform("github")).toBe(false);
-    expect(isOAuthPlatform("s3")).toBe(false);
-  });
-
-  it("builds no create body for an oauth platform", () => {
+describe("oauth platform", () => {
+  it("builds no create body for an oauth secret shape", () => {
     expect(
-      createBodyOf("copilot", "github-copilot", { ...EMPTY_SECRET, key: "k" }, EMPTY_METADATA),
+      createBodyOf("copilot", GITHUB_COPILOT, { ...EMPTY_SECRET, key: "k" }, EMPTY_METADATA),
     ).toEqual({
       ok: false,
       errors: { platform: "This platform takes its credential through a sign-in." },
@@ -241,15 +305,13 @@ describe("isOAuthPlatform", () => {
 });
 
 describe("loginModeOf", () => {
-  it("offers browser and device for openai-codex and defaults to browser", () => {
-    expect(loginModesOf("openai-codex")).toEqual(["browser", "device"]);
-    expect(loginModeOf("openai-codex", null)).toBe("browser");
-    expect(loginModeOf("openai-codex", "device")).toBe("device");
+  it("defaults to browser when the platform offers it", () => {
+    expect(loginModeOf(["browser", "device"], null)).toBe("browser");
+    expect(loginModeOf(["browser", "device"], "device")).toBe("device");
   });
 
-  it("offers only device for github-copilot and sends no mode", () => {
-    expect(loginModesOf("github-copilot")).toEqual(["device"]);
-    expect(loginModeOf("github-copilot", "browser")).toBeNull();
-    expect(loginModeOf("github-copilot", null)).toBeNull();
+  it("sends no mode when the platform offers only device", () => {
+    expect(loginModeOf(["device"], "browser")).toBeNull();
+    expect(loginModeOf(["device"], null)).toBeNull();
   });
 });

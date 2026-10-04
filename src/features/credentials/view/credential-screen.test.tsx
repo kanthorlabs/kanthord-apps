@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type * as Sonner from "sonner";
@@ -7,7 +7,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as gatewayApi from "@/api/resources/gateway";
-import type { Credential, HealthOwner } from "@/api/types";
+import type {
+  Credential,
+  CredentialPlatformEntry,
+  CredentialPlatformList,
+  HealthOwner,
+} from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/gateway");
@@ -48,6 +53,41 @@ const ROUTER: Credential = {
     },
   ],
 };
+function apiKey(
+  platform: string,
+  metadataFields: readonly string[],
+  verifiable: boolean,
+): CredentialPlatformEntry {
+  return { platform, secretShape: "api_key", loginModes: [], metadataFields, verifiable };
+}
+
+const PLATFORMS: CredentialPlatformList = {
+  items: [
+    { kind: "git", platforms: [apiKey("github", [], true)] },
+    {
+      kind: "llm",
+      platforms: [
+        apiKey("openai-compatible", ["baseUrl"], true),
+        apiKey("cloudflare-ai-gateway", ["account_id", "gateway_id"], false),
+      ],
+    },
+  ],
+};
+
+const GATEWAY: Credential = {
+  name: "gateway",
+  platform: "cloudflare-ai-gateway",
+  revisions: [
+    {
+      id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAH",
+      revision: 1,
+      metadata: { account_id: "acc-1", gateway_id: "gw-1" },
+      createdAt: Date.UTC(2026, 9, 3, 14, 5),
+      endedAt: null,
+    },
+  ],
+};
+
 const EMPTY_OWNER: HealthOwner = { global: {}, projects: {} };
 
 function mount() {
@@ -74,6 +114,7 @@ function mountWithList() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(credentialsApi.readCredential).mockResolvedValue(ROUTER);
+  vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
 });
 
 describe("CredentialScreen", () => {
@@ -278,6 +319,47 @@ describe("CredentialScreen", () => {
 
     expect(await screen.findByRole("button", { name: "Rotate secret" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Edit metadata" })).toBeNull();
+  });
+
+  it("edits each metadata field of the platform under its exact name", async () => {
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue(GATEWAY);
+    vi.mocked(credentialsApi.updateCredentialMetadata).mockResolvedValue(GATEWAY);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit metadata" }));
+    const sheet = await screen.findByRole("dialog");
+    const gateway = within(sheet).getByLabelText("gateway_id");
+    expect((within(sheet).getByLabelText("account_id") as HTMLInputElement).value).toBe("acc-1");
+    await userEvent.clear(gateway);
+    await userEvent.type(gateway, "gw-2");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
+
+    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("gateway", {
+      expectedRevision: 1,
+      metadata: { account_id: "acc-1", gateway_id: "gw-2" },
+    });
+  });
+
+  it("disables Verify for a platform that is not verifiable and says why on focus", async () => {
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue(GATEWAY);
+    mount();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Verify" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    const trigger = screen.getByRole("button", { name: "Verify" });
+    for (let step = 0; step < 10 && document.activeElement !== trigger; step += 1) {
+      await userEvent.tab();
+    }
+    expect(trigger).toHaveFocus();
+
+    expect(
+      await screen.findByText("Verification is not supported yet for cloudflare-ai-gateway."),
+    ).toBeTruthy();
+    expect(gatewayApi.readHealthReport).not.toHaveBeenCalled();
   });
 
   it("reports an unknown credential", async () => {

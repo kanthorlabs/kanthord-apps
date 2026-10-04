@@ -8,6 +8,7 @@ import {
   archiveCredential,
   createCredential,
   listCredentialPage,
+  listCredentialPlatforms,
   listCredentials,
   readCredential,
   readCredentialLoginStatus,
@@ -115,6 +116,32 @@ describe("listCredentials", () => {
       "/api/credential?platform=github&limit=1000",
       "/api/credential?platform=github&limit=1000&cursor=c-1",
     ]);
+  });
+});
+
+describe("listCredentialPlatforms", () => {
+  it("reads credential.platform_list grouped by kind", async () => {
+    const answer = {
+      items: [
+        {
+          kind: "git",
+          platforms: [
+            {
+              platform: "github",
+              secretShape: "api_key",
+              loginModes: [],
+              metadataFields: [],
+              verifiable: true,
+            },
+          ],
+        },
+      ],
+    };
+    await serve(200, [answer]);
+
+    expect(await listCredentialPlatforms()).toEqual(answer);
+    expect(seen[0]?.method).toBe("GET");
+    expect(seen[0]?.url).toBe("/api/credential/platform");
   });
 });
 

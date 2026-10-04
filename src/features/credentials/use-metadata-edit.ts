@@ -2,12 +2,11 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { updateCredentialMetadata } from "@/api/resources/credentials";
-import type { Credential } from "@/api/types";
+import type { Credential, CredentialPlatformEntry } from "@/api/types";
 import {
   EMPTY_METADATA,
   EMPTY_MODEL,
   editMetadataOf,
-  hasMetadata,
   metadataDraftOf,
   type DraftErrors,
   type MetadataDraft,
@@ -36,7 +35,11 @@ export interface MetadataEditState {
 
 const NO_ERRORS: DraftErrors = {};
 
-export function useMetadataEdit(credential: Credential, reload: () => void): MetadataEditState {
+export function useMetadataEdit(
+  credential: Credential,
+  entry: CredentialPlatformEntry | null,
+  reload: () => void,
+): MetadataEditState {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<MetadataDraft>(EMPTY_METADATA);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
@@ -45,11 +48,12 @@ export function useMetadataEdit(credential: Credential, reload: () => void): Met
   const newest = newestLiveRevision(credential);
 
   const start = useCallback(() => {
-    setDraft(metadataDraftOf(credential.platform, newest?.metadata ?? null));
+    if (entry === null) return;
+    setDraft(metadataDraftOf(entry, newest?.metadata ?? null));
     setErrors(NO_ERRORS);
     setFailure(null);
     setOpen(true);
-  }, [credential.platform, newest]);
+  }, [entry, newest]);
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -82,8 +86,8 @@ export function useMetadataEdit(credential: Credential, reload: () => void): Met
   );
 
   const submit = useCallback(() => {
-    if (submitting || newest === null) return;
-    const metadata = editMetadataOf(credential.platform, newest.metadata, draft);
+    if (submitting || newest === null || entry === null) return;
+    const metadata = editMetadataOf(entry, newest.metadata, draft);
     if (!metadata.ok) {
       setErrors(metadata.errors);
       return;
@@ -108,10 +112,10 @@ export function useMetadataEdit(credential: Credential, reload: () => void): Met
         setFailure(writeFailureOf(cause));
       },
     );
-  }, [submitting, newest, credential, draft, reload]);
+  }, [submitting, newest, entry, credential, draft, reload]);
 
   return {
-    available: hasMetadata(credential.platform) && newest !== null,
+    available: entry !== null && entry.metadataFields.length > 0 && newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,
     draft,

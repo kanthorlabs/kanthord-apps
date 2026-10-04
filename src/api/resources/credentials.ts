@@ -9,6 +9,7 @@ import type {
   CredentialLoginStatus,
   CredentialMetadataBody,
   CredentialPlatform,
+  CredentialPlatformList,
   CredentialRotateBody,
   Page,
 } from "../types";
@@ -28,6 +29,10 @@ export async function listCredentialPage(
   if (cursor !== null) query.set("cursor", cursor);
   const suffix = query.size === 0 ? "" : `?${query}`;
   return request<Page<Credential>>(`/api/credential${suffix}`);
+}
+
+export async function listCredentialPlatforms(): Promise<CredentialPlatformList> {
+  return request<CredentialPlatformList>("/api/credential/platform");
 }
 
 export async function readCredential(credentialName: string): Promise<Credential> {

@@ -1,5 +1,5 @@
 import type { CredentialModel, CredentialPlatform } from "@/api/types";
-import { openAiMetadataOf, s3MetadataOf } from "@/lib/credential-draft";
+import { OPENAI_COMPATIBLE, openAiMetadataOf } from "@/lib/credential-draft";
 
 export interface MetadataFact {
   readonly label: string;
@@ -21,7 +21,7 @@ export function metadataFacts(
   metadata: Readonly<Record<string, unknown>> | null,
 ): readonly MetadataFact[] {
   if (metadata === null) return [];
-  if (platform === "openai-compatible") {
+  if (platform === OPENAI_COMPATIBLE) {
     const current = openAiMetadataOf(metadata);
     return [
       { label: "Base URL", value: current.baseUrl },
@@ -34,16 +34,8 @@ export function metadataFacts(
       },
     ];
   }
-  if (platform === "s3") {
-    const current = s3MetadataOf(metadata);
-    return [
-      { label: "Endpoint", value: current.endpoint },
-      { label: "Bucket", value: current.bucket },
-      { label: "Region", value: current.region },
-    ];
-  }
   return Object.entries(metadata).map(([label, value]) => ({
     label,
-    value: JSON.stringify(value),
+    value: typeof value === "string" ? value : JSON.stringify(value),
   }));
 }
