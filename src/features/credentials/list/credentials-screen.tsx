@@ -15,7 +15,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { isArchived, liveRevisionCount, newestLiveRevision } from "@/lib/credential-revisions";
+import {
+  archiveTime,
+  isArchived,
+  liveRevisionCount,
+  newestLiveRevision,
+} from "@/lib/credential-revisions";
 import { utcDateTime } from "@/lib/format";
 import { CredentialHealthLine } from "../components/credential-health-line";
 import { MetadataSheet } from "../components/metadata-sheet";
@@ -44,6 +49,7 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
   const metadata = useMetadataEdit(credential, reload);
   const newest = newestLiveRevision(credential);
   const archived = isArchived(credential);
+  const archivedAt = archiveTime(credential);
   const name = credential.name;
   const detailPath = `/credentials/${encodeURIComponent(name)}`;
 
@@ -64,7 +70,9 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
             label: "Live revisions",
             value: <span className="tabular-nums">{liveRevisionCount(credential)}</span>,
           },
-          { label: "Updated", value: newest === null ? "—" : utcDateTime(newest.createdAt) },
+          archivedAt === null
+            ? { label: "Updated", value: newest === null ? "—" : utcDateTime(newest.createdAt) }
+            : { label: "Archived", value: utcDateTime(archivedAt) },
         ]}
         notice={
           health.state.status === "idle" ? undefined : (

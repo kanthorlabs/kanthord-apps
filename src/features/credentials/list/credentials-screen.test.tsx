@@ -12,6 +12,7 @@ vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/gateway");
 
 import { CredentialsScreen } from "./credentials-screen";
+import { utcDateTime } from "@/lib/format";
 
 const GITHUB: Credential = {
   name: "ci-github",
@@ -135,7 +136,9 @@ describe("CredentialsScreen", () => {
     await userEvent.click(screen.getByRole("switch", { name: "Include archived" }));
 
     expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(null, null, true);
-    expect(await screen.findByText("Archived")).toBeTruthy();
+    expect((await screen.findAllByText("Archived")).length).toBe(2);
+    expect(screen.getAllByText(utcDateTime(Date.UTC(2026, 9, 2))).length).toBeGreaterThan(0);
+    expect(screen.queryByText("Updated")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Revisions of legacy" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Verify legacy" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Rotate legacy" })).toBeNull();
