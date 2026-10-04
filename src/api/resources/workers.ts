@@ -2,16 +2,19 @@ import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   AgentDeclaration,
+  AgentEnablement,
   AgentSummary,
-  Page,
+  WorkerCatalogEntry,
   WorkerCatalogItem,
   WorkerInstanceRecord,
 } from "../types";
 
-const AGENT_PAGE_LIMIT = 1000;
-
 export async function listWorkerCatalog(): Promise<readonly WorkerCatalogItem[]> {
   return readAllPages<WorkerCatalogItem>("/api/worker/catalog");
+}
+
+export async function readWorkerCatalogEntry(workerName: string): Promise<WorkerCatalogEntry> {
+  return request<WorkerCatalogEntry>(`/api/worker/catalog/${encodeURIComponent(workerName)}`);
 }
 
 export async function listWorkerInstances(
@@ -20,19 +23,32 @@ export async function listWorkerInstances(
   return readAllPages<WorkerInstanceRecord>("/api/worker/instance", { projectId });
 }
 
+export async function listAgentEnablements(): Promise<readonly AgentEnablement[]> {
+  return readAllPages<AgentEnablement>("/api/worker/agent/enablement");
+}
+
 export async function listAgents(): Promise<readonly AgentSummary[]> {
-  const agents: AgentSummary[] = [];
-  let cursor: string | null = null;
-  do {
-    const query = new URLSearchParams({ limit: String(AGENT_PAGE_LIMIT) });
-    if (cursor !== null) query.set("cursor", cursor);
-    const page: Page<AgentSummary> = await request<Page<AgentSummary>>(
-      `/api/worker/agent?${query}`,
-    );
-    agents.push(...page.items);
-    cursor = page.nextCursor;
-  } while (cursor !== null);
-  return agents;
+  const [catalog, enablements] = await Promise.all([listWorkerCatalog(), listAgentEnablements()]);
+  const entries = await Promise.all(
+    catalog
+      .filter((item) => item.host === "kanthord")
+      .map((item) => readWorkerCatalogEntry(item.name)),
+  );
+  const workersByAgent = new Map<string, string[]>();
+  for (const entry of entries) {
+    if (entry.host !== "kanthord") continue;
+    workersByAgent.set(entry.agentName, [
+      ...(workersByAgent.get(entry.agentName) ?? []),
+      entry.name,
+    ]);
+  }
+  return [...workersByAgent.entries()]
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(([agentName, workerNames]) => ({
+      agentName,
+      workerNames,
+      enablement: enablements.find((enablement) => enablement.agentName === agentName) ?? null,
+    }));
 }
 
 export async function readAgent(agentName: string): Promise<AgentDeclaration> {

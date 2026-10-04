@@ -29,6 +29,7 @@ const HEALTHY_SERVICES = {
 const projects = [structuredClone(fx.PROJECT)];
 const mission = { ...structuredClone(fx.MISSION), entries: structuredClone(fx.MISSION_ENTRIES) };
 const bindingSet = structuredClone(fx.BINDING_SET);
+const agents = structuredClone(fx.AGENT_DECLARATIONS);
 let nodeSequence = 10;
 
 const routes = [];
@@ -151,18 +152,25 @@ on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
   );
   return json(res, 200, page(items));
 });
-on("GET", /^\/api\/worker\/agent$/, (_m, _b, res) =>
-  json(res, 200, {
-    items: fx.AGENT_DECLARATIONS.map(({ agentName, workerNames, enablement }) => ({
-      agentName,
-      workerNames,
-      enablement,
-    })),
-    nextCursor: null,
-  }),
+const WORKER_METHODS = { "general@1": "steps", "reviewer@1": "evaluation" };
+on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
+  const item = fx.WORKER_CATALOG.find((w) => w.name === decodeURIComponent(m[1]));
+  const agent = agents.find((a) => a.workerNames.includes(item?.name));
+  if (item === undefined || agent === undefined) {
+    return projectEnvelope(res, 404, "worker.catalog.not_found", "The worker is not supplied.");
+  }
+  return json(res, 200, {
+    ...item,
+    method: WORKER_METHODS[item.name],
+    agentName: agent.agentName,
+    resourceBudget: { wallTimeMs: 3600000 },
+  });
+});
+on("GET", /^\/api\/worker\/agent\/enablement$/, (_m, _b, res) =>
+  json(res, 200, page(agents.flatMap((a) => (a.enablement === null ? [] : [a.enablement])))),
 );
 on("GET", /^\/api\/worker\/agent\/([^/]+)$/, (m, _b, res) => {
-  const declaration = fx.AGENT_DECLARATIONS.find((a) => a.agentName === decodeURIComponent(m[1]));
+  const declaration = agents.find((a) => a.agentName === decodeURIComponent(m[1]));
   if (declaration === undefined) {
     return refuse(res, 404, "not_found", "The agent name is absent from the worker catalog.");
   }

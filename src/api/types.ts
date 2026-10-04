@@ -64,6 +64,26 @@ export interface WorkerCatalogItem {
   readonly requiredNodeFormat: readonly string[];
 }
 
+export interface WorkerResourceBudget {
+  readonly wallTimeMs: number;
+  readonly turns?: number;
+}
+
+export type WorkerMethod = "steps" | "evaluation";
+
+export type WorkerCatalogEntry =
+  | (WorkerCatalogItem & {
+      readonly host: "kanthord";
+      readonly method: WorkerMethod;
+      readonly agentName: string;
+      readonly resourceBudget: WorkerResourceBudget;
+    })
+  | (WorkerCatalogItem & {
+      readonly host: "external-harness";
+      readonly harness: string;
+      readonly resourceBudget: WorkerResourceBudget;
+    });
+
 interface WorkerInstanceBase {
   readonly runtimeIdentity: string;
   readonly projectId: string;
