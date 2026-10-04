@@ -1,6 +1,6 @@
 import { request } from "../client";
 import { ApiError, isApiError } from "../errors";
-import type { HumanIdentity, LivenessReport, ServiceMaps } from "../types";
+import type { HealthReport, HumanIdentity, LivenessReport, ServiceMaps } from "../types";
 
 const UNHEALTHY_CODE = "gateway.liveness.unhealthy";
 
@@ -26,4 +26,8 @@ export async function verifyHumanToken(baseUrl: string, token: string): Promise<
     throw new ApiError("unauthorized", "The token is not a human token.", 401);
   }
   return identity;
+}
+
+export async function readHealthReport(): Promise<HealthReport> {
+  return request<HealthReport>("/api/healthcheck");
 }

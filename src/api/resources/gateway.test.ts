@@ -3,7 +3,8 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { readLiveness, verifyHumanToken } from "./gateway";
+import { setConnection } from "../client";
+import { readHealthReport, readLiveness, verifyHumanToken } from "./gateway";
 
 let server: Server | null = null;
 let seen: IncomingMessage | null = null;
@@ -37,6 +38,7 @@ async function closeServer(): Promise<void> {
 
 afterEach(async () => {
   seen = null;
+  setConnection(null);
   await closeServer();
 });
 
@@ -103,5 +105,26 @@ describe("verifyHumanToken", () => {
     await expect(verifyHumanToken(await closedBaseUrl(), "abc")).rejects.toMatchObject({
       code: "unreachable",
     });
+  });
+});
+
+describe("readHealthReport", () => {
+  it("reads gateway.healthcheck with the human token", async () => {
+    const owner = { global: {}, projects: {} };
+    const report = {
+      services: { project: owner, intake: owner, worker: owner },
+      shared: {
+        custody: {
+          global: { "ci-github": { status: "healthy", capability: "rate-limit read" } },
+          projects: {},
+        },
+      },
+    };
+    const base = await serve(200, report);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await readHealthReport()).toEqual(report);
+    expect(seen?.url).toBe("/api/healthcheck");
+    expect(seen?.headers.authorization).toBe("Bearer jwt-1");
   });
 });

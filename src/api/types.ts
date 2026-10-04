@@ -562,3 +562,134 @@ export interface SchedulerExecutionRecord {
   readonly traceId: string;
   readonly rootSpanId: string;
 }
+
+export const CREDENTIAL_PLATFORMS = [
+  "github",
+  "github-copilot",
+  "anthropic",
+  "openrouter",
+  "openai-compatible",
+  "s3",
+] as const;
+
+export type CredentialPlatform = (typeof CREDENTIAL_PLATFORMS)[number];
+
+export type SecretShape = "api_key" | "oauth" | "s3_access_key";
+
+export interface CredentialRevision {
+  readonly id: string;
+  readonly revision: number;
+  readonly metadata: Readonly<Record<string, unknown>> | null;
+  readonly createdAt: number;
+  readonly endedAt: number | null;
+}
+
+export interface Credential {
+  readonly name: string;
+  readonly platform: CredentialPlatform;
+  readonly revisions: readonly CredentialRevision[];
+}
+
+export interface CredentialModel {
+  readonly id: string;
+  readonly contextWindow?: number;
+  readonly maxTokens?: number;
+  readonly reasoningLevels?: readonly ReasoningEffort[];
+}
+
+export interface OpenAiCompatibleMetadata {
+  readonly baseUrl: string;
+  readonly models: readonly CredentialModel[];
+}
+
+export interface S3Metadata {
+  readonly endpoint: string;
+  readonly bucket: string;
+  readonly region: string;
+}
+
+export type CredentialMetadata = OpenAiCompatibleMetadata | S3Metadata | null;
+
+export interface ApiKeySecret {
+  readonly key: string;
+}
+
+export interface OAuthSecret {
+  readonly refresh: string;
+  readonly access: string;
+  readonly expires: number;
+}
+
+export interface S3AccessKeySecret {
+  readonly accessKeyId: string;
+  readonly secretAccessKey: string;
+}
+
+export type CredentialSecret = ApiKeySecret | OAuthSecret | S3AccessKeySecret;
+
+export interface CredentialCreateBody {
+  readonly name: string;
+  readonly platform: CredentialPlatform;
+  readonly metadata: CredentialMetadata;
+  readonly secret: ApiKeySecret | S3AccessKeySecret;
+}
+
+export interface CredentialRotateBody {
+  readonly expectedRevision: number;
+  readonly secret: CredentialSecret;
+  readonly metadata?: CredentialMetadata;
+}
+
+export interface CredentialMetadataBody {
+  readonly expectedRevision: number;
+  readonly metadata: CredentialMetadata;
+}
+
+export type CredentialLoginMode = "browser" | "device";
+
+export interface CredentialLoginBody {
+  readonly platform: CredentialPlatform;
+  readonly name: string;
+  readonly mode?: CredentialLoginMode;
+}
+
+export interface CredentialLoginSession {
+  readonly sessionId: string;
+  readonly address: string;
+  readonly code: string | null;
+  readonly expiresAt: number;
+}
+
+export type CredentialLoginState = "pending" | "completed" | "failed" | "expired";
+
+export interface CredentialLoginStatus {
+  readonly sessionId: string;
+  readonly state: CredentialLoginState;
+  readonly lastMessage: string | null;
+  readonly failureReason: string | null;
+}
+
+export type ResourceStatus = "healthy" | "unhealthy" | "unknown";
+
+export interface HealthEntry {
+  readonly status: ResourceStatus;
+  readonly capability: string;
+}
+
+export type HealthResourceMap = Readonly<Record<string, HealthEntry>>;
+
+export interface HealthOwner {
+  readonly global: HealthResourceMap;
+  readonly projects: Readonly<Record<string, HealthResourceMap>>;
+}
+
+export interface HealthReport {
+  readonly services: {
+    readonly project: HealthOwner;
+    readonly intake: HealthOwner;
+    readonly worker: HealthOwner;
+  };
+  readonly shared: {
+    readonly custody: HealthOwner;
+  };
+}
