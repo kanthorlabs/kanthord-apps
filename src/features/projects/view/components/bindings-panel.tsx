@@ -16,8 +16,13 @@ const SECTIONS: readonly { readonly kind: BindingSetKind; readonly label: string
   { kind: "storage", label: "Storage" },
 ];
 
-export function BindingsPanel({ projectId }: { projectId: string }) {
-  const editor = useBindingEditor(projectId);
+interface BindingsPanelProps {
+  projectId: string;
+  onWritten: () => void;
+}
+
+export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
+  const editor = useBindingEditor(projectId, onWritten);
   const { bindings, guard, target } = editor;
   const { data, error, loading, reload } = bindings.resource;
   const current = data?.bindings ?? {};

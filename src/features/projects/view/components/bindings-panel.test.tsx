@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,8 +29,10 @@ const WORKER: BindingSetEntry = {
 
 const SET: BindingSet = { version: 2, bindings: { "kanthord-repo": REPO, "general-main": WORKER } };
 
+const onWritten = vi.fn();
+
 function mount() {
-  return render(<BindingsPanel projectId="project_1" />);
+  return render(<BindingsPanel projectId="project_1" onWritten={onWritten} />);
 }
 
 describe("BindingsPanel", () => {
@@ -91,6 +93,7 @@ describe("BindingsPanel", () => {
       "general-main": WORKER,
     });
     expect(screen.queryByRole("alertdialog")).toBeNull();
+    await waitFor(() => expect(onWritten).toHaveBeenCalledOnce());
   });
 
   it("guards a removal, names the nodes and offers to make it unavailable instead", async () => {

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -52,6 +52,31 @@ describe("ProjectScreen", () => {
       "href",
       `/projects/${KANTHORD.id}/edit`,
     );
+  });
+
+  it("shows the new binding set version after a binding save", async () => {
+    vi.mocked(projectsApi.readProject)
+      .mockResolvedValueOnce(KANTHORD)
+      .mockResolvedValue({ ...KANTHORD, bindingSetVersion: 4 });
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      version: 3,
+      bindings: {
+        "general-main": { kind: "worker", config: { worker: "general@1", instanceCount: 2 } },
+      },
+    });
+    vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
+      projectId: KANTHORD.id,
+      bindingSetVersion: 4,
+      changes: [],
+    });
+    mount("?tab=bindings");
+
+    const header = await screen.findByText("Binding set version");
+    expect(header.nextElementSibling).toHaveTextContent("3");
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() => expect(header.nextElementSibling).toHaveTextContent("4"));
   });
 
   it("reports an unknown project", async () => {

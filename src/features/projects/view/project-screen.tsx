@@ -85,7 +85,7 @@ export function ProjectScreen() {
           <MissionPanel projectId={project.id} projectName={project.name} />
         </TabsContent>
         <TabsContent value="bindings">
-          <BindingsPanel projectId={project.id} />
+          <BindingsPanel projectId={project.id} onWritten={reload} />
         </TabsContent>
       </Tabs>
     </div>

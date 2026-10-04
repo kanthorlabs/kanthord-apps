@@ -17,8 +17,8 @@ export interface BindingEditorState {
   readonly takeSaferPath: () => void;
 }
 
-export function useBindingEditor(projectId: string): BindingEditorState {
-  const bindings = useBindingSet(projectId);
+export function useBindingEditor(projectId: string, onSetWritten: () => void): BindingEditorState {
+  const bindings = useBindingSet(projectId, onSetWritten);
   const guard = useBindingChangeGuard(projectId);
   const [target, setTarget] = useState<BindingTarget | null>(null);
   const { write, clearFeedback } = bindings;

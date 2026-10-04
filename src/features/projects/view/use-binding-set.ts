@@ -15,7 +15,7 @@ export interface BindingSetState {
   readonly clearFeedback: () => void;
 }
 
-export function useBindingSet(projectId: string): BindingSetState {
+export function useBindingSet(projectId: string, onSetWritten: () => void): BindingSetState {
   const resource = useResource(() => readBindingSet(projectId), [projectId]);
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
@@ -36,6 +36,7 @@ export function useBindingSet(projectId: string): BindingSetState {
         () => {
           setSaving(false);
           reload();
+          onSetWritten();
           onWritten();
         },
         (cause: unknown) => {
@@ -50,7 +51,7 @@ export function useBindingSet(projectId: string): BindingSetState {
         },
       );
     },
-    [saving, data, projectId, reload, clearFeedback],
+    [saving, data, projectId, reload, onSetWritten, clearFeedback],
   );
 
   return { resource, saving, conflict, error, write, clearFeedback };
