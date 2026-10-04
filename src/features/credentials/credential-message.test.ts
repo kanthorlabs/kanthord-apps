@@ -54,6 +54,10 @@ describe("credentialMessage", () => {
     expect(message).not.toMatch(/inbounds/);
   });
 
+  it("names an archived credential as final", () => {
+    expect(credentialMessage(refusal("credential.credential.archived"))).toMatch(/archived.*final/);
+  });
+
   it("answers an in-use refusal without readable details", () => {
     expect(credentialMessage(refusal("credential.credential.in_use", null))).toMatch(
       /^A dependent still uses/,

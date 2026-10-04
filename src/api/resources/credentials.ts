@@ -19,9 +19,11 @@ function credentialPath(credentialName: string): string {
 export async function listCredentialPage(
   platform: CredentialPlatform | null,
   cursor: string | null,
+  includeArchived = false,
 ): Promise<Page<Credential>> {
   const query = new URLSearchParams();
   if (platform !== null) query.set("platform", platform);
+  if (includeArchived) query.set("includeArchived", "true");
   if (cursor !== null) query.set("cursor", cursor);
   const suffix = query.size === 0 ? "" : `?${query}`;
   return request<Page<Credential>>(`/api/credential${suffix}`);
@@ -71,9 +73,9 @@ export async function revokeCredentialRevision(
   });
 }
 
-export async function removeCredential(credentialName: string): Promise<Credential> {
-  return request<Credential>(credentialPath(credentialName), {
-    method: "DELETE",
+export async function archiveCredential(credentialName: string): Promise<Credential> {
+  return request<Credential>(`${credentialPath(credentialName)}/archive`, {
+    method: "POST",
     headers: { "idempotency-key": newUlid() },
   });
 }

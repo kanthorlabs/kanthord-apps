@@ -115,23 +115,48 @@ describe("CredentialScreen", () => {
     expect(credentialsApi.revokeCredentialRevision).toHaveBeenCalledWith("router", 2);
   });
 
-  it("removes after the confirmation and returns to the list", async () => {
-    vi.mocked(credentialsApi.removeCredential).mockResolvedValue(ROUTER);
+  it("archives after the confirmation and returns to the list", async () => {
+    vi.mocked(credentialsApi.archiveCredential).mockResolvedValue(ROUTER);
     mountWithList();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText(/Every live revision of router ends at once\./)).toBeTruthy();
-    expect(within(dialog).getByText(/The record and its revisions stay/)).toBeTruthy();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Remove router" }));
+    expect(within(dialog).getByText(/The record stays/)).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
 
-    expect(credentialsApi.removeCredential).toHaveBeenCalledWith("router");
+    expect(credentialsApi.archiveCredential).toHaveBeenCalledWith("router");
     expect(await screen.findByText("Credential list")).toBeTruthy();
     expect(toast.success).toHaveBeenCalled();
   });
 
-  it("shows the dependents of a refused remove and stays on the detail", async () => {
-    vi.mocked(credentialsApi.removeCredential).mockRejectedValue(
+  it("states that an archive is final in the confirmation", async () => {
+    mountWithList();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(/An archive is final, and the name stays taken\./),
+    ).toBeTruthy();
+  });
+
+  it("marks an archived credential and hides every write action", async () => {
+    const ended = Date.UTC(2026, 9, 4);
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue({
+      ...ROUTER,
+      revisions: ROUTER.revisions.map((entry) => ({ ...entry, endedAt: ended })),
+    });
+    mount();
+
+    expect(await screen.findByText("Archived")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Archive" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Rotate secret" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Revoke revision/ })).toBeNull();
+  });
+
+  it("shows the dependents of a refused archive and stays on the detail", async () => {
+    vi.mocked(credentialsApi.archiveCredential).mockRejectedValue(
       new ApiError("conflict", "In use.", 409, "credential.credential.in_use", {
         agentProviders: ["codex"],
         bindings: ["binding_1"],
@@ -139,9 +164,9 @@ describe("CredentialScreen", () => {
     );
     mountWithList();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
     const dialog = await screen.findByRole("alertdialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Remove router" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
 
     const alert = await within(dialog).findByRole("alert");
     expect(alert.textContent).toMatch(/agentProviders: codex; bindings: binding_1/);

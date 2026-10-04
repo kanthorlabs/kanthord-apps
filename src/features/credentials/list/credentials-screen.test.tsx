@@ -78,7 +78,7 @@ describe("CredentialsScreen", () => {
     expect(within(items[0]!).getByText("github")).toBeTruthy();
     expect(within(items[0]!).getByText("r2")).toBeTruthy();
     expect(within(items[0]!).getByText("2026-10-03 14:05 UTC")).toBeTruthy();
-    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith(null, null);
+    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith(null, null, false);
   });
 
   it("opens a credential from its row", async () => {
@@ -103,12 +103,43 @@ describe("CredentialsScreen", () => {
     await userEvent.click(await screen.findByRole("combobox", { name: "Platform" }));
     await userEvent.click(await screen.findByRole("option", { name: "openai-compatible" }));
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("openai-compatible", null);
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(
+      "openai-compatible",
+      null,
+      false,
+    );
 
     await userEvent.click(screen.getByRole("combobox", { name: "Platform" }));
     await userEvent.click(await screen.findByRole("option", { name: "openrouter" }));
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("openrouter", null);
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("openrouter", null, false);
+  });
+
+  it("includes archived credentials on request and offers only Revisions on them", async () => {
+    const ARCHIVED: Credential = {
+      ...ROUTER,
+      name: "legacy",
+      revisions: ROUTER.revisions.map((entry) => ({ ...entry, endedAt: Date.UTC(2026, 9, 2) })),
+    };
+    vi.mocked(credentialsApi.listCredentialPage).mockImplementation(
+      async (_platform, _cursor, includeArchived) => ({
+        items: includeArchived === true ? [GITHUB, ARCHIVED] : [GITHUB],
+        nextCursor: null,
+      }),
+    );
+    mount();
+
+    await screen.findByRole("button", { name: "Verify ci-github" });
+    expect(screen.queryByText("Archived")).toBeNull();
+
+    await userEvent.click(screen.getByRole("switch", { name: "Include archived" }));
+
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(null, null, true);
+    expect(await screen.findByText("Archived")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Revisions of legacy" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Verify legacy" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Rotate legacy" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata of legacy" })).toBeNull();
   });
 
   it("verifies one credential from its row", async () => {

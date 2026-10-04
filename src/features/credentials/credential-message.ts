@@ -73,7 +73,7 @@ function inUseMessage(details: unknown): string {
     ? Object.entries(details).filter(([, value]) => Array.isArray(value) && value.length > 0)
     : [];
   const base =
-    "A dependent still uses this credential. Remove or change each dependent first, then remove the credential.";
+    "A dependent still uses this credential. Remove or change each dependent first, then archive the credential.";
   if (groups.length === 0) return base;
   const lines = groups.map(
     ([group, entries]) => `${group}: ${(entries as unknown[]).map(dependentLabel).join(", ")}`,
@@ -82,6 +82,9 @@ function inUseMessage(details: unknown): string {
 }
 
 export function credentialMessage(cause: ApiError): string {
+  if (cause.detail === "credential.credential.archived") {
+    return "This credential is archived. An archive is final, and the name stays taken.";
+  }
   if (cause.detail === "credential.name.conflict") return nameConflictMessage(cause.details);
   if (cause.detail === "credential.metadata.model_in_use") return modelInUseMessage(cause.details);
   if (cause.detail === "credential.credential.in_use") return inUseMessage(cause.details);

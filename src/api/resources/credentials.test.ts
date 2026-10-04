@@ -5,11 +5,11 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { setConnection } from "../client";
 import {
+  archiveCredential,
   createCredential,
   listCredentialPage,
   readCredential,
   readCredentialLoginStatus,
-  removeCredential,
   revokeCredentialRevision,
   rotateCredential,
   startCredentialLogin,
@@ -81,6 +81,8 @@ describe("listCredentialPage", () => {
     await serve(200, [
       { items: [GITHUB], nextCursor: "c-1" },
       { items: [], nextCursor: null },
+      { items: [], nextCursor: null },
+      { items: [], nextCursor: null },
     ]);
 
     expect(await listCredentialPage("github", null)).toEqual({
@@ -88,9 +90,13 @@ describe("listCredentialPage", () => {
       nextCursor: "c-1",
     });
     await listCredentialPage(null, "c-1");
+    await listCredentialPage(null, null, true);
+    await listCredentialPage(null, null, false);
     expect(seen.map((req) => req.url)).toEqual([
       "/api/credential?platform=github",
       "/api/credential?cursor=c-1",
+      "/api/credential?includeArchived=true",
+      "/api/credential",
     ]);
     expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
   });
@@ -171,12 +177,12 @@ describe("credential mutations", () => {
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 
-  it("deletes credential.remove without a body", async () => {
+  it("posts credential.archive without a body", async () => {
     await serve(200, [GITHUB]);
 
-    await removeCredential("ci-github");
-    expect(seen[0]?.method).toBe("DELETE");
-    expect(seen[0]?.url).toBe("/api/credential/ci-github");
+    await archiveCredential("ci-github");
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/credential/ci-github/archive");
     expect(seen[0]?.body).toBe("");
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });

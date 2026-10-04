@@ -1,4 +1,4 @@
-import { FileCogIcon, RefreshCwIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
+import { ArchiveIcon, FileCogIcon, RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import type { Credential } from "@/api/types";
@@ -9,14 +9,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CredentialHealthLine } from "../components/credential-health-line";
 import { useCredentialHealth } from "../use-credential-health";
 import { MetadataSheet } from "../components/metadata-sheet";
+import { ArchiveDialog } from "./components/archive-dialog";
 import { RevisionList } from "./components/revision-list";
-import { RemoveDialog } from "./components/remove-dialog";
 import { RevokeDialog } from "./components/revoke-dialog";
 import { RotateSheet } from "../components/rotate-sheet";
 import { useCredential } from "./use-credential";
 import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
-import { useCredentialRemove } from "./use-credential-remove";
+import { useCredentialArchive } from "./use-credential-archive";
+import { isArchived } from "@/lib/credential-revisions";
 import { useRevisionRevoke } from "./use-revision-revoke";
 
 function HealthSection({ name }: { name: string }) {
@@ -53,7 +54,8 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
   const rotate = useCredentialRotate(credential, reload);
   const metadata = useMetadataEdit(credential, reload);
   const revoke = useRevisionRevoke(credential, reload);
-  const remove = useCredentialRemove(credential);
+  const archive = useCredentialArchive(credential);
+  const archived = isArchived(credential);
 
   return (
     <div className="flex flex-col gap-4">
@@ -62,28 +64,31 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2 className="min-w-0 font-mono text-lg font-semibold break-all">{credential.name}</h2>
             <Badge variant="outline">{credential.platform}</Badge>
+            {archived && <Badge variant="secondary">Archived</Badge>}
           </div>
           <div className="flex flex-wrap gap-2">
-            {rotate.expectedRevision !== null && (
+            {!archived && rotate.expectedRevision !== null && (
               <Button variant="outline" size="sm" onClick={rotate.start}>
                 <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
                 Rotate secret
               </Button>
             )}
-            {metadata.available && (
+            {!archived && metadata.available && (
               <Button variant="outline" size="sm" onClick={metadata.start}>
                 <FileCogIcon aria-hidden="true" data-icon="inline-start" />
                 Edit metadata
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={remove.request}>
-              <Trash2Icon aria-hidden="true" data-icon="inline-start" />
-              Remove
-            </Button>
+            {!archived && (
+              <Button variant="outline" size="sm" onClick={archive.request}>
+                <ArchiveIcon aria-hidden="true" data-icon="inline-start" />
+                Archive
+              </Button>
+            )}
           </div>
         </div>
       </section>
-      <HealthSection name={credential.name} />
+      {!archived && <HealthSection name={credential.name} />}
       <section aria-labelledby="credential-revisions" className="flex flex-col gap-2">
         <h3 id="credential-revisions" className="font-semibold">
           Revisions
@@ -97,7 +102,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
       <RotateSheet name={credential.name} platform={credential.platform} rotate={rotate} />
       <MetadataSheet name={credential.name} platform={credential.platform} edit={metadata} />
       <RevokeDialog revoke={revoke} />
-      <RemoveDialog name={credential.name} remove={remove} />
+      <ArchiveDialog name={credential.name} archive={archive} />
     </div>
   );
 }

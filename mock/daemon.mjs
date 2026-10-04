@@ -618,6 +618,20 @@ const findCredential = (res, encoded) => {
   return credential;
 };
 
+const isArchived = (credential) =>
+  credential.revisions.every((revision) => revision.endedAt !== null);
+
+const refuseArchived = (res, credential) => {
+  if (!isArchived(credential)) return false;
+  credentialEnvelope(
+    res,
+    409,
+    "credential.credential.archived",
+    "The credential is archived; an archive is final.",
+  );
+  return true;
+};
+
 const refuseStaleRevision = (res, credential, expectedRevision) => {
   if (newestLive(credential)?.revision === expectedRevision) return false;
   credentialEnvelope(
@@ -647,10 +661,12 @@ const addRevision = (credential, metadata, res) => {
 
 on("GET", /^\/api\/credential$/, (_m, _b, res, _t, url) => {
   const platform = url.searchParams.get("platform");
+  const includeArchived = url.searchParams.get("includeArchived") === "true";
   const limit = Number(url.searchParams.get("limit") ?? 100);
   const offset = Number(url.searchParams.get("cursor") ?? 0);
   const ordered = credentials
     .filter((credential) => platform === null || credential.platform === platform)
+    .filter((credential) => includeArchived || !isArchived(credential))
     .sort((a, b) => a.name.localeCompare(b.name));
   for (const credential of ordered) drainOlder(credential, Date.now());
   const items = ordered.slice(offset, offset + limit);
@@ -834,6 +850,7 @@ on("GET", /^\/api\/credential\/([^/]+)$/, (m, _b, res) => {
 on("POST", /^\/api\/credential\/([^/]+)\/revision$/, (m, b, res) => {
   const credential = findCredential(res, m[1]);
   if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
   if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform], b.secret)) {
     return refuseInvalidInput(res);
@@ -846,6 +863,7 @@ on("POST", /^\/api\/credential\/([^/]+)\/revision$/, (m, b, res) => {
 on("PUT", /^\/api\/credential\/([^/]+)\/metadata$/, (m, b, res) => {
   const credential = findCredential(res, m[1]);
   if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
   if (!metadataIsValid(credential.platform, b.metadata)) return refuseInvalidInput(res);
   const current = newestLive(credential).metadata;
@@ -885,9 +903,10 @@ on("POST", /^\/api\/credential\/([^/]+)\/revision\/(\d+)\/revoke$/, (m, _b, res)
   return json(res, 200, credential);
 });
 
-on("DELETE", /^\/api\/credential\/([^/]+)$/, (m, _b, res) => {
+on("POST", /^\/api\/credential\/([^/]+)\/archive$/, (m, _b, res) => {
   const credential = findCredential(res, m[1]);
   if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
   const dependents = fx.CREDENTIAL_DEPENDENTS[credential.name];
   if (dependents !== undefined) {
     return credentialEnvelope(

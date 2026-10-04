@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Credential } from "@/api/types";
 import {
+  isArchived,
   isRevocable,
   liveRevisionCount,
   newestLiveRevision,
@@ -35,6 +36,12 @@ describe("credential revisions", () => {
     expect(isRevocable(CREDENTIAL, third!)).toBe(false);
     expect(isRevocable(CREDENTIAL, second!)).toBe(true);
     expect(isRevocable(CREDENTIAL, first!)).toBe(false);
+  });
+
+  it("derives the archived state from a record without a live revision", () => {
+    const ended = { ...CREDENTIAL, revisions: [revision(2, 7), revision(1, 5)] };
+    expect(isArchived(CREDENTIAL)).toBe(false);
+    expect(isArchived(ended)).toBe(true);
   });
 
   it("orders the revisions newest first", () => {

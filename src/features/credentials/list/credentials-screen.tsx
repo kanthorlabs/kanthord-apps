@@ -6,6 +6,7 @@ import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -13,7 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { liveRevisionCount, newestLiveRevision } from "@/lib/credential-revisions";
+import { Switch } from "@/components/ui/switch";
+import { isArchived, liveRevisionCount, newestLiveRevision } from "@/lib/credential-revisions";
 import { utcDateTime } from "@/lib/format";
 import { CredentialHealthLine } from "../components/credential-health-line";
 import { MetadataSheet } from "../components/metadata-sheet";
@@ -41,6 +43,7 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
   const rotate = useCredentialRotate(credential, reload);
   const metadata = useMetadataEdit(credential, reload);
   const newest = newestLiveRevision(credential);
+  const archived = isArchived(credential);
   const name = credential.name;
   const detailPath = `/credentials/${encodeURIComponent(name)}`;
 
@@ -48,6 +51,7 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
     <>
       <DataListItem
         title={name}
+        status={archived ? <Badge variant="secondary">Archived</Badge> : undefined}
         select={{ label: `Open ${name}`, disabled: false, onSelect: () => navigate(detailPath) }}
         fields={[
           { label: "Platform", value: <span className="font-mono">{credential.platform}</span> },
@@ -69,17 +73,19 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
         }
         actions={
           <div className="flex flex-wrap gap-2 md:w-[27rem]">
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label={`Verify ${name}`}
-              disabled={health.state.status === "checking"}
-              onClick={health.verify}
-            >
-              <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
-              Verify
-            </Button>
-            {rotate.expectedRevision !== null && (
+            {!archived && (
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={`Verify ${name}`}
+                disabled={health.state.status === "checking"}
+                onClick={health.verify}
+              >
+                <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
+                Verify
+              </Button>
+            )}
+            {!archived && rotate.expectedRevision !== null && (
               <Button
                 variant="outline"
                 size="sm"
@@ -90,7 +96,7 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
                 Rotate
               </Button>
             )}
-            {metadata.available && (
+            {!archived && metadata.available && (
               <Button
                 variant="outline"
                 size="sm"
@@ -121,7 +127,8 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
 }
 
 export function CredentialsScreen() {
-  const { pages, platform, selectPlatform } = useCredentialList();
+  const { pages, platform, includeArchived, selectPlatform, setIncludeArchived } =
+    useCredentialList();
 
   return (
     <div className="flex flex-col gap-4">
@@ -144,6 +151,14 @@ export function CredentialsScreen() {
               ))}
             </SelectContent>
           </Select>
+        </Field>
+        <Field orientation="horizontal" className="md:ml-auto md:w-auto">
+          <Switch
+            id="credential-include-archived"
+            checked={includeArchived}
+            onCheckedChange={setIncludeArchived}
+          />
+          <FieldLabel htmlFor="credential-include-archived">Include archived</FieldLabel>
         </Field>
         <Button nativeButton={false} render={<Link to="/credentials/new" />} size="lg">
           <PlusIcon aria-hidden="true" data-icon="inline-start" />

@@ -800,6 +800,13 @@ export const CREDENTIALS = [
     platform: "anthropic",
     revisions: [credentialRevision("0051", 1, null, Date.UTC(2026, 8, 5, 9, 0))],
   },
+  {
+    name: "legacy-anthropic",
+    platform: "anthropic",
+    revisions: [
+      credentialRevision("0061", 1, null, Date.UTC(2026, 7, 5, 9, 0), Date.UTC(2026, 8, 1, 9, 0)),
+    ],
+  },
 ];
 
 export const CREDENTIAL_DEPENDENTS = {
