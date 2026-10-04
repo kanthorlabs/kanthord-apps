@@ -1,93 +1,62 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import { listExecutions } from "@/api/resources/scheduler";
+import { listProjectExecutions } from "@/api/resources/scheduler";
 import type { ApiError } from "@/api/errors";
-import type { Execution } from "@/api/types";
+import type { SchedulerExecutionRecord } from "@/api/types";
 import { useProjectId } from "@/features/projects/project-context";
+import { useMissionNodes } from "@/hooks/use-mission-nodes";
 import { useResource } from "@/hooks/use-resource";
-import { percent } from "@/lib/format";
 
-export type ClaimState = "running" | "lost" | "finished";
+export type ExecutionScope = "live" | "all";
 
 export interface ExecutionView {
-  readonly execution: Execution;
-  readonly turnPct: number;
-  readonly wallTimePct: number;
-  readonly turnOverBudget: boolean;
-  readonly wallTimeOverBudget: boolean;
-  readonly overBudget: boolean;
-  readonly claimState: ClaimState | null;
-  readonly deadline: string | null;
+  readonly execution: SchedulerExecutionRecord;
+  readonly nodeName: string;
 }
 
 export interface ExecutionsState {
+  readonly projectId: string;
   readonly loading: boolean;
   readonly error: ApiError | null;
   readonly reload: () => void;
   readonly views: readonly ExecutionView[];
-  readonly scope: "live" | "all";
+  readonly scope: ExecutionScope;
   readonly selectScope: (value: readonly string[]) => void;
-}
-
-function useNow(): number {
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    Promise.resolve().then(() => setNow(Date.now()));
-  }, []);
-  return now;
-}
-
-function deriveClaimState(
-  endedAt: string | null,
-  deadline: string | null,
-  now: number,
-): ClaimState | null {
-  const deadlineMs = deadline === null ? null : new Date(deadline).getTime();
-  if (endedAt === null) {
-    return deadlineMs !== null && now > 0 && now >= deadlineMs ? "lost" : "running";
-  }
-  if (deadlineMs === null) return null;
-  return new Date(endedAt).getTime() >= deadlineMs ? "lost" : "finished";
 }
 
 export function useExecutions(): ExecutionsState {
   const projectId = useProjectId();
-  const [scope, setScope] = useState<"live" | "all">("live");
-  const { data, loading, error, reload } = useResource(
-    () => listExecutions(projectId, scope),
-    [projectId, scope],
-  );
-  const now = useNow();
+  const [scope, setScope] = useState<ExecutionScope>("live");
+  const executions = useResource(() => listProjectExecutions(projectId), [projectId]);
+  const nodes = useMissionNodes(projectId);
 
-  const views = useMemo<readonly ExecutionView[]>(
-    () =>
-      (data ?? []).map((execution) => {
-        const turnPct = percent(execution.turnsUsed, execution.turnBudget);
-        const wallTimePct = percent(execution.wallTimeUsedSeconds, execution.wallTimeBudgetSeconds);
-        const turnOverBudget = execution.turnsUsed >= execution.turnBudget;
-        const wallTimeOverBudget = execution.wallTimeUsedSeconds >= execution.wallTimeBudgetSeconds;
-        const overBudget = turnOverBudget || wallTimeOverBudget;
-        const deadline = execution.lease?.expiresAt ?? null;
-        const claimState = deriveClaimState(execution.endedAt, deadline, now);
+  const views = useMemo(() => {
+    const names = new Map((nodes.data ?? []).map((node) => [node.id, node.content.name]));
+    return (executions.data ?? [])
+      .filter((execution) => scope === "all" || execution.claimState === "running")
+      .map((execution) => ({
+        execution,
+        nodeName: names.get(execution.nodeId) ?? execution.nodeId,
+      }));
+  }, [executions.data, nodes.data, scope]);
 
-        return {
-          execution,
-          turnPct,
-          wallTimePct,
-          turnOverBudget,
-          wallTimeOverBudget,
-          overBudget,
-          claimState,
-          deadline,
-        };
-      }),
-    [data, now],
-  );
+  const reload = () => {
+    executions.reload();
+    nodes.reload();
+  };
 
   const selectScope = (values: readonly string[]) => {
     const value = values[0];
     if (value === "live" || value === "all") setScope(value);
   };
 
-  return { loading, error, reload, views, scope, selectScope };
+  return {
+    projectId,
+    loading: executions.loading || nodes.loading,
+    error: executions.error ?? nodes.error,
+    reload,
+    views,
+    scope,
+    selectScope,
+  };
 }

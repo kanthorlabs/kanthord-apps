@@ -179,32 +179,6 @@ on("GET", /^\/api\/worker\/agent\/([^/]+)$/, (m, _b, res) => {
   });
 });
 
-on("GET", /^\/v1\/projects\/[^/]+\/scheduler\/queue$/, (_m, _b, res) =>
-  json(
-    res,
-    200,
-    [...fx.QUEUE].sort((a, x) => x.priority - a.priority || a.createdAt.localeCompare(x.createdAt)),
-  ),
-);
-const freshen = (execution) =>
-  execution.live
-    ? {
-        ...execution,
-        lease: {
-          expiresAt: new Date(Date.now() + 95_000).toISOString(),
-          renewedAt: new Date(Date.now() - 25_000).toISOString(),
-        },
-      }
-    : execution;
-
-on("GET", /^\/v1\/projects\/[^/]+\/scheduler\/executions$/, (_m, _b, res, _t, url) => {
-  const all = fx.EXECUTIONS.map(freshen);
-  return json(res, 200, url.searchParams.get("scope") === "live" ? all.filter((e) => e.live) : all);
-});
-on("GET", /^\/v1\/projects\/[^/]+\/scheduler\/eligibility\/([^/]+)$/, (m, _b, res) =>
-  json(res, 200, fx.ELIGIBILITY[m[1]] ?? { nodeId: m[1], checks: [] }),
-);
-
 on("GET", /^\/v1\/projects\/[^/]+\/deliveries$/, (_m, _b, res) => json(res, 200, fx.DELIVERIES));
 
 const nodeIdOf = () => `node_01J9ZQ4XKM3B6V8N2R5T7W0Y${String(nodeSequence++).padStart(2, "0")}`;
@@ -522,6 +496,15 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
   return json(res, 200, { ...binding, projectId: decodeURIComponent(m[1]), config: {} });
 });
 
+on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (_m, _b, res) =>
+  json(
+    res,
+    200,
+    page(
+      [...fx.GRAPH_QUEUE].sort((a, x) => x.priority - a.priority || a.jobId.localeCompare(x.jobId)),
+    ),
+  ),
+);
 on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (_m, _b, res, _t, url) => {
   const nodeId = url.searchParams.get("nodeId");
   const attempt = url.searchParams.get("attempt");

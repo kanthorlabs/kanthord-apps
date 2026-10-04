@@ -31,8 +31,6 @@ export type TerminalState = (typeof TERMINAL_STATES)[number];
 
 export type Role = "executor" | "reviewer";
 
-export type ClaimKind = "steps" | "evaluation";
-
 export type AssessmentActor =
   | { readonly kind: "human"; readonly account: string; readonly name: string }
   | {
@@ -147,53 +145,7 @@ export interface Attempt {
   readonly externalObjects: readonly ExternalObject[];
 }
 
-export interface WorkQueueEntry {
-  readonly id: string;
-  readonly nodeId: string;
-  readonly nodeTitle: string;
-  readonly admittedClaimKind: ClaimKind;
-  readonly priority: number;
-  readonly createdAt: string;
-  readonly heldOut: boolean;
-  readonly waitFact: string | null;
-}
-
-export interface Lease {
-  readonly expiresAt: string;
-  readonly renewedAt: string;
-}
-
-export interface Execution {
-  readonly id: string;
-  readonly projectId: string;
-  readonly claimantKind: "worker binding" | "client identity";
-  readonly claimantId: string;
-  readonly instanceRuntimeId: string | null;
-  readonly nodeId: string;
-  readonly nodeTitle: string;
-  readonly attemptId: string;
-  readonly pinnedRevisionId: string;
-  readonly claimKind: ClaimKind;
-  readonly lease: Lease | null;
-  readonly live: boolean;
-  readonly startedAt: string;
-  readonly endedAt: string | null;
-  readonly turnsUsed: number;
-  readonly turnBudget: number;
-  readonly wallTimeUsedSeconds: number;
-  readonly wallTimeBudgetSeconds: number;
-}
-
 /** Why a node is not running. The Scheduler rechecks each of these at the claim. */
-export interface EligibilityReport {
-  readonly nodeId: string;
-  readonly checks: readonly {
-    readonly name: string;
-    readonly holds: boolean;
-    readonly detail: string;
-  }[];
-}
-
 export type WorkerHost = "kanthord" | "external-harness";
 
 export type InstanceActivity = "idle" | "pulling" | "executing";
@@ -686,6 +638,13 @@ export interface ProjectBindingRecord {
 }
 
 export type ClaimState = "running" | "lost" | "finished";
+
+export interface SchedulerJob {
+  readonly jobId: string;
+  readonly projectId: string;
+  readonly nodeId: string;
+  readonly priority: number;
+}
 
 export interface SchedulerExecutionRecord {
   readonly executionId: string;

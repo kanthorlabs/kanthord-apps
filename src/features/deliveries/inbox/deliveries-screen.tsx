@@ -1,5 +1,3 @@
-import { Link } from "react-router-dom";
-
 import type { DeliveryDisposition } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -58,12 +56,7 @@ function DeliveryGroupItem({ group }: { group: DeliveryGroup }) {
         {primary.nodeId !== null && (
           <div className="space-y-0.5 text-sm">
             <p className="text-muted-foreground">Resolved to</p>
-            <Link
-              to={`/mission/${primary.nodeId}`}
-              className="font-medium underline-offset-4 hover:underline"
-            >
-              {primary.nodeId}
-            </Link>
+            <p className="font-medium">{primary.nodeId}</p>
             {primary.externalObjectId !== null && (
               <p className="text-muted-foreground">
                 External object: <span className="font-mono">{primary.externalObjectId}</span>

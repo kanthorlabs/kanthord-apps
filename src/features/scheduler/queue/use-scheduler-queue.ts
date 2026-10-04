@@ -1,46 +1,45 @@
-import { useState } from "react";
+import { useMemo } from "react";
 
-import { listQueue } from "@/api/resources/scheduler";
+import { listQueueJobs } from "@/api/resources/scheduler";
 import type { ApiError } from "@/api/errors";
-import type { WorkQueueEntry } from "@/api/types";
+import type { SchedulerJob } from "@/api/types";
 import { useProjectId } from "@/features/projects/project-context";
+import { useMissionNodes } from "@/hooks/use-mission-nodes";
 import { useResource } from "@/hooks/use-resource";
 
+export interface QueueEntryView {
+  readonly job: SchedulerJob;
+  readonly nodeName: string;
+}
+
 export interface QueueState {
+  readonly projectId: string;
   readonly loading: boolean;
   readonly error: ApiError | null;
   readonly reload: () => void;
-  readonly filtered: readonly WorkQueueEntry[];
-  readonly heldOutOnly: boolean;
-  readonly setHeldOutOnly: (v: boolean) => void;
-  readonly selectedEntry: WorkQueueEntry | null;
-  readonly select: (id: string | null) => void;
+  readonly entries: readonly QueueEntryView[];
 }
 
 export function useSchedulerQueue(): QueueState {
   const projectId = useProjectId();
-  const { data, loading, error, reload } = useResource(() => listQueue(projectId), [projectId]);
-  const [heldOutOnly, setHeldOutOnly] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const jobs = useResource(() => listQueueJobs(projectId), [projectId]);
+  const nodes = useMissionNodes(projectId);
 
-  const sorted = [...(data ?? [])].sort((a, b) => {
-    if (b.priority !== a.priority) return b.priority - a.priority;
-    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-  });
+  const entries = useMemo(() => {
+    const names = new Map((nodes.data ?? []).map((node) => [node.id, node.content.name]));
+    return (jobs.data ?? []).map((job) => ({ job, nodeName: names.get(job.nodeId) ?? job.nodeId }));
+  }, [jobs.data, nodes.data]);
 
-  const filtered = heldOutOnly ? sorted.filter((e) => e.heldOut) : sorted;
-
-  const selectedEntry =
-    selectedId !== null ? ((data ?? []).find((e) => e.id === selectedId) ?? null) : null;
+  const reload = () => {
+    jobs.reload();
+    nodes.reload();
+  };
 
   return {
-    loading,
-    error,
+    projectId,
+    loading: jobs.loading || nodes.loading,
+    error: jobs.error ?? nodes.error,
     reload,
-    filtered,
-    heldOutOnly,
-    setHeldOutOnly,
-    selectedEntry,
-    select: setSelectedId,
+    entries,
   };
 }

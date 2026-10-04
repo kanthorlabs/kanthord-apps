@@ -1,51 +1,81 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/api/resources/scheduler", () => ({
-  listQueue: vi.fn(),
-  readEligibility: vi.fn(),
-  listExecutions: vi.fn(),
+  listProjectExecutions: vi.fn(),
+}));
+
+vi.mock("@/api/resources/mission", () => ({
+  readMission: vi.fn(),
+  listMissionNodes: vi.fn(),
 }));
 
 vi.mock("@/features/projects/project-context", () => ({
   useProjectId: () => "prj-test",
 }));
 
-import { listExecutions } from "@/api/resources/scheduler";
-import type { Execution } from "@/api/types";
+import { listMissionNodes, readMission } from "@/api/resources/mission";
+import { listProjectExecutions } from "@/api/resources/scheduler";
+import type { SchedulerExecutionRecord } from "@/api/types";
+import { utcDateTime } from "@/lib/format";
 
 import { ExecutionsScreen } from "./executions-screen";
 
 const now = Date.now();
-const at = (minutesAgo: number) => new Date(now - minutesAgo * 60_000).toISOString();
 
-function execution(id: string, overrides: Partial<Execution> = {}): Execution {
+function execution(
+  executionId: string,
+  overrides: Partial<SchedulerExecutionRecord> = {},
+): SchedulerExecutionRecord {
   return {
-    id,
+    executionId,
     projectId: "prj-test",
-    claimantKind: "worker binding",
-    claimantId: "bnd-wkr-general",
-    instanceRuntimeId: "rt-0001",
-    nodeId: `node-${id}`,
-    nodeTitle: `Node ${id}`,
-    attemptId: `att-${id}`,
-    pinnedRevisionId: `rev-${id}`,
-    claimKind: "steps",
-    lease: {
-      expiresAt: new Date(now + 120_000).toISOString(),
-      renewedAt: at(0.5),
+    nodeId: "node_reset",
+    claimant: {
+      workerBindingId: "binding_tdd_main",
+      resourceIdentity: "worker:kanthord:tdd-main",
+      runtimeIdentity: "worker_instance_01",
     },
-    live: true,
-    startedAt: at(10),
+    attempt: 2,
+    pinnedRevision: 3,
+    credentials: [],
+    claimState: "running",
+    expiredAt: now + 120_000,
+    createdAt: now - 600_000,
     endedAt: null,
-    turnsUsed: 10,
-    turnBudget: 200,
-    wallTimeUsedSeconds: 600,
-    wallTimeBudgetSeconds: 7200,
+    traceId: "0".repeat(31) + "1",
+    rootSpanId: "0".repeat(15) + "1",
     ...overrides,
   };
+}
+
+function mockExecutions(executions: readonly SchedulerExecutionRecord[]) {
+  vi.mocked(listProjectExecutions).mockResolvedValue(executions);
+  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", projectId: "prj-test", version: 1 });
+  vi.mocked(listMissionNodes).mockResolvedValue([
+    {
+      id: "node_reset",
+      filename: "add-password-reset.md",
+      missionId: "mission_1",
+      parentId: null,
+      visibleRevision: 3,
+      content: {
+        name: "Add password reset",
+        requirement: "",
+        criterion: "",
+        verifications: [],
+        bindings: [],
+      },
+      retiredAt: null,
+      pinnedByAttempts: [2],
+      kind: "objective",
+      state: "Executing",
+      attempt: 2,
+      priority: 0,
+    },
+  ]);
 }
 
 function renderScreen() {
@@ -57,98 +87,76 @@ function renderScreen() {
 }
 
 describe("ExecutionsScreen", () => {
-  it("defaults to live scope and switches to all on toggle", async () => {
+  it("defaults to live scope and shows every claim state under all", async () => {
     const user = userEvent.setup();
-
-    vi.mocked(listExecutions).mockResolvedValue([execution("live1")]);
+    mockExecutions([
+      execution("execution_live"),
+      execution("execution_done", { claimState: "finished", endedAt: now - 60_000 }),
+    ]);
 
     renderScreen();
 
-    await screen.findAllByText("Node live1");
-
-    expect(vi.mocked(listExecutions)).toHaveBeenCalledWith("prj-test", "live");
-
+    expect(await screen.findByText("Execution execution_live")).toBeInTheDocument();
+    expect(screen.queryByText("Execution execution_done")).toBeNull();
     expect(screen.getByRole("button", { name: "Live", pressed: true })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "All" }));
 
-    await waitFor(() => {
-      expect(vi.mocked(listExecutions)).toHaveBeenCalledWith("prj-test", "all");
-    });
+    expect(await screen.findByText("Execution execution_done")).toBeInTheDocument();
+    expect(listProjectExecutions).toHaveBeenCalledWith("prj-test");
   });
 
-  it("names a running claim with its fixed deadline and no renewal", async () => {
-    vi.mocked(listExecutions).mockResolvedValue([execution("run")]);
+  it("names a running claim with its node, claimant and fixed deadline", async () => {
+    mockExecutions([execution("execution_run")]);
 
     renderScreen();
 
     const item = await screen.findByRole("listitem");
+    expect(within(item).getByRole("link", { name: "Add password reset" })).toHaveAttribute(
+      "href",
+      "/projects/prj-test",
+    );
     expect(within(item).getByText("Running")).toBeInTheDocument();
-    expect(within(item).getByText("Deadline in 2m")).toBeInTheDocument();
-    expect(within(item).getByText("Execution run")).toBeInTheDocument();
-    expect(within(item).getByText("Binding bnd-wkr-general · runtime rt-0001")).toBeInTheDocument();
+    expect(within(item).getByText(`Deadline ${utcDateTime(now + 120_000)}`)).toBeInTheDocument();
     expect(
-      within(item).getByText("steps claim · attempt att-run · pinned revision rev-run"),
+      within(item).getByText("Binding binding_tdd_main · runtime worker_instance_01"),
     ).toBeInTheDocument();
+    expect(within(item).getByText("Attempt 2 · pinned revision 3")).toBeInTheDocument();
     expect(within(item).queryByText(/renew/i)).toBeNull();
   });
 
-  it("names a claim past its deadline as lost without claiming the runtime failed", async () => {
-    vi.mocked(listExecutions).mockResolvedValue([
-      execution("expired", {
-        lease: {
-          expiresAt: new Date(now - 30_000).toISOString(),
-          renewedAt: at(5),
-        },
-        live: true,
-      }),
-    ]);
+  it("names a lost claim without claiming the runtime failed", async () => {
+    const user = userEvent.setup();
+    mockExecutions([execution("execution_lost", { claimState: "lost", endedAt: now })]);
 
     renderScreen();
+    await user.click(await screen.findByRole("button", { name: "All" }));
 
     expect(await screen.findByText("Lost")).toBeInTheDocument();
     expect(screen.getByText("Expiry is not proof that the runtime stopped.")).toBeInTheDocument();
     expect(screen.queryAllByText(/failed/i)).toHaveLength(0);
-    expect(screen.queryAllByText(/at risk/i)).toHaveLength(0);
   });
 
-  it("names a claim that ended before its deadline as finished", async () => {
-    vi.mocked(listExecutions).mockResolvedValue([
-      execution("done", {
-        live: false,
-        endedAt: at(1),
-        claimantKind: "client identity",
-        claimantId: "client-1",
-        instanceRuntimeId: null,
+  it("names a finished claim with its end time and the claimant name", async () => {
+    const user = userEvent.setup();
+    mockExecutions([
+      execution("execution_done", {
+        claimState: "finished",
+        endedAt: now - 60_000,
+        claimant: {
+          workerBindingId: "binding_tdd_main",
+          resourceIdentity: "worker:kanthord:tdd-main",
+          runtimeIdentity: "worker_instance_02",
+          name: "claude-code",
+        },
       }),
     ]);
 
     renderScreen();
+    await user.click(await screen.findByRole("button", { name: "All" }));
 
     expect(await screen.findByText("Finished")).toBeInTheDocument();
-    expect(screen.getByText("Client identity client-1")).toBeInTheDocument();
-  });
-
-  it("marks over-budget execution and caps the reported percentage at 100", async () => {
-    vi.mocked(listExecutions).mockResolvedValue([
-      execution("over", {
-        turnsUsed: 88,
-        turnBudget: 200,
-        wallTimeUsedSeconds: 8400,
-        wallTimeBudgetSeconds: 7200,
-        live: false,
-        lease: null,
-        endedAt: at(0),
-      }),
-    ]);
-
-    renderScreen();
-
-    const item = await screen.findByRole("listitem");
-    expect(within(item).getByRole("link", { name: "Node over" })).toBeInTheDocument();
-
-    expect(screen.getByText("Over budget")).toBeInTheDocument();
-    expect(screen.getByText("Wall time 2h 20m / 2h 0m (100%, over budget)")).toBeInTheDocument();
-    expect(screen.getByText("Turns 88 / 200 (44%)")).toBeInTheDocument();
+    expect(screen.getByText(`Ended ${utcDateTime(now - 60_000)}`)).toBeInTheDocument();
+    expect(screen.getByText("Binding binding_tdd_main · runtime claude-code")).toBeInTheDocument();
   });
 });

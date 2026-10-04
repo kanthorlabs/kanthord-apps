@@ -1,8 +1,13 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
-import type { Execution, MissionNodeRecord, MissionOutcome, NodeState } from "@/api/types";
+import type {
+  MissionNodeRecord,
+  MissionOutcome,
+  NodeState,
+  SchedulerExecutionRecord,
+} from "@/api/types";
 import { NODE_STATES } from "@/api/types";
 import { closingEventText } from "@/lib/mission-labels";
 import { OverviewScreen } from "./overview-screen";
@@ -17,11 +22,11 @@ vi.mock("@/api/resources/mission", () => ({
 }));
 
 vi.mock("@/api/resources/scheduler", () => ({
-  listExecutions: vi.fn(),
+  listProjectExecutions: vi.fn(),
 }));
 
 import { listMissionNodes, readMission } from "@/api/resources/mission";
-import { listExecutions } from "@/api/resources/scheduler";
+import { listProjectExecutions } from "@/api/resources/scheduler";
 
 const blockedOutcome: MissionOutcome = {
   id: "outcome_1",
@@ -58,26 +63,31 @@ function mockNodes(nodes: readonly MissionNodeRecord[]) {
   vi.mocked(listMissionNodes).mockResolvedValue(nodes);
 }
 
-const mockExecution: Execution = {
-  id: "exec-1",
-  projectId: "prj-test",
-  claimantKind: "worker binding",
-  claimantId: "bnd-wkr-general-main",
-  instanceRuntimeId: "rt-8f21",
-  nodeId: "obj-lockout-audit",
-  nodeTitle: "Audit the lockout log",
-  attemptId: "att-la-1",
-  pinnedRevisionId: "rev-la-1",
-  claimKind: "steps",
-  lease: { expiresAt: new Date().toISOString(), renewedAt: new Date().toISOString() },
-  live: true,
-  startedAt: new Date().toISOString(),
-  endedAt: null,
-  turnsUsed: 10,
-  turnBudget: 200,
-  wallTimeUsedSeconds: 60,
-  wallTimeBudgetSeconds: 7200,
-};
+function execution(
+  executionId: string,
+  nodeId: string,
+  claimState: SchedulerExecutionRecord["claimState"],
+): SchedulerExecutionRecord {
+  return {
+    executionId,
+    projectId: "prj-test",
+    nodeId,
+    claimant: {
+      workerBindingId: "binding_tdd_main",
+      resourceIdentity: "worker:kanthord:tdd-main",
+      runtimeIdentity: "worker_instance_01",
+    },
+    attempt: 1,
+    pinnedRevision: 1,
+    credentials: [],
+    claimState,
+    expiredAt: Date.now() + 60_000,
+    createdAt: Date.now(),
+    endedAt: claimState === "running" ? null : Date.now(),
+    traceId: "0".repeat(31) + "1",
+    rootSpanId: "0".repeat(15) + "1",
+  };
+}
 
 function renderScreen() {
   return render(
@@ -90,7 +100,9 @@ function renderScreen() {
 describe("OverviewScreen", () => {
   it("renders the blocked section first and shows the closing event", async () => {
     mockNodes([objective("node_1", "Add password reset", "Blocked")]);
-    vi.mocked(listExecutions).mockResolvedValue([mockExecution]);
+    vi.mocked(listProjectExecutions).mockResolvedValue([
+      execution("execution_1", "node_9", "running"),
+    ]);
 
     renderScreen();
 
@@ -109,7 +121,7 @@ describe("OverviewScreen", () => {
 
   it("shows a plain message when there are no blocked nodes", async () => {
     mockNodes([objective("node_2", "Add recovery codes", "Pending")]);
-    vi.mocked(listExecutions).mockResolvedValue([]);
+    vi.mocked(listProjectExecutions).mockResolvedValue([]);
 
     renderScreen();
 
@@ -132,7 +144,7 @@ describe("OverviewScreen", () => {
         ),
       ),
     );
-    vi.mocked(listExecutions).mockResolvedValue([]);
+    vi.mocked(listProjectExecutions).mockResolvedValue([]);
 
     renderScreen();
 
@@ -146,5 +158,22 @@ describe("OverviewScreen", () => {
 
     const expectedOrder = NODE_STATES.filter((s) => tallies.some((t) => t.state === s));
     expect(stateLabels).toEqual(expectedOrder);
+  });
+
+  it("lists only running executions under their node name", async () => {
+    mockNodes([
+      objective("node_2", "Add recovery codes", "Executing"),
+      objective("node_3", "Audit the lockout log", "Completed"),
+    ]);
+    vi.mocked(listProjectExecutions).mockResolvedValue([
+      execution("execution_2", "node_2", "running"),
+      execution("execution_3", "node_3", "finished"),
+    ]);
+
+    renderScreen();
+
+    const list = await screen.findByRole("list", { name: "Live executions" });
+    expect(within(list).getByText("Add recovery codes")).toBeDefined();
+    expect(within(list).queryByText("Audit the lockout log")).toBeNull();
   });
 });
