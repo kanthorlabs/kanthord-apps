@@ -1,6 +1,6 @@
 import { useId } from "react";
 
-import type { EdgeGeometry, EdgeShape } from "../use-edge-geometry";
+import type { EdgeGeometry, EdgeShape } from "@/lib/graph-layout";
 
 interface DependencyEdgesProps {
   readonly geometry: EdgeGeometry;

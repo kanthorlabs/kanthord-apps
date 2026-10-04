@@ -119,12 +119,39 @@ function pushTo<T>(map: Map<string, T[]>, key: string, value: T): void {
   else list.push(value);
 }
 
-function placeCyclic(
-  ranking: Ranking,
-  diagnostics: GraphDiagnostic[],
-): ReadonlyMap<string, number> {
+function reachableFrom(
+  start: string,
+  outgoing: ReadonlyMap<string, readonly string[]>,
+): ReadonlySet<string> {
+  const reached = new Set<string>();
+  const queue = [start];
+  for (let index = 0; index < queue.length; index += 1) {
+    for (const next of outgoing.get(queue[index] as string) ?? []) {
+      if (reached.has(next)) continue;
+      reached.add(next);
+      queue.push(next);
+    }
+  }
+  return reached;
+}
+
+function findCycles(ids: readonly string[], links: readonly DependencyLink[]): string[][] {
+  const outgoing = new Map<string, string[]>(ids.map((id) => [id, []]));
+  for (const link of links) outgoing.get(link.dependsOnId)?.push(link.dependentId);
+  const reach = new Map(ids.map((id) => [id, reachableFrom(id, outgoing)]));
+  const grouped = new Set<string>();
+  const cycles: string[][] = [];
+  for (const id of ids) {
+    if (grouped.has(id) || reach.get(id)?.has(id) !== true) continue;
+    const members = ids.filter((other) => reach.get(id)?.has(other) && reach.get(other)?.has(id));
+    for (const member of members) grouped.add(member);
+    cycles.push(members);
+  }
+  return cycles;
+}
+
+function placeCyclic(ranking: Ranking): ReadonlyMap<string, number> {
   if (ranking.cyclic.length === 0) return ranking.rank;
-  diagnostics.push({ kind: "cycle", nodeIds: ranking.cyclic });
   const rank = new Map(ranking.rank);
   const last = Math.max(-1, ...rank.values()) + 1;
   for (const id of ranking.cyclic) rank.set(id, last);
@@ -189,6 +216,12 @@ export function buildGraph(
   for (const node of nodes) {
     if (!placed.has(node.id)) diagnostics.push({ kind: "unplaced-node", nodeId: node.id });
   }
+  for (const nodeIds of findCycles(
+    nodes.map((node) => node.id),
+    links,
+  )) {
+    diagnostics.push({ kind: "cycle", nodeIds });
+  }
 
   const initiativeRank = placeCyclic(
     rankInitiatives(
@@ -196,7 +229,6 @@ export function buildGraph(
       links,
       initiativeOf,
     ),
-    diagnostics,
   );
 
   const blocks = initiatives.map((initiative): InitiativeBlock => {
@@ -208,7 +240,6 @@ export function buildGraph(
         objectives.map((node) => node.id),
         links,
       ),
-      diagnostics,
     );
     const cells = objectives
       .map((node): ObjectiveCell => ({
@@ -304,5 +335,5 @@ export function diagnosticText(model: GraphModel, diagnostic: GraphDiagnostic): 
     return `The node ${nameOf(model, diagnostic.nodeId)} has no place under an initiative, so the graph does not show it.`;
   }
   const names = diagnostic.nodeIds.map((id) => nameOf(model, id)).join(", ");
-  return `The dependencies of ${names} form a cycle. The graph shows these nodes in the last row.`;
+  return `The dependencies of ${names} form a cycle, so each of these nodes waits for another node of the cycle.`;
 }

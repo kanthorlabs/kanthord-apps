@@ -137,6 +137,22 @@ describe("buildGraph", () => {
     expect(model.diagnostics).toContainEqual({ kind: "cycle", nodeIds: ["codes", "reset"] });
   });
 
+  it("reports a cycle between objectives of two initiatives", () => {
+    const model = buildGraph(NODES, [dependency("signup", "audit"), dependency("audit", "signup")]);
+
+    expect(model.diagnostics).toEqual([{ kind: "cycle", nodeIds: ["signup", "audit"] }]);
+  });
+
+  it("reports only the members of a cycle, not the nodes that wait for it", () => {
+    const model = buildGraph(NODES, [
+      dependency("codes", "reset"),
+      dependency("reset", "codes"),
+      dependency("audit", "reset"),
+    ]);
+
+    expect(model.diagnostics).toEqual([{ kind: "cycle", nodeIds: ["codes", "reset"] }]);
+  });
+
   it("reports a node that has no place in the containment tree", () => {
     const model = buildGraph([...NODES, runnable("stray", "objective", "node_missing")], []);
 

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ObjectiveProgress } from "@/lib/mission-graph";
 import { badgeVariantOf } from "@/lib/node-state";
-import { GRAPH_NODE_ATTRIBUTE } from "../use-edge-geometry";
 
 interface GraphNodeProps {
   readonly node: MissionRunnableNode;
@@ -24,12 +23,10 @@ export function GraphNode({
   onSelect,
 }: GraphNodeProps) {
   const selected = node.id === selectedId;
-  const width = node.kind === "initiative" ? "w-full sm:w-80" : "w-full sm:w-64";
 
   return (
     <div
-      {...{ [GRAPH_NODE_ATTRIBUTE]: node.id }}
-      className={`${width} rounded-xl ${selected ? "outline-2 outline-offset-2 outline-primary" : ""}`}
+      className={`w-full rounded-xl ${selected ? "outline-2 outline-offset-2 outline-primary" : ""}`}
     >
       <Card size="sm" className="h-full">
         <CardContent className="gap-2">
