@@ -795,6 +795,19 @@ export const CREDENTIALS = [
     platform: "anthropic",
     revisions: [credentialRevision("0041", 1, null, Date.UTC(2026, 8, 4, 9, 0) - DAY)],
   },
+  {
+    name: "atlas-in-use",
+    platform: "anthropic",
+    revisions: [credentialRevision("0051", 1, null, Date.UTC(2026, 8, 5, 9, 0))],
+  },
 ];
+
+export const CREDENTIAL_DEPENDENTS = {
+  "atlas-in-use": {
+    agentProviders: ["claude-code"],
+    bindings: ["project_atlas/source"],
+    inbounds: ["inbound_atlas_webhook"],
+  },
+};
 
 export const PINNED_CREDENTIAL_REVISIONS = ["credential_01J9ZQ4XKM3B6V8N2R5T7W0012"];

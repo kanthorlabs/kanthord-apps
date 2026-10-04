@@ -16,6 +16,7 @@ vi.mock("sonner", async (importOriginal) => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
 
+import { toast } from "sonner";
 import { CredentialScreen } from "./credential-screen";
 
 const BASE_URL = "https://openrouter.ai/api/v1";
@@ -54,6 +55,17 @@ function mount() {
     <MemoryRouter initialEntries={["/credentials/router"]}>
       <Routes>
         <Route path="/credentials/:credentialName" element={<CredentialScreen />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function mountWithList() {
+  return render(
+    <MemoryRouter initialEntries={["/credentials/router"]}>
+      <Routes>
+        <Route path="/credentials/:credentialName" element={<CredentialScreen />} />
+        <Route path="/credentials" element={<p>Credential list</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -101,6 +113,39 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Revoke revision 2" }));
 
     expect(credentialsApi.revokeCredentialRevision).toHaveBeenCalledWith("router", 2);
+  });
+
+  it("removes after the confirmation and returns to the list", async () => {
+    vi.mocked(credentialsApi.removeCredential).mockResolvedValue(ROUTER);
+    mountWithList();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/Every live revision of router ends at once\./)).toBeTruthy();
+    expect(within(dialog).getByText(/The record and its revisions stay/)).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove router" }));
+
+    expect(credentialsApi.removeCredential).toHaveBeenCalledWith("router");
+    expect(await screen.findByText("Credential list")).toBeTruthy();
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it("shows the dependents of a refused remove and stays on the detail", async () => {
+    vi.mocked(credentialsApi.removeCredential).mockRejectedValue(
+      new ApiError("conflict", "In use.", 409, "credential.credential.in_use", {
+        agentProviders: ["codex"],
+        bindings: ["binding_1"],
+      }),
+    );
+    mountWithList();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove router" }));
+
+    const alert = await within(dialog).findByRole("alert");
+    expect(alert.textContent).toMatch(/agentProviders: codex; bindings: binding_1/);
+    expect(screen.queryByText("Credential list")).toBeNull();
   });
 
   it("rotates the secret at the newest live revision and copies the metadata", async () => {

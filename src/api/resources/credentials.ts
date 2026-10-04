@@ -71,6 +71,13 @@ export async function revokeCredentialRevision(
   });
 }
 
+export async function removeCredential(credentialName: string): Promise<Credential> {
+  return request<Credential>(credentialPath(credentialName), {
+    method: "DELETE",
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
 export async function startCredentialLogin(
   body: CredentialLoginBody,
 ): Promise<CredentialLoginSession> {

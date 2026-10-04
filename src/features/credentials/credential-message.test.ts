@@ -42,6 +42,24 @@ describe("credentialMessage", () => {
     expect(credentialMessage(refusal("credential.input.invalid"))).toMatch(/refused the secret/);
   });
 
+  it("lists every dependent array of a credential in use", () => {
+    const message = credentialMessage(
+      refusal("credential.credential.in_use", {
+        agentProviders: ["codex"],
+        bindings: [{ id: "binding_1" }],
+        inbounds: [],
+      }),
+    );
+    expect(message).toMatch(/Dependents: agentProviders: codex; bindings: binding_1\./);
+    expect(message).not.toMatch(/inbounds/);
+  });
+
+  it("answers an in-use refusal without readable details", () => {
+    expect(credentialMessage(refusal("credential.credential.in_use", null))).toMatch(
+      /^A dependent still uses/,
+    );
+  });
+
   it("names the owners of a failed health inventory", () => {
     expect(
       credentialMessage(

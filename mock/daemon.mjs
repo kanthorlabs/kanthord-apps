@@ -885,6 +885,27 @@ on("POST", /^\/api\/credential\/([^/]+)\/revision\/(\d+)\/revoke$/, (m, _b, res)
   return json(res, 200, credential);
 });
 
+on("DELETE", /^\/api\/credential\/([^/]+)$/, (m, _b, res) => {
+  const credential = findCredential(res, m[1]);
+  if (credential === undefined) return undefined;
+  const dependents = fx.CREDENTIAL_DEPENDENTS[credential.name];
+  if (dependents !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.credential.in_use",
+      "A dependent uses the credential.",
+      dependents,
+    );
+  }
+  const now = Date.now();
+  for (const revision of credential.revisions) {
+    if (revision.endedAt === null) revision.endedAt = now;
+    pinnedRevisions.delete(revision.id);
+  }
+  return json(res, 200, credential);
+});
+
 on("GET", /^\/api\/healthcheck$/, (_m, _b, res) => {
   const owner = { global: {}, projects: {} };
   const global = Object.fromEntries(

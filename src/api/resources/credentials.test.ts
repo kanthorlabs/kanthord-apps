@@ -9,6 +9,7 @@ import {
   listCredentialPage,
   readCredential,
   readCredentialLoginStatus,
+  removeCredential,
   revokeCredentialRevision,
   rotateCredential,
   startCredentialLogin,
@@ -167,6 +168,16 @@ describe("credential mutations", () => {
     expect(seen[0]?.url).toBe("/api/credential/ci-github/revision/3/revoke");
     expect(seen[0]?.body).toBe("");
     expect(seen[0]?.headers["content-type"]).toBeUndefined();
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("deletes credential.remove without a body", async () => {
+    await serve(200, [GITHUB]);
+
+    await removeCredential("ci-github");
+    expect(seen[0]?.method).toBe("DELETE");
+    expect(seen[0]?.url).toBe("/api/credential/ci-github");
+    expect(seen[0]?.body).toBe("");
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 });

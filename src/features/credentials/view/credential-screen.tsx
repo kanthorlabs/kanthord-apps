@@ -1,4 +1,4 @@
-import { FileCogIcon, RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
+import { FileCogIcon, RefreshCwIcon, ShieldCheckIcon, Trash2Icon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import type { Credential } from "@/api/types";
@@ -10,11 +10,13 @@ import { CredentialHealthLine } from "../components/credential-health-line";
 import { useCredentialHealth } from "../use-credential-health";
 import { MetadataSheet } from "../components/metadata-sheet";
 import { RevisionList } from "./components/revision-list";
+import { RemoveDialog } from "./components/remove-dialog";
 import { RevokeDialog } from "./components/revoke-dialog";
 import { RotateSheet } from "../components/rotate-sheet";
 import { useCredential } from "./use-credential";
 import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
+import { useCredentialRemove } from "./use-credential-remove";
 import { useRevisionRevoke } from "./use-revision-revoke";
 
 function HealthSection({ name }: { name: string }) {
@@ -51,6 +53,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
   const rotate = useCredentialRotate(credential, reload);
   const metadata = useMetadataEdit(credential, reload);
   const revoke = useRevisionRevoke(credential, reload);
+  const remove = useCredentialRemove(credential);
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,6 +76,10 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
                 Edit metadata
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={remove.request}>
+              <Trash2Icon aria-hidden="true" data-icon="inline-start" />
+              Remove
+            </Button>
           </div>
         </div>
       </section>
@@ -90,6 +97,7 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
       <RotateSheet name={credential.name} platform={credential.platform} rotate={rotate} />
       <MetadataSheet name={credential.name} platform={credential.platform} edit={metadata} />
       <RevokeDialog revoke={revoke} />
+      <RemoveDialog name={credential.name} remove={remove} />
     </div>
   );
 }

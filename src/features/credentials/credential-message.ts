@@ -57,9 +57,34 @@ function inventoryFailedMessage(details: unknown): string {
   return `The health report could not read the inventory of: ${owners.join(", ") || "an owner"}. Try again later.`;
 }
 
+function dependentLabel(entry: unknown): string {
+  if (typeof entry === "string") return entry;
+  if (isRecord(entry)) {
+    for (const key of ["name", "id"]) {
+      const value = entry[key];
+      if (typeof value === "string") return value;
+    }
+  }
+  return JSON.stringify(entry);
+}
+
+function inUseMessage(details: unknown): string {
+  const groups = isRecord(details)
+    ? Object.entries(details).filter(([, value]) => Array.isArray(value) && value.length > 0)
+    : [];
+  const base =
+    "A dependent still uses this credential. Remove or change each dependent first, then remove the credential.";
+  if (groups.length === 0) return base;
+  const lines = groups.map(
+    ([group, entries]) => `${group}: ${(entries as unknown[]).map(dependentLabel).join(", ")}`,
+  );
+  return `${base} Dependents: ${lines.join("; ")}.`;
+}
+
 export function credentialMessage(cause: ApiError): string {
   if (cause.detail === "credential.name.conflict") return nameConflictMessage(cause.details);
   if (cause.detail === "credential.metadata.model_in_use") return modelInUseMessage(cause.details);
+  if (cause.detail === "credential.credential.in_use") return inUseMessage(cause.details);
   if (cause.detail === "gateway.healthcheck.inventory_failed") {
     return inventoryFailedMessage(cause.details);
   }
