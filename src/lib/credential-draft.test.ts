@@ -8,6 +8,8 @@ import {
   credentialNameError,
   editMetadataOf,
   isOAuthPlatform,
+  loginModeOf,
+  loginModesOf,
   metadataDraftOf,
   rotateMetadataOf,
   secretOfDraft,
@@ -235,5 +237,19 @@ describe("isOAuthPlatform", () => {
       ok: false,
       errors: { platform: "This platform takes its credential through a sign-in." },
     });
+  });
+});
+
+describe("loginModeOf", () => {
+  it("offers browser and device for openai-codex and defaults to browser", () => {
+    expect(loginModesOf("openai-codex")).toEqual(["browser", "device"]);
+    expect(loginModeOf("openai-codex", null)).toBe("browser");
+    expect(loginModeOf("openai-codex", "device")).toBe("device");
+  });
+
+  it("offers only device for github-copilot and sends no mode", () => {
+    expect(loginModesOf("github-copilot")).toEqual(["device"]);
+    expect(loginModeOf("github-copilot", "browser")).toBeNull();
+    expect(loginModeOf("github-copilot", null)).toBeNull();
   });
 });

@@ -766,7 +766,7 @@ on("POST", /^\/api\/credential\/login$/, (_m, b, res) => {
     return credentialEnvelope(res, 409, "credential.login.pending", "Another login is pending.");
   }
   const sessionId = `login_session_01J9ZQ4XKM3B6V8N2R5T7W${String(now % 10000).padStart(4, "0")}`;
-  const device = b.mode !== "browser";
+  const device = b.platform === "github-copilot" || b.mode === "device";
   const session = {
     sessionId,
     platform: b.platform,

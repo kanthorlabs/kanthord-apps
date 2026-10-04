@@ -14,17 +14,16 @@ import type {
   CredentialPlatform,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
+import { loginModeOf } from "@/lib/credential-draft";
 import { credentialMessage } from "../credential-message";
 
 export const LOGIN_POLL_MS = 2000;
-export const PLATFORM_DEFAULT_MODE = "default";
 
-export type LoginModeChoice = CredentialLoginMode | typeof PLATFORM_DEFAULT_MODE;
-
-const MODES: readonly LoginModeChoice[] = [PLATFORM_DEFAULT_MODE, "browser", "device"];
+const MODES: readonly CredentialLoginMode[] = ["browser", "device"];
 
 export interface CredentialLoginState {
-  readonly mode: LoginModeChoice;
+  readonly mode: CredentialLoginMode | null;
+  readonly sessionMode: CredentialLoginMode | null;
   readonly starting: boolean;
   readonly startError: string | null;
   readonly session: CredentialLoginSession | null;
@@ -46,9 +45,11 @@ function failureMessage(cause: unknown): string {
   return credentialMessage(asApiError(cause));
 }
 
-export function useCredentialLogin(): CredentialLoginState {
+export function useCredentialLogin(platform: CredentialPlatform): CredentialLoginState {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<LoginModeChoice>(PLATFORM_DEFAULT_MODE);
+  const [selected, setSelected] = useState<CredentialLoginMode | null>(null);
+  const [sessionMode, setSessionMode] = useState<CredentialLoginMode | null>(null);
+  const mode = loginModeOf(platform, selected);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -80,24 +81,25 @@ export function useCredentialLogin(): CredentialLoginState {
 
   const selectMode = useCallback((value: string | null) => {
     const next = MODES.find((candidate) => candidate === value);
-    if (next !== undefined) setMode(next);
+    if (next !== undefined) setSelected(next);
   }, []);
 
   const start = useCallback(
-    (nextName: string, platform: CredentialPlatform) => {
+    (nextName: string, nextPlatform: CredentialPlatform) => {
       if (starting) return;
       setStarting(true);
       setStartError(null);
       startCredentialLogin({
-        platform,
+        platform: nextPlatform,
         name: nextName,
-        ...(mode === PLATFORM_DEFAULT_MODE ? {} : { mode }),
+        ...(mode === null ? {} : { mode }),
       }).then(
         (next) => {
           setStarting(false);
           setName(nextName);
           setStatus(null);
           setPollError(null);
+          setSessionMode(mode);
           setSession(next);
         },
         (cause: unknown) => {
@@ -150,6 +152,7 @@ export function useCredentialLogin(): CredentialLoginState {
 
   return {
     mode,
+    sessionMode,
     starting,
     startError,
     session,

@@ -41,9 +41,9 @@ const NO_ERRORS: DraftErrors = {};
 
 export function useCredentialForm(): CredentialFormState {
   const navigate = useNavigate();
-  const login = useCredentialLogin();
   const [name, setNameValue] = useState("");
   const [platform, setPlatform] = useState<CredentialPlatform>("github");
+  const login = useCredentialLogin(platform);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
   const [metadata, setMetadata] = useState<MetadataDraft>(EMPTY_METADATA);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);

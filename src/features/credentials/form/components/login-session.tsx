@@ -24,7 +24,7 @@ function SessionFacts({
       </dd>
       <dt className="text-muted-foreground">Address</dt>
       <dd className="min-w-0 break-all">
-        <a href={session.address} target="_blank" rel="noreferrer" className="underline">
+        <a href={session.address} target="_blank" rel="noopener noreferrer" className="underline">
           {session.address}
         </a>
       </dd>
@@ -93,6 +93,19 @@ export function LoginSession({
         every 2 seconds and opens the credential when the sign-in completes.
       </p>
       <SessionFacts session={session} status={login.status} />
+      {login.sessionMode === "browser" && (
+        <div className="flex sm:justify-end">
+          <Button
+            nativeButton={false}
+            render={
+              <a href={session.address} target="_blank" rel="noopener noreferrer">
+                Open sign-in page
+              </a>
+            }
+            variant="outline"
+          />
+        </div>
+      )}
       {login.pollError !== null && (
         <Alert variant="destructive">
           <AlertTitle>The state could not be read.</AlertTitle>

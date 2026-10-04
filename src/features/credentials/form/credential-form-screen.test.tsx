@@ -189,8 +189,7 @@ describe("CredentialFormScreen", () => {
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
     expect(screen.queryByLabelText("API key")).toBeNull();
-    await userEvent.click(screen.getByRole("combobox", { name: "Sign-in mode" }));
-    await userEvent.click(await screen.findByRole("option", { name: "Device code" }));
+    expect(screen.queryByRole("combobox", { name: "Sign-in mode" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
@@ -199,8 +198,8 @@ describe("CredentialFormScreen", () => {
     expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
       platform: "github-copilot",
       name: "copilot",
-      mode: "device",
     });
+    expect(screen.queryByRole("button", { name: "Open sign-in page" })).toBeNull();
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
   });
 
@@ -262,8 +261,7 @@ describe("CredentialFormScreen", () => {
     await userEvent.type(screen.getByLabelText("Name"), "codex");
     await choosePlatform("openai-codex");
     expect(screen.queryByLabelText("API key")).toBeNull();
-    await userEvent.click(screen.getByRole("combobox", { name: "Sign-in mode" }));
-    await userEvent.click(await screen.findByRole("option", { name: "Browser" }));
+    expect(screen.getByRole("combobox", { name: "Sign-in mode" }).textContent).toContain("Browser");
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
@@ -272,6 +270,35 @@ describe("CredentialFormScreen", () => {
       name: "codex",
       mode: "browser",
     });
+    const open = screen.getByRole("button", { name: "Open sign-in page" });
+    expect(open.getAttribute("href")).toBe(SESSION.address);
+    expect(open.getAttribute("target")).toBe("_blank");
+    expect(open.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("starts a headless openai-codex sign-in without the open button", async () => {
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      sessionId: SESSION.sessionId,
+      state: "pending",
+      lastMessage: null,
+      failureReason: null,
+    });
+    mount();
+
+    await userEvent.type(screen.getByLabelText("Name"), "codex");
+    await choosePlatform("openai-codex");
+    await userEvent.click(screen.getByRole("combobox", { name: "Sign-in mode" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Headless (device code)" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+
+    expect(await screen.findByText("ABCD-1234")).toBeTruthy();
+    expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
+      platform: "openai-codex",
+      name: "codex",
+      mode: "device",
+    });
+    expect(screen.queryByRole("button", { name: "Open sign-in page" })).toBeNull();
   });
 
   it("explains a pending sign-in", async () => {

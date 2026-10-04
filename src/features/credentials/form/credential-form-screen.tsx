@@ -12,11 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { loginModesOf } from "@/lib/credential-draft";
 import { CredentialField } from "../components/credential-field";
 import { MetadataFields } from "../components/metadata-fields";
 import { SecretFields } from "../components/secret-fields";
 import { LoginSession } from "./components/login-session";
-import { PLATFORM_DEFAULT_MODE } from "./use-credential-login";
 import { useCredentialForm, type CredentialFormState } from "./use-credential-form";
 
 const PLATFORM_ITEMS = CREDENTIAL_PLATFORMS.map((platform) => ({
@@ -24,31 +24,36 @@ const PLATFORM_ITEMS = CREDENTIAL_PLATFORMS.map((platform) => ({
   label: platform,
 }));
 
-const MODE_ITEMS = [
-  { value: PLATFORM_DEFAULT_MODE, label: "Platform default" },
-  { value: "browser", label: "Browser" },
-  { value: "device", label: "Device code" },
-];
+const MODE_LABELS = {
+  browser: "Browser",
+  device: "Headless (device code)",
+};
 
 function SignInFields({ form }: { form: CredentialFormState }) {
+  const modes = loginModesOf(form.platform);
+  const items = modes.map((mode) => ({ value: mode, label: MODE_LABELS[mode] }));
   return (
     <Field>
-      <FieldLabel htmlFor="credential-login-mode">Sign-in mode</FieldLabel>
-      <Select items={MODE_ITEMS} value={form.login.mode} onValueChange={form.login.selectMode}>
-        <SelectTrigger id="credential-login-mode" className="w-full">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {MODE_ITEMS.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {modes.length > 1 && (
+        <>
+          <FieldLabel htmlFor="credential-login-mode">Sign-in mode</FieldLabel>
+          <Select items={items} value={form.login.mode} onValueChange={form.login.selectMode}>
+            <SelectTrigger id="credential-login-mode" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {items.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
+      )}
       <FieldDescription>
         This platform takes its credential through a sign-in. Custody stores the credential under
-        the name when the sign-in completes. A platform with one mode ignores the selection.
+        the name when the sign-in completes.
       </FieldDescription>
     </Field>
   );

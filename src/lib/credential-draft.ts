@@ -1,5 +1,6 @@
 import type {
   CredentialCreateBody,
+  CredentialLoginMode,
   CredentialMetadata,
   CredentialModel,
   CredentialPlatform,
@@ -23,6 +24,26 @@ export const SECRET_SHAPES: Readonly<Record<CredentialPlatform, SecretShape>> = 
 
 export function isOAuthPlatform(platform: CredentialPlatform): boolean {
   return SECRET_SHAPES[platform] === "oauth";
+}
+
+export const LOGIN_MODES: Readonly<
+  Partial<Record<CredentialPlatform, readonly CredentialLoginMode[]>>
+> = {
+  "openai-codex": ["browser", "device"],
+  "github-copilot": ["device"],
+};
+
+export function loginModesOf(platform: CredentialPlatform): readonly CredentialLoginMode[] {
+  return LOGIN_MODES[platform] ?? [];
+}
+
+export function loginModeOf(
+  platform: CredentialPlatform,
+  selected: CredentialLoginMode | null,
+): CredentialLoginMode | null {
+  const modes = loginModesOf(platform);
+  if (selected !== null && modes.includes(selected)) return selected;
+  return modes.includes("browser") ? "browser" : null;
 }
 
 export const MODEL_DEFAULT_CONTEXT_WINDOW = 128000;
