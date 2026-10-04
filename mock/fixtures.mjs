@@ -1,5 +1,4 @@
 const now = Date.now();
-const at = (minutesAgo) => new Date(now - minutesAgo * 60_000).toISOString();
 
 export const PROJECT = {
   id: "prj-kanthord",
@@ -7,69 +6,6 @@ export const PROJECT = {
   bindingSetVersion: 1,
   createdAt: now,
 };
-
-export const DELIVERIES = [
-  {
-    id: "dl-101",
-    source: "github-webhook",
-    platformDeliveryIdentity: "8f2a-4410-be31",
-    disposition: "acceptance as an observation",
-    receivedAt: at(58),
-    externalObjectId: "eo-42",
-    nodeId: "obj-reset-email",
-    attemptId: "att-re-1",
-    decodedEventType: "pull_request.opened",
-    refusalReason: null,
-  },
-  {
-    id: "dl-102",
-    source: "github-webhook",
-    platformDeliveryIdentity: "8f2a-4410-be31",
-    disposition: "a duplicate",
-    receivedAt: at(57),
-    externalObjectId: "eo-42",
-    nodeId: "obj-reset-email",
-    attemptId: "att-re-1",
-    decodedEventType: "pull_request.opened",
-    refusalReason: null,
-  },
-  {
-    id: "dl-103",
-    source: "github-webhook",
-    platformDeliveryIdentity: "11cd-9920-af02",
-    disposition: "acceptance as an observation",
-    receivedAt: at(402),
-    externalObjectId: "eo-51",
-    nodeId: "obj-external-failed",
-    attemptId: "att-ef-1",
-    decodedEventType: "pull_request.closed",
-    refusalReason: null,
-  },
-  {
-    id: "dl-104",
-    source: "github-webhook",
-    platformDeliveryIdentity: "2200-7731-cc19",
-    disposition: "refusal",
-    receivedAt: at(140),
-    externalObjectId: null,
-    nodeId: null,
-    attemptId: null,
-    decodedEventType: null,
-    refusalReason: "The delivery signature did not verify against the source binding.",
-  },
-  {
-    id: "dl-105",
-    source: "github-webhook",
-    platformDeliveryIdentity: "5512-0091-dd33",
-    disposition: "acceptance as a human act",
-    receivedAt: at(88),
-    externalObjectId: "eo-42",
-    nodeId: "obj-reset-email",
-    attemptId: "att-re-1",
-    decodedEventType: "issue_comment.created",
-    refusalReason: null,
-  },
-];
 
 const BASE_PROMPT = `You are a senior software engineer.
 

@@ -2,7 +2,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { LoginScreen } from "@/features/auth/login/login-screen";
 import { useSession } from "@/features/auth/session/session-context";
-import { DeliveriesScreen } from "@/features/deliveries/inbox/deliveries-screen";
 import { OverviewScreen } from "@/features/overview/overview-screen";
 import { ProjectFormScreen } from "@/features/projects/form/project-form-screen";
 import { ProjectsScreen } from "@/features/projects/list/projects-screen";
@@ -33,7 +32,6 @@ export function AppRouter() {
             <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
             <Route path="scheduler" element={<SchedulerScreen />} />
             <Route path="executions" element={<ExecutionsScreen />} />
-            <Route path="deliveries" element={<DeliveriesScreen />} />
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />

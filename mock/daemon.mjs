@@ -179,8 +179,6 @@ on("GET", /^\/api\/worker\/agent\/([^/]+)$/, (m, _b, res) => {
   });
 });
 
-on("GET", /^\/v1\/projects\/[^/]+\/deliveries$/, (_m, _b, res) => json(res, 200, fx.DELIVERIES));
-
 const nodeIdOf = () => `node_01J9ZQ4XKM3B6V8N2R5T7W0Y${String(nodeSequence++).padStart(2, "0")}`;
 
 const planOf = (body) =>

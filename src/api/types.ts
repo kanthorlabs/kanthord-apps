@@ -29,28 +29,6 @@ export const TERMINAL_STATES = ["Completed", "Discarded"] as const satisfies rea
 
 export type TerminalState = (typeof TERMINAL_STATES)[number];
 
-export type Role = "executor" | "reviewer";
-
-export type AssessmentActor =
-  | { readonly kind: "human"; readonly account: string; readonly name: string }
-  | {
-      readonly kind: "execution";
-      readonly executionId: string;
-      readonly clientId: string | null;
-      readonly name: string;
-    };
-
-export type AssertedResult = "success" | "criteria not met" | "nothing established";
-
-export type AssessmentVerdict = "meets" | "does not meet" | "neither established";
-
-export type CurrencyCheck = "context" | "authority" | "order";
-
-export type ExternalActionKind = "fire-and-forget action" | "request-reply action";
-
-export type DeliveryDisposition =
-  "acceptance as an observation" | "acceptance as a human act" | "refusal" | "a duplicate";
-
 export interface HumanIdentity {
   readonly kind: "human";
   readonly sub: string;
@@ -76,73 +54,6 @@ export interface Project {
   readonly name: string;
   readonly bindingSetVersion: number;
   readonly createdAt: number;
-}
-
-export interface EvidenceRecord {
-  readonly id: string;
-  readonly attemptId: string;
-  readonly contentAddress: string;
-  readonly subject: string;
-  readonly provenance: string;
-  readonly scope: string;
-  /** An evidence record states that redaction transformed its content. */
-  readonly redacted: boolean;
-  readonly time: string;
-}
-
-export interface Assessment {
-  readonly id: string;
-  readonly attemptId: string;
-  readonly nodeRevisionId: string;
-  readonly evidenceIds: readonly string[];
-  readonly childOutcomeIds: readonly string[];
-  readonly verdict: AssessmentVerdict;
-  readonly method: string;
-  readonly actor: AssessmentActor;
-  readonly time: string;
-  /** An assessment is current only when all three checks admit it. */
-  readonly currency: Readonly<Record<CurrencyCheck, boolean>> | null;
-}
-
-export interface Outcome {
-  readonly id: string;
-  readonly attemptId: string;
-  readonly assertedResult: AssertedResult;
-  readonly closingEvent: string;
-  readonly stoppingReason: string;
-  readonly assessmentId: string;
-  readonly evidenceIds: readonly string[];
-  /** Set when this outcome corrects one. kanthord keeps the previous outcome. */
-  readonly previousOutcomeId: string | null;
-  readonly actor: string;
-  readonly time: string;
-}
-
-export interface ExternalObject {
-  readonly id: string;
-  readonly attemptId: string;
-  readonly action: string;
-  readonly actionKind: ExternalActionKind;
-  readonly repositoryBindingId: string;
-  readonly address: string;
-  readonly label: string;
-  readonly expectedEndState: string | null;
-  readonly observedState: string | null;
-  readonly resolved: boolean;
-}
-
-export interface Attempt {
-  readonly id: string;
-  readonly nodeId: string;
-  readonly ordinal: number;
-  readonly pinnedRevisionId: string;
-  readonly open: boolean;
-  readonly openedAt: string;
-  readonly closedAt: string | null;
-  readonly evidence: readonly EvidenceRecord[];
-  readonly assessments: readonly Assessment[];
-  readonly outcome: Outcome | null;
-  readonly externalObjects: readonly ExternalObject[];
 }
 
 /** Why a node is not running. The Scheduler rechecks each of these at the claim. */
@@ -222,19 +133,6 @@ export interface AgentDeclaration {
   readonly basePrompt?: string;
   readonly agentPrompt: string;
   readonly tools: readonly AgentTool[];
-}
-
-export interface Delivery {
-  readonly id: string;
-  readonly source: string;
-  readonly platformDeliveryIdentity: string;
-  readonly disposition: DeliveryDisposition;
-  readonly receivedAt: string;
-  readonly externalObjectId: string | null;
-  readonly nodeId: string | null;
-  readonly attemptId: string | null;
-  readonly decodedEventType: string | null;
-  readonly refusalReason: string | null;
 }
 
 export interface Mission {
