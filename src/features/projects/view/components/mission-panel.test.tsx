@@ -253,7 +253,31 @@ describe("MissionPanel", () => {
         confirmedRetirements: ["node_2"],
       }),
     );
+    expect(
+      await screen.findByText("The mission is now at version 4. 1 new nodes received an identity."),
+    ).toBeTruthy();
+  });
+
+  it("names no new node when the applied import creates none", async () => {
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      creates: [],
+      retirements: [],
+    });
+    vi.mocked(missionApi.applyMissionImport).mockResolvedValue({
+      missionId: "mission_1",
+      missionVersion: 4,
+      assignedIds: [
+        { filename: "reset-email.md", nodeId: "node_1" },
+        { filename: "expiry.md", nodeId: "node_2" },
+      ],
+    });
+    await previewImport();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Apply import" }));
+
     expect(await screen.findByText("The mission is now at version 4.")).toBeTruthy();
+    expect(screen.queryByText(/received an identity/)).toBeNull();
   });
 
   it("returns to review when the mission changed after the preview", async () => {

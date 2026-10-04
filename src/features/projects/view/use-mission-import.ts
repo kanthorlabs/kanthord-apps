@@ -35,6 +35,7 @@ export interface MissionImportState {
   readonly error: ApiError | null;
   readonly staleNotice: string | null;
   readonly result: MissionImportResult | null;
+  readonly createdCount: number;
   readonly pickFiles: (files: readonly File[]) => void;
   readonly setReason: (reason: string) => void;
   readonly confirmRetirements: (confirmed: boolean) => void;
@@ -70,6 +71,7 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
   const [error, setError] = useState<ApiError | null>(null);
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
   const [result, setResult] = useState<MissionImportResult | null>(null);
+  const [createdCount, setCreatedCount] = useState(0);
 
   const invalidatePreview = useCallback(() => {
     setReviewed(null);
@@ -149,6 +151,7 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
         setReviewed(null);
         setRetirementsConfirmed(false);
         setResult(applied);
+        setCreatedCount(shown.creates.length);
         onApplied();
       },
       (cause: unknown) => {
@@ -191,6 +194,7 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
     error,
     staleNotice,
     result,
+    createdCount,
     pickFiles,
     setReason,
     confirmRetirements: setRetirementsConfirmed,

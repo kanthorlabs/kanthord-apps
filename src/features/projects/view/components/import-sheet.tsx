@@ -74,8 +74,7 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
               <AlertTitle>The import is applied.</AlertTitle>
               <AlertDescription>
                 The mission is now at version {state.result.missionVersion}.
-                {state.result.assignedIds.length > 0 &&
-                  ` ${state.result.assignedIds.length} new nodes received an identity.`}
+                {state.createdCount > 0 && ` ${state.createdCount} new nodes received an identity.`}
               </AlertDescription>
             </Alert>
           )}
