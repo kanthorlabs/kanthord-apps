@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
@@ -7,13 +8,12 @@ import {
   submitCredentialLoginCode,
 } from "@/api/resources/credentials";
 import type {
-  CredentialLoginBody,
   CredentialLoginMode,
   CredentialLoginSession,
   CredentialLoginStatus,
+  CredentialPlatform,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import { credentialNameError } from "@/lib/credential-draft";
 import { credentialMessage } from "../credential-message";
 
 export const LOGIN_POLL_MS = 2000;
@@ -24,8 +24,6 @@ export type LoginModeChoice = CredentialLoginMode | typeof PLATFORM_DEFAULT_MODE
 const MODES: readonly LoginModeChoice[] = [PLATFORM_DEFAULT_MODE, "browser", "device"];
 
 export interface CredentialLoginState {
-  readonly name: string;
-  readonly nameError: string | null;
   readonly mode: LoginModeChoice;
   readonly starting: boolean;
   readonly startError: string | null;
@@ -35,9 +33,9 @@ export interface CredentialLoginState {
   readonly code: string;
   readonly codeError: string | null;
   readonly codeSubmitting: boolean;
-  readonly setName: (name: string) => void;
   readonly selectMode: (value: string | null) => void;
-  readonly start: () => void;
+  readonly start: (name: string, platform: CredentialPlatform) => void;
+  readonly clearStartError: () => void;
   readonly setCode: (code: string) => void;
   readonly submitCode: () => void;
   readonly checkAgain: () => void;
@@ -49,11 +47,11 @@ function failureMessage(cause: unknown): string {
 }
 
 export function useCredentialLogin(): CredentialLoginState {
-  const [name, setNameValue] = useState("");
-  const [nameError, setNameError] = useState<string | null>(null);
+  const navigate = useNavigate();
   const [mode, setMode] = useState<LoginModeChoice>(PLATFORM_DEFAULT_MODE);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  const [name, setName] = useState("");
   const [session, setSession] = useState<CredentialLoginSession | null>(null);
   const [status, setStatus] = useState<CredentialLoginStatus | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
@@ -70,49 +68,48 @@ export function useCredentialLogin(): CredentialLoginState {
       readCredentialLoginStatus(session.sessionId).then(
         (next) => {
           setStatus(next);
-          if (next.state === "completed") toast.success(`Signed in. ${name} is stored.`);
+          if (next.state !== "completed") return;
+          toast.success(`Signed in. Custody stored ${name}.`);
+          void navigate(`/credentials/${encodeURIComponent(name)}`);
         },
         (cause: unknown) => setPollError(failureMessage(cause)),
       );
     }, LOGIN_POLL_MS);
     return () => clearTimeout(timer);
-  }, [waiting, session, status, name]);
-
-  const setName = useCallback((next: string) => {
-    setNameValue(next);
-    setNameError(null);
-  }, []);
+  }, [waiting, session, status, name, navigate]);
 
   const selectMode = useCallback((value: string | null) => {
     const next = MODES.find((candidate) => candidate === value);
     if (next !== undefined) setMode(next);
   }, []);
 
-  const start = useCallback(() => {
-    if (starting) return;
-    const invalid = credentialNameError(name);
-    setNameError(invalid);
-    if (invalid !== null) return;
-    const body: CredentialLoginBody = {
-      platform: "github-copilot",
-      name,
-      ...(mode === PLATFORM_DEFAULT_MODE ? {} : { mode }),
-    };
-    setStarting(true);
-    setStartError(null);
-    startCredentialLogin(body).then(
-      (next) => {
-        setStarting(false);
-        setStatus(null);
-        setPollError(null);
-        setSession(next);
-      },
-      (cause: unknown) => {
-        setStarting(false);
-        setStartError(failureMessage(cause));
-      },
-    );
-  }, [starting, name, mode]);
+  const start = useCallback(
+    (nextName: string, platform: CredentialPlatform) => {
+      if (starting) return;
+      setStarting(true);
+      setStartError(null);
+      startCredentialLogin({
+        platform,
+        name: nextName,
+        ...(mode === PLATFORM_DEFAULT_MODE ? {} : { mode }),
+      }).then(
+        (next) => {
+          setStarting(false);
+          setName(nextName);
+          setStatus(null);
+          setPollError(null);
+          setSession(next);
+        },
+        (cause: unknown) => {
+          setStarting(false);
+          setStartError(failureMessage(cause));
+        },
+      );
+    },
+    [starting, mode],
+  );
+
+  const clearStartError = useCallback(() => setStartError(null), []);
 
   const setCode = useCallback((next: string) => {
     setCodeValue(next);
@@ -152,8 +149,6 @@ export function useCredentialLogin(): CredentialLoginState {
   }, []);
 
   return {
-    name,
-    nameError,
     mode,
     starting,
     startError,
@@ -163,9 +158,9 @@ export function useCredentialLogin(): CredentialLoginState {
     code,
     codeError,
     codeSubmitting,
-    setName,
     selectMode,
     start,
+    clearStartError,
     setCode,
     submitCode,
     checkAgain,

@@ -523,6 +523,388 @@ on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (_m, _b, res, _t, u
   return json(res, 200, page(items));
 });
 
+const CREDENTIAL_PLATFORMS = {
+  github: "api_key",
+  "github-copilot": "oauth",
+  "openai-codex": "oauth",
+  anthropic: "api_key",
+  openrouter: "api_key",
+  "openai-compatible": "api_key",
+  s3: "s3_access_key",
+};
+const HEALTH_CAPABILITIES = {
+  github: "rate-limit read",
+  "github-copilot": "copilot-token read",
+  "openai-codex": "model-list read",
+  anthropic: "model-list read",
+  openrouter: "model-list read",
+  "openai-compatible": "model-list read",
+  s3: "bucket head",
+};
+const CREDENTIAL_NAME = /^[a-z][a-z0-9-]{0,62}$/;
+const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
+const LOGIN_EXPIRY_MS = 15 * 60 * 1000;
+const LOGIN_DEVICE_COMPLETION_MS = 10000;
+const HEALTHCHECK_DELAY_MS = 1500;
+const credentials = structuredClone(fx.CREDENTIALS);
+const pinnedRevisions = new Set(fx.PINNED_CREDENTIAL_REVISIONS);
+const loginSessions = new Map();
+let credentialSequence = 100;
+
+const credentialEnvelope = (res, status, code, message, details = null) =>
+  json(res, status, {
+    error: { code, message, details },
+    requestId: "request_01J00000000000000000000000",
+  });
+
+const nextCredentialId = () => {
+  credentialSequence += 1;
+  return `credential_01J9ZQ4XKM3B6V8N2R5T7W${String(credentialSequence).padStart(4, "0")}`;
+};
+
+const newestLive = (credential) =>
+  credential.revisions.filter((revision) => revision.endedAt === null)[0] ?? null;
+
+const drainOlder = (credential, now) => {
+  const newest = newestLive(credential);
+  for (const revision of credential.revisions) {
+    if (revision === newest || revision.endedAt !== null) continue;
+    if (!pinnedRevisions.has(revision.id)) revision.endedAt = now;
+  }
+};
+
+const isNonblank = (value) => typeof value === "string" && value.trim().length > 0;
+
+const secretIsValid = (shape, secret) => {
+  if (typeof secret !== "object" || secret === null) return false;
+  if (shape === "api_key") return isNonblank(secret.key);
+  if (shape === "s3_access_key") {
+    return isNonblank(secret.accessKeyId) && isNonblank(secret.secretAccessKey);
+  }
+  return (
+    isNonblank(secret.refresh) && isNonblank(secret.access) && Number.isInteger(secret.expires)
+  );
+};
+
+const metadataIsValid = (platform, metadata) => {
+  if (platform === "openai-compatible") {
+    return (
+      typeof metadata === "object" &&
+      metadata !== null &&
+      typeof metadata.baseUrl === "string" &&
+      BASE_URL.test(metadata.baseUrl) &&
+      Array.isArray(metadata.models) &&
+      metadata.models.every((model) => isNonblank(model?.id))
+    );
+  }
+  if (platform === "s3") {
+    return (
+      typeof metadata === "object" &&
+      metadata !== null &&
+      URL.canParse(metadata.endpoint) &&
+      isNonblank(metadata.bucket) &&
+      isNonblank(metadata.region)
+    );
+  }
+  return metadata === null;
+};
+
+const findCredential = (res, encoded) => {
+  const credential = credentials.find((item) => item.name === decodeURIComponent(encoded));
+  if (credential === undefined) {
+    credentialEnvelope(res, 404, "credential.credential.not_found", "Credential not found.");
+  }
+  return credential;
+};
+
+const refuseStaleRevision = (res, credential, expectedRevision) => {
+  if (newestLive(credential)?.revision === expectedRevision) return false;
+  credentialEnvelope(
+    res,
+    409,
+    "credential.revision.conflict",
+    "The expected revision is not the newest live revision.",
+  );
+  return true;
+};
+
+const refuseInvalidInput = (res) =>
+  credentialEnvelope(res, 400, "credential.input.invalid", "Credential input is invalid.");
+
+const addRevision = (credential, metadata, res) => {
+  const now = Date.now();
+  credential.revisions.unshift({
+    id: nextCredentialId(),
+    revision: credential.revisions[0].revision + 1,
+    metadata,
+    createdAt: now,
+    endedAt: null,
+  });
+  drainOlder(credential, now);
+  return json(res, 200, credential);
+};
+
+on("GET", /^\/api\/credential$/, (_m, _b, res, _t, url) => {
+  const platform = url.searchParams.get("platform");
+  const limit = Number(url.searchParams.get("limit") ?? 100);
+  const offset = Number(url.searchParams.get("cursor") ?? 0);
+  const ordered = credentials
+    .filter((credential) => platform === null || credential.platform === platform)
+    .sort((a, b) => a.name.localeCompare(b.name));
+  for (const credential of ordered) drainOlder(credential, Date.now());
+  const items = ordered.slice(offset, offset + limit);
+  const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
+  return json(res, 200, { items, nextCursor });
+});
+
+on("POST", /^\/api\/credential$/, (_m, b, res) => {
+  const shape = CREDENTIAL_PLATFORMS[b?.platform];
+  if (shape === undefined) {
+    return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
+  }
+  if (shape === "oauth") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.entry.unsupported",
+      "Unsupported credential entry.",
+    );
+  }
+  if (typeof b.name !== "string" || !CREDENTIAL_NAME.test(b.name) || b.name === "login") {
+    return refuseInvalidInput(res);
+  }
+  const holder = credentials.find((item) => item.name === b.name);
+  if (holder !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.conflict",
+      "Credential name already exists.",
+      {
+        id: holder.revisions[0].id,
+      },
+    );
+  }
+  if (!secretIsValid(shape, b.secret)) return refuseInvalidInput(res);
+  if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
+  const credential = {
+    name: b.name,
+    platform: b.platform,
+    revisions: [
+      {
+        id: nextCredentialId(),
+        revision: 1,
+        metadata: b.metadata,
+        createdAt: Date.now(),
+        endedAt: null,
+      },
+    ],
+  };
+  credentials.push(credential);
+  return json(res, 200, credential);
+});
+
+on("POST", /^\/api\/credential\/login$/, (_m, b, res) => {
+  const shape = CREDENTIAL_PLATFORMS[b?.platform];
+  if (shape === undefined) {
+    return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
+  }
+  if (shape !== "oauth") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.entry.unsupported",
+      "Unsupported credential entry.",
+    );
+  }
+  if (typeof b.name !== "string" || !CREDENTIAL_NAME.test(b.name) || b.name === "login") {
+    return refuseInvalidInput(res);
+  }
+  if (b.mode !== undefined && b.mode !== "browser" && b.mode !== "device") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.login.mode_unsupported",
+      "Unsupported login mode.",
+    );
+  }
+  const holder = credentials.find((item) => item.name === b.name);
+  if (holder !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.conflict",
+      "Credential name already exists.",
+      {
+        id: holder.revisions[0].id,
+      },
+    );
+  }
+  const now = Date.now();
+  const pending = [...loginSessions.values()].some(
+    (session) =>
+      session.platform === b.platform && session.state === "pending" && session.expiresAt > now,
+  );
+  if (pending) {
+    return credentialEnvelope(res, 409, "credential.login.pending", "Another login is pending.");
+  }
+  const sessionId = `login_session_01J9ZQ4XKM3B6V8N2R5T7W${String(now % 10000).padStart(4, "0")}`;
+  const device = b.mode !== "browser";
+  const session = {
+    sessionId,
+    platform: b.platform,
+    name: b.name,
+    state: "pending",
+    startedAt: now,
+    expiresAt: now + LOGIN_EXPIRY_MS,
+    device,
+    codeReceived: false,
+  };
+  loginSessions.set(sessionId, session);
+  return json(res, 200, {
+    sessionId,
+    address: device ? "https://github.com/login/device" : "https://auth.example.test/authorize",
+    code: device ? "MOCK-1234" : null,
+    expiresAt: session.expiresAt,
+  });
+});
+
+const settleLogin = (session) => {
+  const now = Date.now();
+  if (session.state !== "pending") return;
+  if (now >= session.expiresAt) {
+    session.state = "expired";
+    return;
+  }
+  const done =
+    session.codeReceived ||
+    (session.device && now - session.startedAt >= LOGIN_DEVICE_COMPLETION_MS);
+  if (!done) return;
+  session.state = "completed";
+  credentials.push({
+    name: session.name,
+    platform: session.platform,
+    revisions: [
+      { id: nextCredentialId(), revision: 1, metadata: null, createdAt: now, endedAt: null },
+    ],
+  });
+};
+
+on("POST", /^\/api\/credential\/login\/([^/]+)\/code$/, (m, b, res) => {
+  const session = loginSessions.get(decodeURIComponent(m[1]));
+  if (session === undefined) {
+    return credentialEnvelope(res, 404, "credential.login.not_found", "Login session not found.");
+  }
+  settleLogin(session);
+  if (session.state !== "pending") {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.login.value_not_awaited",
+      "No login value is awaited.",
+    );
+  }
+  if (!isNonblank(b?.value)) return refuseInvalidInput(res);
+  session.codeReceived = true;
+  return json(res, 200, { sessionId: session.sessionId });
+});
+
+on("GET", /^\/api\/credential\/login\/([^/]+)$/, (m, _b, res) => {
+  const session = loginSessions.get(decodeURIComponent(m[1]));
+  if (session === undefined) {
+    return credentialEnvelope(res, 404, "credential.login.not_found", "Login session not found.");
+  }
+  settleLogin(session);
+  return json(res, 200, {
+    sessionId: session.sessionId,
+    state: session.state,
+    lastMessage: session.state === "pending" ? "Waiting for the platform interaction." : null,
+    failureReason: null,
+  });
+});
+
+on("GET", /^\/api\/credential\/([^/]+)$/, (m, _b, res) => {
+  const credential = findCredential(res, m[1]);
+  if (credential === undefined) return undefined;
+  drainOlder(credential, Date.now());
+  return json(res, 200, credential);
+});
+
+on("POST", /^\/api\/credential\/([^/]+)\/revision$/, (m, b, res) => {
+  const credential = findCredential(res, m[1]);
+  if (credential === undefined) return undefined;
+  if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
+  if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform], b.secret)) {
+    return refuseInvalidInput(res);
+  }
+  const metadata = b.metadata === undefined ? newestLive(credential).metadata : b.metadata;
+  if (!metadataIsValid(credential.platform, metadata)) return refuseInvalidInput(res);
+  return addRevision(credential, metadata, res);
+});
+
+on("PUT", /^\/api\/credential\/([^/]+)\/metadata$/, (m, b, res) => {
+  const credential = findCredential(res, m[1]);
+  if (credential === undefined) return undefined;
+  if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
+  if (!metadataIsValid(credential.platform, b.metadata)) return refuseInvalidInput(res);
+  const current = newestLive(credential).metadata;
+  if (credential.platform === "openai-compatible" && current.baseUrl !== b.metadata.baseUrl) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.metadata.base_url_fixed",
+      "Credential base URL cannot be changed by metadata update.",
+    );
+  }
+  return addRevision(credential, b.metadata, res);
+});
+
+on("POST", /^\/api\/credential\/([^/]+)\/revision\/(\d+)\/revoke$/, (m, _b, res) => {
+  const credential = findCredential(res, m[1]);
+  if (credential === undefined) return undefined;
+  const target = credential.revisions.find((revision) => revision.revision === Number(m[2]));
+  if (target === undefined) {
+    return credentialEnvelope(res, 404, "credential.revision.not_found", "Revision not found.");
+  }
+  if (target.endedAt !== null) {
+    return credentialEnvelope(res, 409, "credential.revision.ended", "Revision already ended.");
+  }
+  if (target === newestLive(credential)) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.revision.newest_live",
+      "The newest live revision cannot be revoked.",
+    );
+  }
+  const now = Date.now();
+  target.endedAt = now;
+  pinnedRevisions.delete(target.id);
+  drainOlder(credential, now);
+  return json(res, 200, credential);
+});
+
+on("GET", /^\/api\/healthcheck$/, (_m, _b, res) => {
+  const owner = { global: {}, projects: {} };
+  const global = Object.fromEntries(
+    credentials.map((credential) => [
+      credential.name,
+      {
+        status: credential.name.startsWith("bad-") ? "unhealthy" : "healthy",
+        capability: HEALTH_CAPABILITIES[credential.platform],
+      },
+    ]),
+  );
+  setTimeout(
+    () =>
+      json(res, 200, {
+        services: { project: owner, intake: owner, worker: owner },
+        shared: { custody: { global, projects: {} } },
+      }),
+    HEALTHCHECK_DELAY_MS,
+  );
+});
+
 createServer((req, res) => {
   if (req.method === "OPTIONS") return json(res, 204, null);
 

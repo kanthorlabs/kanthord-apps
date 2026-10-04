@@ -54,7 +54,6 @@ function mount() {
       <Routes>
         <Route path="/credentials" element={<CredentialsScreen />} />
         <Route path="/credentials/new" element={<p>New credential form</p>} />
-        <Route path="/credentials/login" element={<p>Sign-in form</p>} />
         <Route path="/credentials/:credentialName" element={<p>Credential view</p>} />
       </Routes>
     </MemoryRouter>,

@@ -1,11 +1,4 @@
-import {
-  FileCogIcon,
-  HistoryIcon,
-  LogInIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  ShieldCheckIcon,
-} from "lucide-react";
+import { FileCogIcon, HistoryIcon, PlusIcon, RefreshCwIcon, ShieldCheckIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { CREDENTIAL_PLATFORMS, type Credential } from "@/api/types";
@@ -75,7 +68,7 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
           )
         }
         actions={
-          <>
+          <div className="flex flex-wrap gap-2 md:w-[27rem]">
             <Button
               variant="outline"
               size="sm"
@@ -118,7 +111,7 @@ function CredentialItem({ credential, reload }: CredentialItemProps) {
               <HistoryIcon aria-hidden="true" data-icon="inline-start" />
               Revisions
             </Button>
-          </>
+          </div>
         }
       />
       <RotateSheet name={name} platform={credential.platform} rotate={rotate} />
@@ -152,21 +145,10 @@ export function CredentialsScreen() {
             </SelectContent>
           </Select>
         </Field>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:flex">
-          <Button
-            nativeButton={false}
-            render={<Link to="/credentials/login" />}
-            variant="outline"
-            size="lg"
-          >
-            <LogInIcon aria-hidden="true" data-icon="inline-start" />
-            Sign in to GitHub Copilot
-          </Button>
-          <Button nativeButton={false} render={<Link to="/credentials/new" />} size="lg">
-            <PlusIcon aria-hidden="true" data-icon="inline-start" />
-            New credential
-          </Button>
-        </div>
+        <Button nativeButton={false} render={<Link to="/credentials/new" />} size="lg">
+          <PlusIcon aria-hidden="true" data-icon="inline-start" />
+          New credential
+        </Button>
       </div>
       <DataList
         label="Credentials"

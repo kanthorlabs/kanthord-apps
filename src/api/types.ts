@@ -566,6 +566,7 @@ export interface SchedulerExecutionRecord {
 export const CREDENTIAL_PLATFORMS = [
   "github",
   "github-copilot",
+  "openai-codex",
   "anthropic",
   "openrouter",
   "openai-compatible",

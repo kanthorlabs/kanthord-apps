@@ -16,14 +16,14 @@ const MESSAGES: Readonly<Record<string, string>> = {
     "Custody refused the secret or the metadata. Check each field against the rules of the platform.",
   "credential.platform.unsupported": "Custody does not support this platform.",
   "credential.entry.unsupported":
-    "This platform does not accept this entry method. GitHub Copilot takes its credential through Sign in.",
+    "This platform does not accept this entry method. An OAuth platform takes its credential through a sign-in.",
   "credential.login.pending":
-    "Another GitHub Copilot sign-in of yours is pending. Finish it, or wait until it expires 15 minutes after its start.",
+    "Another sign-in of yours for this platform is pending. Finish it, or wait until it expires 15 minutes after its start.",
   "credential.login.not_found":
     "The sign-in session does not exist. It ended, or the daemon restarted. Start a new sign-in.",
   "credential.login.value_not_awaited": "The sign-in does not wait for a code now.",
   "credential.login.mode_unsupported":
-    "GitHub Copilot does not support this sign-in mode. Choose another mode.",
+    "The platform does not support this sign-in mode. Choose another mode.",
   "custody.lifecycle.stopped": "Custody stopped and accepts no sign-in. Restart the daemon.",
   "system.pagination.cursor_invalid": "The page cursor is no longer valid. Reload the list.",
 };

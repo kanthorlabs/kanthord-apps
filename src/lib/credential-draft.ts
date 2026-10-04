@@ -11,24 +11,19 @@ import type {
 } from "@/api/types";
 import { REASONING_EFFORTS } from "@/lib/binding-draft";
 
-export const CREATABLE_PLATFORMS = [
-  "github",
-  "anthropic",
-  "openrouter",
-  "openai-compatible",
-  "s3",
-] as const;
-
-export type CreatablePlatform = (typeof CREATABLE_PLATFORMS)[number];
-
 export const SECRET_SHAPES: Readonly<Record<CredentialPlatform, SecretShape>> = {
   github: "api_key",
   "github-copilot": "oauth",
+  "openai-codex": "oauth",
   anthropic: "api_key",
   openrouter: "api_key",
   "openai-compatible": "api_key",
   s3: "s3_access_key",
 };
+
+export function isOAuthPlatform(platform: CredentialPlatform): boolean {
+  return SECRET_SHAPES[platform] === "oauth";
+}
 
 export const MODEL_DEFAULT_CONTEXT_WINDOW = 128000;
 export const MODEL_DEFAULT_MAX_TOKENS = 16384;
@@ -193,13 +188,19 @@ function modelOfDraft(
 
 export function createBodyOf(
   name: string,
-  platform: CreatablePlatform,
+  platform: CredentialPlatform,
   secretDraft: SecretDraft,
   metadataDraft: MetadataDraft,
 ): DraftResult<CredentialCreateBody> {
   const errors: Record<string, string> = {};
   const nameError = credentialNameError(name);
   if (nameError !== null) errors["name"] = nameError;
+  if (isOAuthPlatform(platform)) {
+    return {
+      ok: false,
+      errors: { ...errors, platform: "This platform takes its credential through a sign-in." },
+    };
+  }
   const secret = secretOfDraft(SECRET_SHAPES[platform], secretDraft);
   if (!secret.ok) Object.assign(errors, secret.errors);
   let metadata: CredentialMetadata = null;

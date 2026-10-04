@@ -7,6 +7,7 @@ import {
   createBodyOf,
   credentialNameError,
   editMetadataOf,
+  isOAuthPlatform,
   metadataDraftOf,
   rotateMetadataOf,
   secretOfDraft,
@@ -200,6 +201,24 @@ describe("openrouter", () => {
     ).toEqual({
       ok: true,
       value: { name: "router", platform: "openrouter", metadata: null, secret: { key: "sk-or" } },
+    });
+  });
+});
+
+describe("isOAuthPlatform", () => {
+  it("reads the secret shape of the platform", () => {
+    expect(isOAuthPlatform("github-copilot")).toBe(true);
+    expect(isOAuthPlatform("openai-codex")).toBe(true);
+    expect(isOAuthPlatform("github")).toBe(false);
+    expect(isOAuthPlatform("s3")).toBe(false);
+  });
+
+  it("builds no create body for an oauth platform", () => {
+    expect(
+      createBodyOf("copilot", "github-copilot", { ...EMPTY_SECRET, key: "k" }, EMPTY_METADATA),
+    ).toEqual({
+      ok: false,
+      errors: { platform: "This platform takes its credential through a sign-in." },
     });
   });
 });

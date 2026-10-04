@@ -731,3 +731,70 @@ export const GRAPH_ORIGINAL_CONTENT = {
 };
 
 export const GRAPH_HUMAN = human;
+
+const DAY = 24 * 60 * 60 * 1000;
+const credentialRevision = (id, revision, metadata, createdAt, endedAt = null) => ({
+  id: `credential_01J9ZQ4XKM3B6V8N2R5T7W${id}`,
+  revision,
+  metadata,
+  createdAt,
+  endedAt,
+});
+const ROUTER_URL = "https://openrouter.ai/api/v1";
+
+export const CREDENTIALS = [
+  {
+    name: "atlas-github",
+    platform: "github",
+    revisions: [credentialRevision("0001", 1, null, Date.UTC(2026, 8, 1, 9, 0))],
+  },
+  {
+    name: "atlas-router",
+    platform: "openai-compatible",
+    revisions: [
+      credentialRevision(
+        "0013",
+        3,
+        { baseUrl: ROUTER_URL, models: [{ id: "qwen3-coder", maxTokens: 8192 }] },
+        Date.UTC(2026, 8, 20, 9, 0),
+      ),
+      credentialRevision(
+        "0012",
+        2,
+        { baseUrl: ROUTER_URL, models: [] },
+        Date.UTC(2026, 8, 10, 9, 0),
+      ),
+      credentialRevision(
+        "0011",
+        1,
+        { baseUrl: ROUTER_URL, models: [] },
+        Date.UTC(2026, 8, 1, 9, 0),
+        Date.UTC(2026, 8, 10, 9, 0),
+      ),
+    ],
+  },
+  {
+    name: "atlas-evidence",
+    platform: "s3",
+    revisions: [
+      credentialRevision(
+        "0021",
+        1,
+        { endpoint: "https://s3.amazonaws.com", bucket: "atlas-evidence", region: "us-east-1" },
+        Date.UTC(2026, 8, 2, 9, 0),
+      ),
+    ],
+  },
+  {
+    name: "atlas-copilot",
+    platform: "github-copilot",
+    revisions: [credentialRevision("0031", 1, null, Date.UTC(2026, 8, 3, 9, 0))],
+  },
+  {
+    name: "bad-anthropic",
+    platform: "anthropic",
+    revisions: [credentialRevision("0041", 1, null, Date.UTC(2026, 8, 4, 9, 0) - DAY)],
+  },
+];
+
+export const PINNED_CREDENTIAL_REVISIONS = ["credential_01J9ZQ4XKM3B6V8N2R5T7W0012"];

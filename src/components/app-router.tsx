@@ -4,7 +4,6 @@ import { LoginScreen } from "@/features/auth/login/login-screen";
 import { useSession } from "@/features/auth/session/session-context";
 import { CredentialFormScreen } from "@/features/credentials/form/credential-form-screen";
 import { CredentialsScreen } from "@/features/credentials/list/credentials-screen";
-import { CredentialLoginScreen } from "@/features/credentials/login/credential-login-screen";
 import { CredentialScreen } from "@/features/credentials/view/credential-screen";
 import { OverviewScreen } from "@/features/overview/overview-screen";
 import { ProjectFormScreen } from "@/features/projects/form/project-form-screen";
@@ -41,7 +40,6 @@ export function AppRouter() {
             <Route path="agents/:agentName" element={<AgentScreen />} />
             <Route path="credentials" element={<CredentialsScreen />} />
             <Route path="credentials/new" element={<CredentialFormScreen />} />
-            <Route path="credentials/login" element={<CredentialLoginScreen />} />
             <Route path="credentials/:credentialName" element={<CredentialScreen />} />
           </Route>
         </Routes>
