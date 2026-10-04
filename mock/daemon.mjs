@@ -354,10 +354,19 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
 
 const page = (items) => ({ items, nextCursor: null });
 
+const dependsOnOf = (nodeId) =>
+  fx.GRAPH_EDGES.filter((edge) => edge.kind === "dependency" && edge.dependentId === nodeId)
+    .map((edge) => edge.dependsOnId)
+    .sort();
+
 const graphNodeRead = (node) => {
-  if (node.state !== "Blocked") return node;
+  if (node.kind === "task") return node;
+  const runnable = { ...node, dependsOn: dependsOnOf(node.id) };
+  if (node.state !== "Blocked") return runnable;
   const outcome = fx.GRAPH_OUTCOMES.filter((item) => item.nodeId === node.id).at(-1);
-  return outcome === undefined ? node : { ...node, blockedContext: { outcome, requests: [] } };
+  return outcome === undefined
+    ? runnable
+    : { ...runnable, blockedContext: { outcome, requests: [] } };
 };
 
 const graphNodeById = (id) => fx.GRAPH_NODES.find((node) => node.id === id);

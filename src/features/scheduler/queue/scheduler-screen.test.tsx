@@ -39,6 +39,7 @@ function objective(id: string, name: string): MissionNodeRecord {
     state: "Available",
     attempt: 0,
     priority: 0,
+    dependsOn: [],
   };
 }
 

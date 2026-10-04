@@ -74,6 +74,7 @@ function mockExecutions(executions: readonly SchedulerExecutionRecord[]) {
       state: "Executing",
       attempt: 2,
       priority: 0,
+      dependsOn: [],
     },
   ]);
 }

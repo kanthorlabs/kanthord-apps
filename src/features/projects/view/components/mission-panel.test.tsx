@@ -78,6 +78,7 @@ function runnable(
     state,
     attempt: 0,
     priority: 0,
+    dependsOn: [],
   };
 }
 

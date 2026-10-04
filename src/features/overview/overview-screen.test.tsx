@@ -54,6 +54,7 @@ function objective(id: string, name: string, state: NodeState): MissionNodeRecor
     state,
     attempt: 2,
     priority: 0,
+    dependsOn: [],
     ...(state === "Blocked" ? { blockedContext: { outcome: blockedOutcome, requests: [] } } : {}),
   };
 }

@@ -30,6 +30,7 @@ function runnable(
     state,
     attempt: 0,
     priority,
+    dependsOn: [],
   };
 }
 

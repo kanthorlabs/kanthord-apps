@@ -574,6 +574,7 @@ export interface MissionRunnableNode extends MissionNodeBase {
   readonly state: NodeState;
   readonly attempt: number;
   readonly priority: number;
+  readonly dependsOn: readonly string[];
   readonly blockedContext?: MissionBlockedContext;
 }
 

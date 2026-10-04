@@ -47,6 +47,7 @@ function runnable(
     state: "Pending",
     attempt: 0,
     priority: 0,
+    dependsOn: [],
     ...extra,
   };
 }
