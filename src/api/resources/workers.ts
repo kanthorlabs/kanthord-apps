@@ -1,13 +1,19 @@
+import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   AgentDeclaration,
   AgentEnablement,
+  AgentEnablementPutBody,
   AgentSummary,
   WorkerCatalogEntry,
   WorkerCatalogItem,
   WorkerInstanceRecord,
 } from "../types";
+
+function enablementPath(agentName: string): string {
+  return `/api/worker/agent/enablement/${encodeURIComponent(agentName)}`;
+}
 
 export async function listWorkerCatalog(): Promise<readonly WorkerCatalogItem[]> {
   return readAllPages<WorkerCatalogItem>("/api/worker/catalog");
@@ -53,4 +59,37 @@ export async function listAgents(): Promise<readonly AgentSummary[]> {
 
 export async function readAgent(agentName: string): Promise<AgentDeclaration> {
   return request<AgentDeclaration>(`/api/worker/agent/${encodeURIComponent(agentName)}`);
+}
+
+export async function putAgentEnablement(
+  agentName: string,
+  body: AgentEnablementPutBody,
+): Promise<AgentEnablement> {
+  return request<AgentEnablement>(enablementPath(agentName), {
+    method: "PUT",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function enableAgentEnablement(
+  agentName: string,
+  expectedRevision: number,
+): Promise<AgentEnablement> {
+  return request<AgentEnablement>(`${enablementPath(agentName)}/enable`, {
+    method: "POST",
+    body: { expectedRevision },
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function disableAgentEnablement(
+  agentName: string,
+  expectedRevision: number,
+): Promise<AgentEnablement> {
+  return request<AgentEnablement>(`${enablementPath(agentName)}/disable`, {
+    method: "POST",
+    body: { expectedRevision },
+    headers: { "idempotency-key": newUlid() },
+  });
 }

@@ -4,7 +4,12 @@ import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setConnection } from "../client";
-import { listAgents } from "./workers";
+import {
+  disableAgentEnablement,
+  enableAgentEnablement,
+  listAgents,
+  putAgentEnablement,
+} from "./workers";
 
 interface Seen {
   readonly method: string;
@@ -122,5 +127,43 @@ describe("listAgents", () => {
         .map((key) => key.slice(4))
         .sort(),
     );
+  });
+});
+
+const PUT_BODY = {
+  agentProviders: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+  defaultConfiguration: {
+    agentProvider: "router",
+    modelIdentifier: "qwen/qwen3-coder",
+    reasoningEffort: "off",
+  },
+} as const;
+
+describe("putAgentEnablement", () => {
+  it("creates an enablement without an expected revision", async () => {
+    const created = { ...PUT_BODY, agentName: "re@1", state: "enabled", revision: 1 };
+    await serve({ "PUT /api/worker/agent/enablement/re%401": created });
+
+    expect(await putAgentEnablement("re@1", PUT_BODY)).toEqual(created);
+    expect(seen).toHaveLength(1);
+    expect(JSON.parse(seen[0]!.body)).toEqual(PUT_BODY);
+    expect(seen[0]!.idempotencyKey).toBeTruthy();
+  });
+});
+
+describe("enableAgentEnablement and disableAgentEnablement", () => {
+  it("post the expected revision to the enable and disable routes", async () => {
+    await serve({
+      "POST /api/worker/agent/enablement/swe%401/enable": SWE_ENABLEMENT,
+      "POST /api/worker/agent/enablement/swe%401/disable": { ...SWE_ENABLEMENT, state: "disabled" },
+    });
+
+    await enableAgentEnablement("swe@1", 2);
+    await disableAgentEnablement("swe@1", 3);
+
+    expect(seen.map((call) => [call.method, call.url, JSON.parse(call.body)])).toEqual([
+      ["POST", "/api/worker/agent/enablement/swe%401/enable", { expectedRevision: 2 }],
+      ["POST", "/api/worker/agent/enablement/swe%401/disable", { expectedRevision: 3 }],
+    ]);
   });
 });

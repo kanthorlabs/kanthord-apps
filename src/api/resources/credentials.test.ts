@@ -8,6 +8,7 @@ import {
   archiveCredential,
   createCredential,
   listCredentialPage,
+  listCredentials,
   readCredential,
   readCredentialLoginStatus,
   revokeCredentialRevision,
@@ -99,6 +100,21 @@ describe("listCredentialPage", () => {
       "/api/credential",
     ]);
     expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
+  });
+});
+
+describe("listCredentials", () => {
+  it("reads every live credential page of one platform", async () => {
+    await serve(200, [
+      { items: [GITHUB], nextCursor: "c-1" },
+      { items: [], nextCursor: null },
+    ]);
+
+    expect(await listCredentials("github")).toEqual([GITHUB]);
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/credential?platform=github&limit=1000",
+      "/api/credential?platform=github&limit=1000&cursor=c-1",
+    ]);
   });
 });
 

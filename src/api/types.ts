@@ -103,8 +103,15 @@ export type WorkerInstanceRecord =
 
 export type AgentEnablementState = "enabled" | "disabled";
 
-export type AgentProviderKind =
-  "github-copilot" | "openai-codex" | "anthropic" | "openai-compatible" | "openrouter";
+export const AGENT_PROVIDER_KINDS = [
+  "github-copilot",
+  "openai-codex",
+  "anthropic",
+  "openai-compatible",
+  "openrouter",
+] as const;
+
+export type AgentProviderKind = (typeof AGENT_PROVIDER_KINDS)[number];
 
 export type ReasoningEffort = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
@@ -126,6 +133,12 @@ export interface AgentEnablement {
   readonly agentProviders: readonly AgentProvider[];
   readonly defaultConfiguration: AgentDefaultConfiguration;
   readonly revision: number;
+}
+
+export interface AgentEnablementPutBody {
+  readonly expectedRevision?: number;
+  readonly agentProviders: readonly AgentProvider[];
+  readonly defaultConfiguration: AgentDefaultConfiguration;
 }
 
 export interface AgentSummary {

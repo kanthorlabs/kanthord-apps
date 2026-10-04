@@ -7,9 +7,17 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
+import { EnablementForm } from "./components/enablement-form";
+import { EnablementSwitch } from "./components/enablement-switch";
 import { useAgent } from "./use-agent";
 
-function EnablementSection({ enablement }: { enablement: AgentEnablement | null }) {
+interface EnablementSectionProps {
+  readonly agentName: string;
+  readonly enablement: AgentEnablement | null;
+  readonly reload: () => void;
+}
+
+function EnablementSection({ agentName, enablement, reload }: EnablementSectionProps) {
   return (
     <Card>
       <CardHeader>
@@ -17,11 +25,15 @@ function EnablementSection({ enablement }: { enablement: AgentEnablement | null 
       </CardHeader>
       <CardContent className="grid gap-4">
         {enablement === null ? (
-          <p className="text-sm text-muted-foreground">
-            No enablement exists. A human enables the agent before a worker binding can use it.
-          </p>
+          <>
+            <p className="text-sm text-muted-foreground">
+              No enablement exists. A human enables the agent before a worker binding can use it.
+            </p>
+            <EnablementForm agentName={agentName} reload={reload} />
+          </>
         ) : (
           <>
+            <EnablementSwitch enablement={enablement} reload={reload} />
             <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
               <dt className="text-muted-foreground">Revision</dt>
               <dd className="tabular-nums">{enablement.revision}</dd>
@@ -135,7 +147,11 @@ export function AgentScreen() {
         ))}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <EnablementSection enablement={agent.enablement} />
+        <EnablementSection
+          agentName={agent.agentName}
+          enablement={agent.enablement}
+          reload={reload}
+        />
         <ToolsSection tools={agent.tools} />
       </div>
       <PromptSection title="Agent prompt" text={agent.agentPrompt} />

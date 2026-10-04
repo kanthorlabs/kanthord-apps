@@ -1,5 +1,6 @@
 import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
+import { readAllPages } from "../pages";
 import type {
   Credential,
   CredentialCreateBody,
@@ -102,4 +103,10 @@ export async function submitCredentialLoginCode(
 
 export async function readCredentialLoginStatus(sessionId: string): Promise<CredentialLoginStatus> {
   return request<CredentialLoginStatus>(`/api/credential/login/${encodeURIComponent(sessionId)}`);
+}
+
+export async function listCredentials(
+  platform: CredentialPlatform,
+): Promise<readonly Credential[]> {
+  return readAllPages<Credential>("/api/credential", { platform });
 }

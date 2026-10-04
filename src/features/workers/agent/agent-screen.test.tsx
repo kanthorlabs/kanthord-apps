@@ -1,11 +1,14 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import * as credentialsApi from "@/api/resources/credentials";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentDeclaration } from "@/api/types";
+import type { AgentDeclaration, AgentEnablement, Credential } from "@/api/types";
 
 vi.mock("@/api/resources/workers");
+vi.mock("@/api/resources/credentials");
 
 import { AgentScreen } from "./agent-screen";
 
@@ -21,6 +24,25 @@ const RE: AgentDeclaration = {
     { name: "grep", source: "builtin", inputSchema: {} },
   ],
 };
+
+const ENABLEMENT: AgentEnablement = {
+  agentName: "re@1",
+  state: "enabled",
+  agentProviders: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+  defaultConfiguration: {
+    agentProvider: "router",
+    modelIdentifier: "qwen/qwen3-coder",
+    reasoningEffort: "off",
+  },
+  revision: 2,
+};
+
+const ROUTER_MAIN: Credential = { name: "router-main", platform: "openrouter", revisions: [] };
+
+async function choose(label: string, option: string) {
+  await userEvent.click(screen.getByRole("combobox", { name: label }));
+  await userEvent.click(await screen.findByRole("option", { name: option }));
+}
 
 function mount() {
   return render(
@@ -80,5 +102,71 @@ describe("AgentScreen", () => {
       "routeropenrouter · credential router-main",
       "codexopenai-codex · credential codex-main",
     ]);
+  });
+
+  it("creates the enablement with one agent provider and the default configuration", async () => {
+    vi.mocked(workersApi.readAgent).mockClear().mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...ENABLEMENT, revision: 1 });
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
+    await choose("Provider", "openrouter");
+    expect(credentialsApi.listCredentials).toHaveBeenCalledWith("openrouter");
+    await choose("Credential", "router-main");
+    await userEvent.type(within(form).getByLabelText("Model identifier"), "qwen/qwen3-coder");
+    await choose("Reasoning effort", "off");
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+
+    expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("re@1", {
+      agentProviders: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+      defaultConfiguration: {
+        agentProvider: "router",
+        modelIdentifier: "qwen/qwen3-coder",
+        reasoningEffort: "off",
+      },
+    });
+    expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a create without a provider and a reasoning effort", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(workersApi.putAgentEnablement).mockClear();
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+    expect(within(form).getAllByText("Choose a value.").length).toBeGreaterThan(0);
+  });
+
+  it("disables an enabled agent at its revision", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(workersApi.disableAgentEnablement).mockResolvedValue({
+      ...ENABLEMENT,
+      state: "disabled",
+      revision: 3,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Disable" }));
+
+    expect(workersApi.disableAgentEnablement).toHaveBeenCalledWith("re@1", 2);
+    expect(screen.queryByRole("form", { name: "Enable re@1" })).toBeNull();
+  });
+
+  it("enables a disabled agent at its revision", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      enablement: { ...ENABLEMENT, state: "disabled", revision: 3 },
+    });
+    vi.mocked(workersApi.enableAgentEnablement).mockResolvedValue({ ...ENABLEMENT, revision: 4 });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Enable" }));
+
+    expect(workersApi.enableAgentEnablement).toHaveBeenCalledWith("re@1", 3);
   });
 });
