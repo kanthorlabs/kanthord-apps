@@ -138,18 +138,18 @@ export function CredentialsScreen() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <Field className="md:max-w-56">
-          <FieldLabel htmlFor="credential-platform-filter">Platform</FieldLabel>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-full md:w-64">
           <PlatformCombobox
             id="credential-platform-filter"
+            label="Platform"
             groups={groups}
             value={platform ?? ALL_PLATFORMS}
             labelOf={platformLabel}
             onValueChange={selectPlatform}
           />
-        </Field>
-        <Field orientation="horizontal" className="md:ml-auto md:w-auto">
+        </div>
+        <Field orientation="horizontal" className="w-auto">
           <Switch
             id="credential-include-archived"
             checked={includeArchived}
@@ -157,7 +157,7 @@ export function CredentialsScreen() {
           />
           <FieldLabel htmlFor="credential-include-archived">Include archived</FieldLabel>
         </Field>
-        <Button nativeButton={false} render={<Link to="/credentials/new" />} size="lg">
+        <Button nativeButton={false} render={<Link to="/credentials/new" />} className="ml-auto">
           <PlusIcon aria-hidden="true" data-icon="inline-start" />
           New credential
         </Button>

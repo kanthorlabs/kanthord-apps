@@ -13,6 +13,7 @@ import { platformKindLabelOf, type PlatformGroupItems } from "@/lib/credential-p
 
 interface PlatformComboboxProps {
   readonly id: string;
+  readonly label?: string;
   readonly groups: readonly PlatformGroupItems[];
   readonly value: string;
   readonly labelOf: (value: string) => string;
@@ -21,6 +22,7 @@ interface PlatformComboboxProps {
 
 export function PlatformCombobox({
   id,
+  label,
   groups,
   value,
   labelOf,
@@ -33,7 +35,7 @@ export function PlatformCombobox({
       itemToStringLabel={labelOf}
       onValueChange={onValueChange}
     >
-      <ComboboxInput id={id} className="w-full" placeholder="Search platforms" />
+      <ComboboxInput id={id} aria-label={label} className="w-full" placeholder="Search platforms" />
       <ComboboxContent>
         <ComboboxEmpty>No platform matches.</ComboboxEmpty>
         <ComboboxList>
