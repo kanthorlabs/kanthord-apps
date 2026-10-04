@@ -1,12 +1,10 @@
 import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
 import type {
-  Binding,
   BindingSet,
   BindingSetEntry,
   BindingSetWriteResult,
   Page,
-  PermittedClientIdentity,
   Project,
   ProjectBindingRecord,
 } from "../types";
@@ -51,49 +49,6 @@ export async function renameProject(projectId: string, name: string): Promise<Pr
     body: { name },
     headers: { "idempotency-key": newUlid() },
   });
-}
-
-export async function listBindings(projectId: string): Promise<readonly Binding[]> {
-  return request<readonly Binding[]>(`/v1/projects/${projectId}/bindings`);
-}
-
-export async function setBindingAvailability(
-  projectId: string,
-  bindingId: string,
-  available: boolean,
-): Promise<Binding> {
-  return request<Binding>(`/v1/projects/${projectId}/bindings/${bindingId}/availability`, {
-    method: "PUT",
-    body: { available },
-  });
-}
-
-export async function setInstanceCount(
-  projectId: string,
-  bindingId: string,
-  instanceCount: number,
-): Promise<Binding> {
-  return request<Binding>(`/v1/projects/${projectId}/bindings/${bindingId}/instance-count`, {
-    method: "PUT",
-    body: { instanceCount },
-  });
-}
-
-export async function listClientIdentities(
-  projectId: string,
-): Promise<readonly PermittedClientIdentity[]> {
-  return request<readonly PermittedClientIdentity[]>(`/v1/projects/${projectId}/client-identities`);
-}
-
-/** The daemon returns the client secret once and keeps its hash in custody. */
-export async function rotateClientSecret(
-  projectId: string,
-  identityId: string,
-): Promise<{ readonly clientSecret: string }> {
-  return request<{ readonly clientSecret: string }>(
-    `/v1/projects/${projectId}/client-identities/${identityId}/rotate`,
-    { method: "POST" },
-  );
 }
 
 export async function readBindingSet(projectId: string): Promise<BindingSet> {

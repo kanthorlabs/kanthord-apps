@@ -211,247 +211,6 @@ export const ELIGIBILITY = {
   },
 };
 
-export const TEMPLATES = [
-  {
-    name: "general@1",
-    method: "steps method",
-    agentName: "swe@1",
-    agentKind: "native agent",
-    declaredNodeStates: ["Available"],
-    overridableOptions: ["model identifier", "reasoning effort", "provider account"],
-    defaultConfiguration: {
-      provider: "openai",
-      "model identifier": "gpt-6-astra-mini",
-      "reasoning effort": "medium",
-    },
-    turnBudget: 200,
-    wallTimeBudgetSeconds: 7200,
-  },
-  {
-    name: "reviewer@1",
-    method: "evaluation method",
-    agentName: "re@1",
-    agentKind: "native agent",
-    declaredNodeStates: ["Waiting", "External.Requested"],
-    overridableOptions: ["model identifier", "reasoning effort", "provider account"],
-    defaultConfiguration: {
-      provider: "openai",
-      "model identifier": "gpt-6-astra",
-      "reasoning effort": "high",
-    },
-    turnBudget: 50,
-    wallTimeBudgetSeconds: 7200,
-  },
-  {
-    name: "claude@1",
-    method: "steps method",
-    agentName: "swe@1",
-    agentKind: "coding agent",
-    declaredNodeStates: ["Available"],
-    overridableOptions: ["model identifier", "reasoning effort"],
-    defaultConfiguration: { "model identifier": "claude-opus-5", "reasoning effort": "high" },
-    turnBudget: 50,
-    wallTimeBudgetSeconds: 7200,
-  },
-  {
-    name: "opencode@1",
-    method: "steps method",
-    agentName: "swe@1",
-    agentKind: "coding agent",
-    declaredNodeStates: ["Available"],
-    overridableOptions: ["model identifier", "reasoning effort"],
-    defaultConfiguration: { "model identifier": "gpt-6-astra", "reasoning effort": "medium" },
-    turnBudget: 50,
-    wallTimeBudgetSeconds: 7200,
-  },
-];
-
-export const INSTANCES = [
-  {
-    runtimeId: "rt-8f21",
-    bindingId: "bnd-wkr-general-main",
-    healthcheckPasses: true,
-    healthcheckDetail: "The effective configuration resolves.",
-    busy: true,
-    executionId: "exec-11",
-  },
-  {
-    runtimeId: "rt-1b93",
-    bindingId: "bnd-wkr-general-main",
-    healthcheckPasses: true,
-    healthcheckDetail: "The effective configuration resolves.",
-    busy: false,
-    executionId: null,
-  },
-  {
-    runtimeId: "rt-c40a",
-    bindingId: "bnd-wkr-reviewer-main",
-    healthcheckPasses: true,
-    healthcheckDetail: "The effective configuration resolves.",
-    busy: true,
-    executionId: "exec-12",
-  },
-  {
-    runtimeId: "rt-d772",
-    bindingId: "bnd-wkr-reviewer-main",
-    healthcheckPasses: true,
-    healthcheckDetail: "The effective configuration resolves.",
-    busy: false,
-    executionId: null,
-  },
-  {
-    runtimeId: "rt-e019",
-    bindingId: "bnd-wkr-claude-main",
-    healthcheckPasses: false,
-    healthcheckDetail: "The Claude Code program is absent from the host.",
-    busy: false,
-    executionId: null,
-  },
-];
-
-export const BINDINGS = [
-  {
-    id: "bnd-repo-kanthord",
-    identity: "kanthord-main",
-    kind: "repository",
-    revision: 4,
-    disabled: false,
-    platform: "GitHub",
-    repositoryAddress: "git@github.com:kanthorlabs/kanthord.git",
-    transportForm: "SSH",
-    requiredCapabilities: ["network git read", "network git write", "platform action"],
-    strategy: {
-      baseBranch: "main",
-      configuredAction: "open a pull request",
-      actionKind: "request-reply action",
-      expectedEndState: "merged",
-    },
-    credentialReferences: [
-      {
-        capability: "network git read",
-        recordId: "cs-ssh-kanthorlabs",
-        recordType: "SSH key",
-        upstreamPrincipal: "kanthorlabs",
-        configuringActor: "ulrich",
-      },
-      {
-        capability: "network git write",
-        recordId: "cs-ssh-kanthorlabs",
-        recordType: "SSH key",
-        upstreamPrincipal: "kanthorlabs",
-        configuringActor: "ulrich",
-      },
-      {
-        capability: "platform action",
-        recordId: "cs-oauth-github",
-        recordType: "OAuth credential",
-        upstreamPrincipal: "kanthorlabs",
-        configuringActor: "ulrich",
-      },
-    ],
-  },
-  {
-    id: "bnd-wkr-general-main",
-    identity: "general-main",
-    kind: "worker",
-    revision: 2,
-    disabled: false,
-    workerName: "general@1",
-    instanceCount: 2,
-    available: true,
-    agentEntries: { "model identifier": "gpt-6-astra", "reasoning effort": "high" },
-    credentialReferences: [],
-  },
-  {
-    id: "bnd-wkr-reviewer-main",
-    identity: "reviewer-main",
-    kind: "worker",
-    revision: 1,
-    disabled: false,
-    workerName: "reviewer@1",
-    instanceCount: 2,
-    available: true,
-    agentEntries: {},
-    credentialReferences: [],
-  },
-  {
-    id: "bnd-wkr-claude-main",
-    identity: "claude-main",
-    kind: "worker",
-    revision: 1,
-    disabled: false,
-    workerName: "claude@1",
-    instanceCount: 1,
-    available: false,
-    agentEntries: {},
-    credentialReferences: [],
-  },
-  {
-    id: "bnd-prv-openai-dev",
-    identity: "openai-dev",
-    kind: "provider account",
-    revision: 1,
-    disabled: false,
-    provider: "openai",
-    account: "kanthorlabs-dev",
-    isDefaultAccount: true,
-    credentialReferences: [
-      {
-        capability: "a model inference call",
-        recordId: "cs-api-openai-dev",
-        recordType: "API key",
-        upstreamPrincipal: "kanthorlabs-dev",
-        configuringActor: "ulrich",
-      },
-    ],
-  },
-  {
-    id: "bnd-prv-openai-review",
-    identity: "openai-review",
-    kind: "provider account",
-    revision: 1,
-    disabled: false,
-    provider: "openai",
-    account: "kanthorlabs-review",
-    isDefaultAccount: false,
-    credentialReferences: [
-      {
-        capability: "a model inference call",
-        recordId: "cs-api-openai-review",
-        recordType: "API key",
-        upstreamPrincipal: "kanthorlabs-review",
-        configuringActor: "ulrich",
-      },
-    ],
-  },
-  {
-    id: "bnd-src-github",
-    identity: "github-webhook",
-    kind: "source",
-    revision: 1,
-    disabled: false,
-    deliverySource: "The GitHub webhook source of kanthorlabs/kanthord",
-    credentialReferences: [],
-  },
-];
-
-export const CLIENT_IDENTITIES = [
-  {
-    id: "ci-1",
-    clientIdentity: "claude-code-executor",
-    role: "executor",
-    executionCount: 2,
-    liveExecutions: 0,
-  },
-  {
-    id: "ci-2",
-    clientIdentity: "claude-code-reviewer",
-    role: "reviewer",
-    executionCount: 1,
-    liveExecutions: 0,
-  },
-];
-
 export const DELIVERIES = [
   {
     id: "dl-101",
@@ -528,6 +287,47 @@ const AGENT_CONFIGURATION_SCHEMA = {
   additionalProperties: false,
   required: ["agentProvider", "provider", "credential", "modelIdentifier", "reasoningEffort"],
 };
+
+export const WORKER_CATALOG = [
+  {
+    name: "general@1",
+    host: "kanthord",
+    declaredNodeStates: ["Available", "Waiting"],
+    requiredNodeFormat: ["objective"],
+  },
+  {
+    name: "reviewer@1",
+    host: "kanthord",
+    declaredNodeStates: ["Evaluating"],
+    requiredNodeFormat: ["objective"],
+  },
+];
+
+export const WORKER_INSTANCES = [
+  {
+    runtimeIdentity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A01",
+    projectId: PROJECT.id,
+    resourceIdentity: "worker:kanthord:general-main",
+    workerName: "general@1",
+    host: "kanthord",
+    placement: "server",
+    activity: "executing",
+    draining: false,
+    executionId: "execution_01J9ZQ4XKM3B6V8N2R5T7W0E01",
+    registered: true,
+  },
+  {
+    runtimeIdentity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A02",
+    projectId: PROJECT.id,
+    resourceIdentity: "worker:kanthord:reviewer-main",
+    workerName: "reviewer@1",
+    host: "kanthord",
+    placement: "worker",
+    activity: "idle",
+    draining: true,
+    registered: true,
+  },
+];
 
 export const AGENT_DECLARATIONS = [
   {

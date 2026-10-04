@@ -1,20 +1,23 @@
 import { request } from "../client";
+import { readAllPages } from "../pages";
 import type {
   AgentDeclaration,
   AgentSummary,
   Page,
-  WorkerInstance,
-  WorkerTemplate,
+  WorkerCatalogItem,
+  WorkerInstanceRecord,
 } from "../types";
 
 const AGENT_PAGE_LIMIT = 1000;
 
-export async function listTemplates(): Promise<readonly WorkerTemplate[]> {
-  return request<readonly WorkerTemplate[]>("/v1/workers/templates");
+export async function listWorkerCatalog(): Promise<readonly WorkerCatalogItem[]> {
+  return readAllPages<WorkerCatalogItem>("/api/worker/catalog");
 }
 
-export async function listInstances(projectId: string): Promise<readonly WorkerInstance[]> {
-  return request<readonly WorkerInstance[]>(`/v1/projects/${projectId}/workers/instances`);
+export async function listWorkerInstances(
+  projectId: string,
+): Promise<readonly WorkerInstanceRecord[]> {
+  return readAllPages<WorkerInstanceRecord>("/api/worker/instance", { projectId });
 }
 
 export async function listAgents(): Promise<readonly AgentSummary[]> {

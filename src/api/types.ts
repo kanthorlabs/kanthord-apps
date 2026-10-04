@@ -48,20 +48,10 @@ export type AssessmentVerdict = "meets" | "does not meet" | "neither established
 
 export type CurrencyCheck = "context" | "authority" | "order";
 
-export type BindingKind = "repository" | "worker" | "provider account" | "source";
-
-export type TransportForm = "SSH" | "HTTPS";
-
-export type RepositoryCapability = "network git read" | "network git write" | "platform action";
-
 export type ExternalActionKind = "fire-and-forget action" | "request-reply action";
 
 export type DeliveryDisposition =
   "acceptance as an observation" | "acceptance as a human act" | "refusal" | "a duplicate";
-
-export type WorkerMethod = "steps method" | "evaluation method";
-
-export type AgentKind = "native agent" | "coding agent";
 
 export interface HumanIdentity {
   readonly kind: "human";
@@ -204,26 +194,33 @@ export interface EligibilityReport {
   }[];
 }
 
-export interface WorkerTemplate {
+export type WorkerHost = "kanthord" | "external-harness";
+
+export type InstanceActivity = "idle" | "pulling" | "executing";
+
+export interface WorkerCatalogItem {
   readonly name: string;
-  readonly method: WorkerMethod;
-  readonly agentName: string;
-  readonly agentKind: AgentKind;
-  readonly declaredNodeStates: readonly NodeState[];
-  readonly overridableOptions: readonly string[];
-  readonly defaultConfiguration: Readonly<Record<string, string>>;
-  readonly turnBudget: number;
-  readonly wallTimeBudgetSeconds: number;
+  readonly host: WorkerHost;
+  readonly declaredNodeStates: readonly string[];
+  readonly requiredNodeFormat: readonly string[];
 }
 
-export interface WorkerInstance {
-  readonly runtimeId: string;
-  readonly bindingId: string;
-  readonly healthcheckPasses: boolean;
-  readonly healthcheckDetail: string;
-  readonly busy: boolean;
-  readonly executionId: string | null;
+interface WorkerInstanceBase {
+  readonly runtimeIdentity: string;
+  readonly projectId: string;
+  readonly resourceIdentity: string;
+  readonly workerName: string;
+  readonly clientId?: string;
+  readonly name?: string;
+  readonly activity: InstanceActivity;
+  readonly draining: boolean;
+  readonly executionId?: string;
+  readonly registered: boolean;
 }
+
+export type WorkerInstanceRecord =
+  | (WorkerInstanceBase & { readonly host: "kanthord"; readonly placement: "server" | "worker" })
+  | (WorkerInstanceBase & { readonly host: "external-harness" });
 
 export type AgentEnablementState = "enabled" | "disabled";
 
@@ -273,55 +270,6 @@ export interface AgentDeclaration {
   readonly basePrompt?: string;
   readonly agentPrompt: string;
   readonly tools: readonly AgentTool[];
-}
-
-export interface CredentialReference {
-  readonly capability: string;
-  readonly recordId: string;
-  readonly recordType: string;
-  readonly upstreamPrincipal: string;
-  readonly configuringActor: string;
-}
-
-export interface RepositoryStrategy {
-  readonly baseBranch: string;
-  readonly configuredAction: string;
-  readonly actionKind: ExternalActionKind;
-  readonly expectedEndState: string | null;
-}
-
-export interface Binding {
-  readonly id: string;
-  readonly identity: string;
-  readonly kind: BindingKind;
-  readonly revision: number;
-  readonly disabled: boolean;
-  readonly credentialReferences: readonly CredentialReference[];
-  /** repository */
-  readonly platform?: string;
-  readonly repositoryAddress?: string;
-  readonly transportForm?: TransportForm;
-  readonly requiredCapabilities?: readonly RepositoryCapability[];
-  readonly strategy?: RepositoryStrategy;
-  /** worker */
-  readonly workerName?: string;
-  readonly instanceCount?: number;
-  readonly available?: boolean;
-  readonly agentEntries?: Readonly<Record<string, string>>;
-  /** provider account */
-  readonly provider?: string;
-  readonly account?: string;
-  readonly isDefaultAccount?: boolean;
-  /** source */
-  readonly deliverySource?: string;
-}
-
-export interface PermittedClientIdentity {
-  readonly id: string;
-  readonly clientIdentity: string;
-  readonly role: Role;
-  readonly executionCount: number;
-  readonly liveExecutions: number;
 }
 
 export interface Delivery {

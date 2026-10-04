@@ -10,7 +10,6 @@ import { ProjectProvider } from "@/features/projects/project-context";
 import { ProjectScreen } from "@/features/projects/view/project-screen";
 import { ExecutionsScreen } from "@/features/scheduler/executions/executions-screen";
 import { SchedulerScreen } from "@/features/scheduler/queue/scheduler-screen";
-import { SettingsScreen } from "@/features/settings/project/settings-screen";
 import { AgentScreen } from "@/features/workers/agent/agent-screen";
 import { AgentsScreen } from "@/features/workers/agents/agents-screen";
 import { WorkersScreen } from "@/features/workers/catalogue/workers-screen";
@@ -38,7 +37,6 @@ export function AppRouter() {
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
-            <Route path="settings" element={<SettingsScreen />} />
           </Route>
         </Routes>
       </BrowserRouter>

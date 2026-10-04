@@ -30,7 +30,6 @@ const projects = [structuredClone(fx.PROJECT)];
 const mission = { ...structuredClone(fx.MISSION), entries: structuredClone(fx.MISSION_ENTRIES) };
 const bindingSet = structuredClone(fx.BINDING_SET);
 let nodeSequence = 10;
-const bindings = structuredClone(fx.BINDINGS);
 
 const routes = [];
 const on = (method, pattern, handler) => routes.push({ method, pattern, handler });
@@ -144,7 +143,14 @@ on("PATCH", /^\/api\/project\/([^/]+)$/, (m, b, res) => {
   return json(res, 200, project);
 });
 
-on("GET", /^\/v1\/workers\/templates$/, (_m, _b, res) => json(res, 200, fx.TEMPLATES));
+on("GET", /^\/api\/worker\/catalog$/, (_m, _b, res) => json(res, 200, page(fx.WORKER_CATALOG)));
+on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
+  const projectId = url.searchParams.get("projectId");
+  const items = fx.WORKER_INSTANCES.filter(
+    (instance) => projectId === null || instance.projectId === projectId,
+  );
+  return json(res, 200, page(items));
+});
 on("GET", /^\/api\/worker\/agent$/, (_m, _b, res) =>
   json(res, 200, {
     items: fx.AGENT_DECLARATIONS.map(({ agentName, workerNames, enablement }) => ({
@@ -199,35 +205,6 @@ on("GET", /^\/v1\/projects\/[^/]+\/scheduler\/eligibility\/([^/]+)$/, (m, _b, re
   json(res, 200, fx.ELIGIBILITY[m[1]] ?? { nodeId: m[1], checks: [] }),
 );
 
-on("GET", /^\/v1\/projects\/[^/]+\/workers\/instances$/, (_m, _b, res) =>
-  json(res, 200, fx.INSTANCES),
-);
-on("GET", /^\/v1\/projects\/[^/]+\/bindings$/, (_m, _b, res) => json(res, 200, bindings));
-on("PUT", /^\/v1\/projects\/[^/]+\/bindings\/([^/]+)\/availability$/, (m, b, res) => {
-  const binding = bindings.find((x) => x.id === m[1]);
-  if (!binding) return refuse(res, 404, "not_found", "No such binding.");
-  binding.available = Boolean(b?.available);
-  binding.revision += 1;
-  return json(res, 200, binding);
-});
-on("PUT", /^\/v1\/projects\/[^/]+\/bindings\/([^/]+)\/instance-count$/, (m, b, res) => {
-  const binding = bindings.find((x) => x.id === m[1]);
-  if (!binding) return refuse(res, 404, "not_found", "No such binding.");
-  const count = Number(b?.instanceCount);
-  if (!Number.isInteger(count) || count < 0)
-    return refuse(res, 422, "refused", "The instance count is a whole number.");
-  binding.instanceCount = count;
-  binding.revision += 1;
-  return json(res, 200, binding);
-});
-on("GET", /^\/v1\/projects\/[^/]+\/client-identities$/, (_m, _b, res) =>
-  json(res, 200, fx.CLIENT_IDENTITIES),
-);
-on("POST", /^\/v1\/projects\/[^/]+\/client-identities\/([^/]+)\/rotate$/, (_m, _b, res) =>
-  json(res, 200, {
-    clientSecret: `cs-${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`,
-  }),
-);
 on("GET", /^\/v1\/projects\/[^/]+\/deliveries$/, (_m, _b, res) => json(res, 200, fx.DELIVERIES));
 
 const nodeIdOf = () => `node_01J9ZQ4XKM3B6V8N2R5T7W0Y${String(nodeSequence++).padStart(2, "0")}`;
