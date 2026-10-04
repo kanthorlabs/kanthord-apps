@@ -92,9 +92,9 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
         form.submit();
       }}
     >
-      <FieldGroup>
+      <FieldGroup className="md:grid md:grid-cols-2">
         {form.failure !== null && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="md:col-span-2">
             <AlertTitle>The agent was not enabled.</AlertTitle>
             <AlertDescription>{form.failure}</AlertDescription>
           </Alert>
@@ -124,10 +124,10 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           onChange={form.selectCredential}
         />
         {form.credentialsError !== null && (
-          <p className="text-sm text-destructive">{form.credentialsError}</p>
+          <p className="text-sm text-destructive md:col-span-2">{form.credentialsError}</p>
         )}
         {form.credentialsMissing && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground md:col-span-2">
             No credential of platform {draft.provider} exists.{" "}
             <Link to="/credentials/new" className="underline underline-offset-4">
               Add a credential
@@ -151,7 +151,11 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           error={errors["reasoningEffort"]}
           onChange={form.selectReasoningEffort}
         />
-        <Button type="submit" disabled={form.submitting}>
+        <Button
+          type="submit"
+          disabled={form.submitting}
+          className="md:col-span-2 md:justify-self-end"
+        >
           Enable agent
         </Button>
       </FieldGroup>

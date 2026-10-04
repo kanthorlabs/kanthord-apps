@@ -39,7 +39,7 @@ function SignInFields({
   const modes = entry.loginModes;
   const items = modes.map((mode) => ({ value: mode, label: MODE_LABELS[mode] }));
   return (
-    <Field>
+    <Field className="md:col-span-2">
       {modes.length > 1 && (
         <>
           <FieldLabel htmlFor="credential-login-mode">Sign-in mode</FieldLabel>
@@ -75,9 +75,9 @@ function CreateForm({ form }: { form: CredentialFormState }) {
         form.submit();
       }}
     >
-      <FieldGroup>
+      <FieldGroup className="md:grid md:grid-cols-2">
         {form.submitError !== null && (
-          <Alert variant="destructive">
+          <Alert variant="destructive" className="md:col-span-2">
             <AlertTitle>
               {form.oauth ? "The sign-in did not start." : "The credential was not created."}
             </AlertTitle>
@@ -107,22 +107,28 @@ function CreateForm({ form }: { form: CredentialFormState }) {
           <SignInFields form={form} entry={form.entry} />
         ) : (
           <>
-            <SecretFields
-              shape={form.entry.secretShape}
-              draft={form.secret}
-              errors={form.errors}
-              onEdit={form.setSecret}
-            />
-            <MetadataFields
-              fields={form.entry.metadataFields}
-              draft={form.metadata}
-              errors={form.errors}
-              baseUrlDescription="Fixed for the revision. Only a rotation sets another base URL. Add approved models after creation."
-              onEdit={form.setMetadata}
-            />
+            <FieldGroup className="md:col-span-2">
+              <SecretFields
+                shape={form.entry.secretShape}
+                draft={form.secret}
+                errors={form.errors}
+                onEdit={form.setSecret}
+              />
+            </FieldGroup>
+            {form.entry.metadataFields.length > 0 && (
+              <FieldGroup className="md:col-span-2">
+                <MetadataFields
+                  fields={form.entry.metadataFields}
+                  draft={form.metadata}
+                  errors={form.errors}
+                  baseUrlDescription="Fixed for the revision. Only a rotation sets another base URL. Add approved models after creation."
+                  onEdit={form.setMetadata}
+                />
+              </FieldGroup>
+            )}
           </>
         )}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
           <Button
             nativeButton={false}
             render={<Link to="/credentials" />}
@@ -145,7 +151,7 @@ export function CredentialFormScreen() {
   const session = form.login.session;
 
   return (
-    <Card className="w-full max-w-xl">
+    <Card className="w-full">
       <CardHeader>
         <h2 className="font-semibold leading-none">
           {session === null ? "New credential" : `Sign in for ${form.name}`}

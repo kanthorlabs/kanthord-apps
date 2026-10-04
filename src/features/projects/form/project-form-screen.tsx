@@ -16,7 +16,7 @@ export function ProjectFormScreen() {
   useCrumbLabel(`/projects/${encodeURIComponent(projectId ?? "")}`, form.current?.name);
 
   if (form.loading) {
-    return <Skeleton className="h-40 w-full max-w-xl" />;
+    return <Skeleton className="h-40 w-full" />;
   }
 
   if (form.loadError !== null) {
@@ -31,7 +31,7 @@ export function ProjectFormScreen() {
   }
 
   return (
-    <Card className="w-full max-w-xl">
+    <Card className="w-full">
       <CardHeader>
         <h2 className="font-semibold leading-none">
           {creating ? "New project" : `Edit ${form.current?.name ?? ""}`}
@@ -46,9 +46,9 @@ export function ProjectFormScreen() {
             form.submit();
           }}
         >
-          <FieldGroup>
+          <FieldGroup className="md:grid md:grid-cols-2">
             {form.submitError !== null && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="md:col-span-2">
                 <AlertTitle>
                   {creating ? "The project was not created." : "The project was not saved."}
                 </AlertTitle>
@@ -72,7 +72,7 @@ export function ProjectFormScreen() {
               </FieldDescription>
               <FieldError>{form.nameError}</FieldError>
             </Field>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
               <Button
                 nativeButton={false}
                 render={<Link to={form.cancelPath} />}

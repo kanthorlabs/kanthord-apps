@@ -58,10 +58,10 @@ export function DataListItem({
           </ItemDescription>
         )}
         {fields !== undefined && fields.length > 0 && (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <dl className="flex min-w-0 flex-wrap gap-x-4 gap-y-1 text-sm">
             {fields.map((field) => (
-              <div key={field.label} className="min-w-0">
-                <dt className="min-w-0 break-words text-muted-foreground">{field.label}</dt>
+              <div key={field.label} className="flex max-w-full min-w-0 items-baseline gap-1.5">
+                <dt className="shrink-0 text-muted-foreground">{field.label}</dt>
                 <dd className="min-w-0 break-words">{field.value}</dd>
               </div>
             ))}
