@@ -160,6 +160,7 @@ describe("readLayout", () => {
       ).sort(),
     );
     for (const edge of layout.edges) expect(edge.path).toMatch(/^M [\d.]+ [\d.]+ /);
+    expect(layout.edges.filter((edge) => edge.group === "stuck")).toHaveLength(2);
   });
 
   it("stacks the initiative bands in order without an overlap", async () => {

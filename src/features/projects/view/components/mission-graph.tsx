@@ -5,6 +5,7 @@ import type { Box, GraphLayout } from "@/lib/graph-layout";
 import { dependencyNames, objectiveProgress, type GraphModel } from "@/lib/mission-graph";
 import { GRAPH_NODE_ATTRIBUTE, useGraphLayout } from "../use-graph-layout";
 import { DependencyEdges } from "./dependency-edges";
+import { EdgeLegend } from "./edge-legend";
 import { GraphNode } from "./graph-node";
 
 interface MissionGraphProps {
@@ -48,6 +49,7 @@ export function MissionGraph({ model, selectedId, onSelect }: MissionGraphProps)
           <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
+      {model.links.length > 0 && <EdgeLegend />}
       <div
         ref={containerRef}
         className="w-full overflow-x-auto overscroll-x-contain contain-inline-size"

@@ -1,5 +1,6 @@
 import type { ElkExtendedEdge, ElkNode, ElkPoint } from "elkjs/lib/elk-api";
 
+import { edgeGroupOf, type EdgeGroup } from "./edge-group";
 import type { DependencyLink, GraphModel } from "./mission-graph";
 
 export interface Box {
@@ -16,6 +17,7 @@ export interface LaneGrid {
 }
 
 export interface EdgeShape extends DependencyLink {
+  readonly group: EdgeGroup;
   readonly path: string;
 }
 
@@ -205,7 +207,7 @@ export function readLayout(model: GraphModel, result: ElkNode): GraphLayout {
   const edges = (result.edges ?? []).map((edge): EdgeShape => {
     const link = links.get(edge.id);
     if (link === undefined) throw new Error(`The layout holds an unknown edge ${edge.id}.`);
-    return { ...link, path: roundedPath(edgePoints(edge)) };
+    return { ...link, group: edgeGroupOf(model, link), path: roundedPath(edgePoints(edge)) };
   });
   const bands = model.initiatives.map((_, index) => bandOf(model, index, boxes, width));
   return { width, height, edges, boxes, bands };
