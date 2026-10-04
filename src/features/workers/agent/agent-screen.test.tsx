@@ -52,4 +52,33 @@ describe("AgentScreen", () => {
     const tools = within(screen.getByRole("list", { name: "Tools" })).getAllByRole("listitem");
     expect(tools.map((t) => t.textContent)).toEqual(["readbuiltin", "grepbuiltin"]);
   });
+
+  it("lists every agent provider of the enablement with its credential", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      enablement: {
+        agentName: "re@1",
+        state: "enabled",
+        agentProviders: [
+          { name: "router", provider: "openrouter", credential: "router-main" },
+          { name: "codex", provider: "openai-codex", credential: "codex-main" },
+        ],
+        defaultConfiguration: {
+          agentProvider: "router",
+          modelIdentifier: "qwen/qwen3-coder",
+          reasoningEffort: "off",
+        },
+        revision: 2,
+      },
+    });
+    mount();
+
+    const providers = within(
+      await screen.findByRole("list", { name: "Agent providers" }),
+    ).getAllByRole("listitem");
+    expect(providers.map((p) => p.textContent)).toEqual([
+      "routeropenrouter · credential router-main",
+      "codexopenai-codex · credential codex-main",
+    ]);
+  });
 });

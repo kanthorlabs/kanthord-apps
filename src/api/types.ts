@@ -83,7 +83,8 @@ export type WorkerInstanceRecord =
 
 export type AgentEnablementState = "enabled" | "disabled";
 
-export type AgentProviderKind = "github-copilot" | "anthropic" | "openai-compatible";
+export type AgentProviderKind =
+  "github-copilot" | "openai-codex" | "anthropic" | "openai-compatible" | "openrouter";
 
 export type ReasoningEffort = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
