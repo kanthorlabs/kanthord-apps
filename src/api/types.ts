@@ -25,8 +25,6 @@ export const NODE_STATES = [
 
 export type NodeState = (typeof NODE_STATES)[number];
 
-export const TERMINAL_STATES = ["Completed", "Discarded"] as const satisfies readonly NodeState[];
-
 export interface HumanIdentity {
   readonly kind: "human";
   readonly sub: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { NODE_STATES, TERMINAL_STATES } from "@/api/types";
+import { NODE_STATES } from "@/api/types";
 import { badgeVariantOf, isTerminal, meaningOf, toneOf } from "./node-state";
 
 describe("node-state", () => {
@@ -14,7 +14,7 @@ describe("node-state", () => {
 
   it("names exactly the two terminal states", () => {
     const terminal = NODE_STATES.filter(isTerminal);
-    expect(terminal).toEqual([...TERMINAL_STATES]);
+    expect(terminal).toEqual(["Completed", "Discarded"]);
   });
 
   it("separates a blocked node from a discarded one", () => {
