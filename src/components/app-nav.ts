@@ -42,7 +42,5 @@ export const NAV_ITEMS: readonly NavItem[] = [
 
 export const ROUTE_LABELS: ReadonlyMap<string, string> = new Map([
   ...NAV_ITEMS.map((item): [string, string] => [item.to, item.label]),
-  ["/mission", "Mission"],
-  ["/blocked", "Blocked nodes"],
   ["/settings", "Project settings"],
 ]);

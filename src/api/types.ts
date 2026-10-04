@@ -100,16 +100,6 @@ export interface ValidationCriterion {
   readonly text: string;
 }
 
-export interface NodeRevision {
-  readonly id: string;
-  readonly ordinal: number;
-  readonly reason: string;
-  readonly actor: string;
-  readonly time: string;
-  /** An attempt pins a revision. A revision that no attempt pins reads null. */
-  readonly pinnedByAttempt: string | null;
-}
-
 export interface MissionNode {
   readonly id: string;
   readonly kind: NodeKind;
@@ -128,17 +118,6 @@ export interface MissionNode {
   readonly priority: number;
   readonly attemptCounter: number;
   readonly currentRevisionId: string;
-}
-
-export interface DependencyClosure {
-  readonly nodeId: string;
-  /** The nodes this node waits for. It holds no node of their subtrees. */
-  readonly members: readonly {
-    readonly nodeId: string;
-    readonly title: string;
-    readonly state: NodeState | null;
-  }[];
-  readonly holds: boolean;
 }
 
 export interface EvidenceRecord {
@@ -212,14 +191,6 @@ export interface BlockedNode {
   readonly node: MissionNode;
   readonly closedAttempt: Attempt;
   readonly condition: BlockCondition;
-}
-
-export interface ControlResult {
-  readonly node: MissionNode;
-  readonly attempt: Attempt | null;
-  readonly outcome: Outcome | null;
-  readonly actor: string;
-  readonly acceptedAt: string;
 }
 
 export interface WorkQueueEntry {

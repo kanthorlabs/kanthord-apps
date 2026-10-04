@@ -33,36 +33,6 @@ const bindingSet = structuredClone(fx.BINDING_SET);
 let nodeSequence = 10;
 const bindings = structuredClone(fx.BINDINGS);
 
-const byId = (id) => nodes.find((n) => n.id === id);
-
-const TERMINAL = ["Completed", "Discarded"];
-
-const closureHolds = (nodeId) => {
-  if (fx.CLOSURES[nodeId]) return fx.CLOSURES[nodeId].holds;
-  const node = byId(nodeId);
-  return (node?.dependsOn ?? []).every((id) => byId(id)?.state === "Completed");
-};
-
-const resumeState = (node) => {
-  const openAttempt = (fx.ATTEMPTS[node.id] ?? []).find((a) => a.open) ?? null;
-  const externalObjects = openAttempt?.externalObjects ?? [];
-  if (externalObjects.some((o) => o.resolved && o.observedState !== o.expectedEndState)) {
-    return "External.Failed";
-  }
-  if (
-    externalObjects.length > 0 &&
-    externalObjects.every((o) => o.resolved && o.observedState === o.expectedEndState)
-  ) {
-    return "External.Success";
-  }
-  if (externalObjects.length > 0) return "External.Requested";
-  const hasEndedExecution = fx.EXECUTIONS.some(
-    (e) => e.nodeId === node.id && e.attemptId === openAttempt?.id && !e.live,
-  );
-  if (hasEndedExecution) return "Waiting";
-  return closureHolds(node.id) ? "Available" : "Pending";
-};
-
 const routes = [];
 const on = (method, pattern, handler) => routes.push({ method, pattern, handler });
 
@@ -218,8 +188,6 @@ on("GET", /^\/v1\/projects\/([^/]+)\/overview$/, (m, _b, res) => {
   });
 });
 
-on("GET", /^\/v1\/projects\/[^/]+\/mission\/nodes$/, (_m, _b, res) => json(res, 200, nodes));
-
 on("GET", /^\/v1\/projects\/[^/]+\/mission\/blocked$/, (_m, _b, res) =>
   json(
     res,
@@ -244,116 +212,6 @@ on("GET", /^\/v1\/projects\/[^/]+\/mission\/blocked$/, (_m, _b, res) =>
       .filter((b) => b.closedAttempt !== null),
   ),
 );
-
-on("GET", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/revisions$/, (m, _b, res) =>
-  json(res, 200, fx.REVISIONS[m[1]] ?? []),
-);
-on("GET", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/attempts$/, (m, _b, res) =>
-  json(res, 200, fx.ATTEMPTS[m[1]] ?? []),
-);
-on("GET", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/closure$/, (m, _b, res) => {
-  const node = byId(m[1]);
-  return json(
-    res,
-    200,
-    fx.CLOSURES[m[1]] ?? {
-      nodeId: m[1],
-      members: (node?.dependsOn ?? []).map((id) => ({
-        nodeId: id,
-        title: byId(id)?.title ?? id,
-        state: byId(id)?.state ?? null,
-      })),
-      holds: (node?.dependsOn ?? []).every((id) => byId(id)?.state === "Completed"),
-    },
-  );
-});
-on("GET", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)$/, (m, _b, res) => {
-  const node = byId(m[1]);
-  return node ? json(res, 200, node) : refuse(res, 404, "not_found", "No such node.");
-});
-
-const transition = (m, res, next, guard) => {
-  const node = byId(m[1]);
-  if (!node) return refuse(res, 404, "not_found", "No such node.");
-  const problem = guard?.(node);
-  if (problem) return refuse(res, 412, "precondition_failed", problem);
-  node.state = next;
-  return json(res, 200, node);
-};
-
-on("POST", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/pause$/, (m, _b, res) =>
-  transition(m, res, "Paused", (n) => {
-    if (TERMINAL.includes(n.state)) return "A terminal node holds no further transition.";
-    if (n.state === "Blocked") return "A blocked node holds no pause transition.";
-    if (n.state === "Paused") return "A paused node is already paused.";
-    return null;
-  }),
-);
-on("POST", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/resume$/, (m, _b, res) => {
-  const node = byId(m[1]);
-  if (!node) return refuse(res, 404, "not_found", "No such node.");
-  if (node.state !== "Paused")
-    return refuse(res, 412, "precondition_failed", "Only a paused node resumes.");
-  node.state = resumeState(node);
-  return json(res, 200, node);
-});
-on("POST", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/block$/, (m, b, res) =>
-  transition(m, res, "Blocked", (n) => {
-    if (n.state !== "Paused")
-      return "A human blocks a paused node, and that path is the only human block.";
-    if (!b?.reason) return "The block carries a human reason.";
-    return null;
-  }),
-);
-on("POST", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/unblock$/, (m, b, res) => {
-  const node = byId(m[1]);
-  if (!node) return refuse(res, 404, "not_found", "No such node.");
-  if (node.state !== "Blocked")
-    return refuse(res, 412, "precondition_failed", "The node is not blocked.");
-  if (b?.expectedRevisionId !== node.currentRevisionId) {
-    return refuse(
-      res,
-      409,
-      "conflict",
-      "The expected revision is superseded.",
-      `Current revision ${node.currentRevisionId}.`,
-    );
-  }
-  node.state = closureHolds(node.id) ? "Available" : "Pending";
-  node.attemptCounter += 1;
-  return json(res, 200, {
-    id: `ub-${Math.random().toString(36).slice(2, 8)}`,
-    nodeId: node.id,
-    clearedAttemptId: b.clearedAttemptId,
-    expectedRevisionId: b.expectedRevisionId,
-    actor: USERNAME,
-    time: new Date().toISOString(),
-  });
-});
-on("POST", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/override$/, (m, b, res) =>
-  transition(m, res, "Completed", (n) => {
-    if (TERMINAL.includes(n.state)) return "No human override reaches a terminal node.";
-    if (!b?.reason) return "The override carries a human decision.";
-    return null;
-  }),
-);
-on("POST", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/discard$/, (m, b, res) =>
-  transition(m, res, "Discarded", (n) => {
-    if (TERMINAL.includes(n.state)) return "A terminal state opens no further attempt.";
-    if (!b?.stoppingReason) return "The discard carries a stopping reason.";
-    return null;
-  }),
-);
-on("PUT", /^\/v1\/projects\/[^/]+\/mission\/nodes\/([^/]+)\/priority$/, (m, b, res) => {
-  const node = byId(m[1]);
-  if (!node) return refuse(res, 404, "not_found", "No such node.");
-  if (TERMINAL.includes(node.state))
-    return refuse(res, 412, "precondition_failed", "A terminal node takes no priority.");
-  if (node.state === "Executing" || node.state === "Evaluating")
-    return refuse(res, 412, "precondition_failed", "A claim holds the node.");
-  node.priority = Number(b?.priority ?? 0);
-  return json(res, 200, node);
-});
 
 on("GET", /^\/v1\/projects\/[^/]+\/scheduler\/queue$/, (_m, _b, res) =>
   json(

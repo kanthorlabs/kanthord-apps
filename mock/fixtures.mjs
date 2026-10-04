@@ -274,35 +274,6 @@ export const NODES = [
   },
 ];
 
-export const REVISIONS = {
-  "obj-password-reset": [
-    {
-      id: "rev-pr-3",
-      ordinal: 3,
-      reason: "Narrow the expiry to one hour.",
-      actor: "ulrich",
-      time: at(180),
-      pinnedByAttempt: null,
-    },
-    {
-      id: "rev-pr-2",
-      ordinal: 2,
-      reason: "Add the single-use criterion.",
-      actor: "ulrich",
-      time: at(600),
-      pinnedByAttempt: "att-pr-2",
-    },
-    {
-      id: "rev-pr-1",
-      ordinal: 1,
-      reason: "Import from the plan file.",
-      actor: "ulrich",
-      time: at(1440),
-      pinnedByAttempt: "att-pr-1",
-    },
-  ],
-};
-
 export const ATTEMPTS = {
   "obj-password-reset": [
     {
@@ -616,27 +587,6 @@ export const ATTEMPTS = {
       ],
     },
   ],
-};
-
-export const CLOSURES = {
-  "ini-recovery": {
-    nodeId: "ini-recovery",
-    members: [{ nodeId: "ini-onboarding", title: "Onboarding", state: "Completed" }],
-    holds: true,
-  },
-  "ini-notifications": {
-    nodeId: "ini-notifications",
-    members: [{ nodeId: "ini-recovery", title: "Account recovery", state: "Available" }],
-    holds: false,
-  },
-  "obj-password-reset": {
-    nodeId: "obj-password-reset",
-    members: [
-      { nodeId: "obj-recovery-codes", title: "Add recovery codes", state: "Completed" },
-      { nodeId: "ini-onboarding", title: "Onboarding", state: "Completed" },
-    ],
-    holds: true,
-  },
 };
 
 export const QUEUE = [

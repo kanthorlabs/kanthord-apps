@@ -32,11 +32,13 @@ function ErrorMessage({ error, reload }: { error: ApiError; reload: () => void }
 }
 
 function BlockedSection({
+  projectId,
   data,
   loading,
   error,
   reload,
 }: {
+  projectId: string;
   data: readonly BlockedNode[] | null;
   loading: boolean;
   error: ApiError | null;
@@ -64,7 +66,7 @@ function BlockedSection({
                     <ItemContent className="min-w-0">
                       <ItemTitle>
                         <Link
-                          to={`/mission/${item.node.id}`}
+                          to={`/projects/${projectId}`}
                           className="break-words underline-offset-4 hover:underline"
                         >
                           {item.node.title}
@@ -77,17 +79,6 @@ function BlockedSection({
                   </Item>
                 ))}
               </ItemGroup>
-            )}
-            {data.length > 0 && (
-              <Button
-                nativeButton={false}
-                render={<Link to="/blocked" />}
-                variant="outline"
-                size="sm"
-                className="mt-4"
-              >
-                View all blocked nodes ({data.length})
-              </Button>
             )}
           </>
         )}
@@ -148,11 +139,13 @@ function RunningSection({
 }
 
 function TallySection({
+  projectId,
   tallies,
   loading,
   error,
   reload,
 }: {
+  projectId: string;
   tallies: readonly StateTally[];
   loading: boolean;
   error: ApiError | null;
@@ -174,7 +167,7 @@ function TallySection({
               <ItemGroup aria-label="Node states" className="gap-1">
                 {tallies.map((tally) => (
                   <div key={tally.state} role="listitem">
-                    <Item render={<Link to="/mission" />} size="sm">
+                    <Item render={<Link to={`/projects/${projectId}`} />} size="sm">
                       <ItemMedia>
                         <Badge variant={badgeVariantOf(tally.state)}>{tally.state}</Badge>
                       </ItemMedia>
@@ -241,11 +234,12 @@ function CapacitySection({
 }
 
 export function OverviewScreen() {
-  const { overview, blocked, liveExecutions, orderedTallies } = useOverview();
+  const { projectId, overview, blocked, liveExecutions, orderedTallies } = useOverview();
 
   return (
     <div className="grid gap-4">
       <BlockedSection
+        projectId={projectId}
         data={blocked.data}
         loading={blocked.loading}
         error={blocked.error}
@@ -259,6 +253,7 @@ export function OverviewScreen() {
           reload={liveExecutions.reload}
         />
         <TallySection
+          projectId={projectId}
           tallies={orderedTallies}
           loading={overview.loading}
           error={overview.error}

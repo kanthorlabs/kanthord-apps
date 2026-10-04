@@ -9,6 +9,7 @@ import { useProjectId } from "@/features/projects/project-context";
 import { useResource, type Resource } from "@/hooks/use-resource";
 
 export interface OverviewData {
+  readonly projectId: string;
   readonly overview: Resource<Overview>;
   readonly blocked: Resource<readonly BlockedNode[]>;
   readonly liveExecutions: Resource<readonly Execution[]>;
@@ -28,5 +29,5 @@ export function useOverview(): OverviewData {
     );
   }, [overview.data]);
 
-  return { overview, blocked, liveExecutions, orderedTallies };
+  return { projectId, overview, blocked, liveExecutions, orderedTallies };
 }

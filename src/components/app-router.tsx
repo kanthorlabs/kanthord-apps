@@ -3,9 +3,6 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { LoginScreen } from "@/features/auth/login/login-screen";
 import { useSession } from "@/features/auth/session/session-context";
 import { DeliveriesScreen } from "@/features/deliveries/inbox/deliveries-screen";
-import { BlockedScreen } from "@/features/mission/blocked/blocked-screen";
-import { MissionScreen } from "@/features/mission/graph/mission-screen";
-import { NodeScreen } from "@/features/mission/node/node-screen";
 import { OverviewScreen } from "@/features/overview/overview-screen";
 import { ProjectFormScreen } from "@/features/projects/form/project-form-screen";
 import { ProjectsScreen } from "@/features/projects/list/projects-screen";
@@ -35,9 +32,6 @@ export function AppRouter() {
             <Route path="projects/new" element={<ProjectFormScreen />} />
             <Route path="projects/:projectId" element={<ProjectScreen />} />
             <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
-            <Route path="mission" element={<MissionScreen />} />
-            <Route path="mission/:nodeId" element={<NodeScreen />} />
-            <Route path="blocked" element={<BlockedScreen />} />
             <Route path="scheduler" element={<SchedulerScreen />} />
             <Route path="executions" element={<ExecutionsScreen />} />
             <Route path="deliveries" element={<DeliveriesScreen />} />
