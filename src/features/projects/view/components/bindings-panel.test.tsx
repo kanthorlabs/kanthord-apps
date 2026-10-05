@@ -4,12 +4,14 @@ import type * as Sonner from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as credentialsApi from "@/api/resources/credentials";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import type { BindingSet, BindingSetEntry, ProjectBindingRecord } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/mission");
+vi.mock("@/api/resources/credentials");
 vi.mock("sonner", async (importOriginal) => ({
   ...(await importOriginal<typeof Sonner>()),
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
@@ -70,6 +72,13 @@ describe("BindingsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue(SET);
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [
+        { name: "github-main", platform: "github", revisions: [] },
+        { name: "github-kanthorlabs", platform: "github", revisions: [] },
+      ],
+      nextCursor: null,
+    });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
       projectId: "project_1",
@@ -121,11 +130,14 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
     const credential = screen.getByLabelText("Credential");
     await userEvent.clear(credential);
-    await userEvent.type(credential, "github-2");
+    await userEvent.type(credential, "kanth");
+    await userEvent.click(
+      await screen.findByRole("option", { name: "github-kanthorlabs · github" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
-      "kanthord-repo": { ...REPO, config: { ...REPO.config, credential: "github-2" } },
+      "kanthord-repo": { ...REPO, config: { ...REPO.config, credential: "github-kanthorlabs" } },
       "general-main": WORKER,
     });
     expect(screen.queryByRole("alertdialog")).toBeNull();

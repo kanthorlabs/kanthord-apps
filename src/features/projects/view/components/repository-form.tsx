@@ -9,7 +9,9 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { DraftErrors, RepositoryDraft } from "@/lib/binding-draft";
+import { useRepositoryCredentials } from "../use-repository-credentials";
 import { AvailabilityField } from "./availability-field";
+import { CredentialCombobox } from "./credential-combobox";
 import { DraftField } from "./draft-field";
 
 const NO_ACTION = "none";
@@ -27,6 +29,8 @@ interface RepositoryFormProps {
 }
 
 export function RepositoryForm({ draft, errors, onEdit }: RepositoryFormProps) {
+  const credentials = useRepositoryCredentials();
+
   return (
     <>
       <AvailabilityField
@@ -44,9 +48,9 @@ export function RepositoryForm({ draft, errors, onEdit }: RepositoryFormProps) {
           description="An SSH address of GitHub or of an alias of ~/.ssh/config. A new owner or repository replaces the binding."
           onChange={(address) => onEdit({ ...draft, address })}
         />
-        <DraftField
+        <CredentialCombobox
           id="binding-credential"
-          label="Credential"
+          credentials={credentials.data ?? []}
           value={draft.credential}
           error={errors["credential"]}
           onChange={(credential) => onEdit({ ...draft, credential })}
