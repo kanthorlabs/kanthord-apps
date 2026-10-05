@@ -23,8 +23,11 @@ export function CredentialCreateSheet({
   const session = form.login.session;
 
   return (
-    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
+    <Sheet open={open} onOpenChange={(next) => !next && !form.login.inProgress && onClose()}>
+      <SheetContent
+        showCloseButton={!form.login.inProgress}
+        className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg"
+      >
         <SheetHeader>
           <SheetTitle>
             {session === null ? "New credential" : `Sign in for ${form.name}`}

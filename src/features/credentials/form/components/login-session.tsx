@@ -2,7 +2,9 @@ import type { CredentialLoginSession, CredentialLoginStatus } from "@/api/types"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { FieldGroup } from "@/components/ui/field";
+import { Spinner } from "@/components/ui/spinner";
 import { utcDateTime } from "@/lib/format";
 import { CredentialField } from "../../components/credential-field";
 import type { CredentialLoginState } from "../use-credential-login";
@@ -32,12 +34,6 @@ function SessionFacts({
       <dd className="font-mono break-all">{session.code ?? "none"}</dd>
       <dt className="text-muted-foreground">Expires</dt>
       <dd>{utcDateTime(session.expiresAt)}</dd>
-      {status?.lastMessage != null && (
-        <>
-          <dt className="text-muted-foreground">Message</dt>
-          <dd className="break-words">{status.lastMessage}</dd>
-        </>
-      )}
       {status?.failureReason != null && (
         <>
           <dt className="text-muted-foreground">Failure</dt>
@@ -45,6 +41,23 @@ function SessionFacts({
         </>
       )}
     </dl>
+  );
+}
+
+function WaitingStatus({ login }: { login: CredentialLoginState }) {
+  return (
+    <div role="status" aria-live="polite" className="flex items-start gap-2 text-sm">
+      <Spinner aria-hidden="true" role="presentation" className="mt-0.5 shrink-0" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <p>
+          Waiting for {login.platform} to confirm the sign-in. This can take up to 15 seconds after
+          you approve.
+        </p>
+        {login.status?.lastMessage != null && (
+          <p className="break-words text-muted-foreground">{login.status.lastMessage}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -93,6 +106,7 @@ export function LoginSession({
         every 2 seconds and opens the credential when the sign-in completes.
       </p>
       <SessionFacts session={session} status={login.status} />
+      {login.inProgress && <WaitingStatus login={login} />}
       {login.sessionMode === "browser" && (
         <div className="flex sm:justify-end">
           <Button
@@ -117,7 +131,16 @@ export function LoginSession({
           </AlertAction>
         </Alert>
       )}
-      {state === "pending" && <CodeForm login={login} />}
+      {state === "pending" && (
+        <Collapsible className="flex flex-col gap-2">
+          <CollapsibleTrigger render={<Button variant="link" size="sm" className="self-start" />}>
+            The callback failed?
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CodeForm login={login} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
       {(state === "failed" || state === "expired") && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">Custody stored nothing.</p>

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type * as Sonner from "sonner";
@@ -454,6 +454,10 @@ describe("CredentialFormScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Waiting for github-copilot to confirm the sign-in.",
+    );
+    expect(screen.queryByLabelText("Code or redirect URL")).toBeNull();
     expect(screen.getByRole("link", { name: SESSION.address })).toBeTruthy();
     expect(screen.getByText("2026-10-04 07:15 UTC")).toBeTruthy();
     expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
@@ -462,6 +466,26 @@ describe("CredentialFormScreen", () => {
     });
     expect(screen.queryByRole("button", { name: "Open sign-in page" })).toBeNull();
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
+  });
+
+  it("shows the last message of a pending sign-in in the waiting status", async () => {
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      sessionId: SESSION.sessionId,
+      state: "pending",
+      lastMessage: "Enabling models...",
+      failureReason: null,
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await choosePlatform("github-copilot");
+    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+
+    await waitFor(
+      () => expect(screen.getByRole("status")).toHaveTextContent("Enabling models..."),
+      { timeout: 4000 },
+    );
   });
 
   it("opens the credential when the sign-in completes", async () => {
@@ -498,6 +522,7 @@ describe("CredentialFormScreen", () => {
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await userEvent.click(await screen.findByRole("button", { name: "The callback failed?" }));
     const field = await screen.findByLabelText("Code or redirect URL");
     await userEvent.type(field, "http://localhost:1455/callback?code=1");
     await userEvent.click(screen.getByRole("button", { name: "Send code" }));

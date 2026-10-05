@@ -26,6 +26,8 @@ const MODES: readonly CredentialLoginMode[] = ["browser", "device"];
 export interface CredentialLoginState {
   readonly mode: CredentialLoginMode | null;
   readonly sessionMode: CredentialLoginMode | null;
+  readonly platform: CredentialPlatform | null;
+  readonly inProgress: boolean;
   readonly starting: boolean;
   readonly startError: string | null;
   readonly session: CredentialLoginSession | null;
@@ -60,6 +62,7 @@ export function useCredentialLogin(
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [platform, setPlatform] = useState<CredentialPlatform | null>(null);
   const [session, setSession] = useState<CredentialLoginSession | null>(null);
   const [status, setStatus] = useState<CredentialLoginStatus | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
@@ -112,6 +115,7 @@ export function useCredentialLogin(
         (next) => {
           setStarting(false);
           setName(nextName);
+          setPlatform(nextPlatform);
           setStatus(null);
           setPollError(null);
           setSessionMode(mode);
@@ -168,6 +172,8 @@ export function useCredentialLogin(
   return {
     mode,
     sessionMode,
+    platform,
+    inProgress: session !== null && (status?.state ?? "pending") === "pending",
     starting,
     startError,
     session,
