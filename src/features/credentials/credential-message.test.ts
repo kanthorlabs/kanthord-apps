@@ -62,14 +62,8 @@ describe("credentialMessage", () => {
     );
   });
 
-  it("names the owners of a failed health inventory", () => {
-    expect(
-      credentialMessage(
-        new ApiError("unavailable", "Down.", 503, "gateway.healthcheck.inventory_failed", {
-          missingInventories: ["llm"],
-        }),
-      ),
-    ).toBe("The health report could not read the inventory of: llm. Try again later.");
+  it("tells an unverifiable platform to save the credential first", () => {
+    expect(credentialMessage(refusal("credential.check.unsupported"))).toMatch(/no check/);
   });
 
   it("falls back to the daemon message", () => {

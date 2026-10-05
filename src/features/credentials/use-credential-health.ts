@@ -1,14 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 
-import { readHealthReport } from "@/api/resources/gateway";
-import type { CredentialComponent, HealthResourceMap } from "@/api/types";
+import { verifyCredential } from "@/api/resources/credentials";
+import type { CredentialComponent, HealthEntry } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { credentialMessage } from "./credential-message";
 
 export type CredentialHealthState =
   | { readonly status: "idle" }
   | { readonly status: "checking" }
-  | { readonly status: "ready"; readonly entries: HealthResourceMap; readonly checkedAt: number }
+  | { readonly status: "ready"; readonly entry: HealthEntry; readonly checkedAt: number }
   | { readonly status: "failed"; readonly message: string };
 
 export interface CredentialHealth {
@@ -20,6 +20,7 @@ export type HealthFailureHandler = (message: string, retry: () => void) => void;
 
 export function useCredentialHealth(
   component: CredentialComponent,
+  name: string,
   onFailure: HealthFailureHandler,
 ): CredentialHealth {
   const [state, setState] = useState<CredentialHealthState>({ status: "idle" });
@@ -30,14 +31,10 @@ export function useCredentialHealth(
       if (checking.current) return;
       checking.current = true;
       setState({ status: "checking" });
-      readHealthReport().then(
-        (report) => {
+      verifyCredential(component, name).then(
+        (entry) => {
           checking.current = false;
-          setState({
-            status: "ready",
-            entries: report.shared[component].global,
-            checkedAt: Date.now(),
-          });
+          setState({ status: "ready", entry, checkedAt: Date.now() });
         },
         (cause: unknown) => {
           checking.current = false;
@@ -47,7 +44,7 @@ export function useCredentialHealth(
         },
       );
     },
-    [component, onFailure],
+    [component, name, onFailure],
   );
 
   return { state, verify };

@@ -740,23 +740,3 @@ export interface HealthEntry {
   readonly status: ResourceStatus;
   readonly capability: string;
 }
-
-export type HealthResourceMap = Readonly<Record<string, HealthEntry>>;
-
-export interface HealthOwner {
-  readonly global: HealthResourceMap;
-  readonly projects: Readonly<Record<string, HealthResourceMap>>;
-}
-
-export interface HealthReport {
-  readonly services: {
-    readonly project: HealthOwner;
-    readonly intake: HealthOwner;
-    readonly worker: HealthOwner;
-  };
-  readonly shared: {
-    readonly llm: HealthOwner;
-    readonly repository: HealthOwner;
-    readonly storage: HealthOwner;
-  };
-}

@@ -18,6 +18,7 @@ import {
   startCredentialLogin,
   submitCredentialLoginCode,
   updateCredentialMetadata,
+  verifyCredential,
 } from "./credentials";
 
 interface Seen {
@@ -206,6 +207,17 @@ describe("credential mutations", () => {
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.url).toBe("/api/repository/credential/check");
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
+    expect(seen[0]?.headers["idempotency-key"]).toBeUndefined();
+  });
+
+  it("posts the verify of one record without a body or a mutation key", async () => {
+    await serve(200, [{ status: "unhealthy", capability: "rate-limit read" }]);
+
+    const health = await verifyCredential("repository", "ci github/1");
+    expect(health).toEqual({ status: "unhealthy", capability: "rate-limit read" });
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/repository/credential/ci%20github%2F1/verify");
+    expect(seen[0]?.body).toBe("");
     expect(seen[0]?.headers["idempotency-key"]).toBeUndefined();
   });
 

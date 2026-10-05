@@ -620,6 +620,10 @@ const HEALTH_CAPABILITIES = {
   "openai-compatible": "model-list read",
   s3: "bucket head",
 };
+const secretIsRejected = (secret) =>
+  typeof secret === "object" &&
+  secret !== null &&
+  Object.values(secret).some((value) => typeof value === "string" && value.startsWith("bad-"));
 const CREDENTIAL_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const LOGIN_EXPIRY_MS = 15 * 60 * 1000;
@@ -628,6 +632,11 @@ const HEALTHCHECK_DELAY_MS = 1500;
 const credentials = structuredClone(fx.CREDENTIALS);
 const pinnedRevisions = new Set(fx.PINNED_CREDENTIAL_REVISIONS);
 const loginSessions = new Map();
+const storedSecrets = new Map(
+  credentials
+    .filter((credential) => credential.name.startsWith("bad-"))
+    .map((credential) => [credential.name, { key: "bad-seed" }]),
+);
 let credentialSequence = 100;
 
 const credentialEnvelope = (res, status, code, message, details = null) =>
@@ -793,13 +802,33 @@ on("POST", credentialRoute("\\/check"), (m, b, res) => {
   }
   if (!secretIsValid(entry.secretShape, b.secret)) return refuseInvalidInput(res);
   if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
-  const rejected = Object.values(b.secret).some(
-    (value) => typeof value === "string" && value.startsWith("bad-"),
-  );
   return json(res, 200, {
-    status: rejected ? "unhealthy" : "healthy",
+    status: secretIsRejected(b.secret) ? "unhealthy" : "healthy",
     capability: HEALTH_CAPABILITIES[b.platform],
   });
+});
+
+on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
+  if (credential === undefined) return undefined;
+  if (refuseArchived(res, credential)) return undefined;
+  const entry = CREDENTIAL_PLATFORMS[credential.platform];
+  if (!entry.verifiable || entry.secretShape === "oauth") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.check.unsupported",
+      "The platform has no check.",
+    );
+  }
+  setTimeout(
+    () =>
+      json(res, 200, {
+        status: secretIsRejected(storedSecrets.get(credential.name)) ? "unhealthy" : "healthy",
+        capability: HEALTH_CAPABILITIES[credential.platform],
+      }),
+    HEALTHCHECK_DELAY_MS,
+  );
 });
 
 on("POST", credentialRoute(""), (m, b, res) => {
@@ -851,6 +880,7 @@ on("POST", credentialRoute(""), (m, b, res) => {
     ],
   };
   credentials.push(credential);
+  storedSecrets.set(credential.name, b.secret);
   return json(res, 200, credential);
 });
 
@@ -990,6 +1020,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res) => {
   }
   const metadata = b.metadata === undefined ? newestLive(credential).metadata : b.metadata;
   if (!metadataIsValid(credential.platform, metadata)) return refuseInvalidInput(res);
+  storedSecrets.set(credential.name, b.secret);
   return addRevision(credential, metadata, res);
 });
 
@@ -1056,34 +1087,6 @@ on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
     pinnedRevisions.delete(revision.id);
   }
   return json(res, 200, credential);
-});
-
-on("GET", /^\/api\/healthcheck$/, (_m, _b, res) => {
-  const owner = { global: {}, projects: {} };
-  const globalOf = (component) =>
-    Object.fromEntries(
-      credentials
-        .filter((credential) => componentEntry(component, credential.platform) !== undefined)
-        .map((credential) => [
-          credential.name,
-          {
-            status: credential.name.startsWith("bad-") ? "unhealthy" : "healthy",
-            capability: HEALTH_CAPABILITIES[credential.platform],
-          },
-        ]),
-    );
-  setTimeout(
-    () =>
-      json(res, 200, {
-        services: { project: owner, intake: owner, worker: owner },
-        shared: {
-          llm: { global: globalOf("llm"), projects: {} },
-          repository: { global: globalOf("repository"), projects: {} },
-          storage: { global: globalOf("storage"), projects: {} },
-        },
-      }),
-    HEALTHCHECK_DELAY_MS,
-  );
 });
 
 createServer((req, res) => {

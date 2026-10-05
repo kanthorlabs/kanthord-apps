@@ -73,6 +73,15 @@ export async function checkCredential(
   return request<HealthEntry>(`${credentialRoot(component)}/check`, { method: "POST", body });
 }
 
+export async function verifyCredential(
+  component: CredentialComponent,
+  credentialName: string,
+): Promise<HealthEntry> {
+  return request<HealthEntry>(`${credentialPath(component, credentialName)}/verify`, {
+    method: "POST",
+  });
+}
+
 export async function rotateCredential(
   component: CredentialComponent,
   credentialName: string,

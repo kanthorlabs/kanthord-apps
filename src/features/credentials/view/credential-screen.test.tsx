@@ -6,18 +6,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
-import * as gatewayApi from "@/api/resources/gateway";
 import type {
   CredentialComponent,
   CredentialPlatformEntry,
   CredentialPlatformList,
-  HealthOwner,
-  HealthReport,
+  HealthEntry,
   LlmCredential,
 } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
-vi.mock("@/api/resources/gateway");
 vi.mock("sonner", async (importOriginal) => ({
   ...(await importOriginal<typeof Sonner>()),
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
@@ -87,19 +84,7 @@ const GATEWAY: LlmCredential = {
   ],
 };
 
-const EMPTY_OWNER: HealthOwner = { global: {}, projects: {} };
-
-const HEALTHY: HealthReport = {
-  services: { project: EMPTY_OWNER, intake: EMPTY_OWNER, worker: EMPTY_OWNER },
-  shared: {
-    llm: {
-      global: { router: { status: "healthy", capability: "model-list read" } },
-      projects: {},
-    },
-    repository: EMPTY_OWNER,
-    storage: EMPTY_OWNER,
-  },
-};
+const HEALTHY: HealthEntry = { status: "healthy", capability: "model-list read" };
 
 function mount(component: CredentialComponent = "llm", section = "/llm") {
   return render(
@@ -309,9 +294,9 @@ describe("CredentialScreen", () => {
     expect(await within(sheet).findByText(/In use: qwen-plus \(agents: swe@1\)\./)).toBeTruthy();
   });
 
-  it("verifies the credential with a header badge and fixed report facts", async () => {
-    let answer: (report: HealthReport) => void = () => {};
-    vi.mocked(gatewayApi.readHealthReport).mockReturnValue(
+  it("verifies the credential with a header badge and fixed facts", async () => {
+    let answer: (entry: HealthEntry) => void = () => {};
+    vi.mocked(credentialsApi.verifyCredential).mockReturnValue(
       new Promise((resolve) => {
         answer = resolve;
       }),
@@ -333,18 +318,17 @@ describe("CredentialScreen", () => {
     answer(HEALTHY);
 
     await waitFor(() => expect(within(section).getByRole("status").textContent).toBe("Healthy"));
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledWith("llm", "router");
     expect(verify).toBeEnabled();
     expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("model-list read");
     expect(screen.getByText("Checked").nextElementSibling?.textContent).toMatch(/ UTC$/);
   });
 
-  it("reports a failed health report with a badge and a toast that retries", async () => {
-    vi.mocked(gatewayApi.readHealthReport).mockRejectedValueOnce(
-      new ApiError("unavailable", "Down.", 503, "gateway.healthcheck.inventory_failed", {
-        missingInventories: ["llm"],
-      }),
+  it("reports a failed verify with a badge and a toast that retries", async () => {
+    vi.mocked(credentialsApi.verifyCredential).mockRejectedValueOnce(
+      new ApiError("refused", "No check.", 400, "credential.check.unsupported"),
     );
-    vi.mocked(gatewayApi.readHealthReport).mockResolvedValueOnce(HEALTHY);
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValueOnce(HEALTHY);
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Verify" }));
@@ -356,8 +340,9 @@ describe("CredentialScreen", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("button", { name: "Verify" })).toBeEnabled();
     expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("—");
-    expect(toast.error).toHaveBeenCalledWith("The health report of router failed.", {
-      description: "The health report could not read the inventory of: llm. Try again later.",
+    expect(toast.error).toHaveBeenCalledWith("Verifying router failed.", {
+      description:
+        "This platform has no check before the save. Save the credential, then use Verify.",
       action: { label: "Retry", onClick: expect.any(Function) },
     });
 
@@ -365,7 +350,7 @@ describe("CredentialScreen", () => {
     act(() => retry.onClick({} as Parameters<Sonner.Action["onClick"]>[0]));
 
     await waitFor(() => expect(within(section).getByRole("status").textContent).toBe("Healthy"));
-    expect(gatewayApi.readHealthReport).toHaveBeenCalledTimes(2);
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledTimes(2);
   });
 
   it("offers no metadata edit for a platform without metadata", async () => {
@@ -419,7 +404,7 @@ describe("CredentialScreen", () => {
     expect(
       await screen.findByText("Verification is not supported yet for cloudflare-ai-gateway."),
     ).toBeTruthy();
-    expect(gatewayApi.readHealthReport).not.toHaveBeenCalled();
+    expect(credentialsApi.verifyCredential).not.toHaveBeenCalled();
   });
 
   it("archives a storage credential through its section and returns to that list", async () => {

@@ -40,7 +40,7 @@ function HealthSection({ entry, check }: HealthSectionProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <p className="text-sm text-muted-foreground">
-          Verify runs the resource healthcheck of the daemon. Custody makes no remote call at create
+          Verify checks this credential against its platform. Custody makes no remote call at create
           or rotate.
         </p>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-sm">

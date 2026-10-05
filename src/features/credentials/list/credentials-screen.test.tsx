@@ -6,18 +6,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
-import * as gatewayApi from "@/api/resources/gateway";
 import type {
   Credential,
   CredentialComponent,
   CredentialPlatformEntry,
   CredentialPlatformList,
-  HealthOwner,
-  HealthReport,
+  HealthEntry,
 } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
-vi.mock("@/api/resources/gateway");
 vi.mock("sonner", async (importOriginal) => ({
   ...(await importOriginal<typeof Sonner>()),
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
@@ -91,25 +88,8 @@ const PLATFORMS: CredentialPlatformList = {
   ],
 };
 
-const EMPTY_OWNER: HealthOwner = { global: {}, projects: {} };
-
-const REPORT: HealthReport = {
-  services: { project: EMPTY_OWNER, intake: EMPTY_OWNER, worker: EMPTY_OWNER },
-  shared: {
-    llm: {
-      global: {
-        "ci-openrouter": { status: "unhealthy", capability: "rate-limit read" },
-        router: { status: "healthy", capability: "model-list read" },
-      },
-      projects: {},
-    },
-    repository: {
-      global: { "ci-github": { status: "healthy", capability: "rate-limit read" } },
-      projects: {},
-    },
-    storage: EMPTY_OWNER,
-  },
-};
+const UNHEALTHY: HealthEntry = { status: "unhealthy", capability: "rate-limit read" };
+const HEALTHY: HealthEntry = { status: "healthy", capability: "rate-limit read" };
 
 function mount(component: CredentialComponent = "llm", section = "/llm") {
   return render(
@@ -246,7 +226,7 @@ describe("CredentialsScreen", () => {
         timeout: 300,
       }),
     ).toBeTruthy();
-    expect(gatewayApi.readHealthReport).not.toHaveBeenCalled();
+    expect(credentialsApi.verifyCredential).not.toHaveBeenCalled();
   });
 
   it("opens the Verify tooltip on hover", async () => {
@@ -300,13 +280,13 @@ describe("CredentialsScreen", () => {
     expect(screen.queryByRole("button", { name: "Edit metadata of legacy" })).toBeNull();
   });
 
-  it("shows the check state as a badge on the row and keeps the report details off it", async () => {
+  it("shows the check state as a badge on the row and keeps the other rows idle", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER, ROUTER],
       nextCursor: null,
     });
-    let answer: (report: HealthReport) => void = () => {};
-    vi.mocked(gatewayApi.readHealthReport).mockReturnValue(
+    let answer: (entry: HealthEntry) => void = () => {};
+    vi.mocked(credentialsApi.verifyCredential).mockReturnValue(
       new Promise((resolve) => {
         answer = resolve;
       }),
@@ -323,7 +303,7 @@ describe("CredentialsScreen", () => {
     expect(verify).toBeDisabled();
     expect(verify).toHaveAttribute("aria-busy", "true");
 
-    answer(REPORT);
+    answer(UNHEALTHY);
 
     await waitFor(() =>
       expect(within(items[0]!).getByRole("status").textContent).toBe("Unhealthy"),
@@ -333,20 +313,19 @@ describe("CredentialsScreen", () => {
     expect(within(items[0]!).queryByText(/Health checked at/)).toBeNull();
     expect(within(items[0]!).queryByText(/Checking\. The health report/)).toBeNull();
     expect(within(items[1]!).getByRole("status").textContent).toBe("");
-    expect(gatewayApi.readHealthReport).toHaveBeenCalledTimes(1);
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledTimes(1);
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledWith("llm", "ci-openrouter");
   });
 
-  it("reports a failed health report with a badge and a toast that retries", async () => {
+  it("reports a failed verify with a badge and a toast that retries", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER],
       nextCursor: null,
     });
-    vi.mocked(gatewayApi.readHealthReport).mockRejectedValueOnce(
-      new ApiError("unavailable", "Down.", 503, "gateway.healthcheck.inventory_failed", {
-        missingInventories: ["llm"],
-      }),
+    vi.mocked(credentialsApi.verifyCredential).mockRejectedValueOnce(
+      new ApiError("conflict", "Archived.", 409, "credential.credential.archived"),
     );
-    vi.mocked(gatewayApi.readHealthReport).mockResolvedValueOnce(REPORT);
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValueOnce(UNHEALTHY);
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Verify ci-openrouter" }));
@@ -355,8 +334,8 @@ describe("CredentialsScreen", () => {
     await waitFor(() => expect(within(item).getByRole("status").textContent).toBe("Check failed"));
     expect(within(item).queryByRole("alert")).toBeNull();
     expect(screen.getByRole("button", { name: "Verify ci-openrouter" })).toBeEnabled();
-    expect(toast.error).toHaveBeenCalledWith("The health report of ci-openrouter failed.", {
-      description: "The health report could not read the inventory of: llm. Try again later.",
+    expect(toast.error).toHaveBeenCalledWith("Verifying ci-openrouter failed.", {
+      description: "This credential is archived. An archive is final, and the name stays taken.",
       action: { label: "Retry", onClick: expect.any(Function) },
     });
 
@@ -364,7 +343,7 @@ describe("CredentialsScreen", () => {
     act(() => retry.onClick({} as Parameters<Sonner.Action["onClick"]>[0]));
 
     await waitFor(() => expect(within(item).getByRole("status").textContent).toBe("Unhealthy"));
-    expect(gatewayApi.readHealthReport).toHaveBeenCalledTimes(2);
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledTimes(2);
   });
 
   it("rotates a credential from its row", async () => {
@@ -437,16 +416,17 @@ describe("CredentialsScreen", () => {
     expect(screen.getByText("Credential view")).toBeTruthy();
   });
 
-  it("reads the health of the repository section from shared.repository", async () => {
+  it("verifies a repository credential through the repository section", async () => {
     const GITHUB: Credential = { ...OPENROUTER, name: "ci-github", platform: "github" };
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [GITHUB],
       nextCursor: null,
     });
-    vi.mocked(gatewayApi.readHealthReport).mockResolvedValue(REPORT);
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValue(HEALTHY);
     mount("repository", "/repositories");
 
     await userEvent.click(await screen.findByRole("button", { name: "Verify ci-github" }));
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledWith("repository", "ci-github");
 
     const item = within(screen.getByRole("list", { name: "Credentials" })).getByRole("listitem");
     await waitFor(() => expect(within(item).getByRole("status").textContent).toBe("Healthy"));

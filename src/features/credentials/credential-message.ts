@@ -51,14 +51,6 @@ function modelInUseMessage(details: unknown): string {
   return uses.length === 0 ? base : `${base} In use: ${uses.join("; ")}.`;
 }
 
-function inventoryFailedMessage(details: unknown): string {
-  const owners =
-    isRecord(details) && Array.isArray(details["missingInventories"])
-      ? details["missingInventories"].map(String)
-      : [];
-  return `The health report could not read the inventory of: ${owners.join(", ") || "an owner"}. Try again later.`;
-}
-
 function dependentLabel(entry: unknown): string {
   if (typeof entry === "string") return entry;
   if (isRecord(entry)) {
@@ -90,8 +82,5 @@ export function credentialMessage(cause: ApiError): string {
   if (cause.detail === "credential.name.conflict") return nameConflictMessage(cause.details);
   if (cause.detail === "llm.metadata.model_in_use") return modelInUseMessage(cause.details);
   if (cause.detail === "credential.credential.in_use") return inUseMessage(cause.details);
-  if (cause.detail === "gateway.healthcheck.inventory_failed") {
-    return inventoryFailedMessage(cause.details);
-  }
   return MESSAGES[cause.detail] ?? cause.message;
 }

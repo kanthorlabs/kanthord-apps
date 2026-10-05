@@ -22,21 +22,21 @@ export interface CredentialCheck {
   readonly verify: () => void;
 }
 
-function checkBadge(state: CredentialHealthState, name: string): CheckBadge | null {
+function checkBadge(state: CredentialHealthState): CheckBadge | null {
   if (state.status === "checking") return { label: "Checking", variant: "outline", busy: true };
   if (state.status === "failed") {
     return { label: "Check failed", variant: "destructive", busy: false };
   }
   if (state.status === "ready") {
-    const entry = state.entries[name];
+    const { entry } = state;
     return { label: healthLabel(entry), variant: healthVariant(entry), busy: false };
   }
   return null;
 }
 
-function capabilityOf(state: CredentialHealthState, name: string): string {
+function capabilityOf(state: CredentialHealthState): string {
   if (state.status !== "ready") return NO_FACT;
-  return state.entries[name]?.capability ?? NO_FACT;
+  return state.entry.capability;
 }
 
 function checkedAtOf(state: CredentialHealthState): string {
@@ -46,18 +46,18 @@ function checkedAtOf(state: CredentialHealthState): string {
 export function useCredentialCheck(component: CredentialComponent, name: string): CredentialCheck {
   const announceFailure = useCallback(
     (message: string, retry: () => void) => {
-      toast.error(`The health report of ${name} failed.`, {
+      toast.error(`Verifying ${name} failed.`, {
         description: message,
         action: { label: "Retry", onClick: retry },
       });
     },
     [name],
   );
-  const { state, verify } = useCredentialHealth(component, announceFailure);
+  const { state, verify } = useCredentialHealth(component, name, announceFailure);
 
   return {
-    badge: checkBadge(state, name),
-    capability: capabilityOf(state, name),
+    badge: checkBadge(state),
+    capability: capabilityOf(state),
     checkedAt: checkedAtOf(state),
     checking: state.status === "checking",
     verify,
