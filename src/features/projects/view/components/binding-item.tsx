@@ -1,12 +1,18 @@
+import { Loader2Icon, ShieldCheckIcon } from "lucide-react";
+
 import type { BindingSetEntry } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { isAvailable } from "@/lib/binding-change";
+import type { BindingCheckBadge, BindingVerifyState } from "../use-binding-verify";
 
 interface BindingItemProps {
   readonly name: string;
   readonly entry: BindingSetEntry;
+  readonly bindingId: string | null;
+  readonly verifyState: BindingVerifyState;
+  readonly onVerify: () => void;
   readonly onEdit: () => void;
   readonly onRemove: () => void;
 }
@@ -37,8 +43,28 @@ function factsOf(entry: BindingSetEntry): readonly string[] {
   ];
 }
 
-export function BindingItem({ name, entry, onEdit, onRemove }: BindingItemProps) {
+function HealthBadge({ badge, label }: { badge: BindingCheckBadge; label: string }) {
+  return (
+    <Badge variant={badge.variant}>
+      {badge.busy && (
+        <Loader2Icon aria-hidden="true" data-icon="inline-start" className="animate-spin" />
+      )}
+      {label} · {badge.label}
+    </Badge>
+  );
+}
+
+export function BindingItem({
+  name,
+  entry,
+  bindingId,
+  verifyState,
+  onVerify,
+  onEdit,
+  onRemove,
+}: BindingItemProps) {
   const available = isAvailable(entry);
+  const showVerify = entry.kind === "repository" && bindingId !== null;
 
   return (
     <Item variant="outline" role="listitem">
@@ -48,10 +74,33 @@ export function BindingItem({ name, entry, onEdit, onRemove }: BindingItemProps)
           <Badge variant={available ? "secondary" : "destructive"}>
             {available ? "available" : "unavailable"}
           </Badge>
+          {showVerify && (
+            <span role="status" className="inline-flex gap-1">
+              {verifyState.addressBadge !== null && (
+                <HealthBadge badge={verifyState.addressBadge} label="Address" />
+              )}
+              {verifyState.credentialBadge !== null && (
+                <HealthBadge badge={verifyState.credentialBadge} label="Credential" />
+              )}
+            </span>
+          )}
         </ItemTitle>
         <ItemDescription className="break-words">{factsOf(entry).join(" · ")}</ItemDescription>
       </ItemContent>
       <ItemActions className="basis-full md:basis-auto">
+        {showVerify && (
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label={`Verify ${name}`}
+            aria-busy={verifyState.checking}
+            disabled={verifyState.checking}
+            onClick={onVerify}
+          >
+            <ShieldCheckIcon aria-hidden="true" data-icon="inline-start" />
+            Verify
+          </Button>
+        )}
         <Button variant="outline" size="sm" aria-label={`Edit ${name}`} onClick={onEdit}>
           Edit
         </Button>

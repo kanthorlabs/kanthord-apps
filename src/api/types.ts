@@ -740,3 +740,8 @@ export interface HealthEntry {
   readonly status: ResourceStatus;
   readonly capability: string;
 }
+
+export interface BindingVerifyResult {
+  readonly address: HealthEntry;
+  readonly credential: HealthEntry;
+}

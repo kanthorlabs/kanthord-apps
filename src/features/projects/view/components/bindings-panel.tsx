@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBindingEditor } from "../use-binding-editor";
+import { useBindingVerify } from "../use-binding-verify";
 import { BindingGuardDialog } from "./binding-guard-dialog";
 import { BindingItem } from "./binding-item";
 import { BindingSheet } from "./binding-sheet";
@@ -26,6 +27,8 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
   const { bindings, guard, target } = editor;
   const { data, error, loading, reload } = bindings.resource;
   const current = data?.bindings ?? {};
+
+  const bindingVerify = useBindingVerify(projectId, data?.version ?? null);
 
   if (loading && data === null) {
     return (
@@ -86,15 +89,23 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
               </p>
             ) : (
               <ItemGroup aria-label={section.label} className="gap-2">
-                {entries.map(([name, entry]) => (
-                  <BindingItem
-                    key={name}
-                    name={name}
-                    entry={entry}
-                    onEdit={() => editor.openTarget({ kind: entry.kind, name, entry })}
-                    onRemove={() => editor.propose(name, null)}
-                  />
-                ))}
+                {entries.map(([name, entry]) => {
+                  const bindingId = bindingVerify.bindingIdOf(name);
+                  return (
+                    <BindingItem
+                      key={name}
+                      name={name}
+                      entry={entry}
+                      bindingId={bindingId}
+                      verifyState={bindingVerify.getState(bindingId)}
+                      onVerify={() => {
+                        if (bindingId !== null) bindingVerify.verify(bindingId);
+                      }}
+                      onEdit={() => editor.openTarget({ kind: entry.kind, name, entry })}
+                      onRemove={() => editor.propose(name, null)}
+                    />
+                  );
+                })}
               </ItemGroup>
             )}
           </section>

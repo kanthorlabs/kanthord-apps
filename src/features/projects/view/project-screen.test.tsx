@@ -37,6 +37,7 @@ describe("ProjectScreen", () => {
       projectId: KANTHORD.id,
       version: 1,
     });
+    vi.mocked(projectsApi.listBindings).mockResolvedValue([]);
   });
 
   it("shows the information of the project in the path", async () => {

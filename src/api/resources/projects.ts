@@ -4,12 +4,14 @@ import type {
   BindingSet,
   BindingSetEntry,
   BindingSetWriteResult,
+  BindingVerifyResult,
   Page,
   Project,
   ProjectBindingRecord,
 } from "../types";
 
 const PROJECT_PAGE_LIMIT = 1000;
+const BINDING_PAGE_LIMIT = 1000;
 
 export async function listProjects(): Promise<readonly Project[]> {
   const projects: Project[] = [];
@@ -66,11 +68,36 @@ export async function writeBindingSet(
   );
 }
 
+export async function listBindings(projectId: string): Promise<readonly ProjectBindingRecord[]> {
+  const bindings: ProjectBindingRecord[] = [];
+  let cursor: string | null = null;
+  do {
+    const query = new URLSearchParams({ limit: String(BINDING_PAGE_LIMIT) });
+    if (cursor !== null) query.set("cursor", cursor);
+    const page: Page<ProjectBindingRecord> = await request<Page<ProjectBindingRecord>>(
+      `/api/project/${encodeURIComponent(projectId)}/binding?${query}`,
+    );
+    bindings.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor !== null);
+  return bindings;
+}
+
 export async function readBinding(
   projectId: string,
   bindingId: string,
 ): Promise<ProjectBindingRecord> {
   return request<ProjectBindingRecord>(
     `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}`,
+  );
+}
+
+export async function verifyBinding(
+  projectId: string,
+  bindingId: string,
+): Promise<BindingVerifyResult> {
+  return request<BindingVerifyResult>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/verify`,
+    { method: "POST" },
   );
 }

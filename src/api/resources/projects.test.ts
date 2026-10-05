@@ -9,6 +9,7 @@ import {
   listProjectPage,
   listProjects,
   renameProject,
+  verifyBinding,
   writeBindingSet,
 } from "./projects";
 
@@ -109,5 +110,20 @@ describe("writeBindingSet", () => {
     expect(seen[0]?.method).toBe("PUT");
     expect(seen[0]?.url).toBe("/api/project/prj-1/binding-set");
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
+describe("verifyBinding", () => {
+  it("posts project.binding.verify and returns address and credential health entries", async () => {
+    const result = {
+      address: { status: "healthy", capability: "network git read" },
+      credential: { status: "healthy", capability: "repository credential verify" },
+    };
+    const base = await serve([result]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await verifyBinding("prj-1", "binding_ABC")).toEqual(result);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/binding/binding_ABC/verify");
   });
 });

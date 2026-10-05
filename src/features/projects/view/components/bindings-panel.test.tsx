@@ -1,14 +1,21 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type * as Sonner from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
-import type { BindingSet, BindingSetEntry } from "@/api/types";
+import type { BindingSet, BindingSetEntry, ProjectBindingRecord } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/mission");
+vi.mock("sonner", async (importOriginal) => ({
+  ...(await importOriginal<typeof Sonner>()),
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
+
+import { toast } from "sonner";
 
 import { BindingsPanel } from "./bindings-panel";
 
@@ -29,6 +36,30 @@ const WORKER: BindingSetEntry = {
 
 const SET: BindingSet = { version: 2, bindings: { "kanthord-repo": REPO, "general-main": WORKER } };
 
+const BINDING_REPO: ProjectBindingRecord = {
+  id: "binding_REPO1",
+  projectId: "project_1",
+  name: "kanthord-repo",
+  kind: "repository",
+  resourceIdentity: "repository:github:kanthorlabs/kanthord",
+  revision: 1,
+  config: REPO.config,
+  createdAt: 1,
+  removedAt: null,
+};
+
+const BINDING_WORKER: ProjectBindingRecord = {
+  id: "binding_WORK1",
+  projectId: "project_1",
+  name: "general-main",
+  kind: "worker",
+  resourceIdentity: "worker:kanthord:general-main",
+  revision: 1,
+  config: WORKER.config,
+  createdAt: 1,
+  removedAt: null,
+};
+
 const onWritten = vi.fn();
 
 function mount() {
@@ -39,10 +70,15 @@ describe("BindingsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue(SET);
+    vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
       projectId: "project_1",
       bindingSetVersion: 3,
       changes: [],
+    });
+    vi.mocked(projectsApi.verifyBinding).mockResolvedValue({
+      address: { status: "healthy", capability: "network git read" },
+      credential: { status: "healthy", capability: "repository credential verify" },
     });
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission_1",
@@ -194,5 +230,31 @@ describe("BindingsPanel", () => {
 
     expect(screen.getByText("Another binding of this project uses this name.")).toBeTruthy();
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+  });
+
+  it("presses Verify on kanthord-repo and shows address and credential badges", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
+
+    expect(await screen.findByText("Address · Healthy")).toBeTruthy();
+    expect(screen.getByText("Credential · Healthy")).toBeTruthy();
+    expect(projectsApi.verifyBinding).toHaveBeenCalledWith("project_1", "binding_REPO1");
+  });
+
+  it("shows an error toast when verify fails with an error code", async () => {
+    vi.mocked(projectsApi.verifyBinding).mockRejectedValue(
+      new ApiError("not_found", "Binding not found.", 404, "project.binding.not_found"),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "Verifying binding failed.",
+        expect.objectContaining({ description: "Binding not found." }),
+      ),
+    );
   });
 });
