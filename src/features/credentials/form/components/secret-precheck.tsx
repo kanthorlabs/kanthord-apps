@@ -10,8 +10,8 @@ interface SecretPrecheckProps {
 
 export function SecretPrecheck({ platform, precheck }: SecretPrecheckProps) {
   return (
-    <div className="flex flex-col gap-2 md:col-span-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-2">
+      <div className="flex min-h-10 flex-wrap items-center gap-2">
         <VerifyButton
           platform={platform}
           verifiable

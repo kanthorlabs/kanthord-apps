@@ -134,23 +134,27 @@ function CreateForm({
                 />
               </FieldGroup>
             )}
+          </>
+        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between md:col-span-2">
+          <div>
             {form.precheck.available && (
               <SecretPrecheck platform={form.platform} precheck={form.precheck} />
             )}
-          </>
-        )}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
-          <Button
-            nativeButton={false}
-            render={<Link to={credentialSectionPath(component)} />}
-            variant="outline"
-            size="lg"
-          >
-            Cancel
-          </Button>
-          <Button type="submit" size="lg" disabled={form.submitting}>
-            {form.oauth ? "Start sign-in" : "Create credential"}
-          </Button>
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            <Button
+              nativeButton={false}
+              render={<Link to={credentialSectionPath(component)} />}
+              variant="outline"
+              size="lg"
+            >
+              Cancel
+            </Button>
+            <Button type="submit" size="lg" disabled={form.submitting}>
+              {form.oauth ? "Start sign-in" : "Create credential"}
+            </Button>
+          </div>
         </div>
       </FieldGroup>
     </form>
