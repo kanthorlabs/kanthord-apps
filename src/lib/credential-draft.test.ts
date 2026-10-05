@@ -5,6 +5,7 @@ import {
   EMPTY_METADATA,
   EMPTY_MODEL,
   EMPTY_SECRET,
+  checkBodyOf,
   createBodyOf,
   credentialNameError,
   editMetadataOf,
@@ -52,6 +53,7 @@ describe("credentialNameError", () => {
     expect(credentialNameError("2ci")).toMatch(/lowercase letter/);
     expect(credentialNameError("a".repeat(64))).toBe("Use at most 63 characters.");
     expect(credentialNameError("login")).toMatch(/reserved/);
+    expect(credentialNameError("check")).toBe("The name check is reserved. Choose another name.");
   });
 });
 
@@ -84,6 +86,23 @@ describe("secretOfDraft", () => {
     expect(
       secretOfDraft("oauth", { ...EMPTY_SECRET, refresh: "r", access: "a", expires: "soon" }),
     ).toMatchObject({ ok: false, errors: { expires: "Enter the expiry as Unix milliseconds." } });
+  });
+});
+
+describe("checkBodyOf", () => {
+  it("builds the create body without the name", () => {
+    expect(checkBodyOf(GITHUB, { ...EMPTY_SECRET, key: "k" }, EMPTY_METADATA)).toEqual({
+      ok: true,
+      value: { platform: "github", metadata: null, secret: { key: "k" } },
+    });
+  });
+
+  it("reports a blank secret and refuses an oauth platform", () => {
+    expect(checkBodyOf(GITHUB, EMPTY_SECRET, EMPTY_METADATA)).toMatchObject({
+      ok: false,
+      errors: { key: "Enter a value." },
+    });
+    expect(checkBodyOf(GITHUB_COPILOT, EMPTY_SECRET, EMPTY_METADATA).ok).toBe(false);
   });
 });
 

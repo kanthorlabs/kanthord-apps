@@ -14,6 +14,8 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "credential.credential.not_found": "The credential does not exist.",
   "credential.input.invalid":
     "Custody refused the secret or the metadata. Check each field against the rules of the platform.",
+  "credential.check.unsupported":
+    "This platform has no check before the save. Save the credential, then use Verify.",
   "credential.platform.unsupported": "Custody does not support this platform.",
   "credential.entry.unsupported":
     "This platform does not accept this entry method. An OAuth platform takes its credential through a sign-in.",

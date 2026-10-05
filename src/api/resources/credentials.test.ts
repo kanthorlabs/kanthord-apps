@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setConnection } from "../client";
 import {
   archiveCredential,
+  checkCredential,
   createCredential,
   listCredentialPage,
   listCredentialPlatforms,
@@ -194,6 +195,18 @@ describe("credential mutations", () => {
     expect(seen[0]?.url).toBe("/api/repository/credential");
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("posts the typed secret to the pre-save check without a mutation key", async () => {
+    await serve(200, [{ status: "healthy", capability: "rate-limit read" }]);
+    const body = { platform: "github", metadata: null, secret: { key: "ghp-1" } } as const;
+
+    const health = await checkCredential("repository", body);
+    expect(health).toEqual({ status: "healthy", capability: "rate-limit read" });
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/repository/credential/check");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
+    expect(seen[0]?.headers["idempotency-key"]).toBeUndefined();
   });
 
   it("posts the rotate at the expected revision", async () => {

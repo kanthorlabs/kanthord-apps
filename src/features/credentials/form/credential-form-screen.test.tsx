@@ -41,8 +41,9 @@ function entry(
   secretShape: CredentialPlatformEntry["secretShape"],
   loginModes: CredentialPlatformEntry["loginModes"],
   metadataFields: readonly string[],
+  verifiable = true,
 ): CredentialPlatformEntry {
-  return { platform, secretShape, loginModes, metadataFields, verifiable: true };
+  return { platform, secretShape, loginModes, metadataFields, verifiable };
 }
 
 const PLATFORMS: Readonly<Record<CredentialComponent, CredentialPlatformList>> = {
@@ -55,6 +56,7 @@ const PLATFORMS: Readonly<Record<CredentialComponent, CredentialPlatformList>> =
       entry("openrouter", "api_key", [], []),
       entry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"]),
       entry("acme-sso", "oauth", ["device"], []),
+      entry("mistral", "api_key", [], [], false),
     ],
   },
   storage: { items: [entry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"])] },
@@ -272,6 +274,121 @@ describe("CredentialFormScreen", () => {
 
     expect(screen.getByText("The name login is reserved. Choose another name.")).toBeTruthy();
     expect(screen.getByText("Enter a value.")).toBeTruthy();
+    expect(credentialsApi.createCredential).not.toHaveBeenCalled();
+  });
+
+  it("checks the typed secret without a name and shows a healthy badge", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "rate-limit read",
+    });
+    await mount("repository");
+
+    await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+
+    expect(await screen.findByText("Healthy")).toBeTruthy();
+    expect(credentialsApi.checkCredential).toHaveBeenCalledWith("repository", {
+      platform: "github",
+      metadata: null,
+      secret: { key: "ghp-secret" },
+    });
+    expect(credentialsApi.createCredential).not.toHaveBeenCalled();
+  });
+
+  it("shows an unhealthy and an unknown badge", async () => {
+    vi.mocked(credentialsApi.checkCredential)
+      .mockResolvedValueOnce({ status: "unhealthy", capability: "rate-limit read" })
+      .mockResolvedValueOnce({ status: "unknown", capability: "rate-limit read" });
+    await mount("repository");
+
+    await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Unhealthy")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Unknown")).toBeTruthy();
+    expect(screen.queryByText("Unhealthy")).toBeNull();
+  });
+
+  it("sends the typed metadata of the platform with the check", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "model-list read",
+    });
+    await mount("llm");
+
+    await choosePlatform("openai-compatible");
+    await userEvent.type(screen.getByLabelText("API key"), "sk-1");
+    await userEvent.type(screen.getByLabelText("baseUrl"), "https://openrouter.ai/api/v1");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+
+    expect(await screen.findByText("Healthy")).toBeTruthy();
+    expect(credentialsApi.checkCredential).toHaveBeenCalledWith("llm", {
+      platform: "openai-compatible",
+      metadata: { baseUrl: "https://openrouter.ai/api/v1", models: [] },
+      secret: { key: "sk-1" },
+    });
+  });
+
+  it("resets the badge when the secret or the platform changes", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "rate-limit read",
+    });
+    await mount("llm");
+
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API key"), "sk-1");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Healthy")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("API key"), "2");
+    expect(screen.queryByText("Healthy")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Healthy")).toBeTruthy();
+    await choosePlatform("openai-compatible");
+    expect(screen.queryByText("Healthy")).toBeNull();
+  });
+
+  it("shows the message of a refused check and asks no check for an empty secret", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockRejectedValue(
+      new ApiError("malformed", "Invalid.", 400, "credential.input.invalid"),
+    );
+    await mount("repository");
+
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(screen.getByText("Enter a value.")).toBeTruthy();
+    expect(credentialsApi.checkCredential).not.toHaveBeenCalled();
+
+    await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Check failed")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Custody refused the secret or the metadata. Check each field against the rules of the platform.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("offers no check for a platform that is not verifiable or takes a sign-in", async () => {
+    await mount("llm");
+
+    expect(screen.queryByRole("button", { name: "Check the typed secret" })).toBeNull();
+    await choosePlatform("mistral");
+    expect(screen.getByLabelText("API key")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Check the typed secret" })).toBeNull();
+    await choosePlatform("openrouter");
+    expect(screen.getByRole("button", { name: "Check the typed secret" })).toBeTruthy();
+  });
+
+  it("refuses the reserved name check before any request", async () => {
+    await mount("repository");
+
+    await userEvent.type(screen.getByLabelText("Name"), "check");
+    await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    expect(screen.getByText("The name check is reserved. Choose another name.")).toBeTruthy();
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
   });
 

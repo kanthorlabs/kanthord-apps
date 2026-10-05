@@ -4,6 +4,7 @@ import { readAllPages } from "../pages";
 import type {
   ComponentCredential,
   Credential,
+  CredentialCheckBody,
   CredentialComponent,
   CredentialCreateBody,
   CredentialLoginBody,
@@ -13,6 +14,7 @@ import type {
   CredentialPlatform,
   CredentialPlatformList,
   CredentialRotateBody,
+  HealthEntry,
   Page,
 } from "../types";
 
@@ -62,6 +64,13 @@ export async function createCredential(
     body,
     headers: { "idempotency-key": newUlid() },
   });
+}
+
+export async function checkCredential(
+  component: CredentialComponent,
+  body: CredentialCheckBody,
+): Promise<HealthEntry> {
+  return request<HealthEntry>(`${credentialRoot(component)}/check`, { method: "POST", body });
 }
 
 export async function rotateCredential(

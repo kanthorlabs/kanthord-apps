@@ -25,6 +25,7 @@ import { credentialDetailPath } from "@/lib/credential-sections";
 import { credentialMessage } from "../credential-message";
 import { useCredentialPlatforms } from "../use-credential-platforms";
 import { useCredentialLogin, type CredentialLoginState } from "./use-credential-login";
+import { useCredentialPrecheck, type CredentialPrecheck } from "./use-credential-precheck";
 
 export interface CredentialFormState {
   readonly name: string;
@@ -39,6 +40,7 @@ export interface CredentialFormState {
   readonly submitError: string | null;
   readonly submitting: boolean;
   readonly login: CredentialLoginState;
+  readonly precheck: CredentialPrecheck;
   readonly setName: (name: string) => void;
   readonly selectPlatform: (value: string | null) => void;
   readonly setSecret: (secret: SecretDraft) => void;
@@ -64,6 +66,15 @@ export function useCredentialForm(component: CredentialComponent): CredentialFor
   const [submitting, setSubmitting] = useState(false);
   const oauth = entry?.secretShape === "oauth";
   const { start: startLogin, clearStartError } = login;
+  const clearErrors = useCallback(() => setErrors(NO_ERRORS), []);
+  const precheck = useCredentialPrecheck(
+    component,
+    entry,
+    secret,
+    metadata,
+    setErrors,
+    clearErrors,
+  );
 
   const setName = useCallback((next: string) => setNameValue(next), []);
 
@@ -130,6 +141,7 @@ export function useCredentialForm(component: CredentialComponent): CredentialFor
     submitError: oauth ? login.startError : submitError,
     submitting: submitting || login.starting,
     login,
+    precheck,
     setName,
     selectPlatform,
     setSecret,

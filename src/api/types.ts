@@ -697,6 +697,8 @@ export interface CredentialCreateBody {
   readonly secret: ApiKeySecret | S3AccessKeySecret;
 }
 
+export type CredentialCheckBody = Omit<CredentialCreateBody, "name">;
+
 export interface CredentialRotateBody {
   readonly expectedRevision: number;
   readonly secret: CredentialSecret;

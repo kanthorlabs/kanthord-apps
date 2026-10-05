@@ -1,4 +1,5 @@
 import type {
+  CredentialCheckBody,
   CredentialCreateBody,
   CredentialLoginMode,
   CredentialMetadata,
@@ -73,7 +74,7 @@ export const EMPTY_MODEL: ModelDraft = {
 
 const CREDENTIAL_NAME = /^[a-z][a-z0-9-]*$/;
 const NAME_MAX_LENGTH = 63;
-const RESERVED_NAME = "login";
+const RESERVED_NAMES: readonly string[] = ["login", "check"];
 const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/;
 const INTEGER = /^-?[0-9]+$/;
@@ -89,7 +90,7 @@ export function credentialNameError(name: string): string | null {
   if (!CREDENTIAL_NAME.test(name)) {
     return "Start with a lowercase letter. Use only lowercase letters, digits and hyphens.";
   }
-  if (name === RESERVED_NAME) return "The name login is reserved. Choose another name.";
+  if (RESERVED_NAMES.includes(name)) return `The name ${name} is reserved. Choose another name.`;
   return null;
 }
 
@@ -196,21 +197,18 @@ function modelOfDraft(
   };
 }
 
-export function createBodyOf(
-  name: string,
+export function checkBodyOf(
   entry: CredentialPlatformEntry,
   secretDraft: SecretDraft,
   metadataDraft: MetadataDraft,
-): DraftResult<CredentialCreateBody> {
-  const errors: Record<string, string> = {};
-  const nameError = credentialNameError(name);
-  if (nameError !== null) errors["name"] = nameError;
+): DraftResult<CredentialCheckBody> {
   if (entry.secretShape === "oauth") {
     return {
       ok: false,
-      errors: { ...errors, platform: "This platform takes its credential through a sign-in." },
+      errors: { platform: "This platform takes its credential through a sign-in." },
     };
   }
+  const errors: Record<string, string> = {};
   const secret = secretOfDraft(entry.secretShape, secretDraft);
   if (!secret.ok) Object.assign(errors, secret.errors);
   const metadata =
@@ -221,12 +219,29 @@ export function createBodyOf(
   return {
     ok: true,
     value: {
-      name,
       platform: entry.platform,
       metadata,
-      secret: secret.value as CredentialCreateBody["secret"],
+      secret: secret.value as CredentialCheckBody["secret"],
     },
   };
+}
+
+export function createBodyOf(
+  name: string,
+  entry: CredentialPlatformEntry,
+  secretDraft: SecretDraft,
+  metadataDraft: MetadataDraft,
+): DraftResult<CredentialCreateBody> {
+  const nameError = credentialNameError(name);
+  const body = checkBodyOf(entry, secretDraft, metadataDraft);
+  if (!body.ok) {
+    return {
+      ok: false,
+      errors: nameError === null ? body.errors : { name: nameError, ...body.errors },
+    };
+  }
+  if (nameError !== null) return { ok: false, errors: { name: nameError } };
+  return { ok: true, value: { name, ...body.value } };
 }
 
 export function rotateMetadataOf(

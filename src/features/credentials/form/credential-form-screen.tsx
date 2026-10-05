@@ -19,6 +19,7 @@ import { MetadataFields } from "../components/metadata-fields";
 import { PlatformCombobox } from "../components/platform-combobox";
 import { SecretFields } from "../components/secret-fields";
 import { LoginSession } from "./components/login-session";
+import { SecretPrecheck } from "./components/secret-precheck";
 import { useCredentialForm, type CredentialFormState } from "./use-credential-form";
 
 const MODE_LABELS = {
@@ -132,6 +133,9 @@ function CreateForm({
                   onEdit={form.setMetadata}
                 />
               </FieldGroup>
+            )}
+            {form.precheck.available && (
+              <SecretPrecheck platform={form.platform} precheck={form.precheck} />
             )}
           </>
         )}

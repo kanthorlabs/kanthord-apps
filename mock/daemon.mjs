@@ -778,6 +778,30 @@ on("GET", credentialRoute(""), (m, _b, res, _t, url) => {
   return json(res, 200, { items, nextCursor });
 });
 
+on("POST", credentialRoute("\\/check"), (m, b, res) => {
+  const entry = componentEntry(m[1], b?.platform);
+  if (entry === undefined) {
+    return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
+  }
+  if (!entry.verifiable || entry.secretShape === "oauth") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.check.unsupported",
+      "The platform has no check before the save.",
+    );
+  }
+  if (!secretIsValid(entry.secretShape, b.secret)) return refuseInvalidInput(res);
+  if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
+  const rejected = Object.values(b.secret).some(
+    (value) => typeof value === "string" && value.startsWith("bad-"),
+  );
+  return json(res, 200, {
+    status: rejected ? "unhealthy" : "healthy",
+    capability: HEALTH_CAPABILITIES[b.platform],
+  });
+});
+
 on("POST", credentialRoute(""), (m, b, res) => {
   const shape = componentEntry(m[1], b?.platform)?.secretShape;
   if (shape === undefined) {
@@ -791,7 +815,12 @@ on("POST", credentialRoute(""), (m, b, res) => {
       "Unsupported credential entry.",
     );
   }
-  if (typeof b.name !== "string" || !CREDENTIAL_NAME.test(b.name) || b.name === "login") {
+  if (
+    typeof b.name !== "string" ||
+    !CREDENTIAL_NAME.test(b.name) ||
+    b.name === "login" ||
+    b.name === "check"
+  ) {
     return refuseInvalidInput(res);
   }
   const holder = credentials.find((item) => item.name === b.name);
