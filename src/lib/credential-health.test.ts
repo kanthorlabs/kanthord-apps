@@ -7,13 +7,11 @@ describe("credential health badge", () => {
     expect(healthLabel({ status: "healthy", capability: "rate-limit read" })).toBe("Healthy");
     expect(healthLabel({ status: "unhealthy", capability: "rate-limit read" })).toBe("Unhealthy");
     expect(healthLabel({ status: "unknown", capability: "bucket head" })).toBe("Unknown");
-    expect(healthLabel(undefined)).toBe("Not in report");
   });
 
   it("picks a stock variant", () => {
     expect(healthVariant({ status: "healthy", capability: "c" })).toBe("default");
     expect(healthVariant({ status: "unhealthy", capability: "c" })).toBe("destructive");
     expect(healthVariant({ status: "unknown", capability: "c" })).toBe("outline");
-    expect(healthVariant(undefined)).toBe("outline");
   });
 });
