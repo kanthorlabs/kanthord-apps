@@ -69,15 +69,6 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
           </SheetDescription>
         </SheetHeader>
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4">
-          {state.result !== null && (
-            <Alert>
-              <AlertTitle>The import is applied.</AlertTitle>
-              <AlertDescription>
-                The mission is now at version {state.result.missionVersion}.
-                {state.createdCount > 0 && ` ${state.createdCount} new nodes received an identity.`}
-              </AlertDescription>
-            </Alert>
-          )}
           {state.staleNotice !== null && (
             <Alert variant="destructive">
               <AlertTitle>Preview again</AlertTitle>

@@ -1,6 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -13,6 +14,9 @@ import type {
 } from "@/api/types";
 
 vi.mock("@/api/resources/mission");
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
 
 import { MissionPanel } from "./mission-panel";
 
@@ -253,9 +257,13 @@ describe("MissionPanel", () => {
         confirmedRetirements: ["node_2"],
       }),
     );
-    expect(
-      await screen.findByText("The mission is now at version 4. 1 new nodes received an identity."),
-    ).toBeTruthy();
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("The import is applied.", {
+        description: "The mission is now at version 4. 1 new nodes received an identity.",
+      }),
+    );
+    expect(screen.queryByRole("dialog", { name: "Import mission" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Import" })).toBeTruthy();
   });
 
   it("names no new node when the applied import creates none", async () => {
@@ -276,8 +284,11 @@ describe("MissionPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Apply import" }));
 
-    expect(await screen.findByText("The mission is now at version 4.")).toBeTruthy();
-    expect(screen.queryByText(/received an identity/)).toBeNull();
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("The import is applied.", {
+        description: "The mission is now at version 4.",
+      }),
+    );
   });
 
   it("returns to review when the mission changed after the preview", async () => {

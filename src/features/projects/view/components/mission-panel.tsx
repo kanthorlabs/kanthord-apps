@@ -32,8 +32,12 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
     reloadGraph();
   }, [reloadMission, reloadGraph]);
   const exporter = useMissionExport(mission.data?.id ?? null, projectName);
-  const importer = useMissionImport(projectId, reloadAll);
   const [importing, setImporting] = useState(false);
+  const closeAfterApply = useCallback(() => {
+    reloadAll();
+    setImporting(false);
+  }, [reloadAll]);
+  const importer = useMissionImport(projectId, closeAfterApply);
 
   return (
     <div className="flex flex-1 flex-col gap-3">

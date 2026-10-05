@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
 import type { ApiError } from "@/api/errors";
 import {
@@ -7,7 +8,7 @@ import {
   previewMissionImport,
   readMission,
 } from "@/api/resources/mission";
-import type { MissionImportPreview, MissionImportResult, MissionImportSnapshot } from "@/api/types";
+import type { MissionImportPreview, MissionImportSnapshot } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import {
   importInputOf,
@@ -34,8 +35,6 @@ export interface MissionImportState {
   readonly pending: boolean;
   readonly error: ApiError | null;
   readonly staleNotice: string | null;
-  readonly result: MissionImportResult | null;
-  readonly createdCount: number;
   readonly pickFiles: (files: readonly File[]) => void;
   readonly setReason: (reason: string) => void;
   readonly confirmRetirements: (confirmed: boolean) => void;
@@ -70,14 +69,11 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [staleNotice, setStaleNotice] = useState<string | null>(null);
-  const [result, setResult] = useState<MissionImportResult | null>(null);
-  const [createdCount, setCreatedCount] = useState(0);
 
   const invalidatePreview = useCallback(() => {
     setReviewed(null);
     setRetirementsConfirmed(false);
     setError(null);
-    setResult(null);
   }, []);
 
   const pickFiles = useCallback(
@@ -134,6 +130,15 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
       );
   }, [pending, input, reason, projectId, invalidatePreview]);
 
+  const reset = useCallback(() => {
+    invalidatePreview();
+    setFileNames([]);
+    setInput(null);
+    setInputError(null);
+    setReasonValue("");
+    setStaleNotice(null);
+  }, [invalidatePreview]);
+
   const apply = useCallback(() => {
     if (pending || reviewed === null) return;
     const { snapshot, preview: shown } = reviewed;
@@ -148,10 +153,13 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
     }).then(
       (applied) => {
         setPending(false);
-        setReviewed(null);
-        setRetirementsConfirmed(false);
-        setResult(applied);
-        setCreatedCount(shown.creates.length);
+        reset();
+        const created = shown.creates.length;
+        toast.success("The import is applied.", {
+          description:
+            `The mission is now at version ${applied.missionVersion}.` +
+            (created > 0 ? ` ${created} new nodes received an identity.` : ""),
+        });
         onApplied();
       },
       (cause: unknown) => {
@@ -166,16 +174,7 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
         setError(failure);
       },
     );
-  }, [pending, reviewed, retirementsConfirmed, onApplied]);
-
-  const reset = useCallback(() => {
-    invalidatePreview();
-    setFileNames([]);
-    setInput(null);
-    setInputError(null);
-    setReasonValue("");
-    setStaleNotice(null);
-  }, [invalidatePreview]);
+  }, [pending, reviewed, retirementsConfirmed, reset, onApplied]);
 
   const shown = reviewed?.preview;
   return {
@@ -193,8 +192,6 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
     pending,
     error,
     staleNotice,
-    result,
-    createdCount,
     pickFiles,
     setReason,
     confirmRetirements: setRetirementsConfirmed,
