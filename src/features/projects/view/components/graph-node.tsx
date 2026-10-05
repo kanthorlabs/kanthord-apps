@@ -1,3 +1,5 @@
+import { ListChecksIcon } from "lucide-react";
+
 import type { MissionRunnableNode, MissionTaskNode } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,24 +58,27 @@ export function GraphNode({
             </p>
           )}
           {tasks.length > 0 && (
-            <ul
-              aria-label={`Tasks of ${node.content.name}`}
-              className="flex flex-col gap-1 border-t pt-2"
-            >
-              {tasks.map((task) => (
-                <li key={task.id} className="flex min-w-0">
-                  <Button
-                    variant="ghost"
-                    size="xs"
-                    className="max-w-full justify-start"
-                    aria-current={task.id === selectedId ? "true" : undefined}
-                    onClick={() => onSelect(task.id)}
-                  >
-                    <span className="truncate">{task.content.name}</span>
-                  </Button>
-                </li>
-              ))}
-            </ul>
+            <section className="flex flex-col gap-1 border-t pt-2">
+              <h4 className="text-xs font-medium text-muted-foreground">
+                Tasks <span className="tabular-nums">({tasks.length})</span>
+              </h4>
+              <ul aria-label={`Tasks of ${node.content.name}`} className="flex flex-col gap-1">
+                {tasks.map((task) => (
+                  <li key={task.id} className="flex min-w-0">
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="max-w-full justify-start"
+                      aria-current={task.id === selectedId ? "true" : undefined}
+                      onClick={() => onSelect(task.id)}
+                    >
+                      <ListChecksIcon aria-hidden="true" data-icon="inline-start" />
+                      <span className="truncate">{task.content.name}</span>
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
         </CardContent>
       </Card>

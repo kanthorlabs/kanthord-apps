@@ -161,6 +161,20 @@ describe("MissionPanel", () => {
     expect(within(tasks).getByRole("button", { name: "Add reset token expiry" })).toBeTruthy();
   });
 
+  it("lists the tasks of an objective under a counted heading and opens a task", async () => {
+    renderPanel();
+
+    const graph = await screen.findByRole("list", { name: "Initiatives" });
+    const tasks = within(graph).getByRole("list", { name: "Tasks of Add password reset" });
+    expect(tasks.previousElementSibling).toHaveTextContent("Tasks (1)");
+    const task = within(tasks).getByRole("button", { name: "Add reset token expiry" });
+    await userEvent.click(task);
+
+    expect(task).toHaveAttribute("aria-current", "true");
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText(/^task · /)).toBeTruthy();
+  });
+
   it("states the progress of the objectives of an initiative", async () => {
     renderPanel();
 
