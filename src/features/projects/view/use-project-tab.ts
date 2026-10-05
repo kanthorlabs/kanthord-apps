@@ -8,6 +8,11 @@ export interface ProjectTabState {
   readonly selectTab: (tab: ProjectTab) => void;
 }
 
+export function projectTabPath(projectId: string, tab: ProjectTab): string {
+  const path = `/projects/${encodeURIComponent(projectId)}`;
+  return tab === "mission" ? path : `${path}?tab=${tab}`;
+}
+
 export function useProjectTab(): ProjectTabState {
   const [params, setParams] = useSearchParams();
   const tab: ProjectTab = params.get("tab") === "bindings" ? "bindings" : "mission";

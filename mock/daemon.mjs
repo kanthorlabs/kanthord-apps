@@ -741,8 +741,22 @@ const addRevision = (credential, metadata, res) => {
   return json(res, 200, credential);
 };
 
-const dependentsOf = (component) =>
-  component === "llm" ? { agentProviders: [] } : { bindings: [] };
+const bindingsNaming = (component, credential) =>
+  Object.entries(bindingSet.bindings)
+    .filter(([, binding]) => binding.kind === component)
+    .filter(([, binding]) => binding.config.credential === credential.name)
+    .map(([name]) => ({
+      projectId: projects[0].id,
+      projectName: projects[0].name,
+      bindingId:
+        Object.values(fx.GRAPH_BINDINGS).findLast((binding) => binding.name === name)?.id ?? name,
+      name,
+    }));
+
+const dependentsOf = (component, credential) =>
+  component === "llm"
+    ? { agentProviders: [] }
+    : { bindings: bindingsNaming(component, credential) };
 
 on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
   json(res, 200, CREDENTIAL_PLATFORM_LISTS[m[1]]),
@@ -934,7 +948,7 @@ on("GET", credentialRoute("\\/([^/]+)"), (m, _b, res) => {
   const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
   drainOlder(credential, Date.now());
-  return json(res, 200, { ...credential, ...dependentsOf(m[1]) });
+  return json(res, 200, { ...credential, ...dependentsOf(m[1], credential) });
 });
 
 on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res) => {

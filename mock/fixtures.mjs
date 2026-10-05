@@ -170,7 +170,7 @@ export const BINDING_SET = {
           baseBranch: "main",
           action: { name: "pull_request", follows: { type: "assessment_passed" } },
         },
-        credential: "github-main",
+        credential: "atlas-github",
       },
     },
     "general-main": {
@@ -194,7 +194,7 @@ export const BINDING_SET = {
         bucket: "kanthord-evidence",
         region: "eu-central-1",
         prefix: "kanthord/",
-        credential: "aws-evidence",
+        credential: "atlas-evidence",
       },
     },
   },

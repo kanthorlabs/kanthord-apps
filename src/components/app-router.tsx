@@ -10,6 +10,7 @@ import { ProjectFormScreen } from "@/features/projects/form/project-form-screen"
 import { ProjectsScreen } from "@/features/projects/list/projects-screen";
 import { ProjectProvider } from "@/features/projects/project-context";
 import { ProjectScreen } from "@/features/projects/view/project-screen";
+import { RepositoryScreen } from "@/features/repositories/view/repository-screen";
 import { ExecutionsScreen } from "@/features/scheduler/executions/executions-screen";
 import { SchedulerScreen } from "@/features/scheduler/queue/scheduler-screen";
 import { AgentScreen } from "@/features/workers/agent/agent-screen";
@@ -52,10 +53,7 @@ export function AppRouter() {
               path="repositories/new"
               element={<CredentialFormScreen key="repository" component="repository" />}
             />
-            <Route
-              path="repositories/:credentialName"
-              element={<CredentialScreen key="repository" component="repository" />}
-            />
+            <Route path="repositories/:credentialName" element={<RepositoryScreen />} />
             <Route
               path="storage"
               element={<CredentialsScreen key="storage" component="storage" />}
