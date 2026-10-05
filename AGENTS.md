@@ -104,6 +104,75 @@ The `## Design` section is normative. A change that breaks a rule in it is a def
   dev server with the mock daemon and exercises each changed screen at both baselines: touch and
   keyboard use, focus, overflow, long content, and the empty, loading and error states.
 
+## Resource screens
+
+The `## Resource screens` section is normative. A change that breaks a rule in it is a defect.
+
+A resource that holds records has three screens: the list at `/<section>`, the form at
+`/<section>/new` and the detail at `/<section>/:name`. The actions of a record live on the list and
+the detail. `src/features/credentials` is the reference implementation. When the same screens serve
+several sections, one feature takes the section as a prop from its route.
+
+### The list
+
+- **One toolbar row sits above the list.** The filters come first, then the toggles, for example
+  `Include archived`, then the create button at the right end. The controls have equal height. Below
+  `md` the toolbar wraps and a filter takes the full width.
+- **A filter reads its options from the server.** It offers `All <things>` first. No constant in the
+  client repeats a set that the server answers.
+- **The list is a `DataList` of `DataListItem` rows.** It shows the empty, loading, error and pager
+  states. The error state offers Retry. The empty text names the next step, for example "No
+  credentials. Create the first one with New credential."
+- **A row opens the detail of its record.** The row holds no action that leads to the same route.
+- **A row shows the name as its title, its states as badges and its key facts as fields.**
+- **A row holds only the non-destructive actions of its record**, for example Verify, Rotate and Edit
+  metadata. A destructive action never sits on a row.
+- **An ended record is hidden by default.** A toggle includes it. Its row shows its end mark and its
+  end time, holds no action and still opens the detail.
+
+### The form
+
+- **The fields follow the order of the decision.** The name comes first, then the kind, then the
+  main input, then the optional settings. A field that depends on another field appears only after
+  that field has a value.
+- **The client validates what the server validates, before it sends.** This includes the reserved
+  names. The message names the rule and the way out, for example "The name check is reserved. Choose
+  another name."
+- **The action row is the last row and spans both columns.** A secondary action, for example Verify,
+  sits on the left with its badge. Cancel and the primary submit sit on the right, in that order.
+  Below `sm` the row stacks: the secondary action on top, then the primary submit, then Cancel.
+- **The submit label names its result**, for example `Create credential` or `Start sign-in`.
+- **A check before the save stores nothing.** It runs on the typed input and shows the same badge as
+  the matching action of the detail. A change of any checked input resets the badge.
+- **The form hides a control that the server refuses for the current input.** It renders no check
+  for a kind that the server cannot check.
+- **A successful submit opens the detail of the new record.** Cancel returns to the list.
+
+### The detail
+
+- **A header section names the record.** It shows the name, the kind badge and the state badges.
+  The header row holds the actions: the non-destructive actions first, the destructive action last.
+- **Each further section has a heading**, for example Health, Revisions or Bindings. A list of the
+  records that depend on this record links each item to the screen of its owner.
+- **An ended record shows its sections and offers no action** that the server refuses for an ended
+  record.
+
+### The actions
+
+- **An edit opens a `Sheet`.** The screen stays visible behind it. A successful edit closes the sheet
+  and reloads the list or the detail.
+- **A destructive or irreversible action opens an `AlertDialog`.** The dialog names the consequence in
+  the human's words and names the safer path. The pre-flight guard of `## Architecture` applies. A
+  success shows a toast that states what ended.
+- **A check shows its result as a status badge.** The badge reads `Checking` while busy, then the label
+  of the state. The badge keeps the layout still, so a result moves no other control. A failed
+  request shows a toast with the error and a Retry action.
+- **A row or detail action that a kind cannot serve stays visible and disabled.** A `Tooltip` states
+  why, and a tap opens it as a hover does. The form hides such a control instead, under the rule
+  above.
+- **The state of an action lives in a hook beside its screen**, for example `use-credential-rotate.ts`.
+  The sheet, the dialog and the button only render that state.
+
 ## Tests
 
 - One `*.test.ts` or `*.test.tsx` beside the unit it covers. `src/foo/bar.ts` is covered by
