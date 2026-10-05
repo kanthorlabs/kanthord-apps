@@ -9,10 +9,6 @@ export function newestLiveRevision(credential: Credential): CredentialRevision |
   return newest;
 }
 
-export function liveRevisionCount(credential: Credential): number {
-  return credential.revisions.filter((revision) => revision.endedAt === null).length;
-}
-
 export function isArchived(credential: Credential): boolean {
   return credential.revisions.every((revision) => revision.endedAt !== null);
 }

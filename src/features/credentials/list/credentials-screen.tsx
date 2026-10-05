@@ -9,12 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import {
-  archiveTime,
-  isArchived,
-  liveRevisionCount,
-  newestLiveRevision,
-} from "@/lib/credential-revisions";
+import { archiveTime, isArchived, newestLiveRevision } from "@/lib/credential-revisions";
 import { platformEntryOf } from "@/lib/credential-platforms";
 import { credentialDetailPath, credentialSectionPath } from "@/lib/credential-sections";
 import { utcDateTime } from "@/lib/format";
@@ -54,7 +49,14 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
   return (
     <>
       <DataListItem
-        title={name}
+        title={
+          <>
+            {name}
+            {newest !== null && (
+              <span className="text-muted-foreground tabular-nums"> (v{newest.revision})</span>
+            )}
+          </>
+        }
         status={
           <>
             {archived && <Badge variant="secondary">Archived</Badge>}
@@ -64,15 +66,6 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
         select={{ label: `Open ${name}`, disabled: false, onSelect: () => navigate(detailPath) }}
         fields={[
           { label: "Platform", value: <span className="font-mono">{credential.platform}</span> },
-          {
-            label: "Newest live revision",
-            value:
-              newest === null ? "none" : <span className="tabular-nums">r{newest.revision}</span>,
-          },
-          {
-            label: "Live revisions",
-            value: <span className="tabular-nums">{liveRevisionCount(credential)}</span>,
-          },
           archivedAt === null
             ? { label: "Updated", value: newest === null ? "—" : utcDateTime(newest.createdAt) }
             : { label: "Archived", value: utcDateTime(archivedAt) },

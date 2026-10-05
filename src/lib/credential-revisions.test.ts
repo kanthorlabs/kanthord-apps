@@ -5,7 +5,6 @@ import {
   archiveTime,
   isArchived,
   isRevocable,
-  liveRevisionCount,
   newestLiveRevision,
   revisionsNewestFirst,
 } from "./credential-revisions";
@@ -29,7 +28,6 @@ const CREDENTIAL: Credential = {
 describe("credential revisions", () => {
   it("finds the newest live revision", () => {
     expect(newestLiveRevision(CREDENTIAL)?.revision).toBe(3);
-    expect(liveRevisionCount(CREDENTIAL)).toBe(2);
   });
 
   it("revokes only an older live revision", () => {

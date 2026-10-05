@@ -127,7 +127,7 @@ describe("CredentialsScreen", () => {
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
     expect(within(items[0]!).getByText("openrouter")).toBeTruthy();
-    expect(within(items[0]!).getByText("r2")).toBeTruthy();
+    expect(within(items[0]!).getByText("(v2)")).toBeTruthy();
     expect(within(items[0]!).getByText("2026-10-03 14:05 UTC")).toBeTruthy();
     expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("llm", null, null, false);
   });
