@@ -45,7 +45,7 @@ export function ProjectScreen() {
   return (
     <div className="flex flex-1 flex-col gap-3">
       <section aria-label="Project" className="flex flex-col gap-1 border-b pb-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col items-start gap-2 md:flex-row md:justify-between">
           <h2 className="min-w-0 text-lg font-semibold break-words">{project.name}</h2>
           <Button
             nativeButton={false}

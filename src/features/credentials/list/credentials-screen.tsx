@@ -77,7 +77,7 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
         ]}
         actions={
           archived ? undefined : (
-            <div className="flex flex-wrap gap-2 md:w-[27rem]">
+            <div className="flex flex-wrap gap-2 md:w-[27rem] md:justify-end">
               <VerifyButton
                 label={`Verify ${name}`}
                 platform={credential.platform}
@@ -152,7 +152,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
         <Button
           nativeButton={false}
           render={<Link to={`${credentialSectionPath(component)}/new`} />}
-          className="ml-auto"
+          className="md:ml-auto"
         >
           <PlusIcon aria-hidden="true" data-icon="inline-start" />
           New credential

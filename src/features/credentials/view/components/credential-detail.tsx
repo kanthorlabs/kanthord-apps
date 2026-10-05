@@ -29,7 +29,7 @@ interface HealthSectionProps {
 function HealthSection({ entry, check }: HealthSectionProps) {
   return (
     <Card>
-      <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+      <CardHeader className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
         <h3 className="font-semibold leading-none">Health</h3>
         <VerifyButton
           platform={entry?.platform ?? ""}
@@ -78,14 +78,14 @@ export function CredentialDetail({
   return (
     <div className="flex flex-col gap-4">
       <section aria-label="Credential" className="flex flex-col gap-2 border-b pb-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2 className="min-w-0 font-mono text-lg font-semibold break-all">{credential.name}</h2>
             <Badge variant="outline">{credential.platform}</Badge>
             {archived && <Badge variant="secondary">Archived</Badge>}
             <CheckStatusBadge badge={check.badge} />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 md:justify-end">
             {!archived && rotate.available && (
               <Button variant="outline" size="sm" onClick={rotate.start}>
                 <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />

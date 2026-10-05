@@ -70,7 +70,9 @@ export function DataListItem({
         {notice !== undefined && <div className="min-w-0">{notice}</div>}
       </ItemContent>
       {actions !== undefined && (
-        <ItemActions className="relative basis-full flex-wrap md:basis-auto">{actions}</ItemActions>
+        <ItemActions className="relative basis-full flex-wrap md:basis-auto md:justify-end">
+          {actions}
+        </ItemActions>
       )}
     </Item>
   );

@@ -65,7 +65,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
         const entries = Object.entries(current).filter(([, entry]) => entry.kind === section.kind);
         return (
           <section key={section.kind} aria-label={section.label} className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
               <h3 className="font-semibold">
                 {section.label}{" "}
                 <span className="text-muted-foreground tabular-nums">({entries.length})</span>

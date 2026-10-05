@@ -171,6 +171,9 @@ several sections, one feature takes the section as a prop from its route.
 - **An action that a kind cannot serve stays visible and disabled on every screen.** A `Tooltip`
   states why, and a tap opens it as a hover does. This rule overrides the rule of `## Architecture`
   that a control the daemon is certain to refuse is not rendered.
+- **Action controls align right from `md` and left below `md`.** This holds for row actions, header
+  actions and the create button of a toolbar. A heading and its actions share one row from `md` and
+  stack below `md`, with the actions under the heading.
 - **The state of an action lives in a hook beside its screen**, for example `use-credential-rotate.ts`.
   The sheet, the dialog and the button only render that state.
 
