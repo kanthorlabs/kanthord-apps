@@ -16,6 +16,7 @@ import type {
   CredentialRotateBody,
   HealthEntry,
   Page,
+  SshDiscoverResult,
 } from "../types";
 
 const LOGIN_PATH = "/api/llm/credential/login";
@@ -159,4 +160,8 @@ export async function listCredentials(
   platform: CredentialPlatform,
 ): Promise<readonly Credential[]> {
   return readAllPages<Credential>(credentialRoot(component), { platform });
+}
+
+export async function discoverSshAliases(): Promise<SshDiscoverResult> {
+  return request<SshDiscoverResult>("/api/repository/credential/ssh/discover");
 }

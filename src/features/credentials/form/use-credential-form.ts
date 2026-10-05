@@ -61,7 +61,8 @@ export function useCredentialForm(
   const [name, setNameValue] = useState("");
   const platforms = useCredentialPlatforms(component);
   const [selected, setPlatform] = useState<CredentialPlatform | null>(null);
-  const platform = selected ?? platforms.data?.items[0]?.platform ?? "";
+  const platform =
+    selected ?? platforms.data?.items.find((e) => e.platform !== "ssh")?.platform ?? "";
   const entry = platformEntryOf(platforms.data, platform);
   const login = useCredentialLogin(component, entry?.loginModes ?? NO_LOGIN_MODES, onCreated);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
@@ -140,7 +141,7 @@ export function useCredentialForm(
   return {
     name,
     platforms,
-    platformIds: platformIdsOf(platforms.data),
+    platformIds: platformIdsOf(platforms.data).filter((id) => id !== "ssh"),
     platform,
     entry,
     oauth,

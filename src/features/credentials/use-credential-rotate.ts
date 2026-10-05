@@ -111,7 +111,7 @@ export function useCredentialRotate(
   }, [submitting, newest, entry, secret, metadata, component, credential, reload]);
 
   return {
-    available: entry !== null && newest !== null,
+    available: entry !== null && entry.secretShape !== "none" && newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,
     secret,

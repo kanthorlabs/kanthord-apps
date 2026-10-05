@@ -28,6 +28,18 @@ const MESSAGES: Readonly<Record<string, string>> = {
     "The platform does not support this sign-in mode. Choose another mode.",
   "llm.lifecycle.stopped": "The LLM component stopped and accepts no sign-in. Restart the daemon.",
   "system.pagination.cursor_invalid": "The page cursor is no longer valid. Reload the list.",
+  "project.bindings.repository.credential_required":
+    "Open a pull request requires a credential. Add a GitHub credential to the binding.",
+  "project.bindings.repository.action_unsupported":
+    "GitLab and Bitbucket do not support open a pull request or a credential binding. Remove the credential and choose another action.",
+  "project.bindings.repository.ssh_host_mismatch":
+    "The address host does not match the SSH credential host. Use an address whose host equals the SSH credential host.",
+  "repository.credential.ssh_drift":
+    "The SSH credential changed since the binding was created. Re-verify or update the binding.",
+  "repository.credential.ssh_identity_ambiguous":
+    "The SSH credential has no single identity file. Add IdentitiesOnly yes and one IdentityFile to the Host block in ~/.ssh/config.",
+  "repository.credential.ssh_config_unreadable":
+    "The server cannot read ~/.ssh/config. Check its permissions and syntax.",
 };
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

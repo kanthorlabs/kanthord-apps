@@ -29,6 +29,7 @@ const REPO: BindingSetEntry = {
     platform: "github",
     address: "git@github.com:kanthorlabs/kanthord.git",
     strategy: { baseBranch: "main" },
+    sshCredential: "github-ssh",
     credential: "github-main",
   },
 };
@@ -80,6 +81,24 @@ describe("BindingsPanel", () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [
         {
+          name: "github-ssh",
+          platform: "ssh",
+          revisions: [
+            {
+              id: "rev_ssh",
+              revision: 1,
+              metadata: {
+                host: "github.com",
+                hostname: "github.com",
+                port: 22,
+                identity_file: "/home/user/.ssh/id_ed25519",
+              },
+              createdAt: 1,
+              endedAt: null,
+            },
+          ],
+        },
+        {
           name: "github-main",
           platform: "github",
           revisions: [{ id: "rev_1", revision: 1, metadata: null, createdAt: 1, endedAt: null }],
@@ -90,6 +109,13 @@ describe("BindingsPanel", () => {
     });
     vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
       items: [
+        {
+          platform: "ssh",
+          secretShape: "none",
+          loginModes: [],
+          metadataFields: ["host", "hostname", "identity_file"],
+          verifiable: true,
+        },
         {
           platform: "github",
           secretShape: "api_key",
@@ -107,6 +133,7 @@ describe("BindingsPanel", () => {
     });
     vi.mocked(projectsApi.verifyBinding).mockResolvedValue({
       address: { status: "healthy", capability: "network git read" },
+      sshCredential: { status: "healthy", capability: "ssh credential verify" },
       credential: { status: "healthy", capability: "repository credential verify" },
     });
     vi.mocked(missionApi.readMission).mockResolvedValue({
@@ -216,7 +243,7 @@ describe("BindingsPanel", () => {
       "[role=listitem]",
     ) as HTMLElement;
     expect(row).toHaveTextContent(
-      "git@github.com:kanthorlabs/kanthord.git · github · credential github-main",
+      "git@github.com:kanthorlabs/kanthord.git · github · ssh github-ssh · credential github-main",
     );
     expect(row).not.toHaveTextContent("base main");
   });
@@ -228,6 +255,7 @@ describe("BindingsPanel", () => {
     const connection = screen.getByRole("group", { name: "Repository" });
     const policy = screen.getByRole("group", { name: "Project policy" });
     expect(within(connection).getByLabelText("Address")).toBeTruthy();
+    expect(within(connection).getByLabelText("SSH credential")).toBeTruthy();
     expect(within(connection).getByLabelText("Credential")).toBeTruthy();
     expect(within(policy).getByLabelText("Base branch")).toBeTruthy();
     expect(within(policy).getByLabelText("External action")).toBeTruthy();
@@ -270,6 +298,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
 
     expect(await screen.findByText("Address · Healthy")).toBeTruthy();
+    expect(screen.getByText("SSH credential · Healthy")).toBeTruthy();
     expect(screen.getByText("Credential · Healthy")).toBeTruthy();
     expect(projectsApi.verifyBinding).toHaveBeenCalledWith("project_1", "binding_REPO1");
   });
@@ -299,6 +328,24 @@ describe("BindingsPanel", () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [
         {
+          name: "github-ssh",
+          platform: "ssh",
+          revisions: [
+            {
+              id: "rev_ssh",
+              revision: 1,
+              metadata: {
+                host: "github.com",
+                hostname: "github.com",
+                port: 22,
+                identity_file: "/home/user/.ssh/id_ed25519",
+              },
+              createdAt: 1,
+              endedAt: null,
+            },
+          ],
+        },
+        {
           name: "github-main",
           platform: "github",
           revisions: [{ id: "rev_1", revision: 1, metadata: null, createdAt: 1, endedAt: null }],
@@ -311,7 +358,8 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
-    await userEvent.click(await screen.findByRole("button", { name: "New credential" }));
+    const newCredentialButtons = await screen.findAllByRole("button", { name: "New credential" });
+    await userEvent.click(newCredentialButtons[newCredentialButtons.length - 1] as HTMLElement);
 
     const createForm = await screen.findByRole("form", { name: "New credential" });
     await userEvent.type(within(createForm).getByLabelText("Name"), "github-new");

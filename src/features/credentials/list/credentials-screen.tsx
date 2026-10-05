@@ -1,4 +1,5 @@
-import { FileCogIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { FileCogIcon, PlusIcon, RefreshCwIcon, UploadIcon } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
@@ -21,6 +22,7 @@ import { CheckStatusBadge } from "../components/check-status-badge";
 import { MetadataSheet } from "../components/metadata-sheet";
 import { PlatformCombobox } from "../components/platform-combobox";
 import { RotateSheet } from "../components/rotate-sheet";
+import { SshImportDialog } from "../components/ssh-import-dialog";
 import { VerifyButton } from "../components/verify-button";
 import { useCredentialCheck } from "../use-credential-check";
 import { useCredentialRotate } from "../use-credential-rotate";
@@ -127,6 +129,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
     selectPlatform,
     setIncludeArchived,
   } = useCredentialList(component);
+  const [sshImportOpen, setSshImportOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -149,15 +152,32 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
           />
           <FieldLabel htmlFor="credential-include-archived">Include archived</FieldLabel>
         </Field>
-        <Button
-          nativeButton={false}
-          render={<Link to={`${credentialSectionPath(component)}/new`} />}
-          className="md:ml-auto"
-        >
-          <PlusIcon aria-hidden="true" data-icon="inline-start" />
-          New credential
-        </Button>
+        <div className="flex gap-2 md:ml-auto">
+          {component === "repository" && (
+            <Button variant="outline" onClick={() => setSshImportOpen(true)}>
+              <UploadIcon aria-hidden="true" data-icon="inline-start" />
+              Import from ~/.ssh/config
+            </Button>
+          )}
+          <Button
+            nativeButton={false}
+            render={<Link to={`${credentialSectionPath(component)}/new`} />}
+          >
+            <PlusIcon aria-hidden="true" data-icon="inline-start" />
+            New credential
+          </Button>
+        </div>
       </div>
+      {sshImportOpen && (
+        <SshImportDialog
+          open
+          onClose={() => setSshImportOpen(false)}
+          onImported={() => {
+            setSshImportOpen(false);
+            pages.reload();
+          }}
+        />
+      )}
       <DataList
         label="Credentials"
         items={pages.items}

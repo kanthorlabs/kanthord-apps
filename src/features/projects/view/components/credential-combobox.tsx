@@ -8,13 +8,15 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { Button } from "@/components/ui/button";
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 
 interface CredentialComboboxProps {
   readonly id: string;
+  readonly label?: string;
   readonly credentials: readonly Credential[];
   readonly value: string;
   readonly error: string | undefined;
+  readonly description?: string;
   readonly onChange: (value: string) => void;
   readonly onNew?: () => void;
   readonly onRotate?: () => void;
@@ -23,9 +25,11 @@ interface CredentialComboboxProps {
 
 export function CredentialCombobox({
   id,
+  label = "Credential",
   credentials,
   value,
   error,
+  description,
   onChange,
   onNew,
   onRotate,
@@ -41,7 +45,7 @@ export function CredentialCombobox({
 
   return (
     <Field data-invalid={error !== undefined}>
-      <FieldLabel htmlFor={id}>Credential</FieldLabel>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Combobox
         items={credentials.map((credential) => credential.name)}
         value={value === "" ? null : value}
@@ -77,6 +81,7 @@ export function CredentialCombobox({
           )}
         </div>
       )}
+      {description !== undefined && <FieldDescription>{description}</FieldDescription>}
       <FieldError>{error}</FieldError>
     </Field>
   );

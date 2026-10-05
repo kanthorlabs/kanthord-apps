@@ -1,3 +1,5 @@
+import { useCallback, useState } from "react";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
@@ -9,9 +11,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { BindingSetEntry } from "@/api/types";
+import type { BindingSetEntry, Credential } from "@/api/types";
 import { CredentialCreateSheet } from "@/features/credentials/components/credential-create-sheet";
 import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
+import { SshImportDialog } from "@/features/credentials/components/ssh-import-dialog";
+import { newestLiveRevision } from "@/lib/credential-revisions";
 import { useBindingCredential } from "../use-binding-credential";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
 import { useRepositoryCredentials } from "../use-repository-credentials";
@@ -32,6 +36,19 @@ interface BindingSheetProps {
   readonly onClose: () => void;
 }
 
+function sshHostOf(credentials: readonly Credential[], name: string): string {
+  const cred = credentials.find((c) => c.name === name);
+  if (cred === undefined) return "";
+  const rev = newestLiveRevision(cred);
+  if (rev === null) return "";
+  const meta = rev.metadata;
+  if (typeof meta === "object" && meta !== null && !Array.isArray(meta)) {
+    const host = (meta as Record<string, unknown>)["host"];
+    return typeof host === "string" ? host : "";
+  }
+  return "";
+}
+
 export function BindingSheet({
   target,
   takenNames,
@@ -46,9 +63,13 @@ export function BindingSheet({
   const kindLabel = KIND_LABELS[target.kind];
 
   const credentials = useRepositoryCredentials();
+  const allCredentials = credentials.data ?? [];
+  const sshCredentials = allCredentials.filter((c) => c.platform === "ssh");
+  const apiCredentials = allCredentials.filter((c) => c.platform === "github");
+
   const credentialName = draft.kind === "repository" ? draft.credential : "";
   const bindingCredential = useBindingCredential(
-    credentials.data ?? [],
+    apiCredentials,
     credentials.reload,
     credentialName,
     (name) => {
@@ -56,6 +77,23 @@ export function BindingSheet({
         form.edit({ ...draft, credential: name });
       }
     },
+  );
+
+  const [sshImportOpen, setSshImportOpen] = useState(false);
+
+  const onNewSshCredential = useCallback(() => setSshImportOpen(true), []);
+  const onSshImported = useCallback(
+    (names: readonly string[]) => {
+      setSshImportOpen(false);
+      credentials.reload();
+      if (names.length === 1 && draft.kind === "repository") {
+        const name = names[0];
+        if (name !== undefined) {
+          form.edit({ ...draft, sshCredential: name, sshCredentialHost: "" });
+        }
+      }
+    },
+    [credentials, draft, form],
   );
 
   return (
@@ -114,11 +152,19 @@ export function BindingSheet({
                   <RepositoryForm
                     draft={draft}
                     errors={errors}
-                    credentials={credentials.data ?? []}
-                    onEdit={form.edit}
-                    onNewCredential={bindingCredential.openCreate}
-                    onRotateCredential={bindingCredential.rotate.start}
-                    rotateCredentialAvailable={bindingCredential.rotate.available}
+                    sshCredentials={sshCredentials}
+                    apiCredentials={apiCredentials}
+                    onEdit={(next) => {
+                      const host =
+                        next.sshCredential !== draft.sshCredential
+                          ? sshHostOf(allCredentials, next.sshCredential)
+                          : next.sshCredentialHost;
+                      form.edit({ ...next, sshCredentialHost: host });
+                    }}
+                    onNewSshCredential={onNewSshCredential}
+                    onNewApiCredential={bindingCredential.openCreate}
+                    onRotateApiCredential={bindingCredential.rotate.start}
+                    rotateApiCredentialAvailable={bindingCredential.rotate.available}
                   />
                 )}
                 {draft.kind === "worker" && (
@@ -142,6 +188,9 @@ export function BindingSheet({
           </form>
         </SheetContent>
       </Sheet>
+      {sshImportOpen && (
+        <SshImportDialog open onClose={() => setSshImportOpen(false)} onImported={onSshImported} />
+      )}
       {bindingCredential.createOpen && (
         <CredentialCreateSheet
           component="repository"

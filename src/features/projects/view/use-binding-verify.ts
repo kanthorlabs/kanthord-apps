@@ -14,6 +14,7 @@ export interface BindingCheckBadge {
 
 export interface BindingVerifyState {
   readonly addressBadge: BindingCheckBadge | null;
+  readonly sshCredentialBadge: BindingCheckBadge | null;
   readonly credentialBadge: BindingCheckBadge | null;
   readonly checking: boolean;
 }
@@ -21,10 +22,20 @@ export interface BindingVerifyState {
 type PerBindingState =
   | { readonly status: "idle" }
   | { readonly status: "checking" }
-  | { readonly status: "ready"; readonly address: HealthEntry; readonly credential: HealthEntry };
+  | {
+      readonly status: "ready";
+      readonly address: HealthEntry;
+      readonly sshCredential: HealthEntry;
+      readonly credential: HealthEntry | null;
+    };
 
 const CHECKING_BADGE: BindingCheckBadge = { label: "Checking", variant: "outline", busy: true };
-const IDLE: BindingVerifyState = { addressBadge: null, credentialBadge: null, checking: false };
+const IDLE: BindingVerifyState = {
+  addressBadge: null,
+  sshCredentialBadge: null,
+  credentialBadge: null,
+  checking: false,
+};
 
 function toCheckBadge(entry: HealthEntry): BindingCheckBadge {
   return { label: healthLabel(entry), variant: healthVariant(entry), busy: false };
@@ -33,11 +44,17 @@ function toCheckBadge(entry: HealthEntry): BindingCheckBadge {
 function toVerifyState(inner: PerBindingState): BindingVerifyState {
   if (inner.status === "idle") return IDLE;
   if (inner.status === "checking") {
-    return { addressBadge: CHECKING_BADGE, credentialBadge: CHECKING_BADGE, checking: true };
+    return {
+      addressBadge: CHECKING_BADGE,
+      sshCredentialBadge: CHECKING_BADGE,
+      credentialBadge: CHECKING_BADGE,
+      checking: true,
+    };
   }
   return {
     addressBadge: toCheckBadge(inner.address),
-    credentialBadge: toCheckBadge(inner.credential),
+    sshCredentialBadge: toCheckBadge(inner.sshCredential),
+    credentialBadge: inner.credential !== null ? toCheckBadge(inner.credential) : null,
     checking: false,
   };
 }
@@ -77,10 +94,10 @@ export function useBindingVerify(
       active.current.add(bindingId);
       setStates((prev) => new Map(prev).set(bindingId, { status: "checking" }));
       verifyBinding(projectId, bindingId).then(
-        ({ address, credential }) => {
+        ({ address, sshCredential, credential }) => {
           active.current.delete(bindingId);
           setStates((prev) =>
-            new Map(prev).set(bindingId, { status: "ready", address, credential }),
+            new Map(prev).set(bindingId, { status: "ready", address, sshCredential, credential }),
           );
         },
         (cause: unknown) => {

@@ -116,7 +116,11 @@ export function useMetadataEdit(
   }, [submitting, newest, entry, component, credential, draft, reload]);
 
   return {
-    available: entry !== null && entry.metadataFields.length > 0 && newest !== null,
+    available:
+      entry !== null &&
+      entry.secretShape !== "none" &&
+      entry.metadataFields.length > 0 &&
+      newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,
     draft,

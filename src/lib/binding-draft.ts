@@ -3,6 +3,7 @@ import type {
   BindingSetKind,
   RepositoryActionFollows,
   RepositoryActionName,
+  RepositoryPlatform,
   WorkerAgentEntry,
 } from "@/api/types";
 
@@ -27,10 +28,13 @@ export interface RepositoryDraft {
   readonly kind: "repository";
   readonly name: string;
   readonly available: boolean;
+  readonly platform: RepositoryPlatform;
   readonly address: string;
   readonly baseBranch: string;
   readonly actionName: RepositoryActionName | "";
   readonly follows: RepositoryActionFollows;
+  readonly sshCredential: string;
+  readonly sshCredentialHost: string;
   readonly credential: string;
   readonly projectPrompt: string;
 }
@@ -68,6 +72,7 @@ const BINDING_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 const REPOSITORY_ADDRESS = /^git@[A-Za-z0-9][A-Za-z0-9.-]*:[^/\s:]+\/[^/\s:]+\.git(?![\s\S])/;
 const ASSESSMENT_PASSED: RepositoryActionFollows = { type: "assessment_passed" };
 const REQUIRED = "Enter a value.";
+const GIT_ADDRESS_HOST = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):/;
 
 export function emptyDraft(kind: BindingSetKind): BindingDraft {
   if (kind === "repository") {
@@ -75,10 +80,13 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       kind,
       name: "",
       available: true,
+      platform: "github",
       address: "",
       baseBranch: "main",
       actionName: "",
       follows: ASSESSMENT_PASSED,
+      sshCredential: "",
+      sshCredentialHost: "",
       credential: "",
       projectPrompt: "",
     };
@@ -122,11 +130,14 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       kind: "repository",
       name,
       available: config.available,
+      platform: config.platform,
       address: config.address,
       baseBranch: config.strategy.baseBranch,
       actionName: config.strategy.action?.name ?? "",
       follows: config.strategy.action?.follows ?? ASSESSMENT_PASSED,
-      credential: config.credential,
+      sshCredential: config.sshCredential,
+      sshCredentialHost: "",
+      credential: config.credential ?? "",
       projectPrompt: config.projectPrompt ?? "",
     };
   }
@@ -179,30 +190,54 @@ function agentEntryOf(draft: AgentEntryDraft): WorkerAgentEntry {
   };
 }
 
+function addressHostOf(address: string): string | null {
+  const match = GIT_ADDRESS_HOST.exec(address);
+  return match?.[1] ?? null;
+}
+
 function repositoryEntryOf(
   draft: RepositoryDraft,
   errors: Record<string, string>,
 ): BindingSetEntry {
-  if (!REPOSITORY_ADDRESS.test(draft.address.trim())) {
+  const address = draft.address.trim();
+  if (!REPOSITORY_ADDRESS.test(address)) {
     errors["address"] =
-      "Use an SSH address git@<host>:<owner>/<repository>.git. The host can be an alias of ~/.ssh/config.";
+      "An SSH address git@<host>:<owner>/<repository>.git. The host must equal the host of the SSH credential.";
+  } else if (draft.sshCredentialHost !== "") {
+    const addressHost = addressHostOf(address);
+    if (addressHost !== null && addressHost !== draft.sshCredentialHost) {
+      errors["address"] =
+        `The address host must equal the SSH credential host ${draft.sshCredentialHost}.`;
+    }
   }
   if (blank(draft.baseBranch)) errors["baseBranch"] = REQUIRED;
-  if (blank(draft.credential)) errors["credential"] = REQUIRED;
+  if (blank(draft.sshCredential)) errors["sshCredential"] = REQUIRED;
+  if (draft.platform !== "github" && draft.actionName === "pull_request") {
+    errors["actionName"] = "GitLab and Bitbucket do not support open a pull request.";
+  }
+  const credential = draft.platform === "github" ? draft.credential.trim() : undefined;
+  if (
+    draft.platform === "github" &&
+    draft.actionName === "pull_request" &&
+    blank(credential ?? "")
+  ) {
+    errors["credential"] = "Open a pull request requires a credential.";
+  }
   const projectPrompt = optional(draft.projectPrompt);
   return {
     kind: "repository",
     config: {
       available: draft.available,
-      platform: "github",
-      address: draft.address.trim(),
+      platform: draft.platform,
+      address,
       strategy: {
         baseBranch: draft.baseBranch.trim(),
         ...(draft.actionName === ""
           ? {}
           : { action: { name: draft.actionName, follows: draft.follows } }),
       },
-      credential: draft.credential.trim(),
+      sshCredential: draft.sshCredential.trim(),
+      ...(credential !== undefined && credential !== "" ? { credential } : {}),
       ...(projectPrompt === undefined ? {} : { projectPrompt }),
     },
   };

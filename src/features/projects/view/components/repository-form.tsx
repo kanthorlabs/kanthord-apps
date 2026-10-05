@@ -1,4 +1,4 @@
-import type { Credential, RepositoryActionName } from "@/api/types";
+import type { Credential, RepositoryActionName, RepositoryPlatform } from "@/api/types";
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import {
   Select,
@@ -15,31 +15,45 @@ import { DraftField } from "./draft-field";
 
 const NO_ACTION = "none";
 
-const ACTIONS = [
+const ALL_ACTIONS = [
   { value: NO_ACTION, label: "No external action" },
   { value: "pull_request", label: "Open a pull request" },
   { value: "merge_push", label: "Merge and push" },
 ] as const;
 
+const GIT_ONLY_ACTIONS = ALL_ACTIONS.filter((a) => a.value !== "pull_request");
+
+const PLATFORMS: readonly { readonly value: RepositoryPlatform; readonly label: string }[] = [
+  { value: "github", label: "GitHub" },
+  { value: "gitlab", label: "GitLab" },
+  { value: "bitbucket", label: "Bitbucket" },
+];
+
 interface RepositoryFormProps {
   readonly draft: RepositoryDraft;
   readonly errors: DraftErrors;
-  readonly credentials: readonly Credential[];
+  readonly sshCredentials: readonly Credential[];
+  readonly apiCredentials: readonly Credential[];
   readonly onEdit: (draft: RepositoryDraft) => void;
-  readonly onNewCredential: () => void;
-  readonly onRotateCredential: () => void;
-  readonly rotateCredentialAvailable: boolean;
+  readonly onNewSshCredential: () => void;
+  readonly onNewApiCredential: () => void;
+  readonly onRotateApiCredential: () => void;
+  readonly rotateApiCredentialAvailable: boolean;
 }
 
 export function RepositoryForm({
   draft,
   errors,
-  credentials,
+  sshCredentials,
+  apiCredentials,
   onEdit,
-  onNewCredential,
-  onRotateCredential,
-  rotateCredentialAvailable,
+  onNewSshCredential,
+  onNewApiCredential,
+  onRotateApiCredential,
+  rotateApiCredentialAvailable,
 }: RepositoryFormProps) {
+  const actions = draft.platform === "github" ? ALL_ACTIONS : GIT_ONLY_ACTIONS;
+
   return (
     <>
       <AvailabilityField
@@ -49,24 +63,68 @@ export function RepositoryForm({
       />
       <FieldSet>
         <FieldLegend>Repository</FieldLegend>
+        <Field>
+          <FieldLabel htmlFor="binding-platform">Platform</FieldLabel>
+          <Select
+            items={PLATFORMS}
+            value={draft.platform}
+            onValueChange={(value) => {
+              if (value === null) return;
+              const platform = value as RepositoryPlatform;
+              const actionName =
+                platform !== "github" && draft.actionName === "pull_request"
+                  ? ""
+                  : draft.actionName;
+              onEdit({ ...draft, platform, actionName });
+            }}
+          >
+            <SelectTrigger id="binding-platform" className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PLATFORMS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
         <DraftField
           id="binding-address"
           label="Address"
           value={draft.address}
           error={errors["address"]}
-          description="An SSH address of GitHub or of an alias of ~/.ssh/config. A new owner or repository replaces the binding."
+          description="An SSH address git@<host>:<owner>/<repository>.git. The host must equal the host of the SSH credential."
           onChange={(address) => onEdit({ ...draft, address })}
         />
         <CredentialCombobox
-          id="binding-credential"
-          credentials={credentials}
-          value={draft.credential}
-          error={errors["credential"]}
-          onChange={(credential) => onEdit({ ...draft, credential })}
-          onNew={onNewCredential}
-          onRotate={onRotateCredential}
-          rotateAvailable={rotateCredentialAvailable}
+          id="binding-ssh-credential"
+          label="SSH credential"
+          credentials={sshCredentials}
+          value={draft.sshCredential}
+          error={errors["sshCredential"]}
+          onChange={(sshCredential) => onEdit({ ...draft, sshCredential })}
+          onNew={onNewSshCredential}
         />
+        {draft.platform === "github" && (
+          <CredentialCombobox
+            id="binding-credential"
+            label="Credential"
+            credentials={apiCredentials}
+            value={draft.credential}
+            error={errors["credential"]}
+            description={
+              draft.actionName === "pull_request"
+                ? undefined
+                : "Optional. Required when the action is Open a pull request."
+            }
+            onChange={(credential) => onEdit({ ...draft, credential })}
+            onNew={onNewApiCredential}
+            onRotate={onRotateApiCredential}
+            rotateAvailable={rotateApiCredentialAvailable}
+          />
+        )}
       </FieldSet>
       <FieldSet>
         <FieldLegend>Project policy</FieldLegend>
@@ -80,7 +138,7 @@ export function RepositoryForm({
         <Field>
           <FieldLabel htmlFor="binding-action">External action</FieldLabel>
           <Select
-            items={ACTIONS}
+            items={actions}
             value={draft.actionName === "" ? NO_ACTION : draft.actionName}
             onValueChange={(value) =>
               onEdit({
@@ -94,7 +152,7 @@ export function RepositoryForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ACTIONS.map((action) => (
+              {actions.map((action) => (
                 <SelectItem key={action.value} value={action.value}>
                   {action.label}
                 </SelectItem>

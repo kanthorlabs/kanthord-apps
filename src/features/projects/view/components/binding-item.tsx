@@ -20,7 +20,12 @@ interface BindingItemProps {
 function factsOf(entry: BindingSetEntry): readonly string[] {
   if (entry.kind === "repository") {
     const { config } = entry;
-    return [config.address, config.platform, `credential ${config.credential}`];
+    return [
+      config.address,
+      config.platform,
+      `ssh ${config.sshCredential}`,
+      ...(config.credential !== undefined ? [`credential ${config.credential}`] : []),
+    ];
   }
   if (entry.kind === "worker") {
     const { config } = entry;
@@ -78,6 +83,9 @@ export function BindingItem({
             <span role="status" className="inline-flex gap-1">
               {verifyState.addressBadge !== null && (
                 <HealthBadge badge={verifyState.addressBadge} label="Address" />
+              )}
+              {verifyState.sshCredentialBadge !== null && (
+                <HealthBadge badge={verifyState.sshCredentialBadge} label="SSH credential" />
               )}
               {verifyState.credentialBadge !== null && (
                 <HealthBadge badge={verifyState.credentialBadge} label="Credential" />

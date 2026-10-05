@@ -18,6 +18,7 @@ const REPO: BindingSetEntry = {
     platform: "github",
     address: "git@github.com:kanthorlabs/kanthord.git",
     strategy: { baseBranch: "main" },
+    sshCredential: "github-ssh",
     credential: "github-main",
   },
 };

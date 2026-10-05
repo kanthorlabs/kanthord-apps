@@ -10,6 +10,9 @@ interface SecretFieldsProps {
 }
 
 export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps) {
+  if (shape === "none") {
+    return null;
+  }
   if (shape === "api_key") {
     return (
       <CredentialField

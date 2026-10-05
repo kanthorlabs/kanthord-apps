@@ -8,6 +8,7 @@ import {
   archiveCredential,
   checkCredential,
   createCredential,
+  discoverSshAliases,
   listCredentialPage,
   listCredentialPlatforms,
   listCredentials,
@@ -267,6 +268,37 @@ describe("credential mutations", () => {
     expect(seen[0]?.url).toBe("/api/storage/credential/evidence/archive");
     expect(seen[0]?.body).toBe("");
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
+describe("discoverSshAliases", () => {
+  it("reads the ssh discover endpoint and returns the alias list", async () => {
+    const answer = {
+      items: [
+        {
+          host: "github.com",
+          hostname: "github.com",
+          port: 22,
+          identity_file: "/home/user/.ssh/id_ed25519",
+          state: "ready",
+          reason: null,
+        },
+        {
+          host: "gitlab.com",
+          hostname: "gitlab.com",
+          port: 22,
+          identity_file: null,
+          state: "refused",
+          reason: "No IdentityFile",
+        },
+      ],
+    };
+    await serve(200, [answer]);
+
+    expect(await discoverSshAliases()).toEqual(answer);
+    expect(seen[0]?.method).toBe("GET");
+    expect(seen[0]?.url).toBe("/api/repository/credential/ssh/discover");
+    expect(seen[0]?.headers["idempotency-key"]).toBeUndefined();
   });
 });
 

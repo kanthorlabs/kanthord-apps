@@ -251,9 +251,11 @@ export type RepositoryActionFollows =
   | { readonly type: "assessment_passed" }
   | { readonly type: "action_end_state"; readonly binding: string };
 
+export type RepositoryPlatform = "github" | "gitlab" | "bitbucket";
+
 export interface RepositoryBindingConfig {
   readonly available: boolean;
-  readonly platform: "github";
+  readonly platform: RepositoryPlatform;
   readonly address: string;
   readonly strategy: {
     readonly baseBranch: string;
@@ -262,7 +264,8 @@ export interface RepositoryBindingConfig {
       readonly follows: RepositoryActionFollows;
     };
   };
-  readonly credential: string;
+  readonly sshCredential: string;
+  readonly credential?: string;
   readonly projectPrompt?: string;
 }
 
@@ -601,7 +604,7 @@ export type CredentialComponent = "llm" | "repository" | "storage";
 
 export type CredentialPlatform = string;
 
-export type SecretShape = "api_key" | "oauth" | "s3_access_key";
+export type SecretShape = "api_key" | "oauth" | "s3_access_key" | "none";
 
 export interface CredentialPlatformEntry {
   readonly platform: CredentialPlatform;
@@ -671,7 +674,15 @@ export interface OpenAiCompatibleMetadata {
   readonly models: readonly CredentialModel[];
 }
 
-export type CredentialMetadata = OpenAiCompatibleMetadata | Readonly<Record<string, string>> | null;
+export interface SshMetadata {
+  readonly host: string;
+  readonly hostname: string;
+  readonly port: number;
+  readonly identity_file: string;
+}
+
+export type CredentialMetadata =
+  OpenAiCompatibleMetadata | SshMetadata | Readonly<Record<string, string>> | null;
 
 export interface ApiKeySecret {
   readonly key: string;
@@ -694,7 +705,7 @@ export interface CredentialCreateBody {
   readonly name: string;
   readonly platform: CredentialPlatform;
   readonly metadata: CredentialMetadata;
-  readonly secret: ApiKeySecret | S3AccessKeySecret;
+  readonly secret: ApiKeySecret | S3AccessKeySecret | Record<string, never>;
 }
 
 export type CredentialCheckBody = Omit<CredentialCreateBody, "name">;
@@ -743,5 +754,25 @@ export interface HealthEntry {
 
 export interface BindingVerifyResult {
   readonly address: HealthEntry;
-  readonly credential: HealthEntry;
+  readonly sshCredential: HealthEntry;
+  readonly credential: HealthEntry | null;
+}
+
+interface SshAliasItemBase {
+  readonly host: string;
+  readonly hostname: string;
+  readonly port: number;
+}
+
+export type SshAliasItem =
+  | (SshAliasItemBase & { readonly state: "ready"; readonly identity_file: string })
+  | (SshAliasItemBase & {
+      readonly state: "refused";
+      readonly identity_file: string | null;
+      readonly reason: string | null;
+    })
+  | (SshAliasItemBase & { readonly state: "present"; readonly identity_file: string | null });
+
+export interface SshDiscoverResult {
+  readonly items: readonly SshAliasItem[];
 }

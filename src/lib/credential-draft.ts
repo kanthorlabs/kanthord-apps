@@ -74,7 +74,7 @@ export const EMPTY_MODEL: ModelDraft = {
 
 const CREDENTIAL_NAME = /^[a-z][a-z0-9-]*$/;
 const NAME_MAX_LENGTH = 63;
-const RESERVED_NAMES: readonly string[] = ["login", "platform", "check"];
+const RESERVED_NAMES: readonly string[] = ["login", "platform", "check", "ssh"];
 const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/;
 const INTEGER = /^-?[0-9]+$/;
@@ -99,6 +99,9 @@ export function secretOfDraft(
   draft: SecretDraft,
 ): DraftResult<CredentialSecret> {
   const errors: Record<string, string> = {};
+  if (shape === "none") {
+    return { ok: true, value: {} as CredentialSecret };
+  }
   if (shape === "api_key") {
     if (isBlank(draft.key)) errors["key"] = BLANK;
     return finish(errors, { key: draft.key });

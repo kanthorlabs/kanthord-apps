@@ -13,6 +13,7 @@ const REPO: BindingSetEntry = {
       baseBranch: "main",
       action: { name: "pull_request", follows: { type: "assessment_passed" } },
     },
+    sshCredential: "github-ssh",
     credential: "github-main",
   },
 };
@@ -71,6 +72,7 @@ describe("entryOfDraft", () => {
     const draft = {
       ...draftOf("repo", REPO),
       address: "git@kanthorlabs.github.com:kanthorlabs/kanthord.git",
+      sshCredentialHost: "kanthorlabs.github.com",
     };
     expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
   });
@@ -80,6 +82,73 @@ describe("entryOfDraft", () => {
     expect(entryOfDraft(draft, [])).toMatchObject({
       ok: false,
       errors: { address: expect.any(String) },
+    });
+  });
+
+  it("refuses when address host does not match ssh credential host", () => {
+    const draft = {
+      ...draftOf("repo", REPO),
+      address: "git@bitbucket.org:kanthorlabs/kanthord.git",
+      sshCredentialHost: "github.com",
+    };
+    expect(entryOfDraft(draft, [])).toMatchObject({
+      ok: false,
+      errors: { address: expect.stringContaining("github.com") },
+    });
+  });
+
+  it("skips host mismatch check when sshCredentialHost is empty", () => {
+    const draft = {
+      ...draftOf("repo", REPO),
+      sshCredentialHost: "",
+    };
+    expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
+  });
+
+  it("requires sshCredential", () => {
+    const draft = { ...draftOf("repo", REPO), sshCredential: "" };
+    expect(entryOfDraft(draft, [])).toMatchObject({
+      ok: false,
+      errors: { sshCredential: "Enter a value." },
+    });
+  });
+
+  it("allows blank credential when action is not pull_request", () => {
+    const draft = { ...draftOf("repo", REPO), actionName: "merge_push" as const, credential: "" };
+    expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
+  });
+
+  it("requires credential when action is pull_request", () => {
+    const draft = {
+      ...draftOf("repo", REPO),
+      actionName: "pull_request" as const,
+      credential: "",
+    };
+    expect(entryOfDraft(draft, [])).toMatchObject({
+      ok: false,
+      errors: { credential: "Open a pull request requires a credential." },
+    });
+  });
+
+  it("ignores credential for gitlab and bitbucket", () => {
+    const draft = {
+      ...draftOf("repo", REPO),
+      platform: "gitlab" as const,
+      actionName: "merge_push" as const,
+      credential: "",
+    };
+    expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
+  });
+
+  it("refuses pull_request action for gitlab and bitbucket", () => {
+    const draft = {
+      ...draftOf("repo", REPO),
+      platform: "gitlab" as const,
+      actionName: "pull_request" as const,
+    };
+    expect(entryOfDraft(draft, [])).toMatchObject({
+      ok: false,
+      errors: { actionName: expect.any(String) },
     });
   });
 
