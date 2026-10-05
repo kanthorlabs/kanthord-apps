@@ -141,6 +141,31 @@ describe("BindingsPanel", () => {
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
   });
 
+  it("shows only the connection of a repository binding in its row", async () => {
+    mount();
+
+    const row = (await screen.findByRole("button", { name: "Edit kanthord-repo" })).closest(
+      "[role=listitem]",
+    ) as HTMLElement;
+    expect(row).toHaveTextContent(
+      "git@github.com:kanthorlabs/kanthord.git · github · credential github-main",
+    );
+    expect(row).not.toHaveTextContent("base main");
+  });
+
+  it("separates the connection from the project policy in the repository form", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const connection = screen.getByRole("group", { name: "Repository" });
+    const policy = screen.getByRole("group", { name: "Project policy" });
+    expect(within(connection).getByLabelText("Address")).toBeTruthy();
+    expect(within(connection).getByLabelText("Credential")).toBeTruthy();
+    expect(within(policy).getByLabelText("Base branch")).toBeTruthy();
+    expect(within(policy).getByLabelText("External action")).toBeTruthy();
+    expect(within(policy).getByLabelText("Project prompt")).toBeTruthy();
+  });
+
   it("keeps the draft and does not resend after a version conflict", async () => {
     vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
       new ApiError("conflict", "The submitted binding-set version differs.", 409),

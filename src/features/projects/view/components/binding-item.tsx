@@ -14,12 +14,7 @@ interface BindingItemProps {
 function factsOf(entry: BindingSetEntry): readonly string[] {
   if (entry.kind === "repository") {
     const { config } = entry;
-    return [
-      config.address,
-      `base ${config.strategy.baseBranch}`,
-      config.strategy.action === undefined ? "no external action" : config.strategy.action.name,
-      `credential ${config.credential}`,
-    ];
+    return [config.address, config.platform, `credential ${config.credential}`];
   }
   if (entry.kind === "worker") {
     const { config } = entry;
