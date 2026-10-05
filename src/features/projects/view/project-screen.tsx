@@ -63,10 +63,6 @@ export function ProjectScreen() {
             <dd className="min-w-0 font-mono break-all text-foreground">{project.id}</dd>
           </div>
           <div className="flex gap-1">
-            <dt>Binding set version</dt>
-            <dd className="tabular-nums text-foreground">{project.bindingSetVersion}</dd>
-          </div>
-          <div className="flex gap-1">
             <dt>Created</dt>
             <dd className="text-foreground">{utcDateTime(project.createdAt)}</dd>
           </div>

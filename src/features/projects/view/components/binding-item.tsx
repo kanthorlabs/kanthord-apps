@@ -11,6 +11,7 @@ interface BindingItemProps {
   readonly name: string;
   readonly entry: BindingSetEntry;
   readonly bindingId: string | null;
+  readonly revision: number | null;
   readonly verifyState: BindingVerifyState;
   readonly onVerify: () => void;
   readonly onEdit: () => void;
@@ -63,6 +64,7 @@ export function BindingItem({
   name,
   entry,
   bindingId,
+  revision,
   verifyState,
   onVerify,
   onEdit,
@@ -76,6 +78,9 @@ export function BindingItem({
       <ItemContent className="min-w-0">
         <ItemTitle className="w-full flex-wrap">
           <span className="min-w-0 font-mono break-all">{name}</span>
+          {revision !== null && (
+            <span className="text-muted-foreground tabular-nums">(v{revision})</span>
+          )}
           <Badge variant={available ? "secondary" : "destructive"}>
             {available ? "available" : "unavailable"}
           </Badge>

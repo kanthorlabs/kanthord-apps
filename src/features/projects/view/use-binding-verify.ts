@@ -61,6 +61,7 @@ function toVerifyState(inner: PerBindingState): BindingVerifyState {
 
 export interface BindingVerify {
   readonly bindingIdOf: (name: string) => string | null;
+  readonly revisionOf: (name: string) => number | null;
   readonly getState: (bindingId: string | null) => BindingVerifyState;
   readonly verify: (bindingId: string) => void;
 }
@@ -72,12 +73,19 @@ export function useBindingVerify(
   const [states, setStates] = useState<ReadonlyMap<string, PerBindingState>>(new Map());
   const active = useRef<Set<string>>(new Set());
   const records = useResource(() => listBindings(projectId), [projectId, bindingSetVersion]);
-  const bindingIds = useMemo(
-    () => new Map((records.data ?? []).map((record) => [record.name, record.id])),
+  const recordByName = useMemo(
+    () => new Map((records.data ?? []).map((record) => [record.name, record])),
     [records.data],
   );
 
-  const bindingIdOf = useCallback((name: string) => bindingIds.get(name) ?? null, [bindingIds]);
+  const bindingIdOf = useCallback(
+    (name: string) => recordByName.get(name)?.id ?? null,
+    [recordByName],
+  );
+  const revisionOf = useCallback(
+    (name: string) => recordByName.get(name)?.revision ?? null,
+    [recordByName],
+  );
 
   const getState = useCallback(
     (bindingId: string | null): BindingVerifyState => {
@@ -114,5 +122,5 @@ export function useBindingVerify(
     [projectId],
   );
 
-  return { bindingIdOf, getState, verify };
+  return { bindingIdOf, revisionOf, getState, verify };
 }

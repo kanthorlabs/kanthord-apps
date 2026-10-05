@@ -47,7 +47,7 @@ describe("ProjectScreen", () => {
     expect(await screen.findByRole("heading", { name: "kanthord" })).toBeTruthy();
     expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
     expect(screen.getByText(KANTHORD.id)).toBeTruthy();
-    expect(screen.getByText("3")).toBeTruthy();
+    expect(screen.queryByText("Binding set version")).toBeNull();
     expect(screen.getByText("2026-10-03 14:05 UTC")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute(
       "href",
@@ -55,7 +55,7 @@ describe("ProjectScreen", () => {
     );
   });
 
-  it("shows the new binding set version after a binding save", async () => {
+  it("reloads the project after a binding save", async () => {
     vi.mocked(projectsApi.readProject)
       .mockResolvedValueOnce(KANTHORD)
       .mockResolvedValue({ ...KANTHORD, bindingSetVersion: 4 });
@@ -72,12 +72,11 @@ describe("ProjectScreen", () => {
     });
     mount("?tab=bindings");
 
-    const header = await screen.findByText("Binding set version");
-    expect(header.nextElementSibling).toHaveTextContent("3");
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    const readsBeforeSave = vi.mocked(projectsApi.readProject).mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
-    await waitFor(() => expect(header.nextElementSibling).toHaveTextContent("4"));
+    await waitFor(() => expect(projectsApi.readProject).toHaveBeenCalledTimes(readsBeforeSave + 1));
   });
 
   it("reports an unknown project", async () => {

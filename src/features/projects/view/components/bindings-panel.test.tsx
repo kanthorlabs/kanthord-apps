@@ -169,6 +169,7 @@ describe("BindingsPanel", () => {
 
     const repositories = await screen.findByRole("list", { name: "Repositories" });
     expect(within(repositories).getByText("kanthord-repo")).toBeTruthy();
+    expect(within(repositories).getByText("(v1)")).toBeTruthy();
     expect(within(repositories).getByText("available")).toBeTruthy();
     expect(
       within(screen.getByRole("list", { name: "Workers" })).getByText("general-main"),

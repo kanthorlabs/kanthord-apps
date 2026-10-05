@@ -97,6 +97,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
                       name={name}
                       entry={entry}
                       bindingId={bindingId}
+                      revision={bindingVerify.revisionOf(name)}
                       verifyState={bindingVerify.getState(bindingId)}
                       onVerify={() => {
                         if (bindingId !== null) bindingVerify.verify(bindingId);
