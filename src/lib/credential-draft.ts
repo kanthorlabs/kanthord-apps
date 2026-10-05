@@ -74,7 +74,7 @@ export const EMPTY_MODEL: ModelDraft = {
 
 const CREDENTIAL_NAME = /^[a-z][a-z0-9-]*$/;
 const NAME_MAX_LENGTH = 63;
-const RESERVED_NAMES: readonly string[] = ["login", "check"];
+const RESERVED_NAMES: readonly string[] = ["login", "platform", "check"];
 const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const POSITIVE_INTEGER = /^[1-9][0-9]*$/;
 const INTEGER = /^-?[0-9]+$/;

@@ -54,6 +54,9 @@ describe("credentialNameError", () => {
     expect(credentialNameError("a".repeat(64))).toBe("Use at most 63 characters.");
     expect(credentialNameError("login")).toMatch(/reserved/);
     expect(credentialNameError("check")).toBe("The name check is reserved. Choose another name.");
+    expect(credentialNameError("platform")).toBe(
+      "The name platform is reserved. Choose another name.",
+    );
   });
 });
 
