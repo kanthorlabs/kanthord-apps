@@ -597,11 +597,11 @@ export interface SchedulerExecutionRecord {
   readonly rootSpanId: string;
 }
 
+export type CredentialComponent = "llm" | "repository" | "storage";
+
 export type CredentialPlatform = string;
 
 export type SecretShape = "api_key" | "oauth" | "s3_access_key";
-
-export type CredentialPlatformKind = "git" | "llm" | "storage";
 
 export interface CredentialPlatformEntry {
   readonly platform: CredentialPlatform;
@@ -611,13 +611,8 @@ export interface CredentialPlatformEntry {
   readonly verifiable: boolean;
 }
 
-export interface CredentialPlatformGroup {
-  readonly kind: CredentialPlatformKind;
-  readonly platforms: readonly CredentialPlatformEntry[];
-}
-
 export interface CredentialPlatformList {
-  readonly items: readonly CredentialPlatformGroup[];
+  readonly items: readonly CredentialPlatformEntry[];
 }
 
 export interface CredentialRevision {
@@ -632,6 +627,36 @@ export interface Credential {
   readonly name: string;
   readonly platform: CredentialPlatform;
   readonly revisions: readonly CredentialRevision[];
+}
+
+export interface CredentialAgentProvider {
+  readonly agent: string;
+  readonly name: string;
+}
+
+export interface LlmCredential extends Credential {
+  readonly agentProviders: readonly CredentialAgentProvider[];
+}
+
+export interface CredentialBinding {
+  readonly projectId: string;
+  readonly projectName: string;
+  readonly bindingId: string;
+  readonly name: string;
+}
+
+export interface RepositoryCredential extends Credential {
+  readonly bindings: readonly CredentialBinding[];
+}
+
+export interface StorageCredential extends Credential {
+  readonly bindings: readonly CredentialBinding[];
+}
+
+export interface ComponentCredential {
+  readonly llm: LlmCredential;
+  readonly repository: RepositoryCredential;
+  readonly storage: StorageCredential;
 }
 
 export interface CredentialModel {

@@ -580,36 +580,37 @@ const platformEntry = (platform, secretShape, loginModes, metadataFields, verifi
   metadataFields,
   verifiable,
 });
-const CREDENTIAL_PLATFORM_LIST = {
-  items: [
-    { kind: "git", platforms: [platformEntry("github", "api_key", [], [], true)] },
-    {
-      kind: "storage",
-      platforms: [platformEntry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"], true)],
-    },
-    {
-      kind: "llm",
-      platforms: [
-        platformEntry("github-copilot", "oauth", ["device"], [], true),
-        platformEntry("openai-codex", "oauth", ["browser", "device"], [], true),
-        platformEntry("anthropic", "api_key", [], [], true),
-        platformEntry("openai-compatible", "api_key", [], ["baseUrl"], true),
-        platformEntry("openrouter", "api_key", [], [], true),
-        platformEntry("openai", "api_key", [], [], true),
-        platformEntry("amazon-bedrock", "api_key", [], ["region"], false),
-        platformEntry("google-vertex", "api_key", [], ["project", "location"], false),
-        platformEntry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"], false),
-        platformEntry("google", "api_key", [], [], false),
-        platformEntry("mistral", "api_key", [], [], false),
-      ],
-    },
-  ],
+const CREDENTIAL_PLATFORM_LISTS = {
+  llm: {
+    items: [
+      platformEntry("github-copilot", "oauth", ["device"], [], true),
+      platformEntry("openai-codex", "oauth", ["browser", "device"], [], true),
+      platformEntry("anthropic", "api_key", [], [], true),
+      platformEntry("openai-compatible", "api_key", [], ["baseUrl"], true),
+      platformEntry("openrouter", "api_key", [], [], true),
+      platformEntry("openai", "api_key", [], [], true),
+      platformEntry("amazon-bedrock", "api_key", [], ["region"], false),
+      platformEntry("google-vertex", "api_key", [], ["project", "location"], false),
+      platformEntry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"], false),
+      platformEntry("google", "api_key", [], [], false),
+      platformEntry("mistral", "api_key", [], [], false),
+    ],
+  },
+  repository: { items: [platformEntry("github", "api_key", [], [], true)] },
+  storage: {
+    items: [platformEntry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"], true)],
+  },
 };
 const CREDENTIAL_PLATFORMS = Object.fromEntries(
-  CREDENTIAL_PLATFORM_LIST.items.flatMap((group) =>
-    group.platforms.map((entry) => [entry.platform, entry]),
+  Object.values(CREDENTIAL_PLATFORM_LISTS).flatMap((list) =>
+    list.items.map((entry) => [entry.platform, entry]),
   ),
 );
+const CREDENTIAL_COMPONENT = "(llm|repository|storage)";
+const credentialRoute = (suffix) =>
+  new RegExp(`^\\/api\\/${CREDENTIAL_COMPONENT}\\/credential${suffix}$`);
+const componentEntry = (component, platform) =>
+  CREDENTIAL_PLATFORM_LISTS[component].items.find((entry) => entry.platform === platform);
 const HEALTH_CAPABILITIES = {
   github: "rate-limit read",
   "github-copilot": "copilot-token read",
@@ -687,8 +688,12 @@ const metadataIsValid = (platform, metadata) => {
   );
 };
 
-const findCredential = (res, encoded) => {
-  const credential = credentials.find((item) => item.name === decodeURIComponent(encoded));
+const findCredential = (res, component, encoded) => {
+  const credential = credentials.find(
+    (item) =>
+      item.name === decodeURIComponent(encoded) &&
+      componentEntry(component, item.platform) !== undefined,
+  );
   if (credential === undefined) {
     credentialEnvelope(res, 404, "credential.credential.not_found", "Credential not found.");
   }
@@ -736,16 +741,20 @@ const addRevision = (credential, metadata, res) => {
   return json(res, 200, credential);
 };
 
-on("GET", /^\/api\/credential\/platform$/, (_m, _b, res) =>
-  json(res, 200, CREDENTIAL_PLATFORM_LIST),
+const dependentsOf = (component) =>
+  component === "llm" ? { agentProviders: [] } : { bindings: [] };
+
+on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
+  json(res, 200, CREDENTIAL_PLATFORM_LISTS[m[1]]),
 );
 
-on("GET", /^\/api\/credential$/, (_m, _b, res, _t, url) => {
+on("GET", credentialRoute(""), (m, _b, res, _t, url) => {
   const platform = url.searchParams.get("platform");
   const includeArchived = url.searchParams.get("includeArchived") === "true";
   const limit = Number(url.searchParams.get("limit") ?? 100);
   const offset = Number(url.searchParams.get("cursor") ?? 0);
   const ordered = credentials
+    .filter((credential) => componentEntry(m[1], credential.platform) !== undefined)
     .filter((credential) => platform === null || credential.platform === platform)
     .filter((credential) => includeArchived || !isArchived(credential))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -755,8 +764,8 @@ on("GET", /^\/api\/credential$/, (_m, _b, res, _t, url) => {
   return json(res, 200, { items, nextCursor });
 });
 
-on("POST", /^\/api\/credential$/, (_m, b, res) => {
-  const shape = CREDENTIAL_PLATFORMS[b?.platform]?.secretShape;
+on("POST", credentialRoute(""), (m, b, res) => {
+  const shape = componentEntry(m[1], b?.platform)?.secretShape;
   if (shape === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
@@ -802,8 +811,8 @@ on("POST", /^\/api\/credential$/, (_m, b, res) => {
   return json(res, 200, credential);
 });
 
-on("POST", /^\/api\/credential\/login$/, (_m, b, res) => {
-  const shape = CREDENTIAL_PLATFORMS[b?.platform]?.secretShape;
+on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
+  const shape = componentEntry("llm", b?.platform)?.secretShape;
   if (shape === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
@@ -888,7 +897,7 @@ const settleLogin = (session) => {
   });
 };
 
-on("POST", /^\/api\/credential\/login\/([^/]+)\/code$/, (m, b, res) => {
+on("POST", /^\/api\/llm\/credential\/login\/([^/]+)\/code$/, (m, b, res) => {
   const session = loginSessions.get(decodeURIComponent(m[1]));
   if (session === undefined) {
     return credentialEnvelope(res, 404, "credential.login.not_found", "Login session not found.");
@@ -907,7 +916,7 @@ on("POST", /^\/api\/credential\/login\/([^/]+)\/code$/, (m, b, res) => {
   return json(res, 200, { sessionId: session.sessionId });
 });
 
-on("GET", /^\/api\/credential\/login\/([^/]+)$/, (m, _b, res) => {
+on("GET", /^\/api\/llm\/credential\/login\/([^/]+)$/, (m, _b, res) => {
   const session = loginSessions.get(decodeURIComponent(m[1]));
   if (session === undefined) {
     return credentialEnvelope(res, 404, "credential.login.not_found", "Login session not found.");
@@ -921,15 +930,15 @@ on("GET", /^\/api\/credential\/login\/([^/]+)$/, (m, _b, res) => {
   });
 });
 
-on("GET", /^\/api\/credential\/([^/]+)$/, (m, _b, res) => {
-  const credential = findCredential(res, m[1]);
+on("GET", credentialRoute("\\/([^/]+)"), (m, _b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
   drainOlder(credential, Date.now());
-  return json(res, 200, credential);
+  return json(res, 200, { ...credential, ...dependentsOf(m[1]) });
 });
 
-on("POST", /^\/api\/credential\/([^/]+)\/revision$/, (m, b, res) => {
-  const credential = findCredential(res, m[1]);
+on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
@@ -941,8 +950,8 @@ on("POST", /^\/api\/credential\/([^/]+)\/revision$/, (m, b, res) => {
   return addRevision(credential, metadata, res);
 });
 
-on("PUT", /^\/api\/credential\/([^/]+)\/metadata$/, (m, b, res) => {
-  const credential = findCredential(res, m[1]);
+on("PUT", credentialRoute("\\/([^/]+)\\/metadata"), (m, b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
@@ -952,17 +961,17 @@ on("PUT", /^\/api\/credential\/([^/]+)\/metadata$/, (m, b, res) => {
     return credentialEnvelope(
       res,
       409,
-      "credential.metadata.base_url_fixed",
+      "llm.metadata.base_url_fixed",
       "Credential base URL cannot be changed by metadata update.",
     );
   }
   return addRevision(credential, b.metadata, res);
 });
 
-on("POST", /^\/api\/credential\/([^/]+)\/revision\/(\d+)\/revoke$/, (m, _b, res) => {
-  const credential = findCredential(res, m[1]);
+on("POST", credentialRoute("\\/([^/]+)\\/revision\\/(\\d+)\\/revoke"), (m, _b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
-  const target = credential.revisions.find((revision) => revision.revision === Number(m[2]));
+  const target = credential.revisions.find((revision) => revision.revision === Number(m[3]));
   if (target === undefined) {
     return credentialEnvelope(res, 404, "credential.revision.not_found", "Revision not found.");
   }
@@ -984,8 +993,8 @@ on("POST", /^\/api\/credential\/([^/]+)\/revision\/(\d+)\/revoke$/, (m, _b, res)
   return json(res, 200, credential);
 });
 
-on("POST", /^\/api\/credential\/([^/]+)\/archive$/, (m, _b, res) => {
-  const credential = findCredential(res, m[1]);
+on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
+  const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   const dependents = fx.CREDENTIAL_DEPENDENTS[credential.name];

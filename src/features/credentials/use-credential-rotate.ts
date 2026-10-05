@@ -2,7 +2,12 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { rotateCredential } from "@/api/resources/credentials";
-import type { Credential, CredentialPlatformEntry, CredentialRotateBody } from "@/api/types";
+import type {
+  Credential,
+  CredentialComponent,
+  CredentialPlatformEntry,
+  CredentialRotateBody,
+} from "@/api/types";
 import {
   EMPTY_METADATA,
   EMPTY_SECRET,
@@ -36,6 +41,7 @@ export interface CredentialRotateState {
 const NO_ERRORS: DraftErrors = {};
 
 export function useCredentialRotate(
+  component: CredentialComponent,
   credential: Credential,
   entry: CredentialPlatformEntry | null,
   reload: () => void,
@@ -88,7 +94,7 @@ export function useCredentialRotate(
     setFailure(null);
     setSecret(EMPTY_SECRET);
     setSubmitting(true);
-    rotateCredential(credential.name, body).then(
+    rotateCredential(component, credential.name, body).then(
       (answer) => {
         setSubmitting(false);
         setOpen(false);
@@ -102,7 +108,7 @@ export function useCredentialRotate(
         setFailure(writeFailureOf(cause));
       },
     );
-  }, [submitting, newest, entry, secret, metadata, credential, reload]);
+  }, [submitting, newest, entry, secret, metadata, component, credential, reload]);
 
   return {
     available: entry !== null && newest !== null,

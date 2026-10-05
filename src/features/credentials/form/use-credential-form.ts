@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { createCredential } from "@/api/resources/credentials";
 import type {
+  CredentialComponent,
   CredentialLoginMode,
   CredentialPlatform,
   CredentialPlatformEntry,
@@ -19,11 +20,8 @@ import {
   type MetadataDraft,
   type SecretDraft,
 } from "@/lib/credential-draft";
-import {
-  platformEntryOf,
-  platformGroupsOf,
-  type PlatformGroupItems,
-} from "@/lib/credential-platforms";
+import { platformEntryOf, platformIdsOf } from "@/lib/credential-platforms";
+import { credentialDetailPath } from "@/lib/credential-sections";
 import { credentialMessage } from "../credential-message";
 import { useCredentialPlatforms } from "../use-credential-platforms";
 import { useCredentialLogin, type CredentialLoginState } from "./use-credential-login";
@@ -31,7 +29,7 @@ import { useCredentialLogin, type CredentialLoginState } from "./use-credential-
 export interface CredentialFormState {
   readonly name: string;
   readonly platforms: Resource<CredentialPlatformList>;
-  readonly groups: readonly PlatformGroupItems[];
+  readonly platformIds: readonly CredentialPlatform[];
   readonly platform: CredentialPlatform;
   readonly entry: CredentialPlatformEntry | null;
   readonly oauth: boolean;
@@ -51,13 +49,14 @@ export interface CredentialFormState {
 const NO_ERRORS: DraftErrors = {};
 const NO_LOGIN_MODES: readonly CredentialLoginMode[] = [];
 
-export function useCredentialForm(): CredentialFormState {
+export function useCredentialForm(component: CredentialComponent): CredentialFormState {
   const navigate = useNavigate();
   const [name, setNameValue] = useState("");
-  const platforms = useCredentialPlatforms();
-  const [platform, setPlatform] = useState<CredentialPlatform>("github");
+  const platforms = useCredentialPlatforms(component);
+  const [selected, setPlatform] = useState<CredentialPlatform | null>(null);
+  const platform = selected ?? platforms.data?.items[0]?.platform ?? "";
   const entry = platformEntryOf(platforms.data, platform);
-  const login = useCredentialLogin(entry?.loginModes ?? NO_LOGIN_MODES);
+  const login = useCredentialLogin(component, entry?.loginModes ?? NO_LOGIN_MODES);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
   const [metadata, setMetadata] = useState<MetadataDraft>(EMPTY_METADATA);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
@@ -99,18 +98,18 @@ export function useCredentialForm(): CredentialFormState {
     setSubmitError(null);
     setSubmitting(true);
     setSecret(EMPTY_SECRET);
-    createCredential(body.value).then(
+    createCredential(component, body.value).then(
       (credential) => {
         setSubmitting(false);
         toast.success(`Created ${credential.name}.`);
-        void navigate(`/credentials/${encodeURIComponent(credential.name)}`);
+        void navigate(credentialDetailPath(component, credential.name));
       },
       (cause: unknown) => {
         setSubmitting(false);
         setSubmitError(credentialMessage(asApiError(cause)));
       },
     );
-  }, [name, entry, secret, metadata, navigate]);
+  }, [component, name, entry, secret, metadata, navigate]);
 
   const submit = useCallback(() => {
     if (submitting || login.starting) return;
@@ -121,7 +120,7 @@ export function useCredentialForm(): CredentialFormState {
   return {
     name,
     platforms,
-    groups: platformGroupsOf(platforms.data),
+    platformIds: platformIdsOf(platforms.data),
     platform,
     entry,
     oauth,

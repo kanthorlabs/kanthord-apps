@@ -2,8 +2,10 @@ import {
   Activity,
   Bot,
   Boxes,
+  BrainCircuit,
+  Database,
+  FolderGit2,
   FolderKanban,
-  KeyRound,
   LayoutDashboard,
   ListOrdered,
 } from "lucide-react";
@@ -25,7 +27,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/executions", label: "Executions", icon: Activity, group: "Work" },
   { to: "/workers", label: "Workers", icon: Boxes, group: "Workforce" },
   { to: "/agents", label: "Agents", icon: Bot, group: "Workforce" },
-  { to: "/credentials", label: "Credentials", icon: KeyRound, group: "Connections" },
+  { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Connections" },
+  { to: "/repositories", label: "Repositories", icon: FolderGit2, group: "Connections" },
+  { to: "/storage", label: "Storage", icon: Database, group: "Connections" },
 ];
 
 export const ROUTE_LABELS: ReadonlyMap<string, string> = new Map([

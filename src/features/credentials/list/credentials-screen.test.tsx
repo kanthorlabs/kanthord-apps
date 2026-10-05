@@ -9,6 +9,7 @@ import * as credentialsApi from "@/api/resources/credentials";
 import * as gatewayApi from "@/api/resources/gateway";
 import type {
   Credential,
+  CredentialComponent,
   CredentialPlatformEntry,
   CredentialPlatformList,
   HealthOwner,
@@ -27,9 +28,9 @@ import { toast } from "sonner";
 import { CredentialsScreen } from "./credentials-screen";
 import { utcDateTime } from "@/lib/format";
 
-const GITHUB: Credential = {
-  name: "ci-github",
-  platform: "github",
+const OPENROUTER: Credential = {
+  name: "ci-openrouter",
+  platform: "openrouter",
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAD",
@@ -84,27 +85,9 @@ function apiKey(
 
 const PLATFORMS: CredentialPlatformList = {
   items: [
-    { kind: "git", platforms: [apiKey("github", [], true)] },
-    {
-      kind: "llm",
-      platforms: [
-        apiKey("openai-compatible", ["baseUrl"], true),
-        apiKey("openrouter", [], true),
-        apiKey("amazon-bedrock", ["region"], false),
-      ],
-    },
-    {
-      kind: "storage",
-      platforms: [
-        {
-          platform: "s3",
-          secretShape: "s3_access_key",
-          loginModes: [],
-          metadataFields: ["endpoint", "bucket", "region"],
-          verifiable: true,
-        },
-      ],
-    },
+    apiKey("openai-compatible", ["baseUrl"], true),
+    apiKey("openrouter", [], true),
+    apiKey("amazon-bedrock", ["region"], false),
   ],
 };
 
@@ -115,7 +98,7 @@ const REPORT: HealthReport = {
   shared: {
     custody: {
       global: {
-        "ci-github": { status: "unhealthy", capability: "rate-limit read" },
+        "ci-openrouter": { status: "unhealthy", capability: "rate-limit read" },
         router: { status: "healthy", capability: "model-list read" },
       },
       projects: {},
@@ -123,13 +106,13 @@ const REPORT: HealthReport = {
   },
 };
 
-function mount() {
+function mount(component: CredentialComponent = "llm", section = "/llm") {
   return render(
-    <MemoryRouter initialEntries={["/credentials"]}>
+    <MemoryRouter initialEntries={[section]}>
       <Routes>
-        <Route path="/credentials" element={<CredentialsScreen />} />
-        <Route path="/credentials/new" element={<p>New credential form</p>} />
-        <Route path="/credentials/:credentialName" element={<p>Credential view</p>} />
+        <Route path={section} element={<CredentialsScreen component={component} />} />
+        <Route path={`${section}/new`} element={<p>New credential form</p>} />
+        <Route path={`${section}/:credentialName`} element={<p>Credential view</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -150,7 +133,7 @@ beforeEach(() => {
 describe("CredentialsScreen", () => {
   it("lists each credential with its platform and newest live revision", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB, ROUTER],
+      items: [OPENROUTER, ROUTER],
       nextCursor: null,
     });
     mount();
@@ -158,35 +141,36 @@ describe("CredentialsScreen", () => {
     const list = await screen.findByRole("list", { name: "Credentials" });
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
-    expect(within(items[0]!).getByText("github")).toBeTruthy();
+    expect(within(items[0]!).getByText("openrouter")).toBeTruthy();
     expect(within(items[0]!).getByText("r2")).toBeTruthy();
     expect(within(items[0]!).getByText("2026-10-03 14:05 UTC")).toBeTruthy();
-    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith(null, null, false);
+    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("llm", null, null, false);
   });
 
   it("opens a credential from its row", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB],
+      items: [OPENROUTER],
       nextCursor: null,
     });
     mount();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Open ci-github" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Open ci-openrouter" }));
 
     expect(screen.getByText("Credential view")).toBeTruthy();
   });
 
   it("filters the list by platform", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB],
+      items: [OPENROUTER],
       nextCursor: null,
     });
     mount();
 
-    await screen.findByRole("button", { name: "Verify ci-github" });
+    await screen.findByRole("button", { name: "Verify ci-openrouter" });
     await filterBy("openai-compatible", "openai-compatible");
 
     expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(
+      "llm",
       "openai-compatible",
       null,
       false,
@@ -194,45 +178,52 @@ describe("CredentialsScreen", () => {
 
     await filterBy("openrouter", "openrouter");
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("openrouter", null, false);
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(
+      "llm",
+      "openrouter",
+      null,
+      false,
+    );
 
     await filterBy("All", "All platforms");
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(null, null, false);
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("llm", null, null, false);
   });
 
-  it("offers All platforms first and the platforms grouped by kind", async () => {
+  it("offers All platforms first and the platforms of the section in a flat list", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB],
+      items: [OPENROUTER],
       nextCursor: null,
     });
     mount();
 
-    await screen.findByRole("button", { name: "Verify ci-github" });
+    await screen.findByRole("button", { name: "Verify ci-openrouter" });
     const input = screen.getByRole("combobox", { name: "Platform" });
     expect((input as HTMLInputElement).value).toBe("All platforms");
     await userEvent.clear(input);
     await userEvent.type(input, "a");
 
     const options = await screen.findAllByRole("option");
-    expect(options[0]?.textContent).toBe("All platforms");
-    expect(screen.getByRole("group", { name: "LLM" })).toBeTruthy();
-    expect(screen.queryByRole("group", { name: "Git" })).toBeNull();
+    expect(options.map((option) => option.textContent)).toEqual([
+      "All platforms",
+      "openai-compatible",
+      "amazon-bedrock",
+    ]);
+    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("llm");
 
     await userEvent.type(input, "mazon");
     expect(screen.getByRole("option", { name: "amazon-bedrock" })).toBeTruthy();
     expect(screen.queryByRole("option", { name: "openrouter" })).toBeNull();
-    expect(screen.queryByRole("group", { name: "Storage" })).toBeNull();
   });
 
   it("disables Verify for a platform that is not verifiable and says why on a tap", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [BEDROCK, GITHUB],
+      items: [BEDROCK, OPENROUTER],
       nextCursor: null,
     });
     mount();
 
-    expect(await screen.findByRole("button", { name: "Verify ci-github" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Verify ci-openrouter" })).toBeEnabled();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Verify bedrock" })).toHaveAttribute(
         "aria-disabled",
@@ -282,19 +273,19 @@ describe("CredentialsScreen", () => {
       revisions: ROUTER.revisions.map((entry) => ({ ...entry, endedAt: Date.UTC(2026, 9, 2) })),
     };
     vi.mocked(credentialsApi.listCredentialPage).mockImplementation(
-      async (_platform, _cursor, includeArchived) => ({
-        items: includeArchived === true ? [GITHUB, ARCHIVED] : [GITHUB],
+      async (_component, _platform, _cursor, includeArchived) => ({
+        items: includeArchived === true ? [OPENROUTER, ARCHIVED] : [OPENROUTER],
         nextCursor: null,
       }),
     );
     mount();
 
-    await screen.findByRole("button", { name: "Verify ci-github" });
+    await screen.findByRole("button", { name: "Verify ci-openrouter" });
     expect(screen.queryByText("Archived")).toBeNull();
 
     await userEvent.click(screen.getByRole("switch", { name: "Include archived" }));
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(null, null, true);
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("llm", null, null, true);
     expect((await screen.findAllByText("Archived")).length).toBe(2);
     expect(screen.getAllByText(utcDateTime(Date.UTC(2026, 9, 2))).length).toBeGreaterThan(0);
     expect(screen.queryByText("Updated")).toBeTruthy();
@@ -306,7 +297,7 @@ describe("CredentialsScreen", () => {
 
   it("shows the check state as a badge on the row and keeps the report details off it", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB, ROUTER],
+      items: [OPENROUTER, ROUTER],
       nextCursor: null,
     });
     let answer: (report: HealthReport) => void = () => {};
@@ -317,13 +308,13 @@ describe("CredentialsScreen", () => {
     );
     mount();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Verify ci-github" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Verify ci-openrouter" }));
 
     const items = within(screen.getByRole("list", { name: "Credentials" })).getAllByRole(
       "listitem",
     );
     expect(within(items[0]!).getByRole("status").textContent).toBe("Checking");
-    const verify = screen.getByRole("button", { name: "Verify ci-github" });
+    const verify = screen.getByRole("button", { name: "Verify ci-openrouter" });
     expect(verify).toBeDisabled();
     expect(verify).toHaveAttribute("aria-busy", "true");
 
@@ -332,7 +323,7 @@ describe("CredentialsScreen", () => {
     await waitFor(() =>
       expect(within(items[0]!).getByRole("status").textContent).toBe("Unhealthy"),
     );
-    expect(screen.getByRole("button", { name: "Verify ci-github" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Verify ci-openrouter" })).toBeEnabled();
     expect(within(items[0]!).queryByText(/Capability/)).toBeNull();
     expect(within(items[0]!).queryByText(/Health checked at/)).toBeNull();
     expect(within(items[0]!).queryByText(/Checking\. The health report/)).toBeNull();
@@ -342,7 +333,7 @@ describe("CredentialsScreen", () => {
 
   it("reports a failed health report with a badge and a toast that retries", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB],
+      items: [OPENROUTER],
       nextCursor: null,
     });
     vi.mocked(gatewayApi.readHealthReport).mockRejectedValueOnce(
@@ -353,13 +344,13 @@ describe("CredentialsScreen", () => {
     vi.mocked(gatewayApi.readHealthReport).mockResolvedValueOnce(REPORT);
     mount();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Verify ci-github" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Verify ci-openrouter" }));
 
     const item = within(screen.getByRole("list", { name: "Credentials" })).getByRole("listitem");
     await waitFor(() => expect(within(item).getByRole("status").textContent).toBe("Check failed"));
     expect(within(item).queryByRole("alert")).toBeNull();
-    expect(screen.getByRole("button", { name: "Verify ci-github" })).toBeEnabled();
-    expect(toast.error).toHaveBeenCalledWith("The health report of ci-github failed.", {
+    expect(screen.getByRole("button", { name: "Verify ci-openrouter" })).toBeEnabled();
+    expect(toast.error).toHaveBeenCalledWith("The health report of ci-openrouter failed.", {
       description: "The health report could not read the inventory of: custody. Try again later.",
       action: { label: "Retry", onClick: expect.any(Function) },
     });
@@ -373,18 +364,18 @@ describe("CredentialsScreen", () => {
 
   it("rotates a credential from its row", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB],
+      items: [OPENROUTER],
       nextCursor: null,
     });
-    vi.mocked(credentialsApi.rotateCredential).mockResolvedValue(GITHUB);
+    vi.mocked(credentialsApi.rotateCredential).mockResolvedValue(OPENROUTER);
     mount();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Rotate ci-github" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Rotate ci-openrouter" }));
     const sheet = await screen.findByRole("dialog");
     await userEvent.type(within(sheet).getByLabelText("API key"), "ghp-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
 
-    expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("ci-github", {
+    expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("llm", "ci-openrouter", {
       expectedRevision: 2,
       secret: { key: "ghp-2" },
     });
@@ -392,13 +383,13 @@ describe("CredentialsScreen", () => {
 
   it("offers a metadata edit only for a platform with metadata", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
-      items: [GITHUB, ROUTER],
+      items: [OPENROUTER, ROUTER],
       nextCursor: null,
     });
     mount();
 
     expect(await screen.findByRole("button", { name: "Edit metadata of router" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Edit metadata of ci-github" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata of ci-openrouter" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Revisions of router" }));
 
     expect(screen.getByText("Credential view")).toBeTruthy();
@@ -414,6 +405,21 @@ describe("CredentialsScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "New credential" }));
 
     expect(screen.getByText("New credential form")).toBeTruthy();
+  });
+
+  it("reads the repository section and links its rows and form under the section", async () => {
+    const GITHUB: Credential = { ...OPENROUTER, name: "ci-github", platform: "github" };
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [GITHUB],
+      nextCursor: null,
+    });
+    mount("repository", "/repositories");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open ci-github" }));
+
+    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("repository", null, null, false);
+    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository");
+    expect(screen.getByText("Credential view")).toBeTruthy();
   });
 
   it("reports a failed read", async () => {

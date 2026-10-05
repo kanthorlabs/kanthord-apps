@@ -2,7 +2,9 @@ import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
+  ComponentCredential,
   Credential,
+  CredentialComponent,
   CredentialCreateBody,
   CredentialLoginBody,
   CredentialLoginSession,
@@ -14,11 +16,18 @@ import type {
   Page,
 } from "../types";
 
-function credentialPath(credentialName: string): string {
-  return `/api/credential/${encodeURIComponent(credentialName)}`;
+const LOGIN_PATH = "/api/llm/credential/login";
+
+function credentialRoot(component: CredentialComponent): string {
+  return `/api/${component}/credential`;
+}
+
+function credentialPath(component: CredentialComponent, credentialName: string): string {
+  return `${credentialRoot(component)}/${encodeURIComponent(credentialName)}`;
 }
 
 export async function listCredentialPage(
+  component: CredentialComponent,
   platform: CredentialPlatform | null,
   cursor: string | null,
   includeArchived = false,
@@ -28,19 +37,27 @@ export async function listCredentialPage(
   if (includeArchived) query.set("includeArchived", "true");
   if (cursor !== null) query.set("cursor", cursor);
   const suffix = query.size === 0 ? "" : `?${query}`;
-  return request<Page<Credential>>(`/api/credential${suffix}`);
+  return request<Page<Credential>>(`${credentialRoot(component)}${suffix}`);
 }
 
-export async function listCredentialPlatforms(): Promise<CredentialPlatformList> {
-  return request<CredentialPlatformList>("/api/credential/platform");
+export async function listCredentialPlatforms(
+  component: CredentialComponent,
+): Promise<CredentialPlatformList> {
+  return request<CredentialPlatformList>(`${credentialRoot(component)}/platform`);
 }
 
-export async function readCredential(credentialName: string): Promise<Credential> {
-  return request<Credential>(credentialPath(credentialName));
+export async function readCredential<C extends CredentialComponent>(
+  component: C,
+  credentialName: string,
+): Promise<ComponentCredential[C]> {
+  return request<ComponentCredential[C]>(credentialPath(component, credentialName));
 }
 
-export async function createCredential(body: CredentialCreateBody): Promise<Credential> {
-  return request<Credential>("/api/credential", {
+export async function createCredential(
+  component: CredentialComponent,
+  body: CredentialCreateBody,
+): Promise<Credential> {
+  return request<Credential>(credentialRoot(component), {
     method: "POST",
     body,
     headers: { "idempotency-key": newUlid() },
@@ -48,10 +65,11 @@ export async function createCredential(body: CredentialCreateBody): Promise<Cred
 }
 
 export async function rotateCredential(
+  component: CredentialComponent,
   credentialName: string,
   body: CredentialRotateBody,
 ): Promise<Credential> {
-  return request<Credential>(`${credentialPath(credentialName)}/revision`, {
+  return request<Credential>(`${credentialPath(component, credentialName)}/revision`, {
     method: "POST",
     body,
     headers: { "idempotency-key": newUlid() },
@@ -59,10 +77,11 @@ export async function rotateCredential(
 }
 
 export async function updateCredentialMetadata(
+  component: CredentialComponent,
   credentialName: string,
   body: CredentialMetadataBody,
 ): Promise<Credential> {
-  return request<Credential>(`${credentialPath(credentialName)}/metadata`, {
+  return request<Credential>(`${credentialPath(component, credentialName)}/metadata`, {
     method: "PUT",
     body,
     headers: { "idempotency-key": newUlid() },
@@ -70,17 +89,24 @@ export async function updateCredentialMetadata(
 }
 
 export async function revokeCredentialRevision(
+  component: CredentialComponent,
   credentialName: string,
   revision: number,
 ): Promise<Credential> {
-  return request<Credential>(`${credentialPath(credentialName)}/revision/${revision}/revoke`, {
-    method: "POST",
-    headers: { "idempotency-key": newUlid() },
-  });
+  return request<Credential>(
+    `${credentialPath(component, credentialName)}/revision/${revision}/revoke`,
+    {
+      method: "POST",
+      headers: { "idempotency-key": newUlid() },
+    },
+  );
 }
 
-export async function archiveCredential(credentialName: string): Promise<Credential> {
-  return request<Credential>(`${credentialPath(credentialName)}/archive`, {
+export async function archiveCredential(
+  component: CredentialComponent,
+  credentialName: string,
+): Promise<Credential> {
+  return request<Credential>(`${credentialPath(component, credentialName)}/archive`, {
     method: "POST",
     headers: { "idempotency-key": newUlid() },
   });
@@ -89,7 +115,7 @@ export async function archiveCredential(credentialName: string): Promise<Credent
 export async function startCredentialLogin(
   body: CredentialLoginBody,
 ): Promise<CredentialLoginSession> {
-  return request<CredentialLoginSession>("/api/credential/login", {
+  return request<CredentialLoginSession>(LOGIN_PATH, {
     method: "POST",
     body,
     headers: { "idempotency-key": newUlid() },
@@ -101,17 +127,18 @@ export async function submitCredentialLoginCode(
   value: string,
 ): Promise<{ readonly sessionId: string }> {
   return request<{ readonly sessionId: string }>(
-    `/api/credential/login/${encodeURIComponent(sessionId)}/code`,
+    `${LOGIN_PATH}/${encodeURIComponent(sessionId)}/code`,
     { method: "POST", body: { value }, headers: { "idempotency-key": newUlid() } },
   );
 }
 
 export async function readCredentialLoginStatus(sessionId: string): Promise<CredentialLoginStatus> {
-  return request<CredentialLoginStatus>(`/api/credential/login/${encodeURIComponent(sessionId)}`);
+  return request<CredentialLoginStatus>(`${LOGIN_PATH}/${encodeURIComponent(sessionId)}`);
 }
 
 export async function listCredentials(
+  component: CredentialComponent,
   platform: CredentialPlatform,
 ): Promise<readonly Credential[]> {
-  return readAllPages<Credential>("/api/credential", { platform });
+  return readAllPages<Credential>(credentialRoot(component), { platform });
 }

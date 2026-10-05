@@ -5,7 +5,7 @@ export const REVISION_CONFLICT = "credential.revision.conflict";
 const MESSAGES: Readonly<Record<string, string>> = {
   [REVISION_CONFLICT]:
     "The credential changed after this page read it. Reload it, review the newest revision, then try again.",
-  "credential.metadata.base_url_fixed":
+  "llm.metadata.base_url_fixed":
     "A metadata edit cannot change the base URL. Rotate the secret to set a new base URL.",
   "credential.revision.newest_live":
     "The newest live revision cannot be revoked. Rotate the secret first, then revoke the older revision.",
@@ -24,7 +24,7 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "credential.login.value_not_awaited": "The sign-in does not wait for a code now.",
   "credential.login.mode_unsupported":
     "The platform does not support this sign-in mode. Choose another mode.",
-  "custody.lifecycle.stopped": "Custody stopped and accepts no sign-in. Restart the daemon.",
+  "llm.lifecycle.stopped": "The LLM component stopped and accepts no sign-in. Restart the daemon.",
   "system.pagination.cursor_invalid": "The page cursor is no longer valid. Reload the list.",
 };
 
@@ -86,7 +86,7 @@ export function credentialMessage(cause: ApiError): string {
     return "This credential is archived. An archive is final, and the name stays taken.";
   }
   if (cause.detail === "credential.name.conflict") return nameConflictMessage(cause.details);
-  if (cause.detail === "credential.metadata.model_in_use") return modelInUseMessage(cause.details);
+  if (cause.detail === "llm.metadata.model_in_use") return modelInUseMessage(cause.details);
   if (cause.detail === "credential.credential.in_use") return inUseMessage(cause.details);
   if (cause.detail === "gateway.healthcheck.inventory_failed") {
     return inventoryFailedMessage(cause.details);

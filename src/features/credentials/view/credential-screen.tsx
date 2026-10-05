@@ -1,7 +1,7 @@
 import { ArchiveIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
-import type { Credential, CredentialPlatformEntry } from "@/api/types";
+import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import { useMetadataEdit } from "../use-metadata-edit";
 import { useCredentialArchive } from "./use-credential-archive";
 import { isArchived } from "@/lib/credential-revisions";
 import { platformEntryOf } from "@/lib/credential-platforms";
+import { credentialSectionPath } from "@/lib/credential-sections";
 import { useRevisionRevoke } from "./use-revision-revoke";
 
 interface HealthSectionProps {
@@ -56,12 +57,18 @@ function HealthSection({ entry, check }: HealthSectionProps) {
   );
 }
 
-function CredentialDetail({ credential, reload }: { credential: Credential; reload: () => void }) {
-  const entry = platformEntryOf(useCredentialPlatforms().data, credential.platform);
-  const rotate = useCredentialRotate(credential, entry, reload);
-  const metadata = useMetadataEdit(credential, entry, reload);
-  const revoke = useRevisionRevoke(credential, reload);
-  const archive = useCredentialArchive(credential);
+interface CredentialDetailProps {
+  readonly component: CredentialComponent;
+  readonly credential: Credential;
+  readonly reload: () => void;
+}
+
+function CredentialDetail({ component, credential, reload }: CredentialDetailProps) {
+  const entry = platformEntryOf(useCredentialPlatforms(component).data, credential.platform);
+  const rotate = useCredentialRotate(component, credential, entry, reload);
+  const metadata = useMetadataEdit(component, credential, entry, reload);
+  const revoke = useRevisionRevoke(component, credential, reload);
+  const archive = useCredentialArchive(component, credential);
   const archived = isArchived(credential);
   const check = useCredentialCheck(credential.name);
 
@@ -116,9 +123,9 @@ function CredentialDetail({ credential, reload }: { credential: Credential; relo
   );
 }
 
-export function CredentialScreen() {
+export function CredentialScreen({ component }: { component: CredentialComponent }) {
   const { credentialName = "" } = useParams<{ credentialName: string }>();
-  const { data: credential, error, loading, reload } = useCredential(credentialName);
+  const { data: credential, error, loading, reload } = useCredential(component, credentialName);
 
   if (loading) {
     return (
@@ -139,7 +146,7 @@ export function CredentialScreen() {
           </Button>
           <Button
             nativeButton={false}
-            render={<Link to="/credentials" />}
+            render={<Link to={credentialSectionPath(component)} />}
             variant="ghost"
             size="sm"
           >
@@ -150,5 +157,5 @@ export function CredentialScreen() {
     );
   }
 
-  return <CredentialDetail credential={credential} reload={reload} />;
+  return <CredentialDetail component={component} credential={credential} reload={reload} />;
 }

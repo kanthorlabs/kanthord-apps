@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { revokeCredentialRevision } from "@/api/resources/credentials";
-import type { Credential, CredentialRevision } from "@/api/types";
+import type { Credential, CredentialComponent, CredentialRevision } from "@/api/types";
 import { isRevocable } from "@/lib/credential-revisions";
 import { writeFailureOf } from "../write-failure";
 
@@ -18,7 +18,11 @@ export interface RevisionRevokeState {
   readonly confirm: () => void;
 }
 
-export function useRevisionRevoke(credential: Credential, reload: () => void): RevisionRevokeState {
+export function useRevisionRevoke(
+  component: CredentialComponent,
+  credential: Credential,
+  reload: () => void,
+): RevisionRevokeState {
   const [target, setTarget] = useState<CredentialRevision | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revoking, setRevoking] = useState(false);
@@ -51,7 +55,7 @@ export function useRevisionRevoke(credential: Credential, reload: () => void): R
     }
     setRevoking(true);
     setError(null);
-    revokeCredentialRevision(credential.name, target.revision).then(
+    revokeCredentialRevision(component, credential.name, target.revision).then(
       () => {
         setRevoking(false);
         toast.success(`Revoked revision ${target.revision} of ${credential.name}.`);
@@ -64,7 +68,7 @@ export function useRevisionRevoke(credential: Credential, reload: () => void): R
         reload();
       },
     );
-  }, [revoking, target, credential, reload]);
+  }, [revoking, target, component, credential, reload]);
 
   const revision = target?.revision ?? 0;
   return {

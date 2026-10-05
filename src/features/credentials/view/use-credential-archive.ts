@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { archiveCredential } from "@/api/resources/credentials";
-import type { Credential } from "@/api/types";
+import type { Credential, CredentialComponent } from "@/api/types";
+import { credentialSectionPath } from "@/lib/credential-sections";
 import { writeFailureOf } from "../write-failure";
 
 export interface CredentialArchiveState {
@@ -17,7 +18,10 @@ export interface CredentialArchiveState {
   readonly confirm: () => void;
 }
 
-export function useCredentialArchive(credential: Credential): CredentialArchiveState {
+export function useCredentialArchive(
+  component: CredentialComponent,
+  credential: Credential,
+): CredentialArchiveState {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,18 +42,18 @@ export function useCredentialArchive(credential: Credential): CredentialArchiveS
     if (archiving) return;
     setArchiving(true);
     setError(null);
-    archiveCredential(credential.name).then(
+    archiveCredential(component, credential.name).then(
       () => {
         setArchiving(false);
         toast.success(`Archived ${credential.name}. Every live revision ended.`);
-        navigate("/credentials");
+        navigate(credentialSectionPath(component));
       },
       (cause: unknown) => {
         setArchiving(false);
         setError(writeFailureOf(cause).message);
       },
     );
-  }, [archiving, credential.name, navigate]);
+  }, [archiving, component, credential.name, navigate]);
 
   return {
     open,

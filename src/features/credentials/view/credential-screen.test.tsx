@@ -8,11 +8,12 @@ import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as gatewayApi from "@/api/resources/gateway";
 import type {
-  Credential,
+  CredentialComponent,
   CredentialPlatformEntry,
   CredentialPlatformList,
   HealthOwner,
   HealthReport,
+  LlmCredential,
 } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
@@ -27,9 +28,10 @@ import { CredentialScreen } from "./credential-screen";
 
 const BASE_URL = "https://openrouter.ai/api/v1";
 
-const ROUTER: Credential = {
+const ROUTER: LlmCredential = {
   name: "router",
   platform: "openai-compatible",
+  agentProviders: [],
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAG",
@@ -64,20 +66,16 @@ function apiKey(
 
 const PLATFORMS: CredentialPlatformList = {
   items: [
-    { kind: "git", platforms: [apiKey("github", [], true)] },
-    {
-      kind: "llm",
-      platforms: [
-        apiKey("openai-compatible", ["baseUrl"], true),
-        apiKey("cloudflare-ai-gateway", ["account_id", "gateway_id"], false),
-      ],
-    },
+    apiKey("openrouter", [], true),
+    apiKey("openai-compatible", ["baseUrl"], true),
+    apiKey("cloudflare-ai-gateway", ["account_id", "gateway_id"], false),
   ],
 };
 
-const GATEWAY: Credential = {
+const GATEWAY: LlmCredential = {
   name: "gateway",
   platform: "cloudflare-ai-gateway",
+  agentProviders: [],
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAH",
@@ -101,22 +99,28 @@ const HEALTHY: HealthReport = {
   },
 };
 
-function mount() {
+function mount(component: CredentialComponent = "llm", section = "/llm") {
   return render(
-    <MemoryRouter initialEntries={["/credentials/router"]}>
+    <MemoryRouter initialEntries={[`${section}/router`]}>
       <Routes>
-        <Route path="/credentials/:credentialName" element={<CredentialScreen />} />
+        <Route
+          path={`${section}/:credentialName`}
+          element={<CredentialScreen component={component} />}
+        />
       </Routes>
     </MemoryRouter>,
   );
 }
 
-function mountWithList() {
+function mountWithList(component: CredentialComponent = "llm", section = "/llm") {
   return render(
-    <MemoryRouter initialEntries={["/credentials/router"]}>
+    <MemoryRouter initialEntries={[`${section}/router`]}>
       <Routes>
-        <Route path="/credentials/:credentialName" element={<CredentialScreen />} />
-        <Route path="/credentials" element={<p>Credential list</p>} />
+        <Route
+          path={`${section}/:credentialName`}
+          element={<CredentialScreen component={component} />}
+        />
+        <Route path={section} element={<p>Credential list</p>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -143,7 +147,8 @@ describe("CredentialScreen", () => {
     expect(within(items[0]!).getByText("qwen-plus")).toBeTruthy();
     expect(within(items[2]!).getByText("ended")).toBeTruthy();
     expect(within(items[2]!).getByText("2026-10-02 14:05 UTC")).toBeTruthy();
-    expect(credentialsApi.readCredential).toHaveBeenCalledWith("router");
+    expect(credentialsApi.readCredential).toHaveBeenCalledWith("llm", "router");
+    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("llm");
   });
 
   it("offers a revoke only for an older live revision", async () => {
@@ -164,7 +169,7 @@ describe("CredentialScreen", () => {
     expect(within(dialog).getByRole("button", { name: "Keep revision 2" })).toBeTruthy();
     await userEvent.click(within(dialog).getByRole("button", { name: "Revoke revision 2" }));
 
-    expect(credentialsApi.revokeCredentialRevision).toHaveBeenCalledWith("router", 2);
+    expect(credentialsApi.revokeCredentialRevision).toHaveBeenCalledWith("llm", "router", 2);
   });
 
   it("archives after the confirmation and returns to the list", async () => {
@@ -177,7 +182,7 @@ describe("CredentialScreen", () => {
     expect(within(dialog).getByText(/The record stays/)).toBeTruthy();
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
 
-    expect(credentialsApi.archiveCredential).toHaveBeenCalledWith("router");
+    expect(credentialsApi.archiveCredential).toHaveBeenCalledWith("llm", "router");
     expect(await screen.findByText("Credential list")).toBeTruthy();
     expect(toast.success).toHaveBeenCalled();
   });
@@ -234,7 +239,7 @@ describe("CredentialScreen", () => {
     await userEvent.type(within(sheet).getByLabelText("API key"), "sk-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
 
-    expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("router", {
+    expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("llm", "router", {
       expectedRevision: 3,
       secret: { key: "sk-2" },
     });
@@ -274,7 +279,7 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(levels[1]!).getByRole("button", { name: "high" }));
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
 
-    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("router", {
+    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("llm", "router", {
       expectedRevision: 3,
       metadata: {
         baseUrl: BASE_URL,
@@ -288,7 +293,7 @@ describe("CredentialScreen", () => {
 
   it("explains a model that an agent still uses", async () => {
     vi.mocked(credentialsApi.updateCredentialMetadata).mockRejectedValue(
-      new ApiError("conflict", "In use.", 409, "credential.metadata.model_in_use", {
+      new ApiError("conflict", "In use.", 409, "llm.metadata.model_in_use", {
         models: [{ model: "qwen-plus", agents: ["swe@1"] }],
       }),
     );
@@ -363,8 +368,9 @@ describe("CredentialScreen", () => {
 
   it("offers no metadata edit for a platform without metadata", async () => {
     vi.mocked(credentialsApi.readCredential).mockResolvedValue({
-      name: "ci-github",
-      platform: "github",
+      name: "openrouter",
+      platform: "openrouter",
+      agentProviders: [],
       revisions: [{ ...ROUTER.revisions[0]!, metadata: null }],
     });
     mount();
@@ -386,7 +392,7 @@ describe("CredentialScreen", () => {
     await userEvent.type(gateway, "gw-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
 
-    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("gateway", {
+    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("llm", "gateway", {
       expectedRevision: 1,
       metadata: { account_id: "acc-1", gateway_id: "gw-2" },
     });
@@ -412,6 +418,26 @@ describe("CredentialScreen", () => {
       await screen.findByText("Verification is not supported yet for cloudflare-ai-gateway."),
     ).toBeTruthy();
     expect(gatewayApi.readHealthReport).not.toHaveBeenCalled();
+  });
+
+  it("archives a storage credential through its section and returns to that list", async () => {
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue({
+      name: "router",
+      platform: "s3",
+      bindings: [],
+      revisions: [{ ...ROUTER.revisions[0]!, metadata: null }],
+    });
+    vi.mocked(credentialsApi.archiveCredential).mockResolvedValue(ROUTER);
+    mountWithList("storage", "/storage");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
+
+    expect(credentialsApi.readCredential).toHaveBeenCalledWith("storage", "router");
+    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("storage");
+    expect(credentialsApi.archiveCredential).toHaveBeenCalledWith("storage", "router");
+    expect(await screen.findByText("Credential list")).toBeTruthy();
   });
 
   it("reports an unknown credential", async () => {

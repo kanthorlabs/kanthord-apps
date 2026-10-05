@@ -113,7 +113,7 @@ describe("AgentScreen", () => {
     const form = await screen.findByRole("form", { name: "Enable re@1" });
     await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
     await choose("Provider", "openrouter");
-    expect(credentialsApi.listCredentials).toHaveBeenCalledWith("openrouter");
+    expect(credentialsApi.listCredentials).toHaveBeenCalledWith("llm", "openrouter");
     await choose("Credential", "router-main");
     await userEvent.type(within(form).getByLabelText("Model identifier"), "qwen/qwen3-coder");
     await choose("Reasoning effort", "off");

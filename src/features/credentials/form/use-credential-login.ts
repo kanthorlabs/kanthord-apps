@@ -8,6 +8,7 @@ import {
   submitCredentialLoginCode,
 } from "@/api/resources/credentials";
 import type {
+  CredentialComponent,
   CredentialLoginMode,
   CredentialLoginSession,
   CredentialLoginStatus,
@@ -15,6 +16,7 @@ import type {
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { loginModeOf } from "@/lib/credential-draft";
+import { credentialDetailPath } from "@/lib/credential-sections";
 import { credentialMessage } from "../credential-message";
 
 export const LOGIN_POLL_MS = 2000;
@@ -45,7 +47,10 @@ function failureMessage(cause: unknown): string {
   return credentialMessage(asApiError(cause));
 }
 
-export function useCredentialLogin(modes: readonly CredentialLoginMode[]): CredentialLoginState {
+export function useCredentialLogin(
+  component: CredentialComponent,
+  modes: readonly CredentialLoginMode[],
+): CredentialLoginState {
   const navigate = useNavigate();
   const [selected, setSelected] = useState<CredentialLoginMode | null>(null);
   const [sessionMode, setSessionMode] = useState<CredentialLoginMode | null>(null);
@@ -71,13 +76,13 @@ export function useCredentialLogin(modes: readonly CredentialLoginMode[]): Crede
           setStatus(next);
           if (next.state !== "completed") return;
           toast.success(`Signed in. Custody stored ${name}.`);
-          void navigate(`/credentials/${encodeURIComponent(name)}`);
+          void navigate(credentialDetailPath(component, name));
         },
         (cause: unknown) => setPollError(failureMessage(cause)),
       );
     }, LOGIN_POLL_MS);
     return () => clearTimeout(timer);
-  }, [waiting, session, status, name, navigate]);
+  }, [waiting, session, status, component, name, navigate]);
 
   const selectMode = useCallback((value: string | null) => {
     const next = MODES.find((candidate) => candidate === value);

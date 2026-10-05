@@ -12,7 +12,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { CredentialPlatformEntry } from "@/api/types";
+import type { CredentialComponent, CredentialPlatformEntry } from "@/api/types";
+import { credentialSectionPath } from "@/lib/credential-sections";
 import { CredentialField } from "../components/credential-field";
 import { MetadataFields } from "../components/metadata-fields";
 import { PlatformCombobox } from "../components/platform-combobox";
@@ -65,7 +66,13 @@ function SignInFields({
   );
 }
 
-function CreateForm({ form }: { form: CredentialFormState }) {
+function CreateForm({
+  component,
+  form,
+}: {
+  component: CredentialComponent;
+  form: CredentialFormState;
+}) {
   return (
     <form
       noValidate
@@ -96,7 +103,7 @@ function CreateForm({ form }: { form: CredentialFormState }) {
           <FieldLabel htmlFor="credential-platform">Platform</FieldLabel>
           <PlatformCombobox
             id="credential-platform"
-            groups={form.groups}
+            items={form.platformIds}
             value={form.platform}
             labelOf={platformLabel}
             onValueChange={form.selectPlatform}
@@ -131,7 +138,7 @@ function CreateForm({ form }: { form: CredentialFormState }) {
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2">
           <Button
             nativeButton={false}
-            render={<Link to="/credentials" />}
+            render={<Link to={credentialSectionPath(component)} />}
             variant="outline"
             size="lg"
           >
@@ -146,8 +153,8 @@ function CreateForm({ form }: { form: CredentialFormState }) {
   );
 }
 
-export function CredentialFormScreen() {
-  const form = useCredentialForm();
+export function CredentialFormScreen({ component }: { component: CredentialComponent }) {
+  const form = useCredentialForm(component);
   const session = form.login.session;
 
   return (
@@ -168,7 +175,7 @@ export function CredentialFormScreen() {
             </Button>
           </div>
         ) : session === null ? (
-          <CreateForm form={form} />
+          <CreateForm component={component} form={form} />
         ) : (
           <LoginSession login={form.login} session={session} />
         )}

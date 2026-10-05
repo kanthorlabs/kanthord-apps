@@ -38,9 +38,36 @@ export function AppRouter() {
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
-            <Route path="credentials" element={<CredentialsScreen />} />
-            <Route path="credentials/new" element={<CredentialFormScreen />} />
-            <Route path="credentials/:credentialName" element={<CredentialScreen />} />
+            <Route path="llm" element={<CredentialsScreen key="llm" component="llm" />} />
+            <Route path="llm/new" element={<CredentialFormScreen key="llm" component="llm" />} />
+            <Route
+              path="llm/:credentialName"
+              element={<CredentialScreen key="llm" component="llm" />}
+            />
+            <Route
+              path="repositories"
+              element={<CredentialsScreen key="repository" component="repository" />}
+            />
+            <Route
+              path="repositories/new"
+              element={<CredentialFormScreen key="repository" component="repository" />}
+            />
+            <Route
+              path="repositories/:credentialName"
+              element={<CredentialScreen key="repository" component="repository" />}
+            />
+            <Route
+              path="storage"
+              element={<CredentialsScreen key="storage" component="storage" />}
+            />
+            <Route
+              path="storage/new"
+              element={<CredentialFormScreen key="storage" component="storage" />}
+            />
+            <Route
+              path="storage/:credentialName"
+              element={<CredentialScreen key="storage" component="storage" />}
+            />
           </Route>
         </Routes>
       </BrowserRouter>

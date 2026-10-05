@@ -21,7 +21,7 @@ describe("credentialMessage", () => {
   it("lists the dependents of a model in use", () => {
     expect(
       credentialMessage(
-        refusal("credential.metadata.model_in_use", {
+        refusal("llm.metadata.model_in_use", {
           models: [{ model: "qwen-plus", agents: ["swe@1", "re@1"] }],
         }),
       ),
@@ -32,9 +32,7 @@ describe("credentialMessage", () => {
     expect(credentialMessage(refusal("credential.revision.conflict"))).toMatch(
       /^The credential changed/,
     );
-    expect(credentialMessage(refusal("credential.metadata.base_url_fixed"))).toMatch(
-      /Rotate the secret/,
-    );
+    expect(credentialMessage(refusal("llm.metadata.base_url_fixed"))).toMatch(/Rotate the secret/);
     expect(credentialMessage(refusal("credential.revision.newest_live"))).toMatch(
       /cannot be revoked/,
     );

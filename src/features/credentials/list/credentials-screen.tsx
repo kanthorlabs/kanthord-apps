@@ -1,7 +1,7 @@
 import { FileCogIcon, HistoryIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-import type { Credential, CredentialPlatformEntry } from "@/api/types";
+import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import {
   newestLiveRevision,
 } from "@/lib/credential-revisions";
 import { platformEntryOf } from "@/lib/credential-platforms";
+import { credentialDetailPath, credentialSectionPath } from "@/lib/credential-sections";
 import { utcDateTime } from "@/lib/format";
 import { CheckStatusBadge } from "../components/check-status-badge";
 import { MetadataSheet } from "../components/metadata-sheet";
@@ -31,21 +32,22 @@ function platformLabel(value: string): string {
 }
 
 interface CredentialItemProps {
+  readonly component: CredentialComponent;
   readonly credential: Credential;
   readonly entry: CredentialPlatformEntry | null;
   readonly reload: () => void;
 }
 
-function CredentialItem({ credential, entry, reload }: CredentialItemProps) {
+function CredentialItem({ component, credential, entry, reload }: CredentialItemProps) {
   const navigate = useNavigate();
   const check = useCredentialCheck(credential.name);
-  const rotate = useCredentialRotate(credential, entry, reload);
-  const metadata = useMetadataEdit(credential, entry, reload);
+  const rotate = useCredentialRotate(component, credential, entry, reload);
+  const metadata = useMetadataEdit(component, credential, entry, reload);
   const newest = newestLiveRevision(credential);
   const archived = isArchived(credential);
   const archivedAt = archiveTime(credential);
   const name = credential.name;
-  const detailPath = `/credentials/${encodeURIComponent(name)}`;
+  const detailPath = credentialDetailPath(component, name);
 
   return (
     <>
@@ -125,16 +127,16 @@ function CredentialItem({ credential, entry, reload }: CredentialItemProps) {
   );
 }
 
-export function CredentialsScreen() {
+export function CredentialsScreen({ component }: { component: CredentialComponent }) {
   const {
     pages,
     platforms,
-    groups,
+    platformIds,
     platform,
     includeArchived,
     selectPlatform,
     setIncludeArchived,
-  } = useCredentialList();
+  } = useCredentialList(component);
 
   return (
     <div className="flex flex-col gap-4">
@@ -143,7 +145,7 @@ export function CredentialsScreen() {
           <PlatformCombobox
             id="credential-platform-filter"
             label="Platform"
-            groups={groups}
+            items={platformIds}
             value={platform ?? ALL_PLATFORMS}
             labelOf={platformLabel}
             onValueChange={selectPlatform}
@@ -157,7 +159,11 @@ export function CredentialsScreen() {
           />
           <FieldLabel htmlFor="credential-include-archived">Include archived</FieldLabel>
         </Field>
-        <Button nativeButton={false} render={<Link to="/credentials/new" />} className="ml-auto">
+        <Button
+          nativeButton={false}
+          render={<Link to={`${credentialSectionPath(component)}/new`} />}
+          className="ml-auto"
+        >
           <PlusIcon aria-hidden="true" data-icon="inline-start" />
           New credential
         </Button>
@@ -168,6 +174,7 @@ export function CredentialsScreen() {
         getKey={(credential) => credential.name}
         renderItem={(credential) => (
           <CredentialItem
+            component={component}
             credential={credential}
             entry={platformEntryOf(platforms, credential.platform)}
             reload={pages.reload}

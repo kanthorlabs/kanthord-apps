@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { updateCredentialMetadata } from "@/api/resources/credentials";
-import type { Credential, CredentialPlatformEntry } from "@/api/types";
+import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import {
   EMPTY_METADATA,
   EMPTY_MODEL,
@@ -36,6 +36,7 @@ export interface MetadataEditState {
 const NO_ERRORS: DraftErrors = {};
 
 export function useMetadataEdit(
+  component: CredentialComponent,
   credential: Credential,
   entry: CredentialPlatformEntry | null,
   reload: () => void,
@@ -95,7 +96,7 @@ export function useMetadataEdit(
     setErrors(NO_ERRORS);
     setFailure(null);
     setSubmitting(true);
-    updateCredentialMetadata(credential.name, {
+    updateCredentialMetadata(component, credential.name, {
       expectedRevision: newest.revision,
       metadata: metadata.value,
     }).then(
@@ -112,7 +113,7 @@ export function useMetadataEdit(
         setFailure(writeFailureOf(cause));
       },
     );
-  }, [submitting, newest, entry, credential, draft, reload]);
+  }, [submitting, newest, entry, component, credential, draft, reload]);
 
   return {
     available: entry !== null && entry.metadataFields.length > 0 && newest !== null,

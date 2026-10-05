@@ -38,7 +38,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const [submitting, setSubmitting] = useState(false);
   const { provider } = draft;
   const credentials = useResource(
-    () => (provider === "" ? Promise.resolve([]) : listCredentials(provider)),
+    () => (provider === "" ? Promise.resolve([]) : listCredentials("llm", provider)),
     [provider],
   );
 

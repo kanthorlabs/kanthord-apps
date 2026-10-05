@@ -129,7 +129,7 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
         {form.credentialsMissing && (
           <p className="text-sm text-muted-foreground md:col-span-2">
             No credential of platform {draft.provider} exists.{" "}
-            <Link to="/credentials/new" className="underline underline-offset-4">
+            <Link to="/llm/new" className="underline underline-offset-4">
               Add a credential
             </Link>{" "}
             first.
