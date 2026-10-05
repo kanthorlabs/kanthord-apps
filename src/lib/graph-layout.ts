@@ -42,7 +42,7 @@ const BAND_PADDING = 8;
 const MIN_LANE_WIDTH = 180;
 const MAX_LANES = 4;
 const EDGE_GUTTER = 16;
-const LAYER_GAP = 28;
+const LAYER_GAP = 40;
 const CORNER_RADIUS = 6;
 
 export function laneGrid(width: number): LaneGrid {

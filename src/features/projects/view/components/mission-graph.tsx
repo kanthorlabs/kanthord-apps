@@ -62,7 +62,7 @@ export function MissionGraph({ model, selectedId, onSelect }: MissionGraphProps)
             <div
               key={band.initiativeId}
               aria-hidden="true"
-              className="absolute rounded-xl bg-muted"
+              className="absolute rounded-xl border bg-muted"
               style={boxStyle(band.box)}
             />
           ))}
