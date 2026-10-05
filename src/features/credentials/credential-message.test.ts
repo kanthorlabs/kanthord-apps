@@ -66,10 +66,10 @@ describe("credentialMessage", () => {
     expect(
       credentialMessage(
         new ApiError("unavailable", "Down.", 503, "gateway.healthcheck.inventory_failed", {
-          missingInventories: ["custody"],
+          missingInventories: ["llm"],
         }),
       ),
-    ).toBe("The health report could not read the inventory of: custody. Try again later.");
+    ).toBe("The health report could not read the inventory of: llm. Try again later.");
   });
 
   it("falls back to the daemon message", () => {

@@ -40,7 +40,7 @@ interface CredentialItemProps {
 
 function CredentialItem({ component, credential, entry, reload }: CredentialItemProps) {
   const navigate = useNavigate();
-  const check = useCredentialCheck(credential.name);
+  const check = useCredentialCheck(component, credential.name);
   const rotate = useCredentialRotate(component, credential, entry, reload);
   const metadata = useMetadataEdit(component, credential, entry, reload);
   const newest = newestLiveRevision(credential);

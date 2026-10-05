@@ -96,13 +96,18 @@ const EMPTY_OWNER: HealthOwner = { global: {}, projects: {} };
 const REPORT: HealthReport = {
   services: { project: EMPTY_OWNER, intake: EMPTY_OWNER, worker: EMPTY_OWNER },
   shared: {
-    custody: {
+    llm: {
       global: {
         "ci-openrouter": { status: "unhealthy", capability: "rate-limit read" },
         router: { status: "healthy", capability: "model-list read" },
       },
       projects: {},
     },
+    repository: {
+      global: { "ci-github": { status: "healthy", capability: "rate-limit read" } },
+      projects: {},
+    },
+    storage: EMPTY_OWNER,
   },
 };
 
@@ -338,7 +343,7 @@ describe("CredentialsScreen", () => {
     });
     vi.mocked(gatewayApi.readHealthReport).mockRejectedValueOnce(
       new ApiError("unavailable", "Down.", 503, "gateway.healthcheck.inventory_failed", {
-        missingInventories: ["custody"],
+        missingInventories: ["llm"],
       }),
     );
     vi.mocked(gatewayApi.readHealthReport).mockResolvedValueOnce(REPORT);
@@ -351,7 +356,7 @@ describe("CredentialsScreen", () => {
     expect(within(item).queryByRole("alert")).toBeNull();
     expect(screen.getByRole("button", { name: "Verify ci-openrouter" })).toBeEnabled();
     expect(toast.error).toHaveBeenCalledWith("The health report of ci-openrouter failed.", {
-      description: "The health report could not read the inventory of: custody. Try again later.",
+      description: "The health report could not read the inventory of: llm. Try again later.",
       action: { label: "Retry", onClick: expect.any(Function) },
     });
 
@@ -420,6 +425,21 @@ describe("CredentialsScreen", () => {
     expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("repository", null, null, false);
     expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository");
     expect(screen.getByText("Credential view")).toBeTruthy();
+  });
+
+  it("reads the health of the repository section from shared.repository", async () => {
+    const GITHUB: Credential = { ...OPENROUTER, name: "ci-github", platform: "github" };
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [GITHUB],
+      nextCursor: null,
+    });
+    vi.mocked(gatewayApi.readHealthReport).mockResolvedValue(REPORT);
+    mount("repository", "/repositories");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Verify ci-github" }));
+
+    const item = within(screen.getByRole("list", { name: "Credentials" })).getByRole("listitem");
+    await waitFor(() => expect(within(item).getByRole("status").textContent).toBe("Healthy"));
   });
 
   it("reports a failed read", async () => {

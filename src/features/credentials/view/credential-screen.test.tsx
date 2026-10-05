@@ -92,10 +92,12 @@ const EMPTY_OWNER: HealthOwner = { global: {}, projects: {} };
 const HEALTHY: HealthReport = {
   services: { project: EMPTY_OWNER, intake: EMPTY_OWNER, worker: EMPTY_OWNER },
   shared: {
-    custody: {
+    llm: {
       global: { router: { status: "healthy", capability: "model-list read" } },
       projects: {},
     },
+    repository: EMPTY_OWNER,
+    storage: EMPTY_OWNER,
   },
 };
 
@@ -339,7 +341,7 @@ describe("CredentialScreen", () => {
   it("reports a failed health report with a badge and a toast that retries", async () => {
     vi.mocked(gatewayApi.readHealthReport).mockRejectedValueOnce(
       new ApiError("unavailable", "Down.", 503, "gateway.healthcheck.inventory_failed", {
-        missingInventories: ["custody"],
+        missingInventories: ["llm"],
       }),
     );
     vi.mocked(gatewayApi.readHealthReport).mockResolvedValueOnce(HEALTHY);
@@ -355,7 +357,7 @@ describe("CredentialScreen", () => {
     expect(screen.getByRole("button", { name: "Verify" })).toBeEnabled();
     expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("—");
     expect(toast.error).toHaveBeenCalledWith("The health report of router failed.", {
-      description: "The health report could not read the inventory of: custody. Try again later.",
+      description: "The health report could not read the inventory of: llm. Try again later.",
       action: { label: "Retry", onClick: expect.any(Function) },
     });
 

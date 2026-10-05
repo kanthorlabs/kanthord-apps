@@ -73,7 +73,7 @@ export function CredentialDetail({
   const revoke = useRevisionRevoke(component, credential, reload);
   const archive = useCredentialArchive(component, credential);
   const archived = isArchived(credential);
-  const check = useCredentialCheck(credential.name);
+  const check = useCredentialCheck(component, credential.name);
 
   return (
     <div className="flex flex-col gap-4">

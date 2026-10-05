@@ -1031,20 +1031,27 @@ on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
 
 on("GET", /^\/api\/healthcheck$/, (_m, _b, res) => {
   const owner = { global: {}, projects: {} };
-  const global = Object.fromEntries(
-    credentials.map((credential) => [
-      credential.name,
-      {
-        status: credential.name.startsWith("bad-") ? "unhealthy" : "healthy",
-        capability: HEALTH_CAPABILITIES[credential.platform],
-      },
-    ]),
-  );
+  const globalOf = (component) =>
+    Object.fromEntries(
+      credentials
+        .filter((credential) => componentEntry(component, credential.platform) !== undefined)
+        .map((credential) => [
+          credential.name,
+          {
+            status: credential.name.startsWith("bad-") ? "unhealthy" : "healthy",
+            capability: HEALTH_CAPABILITIES[credential.platform],
+          },
+        ]),
+    );
   setTimeout(
     () =>
       json(res, 200, {
         services: { project: owner, intake: owner, worker: owner },
-        shared: { custody: { global, projects: {} } },
+        shared: {
+          llm: { global: globalOf("llm"), projects: {} },
+          repository: { global: globalOf("repository"), projects: {} },
+          storage: { global: globalOf("storage"), projects: {} },
+        },
       }),
     HEALTHCHECK_DELAY_MS,
   );

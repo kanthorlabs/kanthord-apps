@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { readHealthReport } from "@/api/resources/gateway";
-import type { HealthResourceMap } from "@/api/types";
+import type { CredentialComponent, HealthResourceMap } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { credentialMessage } from "./credential-message";
 
@@ -18,7 +18,10 @@ export interface CredentialHealth {
 
 export type HealthFailureHandler = (message: string, retry: () => void) => void;
 
-export function useCredentialHealth(onFailure: HealthFailureHandler): CredentialHealth {
+export function useCredentialHealth(
+  component: CredentialComponent,
+  onFailure: HealthFailureHandler,
+): CredentialHealth {
   const [state, setState] = useState<CredentialHealthState>({ status: "idle" });
   const checking = useRef(false);
 
@@ -32,7 +35,7 @@ export function useCredentialHealth(onFailure: HealthFailureHandler): Credential
           checking.current = false;
           setState({
             status: "ready",
-            entries: report.shared.custody.global,
+            entries: report.shared[component].global,
             checkedAt: Date.now(),
           });
         },
@@ -44,7 +47,7 @@ export function useCredentialHealth(onFailure: HealthFailureHandler): Credential
         },
       );
     },
-    [onFailure],
+    [component, onFailure],
   );
 
   return { state, verify };

@@ -753,6 +753,8 @@ export interface HealthReport {
     readonly worker: HealthOwner;
   };
   readonly shared: {
-    readonly custody: HealthOwner;
+    readonly llm: HealthOwner;
+    readonly repository: HealthOwner;
+    readonly storage: HealthOwner;
   };
 }

@@ -114,10 +114,12 @@ describe("readHealthReport", () => {
     const report = {
       services: { project: owner, intake: owner, worker: owner },
       shared: {
-        custody: {
+        llm: owner,
+        repository: {
           global: { "ci-github": { status: "healthy", capability: "rate-limit read" } },
           projects: {},
         },
+        storage: owner,
       },
     };
     const base = await serve(200, report);
