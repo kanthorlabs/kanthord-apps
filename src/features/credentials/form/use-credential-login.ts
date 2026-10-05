@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -50,8 +50,10 @@ function failureMessage(cause: unknown): string {
 export function useCredentialLogin(
   component: CredentialComponent,
   modes: readonly CredentialLoginMode[],
+  onCreated?: (name: string) => void,
 ): CredentialLoginState {
   const navigate = useNavigate();
+  const onCreatedRef = useRef(onCreated);
   const [selected, setSelected] = useState<CredentialLoginMode | null>(null);
   const [sessionMode, setSessionMode] = useState<CredentialLoginMode | null>(null);
   const mode = loginModeOf(modes, selected);
@@ -65,6 +67,10 @@ export function useCredentialLogin(
   const [codeError, setCodeError] = useState<string | null>(null);
   const [codeSubmitting, setCodeSubmitting] = useState(false);
 
+  useEffect(() => {
+    onCreatedRef.current = onCreated;
+  });
+
   const waiting =
     session !== null && pollError === null && (status?.state ?? "pending") === "pending";
 
@@ -76,7 +82,11 @@ export function useCredentialLogin(
           setStatus(next);
           if (next.state !== "completed") return;
           toast.success(`Signed in. Custody stored ${name}.`);
-          void navigate(credentialDetailPath(component, name));
+          if (onCreatedRef.current !== undefined) {
+            onCreatedRef.current(name);
+          } else {
+            void navigate(credentialDetailPath(component, name));
+          }
         },
         (cause: unknown) => setPollError(failureMessage(cause)),
       );

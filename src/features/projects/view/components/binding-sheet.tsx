@@ -10,7 +10,11 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { BindingSetEntry } from "@/api/types";
+import { CredentialCreateSheet } from "@/features/credentials/components/credential-create-sheet";
+import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
+import { useBindingCredential } from "../use-binding-credential";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
+import { useRepositoryCredentials } from "../use-repository-credentials";
 import { DraftField } from "./draft-field";
 import { RepositoryForm } from "./repository-form";
 import { StorageForm } from "./storage-form";
@@ -41,80 +45,118 @@ export function BindingSheet({
   const { draft, errors } = form;
   const kindLabel = KIND_LABELS[target.kind];
 
+  const credentials = useRepositoryCredentials();
+  const credentialName = draft.kind === "repository" ? draft.credential : "";
+  const bindingCredential = useBindingCredential(
+    credentials.data ?? [],
+    credentials.reload,
+    credentialName,
+    (name) => {
+      if (draft.kind === "repository") {
+        form.edit({ ...draft, credential: name });
+      }
+    },
+  );
+
   return (
-    <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>
-            {form.creating ? `Add ${kindLabel} binding` : `Edit ${draft.name}`}
-          </SheetTitle>
-          <SheetDescription>
-            A save writes the whole binding set at its current version.
-          </SheetDescription>
-        </SheetHeader>
-        <form
-          noValidate
-          aria-label={form.creating ? `Add ${kindLabel} binding` : `Edit ${draft.name}`}
-          className="flex min-h-0 flex-1 flex-col"
-          onSubmit={(event) => {
-            event.preventDefault();
-            const entry = form.validate();
-            if (entry !== null) onSave(draft.name, entry);
-          }}
-        >
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4">
-            {conflict && (
-              <Alert variant="destructive">
-                <AlertTitle>The bindings changed.</AlertTitle>
-                <AlertDescription>
-                  Someone else saved the binding set. The list now shows the new state. Review your
-                  change against it, then save again.
-                </AlertDescription>
-              </Alert>
-            )}
-            {errorMessage !== null && (
-              <Alert variant="destructive">
-                <AlertTitle>The binding was not saved.</AlertTitle>
-                <AlertDescription>{errorMessage}</AlertDescription>
-              </Alert>
-            )}
-            <FieldGroup>
-              <DraftField
-                id="binding-name"
-                label="Name"
-                value={draft.name}
-                error={errors["name"]}
-                readOnly={!form.creating}
-                description={
-                  form.creating
-                    ? "Unique in the project. Mission nodes name the binding by it."
-                    : "A new name removes the binding and adds another one, so the name is fixed here."
-                }
-                onChange={(name) => form.edit({ ...draft, name })}
-              />
-              {draft.kind === "repository" && (
-                <RepositoryForm draft={draft} errors={errors} onEdit={form.edit} />
+    <>
+      <Sheet open onOpenChange={(open) => !open && onClose()}>
+        <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
+          <SheetHeader>
+            <SheetTitle>
+              {form.creating ? `Add ${kindLabel} binding` : `Edit ${draft.name}`}
+            </SheetTitle>
+            <SheetDescription>
+              A save writes the whole binding set at its current version.
+            </SheetDescription>
+          </SheetHeader>
+          <form
+            noValidate
+            aria-label={form.creating ? `Add ${kindLabel} binding` : `Edit ${draft.name}`}
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const entry = form.validate();
+              if (entry !== null) onSave(draft.name, entry);
+            }}
+          >
+            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4">
+              {conflict && (
+                <Alert variant="destructive">
+                  <AlertTitle>The bindings changed.</AlertTitle>
+                  <AlertDescription>
+                    Someone else saved the binding set. The list now shows the new state. Review
+                    your change against it, then save again.
+                  </AlertDescription>
+                </Alert>
               )}
-              {draft.kind === "worker" && (
-                <WorkerForm
-                  draft={draft}
-                  errors={errors}
-                  creating={form.creating}
-                  onEdit={form.edit}
+              {errorMessage !== null && (
+                <Alert variant="destructive">
+                  <AlertTitle>The binding was not saved.</AlertTitle>
+                  <AlertDescription>{errorMessage}</AlertDescription>
+                </Alert>
+              )}
+              <FieldGroup>
+                <DraftField
+                  id="binding-name"
+                  label="Name"
+                  value={draft.name}
+                  error={errors["name"]}
+                  readOnly={!form.creating}
+                  description={
+                    form.creating
+                      ? "Unique in the project. Mission nodes name the binding by it."
+                      : "A new name removes the binding and adds another one, so the name is fixed here."
+                  }
+                  onChange={(name) => form.edit({ ...draft, name })}
                 />
-              )}
-              {draft.kind === "storage" && (
-                <StorageForm draft={draft} errors={errors} onEdit={form.edit} />
-              )}
-            </FieldGroup>
-          </div>
-          <SheetFooter>
-            <Button type="submit" disabled={saving}>
-              Save binding
-            </Button>
-          </SheetFooter>
-        </form>
-      </SheetContent>
-    </Sheet>
+                {draft.kind === "repository" && (
+                  <RepositoryForm
+                    draft={draft}
+                    errors={errors}
+                    credentials={credentials.data ?? []}
+                    onEdit={form.edit}
+                    onNewCredential={bindingCredential.openCreate}
+                    onRotateCredential={bindingCredential.rotate.start}
+                    rotateCredentialAvailable={bindingCredential.rotate.available}
+                  />
+                )}
+                {draft.kind === "worker" && (
+                  <WorkerForm
+                    draft={draft}
+                    errors={errors}
+                    creating={form.creating}
+                    onEdit={form.edit}
+                  />
+                )}
+                {draft.kind === "storage" && (
+                  <StorageForm draft={draft} errors={errors} onEdit={form.edit} />
+                )}
+              </FieldGroup>
+            </div>
+            <SheetFooter>
+              <Button type="submit" disabled={saving}>
+                Save binding
+              </Button>
+            </SheetFooter>
+          </form>
+        </SheetContent>
+      </Sheet>
+      {bindingCredential.createOpen && (
+        <CredentialCreateSheet
+          component="repository"
+          open
+          onClose={bindingCredential.closeCreate}
+          onCreated={bindingCredential.onCreated}
+        />
+      )}
+      {bindingCredential.selectedEntry !== null && (
+        <RotateSheet
+          name={bindingCredential.selectedCredential.name}
+          entry={bindingCredential.selectedEntry}
+          rotate={bindingCredential.rotate}
+        />
+      )}
+    </>
   );
 }

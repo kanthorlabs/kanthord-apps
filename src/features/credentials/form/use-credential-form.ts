@@ -41,6 +41,7 @@ export interface CredentialFormState {
   readonly submitting: boolean;
   readonly login: CredentialLoginState;
   readonly precheck: CredentialPrecheck;
+  readonly onCancel: (() => void) | null;
   readonly setName: (name: string) => void;
   readonly selectPlatform: (value: string | null) => void;
   readonly setSecret: (secret: SecretDraft) => void;
@@ -51,14 +52,18 @@ export interface CredentialFormState {
 const NO_ERRORS: DraftErrors = {};
 const NO_LOGIN_MODES: readonly CredentialLoginMode[] = [];
 
-export function useCredentialForm(component: CredentialComponent): CredentialFormState {
+export function useCredentialForm(
+  component: CredentialComponent,
+  onCreated?: (name: string) => void,
+  onCancel?: () => void,
+): CredentialFormState {
   const navigate = useNavigate();
   const [name, setNameValue] = useState("");
   const platforms = useCredentialPlatforms(component);
   const [selected, setPlatform] = useState<CredentialPlatform | null>(null);
   const platform = selected ?? platforms.data?.items[0]?.platform ?? "";
   const entry = platformEntryOf(platforms.data, platform);
-  const login = useCredentialLogin(component, entry?.loginModes ?? NO_LOGIN_MODES);
+  const login = useCredentialLogin(component, entry?.loginModes ?? NO_LOGIN_MODES, onCreated);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
   const [metadata, setMetadata] = useState<MetadataDraft>(EMPTY_METADATA);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
@@ -113,14 +118,18 @@ export function useCredentialForm(component: CredentialComponent): CredentialFor
       (credential) => {
         setSubmitting(false);
         toast.success(`Created ${credential.name}.`);
-        void navigate(credentialDetailPath(component, credential.name));
+        if (onCreated !== undefined) {
+          onCreated(credential.name);
+        } else {
+          void navigate(credentialDetailPath(component, credential.name));
+        }
       },
       (cause: unknown) => {
         setSubmitting(false);
         setSubmitError(credentialMessage(asApiError(cause)));
       },
     );
-  }, [component, name, entry, secret, metadata, navigate]);
+  }, [component, name, entry, secret, metadata, navigate, onCreated]);
 
   const submit = useCallback(() => {
     if (submitting || login.starting) return;
@@ -142,6 +151,7 @@ export function useCredentialForm(component: CredentialComponent): CredentialFor
     submitting: submitting || login.starting,
     login,
     precheck,
+    onCancel: onCancel ?? null,
     setName,
     selectPlatform,
     setSecret,

@@ -1,5 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import type * as Sonner from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,7 +66,11 @@ const BINDING_WORKER: ProjectBindingRecord = {
 const onWritten = vi.fn();
 
 function mount() {
-  return render(<BindingsPanel projectId="project_1" onWritten={onWritten} />);
+  return render(
+    <MemoryRouter>
+      <BindingsPanel projectId="project_1" onWritten={onWritten} />
+    </MemoryRouter>,
+  );
 }
 
 describe("BindingsPanel", () => {
@@ -74,10 +79,25 @@ describe("BindingsPanel", () => {
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue(SET);
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [
-        { name: "github-main", platform: "github", revisions: [] },
+        {
+          name: "github-main",
+          platform: "github",
+          revisions: [{ id: "rev_1", revision: 1, metadata: null, createdAt: 1, endedAt: null }],
+        },
         { name: "github-kanthorlabs", platform: "github", revisions: [] },
       ],
       nextCursor: null,
+    });
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
+      items: [
+        {
+          platform: "github",
+          secretShape: "api_key",
+          loginModes: [],
+          metadataFields: [],
+          verifiable: true,
+        },
+      ],
     });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
@@ -268,5 +288,59 @@ describe("BindingsPanel", () => {
         expect.objectContaining({ description: "Binding not found." }),
       ),
     );
+  });
+
+  it("opens New credential, creates, selects it, and saves the binding", async () => {
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      name: "github-new",
+      platform: "github",
+      revisions: [],
+    });
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [
+        {
+          name: "github-main",
+          platform: "github",
+          revisions: [{ id: "rev_1", revision: 1, metadata: null, createdAt: 1, endedAt: null }],
+        },
+        { name: "github-kanthorlabs", platform: "github", revisions: [] },
+        { name: "github-new", platform: "github", revisions: [] },
+      ],
+      nextCursor: null,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(await screen.findByRole("button", { name: "New credential" }));
+
+    const createForm = await screen.findByRole("form", { name: "New credential" });
+    await userEvent.type(within(createForm).getByLabelText("Name"), "github-new");
+    await userEvent.type(within(createForm).getByLabelText("API key"), "ghp-secret");
+    await userEvent.click(within(createForm).getByRole("button", { name: "Create credential" }));
+
+    await waitFor(() =>
+      expect(credentialsApi.createCredential).toHaveBeenCalledWith("repository", {
+        name: "github-new",
+        platform: "github",
+        metadata: null,
+        secret: { key: "ghp-secret" },
+      }),
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": { ...REPO, config: { ...REPO.config, credential: "github-new" } },
+      "general-main": WORKER,
+    });
+  });
+
+  it("opens the rotate sheet for the selected credential", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Rotate" }));
+
+    expect(await screen.findByRole("form", { name: "Rotate github-main" })).toBeTruthy();
   });
 });

@@ -67,7 +67,7 @@ function SignInFields({
   );
 }
 
-function CreateForm({
+export function CreateForm({
   component,
   form,
 }: {
@@ -143,14 +143,20 @@ function CreateForm({
             )}
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            <Button
-              nativeButton={false}
-              render={<Link to={credentialSectionPath(component)} />}
-              variant="outline"
-              size="lg"
-            >
-              Cancel
-            </Button>
+            {form.onCancel !== null ? (
+              <Button variant="outline" size="lg" onClick={form.onCancel}>
+                Cancel
+              </Button>
+            ) : (
+              <Button
+                nativeButton={false}
+                render={<Link to={credentialSectionPath(component)} />}
+                variant="outline"
+                size="lg"
+              >
+                Cancel
+              </Button>
+            )}
             <Button type="submit" size="lg" disabled={form.submitting}>
               {form.oauth ? "Start sign-in" : "Create credential"}
             </Button>

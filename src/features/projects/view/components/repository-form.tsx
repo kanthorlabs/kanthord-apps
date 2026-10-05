@@ -1,4 +1,4 @@
-import type { RepositoryActionName } from "@/api/types";
+import type { Credential, RepositoryActionName } from "@/api/types";
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import {
   Select,
@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { DraftErrors, RepositoryDraft } from "@/lib/binding-draft";
-import { useRepositoryCredentials } from "../use-repository-credentials";
 import { AvailabilityField } from "./availability-field";
 import { CredentialCombobox } from "./credential-combobox";
 import { DraftField } from "./draft-field";
@@ -25,12 +24,22 @@ const ACTIONS = [
 interface RepositoryFormProps {
   readonly draft: RepositoryDraft;
   readonly errors: DraftErrors;
+  readonly credentials: readonly Credential[];
   readonly onEdit: (draft: RepositoryDraft) => void;
+  readonly onNewCredential: () => void;
+  readonly onRotateCredential: () => void;
+  readonly rotateCredentialAvailable: boolean;
 }
 
-export function RepositoryForm({ draft, errors, onEdit }: RepositoryFormProps) {
-  const credentials = useRepositoryCredentials();
-
+export function RepositoryForm({
+  draft,
+  errors,
+  credentials,
+  onEdit,
+  onNewCredential,
+  onRotateCredential,
+  rotateCredentialAvailable,
+}: RepositoryFormProps) {
   return (
     <>
       <AvailabilityField
@@ -50,10 +59,13 @@ export function RepositoryForm({ draft, errors, onEdit }: RepositoryFormProps) {
         />
         <CredentialCombobox
           id="binding-credential"
-          credentials={credentials.data ?? []}
+          credentials={credentials}
           value={draft.credential}
           error={errors["credential"]}
           onChange={(credential) => onEdit({ ...draft, credential })}
+          onNew={onNewCredential}
+          onRotate={onRotateCredential}
+          rotateAvailable={rotateCredentialAvailable}
         />
       </FieldSet>
       <FieldSet>
