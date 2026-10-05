@@ -294,7 +294,7 @@ describe("CredentialsScreen", () => {
     expect((await screen.findAllByText("Archived")).length).toBe(2);
     expect(screen.getAllByText(utcDateTime(Date.UTC(2026, 9, 2))).length).toBeGreaterThan(0);
     expect(screen.queryByText("Updated")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Revisions of legacy" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Revisions of legacy" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Verify legacy" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Rotate legacy" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Edit metadata of legacy" })).toBeNull();
@@ -395,8 +395,18 @@ describe("CredentialsScreen", () => {
 
     expect(await screen.findByRole("button", { name: "Edit metadata of router" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Edit metadata of ci-openrouter" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Revisions of router" }));
+  });
 
+  it("opens the detail from the row and offers no revisions action", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [ROUTER],
+      nextCursor: null,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open router" }));
+
+    expect(screen.queryByRole("button", { name: "Revisions of router" })).toBeNull();
     expect(screen.getByText("Credential view")).toBeTruthy();
   });
 

@@ -1,4 +1,4 @@
-import { FileCogIcon, HistoryIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { FileCogIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
@@ -76,8 +76,8 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
             : { label: "Archived", value: utcDateTime(archivedAt) },
         ]}
         actions={
-          <div className="flex flex-wrap gap-2 md:w-[27rem]">
-            {!archived && (
+          archived ? undefined : (
+            <div className="flex flex-wrap gap-2 md:w-[27rem]">
               <VerifyButton
                 label={`Verify ${name}`}
                 platform={credential.platform}
@@ -85,40 +85,30 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
                 checking={check.checking}
                 onVerify={check.verify}
               />
-            )}
-            {!archived && rotate.available && (
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`Rotate ${name}`}
-                onClick={rotate.start}
-              >
-                <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
-                Rotate
-              </Button>
-            )}
-            {!archived && metadata.available && (
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`Edit metadata of ${name}`}
-                onClick={metadata.start}
-              >
-                <FileCogIcon aria-hidden="true" data-icon="inline-start" />
-                Edit metadata
-              </Button>
-            )}
-            <Button
-              nativeButton={false}
-              render={<Link to={detailPath} />}
-              variant="outline"
-              size="sm"
-              aria-label={`Revisions of ${name}`}
-            >
-              <HistoryIcon aria-hidden="true" data-icon="inline-start" />
-              Revisions
-            </Button>
-          </div>
+              {rotate.available && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Rotate ${name}`}
+                  onClick={rotate.start}
+                >
+                  <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
+                  Rotate
+                </Button>
+              )}
+              {metadata.available && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Edit metadata of ${name}`}
+                  onClick={metadata.start}
+                >
+                  <FileCogIcon aria-hidden="true" data-icon="inline-start" />
+                  Edit metadata
+                </Button>
+              )}
+            </div>
+          )
         }
       />
       {entry !== null && <RotateSheet name={name} entry={entry} rotate={rotate} />}
