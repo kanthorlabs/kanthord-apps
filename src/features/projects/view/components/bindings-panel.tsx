@@ -114,6 +114,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
       {target !== null && (
         <BindingSheet
           key={`${target.kind}:${target.name ?? "new"}`}
+          projectId={projectId}
           target={target}
           takenNames={Object.keys(current)}
           saving={bindings.saving}

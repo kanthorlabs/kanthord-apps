@@ -136,6 +136,11 @@ describe("BindingsPanel", () => {
       sshCredential: { status: "healthy", capability: "ssh credential verify" },
       credential: { status: "healthy", capability: "repository credential verify" },
     });
+    vi.mocked(projectsApi.checkBinding).mockResolvedValue({
+      address: { status: "healthy", capability: "network git read" },
+      sshCredential: { status: "healthy", capability: "ssh credential verify" },
+      credential: null,
+    });
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission_1",
       projectId: "project_1",
@@ -390,5 +395,30 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Rotate" }));
 
     expect(await screen.findByRole("form", { name: "Rotate github-main" })).toBeTruthy();
+  });
+
+  it("shows Verify in the repository sheet and shows badges after a successful check", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const form = await screen.findByRole("form", { name: "Edit kanthord-repo" });
+    expect(within(form).getByRole("button", { name: "Verify" })).toBeTruthy();
+
+    await userEvent.click(within(form).getByRole("button", { name: "Verify" }));
+
+    await waitFor(() => expect(screen.getByText(/Address · Healthy/)).toBeTruthy());
+    expect(screen.getByText(/SSH credential · Healthy/)).toBeTruthy();
+    expect(projectsApi.checkBinding).toHaveBeenCalledWith(
+      "project_1",
+      expect.objectContaining({ kind: "repository" }),
+    );
+  });
+
+  it("does not show Verify in the worker sheet", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    const form = await screen.findByRole("form", { name: "Edit general-main" });
+    expect(within(form).queryByRole("button", { name: "Verify" })).toBeNull();
   });
 });

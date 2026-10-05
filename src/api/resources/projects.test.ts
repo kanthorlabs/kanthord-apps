@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { setConnection } from "../client";
 import {
+  checkBinding,
   createProject,
   listProjectPage,
   listProjects,
@@ -125,5 +126,32 @@ describe("verifyBinding", () => {
     expect(await verifyBinding("prj-1", "binding_ABC")).toEqual(result);
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.url).toBe("/api/project/prj-1/binding/binding_ABC/verify");
+  });
+});
+
+describe("checkBinding", () => {
+  it("posts project.binding.check with the entry body and returns verify-shaped health entries", async () => {
+    const result = {
+      address: { status: "healthy", capability: "network git read" },
+      sshCredential: { status: "healthy", capability: "ssh credential verify" },
+      credential: null,
+    };
+    const entry = {
+      kind: "repository" as const,
+      config: {
+        available: true,
+        platform: "github" as const,
+        address: "git@github.com:kanthorlabs/kanthord.git",
+        strategy: { baseBranch: "main" },
+        sshCredential: "github-ssh",
+      },
+    };
+    const base = await serve([result]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await checkBinding("prj-1", entry)).toEqual(result);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/binding/check");
+    expect(seen[0]?.headers["idempotency-key"]).toBeUndefined();
   });
 });

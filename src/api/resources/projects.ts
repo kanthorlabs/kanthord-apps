@@ -101,3 +101,13 @@ export async function verifyBinding(
     { method: "POST" },
   );
 }
+
+export async function checkBinding(
+  projectId: string,
+  entry: BindingSetEntry,
+): Promise<BindingVerifyResult> {
+  return request<BindingVerifyResult>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/check`,
+    { method: "POST", body: { kind: entry.kind, config: entry.config } },
+  );
+}

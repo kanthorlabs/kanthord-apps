@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import {
@@ -17,6 +18,7 @@ import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
 import { SshImportDialog } from "@/features/credentials/components/ssh-import-dialog";
 import { newestLiveRevision } from "@/lib/credential-revisions";
 import { useBindingCredential } from "../use-binding-credential";
+import { useBindingCheck } from "../use-binding-check";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
 import { useRepositoryCredentials } from "../use-repository-credentials";
 import { DraftField } from "./draft-field";
@@ -27,6 +29,7 @@ import { WorkerForm } from "./worker-form";
 const KIND_LABELS = { repository: "repository", worker: "worker", storage: "storage" } as const;
 
 interface BindingSheetProps {
+  readonly projectId: string;
   readonly target: BindingTarget;
   readonly takenNames: readonly string[];
   readonly saving: boolean;
@@ -50,6 +53,7 @@ function sshHostOf(credentials: readonly Credential[], name: string): string {
 }
 
 export function BindingSheet({
+  projectId,
   target,
   takenNames,
   saving,
@@ -78,6 +82,12 @@ export function BindingSheet({
       }
     },
   );
+
+  const checkDraft =
+    draft.kind === "repository"
+      ? draft
+      : { platform: "", address: "", sshCredential: "", credential: "", actionName: "" };
+  const check = useBindingCheck(projectId, checkDraft, form.validate);
 
   const [sshImportOpen, setSshImportOpen] = useState(false);
 
@@ -180,10 +190,47 @@ export function BindingSheet({
                 )}
               </FieldGroup>
             </div>
-            <SheetFooter>
-              <Button type="submit" disabled={saving}>
-                Save binding
-              </Button>
+            <SheetFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                {draft.kind === "repository" && (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={check.checking}
+                      onClick={check.run}
+                    >
+                      Verify
+                    </Button>
+                    {check.addressBadge !== null && (
+                      <Badge variant={check.addressBadge.variant}>
+                        Address · {check.addressBadge.label}
+                      </Badge>
+                    )}
+                    {check.sshCredentialBadge !== null && (
+                      <Badge variant={check.sshCredentialBadge.variant}>
+                        SSH credential · {check.sshCredentialBadge.label}
+                      </Badge>
+                    )}
+                    {check.credentialBadge !== null && (
+                      <Badge variant={check.credentialBadge.variant}>
+                        Credential · {check.credentialBadge.label}
+                      </Badge>
+                    )}
+                    {check.error !== null && (
+                      <span className="text-sm text-destructive">{check.error}</span>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                <Button type="button" variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={saving}>
+                  Save binding
+                </Button>
+              </div>
             </SheetFooter>
           </form>
         </SheetContent>
