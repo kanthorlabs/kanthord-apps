@@ -195,6 +195,12 @@ export interface MissionJsonExport {
   readonly entries: readonly MissionPlanEntry[];
 }
 
+export interface MissionMarkdownExport {
+  readonly missionId: string;
+  readonly missionVersion: number;
+  readonly files: readonly MissionPlanFile[];
+}
+
 interface MissionImportBase {
   readonly missionId: string;
   readonly missionVersion: number;

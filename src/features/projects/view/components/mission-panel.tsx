@@ -46,7 +46,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
           <h3 className="font-semibold">Mission</h3>
           {mission.data !== null && <Badge variant="outline">version {mission.data.version}</Badge>}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
@@ -55,6 +55,15 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
           >
             <DownloadIcon aria-hidden="true" data-icon="inline-start" />
             Export JSON
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={mission.data === null || exporter.exporting}
+            onClick={exporter.exportMarkdown}
+          >
+            <DownloadIcon aria-hidden="true" data-icon="inline-start" />
+            Export Markdown
           </Button>
           <Button
             variant="outline"

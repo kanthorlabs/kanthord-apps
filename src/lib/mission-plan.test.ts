@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { MissionPlanEntry } from "@/api/types";
-import { importInputOf, importSnapshotOf, missionExportFilename, nodeNames } from "./mission-plan";
+import { strFromU8, unzipSync } from "fflate";
+
+import {
+  importInputOf,
+  importSnapshotOf,
+  missionExportFilename,
+  nodeNames,
+  planArchive,
+} from "./mission-plan";
 
 const ENTRY: MissionPlanEntry = {
   filename: "onboarding.md",
@@ -88,6 +96,21 @@ describe("nodeNames", () => {
 
 describe("missionExportFilename", () => {
   it("names the project and the mission version", () => {
-    expect(missionExportFilename("kanthord", 3)).toBe("kanthord-mission-v3.json");
+    expect(missionExportFilename("kanthord", 3, "json")).toBe("kanthord-mission-v3.json");
+    expect(missionExportFilename("kanthord", 3, "zip")).toBe("kanthord-mission-v3.zip");
+  });
+});
+
+describe("planArchive", () => {
+  it("holds each plan file under its filename with its unchanged content", () => {
+    const archive = unzipSync(
+      planArchive([
+        { filename: "onboarding.md", content: "# Onboarding\n" },
+        { filename: "reset-email.md", content: "# Add password reset\n" },
+      ]),
+    );
+
+    expect(Object.keys(archive).sort()).toEqual(["onboarding.md", "reset-email.md"]);
+    expect(strFromU8(archive["reset-email.md"] ?? new Uint8Array())).toBe("# Add password reset\n");
   });
 });

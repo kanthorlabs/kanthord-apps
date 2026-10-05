@@ -224,6 +224,28 @@ describe("MissionPanel", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
+  it("downloads the Markdown export as one zip archive", async () => {
+    vi.mocked(missionApi.exportMissionMarkdown).mockResolvedValue({
+      missionId: "mission_1",
+      missionVersion: 3,
+      files: [{ filename: "onboarding.md", content: "# Onboarding\n" }],
+    });
+    const createObjectURL = vi.fn(() => "blob:plan");
+    Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    renderPanel();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Export Markdown" }));
+
+    await waitFor(() => expect(click).toHaveBeenCalledOnce());
+    expect(missionApi.exportMissionMarkdown).toHaveBeenCalledWith("mission_1");
+    expect((click.mock.contexts[0] as HTMLAnchorElement).download).toBe("kanthord-mission-v3.zip");
+    expect(createObjectURL).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "application/zip" }),
+    );
+    click.mockRestore();
+  });
+
   it("previews with the current mission version and names the retired nodes", async () => {
     await previewImport();
 

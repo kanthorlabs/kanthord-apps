@@ -1,3 +1,5 @@
+import { strToU8, zipSync } from "fflate";
+
 import type { MissionImportSnapshot, MissionPlanEntry, MissionPlanFile } from "@/api/types";
 
 export interface PickedFile {
@@ -19,8 +21,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-export function missionExportFilename(projectName: string, missionVersion: number): string {
-  return `${projectName}-mission-v${missionVersion}.json`;
+export function missionExportFilename(
+  projectName: string,
+  missionVersion: number,
+  extension: "json" | "zip",
+): string {
+  return `${projectName}-mission-v${missionVersion}.${extension}`;
+}
+
+export function planArchive(files: readonly MissionPlanFile[]): Uint8Array<ArrayBuffer> {
+  const archive = zipSync(
+    Object.fromEntries(files.map((file) => [file.filename, strToU8(file.content)])),
+  );
+  return new Uint8Array(archive);
 }
 
 export function importInputOf(files: readonly PickedFile[]): ImportInputResult {

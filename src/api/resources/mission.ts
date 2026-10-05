@@ -8,6 +8,7 @@ import type {
   MissionImportResult,
   MissionImportSnapshot,
   MissionJsonExport,
+  MissionMarkdownExport,
   MissionAssessment,
   MissionAttempt,
   MissionEdge,
@@ -25,6 +26,12 @@ export async function readMission(projectId: string): Promise<Mission> {
 export async function exportMissionJson(missionId: string): Promise<MissionJsonExport> {
   return request<MissionJsonExport>(
     `/api/mission/${encodeURIComponent(missionId)}/export?format=json`,
+  );
+}
+
+export async function exportMissionMarkdown(missionId: string): Promise<MissionMarkdownExport> {
+  return request<MissionMarkdownExport>(
+    `/api/mission/${encodeURIComponent(missionId)}/export?format=markdown`,
   );
 }
 
