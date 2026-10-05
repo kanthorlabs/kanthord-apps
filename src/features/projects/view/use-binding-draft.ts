@@ -5,9 +5,12 @@ import {
   draftOf,
   emptyDraft,
   entryOfDraft,
+  missingForCheck,
+  missingForSave,
   type BindingDraft,
   type DraftErrors,
 } from "@/lib/binding-draft";
+import { missingHint } from "@/lib/missing-fields";
 
 export interface BindingTarget {
   readonly kind: BindingSetKind;
@@ -21,6 +24,9 @@ export interface BindingDraftState {
   readonly creating: boolean;
   readonly edit: (next: BindingDraft) => void;
   readonly validate: () => BindingSetEntry | null;
+  readonly checkReady: boolean;
+  readonly saveReady: boolean;
+  readonly missingHint: string | null;
 }
 
 export function useBindingDraft(
@@ -46,5 +52,18 @@ export function useBindingDraft(
     return result.ok ? result.entry : null;
   }, [draft, creating, takenNames]);
 
-  return { draft, errors, creating, edit, validate };
+  const missing = missingForSave(draft);
+  const checkReady = draft.kind === "repository" && missingForCheck(draft).length === 0;
+  const hint = missingHint(missing, draft.kind === "repository" ? "verify and save" : "save");
+
+  return {
+    draft,
+    errors,
+    creating,
+    edit,
+    validate,
+    checkReady,
+    saveReady: missing.length === 0,
+    missingHint: hint,
+  };
 }

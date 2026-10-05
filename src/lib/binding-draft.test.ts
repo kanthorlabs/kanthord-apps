@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { BindingSetEntry } from "@/api/types";
-import { draftOf, emptyDraft, entryOfDraft, type WorkerDraft } from "./binding-draft";
+import {
+  draftOf,
+  emptyDraft,
+  entryOfDraft,
+  missingForCheck,
+  missingForSave,
+  type WorkerDraft,
+} from "./binding-draft";
+import { missingHint } from "./missing-fields";
 
 const REPO: BindingSetEntry = {
   kind: "repository",
@@ -179,5 +187,45 @@ describe("entryOfDraft", () => {
       ok: false,
       errors: { endpoint: expect.any(String) },
     });
+  });
+});
+
+describe("missingForCheck, missingForSave and missingHint", () => {
+  it("names the required fields of an empty repository draft", () => {
+    const draft = emptyDraft("repository");
+    expect(draft.kind).toBe("repository");
+    if (draft.kind !== "repository") return;
+    expect(missingForCheck(draft)).toEqual(["Address", "SSH credential"]);
+    expect(missingForSave(draft)).toEqual(["Name", "Address", "SSH credential"]);
+    expect(missingHint(missingForSave(draft), "verify and save")).toBe(
+      "Fill Name, Address and SSH credential to verify and save.",
+    );
+  });
+
+  it("requires the credential only for a GitHub pull request", () => {
+    const draft = emptyDraft("repository");
+    if (draft.kind !== "repository") throw new Error("repository draft expected");
+    const filled = {
+      ...draft,
+      name: "kanthord-repo",
+      address: "git@kanthorlabs.github.com:kanthorlabs/kanthord.git",
+      sshCredential: "kanthorlabs-github-com",
+    };
+    expect(missingForSave(filled)).toEqual([]);
+    expect(missingHint(missingForSave(filled), "save")).toBeNull();
+    const pullRequest = { ...filled, actionName: "pull_request" as const };
+    expect(missingForCheck(pullRequest)).toEqual(["Credential"]);
+    expect(missingForCheck({ ...pullRequest, platform: "gitlab" as const })).toEqual([]);
+  });
+
+  it("names the required fields of worker and storage drafts", () => {
+    expect(missingForSave({ ...emptyDraft("worker"), name: "general-main" })).toEqual(["Worker"]);
+    expect(missingForSave(emptyDraft("storage"))).toEqual([
+      "Name",
+      "Endpoint",
+      "Bucket",
+      "Region",
+      "Credential",
+    ]);
   });
 });

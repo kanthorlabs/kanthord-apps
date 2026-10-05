@@ -339,3 +339,40 @@ export function metadataDraftOf(
     })),
   };
 }
+
+const SECRET_FIELD_LABELS: Readonly<
+  Record<SecretShape, readonly (readonly [keyof SecretDraft, string])[]>
+> = {
+  api_key: [["key", "API key"]],
+  s3_access_key: [
+    ["accessKeyId", "Access key ID"],
+    ["secretAccessKey", "Secret access key"],
+  ],
+  oauth: [],
+  none: [],
+};
+
+export function missingForCredentialCheck(
+  entry: CredentialPlatformEntry,
+  secret: SecretDraft,
+  metadata: MetadataDraft,
+): readonly string[] {
+  const secretMissing = SECRET_FIELD_LABELS[entry.secretShape]
+    .filter(([key]) => isBlank(secret[key]))
+    .map(([, label]) => label);
+  const metadataMissing = entry.metadataFields.filter((name) =>
+    isBlank(metadata.fields[name] ?? ""),
+  );
+  return [...secretMissing, ...metadataMissing];
+}
+
+export function missingForCredentialCreate(
+  name: string,
+  entry: CredentialPlatformEntry | null,
+  secret: SecretDraft,
+  metadata: MetadataDraft,
+): readonly string[] {
+  const nameMissing = isBlank(name) ? ["Name"] : [];
+  if (entry === null) return [...nameMissing, "Platform"];
+  return [...nameMissing, ...missingForCredentialCheck(entry, secret, metadata)];
+}

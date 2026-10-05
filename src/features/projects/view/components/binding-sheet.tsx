@@ -190,46 +190,61 @@ export function BindingSheet({
                 )}
               </FieldGroup>
             </div>
-            <SheetFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <SheetFooter className="gap-3">
+              {form.missingHint !== null && (
+                <p className="text-sm text-muted-foreground">{form.missingHint}</p>
+              )}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 {draft.kind === "repository" && (
-                  <>
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={check.checking}
+                      className="w-full sm:w-auto"
+                      disabled={check.checking || !form.checkReady}
                       onClick={check.run}
                     >
                       Verify
                     </Button>
-                    {check.addressBadge !== null && (
-                      <Badge variant={check.addressBadge.variant}>
-                        Address · {check.addressBadge.label}
-                      </Badge>
-                    )}
-                    {check.sshCredentialBadge !== null && (
-                      <Badge variant={check.sshCredentialBadge.variant}>
-                        SSH credential · {check.sshCredentialBadge.label}
-                      </Badge>
-                    )}
-                    {check.credentialBadge !== null && (
-                      <Badge variant={check.credentialBadge.variant}>
-                        Credential · {check.credentialBadge.label}
-                      </Badge>
-                    )}
-                    {check.error !== null && (
-                      <span className="text-sm text-destructive">{check.error}</span>
-                    )}
-                  </>
+                    <div aria-live="polite" className="flex min-w-0 flex-wrap items-center gap-2">
+                      {check.addressBadge !== null && (
+                        <Badge variant={check.addressBadge.variant}>
+                          Address · {check.addressBadge.label}
+                        </Badge>
+                      )}
+                      {check.sshCredentialBadge !== null && (
+                        <Badge variant={check.sshCredentialBadge.variant}>
+                          SSH credential · {check.sshCredentialBadge.label}
+                        </Badge>
+                      )}
+                      {check.credentialBadge !== null && (
+                        <Badge variant={check.credentialBadge.variant}>
+                          Credential · {check.credentialBadge.label}
+                        </Badge>
+                      )}
+                      {check.error !== null && (
+                        <span className="text-sm break-words text-destructive">{check.error}</span>
+                      )}
+                    </div>
+                  </div>
                 )}
-              </div>
-              <div className="flex flex-col-reverse gap-2 sm:flex-row">
-                <Button type="button" variant="outline" onClick={onClose}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  Save binding
-                </Button>
+                <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={onClose}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="w-full sm:w-auto"
+                    disabled={saving || !form.saveReady}
+                  >
+                    Save binding
+                  </Button>
+                </div>
               </div>
             </SheetFooter>
           </form>

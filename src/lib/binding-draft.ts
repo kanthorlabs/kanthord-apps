@@ -302,3 +302,48 @@ export function entryOfDraft(draft: BindingDraft, takenNames: readonly string[])
         : storageEntryOf(draft, errors);
   return Object.keys(errors).length === 0 ? { ok: true, entry } : { ok: false, errors };
 }
+
+function labelsOf(fields: readonly (readonly [string, boolean])[]): readonly string[] {
+  return fields.filter(([, missing]) => missing).map(([label]) => label);
+}
+
+export function missingForCheck(draft: RepositoryDraft): readonly string[] {
+  return labelsOf([
+    ["Address", blank(draft.address)],
+    ["SSH credential", blank(draft.sshCredential)],
+    [
+      "Credential",
+      draft.platform === "github" && draft.actionName === "pull_request" && blank(draft.credential),
+    ],
+  ]);
+}
+
+export function missingForSave(draft: BindingDraft): readonly string[] {
+  const name: readonly [string, boolean] = ["Name", blank(draft.name)];
+  if (draft.kind === "repository")
+    return labelsOf([
+      name,
+      ["Address", blank(draft.address)],
+      ["SSH credential", blank(draft.sshCredential)],
+      [
+        "Credential",
+        draft.platform === "github" &&
+          draft.actionName === "pull_request" &&
+          blank(draft.credential),
+      ],
+      ["Base branch", blank(draft.baseBranch)],
+    ]);
+  if (draft.kind === "worker")
+    return labelsOf([
+      name,
+      ["Worker", blank(draft.worker)],
+      ["Instance count", blank(draft.instanceCount)],
+    ]);
+  return labelsOf([
+    name,
+    ["Endpoint", blank(draft.endpoint)],
+    ["Bucket", blank(draft.bucket)],
+    ["Region", blank(draft.region)],
+    ["Credential", blank(draft.credential)],
+  ]);
+}

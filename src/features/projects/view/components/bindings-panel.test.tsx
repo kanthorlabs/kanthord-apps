@@ -414,6 +414,24 @@ describe("BindingsPanel", () => {
     );
   });
 
+  it("keeps Verify and Save disabled until the required repository fields are filled", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add repositories binding" }));
+    const form = await screen.findByRole("form");
+    const verify = within(form).getByRole("button", { name: "Verify" });
+    const save = within(form).getByRole("button", { name: "Save binding" });
+    expect((verify as HTMLButtonElement).disabled).toBe(true);
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      within(form).getByText("Fill Name, Address and SSH credential to verify and save."),
+    ).toBeTruthy();
+
+    await userEvent.type(within(form).getByLabelText("Address"), "git@github.com:o/r.git");
+    expect(within(form).getByText("Fill Name and SSH credential to verify and save.")).toBeTruthy();
+    expect((verify as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("does not show Verify in the worker sheet", async () => {
     mount();
 

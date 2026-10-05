@@ -266,14 +266,29 @@ describe("CredentialFormScreen", () => {
     });
   });
 
+  it("keeps Verify and Create disabled until every required field is filled", async () => {
+    await mount("repository");
+
+    const create = screen.getByRole("button", { name: "Create credential" });
+    const check = screen.getByRole("button", { name: "Check the typed secret" });
+    expect(create.hasAttribute("disabled")).toBe(true);
+    expect(check.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("Fill Name and API key to verify and create.")).toBeTruthy();
+
+    await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
+    expect(check.hasAttribute("disabled")).toBe(false);
+    expect(create.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByText("Fill Name to verify and create.")).toBeTruthy();
+  });
+
   it("refuses an invalid draft before any request", async () => {
     await mount("repository");
 
     await userEvent.type(screen.getByLabelText("Name"), "login");
+    await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
     await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(screen.getByText("The name login is reserved. Choose another name.")).toBeTruthy();
-    expect(screen.getByText("Enter a value.")).toBeTruthy();
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
   });
 
@@ -356,8 +371,9 @@ describe("CredentialFormScreen", () => {
     );
     await mount("repository");
 
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
-    expect(screen.getByText("Enter a value.")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Check the typed secret" }).hasAttribute("disabled"),
+    ).toBe(true);
     expect(credentialsApi.checkCredential).not.toHaveBeenCalled();
 
     await userEvent.type(screen.getByLabelText("API key"), "ghp-secret");
@@ -384,6 +400,7 @@ describe("CredentialFormScreen", () => {
     expect(await screen.findByText("Verification is not supported yet for mistral.")).toBeTruthy();
     expect(credentialsApi.checkCredential).not.toHaveBeenCalled();
     await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API key"), "or-secret");
     expect(
       screen.getByRole("button", { name: "Check the typed secret" }).hasAttribute("disabled"),
     ).toBe(false);

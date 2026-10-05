@@ -141,6 +141,11 @@ several sections, one feature takes the section as a prop from its route.
 - **The action row is the last row and spans both columns.** A secondary action, for example Verify,
   sits on the left with its badge. Cancel and the primary submit sit on the right, in that order.
   Below `sm` the row stacks: the secondary action on top, then the primary submit, then Cancel.
+  Below `sm` every button of the row takes the full width, and the badge of the secondary action
+  takes its own row under that action.
+- **The check and the submit stay disabled until every required field holds a value.** A line above
+  the action row names the missing fields, for example "Fill Name and API key to verify and create."
+  The format rules still run on the click and show their messages.
 - **The submit label names its result**, for example `Create credential` or `Start sign-in`.
 - **A check before the save stores nothing.** It runs on the typed input and shows the same badge as
   the matching action of the detail. A change of any checked input resets the badge.

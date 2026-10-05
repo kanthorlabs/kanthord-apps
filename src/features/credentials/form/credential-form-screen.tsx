@@ -136,30 +136,48 @@ export function CreateForm({
             )}
           </>
         )}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between md:col-span-2">
-          <div>
+        <div className="flex flex-col gap-3 md:col-span-2">
+          {form.missingHint !== null && (
+            <p className="text-sm text-muted-foreground">{form.missingHint}</p>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             {form.precheck.shown && (
-              <SecretPrecheck platform={form.platform} precheck={form.precheck} />
+              <SecretPrecheck
+                platform={form.platform}
+                precheck={form.precheck}
+                ready={form.checkReady}
+              />
             )}
-          </div>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row">
-            {form.onCancel !== null ? (
-              <Button variant="outline" size="lg" onClick={form.onCancel}>
-                Cancel
-              </Button>
-            ) : (
+            <div className="flex flex-col-reverse gap-2 sm:ml-auto sm:flex-row">
+              {form.onCancel !== null ? (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto"
+                  onClick={form.onCancel}
+                >
+                  Cancel
+                </Button>
+              ) : (
+                <Button
+                  nativeButton={false}
+                  render={<Link to={credentialSectionPath(component)} />}
+                  variant="outline"
+                  size="lg"
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </Button>
+              )}
               <Button
-                nativeButton={false}
-                render={<Link to={credentialSectionPath(component)} />}
-                variant="outline"
+                type="submit"
                 size="lg"
+                className="w-full sm:w-auto"
+                disabled={form.submitting || !form.createReady}
               >
-                Cancel
+                {form.oauth ? "Start sign-in" : "Create credential"}
               </Button>
-            )}
-            <Button type="submit" size="lg" disabled={form.submitting}>
-              {form.oauth ? "Start sign-in" : "Create credential"}
-            </Button>
+            </div>
           </div>
         </div>
       </FieldGroup>

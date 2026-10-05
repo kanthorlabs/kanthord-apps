@@ -10,6 +10,8 @@ interface VerifyButtonProps {
   readonly checking: boolean;
   readonly onVerify: () => void;
   readonly label?: string;
+  readonly incomplete?: boolean;
+  readonly size?: "sm" | "lg";
 }
 
 function VerifyLabel() {
@@ -27,6 +29,8 @@ export function VerifyButton({
   checking,
   onVerify,
   label,
+  incomplete = false,
+  size = "sm",
 }: VerifyButtonProps) {
   const [open, setOpen] = useState(false);
 
@@ -34,10 +38,10 @@ export function VerifyButton({
     return (
       <Button
         variant="outline"
-        size="sm"
+        size={size}
         aria-label={label}
         aria-busy={checking}
-        disabled={checking}
+        disabled={checking || incomplete}
         onClick={onVerify}
       >
         <VerifyLabel />
@@ -51,7 +55,7 @@ export function VerifyButton({
         render={
           <Button
             variant="outline"
-            size="sm"
+            size={size}
             aria-label={label}
             disabled
             focusableWhenDisabled

@@ -16,12 +16,15 @@ import {
   EMPTY_SECRET,
   createBodyOf,
   credentialNameError,
+  missingForCredentialCheck,
+  missingForCredentialCreate,
   type DraftErrors,
   type MetadataDraft,
   type SecretDraft,
 } from "@/lib/credential-draft";
 import { platformEntryOf, platformIdsOf } from "@/lib/credential-platforms";
 import { credentialDetailPath } from "@/lib/credential-sections";
+import { missingHint } from "@/lib/missing-fields";
 import { credentialMessage } from "../credential-message";
 import { useCredentialPlatforms } from "../use-credential-platforms";
 import { useCredentialLogin, type CredentialLoginState } from "./use-credential-login";
@@ -41,6 +44,9 @@ export interface CredentialFormState {
   readonly submitting: boolean;
   readonly login: CredentialLoginState;
   readonly precheck: CredentialPrecheck;
+  readonly checkReady: boolean;
+  readonly createReady: boolean;
+  readonly missingHint: string | null;
   readonly onCancel: (() => void) | null;
   readonly setName: (name: string) => void;
   readonly selectPlatform: (value: string | null) => void;
@@ -138,6 +144,11 @@ export function useCredentialForm(
     else submitCreate();
   }, [submitting, login.starting, oauth, submitLogin, submitCreate]);
 
+  const missing = missingForCredentialCreate(name, entry, secret, metadata);
+  const checkReady =
+    entry !== null && missingForCredentialCheck(entry, secret, metadata).length === 0;
+  const purpose = oauth ? "start the sign-in" : precheck.available ? "verify and create" : "create";
+
   return {
     name,
     platforms,
@@ -152,6 +163,9 @@ export function useCredentialForm(
     submitting: submitting || login.starting,
     login,
     precheck,
+    checkReady,
+    createReady: missing.length === 0,
+    missingHint: missingHint(missing, purpose),
     onCancel: onCancel ?? null,
     setName,
     selectPlatform,
