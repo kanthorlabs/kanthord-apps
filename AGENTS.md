@@ -144,8 +144,9 @@ several sections, one feature takes the section as a prop from its route.
 - **The submit label names its result**, for example `Create credential` or `Start sign-in`.
 - **A check before the save stores nothing.** It runs on the typed input and shows the same badge as
   the matching action of the detail. A change of any checked input resets the badge.
-- **The form hides a control that the server refuses for the current input.** It renders no check
-  for a kind that the server cannot check.
+- **The form shows its check for every kind that takes a typed input.** A kind that the server
+  cannot check gets the check disabled, under the disabled-action rule below. A kind without a typed
+  input, for example a sign-in, gets no check.
 - **A successful submit opens the detail of the new record.** Cancel returns to the list.
 
 ### The detail
@@ -167,9 +168,9 @@ several sections, one feature takes the section as a prop from its route.
 - **A check shows its result as a status badge.** The badge reads `Checking` while busy, then the label
   of the state. The badge keeps the layout still, so a result moves no other control. A failed
   request shows a toast with the error and a Retry action.
-- **A row or detail action that a kind cannot serve stays visible and disabled.** A `Tooltip` states
-  why, and a tap opens it as a hover does. The form hides such a control instead, under the rule
-  above.
+- **An action that a kind cannot serve stays visible and disabled on every screen.** A `Tooltip`
+  states why, and a tap opens it as a hover does. This rule overrides the rule of `## Architecture`
+  that a control the daemon is certain to refuse is not rendered.
 - **The state of an action lives in a hook beside its screen**, for example `use-credential-rotate.ts`.
   The sheet, the dialog and the button only render that state.
 

@@ -14,7 +14,7 @@ export function SecretPrecheck({ platform, precheck }: SecretPrecheckProps) {
       <div className="flex min-h-10 flex-wrap items-center gap-2">
         <VerifyButton
           platform={platform}
-          verifiable
+          verifiable={precheck.available}
           checking={precheck.checking}
           onVerify={precheck.run}
           label="Check the typed secret"

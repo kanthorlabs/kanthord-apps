@@ -370,15 +370,23 @@ describe("CredentialFormScreen", () => {
     ).toBeTruthy();
   });
 
-  it("offers no check for a platform that is not verifiable or takes a sign-in", async () => {
+  it("disables the check for a platform that is not verifiable and hides it for a sign-in", async () => {
     await mount("llm");
 
     expect(screen.queryByRole("button", { name: "Check the typed secret" })).toBeNull();
     await choosePlatform("mistral");
     expect(screen.getByLabelText("API key")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Check the typed secret" })).toBeNull();
+    const disabled = screen.getByRole("button", { name: "Check the typed secret" });
+    expect(
+      disabled.getAttribute("aria-disabled") ?? disabled.hasAttribute("disabled"),
+    ).toBeTruthy();
+    await userEvent.click(disabled);
+    expect(await screen.findByText("Verification is not supported yet for mistral.")).toBeTruthy();
+    expect(credentialsApi.checkCredential).not.toHaveBeenCalled();
     await choosePlatform("openrouter");
-    expect(screen.getByRole("button", { name: "Check the typed secret" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Check the typed secret" }).hasAttribute("disabled"),
+    ).toBe(false);
   });
 
   it("refuses the reserved name check before any request", async () => {

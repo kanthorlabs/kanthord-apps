@@ -138,7 +138,7 @@ function CreateForm({
         )}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between md:col-span-2">
           <div>
-            {form.precheck.available && (
+            {form.precheck.shown && (
               <SecretPrecheck platform={form.platform} precheck={form.precheck} />
             )}
           </div>

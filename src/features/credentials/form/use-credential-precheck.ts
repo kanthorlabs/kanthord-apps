@@ -30,6 +30,7 @@ interface Precheck {
 }
 
 export interface CredentialPrecheck {
+  readonly shown: boolean;
   readonly available: boolean;
   readonly checking: boolean;
   readonly badge: CheckBadge | null;
@@ -65,7 +66,8 @@ export function useCredentialPrecheck(
   const [precheck, setPrecheck] = useState<Precheck | null>(null);
   const inputs: Inputs = { platform: entry?.platform ?? "", secret, metadata };
   const current = precheck !== null && sameInputs(precheck.inputs, inputs) ? precheck.result : null;
-  const available = entry !== null && entry.verifiable && entry.secretShape !== "oauth";
+  const shown = entry !== null && entry.secretShape !== "oauth";
+  const available = shown && entry.verifiable;
 
   const run = useCallback(() => {
     if (entry === null || !available || current?.status === "checking") return;
@@ -95,6 +97,7 @@ export function useCredentialPrecheck(
   }, [component, entry, available, current, secret, metadata, onInvalid, onValid]);
 
   return {
+    shown,
     available,
     checking: current?.status === "checking",
     badge: badgeOf(current),
