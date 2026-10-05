@@ -11,6 +11,7 @@ import type {
   SecretShape,
 } from "@/api/types";
 import { REASONING_EFFORTS } from "@/lib/binding-draft";
+import { fieldLabel } from "./field-label";
 
 export const OPENAI_COMPATIBLE = "openai-compatible";
 
@@ -343,10 +344,10 @@ export function metadataDraftOf(
 const SECRET_FIELD_LABELS: Readonly<
   Record<SecretShape, readonly (readonly [keyof SecretDraft, string])[]>
 > = {
-  api_key: [["key", "API key"]],
+  api_key: [["key", "API Key"]],
   s3_access_key: [
-    ["accessKeyId", "Access key ID"],
-    ["secretAccessKey", "Secret access key"],
+    ["accessKeyId", "Access Key ID"],
+    ["secretAccessKey", "Secret Access Key"],
   ],
   oauth: [],
   none: [],
@@ -360,9 +361,9 @@ export function missingForCredentialCheck(
   const secretMissing = SECRET_FIELD_LABELS[entry.secretShape]
     .filter(([key]) => isBlank(secret[key]))
     .map(([, label]) => label);
-  const metadataMissing = entry.metadataFields.filter((name) =>
-    isBlank(metadata.fields[name] ?? ""),
-  );
+  const metadataMissing = entry.metadataFields
+    .filter((name) => isBlank(metadata.fields[name] ?? ""))
+    .map(fieldLabel);
   return [...secretMissing, ...metadataMissing];
 }
 

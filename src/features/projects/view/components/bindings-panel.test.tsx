@@ -369,7 +369,7 @@ describe("BindingsPanel", () => {
 
     const createForm = await screen.findByRole("form", { name: "New credential" });
     await userEvent.type(within(createForm).getByLabelText("Name"), "github-new");
-    await userEvent.type(within(createForm).getByLabelText("API key"), "ghp-secret");
+    await userEvent.type(within(createForm).getByLabelText("API Key"), "ghp-secret");
     await userEvent.click(within(createForm).getByRole("button", { name: "Create credential" }));
 
     await waitFor(() =>

@@ -17,7 +17,7 @@ export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps
     return (
       <CredentialField
         id="credential-key"
-        label="API key"
+        label="API Key"
         secret
         value={draft.key}
         error={errors["key"]}
@@ -31,7 +31,7 @@ export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps
       <>
         <CredentialField
           id="credential-access-key-id"
-          label="Access key ID"
+          label="Access Key ID"
           secret
           value={draft.accessKeyId}
           error={errors["accessKeyId"]}
@@ -39,7 +39,7 @@ export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps
         />
         <CredentialField
           id="credential-secret-access-key"
-          label="Secret access key"
+          label="Secret Access Key"
           secret
           value={draft.secretAccessKey}
           error={errors["secretAccessKey"]}
@@ -53,7 +53,7 @@ export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps
     <>
       <CredentialField
         id="credential-refresh"
-        label="Refresh token"
+        label="Refresh Token"
         secret
         value={draft.refresh}
         error={errors["refresh"]}
@@ -61,7 +61,7 @@ export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps
       />
       <CredentialField
         id="credential-access"
-        label="Access token"
+        label="Access Token"
         secret
         value={draft.access}
         error={errors["access"]}
@@ -69,7 +69,7 @@ export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps
       />
       <CredentialField
         id="credential-expires"
-        label="Access token expiry"
+        label="Access Token Expiry"
         inputMode="numeric"
         value={draft.expires}
         error={errors["expires"]}

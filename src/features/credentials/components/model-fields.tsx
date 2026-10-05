@@ -39,7 +39,7 @@ export function ModelFields({ index, model, errors, onEdit, onRemove }: ModelFie
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <CredentialField
             id={`credential-model-${index}-context-window`}
-            label="Context window"
+            label="Context Window"
             inputMode="numeric"
             value={model.contextWindow}
             error={errors[`${prefix}.contextWindow`]}
@@ -48,7 +48,7 @@ export function ModelFields({ index, model, errors, onEdit, onRemove }: ModelFie
           />
           <CredentialField
             id={`credential-model-${index}-max-tokens`}
-            label="Max tokens"
+            label="Max Tokens"
             inputMode="numeric"
             value={model.maxTokens}
             error={errors[`${prefix}.maxTokens`]}
@@ -57,7 +57,7 @@ export function ModelFields({ index, model, errors, onEdit, onRemove }: ModelFie
           />
         </div>
         <Field>
-          <FieldLabel id={`credential-model-${index}-reasoning`}>Reasoning levels</FieldLabel>
+          <FieldLabel id={`credential-model-${index}-reasoning`}>Reasoning Levels</FieldLabel>
           <ToggleGroup
             variant="outline"
             size="sm"

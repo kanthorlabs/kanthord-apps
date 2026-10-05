@@ -74,7 +74,7 @@ function CodeForm({ login }: { login: CredentialLoginState }) {
       <FieldGroup>
         <CredentialField
           id="login-code"
-          label="Code or redirect URL"
+          label="Code or Redirect URL"
           value={login.code}
           error={login.codeError ?? undefined}
           description="Paste it only when the sign-in asks for it, for example when the browser callback fails."

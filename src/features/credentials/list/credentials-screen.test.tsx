@@ -356,7 +356,7 @@ describe("CredentialsScreen", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Rotate ci-openrouter" }));
     const sheet = await screen.findByRole("dialog");
-    await userEvent.type(within(sheet).getByLabelText("API key"), "ghp-2");
+    await userEvent.type(within(sheet).getByLabelText("API Key"), "ghp-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
 
     expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("llm", "ci-openrouter", {

@@ -1,4 +1,5 @@
 import type { DraftErrors, MetadataDraft } from "@/lib/credential-draft";
+import { fieldLabel } from "@/lib/field-label";
 import { CredentialField } from "./credential-field";
 
 interface MetadataFieldsProps {
@@ -20,7 +21,7 @@ export function MetadataFields({
     <CredentialField
       key={name}
       id={`credential-metadata-${name}`}
-      label={name}
+      label={fieldLabel(name)}
       value={draft.fields[name] ?? ""}
       error={errors[name]}
       description={name === "baseUrl" ? baseUrlDescription : undefined}

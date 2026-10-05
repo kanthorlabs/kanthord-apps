@@ -223,7 +223,7 @@ describe("CredentialScreen", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Rotate secret" }));
     const sheet = await screen.findByRole("dialog");
-    await userEvent.type(within(sheet).getByLabelText("API key"), "sk-2");
+    await userEvent.type(within(sheet).getByLabelText("API Key"), "sk-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
 
     expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("llm", "router", {
@@ -240,11 +240,11 @@ describe("CredentialScreen", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Rotate secret" }));
     const sheet = await screen.findByRole("dialog");
-    await userEvent.type(within(sheet).getByLabelText("API key"), "sk-2");
+    await userEvent.type(within(sheet).getByLabelText("API Key"), "sk-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
 
     expect(await within(sheet).findByText("The credential changed.")).toBeTruthy();
-    expect((within(sheet).getByLabelText("API key") as HTMLInputElement).value).toBe("");
+    expect((within(sheet).getByLabelText("API Key") as HTMLInputElement).value).toBe("");
     await userEvent.click(within(sheet).getByRole("button", { name: "Reload" }));
 
     expect(credentialsApi.readCredential).toHaveBeenCalledTimes(2);
@@ -260,9 +260,9 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Add model" }));
     const ids = within(sheet).getAllByLabelText("Model ID");
     await userEvent.type(ids[1]!, "qwen-max");
-    const maxTokens = within(sheet).getAllByLabelText("Max tokens");
+    const maxTokens = within(sheet).getAllByLabelText("Max Tokens");
     await userEvent.type(maxTokens[1]!, "8192");
-    const levels = within(sheet).getAllByRole("group", { name: "Reasoning levels" });
+    const levels = within(sheet).getAllByRole("group", { name: "Reasoning Levels" });
     await userEvent.click(within(levels[1]!).getByRole("button", { name: "high" }));
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
 
@@ -373,8 +373,8 @@ describe("CredentialScreen", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit metadata" }));
     const sheet = await screen.findByRole("dialog");
-    const gateway = within(sheet).getByLabelText("gateway_id");
-    expect((within(sheet).getByLabelText("account_id") as HTMLInputElement).value).toBe("acc-1");
+    const gateway = within(sheet).getByLabelText("Gateway ID");
+    expect((within(sheet).getByLabelText("Account ID") as HTMLInputElement).value).toBe("acc-1");
     await userEvent.clear(gateway);
     await userEvent.type(gateway, "gw-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));

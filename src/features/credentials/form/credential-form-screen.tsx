@@ -44,7 +44,7 @@ function SignInFields({
     <Field className="md:col-span-2">
       {modes.length > 1 && (
         <>
-          <FieldLabel htmlFor="credential-login-mode">Sign-in mode</FieldLabel>
+          <FieldLabel htmlFor="credential-login-mode">Sign-in Mode</FieldLabel>
           <Select items={items} value={form.login.mode} onValueChange={form.login.selectMode}>
             <SelectTrigger id="credential-login-mode" className="w-full">
               <SelectValue />
