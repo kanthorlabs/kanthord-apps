@@ -112,3 +112,9 @@ export function chatItemsOf(
   if (streaming === null || streaming["role"] !== "assistant") return items;
   return [...items, ...assistantItems("streaming", streaming, snapshot, true)];
 }
+
+export function agentWorking(items: readonly ChatItem[], snapshot: WorkbenchRunSnapshot): boolean {
+  if (!snapshot.runActive || snapshot.pendingApproval !== null) return false;
+  const last = items.at(-1);
+  return !(last?.kind === "assistant" && last.streaming);
+}

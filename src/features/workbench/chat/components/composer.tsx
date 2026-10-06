@@ -32,7 +32,6 @@ export function Composer({ composer, configuration, runActive, onStop }: Compose
           placeholder="Message the agent"
           rows={2}
           value={composer.draft}
-          disabled={runActive}
           onChange={(event) => composer.setDraft(event.target.value)}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;

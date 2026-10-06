@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
-import { chatItemsOf, summaryOf } from "./workbench-chat";
+import { agentWorking, chatItemsOf, summaryOf } from "./workbench-chat";
 
 const IDLE: WorkbenchRunSnapshot = {
   streamingMessage: null,
@@ -107,5 +107,26 @@ describe("summaryOf", () => {
   it("collapses whitespace and cuts a long text", () => {
     expect(summaryOf("a\n  b")).toBe("a b");
     expect(summaryOf("x".repeat(100))).toBe(`${"x".repeat(80)}…`);
+  });
+});
+
+describe("agentWorking", () => {
+  const user = { kind: "user", id: "e1", text: "Hi" } as const;
+  const streamed = { kind: "assistant", id: "s", text: "Hel", streaming: true } as const;
+
+  it("shows the agent at work while a run is active and no text streams", () => {
+    expect(agentWorking([user], { ...IDLE, runActive: true })).toBe(true);
+  });
+
+  it("hides it while text streams, while an approval waits and when no run is active", () => {
+    expect(agentWorking([user, streamed], { ...IDLE, runActive: true })).toBe(false);
+    expect(
+      agentWorking([user], {
+        ...IDLE,
+        runActive: true,
+        pendingApproval: { toolCallId: "c1", operationId: "o", input: {} },
+      }),
+    ).toBe(false);
+    expect(agentWorking([user], IDLE)).toBe(false);
   });
 });

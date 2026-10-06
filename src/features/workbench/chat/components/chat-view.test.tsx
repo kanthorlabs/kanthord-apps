@@ -176,6 +176,7 @@ describe("ChatView", () => {
   it("renders the streaming partial message and the entries that arrive", async () => {
     const polls = pollQueue();
     mount(session([message("e1", { role: "user", content: "Hi" })], true));
+    expect(screen.getByText("The agent is working")).toBeTruthy();
 
     await polls.answer({
       snapshot: {
@@ -185,6 +186,7 @@ describe("ChatView", () => {
     });
     expect(await screen.findByText("Hel")).toBeTruthy();
     expect(screen.getByText("Streaming")).toBeTruthy();
+    expect(screen.queryByText("The agent is working")).toBeNull();
 
     await polls.answer({
       entries: [message("e2", { role: "assistant", content: [{ type: "text", text: "Hello" }] })],
@@ -200,7 +202,7 @@ describe("ChatView", () => {
     );
   });
 
-  it("disables sending and offers Stop while a run is active", async () => {
+  it("keeps the draft editable, disables sending and offers Stop while a run is active", async () => {
     const polls = pollQueue();
     vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
       sessionId: SESSION_ID,
@@ -210,7 +212,9 @@ describe("ChatView", () => {
     await polls.answer({ snapshot: { runActive: true } });
 
     expect(await screen.findByText("Running")).toBeTruthy();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeDisabled();
+    expect(screen.getByText("The agent is working")).toBeTruthy();
+    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "next step");
+    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("next step");
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
 
     await userEvent.click(screen.getByRole("button", { name: "Stop" }));

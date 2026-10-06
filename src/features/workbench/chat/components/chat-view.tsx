@@ -3,12 +3,14 @@ import { useMemo } from "react";
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { chatItemsOf } from "@/lib/workbench-chat";
+import { agentWorking, chatItemsOf } from "@/lib/workbench-chat";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
 import { useComposer } from "../use-composer";
+import { useElapsedSeconds } from "../use-elapsed-seconds";
 import { useSessionEvents } from "../use-session-events";
+import { AgentWorking } from "./agent-working";
 import { ApprovalCard } from "./approval-card";
 import { ChatTranscript } from "./chat-transcript";
 import { Composer } from "./composer";
@@ -30,6 +32,8 @@ export function ChatView({ session, enablement }: ChatViewProps) {
   const { snapshot } = events;
   const composer = useComposer(snapshot.runActive || actions.busy, actions.send);
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
+  const working = agentWorking(items, snapshot);
+  const elapsed = useElapsedSeconds(snapshot.runActive);
   useScrollToEnd(items, snapshot.pendingApproval);
   const failures = [actions.failure, configuration.failure, configuration.modelsFailure].filter(
     (failure): failure is string => failure !== null,
@@ -48,6 +52,7 @@ export function ChatView({ session, enablement }: ChatViewProps) {
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <ChatTranscript items={items} />
+        {working && <AgentWorking seconds={elapsed} />}
         {snapshot.pendingApproval !== null && (
           <ApprovalCard
             approval={snapshot.pendingApproval}
