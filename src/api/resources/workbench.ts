@@ -81,8 +81,12 @@ export async function approveWorkbenchCall(
 export async function readWorkbenchEvents(
   sessionId: string,
   after: string | null,
+  version: number | null,
   signal?: AbortSignal,
 ): Promise<WorkbenchSessionEvents> {
-  const query = after === null ? "" : `?${new URLSearchParams({ after })}`;
+  const params = new URLSearchParams();
+  if (after !== null) params.set("after", after);
+  if (version !== null) params.set("version", String(version));
+  const query = params.size === 0 ? "" : `?${params}`;
   return request<WorkbenchSessionEvents>(`${sessionPath(sessionId)}/events${query}`, { signal });
 }

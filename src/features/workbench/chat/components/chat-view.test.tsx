@@ -63,6 +63,7 @@ function session(
 
 function pollQueue() {
   const waiting: Array<(events: WorkbenchSessionEvents) => void> = [];
+  let version = 0;
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise((resolve) => waiting.push(resolve)),
   );
@@ -75,6 +76,7 @@ function pollQueue() {
       waiting.shift()?.({
         entries: events.entries ?? [],
         snapshot: { ...IDLE, ...events.snapshot },
+        version: ++version,
       });
     },
   };
@@ -170,6 +172,7 @@ describe("ChatView", () => {
     expect(workbenchApi.readWorkbenchEvents).toHaveBeenLastCalledWith(
       SESSION_ID,
       "e2",
+      expect.any(Number),
       expect.anything(),
     );
   });

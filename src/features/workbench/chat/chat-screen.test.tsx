@@ -85,6 +85,7 @@ describe("ChatScreen", () => {
     expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledWith(
       SESSION_ID,
       "e1",
+      null,
       expect.anything(),
     );
   });

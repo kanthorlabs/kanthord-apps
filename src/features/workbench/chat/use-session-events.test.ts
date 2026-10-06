@@ -35,7 +35,7 @@ afterEach(() => {
 describe("useSessionEvents", () => {
   it("follows the id of the last entry that it holds", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents)
-      .mockResolvedValueOnce({ entries: [entry("e3"), entry("e4")], snapshot: IDLE })
+      .mockResolvedValueOnce({ entries: [entry("e3"), entry("e4")], snapshot: IDLE, version: 1 })
       .mockImplementation(never);
 
     const { result } = renderHook(() =>
@@ -48,6 +48,20 @@ describe("useSessionEvents", () => {
     expect(result.current.entries.map((held) => held.id)).toEqual(["e1", "e2", "e3", "e4"]);
     const calls = vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls;
     expect(calls.map((call) => call[1])).toEqual(["e2", "e4"]);
+  });
+
+  it("sends the version of the last answer with the next poll", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents)
+      .mockResolvedValueOnce({ entries: [], snapshot: IDLE, version: 7 })
+      .mockImplementation(never);
+
+    renderHook(() => useSessionEvents("session-1", [], false));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const calls = vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls;
+    expect(calls.map((call) => call[2])).toEqual([null, 7]);
   });
 
   it("polls without after for a session that holds no entry", async () => {
@@ -68,7 +82,7 @@ describe("useSessionEvents", () => {
       streamingMessage: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
     };
     vi.mocked(workbenchApi.readWorkbenchEvents)
-      .mockResolvedValueOnce({ entries: [], snapshot })
+      .mockResolvedValueOnce({ entries: [], snapshot, version: 1 })
       .mockImplementation(never);
 
     const { result } = renderHook(() => useSessionEvents("session-1", [], false));
@@ -81,7 +95,7 @@ describe("useSessionEvents", () => {
 
   it("does not hold an entry twice", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents)
-      .mockResolvedValueOnce({ entries: [entry("e1"), entry("e2")], snapshot: IDLE })
+      .mockResolvedValueOnce({ entries: [entry("e1"), entry("e2")], snapshot: IDLE, version: 1 })
       .mockImplementation(never);
 
     const { result } = renderHook(() => useSessionEvents("session-1", [entry("e1")], false));
@@ -95,7 +109,7 @@ describe("useSessionEvents", () => {
   it("waits for the backoff after a failure and then polls again", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents)
       .mockRejectedValueOnce(new ApiError("unreachable", "The daemon did not answer.", 0))
-      .mockResolvedValueOnce({ entries: [entry("e1")], snapshot: IDLE })
+      .mockResolvedValueOnce({ entries: [entry("e1")], snapshot: IDLE, version: 1 })
       .mockImplementation(never);
 
     const { result } = renderHook(() => useSessionEvents("session-1", [], false));
@@ -130,8 +144,11 @@ describe("useSessionEvents", () => {
   });
 
   it("stops the loop on unmount", async () => {
-    let answer: (events: { entries: never[]; snapshot: WorkbenchRunSnapshot }) => void = () =>
-      undefined;
+    let answer: (events: {
+      entries: never[];
+      snapshot: WorkbenchRunSnapshot;
+      version: number;
+    }) => void = () => undefined;
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementationOnce(
       () => new Promise((resolve) => (answer = resolve)),
     );
@@ -140,9 +157,9 @@ describe("useSessionEvents", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    const signal = vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls[0]?.[2];
+    const signal = vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls[0]?.[3];
     unmount();
-    answer({ entries: [], snapshot: IDLE });
+    answer({ entries: [], snapshot: IDLE, version: 1 });
     await vi.advanceTimersByTimeAsync(EVENTS_BACKOFF_MS * 3);
 
     expect(signal?.aborted).toBe(true);

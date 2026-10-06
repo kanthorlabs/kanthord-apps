@@ -198,18 +198,25 @@ describe("readWorkbenchEvents", () => {
       runActive: false,
       errorMessage: null,
     },
+    version: 3,
   };
 
   it("sends the id of the last entry as after", async () => {
     await serve({ [`GET ${PATH}/events?after=entry-9`]: { body: EVENTS } });
 
-    expect(await readWorkbenchEvents(SESSION_ID, "entry-9")).toEqual(EVENTS);
+    expect(await readWorkbenchEvents(SESSION_ID, "entry-9", null)).toEqual(EVENTS);
+  });
+
+  it("sends the version that the client holds", async () => {
+    await serve({ [`GET ${PATH}/events?after=entry-9&version=4`]: { body: EVENTS } });
+
+    expect(await readWorkbenchEvents(SESSION_ID, "entry-9", 4)).toEqual(EVENTS);
   });
 
   it("sends no after before the first entry", async () => {
     await serve({ [`GET ${PATH}/events`]: { body: EVENTS } });
 
-    expect(await readWorkbenchEvents(SESSION_ID, null)).toEqual(EVENTS);
+    expect(await readWorkbenchEvents(SESSION_ID, null, null)).toEqual(EVENTS);
   });
 
   it("rejects as unreachable once the signal aborts", async () => {
@@ -217,7 +224,7 @@ describe("readWorkbenchEvents", () => {
     const controller = new AbortController();
     controller.abort();
 
-    const failure = await readWorkbenchEvents(SESSION_ID, null, controller.signal).catch(
+    const failure = await readWorkbenchEvents(SESSION_ID, null, null, controller.signal).catch(
       (cause: unknown) => cause,
     );
 

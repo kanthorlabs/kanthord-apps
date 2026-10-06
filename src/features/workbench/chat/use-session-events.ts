@@ -56,12 +56,14 @@ export function useSessionEvents(
 
     async function follow() {
       let after = initialEntries.at(-1)?.id ?? null;
+      let version: number | null = null;
       while (!signal.aborted) {
         try {
-          const events = await readWorkbenchEvents(sessionId, after, signal);
+          const events = await readWorkbenchEvents(sessionId, after, version, signal);
           if (signal.aborted) return;
           setFailure(null);
           setSnapshot(events.snapshot);
+          version = events.version;
           const last = events.entries.at(-1);
           if (last !== undefined) {
             after = last.id;

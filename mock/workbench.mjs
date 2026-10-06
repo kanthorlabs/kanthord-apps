@@ -32,6 +32,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         pendingApproval: null,
         errorMessage: null,
         waiters: new Set(),
+        version: 0,
       });
     }
     return live.get(session.id);
@@ -49,7 +50,9 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   };
 
   const notify = (session) => {
-    for (const wake of [...stateOf(session).waiters]) wake();
+    const state = stateOf(session);
+    state.version += 1;
+    for (const wake of [...state.waiters]) wake();
   };
 
   const append = (session, type, payload) => {
@@ -324,13 +327,20 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     const session = find(res, m[1]);
     if (session === undefined) return;
     const after = url.searchParams.get("after");
+    const version = url.searchParams.get("version");
+    const state = stateOf(session);
     const changes = () => {
       const index = after === null ? -1 : session.entries.findIndex((entry) => entry.id === after);
-      return { entries: session.entries.slice(index + 1), snapshot: snapshotOf(session) };
+      return {
+        entries: session.entries.slice(index + 1),
+        snapshot: snapshotOf(session),
+        version: state.version,
+      };
     };
     const current = changes();
-    if (current.entries.length > 0) return json(res, 200, current);
-    const state = stateOf(session);
+    if (current.entries.length > 0 || version !== String(state.version)) {
+      return json(res, 200, current);
+    }
     let timer = null;
     const answer = () => {
       clearTimeout(timer);

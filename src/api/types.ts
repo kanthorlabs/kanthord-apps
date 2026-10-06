@@ -836,6 +836,7 @@ export interface WorkbenchRunSnapshot {
 export interface WorkbenchSessionEvents {
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly snapshot: WorkbenchRunSnapshot;
+  readonly version: number;
 }
 
 export interface WorkbenchMessageAnswer {
