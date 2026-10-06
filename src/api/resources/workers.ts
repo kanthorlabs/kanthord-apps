@@ -12,7 +12,7 @@ import type {
 } from "../types";
 
 function enablementPath(agentName: string): string {
-  return `/api/worker/agent/enablement/${encodeURIComponent(agentName)}`;
+  return `/api/agent/enablement/${encodeURIComponent(agentName)}`;
 }
 
 export async function listWorkerCatalog(): Promise<readonly WorkerCatalogItem[]> {
@@ -30,7 +30,7 @@ export async function listWorkerInstances(
 }
 
 export async function listAgentEnablements(): Promise<readonly AgentEnablement[]> {
-  return readAllPages<AgentEnablement>("/api/worker/agent/enablement");
+  return readAllPages<AgentEnablement>("/api/agent/enablement");
 }
 
 export async function listAgents(): Promise<readonly AgentSummary[]> {
@@ -58,7 +58,7 @@ export async function listAgents(): Promise<readonly AgentSummary[]> {
 }
 
 export async function readAgent(agentName: string): Promise<AgentDeclaration> {
-  return request<AgentDeclaration>(`/api/worker/agent/${encodeURIComponent(agentName)}`);
+  return request<AgentDeclaration>(`/api/agent/${encodeURIComponent(agentName)}`);
 }
 
 export async function putAgentEnablement(

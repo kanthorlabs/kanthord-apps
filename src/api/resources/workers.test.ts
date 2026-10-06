@@ -111,7 +111,7 @@ const CATALOG_ROUTES = {
     ...CATALOG_ITEM,
     ...BUDGET,
   },
-  "GET /api/worker/agent/enablement?limit=1000": { items: [SWE_ENABLEMENT], nextCursor: null },
+  "GET /api/agent/enablement?limit=1000": { items: [SWE_ENABLEMENT], nextCursor: null },
 };
 
 describe("listAgents", () => {
@@ -142,7 +142,7 @@ const PUT_BODY = {
 describe("putAgentEnablement", () => {
   it("creates an enablement without an expected revision", async () => {
     const created = { ...PUT_BODY, agentName: "re@1", state: "enabled", revision: 1 };
-    await serve({ "PUT /api/worker/agent/enablement/re%401": created });
+    await serve({ "PUT /api/agent/enablement/re%401": created });
 
     expect(await putAgentEnablement("re@1", PUT_BODY)).toEqual(created);
     expect(seen).toHaveLength(1);
@@ -154,16 +154,16 @@ describe("putAgentEnablement", () => {
 describe("enableAgentEnablement and disableAgentEnablement", () => {
   it("post the expected revision to the enable and disable routes", async () => {
     await serve({
-      "POST /api/worker/agent/enablement/swe%401/enable": SWE_ENABLEMENT,
-      "POST /api/worker/agent/enablement/swe%401/disable": { ...SWE_ENABLEMENT, state: "disabled" },
+      "POST /api/agent/enablement/swe%401/enable": SWE_ENABLEMENT,
+      "POST /api/agent/enablement/swe%401/disable": { ...SWE_ENABLEMENT, state: "disabled" },
     });
 
     await enableAgentEnablement("swe@1", 2);
     await disableAgentEnablement("swe@1", 3);
 
     expect(seen.map((call) => [call.method, call.url, JSON.parse(call.body)])).toEqual([
-      ["POST", "/api/worker/agent/enablement/swe%401/enable", { expectedRevision: 2 }],
-      ["POST", "/api/worker/agent/enablement/swe%401/disable", { expectedRevision: 3 }],
+      ["POST", "/api/agent/enablement/swe%401/enable", { expectedRevision: 2 }],
+      ["POST", "/api/agent/enablement/swe%401/disable", { expectedRevision: 3 }],
     ]);
   });
 });

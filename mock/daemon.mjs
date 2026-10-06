@@ -168,27 +168,27 @@ on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
     resourceBudget: { wallTimeMs: 3600000 },
   });
 });
-on("GET", /^\/api\/worker\/agent\/enablement$/, (_m, _b, res) =>
+on("GET", /^\/api\/agent\/enablement$/, (_m, _b, res) =>
   json(res, 200, page(agents.flatMap((a) => (a.enablement === null ? [] : [a.enablement])))),
 );
 const enablementTarget = (res, name, expectedRevision) => {
   const agent = agents.find((a) => a.agentName === decodeURIComponent(name));
   if (agent === undefined) {
-    projectEnvelope(res, 404, "worker.agent.not_found", "The agent is absent from the catalog.");
+    projectEnvelope(res, 404, "agent.catalog.not_found", "The agent is absent from the catalog.");
     return null;
   }
   if ((agent.enablement?.revision ?? undefined) !== expectedRevision) {
     projectEnvelope(
       res,
       409,
-      "worker.agent.enablement.revision_conflict",
+      "agent.enablement.revision_conflict",
       "The enablement changed after the read.",
     );
     return null;
   }
   return agent;
 };
-on("PUT", /^\/api\/worker\/agent\/enablement\/([^/]+)$/, (m, b, res) => {
+on("PUT", /^\/api\/agent\/enablement\/([^/]+)$/, (m, b, res) => {
   const agent = enablementTarget(res, m[1], b?.expectedRevision);
   if (agent === null) return undefined;
   agent.enablement = {
@@ -200,11 +200,11 @@ on("PUT", /^\/api\/worker\/agent\/enablement\/([^/]+)$/, (m, b, res) => {
   };
   return json(res, 200, agent.enablement);
 });
-on("POST", /^\/api\/worker\/agent\/enablement\/([^/]+)\/(enable|disable)$/, (m, b, res) => {
+on("POST", /^\/api\/agent\/enablement\/([^/]+)\/(enable|disable)$/, (m, b, res) => {
   const agent = enablementTarget(res, m[1], b?.expectedRevision);
   if (agent === null) return undefined;
   if (agent.enablement === null) {
-    return projectEnvelope(res, 404, "worker.agent.enablement.not_found", "No enablement exists.");
+    return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
   }
   agent.enablement = {
     ...agent.enablement,
@@ -213,7 +213,7 @@ on("POST", /^\/api\/worker\/agent\/enablement\/([^/]+)\/(enable|disable)$/, (m, 
   };
   return json(res, 200, agent.enablement);
 });
-on("GET", /^\/api\/worker\/agent\/([^/]+)$/, (m, _b, res) => {
+on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res) => {
   const declaration = agents.find((a) => a.agentName === decodeURIComponent(m[1]));
   if (declaration === undefined) {
     return refuse(res, 404, "not_found", "The agent name is absent from the worker catalog.");

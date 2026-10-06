@@ -36,7 +36,7 @@ describe("request", () => {
       token: "jwt-1",
     });
 
-    const failure = await request("/api/worker/agent?limit=1000").catch((cause: unknown) => cause);
+    const failure = await request("/api/agent?limit=1000").catch((cause: unknown) => cause);
 
     expect(failure).toBeInstanceOf(ApiError);
     expect(failure).toMatchObject({
