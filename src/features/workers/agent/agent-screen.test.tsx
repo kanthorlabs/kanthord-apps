@@ -69,7 +69,7 @@ describe("AgentScreen", () => {
 
     expect(await screen.findByRole("button", { name: "Workbench" })).toHaveAttribute(
       "href",
-      "/agents/re%401/workbench",
+      "/workbench?agentName=re%401",
     );
   });
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
@@ -141,7 +142,7 @@ export function AgentScreen() {
           variant="outline"
           size="sm"
           nativeButton={false}
-          render={<Link to={`/agents/${encodeURIComponent(agent.agentName)}/workbench`} />}
+          render={<Link to={workbenchListPath(agent.agentName)} />}
         >
           Workbench
         </Button>

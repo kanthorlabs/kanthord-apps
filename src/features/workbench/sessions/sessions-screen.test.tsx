@@ -7,9 +7,9 @@ import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
 import type {
-  AgentDeclaration,
   AgentEnablement,
   AgentModel,
+  AgentSummary,
   WorkbenchSession,
   WorkbenchSessionListItem,
 } from "@/api/types";
@@ -45,15 +45,11 @@ const MODELS: Readonly<Record<string, readonly AgentModel[]>> = {
   ],
 };
 
-function agent(enablement: AgentEnablement | null): AgentDeclaration {
-  return {
-    agentName: "swe@1",
-    configurationSchema: {},
-    overridableFields: [],
-    enablement,
-    agentPrompt: "",
-    tools: [],
-  };
+function agents(enablement: AgentEnablement | null): readonly AgentSummary[] {
+  return [
+    { agentName: "swe@1", workerNames: ["general-main"], enablement },
+    { agentName: "re@1", workerNames: ["general-main"], enablement: null },
+  ];
 }
 
 const OLD: WorkbenchSessionListItem = {
@@ -80,27 +76,30 @@ function Opened() {
   return <p>Opened {sessionId}</p>;
 }
 
-function mount() {
+function mount(entry = "/workbench?agentName=swe%401") {
   return render(
-    <MemoryRouter initialEntries={["/agents/swe%401/workbench"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route path="/agents/:agentName/workbench" element={<SessionsScreen />} />
-        <Route path="/agents/:agentName/workbench/:sessionId" element={<Opened />} />
+        <Route path="/workbench" element={<SessionsScreen />} />
+        <Route path="/workbench/:sessionId" element={<Opened />} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
-function serve(items: readonly WorkbenchSessionListItem[], enablement = ENABLEMENT) {
+function serve(
+  items: readonly WorkbenchSessionListItem[],
+  enablement: AgentEnablement | null = ENABLEMENT,
+) {
   vi.mocked(workbenchApi.listWorkbenchSessions).mockResolvedValue(items);
-  vi.mocked(workersApi.readAgent).mockResolvedValue(agent(enablement));
+  vi.mocked(workersApi.listAgents).mockResolvedValue(agents(enablement));
   vi.mocked(workersApi.listAgentProviderModels).mockImplementation(
     async (_agentName, providerName) => MODELS[providerName] ?? [],
   );
 }
 
 async function openDialog() {
-  await screen.findByText("No sessions. Start the first one with New Session.");
+  await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
   await userEvent.click(screen.getByRole("button", { name: "New Session" }));
   return screen.findByRole("dialog");
 }
@@ -111,6 +110,36 @@ async function choose(dialog: HTMLElement, label: string, option: string) {
 }
 
 describe("SessionsScreen", () => {
+  it("lists the sessions of every agent under All agents and keeps New Session disabled", async () => {
+    serve([OLD, { ...NEW, agentName: "re@1" }]);
+    mount("/workbench");
+
+    const rows = within(await screen.findByRole("list", { name: "Sessions" })).getAllByRole(
+      "listitem",
+    );
+    expect(workbenchApi.listWorkbenchSessions).toHaveBeenCalledWith(null);
+    expect(within(rows[0]!).getByText("re@1")).toBeTruthy();
+    expect(within(rows[1]!).getByText("swe@1")).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "Agent" })).toHaveTextContent("All agents");
+    expect(screen.getByRole("button", { name: "New Session" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("filters the sessions by the agent that the human picks", async () => {
+    serve([OLD]);
+    mount("/workbench");
+
+    await screen.findByRole("list", { name: "Sessions" });
+    await userEvent.click(screen.getByRole("combobox", { name: "Agent" }));
+    await userEvent.click(await screen.findByRole("option", { name: "swe@1" }));
+
+    await waitFor(() =>
+      expect(workbenchApi.listWorkbenchSessions).toHaveBeenLastCalledWith("swe@1"),
+    );
+  });
+
   it("lists the sessions of the agent, newest modified first", async () => {
     serve([OLD, NEW]);
     mount();
@@ -139,7 +168,7 @@ describe("SessionsScreen", () => {
     mount();
 
     expect(
-      await screen.findByText("No sessions. Start the first one with New Session."),
+      await screen.findByText("No sessions of swe@1. Start the first one with New Session."),
     ).toBeTruthy();
   });
 
@@ -147,7 +176,7 @@ describe("SessionsScreen", () => {
     vi.mocked(workbenchApi.listWorkbenchSessions).mockRejectedValue(
       new ApiError("unavailable", "The daemon did not answer.", 503),
     );
-    vi.mocked(workersApi.readAgent).mockResolvedValue(agent(ENABLEMENT));
+    vi.mocked(workersApi.listAgents).mockResolvedValue(agents(ENABLEMENT));
     mount();
 
     expect(await screen.findByText("The daemon did not answer.")).toBeTruthy();
@@ -155,10 +184,10 @@ describe("SessionsScreen", () => {
   });
 
   it("keeps New Session disabled while the agent has no enablement", async () => {
-    serve([], null as unknown as AgentEnablement);
+    serve([], null);
     mount();
 
-    await screen.findByText("No sessions. Start the first one with New Session.");
+    await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
     const button = screen.getByRole("button", { name: "New Session" });
     expect(button).toHaveAttribute("aria-disabled", "true");
   });
@@ -175,7 +204,7 @@ describe("SessionsScreen", () => {
     vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();
 
-    await screen.findByText("No sessions. Start the first one with New Session.");
+    await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
     await userEvent.click(screen.getByRole("button", { name: "New Session" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("combobox", { name: "Agent Provider" })).toHaveTextContent(
@@ -344,7 +373,7 @@ describe("SessionsScreen", () => {
     );
     mount();
 
-    await screen.findByText("No sessions. Start the first one with New Session.");
+    await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
     await userEvent.click(screen.getByRole("button", { name: "New Session" }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
@@ -356,7 +385,7 @@ describe("SessionsScreen", () => {
     serve([]);
     mount();
 
-    await screen.findByText("No sessions. Start the first one with New Session.");
+    await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
     await userEvent.click(screen.getByRole("button", { name: "New Session" }));
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));

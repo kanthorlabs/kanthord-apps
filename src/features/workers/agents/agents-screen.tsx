@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
 import type { AgentSummary } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
@@ -7,10 +8,15 @@ import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemGroup, ItemHeader, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
+import { newSessionUnavailableReason, workbenchSessionPath } from "@/lib/workbench-sessions";
+import { NewSessionButton } from "@/features/workbench/sessions/components/new-session-button";
+import { NewSessionDialog } from "@/features/workbench/sessions/components/new-session-dialog";
 import { useAgents } from "./use-agents";
 
 function AgentItem({ agent }: { agent: AgentSummary }) {
   const { agentName, workerNames, enablement } = agent;
+  const navigate = useNavigate();
+  const [starting, setStarting] = useState(false);
 
   return (
     <Item variant="outline" role="listitem">
@@ -24,16 +30,21 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           </Link>
         </ItemTitle>
         <Badge variant={enablementVariant(enablement)}>{enablementLabel(enablement)}</Badge>
-        <Button
-          variant="outline"
+        <NewSessionButton
           size="sm"
-          nativeButton={false}
-          aria-label={`Open workbench of ${agentName}`}
-          render={<Link to={`/agents/${encodeURIComponent(agentName)}/workbench`} />}
-        >
-          Workbench
-        </Button>
+          label={`New session with ${agentName}`}
+          unavailableReason={newSessionUnavailableReason(agentName, enablement?.state ?? null)}
+          onStart={() => setStarting(true)}
+        />
       </ItemHeader>
+      {starting && enablement !== null && (
+        <NewSessionDialog
+          agentName={agentName}
+          enablement={enablement}
+          onClose={() => setStarting(false)}
+          onCreated={(session) => navigate(workbenchSessionPath(session.id))}
+        />
+      )}
       <ItemContent className="min-w-0 gap-3">
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
           <dt className="text-muted-foreground">Workers</dt>

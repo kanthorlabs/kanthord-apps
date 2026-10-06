@@ -59,9 +59,9 @@ const AGENT: AgentDeclaration = {
 
 function mount() {
   return render(
-    <MemoryRouter initialEntries={[`/agents/swe%401/workbench/${SESSION_ID}`]}>
+    <MemoryRouter initialEntries={[`/workbench/${SESSION_ID}`]}>
       <Routes>
-        <Route path="/agents/:agentName/workbench/:sessionId" element={<ChatScreen />} />
+        <Route path="/workbench/:sessionId" element={<ChatScreen />} />
       </Routes>
     </MemoryRouter>,
   );

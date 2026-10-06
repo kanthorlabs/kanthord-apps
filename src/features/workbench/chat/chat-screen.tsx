@@ -2,14 +2,12 @@ import { useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAgent } from "@/features/workers/agent/use-agent";
 import { ChatView } from "./components/chat-view";
 import { useWorkbenchSession } from "./use-workbench-session";
 
 export function ChatScreen() {
-  const { agentName = "", sessionId = "" } = useParams<{ agentName: string; sessionId: string }>();
-  const { data: session, error, loading, reload } = useWorkbenchSession(sessionId);
-  const agent = useAgent(agentName);
+  const { sessionId = "" } = useParams<{ sessionId: string }>();
+  const { data: view, error, loading, reload } = useWorkbenchSession(sessionId);
 
   if (loading) {
     return (
@@ -20,7 +18,7 @@ export function ChatScreen() {
     );
   }
 
-  if (error !== null || session === null) {
+  if (error !== null || view === null) {
     return (
       <div className="flex flex-col items-start gap-2">
         <p className="text-sm text-destructive">{error?.message}</p>
@@ -31,7 +29,5 @@ export function ChatScreen() {
     );
   }
 
-  return (
-    <ChatView key={session.id} session={session} enablement={agent.data?.enablement ?? null} />
-  );
+  return <ChatView key={view.session.id} session={view.session} enablement={view.enablement} />;
 }

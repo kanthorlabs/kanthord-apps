@@ -210,12 +210,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   on("GET", /^\/api\/workbench\/session$/, (_m, _b, res, _t, url) => {
     const agentName = url.searchParams.get("agentName");
     const items = sessions
-      .filter((session) => session.agentName === agentName)
+      .filter((session) => agentName === null || session.agentName === agentName)
       .map((session) => {
         const messages = session.entries.filter((entry) => entry.type === "message");
         const first = messages.find((entry) => entry.message.role === "user");
         return {
           id: session.id,
+          agentName: session.agentName,
           name: null,
           created: session.created,
           modified: Date.parse(session.entries.at(-1)?.timestamp ?? "") || session.created,

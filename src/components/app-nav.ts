@@ -8,6 +8,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   ListOrdered,
+  MessagesSquare,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -27,6 +28,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/executions", label: "Executions", icon: Activity, group: "Work" },
   { to: "/workers", label: "Workers", icon: Boxes, group: "Workforce" },
   { to: "/agents", label: "Agents", icon: Bot, group: "Workforce" },
+  { to: "/workbench", label: "Workbench", icon: MessagesSquare, group: "Workforce" },
   { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Connections" },
   { to: "/repositories", label: "Repositories", icon: FolderGit2, group: "Connections" },
   { to: "/storage", label: "Storage", icon: Database, group: "Connections" },

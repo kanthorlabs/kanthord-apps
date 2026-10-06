@@ -5,16 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface NewSessionButtonProps {
-  readonly available: boolean;
+  readonly unavailableReason: string | null;
+  readonly size?: "sm";
+  readonly label?: string;
   readonly onStart: () => void;
 }
 
-export function NewSessionButton({ available, onStart }: NewSessionButtonProps) {
+export function NewSessionButton({
+  unavailableReason,
+  size,
+  label,
+  onStart,
+}: NewSessionButtonProps) {
   const [open, setOpen] = useState(false);
 
-  if (available) {
+  if (unavailableReason === null) {
     return (
-      <Button onClick={onStart}>
+      <Button size={size} aria-label={label} onClick={onStart}>
         <PlusIcon aria-hidden="true" data-icon="inline-start" />
         New Session
       </Button>
@@ -24,13 +31,21 @@ export function NewSessionButton({ available, onStart }: NewSessionButtonProps) 
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger
-        render={<Button disabled focusableWhenDisabled className="data-disabled:opacity-50" />}
+        render={
+          <Button
+            size={size}
+            aria-label={label}
+            disabled
+            focusableWhenDisabled
+            className="data-disabled:opacity-50"
+          />
+        }
         onPointerUp={() => setOpen(true)}
       >
         <PlusIcon aria-hidden="true" data-icon="inline-start" />
         New Session
       </TooltipTrigger>
-      <TooltipContent>Enable the agent before a session can start.</TooltipContent>
+      <TooltipContent>{unavailableReason}</TooltipContent>
     </Tooltip>
   );
 }
