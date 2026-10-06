@@ -1,78 +1,13 @@
 import { Link } from "react-router-dom";
 
 import { AGENT_PROVIDER_KINDS } from "@/api/types";
+import { ChoiceField } from "@/components/choice-field";
+import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { FieldGroup } from "@/components/ui/field";
 import { REASONING_EFFORTS } from "@/lib/binding-draft";
 import { useEnablementCreate } from "../use-enablement-create";
-
-interface ChoiceFieldProps {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly options: readonly string[];
-  readonly error: string | undefined;
-  readonly onChange: (value: string | null) => void;
-}
-
-function ChoiceField({ id, label, value, options, error, onChange }: ChoiceFieldProps) {
-  const items = options.map((option) => ({ value: option, label: option }));
-  return (
-    <Field data-invalid={error !== undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Select items={items} value={value === "" ? null : value} onValueChange={onChange}>
-        <SelectTrigger id={id} className="w-full" aria-invalid={error !== undefined}>
-          <SelectValue placeholder="Choose" />
-        </SelectTrigger>
-        <SelectContent>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <FieldError>{error}</FieldError>
-    </Field>
-  );
-}
-
-interface TextFieldProps {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly error: string | undefined;
-  readonly description: string;
-  readonly onChange: (value: string) => void;
-}
-
-function TextField({ id, label, value, error, description, onChange }: TextFieldProps) {
-  return (
-    <Field data-invalid={error !== undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Input
-        id={id}
-        value={value}
-        autoComplete="off"
-        autoCapitalize="none"
-        spellCheck={false}
-        aria-invalid={error !== undefined}
-        onChange={(event) => onChange(event.target.value)}
-      />
-      <FieldDescription>{description}</FieldDescription>
-      <FieldError>{error}</FieldError>
-    </Field>
-  );
-}
 
 interface EnablementFormProps {
   readonly agentName: string;
