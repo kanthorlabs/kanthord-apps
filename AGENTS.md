@@ -72,6 +72,10 @@ The `## Design` section is normative. A change that breaks a rule in it is a def
   `Select`, `Textarea`, `ToggleGroup` and `Item`. A router `Link` that acts as a control renders
   through `Button render={<Link />}`. A plain text link inside prose stays a plain `Link`. ESLint enforces the
   element ban; the review enforces the rest.
+- **A labelled searchable select is `SearchChoiceField`.** It lives in `src/components` and takes a
+  list of strings, an optional `labelOf`, a description and an actions slot. A form field never wires
+  a `Combobox` of its own. A feature component that needs a searchable field composes
+  `SearchChoiceField`, as `CredentialCombobox` does.
 - **No tables.** A collection renders as a list of `Item` inside `ItemGroup`. The list keeps every
   field, navigation path and action that the screen needs on both widths. One collection has one
   rendering: a screen never renders the same data twice behind `hidden md:block` and `md:hidden`.

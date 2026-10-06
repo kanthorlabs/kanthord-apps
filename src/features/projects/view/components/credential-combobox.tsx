@@ -1,14 +1,6 @@
 import type { Credential } from "@/api/types";
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
+import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 
 interface CredentialComboboxProps {
   readonly id: string;
@@ -44,45 +36,31 @@ export function CredentialCombobox({
   };
 
   return (
-    <Field data-invalid={error !== undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Combobox
-        items={credentials.map((credential) => credential.name)}
-        value={value === "" ? null : value}
-        itemToStringLabel={labelOf}
-        onValueChange={(next: string | null) => onChange(next ?? "")}
-      >
-        <ComboboxInput
-          id={id}
-          className="w-full"
-          placeholder="Search credentials"
-          aria-invalid={error !== undefined}
-        />
-        <ComboboxContent>
-          <ComboboxEmpty>No credential matches.</ComboboxEmpty>
-          <ComboboxList>
-            {(name: string) => (
-              <ComboboxItem key={name} value={name}>
-                {labelOf(name)}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
-      {onNew !== undefined && (
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" type="button" onClick={onNew}>
-            New credential
-          </Button>
-          {rotateAvailable === true && onRotate !== undefined && (
-            <Button size="sm" variant="outline" type="button" onClick={onRotate}>
-              Rotate
+    <SearchChoiceField
+      id={id}
+      label={label}
+      value={value}
+      options={credentials.map((credential) => credential.name)}
+      error={error}
+      placeholder="Search credentials"
+      emptyText="No credential matches."
+      labelOf={labelOf}
+      description={description}
+      actions={
+        onNew !== undefined && (
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" type="button" onClick={onNew}>
+              New credential
             </Button>
-          )}
-        </div>
-      )}
-      {description !== undefined && <FieldDescription>{description}</FieldDescription>}
-      <FieldError>{error}</FieldError>
-    </Field>
+            {rotateAvailable === true && onRotate !== undefined && (
+              <Button size="sm" variant="outline" type="button" onClick={onRotate}>
+                Rotate
+              </Button>
+            )}
+          </div>
+        )
+      }
+      onChange={(next) => onChange(next ?? "")}
+    />
   );
 }
