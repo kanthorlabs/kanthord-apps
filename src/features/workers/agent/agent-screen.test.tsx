@@ -267,7 +267,7 @@ describe("AgentScreen", () => {
     const sheet = await screen.findByRole("dialog");
     await choose("Agent Provider", "codex");
     await waitFor(() =>
-      expect(within(sheet).getByRole("combobox", { name: "Model Identifier" })).toHaveTextContent(
+      expect(within(sheet).getByRole("combobox", { name: "Model Identifier" })).toHaveValue(
         "gpt-5-codex",
       ),
     );

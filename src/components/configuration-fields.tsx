@@ -1,4 +1,5 @@
 import { ChoiceField } from "@/components/choice-field";
+import { SearchChoiceField } from "@/components/search-choice-field";
 import type { ConfigurationDraftState } from "@/hooks/use-configuration-draft";
 import type { ConfigurationErrors } from "@/lib/workbench-configuration";
 
@@ -18,20 +19,24 @@ export function ConfigurationFields({
   const { draft } = configuration;
   return (
     <>
-      <ChoiceField
+      <SearchChoiceField
         id={`${idPrefix}-agent-provider`}
         label="Agent Provider"
         value={draft.agentProvider}
         options={agentProviderNames}
         error={errors["agentProvider"]}
+        placeholder="Search agent providers"
+        emptyText="No agent provider matches."
         onChange={configuration.selectAgentProvider}
       />
-      <ChoiceField
+      <SearchChoiceField
         id={`${idPrefix}-model`}
         label="Model Identifier"
         value={draft.modelIdentifier}
         options={configuration.models}
         error={errors["modelIdentifier"]}
+        placeholder="Search models"
+        emptyText="No model matches."
         onChange={configuration.selectModel}
       />
       <ChoiceField

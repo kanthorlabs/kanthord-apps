@@ -237,10 +237,10 @@ describe("SessionsScreen", () => {
     mount();
 
     const dialog = await openDialog();
-    expect(within(dialog).getByRole("combobox", { name: "Agent Provider" })).toHaveTextContent(
+    expect(within(dialog).getByRole("combobox", { name: "Agent Provider" })).toHaveValue(
       "atlas-llm",
     );
-    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveTextContent(
+    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveValue(
       "qwen3-coder",
     );
     expect(within(dialog).getByRole("combobox", { name: "Reasoning Effort" })).toHaveTextContent(
@@ -253,6 +253,19 @@ describe("SessionsScreen", () => {
       ...ENABLEMENT.defaultConfiguration,
     });
     expect(await screen.findByText("Opened workbench_session_CREATED")).toBeTruthy();
+  });
+
+  it("filters the models by the text that the human types", async () => {
+    serve([]);
+    mount();
+
+    const dialog = await openDialog();
+    const model = within(dialog).getByRole("combobox", { name: "Model Identifier" });
+    await userEvent.clear(model);
+    await userEvent.type(model, "glm");
+
+    expect(await screen.findByRole("option", { name: "glm-4.6" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "qwen3-coder" })).toBeNull();
   });
 
   it("sends the configuration that the human changed", async () => {
@@ -310,7 +323,7 @@ describe("SessionsScreen", () => {
     await choose(dialog, "Agent Provider", "openai-org");
 
     await waitFor(() =>
-      expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveTextContent(
+      expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveValue(
         "gpt-5",
       ),
     );
@@ -336,7 +349,7 @@ describe("SessionsScreen", () => {
         "low",
       ),
     );
-    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveTextContent(
+    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveValue(
       "qwen3-coder",
     );
   });
@@ -350,7 +363,7 @@ describe("SessionsScreen", () => {
     await choose(dialog, "Reasoning Effort", "low");
     await choose(dialog, "Agent Provider", "openai-org");
     await waitFor(() =>
-      expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveTextContent(
+      expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveValue(
         "gpt-5",
       ),
     );
@@ -391,7 +404,7 @@ describe("SessionsScreen", () => {
     const dialog = await openDialog();
 
     expect(await within(dialog).findByText("The agent provider does not exist.")).toBeTruthy();
-    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveTextContent(
+    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveValue(
       "qwen3-coder",
     );
   });
