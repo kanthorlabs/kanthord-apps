@@ -4,7 +4,7 @@ import type { AgentEnablement, Credential } from "@/api/types";
 import {
   agentProviderBodyOf,
   missingAgentProviderFields,
-  providerCredentials,
+  unusedProviderCredentials,
   providerRemovalBlock,
 } from "./agent-provider-draft";
 
@@ -58,10 +58,15 @@ describe("missingAgentProviderFields", () => {
   });
 });
 
-describe("providerCredentials", () => {
-  it("keeps only the credentials whose platform is an agent provider kind", () => {
+describe("unusedProviderCredentials", () => {
+  it("keeps the credentials of an agent provider kind that no agent provider names", () => {
     const custom = { name: "other", platform: "custom", revisions: [] } as unknown as Credential;
-    expect(providerCredentials([CODEX, custom])).toEqual([CODEX]);
+    const used: Credential = {
+      name: "github--copilot-elsa",
+      platform: "github-copilot",
+      revisions: [],
+    };
+    expect(unusedProviderCredentials([CODEX, custom, used], ENABLEMENT)).toEqual([CODEX]);
   });
 });
 

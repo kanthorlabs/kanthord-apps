@@ -9,7 +9,7 @@ import {
   agentProviderBodyOf,
   EMPTY_AGENT_PROVIDER,
   missingAgentProviderFields,
-  providerCredentials,
+  unusedProviderCredentials,
   providerOfCredential,
   type AgentProviderDraft,
   type AgentProviderErrors,
@@ -21,6 +21,7 @@ export interface AgentProviderAddState {
   readonly errors: AgentProviderErrors;
   readonly credentialNames: readonly string[];
   readonly credentialsError: string | null;
+  readonly credentialsExhausted: boolean;
   readonly provider: AgentProviderKind | null;
   readonly missing: readonly string[];
   readonly failure: string | null;
@@ -48,7 +49,7 @@ export function useAgentProviderAdd(
     () => (open ? listAllCredentials("llm") : Promise.resolve([])),
     [open],
   );
-  const usable = providerCredentials(credentials.data ?? []);
+  const usable = unusedProviderCredentials(credentials.data ?? [], enablement);
 
   const start = useCallback(() => {
     setDraft(EMPTY_AGENT_PROVIDER);
@@ -98,6 +99,7 @@ export function useAgentProviderAdd(
     errors,
     credentialNames: usable.map((credential) => credential.name),
     credentialsError: credentials.error?.message ?? null,
+    credentialsExhausted: credentials.data !== null && open && usable.length === 0,
     provider: providerOfCredential(usable, draft.credential),
     missing: missingAgentProviderFields(draft),
     failure,

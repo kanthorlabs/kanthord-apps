@@ -15,9 +15,14 @@ export type AgentProviderErrors = Partial<Record<keyof AgentProviderDraft, strin
 
 export const EMPTY_AGENT_PROVIDER: AgentProviderDraft = { name: "", credential: "" };
 
-export function providerCredentials(credentials: readonly Credential[]): readonly Credential[] {
-  return credentials.filter((credential) =>
-    AGENT_PROVIDER_KINDS.some((kind) => kind === credential.platform),
+export function unusedProviderCredentials(
+  credentials: readonly Credential[],
+  enablement: AgentEnablement,
+): readonly Credential[] {
+  return credentials.filter(
+    (credential) =>
+      AGENT_PROVIDER_KINDS.some((kind) => kind === credential.platform) &&
+      !enablement.agentProviders.some((provider) => provider.credential === credential.name),
   );
 }
 

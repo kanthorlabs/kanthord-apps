@@ -233,4 +233,17 @@ describe("AgentScreen", () => {
 
     expect(workersApi.removeAgentProvider).toHaveBeenCalledWith("re@1", "codex", 2);
   });
+  it("shows only the empty state with one action when no credential is left", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
+    const sheet = await screen.findByRole("dialog");
+
+    expect(await within(sheet).findByText("No credential is left.")).toBeTruthy();
+    expect(within(sheet).queryByRole("combobox", { name: "Credential" })).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Add agent provider" })).toBeNull();
+    expect(within(sheet).getAllByRole("button", { name: "Add a credential" })).toHaveLength(1);
+  });
 });
