@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { summaryOf } from "@/lib/workbench-chat";
+import { ToolDetail } from "./tool-detail";
 
 interface ToolRowProps {
   readonly label: string;
@@ -34,9 +35,7 @@ export function ToolRow({ label, name, status, detail }: ToolRowProps) {
         </span>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <pre className="max-h-64 overflow-auto px-3 pb-3 font-mono text-xs break-words whitespace-pre-wrap">
-          {detail}
-        </pre>
+        <ToolDetail detail={detail} />
       </CollapsibleContent>
     </Collapsible>
   );

@@ -34,6 +34,10 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+  --syntax-key: oklch(0.46 0.16 262);
+  --syntax-string: oklch(0.5 0.13 150);
+  --syntax-number: oklch(0.55 0.16 50);
+  --syntax-literal: oklch(0.5 0.18 320);
 }
 
 .dark {
@@ -65,9 +69,17 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  --syntax-key: oklch(0.74 0.12 262);
+  --syntax-string: oklch(0.78 0.13 150);
+  --syntax-number: oklch(0.8 0.13 60);
+  --syntax-literal: oklch(0.76 0.14 320);
 }
 
 @theme inline {
+  --color-syntax-key: var(--syntax-key);
+  --color-syntax-string: var(--syntax-string);
+  --color-syntax-number: var(--syntax-number);
+  --color-syntax-literal: var(--syntax-literal);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

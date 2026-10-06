@@ -156,7 +156,7 @@ describe("ChatView", () => {
     expect(await navigator.clipboard.readText()).toBe("pi --session ~/session.jsonl");
   });
 
-  it("expands a tool call to show its whole input", async () => {
+  it("expands a tool call to show its whole input as pretty JSON", async () => {
     pollQueue();
     mount(
       session([
@@ -170,7 +170,10 @@ describe("ChatView", () => {
     await userEvent.click(screen.getByRole("button", { name: "Tool Call read" }));
 
     expect(
-      await screen.findByText('{\n  "path": "a.md"\n}', { normalizer: (text) => text }),
+      await screen.findByText(
+        (_, element) =>
+          element?.tagName === "PRE" && element.textContent === '{\n  "path": "a.md"\n}',
+      ),
     ).toBeTruthy();
   });
 
