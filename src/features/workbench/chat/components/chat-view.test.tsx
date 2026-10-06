@@ -127,6 +127,24 @@ describe("ChatView", () => {
     expect(within(log).getByText("Nothing is open.")).toBeTruthy();
   });
 
+  it("renders the markdown of assistant text", () => {
+    pollQueue();
+    mount(
+      session([
+        message("e1", {
+          role: "assistant",
+          content: [{ type: "text", text: "## Plan\n\n- read **mission**\n- run `make up`" }],
+        }),
+      ]),
+    );
+
+    const log = screen.getByRole("log", { name: "Transcript" });
+    expect(within(log).getByRole("heading", { name: "Plan", level: 2 })).toBeTruthy();
+    expect(within(log).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(log).getByText("mission").tagName).toBe("STRONG");
+    expect(within(log).getByText("make up").tagName).toBe("CODE");
+  });
+
   it("expands a tool call to show its whole input", async () => {
     pollQueue();
     mount(

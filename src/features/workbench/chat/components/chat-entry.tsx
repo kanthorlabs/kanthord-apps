@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import type { ChatItem } from "@/lib/workbench-chat";
+import { MarkdownText } from "./markdown-text";
 import { ToolRow } from "./tool-row";
 
 const CALL_STATE_LABEL = { running: "Running", "awaiting-approval": "Awaiting Approval" } as const;
@@ -17,9 +18,9 @@ export function ChatEntry({ item }: { item: ChatItem }) {
     return (
       <div
         aria-busy={item.streaming}
-        className="flex min-w-0 flex-col items-start gap-1 text-sm break-words whitespace-pre-wrap"
+        className="flex min-w-0 flex-col items-start gap-1 break-words"
       >
-        {item.text}
+        <MarkdownText text={item.text} />
         {item.streaming && <Badge variant="outline">Streaming</Badge>}
       </div>
     );
