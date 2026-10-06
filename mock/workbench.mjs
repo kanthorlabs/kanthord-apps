@@ -89,13 +89,16 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     if (!run.cancelled) append(session, "message", { message: textMessage("assistant", text) });
   };
 
-  const callTool = async (session, run, call, result) => {
-    const state = stateOf(session);
+  const announce = (session, call) => {
     append(session, "message", {
       message: { role: "assistant", content: [{ type: "toolCall", ...call }] },
     });
-    state.pendingToolCalls = [call.id];
+    stateOf(session).pendingToolCalls = [call.id];
     notify(session);
+  };
+
+  const settle = async (session, run, call, result) => {
+    const state = stateOf(session);
     await sleep(run, STEP_DELAY_MS);
     state.pendingToolCalls = [];
     if (run.cancelled) return;
@@ -126,19 +129,27 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   const play = async (session, run, text) => {
     const state = stateOf(session);
     await sleep(run, STEP_DELAY_MS);
+    const call = {
+      id: `call_${Date.now().toString(36)}`,
+      name: "mission.node.list",
+      arguments: {},
+    };
+    if (/\bfail\b/i.test(text)) {
+      state.errorMessage = "The model provider refused the request.";
+      return;
+    }
     if (/\b(create|approve|mutation)\b/i.test(text)) {
-      const call = {
-        id: `call_${Date.now().toString(36)}`,
-        name: "project.create",
-        arguments: { name: "account-recovery" },
-      };
+      call.name = "project.create";
+      call.arguments = { name: "account-recovery" };
+      announce(session, call);
+      await sleep(run, STEP_DELAY_MS);
       const approved = await awaitApproval(session, run, {
         toolCallId: call.id,
         operationId: call.name,
         input: call.arguments,
       });
       if (!run.cancelled) {
-        await callTool(
+        await settle(
           session,
           run,
           call,
@@ -147,16 +158,9 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
             : { isError: true, text: "The human rejected the call." },
         );
       }
-    } else if (/\bfail\b/i.test(text)) {
-      state.errorMessage = "The model provider refused the request.";
-      return;
     } else {
-      await callTool(
-        session,
-        run,
-        { id: `call_${Date.now().toString(36)}`, name: "mission.node.list", arguments: {} },
-        { isError: false, text: '{"items":[]}' },
-      );
+      announce(session, call);
+      await settle(session, run, call, { isError: false, text: '{"items":[]}' });
     }
     if (!run.cancelled) {
       await stream(
