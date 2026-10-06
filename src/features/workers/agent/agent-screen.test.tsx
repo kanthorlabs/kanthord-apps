@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -245,5 +245,42 @@ describe("AgentScreen", () => {
     expect(within(sheet).queryByRole("combobox", { name: "Credential" })).toBeNull();
     expect(within(sheet).queryByRole("button", { name: "Add agent provider" })).toBeNull();
     expect(within(sheet).getAllByRole("button", { name: "Add a credential" })).toHaveLength(1);
+  });
+  it("saves a new default configuration and keeps the agent providers", async () => {
+    const two: AgentEnablement = {
+      ...ENABLEMENT,
+      agentProviders: [
+        ...ENABLEMENT.agentProviders,
+        { name: "codex", provider: "openai-codex", credential: "codex-main" },
+      ],
+    };
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: two });
+    vi.mocked(workersApi.listAgentProviderModels).mockImplementation(async (_agent, provider) =>
+      provider === "codex"
+        ? [{ modelIdentifier: "gpt-5-codex", reasoningEfforts: ["low", "high"] }]
+        : [{ modelIdentifier: "qwen/qwen3-coder", reasoningEfforts: ["off"] }],
+    );
+    vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...two, revision: 3 });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit default" }));
+    const sheet = await screen.findByRole("dialog");
+    await choose("Agent Provider", "codex");
+    await waitFor(() =>
+      expect(within(sheet).getByRole("combobox", { name: "Model Identifier" })).toHaveTextContent(
+        "gpt-5-codex",
+      ),
+    );
+    await userEvent.click(within(sheet).getByRole("button", { name: "Save default" }));
+
+    expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("re@1", {
+      expectedRevision: 2,
+      agentProviders: two.agentProviders,
+      defaultConfiguration: {
+        agentProvider: "codex",
+        modelIdentifier: "gpt-5-codex",
+        reasoningEffort: "low",
+      },
+    });
   });
 });

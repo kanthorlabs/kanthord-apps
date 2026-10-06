@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
-import { ChoiceField } from "@/components/choice-field";
+import { ConfigurationFields } from "@/components/configuration-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
@@ -22,7 +22,7 @@ export function SessionConfigurationForm({
   onCreated,
 }: SessionConfigurationFormProps) {
   const form = useSessionCreate(agentName, enablement, onCreated);
-  const { draft, errors } = form;
+  const { errors } = form;
 
   return (
     <form
@@ -46,29 +46,11 @@ export function SessionConfigurationForm({
             <AlertDescription>{form.modelsFailure}</AlertDescription>
           </Alert>
         )}
-        <ChoiceField
-          id="new-session-agent-provider"
-          label="Agent Provider"
-          value={draft.agentProvider}
-          options={enablement.agentProviders.map((provider) => provider.name)}
-          error={errors["agentProvider"]}
-          onChange={form.selectAgentProvider}
-        />
-        <ChoiceField
-          id="new-session-model"
-          label="Model Identifier"
-          value={draft.modelIdentifier}
-          options={form.models}
-          error={errors["modelIdentifier"]}
-          onChange={form.selectModel}
-        />
-        <ChoiceField
-          id="new-session-reasoning-effort"
-          label="Reasoning Effort"
-          value={draft.reasoningEffort}
-          options={form.reasoningEfforts}
-          error={errors["reasoningEffort"]}
-          onChange={form.selectReasoningEffort}
+        <ConfigurationFields
+          idPrefix="new-session"
+          agentProviderNames={enablement.agentProviders.map((provider) => provider.name)}
+          configuration={form}
+          errors={errors}
         />
         <FieldDescription className="md:col-span-2">
           {agentProviderCountText(agentName, enablement.agentProviders.length)}{" "}

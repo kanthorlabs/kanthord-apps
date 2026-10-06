@@ -1,4 +1,5 @@
-import { PlusIcon } from "lucide-react";
+import { PencilIcon, PlusIcon } from "lucide-react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool } from "@/api/types";
@@ -12,6 +13,7 @@ import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
+import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
 import { RemoveProviderButton } from "./components/remove-provider-button";
@@ -42,6 +44,36 @@ function AddAgentProvider({
         Add agent provider
       </Button>
       <AgentProviderSheet agentName={agentName} revision={enablement.revision} add={add} />
+    </>
+  );
+}
+
+function EditDefault({
+  agentName,
+  enablement,
+  reload,
+}: {
+  readonly agentName: string;
+  readonly enablement: AgentEnablement;
+  readonly reload: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <PencilIcon aria-hidden="true" data-icon="inline-start" />
+        Edit default
+      </Button>
+      <DefaultConfigurationSheet
+        agentName={agentName}
+        enablement={enablement}
+        open={open}
+        onClose={() => setOpen(false)}
+        onSaved={() => {
+          setOpen(false);
+          reload();
+        }}
+      />
     </>
   );
 }
@@ -90,7 +122,10 @@ function EnablementSection({ agentName, enablement, reload }: EnablementSectionP
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold leading-none">Enablement</h2>
         {enablement !== null && (
-          <AddAgentProvider agentName={agentName} enablement={enablement} reload={reload} />
+          <div className="flex flex-wrap gap-2">
+            <EditDefault agentName={agentName} enablement={enablement} reload={reload} />
+            <AddAgentProvider agentName={agentName} enablement={enablement} reload={reload} />
+          </div>
         )}
       </CardHeader>
       <CardContent className="grid gap-4">

@@ -1,7 +1,8 @@
 import { useCallback, useState } from "react";
+import { toast } from "sonner";
 
-import { createWorkbenchSession } from "@/api/resources/workbench";
-import type { AgentEnablement, WorkbenchSession } from "@/api/types";
+import { putAgentEnablement } from "@/api/resources/workers";
+import type { AgentEnablement } from "@/api/types";
 import {
   useConfigurationDraft,
   type ConfigurationDraftState,
@@ -9,7 +10,7 @@ import {
 import { asApiError } from "@/hooks/use-resource";
 import { configurationOf, type ConfigurationErrors } from "@/lib/workbench-configuration";
 
-export interface SessionCreateState extends ConfigurationDraftState {
+export interface DefaultEditState extends ConfigurationDraftState {
   readonly errors: ConfigurationErrors;
   readonly failure: string | null;
   readonly submitting: boolean;
@@ -18,11 +19,11 @@ export interface SessionCreateState extends ConfigurationDraftState {
 
 const NO_ERRORS: ConfigurationErrors = {};
 
-export function useSessionCreate(
+export function useDefaultEdit(
   agentName: string,
-  enablement: AgentEnablement | null,
-  onCreated: (session: WorkbenchSession) => void,
-): SessionCreateState {
+  enablement: AgentEnablement,
+  onSaved: () => void,
+): DefaultEditState {
   const configuration = useConfigurationDraft(agentName, enablement);
   const { draft, switching } = configuration;
   const [errors, setErrors] = useState<ConfigurationErrors>(NO_ERRORS);
@@ -39,17 +40,22 @@ export function useSessionCreate(
     setErrors(NO_ERRORS);
     setFailure(null);
     setSubmitting(true);
-    createWorkbenchSession({ agentName, ...result.configuration }).then(
-      (session) => {
+    putAgentEnablement(agentName, {
+      expectedRevision: enablement.revision,
+      agentProviders: enablement.agentProviders,
+      defaultConfiguration: result.configuration,
+    }).then(
+      (answer) => {
         setSubmitting(false);
-        onCreated(session);
+        toast.success(`Saved the default of ${answer.agentName} at revision ${answer.revision}.`);
+        onSaved();
       },
       (cause: unknown) => {
         setSubmitting(false);
         setFailure(asApiError(cause).message);
       },
     );
-  }, [submitting, switching, draft, agentName, onCreated]);
+  }, [submitting, switching, draft, agentName, enablement, onSaved]);
 
   return {
     ...configuration,
