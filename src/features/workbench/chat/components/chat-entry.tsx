@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { toolResultText } from "@/lib/health-names";
 import type { ChatItem } from "@/lib/workbench-chat";
 import { MarkdownText } from "./markdown-text";
 import { ToolRow } from "./tool-row";
@@ -45,7 +46,7 @@ export function ChatEntry({ item }: { item: ChatItem }) {
     <ToolRow
       label="Tool Result"
       name={item.name}
-      detail={item.text}
+      detail={toolResultText(item.name, item.text)}
       status={
         item.isError ? (
           <Badge variant="destructive">Error</Badge>
