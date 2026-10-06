@@ -332,11 +332,14 @@ describe("SessionsScreen", () => {
     );
   });
 
-  it("keeps the model when the new agent provider lists it", async () => {
+  it("resets the model to the first listed model even when the new agent provider lists the current one", async () => {
     serve([]);
     vi.mocked(workersApi.listAgentProviderModels).mockImplementation(async (_agent, name) =>
       name === "openai-org"
-        ? [{ modelIdentifier: "qwen3-coder", reasoningEfforts: ["low", "high"] }]
+        ? [
+            { modelIdentifier: "gpt-5", reasoningEfforts: ["low", "high"] },
+            { modelIdentifier: "qwen3-coder", reasoningEfforts: ["low", "high"] },
+          ]
         : (MODELS[name] ?? []),
     );
     mount();
@@ -349,9 +352,7 @@ describe("SessionsScreen", () => {
         "low",
       ),
     );
-    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveValue(
-      "qwen3-coder",
-    );
+    expect(within(dialog).getByRole("combobox", { name: "Model Identifier" })).toHaveValue("gpt-5");
   });
 
   it("keeps the effort when the new model lists it and takes the first listed effort otherwise", async () => {

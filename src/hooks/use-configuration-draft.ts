@@ -44,7 +44,7 @@ export function useConfigurationDraft(
         (models) => {
           setSwitching(false);
           setDraft((current) => {
-            const modelIdentifier = modelAfterProviderChange(current.modelIdentifier, models);
+            const modelIdentifier = modelAfterProviderChange(models);
             return {
               agentProvider: value,
               modelIdentifier,

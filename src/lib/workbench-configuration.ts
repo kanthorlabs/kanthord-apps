@@ -66,9 +66,8 @@ export function effortOptions(
   return listed.reasoningEfforts;
 }
 
-export function modelAfterProviderChange(current: string, models: readonly AgentModel[]): string {
-  if (models.some((model) => model.modelIdentifier === current)) return current;
-  return models[0]?.modelIdentifier ?? current;
+export function modelAfterProviderChange(models: readonly AgentModel[]): string {
+  return models[0]?.modelIdentifier ?? "";
 }
 
 export function effortAfterModelChange<T extends ReasoningEffort | "">(

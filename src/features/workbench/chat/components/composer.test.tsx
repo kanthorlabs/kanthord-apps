@@ -189,7 +189,7 @@ describe("Composer", () => {
     });
   });
 
-  it("keeps the model when the new agent provider lists it", async () => {
+  it("resets the model to the first listed model even when the new agent provider lists the current one", async () => {
     vi.mocked(workersApi.listAgentProviderModels).mockImplementation(async (_agentName, name) =>
       name === "openai-org"
         ? [
@@ -204,8 +204,8 @@ describe("Composer", () => {
 
     expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
       agentProvider: "openai-org",
-      modelIdentifier: "qwen3-coder",
-      reasoningEffort: "medium",
+      modelIdentifier: "gpt-5",
+      reasoningEffort: "off",
     });
   });
 

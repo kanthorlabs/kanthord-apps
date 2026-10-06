@@ -96,16 +96,12 @@ describe("effortOptions", () => {
 });
 
 describe("modelAfterProviderChange", () => {
-  it("keeps the current model when the new provider lists it", () => {
-    expect(modelAfterProviderChange("glm-4.6", MODELS)).toBe("glm-4.6");
+  it("takes the first listed model of the new provider", () => {
+    expect(modelAfterProviderChange(MODELS)).toBe("qwen3-coder");
   });
 
-  it("takes the first listed model otherwise", () => {
-    expect(modelAfterProviderChange("gpt-5", MODELS)).toBe("qwen3-coder");
-  });
-
-  it("keeps the current model when the list is empty", () => {
-    expect(modelAfterProviderChange("gpt-5", [])).toBe("gpt-5");
+  it("leaves the model blank when the new provider lists none", () => {
+    expect(modelAfterProviderChange([])).toBe("");
   });
 });
 

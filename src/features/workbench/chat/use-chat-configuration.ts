@@ -63,7 +63,7 @@ export function useChatConfiguration(
       if (value === null || value === configuration.agentProvider || pending) return;
       change(
         listAgentProviderModels(agentName, value).then((models) => {
-          const modelIdentifier = modelAfterProviderChange(configuration.modelIdentifier, models);
+          const modelIdentifier = modelAfterProviderChange(models);
           return {
             agentProvider: value,
             modelIdentifier,
