@@ -1,6 +1,5 @@
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { ChoiceField } from "@/components/choice-field";
-import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +10,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldGroup } from "@/components/ui/field";
-import { REASONING_EFFORTS } from "@/lib/binding-draft";
 import { useSessionCreate } from "../use-session-create";
 
 interface NewSessionDialogProps {
@@ -55,6 +53,12 @@ export function NewSessionDialog({
                 <AlertDescription>{form.failure}</AlertDescription>
               </Alert>
             )}
+            {form.modelsFailure !== null && (
+              <Alert variant="destructive" className="md:col-span-2">
+                <AlertTitle>The models were not loaded.</AlertTitle>
+                <AlertDescription>{form.modelsFailure}</AlertDescription>
+              </Alert>
+            )}
             <ChoiceField
               id="new-session-agent-provider"
               label="Agent Provider"
@@ -64,23 +68,21 @@ export function NewSessionDialog({
               onChange={form.selectAgentProvider}
             />
             <ChoiceField
+              id="new-session-model"
+              label="Model Identifier"
+              value={draft.modelIdentifier}
+              options={form.models}
+              error={errors["modelIdentifier"]}
+              onChange={form.selectModel}
+            />
+            <ChoiceField
               id="new-session-reasoning-effort"
               label="Reasoning Effort"
               value={draft.reasoningEffort}
-              options={REASONING_EFFORTS}
+              options={form.reasoningEfforts}
               error={errors["reasoningEffort"]}
               onChange={form.selectReasoningEffort}
             />
-            <div className="md:col-span-2">
-              <TextField
-                id="new-session-model"
-                label="Model Identifier"
-                value={draft.modelIdentifier}
-                error={errors["modelIdentifier"]}
-                description="A model of the provider catalog or of the credential metadata."
-                onChange={form.setModelIdentifier}
-              />
-            </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2 [&>button]:max-sm:w-full">
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel

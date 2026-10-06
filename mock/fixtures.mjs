@@ -118,6 +118,17 @@ Your responsibility is the change that the task describes, in the workspace, to 
   },
 ];
 
+export const AGENT_PROVIDER_MODELS = {
+  "atlas-main": [
+    { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off", "low", "high"] },
+    { modelIdentifier: "glm-4.6", reasoningEfforts: ["off"] },
+  ],
+  "openai-main": [
+    { modelIdentifier: "gpt-5", reasoningEfforts: ["off", "minimal", "low", "medium", "high"] },
+    { modelIdentifier: "gpt-5-mini", reasoningEfforts: ["off", "low"] },
+  ],
+};
+
 export const MISSION = {
   id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM1",
   version: 3,

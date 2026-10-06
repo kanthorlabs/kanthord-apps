@@ -215,6 +215,30 @@ on("POST", /^\/api\/agent\/enablement\/([^/]+)\/(enable|disable)$/, (m, b, res) 
   };
   return json(res, 200, agent.enablement);
 });
+on("GET", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)\/model$/, (m, _b, res) => {
+  const agent = agents.find((a) => a.agentName === decodeURIComponent(m[1]));
+  if (agent === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "agent.catalog.not_found",
+      "The agent is absent from the catalog.",
+    );
+  }
+  if (agent.enablement === null) {
+    return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
+  }
+  const provider = agent.enablement.agentProviders.find((p) => p.name === decodeURIComponent(m[2]));
+  if (provider === undefined) {
+    return projectEnvelope(
+      res,
+      404,
+      "agent.enablement.provider.not_found",
+      "The agent provider does not exist.",
+    );
+  }
+  return json(res, 200, { items: fx.AGENT_PROVIDER_MODELS[provider.credential] ?? [] });
+});
 on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res) => {
   const declaration = agents.find((a) => a.agentName === decodeURIComponent(m[1]));
   if (declaration === undefined) {

@@ -73,6 +73,9 @@ beforeEach(() => {
     () => new Promise(() => undefined),
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue(AGENT);
+  vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
+    { modelIdentifier: "gpt-5", reasoningEfforts: ["off"] },
+  ]);
 });
 
 describe("ChatScreen", () => {
@@ -97,6 +100,15 @@ describe("ChatScreen", () => {
     await userEvent.click(await screen.findByRole("combobox", { name: "Agent Provider" }));
 
     expect(await screen.findByRole("option", { name: "openai-org" })).toBeTruthy();
+  });
+
+  it("lists the models of the agent provider of the session from the daemon", async () => {
+    vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(SESSION);
+    mount();
+
+    await screen.findByRole("combobox", { name: "Model" });
+
+    expect(workersApi.listAgentProviderModels).toHaveBeenCalledWith("swe@1", "atlas-llm");
   });
 
   it("reports a failed read with Retry", async () => {

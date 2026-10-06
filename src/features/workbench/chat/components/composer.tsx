@@ -6,7 +6,6 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
-import { REASONING_EFFORTS } from "@/lib/binding-draft";
 import type { ChatConfigurationState } from "../use-chat-configuration";
 import type { ComposerState } from "../use-composer";
 import { ComposerPicker } from "./composer-picker";
@@ -59,7 +58,7 @@ export function Composer({ composer, configuration, runActive, onStop }: Compose
           <ComposerPicker
             label="Reasoning Effort"
             value={configuration.configuration.reasoningEffort}
-            options={REASONING_EFFORTS}
+            options={configuration.reasoningEfforts}
             disabled={configuration.pending}
             onChange={configuration.selectReasoningEffort}
           />

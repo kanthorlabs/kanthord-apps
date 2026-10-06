@@ -7,6 +7,7 @@ import { setConnection } from "../client";
 import {
   disableAgentEnablement,
   enableAgentEnablement,
+  listAgentProviderModels,
   listAgents,
   putAgentEnablement,
 } from "./workers";
@@ -148,6 +149,21 @@ describe("putAgentEnablement", () => {
     expect(seen).toHaveLength(1);
     expect(JSON.parse(seen[0]!.body)).toEqual(PUT_BODY);
     expect(seen[0]!.idempotencyKey).toBeTruthy();
+  });
+});
+
+describe("listAgentProviderModels", () => {
+  it("reads the items of the model list of one agent provider", async () => {
+    const items = [
+      { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off", "high"] },
+      { modelIdentifier: "plain", reasoningEfforts: [] },
+    ];
+    await serve({ "GET /api/agent/enablement/swe%401/provider/atlas%20llm/model": { items } });
+
+    expect(await listAgentProviderModels("swe@1", "atlas llm")).toEqual(items);
+    expect(seen.map((call) => [call.method, call.url])).toEqual([
+      ["GET", "/api/agent/enablement/swe%401/provider/atlas%20llm/model"],
+    ]);
   });
 });
 

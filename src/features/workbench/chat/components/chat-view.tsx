@@ -21,12 +21,17 @@ interface ChatViewProps {
 export function ChatView({ session, enablement }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.runActive);
   const actions = useChatActions(session.id, events.patchSnapshot);
-  const configuration = useChatConfiguration(session.id, session.configuration, enablement);
+  const configuration = useChatConfiguration(
+    session.id,
+    session.agentName,
+    session.configuration,
+    enablement,
+  );
   const { snapshot } = events;
   const composer = useComposer(snapshot.runActive || actions.busy, actions.send);
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   useScrollToEnd(items, snapshot.pendingApproval);
-  const failures = [actions.failure, configuration.failure].filter(
+  const failures = [actions.failure, configuration.failure, configuration.modelsFailure].filter(
     (failure): failure is string => failure !== null,
   );
 

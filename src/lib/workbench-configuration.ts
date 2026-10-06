@@ -1,4 +1,9 @@
-import type { AgentEnablement, ReasoningEffort, WorkbenchConfiguration } from "@/api/types";
+import type {
+  AgentEnablement,
+  AgentModel,
+  ReasoningEffort,
+  WorkbenchConfiguration,
+} from "@/api/types";
 
 export interface ConfigurationDraft {
   readonly agentProvider: string;
@@ -43,10 +48,37 @@ export function configurationOf(draft: ConfigurationDraft): ConfigurationResult 
   };
 }
 
-export function modelChoices(
+export function modelOptions(
   current: string,
-  enablement: AgentEnablement | null,
+  models: readonly AgentModel[] | null,
 ): readonly string[] {
-  const known = [current, enablement?.defaultConfiguration.modelIdentifier ?? ""];
-  return known.filter((model, index) => model !== "" && known.indexOf(model) === index);
+  if (models === null) return current === "" ? [] : [current];
+  return models.map((model) => model.modelIdentifier);
+}
+
+export function effortOptions(
+  current: ReasoningEffort | "",
+  modelIdentifier: string,
+  models: readonly AgentModel[] | null,
+): readonly string[] {
+  const listed = models?.find((model) => model.modelIdentifier === modelIdentifier);
+  if (listed === undefined) return current === "" ? [] : [current];
+  return listed.reasoningEfforts;
+}
+
+export function modelAfterProviderChange(current: string, models: readonly AgentModel[]): string {
+  if (models.some((model) => model.modelIdentifier === current)) return current;
+  return models[0]?.modelIdentifier ?? current;
+}
+
+export function effortAfterModelChange<T extends ReasoningEffort | "">(
+  current: T,
+  modelIdentifier: string,
+  models: readonly AgentModel[],
+): T | ReasoningEffort {
+  const listed = models.find((model) => model.modelIdentifier === modelIdentifier);
+  if (listed === undefined || listed.reasoningEfforts.some((effort) => effort === current)) {
+    return current;
+  }
+  return listed.reasoningEfforts[0] ?? current;
 }

@@ -136,6 +136,11 @@ export interface AgentEnablement {
   readonly revision: number;
 }
 
+export interface AgentModel {
+  readonly modelIdentifier: string;
+  readonly reasoningEfforts: readonly ReasoningEffort[];
+}
+
 export interface AgentEnablementPutBody {
   readonly expectedRevision?: number;
   readonly agentProviders: readonly AgentProvider[];

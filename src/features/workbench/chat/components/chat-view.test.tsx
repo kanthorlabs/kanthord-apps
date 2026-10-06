@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
+import * as workersApi from "@/api/resources/workers";
 import type {
   AgentEnablement,
   WorkbenchRunSnapshot,
@@ -13,6 +14,7 @@ import type {
 } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
+vi.mock("@/api/resources/workers");
 
 import { ChatView } from "./chat-view";
 
@@ -88,6 +90,9 @@ function mount(held: WorkbenchSession) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
+    { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off"] },
+  ]);
 });
 
 describe("ChatView", () => {

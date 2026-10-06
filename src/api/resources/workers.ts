@@ -5,6 +5,7 @@ import type {
   AgentDeclaration,
   AgentEnablement,
   AgentEnablementPutBody,
+  AgentModel,
   AgentSummary,
   WorkerCatalogEntry,
   WorkerCatalogItem,
@@ -59,6 +60,16 @@ export async function listAgents(): Promise<readonly AgentSummary[]> {
 
 export async function readAgent(agentName: string): Promise<AgentDeclaration> {
   return request<AgentDeclaration>(`/api/agent/${encodeURIComponent(agentName)}`);
+}
+
+export async function listAgentProviderModels(
+  agentName: string,
+  providerName: string,
+): Promise<readonly AgentModel[]> {
+  const answer = await request<{ items: readonly AgentModel[] }>(
+    `${enablementPath(agentName)}/provider/${encodeURIComponent(providerName)}/model`,
+  );
+  return answer.items;
 }
 
 export async function putAgentEnablement(
