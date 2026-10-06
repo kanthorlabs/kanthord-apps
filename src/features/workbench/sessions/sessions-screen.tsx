@@ -6,11 +6,7 @@ import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Badge } from "@/components/ui/badge";
 import { utcDateTime } from "@/lib/format";
-import {
-  newSessionUnavailableReason,
-  sessionTitle,
-  workbenchSessionPath,
-} from "@/lib/workbench-sessions";
+import { sessionTitle, workbenchSessionPath } from "@/lib/workbench-sessions";
 import { AgentFilter } from "./components/agent-filter";
 import { NewSessionButton } from "./components/new-session-button";
 import { NewSessionDialog } from "./components/new-session-dialog";
@@ -22,7 +18,7 @@ function agentLabel(value: string): string {
 
 export function SessionsScreen() {
   const navigate = useNavigate();
-  const { status, error, reload, sessions, agentName, agentOptions, selectAgent, enablement } =
+  const { status, error, reload, sessions, agentName, agentOptions, selectAgent, agents } =
     useWorkbenchSessions();
   const [starting, setStarting] = useState(false);
 
@@ -63,16 +59,13 @@ export function SessionsScreen() {
           />
         </div>
         <div className="flex gap-2 md:ml-auto">
-          <NewSessionButton
-            unavailableReason={newSessionUnavailableReason(agentName, enablement?.state ?? null)}
-            onStart={() => setStarting(true)}
-          />
+          <NewSessionButton unavailableReason={null} onStart={() => setStarting(true)} />
         </div>
       </div>
-      {starting && agentName !== null && enablement !== null && (
+      {starting && (
         <NewSessionDialog
-          agentName={agentName}
-          enablement={enablement}
+          agents={agents}
+          initialAgentName={null}
           onClose={() => setStarting(false)}
           onCreated={(session) => navigate(workbenchSessionPath(session.id))}
         />

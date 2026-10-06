@@ -101,7 +101,9 @@ function serve(
 async function openDialog() {
   await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
   await userEvent.click(screen.getByRole("button", { name: "New Session" }));
-  return screen.findByRole("dialog");
+  const dialog = await screen.findByRole("dialog");
+  await choose(dialog, "Agent", "swe@1");
+  return dialog;
 }
 
 async function choose(dialog: HTMLElement, label: string, option: string) {
@@ -110,7 +112,7 @@ async function choose(dialog: HTMLElement, label: string, option: string) {
 }
 
 describe("SessionsScreen", () => {
-  it("lists the sessions of every agent under All agents and keeps New Session disabled", async () => {
+  it("lists the sessions of every agent under All agents", async () => {
     serve([OLD, { ...NEW, agentName: "re@1" }]);
     mount("/workbench");
 
@@ -121,10 +123,36 @@ describe("SessionsScreen", () => {
     expect(within(rows[0]!).getByText("re@1")).toBeTruthy();
     expect(within(rows[1]!).getByText("swe@1")).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Agent" })).toHaveTextContent("All agents");
-    expect(screen.getByRole("button", { name: "New Session" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+  });
+
+  it("opens New Session with a blank agent and offers only the enabled agents", async () => {
+    serve([OLD]);
+    mount("/workbench");
+
+    await screen.findByRole("list", { name: "Sessions" });
+    await userEvent.click(screen.getByRole("button", { name: "New Session" }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(within(dialog).getByRole("combobox", { name: "Agent" })).toHaveTextContent("Choose");
+    expect(within(dialog).getByText("Pick an agent to start a session.")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Start Session" })).toBeDisabled();
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Agent" }));
+    expect(await screen.findByRole("option", { name: "swe@1" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "re@1" })).toBeNull();
+  });
+
+  it("names the agent providers of the enablement and links to the agent page", async () => {
+    serve([]);
+    mount();
+
+    const dialog = await openDialog();
+
+    expect(
+      within(dialog).getByText(/The enablement of swe@1 names 2 agent providers\./),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByRole("link", { name: "Add an agent provider on the agent page." }),
+    ).toHaveAttribute("href", "/agents/swe%401");
   });
 
   it("filters the sessions by the agent that the human picks", async () => {
@@ -183,13 +211,17 @@ describe("SessionsScreen", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
-  it("keeps New Session disabled while the agent has no enablement", async () => {
+  it("says that no agent is enabled when the dialog has no agent to offer", async () => {
     serve([], null);
     mount();
 
     await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
-    const button = screen.getByRole("button", { name: "New Session" });
-    expect(button).toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(screen.getByRole("button", { name: "New Session" }));
+    const dialog = await screen.findByRole("dialog");
+
+    expect(
+      within(dialog).getByText("No agent is enabled. Enable an agent on the Agents page."),
+    ).toBeTruthy();
   });
 
   it("starts a session with the confirmed default configuration", async () => {
@@ -204,9 +236,7 @@ describe("SessionsScreen", () => {
     vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();
 
-    await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
-    await userEvent.click(screen.getByRole("button", { name: "New Session" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await openDialog();
     expect(within(dialog).getByRole("combobox", { name: "Agent Provider" })).toHaveTextContent(
       "atlas-llm",
     );
@@ -373,9 +403,7 @@ describe("SessionsScreen", () => {
     );
     mount();
 
-    await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
-    await userEvent.click(screen.getByRole("button", { name: "New Session" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
     expect(await within(dialog).findByText("The model is unknown.")).toBeTruthy();
@@ -385,9 +413,7 @@ describe("SessionsScreen", () => {
     serve([]);
     mount();
 
-    await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
-    await userEvent.click(screen.getByRole("button", { name: "New Session" }));
-    const dialog = await screen.findByRole("dialog");
+    const dialog = await openDialog();
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     expect(screen.queryByRole("dialog")).toBeNull();

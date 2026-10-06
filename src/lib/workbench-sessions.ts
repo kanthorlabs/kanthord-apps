@@ -16,13 +16,20 @@ export function workbenchSessionPath(sessionId: string): string {
 }
 
 export function newSessionUnavailableReason(
-  agentName: string | null,
   enablementState: AgentEnablementState | null,
 ): string | null {
-  if (agentName === null) return "Pick an agent in the filter to start a session.";
   return enablementState === "enabled" ? null : "Enable the agent before a session can start.";
 }
 
 export function workbenchListPath(agentName: string): string {
   return `/workbench?${new URLSearchParams({ agentName })}`;
+}
+
+export function agentPath(agentName: string): string {
+  return `/agents/${encodeURIComponent(agentName)}`;
+}
+
+export function agentProviderCountText(agentName: string, count: number): string {
+  const noun = count === 1 ? "agent provider" : "agent providers";
+  return `The enablement of ${agentName} names ${count} ${noun}.`;
 }

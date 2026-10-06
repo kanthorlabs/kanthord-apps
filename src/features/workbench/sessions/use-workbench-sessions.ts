@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { listWorkbenchSessions } from "@/api/resources/workbench";
 import type { ApiError } from "@/api/errors";
-import type { AgentEnablement, WorkbenchSessionListItem } from "@/api/types";
+import type { AgentSummary, WorkbenchSessionListItem } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
 import { useAgents } from "@/features/workers/agents/use-agents";
 import { sessionsNewestFirst } from "@/lib/workbench-sessions";
@@ -19,7 +19,7 @@ export interface WorkbenchSessionsState {
   readonly agentName: string | null;
   readonly agentOptions: readonly string[];
   readonly selectAgent: (value: string | null) => void;
-  readonly enablement: AgentEnablement | null;
+  readonly agents: readonly AgentSummary[];
 }
 
 export function useWorkbenchSessions(): WorkbenchSessionsState {
@@ -28,8 +28,6 @@ export function useWorkbenchSessions(): WorkbenchSessionsState {
   const list = useResource(() => listWorkbenchSessions(agentName), [agentName]);
   const agents = useAgents();
   const sessions = useMemo(() => sessionsNewestFirst(list.data ?? []), [list.data]);
-  const enablement =
-    agents.data?.find((agent) => agent.agentName === agentName)?.enablement ?? null;
 
   const error = list.error ?? agents.error;
   const status = error !== null ? "error" : list.loading || agents.loading ? "loading" : "ready";
@@ -52,6 +50,6 @@ export function useWorkbenchSessions(): WorkbenchSessionsState {
     agentName,
     agentOptions: [ALL_AGENTS, ...(agents.data ?? []).map((agent) => agent.agentName)],
     selectAgent,
-    enablement,
+    agents: agents.data ?? [],
   };
 }

@@ -33,14 +33,14 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
         <NewSessionButton
           size="sm"
           label={`New session with ${agentName}`}
-          unavailableReason={newSessionUnavailableReason(agentName, enablement?.state ?? null)}
+          unavailableReason={newSessionUnavailableReason(enablement?.state ?? null)}
           onStart={() => setStarting(true)}
         />
       </ItemHeader>
-      {starting && enablement !== null && (
+      {starting && (
         <NewSessionDialog
-          agentName={agentName}
-          enablement={enablement}
+          agents={[agent]}
+          initialAgentName={agentName}
           onClose={() => setStarting(false)}
           onCreated={(session) => navigate(workbenchSessionPath(session.id))}
         />
