@@ -60,6 +60,7 @@ function session(
     configuration: ENABLEMENT.defaultConfiguration,
     entries,
     runActive,
+    resumeCommand: "pi --session ~/session.jsonl",
   };
 }
 
@@ -143,6 +144,16 @@ describe("ChatView", () => {
     expect(within(log).getAllByRole("listitem")).toHaveLength(2);
     expect(within(log).getByText("mission").tagName).toBe("STRONG");
     expect(within(log).getByText("make up").tagName).toBe("CODE");
+  });
+
+  it("copies the pi command that resumes the session", async () => {
+    pollQueue();
+    const user = userEvent.setup();
+    mount(session());
+
+    await user.click(screen.getByRole("button", { name: "Copy pi resume command" }));
+
+    expect(await navigator.clipboard.readText()).toBe("pi --session ~/session.jsonl");
   });
 
   it("expands a tool call to show its whole input", async () => {

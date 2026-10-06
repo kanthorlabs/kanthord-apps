@@ -33,6 +33,7 @@ const SESSION: WorkbenchSession = {
     },
   ],
   runActive: false,
+  resumeCommand: "pi --session ~/session.jsonl",
 };
 
 const AGENT: AgentDeclaration = {

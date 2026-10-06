@@ -13,6 +13,7 @@ import { useSessionEvents } from "../use-session-events";
 import { AgentWorking } from "./agent-working";
 import { ApprovalCard } from "./approval-card";
 import { ChatTranscript } from "./chat-transcript";
+import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
 
 interface ChatViewProps {
@@ -49,6 +50,7 @@ export function ChatView({ session, enablement }: ChatViewProps) {
         <span className="min-w-0 font-mono text-xs break-all text-muted-foreground">
           {session.id}
         </span>
+        <ResumeCommandButton command={session.resumeCommand} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <ChatTranscript items={items} />

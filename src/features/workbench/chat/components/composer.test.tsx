@@ -61,6 +61,7 @@ function mount() {
         configuration: CONFIGURATION,
         entries: [],
         runActive: false,
+        resumeCommand: "pi --session ~/session.jsonl",
       }}
       enablement={ENABLEMENT}
     />,

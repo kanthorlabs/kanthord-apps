@@ -827,6 +827,7 @@ export interface WorkbenchSession {
   readonly configuration: WorkbenchConfiguration;
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly runActive: boolean;
+  readonly resumeCommand: string;
 }
 
 export interface WorkbenchPendingApproval {

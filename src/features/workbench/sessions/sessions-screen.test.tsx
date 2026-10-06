@@ -232,6 +232,7 @@ describe("SessionsScreen", () => {
       configuration: ENABLEMENT.defaultConfiguration,
       entries: [],
       runActive: false,
+      resumeCommand: "pi --session ~/session.jsonl",
     };
     vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();
@@ -276,6 +277,7 @@ describe("SessionsScreen", () => {
       configuration: ENABLEMENT.defaultConfiguration,
       entries: [],
       runActive: false,
+      resumeCommand: "pi --session ~/session.jsonl",
     });
     mount();
 

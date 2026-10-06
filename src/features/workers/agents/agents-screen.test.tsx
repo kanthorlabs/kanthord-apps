@@ -85,6 +85,7 @@ describe("AgentsScreen", () => {
       configuration: SWE.enablement!.defaultConfiguration,
       entries: [],
       runActive: false,
+      resumeCommand: "pi --session ~/session.jsonl",
     };
     vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();

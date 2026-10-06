@@ -247,6 +247,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       configuration: session.configuration,
       entries: [],
       runActive: false,
+      resumeCommand: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agentName}/${session.id}.jsonl`,
     });
   });
 
@@ -259,6 +260,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       configuration: session.configuration,
       entries: session.entries,
       runActive: stateOf(session).run !== null,
+      resumeCommand: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agentName}/${session.id}.jsonl`,
     });
   });
 
