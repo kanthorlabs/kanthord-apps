@@ -61,21 +61,22 @@ export function Composer({ composer, configuration, runActive, onStop }: Compose
             disabled={configuration.pending}
             onChange={configuration.selectReasoningEffort}
           />
-          <div className="ml-auto flex gap-1">
-            {runActive && (
-              <InputGroupButton variant="outline" size="icon-sm" aria-label="Stop" onClick={onStop}>
+          <div className="ml-auto flex">
+            {runActive ? (
+              <InputGroupButton variant="default" size="icon-sm" aria-label="Stop" onClick={onStop}>
                 <SquareIcon aria-hidden="true" />
               </InputGroupButton>
+            ) : (
+              <InputGroupButton
+                type="submit"
+                variant="default"
+                size="icon-sm"
+                aria-label="Send"
+                disabled={!composer.canSend}
+              >
+                <ArrowUpIcon aria-hidden="true" />
+              </InputGroupButton>
             )}
-            <InputGroupButton
-              type="submit"
-              variant="default"
-              size="icon-sm"
-              aria-label="Send"
-              disabled={!composer.canSend}
-            >
-              <ArrowUpIcon aria-hidden="true" />
-            </InputGroupButton>
           </div>
         </InputGroupAddon>
       </InputGroup>

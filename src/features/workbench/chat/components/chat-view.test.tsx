@@ -202,7 +202,7 @@ describe("ChatView", () => {
     );
   });
 
-  it("keeps the draft editable, disables sending and offers Stop while a run is active", async () => {
+  it("keeps the draft editable and swaps Send for Stop while a run is active", async () => {
     const polls = pollQueue();
     vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
       sessionId: SESSION_ID,
@@ -215,12 +215,13 @@ describe("ChatView", () => {
     expect(screen.getByText("The agent is working")).toBeTruthy();
     await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "next step");
     expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("next step");
-    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: "Stop" }));
 
     expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
     expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
   });
 
