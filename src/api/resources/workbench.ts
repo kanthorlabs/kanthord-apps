@@ -26,11 +26,11 @@ function post<T>(path: string, body?: unknown): Promise<T> {
 }
 
 export async function listWorkbenchSessions(
-  agentName: string,
+  agentName: string | null,
 ): Promise<readonly WorkbenchSessionListItem[]> {
-  const query = new URLSearchParams({ agentName });
+  const query = agentName === null ? "" : `?${new URLSearchParams({ agentName })}`;
   const answer = await request<{ items: readonly WorkbenchSessionListItem[] }>(
-    `${SESSION_ROOT}?${query}`,
+    `${SESSION_ROOT}${query}`,
   );
   return answer.items;
 }

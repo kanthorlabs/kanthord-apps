@@ -88,6 +88,7 @@ describe("listWorkbenchSessions", () => {
   it("reads the sessions of one agent from the items of the answer", async () => {
     const item = {
       id: SESSION_ID,
+      agentName: "swe@1",
       name: null,
       created: 1,
       modified: 2,
@@ -97,6 +98,21 @@ describe("listWorkbenchSessions", () => {
     await serve({ "GET /api/workbench/session?agentName=swe%401": { body: { items: [item] } } });
 
     expect(await listWorkbenchSessions("swe@1")).toEqual([item]);
+  });
+
+  it("reads the sessions of every agent without a query", async () => {
+    const item = {
+      id: SESSION_ID,
+      agentName: "re@1",
+      name: null,
+      created: 1,
+      modified: 2,
+      messageCount: 0,
+      firstMessage: "",
+    };
+    await serve({ "GET /api/workbench/session": { body: { items: [item] } } });
+
+    expect(await listWorkbenchSessions(null)).toEqual([item]);
   });
 });
 

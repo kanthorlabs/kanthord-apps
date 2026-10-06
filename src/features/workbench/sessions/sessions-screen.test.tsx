@@ -58,6 +58,7 @@ function agent(enablement: AgentEnablement | null): AgentDeclaration {
 
 const OLD: WorkbenchSessionListItem = {
   id: "workbench_session_OLD",
+  agentName: "swe@1",
   name: null,
   created: Date.parse("2026-10-01T09:00:00Z"),
   modified: Date.parse("2026-10-01T10:00:00Z"),
@@ -66,6 +67,7 @@ const OLD: WorkbenchSessionListItem = {
 };
 const NEW: WorkbenchSessionListItem = {
   id: "workbench_session_NEW",
+  agentName: "swe@1",
   name: "Billing plan",
   created: Date.parse("2026-10-05T09:00:00Z"),
   modified: Date.parse("2026-10-05T10:00:00Z"),

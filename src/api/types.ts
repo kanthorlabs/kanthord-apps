@@ -801,6 +801,7 @@ export interface WorkbenchSessionCreateBody extends WorkbenchConfiguration {
 
 export interface WorkbenchSessionListItem {
   readonly id: string;
+  readonly agentName: string;
   readonly name: string | null;
   readonly created: number;
   readonly modified: number;

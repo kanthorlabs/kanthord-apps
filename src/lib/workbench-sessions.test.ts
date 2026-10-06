@@ -4,7 +4,16 @@ import type { WorkbenchSessionListItem } from "@/api/types";
 import { sessionsNewestFirst, sessionTitle } from "./workbench-sessions";
 
 function item(id: string, modified: number, patch: Partial<WorkbenchSessionListItem> = {}) {
-  return { id, name: null, created: 0, modified, messageCount: 1, firstMessage: "", ...patch };
+  return {
+    id,
+    agentName: "swe@1",
+    name: null,
+    created: 0,
+    modified,
+    messageCount: 1,
+    firstMessage: "",
+    ...patch,
+  };
 }
 
 describe("sessionsNewestFirst", () => {
