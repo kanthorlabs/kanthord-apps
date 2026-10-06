@@ -5,15 +5,19 @@ import type { AgentEnablement, AgentTool } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
+import { providerRemovalBlock } from "@/lib/agent-provider-draft";
+import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
+import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
 import { useAgentProviderAdd } from "./use-agent-provider-add";
+import { useAgentProviderRemove } from "./use-agent-provider-remove";
 
 interface EnablementSectionProps {
   readonly agentName: string;
@@ -38,6 +42,44 @@ function AddAgentProvider({
         Add agent provider
       </Button>
       <AgentProviderSheet agentName={agentName} revision={enablement.revision} add={add} />
+    </>
+  );
+}
+
+function AgentProviderList({
+  agentName,
+  enablement,
+  reload,
+}: {
+  readonly agentName: string;
+  readonly enablement: AgentEnablement;
+  readonly reload: () => void;
+}) {
+  const remove = useAgentProviderRemove(agentName, enablement, reload);
+  return (
+    <>
+      <ItemGroup aria-label="Agent providers" className="gap-2">
+        {enablement.agentProviders.map((p) => (
+          <Item key={p.name} variant="outline" size="sm" role="listitem">
+            <ItemContent className="min-w-0">
+              <ItemTitle>
+                <span className="font-mono">{p.name}</span>
+              </ItemTitle>
+              <p className="text-sm break-all text-muted-foreground">
+                {p.provider} · credential {p.credential}
+              </p>
+            </ItemContent>
+            <ItemActions>
+              <RemoveProviderButton
+                providerName={p.name}
+                blockedReason={providerRemovalBlock(enablement, p.name)}
+                onRemove={() => remove.request(p.name)}
+              />
+            </ItemActions>
+          </Item>
+        ))}
+      </ItemGroup>
+      <AgentProviderRemoveDialog agentName={agentName} remove={remove} />
     </>
   );
 }
@@ -76,20 +118,7 @@ function EnablementSection({ agentName, enablement, reload }: EnablementSectionP
               <dt className="text-muted-foreground">Default reasoning effort</dt>
               <dd className="font-mono">{enablement.defaultConfiguration.reasoningEffort}</dd>
             </dl>
-            <ItemGroup aria-label="Agent providers" className="gap-2">
-              {enablement.agentProviders.map((p) => (
-                <Item key={p.name} variant="outline" size="sm" role="listitem">
-                  <ItemContent className="min-w-0">
-                    <ItemTitle>
-                      <span className="font-mono">{p.name}</span>
-                    </ItemTitle>
-                    <p className="text-sm break-all text-muted-foreground">
-                      {p.provider} · credential {p.credential}
-                    </p>
-                  </ItemContent>
-                </Item>
-              ))}
-            </ItemGroup>
+            <AgentProviderList agentName={agentName} enablement={enablement} reload={reload} />
           </>
         )}
       </CardContent>

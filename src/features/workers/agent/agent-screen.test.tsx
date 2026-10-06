@@ -109,8 +109,8 @@ describe("AgentScreen", () => {
       await screen.findByRole("list", { name: "Agent providers" }),
     ).getAllByRole("listitem");
     expect(providers.map((p) => p.textContent)).toEqual([
-      "routeropenrouter · credential router-main",
-      "codexopenai-codex · credential codex-main",
+      "routeropenrouter · credential router-mainRemove",
+      "codexopenai-codex · credential codex-mainRemove",
     ]);
   });
 
@@ -209,5 +209,28 @@ describe("AgentScreen", () => {
       provider: "openai-codex",
       credential: "codex-main",
     });
+  });
+  it("removes an agent provider after the human confirms and keeps the default one", async () => {
+    const two: AgentEnablement = {
+      ...ENABLEMENT,
+      agentProviders: [
+        ...ENABLEMENT.agentProviders,
+        { name: "codex", provider: "openai-codex", credential: "codex-main" },
+      ],
+    };
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: two });
+    vi.mocked(workersApi.removeAgentProvider).mockResolvedValue({ ...ENABLEMENT, revision: 3 });
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Remove router" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Remove codex" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/Add another agent provider instead/)).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove codex" }));
+
+    expect(workersApi.removeAgentProvider).toHaveBeenCalledWith("re@1", "codex", 2);
   });
 });

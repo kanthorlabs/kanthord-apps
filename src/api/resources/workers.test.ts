@@ -11,6 +11,7 @@ import {
   listAgents,
   putAgentEnablement,
   addAgentProvider,
+  removeAgentProvider,
 } from "./workers";
 
 interface Seen {
@@ -166,6 +167,17 @@ describe("addAgentProvider", () => {
 
     expect(await addAgentProvider("re@1", body)).toEqual(revised);
     expect(JSON.parse(seen[0]!.body)).toEqual(body);
+    expect(seen[0]!.idempotencyKey).toBeTruthy();
+  });
+});
+
+describe("removeAgentProvider", () => {
+  it("deletes the named agent provider with the expected revision", async () => {
+    const revised = { ...PUT_BODY, agentName: "re@1", state: "enabled", revision: 5 };
+    await serve({ "DELETE /api/agent/enablement/re%401/provider/codex": revised });
+
+    expect(await removeAgentProvider("re@1", "codex", 4)).toEqual(revised);
+    expect(JSON.parse(seen[0]!.body)).toEqual({ expectedRevision: 4 });
     expect(seen[0]!.idempotencyKey).toBeTruthy();
   });
 });

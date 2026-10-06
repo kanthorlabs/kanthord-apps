@@ -5,6 +5,7 @@ import {
   agentProviderBodyOf,
   missingAgentProviderFields,
   providerCredentials,
+  providerRemovalBlock,
 } from "./agent-provider-draft";
 
 const ENABLEMENT: AgentEnablement = {
@@ -61,5 +62,31 @@ describe("providerCredentials", () => {
   it("keeps only the credentials whose platform is an agent provider kind", () => {
     const custom = { name: "other", platform: "custom", revisions: [] } as unknown as Credential;
     expect(providerCredentials([CODEX, custom])).toEqual([CODEX]);
+  });
+});
+
+describe("providerRemovalBlock", () => {
+  const two: AgentEnablement = {
+    ...ENABLEMENT,
+    agentProviders: [
+      ...ENABLEMENT.agentProviders,
+      { name: "codex", provider: "openai-codex", credential: "openai-codex-elsa" },
+    ],
+  };
+
+  it("keeps the last agent provider", () => {
+    expect(providerRemovalBlock(ENABLEMENT, "copilot")).toBe(
+      "An enablement keeps at least one agent provider. Add another agent provider first.",
+    );
+  });
+
+  it("keeps the agent provider of the default configuration", () => {
+    expect(providerRemovalBlock(two, "copilot")).toBe(
+      "The default configuration names copilot. Change the default configuration first.",
+    );
+  });
+
+  it("allows another agent provider", () => {
+    expect(providerRemovalBlock(two, "codex")).toBeNull();
   });
 });

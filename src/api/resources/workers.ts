@@ -95,6 +95,21 @@ export async function addAgentProvider(
   });
 }
 
+export async function removeAgentProvider(
+  agentName: string,
+  providerName: string,
+  expectedRevision: number,
+): Promise<AgentEnablement> {
+  return request<AgentEnablement>(
+    `${enablementPath(agentName)}/provider/${encodeURIComponent(providerName)}`,
+    {
+      method: "DELETE",
+      body: { expectedRevision },
+      headers: { "idempotency-key": newUlid() },
+    },
+  );
+}
+
 export async function enableAgentEnablement(
   agentName: string,
   expectedRevision: number,
