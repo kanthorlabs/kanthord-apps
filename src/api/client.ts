@@ -49,7 +49,12 @@ function failureOf(status: number, body: unknown): ApiError {
 
 export async function request<T>(
   path: string,
-  init: { method?: string; body?: unknown; headers?: Readonly<Record<string, string>> } = {},
+  init: {
+    method?: string;
+    body?: unknown;
+    headers?: Readonly<Record<string, string>>;
+    signal?: AbortSignal;
+  } = {},
   connection?: Connection,
 ): Promise<T> {
   const target = connection ?? current;
@@ -66,6 +71,7 @@ export async function request<T>(
       method: init.method ?? "GET",
       headers,
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      signal: init.signal,
     });
   } catch {
     throw new ApiError("unreachable", "The daemon did not answer.", 0, url);

@@ -783,3 +783,73 @@ export type SshAliasItem =
 export interface SshDiscoverResult {
   readonly items: readonly SshAliasItem[];
 }
+
+export interface WorkbenchConfiguration {
+  readonly agentProvider: string;
+  readonly modelIdentifier: string;
+  readonly reasoningEffort: ReasoningEffort;
+}
+
+export interface WorkbenchSessionCreateBody extends WorkbenchConfiguration {
+  readonly agentName: string;
+}
+
+export interface WorkbenchSessionListItem {
+  readonly id: string;
+  readonly name: string | null;
+  readonly created: number;
+  readonly modified: number;
+  readonly messageCount: number;
+  readonly firstMessage: string;
+}
+
+export interface WorkbenchSessionEntry {
+  readonly type: string;
+  readonly id: string;
+  readonly parentId: string | null;
+  readonly timestamp: string;
+  readonly [field: string]: unknown;
+}
+
+export interface WorkbenchSession {
+  readonly id: string;
+  readonly agentName: string;
+  readonly configuration: WorkbenchConfiguration;
+  readonly entries: readonly WorkbenchSessionEntry[];
+  readonly runActive: boolean;
+}
+
+export interface WorkbenchPendingApproval {
+  readonly toolCallId: string;
+  readonly operationId: string;
+  readonly input: Readonly<Record<string, unknown>>;
+}
+
+export interface WorkbenchRunSnapshot {
+  readonly streamingMessage: Readonly<Record<string, unknown>> | null;
+  readonly pendingToolCalls: readonly string[];
+  readonly pendingApproval: WorkbenchPendingApproval | null;
+  readonly runActive: boolean;
+  readonly errorMessage: string | null;
+}
+
+export interface WorkbenchSessionEvents {
+  readonly entries: readonly WorkbenchSessionEntry[];
+  readonly snapshot: WorkbenchRunSnapshot;
+}
+
+export interface WorkbenchMessageAnswer {
+  readonly sessionId: string;
+  readonly runActive: true;
+}
+
+export interface WorkbenchAbortAnswer {
+  readonly sessionId: string;
+  readonly runActive: false;
+}
+
+export interface WorkbenchApprovalAnswer {
+  readonly sessionId: string;
+  readonly toolCallId: string;
+  readonly approved: boolean;
+}
