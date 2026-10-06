@@ -21,6 +21,8 @@ const KANTHORD: Project = {
   name: "kanthord",
   bindingSetVersion: 3,
   createdAt: 1,
+  workspaceDirectory:
+    "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
 
 function mount(path: string) {

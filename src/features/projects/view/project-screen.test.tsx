@@ -18,6 +18,8 @@ const KANTHORD: Project = {
   name: "kanthord",
   bindingSetVersion: 3,
   createdAt: Date.UTC(2026, 9, 3, 14, 5),
+  workspaceDirectory:
+    "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
 
 function mount(search = "") {
@@ -47,6 +49,8 @@ describe("ProjectScreen", () => {
     expect(await screen.findByRole("heading", { name: "kanthord" })).toBeTruthy();
     expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
     expect(screen.getByText(KANTHORD.id)).toBeTruthy();
+    expect(screen.getByText("Workspace Directory")).toBeTruthy();
+    expect(screen.getByText(KANTHORD.workspaceDirectory).className).toContain("font-mono");
     expect(screen.queryByText("Binding set version")).toBeNull();
     expect(screen.getByText("2026-10-03 14:05 UTC")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute(

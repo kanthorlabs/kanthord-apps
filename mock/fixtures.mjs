@@ -5,6 +5,7 @@ export const PROJECT = {
   name: "kanthord",
   bindingSetVersion: 1,
   createdAt: now,
+  workspaceDirectory: "/home/kanthord/.local/state/kanthord/projects/prj-kanthord",
 };
 
 const BASE_PROMPT = `You are a senior software engineer.

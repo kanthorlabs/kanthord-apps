@@ -105,11 +105,13 @@ on("GET", /^\/api\/project$/, (_m, _b, res, _t, url) => {
 on("POST", /^\/api\/project$/, (_m, b, res) => {
   const refused = refuseProjectName(res, b?.name, null);
   if (refused !== null) return refused;
+  const id = `project_${Date.now().toString(36)}`;
   const project = {
-    id: `project_${Date.now().toString(36)}`,
+    id,
     name: b.name,
     bindingSetVersion: 1,
     createdAt: Date.now(),
+    workspaceDirectory: `/home/kanthord/.local/state/kanthord/projects/${id}`,
   };
   projects.push(project);
   return json(res, 200, project);

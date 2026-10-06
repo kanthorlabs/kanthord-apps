@@ -50,6 +50,7 @@ export interface Project {
   readonly name: string;
   readonly bindingSetVersion: number;
   readonly createdAt: number;
+  readonly workspaceDirectory: string;
 }
 
 /** Why a node is not running. The Scheduler rechecks each of these at the claim. */

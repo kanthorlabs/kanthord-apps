@@ -10,8 +10,20 @@ vi.mock("@/api/resources/projects");
 
 import { ProjectProvider, useProject } from "./project-context";
 
-const KANTHORD: Project = { id: "project_1", name: "kanthord", bindingSetVersion: 1, createdAt: 1 };
-const BILLING: Project = { id: "project_2", name: "billing", bindingSetVersion: 1, createdAt: 2 };
+const KANTHORD: Project = {
+  id: "project_1",
+  name: "kanthord",
+  bindingSetVersion: 1,
+  createdAt: 1,
+  workspaceDirectory: "/home/kanthord/.local/state/kanthord/projects/project_1",
+};
+const BILLING: Project = {
+  id: "project_2",
+  name: "billing",
+  bindingSetVersion: 1,
+  createdAt: 2,
+  workspaceDirectory: "/home/kanthord/.local/state/kanthord/projects/project_2",
+};
 
 function Probe() {
   const { projects, project, reload } = useProject();

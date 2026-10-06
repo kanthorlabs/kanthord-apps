@@ -66,6 +66,12 @@ export function ProjectScreen() {
             <dt>Created</dt>
             <dd className="text-foreground">{utcDateTime(project.createdAt)}</dd>
           </div>
+          <div className="flex min-w-0 gap-1">
+            <dt>Workspace Directory</dt>
+            <dd className="min-w-0 font-mono break-all text-foreground">
+              {project.workspaceDirectory}
+            </dd>
+          </div>
         </dl>
       </section>
       <Tabs

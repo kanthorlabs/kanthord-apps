@@ -40,8 +40,20 @@ afterEach(async () => {
   });
 });
 
-const FIRST = { id: "prj-2", name: "second", bindingSetVersion: 1, createdAt: 2 };
-const SECOND = { id: "prj-1", name: "first", bindingSetVersion: 3, createdAt: 1 };
+const FIRST = {
+  id: "prj-2",
+  name: "second",
+  bindingSetVersion: 1,
+  createdAt: 2,
+  workspaceDirectory: "/state/projects/prj-2",
+};
+const SECOND = {
+  id: "prj-1",
+  name: "first",
+  bindingSetVersion: 3,
+  createdAt: 1,
+  workspaceDirectory: "/state/projects/prj-1",
+};
 
 describe("listProjects", () => {
   it("reads every page of project.list", async () => {
