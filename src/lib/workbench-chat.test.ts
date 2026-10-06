@@ -1,0 +1,111 @@
+import { describe, expect, it } from "vitest";
+
+import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
+import { chatItemsOf, summaryOf } from "./workbench-chat";
+
+const IDLE: WorkbenchRunSnapshot = {
+  streamingMessage: null,
+  pendingToolCalls: [],
+  pendingApproval: null,
+  runActive: false,
+  errorMessage: null,
+};
+
+function message(id: string, body: Record<string, unknown>): WorkbenchSessionEntry {
+  return {
+    type: "message",
+    id,
+    parentId: null,
+    timestamp: "2026-10-05T09:00:00.000Z",
+    message: body,
+  };
+}
+
+const CALL = { type: "toolCall", id: "call_1", name: "mission.node.list", arguments: { a: 1 } };
+
+describe("chatItemsOf", () => {
+  it("keeps user, assistant, tool call and tool result entries in order", () => {
+    const items = chatItemsOf(
+      [
+        message("e1", { role: "user", content: "List the objectives" }),
+        message("e2", { role: "assistant", content: [{ type: "text", text: "Reading." }, CALL] }),
+        message("e3", {
+          role: "toolResult",
+          toolCallId: "call_1",
+          toolName: "mission.node.list",
+          isError: true,
+          content: [{ type: "text", text: "refused" }],
+        }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([
+      { kind: "user", id: "e1", text: "List the objectives" },
+      { kind: "assistant", id: "e2", text: "Reading.", streaming: false },
+      {
+        kind: "tool-call",
+        id: "e2:call_1",
+        name: "mission.node.list",
+        input: JSON.stringify({ a: 1 }, null, 2),
+        state: "done",
+      },
+      { kind: "tool-result", id: "e3", name: "mission.node.list", text: "refused", isError: true },
+    ]);
+  });
+
+  it("skips the entries that are no message and the thinking blocks", () => {
+    const items = chatItemsOf(
+      [
+        { type: "model_change", id: "e0", parentId: null, timestamp: "t" },
+        message("e1", { role: "assistant", content: [{ type: "thinking", thinking: "hmm" }] }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it("marks a pending tool call as running and the approval call as awaiting approval", () => {
+    const entries = [
+      message("e2", {
+        role: "assistant",
+        content: [CALL, { ...CALL, id: "call_2", name: "project.create" }],
+      }),
+    ];
+
+    const items = chatItemsOf(entries, {
+      ...IDLE,
+      runActive: true,
+      pendingToolCalls: ["call_1"],
+      pendingApproval: { toolCallId: "call_2", operationId: "project.create", input: {} },
+    });
+
+    expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual([
+      "running",
+      "awaiting-approval",
+    ]);
+  });
+
+  it("appends the streaming partial message after the entries", () => {
+    const items = chatItemsOf([message("e1", { role: "user", content: "Hi" })], {
+      ...IDLE,
+      runActive: true,
+      streamingMessage: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
+    });
+
+    expect(items.at(-1)).toEqual({
+      kind: "assistant",
+      id: "streaming",
+      text: "Hel",
+      streaming: true,
+    });
+  });
+});
+
+describe("summaryOf", () => {
+  it("collapses whitespace and cuts a long text", () => {
+    expect(summaryOf("a\n  b")).toBe("a b");
+    expect(summaryOf("x".repeat(100))).toBe(`${"x".repeat(80)}…`);
+  });
+});
