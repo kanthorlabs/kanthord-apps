@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -85,11 +85,13 @@ describe("ChatScreen", () => {
 
     expect(await screen.findByText("List the open objectives")).toBeTruthy();
     expect(workbenchApi.readWorkbenchSession).toHaveBeenCalledWith(SESSION_ID);
-    expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledWith(
-      SESSION_ID,
-      "e1",
-      null,
-      expect.anything(),
+    await waitFor(() =>
+      expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledWith(
+        SESSION_ID,
+        "e1",
+        null,
+        expect.anything(),
+      ),
     );
   });
 
@@ -108,7 +110,9 @@ describe("ChatScreen", () => {
 
     await screen.findByRole("combobox", { name: "Model" });
 
-    expect(workersApi.listAgentProviderModels).toHaveBeenCalledWith("swe@1", "atlas-llm");
+    await waitFor(() =>
+      expect(workersApi.listAgentProviderModels).toHaveBeenCalledWith("swe@1", "atlas-llm"),
+    );
   });
 
   it("reports a failed read with Retry", async () => {

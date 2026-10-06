@@ -117,7 +117,9 @@ describe("CredentialFormScreen", () => {
     await userEvent.type(key, "ghp-secret");
     await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
 
-    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository");
+    await waitFor(() =>
+      expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository"),
+    );
     expect(credentialsApi.createCredential).toHaveBeenCalledWith("repository", {
       name: "ci-github",
       platform: "github",

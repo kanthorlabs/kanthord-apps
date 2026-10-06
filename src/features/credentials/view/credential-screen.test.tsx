@@ -135,7 +135,7 @@ describe("CredentialScreen", () => {
     expect(within(items[2]!).getByText("ended")).toBeTruthy();
     expect(within(items[2]!).getByText("2026-10-02 14:05 UTC")).toBeTruthy();
     expect(credentialsApi.readCredential).toHaveBeenCalledWith("llm", "router");
-    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("llm");
+    await waitFor(() => expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("llm"));
   });
 
   it("offers a revoke only for an older live revision", async () => {
@@ -422,7 +422,9 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
 
     expect(credentialsApi.readCredential).toHaveBeenCalledWith("storage", "router");
-    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("storage");
+    await waitFor(() =>
+      expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("storage"),
+    );
     expect(credentialsApi.archiveCredential).toHaveBeenCalledWith("storage", "router");
     expect(await screen.findByText("Credential list")).toBeTruthy();
   });

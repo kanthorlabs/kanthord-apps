@@ -194,7 +194,7 @@ describe("CredentialsScreen", () => {
       "openai-compatible",
       "amazon-bedrock",
     ]);
-    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("llm");
+    await waitFor(() => expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("llm"));
 
     await userEvent.type(input, "mazon");
     expect(screen.getByRole("option", { name: "amazon-bedrock" })).toBeTruthy();
@@ -412,7 +412,9 @@ describe("CredentialsScreen", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Open ci-github" }));
 
     expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("repository", null, null, false);
-    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository");
+    await waitFor(() =>
+      expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository"),
+    );
     expect(screen.getByText("Credential view")).toBeTruthy();
   });
 

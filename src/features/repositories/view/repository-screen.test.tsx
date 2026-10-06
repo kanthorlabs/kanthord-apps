@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,7 +71,9 @@ describe("RepositoryScreen", () => {
     expect(screen.getByRole("list", { name: "Revisions" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Archive" })).toBeTruthy();
     expect(credentialsApi.readCredential).toHaveBeenCalledWith("repository", "ci-github");
-    expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository");
+    await waitFor(() =>
+      expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository"),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Bindings of atlas" }));
 
