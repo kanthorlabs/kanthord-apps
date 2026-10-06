@@ -24,6 +24,15 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           </Link>
         </ItemTitle>
         <Badge variant={enablementVariant(enablement)}>{enablementLabel(enablement)}</Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          aria-label={`Open workbench of ${agentName}`}
+          render={<Link to={`/agents/${encodeURIComponent(agentName)}/workbench`} />}
+        >
+          Workbench
+        </Button>
       </ItemHeader>
       <ItemContent className="min-w-0 gap-3">
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">

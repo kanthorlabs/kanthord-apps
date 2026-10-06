@@ -3,7 +3,11 @@ export interface Crumb {
   readonly label: string;
 }
 
-const SEGMENT_LABELS: Readonly<Record<string, string>> = { new: "New", edit: "Edit" };
+const SEGMENT_LABELS: Readonly<Record<string, string>> = {
+  new: "New",
+  edit: "Edit",
+  workbench: "Workbench",
+};
 
 function segmentLabel(segment: string): string {
   const fixed = SEGMENT_LABELS[segment];

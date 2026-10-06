@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +137,14 @@ export function AgentScreen() {
         <Badge variant={enablementVariant(agent.enablement)}>
           {enablementLabel(agent.enablement)}
         </Badge>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link to={`/agents/${encodeURIComponent(agent.agentName)}/workbench`} />}
+        >
+          Workbench
+        </Button>
       </div>
       <div className="flex flex-wrap items-center gap-1 text-sm">
         <span className="text-muted-foreground">Overridable in a worker binding:</span>

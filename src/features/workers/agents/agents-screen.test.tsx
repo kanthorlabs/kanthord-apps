@@ -63,6 +63,17 @@ describe("AgentsScreen", () => {
     expect(screen.getByRole("link", { name: "swe@1" })).toHaveAttribute("href", "/agents/swe%401");
   });
 
+  it("links each agent to its workbench", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([RE, SWE]);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Open workbench of swe@1" })).toHaveAttribute(
+      "href",
+      "/agents/swe%401/workbench",
+    );
+    expect(screen.getByRole("button", { name: "Open workbench of re@1" })).toBeTruthy();
+  });
+
   it("reports a failed read", async () => {
     vi.mocked(workersApi.listAgents).mockRejectedValue(
       new ApiError("unavailable", "The daemon did not answer.", 503),

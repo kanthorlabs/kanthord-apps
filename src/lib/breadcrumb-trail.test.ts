@@ -28,6 +28,14 @@ describe("breadcrumbTrail", () => {
     expect(breadcrumbTrail("/agents/swe%401", labelOf).at(-1)?.label).toBe("swe@1");
   });
 
+  it("names the workbench of an agent", () => {
+    expect(breadcrumbTrail("/agents/swe%401/workbench", labelOf)).toEqual([
+      { path: "/agents", label: "agents" },
+      { path: "/agents/swe%401", label: "swe@1" },
+      { path: "/agents/swe%401/workbench", label: "Workbench" },
+    ]);
+  });
+
   it("keeps a segment that does not decode", () => {
     expect(breadcrumbTrail("/agents/%E0", labelOf).at(-1)?.label).toBe("%E0");
   });

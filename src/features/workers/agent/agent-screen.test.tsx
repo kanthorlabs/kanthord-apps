@@ -63,6 +63,16 @@ describe("AgentScreen", () => {
     expect(workersApi.readAgent).toHaveBeenCalledWith("re@1");
   });
 
+  it("links the agent to its workbench", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Workbench" })).toHaveAttribute(
+      "href",
+      "/agents/re%401/workbench",
+    );
+  });
+
   it("shows the prompts, the tools and the absent enablement", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
