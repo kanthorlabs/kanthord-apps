@@ -2,11 +2,13 @@ import { Link } from "react-router-dom";
 
 import { AGENT_PROVIDER_KINDS } from "@/api/types";
 import { ChoiceField } from "@/components/choice-field";
+import { SearchChoiceField } from "@/components/search-choice-field";
 import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { REASONING_EFFORTS } from "@/lib/binding-draft";
+import { credentialLabel } from "@/lib/credential-label";
 import { useEnablementCreate } from "../use-enablement-create";
 
 interface EnablementFormProps {
@@ -50,12 +52,15 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           error={errors["provider"]}
           onChange={form.selectProvider}
         />
-        <ChoiceField
+        <SearchChoiceField
           id="enablement-credential"
           label="Credential"
           value={draft.credential}
           options={form.credentialNames}
           error={errors["credential"]}
+          placeholder="Search credentials"
+          emptyText="No credential matches."
+          labelOf={(name) => credentialLabel(name, draft.provider)}
           onChange={form.selectCredential}
         />
         {form.credentialsError !== null && (

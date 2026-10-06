@@ -5,6 +5,7 @@ import { listAllCredentials } from "@/api/resources/credentials";
 import { addAgentProvider } from "@/api/resources/workers";
 import type { AgentEnablement, AgentProviderKind } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
+import { credentialLabel } from "@/lib/credential-label";
 import {
   agentProviderBodyOf,
   EMPTY_AGENT_PROVIDER,
@@ -20,6 +21,7 @@ export interface AgentProviderAddState {
   readonly draft: AgentProviderDraft;
   readonly errors: AgentProviderErrors;
   readonly credentialNames: readonly string[];
+  readonly credentialLabelOf: (name: string) => string;
   readonly credentialsError: string | null;
   readonly credentialsExhausted: boolean;
   readonly provider: AgentProviderKind | null;
@@ -98,6 +100,10 @@ export function useAgentProviderAdd(
     draft,
     errors,
     credentialNames: usable.map((credential) => credential.name),
+    credentialLabelOf: (name) => {
+      const platform = usable.find((credential) => credential.name === name)?.platform;
+      return platform === undefined ? name : credentialLabel(name, platform);
+    },
     credentialsError: credentials.error?.message ?? null,
     credentialsExhausted: credentials.data !== null && open && usable.length === 0,
     provider: providerOfCredential(usable, draft.credential),

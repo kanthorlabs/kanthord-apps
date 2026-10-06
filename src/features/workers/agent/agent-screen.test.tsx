@@ -124,7 +124,7 @@ describe("AgentScreen", () => {
     await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
     await choose("Provider", "openrouter");
     expect(credentialsApi.listCredentials).toHaveBeenCalledWith("llm", "openrouter");
-    await choose("Credential", "router-main");
+    await choose("Credential", "router-main (openrouter)");
     await userEvent.type(within(form).getByLabelText("Model identifier"), "qwen/qwen3-coder");
     await choose("Reasoning effort", "off");
     await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
@@ -199,7 +199,7 @@ describe("AgentScreen", () => {
       within(sheet).getByText("Fill Name and Credential to add the agent provider."),
     ).toBeTruthy();
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "codex");
-    await choose("Credential", "codex-main");
+    await choose("Credential", "codex-main (openai-codex)");
     expect(within(sheet).getByText("Provider: openai-codex")).toBeTruthy();
     await userEvent.click(within(sheet).getByRole("button", { name: "Add agent provider" }));
 

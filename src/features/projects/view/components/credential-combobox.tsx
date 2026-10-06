@@ -1,6 +1,7 @@
 import type { Credential } from "@/api/types";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
+import { credentialLabel } from "@/lib/credential-label";
 
 interface CredentialComboboxProps {
   readonly id: string;
@@ -32,7 +33,7 @@ export function CredentialCombobox({
   );
   const labelOf = (name: string) => {
     const platform = platformOf.get(name);
-    return platform === undefined ? name : `${name} · ${platform}`;
+    return platform === undefined ? name : credentialLabel(name, platform);
   };
 
   return (

@@ -185,7 +185,7 @@ describe("BindingsPanel", () => {
     await userEvent.clear(credential);
     await userEvent.type(credential, "kanth");
     await userEvent.click(
-      await screen.findByRole("option", { name: "github-kanthorlabs · github" }),
+      await screen.findByRole("option", { name: "github-kanthorlabs (github)" }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 

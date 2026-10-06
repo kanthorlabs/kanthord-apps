@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-import { ChoiceField } from "@/components/choice-field";
+import { SearchChoiceField } from "@/components/search-choice-field";
 import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -70,12 +70,15 @@ export function AgentProviderSheet({ agentName, revision, add }: AgentProviderSh
                   description="A session configuration selects the agent provider by this name."
                   onChange={add.setName}
                 />
-                <ChoiceField
+                <SearchChoiceField
                   id="agent-provider-credential"
                   label="Credential"
                   value={add.draft.credential}
                   options={add.credentialNames}
                   error={add.errors.credential}
+                  placeholder="Search credentials"
+                  emptyText="No credential matches."
+                  labelOf={add.credentialLabelOf}
                   onChange={add.selectCredential}
                 />
                 {add.provider !== null && (
