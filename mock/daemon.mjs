@@ -9,6 +9,7 @@ import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 
 import * as fx from "./fixtures.mjs";
+import { registerWorkbench } from "./workbench.mjs";
 
 const PORT = Number(process.env.KANTHORD_HTTP_PORT ?? 31415);
 const ORIGIN = process.env.KANTHORD_HTTP_ALLOWED_ORIGINS ?? "http://localhost:27182";
@@ -30,6 +31,7 @@ const projects = [structuredClone(fx.PROJECT)];
 const mission = { ...structuredClone(fx.MISSION), entries: structuredClone(fx.MISSION_ENTRIES) };
 const bindingSet = structuredClone(fx.BINDING_SET);
 const agents = structuredClone(fx.AGENT_DECLARATIONS);
+const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
 let nodeSequence = 10;
 
 const routes = [];
@@ -1089,6 +1091,14 @@ on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
     pinnedRevisions.delete(revision.id);
   }
   return json(res, 200, credential);
+});
+
+registerWorkbench({
+  on,
+  json,
+  envelope: projectEnvelope,
+  agents,
+  sessions: workbenchSessions,
 });
 
 createServer((req, res) => {

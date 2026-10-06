@@ -819,3 +819,86 @@ export const CREDENTIAL_DEPENDENTS = {
 };
 
 export const PINNED_CREDENTIAL_REVISIONS = ["credential_01J9ZQ4XKM3B6V8N2R5T7W0012"];
+
+const SESSION_BASE = Date.parse("2026-10-05T09:00:00.000Z");
+const entryAt = (index) => new Date(SESSION_BASE + index * 60000).toISOString();
+const textMessage = (role, text) => ({ role, content: [{ type: "text", text }] });
+
+export const WORKBENCH_SESSIONS = [
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1",
+    agentName: "swe@1",
+    created: SESSION_BASE,
+    configuration: {
+      agentProvider: "atlas-llm",
+      modelIdentifier: "qwen3-coder",
+      reasoningEffort: "off",
+    },
+    entries: [
+      {
+        type: "model_change",
+        id: "e0000001",
+        parentId: null,
+        timestamp: entryAt(0),
+        provider: "openai-compatible",
+        modelId: "qwen3-coder",
+      },
+      {
+        type: "message",
+        id: "e0000002",
+        parentId: "e0000001",
+        timestamp: entryAt(1),
+        message: { role: "user", content: "List the open objectives of Account recovery" },
+      },
+      {
+        type: "message",
+        id: "e0000003",
+        parentId: "e0000002",
+        timestamp: entryAt(2),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I read the mission of the project first." },
+            {
+              type: "toolCall",
+              id: "call_01",
+              name: "mission.node.list",
+              arguments: { missionId: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM1" },
+            },
+          ],
+        },
+      },
+      {
+        type: "message",
+        id: "e0000004",
+        parentId: "e0000003",
+        timestamp: entryAt(3),
+        message: {
+          role: "toolResult",
+          toolCallId: "call_01",
+          toolName: "mission.node.list",
+          isError: false,
+          content: [{ type: "text", text: '{"items":[{"name":"Add password reset"}]}' }],
+        },
+      },
+      {
+        type: "message",
+        id: "e0000005",
+        parentId: "e0000004",
+        timestamp: entryAt(4),
+        message: textMessage("assistant", "One objective is open: Add password reset."),
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB2",
+    agentName: "swe@1",
+    created: SESSION_BASE + 86400000,
+    configuration: {
+      agentProvider: "openai-org",
+      modelIdentifier: "gpt-5",
+      reasoningEffort: "high",
+    },
+    entries: [],
+  },
+];
