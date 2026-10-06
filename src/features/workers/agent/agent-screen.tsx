@@ -1,3 +1,4 @@
+import { PlusIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool } from "@/api/types";
@@ -8,9 +9,11 @@ import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
+import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
 import { useAgent } from "./use-agent";
+import { useAgentProviderAdd } from "./use-agent-provider-add";
 
 interface EnablementSectionProps {
   readonly agentName: string;
@@ -18,11 +21,35 @@ interface EnablementSectionProps {
   readonly reload: () => void;
 }
 
+function AddAgentProvider({
+  agentName,
+  enablement,
+  reload,
+}: {
+  readonly agentName: string;
+  readonly enablement: AgentEnablement;
+  readonly reload: () => void;
+}) {
+  const add = useAgentProviderAdd(agentName, enablement, reload);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={add.start}>
+        <PlusIcon aria-hidden="true" data-icon="inline-start" />
+        Add agent provider
+      </Button>
+      <AgentProviderSheet agentName={agentName} revision={enablement.revision} add={add} />
+    </>
+  );
+}
+
 function EnablementSection({ agentName, enablement, reload }: EnablementSectionProps) {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold leading-none">Enablement</h2>
+        {enablement !== null && (
+          <AddAgentProvider agentName={agentName} enablement={enablement} reload={reload} />
+        )}
       </CardHeader>
       <CardContent className="grid gap-4">
         {enablement === null ? (

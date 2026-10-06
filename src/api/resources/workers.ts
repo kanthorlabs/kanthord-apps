@@ -2,6 +2,7 @@ import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
+  AgentProviderAddBody,
   AgentDeclaration,
   AgentEnablement,
   AgentEnablementPutBody,
@@ -78,6 +79,17 @@ export async function putAgentEnablement(
 ): Promise<AgentEnablement> {
   return request<AgentEnablement>(enablementPath(agentName), {
     method: "PUT",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function addAgentProvider(
+  agentName: string,
+  body: AgentProviderAddBody,
+): Promise<AgentEnablement> {
+  return request<AgentEnablement>(`${enablementPath(agentName)}/provider`, {
+    method: "POST",
     body,
     headers: { "idempotency-key": newUlid() },
   });

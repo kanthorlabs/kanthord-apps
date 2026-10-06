@@ -155,6 +155,12 @@ export async function readCredentialLoginStatus(sessionId: string): Promise<Cred
   return request<CredentialLoginStatus>(`${LOGIN_PATH}/${encodeURIComponent(sessionId)}`);
 }
 
+export async function listAllCredentials(
+  component: CredentialComponent,
+): Promise<readonly Credential[]> {
+  return readAllPages<Credential>(credentialRoot(component));
+}
+
 export async function listCredentials(
   component: CredentialComponent,
   platform: CredentialPlatform,

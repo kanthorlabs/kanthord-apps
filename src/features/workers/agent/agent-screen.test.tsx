@@ -179,4 +179,35 @@ describe("AgentScreen", () => {
 
     expect(workersApi.enableAgentEnablement).toHaveBeenCalledWith("re@1", 3);
   });
+  it("adds an agent provider from a credential and derives its provider", async () => {
+    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex]);
+    vi.mocked(workersApi.addAgentProvider).mockResolvedValue({
+      ...ENABLEMENT,
+      agentProviders: [
+        ...ENABLEMENT.agentProviders,
+        { name: "codex", provider: "openai-codex", credential: "codex-main" },
+      ],
+      revision: 3,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
+    const sheet = await screen.findByRole("dialog");
+    expect(
+      within(sheet).getByText("Fill Name and Credential to add the agent provider."),
+    ).toBeTruthy();
+    await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "codex");
+    await choose("Credential", "codex-main");
+    expect(within(sheet).getByText("Provider: openai-codex")).toBeTruthy();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Add agent provider" }));
+
+    expect(workersApi.addAgentProvider).toHaveBeenCalledWith("re@1", {
+      expectedRevision: 2,
+      name: "codex",
+      provider: "openai-codex",
+      credential: "codex-main",
+    });
+  });
 });

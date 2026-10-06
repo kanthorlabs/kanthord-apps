@@ -11,6 +11,7 @@ import {
   discoverSshAliases,
   listCredentialPage,
   listCredentialPlatforms,
+  listAllCredentials,
   listCredentials,
   readCredential,
   readCredentialLoginStatus,
@@ -119,6 +120,15 @@ describe("listCredentials", () => {
       "/api/repository/credential?platform=github&limit=1000",
       "/api/repository/credential?platform=github&limit=1000&cursor=c-1",
     ]);
+  });
+});
+
+describe("listAllCredentials", () => {
+  it("reads every live credential page of every platform of the component", async () => {
+    await serve(200, [{ items: [GITHUB], nextCursor: null }]);
+
+    expect(await listAllCredentials("repository")).toEqual([GITHUB]);
+    expect(seen.map((req) => req.url)).toEqual(["/api/repository/credential?limit=1000"]);
   });
 });
 

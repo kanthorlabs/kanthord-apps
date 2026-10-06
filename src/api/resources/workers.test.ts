@@ -10,6 +10,7 @@ import {
   listAgentProviderModels,
   listAgents,
   putAgentEnablement,
+  addAgentProvider,
 } from "./workers";
 
 interface Seen {
@@ -148,6 +149,23 @@ describe("putAgentEnablement", () => {
     expect(await putAgentEnablement("re@1", PUT_BODY)).toEqual(created);
     expect(seen).toHaveLength(1);
     expect(JSON.parse(seen[0]!.body)).toEqual(PUT_BODY);
+    expect(seen[0]!.idempotencyKey).toBeTruthy();
+  });
+});
+
+describe("addAgentProvider", () => {
+  it("posts the named agent provider with the expected revision and an idempotency key", async () => {
+    const body = {
+      expectedRevision: 3,
+      name: "codex",
+      provider: "openai-codex",
+      credential: "openai-codex-elsa",
+    } as const;
+    const revised = { ...PUT_BODY, agentName: "re@1", state: "enabled", revision: 4 };
+    await serve({ "POST /api/agent/enablement/re%401/provider": revised });
+
+    expect(await addAgentProvider("re@1", body)).toEqual(revised);
+    expect(JSON.parse(seen[0]!.body)).toEqual(body);
     expect(seen[0]!.idempotencyKey).toBeTruthy();
   });
 });

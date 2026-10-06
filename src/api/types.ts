@@ -141,6 +141,10 @@ export interface AgentModel {
   readonly reasoningEfforts: readonly ReasoningEffort[];
 }
 
+export interface AgentProviderAddBody extends AgentProvider {
+  readonly expectedRevision: number;
+}
+
 export interface AgentEnablementPutBody {
   readonly expectedRevision?: number;
   readonly agentProviders: readonly AgentProvider[];
