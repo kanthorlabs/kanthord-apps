@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { LoginScreen } from "@/features/auth/login/login-screen";
 import { useSession } from "@/features/auth/session/session-context";
@@ -42,6 +42,7 @@ export function AppRouter() {
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
+            <Route path="settings" element={<Navigate to="/settings/prompts" replace />} />
             <Route path="settings/prompts" element={<PromptsScreen />} />
             <Route path="workbench" element={<SessionsScreen />} />
             <Route path="workbench/:sessionId" element={<ChatScreen />} />
