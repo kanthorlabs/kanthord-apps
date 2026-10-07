@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as credentialsApi from "@/api/resources/credentials";
 import * as workersApi from "@/api/resources/workers";
@@ -96,6 +96,10 @@ function mount() {
 }
 
 describe("AgentScreen", () => {
+  beforeEach(() => {
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+  });
+
   it("reads the agent named in the path", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
@@ -175,15 +179,15 @@ describe("AgentScreen", () => {
 
   it("creates the enablement with one agent provider and the default configuration", async () => {
     vi.mocked(workersApi.readAgent).mockClear().mockResolvedValue(RE);
-    vi.mocked(credentialsApi.listCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
     vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...ENABLEMENT, revision: 1 });
     mount();
 
     const form = await screen.findByRole("form", { name: "Enable re@1" });
     await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
-    await choose("Provider", "openrouter");
-    expect(credentialsApi.listCredentials).toHaveBeenCalledWith("llm", "openrouter");
+    expect(within(form).queryByRole("combobox", { name: "Provider" })).toBeNull();
     await choose("Credential", "router-main (openrouter)");
+    expect(within(form).getByText("Provider: openrouter")).toBeTruthy();
     await userEvent.type(within(form).getByLabelText("Model identifier"), "qwen/qwen3-coder");
     await choose("Reasoning effort", "off");
     await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
@@ -199,7 +203,7 @@ describe("AgentScreen", () => {
     expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
   });
 
-  it("refuses a create without a provider and a reasoning effort", async () => {
+  it("refuses a create without a credential and a reasoning effort", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(workersApi.putAgentEnablement).mockClear();
     mount();

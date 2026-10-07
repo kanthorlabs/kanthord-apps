@@ -1,14 +1,12 @@
 import { Link } from "react-router-dom";
 
-import { AGENT_PROVIDER_KINDS } from "@/api/types";
 import { ChoiceField } from "@/components/choice-field";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
+import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { REASONING_EFFORTS } from "@/lib/binding-draft";
-import { credentialLabel } from "@/lib/credential-label";
 import { useEnablementCreate } from "../use-enablement-create";
 
 interface EnablementFormProps {
@@ -44,14 +42,6 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           description="The default configuration selects this agent provider."
           onChange={form.setName}
         />
-        <ChoiceField
-          id="enablement-provider"
-          label="Provider"
-          value={draft.provider}
-          options={AGENT_PROVIDER_KINDS}
-          error={errors["provider"]}
-          onChange={form.selectProvider}
-        />
         <SearchChoiceField
           id="enablement-credential"
           label="Credential"
@@ -60,15 +50,16 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           error={errors["credential"]}
           placeholder="Search credentials"
           emptyText="No credential matches."
-          labelOf={(name) => credentialLabel(name, draft.provider)}
+          labelOf={form.credentialLabelOf}
           onChange={form.selectCredential}
         />
+        {form.provider !== null && <FieldDescription>Provider: {form.provider}</FieldDescription>}
         {form.credentialsError !== null && (
           <p className="text-sm text-destructive md:col-span-2">{form.credentialsError}</p>
         )}
         {form.credentialsMissing && (
           <p className="text-sm text-muted-foreground md:col-span-2">
-            No credential of platform {draft.provider} exists.{" "}
+            No credential of an agent provider platform exists.{" "}
             <Link to="/llm/new" className="underline underline-offset-4">
               Add a credential
             </Link>{" "}

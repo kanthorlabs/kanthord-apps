@@ -1,14 +1,9 @@
-import {
-  AGENT_PROVIDER_KINDS,
-  type AgentEnablementPutBody,
-  type AgentProviderKind,
-  type ReasoningEffort,
-} from "@/api/types";
+import type { AgentEnablementPutBody, Credential, ReasoningEffort } from "@/api/types";
+import { providerOfCredential } from "./agent-provider-draft";
 import { REASONING_EFFORTS } from "./binding-draft";
 
 export interface EnablementDraft {
   readonly name: string;
-  readonly provider: AgentProviderKind | "";
   readonly credential: string;
   readonly modelIdentifier: string;
   readonly reasoningEffort: ReasoningEffort | "";
@@ -22,7 +17,6 @@ export type EnablementResult =
 
 export const EMPTY_ENABLEMENT: EnablementDraft = {
   name: "",
-  provider: "",
   credential: "",
   modelIdentifier: "",
   reasoningEffort: "",
@@ -31,30 +25,29 @@ export const EMPTY_ENABLEMENT: EnablementDraft = {
 const REQUIRED = "Enter a value.";
 const UNCHOSEN = "Choose a value.";
 
-export function providerKindOf(value: string | null): AgentProviderKind | "" {
-  return AGENT_PROVIDER_KINDS.find((kind) => kind === value) ?? "";
-}
-
 export function reasoningEffortOf(value: string | null): ReasoningEffort | "" {
   return REASONING_EFFORTS.find((effort) => effort === value) ?? "";
 }
 
-export function enablementBodyOf(draft: EnablementDraft): EnablementResult {
+export function enablementBodyOf(
+  draft: EnablementDraft,
+  credentials: readonly Credential[],
+): EnablementResult {
   const name = draft.name.trim();
+  const provider = providerOfCredential(credentials, draft.credential);
   const modelIdentifier = draft.modelIdentifier.trim();
   const errors: Record<string, string> = {};
   if (name === "") errors["name"] = REQUIRED;
-  if (draft.provider === "") errors["provider"] = UNCHOSEN;
-  if (draft.credential === "") errors["credential"] = UNCHOSEN;
+  if (provider === null) errors["credential"] = UNCHOSEN;
   if (modelIdentifier === "") errors["modelIdentifier"] = REQUIRED;
   if (draft.reasoningEffort === "") errors["reasoningEffort"] = UNCHOSEN;
-  if (draft.provider === "" || draft.reasoningEffort === "" || Object.keys(errors).length > 0) {
+  if (provider === null || draft.reasoningEffort === "" || Object.keys(errors).length > 0) {
     return { ok: false, errors };
   }
   return {
     ok: true,
     body: {
-      agentProviders: [{ name, provider: draft.provider, credential: draft.credential }],
+      agentProviders: [{ name, provider, credential: draft.credential }],
       defaultConfiguration: {
         agentProvider: name,
         modelIdentifier,

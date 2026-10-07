@@ -1,22 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  EMPTY_ENABLEMENT,
-  enablementBodyOf,
-  providerKindOf,
-  reasoningEffortOf,
-} from "./enablement-draft";
+import type { Credential } from "@/api/types";
+import { EMPTY_ENABLEMENT, enablementBodyOf, reasoningEffortOf } from "./enablement-draft";
+
+const CREDENTIALS: readonly Credential[] = [
+  { name: "router-main", platform: "openrouter", revisions: [] },
+];
 
 describe("enablementBodyOf", () => {
-  it("builds one agent provider and a default configuration that names it", () => {
+  it("builds one agent provider of the credential platform and a default that names it", () => {
     expect(
-      enablementBodyOf({
-        name: " router ",
-        provider: "openrouter",
-        credential: "router-main",
-        modelIdentifier: " qwen/qwen3-coder ",
-        reasoningEffort: "off",
-      }),
+      enablementBodyOf(
+        {
+          name: " router ",
+          credential: "router-main",
+          modelIdentifier: " qwen/qwen3-coder ",
+          reasoningEffort: "off",
+        },
+        CREDENTIALS,
+      ),
     ).toEqual({
       ok: true,
       body: {
@@ -31,11 +33,10 @@ describe("enablementBodyOf", () => {
   });
 
   it("selects no default and names every missing field", () => {
-    expect(enablementBodyOf(EMPTY_ENABLEMENT)).toEqual({
+    expect(enablementBodyOf(EMPTY_ENABLEMENT, CREDENTIALS)).toEqual({
       ok: false,
       errors: {
         name: "Enter a value.",
-        provider: "Choose a value.",
         credential: "Choose a value.",
         modelIdentifier: "Enter a value.",
         reasoningEffort: "Choose a value.",
@@ -44,11 +45,8 @@ describe("enablementBodyOf", () => {
   });
 });
 
-describe("providerKindOf and reasoningEffortOf", () => {
-  it("accept only a contract value", () => {
-    expect(providerKindOf("anthropic")).toBe("anthropic");
-    expect(providerKindOf("github")).toBe("");
-    expect(providerKindOf(null)).toBe("");
+describe("reasoningEffortOf", () => {
+  it("accepts only a contract value", () => {
     expect(reasoningEffortOf("xhigh")).toBe("xhigh");
     expect(reasoningEffortOf("extreme")).toBe("");
   });
