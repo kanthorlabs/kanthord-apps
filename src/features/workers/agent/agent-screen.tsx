@@ -13,7 +13,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
-import { promptMarkdown } from "@/lib/prompt-markdown";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
@@ -205,7 +204,7 @@ function PromptText({ label, text }: { readonly label: string; readonly text: st
         Text
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <MarkdownText text={promptMarkdown(text)} />
+        <MarkdownText text={text} />
       </CollapsibleContent>
     </Collapsible>
   );

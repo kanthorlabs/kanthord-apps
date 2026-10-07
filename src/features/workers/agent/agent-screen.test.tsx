@@ -58,7 +58,7 @@ const RE: AgentDeclaration = {
       },
     ],
     final:
-      'Framing of the final prompt.\n<prompt-layer name="agent layer" owner="o" source="s">\nThe final reviewer text.\n</prompt-layer>',
+      "Framing of the final prompt.\n\nInstructions of file AGENTS.md:\n\nThe final reviewer text.",
   },
   tools: [
     { name: "read", source: "builtin", inputSchema: {} },
