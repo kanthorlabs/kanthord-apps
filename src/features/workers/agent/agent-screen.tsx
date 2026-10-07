@@ -1,23 +1,23 @@
-import { ChevronRightIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { PencilIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool, PromptLayer, PromptLayerKind } from "@/api/types";
-import { MarkdownText } from "@/components/markdown-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
+import { promptSourceTitle } from "@/lib/prompt-source-title";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
+import { PromptItem } from "./components/prompt-item";
 import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
 import { useAgentProviderAdd } from "./use-agent-provider-add";
@@ -187,29 +187,6 @@ function ToolsSection({ tools }: { tools: readonly AgentTool[] }) {
   );
 }
 
-function PromptText({ label, text }: { readonly label: string; readonly text: string }) {
-  return (
-    <Collapsible className="min-w-0">
-      <CollapsibleTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={`Text of ${label}`}
-            className="-ml-2 justify-start"
-          />
-        }
-      >
-        <ChevronRightIcon aria-hidden="true" data-icon="inline-start" />
-        Text
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <MarkdownText text={text} />
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
-
 function PromptSection({ title, text }: { title: string; text: string }) {
   return (
     <Card>
@@ -217,7 +194,9 @@ function PromptSection({ title, text }: { title: string; text: string }) {
         <h2 className="font-semibold leading-none">{title}</h2>
       </CardHeader>
       <CardContent>
-        <PromptText label={title} text={text} />
+        <div role="list" aria-label={title}>
+          <PromptItem title="System prompt and working messages" text={text} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -236,25 +215,24 @@ function LayerSection({ layer }: { readonly layer: PromptLayer }) {
         <h2 className="font-semibold leading-none">{LAYER_TITLES[layer.layer]}</h2>
       </CardHeader>
       <CardContent>
-        <ItemGroup aria-label={LAYER_TITLES[layer.layer]} className="gap-2">
+        <div role="list" aria-label={LAYER_TITLES[layer.layer]} className="grid gap-2">
           {layer.sources.map((source) => (
-            <Item key={source.source} variant="outline" size="sm" role="listitem">
-              <ItemContent>
-                <ItemTitle>
-                  {source.source}
+            <PromptItem
+              key={source.source}
+              title={promptSourceTitle(layer.layer, source)}
+              path={source.path !== null}
+              text={source.state === "present" ? source.text : null}
+              badges={
+                <>
                   <Badge variant="outline">{source.origin}</Badge>
                   <Badge variant={source.state === "present" ? "default" : "secondary"}>
                     {source.state}
                   </Badge>
-                </ItemTitle>
-                {source.path !== null && (
-                  <span className="text-muted-foreground font-mono text-xs">{source.path}</span>
-                )}
-                {source.text !== null && <PromptText label={source.source} text={source.text} />}
-              </ItemContent>
-            </Item>
+                </>
+              }
+            />
           ))}
-        </ItemGroup>
+        </div>
       </CardContent>
     </Card>
   );

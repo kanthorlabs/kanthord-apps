@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as workersApi from "@/api/resources/workers";
 import type { AgentDeclaration, AgentEnablement, Credential } from "@/api/types";
@@ -139,13 +140,43 @@ describe("AgentScreen", () => {
     expect(screen.queryByText(/the reviewer/)).toBeNull();
     expect(screen.queryByText("Framing of the final prompt.")).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "Text of shipped" }));
+    const shipped = screen.getByRole("button", { name: "Shipped agent prompt" });
+    expect(shipped).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(shipped);
+    expect(shipped).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("re@1", { selector: "code" })).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Text of base" }));
+    await userEvent.click(screen.getByRole("button", { name: "Shipped base prompt" }));
     expect(await screen.findByText("You are a senior software engineer.")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Text of Final prompt" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "System prompt and working messages" }),
+    );
     expect(await screen.findByText("Framing of the final prompt.")).toBeTruthy();
     expect(screen.getByText("The final reviewer text.")).toBeTruthy();
+  });
+
+  it("shows a source without text as an inactive row with no toggle and no copy", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    const system = within(await screen.findByRole("list", { name: "System layer" }));
+    expect(system.getByText("~/.claude/CLAUDE.md")).toBeTruthy();
+    expect(system.queryByRole("button", { name: "~/.claude/CLAUDE.md" })).toBeNull();
+    expect(
+      system.queryByRole("button", { name: "Copy markdown of ~/.claude/CLAUDE.md" }),
+    ).toBeNull();
+  });
+
+  it("copies the raw markdown of a source", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    mount();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Copy markdown of Shipped agent prompt" }),
+    );
+
+    expect(writeText).toHaveBeenCalledWith("Your role is `re@1`, the reviewer.");
   });
 
   it("lists every agent provider of the enablement with its credential", async () => {
@@ -211,6 +242,25 @@ describe("AgentScreen", () => {
       },
     });
     expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows a model list failure on the model field and keeps the form grid", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.listCredentialModels).mockRejectedValue(
+      new ApiError("refused", "Request validation failed.", 400),
+    );
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    const cells = () => [...(form.firstElementChild?.children ?? [])];
+    const before = cells().length;
+    await choose("Credential", "router-main (openrouter)");
+    const model = within(form)
+      .getByRole("combobox", { name: "Model identifier" })
+      .closest("[data-slot='field']");
+    await waitFor(() => expect(model?.textContent).toContain("Request validation failed."));
+    expect(cells().length).toBe(before);
   });
 
   it("refuses a create without a credential and a reasoning effort", async () => {

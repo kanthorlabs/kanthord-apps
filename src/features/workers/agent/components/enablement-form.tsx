@@ -46,15 +46,12 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           label="Credential"
           value={draft.credential}
           options={form.credentialNames}
-          error={errors["credential"]}
+          error={errors["credential"] ?? form.credentialsError ?? undefined}
           placeholder="Search credentials"
           emptyText="No credential matches."
           labelOf={form.credentialLabelOf}
           onChange={form.selectCredential}
         />
-        {form.credentialsError !== null && (
-          <p className="text-sm text-destructive md:col-span-2">{form.credentialsError}</p>
-        )}
         {form.credentialsMissing && (
           <p className="text-sm text-muted-foreground md:col-span-2">
             No credential of an agent provider platform exists.{" "}
@@ -64,15 +61,12 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
             first.
           </p>
         )}
-        {form.modelsFailure !== null && (
-          <p className="text-sm text-destructive md:col-span-2">{form.modelsFailure}</p>
-        )}
         <SearchChoiceField
           id="enablement-model"
           label="Model identifier"
           value={draft.modelIdentifier}
           options={form.models}
-          error={errors["modelIdentifier"]}
+          error={errors["modelIdentifier"] ?? form.modelsFailure ?? undefined}
           placeholder="Search models"
           emptyText="No model matches."
           onChange={form.selectModel}
