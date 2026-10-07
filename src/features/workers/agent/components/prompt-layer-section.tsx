@@ -1,9 +1,12 @@
+import { EyeIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
 import type { PromptLayer, PromptLayerKind, SystemLayerOverride } from "@/api/types";
 import { SYSTEM_LAYER_OVERRIDES } from "@/api/types";
+import { Reveal } from "@/components/reveal";
 import { SourceSwitch } from "@/components/source-switch";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { PromptSettingsState } from "@/hooks/use-prompt-settings";
@@ -16,6 +19,8 @@ import {
   SYSTEM_LAYER_SWITCH,
   systemLayerSummary,
 } from "@/lib/prompt-switches";
+import { hiddenSourcesLabel } from "@/lib/prompt-visibility";
+import type { InactiveSourcesState } from "../use-inactive-sources";
 import { PromptItem } from "./prompt-item";
 
 const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
@@ -29,9 +34,14 @@ interface PromptLayerSectionProps {
   readonly layer: PromptLayer;
   readonly server: PromptSettingsState;
   readonly scope: PromptSettingsState;
+  readonly visibility: InactiveSourcesState;
 }
 
-function SystemLayerControl({ agentName, server, scope }: Omit<PromptLayerSectionProps, "layer">) {
+function SystemLayerControl({
+  agentName,
+  server,
+  scope,
+}: Omit<PromptLayerSectionProps, "layer" | "visibility">) {
   const override = scope.settings?.system_layer ?? "inherit";
   const serverOn = server.settings?.switches[SYSTEM_LAYER_SWITCH] ?? true;
   return (
@@ -64,8 +74,17 @@ function SystemLayerControl({ agentName, server, scope }: Omit<PromptLayerSectio
   );
 }
 
-export function PromptLayerSection({ agentName, layer, server, scope }: PromptLayerSectionProps) {
+export function PromptLayerSection({
+  agentName,
+  layer,
+  server,
+  scope,
+  visibility,
+}: PromptLayerSectionProps) {
   const title = LAYER_TITLES[layer.layer];
+  const hiddenCount = layer.sources.filter((source) =>
+    visibility.hides(layer.layer, source),
+  ).length;
   const system = layer.layer === "system";
   const switches = scope.settings?.switches ?? {};
   return (
@@ -94,50 +113,68 @@ export function PromptLayerSection({ agentName, layer, server, scope }: PromptLa
             turns on.
           </p>
         )}
-        <div role="list" aria-label={title} className="grid grid-cols-[minmax(0,1fr)] gap-2">
-          {layer.sources.map((source) => {
-            const sourceTitle = promptSourceTitle(layer.layer, source);
-            const checked = switches[source.source] ?? source.enabled;
-            return (
-              <PromptItem
-                key={source.source}
-                title={sourceTitle}
-                path={source.path !== null}
-                text={source.state === "present" ? source.text : null}
-                dimmed={!layer.enabled}
-                badges={
-                  <>
-                    <Badge variant="outline">{source.origin}</Badge>
-                    <Badge variant={source.state === "present" ? "default" : "secondary"}>
-                      {source.state}
-                    </Badge>
-                  </>
-                }
-                control={
-                  system ? undefined : (
-                    <>
-                      {source.source === "custom" && (
-                        <CustomPromptEditor
-                          title={sourceTitle}
-                          description={`Markdown that the ${title.toLowerCase()} of ${agentName} joins after its other sources.`}
-                          settings={scope}
-                        />
-                      )}
-                      <SourceSwitch
-                        title={sourceTitle}
-                        checked={checked}
-                        disabled={scope.pending || scope.settings === null}
-                        lockedReason={sourceLockReason(layer.layer, source, sourceTitle, switches)}
-                        onChange={(enabled) =>
-                          scope.switchSource(source.source, enabled, sourceTitle)
-                        }
-                      />
-                    </>
-                  )
-                }
-              />
-            );
-          })}
+        <div className="-mb-2 grid grid-cols-[minmax(0,1fr)]">
+          <div role="list" aria-label={title} className="grid grid-cols-[minmax(0,1fr)]">
+            {layer.sources.map((source) => {
+              const sourceTitle = promptSourceTitle(layer.layer, source);
+              const checked = switches[source.source] ?? source.enabled;
+              return (
+                <Reveal key={source.source} open={!visibility.hides(layer.layer, source)}>
+                  <div className="pb-2">
+                    <PromptItem
+                      title={sourceTitle}
+                      path={source.path !== null}
+                      text={source.state === "present" ? source.text : null}
+                      dimmed={!layer.enabled}
+                      badges={
+                        <>
+                          <Badge variant="outline">{source.origin}</Badge>
+                          <Badge variant={source.state === "present" ? "default" : "secondary"}>
+                            {source.state}
+                          </Badge>
+                        </>
+                      }
+                      control={
+                        system ? undefined : (
+                          <>
+                            {source.source === "custom" && (
+                              <CustomPromptEditor
+                                title={sourceTitle}
+                                description={`Markdown that the ${title.toLowerCase()} of ${agentName} joins after its other sources.`}
+                                settings={scope}
+                              />
+                            )}
+                            <SourceSwitch
+                              title={sourceTitle}
+                              checked={checked}
+                              disabled={scope.pending || scope.settings === null}
+                              lockedReason={sourceLockReason(
+                                layer.layer,
+                                source,
+                                sourceTitle,
+                                switches,
+                              )}
+                              onChange={(enabled) =>
+                                scope.switchSource(source.source, enabled, sourceTitle)
+                              }
+                            />
+                          </>
+                        )
+                      }
+                    />
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+          <Reveal open={hiddenCount > 0}>
+            <div className="pb-2">
+              <Button variant="ghost" size="sm" onClick={() => visibility.setShow(true)}>
+                <EyeIcon aria-hidden="true" data-icon="inline-start" />
+                {hiddenSourcesLabel(hiddenCount)}
+              </Button>
+            </div>
+          </Reveal>
         </div>
       </CardContent>
     </Card>

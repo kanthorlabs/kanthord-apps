@@ -154,8 +154,9 @@ describe("AgentScreen", () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
+    await userEvent.click(await screen.findByRole("switch", { name: "Show inactive sources" }));
     const system = within(await screen.findByRole("list", { name: "System layer" }));
-    expect(system.getByText("~/.claude/CLAUDE.md")).toBeTruthy();
+    expect(await system.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
     expect(system.getByText("off")).toBeTruthy();
     expect(screen.getByText("not enabled")).toBeTruthy();
     expect(screen.getByText(/No enablement exists/)).toBeTruthy();
@@ -189,8 +190,9 @@ describe("AgentScreen", () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
+    await userEvent.click(await screen.findByRole("switch", { name: "Show inactive sources" }));
     const system = within(await screen.findByRole("list", { name: "System layer" }));
-    expect(system.getByText("~/.claude/CLAUDE.md")).toBeTruthy();
+    expect(await system.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
     expect(system.queryByRole("button", { name: "~/.claude/CLAUDE.md" })).toBeNull();
     expect(
       system.queryByRole("button", { name: "Copy markdown of ~/.claude/CLAUDE.md" }),
@@ -239,6 +241,85 @@ describe("AgentScreen", () => {
     expect(screen.queryByRole("switch", { name: "Shipped base prompt switch" })).toBeNull();
   });
 
+  it("hides an inactive source until the human shows it", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    const show = await screen.findByRole("switch", { name: "Show inactive sources" });
+    expect(show).not.toBeChecked();
+    expect(screen.queryByText("~/.claude/CLAUDE.md")).toBeNull();
+    expect(screen.getByText("Shipped base prompt")).toBeTruthy();
+
+    await userEvent.click(show);
+
+    expect(await screen.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "1 inactive source hidden" })).toBeNull();
+
+    await userEvent.click(show);
+
+    await waitFor(() => expect(screen.queryByText("~/.claude/CLAUDE.md")).toBeNull());
+  });
+
+  it("shows the hidden sources of a layer from its footer", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "1 inactive source hidden" }));
+
+    expect(await screen.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "Show inactive sources" })).toBeChecked();
+  });
+
+  it("keeps the preference of the viewer", async () => {
+    window.localStorage.setItem("kanthord.agent.show-inactive-sources", "true");
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    expect(await screen.findByRole("switch", { name: "Show inactive sources" })).toBeChecked();
+    expect(screen.getByText("~/.claude/CLAUDE.md")).toBeTruthy();
+  });
+
+  it("keeps a row that the human turns off until the next page load", async () => {
+    const shippedOff = {
+      ...RE,
+      prompt: {
+        ...RE.prompt,
+        layers: (RE.prompt.layers ?? []).map((layer) =>
+          layer.layer === "agent"
+            ? {
+                ...layer,
+                sources: layer.sources.map((source) => ({
+                  ...source,
+                  enabled: false,
+                  state: "off" as const,
+                  text: null,
+                })),
+              }
+            : layer,
+        ),
+      },
+    };
+    vi.mocked(workersApi.readAgent).mockResolvedValueOnce(RE).mockResolvedValue(shippedOff);
+    vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
+      Promise.resolve({
+        ...settingsOf(target),
+        switches: { agent_file: true, shipped: true, custom: true },
+      }),
+    );
+    vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
+      settingsOf({ scope: "agent", agent_name: "re@1" }),
+    );
+    mount();
+
+    const shipped = await screen.findByRole("switch", { name: "Shipped agent prompt switch" });
+    await waitFor(() => expect(shipped).not.toHaveAttribute("aria-disabled", "true"));
+    await userEvent.click(shipped);
+
+    const agentLayer = within(screen.getByRole("list", { name: "Agent layer" }));
+    expect(await agentLayer.findByText("off")).toBeTruthy();
+    expect(agentLayer.getByText("Shipped agent prompt")).toBeTruthy();
+  });
+
   it("disables the switch of a file source that does not exist", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue({
       ...RE,
@@ -266,6 +347,7 @@ describe("AgentScreen", () => {
     });
     mount();
 
+    await userEvent.click(await screen.findByRole("switch", { name: "Show inactive sources" }));
     const missing = await screen.findByRole("switch", { name: "~/workbench/AGENTS.md switch" });
     await waitFor(() => expect(missing).toHaveAttribute("aria-disabled", "true"));
     expect(screen.getByText("~/workbench/AGENTS.md does not exist.")).toBeTruthy();

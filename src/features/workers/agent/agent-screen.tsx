@@ -6,8 +6,10 @@ import type { AgentEnablement, AgentTool, PromptLayer } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { usePromptSettings } from "@/hooks/use-prompt-settings";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
@@ -23,6 +25,7 @@ import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
 import { useAgentProviderAdd } from "./use-agent-provider-add";
 import { useAgentProviderRemove } from "./use-agent-provider-remove";
+import { useInactiveSources } from "./use-inactive-sources";
 
 interface EnablementSectionProps {
   readonly agentName: string;
@@ -216,8 +219,19 @@ function PromptLayers({
   const agent = usePromptSettings({ scope: "agent", agent_name: agentName }, reload);
   const working = usePromptSettings({ scope: "workbench", agent_name: agentName }, reload);
   const scopes = { system: agent, agent, working } as const;
+  const visibility = useInactiveSources(layers);
   return (
     <>
+      {visibility.available && (
+        <Field orientation="horizontal" className="w-auto md:justify-self-end">
+          <Switch
+            id="prompt-show-inactive"
+            checked={visibility.show}
+            onCheckedChange={visibility.setShow}
+          />
+          <FieldLabel htmlFor="prompt-show-inactive">Show inactive sources</FieldLabel>
+        </Field>
+      )}
       {layers.map((layer) => (
         <PromptLayerSection
           key={layer.layer}
@@ -225,6 +239,7 @@ function PromptLayers({
           layer={layer}
           server={server}
           scope={scopes[layer.layer]}
+          visibility={visibility}
         />
       ))}
     </>
