@@ -165,13 +165,38 @@ export interface AgentTool {
   readonly inputSchema: Readonly<Record<string, unknown>>;
 }
 
+export type PromptOrigin = "binary" | "file" | "database";
+
+export type PromptSourceState = "present" | "absent" | "invalid" | "off" | "deferred";
+
+export type PromptLayerKind = "system" | "agent" | "working";
+
+export interface PromptSource {
+  readonly source: string;
+  readonly origin: PromptOrigin;
+  readonly path: string | null;
+  readonly enabled: boolean;
+  readonly state: PromptSourceState;
+  readonly digest: string | null;
+  readonly text: string | null;
+}
+
+export interface PromptLayer {
+  readonly layer: PromptLayerKind;
+  readonly sources: readonly PromptSource[];
+}
+
+export interface AgentPrompt {
+  readonly layers?: readonly PromptLayer[];
+  readonly final: string;
+}
+
 export interface AgentDeclaration {
   readonly agentName: string;
   readonly configurationSchema: Readonly<Record<string, unknown>>;
   readonly overridableFields: readonly string[];
   readonly enablement: AgentEnablement | null;
-  readonly basePrompt?: string;
-  readonly agentPrompt: string;
+  readonly prompt: AgentPrompt;
   readonly tools: readonly AgentTool[];
 }
 

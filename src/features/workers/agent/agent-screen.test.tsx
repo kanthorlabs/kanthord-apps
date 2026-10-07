@@ -17,8 +17,48 @@ const RE: AgentDeclaration = {
   configurationSchema: { type: "object" },
   overridableFields: ["agentProvider", "modelIdentifier", "reasoningEffort"],
   enablement: null,
-  basePrompt: "You are a senior software engineer.",
-  agentPrompt: "Your role is `re@1`, the reviewer.",
+  prompt: {
+    layers: [
+      {
+        layer: "system",
+        sources: [
+          {
+            source: "host_file",
+            origin: "file",
+            path: "~/.claude/CLAUDE.md",
+            enabled: false,
+            state: "off",
+            digest: null,
+            text: null,
+          },
+          {
+            source: "base",
+            origin: "binary",
+            path: null,
+            enabled: true,
+            state: "present",
+            digest: "a".repeat(64),
+            text: "You are a senior software engineer.",
+          },
+        ],
+      },
+      {
+        layer: "agent",
+        sources: [
+          {
+            source: "shipped",
+            origin: "binary",
+            path: null,
+            enabled: true,
+            state: "present",
+            digest: "b".repeat(64),
+            text: "Your role is `re@1`, the reviewer.",
+          },
+        ],
+      },
+    ],
+    final: "Framing of the final prompt.",
+  },
   tools: [
     { name: "read", source: "builtin", inputSchema: {} },
     { name: "grep", source: "builtin", inputSchema: {} },
@@ -79,6 +119,10 @@ describe("AgentScreen", () => {
 
     expect(await screen.findByText("Your role is `re@1`, the reviewer.")).toBeTruthy();
     expect(screen.getByText("You are a senior software engineer.")).toBeTruthy();
+    const system = within(screen.getByRole("list", { name: "System layer" }));
+    expect(system.getByText("~/.claude/CLAUDE.md")).toBeTruthy();
+    expect(system.getByText("off")).toBeTruthy();
+    expect(screen.getByText("Framing of the final prompt.")).toBeTruthy();
     expect(screen.getByText("not enabled")).toBeTruthy();
     expect(screen.getByText(/No enablement exists/)).toBeTruthy();
     const tools = within(screen.getByRole("list", { name: "Tools" })).getAllByRole("listitem");

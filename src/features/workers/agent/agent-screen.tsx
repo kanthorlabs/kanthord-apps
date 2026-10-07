@@ -2,7 +2,7 @@ import { PencilIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import type { AgentEnablement, AgentTool } from "@/api/types";
+import type { AgentEnablement, AgentTool, PromptLayer, PromptLayerKind } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -198,6 +198,47 @@ function PromptSection({ title, text }: { title: string; text: string }) {
   );
 }
 
+const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
+  system: "System layer",
+  agent: "Agent layer",
+  working: "Working layer",
+};
+
+function LayerSection({ layer }: { readonly layer: PromptLayer }) {
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="font-semibold leading-none">{LAYER_TITLES[layer.layer]}</h2>
+      </CardHeader>
+      <CardContent>
+        <ItemGroup aria-label={LAYER_TITLES[layer.layer]} className="gap-2">
+          {layer.sources.map((source) => (
+            <Item key={source.source} variant="outline" size="sm" role="listitem">
+              <ItemContent>
+                <ItemTitle>
+                  {source.source}
+                  <Badge variant="outline">{source.origin}</Badge>
+                  <Badge variant={source.state === "present" ? "default" : "secondary"}>
+                    {source.state}
+                  </Badge>
+                </ItemTitle>
+                {source.path !== null && (
+                  <span className="text-muted-foreground font-mono text-xs">{source.path}</span>
+                )}
+                {source.text !== null && (
+                  <pre className="font-mono text-xs break-words whitespace-pre-wrap">
+                    {source.text}
+                  </pre>
+                )}
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function AgentScreen() {
   const { agentName = "" } = useParams<{ agentName: string }>();
   const { data: agent, error, loading, reload } = useAgent(agentName);
@@ -254,10 +295,10 @@ export function AgentScreen() {
         />
         <ToolsSection tools={agent.tools} />
       </div>
-      <PromptSection title="Agent prompt" text={agent.agentPrompt} />
-      {agent.basePrompt !== undefined && (
-        <PromptSection title="Base prompt" text={agent.basePrompt} />
-      )}
+      {(agent.prompt.layers ?? []).map((layer) => (
+        <LayerSection key={layer.layer} layer={layer} />
+      ))}
+      <PromptSection title="Final prompt" text={agent.prompt.final} />
     </div>
   );
 }

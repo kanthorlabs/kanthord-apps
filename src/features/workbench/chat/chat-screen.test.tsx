@@ -54,7 +54,7 @@ const AGENT: AgentDeclaration = {
     },
     revision: 2,
   },
-  agentPrompt: "",
+  prompt: { layers: [], final: "" },
   tools: [],
 };
 

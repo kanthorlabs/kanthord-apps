@@ -246,13 +246,26 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res) => {
   }
   const { agentName, configurationSchema, overridableFields, enablement } = declaration;
   const { basePrompt, agentPrompt, tools } = declaration;
+  const present = (source, text) => ({
+    source,
+    origin: "binary",
+    path: null,
+    enabled: true,
+    state: "present",
+    digest: null,
+    text,
+  });
+  const layers = [
+    { layer: "system", sources: [present("base", basePrompt)] },
+    { layer: "agent", sources: [present("shipped", agentPrompt)] },
+  ];
+  const final = [basePrompt, agentPrompt].join("\n");
   return json(res, 200, {
     agentName,
     configurationSchema,
     overridableFields,
     enablement,
-    basePrompt,
-    agentPrompt,
+    prompt: { layers, final },
     tools,
   });
 });
