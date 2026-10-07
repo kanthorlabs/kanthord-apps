@@ -5,11 +5,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
+import * as promptsApi from "@/api/resources/prompts";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentDeclaration, AgentEnablement, Credential } from "@/api/types";
+import type {
+  AgentDeclaration,
+  AgentEnablement,
+  Credential,
+  PromptSettings,
+  PromptTarget,
+} from "@/api/types";
 
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/credentials");
+vi.mock("@/api/resources/prompts");
 
 import { AgentScreen } from "./agent-screen";
 
@@ -22,6 +30,7 @@ const RE: AgentDeclaration = {
     layers: [
       {
         layer: "system",
+        enabled: true,
         sources: [
           {
             source: "host_file",
@@ -45,6 +54,7 @@ const RE: AgentDeclaration = {
       },
       {
         layer: "agent",
+        enabled: true,
         sources: [
           {
             source: "shipped",
@@ -81,6 +91,23 @@ const ENABLEMENT: AgentEnablement = {
 
 const ROUTER_MAIN: Credential = { name: "router-main", platform: "openrouter", revisions: [] };
 
+const SWITCHES: Readonly<Record<string, Readonly<Record<string, boolean>>>> = {
+  system: { host_file: false, base: true, custom: true, layer: false },
+  agent: { agent_file: false, shipped: true, custom: false },
+  workbench: { agents_md: true, shipped: true, custom: true },
+};
+
+function settingsOf(target: PromptTarget): PromptSettings {
+  return {
+    scope: target.scope,
+    agentName: target.agentName ?? "",
+    switches: SWITCHES[target.scope] ?? {},
+    customText: "",
+    system_layer: target.scope === "agent" ? "inherit" : null,
+    revision: 3,
+  };
+}
+
 async function choose(label: string, option: string) {
   await userEvent.click(screen.getByRole("combobox", { name: label }));
   await userEvent.click(await screen.findByRole("option", { name: option }));
@@ -99,6 +126,9 @@ function mount() {
 describe("AgentScreen", () => {
   beforeEach(() => {
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+    vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
+      Promise.resolve(settingsOf(target)),
+    );
   });
 
   it("reads the agent named in the path", async () => {
@@ -177,6 +207,60 @@ describe("AgentScreen", () => {
     );
 
     expect(writeText).toHaveBeenCalledWith("Your role is `re@1`, the reviewer.");
+  });
+
+  it("sets the system layer override of the agent at its revision", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(promptsApi.setSystemLayerOverride).mockResolvedValue({
+      ...settingsOf({ scope: "agent", agentName: "re@1" }),
+      system_layer: "on",
+    });
+    mount();
+
+    const control = await screen.findByRole("group", { name: "System layer of re@1" });
+    await waitFor(() =>
+      expect(screen.getByText(/Follows the server switch, which is off\./)).toBeTruthy(),
+    );
+    await userEvent.click(within(control).getByRole("button", { name: "On" }));
+
+    expect(promptsApi.setSystemLayerOverride).toHaveBeenCalledWith("re@1", 3, "on");
+  });
+
+  it("switches an agent layer source and locks the last source that is on", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
+      settingsOf({ scope: "agent", agentName: "re@1" }),
+    );
+    mount();
+
+    const shipped = await screen.findByRole("switch", { name: "Shipped agent prompt switch" });
+    await waitFor(() => expect(shipped).toHaveAttribute("aria-disabled", "true"));
+    expect(screen.queryByRole("switch", { name: "Shipped base prompt switch" })).toBeNull();
+  });
+
+  it("turns an agent layer source off at the revision of its scope", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
+      Promise.resolve({
+        ...settingsOf(target),
+        switches: { agent_file: true, shipped: true, custom: true },
+      }),
+    );
+    vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
+      settingsOf({ scope: "agent", agentName: "re@1" }),
+    );
+    mount();
+
+    const shipped = await screen.findByRole("switch", { name: "Shipped agent prompt switch" });
+    await waitFor(() => expect(shipped).not.toHaveAttribute("aria-disabled", "true"));
+    await userEvent.click(shipped);
+
+    expect(promptsApi.switchPromptSource).toHaveBeenCalledWith(
+      { scope: "agent", agentName: "re@1" },
+      3,
+      "shipped",
+      false,
+    );
   });
 
   it("lists every agent provider of the enablement with its credential", async () => {

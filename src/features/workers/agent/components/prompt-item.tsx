@@ -13,6 +13,8 @@ interface PromptItemProps {
   readonly path?: boolean;
   readonly text: string | null;
   readonly badges?: ReactNode;
+  readonly control?: ReactNode;
+  readonly dimmed?: boolean;
 }
 
 function CopyMarkdownButton({ title, text }: { readonly title: string; readonly text: string }) {
@@ -36,22 +38,36 @@ function CopyMarkdownButton({ title, text }: { readonly title: string; readonly 
   );
 }
 
-export function PromptItem({ title, path = false, text, badges }: PromptItemProps) {
+export function PromptItem({
+  title,
+  path = false,
+  text,
+  badges,
+  control,
+  dimmed = false,
+}: PromptItemProps) {
   const titleClass = cn("min-w-0 flex-1 truncate text-sm", path && "font-mono");
   if (text === null) {
     return (
       <div
         role="listitem"
-        className="flex min-h-10 items-center gap-2 rounded-md border border-dashed px-3 py-2 text-muted-foreground"
+        className={cn(
+          "flex min-h-10 items-center gap-2 rounded-md border border-dashed py-2 pr-2 pl-3 text-muted-foreground",
+          dimmed && "opacity-60",
+        )}
       >
         <span aria-hidden="true" className="size-4 shrink-0" />
         <span className={titleClass}>{title}</span>
         {badges}
+        {control}
       </div>
     );
   }
   return (
-    <Collapsible role="listitem" className="min-w-0 rounded-md border">
+    <Collapsible
+      role="listitem"
+      className={cn("min-w-0 rounded-md border", dimmed && "opacity-60")}
+    >
       <div className="flex min-h-10 items-center gap-2 pr-2">
         <CollapsibleTrigger
           className="group flex min-w-0 flex-1 items-center gap-2 rounded-md py-2 pl-3 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
@@ -65,6 +81,7 @@ export function PromptItem({ title, path = false, text, badges }: PromptItemProp
           {badges}
         </CollapsibleTrigger>
         <CopyMarkdownButton title={title} text={text} />
+        {control}
       </div>
       <CollapsibleContent>
         <div className="max-h-[32rem] overflow-y-auto border-t px-4 py-3">

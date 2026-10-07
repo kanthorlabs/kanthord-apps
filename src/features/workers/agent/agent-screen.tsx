@@ -2,22 +2,23 @@ import { PencilIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import type { AgentEnablement, AgentTool, PromptLayer, PromptLayerKind } from "@/api/types";
+import type { AgentEnablement, AgentTool, PromptLayer } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePromptSettings } from "@/hooks/use-prompt-settings";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
-import { promptSourceTitle } from "@/lib/prompt-source-title";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
 import { PromptItem } from "./components/prompt-item";
+import { PromptLayerSection } from "./components/prompt-layer-section";
 import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
 import { useAgentProviderAdd } from "./use-agent-provider-add";
@@ -202,39 +203,31 @@ function PromptSection({ title, text }: { title: string; text: string }) {
   );
 }
 
-const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
-  system: "System layer",
-  agent: "Agent layer",
-  working: "Working layer",
-};
-
-function LayerSection({ layer }: { readonly layer: PromptLayer }) {
+function PromptLayers({
+  agentName,
+  layers,
+  reload,
+}: {
+  readonly agentName: string;
+  readonly layers: readonly PromptLayer[];
+  readonly reload: () => void;
+}) {
+  const server = usePromptSettings({ scope: "system" }, reload);
+  const agent = usePromptSettings({ scope: "agent", agentName }, reload);
+  const working = usePromptSettings({ scope: "workbench", agentName }, reload);
+  const scopes = { system: agent, agent, working } as const;
   return (
-    <Card>
-      <CardHeader>
-        <h2 className="font-semibold leading-none">{LAYER_TITLES[layer.layer]}</h2>
-      </CardHeader>
-      <CardContent>
-        <div role="list" aria-label={LAYER_TITLES[layer.layer]} className="grid gap-2">
-          {layer.sources.map((source) => (
-            <PromptItem
-              key={source.source}
-              title={promptSourceTitle(layer.layer, source)}
-              path={source.path !== null}
-              text={source.state === "present" ? source.text : null}
-              badges={
-                <>
-                  <Badge variant="outline">{source.origin}</Badge>
-                  <Badge variant={source.state === "present" ? "default" : "secondary"}>
-                    {source.state}
-                  </Badge>
-                </>
-              }
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <>
+      {layers.map((layer) => (
+        <PromptLayerSection
+          key={layer.layer}
+          agentName={agentName}
+          layer={layer}
+          server={server}
+          scope={scopes[layer.layer]}
+        />
+      ))}
+    </>
   );
 }
 
@@ -294,9 +287,11 @@ export function AgentScreen() {
         />
         <ToolsSection tools={agent.tools} />
       </div>
-      {(agent.prompt.layers ?? []).map((layer) => (
-        <LayerSection key={layer.layer} layer={layer} />
-      ))}
+      <PromptLayers
+        agentName={agent.agentName}
+        layers={agent.prompt.layers ?? []}
+        reload={reload}
+      />
       <PromptSection title="Final prompt" text={agent.prompt.final} />
     </div>
   );

@@ -183,7 +183,27 @@ export interface PromptSource {
 
 export interface PromptLayer {
   readonly layer: PromptLayerKind;
+  readonly enabled: boolean;
   readonly sources: readonly PromptSource[];
+}
+
+export type PromptScope = "system" | "agent" | "workbench";
+
+export const SYSTEM_LAYER_OVERRIDES = ["inherit", "on", "off"] as const;
+export type SystemLayerOverride = (typeof SYSTEM_LAYER_OVERRIDES)[number];
+
+export interface PromptSettings {
+  readonly scope: PromptScope;
+  readonly agentName: string;
+  readonly switches: Readonly<Record<string, boolean>>;
+  readonly customText: string;
+  readonly system_layer: SystemLayerOverride | null;
+  readonly revision: number;
+}
+
+export interface PromptTarget {
+  readonly scope: PromptScope;
+  readonly agentName?: string;
 }
 
 export interface AgentPrompt {

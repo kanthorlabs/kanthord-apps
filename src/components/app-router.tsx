@@ -15,6 +15,7 @@ import { ExecutionsScreen } from "@/features/scheduler/executions/executions-scr
 import { SchedulerScreen } from "@/features/scheduler/queue/scheduler-screen";
 import { ChatScreen } from "@/features/workbench/chat/chat-screen";
 import { SessionsScreen } from "@/features/workbench/sessions/sessions-screen";
+import { PromptsScreen } from "@/features/settings/prompts/prompts-screen";
 import { AgentScreen } from "@/features/workers/agent/agent-screen";
 import { AgentsScreen } from "@/features/workers/agents/agents-screen";
 import { WorkersScreen } from "@/features/workers/catalogue/workers-screen";
@@ -41,6 +42,7 @@ export function AppRouter() {
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
+            <Route path="settings/prompts" element={<PromptsScreen />} />
             <Route path="workbench" element={<SessionsScreen />} />
             <Route path="workbench/:sessionId" element={<ChatScreen />} />
             <Route path="llm" element={<CredentialsScreen key="llm" component="llm" />} />
