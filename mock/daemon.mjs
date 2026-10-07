@@ -49,9 +49,6 @@ const json = (res, status, body) => {
   res.end(body === null ? "" : JSON.stringify(body));
 };
 
-const refuse = (res, status, code, message, detail = "") =>
-  json(res, status, { code, message, detail });
-
 const PUBLIC = [{ method: "GET", path: "/api/liveness" }];
 
 on("GET", /^\/api\/liveness$/, (_m, _b, res) => {
@@ -74,9 +71,9 @@ on("GET", /^\/api\/auth\/verify$/, (_m, _b, res) =>
 
 const PROJECT_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 
-const projectEnvelope = (res, status, code, message) =>
+const projectEnvelope = (res, status, code, message, details = null) =>
   json(res, status, {
-    error: { code, message, details: null },
+    error: { code, message, details },
     request_id: "request_01J00000000000000000000000",
   });
 
@@ -239,40 +236,457 @@ on("GET", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)\/model$/, (m, _
       "The agent provider does not exist.",
     );
   }
-  return json(res, 200, { items: fx.AGENT_PROVIDER_MODELS[provider.credential] ?? [] });
+  return json(res, 200, { items: modelsOfCredential(provider.provider, provider.credential) });
 });
-on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res) => {
+
+const refuseValidation = (res) =>
+  projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.");
+
+const modelsOfCredential = (provider, credentialName) => {
+  const listed = fx.AGENT_PROVIDER_MODELS[credentialName];
+  if (listed !== undefined) return listed;
+  if (provider !== "openai-compatible") return fx.AGENT_KIND_MODELS[provider] ?? [];
+  const live = credentials
+    .find((item) => item.name === credentialName)
+    ?.revisions.find((revision) => revision.ended_at === null);
+  return (live?.metadata?.models ?? []).map((model) => ({
+    model_identifier: model.id,
+    reasoning_efforts: model.reasoning_levels ?? ["off"],
+  }));
+};
+
+const credentialSuitsProvider = (provider, credentialName) =>
+  credentials.some(
+    (item) => item.name === credentialName && item.platform === provider && !isArchived(item),
+  );
+
+const isLlmPlatform = (platform) =>
+  CREDENTIAL_PLATFORM_LISTS.llm.items.some((entry) => entry.platform === platform);
+
+on("GET", /^\/api\/agent\/model$/, (_m, _b, res, _t, url) => {
+  const provider = url.searchParams.get("provider");
+  const credential = url.searchParams.get("credential");
+  if (!isLlmPlatform(provider) || !isNonblank(credential)) return refuseValidation(res);
+  if (!credentialSuitsProvider(provider, credential)) {
+    return projectEnvelope(
+      res,
+      400,
+      "agent.configuration.credential_unsuitable",
+      "The credential does not suit the agent provider kind.",
+      { provider, credential },
+    );
+  }
+  return json(res, 200, { items: modelsOfCredential(provider, credential) });
+});
+
+const enablementOf = (res, name, expectedRevision) => {
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(name));
+  if (agent === undefined) {
+    projectEnvelope(res, 404, "agent.catalog.not_found", "The agent is absent from the catalog.");
+    return null;
+  }
+  if (agent.enablement === null) {
+    projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
+    return null;
+  }
+  if (agent.enablement.revision !== expectedRevision) {
+    projectEnvelope(
+      res,
+      409,
+      "agent.enablement.revision_conflict",
+      "The enablement changed after the read.",
+      { agent_name: agent.agent_name, revision: agent.enablement.revision },
+    );
+    return null;
+  }
+  return agent;
+};
+
+const refuseEnablementChange = (res, agent, code, details = {}) =>
+  projectEnvelope(res, 409, code, "Agent enablement change refused.", {
+    agent_name: agent.agent_name,
+    ...details,
+  });
+
+const isRevision = (value) => Number.isInteger(value) && value > 0;
+
+on("POST", /^\/api\/agent\/enablement\/([^/]+)\/provider$/, (m, b, res) => {
+  const valid =
+    isRevision(b?.expected_revision) &&
+    isNonblank(b.name) &&
+    isLlmPlatform(b.provider) &&
+    isNonblank(b.credential);
+  if (!valid) return refuseValidation(res);
+  const agent = enablementOf(res, m[1], b.expected_revision);
+  if (agent === null) return undefined;
+  const providers = agent.enablement.agent_providers;
+  if (providers.some((item) => item.name === b.name)) {
+    return refuseEnablementChange(res, agent, "agent.enablement.provider.name_conflict");
+  }
+  const holder = providers.find((item) => item.credential === b.credential);
+  if (holder !== undefined) {
+    return refuseEnablementChange(res, agent, "agent.enablement.provider.credential_conflict", {
+      credential: b.credential,
+      agent_provider: holder.name,
+    });
+  }
+  if (!credentialSuitsProvider(b.provider, b.credential)) {
+    return projectEnvelope(
+      res,
+      400,
+      "agent.configuration.credential_unsuitable",
+      "The credential does not suit the agent provider kind.",
+      { provider: b.provider, credential: b.credential },
+    );
+  }
+  agent.enablement = {
+    ...agent.enablement,
+    agent_providers: [
+      ...providers,
+      { name: b.name, provider: b.provider, credential: b.credential },
+    ],
+    revision: agent.enablement.revision + 1,
+  };
+  return json(res, 200, agent.enablement);
+});
+
+const providerDependents = (agent, providerName) => [
+  ...(agent.enablement.default_configuration.agent_provider === providerName
+    ? [{ kind: "default_configuration" }]
+    : []),
+  ...Object.entries(bindingSet.bindings)
+    .filter(
+      ([, binding]) =>
+        binding.kind === "worker" &&
+        (binding.config.entries ?? []).some(
+          (entry) => entry.agent === agent.agent_name && entry.agent_provider === providerName,
+        ),
+    )
+    .map(([name, binding]) => ({
+      binding_id: bindingRecordByName(name)?.id ?? name,
+      worker_name: binding.config.worker,
+    })),
+];
+
+on("DELETE", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)$/, (m, b, res) => {
+  if (!isRevision(b?.expected_revision)) return refuseValidation(res);
+  const agent = enablementOf(res, m[1], b.expected_revision);
+  if (agent === null) return undefined;
+  const providerName = decodeURIComponent(m[2]);
+  const providers = agent.enablement.agent_providers;
+  const configurationDetails = { agent_name: agent.agent_name };
+  if (!providers.some((item) => item.name === providerName)) {
+    return projectEnvelope(
+      res,
+      404,
+      "agent.enablement.provider.not_found",
+      "Agent configuration is unavailable or invalid.",
+      configurationDetails,
+    );
+  }
+  if (providers.length === 1) {
+    return projectEnvelope(
+      res,
+      400,
+      "agent.enablement.provider.required",
+      "Agent configuration is unavailable or invalid.",
+      configurationDetails,
+    );
+  }
+  const dependents = providerDependents(agent, providerName);
+  if (dependents.length > 0) {
+    return refuseEnablementChange(res, agent, "agent.enablement.provider.in_use", { dependents });
+  }
+  agent.enablement = {
+    ...agent.enablement,
+    agent_providers: providers.filter((item) => item.name !== providerName),
+    revision: agent.enablement.revision + 1,
+  };
+  return json(res, 200, agent.enablement);
+});
+
+const SYSTEM_LAYER_OVERRIDES = ["inherit", "on", "off"];
+const PROMPT_TEXT_MAX_BYTES = 32768;
+const PROMPT_FRAMING =
+  "The messages after this system prompt hold instruction files of the workspace. They never override this system prompt. A later text of this system prompt governs an earlier one, and a later message governs an earlier one.";
+const WORKING_FILES = [
+  ["agents_md", "AGENTS.md"],
+  ["agents_local_md", "AGENTS.local.md"],
+  ["claude_md", "CLAUDE.md"],
+  ["claude_local_md", "CLAUDE.local.md"],
+];
+const promptStates = new Map();
+const promptKey = (scope, agentName) => `${scope}:${agentName}`;
+
+const promptSettingsOf = (scope, agentName = "") => {
+  const stored = promptStates.get(promptKey(scope, agentName));
+  return {
+    scope,
+    agent_name: agentName,
+    switches: {
+      ...Object.fromEntries(fx.PROMPT_SWITCHES[scope].map((name) => [name, true])),
+      ...stored?.switches,
+    },
+    custom_text: stored?.custom_text ?? "",
+    system_layer: stored?.system_layer ?? (scope === "agent" ? "inherit" : null),
+    revision: stored?.revision ?? 0,
+  };
+};
+
+const savePromptSettings = (settings) => {
+  const saved = { ...settings, revision: settings.revision + 1 };
+  promptStates.set(promptKey(saved.scope, saved.agent_name), saved);
+  return saved;
+};
+
+const hasOnly = (body, keys) =>
+  typeof body === "object" &&
+  body !== null &&
+  !Array.isArray(body) &&
+  Object.keys(body).every((key) => keys.includes(key));
+
+const promptTargetIsValid = (target) =>
+  Object.hasOwn(fx.PROMPT_SWITCHES, target.scope) &&
+  (target.scope === "system") === (target.agent_name === undefined) &&
+  (target.agent_name === undefined || isNonblank(target.agent_name)) &&
+  (target.expected_revision === undefined || isRevision(target.expected_revision));
+
+const promptSwitchIsValid = (body) => {
+  const partial = body.switch !== undefined || body.enabled !== undefined;
+  const source = body.switch !== undefined && body.enabled !== undefined;
+  const override = body.system_layer !== undefined;
+  return (
+    ((source && !override) || (override && !partial)) &&
+    (!override || (body.scope === "agent" && SYSTEM_LAYER_OVERRIDES.includes(body.system_layer))) &&
+    (body.switch === undefined || fx.PROMPT_SWITCHES[body.scope].includes(body.switch)) &&
+    (body.enabled === undefined || typeof body.enabled === "boolean")
+  );
+};
+
+const promptTargetOf = (res, target) => {
+  const agentName = target.agent_name ?? "";
+  if (target.scope !== "system" && !agents.some((a) => a.agent_name === agentName)) {
+    projectEnvelope(res, 404, "agent.catalog.not_found", "Agent not found.", {
+      agent_name: agentName,
+    });
+    return null;
+  }
+  const current = promptSettingsOf(target.scope, agentName);
+  if ((target.expected_revision ?? 0) !== current.revision) {
+    projectEnvelope(
+      res,
+      409,
+      "agent.prompt.revision_conflict",
+      "Prompt settings revision conflict.",
+      { scope: target.scope, agent_name: agentName, current },
+    );
+    return null;
+  }
+  return current;
+};
+
+on("GET", /^\/api\/agent\/prompt$/, (_m, _b, res, _t, url) => {
+  const target = {
+    scope: url.searchParams.get("scope"),
+    agent_name: url.searchParams.get("agent_name") ?? undefined,
+  };
+  if (!promptTargetIsValid(target)) return refuseValidation(res);
+  const current = promptTargetOf(res, target);
+  if (current === null) return undefined;
+  return json(res, 200, current);
+});
+
+on("PUT", /^\/api\/agent\/prompt$/, (_m, b, res) => {
+  const valid =
+    hasOnly(b, ["scope", "agent_name", "expected_revision", "custom_text"]) &&
+    typeof b.custom_text === "string" &&
+    promptTargetIsValid(b);
+  if (!valid) return refuseValidation(res);
+  const current = promptTargetOf(res, b);
+  if (current === null) return undefined;
+  if (Buffer.byteLength(b.custom_text) > PROMPT_TEXT_MAX_BYTES) {
+    return projectEnvelope(res, 400, "agent.prompt.too_large", "Custom prompt text is too large.", {
+      scope: b.scope,
+      maxBytes: PROMPT_TEXT_MAX_BYTES,
+    });
+  }
+  return json(res, 200, savePromptSettings({ ...current, custom_text: b.custom_text }));
+});
+
+on("POST", /^\/api\/agent\/prompt\/switch$/, (_m, b, res) => {
+  const valid =
+    hasOnly(b, ["scope", "agent_name", "expected_revision", "switch", "enabled", "system_layer"]) &&
+    promptTargetIsValid(b) &&
+    promptSwitchIsValid(b);
+  if (!valid) return refuseValidation(res);
+  const current = promptTargetOf(res, b);
+  if (current === null) return undefined;
+  if (b.system_layer !== undefined) {
+    return json(res, 200, savePromptSettings({ ...current, system_layer: b.system_layer }));
+  }
+  const switches = { ...current.switches, [b.switch]: b.enabled };
+  if (b.scope === "agent" && Object.values(switches).every((enabled) => !enabled)) {
+    return projectEnvelope(
+      res,
+      409,
+      "agent.prompt.agent_layer_empty",
+      "An agent prompt layer needs one source.",
+      { scope: b.scope, agent_name: current.agent_name, switch: b.switch },
+    );
+  }
+  return json(res, 200, savePromptSettings({ ...current, switches }));
+});
+
+const sourceOf = (spec, enabled) => {
+  const base = { source: spec.source, origin: spec.origin, path: spec.path, enabled };
+  if (!enabled) return { ...base, state: "off", digest: null, text: null };
+  if (!isNonblank(spec.text)) return { ...base, state: "absent", digest: null, text: null };
+  return {
+    ...base,
+    state: "present",
+    digest: createHash("sha256").update(spec.text).digest("hex"),
+    text: spec.text,
+  };
+};
+
+const layerAnswer = ({ layer, enabled, sources }) => ({
+  layer,
+  enabled,
+  sources: sources.map(({ source, origin, path, enabled: sourceEnabled, state, digest, text }) => ({
+    source,
+    origin,
+    path,
+    enabled: sourceEnabled,
+    state,
+    digest,
+    text,
+  })),
+});
+
+const layerOf = (layer, layerEnabled, switches, specs) => ({
+  layer,
+  enabled: layerEnabled,
+  sources: specs.map((spec) => ({
+    ...sourceOf(spec, layerEnabled && switches[spec.source] === true),
+    label: spec.label,
+  })),
+});
+
+const promptLayersOf = (agent) => {
+  const system = promptSettingsOf("system");
+  const own = promptSettingsOf("agent", agent.agent_name);
+  const working = promptSettingsOf("workbench", agent.agent_name);
+  const systemEnabled =
+    own.system_layer === "inherit" ? system.switches.layer === true : own.system_layer === "on";
+  const directory = `~/.local/state/kanthord/workbench/${agent.agent_name}`;
+  return [
+    layerOf("system", systemEnabled, system.switches, [
+      {
+        source: "host_file",
+        origin: "file",
+        path: "~/.claude/CLAUDE.md",
+        text: null,
+        label: "file ~/.claude/CLAUDE.md",
+      },
+      {
+        source: "base",
+        origin: "binary",
+        path: null,
+        text: agent.basePrompt,
+        label: "binary base.md",
+      },
+      {
+        source: "custom",
+        origin: "database",
+        path: null,
+        text: system.custom_text,
+        label: "database custom system prompt",
+      },
+    ]),
+    layerOf("agent", true, own.switches, [
+      {
+        source: "agent_file",
+        origin: "file",
+        path: null,
+        text: null,
+        label: "file unset",
+      },
+      {
+        source: "shipped",
+        origin: "binary",
+        path: null,
+        text: agent.agentPrompt,
+        label: `binary ${agent.agent_name}.md`,
+      },
+      {
+        source: "custom",
+        origin: "database",
+        path: null,
+        text: own.custom_text,
+        label: "database custom agent prompt",
+      },
+    ]),
+    layerOf("working", true, working.switches, [
+      ...WORKING_FILES.map(([source, file]) => ({
+        source,
+        origin: "file",
+        path: `${directory}/${file}`,
+        text: null,
+        label: `file ${directory}/${file}`,
+      })),
+      {
+        source: "shipped",
+        origin: "binary",
+        path: null,
+        text: fx.WORKBENCH_PROMPT,
+        label: "binary workbench.md",
+      },
+      {
+        source: "custom",
+        origin: "database",
+        path: null,
+        text: working.custom_text,
+        label: "database custom workbench prompt",
+      },
+    ]),
+  ];
+};
+
+const finalPromptOf = (layers) => {
+  const present = (layer) => layer.sources.filter((source) => source.state === "present");
+  const systemParts = layers
+    .filter((layer) => layer.layer !== "working")
+    .flatMap(present)
+    .map((source) => source.text);
+  const messages = layers
+    .filter((layer) => layer.layer === "working")
+    .flatMap(present)
+    .map((source) => `Instructions of ${source.label}:\n\n${source.text}`);
+  return [...systemParts, PROMPT_FRAMING, ...messages].join("\n\n");
+};
+on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
   const declaration = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
   if (declaration === undefined) {
-    return refuse(res, 404, "not_found", "The agent name is absent from the worker catalog.");
+    return projectEnvelope(res, 404, "agent.catalog.not_found", "Agent not found.", {
+      agent_name: decodeURIComponent(m[1]),
+    });
   }
   const {
     agent_name: agentName,
     configuration_schema: configurationSchema,
     overridable_fields: overridableFields,
     enablement,
+    tools,
   } = declaration;
-  const { basePrompt, agentPrompt, tools } = declaration;
-  const present = (source, text) => ({
-    source,
-    origin: "binary",
-    path: null,
-    enabled: true,
-    state: "present",
-    digest: null,
-    text,
-  });
-  const layers = [
-    { layer: "system", sources: [present("base", basePrompt)] },
-    { layer: "agent", sources: [present("shipped", agentPrompt)] },
-  ];
-  const final = [basePrompt, agentPrompt].join("\n");
+  const resolved = promptLayersOf(declaration);
+  const final = finalPromptOf(resolved);
+  const layers = resolved.map(layerAnswer);
   return json(res, 200, {
     agent_name: agentName,
     configuration_schema: configurationSchema,
     overridable_fields: overridableFields,
     enablement,
-    prompt: { layers, final },
+    prompt: url.searchParams.get("view") === "final" ? { final } : { layers, final },
     tools,
   });
 });
@@ -599,6 +1013,48 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, u
   return json(res, 200, page(byAttempt(actions, nodeId, url)));
 });
 
+const bindingRecordOf = (binding, projectId) => ({
+  ...binding,
+  project_id: projectId,
+  config: bindingSet.bindings[binding.name]?.config ?? {},
+});
+
+const bindingRecordByName = (name) =>
+  Object.values(fx.GRAPH_BINDINGS).findLast((binding) => binding.name === name);
+
+const projectOrRefuse = (res, encodedId) => {
+  const project = projects.find((p) => p.id === decodeURIComponent(encodedId));
+  if (project === undefined) {
+    projectEnvelope(res, 404, "project.project.not_found", "The project identity does not exist.");
+  }
+  return project;
+};
+
+const BINDING_STATES = ["current", "removed", "all"];
+const BINDING_KINDS = ["repository", "worker", "storage"];
+
+on("GET", /^\/api\/project\/([^/]+)\/binding$/, (m, _b, res, _t, url) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const state = url.searchParams.get("state") ?? "current";
+  const kinds = url.searchParams.getAll("kind");
+  if (!BINDING_STATES.includes(state) || !kinds.every((kind) => BINDING_KINDS.includes(kind))) {
+    return refuseValidation(res);
+  }
+  const limit = Number(url.searchParams.get("limit") ?? 100);
+  const offset = Number(url.searchParams.get("cursor") ?? 0);
+  const latest = Object.values(fx.GRAPH_BINDINGS).filter(
+    (binding) => bindingRecordByName(binding.name) === binding,
+  );
+  const ordered = latest
+    .filter((binding) => kinds.length === 0 || kinds.includes(binding.kind))
+    .filter((binding) => state === "all" || (state === "current") === (binding.removed_at === null))
+    .sort((a, b) => (a.id < b.id ? 1 : -1));
+  const items = ordered.slice(offset, offset + limit).map((b) => bindingRecordOf(b, project.id));
+  const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
+  return json(res, 200, { items, next_cursor: nextCursor });
+});
+
 on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
   const binding = Object.values(fx.GRAPH_BINDINGS).find(
     (item) => item.id === decodeURIComponent(m[2]),
@@ -606,7 +1062,80 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
   if (binding === undefined) {
     return projectEnvelope(res, 404, "project.binding.not_found", "No such binding.");
   }
-  return json(res, 200, { ...binding, project_id: decodeURIComponent(m[1]), config: {} });
+  return json(res, 200, bindingRecordOf(binding, decodeURIComponent(m[1])));
+});
+
+const SSH_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git$/;
+
+const healthEntry = (status, capability) => ({ status, capability });
+
+const credentialHealth = (name) => {
+  const credential = credentials.find((item) => item.name === name);
+  if (credential === undefined || isArchived(credential)) {
+    return healthEntry("unhealthy", HEALTH_CAPABILITIES[credential?.platform ?? "github"]);
+  }
+  const rejected = secretIsRejected(storedSecrets.get(credential.name));
+  return healthEntry(rejected ? "unhealthy" : "healthy", HEALTH_CAPABILITIES[credential.platform]);
+};
+
+const bindingHealthOf = (config) => ({
+  address: healthEntry(
+    config.address.includes("bad-") ? "unhealthy" : "healthy",
+    "network git read",
+  ),
+  ssh_credential: credentialHealth(config.ssh_credential),
+  credential: config.credential === undefined ? null : credentialHealth(config.credential),
+});
+
+on("POST", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/verify$/, (m, _b, res) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined || binding.kind !== "repository" || binding.removed_at !== null) {
+    return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
+  }
+  return json(res, 200, bindingHealthOf(bindingSet.bindings[binding.name].config));
+});
+
+on("POST", /^\/api\/project\/([^/]+)\/binding\/check$/, (m, b, res) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const config = b?.config;
+  const valid =
+    hasOnly(b, ["kind", "config"]) &&
+    b.kind === "repository" &&
+    typeof config === "object" &&
+    config !== null &&
+    isNonblank(config.address) &&
+    isNonblank(config.ssh_credential) &&
+    (config.credential === undefined || isNonblank(config.credential));
+  if (!valid) return refuseValidation(res);
+  const sshCredential = credentials.find(
+    (item) => item.name === config.ssh_credential && item.platform === "ssh" && !isArchived(item),
+  );
+  if (sshCredential === undefined) {
+    return credentialEnvelope(res, 404, "credential.credential.not_found", "Credential not found.");
+  }
+  const address = SSH_ADDRESS.exec(config.address);
+  if (address === null) {
+    return projectEnvelope(
+      res,
+      400,
+      "project.bindings.repository.address_invalid",
+      "Repository address must have the form git@<host>:<owner>/<repository>.git.",
+    );
+  }
+  if (address[1] !== newestLive(sshCredential).metadata.host) {
+    return projectEnvelope(
+      res,
+      400,
+      "project.bindings.repository.ssh_host_mismatch",
+      "The repository address host differs from the host of the SSH credential.",
+    );
+  }
+  return json(res, 200, bindingHealthOf(config));
 });
 
 on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (_m, _b, res) =>
@@ -654,7 +1183,12 @@ const CREDENTIAL_PLATFORM_LISTS = {
       platformEntry("mistral", "api_key", [], [], false),
     ],
   },
-  repository: { items: [platformEntry("github", "api_key", [], [], true)] },
+  repository: {
+    items: [
+      platformEntry("github", "api_key", [], [], true),
+      platformEntry("ssh", "none", [], ["host", "hostname", "identity_file"], true),
+    ],
+  },
   storage: {
     items: [platformEntry("s3", "s3_access_key", [], ["endpoint", "bucket", "region"], true)],
   },
@@ -677,12 +1211,14 @@ const HEALTH_CAPABILITIES = {
   openrouter: "model-list read",
   "openai-compatible": "model-list read",
   s3: "bucket head",
+  ssh: "ssh identity",
 };
 const secretIsRejected = (secret) =>
   typeof secret === "object" &&
   secret !== null &&
   Object.values(secret).some((value) => typeof value === "string" && value.startsWith("bad-"));
 const CREDENTIAL_NAME = /^[a-z][a-z0-9-]{0,62}$/;
+const SSH_HOST = /^[A-Za-z0-9][A-Za-z0-9.-]*$/;
 const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const LOGIN_EXPIRY_MS = 15 * 60 * 1000;
 const LOGIN_DEVICE_COMPLETION_MS = 10000;
@@ -723,6 +1259,7 @@ const isNonblank = (value) => typeof value === "string" && value.trim().length >
 
 const secretIsValid = (shape, secret) => {
   if (typeof secret !== "object" || secret === null) return false;
+  if (shape === "none") return true;
   if (shape === "api_key") return isNonblank(secret.key);
   if (shape === "s3_access_key") {
     return isNonblank(secret.access_key_id) && isNonblank(secret.secret_access_key);
@@ -742,6 +1279,19 @@ const metadataIsValid = (platform, metadata) => {
       Array.isArray(metadata.models) &&
       metadata.models.every((model) => isNonblank(model?.id)) &&
       new Set(metadata.models.map((model) => model.id.trim())).size === metadata.models.length
+    );
+  }
+  if (platform === "ssh") {
+    return (
+      typeof metadata === "object" &&
+      metadata !== null &&
+      Object.keys(metadata).length === 4 &&
+      SSH_HOST.test(metadata.host) &&
+      isNonblank(metadata.hostname) &&
+      Number.isInteger(metadata.port) &&
+      metadata.port >= 1 &&
+      metadata.port <= 65535 &&
+      isNonblank(metadata.identity_file)
     );
   }
   const fields = CREDENTIAL_PLATFORMS[platform]?.metadata_fields ?? [];
@@ -811,7 +1361,11 @@ const addRevision = (credential, metadata, res) => {
 const bindingsNaming = (component, credential) =>
   Object.entries(bindingSet.bindings)
     .filter(([, binding]) => binding.kind === component)
-    .filter(([, binding]) => binding.config.credential === credential.name)
+    .filter(
+      ([, binding]) =>
+        binding.config.credential === credential.name ||
+        binding.config.ssh_credential === credential.name,
+    )
     .map(([name]) => ({
       project_id: projects[0].id,
       project_name: projects[0].name,
@@ -824,6 +1378,18 @@ const dependentsOf = (component, credential) =>
   component === "llm"
     ? { agent_providers: [] }
     : { bindings: bindingsNaming(component, credential) };
+
+on("GET", /^\/api\/repository\/credential\/ssh\/discover$/, (_m, _b, res) => {
+  const pinnedHosts = new Set(
+    credentials
+      .filter((credential) => credential.platform === "ssh" && !isArchived(credential))
+      .map((credential) => newestLive(credential)?.metadata.host),
+  );
+  const items = fx.SSH_ALIASES.map((alias) =>
+    pinnedHosts.has(alias.host) ? { ...alias, state: "present", reason: null } : alias,
+  );
+  return json(res, 200, { items });
+});
 
 on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
   json(res, 200, CREDENTIAL_PLATFORM_LISTS[m[1]]),
@@ -1166,16 +1732,21 @@ createServer((req, res) => {
   req.on("end", () => {
     const body = raw.length === 0 ? null : JSON.parse(raw);
     const route = routes.find((r) => r.method === req.method && r.pattern.test(url.pathname));
-    if (!route) return refuse(res, 404, "not_found", "No such operation.", url.pathname);
+    if (!route) return projectEnvelope(res, 404, "gateway.routing.not_found", "Route not found.");
 
     const open = PUBLIC.some((p) => p.method === req.method && p.path === url.pathname);
     if (!open && token !== DEV_TOKEN) {
-      return refuse(res, 401, "unauthorized", "The request carries no valid human token.");
+      return projectEnvelope(
+        res,
+        401,
+        "gateway.authentication.unauthorized",
+        "The request carries no valid human token.",
+      );
     }
     try {
       route.handler(route.pattern.exec(url.pathname), body, res, token, url);
-    } catch (error) {
-      refuse(res, 500, "malformed", "The daemon failed to answer.", String(error));
+    } catch {
+      projectEnvelope(res, 500, "gateway.http.failed", "HTTP request failed.");
     }
   });
 }).listen(PORT, () => {

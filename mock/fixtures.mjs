@@ -16,6 +16,15 @@ const BASE_PROMPT = `You are a senior software engineer.
 
 const TOOL_INPUT = { type: "object" };
 
+export const WORKBENCH_PROMPT = `You work in a workbench session with a human.
+Answer in the language of the human and keep each answer short.`;
+
+export const PROMPT_SWITCHES = {
+  system: ["host_file", "base", "custom", "layer"],
+  agent: ["agent_file", "shipped", "custom"],
+  workbench: ["agents_md", "agents_local_md", "claude_md", "claude_local_md", "shipped", "custom"],
+};
+
 const AGENT_CONFIGURATION_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -92,7 +101,7 @@ Change no file of the repository.`,
       agent_name: "swe@1",
       state: "enabled",
       agent_providers: [
-        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" },
+        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-router" },
         { name: "openai-org", provider: "openai-compatible", credential: "openai-main" },
       ],
       default_configuration: {
@@ -119,7 +128,7 @@ Your responsibility is the change that the task describes, in the workspace, to 
 ];
 
 export const AGENT_PROVIDER_MODELS = {
-  "atlas-main": [
+  "atlas-router": [
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off", "low", "high"] },
     { model_identifier: "glm-4.6", reasoning_efforts: ["off"] },
   ],
@@ -127,6 +136,21 @@ export const AGENT_PROVIDER_MODELS = {
     { model_identifier: "gpt-5", reasoning_efforts: ["off", "minimal", "low", "medium", "high"] },
     { model_identifier: "gpt-5-mini", reasoning_efforts: ["off", "low"] },
   ],
+};
+
+export const AGENT_KIND_MODELS = {
+  anthropic: [
+    {
+      model_identifier: "claude-sonnet-4-5",
+      reasoning_efforts: ["off", "minimal", "low", "medium", "high"],
+    },
+    { model_identifier: "claude-haiku-4-5", reasoning_efforts: ["off", "low"] },
+  ],
+  "github-copilot": [{ model_identifier: "gpt-5", reasoning_efforts: ["off", "low", "high"] }],
+  "openai-codex": [
+    { model_identifier: "gpt-5-codex", reasoning_efforts: ["low", "medium", "high"] },
+  ],
+  openrouter: [{ model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off"] }],
 };
 
 export const MISSION = {
@@ -182,6 +206,7 @@ export const BINDING_SET = {
           base_branch: "main",
           action: { name: "pull_request", follows: { type: "assessment_passed" } },
         },
+        ssh_credential: "atlas-ssh",
         credential: "atlas-github",
       },
     },
@@ -761,6 +786,30 @@ export const CREDENTIALS = [
     revisions: [credentialRevision("0001", 1, null, Date.UTC(2026, 8, 1, 9, 0))],
   },
   {
+    name: "atlas-ssh",
+    platform: "ssh",
+    revisions: [
+      credentialRevision(
+        "0002",
+        1,
+        { host: "github.com", hostname: "github.com", port: 22, identity_file: "~/.ssh/id_atlas" },
+        Date.UTC(2026, 8, 1, 9, 5),
+      ),
+    ],
+  },
+  {
+    name: "openai-main",
+    platform: "openai-compatible",
+    revisions: [
+      credentialRevision(
+        "0071",
+        1,
+        { base_url: "https://api.openai.com/v1", models: [{ id: "gpt-5", max_tokens: 16384 }] },
+        Date.UTC(2026, 8, 2, 9, 0),
+      ),
+    ],
+  },
+  {
     name: "atlas-router",
     platform: "openai-compatible",
     revisions: [
@@ -818,6 +867,33 @@ export const CREDENTIALS = [
     revisions: [
       credentialRevision("0061", 1, null, Date.UTC(2026, 7, 5, 9, 0), Date.UTC(2026, 8, 1, 9, 0)),
     ],
+  },
+];
+
+export const SSH_ALIASES = [
+  {
+    host: "github.com",
+    hostname: "github.com",
+    port: 22,
+    identity_file: "~/.ssh/id_atlas",
+    state: "present",
+    reason: null,
+  },
+  {
+    host: "github-personal",
+    hostname: "github.com",
+    port: 22,
+    identity_file: "~/.ssh/id_personal",
+    state: "ready",
+    reason: null,
+  },
+  {
+    host: "github-work",
+    hostname: "github.com",
+    port: 22,
+    identity_file: null,
+    state: "refused",
+    reason: "repository.credential.ssh_identity_ambiguous",
   },
 ];
 
