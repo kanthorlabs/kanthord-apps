@@ -46,3 +46,15 @@ export async function setSystemLayerOverride(
     headers: { "idempotency-key": newUlid() },
   });
 }
+
+export async function putPromptText(
+  target: PromptTarget,
+  expectedRevision: number,
+  customText: string,
+): Promise<PromptSettings> {
+  return request<PromptSettings>(PROMPT_PATH, {
+    method: "PUT",
+    body: { ...target, ...revisionOf(expectedRevision), customText },
+    headers: { "idempotency-key": newUlid() },
+  });
+}

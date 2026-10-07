@@ -52,7 +52,7 @@ export function PromptItem({
       <div
         role="listitem"
         className={cn(
-          "flex min-h-10 items-center gap-2 rounded-md border border-dashed py-2 pr-2 pl-3 text-muted-foreground",
+          "flex min-h-10 min-w-0 items-center gap-2 rounded-md border border-dashed py-2 pr-2 pl-3 text-muted-foreground",
           dimmed && "opacity-60",
         )}
       >

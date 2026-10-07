@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useState } from "react";
 
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,6 +19,7 @@ export function SourceSwitch({
   onChange,
 }: SourceSwitchProps) {
   const reasonId = useId();
+  const [open, setOpen] = useState(false);
   const control = (
     <Switch
       aria-label={`${title} switch`}
@@ -34,8 +35,10 @@ export function SourceSwitch({
       <span id={reasonId} className="sr-only">
         {lockedReason}
       </span>
-      <Tooltip>
-        <TooltipTrigger render={<span className="inline-flex" />}>{control}</TooltipTrigger>
+      <Tooltip open={open} onOpenChange={setOpen}>
+        <TooltipTrigger render={<span className="inline-flex" />} onPointerUp={() => setOpen(true)}>
+          {control}
+        </TooltipTrigger>
         <TooltipContent>{lockedReason}</TooltipContent>
       </Tooltip>
     </>

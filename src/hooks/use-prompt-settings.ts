@@ -2,12 +2,14 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import {
+  putPromptText,
   readPromptSettings,
   setSystemLayerOverride,
   switchPromptSource,
 } from "@/api/resources/prompts";
 import type { PromptSettings, PromptTarget, SystemLayerOverride } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
+import type { PromptSaveResult } from "@/lib/prompt-text";
 
 export interface PromptSettingsState {
   readonly settings: PromptSettings | null;
@@ -15,6 +17,8 @@ export interface PromptSettingsState {
   readonly pending: boolean;
   readonly switchSource: (name: string, enabled: boolean, title: string) => void;
   readonly setOverride: (value: SystemLayerOverride) => void;
+  readonly saveText: (text: string) => Promise<PromptSaveResult>;
+  readonly reload: () => void;
 }
 
 export function usePromptSettings(
@@ -83,11 +87,36 @@ export function usePromptSettings(
     [write, agentName],
   );
 
+  const saveText = useCallback(
+    (text: string): Promise<PromptSaveResult> => {
+      if (settings === null) return Promise.resolve({ ok: false, message: "", conflict: false });
+      return putPromptText(
+        { scope, ...(agentName === undefined ? {} : { agentName }) },
+        settings.revision,
+        text,
+      ).then(
+        (): PromptSaveResult => {
+          toast.success("Saved the custom prompt.");
+          reload();
+          onChanged();
+          return { ok: true };
+        },
+        (cause: unknown): PromptSaveResult => {
+          const error = asApiError(cause);
+          return { ok: false, message: error.message, conflict: error.code === "conflict" };
+        },
+      );
+    },
+    [settings, scope, agentName, reload, onChanged],
+  );
+
   return {
     settings,
     failure: resource.error?.message ?? null,
     pending,
     switchSource,
     setOverride,
+    saveText,
+    reload,
   };
 }

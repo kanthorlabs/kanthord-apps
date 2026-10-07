@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { setConnection } from "../client";
 
-import { readPromptSettings, setSystemLayerOverride, switchPromptSource } from "./prompts";
+import {
+  putPromptText,
+  readPromptSettings,
+  setSystemLayerOverride,
+  switchPromptSource,
+} from "./prompts";
 
 interface Seen {
   readonly method: string;
@@ -107,5 +112,19 @@ describe("prompt settings resources", () => {
       expectedRevision: 2,
       system_layer: "off",
     });
+  });
+
+  it("replaces the custom text of a scope at its revision", async () => {
+    await serve({ "PUT /api/agent/prompt": SETTINGS });
+
+    await putPromptText({ scope: "agent", agentName: "swe@1" }, 2, "# Rules");
+
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      scope: "agent",
+      agentName: "swe@1",
+      expectedRevision: 2,
+      customText: "# Rules",
+    });
+    expect(seen[0]?.idempotencyKey).toBeDefined();
   });
 });

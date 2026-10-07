@@ -1,0 +1,34 @@
+import { PencilIcon } from "lucide-react";
+
+import { PromptEditorSheet } from "@/components/prompt-editor-sheet";
+import { Button } from "@/components/ui/button";
+import { usePromptEditor } from "@/hooks/use-prompt-editor";
+import type { PromptSettingsState } from "@/hooks/use-prompt-settings";
+
+interface CustomPromptEditorProps {
+  readonly title: string;
+  readonly description: string;
+  readonly settings: PromptSettingsState;
+}
+
+export function CustomPromptEditor({ title, description, settings }: CustomPromptEditorProps) {
+  const editor = usePromptEditor(
+    settings.settings?.customText ?? "",
+    settings.saveText,
+    settings.reload,
+  );
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Edit ${title}`}
+        disabled={settings.settings === null}
+        onClick={editor.start}
+      >
+        <PencilIcon aria-hidden="true" />
+      </Button>
+      <PromptEditorSheet title={`Edit ${title}`} description={description} editor={editor} />
+    </>
+  );
+}

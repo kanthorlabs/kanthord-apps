@@ -1,4 +1,4 @@
-import type { PromptLayerKind, PromptScope, SystemLayerOverride } from "@/api/types";
+import type { PromptLayerKind, PromptScope, PromptSource, SystemLayerOverride } from "@/api/types";
 
 export const SYSTEM_LAYER_SWITCH = "layer";
 
@@ -38,4 +38,17 @@ export function systemLayerSummary(
   const server = serverOn ? "on" : "off";
   if (override === "inherit") return `Follows the server switch, which is ${server}.`;
   return `Turned ${override} for ${agentName} only. The server switch is ${server}.`;
+}
+
+const LAST_SOURCE_REASON = "The agent layer needs one source that is on.";
+
+export function sourceLockReason(
+  layer: PromptLayerKind,
+  source: PromptSource,
+  title: string,
+  switches: Readonly<Record<string, boolean>>,
+): string | null {
+  if (source.origin === "file" && source.state === "absent") return `${title} does not exist.`;
+  if (layer === "agent" && isLastSourceOn(switches, source.source)) return LAST_SOURCE_REASON;
+  return null;
 }

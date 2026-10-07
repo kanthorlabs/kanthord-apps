@@ -7,10 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { PromptSettingsState } from "@/hooks/use-prompt-settings";
 import { promptSourceTitle } from "@/lib/prompt-source-title";
+import { CustomPromptEditor } from "@/components/custom-prompt-editor";
 import {
-  isLastSourceOn,
   OVERRIDE_LABELS,
   overrideOf,
+  sourceLockReason,
   SYSTEM_LAYER_SWITCH,
   systemLayerSummary,
 } from "@/lib/prompt-switches";
@@ -22,19 +23,6 @@ const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
   agent: "Agent layer",
   working: "Working layer",
 };
-
-const LAST_SOURCE_REASON = "The agent layer needs one source that is on.";
-
-function lockedReason(
-  layer: PromptLayer,
-  source: PromptLayer["sources"][number],
-  title: string,
-  switches: Readonly<Record<string, boolean>>,
-): string | null {
-  if (source.origin === "file" && source.state === "absent") return `${title} does not exist.`;
-  if (layer.layer === "agent" && isLastSourceOn(switches, source.source)) return LAST_SOURCE_REASON;
-  return null;
-}
 
 interface PromptLayerSectionProps {
   readonly agentName: string;
@@ -99,14 +87,14 @@ export function PromptLayerSection({ agentName, layer, server, scope }: PromptLa
         </div>
         {system && <SystemLayerControl agentName={agentName} server={server} scope={scope} />}
       </CardHeader>
-      <CardContent className="grid gap-2">
+      <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-2">
         {!layer.enabled && (
           <p className="text-sm text-muted-foreground">
             The system layer is off for {agentName}. Each source keeps its switch for when the layer
             turns on.
           </p>
         )}
-        <div role="list" aria-label={title} className="grid gap-2">
+        <div role="list" aria-label={title} className="grid grid-cols-[minmax(0,1fr)] gap-2">
           {layer.sources.map((source) => {
             const sourceTitle = promptSourceTitle(layer.layer, source);
             const checked = switches[source.source] ?? source.enabled;
@@ -127,15 +115,24 @@ export function PromptLayerSection({ agentName, layer, server, scope }: PromptLa
                 }
                 control={
                   system ? undefined : (
-                    <SourceSwitch
-                      title={sourceTitle}
-                      checked={checked}
-                      disabled={scope.pending || scope.settings === null}
-                      lockedReason={lockedReason(layer, source, sourceTitle, switches)}
-                      onChange={(enabled) =>
-                        scope.switchSource(source.source, enabled, sourceTitle)
-                      }
-                    />
+                    <>
+                      {source.source === "custom" && (
+                        <CustomPromptEditor
+                          title={sourceTitle}
+                          description={`Markdown that the ${title.toLowerCase()} of ${agentName} joins after its other sources.`}
+                          settings={scope}
+                        />
+                      )}
+                      <SourceSwitch
+                        title={sourceTitle}
+                        checked={checked}
+                        disabled={scope.pending || scope.settings === null}
+                        lockedReason={sourceLockReason(layer.layer, source, sourceTitle, switches)}
+                        onChange={(enabled) =>
+                          scope.switchSource(source.source, enabled, sourceTitle)
+                        }
+                      />
+                    </>
                   )
                 }
               />
