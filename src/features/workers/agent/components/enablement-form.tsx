@@ -5,8 +5,7 @@ import { SearchChoiceField } from "@/components/search-choice-field";
 import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldDescription, FieldGroup } from "@/components/ui/field";
-import { REASONING_EFFORTS } from "@/lib/binding-draft";
+import { FieldGroup } from "@/components/ui/field";
 import { useEnablementCreate } from "../use-enablement-create";
 
 interface EnablementFormProps {
@@ -53,7 +52,6 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           labelOf={form.credentialLabelOf}
           onChange={form.selectCredential}
         />
-        {form.provider !== null && <FieldDescription>Provider: {form.provider}</FieldDescription>}
         {form.credentialsError !== null && (
           <p className="text-sm text-destructive md:col-span-2">{form.credentialsError}</p>
         )}
@@ -66,19 +64,24 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
             first.
           </p>
         )}
-        <TextField
+        {form.modelsFailure !== null && (
+          <p className="text-sm text-destructive md:col-span-2">{form.modelsFailure}</p>
+        )}
+        <SearchChoiceField
           id="enablement-model"
           label="Model identifier"
           value={draft.modelIdentifier}
+          options={form.models}
           error={errors["modelIdentifier"]}
-          description="A model of the provider catalog or of the credential metadata."
-          onChange={form.setModelIdentifier}
+          placeholder="Search models"
+          emptyText="No model matches."
+          onChange={form.selectModel}
         />
         <ChoiceField
           id="enablement-effort"
           label="Reasoning effort"
           value={draft.reasoningEffort}
-          options={REASONING_EFFORTS}
+          options={form.reasoningEfforts}
           error={errors["reasoningEffort"]}
           onChange={form.selectReasoningEffort}
         />

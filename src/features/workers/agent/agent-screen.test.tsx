@@ -181,14 +181,24 @@ describe("AgentScreen", () => {
     vi.mocked(workersApi.readAgent).mockClear().mockResolvedValue(RE);
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
     vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...ENABLEMENT, revision: 1 });
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { modelIdentifier: "anthropic/claude", reasoningEfforts: ["high"] },
+      { modelIdentifier: "qwen/qwen3-coder", reasoningEfforts: ["off", "high"] },
+    ]);
     mount();
 
     const form = await screen.findByRole("form", { name: "Enable re@1" });
     await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
     expect(within(form).queryByRole("combobox", { name: "Provider" })).toBeNull();
     await choose("Credential", "router-main (openrouter)");
-    expect(within(form).getByText("Provider: openrouter")).toBeTruthy();
-    await userEvent.type(within(form).getByLabelText("Model identifier"), "qwen/qwen3-coder");
+    expect(workersApi.listCredentialModels).toHaveBeenCalledWith("openrouter", "router-main");
+    expect(within(form).queryByText(/Provider:/)).toBeNull();
+    await waitFor(() =>
+      expect(within(form).getByRole("combobox", { name: "Model identifier" })).toHaveValue(
+        "anthropic/claude",
+      ),
+    );
+    await choose("Model identifier", "qwen/qwen3-coder");
     await choose("Reasoning effort", "off");
     await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
 

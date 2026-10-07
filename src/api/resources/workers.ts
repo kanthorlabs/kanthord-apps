@@ -7,6 +7,7 @@ import type {
   AgentEnablement,
   AgentEnablementPutBody,
   AgentModel,
+  AgentProviderKind,
   AgentSummary,
   WorkerCatalogEntry,
   WorkerCatalogItem,
@@ -70,6 +71,15 @@ export async function listAgentProviderModels(
   const answer = await request<{ items: readonly AgentModel[] }>(
     `${enablementPath(agentName)}/provider/${encodeURIComponent(providerName)}/model`,
   );
+  return answer.items;
+}
+
+export async function listCredentialModels(
+  provider: AgentProviderKind,
+  credential: string,
+): Promise<readonly AgentModel[]> {
+  const query = new URLSearchParams({ provider, credential });
+  const answer = await request<{ items: readonly AgentModel[] }>(`/api/agent/model?${query}`);
   return answer.items;
 }
 

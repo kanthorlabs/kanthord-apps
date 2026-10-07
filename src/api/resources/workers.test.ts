@@ -9,6 +9,7 @@ import {
   enableAgentEnablement,
   listAgentProviderModels,
   listAgents,
+  listCredentialModels,
   putAgentEnablement,
   addAgentProvider,
   removeAgentProvider,
@@ -193,6 +194,18 @@ describe("listAgentProviderModels", () => {
     expect(await listAgentProviderModels("swe@1", "atlas llm")).toEqual(items);
     expect(seen.map((call) => [call.method, call.url])).toEqual([
       ["GET", "/api/agent/enablement/swe%401/provider/atlas%20llm/model"],
+    ]);
+  });
+});
+
+describe("listCredentialModels", () => {
+  it("reads the items of the model list of one credential", async () => {
+    const items = [{ modelIdentifier: "gpt-5.5", reasoningEfforts: ["low", "high"] }];
+    await serve({ "GET /api/agent/model?provider=openai-codex&credential=codex+main": { items } });
+
+    expect(await listCredentialModels("openai-codex", "codex main")).toEqual(items);
+    expect(seen.map((call) => [call.method, call.url])).toEqual([
+      ["GET", "/api/agent/model?provider=openai-codex&credential=codex+main"],
     ]);
   });
 });
