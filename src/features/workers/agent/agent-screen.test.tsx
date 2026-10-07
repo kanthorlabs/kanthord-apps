@@ -57,7 +57,8 @@ const RE: AgentDeclaration = {
         ],
       },
     ],
-    final: "Framing of the final prompt.",
+    final:
+      'Framing of the final prompt.\n<prompt-layer name="agent layer" owner="o" source="s">\nThe final reviewer text.\n</prompt-layer>',
   },
   tools: [
     { name: "read", source: "builtin", inputSchema: {} },
@@ -117,16 +118,30 @@ describe("AgentScreen", () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
-    expect(await screen.findByText("Your role is `re@1`, the reviewer.")).toBeTruthy();
-    expect(screen.getByText("You are a senior software engineer.")).toBeTruthy();
-    const system = within(screen.getByRole("list", { name: "System layer" }));
+    const system = within(await screen.findByRole("list", { name: "System layer" }));
     expect(system.getByText("~/.claude/CLAUDE.md")).toBeTruthy();
     expect(system.getByText("off")).toBeTruthy();
-    expect(screen.getByText("Framing of the final prompt.")).toBeTruthy();
     expect(screen.getByText("not enabled")).toBeTruthy();
     expect(screen.getByText(/No enablement exists/)).toBeTruthy();
     const tools = within(screen.getByRole("list", { name: "Tools" })).getAllByRole("listitem");
     expect(tools.map((t) => t.textContent)).toEqual(["readbuiltin", "grepbuiltin"]);
+  });
+
+  it("collapses every prompt text and renders it as markdown on open", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    await screen.findByRole("list", { name: "Agent layer" });
+    expect(screen.queryByText(/the reviewer/)).toBeNull();
+    expect(screen.queryByText("Framing of the final prompt.")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Text of shipped" }));
+    expect(await screen.findByText("re@1", { selector: "code" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Text of base" }));
+    expect(await screen.findByText("You are a senior software engineer.")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Text of Final prompt" }));
+    expect(await screen.findByText("Framing of the final prompt.")).toBeTruthy();
+    expect(screen.getByText("The final reviewer text.")).toBeTruthy();
   });
 
   it("lists every agent provider of the enablement with its credential", async () => {

@@ -1,16 +1,19 @@
-import { PencilIcon, PlusIcon } from "lucide-react";
+import { ChevronRightIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool, PromptLayer, PromptLayerKind } from "@/api/types";
+import { MarkdownText } from "@/components/markdown-text";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
+import { promptMarkdown } from "@/lib/prompt-markdown";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
@@ -185,6 +188,29 @@ function ToolsSection({ tools }: { tools: readonly AgentTool[] }) {
   );
 }
 
+function PromptText({ label, text }: { readonly label: string; readonly text: string }) {
+  return (
+    <Collapsible className="min-w-0">
+      <CollapsibleTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Text of ${label}`}
+            className="-ml-2 justify-start"
+          />
+        }
+      >
+        <ChevronRightIcon aria-hidden="true" data-icon="inline-start" />
+        Text
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <MarkdownText text={promptMarkdown(text)} />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function PromptSection({ title, text }: { title: string; text: string }) {
   return (
     <Card>
@@ -192,7 +218,7 @@ function PromptSection({ title, text }: { title: string; text: string }) {
         <h2 className="font-semibold leading-none">{title}</h2>
       </CardHeader>
       <CardContent>
-        <pre className="font-mono text-xs break-words whitespace-pre-wrap">{text}</pre>
+        <PromptText label={title} text={text} />
       </CardContent>
     </Card>
   );
@@ -225,11 +251,7 @@ function LayerSection({ layer }: { readonly layer: PromptLayer }) {
                 {source.path !== null && (
                   <span className="text-muted-foreground font-mono text-xs">{source.path}</span>
                 )}
-                {source.text !== null && (
-                  <pre className="font-mono text-xs break-words whitespace-pre-wrap">
-                    {source.text}
-                  </pre>
-                )}
+                {source.text !== null && <PromptText label={source.source} text={source.text} />}
               </ItemContent>
             </Item>
           ))}

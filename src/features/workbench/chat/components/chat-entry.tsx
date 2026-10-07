@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { toolResultText } from "@/lib/health-names";
 import type { ChatItem } from "@/lib/workbench-chat";
-import { MarkdownText } from "./markdown-text";
+import { MarkdownText } from "@/components/markdown-text";
 import { ToolRow } from "./tool-row";
 
 const CALL_STATE_LABEL = { running: "Running", "awaiting-approval": "Awaiting Approval" } as const;
