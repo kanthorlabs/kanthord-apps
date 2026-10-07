@@ -619,9 +619,9 @@ const promptLayersOf = (agent) => {
       {
         source: "agent_file",
         origin: "file",
-        path: null,
+        path: `~/.local/state/kanthord/agents/${agent.agent_name}.md`,
         text: null,
-        label: "file unset",
+        label: `file ~/.local/state/kanthord/agents/${agent.agent_name}.md`,
       },
       {
         source: "shipped",
