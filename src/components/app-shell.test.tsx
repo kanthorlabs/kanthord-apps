@@ -137,6 +137,13 @@ describe("AppShell", () => {
     expect(within(topbar).getByText("local")).toBeTruthy();
   });
 
+  it("names the credential sections under the Credentials group", () => {
+    mount();
+
+    expect(screen.getByText("Credentials")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "LLM" })).toHaveAttribute("href", "/llm");
+  });
+
   it("signs out from the sidebar footer", async () => {
     mount();
 

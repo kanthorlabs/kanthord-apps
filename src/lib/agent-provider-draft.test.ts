@@ -53,7 +53,7 @@ describe("missingAgentProviderFields", () => {
   it("names each empty required field", () => {
     expect(missingAgentProviderFields({ name: " ", credential: "" })).toEqual([
       "Name",
-      "Credential",
+      "LLM credential",
     ]);
   });
 });

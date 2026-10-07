@@ -20,7 +20,7 @@ export interface NavItem {
   readonly group: (typeof NAV_GROUPS)[number];
 }
 
-export const NAV_GROUPS = ["Work", "Workforce", "Connections", "Settings"] as const;
+export const NAV_GROUPS = ["Work", "Workforce", "Credentials", "Settings"] as const;
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard, group: "Work" },
@@ -30,9 +30,9 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/workers", label: "Workers", icon: Boxes, group: "Workforce" },
   { to: "/agents", label: "Agents", icon: Bot, group: "Workforce" },
   { to: "/workbench", label: "Workbench", icon: MessagesSquare, group: "Workforce" },
-  { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Connections" },
-  { to: "/repositories", label: "Repositories", icon: FolderGit2, group: "Connections" },
-  { to: "/storage", label: "Storage", icon: Database, group: "Connections" },
+  { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Credentials" },
+  { to: "/repositories", label: "Repositories", icon: FolderGit2, group: "Credentials" },
+  { to: "/storage", label: "Storage", icon: Database, group: "Credentials" },
   { to: "/settings/prompts", label: "Prompts", icon: ScrollText, group: "Settings" },
 ];
 

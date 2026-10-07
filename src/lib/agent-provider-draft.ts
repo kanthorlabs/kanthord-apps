@@ -44,7 +44,7 @@ export function providerOfCredential(
 export function missingAgentProviderFields(draft: AgentProviderDraft): readonly string[] {
   return [
     ...(draft.name.trim() === "" ? ["Name"] : []),
-    ...(draft.credential === "" ? ["Credential"] : []),
+    ...(draft.credential === "" ? ["LLM credential"] : []),
   ];
 }
 

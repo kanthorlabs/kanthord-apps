@@ -43,20 +43,20 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
         />
         <SearchChoiceField
           id="enablement-credential"
-          label="Credential"
+          label="LLM credential"
           value={draft.credential}
           options={form.credentialNames}
           error={errors["credential"] ?? form.credentialsError ?? undefined}
-          placeholder="Search credentials"
-          emptyText="No credential matches."
+          placeholder="Search LLM credentials"
+          emptyText="No LLM credential matches."
           labelOf={form.credentialLabelOf}
           onChange={form.selectCredential}
         />
         {form.credentialsMissing && (
           <p className="text-sm text-muted-foreground md:col-span-2">
-            No credential of an agent provider platform exists.{" "}
+            No LLM credential of an agent provider platform exists.{" "}
             <Link to="/llm/new" className="underline underline-offset-4">
-              Add a credential
+              Add an LLM credential
             </Link>{" "}
             first.
           </p>

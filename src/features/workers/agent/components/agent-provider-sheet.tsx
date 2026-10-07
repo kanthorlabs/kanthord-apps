@@ -30,17 +30,17 @@ export function AgentProviderSheet({ agentName, revision, add }: AgentProviderSh
           <SheetTitle>Add agent provider to {agentName}</SheetTitle>
           <SheetDescription>
             A save writes the next revision after revision {revision}. The provider is the platform
-            of the credential.
+            of the LLM credential.
           </SheetDescription>
         </SheetHeader>
         {add.credentialsExhausted ? (
           <Empty>
             <EmptyHeader>
-              <EmptyTitle>No credential is left.</EmptyTitle>
+              <EmptyTitle>No LLM credential is left.</EmptyTitle>
             </EmptyHeader>
             <EmptyContent>
               <Button nativeButton={false} render={<Link to="/llm/new" />}>
-                Add a credential
+                Add an LLM credential
               </Button>
             </EmptyContent>
           </Empty>
@@ -72,12 +72,12 @@ export function AgentProviderSheet({ agentName, revision, add }: AgentProviderSh
                 />
                 <SearchChoiceField
                   id="agent-provider-credential"
-                  label="Credential"
+                  label="LLM credential"
                   value={add.draft.credential}
                   options={add.credentialNames}
                   error={add.errors.credential}
-                  placeholder="Search credentials"
-                  emptyText="No credential matches."
+                  placeholder="Search LLM credentials"
+                  emptyText="No LLM credential matches."
                   labelOf={add.credentialLabelOf}
                   onChange={add.selectCredential}
                 />
@@ -88,7 +88,8 @@ export function AgentProviderSheet({ agentName, revision, add }: AgentProviderSh
                   <FieldDescription>{add.credentialsError}</FieldDescription>
                 )}
                 <FieldDescription>
-                  <Link to="/llm/new">Add a credential</Link> when the one that you need is absent.
+                  <Link to="/llm/new">Add an LLM credential</Link> when the one that you need is
+                  absent.
                 </FieldDescription>
               </FieldGroup>
             </div>

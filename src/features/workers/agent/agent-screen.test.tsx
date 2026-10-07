@@ -338,7 +338,7 @@ describe("AgentScreen", () => {
     const form = await screen.findByRole("form", { name: "Enable re@1" });
     await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
     expect(within(form).queryByRole("combobox", { name: "Provider" })).toBeNull();
-    await choose("Credential", "router-main (openrouter)");
+    await choose("LLM credential", "router-main (openrouter)");
     expect(workersApi.listCredentialModels).toHaveBeenCalledWith("openrouter", "router-main");
     expect(within(form).queryByText(/Provider:/)).toBeNull();
     await waitFor(() =>
@@ -372,7 +372,7 @@ describe("AgentScreen", () => {
     const form = await screen.findByRole("form", { name: "Enable re@1" });
     const cells = () => [...(form.firstElementChild?.children ?? [])];
     const before = cells().length;
-    await choose("Credential", "router-main (openrouter)");
+    await choose("LLM credential", "router-main (openrouter)");
     const model = within(form)
       .getByRole("combobox", { name: "Model identifier" })
       .closest("[data-slot='field']");
@@ -436,10 +436,10 @@ describe("AgentScreen", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
     const sheet = await screen.findByRole("dialog");
     expect(
-      within(sheet).getByText("Fill Name and Credential to add the agent provider."),
+      within(sheet).getByText("Fill Name and LLM credential to add the agent provider."),
     ).toBeTruthy();
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "codex");
-    await choose("Credential", "codex-main (openai-codex)");
+    await choose("LLM credential", "codex-main (openai-codex)");
     expect(within(sheet).getByText("Provider: openai-codex")).toBeTruthy();
     await userEvent.click(within(sheet).getByRole("button", { name: "Add agent provider" }));
 
@@ -481,10 +481,10 @@ describe("AgentScreen", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
     const sheet = await screen.findByRole("dialog");
 
-    expect(await within(sheet).findByText("No credential is left.")).toBeTruthy();
-    expect(within(sheet).queryByRole("combobox", { name: "Credential" })).toBeNull();
+    expect(await within(sheet).findByText("No LLM credential is left.")).toBeTruthy();
+    expect(within(sheet).queryByRole("combobox", { name: "LLM credential" })).toBeNull();
     expect(within(sheet).queryByRole("button", { name: "Add agent provider" })).toBeNull();
-    expect(within(sheet).getAllByRole("button", { name: "Add a credential" })).toHaveLength(1);
+    expect(within(sheet).getAllByRole("button", { name: "Add an LLM credential" })).toHaveLength(1);
   });
   it("saves a new default configuration and keeps the agent providers", async () => {
     const two: AgentEnablement = {
