@@ -70,13 +70,13 @@ export function useCredentialForm(
   const platform =
     selected ?? platforms.data?.items.find((e) => e.platform !== "ssh")?.platform ?? "";
   const entry = platformEntryOf(platforms.data, platform);
-  const login = useCredentialLogin(component, entry?.loginModes ?? NO_LOGIN_MODES, onCreated);
+  const login = useCredentialLogin(component, entry?.login_modes ?? NO_LOGIN_MODES, onCreated);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
   const [metadata, setMetadata] = useState<MetadataDraft>(EMPTY_METADATA);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const oauth = entry?.secretShape === "oauth";
+  const oauth = entry?.secret_shape === "oauth";
   const { start: startLogin, clearStartError } = login;
   const clearErrors = useCallback(() => setErrors(NO_ERRORS), []);
   const precheck = useCredentialPrecheck(

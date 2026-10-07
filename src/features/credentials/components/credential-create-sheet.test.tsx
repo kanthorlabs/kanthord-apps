@@ -10,10 +10,10 @@ vi.mock("@/api/resources/credentials");
 import { CredentialCreateSheet } from "./credential-create-sheet";
 
 const SESSION = {
-  sessionId: "login_session_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
+  session_id: "login_session_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
   address: "https://github.com/login/device",
   code: "ABCD-1234",
-  expiresAt: Date.UTC(2026, 9, 4, 7, 15),
+  expires_at: Date.UTC(2026, 9, 4, 7, 15),
 };
 
 function mount(onClose: () => void) {
@@ -30,19 +30,19 @@ beforeEach(() => {
     items: [
       {
         platform: "github-copilot",
-        secretShape: "oauth",
-        loginModes: ["device"],
-        metadataFields: [],
+        secret_shape: "oauth",
+        login_modes: ["device"],
+        metadata_fields: [],
         verifiable: true,
       },
     ],
   });
   vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
   vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-    sessionId: SESSION.sessionId,
+    session_id: SESSION.session_id,
     state: "pending",
-    lastMessage: null,
-    failureReason: null,
+    last_message: null,
+    failure_reason: null,
   });
 });
 

@@ -22,20 +22,20 @@ interface ChatViewProps {
 }
 
 export function ChatView({ session, enablement }: ChatViewProps) {
-  const events = useSessionEvents(session.id, session.entries, session.runActive);
+  const events = useSessionEvents(session.id, session.entries, session.run_active);
   const actions = useChatActions(session.id, events.patchSnapshot);
   const configuration = useChatConfiguration(
     session.id,
-    session.agentName,
+    session.agent_name,
     session.configuration,
     enablement,
   );
   const { snapshot } = events;
-  const composer = useComposer(snapshot.runActive || actions.busy, actions.send);
+  const composer = useComposer(snapshot.run_active || actions.busy, actions.send);
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   const working = agentWorking(items, snapshot);
-  const elapsed = useElapsedSeconds(snapshot.runActive);
-  useScrollToEnd(items, snapshot.pendingApproval);
+  const elapsed = useElapsedSeconds(snapshot.run_active);
+  useScrollToEnd(items, snapshot.pending_approval);
   const failures = [actions.failure, configuration.failure, configuration.modelsFailure].filter(
     (failure): failure is string => failure !== null,
   );
@@ -43,33 +43,33 @@ export function ChatView({ session, enablement }: ChatViewProps) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-mono text-lg font-semibold">{session.agentName}</h2>
-        <Badge variant={snapshot.runActive ? "default" : "outline"}>
-          {snapshot.runActive ? "Running" : "Idle"}
+        <h2 className="font-mono text-lg font-semibold">{session.agent_name}</h2>
+        <Badge variant={snapshot.run_active ? "default" : "outline"}>
+          {snapshot.run_active ? "Running" : "Idle"}
         </Badge>
         <span className="min-w-0 font-mono text-xs break-all text-muted-foreground">
           {session.id}
         </span>
-        <ResumeCommandButton command={session.resumeCommand} />
+        <ResumeCommandButton command={session.resume_command} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <ChatTranscript items={items} />
         {working && <AgentWorking seconds={elapsed} />}
-        {snapshot.pendingApproval !== null && (
+        {snapshot.pending_approval !== null && (
           <ApprovalCard
-            approval={snapshot.pendingApproval}
+            approval={snapshot.pending_approval}
             busy={actions.busy}
             onDecide={(approved) => {
-              if (snapshot.pendingApproval !== null) {
-                actions.approve(snapshot.pendingApproval.toolCallId, approved);
+              if (snapshot.pending_approval !== null) {
+                actions.approve(snapshot.pending_approval.tool_call_id, approved);
               }
             }}
           />
         )}
-        {snapshot.errorMessage !== null && (
+        {snapshot.error_message !== null && (
           <Alert variant="destructive">
             <AlertTitle>The run failed.</AlertTitle>
-            <AlertDescription>{snapshot.errorMessage}</AlertDescription>
+            <AlertDescription>{snapshot.error_message}</AlertDescription>
           </Alert>
         )}
         {events.failure !== null && (
@@ -87,7 +87,7 @@ export function ChatView({ session, enablement }: ChatViewProps) {
         <Composer
           composer={composer}
           configuration={configuration}
-          runActive={snapshot.runActive}
+          runActive={snapshot.run_active}
           onStop={actions.abort}
         />
       </div>

@@ -50,22 +50,22 @@ afterEach(async () => {
 
 const SNAPSHOT = {
   format: "json" as const,
-  missionId: "mission_1",
-  missionVersion: 3,
+  mission_id: "mission_1",
+  mission_version: 3,
   reason: "Split onboarding",
   entries: [],
 };
 
 describe("mission plan resources", () => {
   it("reads the mission of a project through mission.get", async () => {
-    await serve({ id: "mission_1", projectId: "project_1", version: 3 });
+    await serve({ id: "mission_1", project_id: "project_1", version: 3 });
 
     expect((await readMission("project_1")).version).toBe(3);
     expect(seen[0]?.req.url).toBe("/api/mission/project/project_1");
   });
 
   it("exports the JSON form through mission.export", async () => {
-    await serve({ missionId: "mission_1", missionVersion: 3, entries: [] });
+    await serve({ mission_id: "mission_1", mission_version: 3, entries: [] });
 
     await exportMissionJson("mission_1");
     expect(seen[0]?.req.url).toBe("/api/mission/mission_1/export?format=json");
@@ -82,17 +82,17 @@ describe("mission plan resources", () => {
   });
 
   it("applies with the digest, the confirmed retirements and an idempotency key", async () => {
-    await serve({ missionId: "mission_1", missionVersion: 4, assignedIds: [] });
+    await serve({ mission_id: "mission_1", mission_version: 4, assigned_ids: [] });
 
     await applyMissionImport({
       ...SNAPSHOT,
-      previewDigest: "a".repeat(64),
-      confirmedRetirements: ["node_1"],
+      preview_digest: "a".repeat(64),
+      confirmed_retirements: ["node_1"],
     });
     expect(seen[0]?.req.url).toBe("/api/mission/mission_1/import");
     expect(JSON.parse(seen[0]?.body ?? "")).toMatchObject({
-      previewDigest: "a".repeat(64),
-      confirmedRetirements: ["node_1"],
+      preview_digest: "a".repeat(64),
+      confirmed_retirements: ["node_1"],
     });
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
   });
@@ -100,21 +100,21 @@ describe("mission plan resources", () => {
 
 describe("mission graph resources", () => {
   it("reads every node of a mission through mission.node.list", async () => {
-    await serve({ items: [], nextCursor: null });
+    await serve({ items: [], next_cursor: null });
 
     await listMissionNodes("mission_1");
     expect(seen[0]?.req.url).toBe("/api/mission/mission_1/node?limit=1000");
   });
 
   it("reads only the dependency edges through mission.edge.list", async () => {
-    await serve({ items: [], nextCursor: null });
+    await serve({ items: [], next_cursor: null });
 
     await listMissionDependencies("mission_1");
     expect(seen[0]?.req.url).toBe("/api/mission/mission_1/edge?kind=dependency&limit=1000");
   });
 
   it("reads the evidence of one attempt through mission.evidence.list", async () => {
-    await serve({ items: [], nextCursor: null });
+    await serve({ items: [], next_cursor: null });
 
     await listNodeEvidence("node_1", 2);
     expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/evidence?attempt=2&limit=1000");

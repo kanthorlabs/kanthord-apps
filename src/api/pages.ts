@@ -17,12 +17,12 @@ export async function readAllPages<T>(
     if (cursor !== null) params.set("cursor", cursor);
     const page: Page<T> = await request<Page<T>>(`${path}?${params}`);
     items.push(...page.items);
-    if (page.nextCursor === null) return items;
-    if (seen.has(page.nextCursor)) {
+    if (page.next_cursor === null) return items;
+    if (seen.has(page.next_cursor)) {
       throw new ApiError("malformed", "The daemon repeated a page cursor.", 0, path);
     }
-    seen.add(page.nextCursor);
-    cursor = page.nextCursor;
+    seen.add(page.next_cursor);
+    cursor = page.next_cursor;
   }
   throw new ApiError(
     "malformed",

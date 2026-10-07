@@ -39,7 +39,7 @@ export function useSessionCreate(
     setErrors(NO_ERRORS);
     setFailure(null);
     setSubmitting(true);
-    createWorkbenchSession({ agentName, ...result.configuration }).then(
+    createWorkbenchSession({ agent_name: agentName, ...result.configuration }).then(
       (session) => {
         setSubmitting(false);
         onCreated(session);

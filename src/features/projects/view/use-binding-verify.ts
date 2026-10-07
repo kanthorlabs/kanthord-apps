@@ -102,7 +102,7 @@ export function useBindingVerify(
       active.current.add(bindingId);
       setStates((prev) => new Map(prev).set(bindingId, { status: "checking" }));
       verifyBinding(projectId, bindingId).then(
-        ({ address, sshCredential, credential }) => {
+        ({ address, ssh_credential: sshCredential, credential }) => {
           active.current.delete(bindingId);
           setStates((prev) =>
             new Map(prev).set(bindingId, { status: "ready", address, sshCredential, credential }),

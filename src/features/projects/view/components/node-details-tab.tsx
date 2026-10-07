@@ -45,21 +45,21 @@ function factsOf(node: MissionNodeRecord): Fact[] {
     );
   }
   facts.push(
-    { label: "Revision", value: `revision ${node.visibleRevision}` },
+    { label: "Revision", value: `revision ${node.visible_revision}` },
     {
       label: "Pinned by",
       value:
-        node.pinnedByAttempts.length === 0
+        node.pinned_by_attempts.length === 0
           ? "no attempt"
-          : node.pinnedByAttempts.map((attempt) => `attempt ${attempt}`).join(", "),
+          : node.pinned_by_attempts.map((attempt) => `attempt ${attempt}`).join(", "),
     },
   );
   return facts;
 }
 
 function BlockedNotice({ node }: { node: MissionNodeRecord }) {
-  if (node.kind === "task" || node.blockedContext === undefined) return null;
-  const { outcome, requests } = node.blockedContext;
+  if (node.kind === "task" || node.blocked_context === undefined) return null;
+  const { outcome, requests } = node.blocked_context;
   return (
     <Alert variant="destructive">
       <AlertTitle>
@@ -70,12 +70,12 @@ function BlockedNotice({ node }: { node: MissionNodeRecord }) {
         <span className="flex flex-wrap items-center gap-1.5">
           Outcome <Badge variant={resultVariant(outcome.result)}>{outcome.result}</Badge>
         </span>
-        <span>{closingEventText(outcome.closingEvent)}</span>
-        <span>Closed {utcDateTime(outcome.createdAt)}</span>
+        <span>{closingEventText(outcome.closing_event)}</span>
+        <span>Closed {utcDateTime(outcome.created_at)}</span>
         {requests.map((request) => (
           <span key={request.id}>
-            Request {request.requirementKey}: {request.subject}, end state{" "}
-            {request.endState ?? "not set"}
+            Request {request.requirement_key}: {request.subject}, end state{" "}
+            {request.end_state ?? "not set"}
           </span>
         ))}
       </AlertDescription>
@@ -103,7 +103,7 @@ export function NodeDetailsTab({ projectId, model, nodeId, onSelect }: NodeDetai
     );
   }
 
-  const owner = node.kind === "task" && node.parentId !== null ? node.parentId : null;
+  const owner = node.kind === "task" && node.parent_id !== null ? node.parent_id : null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -119,7 +119,7 @@ export function NodeDetailsTab({ projectId, model, nodeId, onSelect }: NodeDetai
       )}
       <FactList facts={factsOf(node)} />
       <section aria-label="Content" className="flex flex-col gap-2">
-        <h4 className="text-sm font-medium">Content of revision {node.visibleRevision}</h4>
+        <h4 className="text-sm font-medium">Content of revision {node.visible_revision}</h4>
         <FactList
           facts={[
             { label: "Requirement", value: node.content.requirement },
@@ -145,7 +145,7 @@ export function NodeDetailsTab({ projectId, model, nodeId, onSelect }: NodeDetai
       </section>
       {node.kind !== "task" && (
         <section aria-label="Bindings" className="flex flex-col gap-2">
-          <h3 className="font-semibold">Bindings of revision {node.visibleRevision}</h3>
+          <h3 className="font-semibold">Bindings of revision {node.visible_revision}</h3>
           {bindings.loading ? (
             <Skeleton className="h-16 w-full" />
           ) : bindings.data === null ? (

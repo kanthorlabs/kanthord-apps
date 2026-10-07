@@ -172,7 +172,7 @@ export function buildGraph(
   records: readonly MissionNodeRecord[],
   edges: readonly MissionEdge[],
 ): GraphModel {
-  const nodes = records.filter((node) => node.retiredAt === null);
+  const nodes = records.filter((node) => node.retired_at === null);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const diagnostics: GraphDiagnostic[] = [];
 
@@ -181,7 +181,7 @@ export function buildGraph(
   const links: DependencyLink[] = [];
   for (const edge of edges) {
     if (edge.kind !== "dependency") continue;
-    const link = { dependentId: edge.dependentId, dependsOnId: edge.dependsOnId };
+    const link = { dependentId: edge.dependent_id, dependsOnId: edge.depends_on_id };
     if (!nodeById.has(link.dependentId) || !nodeById.has(link.dependsOnId)) {
       diagnostics.push({ kind: "unresolved-dependency", link });
     } else {
@@ -193,7 +193,7 @@ export function buildGraph(
 
   const children = new Map<string, MissionNodeRecord[]>();
   for (const node of nodes) {
-    if (node.parentId !== null) pushTo(children, node.parentId, node);
+    if (node.parent_id !== null) pushTo(children, node.parent_id, node);
   }
 
   const initiatives = nodes
@@ -264,13 +264,13 @@ export function buildGraph(
 export function ancestorsOf(model: GraphModel, nodeId: string): readonly MissionNodeRecord[] {
   const ancestors: MissionNodeRecord[] = [];
   const seen = new Set<string>([nodeId]);
-  let parentId = model.nodeById.get(nodeId)?.parentId ?? null;
+  let parentId = model.nodeById.get(nodeId)?.parent_id ?? null;
   while (parentId !== null && !seen.has(parentId)) {
     seen.add(parentId);
     const parent = model.nodeById.get(parentId);
     if (parent === undefined) break;
     ancestors.push(parent);
-    parentId = parent.parentId;
+    parentId = parent.parent_id;
   }
   return ancestors;
 }

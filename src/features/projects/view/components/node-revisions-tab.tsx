@@ -42,11 +42,11 @@ export function NodeRevisionsTab({ nodeId, currentRevision }: NodeRevisionsTabPr
             <ItemDescription className="flex flex-col gap-0.5">
               <span className="break-words text-foreground">{revision.reason}</span>
               <span className="break-all">
-                {actorText(revision.actor)}, {utcDateTime(revision.createdAt)}
+                {actorText(revision.actor)}, {utcDateTime(revision.created_at)}
               </span>
-              {revision.change.changedFields.length > 0 && (
+              {revision.change.changed_fields.length > 0 && (
                 <span className="break-words">
-                  Changed: {revision.change.changedFields.join(", ")}
+                  Changed: {revision.change.changed_fields.join(", ")}
                 </span>
               )}
               {revision.change.tasks?.map((task) => (
@@ -55,9 +55,9 @@ export function NodeRevisionsTab({ nodeId, currentRevision }: NodeRevisionsTabPr
                 </span>
               ))}
               <span>
-                {revision.pinnedByAttempts.length === 0
+                {revision.pinned_by_attempts.length === 0
                   ? "No attempt pins this revision."
-                  : `Pinned by ${revision.pinnedByAttempts.map((attempt) => `attempt ${attempt}`).join(", ")}.`}
+                  : `Pinned by ${revision.pinned_by_attempts.map((attempt) => `attempt ${attempt}`).join(", ")}.`}
               </span>
             </ItemDescription>
           </ItemContent>

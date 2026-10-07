@@ -34,9 +34,9 @@ export function BindingList({ label, bindingIds, reads }: BindingListProps) {
                 <span className="font-mono break-all">{binding.name}</span>
                 <Badge variant="outline">{binding.kind}</Badge>
                 <Badge variant="secondary">revision {binding.revision}</Badge>
-                {binding.removedAt !== null && <Badge variant="destructive">removed</Badge>}
+                {binding.removed_at !== null && <Badge variant="destructive">removed</Badge>}
               </ItemTitle>
-              <ItemDescription className="break-all">{binding.resourceIdentity}</ItemDescription>
+              <ItemDescription className="break-all">{binding.resource_identity}</ItemDescription>
             </ItemContent>
           </Item>
         );

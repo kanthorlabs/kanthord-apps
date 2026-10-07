@@ -24,16 +24,16 @@ export function BindingList({ bindings }: { bindings: readonly CredentialBinding
         <ItemGroup aria-label="Bindings" className="gap-2">
           {bindings.map((binding) => (
             <DataListItem
-              key={binding.bindingId}
+              key={binding.binding_id}
               title={binding.name}
-              fields={[{ label: "Project", value: binding.projectName }]}
+              fields={[{ label: "Project", value: binding.project_name }]}
               actions={
                 <Button
                   nativeButton={false}
-                  render={<Link to={projectTabPath(binding.projectId, "bindings")} />}
+                  render={<Link to={projectTabPath(binding.project_id, "bindings")} />}
                   variant="outline"
                   size="sm"
-                  aria-label={`Bindings of ${binding.projectName}`}
+                  aria-label={`Bindings of ${binding.project_name}`}
                 >
                   <ExternalLinkIcon aria-hidden="true" data-icon="inline-start" />
                   Open bindings

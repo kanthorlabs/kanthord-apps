@@ -43,23 +43,23 @@ afterEach(async () => {
 const FIRST = {
   id: "prj-2",
   name: "second",
-  bindingSetVersion: 1,
-  createdAt: 2,
-  workspaceDirectory: "/state/projects/prj-2",
+  binding_set_version: 1,
+  created_at: 2,
+  workspace_directory: "/state/projects/prj-2",
 };
 const SECOND = {
   id: "prj-1",
   name: "first",
-  bindingSetVersion: 3,
-  createdAt: 1,
-  workspaceDirectory: "/state/projects/prj-1",
+  binding_set_version: 3,
+  created_at: 1,
+  workspace_directory: "/state/projects/prj-1",
 };
 
 describe("listProjects", () => {
   it("reads every page of project.list", async () => {
     const base = await serve([
-      { items: [FIRST], nextCursor: "c-1" },
-      { items: [SECOND], nextCursor: null },
+      { items: [FIRST], next_cursor: "c-1" },
+      { items: [SECOND], next_cursor: null },
     ]);
     setConnection({ baseUrl: base, token: "jwt-1" });
 
@@ -77,13 +77,13 @@ const IDEMPOTENCY_KEY = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 describe("listProjectPage", () => {
   it("reads one page at the cursor", async () => {
     const base = await serve([
-      { items: [FIRST], nextCursor: "c-1" },
-      { items: [SECOND], nextCursor: null },
+      { items: [FIRST], next_cursor: "c-1" },
+      { items: [SECOND], next_cursor: null },
     ]);
     setConnection({ baseUrl: base, token: "jwt-1" });
 
-    expect(await listProjectPage(null)).toEqual({ items: [FIRST], nextCursor: "c-1" });
-    expect(await listProjectPage("c-1")).toEqual({ items: [SECOND], nextCursor: null });
+    expect(await listProjectPage(null)).toEqual({ items: [FIRST], next_cursor: "c-1" });
+    expect(await listProjectPage("c-1")).toEqual({ items: [SECOND], next_cursor: null });
     expect(seen.map((req) => req.url)).toEqual(["/api/project", "/api/project?cursor=c-1"]);
   });
 });
@@ -115,7 +115,7 @@ describe("renameProject", () => {
 describe("writeBindingSet", () => {
   it("puts the whole set at the expected version with an idempotency key", async () => {
     const base = await serve([
-      { projectId: "prj-1", bindingSetVersion: 3, bindings: {}, changes: [] },
+      { project_id: "prj-1", binding_set_version: 3, bindings: {}, changes: [] },
     ]);
     setConnection({ baseUrl: base, token: "jwt-1" });
 
@@ -145,7 +145,7 @@ describe("checkBinding", () => {
   it("posts project.binding.check with the entry body and returns verify-shaped health entries", async () => {
     const result = {
       address: { status: "healthy", capability: "network git read" },
-      sshCredential: { status: "healthy", capability: "ssh credential verify" },
+      ssh_credential: { status: "healthy", capability: "ssh credential verify" },
       credential: null,
     };
     const entry = {
@@ -154,8 +154,8 @@ describe("checkBinding", () => {
         available: true,
         platform: "github" as const,
         address: "git@github.com:kanthorlabs/kanthord.git",
-        strategy: { baseBranch: "main" },
-        sshCredential: "github-ssh",
+        strategy: { base_branch: "main" },
+        ssh_credential: "github-ssh",
       },
     };
     const base = await serve([result]);

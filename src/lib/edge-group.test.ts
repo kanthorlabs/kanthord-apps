@@ -15,21 +15,21 @@ function runnable(
     id,
     kind,
     filename: `${id}.md`,
-    missionId: "mission_1",
-    parentId,
-    visibleRevision: 1,
+    mission_id: "mission_1",
+    parent_id: parentId,
+    visible_revision: 1,
     content: { name: id, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
     state,
     attempt: 0,
     priority: 0,
-    dependsOn: [],
+    depends_on: [],
   };
 }
 
 function dependency(dependentId: string, dependsOnId: string): MissionEdge {
-  return { kind: "dependency", dependentId, dependsOnId };
+  return { kind: "dependency", dependent_id: dependentId, depends_on_id: dependsOnId };
 }
 
 const NODES = [

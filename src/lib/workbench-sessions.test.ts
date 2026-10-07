@@ -6,12 +6,12 @@ import { sessionsNewestFirst, sessionTitle } from "./workbench-sessions";
 function item(id: string, modified: number, patch: Partial<WorkbenchSessionListItem> = {}) {
   return {
     id,
-    agentName: "swe@1",
+    agent_name: "swe@1",
     name: null,
     created: 0,
     modified,
-    messageCount: 1,
-    firstMessage: "",
+    message_count: 1,
+    first_message: "",
     ...patch,
   };
 }
@@ -27,8 +27,8 @@ describe("sessionsNewestFirst", () => {
 
 describe("sessionTitle", () => {
   it("prefers the name, then the first message, then a fixed label", () => {
-    expect(sessionTitle(item("a", 1, { name: "Plan", firstMessage: "Hello" }))).toBe("Plan");
-    expect(sessionTitle(item("a", 1, { firstMessage: "Hello" }))).toBe("Hello");
+    expect(sessionTitle(item("a", 1, { name: "Plan", first_message: "Hello" }))).toBe("Plan");
+    expect(sessionTitle(item("a", 1, { first_message: "Hello" }))).toBe("Hello");
     expect(sessionTitle(item("a", 1))).toBe("Empty Session");
   });
 });

@@ -22,21 +22,21 @@ function runnable(
     id,
     kind,
     filename: `${id}.md`,
-    missionId: "mission_1",
-    parentId,
-    visibleRevision: 1,
+    mission_id: "mission_1",
+    parent_id: parentId,
+    visible_revision: 1,
     content: { name: id, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
     state: "Pending",
     attempt: 0,
     priority: 0,
-    dependsOn: [],
+    depends_on: [],
   };
 }
 
 function dependency(dependentId: string, dependsOnId: string): MissionEdge {
-  return { kind: "dependency", dependentId, dependsOnId };
+  return { kind: "dependency", dependent_id: dependentId, depends_on_id: dependsOnId };
 }
 
 const NODES: readonly MissionNodeRecord[] = [
@@ -156,7 +156,7 @@ describe("readLayout", () => {
 
     expect(layout.edges.map((edge) => `${edge.dependsOnId}->${edge.dependentId}`).sort()).toEqual(
       EDGES.map((edge) =>
-        edge.kind === "dependency" ? `${edge.dependsOnId}->${edge.dependentId}` : "",
+        edge.kind === "dependency" ? `${edge.depends_on_id}->${edge.dependent_id}` : "",
       ).sort(),
     );
     for (const edge of layout.edges) expect(edge.path).toMatch(/^M [\d.]+ [\d.]+ /);

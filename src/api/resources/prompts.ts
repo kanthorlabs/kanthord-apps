@@ -5,14 +5,14 @@ import type { PromptSettings, PromptTarget, SystemLayerOverride } from "../types
 const PROMPT_PATH = "/api/agent/prompt";
 const ABSENT_REVISION = 0;
 
-function revisionOf(expectedRevision: number): { expectedRevision?: number } {
-  return expectedRevision === ABSENT_REVISION ? {} : { expectedRevision };
+function revisionOf(expectedRevision: number): { expected_revision?: number } {
+  return expectedRevision === ABSENT_REVISION ? {} : { expected_revision: expectedRevision };
 }
 
 export async function readPromptSettings(target: PromptTarget): Promise<PromptSettings> {
   const query = new URLSearchParams({
     scope: target.scope,
-    ...(target.agentName === undefined ? {} : { agentName: target.agentName }),
+    ...(target.agent_name === undefined ? {} : { agent_name: target.agent_name }),
   });
   return request<PromptSettings>(`${PROMPT_PATH}?${query}`);
 }
@@ -39,7 +39,7 @@ export async function setSystemLayerOverride(
     method: "POST",
     body: {
       scope: "agent",
-      agentName,
+      agent_name: agentName,
       ...revisionOf(expectedRevision),
       system_layer: systemLayer,
     },
@@ -54,7 +54,7 @@ export async function putPromptText(
 ): Promise<PromptSettings> {
   return request<PromptSettings>(PROMPT_PATH, {
     method: "PUT",
-    body: { ...target, ...revisionOf(expectedRevision), customText },
+    body: { ...target, ...revisionOf(expectedRevision), custom_text: customText },
     headers: { "idempotency-key": newUlid() },
   });
 }

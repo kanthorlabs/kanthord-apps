@@ -14,9 +14,9 @@ import { ProjectsScreen } from "./projects-screen";
 const KANTHORD: Project = {
   id: "project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
   name: "kanthord",
-  bindingSetVersion: 3,
-  createdAt: Date.UTC(2026, 9, 3, 14, 5),
-  workspaceDirectory:
+  binding_set_version: 3,
+  created_at: Date.UTC(2026, 9, 3, 14, 5),
+  workspace_directory:
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
 const BILLING: Project = { ...KANTHORD, id: "project_01J9ZQ4XKM3B6V8N2R5T7W0YAB", name: "billing" };
@@ -37,7 +37,7 @@ describe("ProjectsScreen", () => {
   it("lists the projects of one page", async () => {
     vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
       items: [KANTHORD, BILLING],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -51,7 +51,7 @@ describe("ProjectsScreen", () => {
   it("opens a project from its row", async () => {
     vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
       items: [KANTHORD],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -62,8 +62,8 @@ describe("ProjectsScreen", () => {
 
   it("reads the next page at the cursor", async () => {
     vi.mocked(projectsApi.listProjectPage)
-      .mockResolvedValueOnce({ items: [KANTHORD], nextCursor: "c-1" })
-      .mockResolvedValueOnce({ items: [BILLING], nextCursor: null });
+      .mockResolvedValueOnce({ items: [KANTHORD], next_cursor: "c-1" })
+      .mockResolvedValueOnce({ items: [BILLING], next_cursor: null });
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Next" }));
@@ -73,7 +73,7 @@ describe("ProjectsScreen", () => {
   });
 
   it("offers the new project form", async () => {
-    vi.mocked(projectsApi.listProjectPage).mockResolvedValue({ items: [], nextCursor: null });
+    vi.mocked(projectsApi.listProjectPage).mockResolvedValue({ items: [], next_cursor: null });
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "New project" }));

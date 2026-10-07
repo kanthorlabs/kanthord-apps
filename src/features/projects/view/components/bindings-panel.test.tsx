@@ -28,40 +28,40 @@ const REPO: BindingSetEntry = {
     available: true,
     platform: "github",
     address: "git@github.com:kanthorlabs/kanthord.git",
-    strategy: { baseBranch: "main" },
-    sshCredential: "github-ssh",
+    strategy: { base_branch: "main" },
+    ssh_credential: "github-ssh",
     credential: "github-main",
   },
 };
 const WORKER: BindingSetEntry = {
   kind: "worker",
-  config: { worker: "general@1", instanceCount: 2 },
+  config: { worker: "general@1", instance_count: 2 },
 };
 
 const SET: BindingSet = { version: 2, bindings: { "kanthord-repo": REPO, "general-main": WORKER } };
 
 const BINDING_REPO: ProjectBindingRecord = {
   id: "binding_REPO1",
-  projectId: "project_1",
+  project_id: "project_1",
   name: "kanthord-repo",
   kind: "repository",
-  resourceIdentity: "repository:github:kanthorlabs/kanthord",
+  resource_identity: "repository:github:kanthorlabs/kanthord",
   revision: 1,
   config: REPO.config,
-  createdAt: 1,
-  removedAt: null,
+  created_at: 1,
+  removed_at: null,
 };
 
 const BINDING_WORKER: ProjectBindingRecord = {
   id: "binding_WORK1",
-  projectId: "project_1",
+  project_id: "project_1",
   name: "general-main",
   kind: "worker",
-  resourceIdentity: "worker:kanthord:general-main",
+  resource_identity: "worker:kanthord:general-main",
   revision: 1,
   config: WORKER.config,
-  createdAt: 1,
-  removedAt: null,
+  created_at: 1,
+  removed_at: null,
 };
 
 const onWritten = vi.fn();
@@ -93,62 +93,62 @@ describe("BindingsPanel", () => {
                 port: 22,
                 identity_file: "/home/user/.ssh/id_ed25519",
               },
-              createdAt: 1,
-              endedAt: null,
+              created_at: 1,
+              ended_at: null,
             },
           ],
         },
         {
           name: "github-main",
           platform: "github",
-          revisions: [{ id: "rev_1", revision: 1, metadata: null, createdAt: 1, endedAt: null }],
+          revisions: [{ id: "rev_1", revision: 1, metadata: null, created_at: 1, ended_at: null }],
         },
         { name: "github-kanthorlabs", platform: "github", revisions: [] },
       ],
-      nextCursor: null,
+      next_cursor: null,
     });
     vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
       items: [
         {
           platform: "ssh",
-          secretShape: "none",
-          loginModes: [],
-          metadataFields: ["host", "hostname", "identity_file"],
+          secret_shape: "none",
+          login_modes: [],
+          metadata_fields: ["host", "hostname", "identity_file"],
           verifiable: true,
         },
         {
           platform: "github",
-          secretShape: "api_key",
-          loginModes: [],
-          metadataFields: [],
+          secret_shape: "api_key",
+          login_modes: [],
+          metadata_fields: [],
           verifiable: true,
         },
       ],
     });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
-      projectId: "project_1",
-      bindingSetVersion: 3,
+      project_id: "project_1",
+      binding_set_version: 3,
       changes: [],
     });
     vi.mocked(projectsApi.verifyBinding).mockResolvedValue({
       address: { status: "healthy", capability: "network git read" },
-      sshCredential: { status: "healthy", capability: "ssh credential verify" },
+      ssh_credential: { status: "healthy", capability: "ssh credential verify" },
       credential: { status: "healthy", capability: "repository credential verify" },
     });
     vi.mocked(projectsApi.checkBinding).mockResolvedValue({
       address: { status: "healthy", capability: "network git read" },
-      sshCredential: { status: "healthy", capability: "ssh credential verify" },
+      ssh_credential: { status: "healthy", capability: "ssh credential verify" },
       credential: null,
     });
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission_1",
-      projectId: "project_1",
+      project_id: "project_1",
       version: 3,
     });
     vi.mocked(missionApi.exportMissionJson).mockResolvedValue({
-      missionId: "mission_1",
-      missionVersion: 3,
+      mission_id: "mission_1",
+      mission_version: 3,
       entries: [
         {
           filename: "reset-email.md",
@@ -346,20 +346,20 @@ describe("BindingsPanel", () => {
                 port: 22,
                 identity_file: "/home/user/.ssh/id_ed25519",
               },
-              createdAt: 1,
-              endedAt: null,
+              created_at: 1,
+              ended_at: null,
             },
           ],
         },
         {
           name: "github-main",
           platform: "github",
-          revisions: [{ id: "rev_1", revision: 1, metadata: null, createdAt: 1, endedAt: null }],
+          revisions: [{ id: "rev_1", revision: 1, metadata: null, created_at: 1, ended_at: null }],
         },
         { name: "github-kanthorlabs", platform: "github", revisions: [] },
         { name: "github-new", platform: "github", revisions: [] },
       ],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 

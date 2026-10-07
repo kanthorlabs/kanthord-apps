@@ -13,9 +13,9 @@ import { PromptsScreen } from "./prompts-screen";
 
 const SYSTEM: PromptSettings = {
   scope: "system",
-  agentName: "",
+  agent_name: "",
   switches: { host_file: true, base: true, custom: false, layer: true },
-  customText: "",
+  custom_text: "",
   system_layer: null,
   revision: 4,
 };
@@ -69,7 +69,7 @@ describe("PromptsScreen", () => {
   });
 
   it("saves the custom system prompt from the editor at the revision of the scope", async () => {
-    vi.mocked(promptsApi.readPromptSettings).mockResolvedValue({ ...SYSTEM, customText: "Old" });
+    vi.mocked(promptsApi.readPromptSettings).mockResolvedValue({ ...SYSTEM, custom_text: "Old" });
     vi.mocked(promptsApi.putPromptText).mockResolvedValue({ ...SYSTEM, revision: 5 });
     mount();
 

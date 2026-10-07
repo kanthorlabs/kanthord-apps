@@ -15,34 +15,34 @@ import { ChatView } from "./chat-view";
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 
 const CONFIGURATION: WorkbenchConfiguration = {
-  agentProvider: "atlas-llm",
-  modelIdentifier: "qwen3-coder",
-  reasoningEffort: "low",
+  agent_provider: "atlas-llm",
+  model_identifier: "qwen3-coder",
+  reasoning_effort: "low",
 };
 
 const MODELS: Readonly<Record<string, readonly AgentModel[]>> = {
   "atlas-llm": [
-    { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off", "low", "high"] },
-    { modelIdentifier: "qwen3-next", reasoningEfforts: ["off", "low", "medium"] },
-    { modelIdentifier: "glm-4.6", reasoningEfforts: ["off"] },
+    { model_identifier: "qwen3-coder", reasoning_efforts: ["off", "low", "high"] },
+    { model_identifier: "qwen3-next", reasoning_efforts: ["off", "low", "medium"] },
+    { model_identifier: "glm-4.6", reasoning_efforts: ["off"] },
   ],
   "openai-org": [
-    { modelIdentifier: "gpt-5", reasoningEfforts: ["off", "low", "high"] },
-    { modelIdentifier: "gpt-5-mini", reasoningEfforts: ["off"] },
+    { model_identifier: "gpt-5", reasoning_efforts: ["off", "low", "high"] },
+    { model_identifier: "gpt-5-mini", reasoning_efforts: ["off"] },
   ],
 };
 
 const ENABLEMENT: AgentEnablement = {
-  agentName: "swe@1",
+  agent_name: "swe@1",
   state: "enabled",
-  agentProviders: [
+  agent_providers: [
     { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" },
     { name: "openai-org", provider: "openai-compatible", credential: "openai-main" },
   ],
-  defaultConfiguration: {
-    agentProvider: "atlas-llm",
-    modelIdentifier: "qwen3-coder",
-    reasoningEffort: "off",
+  default_configuration: {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-coder",
+    reasoning_effort: "off",
   },
   revision: 2,
 };
@@ -57,11 +57,11 @@ function mount() {
     <ChatView
       session={{
         id: SESSION_ID,
-        agentName: "swe@1",
+        agent_name: "swe@1",
         configuration: CONFIGURATION,
         entries: [],
-        runActive: false,
-        resumeCommand: "pi --session ~/session.jsonl",
+        run_active: false,
+        resume_command: "pi --session ~/session.jsonl",
       }}
       enablement={ENABLEMENT}
     />,
@@ -145,7 +145,7 @@ describe("Composer", () => {
 
     expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
       ...CONFIGURATION,
-      reasoningEffort: "high",
+      reasoning_effort: "high",
     });
     expect(await screen.findByRole("combobox", { name: "Reasoning Effort" })).toHaveTextContent(
       "high",
@@ -160,7 +160,7 @@ describe("Composer", () => {
 
     expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
       ...CONFIGURATION,
-      modelIdentifier: "qwen3-next",
+      model_identifier: "qwen3-next",
     });
   });
 
@@ -172,8 +172,8 @@ describe("Composer", () => {
 
     expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
       ...CONFIGURATION,
-      modelIdentifier: "glm-4.6",
-      reasoningEffort: "off",
+      model_identifier: "glm-4.6",
+      reasoning_effort: "off",
     });
   });
 
@@ -184,9 +184,9 @@ describe("Composer", () => {
 
     expect(workersApi.listAgentProviderModels).toHaveBeenCalledWith("swe@1", "openai-org");
     expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
-      agentProvider: "openai-org",
-      modelIdentifier: "gpt-5",
-      reasoningEffort: "low",
+      agent_provider: "openai-org",
+      model_identifier: "gpt-5",
+      reasoning_effort: "low",
     });
   });
 
@@ -194,8 +194,8 @@ describe("Composer", () => {
     vi.mocked(workersApi.listAgentProviderModels).mockImplementation(async (_agentName, name) =>
       name === "openai-org"
         ? [
-            { modelIdentifier: "gpt-5", reasoningEfforts: ["off"] },
-            { modelIdentifier: "qwen3-coder", reasoningEfforts: ["medium", "high"] },
+            { model_identifier: "gpt-5", reasoning_efforts: ["off"] },
+            { model_identifier: "qwen3-coder", reasoning_efforts: ["medium", "high"] },
           ]
         : (MODELS[name] ?? []),
     );
@@ -204,9 +204,9 @@ describe("Composer", () => {
     await choose("Agent Provider", "openai-org");
 
     expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
-      agentProvider: "openai-org",
-      modelIdentifier: "gpt-5",
-      reasoningEffort: "off",
+      agent_provider: "openai-org",
+      model_identifier: "gpt-5",
+      reasoning_effort: "off",
     });
   });
 
@@ -250,8 +250,8 @@ describe("Composer", () => {
 
   it("sends the message with Enter and keeps a new line for Shift+Enter", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
-      sessionId: SESSION_ID,
-      runActive: true,
+      session_id: SESSION_ID,
+      run_active: true,
     });
     mount();
 

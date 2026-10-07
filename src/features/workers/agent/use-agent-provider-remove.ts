@@ -45,7 +45,7 @@ export function useAgentProviderRemove(
         setRemoving(false);
         setProviderName(null);
         toast.success(
-          `Removed ${providerName} from ${answer.agentName} at revision ${answer.revision}.`,
+          `Removed ${providerName} from ${answer.agent_name} at revision ${answer.revision}.`,
         );
         reload();
       },

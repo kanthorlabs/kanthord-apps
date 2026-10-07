@@ -84,7 +84,7 @@ export function useAgentProviderAdd(
         setSubmitting(false);
         setOpen(false);
         toast.success(
-          `Added ${result.body.name} to ${answer.agentName} at revision ${answer.revision}.`,
+          `Added ${result.body.name} to ${answer.agent_name} at revision ${answer.revision}.`,
         );
         reload();
       },

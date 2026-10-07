@@ -47,11 +47,11 @@ export function enablementBodyOf(
   return {
     ok: true,
     body: {
-      agentProviders: [{ name, provider, credential: draft.credential }],
-      defaultConfiguration: {
-        agentProvider: name,
-        modelIdentifier,
-        reasoningEffort: draft.reasoningEffort,
+      agent_providers: [{ name, provider, credential: draft.credential }],
+      default_configuration: {
+        agent_provider: name,
+        model_identifier: modelIdentifier,
+        reasoning_effort: draft.reasoningEffort,
       },
     },
   };

@@ -57,7 +57,7 @@ describe("readLiveness", () => {
     const services = { server: { store: 503 } };
     const base = await serve(503, {
       error: { code: "gateway.liveness.unhealthy", message: "Down.", details: services },
-      requestId: "r1",
+      request_id: "r1",
     });
     expect(await readLiveness(base)).toEqual({ healthy: false, services });
   });
@@ -65,7 +65,7 @@ describe("readLiveness", () => {
   it("rejects with unavailable on another 503", async () => {
     const base = await serve(503, {
       error: { code: "NOT_READY", message: "Not ready." },
-      requestId: "r1",
+      request_id: "r1",
     });
     await expect(readLiveness(base)).rejects.toMatchObject({ code: "unavailable", status: 503 });
   });
@@ -89,7 +89,7 @@ describe("verifyHumanToken", () => {
   it("rejects with unauthorized on 401", async () => {
     const base = await serve(401, {
       error: { code: "UNAUTHORIZED", message: "No." },
-      requestId: "r1",
+      request_id: "r1",
     });
     await expect(verifyHumanToken(base, "bad")).rejects.toMatchObject({ code: "unauthorized" });
   });

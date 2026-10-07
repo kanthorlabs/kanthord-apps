@@ -39,17 +39,20 @@ export async function previewMissionImport(
   snapshot: MissionImportSnapshot,
 ): Promise<MissionImportPreview> {
   return request<MissionImportPreview>(
-    `/api/mission/${encodeURIComponent(snapshot.missionId)}/import/preview`,
+    `/api/mission/${encodeURIComponent(snapshot.mission_id)}/import/preview`,
     { method: "POST", body: snapshot },
   );
 }
 
 export async function applyMissionImport(body: MissionImportApply): Promise<MissionImportResult> {
-  return request<MissionImportResult>(`/api/mission/${encodeURIComponent(body.missionId)}/import`, {
-    method: "POST",
-    body,
-    headers: { "idempotency-key": newUlid() },
-  });
+  return request<MissionImportResult>(
+    `/api/mission/${encodeURIComponent(body.mission_id)}/import`,
+    {
+      method: "POST",
+      body,
+      headers: { "idempotency-key": newUlid() },
+    },
+  );
 }
 
 export async function listMissionNodes(missionId: string): Promise<readonly MissionNodeRecord[]> {

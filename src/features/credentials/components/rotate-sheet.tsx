@@ -50,13 +50,13 @@ export function RotateSheet({ name, entry, rotate }: RotateSheetProps) {
             )}
             <FieldGroup>
               <SecretFields
-                shape={entry.secretShape}
+                shape={entry.secret_shape}
                 draft={rotate.secret}
                 errors={rotate.errors}
                 onEdit={rotate.setSecret}
               />
               <MetadataFields
-                fields={entry.metadataFields}
+                fields={entry.metadata_fields}
                 draft={rotate.metadata}
                 errors={rotate.errors}
                 baseUrlDescription="A rotation can set another base URL. Leave it unchanged to keep it. The approved models stay."

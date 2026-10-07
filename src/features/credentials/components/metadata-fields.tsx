@@ -24,7 +24,7 @@ export function MetadataFields({
       label={fieldLabel(name)}
       value={draft.fields[name] ?? ""}
       error={errors[name]}
-      description={name === "baseUrl" ? baseUrlDescription : undefined}
+      description={name === "base_url" ? baseUrlDescription : undefined}
       onChange={(value) => onEdit({ ...draft, fields: { ...draft.fields, [name]: value } })}
     />
   ));

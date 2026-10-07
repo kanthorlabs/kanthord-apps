@@ -11,7 +11,7 @@ export interface WorkbenchSessionView {
 export function useWorkbenchSession(sessionId: string): Resource<WorkbenchSessionView> {
   return useResource(async () => {
     const session = await readWorkbenchSession(sessionId);
-    const agent = await readAgent(session.agentName).catch(() => null);
+    const agent = await readAgent(session.agent_name).catch(() => null);
     return { session, enablement: agent?.enablement ?? null };
   }, [sessionId]);
 }

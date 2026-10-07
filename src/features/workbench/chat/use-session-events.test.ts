@@ -10,11 +10,11 @@ vi.mock("@/api/resources/workbench");
 import { EVENTS_BACKOFF_MS, useSessionEvents } from "./use-session-events";
 
 const IDLE: WorkbenchRunSnapshot = {
-  streamingMessage: null,
-  pendingToolCalls: [],
-  pendingApproval: null,
-  runActive: false,
-  errorMessage: null,
+  streaming_message: null,
+  pending_tool_calls: [],
+  pending_approval: null,
+  run_active: false,
+  error_message: null,
 };
 
 function entry(id: string): WorkbenchSessionEntry {
@@ -170,8 +170,8 @@ describe("useSessionEvents", () => {
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
 
     const { result } = renderHook(() => useSessionEvents("session-1", [], false));
-    act(() => result.current.patchSnapshot({ runActive: true }));
+    act(() => result.current.patchSnapshot({ run_active: true }));
 
-    expect(result.current.snapshot.runActive).toBe(true);
+    expect(result.current.snapshot.run_active).toBe(true);
   });
 });

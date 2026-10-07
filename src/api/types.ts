@@ -42,15 +42,15 @@ export interface LivenessReport {
 
 export interface Page<T> {
   readonly items: readonly T[];
-  readonly nextCursor: string | null;
+  readonly next_cursor: string | null;
 }
 
 export interface Project {
   readonly id: string;
   readonly name: string;
-  readonly bindingSetVersion: number;
-  readonly createdAt: number;
-  readonly workspaceDirectory: string;
+  readonly binding_set_version: number;
+  readonly created_at: number;
+  readonly workspace_directory: string;
 }
 
 /** Why a node is not running. The Scheduler rechecks each of these at the claim. */
@@ -61,12 +61,12 @@ export type InstanceActivity = "idle" | "pulling" | "executing";
 export interface WorkerCatalogItem {
   readonly name: string;
   readonly host: WorkerHost;
-  readonly declaredNodeStates: readonly string[];
-  readonly requiredNodeFormat: readonly string[];
+  readonly declared_node_states: readonly string[];
+  readonly required_node_format: readonly string[];
 }
 
 export interface WorkerResourceBudget {
-  readonly wallTimeMs: number;
+  readonly wall_time_ms: number;
   readonly turns?: number;
 }
 
@@ -76,25 +76,25 @@ export type WorkerCatalogEntry =
   | (WorkerCatalogItem & {
       readonly host: "kanthord";
       readonly method: WorkerMethod;
-      readonly agentName: string;
-      readonly resourceBudget: WorkerResourceBudget;
+      readonly agent_name: string;
+      readonly resource_budget: WorkerResourceBudget;
     })
   | (WorkerCatalogItem & {
       readonly host: "external-harness";
       readonly harness: string;
-      readonly resourceBudget: WorkerResourceBudget;
+      readonly resource_budget: WorkerResourceBudget;
     });
 
 interface WorkerInstanceBase {
-  readonly runtimeIdentity: string;
-  readonly projectId: string;
-  readonly resourceIdentity: string;
-  readonly workerName: string;
-  readonly clientId?: string;
+  readonly runtime_identity: string;
+  readonly project_id: string;
+  readonly resource_identity: string;
+  readonly worker_name: string;
+  readonly client_id?: string;
   readonly name?: string;
   readonly activity: InstanceActivity;
   readonly draining: boolean;
-  readonly executionId?: string;
+  readonly execution_id?: string;
   readonly registered: boolean;
 }
 
@@ -123,32 +123,32 @@ export interface AgentProvider {
 }
 
 export interface AgentDefaultConfiguration {
-  readonly agentProvider: string;
-  readonly modelIdentifier: string;
-  readonly reasoningEffort: ReasoningEffort;
+  readonly agent_provider: string;
+  readonly model_identifier: string;
+  readonly reasoning_effort: ReasoningEffort;
 }
 
 export interface AgentEnablement {
-  readonly agentName: string;
+  readonly agent_name: string;
   readonly state: AgentEnablementState;
-  readonly agentProviders: readonly AgentProvider[];
-  readonly defaultConfiguration: AgentDefaultConfiguration;
+  readonly agent_providers: readonly AgentProvider[];
+  readonly default_configuration: AgentDefaultConfiguration;
   readonly revision: number;
 }
 
 export interface AgentModel {
-  readonly modelIdentifier: string;
-  readonly reasoningEfforts: readonly ReasoningEffort[];
+  readonly model_identifier: string;
+  readonly reasoning_efforts: readonly ReasoningEffort[];
 }
 
 export interface AgentProviderAddBody extends AgentProvider {
-  readonly expectedRevision: number;
+  readonly expected_revision: number;
 }
 
 export interface AgentEnablementPutBody {
-  readonly expectedRevision?: number;
-  readonly agentProviders: readonly AgentProvider[];
-  readonly defaultConfiguration: AgentDefaultConfiguration;
+  readonly expected_revision?: number;
+  readonly agent_providers: readonly AgentProvider[];
+  readonly default_configuration: AgentDefaultConfiguration;
 }
 
 export interface AgentSummary {
@@ -162,7 +162,7 @@ export type AgentToolSource = "builtin" | "kanthord-mcp" | "host";
 export interface AgentTool {
   readonly name: string;
   readonly source: AgentToolSource;
-  readonly inputSchema: Readonly<Record<string, unknown>>;
+  readonly input_schema: Readonly<Record<string, unknown>>;
 }
 
 export type PromptOrigin = "binary" | "file" | "database";
@@ -194,16 +194,16 @@ export type SystemLayerOverride = (typeof SYSTEM_LAYER_OVERRIDES)[number];
 
 export interface PromptSettings {
   readonly scope: PromptScope;
-  readonly agentName: string;
+  readonly agent_name: string;
   readonly switches: Readonly<Record<string, boolean>>;
-  readonly customText: string;
+  readonly custom_text: string;
   readonly system_layer: SystemLayerOverride | null;
   readonly revision: number;
 }
 
 export interface PromptTarget {
   readonly scope: PromptScope;
-  readonly agentName?: string;
+  readonly agent_name?: string;
 }
 
 export interface AgentPrompt {
@@ -212,9 +212,9 @@ export interface AgentPrompt {
 }
 
 export interface AgentDeclaration {
-  readonly agentName: string;
-  readonly configurationSchema: Readonly<Record<string, unknown>>;
-  readonly overridableFields: readonly string[];
+  readonly agent_name: string;
+  readonly configuration_schema: Readonly<Record<string, unknown>>;
+  readonly overridable_fields: readonly string[];
   readonly enablement: AgentEnablement | null;
   readonly prompt: AgentPrompt;
   readonly tools: readonly AgentTool[];
@@ -222,7 +222,7 @@ export interface AgentDeclaration {
 
 export interface Mission {
   readonly id: string;
-  readonly projectId: string;
+  readonly project_id: string;
   readonly version: number;
 }
 
@@ -236,7 +236,7 @@ export interface MissionPlanEntry {
   readonly verifications: readonly string[];
   readonly bindings: readonly string[];
   readonly parent?: string;
-  readonly dependsOn?: readonly string[];
+  readonly depends_on?: readonly string[];
 }
 
 export interface MissionPlanFile {
@@ -245,20 +245,20 @@ export interface MissionPlanFile {
 }
 
 export interface MissionJsonExport {
-  readonly missionId: string;
-  readonly missionVersion: number;
+  readonly mission_id: string;
+  readonly mission_version: number;
   readonly entries: readonly MissionPlanEntry[];
 }
 
 export interface MissionMarkdownExport {
-  readonly missionId: string;
-  readonly missionVersion: number;
+  readonly mission_id: string;
+  readonly mission_version: number;
   readonly files: readonly MissionPlanFile[];
 }
 
 interface MissionImportBase {
-  readonly missionId: string;
-  readonly missionVersion: number;
+  readonly mission_id: string;
+  readonly mission_version: number;
   readonly reason: string;
 }
 
@@ -270,38 +270,38 @@ export type MissionImportSnapshot =
     });
 
 export type MissionImportApply = MissionImportSnapshot & {
-  readonly previewDigest: string;
-  readonly confirmedRetirements: readonly string[];
+  readonly preview_digest: string;
+  readonly confirmed_retirements: readonly string[];
 };
 
 export type MissionRemovedEdge =
-  | { readonly kind: "containment"; readonly parentId: string; readonly childId: string }
-  | { readonly kind: "dependency"; readonly dependentId: string; readonly dependsOnId: string };
+  | { readonly kind: "containment"; readonly parent_id: string; readonly child_id: string }
+  | { readonly kind: "dependency"; readonly dependent_id: string; readonly depends_on_id: string };
 
 export interface MissionImportViolation {
   readonly code: string;
   readonly message: string;
   readonly filename: string | null;
-  readonly nodeId: string | null;
+  readonly node_id: string | null;
   readonly details: unknown;
 }
 
 export interface MissionImportPreview {
-  readonly missionId: string;
-  readonly expectedMissionVersion: number;
-  readonly previewDigest: string;
+  readonly mission_id: string;
+  readonly expected_mission_version: number;
+  readonly preview_digest: string;
   readonly creates: readonly string[];
   readonly updates: readonly string[];
   readonly retirements: readonly string[];
-  readonly removedEdges: readonly MissionRemovedEdge[];
-  readonly noOps: readonly string[];
+  readonly removed_edges: readonly MissionRemovedEdge[];
+  readonly no_ops: readonly string[];
   readonly violations: readonly MissionImportViolation[];
 }
 
 export interface MissionImportResult {
-  readonly missionId: string;
-  readonly missionVersion: number;
-  readonly assignedIds: readonly { readonly filename: string; readonly nodeId: string }[];
+  readonly mission_id: string;
+  readonly mission_version: number;
+  readonly assigned_ids: readonly { readonly filename: string; readonly node_id: string }[];
 }
 
 export type BindingSetKind = "repository" | "worker" | "storage";
@@ -319,28 +319,28 @@ export interface RepositoryBindingConfig {
   readonly platform: RepositoryPlatform;
   readonly address: string;
   readonly strategy: {
-    readonly baseBranch: string;
+    readonly base_branch: string;
     readonly action?: {
       readonly name: RepositoryActionName;
       readonly follows: RepositoryActionFollows;
     };
   };
-  readonly sshCredential: string;
+  readonly ssh_credential: string;
   readonly credential?: string;
-  readonly projectPrompt?: string;
+  readonly project_prompt?: string;
 }
 
 export interface WorkerAgentEntry {
   readonly agent: string;
-  readonly agentProvider?: string;
-  readonly modelIdentifier?: string;
-  readonly reasoningEffort?: string;
+  readonly agent_provider?: string;
+  readonly model_identifier?: string;
+  readonly reasoning_effort?: string;
 }
 
 export interface WorkerBindingConfig {
   readonly worker: string;
-  readonly instanceCount: number;
-  readonly resourceBudget?: { readonly turns: number; readonly wallTimeMs: number };
+  readonly instance_count: number;
+  readonly resource_budget?: { readonly turns: number; readonly wall_time_ms: number };
   readonly entries?: readonly WorkerAgentEntry[];
 }
 
@@ -364,11 +364,11 @@ export interface BindingSet {
 }
 
 export interface BindingSetWriteResult {
-  readonly projectId: string;
-  readonly bindingSetVersion: number;
+  readonly project_id: string;
+  readonly binding_set_version: number;
   readonly changes: readonly {
     readonly kind: "created" | "revised" | "removed" | "unchanged";
-    readonly bindingId: string;
+    readonly binding_id: string;
   }[];
 }
 
@@ -376,8 +376,8 @@ export type MissionActor =
   | { readonly kind: "human"; readonly account: string; readonly name: string }
   | {
       readonly kind: "execution";
-      readonly executionId: string;
-      readonly clientId: string | null;
+      readonly execution_id: string;
+      readonly client_id: string | null;
       readonly name: string | null;
     }
   | {
@@ -407,7 +407,7 @@ export type MissionClosingEvent =
 
 export interface MissionRepositoryAddress {
   readonly kind: "repository";
-  readonly bindingId: string;
+  readonly binding_id: string;
   readonly commit: string;
 }
 
@@ -424,10 +424,10 @@ export interface MissionObjectAddress {
 }
 
 export type MissionPlatformAddress =
-  | { readonly kind: "pull_request"; readonly resourceIdentity: string; readonly number: number }
+  | { readonly kind: "pull_request"; readonly resource_identity: string; readonly number: number }
   | {
       readonly kind: "branch_push";
-      readonly resourceIdentity: string;
+      readonly resource_identity: string;
       readonly branch: string;
       readonly commit: string;
     };
@@ -438,19 +438,19 @@ export type MissionAddress =
 export type MissionTestedInput = MissionAddress | readonly MissionRepositoryAddress[];
 
 export interface MissionVerification {
-  readonly testedInput: MissionTestedInput;
+  readonly tested_input: MissionTestedInput;
   readonly results: readonly {
     readonly command: string;
-    readonly exitCode: number | null;
+    readonly exit_code: number | null;
     readonly signal: string | null;
-    readonly timedOut: boolean;
+    readonly timed_out: boolean;
   }[];
 }
 
 interface MissionAssetBase {
   readonly id: string;
-  readonly publishedAt: number | null;
-  readonly expiredAt: number | null;
+  readonly published_at: number | null;
+  readonly expired_at: number | null;
 }
 
 export type MissionEvidenceAsset =
@@ -459,89 +459,89 @@ export type MissionEvidenceAsset =
   | (MissionAssetBase & {
       readonly kind: "object";
       readonly address: MissionObjectAddress;
-      readonly storageBindingId: string;
+      readonly storage_binding_id: string;
       readonly size: number;
-      readonly mediaType: string;
+      readonly media_type: string;
     })
   | (MissionAssetBase & { readonly kind: "platform"; readonly address: MissionPlatformAddress });
 
 export interface MissionEvidence {
   readonly id: string;
-  readonly nodeId: string;
+  readonly node_id: string;
   readonly attempt: number;
   readonly subject: string;
   readonly assets: readonly MissionEvidenceAsset[];
   readonly provenance: MissionActor;
-  readonly createdAt: number;
-  readonly requirementKey?: string;
-  readonly endState?: "expected" | "other";
+  readonly created_at: number;
+  readonly requirement_key?: string;
+  readonly end_state?: "expected" | "other";
   readonly verification?: MissionVerification;
 }
 
 export interface MissionCurrency {
   readonly current: boolean;
-  readonly contextMatches: boolean;
-  readonly authorityAdmits: boolean;
-  readonly orderSelected: boolean;
+  readonly context_matches: boolean;
+  readonly authority_admits: boolean;
+  readonly order_selected: boolean;
   readonly reasons: readonly string[];
 }
 
 export interface MissionAssessment {
   readonly id: string;
-  readonly nodeId: string;
-  readonly executionId: string | null;
+  readonly node_id: string;
+  readonly execution_id: string | null;
   readonly attempt: number;
-  readonly nodeRevision: number;
-  readonly evidenceIds: readonly string[];
-  readonly childOutcomeIds: readonly string[];
+  readonly node_revision: number;
+  readonly evidence_ids: readonly string[];
+  readonly child_outcome_ids: readonly string[];
   readonly result: MissionAssessmentResult;
   readonly rationale: string;
-  readonly testedInput: MissionTestedInput | null;
+  readonly tested_input: MissionTestedInput | null;
   readonly actor: MissionActor;
-  readonly createdAt: number;
+  readonly created_at: number;
   readonly currency: MissionCurrency | null;
-  readonly childNodeIds: readonly string[];
-  readonly workerVersion: string | null;
+  readonly child_node_ids: readonly string[];
+  readonly worker_version: string | null;
 }
 
 export interface MissionOutcome {
   readonly id: string;
-  readonly nodeId: string;
+  readonly node_id: string;
   readonly attempt: number;
-  readonly nodeRevision: number;
-  readonly closingEvent: MissionClosingEvent;
+  readonly node_revision: number;
+  readonly closing_event: MissionClosingEvent;
   readonly result: MissionAssessmentResult;
-  readonly assessmentId: string;
-  readonly evidenceIds: readonly string[];
-  readonly createdAt: number;
+  readonly assessment_id: string;
+  readonly evidence_ids: readonly string[];
+  readonly created_at: number;
 }
 
 export interface FrozenAction {
   readonly key: string;
-  readonly bindingId: string;
+  readonly binding_id: string;
   readonly action: RepositoryActionName;
-  readonly expectedEndState: "pull_request_merged" | "base_branch_pushed";
+  readonly expected_end_state: "pull_request_merged" | "base_branch_pushed";
   readonly follows: string | null;
-  readonly configuration: { readonly baseBranch: string };
+  readonly configuration: { readonly base_branch: string };
 }
 
 export interface MissionAttempt {
-  readonly nodeId: string;
+  readonly node_id: string;
   readonly attempt: number;
-  readonly nodeRevision: number;
-  readonly requiredExternalActions: readonly FrozenAction[];
-  readonly openedAt: number;
-  readonly closedAt: number | null;
-  readonly outcomeIds: readonly string[];
-  readonly openedBy: MissionActor;
+  readonly node_revision: number;
+  readonly required_external_actions: readonly FrozenAction[];
+  readonly opened_at: number;
+  readonly closed_at: number | null;
+  readonly outcome_ids: readonly string[];
+  readonly opened_by: MissionActor;
 }
 
 export interface MissionExternalAction {
-  readonly nodeId: string;
+  readonly node_id: string;
   readonly attempt: number;
   readonly action: FrozenAction;
   readonly requested: boolean;
-  readonly requestEvidenceId: string | null;
+  readonly request_evidence_id: string | null;
   readonly resolution: "unrequested" | "unresolved" | "expected-end" | "other-end";
 }
 
@@ -553,12 +553,12 @@ export interface MissionBlockedContext {
 interface MissionNodeBase {
   readonly id: string;
   readonly filename: string;
-  readonly missionId: string;
-  readonly parentId: string | null;
-  readonly visibleRevision: number;
+  readonly mission_id: string;
+  readonly parent_id: string | null;
+  readonly visible_revision: number;
   readonly content: MissionContent;
-  readonly retiredAt: number | null;
-  readonly pinnedByAttempts: readonly number[];
+  readonly retired_at: number | null;
+  readonly pinned_by_attempts: readonly number[];
 }
 
 export interface MissionRunnableNode extends MissionNodeBase {
@@ -566,8 +566,8 @@ export interface MissionRunnableNode extends MissionNodeBase {
   readonly state: NodeState;
   readonly attempt: number;
   readonly priority: number;
-  readonly dependsOn: readonly string[];
-  readonly blockedContext?: MissionBlockedContext;
+  readonly depends_on: readonly string[];
+  readonly blocked_context?: MissionBlockedContext;
 }
 
 export interface MissionTaskNode extends MissionNodeBase {
@@ -577,8 +577,8 @@ export interface MissionTaskNode extends MissionNodeBase {
 export type MissionNodeRecord = MissionRunnableNode | MissionTaskNode;
 
 export type MissionEdge =
-  | { readonly kind: "containment"; readonly parentId: string; readonly childId: string }
-  | { readonly kind: "dependency"; readonly dependentId: string; readonly dependsOnId: string };
+  | { readonly kind: "containment"; readonly parent_id: string; readonly child_id: string }
+  | { readonly kind: "dependency"; readonly dependent_id: string; readonly depends_on_id: string };
 
 export type MissionRevisionWrite =
   | "import"
@@ -597,68 +597,68 @@ export interface MissionTaskContent {
 }
 
 export interface MissionRevision {
-  readonly nodeId: string;
+  readonly node_id: string;
   readonly filename: string;
   readonly revision: number;
   readonly reason: string;
   readonly actor: MissionActor;
-  readonly createdAt: number;
+  readonly created_at: number;
   readonly content: MissionContent;
   readonly tasks?: readonly MissionTaskContent[];
   readonly change: {
     readonly write: MissionRevisionWrite;
-    readonly previousRevision: number | null;
-    readonly changedFields: readonly string[];
+    readonly previous_revision: number | null;
+    readonly changed_fields: readonly string[];
     readonly tasks?: readonly {
       readonly id: string;
       readonly change: "created" | "updated" | "moved-in" | "moved-out" | "retired";
-      readonly changedFields: readonly string[];
+      readonly changed_fields: readonly string[];
     }[];
   };
-  readonly pinnedByAttempts: readonly number[];
+  readonly pinned_by_attempts: readonly number[];
 }
 
 export interface ProjectBindingRecord {
   readonly id: string;
-  readonly projectId: string;
+  readonly project_id: string;
   readonly name: string;
   readonly kind: BindingSetKind;
-  readonly resourceIdentity: string;
+  readonly resource_identity: string;
   readonly revision: number;
   readonly config: unknown;
-  readonly createdAt: number;
-  readonly removedAt: number | null;
+  readonly created_at: number;
+  readonly removed_at: number | null;
 }
 
 export type ClaimState = "running" | "lost" | "finished";
 
 export interface SchedulerJob {
-  readonly jobId: string;
-  readonly projectId: string;
-  readonly nodeId: string;
+  readonly job_id: string;
+  readonly project_id: string;
+  readonly node_id: string;
   readonly priority: number;
 }
 
 export interface SchedulerExecutionRecord {
-  readonly executionId: string;
-  readonly projectId: string;
-  readonly nodeId: string;
+  readonly execution_id: string;
+  readonly project_id: string;
+  readonly node_id: string;
   readonly claimant: {
-    readonly workerBindingId: string;
-    readonly resourceIdentity: string;
-    readonly runtimeIdentity: string;
-    readonly clientId?: string;
+    readonly worker_binding_id: string;
+    readonly resource_identity: string;
+    readonly runtime_identity: string;
+    readonly client_id?: string;
     readonly name?: string;
   };
   readonly attempt: number;
-  readonly pinnedRevision: number;
+  readonly pinned_revision: number;
   readonly credentials: readonly string[];
-  readonly claimState: ClaimState;
-  readonly expiredAt: number;
-  readonly createdAt: number;
-  readonly endedAt: number | null;
-  readonly traceId: string;
-  readonly rootSpanId: string;
+  readonly claim_state: ClaimState;
+  readonly expired_at: number;
+  readonly created_at: number;
+  readonly ended_at: number | null;
+  readonly trace_id: string;
+  readonly root_span_id: string;
 }
 
 export type CredentialComponent = "llm" | "repository" | "storage";
@@ -669,9 +669,9 @@ export type SecretShape = "api_key" | "oauth" | "s3_access_key" | "none";
 
 export interface CredentialPlatformEntry {
   readonly platform: CredentialPlatform;
-  readonly secretShape: SecretShape;
-  readonly loginModes: readonly CredentialLoginMode[];
-  readonly metadataFields: readonly string[];
+  readonly secret_shape: SecretShape;
+  readonly login_modes: readonly CredentialLoginMode[];
+  readonly metadata_fields: readonly string[];
   readonly verifiable: boolean;
 }
 
@@ -683,8 +683,8 @@ export interface CredentialRevision {
   readonly id: string;
   readonly revision: number;
   readonly metadata: Readonly<Record<string, unknown>> | null;
-  readonly createdAt: number;
-  readonly endedAt: number | null;
+  readonly created_at: number;
+  readonly ended_at: number | null;
 }
 
 export interface Credential {
@@ -699,13 +699,13 @@ export interface CredentialAgentProvider {
 }
 
 export interface LlmCredential extends Credential {
-  readonly agentProviders: readonly CredentialAgentProvider[];
+  readonly agent_providers: readonly CredentialAgentProvider[];
 }
 
 export interface CredentialBinding {
-  readonly projectId: string;
-  readonly projectName: string;
-  readonly bindingId: string;
+  readonly project_id: string;
+  readonly project_name: string;
+  readonly binding_id: string;
   readonly name: string;
 }
 
@@ -725,13 +725,13 @@ export interface ComponentCredential {
 
 export interface CredentialModel {
   readonly id: string;
-  readonly contextWindow?: number;
-  readonly maxTokens?: number;
-  readonly reasoningLevels?: readonly ReasoningEffort[];
+  readonly context_window?: number;
+  readonly max_tokens?: number;
+  readonly reasoning_levels?: readonly ReasoningEffort[];
 }
 
 export interface OpenAiCompatibleMetadata {
-  readonly baseUrl: string;
+  readonly base_url: string;
   readonly models: readonly CredentialModel[];
 }
 
@@ -756,8 +756,8 @@ export interface OAuthSecret {
 }
 
 export interface S3AccessKeySecret {
-  readonly accessKeyId: string;
-  readonly secretAccessKey: string;
+  readonly access_key_id: string;
+  readonly secret_access_key: string;
 }
 
 export type CredentialSecret = ApiKeySecret | OAuthSecret | S3AccessKeySecret;
@@ -772,13 +772,13 @@ export interface CredentialCreateBody {
 export type CredentialCheckBody = Omit<CredentialCreateBody, "name">;
 
 export interface CredentialRotateBody {
-  readonly expectedRevision: number;
+  readonly expected_revision: number;
   readonly secret: CredentialSecret;
   readonly metadata?: CredentialMetadata;
 }
 
 export interface CredentialMetadataBody {
-  readonly expectedRevision: number;
+  readonly expected_revision: number;
   readonly metadata: CredentialMetadata;
 }
 
@@ -791,19 +791,19 @@ export interface CredentialLoginBody {
 }
 
 export interface CredentialLoginSession {
-  readonly sessionId: string;
+  readonly session_id: string;
   readonly address: string;
   readonly code: string | null;
-  readonly expiresAt: number;
+  readonly expires_at: number;
 }
 
 export type CredentialLoginState = "pending" | "completed" | "failed" | "expired";
 
 export interface CredentialLoginStatus {
-  readonly sessionId: string;
+  readonly session_id: string;
   readonly state: CredentialLoginState;
-  readonly lastMessage: string | null;
-  readonly failureReason: string | null;
+  readonly last_message: string | null;
+  readonly failure_reason: string | null;
 }
 
 export type ResourceStatus = "healthy" | "unhealthy" | "unknown";
@@ -815,7 +815,7 @@ export interface HealthEntry {
 
 export interface BindingVerifyResult {
   readonly address: HealthEntry;
-  readonly sshCredential: HealthEntry;
+  readonly ssh_credential: HealthEntry;
   readonly credential: HealthEntry | null;
 }
 
@@ -839,23 +839,23 @@ export interface SshDiscoverResult {
 }
 
 export interface WorkbenchConfiguration {
-  readonly agentProvider: string;
-  readonly modelIdentifier: string;
-  readonly reasoningEffort: ReasoningEffort;
+  readonly agent_provider: string;
+  readonly model_identifier: string;
+  readonly reasoning_effort: ReasoningEffort;
 }
 
 export interface WorkbenchSessionCreateBody extends WorkbenchConfiguration {
-  readonly agentName: string;
+  readonly agent_name: string;
 }
 
 export interface WorkbenchSessionListItem {
   readonly id: string;
-  readonly agentName: string;
+  readonly agent_name: string;
   readonly name: string | null;
   readonly created: number;
   readonly modified: number;
-  readonly messageCount: number;
-  readonly firstMessage: string;
+  readonly message_count: number;
+  readonly first_message: string;
 }
 
 export interface WorkbenchSessionEntry {
@@ -868,25 +868,25 @@ export interface WorkbenchSessionEntry {
 
 export interface WorkbenchSession {
   readonly id: string;
-  readonly agentName: string;
+  readonly agent_name: string;
   readonly configuration: WorkbenchConfiguration;
   readonly entries: readonly WorkbenchSessionEntry[];
-  readonly runActive: boolean;
-  readonly resumeCommand: string;
+  readonly run_active: boolean;
+  readonly resume_command: string;
 }
 
 export interface WorkbenchPendingApproval {
-  readonly toolCallId: string;
-  readonly operationId: string;
+  readonly tool_call_id: string;
+  readonly operation_id: string;
   readonly input: Readonly<Record<string, unknown>>;
 }
 
 export interface WorkbenchRunSnapshot {
-  readonly streamingMessage: Readonly<Record<string, unknown>> | null;
-  readonly pendingToolCalls: readonly string[];
-  readonly pendingApproval: WorkbenchPendingApproval | null;
-  readonly runActive: boolean;
-  readonly errorMessage: string | null;
+  readonly streaming_message: Readonly<Record<string, unknown>> | null;
+  readonly pending_tool_calls: readonly string[];
+  readonly pending_approval: WorkbenchPendingApproval | null;
+  readonly run_active: boolean;
+  readonly error_message: string | null;
 }
 
 export interface WorkbenchSessionEvents {
@@ -896,17 +896,17 @@ export interface WorkbenchSessionEvents {
 }
 
 export interface WorkbenchMessageAnswer {
-  readonly sessionId: string;
-  readonly runActive: true;
+  readonly session_id: string;
+  readonly run_active: true;
 }
 
 export interface WorkbenchAbortAnswer {
-  readonly sessionId: string;
-  readonly runActive: false;
+  readonly session_id: string;
+  readonly run_active: false;
 }
 
 export interface WorkbenchApprovalAnswer {
-  readonly sessionId: string;
-  readonly toolCallId: string;
+  readonly session_id: string;
+  readonly tool_call_id: string;
   readonly approved: boolean;
 }

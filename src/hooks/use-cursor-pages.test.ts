@@ -22,9 +22,9 @@ function deferred(): Deferred {
 }
 
 const PAGES: Record<string, Page<string>> = {
-  first: { items: ["a", "b"], nextCursor: "c-1" },
-  "c-1": { items: ["c", "d"], nextCursor: "c-2" },
-  "c-2": { items: ["e"], nextCursor: null },
+  first: { items: ["a", "b"], next_cursor: "c-1" },
+  "c-1": { items: ["c", "d"], next_cursor: "c-2" },
+  "c-2": { items: ["e"], next_cursor: null },
 };
 
 function pagesOf(cursor: string | null): Promise<Page<string>> {
@@ -107,7 +107,7 @@ describe("useCursorPages", () => {
     expect(result.current.items).toEqual([]);
     await waitFor(() => expect(result.current.status).toBe("ready"));
 
-    await act(async () => atlasNext.resolve({ items: ["stale"], nextCursor: null }));
+    await act(async () => atlasNext.resolve({ items: ["stale"], next_cursor: null }));
     expect(result.current.items).toEqual(["a", "b"]);
     expect(result.current.hasPrevious).toBe(false);
   });
@@ -125,7 +125,7 @@ describe("useCursorPages", () => {
     act(() => result.current.reload());
     await waitFor(() => expect(result.current.pending).toBe(false));
 
-    await act(async () => pendingNext.resolve({ items: ["late"], nextCursor: null }));
+    await act(async () => pendingNext.resolve({ items: ["late"], next_cursor: null }));
     expect(result.current.items).toEqual(["a", "b"]);
     expect(result.current.position).toBe(0);
     expect(read).toHaveBeenLastCalledWith(null);
@@ -145,6 +145,6 @@ describe("useCursorPages", () => {
     });
 
     expect(read).toHaveBeenCalledTimes(2);
-    await act(async () => pendingNext.resolve(PAGES["c-1"] ?? { items: [], nextCursor: null }));
+    await act(async () => pendingNext.resolve(PAGES["c-1"] ?? { items: [], next_cursor: null }));
   });
 });

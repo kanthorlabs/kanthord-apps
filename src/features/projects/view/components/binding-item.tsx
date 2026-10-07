@@ -24,7 +24,7 @@ function factsOf(entry: BindingSetEntry): readonly string[] {
     return [
       config.address,
       config.platform,
-      `ssh ${config.sshCredential}`,
+      `ssh ${config.ssh_credential}`,
       ...(config.credential !== undefined ? [`credential ${config.credential}`] : []),
     ];
   }
@@ -32,10 +32,10 @@ function factsOf(entry: BindingSetEntry): readonly string[] {
     const { config } = entry;
     return [
       config.worker,
-      `instance count ${config.instanceCount}`,
-      config.resourceBudget === undefined
+      `instance count ${config.instance_count}`,
+      config.resource_budget === undefined
         ? "worker default budget"
-        : `budget ${config.resourceBudget.turns} turns, ${config.resourceBudget.wallTimeMs} ms`,
+        : `budget ${config.resource_budget.turns} turns, ${config.resource_budget.wall_time_ms} ms`,
       `agent entries ${config.entries?.length ?? 0}`,
     ];
   }

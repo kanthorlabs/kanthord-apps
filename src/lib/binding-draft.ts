@@ -117,9 +117,9 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
 function agentDraftOf(entry: WorkerAgentEntry): AgentEntryDraft {
   return {
     agent: entry.agent,
-    agentProvider: entry.agentProvider ?? "",
-    modelIdentifier: entry.modelIdentifier ?? "",
-    reasoningEffort: entry.reasoningEffort ?? "",
+    agentProvider: entry.agent_provider ?? "",
+    modelIdentifier: entry.model_identifier ?? "",
+    reasoningEffort: entry.reasoning_effort ?? "",
   };
 }
 
@@ -132,13 +132,13 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       available: config.available,
       platform: config.platform,
       address: config.address,
-      baseBranch: config.strategy.baseBranch,
+      baseBranch: config.strategy.base_branch,
       actionName: config.strategy.action?.name ?? "",
       follows: config.strategy.action?.follows ?? ASSESSMENT_PASSED,
-      sshCredential: config.sshCredential,
+      sshCredential: config.ssh_credential,
       sshCredentialHost: "",
       credential: config.credential ?? "",
-      projectPrompt: config.projectPrompt ?? "",
+      projectPrompt: config.project_prompt ?? "",
     };
   }
   if (entry.kind === "worker") {
@@ -147,10 +147,10 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       kind: "worker",
       name,
       worker: config.worker,
-      instanceCount: String(config.instanceCount),
-      turns: config.resourceBudget === undefined ? "" : String(config.resourceBudget.turns),
+      instanceCount: String(config.instance_count),
+      turns: config.resource_budget === undefined ? "" : String(config.resource_budget.turns),
       wallTimeMs:
-        config.resourceBudget === undefined ? "" : String(config.resourceBudget.wallTimeMs),
+        config.resource_budget === undefined ? "" : String(config.resource_budget.wall_time_ms),
       entries: (config.entries ?? []).map(agentDraftOf),
     };
   }
@@ -184,9 +184,9 @@ function agentEntryOf(draft: AgentEntryDraft): WorkerAgentEntry {
   const reasoningEffort = optional(draft.reasoningEffort);
   return {
     agent: draft.agent.trim(),
-    ...(agentProvider === undefined ? {} : { agentProvider }),
-    ...(modelIdentifier === undefined ? {} : { modelIdentifier }),
-    ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
+    ...(agentProvider === undefined ? {} : { agent_provider: agentProvider }),
+    ...(modelIdentifier === undefined ? {} : { model_identifier: modelIdentifier }),
+    ...(reasoningEffort === undefined ? {} : { reasoning_effort: reasoningEffort }),
   };
 }
 
@@ -231,14 +231,14 @@ function repositoryEntryOf(
       platform: draft.platform,
       address,
       strategy: {
-        baseBranch: draft.baseBranch.trim(),
+        base_branch: draft.baseBranch.trim(),
         ...(draft.actionName === ""
           ? {}
           : { action: { name: draft.actionName, follows: draft.follows } }),
       },
-      sshCredential: draft.sshCredential.trim(),
+      ssh_credential: draft.sshCredential.trim(),
       ...(credential !== undefined && credential !== "" ? { credential } : {}),
-      ...(projectPrompt === undefined ? {} : { projectPrompt }),
+      ...(projectPrompt === undefined ? {} : { project_prompt: projectPrompt }),
     },
   };
 }
@@ -259,9 +259,9 @@ function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): Bind
     kind: "worker",
     config: {
       worker: draft.worker.trim(),
-      instanceCount: instanceCount ?? 0,
+      instance_count: instanceCount ?? 0,
       ...(budgetGiven && turns !== null && wallTimeMs !== null
-        ? { resourceBudget: { turns, wallTimeMs } }
+        ? { resource_budget: { turns, wall_time_ms: wallTimeMs } }
         : {}),
       ...(draft.entries.length === 0 ? {} : { entries: draft.entries.map(agentEntryOf) }),
     },

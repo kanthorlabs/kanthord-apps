@@ -111,8 +111,8 @@ export function secretOfDraft(
     if (isBlank(draft.accessKeyId)) errors["accessKeyId"] = BLANK;
     if (isBlank(draft.secretAccessKey)) errors["secretAccessKey"] = BLANK;
     return finish(errors, {
-      accessKeyId: draft.accessKeyId,
-      secretAccessKey: draft.secretAccessKey,
+      access_key_id: draft.accessKeyId,
+      secret_access_key: draft.secretAccessKey,
     });
   }
   if (draft.refresh.length === 0) errors["refresh"] = BLANK;
@@ -135,7 +135,7 @@ function baseUrlError(baseUrl: string): string | null {
 }
 
 function fieldError(name: string, value: string): string | null {
-  if (name === "baseUrl") return baseUrlError(value);
+  if (name === "base_url") return baseUrlError(value);
   if (name === "endpoint" && !URL.canParse(value)) {
     return "Enter a full URL, for example https://s3.amazonaws.com.";
   }
@@ -163,7 +163,7 @@ function metadataOf(
   models: readonly CredentialModel[],
 ): CredentialMetadata {
   if (entry.platform !== OPENAI_COMPATIBLE) return fields;
-  return { baseUrl: fields["baseUrl"] ?? "", models };
+  return { base_url: fields["base_url"] ?? "", models };
 }
 
 function limitOf(value: string, key: string, errors: Record<string, string>): number | undefined {
@@ -189,12 +189,12 @@ function modelOfDraft(
   }
   return {
     id: draft.id,
-    ...(contextWindow === undefined ? {} : { contextWindow }),
-    ...(maxTokens === undefined ? {} : { maxTokens }),
+    ...(contextWindow === undefined ? {} : { context_window: contextWindow }),
+    ...(maxTokens === undefined ? {} : { max_tokens: maxTokens }),
     ...(draft.reasoningLevels.length === 0
       ? {}
       : {
-          reasoningLevels: REASONING_EFFORTS.filter((level) =>
+          reasoning_levels: REASONING_EFFORTS.filter((level) =>
             draft.reasoningLevels.includes(level),
           ),
         }),
@@ -206,19 +206,19 @@ export function checkBodyOf(
   secretDraft: SecretDraft,
   metadataDraft: MetadataDraft,
 ): DraftResult<CredentialCheckBody> {
-  if (entry.secretShape === "oauth") {
+  if (entry.secret_shape === "oauth") {
     return {
       ok: false,
       errors: { platform: "This platform takes its credential through a sign-in." },
     };
   }
   const errors: Record<string, string> = {};
-  const secret = secretOfDraft(entry.secretShape, secretDraft);
+  const secret = secretOfDraft(entry.secret_shape, secretDraft);
   if (!secret.ok) Object.assign(errors, secret.errors);
   const metadata =
-    entry.metadataFields.length === 0
+    entry.metadata_fields.length === 0
       ? null
-      : metadataOf(entry, fieldsOfDraft(entry.metadataFields, metadataDraft, errors), []);
+      : metadataOf(entry, fieldsOfDraft(entry.metadata_fields, metadataDraft, errors), []);
   if (!secret.ok || Object.keys(errors).length > 0) return { ok: false, errors };
   return {
     ok: true,
@@ -253,12 +253,12 @@ export function rotateMetadataOf(
   current: Readonly<Record<string, unknown>> | null,
   draft: MetadataDraft,
 ): DraftResult<CredentialMetadata | undefined> {
-  const unchanged = entry.metadataFields.every(
+  const unchanged = entry.metadata_fields.every(
     (name) => (draft.fields[name] ?? "") === textOf(current?.[name]),
   );
   if (unchanged) return { ok: true, value: undefined };
   const errors: Record<string, string> = {};
-  const fields = fieldsOfDraft(entry.metadataFields, draft, errors);
+  const fields = fieldsOfDraft(entry.metadata_fields, draft, errors);
   return finish(errors, metadataOf(entry, fields, openAiMetadataOf(current).models));
 }
 
@@ -281,10 +281,10 @@ export function editMetadataOf(
   if (entry.platform === OPENAI_COMPATIBLE) {
     const models = draft.models.map((model, index) => modelOfDraft(model, index, errors));
     flagRepeatedModelIds(draft.models, errors);
-    return finish(errors, { baseUrl: openAiMetadataOf(current).baseUrl, models });
+    return finish(errors, { base_url: openAiMetadataOf(current).base_url, models });
   }
-  if (entry.metadataFields.length === 0) return { ok: true, value: null };
-  return finish(errors, fieldsOfDraft(entry.metadataFields, draft, errors));
+  if (entry.metadata_fields.length === 0) return { ok: true, value: null };
+  return finish(errors, fieldsOfDraft(entry.metadata_fields, draft, errors));
 }
 
 function textOf(value: unknown): string {
@@ -301,14 +301,14 @@ function isReasoningEffort(value: unknown): value is ReasoningEffort {
 
 function modelOf(value: unknown): CredentialModel | null {
   if (!isRecord(value) || typeof value["id"] !== "string") return null;
-  const contextWindow = value["contextWindow"];
-  const maxTokens = value["maxTokens"];
-  const levels = value["reasoningLevels"];
+  const contextWindow = value["context_window"];
+  const maxTokens = value["max_tokens"];
+  const levels = value["reasoning_levels"];
   return {
     id: value["id"],
-    ...(typeof contextWindow === "number" ? { contextWindow } : {}),
-    ...(typeof maxTokens === "number" ? { maxTokens } : {}),
-    ...(Array.isArray(levels) ? { reasoningLevels: levels.filter(isReasoningEffort) } : {}),
+    ...(typeof contextWindow === "number" ? { context_window: contextWindow } : {}),
+    ...(typeof maxTokens === "number" ? { max_tokens: maxTokens } : {}),
+    ...(Array.isArray(levels) ? { reasoning_levels: levels.filter(isReasoningEffort) } : {}),
   };
 }
 
@@ -317,7 +317,7 @@ export function openAiMetadataOf(
 ): OpenAiCompatibleMetadata {
   const models = Array.isArray(metadata?.["models"]) ? (metadata["models"] as unknown[]) : [];
   return {
-    baseUrl: textOf(metadata?.["baseUrl"]),
+    base_url: textOf(metadata?.["base_url"]),
     models: models.map(modelOf).filter((model): model is CredentialModel => model !== null),
   };
 }
@@ -327,16 +327,16 @@ export function metadataDraftOf(
   metadata: Readonly<Record<string, unknown>> | null,
 ): MetadataDraft {
   const fields = Object.fromEntries(
-    entry.metadataFields.map((name) => [name, textOf(metadata?.[name])]),
+    entry.metadata_fields.map((name) => [name, textOf(metadata?.[name])]),
   );
   if (entry.platform !== OPENAI_COMPATIBLE) return { fields, models: [] };
   return {
     fields,
     models: openAiMetadataOf(metadata).models.map((model) => ({
       id: model.id,
-      contextWindow: model.contextWindow === undefined ? "" : String(model.contextWindow),
-      maxTokens: model.maxTokens === undefined ? "" : String(model.maxTokens),
-      reasoningLevels: model.reasoningLevels ?? [],
+      contextWindow: model.context_window === undefined ? "" : String(model.context_window),
+      maxTokens: model.max_tokens === undefined ? "" : String(model.max_tokens),
+      reasoningLevels: model.reasoning_levels ?? [],
     })),
   };
 }
@@ -358,10 +358,10 @@ export function missingForCredentialCheck(
   secret: SecretDraft,
   metadata: MetadataDraft,
 ): readonly string[] {
-  const secretMissing = SECRET_FIELD_LABELS[entry.secretShape]
+  const secretMissing = SECRET_FIELD_LABELS[entry.secret_shape]
     .filter(([key]) => isBlank(secret[key]))
     .map(([, label]) => label);
-  const metadataMissing = entry.metadataFields
+  const metadataMissing = entry.metadata_fields
     .filter((name) => isBlank(metadata.fields[name] ?? ""))
     .map(fieldLabel);
   return [...secretMissing, ...metadataMissing];

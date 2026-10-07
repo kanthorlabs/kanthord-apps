@@ -72,30 +72,30 @@ afterEach(async () => {
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 const PATH = `/api/workbench/session/${SESSION_ID}`;
 const CONFIGURATION = {
-  agentProvider: "atlas-llm",
-  modelIdentifier: "qwen3-coder",
-  reasoningEffort: "off",
+  agent_provider: "atlas-llm",
+  model_identifier: "qwen3-coder",
+  reasoning_effort: "off",
 } as const;
 const SESSION = {
   id: SESSION_ID,
-  agentName: "swe@1",
+  agent_name: "swe@1",
   configuration: CONFIGURATION,
   entries: [],
-  runActive: false,
+  run_active: false,
 };
 
 describe("listWorkbenchSessions", () => {
   it("reads the sessions of one agent from the items of the answer", async () => {
     const item = {
       id: SESSION_ID,
-      agentName: "swe@1",
+      agent_name: "swe@1",
       name: null,
       created: 1,
       modified: 2,
-      messageCount: 0,
-      firstMessage: "",
+      message_count: 0,
+      first_message: "",
     };
-    await serve({ "GET /api/workbench/session?agentName=swe%401": { body: { items: [item] } } });
+    await serve({ "GET /api/workbench/session?agent_name=swe%401": { body: { items: [item] } } });
 
     expect(await listWorkbenchSessions("swe@1")).toEqual([item]);
   });
@@ -103,12 +103,12 @@ describe("listWorkbenchSessions", () => {
   it("reads the sessions of every agent without a query", async () => {
     const item = {
       id: SESSION_ID,
-      agentName: "re@1",
+      agent_name: "re@1",
       name: null,
       created: 1,
       modified: 2,
-      messageCount: 0,
-      firstMessage: "",
+      message_count: 0,
+      first_message: "",
     };
     await serve({ "GET /api/workbench/session": { body: { items: [item] } } });
 
@@ -120,8 +120,10 @@ describe("createWorkbenchSession", () => {
   it("posts the agent name and the configuration with an idempotency key", async () => {
     await serve({ "POST /api/workbench/session": { body: SESSION } });
 
-    expect(await createWorkbenchSession({ agentName: "swe@1", ...CONFIGURATION })).toEqual(SESSION);
-    expect(JSON.parse(seen[0]!.body)).toEqual({ agentName: "swe@1", ...CONFIGURATION });
+    expect(await createWorkbenchSession({ agent_name: "swe@1", ...CONFIGURATION })).toEqual(
+      SESSION,
+    );
+    expect(JSON.parse(seen[0]!.body)).toEqual({ agent_name: "swe@1", ...CONFIGURATION });
     expect(seen[0]!.idempotencyKey).toBeTruthy();
   });
 });
@@ -147,7 +149,7 @@ describe("configureWorkbenchSession", () => {
 describe("sendWorkbenchMessage", () => {
   it("posts the text", async () => {
     await serve({
-      [`POST ${PATH}/message`]: { status: 202, body: { sessionId: SESSION_ID, runActive: true } },
+      [`POST ${PATH}/message`]: { status: 202, body: { session_id: SESSION_ID, run_active: true } },
     });
 
     await sendWorkbenchMessage(SESSION_ID, "List the objectives");
@@ -181,10 +183,10 @@ describe("sendWorkbenchMessage", () => {
 describe("abortWorkbenchRun", () => {
   it("posts no body", async () => {
     await serve({
-      [`POST ${PATH}/abort`]: { body: { sessionId: SESSION_ID, runActive: false } },
+      [`POST ${PATH}/abort`]: { body: { session_id: SESSION_ID, run_active: false } },
     });
 
-    expect((await abortWorkbenchRun(SESSION_ID)).runActive).toBe(false);
+    expect((await abortWorkbenchRun(SESSION_ID)).run_active).toBe(false);
     expect(seen[0]!.body).toBe("");
     expect(seen[0]!.idempotencyKey).toBeTruthy();
   });
@@ -194,13 +196,13 @@ describe("approveWorkbenchCall", () => {
   it("posts the tool call identity and the verdict", async () => {
     await serve({
       [`POST ${PATH}/approve`]: {
-        body: { sessionId: SESSION_ID, toolCallId: "call_1", approved: false },
+        body: { session_id: SESSION_ID, tool_call_id: "call_1", approved: false },
       },
     });
 
     await approveWorkbenchCall(SESSION_ID, "call_1", false);
 
-    expect(JSON.parse(seen[0]!.body)).toEqual({ toolCallId: "call_1", approved: false });
+    expect(JSON.parse(seen[0]!.body)).toEqual({ tool_call_id: "call_1", approved: false });
   });
 });
 
@@ -208,11 +210,11 @@ describe("readWorkbenchEvents", () => {
   const EVENTS = {
     entries: [],
     snapshot: {
-      streamingMessage: null,
-      pendingToolCalls: [],
-      pendingApproval: null,
-      runActive: false,
-      errorMessage: null,
+      streaming_message: null,
+      pending_tool_calls: [],
+      pending_approval: null,
+      run_active: false,
+      error_message: null,
     },
     version: 3,
   };

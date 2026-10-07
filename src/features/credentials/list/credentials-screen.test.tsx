@@ -33,15 +33,15 @@ const OPENROUTER: Credential = {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAD",
       revision: 2,
       metadata: null,
-      createdAt: Date.UTC(2026, 9, 3, 14, 5),
-      endedAt: null,
+      created_at: Date.UTC(2026, 9, 3, 14, 5),
+      ended_at: null,
     },
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
       revision: 1,
       metadata: null,
-      createdAt: Date.UTC(2026, 9, 2, 9, 0),
-      endedAt: Date.UTC(2026, 9, 3, 14, 5),
+      created_at: Date.UTC(2026, 9, 2, 9, 0),
+      ended_at: Date.UTC(2026, 9, 3, 14, 5),
     },
   ],
 };
@@ -52,9 +52,9 @@ const ROUTER: Credential = {
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAE",
       revision: 1,
-      metadata: { baseUrl: "https://openrouter.ai/api/v1", models: [] },
-      createdAt: Date.UTC(2026, 9, 1, 8, 0),
-      endedAt: null,
+      metadata: { base_url: "https://openrouter.ai/api/v1", models: [] },
+      created_at: Date.UTC(2026, 9, 1, 8, 0),
+      ended_at: null,
     },
   ],
 };
@@ -66,8 +66,8 @@ const BEDROCK: Credential = {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAF",
       revision: 1,
       metadata: { region: "us-east-1" },
-      createdAt: Date.UTC(2026, 9, 1, 8, 0),
-      endedAt: null,
+      created_at: Date.UTC(2026, 9, 1, 8, 0),
+      ended_at: null,
     },
   ],
 };
@@ -77,12 +77,18 @@ function apiKey(
   metadataFields: readonly string[],
   verifiable: boolean,
 ): CredentialPlatformEntry {
-  return { platform, secretShape: "api_key", loginModes: [], metadataFields, verifiable };
+  return {
+    platform,
+    secret_shape: "api_key",
+    login_modes: [],
+    metadata_fields: metadataFields,
+    verifiable,
+  };
 }
 
 const PLATFORMS: CredentialPlatformList = {
   items: [
-    apiKey("openai-compatible", ["baseUrl"], true),
+    apiKey("openai-compatible", ["base_url"], true),
     apiKey("openrouter", [], true),
     apiKey("amazon-bedrock", ["region"], false),
   ],
@@ -119,7 +125,7 @@ describe("CredentialsScreen", () => {
   it("lists each credential with its platform and newest live revision", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER, ROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -135,7 +141,7 @@ describe("CredentialsScreen", () => {
   it("opens a credential from its row", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -147,7 +153,7 @@ describe("CredentialsScreen", () => {
   it("filters the list by platform", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -178,7 +184,7 @@ describe("CredentialsScreen", () => {
   it("offers All platforms first and the platforms of the section in a flat list", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -204,7 +210,7 @@ describe("CredentialsScreen", () => {
   it("disables Verify for a platform that is not verifiable and says why on a tap", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [BEDROCK, OPENROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -232,7 +238,7 @@ describe("CredentialsScreen", () => {
   it("opens the Verify tooltip on hover", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [BEDROCK],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -255,12 +261,12 @@ describe("CredentialsScreen", () => {
     const ARCHIVED: Credential = {
       ...ROUTER,
       name: "legacy",
-      revisions: ROUTER.revisions.map((entry) => ({ ...entry, endedAt: Date.UTC(2026, 9, 2) })),
+      revisions: ROUTER.revisions.map((entry) => ({ ...entry, ended_at: Date.UTC(2026, 9, 2) })),
     };
     vi.mocked(credentialsApi.listCredentialPage).mockImplementation(
       async (_component, _platform, _cursor, includeArchived) => ({
         items: includeArchived === true ? [OPENROUTER, ARCHIVED] : [OPENROUTER],
-        nextCursor: null,
+        next_cursor: null,
       }),
     );
     mount();
@@ -283,7 +289,7 @@ describe("CredentialsScreen", () => {
   it("shows the check state as a badge on the row and keeps the other rows idle", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER, ROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     let answer: (entry: HealthEntry) => void = () => {};
     vi.mocked(credentialsApi.verifyCredential).mockReturnValue(
@@ -320,7 +326,7 @@ describe("CredentialsScreen", () => {
   it("reports a failed verify with a badge and a toast that retries", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     vi.mocked(credentialsApi.verifyCredential).mockRejectedValueOnce(
       new ApiError("conflict", "Archived.", 409, "credential.credential.archived"),
@@ -349,7 +355,7 @@ describe("CredentialsScreen", () => {
   it("rotates a credential from its row", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     vi.mocked(credentialsApi.rotateCredential).mockResolvedValue(OPENROUTER);
     mount();
@@ -360,7 +366,7 @@ describe("CredentialsScreen", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
 
     expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("llm", "ci-openrouter", {
-      expectedRevision: 2,
+      expected_revision: 2,
       secret: { key: "ghp-2" },
     });
   });
@@ -368,7 +374,7 @@ describe("CredentialsScreen", () => {
   it("offers a metadata edit only for a platform with metadata", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER, ROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -379,7 +385,7 @@ describe("CredentialsScreen", () => {
   it("opens the detail from the row and offers no revisions action", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [ROUTER],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount();
 
@@ -390,7 +396,10 @@ describe("CredentialsScreen", () => {
   });
 
   it("offers the new credential form and the sign-in", async () => {
-    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({ items: [], nextCursor: null });
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    });
     mount();
 
     expect(
@@ -405,7 +414,7 @@ describe("CredentialsScreen", () => {
     const GITHUB: Credential = { ...OPENROUTER, name: "ci-github", platform: "github" };
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [GITHUB],
-      nextCursor: null,
+      next_cursor: null,
     });
     mount("repository", "/repositories");
 
@@ -422,7 +431,7 @@ describe("CredentialsScreen", () => {
     const GITHUB: Credential = { ...OPENROUTER, name: "ci-github", platform: "github" };
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [GITHUB],
-      nextCursor: null,
+      next_cursor: null,
     });
     vi.mocked(credentialsApi.verifyCredential).mockResolvedValue(HEALTHY);
     mount("repository", "/repositories");

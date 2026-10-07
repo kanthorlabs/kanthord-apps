@@ -116,7 +116,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     putAgentEnablement(agentName, result.body).then(
       (answer) => {
         setSubmitting(false);
-        toast.success(`Enabled ${answer.agentName} at revision ${answer.revision}.`);
+        toast.success(`Enabled ${answer.agent_name} at revision ${answer.revision}.`);
         reload();
       },
       (cause: unknown) => {

@@ -29,7 +29,7 @@ export function unusedProviderCredentials(
 ): readonly Credential[] {
   return agentProviderCredentials(credentials).filter(
     (credential) =>
-      !enablement.agentProviders.some((provider) => provider.credential === credential.name),
+      !enablement.agent_providers.some((provider) => provider.credential === credential.name),
   );
 }
 
@@ -59,7 +59,7 @@ export function agentProviderBodyOf(
   const provider = providerOfCredential(credentials, draft.credential);
   const errors: AgentProviderErrors = {
     ...(name === "" ? { name: "Fill Name." } : {}),
-    ...(enablement.agentProviders.some((existing) => existing.name === name)
+    ...(enablement.agent_providers.some((existing) => existing.name === name)
       ? { name: `The name ${name} is taken in this enablement. Choose another name.` }
       : {}),
     ...(provider === null ? { credential: "Choose a credential." } : {}),
@@ -68,7 +68,7 @@ export function agentProviderBodyOf(
   return {
     ok: true,
     body: {
-      expectedRevision: enablement.revision,
+      expected_revision: enablement.revision,
       name,
       provider,
       credential: draft.credential,
@@ -80,9 +80,9 @@ export function providerRemovalBlock(
   enablement: AgentEnablement,
   providerName: string,
 ): string | null {
-  if (enablement.agentProviders.length <= 1)
+  if (enablement.agent_providers.length <= 1)
     return "An enablement keeps at least one agent provider. Add another agent provider first.";
-  if (enablement.defaultConfiguration.agentProvider === providerName)
+  if (enablement.default_configuration.agent_provider === providerName)
     return `The default configuration names ${providerName}. Change the default configuration first.`;
   return null;
 }

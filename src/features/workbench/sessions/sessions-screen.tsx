@@ -29,8 +29,8 @@ export function SessionsScreen() {
         title={title}
         status={
           <>
-            <Badge variant="secondary">{item.agentName}</Badge>
-            <Badge variant="outline">{item.messageCount} messages</Badge>
+            <Badge variant="secondary">{item.agent_name}</Badge>
+            <Badge variant="outline">{item.message_count} messages</Badge>
           </>
         }
         description={<span className="font-mono">{item.id}</span>}

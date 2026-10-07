@@ -61,7 +61,7 @@ export function ExecutionsScreen() {
       {exec.views.length > 0 && (
         <ItemGroup aria-label="Executions" className="gap-2">
           {exec.views.map(({ execution, nodeName }) => (
-            <Item key={execution.executionId} role="listitem" variant="outline">
+            <Item key={execution.execution_id} role="listitem" variant="outline">
               <ItemContent className="min-w-0 basis-64">
                 <ItemTitle className="flex-wrap">
                   <Link to={`/projects/${exec.projectId}`} className="underline underline-offset-4">
@@ -69,11 +69,11 @@ export function ExecutionsScreen() {
                   </Link>
                 </ItemTitle>
                 <ItemDescription className="break-all">
-                  Execution {execution.executionId}
+                  Execution {execution.execution_id}
                 </ItemDescription>
                 <ClaimantLine claimant={execution.claimant} />
                 <ItemDescription>
-                  Attempt {execution.attempt} · pinned revision {execution.pinnedRevision}
+                  Attempt {execution.attempt} · pinned revision {execution.pinned_revision}
                 </ItemDescription>
               </ItemContent>
               <ItemContent className="min-w-0 basis-56">
@@ -90,7 +90,7 @@ export function ExecutionsScreen() {
 function ClaimantLine({ claimant }: { claimant: SchedulerExecutionRecord["claimant"] }) {
   return (
     <ItemDescription className="break-all">
-      Binding {claimant.workerBindingId} · runtime {claimant.name ?? claimant.runtimeIdentity}
+      Binding {claimant.worker_binding_id} · runtime {claimant.name ?? claimant.runtime_identity}
     </ItemDescription>
   );
 }
@@ -105,17 +105,17 @@ const CLAIM_STATE_BADGE: Record<
 };
 
 function ClaimStateLines({ execution }: { execution: SchedulerExecutionRecord }) {
-  const badge = CLAIM_STATE_BADGE[execution.claimState];
+  const badge = CLAIM_STATE_BADGE[execution.claim_state];
   return (
     <>
       <Badge variant={badge.variant}>{badge.label}</Badge>
-      <ItemDescription>Claimed {utcDateTime(execution.createdAt)}</ItemDescription>
-      {execution.endedAt !== null ? (
-        <ItemDescription>Ended {utcDateTime(execution.endedAt)}</ItemDescription>
+      <ItemDescription>Claimed {utcDateTime(execution.created_at)}</ItemDescription>
+      {execution.ended_at !== null ? (
+        <ItemDescription>Ended {utcDateTime(execution.ended_at)}</ItemDescription>
       ) : (
-        <ItemDescription>Deadline {utcDateTime(execution.expiredAt)}</ItemDescription>
+        <ItemDescription>Deadline {utcDateTime(execution.expired_at)}</ItemDescription>
       )}
-      {execution.claimState === "lost" && (
+      {execution.claim_state === "lost" && (
         <ItemDescription>Expiry is not proof that the runtime stopped.</ItemDescription>
       )}
     </>

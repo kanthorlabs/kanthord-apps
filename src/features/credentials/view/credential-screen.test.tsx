@@ -28,28 +28,28 @@ const BASE_URL = "https://openrouter.ai/api/v1";
 const ROUTER: LlmCredential = {
   name: "router",
   platform: "openai-compatible",
-  agentProviders: [],
+  agent_providers: [],
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAG",
       revision: 3,
-      metadata: { baseUrl: BASE_URL, models: [{ id: "qwen-plus" }] },
-      createdAt: Date.UTC(2026, 9, 3, 14, 5),
-      endedAt: null,
+      metadata: { base_url: BASE_URL, models: [{ id: "qwen-plus" }] },
+      created_at: Date.UTC(2026, 9, 3, 14, 5),
+      ended_at: null,
     },
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAF",
       revision: 2,
-      metadata: { baseUrl: BASE_URL, models: [] },
-      createdAt: Date.UTC(2026, 9, 2, 14, 5),
-      endedAt: null,
+      metadata: { base_url: BASE_URL, models: [] },
+      created_at: Date.UTC(2026, 9, 2, 14, 5),
+      ended_at: null,
     },
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAE",
       revision: 1,
-      metadata: { baseUrl: BASE_URL, models: [] },
-      createdAt: Date.UTC(2026, 9, 1, 14, 5),
-      endedAt: Date.UTC(2026, 9, 2, 14, 5),
+      metadata: { base_url: BASE_URL, models: [] },
+      created_at: Date.UTC(2026, 9, 1, 14, 5),
+      ended_at: Date.UTC(2026, 9, 2, 14, 5),
     },
   ],
 };
@@ -58,13 +58,19 @@ function apiKey(
   metadataFields: readonly string[],
   verifiable: boolean,
 ): CredentialPlatformEntry {
-  return { platform, secretShape: "api_key", loginModes: [], metadataFields, verifiable };
+  return {
+    platform,
+    secret_shape: "api_key",
+    login_modes: [],
+    metadata_fields: metadataFields,
+    verifiable,
+  };
 }
 
 const PLATFORMS: CredentialPlatformList = {
   items: [
     apiKey("openrouter", [], true),
-    apiKey("openai-compatible", ["baseUrl"], true),
+    apiKey("openai-compatible", ["base_url"], true),
     apiKey("cloudflare-ai-gateway", ["account_id", "gateway_id"], false),
   ],
 };
@@ -72,14 +78,14 @@ const PLATFORMS: CredentialPlatformList = {
 const GATEWAY: LlmCredential = {
   name: "gateway",
   platform: "cloudflare-ai-gateway",
-  agentProviders: [],
+  agent_providers: [],
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAH",
       revision: 1,
       metadata: { account_id: "acc-1", gateway_id: "gw-1" },
-      createdAt: Date.UTC(2026, 9, 3, 14, 5),
-      endedAt: null,
+      created_at: Date.UTC(2026, 9, 3, 14, 5),
+      ended_at: null,
     },
   ],
 };
@@ -188,7 +194,7 @@ describe("CredentialScreen", () => {
     const ended = Date.UTC(2026, 9, 4);
     vi.mocked(credentialsApi.readCredential).mockResolvedValue({
       ...ROUTER,
-      revisions: ROUTER.revisions.map((entry) => ({ ...entry, endedAt: ended })),
+      revisions: ROUTER.revisions.map((entry) => ({ ...entry, ended_at: ended })),
     });
     mount();
 
@@ -202,7 +208,7 @@ describe("CredentialScreen", () => {
   it("shows the dependents of a refused archive and stays on the detail", async () => {
     vi.mocked(credentialsApi.archiveCredential).mockRejectedValue(
       new ApiError("conflict", "In use.", 409, "credential.credential.in_use", {
-        agentProviders: ["codex"],
+        agent_providers: ["codex"],
         bindings: ["binding_1"],
       }),
     );
@@ -213,7 +219,7 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
 
     const alert = await within(dialog).findByRole("alert");
-    expect(alert.textContent).toMatch(/agentProviders: codex; bindings: binding_1/);
+    expect(alert.textContent).toMatch(/agent_providers: codex; bindings: binding_1/);
     expect(screen.queryByText("Credential list")).toBeNull();
   });
 
@@ -227,7 +233,7 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
 
     expect(credentialsApi.rotateCredential).toHaveBeenCalledWith("llm", "router", {
-      expectedRevision: 3,
+      expected_revision: 3,
       secret: { key: "sk-2" },
     });
   });
@@ -267,12 +273,12 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
 
     expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("llm", "router", {
-      expectedRevision: 3,
+      expected_revision: 3,
       metadata: {
-        baseUrl: BASE_URL,
+        base_url: BASE_URL,
         models: [
           { id: "qwen-plus" },
-          { id: "qwen-max", maxTokens: 8192, reasoningLevels: ["high"] },
+          { id: "qwen-max", max_tokens: 8192, reasoning_levels: ["high"] },
         ],
       },
     });
@@ -357,7 +363,7 @@ describe("CredentialScreen", () => {
     vi.mocked(credentialsApi.readCredential).mockResolvedValue({
       name: "openrouter",
       platform: "openrouter",
-      agentProviders: [],
+      agent_providers: [],
       revisions: [{ ...ROUTER.revisions[0]!, metadata: null }],
     });
     mount();
@@ -380,7 +386,7 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
 
     expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("llm", "gateway", {
-      expectedRevision: 1,
+      expected_revision: 1,
       metadata: { account_id: "acc-1", gateway_id: "gw-2" },
     });
   });

@@ -9,15 +9,15 @@ import {
 } from "./agent-provider-draft";
 
 const ENABLEMENT: AgentEnablement = {
-  agentName: "swe@1",
+  agent_name: "swe@1",
   state: "enabled",
-  agentProviders: [
+  agent_providers: [
     { name: "copilot", provider: "github-copilot", credential: "github--copilot-elsa" },
   ],
-  defaultConfiguration: {
-    agentProvider: "copilot",
-    modelIdentifier: "claude-haiku-4.5",
-    reasoningEffort: "off",
+  default_configuration: {
+    agent_provider: "copilot",
+    model_identifier: "claude-haiku-4.5",
+    reasoning_effort: "off",
   },
   revision: 3,
 };
@@ -31,7 +31,7 @@ describe("agentProviderBodyOf", () => {
     ).toEqual({
       ok: true,
       body: {
-        expectedRevision: 3,
+        expected_revision: 3,
         name: "codex",
         provider: "openai-codex",
         credential: "openai-codex-elsa",
@@ -73,8 +73,8 @@ describe("unusedProviderCredentials", () => {
 describe("providerRemovalBlock", () => {
   const two: AgentEnablement = {
     ...ENABLEMENT,
-    agentProviders: [
-      ...ENABLEMENT.agentProviders,
+    agent_providers: [
+      ...ENABLEMENT.agent_providers,
       { name: "codex", provider: "openai-codex", credential: "openai-codex-elsa" },
     ],
   };

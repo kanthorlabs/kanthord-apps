@@ -148,8 +148,8 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
     setError(null);
     applyMissionImport({
       ...snapshot,
-      previewDigest: shown.previewDigest,
-      confirmedRetirements: shown.retirements,
+      preview_digest: shown.preview_digest,
+      confirmed_retirements: shown.retirements,
     }).then(
       (applied) => {
         setPending(false);
@@ -157,7 +157,7 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
         const created = shown.creates.length;
         toast.success("The import is applied.", {
           description:
-            `The mission is now at version ${applied.missionVersion}.` +
+            `The mission is now at version ${applied.mission_version}.` +
             (created > 0 ? ` ${created} new nodes received an identity.` : ""),
         });
         onApplied();

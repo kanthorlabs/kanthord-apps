@@ -17,14 +17,14 @@ const REPO: BindingSetEntry = {
     available: true,
     platform: "github",
     address: "git@github.com:kanthorlabs/kanthord.git",
-    strategy: { baseBranch: "main" },
-    sshCredential: "github-ssh",
+    strategy: { base_branch: "main" },
+    ssh_credential: "github-ssh",
     credential: "github-main",
   },
 };
 const WORKER: BindingSetEntry = {
   kind: "worker",
-  config: { worker: "general@1", instanceCount: 2 },
+  config: { worker: "general@1", instance_count: 2 },
 };
 const STORAGE: BindingSetEntry = {
   kind: "storage",

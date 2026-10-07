@@ -38,7 +38,7 @@ afterEach(async () => {
 describe("readAllPages", () => {
   it("follows each cursor until the last page", async () => {
     await serve((call) =>
-      call === 1 ? { items: [1, 2], nextCursor: "c2" } : { items: [3], nextCursor: null },
+      call === 1 ? { items: [1, 2], next_cursor: "c2" } : { items: [3], next_cursor: null },
     );
 
     expect(await readAllPages<number>("/api/list", { kind: "dependency" })).toEqual([1, 2, 3]);
@@ -49,7 +49,7 @@ describe("readAllPages", () => {
   });
 
   it("refuses a repeated cursor", async () => {
-    await serve((call) => ({ items: [call], nextCursor: call === 1 ? "c2" : "c2" }));
+    await serve((call) => ({ items: [call], next_cursor: call === 1 ? "c2" : "c2" }));
 
     await expect(readAllPages<number>("/api/list")).rejects.toThrow(
       "The daemon repeated a page cursor.",
@@ -58,7 +58,7 @@ describe("readAllPages", () => {
   });
 
   it("stops at the page budget", async () => {
-    await serve((call) => ({ items: [], nextCursor: `c${call}` }));
+    await serve((call) => ({ items: [], next_cursor: `c${call}` }));
 
     await expect(readAllPages<number>("/api/list")).rejects.toThrow("The list holds more than");
     expect(urls).toHaveLength(PAGE_BUDGET);

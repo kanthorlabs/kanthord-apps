@@ -16,9 +16,9 @@ import { ProjectScreen } from "./project-screen";
 const KANTHORD: Project = {
   id: "project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
   name: "kanthord",
-  bindingSetVersion: 3,
-  createdAt: Date.UTC(2026, 9, 3, 14, 5),
-  workspaceDirectory:
+  binding_set_version: 3,
+  created_at: Date.UTC(2026, 9, 3, 14, 5),
+  workspace_directory:
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
 
@@ -36,7 +36,7 @@ describe("ProjectScreen", () => {
   beforeEach(() => {
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission_1",
-      projectId: KANTHORD.id,
+      project_id: KANTHORD.id,
       version: 1,
     });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([]);
@@ -50,7 +50,7 @@ describe("ProjectScreen", () => {
     expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
     expect(screen.getByText(KANTHORD.id)).toBeTruthy();
     expect(screen.getByText("Workspace Directory")).toBeTruthy();
-    expect(screen.getByText(KANTHORD.workspaceDirectory).className).toContain("font-mono");
+    expect(screen.getByText(KANTHORD.workspace_directory).className).toContain("font-mono");
     expect(screen.queryByText("Binding set version")).toBeNull();
     expect(screen.getByText("2026-10-03 14:05 UTC")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Edit" })).toHaveAttribute(
@@ -62,16 +62,16 @@ describe("ProjectScreen", () => {
   it("reloads the project after a binding save", async () => {
     vi.mocked(projectsApi.readProject)
       .mockResolvedValueOnce(KANTHORD)
-      .mockResolvedValue({ ...KANTHORD, bindingSetVersion: 4 });
+      .mockResolvedValue({ ...KANTHORD, binding_set_version: 4 });
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
       version: 3,
       bindings: {
-        "general-main": { kind: "worker", config: { worker: "general@1", instanceCount: 2 } },
+        "general-main": { kind: "worker", config: { worker: "general@1", instance_count: 2 } },
       },
     });
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
-      projectId: KANTHORD.id,
-      bindingSetVersion: 4,
+      project_id: KANTHORD.id,
+      binding_set_version: 4,
       changes: [],
     });
     mount("?tab=bindings");

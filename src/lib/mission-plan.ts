@@ -72,7 +72,7 @@ export function importSnapshotOf(
   missionVersion: number,
   reason: string,
 ): MissionImportSnapshot {
-  const base = { missionId, missionVersion, reason };
+  const base = { mission_id: missionId, mission_version: missionVersion, reason };
   return input.format === "json"
     ? { ...base, format: "json", entries: input.entries }
     : { ...base, format: "markdown", files: input.files };

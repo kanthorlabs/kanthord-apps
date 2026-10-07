@@ -16,20 +16,20 @@ import { WorkersScreen } from "./workers-screen";
 const CATALOG_TDD: WorkerCatalogItem = {
   name: "tdd",
   host: "kanthord",
-  declaredNodeStates: ["Available", "Waiting"],
-  requiredNodeFormat: ["objective"],
+  declared_node_states: ["Available", "Waiting"],
+  required_node_format: ["objective"],
 };
 
 const INSTANCE_EXECUTING: WorkerInstanceRecord = {
-  runtimeIdentity: "worker_instance_01",
-  projectId: "prj-test",
-  resourceIdentity: "worker:kanthord:tdd-main",
-  workerName: "tdd",
+  runtime_identity: "worker_instance_01",
+  project_id: "prj-test",
+  resource_identity: "worker:kanthord:tdd-main",
+  worker_name: "tdd",
   host: "kanthord",
   placement: "server",
   activity: "executing",
   draining: true,
-  executionId: "execution_01",
+  execution_id: "execution_01",
   registered: true,
 };
 

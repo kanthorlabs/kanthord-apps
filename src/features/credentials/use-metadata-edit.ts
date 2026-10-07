@@ -97,7 +97,7 @@ export function useMetadataEdit(
     setFailure(null);
     setSubmitting(true);
     updateCredentialMetadata(component, credential.name, {
-      expectedRevision: newest.revision,
+      expected_revision: newest.revision,
       metadata: metadata.value,
     }).then(
       (answer) => {
@@ -118,8 +118,8 @@ export function useMetadataEdit(
   return {
     available:
       entry !== null &&
-      entry.secretShape !== "none" &&
-      entry.metadataFields.length > 0 &&
+      entry.secret_shape !== "none" &&
+      entry.metadata_fields.length > 0 &&
       newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,

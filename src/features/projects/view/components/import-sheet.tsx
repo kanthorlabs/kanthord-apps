@@ -139,7 +139,7 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
                 empty="No node retires."
               />
               <p className="text-sm text-muted-foreground">
-                {shown.noOps.length} nodes stay unchanged. {shown.removedEdges.length} edges are
+                {shown.no_ops.length} nodes stay unchanged. {shown.removed_edges.length} edges are
                 removed.
               </p>
               {retiring > 0 && (

@@ -27,10 +27,10 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     if (!live.has(session.id)) {
       live.set(session.id, {
         run: null,
-        streamingMessage: null,
-        pendingToolCalls: [],
-        pendingApproval: null,
-        errorMessage: null,
+        streaming_message: null,
+        pending_tool_calls: [],
+        pending_approval: null,
+        error_message: null,
         waiters: new Set(),
         version: 0,
       });
@@ -41,11 +41,11 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   const snapshotOf = (session) => {
     const state = stateOf(session);
     return {
-      streamingMessage: state.streamingMessage,
-      pendingToolCalls: [...state.pendingToolCalls],
-      pendingApproval: state.pendingApproval,
-      runActive: state.run !== null,
-      errorMessage: state.errorMessage,
+      streaming_message: state.streaming_message,
+      pending_tool_calls: [...state.pending_tool_calls],
+      pending_approval: state.pending_approval,
+      run_active: state.run !== null,
+      error_message: state.error_message,
     };
   };
 
@@ -81,14 +81,14 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     const state = stateOf(session);
     const words = text.split(" ");
     for (let count = 1; count <= words.length && !run.cancelled; count += 1) {
-      state.streamingMessage = {
+      state.streaming_message = {
         role: "assistant",
         content: [{ type: "text", text: words.slice(0, count).join(" ") }],
       };
       notify(session);
       await sleep(run, WORD_DELAY_MS);
     }
-    state.streamingMessage = null;
+    state.streaming_message = null;
     if (!run.cancelled) append(session, "message", { message: textMessage("assistant", text) });
   };
 
@@ -96,14 +96,14 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     append(session, "message", {
       message: { role: "assistant", content: [{ type: "toolCall", ...call }] },
     });
-    stateOf(session).pendingToolCalls = [call.id];
+    stateOf(session).pending_tool_calls = [call.id];
     notify(session);
   };
 
   const settle = async (session, run, call, result) => {
     const state = stateOf(session);
     await sleep(run, STEP_DELAY_MS);
-    state.pendingToolCalls = [];
+    state.pending_tool_calls = [];
     if (run.cancelled) return;
     append(session, "message", {
       message: {
@@ -119,10 +119,10 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   const awaitApproval = (session, run, approval) =>
     new Promise((resolve) => {
       const state = stateOf(session);
-      state.pendingApproval = approval;
+      state.pending_approval = approval;
       notify(session);
       run.decide = (approved) => {
-        state.pendingApproval = null;
+        state.pending_approval = null;
         run.decide = null;
         resolve(approved);
       };
@@ -138,7 +138,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       arguments: {},
     };
     if (/\bfail\b/i.test(text)) {
-      state.errorMessage = "The model provider refused the request.";
+      state.error_message = "The model provider refused the request.";
       return;
     }
     if (/\b(create|approve|mutation)\b/i.test(text)) {
@@ -147,8 +147,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       announce(session, call);
       await sleep(run, STEP_DELAY_MS);
       const approved = await awaitApproval(session, run, {
-        toolCallId: call.id,
-        operationId: call.name,
+        tool_call_id: call.id,
+        operation_id: call.name,
         input: call.arguments,
       });
       if (!run.cancelled) {
@@ -177,9 +177,9 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   const finish = (session) => {
     const state = stateOf(session);
     state.run = null;
-    state.streamingMessage = null;
-    state.pendingToolCalls = [];
-    state.pendingApproval = null;
+    state.streaming_message = null;
+    state.pending_tool_calls = [];
+    state.pending_approval = null;
     notify(session);
   };
 
@@ -192,62 +192,62 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   };
 
   const validConfiguration = (res, agentName, body) => {
-    const enablement = agents.find((agent) => agent.agentName === agentName)?.enablement;
+    const enablement = agents.find((agent) => agent.agent_name === agentName)?.enablement;
     const reasons = [];
     if (enablement?.state !== "enabled") reasons.push("The agent is not enabled.");
-    if (!enablement?.agentProviders.some((p) => p.name === body?.agentProvider)) {
+    if (!enablement?.agent_providers.some((p) => p.name === body?.agent_provider)) {
       reasons.push("The agent provider is unknown.");
     }
-    if (typeof body?.modelIdentifier !== "string" || body.modelIdentifier === "") {
+    if (typeof body?.model_identifier !== "string" || body.model_identifier === "") {
       reasons.push("The model identifier is empty.");
     }
-    if (!EFFORTS.includes(body?.reasoningEffort)) reasons.push("The reasoning effort is unknown.");
+    if (!EFFORTS.includes(body?.reasoning_effort)) reasons.push("The reasoning effort is unknown.");
     if (reasons.length === 0) return true;
     envelope(res, 422, "workbench.session.configuration_invalid", reasons.join(" "));
     return false;
   };
 
   on("GET", /^\/api\/workbench\/session$/, (_m, _b, res, _t, url) => {
-    const agentName = url.searchParams.get("agentName");
+    const agentName = url.searchParams.get("agent_name");
     const items = sessions
-      .filter((session) => agentName === null || session.agentName === agentName)
+      .filter((session) => agentName === null || session.agent_name === agentName)
       .map((session) => {
         const messages = session.entries.filter((entry) => entry.type === "message");
         const first = messages.find((entry) => entry.message.role === "user");
         return {
           id: session.id,
-          agentName: session.agentName,
+          agent_name: session.agent_name,
           name: null,
           created: session.created,
           modified: Date.parse(session.entries.at(-1)?.timestamp ?? "") || session.created,
-          messageCount: messages.length,
-          firstMessage: textOf(first?.message),
+          message_count: messages.length,
+          first_message: textOf(first?.message),
         };
       });
     return json(res, 200, { items });
   });
 
   on("POST", /^\/api\/workbench\/session$/, (_m, body, res) => {
-    if (!validConfiguration(res, body?.agentName, body)) return;
+    if (!validConfiguration(res, body?.agent_name, body)) return;
     const session = {
       id: sessionId(),
-      agentName: body.agentName,
+      agent_name: body.agent_name,
       created: Date.now(),
       configuration: {
-        agentProvider: body.agentProvider,
-        modelIdentifier: body.modelIdentifier,
-        reasoningEffort: body.reasoningEffort,
+        agent_provider: body.agent_provider,
+        model_identifier: body.model_identifier,
+        reasoning_effort: body.reasoning_effort,
       },
       entries: [],
     };
     sessions.push(session);
     return json(res, 200, {
       id: session.id,
-      agentName: session.agentName,
+      agent_name: session.agent_name,
       configuration: session.configuration,
       entries: [],
-      runActive: false,
-      resumeCommand: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agentName}/${session.id}.jsonl`,
+      run_active: false,
+      resume_command: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agent_name}/${session.id}.jsonl`,
     });
   });
 
@@ -256,21 +256,21 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     if (session === undefined) return;
     return json(res, 200, {
       id: session.id,
-      agentName: session.agentName,
+      agent_name: session.agent_name,
       configuration: session.configuration,
       entries: session.entries,
-      runActive: stateOf(session).run !== null,
-      resumeCommand: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agentName}/${session.id}.jsonl`,
+      run_active: stateOf(session).run !== null,
+      resume_command: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agent_name}/${session.id}.jsonl`,
     });
   });
 
   on("PUT", /^\/api\/workbench\/session\/([^/]+)\/configuration$/, (m, body, res) => {
     const session = find(res, m[1]);
-    if (session === undefined || !validConfiguration(res, session.agentName, body)) return;
+    if (session === undefined || !validConfiguration(res, session.agent_name, body)) return;
     session.configuration = {
-      agentProvider: body.agentProvider,
-      modelIdentifier: body.modelIdentifier,
-      reasoningEffort: body.reasoningEffort,
+      agent_provider: body.agent_provider,
+      model_identifier: body.model_identifier,
+      reasoning_effort: body.reasoning_effort,
     };
     return json(res, 200, session.configuration);
   });
@@ -289,10 +289,10 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     }
     const run = { cancelled: false, cancel: null, decide: null };
     state.run = run;
-    state.errorMessage = null;
+    state.error_message = null;
     append(session, "message", { message: { role: "user", content: body.text } });
     play(session, run, body.text).finally(() => finish(session));
-    return json(res, 202, { sessionId: session.id, runActive: true });
+    return json(res, 202, { session_id: session.id, run_active: true });
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/abort$/, (m, _b, res) => {
@@ -303,14 +303,14 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       run.cancelled = true;
       run.cancel?.();
     }
-    return json(res, 200, { sessionId: session.id, runActive: false });
+    return json(res, 200, { session_id: session.id, run_active: false });
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/approve$/, (m, body, res) => {
     const session = find(res, m[1]);
     if (session === undefined) return;
     const state = stateOf(session);
-    if (state.pendingApproval?.toolCallId !== body?.toolCallId) {
+    if (state.pending_approval?.tool_call_id !== body?.tool_call_id) {
       return envelope(
         res,
         409,
@@ -320,8 +320,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     }
     state.run.decide(body.approved === true);
     return json(res, 200, {
-      sessionId: session.id,
-      toolCallId: body.toolCallId,
+      session_id: session.id,
+      tool_call_id: body.tool_call_id,
       approved: body.approved === true,
     });
   });

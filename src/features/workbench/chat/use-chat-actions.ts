@@ -45,7 +45,7 @@ export function useChatActions(
     (text: string) =>
       perform(
         () => sendWorkbenchMessage(sessionId, text),
-        () => patchSnapshot({ runActive: true, errorMessage: null }),
+        () => patchSnapshot({ run_active: true, error_message: null }),
       ),
     [perform, sessionId, patchSnapshot],
   );
@@ -53,7 +53,7 @@ export function useChatActions(
   const abort = useCallback(() => {
     void perform(
       () => abortWorkbenchRun(sessionId),
-      () => patchSnapshot({ runActive: false, pendingApproval: null }),
+      () => patchSnapshot({ run_active: false, pending_approval: null }),
     );
   }, [perform, sessionId, patchSnapshot]);
 
@@ -61,7 +61,7 @@ export function useChatActions(
     (toolCallId: string, approved: boolean) => {
       void perform(
         () => approveWorkbenchCall(sessionId, toolCallId, approved),
-        () => patchSnapshot({ pendingApproval: null }),
+        () => patchSnapshot({ pending_approval: null }),
       );
     },
     [perform, sessionId, patchSnapshot],

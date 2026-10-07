@@ -20,15 +20,15 @@ const GITHUB: RepositoryCredential = {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
       revision: 1,
       metadata: null,
-      createdAt: Date.UTC(2026, 9, 1, 9, 0),
-      endedAt: null,
+      created_at: Date.UTC(2026, 9, 1, 9, 0),
+      ended_at: null,
     },
   ],
   bindings: [
     {
-      projectId: "prj-atlas",
-      projectName: "atlas",
-      bindingId: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BR1",
+      project_id: "prj-atlas",
+      project_name: "atlas",
+      binding_id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BR1",
       name: "source",
     },
   ],
@@ -52,9 +52,9 @@ beforeEach(() => {
     items: [
       {
         platform: "github",
-        secretShape: "api_key",
-        loginModes: [],
-        metadataFields: [],
+        secret_shape: "api_key",
+        login_modes: [],
+        metadata_fields: [],
         verifiable: true,
       },
     ],

@@ -20,7 +20,7 @@ export function ApprovalCard({ approval, busy, onDecide }: ApprovalCardProps) {
       <CardContent className="grid min-w-0 gap-2 text-sm">
         <div className="flex min-w-0 items-baseline gap-1.5">
           <span className="shrink-0 text-muted-foreground">Operation ID</span>
-          <span className="min-w-0 font-mono break-all">{approval.operationId}</span>
+          <span className="min-w-0 font-mono break-all">{approval.operation_id}</span>
         </div>
         <div className="grid min-w-0 gap-1">
           <span className="text-muted-foreground">Input</span>

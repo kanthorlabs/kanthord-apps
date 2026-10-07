@@ -23,7 +23,7 @@ const HEALTHY_SSH = { status: "healthy" as const, capability: "ssh credential ve
 
 const VERIFY_RESULT: BindingVerifyResult = {
   address: HEALTHY_ADDRESS,
-  sshCredential: HEALTHY_SSH,
+  ssh_credential: HEALTHY_SSH,
   credential: null,
 };
 
@@ -33,8 +33,8 @@ const REPO_ENTRY: BindingSetEntry = {
     available: true,
     platform: "github",
     address: "git@github.com:kanthorlabs/kanthord.git",
-    strategy: { baseBranch: "main" },
-    sshCredential: "github-ssh",
+    strategy: { base_branch: "main" },
+    ssh_credential: "github-ssh",
   },
 };
 

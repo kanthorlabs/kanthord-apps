@@ -27,7 +27,7 @@ export function NodeSheet({ projectId, model, selectedId, onSelect }: NodeSheetP
   const mobile = useIsMobile();
   const [tab, setTab] = useState<NodeSheetTab>("details");
   const node = selectedId === null ? undefined : model.nodeById.get(selectedId);
-  const attemptOwner = node?.kind === "task" ? node.parentId : (node?.id ?? null);
+  const attemptOwner = node?.kind === "task" ? node.parent_id : (node?.id ?? null);
   const owner = attemptOwner === null ? undefined : model.nodeById.get(attemptOwner);
 
   return (
@@ -78,12 +78,12 @@ export function NodeSheet({ projectId, model, selectedId, onSelect }: NodeSheetP
                     projectId={projectId}
                     model={model}
                     nodeId={owner.id}
-                    currentRevision={owner.visibleRevision}
+                    currentRevision={owner.visible_revision}
                   />
                 )}
               </TabsContent>
               <TabsContent value="revisions">
-                <NodeRevisionsTab nodeId={node.id} currentRevision={node.visibleRevision} />
+                <NodeRevisionsTab nodeId={node.id} currentRevision={node.visible_revision} />
               </TabsContent>
             </div>
           </Tabs>

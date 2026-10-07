@@ -8,10 +8,10 @@ export interface MetadataFact {
 
 export function modelSummary(model: CredentialModel): string {
   const parts = [model.id];
-  if (model.contextWindow !== undefined) parts.push(`context ${model.contextWindow}`);
-  if (model.maxTokens !== undefined) parts.push(`max tokens ${model.maxTokens}`);
-  if (model.reasoningLevels !== undefined) {
-    parts.push(`reasoning ${model.reasoningLevels.join(", ")}`);
+  if (model.context_window !== undefined) parts.push(`context ${model.context_window}`);
+  if (model.max_tokens !== undefined) parts.push(`max tokens ${model.max_tokens}`);
+  if (model.reasoning_levels !== undefined) {
+    parts.push(`reasoning ${model.reasoning_levels.join(", ")}`);
   }
   return parts.join(" · ");
 }
@@ -24,7 +24,7 @@ export function metadataFacts(
   if (platform === OPENAI_COMPATIBLE) {
     const current = openAiMetadataOf(metadata);
     return [
-      { label: "Base URL", value: current.baseUrl },
+      { label: "Base URL", value: current.base_url },
       {
         label: "Models",
         value:

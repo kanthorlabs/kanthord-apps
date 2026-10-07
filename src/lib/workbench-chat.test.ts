@@ -4,11 +4,11 @@ import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
 import { agentWorking, chatItemsOf, summaryOf } from "./workbench-chat";
 
 const IDLE: WorkbenchRunSnapshot = {
-  streamingMessage: null,
-  pendingToolCalls: [],
-  pendingApproval: null,
-  runActive: false,
-  errorMessage: null,
+  streaming_message: null,
+  pending_tool_calls: [],
+  pending_approval: null,
+  run_active: false,
+  error_message: null,
 };
 
 function message(id: string, body: Record<string, unknown>): WorkbenchSessionEntry {
@@ -76,9 +76,9 @@ describe("chatItemsOf", () => {
 
     const items = chatItemsOf(entries, {
       ...IDLE,
-      runActive: true,
-      pendingToolCalls: ["call_1"],
-      pendingApproval: { toolCallId: "call_2", operationId: "project.create", input: {} },
+      run_active: true,
+      pending_tool_calls: ["call_1"],
+      pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
     });
 
     expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual([
@@ -90,8 +90,8 @@ describe("chatItemsOf", () => {
   it("appends the streaming partial message after the entries", () => {
     const items = chatItemsOf([message("e1", { role: "user", content: "Hi" })], {
       ...IDLE,
-      runActive: true,
-      streamingMessage: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
+      run_active: true,
+      streaming_message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
     });
 
     expect(items.at(-1)).toEqual({
@@ -115,16 +115,16 @@ describe("agentWorking", () => {
   const streamed = { kind: "assistant", id: "s", text: "Hel", streaming: true } as const;
 
   it("shows the agent at work while a run is active and no text streams", () => {
-    expect(agentWorking([user], { ...IDLE, runActive: true })).toBe(true);
+    expect(agentWorking([user], { ...IDLE, run_active: true })).toBe(true);
   });
 
   it("hides it while text streams, while an approval waits and when no run is active", () => {
-    expect(agentWorking([user, streamed], { ...IDLE, runActive: true })).toBe(false);
+    expect(agentWorking([user, streamed], { ...IDLE, run_active: true })).toBe(false);
     expect(
       agentWorking([user], {
         ...IDLE,
-        runActive: true,
-        pendingApproval: { toolCallId: "c1", operationId: "o", input: {} },
+        run_active: true,
+        pending_approval: { tool_call_id: "c1", operation_id: "o", input: {} },
       }),
     ).toBe(false);
     expect(agentWorking([user], IDLE)).toBe(false);

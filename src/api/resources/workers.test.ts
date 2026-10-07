@@ -75,17 +75,17 @@ afterEach(async () => {
   });
 });
 
-const CATALOG_ITEM = { declaredNodeStates: [], requiredNodeFormat: ["objective"] };
-const BUDGET = { resourceBudget: { wallTimeMs: 1000 } };
+const CATALOG_ITEM = { declared_node_states: [], required_node_format: ["objective"] };
+const BUDGET = { resource_budget: { wall_time_ms: 1000 } };
 
 const SWE_ENABLEMENT = {
-  agentName: "swe@1",
+  agent_name: "swe@1",
   state: "enabled",
-  agentProviders: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
-  defaultConfiguration: {
-    agentProvider: "atlas-llm",
-    modelIdentifier: "qwen3-coder",
-    reasoningEffort: "off",
+  agent_providers: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
+  default_configuration: {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-coder",
+    reasoning_effort: "off",
   },
   revision: 2,
 };
@@ -97,13 +97,13 @@ const CATALOG_ROUTES = {
       { name: "harness@1", host: "external-harness", ...CATALOG_ITEM },
       { name: "reviewer@1", host: "kanthord", ...CATALOG_ITEM },
     ],
-    nextCursor: null,
+    next_cursor: null,
   },
   "GET /api/worker/catalog/general%401": {
     name: "general@1",
     host: "kanthord",
     method: "steps",
-    agentName: "swe@1",
+    agent_name: "swe@1",
     ...CATALOG_ITEM,
     ...BUDGET,
   },
@@ -111,11 +111,11 @@ const CATALOG_ROUTES = {
     name: "reviewer@1",
     host: "kanthord",
     method: "evaluation",
-    agentName: "re@1",
+    agent_name: "re@1",
     ...CATALOG_ITEM,
     ...BUDGET,
   },
-  "GET /api/agent/enablement?limit=1000": { items: [SWE_ENABLEMENT], nextCursor: null },
+  "GET /api/agent/enablement?limit=1000": { items: [SWE_ENABLEMENT], next_cursor: null },
 };
 
 describe("listAgents", () => {
@@ -135,17 +135,17 @@ describe("listAgents", () => {
 });
 
 const PUT_BODY = {
-  agentProviders: [{ name: "router", provider: "openrouter", credential: "router-main" }],
-  defaultConfiguration: {
-    agentProvider: "router",
-    modelIdentifier: "qwen/qwen3-coder",
-    reasoningEffort: "off",
+  agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+  default_configuration: {
+    agent_provider: "router",
+    model_identifier: "qwen/qwen3-coder",
+    reasoning_effort: "off",
   },
 } as const;
 
 describe("putAgentEnablement", () => {
   it("creates an enablement without an expected revision", async () => {
-    const created = { ...PUT_BODY, agentName: "re@1", state: "enabled", revision: 1 };
+    const created = { ...PUT_BODY, agent_name: "re@1", state: "enabled", revision: 1 };
     await serve({ "PUT /api/agent/enablement/re%401": created });
 
     expect(await putAgentEnablement("re@1", PUT_BODY)).toEqual(created);
@@ -158,12 +158,12 @@ describe("putAgentEnablement", () => {
 describe("addAgentProvider", () => {
   it("posts the named agent provider with the expected revision and an idempotency key", async () => {
     const body = {
-      expectedRevision: 3,
+      expected_revision: 3,
       name: "codex",
       provider: "openai-codex",
       credential: "openai-codex-elsa",
     } as const;
-    const revised = { ...PUT_BODY, agentName: "re@1", state: "enabled", revision: 4 };
+    const revised = { ...PUT_BODY, agent_name: "re@1", state: "enabled", revision: 4 };
     await serve({ "POST /api/agent/enablement/re%401/provider": revised });
 
     expect(await addAgentProvider("re@1", body)).toEqual(revised);
@@ -174,11 +174,11 @@ describe("addAgentProvider", () => {
 
 describe("removeAgentProvider", () => {
   it("deletes the named agent provider with the expected revision", async () => {
-    const revised = { ...PUT_BODY, agentName: "re@1", state: "enabled", revision: 5 };
+    const revised = { ...PUT_BODY, agent_name: "re@1", state: "enabled", revision: 5 };
     await serve({ "DELETE /api/agent/enablement/re%401/provider/codex": revised });
 
     expect(await removeAgentProvider("re@1", "codex", 4)).toEqual(revised);
-    expect(JSON.parse(seen[0]!.body)).toEqual({ expectedRevision: 4 });
+    expect(JSON.parse(seen[0]!.body)).toEqual({ expected_revision: 4 });
     expect(seen[0]!.idempotencyKey).toBeTruthy();
   });
 });
@@ -186,8 +186,8 @@ describe("removeAgentProvider", () => {
 describe("listAgentProviderModels", () => {
   it("reads the items of the model list of one agent provider", async () => {
     const items = [
-      { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off", "high"] },
-      { modelIdentifier: "plain", reasoningEfforts: [] },
+      { model_identifier: "qwen3-coder", reasoning_efforts: ["off", "high"] },
+      { model_identifier: "plain", reasoning_efforts: [] },
     ];
     await serve({ "GET /api/agent/enablement/swe%401/provider/atlas%20llm/model": { items } });
 
@@ -200,7 +200,7 @@ describe("listAgentProviderModels", () => {
 
 describe("listCredentialModels", () => {
   it("reads the items of the model list of one credential", async () => {
-    const items = [{ modelIdentifier: "gpt-5.5", reasoningEfforts: ["low", "high"] }];
+    const items = [{ model_identifier: "gpt-5.5", reasoning_efforts: ["low", "high"] }];
     await serve({ "GET /api/agent/model?provider=openai-codex&credential=codex+main": { items } });
 
     expect(await listCredentialModels("openai-codex", "codex main")).toEqual(items);
@@ -221,8 +221,8 @@ describe("enableAgentEnablement and disableAgentEnablement", () => {
     await disableAgentEnablement("swe@1", 3);
 
     expect(seen.map((call) => [call.method, call.url, JSON.parse(call.body)])).toEqual([
-      ["POST", "/api/agent/enablement/swe%401/enable", { expectedRevision: 2 }],
-      ["POST", "/api/agent/enablement/swe%401/disable", { expectedRevision: 3 }],
+      ["POST", "/api/agent/enablement/swe%401/enable", { expected_revision: 2 }],
+      ["POST", "/api/agent/enablement/swe%401/disable", { expected_revision: 3 }],
     ]);
   });
 });

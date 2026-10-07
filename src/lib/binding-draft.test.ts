@@ -18,10 +18,10 @@ const REPO: BindingSetEntry = {
     platform: "github",
     address: "git@github.com:kanthorlabs/kanthord.git",
     strategy: {
-      baseBranch: "main",
+      base_branch: "main",
       action: { name: "pull_request", follows: { type: "assessment_passed" } },
     },
-    sshCredential: "github-ssh",
+    ssh_credential: "github-ssh",
     credential: "github-main",
   },
 };
@@ -29,9 +29,9 @@ const WORKER: BindingSetEntry = {
   kind: "worker",
   config: {
     worker: "general@1",
-    instanceCount: 2,
-    resourceBudget: { turns: 200, wallTimeMs: 7200000 },
-    entries: [{ agent: "swe@1", reasoningEffort: "high" }],
+    instance_count: 2,
+    resource_budget: { turns: 200, wall_time_ms: 7200000 },
+    entries: [{ agent: "swe@1", reasoning_effort: "high" }],
   },
 };
 const STORAGE: BindingSetEntry = {

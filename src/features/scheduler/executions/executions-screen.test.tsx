@@ -30,37 +30,37 @@ function execution(
   overrides: Partial<SchedulerExecutionRecord> = {},
 ): SchedulerExecutionRecord {
   return {
-    executionId,
-    projectId: "prj-test",
-    nodeId: "node_reset",
+    execution_id: executionId,
+    project_id: "prj-test",
+    node_id: "node_reset",
     claimant: {
-      workerBindingId: "binding_tdd_main",
-      resourceIdentity: "worker:kanthord:tdd-main",
-      runtimeIdentity: "worker_instance_01",
+      worker_binding_id: "binding_tdd_main",
+      resource_identity: "worker:kanthord:tdd-main",
+      runtime_identity: "worker_instance_01",
     },
     attempt: 2,
-    pinnedRevision: 3,
+    pinned_revision: 3,
     credentials: [],
-    claimState: "running",
-    expiredAt: now + 120_000,
-    createdAt: now - 600_000,
-    endedAt: null,
-    traceId: "0".repeat(31) + "1",
-    rootSpanId: "0".repeat(15) + "1",
+    claim_state: "running",
+    expired_at: now + 120_000,
+    created_at: now - 600_000,
+    ended_at: null,
+    trace_id: "0".repeat(31) + "1",
+    root_span_id: "0".repeat(15) + "1",
     ...overrides,
   };
 }
 
 function mockExecutions(executions: readonly SchedulerExecutionRecord[]) {
   vi.mocked(listProjectExecutions).mockResolvedValue(executions);
-  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", projectId: "prj-test", version: 1 });
+  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", project_id: "prj-test", version: 1 });
   vi.mocked(listMissionNodes).mockResolvedValue([
     {
       id: "node_reset",
       filename: "add-password-reset.md",
-      missionId: "mission_1",
-      parentId: null,
-      visibleRevision: 3,
+      mission_id: "mission_1",
+      parent_id: null,
+      visible_revision: 3,
       content: {
         name: "Add password reset",
         requirement: "",
@@ -68,13 +68,13 @@ function mockExecutions(executions: readonly SchedulerExecutionRecord[]) {
         verifications: [],
         bindings: [],
       },
-      retiredAt: null,
-      pinnedByAttempts: [2],
+      retired_at: null,
+      pinned_by_attempts: [2],
       kind: "objective",
       state: "Executing",
       attempt: 2,
       priority: 0,
-      dependsOn: [],
+      depends_on: [],
     },
   ]);
 }
@@ -92,7 +92,7 @@ describe("ExecutionsScreen", () => {
     const user = userEvent.setup();
     mockExecutions([
       execution("execution_live"),
-      execution("execution_done", { claimState: "finished", endedAt: now - 60_000 }),
+      execution("execution_done", { claim_state: "finished", ended_at: now - 60_000 }),
     ]);
 
     renderScreen();
@@ -128,7 +128,7 @@ describe("ExecutionsScreen", () => {
 
   it("names a lost claim without claiming the runtime failed", async () => {
     const user = userEvent.setup();
-    mockExecutions([execution("execution_lost", { claimState: "lost", endedAt: now })]);
+    mockExecutions([execution("execution_lost", { claim_state: "lost", ended_at: now })]);
 
     renderScreen();
     await user.click(await screen.findByRole("button", { name: "All" }));
@@ -142,12 +142,12 @@ describe("ExecutionsScreen", () => {
     const user = userEvent.setup();
     mockExecutions([
       execution("execution_done", {
-        claimState: "finished",
-        endedAt: now - 60_000,
+        claim_state: "finished",
+        ended_at: now - 60_000,
         claimant: {
-          workerBindingId: "binding_tdd_main",
-          resourceIdentity: "worker:kanthord:tdd-main",
-          runtimeIdentity: "worker_instance_02",
+          worker_binding_id: "binding_tdd_main",
+          resource_identity: "worker:kanthord:tdd-main",
+          runtime_identity: "worker_instance_02",
           name: "claude-code",
         },
       }),

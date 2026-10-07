@@ -22,11 +22,11 @@ describe("enablementBodyOf", () => {
     ).toEqual({
       ok: true,
       body: {
-        agentProviders: [{ name: "router", provider: "openrouter", credential: "router-main" }],
-        defaultConfiguration: {
-          agentProvider: "router",
-          modelIdentifier: "qwen/qwen3-coder",
-          reasoningEffort: "off",
+        agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+        default_configuration: {
+          agent_provider: "router",
+          model_identifier: "qwen/qwen3-coder",
+          reasoning_effort: "off",
         },
       },
     });

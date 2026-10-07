@@ -53,7 +53,7 @@ export function SchedulerScreen() {
       {queue.entries.length > 0 && (
         <ItemGroup aria-label="Queue" className="gap-2">
           {queue.entries.map(({ job, nodeName }) => (
-            <Item key={job.jobId} role="listitem" variant="outline">
+            <Item key={job.job_id} role="listitem" variant="outline">
               <ItemContent className="min-w-0">
                 <ItemTitle>
                   <Link
@@ -64,7 +64,7 @@ export function SchedulerScreen() {
                   </Link>
                 </ItemTitle>
                 <ItemDescription className="break-all">
-                  Priority {job.priority} · {job.jobId}
+                  Priority {job.priority} · {job.job_id}
                 </ItemDescription>
               </ItemContent>
             </Item>

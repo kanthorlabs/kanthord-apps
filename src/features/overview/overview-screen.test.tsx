@@ -30,63 +30,63 @@ import { listProjectExecutions } from "@/api/resources/scheduler";
 
 const blockedOutcome: MissionOutcome = {
   id: "outcome_1",
-  nodeId: "node_1",
+  node_id: "node_1",
   attempt: 2,
-  nodeRevision: 1,
-  closingEvent: "human-block",
+  node_revision: 1,
+  closing_event: "human-block",
   result: "undetermined",
-  assessmentId: "assessment_1",
-  evidenceIds: [],
-  createdAt: Date.now(),
+  assessment_id: "assessment_1",
+  evidence_ids: [],
+  created_at: Date.now(),
 };
 
 function objective(id: string, name: string, state: NodeState): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
-    missionId: "mission_1",
-    parentId: null,
-    visibleRevision: 1,
+    mission_id: "mission_1",
+    parent_id: null,
+    visible_revision: 1,
     content: { name, requirement: "", criterion: "", verifications: [], bindings: [] },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
     kind: "objective",
     state,
     attempt: 2,
     priority: 0,
-    dependsOn: [],
-    ...(state === "Blocked" ? { blockedContext: { outcome: blockedOutcome, requests: [] } } : {}),
+    depends_on: [],
+    ...(state === "Blocked" ? { blocked_context: { outcome: blockedOutcome, requests: [] } } : {}),
   };
 }
 
 function mockNodes(nodes: readonly MissionNodeRecord[]) {
-  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", projectId: "prj-test", version: 1 });
+  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", project_id: "prj-test", version: 1 });
   vi.mocked(listMissionNodes).mockResolvedValue(nodes);
 }
 
 function execution(
   executionId: string,
   nodeId: string,
-  claimState: SchedulerExecutionRecord["claimState"],
+  claimState: SchedulerExecutionRecord["claim_state"],
 ): SchedulerExecutionRecord {
   return {
-    executionId,
-    projectId: "prj-test",
-    nodeId,
+    execution_id: executionId,
+    project_id: "prj-test",
+    node_id: nodeId,
     claimant: {
-      workerBindingId: "binding_tdd_main",
-      resourceIdentity: "worker:kanthord:tdd-main",
-      runtimeIdentity: "worker_instance_01",
+      worker_binding_id: "binding_tdd_main",
+      resource_identity: "worker:kanthord:tdd-main",
+      runtime_identity: "worker_instance_01",
     },
     attempt: 1,
-    pinnedRevision: 1,
+    pinned_revision: 1,
     credentials: [],
-    claimState,
-    expiredAt: Date.now() + 60_000,
-    createdAt: Date.now(),
-    endedAt: claimState === "running" ? null : Date.now(),
-    traceId: "0".repeat(31) + "1",
-    rootSpanId: "0".repeat(15) + "1",
+    claim_state: claimState,
+    expired_at: Date.now() + 60_000,
+    created_at: Date.now(),
+    ended_at: claimState === "running" ? null : Date.now(),
+    trace_id: "0".repeat(31) + "1",
+    root_span_id: "0".repeat(15) + "1",
   };
 }
 

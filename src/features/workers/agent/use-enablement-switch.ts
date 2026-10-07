@@ -25,10 +25,10 @@ export function useEnablementSwitch(
     const change = enabled ? disableAgentEnablement : enableAgentEnablement;
     setFailure(null);
     setPending(true);
-    change(enablement.agentName, enablement.revision).then(
+    change(enablement.agent_name, enablement.revision).then(
       (answer) => {
         setPending(false);
-        toast.success(`${answer.agentName} is ${answer.state} at revision ${answer.revision}.`);
+        toast.success(`${answer.agent_name} is ${answer.state} at revision ${answer.revision}.`);
         reload();
       },
       (cause: unknown) => {
@@ -36,7 +36,7 @@ export function useEnablementSwitch(
         setFailure(asApiError(cause).message);
       },
     );
-  }, [pending, enabled, enablement.agentName, enablement.revision, reload]);
+  }, [pending, enabled, enablement.agent_name, enablement.revision, reload]);
 
   return { label: enabled ? "Disable" : "Enable", failure, pending, run };
 }

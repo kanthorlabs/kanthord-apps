@@ -31,7 +31,7 @@ function ModelsEditor({ edit }: { edit: MetadataEditState }) {
       <CredentialField
         id="credential-base-url"
         label="Base URL"
-        value={edit.draft.fields["baseUrl"] ?? ""}
+        value={edit.draft.fields["base_url"] ?? ""}
         error={undefined}
         readOnly
         description="A metadata edit keeps the base URL. Rotate the secret to set another one."
@@ -101,7 +101,7 @@ export function MetadataSheet({ name, entry, edit }: MetadataSheetProps) {
                 <ModelsEditor edit={edit} />
               ) : (
                 <MetadataFields
-                  fields={entry.metadataFields}
+                  fields={entry.metadata_fields}
                   draft={edit.draft}
                   errors={edit.errors}
                   baseUrlDescription=""

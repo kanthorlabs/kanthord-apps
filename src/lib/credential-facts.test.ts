@@ -6,8 +6,8 @@ describe("metadataFacts", () => {
   it("lists the base URL and the approved models", () => {
     expect(
       metadataFacts("openai-compatible", {
-        baseUrl: "https://openrouter.ai/api/v1",
-        models: [{ id: "qwen-plus", maxTokens: 8192 }],
+        base_url: "https://openrouter.ai/api/v1",
+        models: [{ id: "qwen-plus", max_tokens: 8192 }],
       }),
     ).toEqual([
       { label: "Base URL", value: "https://openrouter.ai/api/v1" },
@@ -17,7 +17,7 @@ describe("metadataFacts", () => {
 
   it("says when no model is approved", () => {
     expect(
-      metadataFacts("openai-compatible", { baseUrl: "https://x.test", models: [] })[1],
+      metadataFacts("openai-compatible", { base_url: "https://x.test", models: [] })[1],
     ).toEqual({ label: "Models", value: "none approved" });
   });
 
@@ -37,9 +37,9 @@ describe("modelSummary", () => {
     expect(
       modelSummary({
         id: "m",
-        contextWindow: 1000,
-        maxTokens: 500,
-        reasoningLevels: ["off", "low"],
+        context_window: 1000,
+        max_tokens: 500,
+        reasoning_levels: ["off", "low"],
       }),
     ).toBe("m · context 1000 · max tokens 500 · reasoning off, low");
   });

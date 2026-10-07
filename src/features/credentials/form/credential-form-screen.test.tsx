@@ -29,21 +29,27 @@ const ROUTER: Credential = {
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAE",
       revision: 1,
-      metadata: { baseUrl: "https://openrouter.ai/api/v1", models: [] },
-      createdAt: 1,
-      endedAt: null,
+      metadata: { base_url: "https://openrouter.ai/api/v1", models: [] },
+      created_at: 1,
+      ended_at: null,
     },
   ],
 };
 
 function entry(
   platform: string,
-  secretShape: CredentialPlatformEntry["secretShape"],
-  loginModes: CredentialPlatformEntry["loginModes"],
+  secretShape: CredentialPlatformEntry["secret_shape"],
+  loginModes: CredentialPlatformEntry["login_modes"],
   metadataFields: readonly string[],
   verifiable = true,
 ): CredentialPlatformEntry {
-  return { platform, secretShape, loginModes, metadataFields, verifiable };
+  return {
+    platform,
+    secret_shape: secretShape,
+    login_modes: loginModes,
+    metadata_fields: metadataFields,
+    verifiable,
+  };
 }
 
 const PLATFORMS: Readonly<Record<CredentialComponent, CredentialPlatformList>> = {
@@ -52,7 +58,7 @@ const PLATFORMS: Readonly<Record<CredentialComponent, CredentialPlatformList>> =
     items: [
       entry("github-copilot", "oauth", ["device"], []),
       entry("openai-codex", "oauth", ["browser", "device"], []),
-      entry("openai-compatible", "api_key", [], ["baseUrl"]),
+      entry("openai-compatible", "api_key", [], ["base_url"]),
       entry("openrouter", "api_key", [], []),
       entry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"]),
       entry("acme-sso", "oauth", ["device"], []),
@@ -69,10 +75,10 @@ const SECTIONS: Readonly<Record<CredentialComponent, string>> = {
 };
 
 const SESSION: CredentialLoginSession = {
-  sessionId: "login_session_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
+  session_id: "login_session_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
   address: "https://github.com/login/device",
   code: "ABCD-1234",
-  expiresAt: Date.UTC(2026, 9, 4, 7, 15),
+  expires_at: Date.UTC(2026, 9, 4, 7, 15),
 };
 
 async function mount(component: CredentialComponent) {
@@ -142,7 +148,7 @@ describe("CredentialFormScreen", () => {
     expect(credentialsApi.createCredential).toHaveBeenCalledWith("llm", {
       name: "router",
       platform: "openai-compatible",
-      metadata: { baseUrl: "https://openrouter.ai/api/v1", models: [] },
+      metadata: { base_url: "https://openrouter.ai/api/v1", models: [] },
       secret: { key: "sk-1" },
     });
   });
@@ -189,7 +195,7 @@ describe("CredentialFormScreen", () => {
       name: "evidence",
       platform: "s3",
       metadata: { endpoint: "https://s3.amazonaws.com", bucket: "evidence", region: "us-east-1" },
-      secret: { accessKeyId: "AKIA1", secretAccessKey: "s3-secret" },
+      secret: { access_key_id: "AKIA1", secret_access_key: "s3-secret" },
     });
   });
 
@@ -249,10 +255,10 @@ describe("CredentialFormScreen", () => {
   it("chooses the sign-in from the secret shape of the platform entry", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
       state: "pending",
-      lastMessage: null,
-      failureReason: null,
+      last_message: null,
+      failure_reason: null,
     });
     await mount("llm");
 
@@ -342,7 +348,7 @@ describe("CredentialFormScreen", () => {
     expect(await screen.findByText("Healthy")).toBeTruthy();
     expect(credentialsApi.checkCredential).toHaveBeenCalledWith("llm", {
       platform: "openai-compatible",
-      metadata: { baseUrl: "https://openrouter.ai/api/v1", models: [] },
+      metadata: { base_url: "https://openrouter.ai/api/v1", models: [] },
       secret: { key: "sk-1" },
     });
   });
@@ -442,10 +448,10 @@ describe("CredentialFormScreen", () => {
   it("runs a sign-in for an oauth platform instead of asking for a secret", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
       state: "pending",
-      lastMessage: null,
-      failureReason: null,
+      last_message: null,
+      failure_reason: null,
     });
     await mount("llm");
 
@@ -473,10 +479,10 @@ describe("CredentialFormScreen", () => {
   it("shows the last message of a pending sign-in in the waiting status", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
       state: "pending",
-      lastMessage: "Enabling models...",
-      failureReason: null,
+      last_message: "Enabling models...",
+      failure_reason: null,
     });
     await mount("llm");
 
@@ -493,10 +499,10 @@ describe("CredentialFormScreen", () => {
   it("opens the credential when the sign-in completes", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
       state: "completed",
-      lastMessage: null,
-      failureReason: null,
+      last_message: null,
+      failure_reason: null,
     });
     await mount("llm");
 
@@ -505,19 +511,19 @@ describe("CredentialFormScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("Credential view", undefined, { timeout: 4000 })).toBeTruthy();
-    expect(credentialsApi.readCredentialLoginStatus).toHaveBeenCalledWith(SESSION.sessionId);
+    expect(credentialsApi.readCredentialLoginStatus).toHaveBeenCalledWith(SESSION.session_id);
   });
 
   it("supplies a pasted code and clears the field", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
       state: "pending",
-      lastMessage: null,
-      failureReason: null,
+      last_message: null,
+      failure_reason: null,
     });
     vi.mocked(credentialsApi.submitCredentialLoginCode).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
     });
     await mount("llm");
 
@@ -530,7 +536,7 @@ describe("CredentialFormScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Send code" }));
 
     expect(credentialsApi.submitCredentialLoginCode).toHaveBeenCalledWith(
-      SESSION.sessionId,
+      SESSION.session_id,
       "http://localhost:1455/callback?code=1",
     );
     expect((field as HTMLInputElement).value).toBe("");
@@ -539,10 +545,10 @@ describe("CredentialFormScreen", () => {
   it("runs a sign-in for openai-codex", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
       state: "pending",
-      lastMessage: null,
-      failureReason: null,
+      last_message: null,
+      failure_reason: null,
     });
     await mount("llm");
 
@@ -567,10 +573,10 @@ describe("CredentialFormScreen", () => {
   it("starts a headless openai-codex sign-in without the open button", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
-      sessionId: SESSION.sessionId,
+      session_id: SESSION.session_id,
       state: "pending",
-      lastMessage: null,
-      failureReason: null,
+      last_message: null,
+      failure_reason: null,
     });
     await mount("llm");
 

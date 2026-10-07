@@ -48,12 +48,12 @@ export function SessionConfigurationForm({
         )}
         <ConfigurationFields
           idPrefix="new-session"
-          agentProviderNames={enablement.agentProviders.map((provider) => provider.name)}
+          agentProviderNames={enablement.agent_providers.map((provider) => provider.name)}
           configuration={form}
           errors={errors}
         />
         <FieldDescription className="md:col-span-2">
-          {agentProviderCountText(agentName, enablement.agentProviders.length)}{" "}
+          {agentProviderCountText(agentName, enablement.agent_providers.length)}{" "}
           <Link to={agentPath(agentName)}>Add an agent provider on the agent page.</Link>
         </FieldDescription>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2 [&>button]:max-sm:w-full">

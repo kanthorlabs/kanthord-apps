@@ -21,7 +21,7 @@ function ProjectItem({ project }: { project: Project }) {
       }}
       fields={[
         { label: "Identity", value: <span className="font-mono break-all">{project.id}</span> },
-        { label: "Created", value: utcDateTime(project.createdAt) },
+        { label: "Created", value: utcDateTime(project.created_at) },
       ]}
     />
   );

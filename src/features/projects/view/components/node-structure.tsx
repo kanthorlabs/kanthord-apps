@@ -65,7 +65,7 @@ export function NodeStructure({ model, nodeId, onSelect }: NodeStructureProps) {
     <div className="flex flex-col gap-4">
       <LinkList
         label="Parent"
-        ids={node.parentId === null ? [] : [node.parentId]}
+        ids={node.parent_id === null ? [] : [node.parent_id]}
         empty="An initiative is a root of the mission graph."
         model={model}
         onSelect={onSelect}

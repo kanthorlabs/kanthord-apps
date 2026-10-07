@@ -20,28 +20,28 @@ vi.mock("@/api/resources/workers");
 import { SessionsScreen } from "./sessions-screen";
 
 const ENABLEMENT: AgentEnablement = {
-  agentName: "swe@1",
+  agent_name: "swe@1",
   state: "enabled",
-  agentProviders: [
+  agent_providers: [
     { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" },
     { name: "openai-org", provider: "openai-compatible", credential: "openai-main" },
   ],
-  defaultConfiguration: {
-    agentProvider: "atlas-llm",
-    modelIdentifier: "qwen3-coder",
-    reasoningEffort: "off",
+  default_configuration: {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-coder",
+    reasoning_effort: "off",
   },
   revision: 2,
 };
 
 const MODELS: Readonly<Record<string, readonly AgentModel[]>> = {
   "atlas-llm": [
-    { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off", "low"] },
-    { modelIdentifier: "glm-4.6", reasoningEfforts: ["off"] },
+    { model_identifier: "qwen3-coder", reasoning_efforts: ["off", "low"] },
+    { model_identifier: "glm-4.6", reasoning_efforts: ["off"] },
   ],
   "openai-org": [
-    { modelIdentifier: "gpt-5", reasoningEfforts: ["off", "low", "high"] },
-    { modelIdentifier: "gpt-5-mini", reasoningEfforts: ["medium"] },
+    { model_identifier: "gpt-5", reasoning_efforts: ["off", "low", "high"] },
+    { model_identifier: "gpt-5-mini", reasoning_efforts: ["medium"] },
   ],
 };
 
@@ -54,21 +54,21 @@ function agents(enablement: AgentEnablement | null): readonly AgentSummary[] {
 
 const OLD: WorkbenchSessionListItem = {
   id: "workbench_session_OLD",
-  agentName: "swe@1",
+  agent_name: "swe@1",
   name: null,
   created: Date.parse("2026-10-01T09:00:00Z"),
   modified: Date.parse("2026-10-01T10:00:00Z"),
-  messageCount: 4,
-  firstMessage: "List the open objectives",
+  message_count: 4,
+  first_message: "List the open objectives",
 };
 const NEW: WorkbenchSessionListItem = {
   id: "workbench_session_NEW",
-  agentName: "swe@1",
+  agent_name: "swe@1",
   name: "Billing plan",
   created: Date.parse("2026-10-05T09:00:00Z"),
   modified: Date.parse("2026-10-05T10:00:00Z"),
-  messageCount: 2,
-  firstMessage: "Read the plan of Billing",
+  message_count: 2,
+  first_message: "Read the plan of Billing",
 };
 
 function Opened() {
@@ -113,7 +113,7 @@ async function choose(dialog: HTMLElement, label: string, option: string) {
 
 describe("SessionsScreen", () => {
   it("lists the sessions of every agent under All agents", async () => {
-    serve([OLD, { ...NEW, agentName: "re@1" }]);
+    serve([OLD, { ...NEW, agent_name: "re@1" }]);
     mount("/workbench");
 
     const rows = within(await screen.findByRole("list", { name: "Sessions" })).getAllByRole(
@@ -228,11 +228,11 @@ describe("SessionsScreen", () => {
     serve([]);
     const created: WorkbenchSession = {
       id: "workbench_session_CREATED",
-      agentName: "swe@1",
-      configuration: ENABLEMENT.defaultConfiguration,
+      agent_name: "swe@1",
+      configuration: ENABLEMENT.default_configuration,
       entries: [],
-      runActive: false,
-      resumeCommand: "pi --session ~/session.jsonl",
+      run_active: false,
+      resume_command: "pi --session ~/session.jsonl",
     };
     vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();
@@ -250,8 +250,8 @@ describe("SessionsScreen", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
     expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
-      agentName: "swe@1",
-      ...ENABLEMENT.defaultConfiguration,
+      agent_name: "swe@1",
+      ...ENABLEMENT.default_configuration,
     });
     expect(await screen.findByText("Opened workbench_session_CREATED")).toBeTruthy();
   });
@@ -273,11 +273,11 @@ describe("SessionsScreen", () => {
     serve([]);
     vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue({
       id: "workbench_session_CREATED",
-      agentName: "swe@1",
-      configuration: ENABLEMENT.defaultConfiguration,
+      agent_name: "swe@1",
+      configuration: ENABLEMENT.default_configuration,
       entries: [],
-      runActive: false,
-      resumeCommand: "pi --session ~/session.jsonl",
+      run_active: false,
+      resume_command: "pi --session ~/session.jsonl",
     });
     mount();
 
@@ -287,10 +287,10 @@ describe("SessionsScreen", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
     expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
-      agentName: "swe@1",
-      agentProvider: "openai-org",
-      modelIdentifier: "gpt-5",
-      reasoningEffort: "high",
+      agent_name: "swe@1",
+      agent_provider: "openai-org",
+      model_identifier: "gpt-5",
+      reasoning_effort: "high",
     });
   });
 
@@ -339,8 +339,8 @@ describe("SessionsScreen", () => {
     vi.mocked(workersApi.listAgentProviderModels).mockImplementation(async (_agent, name) =>
       name === "openai-org"
         ? [
-            { modelIdentifier: "gpt-5", reasoningEfforts: ["low", "high"] },
-            { modelIdentifier: "qwen3-coder", reasoningEfforts: ["low", "high"] },
+            { model_identifier: "gpt-5", reasoning_efforts: ["low", "high"] },
+            { model_identifier: "qwen3-coder", reasoning_efforts: ["low", "high"] },
           ]
         : (MODELS[name] ?? []),
     );

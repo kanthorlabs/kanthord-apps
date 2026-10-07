@@ -32,11 +32,11 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 
 function idleSnapshot(runActive: boolean): WorkbenchRunSnapshot {
   return {
-    streamingMessage: null,
-    pendingToolCalls: [],
-    pendingApproval: null,
-    runActive,
-    errorMessage: null,
+    streaming_message: null,
+    pending_tool_calls: [],
+    pending_approval: null,
+    run_active: runActive,
+    error_message: null,
   };
 }
 

@@ -58,7 +58,7 @@ export function AttemptRecords({
 
   return (
     <div className="flex flex-col gap-4">
-      <RecordSection title={`Pinned revision ${attempt.nodeRevision}`} read={revision}>
+      <RecordSection title={`Pinned revision ${attempt.node_revision}`} read={revision}>
         {(pinned) => (
           <div className="flex flex-col gap-2">
             {pinned.revision !== currentRevision && (
@@ -97,23 +97,25 @@ export function AttemptRecords({
           ) : (
             <ItemGroup aria-label="Executions">
               {items.map((item) => (
-                <Item key={item.executionId} variant="outline" size="sm" role="listitem">
+                <Item key={item.execution_id} variant="outline" size="sm" role="listitem">
                   <ItemContent className="min-w-0">
                     <ItemTitle className="w-full flex-wrap">
                       <span className="break-all">
-                        {item.claimant.name ?? item.claimant.runtimeIdentity}
+                        {item.claimant.name ?? item.claimant.runtime_identity}
                       </span>
-                      <Badge variant={claimStateVariant(item.claimState)}>{item.claimState}</Badge>
+                      <Badge variant={claimStateVariant(item.claim_state)}>
+                        {item.claim_state}
+                      </Badge>
                     </ItemTitle>
                     <ItemDescription className="flex flex-col gap-0.5">
-                      <span className="font-mono text-xs break-all">{item.executionId}</span>
-                      <span className="break-all">{item.claimant.resourceIdentity}</span>
+                      <span className="font-mono text-xs break-all">{item.execution_id}</span>
+                      <span className="break-all">{item.claimant.resource_identity}</span>
                       <span>
-                        Claimed {utcDateTime(item.createdAt)}
-                        {item.endedAt === null ? "" : `, ended ${utcDateTime(item.endedAt)}`}
-                        {`, deadline ${utcDateTime(item.expiredAt)}`}
+                        Claimed {utcDateTime(item.created_at)}
+                        {item.ended_at === null ? "" : `, ended ${utcDateTime(item.ended_at)}`}
+                        {`, deadline ${utcDateTime(item.expired_at)}`}
                       </span>
-                      <span className="font-mono text-xs break-all">trace {item.traceId}</span>
+                      <span className="font-mono text-xs break-all">trace {item.trace_id}</span>
                     </ItemDescription>
                   </ItemContent>
                 </Item>
@@ -130,7 +132,7 @@ export function AttemptRecords({
           ) : (
             <ItemGroup aria-label="Outcomes">
               {items.map((item) => {
-                const basis = assessments.data?.find((entry) => entry.id === item.assessmentId);
+                const basis = assessments.data?.find((entry) => entry.id === item.assessment_id);
                 return (
                   <Item key={item.id} variant="outline" size="sm" role="listitem">
                     <ItemContent className="min-w-0">
@@ -138,17 +140,17 @@ export function AttemptRecords({
                         Outcome <Badge variant={resultVariant(item.result)}>{item.result}</Badge>
                       </ItemTitle>
                       <ItemDescription className="flex flex-col gap-0.5">
-                        <span>{closingEventText(item.closingEvent)}</span>
-                        <span>Written {utcDateTime(item.createdAt)}</span>
+                        <span>{closingEventText(item.closing_event)}</span>
+                        <span>Written {utcDateTime(item.created_at)}</span>
                         <span className="break-words">
                           Basis:{" "}
                           {basis === undefined
-                            ? item.assessmentId
+                            ? item.assessment_id
                             : `${basis.result} assessment by ${actorText(basis.actor)}`}
                         </span>
-                        {item.evidenceIds.length > 0 && (
+                        {item.evidence_ids.length > 0 && (
                           <span className="break-words">
-                            Evidence: {item.evidenceIds.map(subjectOf).join(", ")}
+                            Evidence: {item.evidence_ids.map(subjectOf).join(", ")}
                           </span>
                         )}
                       </ItemDescription>
@@ -177,8 +179,8 @@ export function AttemptRecords({
                     <ItemDescription className="flex flex-col gap-0.5">
                       <span className="break-words text-foreground">{item.rationale}</span>
                       <span>
-                        Accepted {utcDateTime(item.createdAt)} on revision {item.nodeRevision}
-                        {item.workerVersion === null ? "" : ` by ${item.workerVersion}`}
+                        Accepted {utcDateTime(item.created_at)} on revision {item.node_revision}
+                        {item.worker_version === null ? "" : ` by ${item.worker_version}`}
                       </span>
                       <span className="break-words">
                         {item.currency === null
@@ -187,15 +189,15 @@ export function AttemptRecords({
                             ? "The assessment is current."
                             : `The assessment is not current: ${item.currency.reasons.join(" ")}`}
                       </span>
-                      {item.evidenceIds.length > 0 && (
+                      {item.evidence_ids.length > 0 && (
                         <span className="break-words">
-                          Evidence: {item.evidenceIds.map(subjectOf).join(", ")}
+                          Evidence: {item.evidence_ids.map(subjectOf).join(", ")}
                         </span>
                       )}
-                      {item.childNodeIds.length > 0 && (
+                      {item.child_node_ids.length > 0 && (
                         <span className="break-words">
                           Child outcomes of:{" "}
-                          {item.childNodeIds.map((id) => nameOf(model, id)).join(", ")}
+                          {item.child_node_ids.map((id) => nameOf(model, id)).join(", ")}
                         </span>
                       )}
                     </ItemDescription>
@@ -218,23 +220,23 @@ export function AttemptRecords({
                   <ItemContent className="min-w-0">
                     <ItemTitle className="w-full flex-wrap">
                       <span className="break-words">{item.subject}</span>
-                      {item.requirementKey !== undefined && (
+                      {item.requirement_key !== undefined && (
                         <Badge variant="outline">request</Badge>
                       )}
                     </ItemTitle>
                     <ItemDescription className="flex flex-col gap-0.5">
                       <span className="break-all">
-                        {actorText(item.provenance)}, {utcDateTime(item.createdAt)}
+                        {actorText(item.provenance)}, {utcDateTime(item.created_at)}
                       </span>
-                      {item.requirementKey !== undefined && (
+                      {item.requirement_key !== undefined && (
                         <span className="break-all">
-                          Request {item.requirementKey}, end state {item.endState ?? "not set"}
+                          Request {item.requirement_key}, end state {item.end_state ?? "not set"}
                         </span>
                       )}
                       {item.assets.map((asset) => (
                         <span key={asset.id} className="break-all">
                           {assetText(asset)}
-                          {asset.publishedAt === null ? " (not published)" : ""}
+                          {asset.published_at === null ? " (not published)" : ""}
                         </span>
                       ))}
                       {item.verification?.results.map((result, index) => (
@@ -267,13 +269,13 @@ export function AttemptRecords({
                     </ItemTitle>
                     <ItemDescription className="flex flex-col gap-0.5">
                       <span className="break-all">
-                        {item.action.action} on {bindingName(item.action.bindingId)}, base{" "}
-                        {item.action.configuration.baseBranch}
+                        {item.action.action} on {bindingName(item.action.binding_id)}, base{" "}
+                        {item.action.configuration.base_branch}
                       </span>
-                      <span>Expected end state {item.action.expectedEndState}</span>
-                      {item.requestEvidenceId !== null && (
+                      <span>Expected end state {item.action.expected_end_state}</span>
+                      {item.request_evidence_id !== null && (
                         <span className="break-words">
-                          Request: {subjectOf(item.requestEvidenceId)}
+                          Request: {subjectOf(item.request_evidence_id)}
                         </span>
                       )}
                     </ItemDescription>

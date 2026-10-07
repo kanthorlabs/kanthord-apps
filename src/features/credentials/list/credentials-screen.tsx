@@ -67,7 +67,7 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
         fields={[
           { label: "Platform", value: <span className="font-mono">{credential.platform}</span> },
           archivedAt === null
-            ? { label: "Updated", value: newest === null ? "—" : utcDateTime(newest.createdAt) }
+            ? { label: "Updated", value: newest === null ? "—" : utcDateTime(newest.created_at) }
             : { label: "Archived", value: utcDateTime(archivedAt) },
         ]}
         actions={

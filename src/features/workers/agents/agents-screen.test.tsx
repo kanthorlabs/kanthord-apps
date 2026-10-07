@@ -17,16 +17,16 @@ const SWE: AgentSummary = {
   agentName: "swe@1",
   workerNames: ["general@1"],
   enablement: {
-    agentName: "swe@1",
+    agent_name: "swe@1",
     state: "enabled",
-    agentProviders: [
+    agent_providers: [
       { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" },
       { name: "openai-org", provider: "openai-compatible", credential: "openai-main" },
     ],
-    defaultConfiguration: {
-      agentProvider: "atlas-llm",
-      modelIdentifier: "qwen3-coder",
-      reasoningEffort: "off",
+    default_configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
     },
     revision: 2,
   },
@@ -77,15 +77,15 @@ describe("AgentsScreen", () => {
   it("starts a session of an enabled agent from its row and opens the chat", async () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue([RE, SWE]);
     vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
-      { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off"] },
+      { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
     ]);
     const created: WorkbenchSession = {
       id: "workbench_session_CREATED",
-      agentName: "swe@1",
-      configuration: SWE.enablement!.defaultConfiguration,
+      agent_name: "swe@1",
+      configuration: SWE.enablement!.default_configuration,
       entries: [],
-      runActive: false,
-      resumeCommand: "pi --session ~/session.jsonl",
+      run_active: false,
+      resume_command: "pi --session ~/session.jsonl",
     };
     vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();
@@ -99,8 +99,8 @@ describe("AgentsScreen", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
     expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
-      agentName: "swe@1",
-      ...SWE.enablement!.defaultConfiguration,
+      agent_name: "swe@1",
+      ...SWE.enablement!.default_configuration,
     });
     expect(await screen.findByText("Opened workbench_session_CREATED")).toBeTruthy();
   });

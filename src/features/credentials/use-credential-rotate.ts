@@ -76,7 +76,7 @@ export function useCredentialRotate(
 
   const submit = useCallback(() => {
     if (submitting || newest === null || entry === null) return;
-    const nextSecret = secretOfDraft(entry.secretShape, secret);
+    const nextSecret = secretOfDraft(entry.secret_shape, secret);
     const nextMetadata = rotateMetadataOf(entry, newest.metadata, metadata);
     if (!nextSecret.ok || !nextMetadata.ok) {
       setErrors({
@@ -86,7 +86,7 @@ export function useCredentialRotate(
       return;
     }
     const body: CredentialRotateBody = {
-      expectedRevision: newest.revision,
+      expected_revision: newest.revision,
       secret: nextSecret.value,
       ...(nextMetadata.value === undefined ? {} : { metadata: nextMetadata.value }),
     };
@@ -111,7 +111,7 @@ export function useCredentialRotate(
   }, [submitting, newest, entry, secret, metadata, component, credential, reload]);
 
   return {
-    available: entry !== null && entry.secretShape !== "none" && newest !== null,
+    available: entry !== null && entry.secret_shape !== "none" && newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,
     secret,

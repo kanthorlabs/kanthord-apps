@@ -66,7 +66,7 @@ export function useCredentialPrecheck(
   const [precheck, setPrecheck] = useState<Precheck | null>(null);
   const inputs: Inputs = { platform: entry?.platform ?? "", secret, metadata };
   const current = precheck !== null && sameInputs(precheck.inputs, inputs) ? precheck.result : null;
-  const shown = entry !== null && entry.secretShape !== "oauth";
+  const shown = entry !== null && entry.secret_shape !== "oauth";
   const available = shown && entry.verifiable;
 
   const run = useCallback(() => {

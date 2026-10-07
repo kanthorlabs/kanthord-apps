@@ -41,13 +41,13 @@ export function useDefaultEdit(
     setFailure(null);
     setSubmitting(true);
     putAgentEnablement(agentName, {
-      expectedRevision: enablement.revision,
-      agentProviders: enablement.agentProviders,
-      defaultConfiguration: result.configuration,
+      expected_revision: enablement.revision,
+      agent_providers: enablement.agent_providers,
+      default_configuration: result.configuration,
     }).then(
       (answer) => {
         setSubmitting(false);
-        toast.success(`Saved the default of ${answer.agentName} at revision ${answer.revision}.`);
+        toast.success(`Saved the default of ${answer.agent_name} at revision ${answer.revision}.`);
         onSaved();
       },
       (cause: unknown) => {

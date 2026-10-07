@@ -51,7 +51,7 @@ function DefaultConfigurationForm({
         <FieldGroup>
           <ConfigurationFields
             idPrefix="default"
-            agentProviderNames={enablement.agentProviders.map((provider) => provider.name)}
+            agentProviderNames={enablement.agent_providers.map((provider) => provider.name)}
             configuration={edit}
             errors={edit.errors}
           />

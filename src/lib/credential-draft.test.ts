@@ -16,34 +16,40 @@ import {
 } from "./credential-draft";
 
 function apiKey(platform: string, metadataFields: readonly string[] = []): CredentialPlatformEntry {
-  return { platform, secretShape: "api_key", loginModes: [], metadataFields, verifiable: true };
+  return {
+    platform,
+    secret_shape: "api_key",
+    login_modes: [],
+    metadata_fields: metadataFields,
+    verifiable: true,
+  };
 }
 
 const GITHUB = apiKey("github");
 const OPENROUTER = apiKey("openrouter");
-const OPENAI_COMPATIBLE = apiKey("openai-compatible", ["baseUrl"]);
+const OPENAI_COMPATIBLE = apiKey("openai-compatible", ["base_url"]);
 const CLOUDFLARE_AI_GATEWAY: CredentialPlatformEntry = {
   ...apiKey("cloudflare-ai-gateway", ["account_id", "gateway_id"]),
   verifiable: false,
 };
 const S3: CredentialPlatformEntry = {
   platform: "s3",
-  secretShape: "s3_access_key",
-  loginModes: [],
-  metadataFields: ["endpoint", "bucket", "region"],
+  secret_shape: "s3_access_key",
+  login_modes: [],
+  metadata_fields: ["endpoint", "bucket", "region"],
   verifiable: true,
 };
 const GITHUB_COPILOT: CredentialPlatformEntry = {
   platform: "github-copilot",
-  secretShape: "oauth",
-  loginModes: ["device"],
-  metadataFields: [],
+  secret_shape: "oauth",
+  login_modes: ["device"],
+  metadata_fields: [],
   verifiable: true,
 };
 
 const OPENAI = {
-  baseUrl: "https://openrouter.ai/api/v1",
-  models: [{ id: "qwen-plus", contextWindow: 32000, reasoningLevels: ["off", "high"] }],
+  base_url: "https://openrouter.ai/api/v1",
+  models: [{ id: "qwen-plus", context_window: 32000, reasoning_levels: ["off", "high"] }],
 };
 
 describe("credentialNameError", () => {
@@ -82,7 +88,7 @@ describe("secretOfDraft", () => {
         accessKeyId: "AKIA1",
         secretAccessKey: "s3-secret",
       }),
-    ).toEqual({ ok: true, value: { accessKeyId: "AKIA1", secretAccessKey: "s3-secret" } });
+    ).toEqual({ ok: true, value: { access_key_id: "AKIA1", secret_access_key: "s3-secret" } });
     expect(
       secretOfDraft("oauth", { ...EMPTY_SECRET, refresh: "r", access: "a", expires: "1700" }),
     ).toEqual({ ok: true, value: { refresh: "r", access: "a", expires: 1700 } });
@@ -124,11 +130,11 @@ describe("createBodyOf", () => {
       "router",
       OPENAI_COMPATIBLE,
       { ...EMPTY_SECRET, key: "k" },
-      { ...EMPTY_METADATA, fields: { baseUrl: OPENAI.baseUrl } },
+      { ...EMPTY_METADATA, fields: { base_url: OPENAI.base_url } },
     );
     expect(result).toMatchObject({
       ok: true,
-      value: { metadata: { baseUrl: OPENAI.baseUrl, models: [] } },
+      value: { metadata: { base_url: OPENAI.base_url, models: [] } },
     });
   });
 
@@ -138,7 +144,7 @@ describe("createBodyOf", () => {
         "router",
         OPENAI_COMPATIBLE,
         { ...EMPTY_SECRET, key: "k" },
-        { ...EMPTY_METADATA, fields: { baseUrl } },
+        { ...EMPTY_METADATA, fields: { base_url: baseUrl } },
       );
       expect(result.ok).toBe(false);
     }
@@ -209,11 +215,11 @@ describe("rotateMetadataOf", () => {
   it("sends a new base URL with the current models", () => {
     const draft = {
       ...metadataDraftOf(OPENAI_COMPATIBLE, OPENAI),
-      fields: { baseUrl: "https://x.test/v1" },
+      fields: { base_url: "https://x.test/v1" },
     };
     expect(rotateMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toEqual({
       ok: true,
-      value: { baseUrl: "https://x.test/v1", models: OPENAI.models },
+      value: { base_url: "https://x.test/v1", models: OPENAI.models },
     });
   });
 
@@ -232,7 +238,7 @@ describe("editMetadataOf", () => {
   it("keeps the base URL and writes the edited models", () => {
     const draft = {
       ...metadataDraftOf(OPENAI_COMPATIBLE, OPENAI),
-      fields: { baseUrl: "https://changed.test/v1" },
+      fields: { base_url: "https://changed.test/v1" },
       models: [
         {
           ...EMPTY_MODEL,
@@ -245,8 +251,8 @@ describe("editMetadataOf", () => {
     expect(editMetadataOf(OPENAI_COMPATIBLE, OPENAI, draft)).toEqual({
       ok: true,
       value: {
-        baseUrl: OPENAI.baseUrl,
-        models: [{ id: "qwen-max", maxTokens: 8192, reasoningLevels: ["off", "high"] }],
+        base_url: OPENAI.base_url,
+        models: [{ id: "qwen-max", max_tokens: 8192, reasoning_levels: ["off", "high"] }],
       },
     });
   });

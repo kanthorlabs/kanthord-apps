@@ -22,6 +22,6 @@ export async function listNodeExecutions(
 ): Promise<readonly SchedulerExecutionRecord[]> {
   return readAllPages<SchedulerExecutionRecord>(
     `/api/scheduler/project/${encodeURIComponent(projectId)}/execution`,
-    { nodeId, attempt: String(attempt) },
+    { node_id: nodeId, attempt: String(attempt) },
   );
 }

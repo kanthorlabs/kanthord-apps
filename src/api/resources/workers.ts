@@ -29,7 +29,7 @@ export async function readWorkerCatalogEntry(workerName: string): Promise<Worker
 export async function listWorkerInstances(
   projectId: string,
 ): Promise<readonly WorkerInstanceRecord[]> {
-  return readAllPages<WorkerInstanceRecord>("/api/worker/instance", { projectId });
+  return readAllPages<WorkerInstanceRecord>("/api/worker/instance", { project_id: projectId });
 }
 
 export async function listAgentEnablements(): Promise<readonly AgentEnablement[]> {
@@ -46,8 +46,8 @@ export async function listAgents(): Promise<readonly AgentSummary[]> {
   const workersByAgent = new Map<string, string[]>();
   for (const entry of entries) {
     if (entry.host !== "kanthord") continue;
-    workersByAgent.set(entry.agentName, [
-      ...(workersByAgent.get(entry.agentName) ?? []),
+    workersByAgent.set(entry.agent_name, [
+      ...(workersByAgent.get(entry.agent_name) ?? []),
       entry.name,
     ]);
   }
@@ -56,7 +56,7 @@ export async function listAgents(): Promise<readonly AgentSummary[]> {
     .map(([agentName, workerNames]) => ({
       agentName,
       workerNames,
-      enablement: enablements.find((enablement) => enablement.agentName === agentName) ?? null,
+      enablement: enablements.find((enablement) => enablement.agent_name === agentName) ?? null,
     }));
 }
 
@@ -114,7 +114,7 @@ export async function removeAgentProvider(
     `${enablementPath(agentName)}/provider/${encodeURIComponent(providerName)}`,
     {
       method: "DELETE",
-      body: { expectedRevision },
+      body: { expected_revision: expectedRevision },
       headers: { "idempotency-key": newUlid() },
     },
   );
@@ -126,7 +126,7 @@ export async function enableAgentEnablement(
 ): Promise<AgentEnablement> {
   return request<AgentEnablement>(`${enablementPath(agentName)}/enable`, {
     method: "POST",
-    body: { expectedRevision },
+    body: { expected_revision: expectedRevision },
     headers: { "idempotency-key": newUlid() },
   });
 }
@@ -137,7 +137,7 @@ export async function disableAgentEnablement(
 ): Promise<AgentEnablement> {
   return request<AgentEnablement>(`${enablementPath(agentName)}/disable`, {
     method: "POST",
-    body: { expectedRevision },
+    body: { expected_revision: expectedRevision },
     headers: { "idempotency-key": newUlid() },
   });
 }

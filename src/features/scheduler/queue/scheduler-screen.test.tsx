@@ -22,30 +22,30 @@ import type { MissionNodeRecord, SchedulerJob } from "@/api/types";
 import { SchedulerScreen } from "./scheduler-screen";
 
 function job(jobId: string, nodeId: string, priority: number): SchedulerJob {
-  return { jobId, projectId: "prj-test", nodeId, priority };
+  return { job_id: jobId, project_id: "prj-test", node_id: nodeId, priority };
 }
 
 function objective(id: string, name: string): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
-    missionId: "mission_1",
-    parentId: null,
-    visibleRevision: 1,
+    mission_id: "mission_1",
+    parent_id: null,
+    visible_revision: 1,
     content: { name, requirement: "", criterion: "", verifications: [], bindings: [] },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
     kind: "objective",
     state: "Available",
     attempt: 0,
     priority: 0,
-    dependsOn: [],
+    depends_on: [],
   };
 }
 
 function mockQueue(jobs: readonly SchedulerJob[], nodes: readonly MissionNodeRecord[]) {
   vi.mocked(listQueueJobs).mockResolvedValue(jobs);
-  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", projectId: "prj-test", version: 1 });
+  vi.mocked(readMission).mockResolvedValue({ id: "mission_1", project_id: "prj-test", version: 1 });
   vi.mocked(listMissionNodes).mockResolvedValue(nodes);
 }
 

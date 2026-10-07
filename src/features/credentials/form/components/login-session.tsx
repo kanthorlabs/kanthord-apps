@@ -33,11 +33,11 @@ function SessionFacts({
       <dt className="text-muted-foreground">Code</dt>
       <dd className="font-mono break-all">{session.code ?? "none"}</dd>
       <dt className="text-muted-foreground">Expires</dt>
-      <dd>{utcDateTime(session.expiresAt)}</dd>
-      {status?.failureReason != null && (
+      <dd>{utcDateTime(session.expires_at)}</dd>
+      {status?.failure_reason != null && (
         <>
           <dt className="text-muted-foreground">Failure</dt>
-          <dd className="break-words text-destructive">{status.failureReason}</dd>
+          <dd className="break-words text-destructive">{status.failure_reason}</dd>
         </>
       )}
     </dl>
@@ -53,8 +53,8 @@ function WaitingStatus({ login }: { login: CredentialLoginState }) {
           Waiting for {login.platform} to confirm the sign-in. This can take up to 15 seconds after
           you approve.
         </p>
-        {login.status?.lastMessage != null && (
-          <p className="break-words text-muted-foreground">{login.status.lastMessage}</p>
+        {login.status?.last_message != null && (
+          <p className="break-words text-muted-foreground">{login.status.last_message}</p>
         )}
       </div>
     </div>

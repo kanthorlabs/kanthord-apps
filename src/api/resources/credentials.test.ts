@@ -76,8 +76,8 @@ const GITHUB = {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
       revision: 1,
       metadata: null,
-      createdAt: 1,
-      endedAt: null,
+      created_at: 1,
+      ended_at: null,
     },
   ],
 };
@@ -85,15 +85,15 @@ const GITHUB = {
 describe("listCredentialPage", () => {
   it("reads one page of the component with the platform filter and the cursor", async () => {
     await serve(200, [
-      { items: [GITHUB], nextCursor: "c-1" },
-      { items: [], nextCursor: null },
-      { items: [], nextCursor: null },
-      { items: [], nextCursor: null },
+      { items: [GITHUB], next_cursor: "c-1" },
+      { items: [], next_cursor: null },
+      { items: [], next_cursor: null },
+      { items: [], next_cursor: null },
     ]);
 
     expect(await listCredentialPage("repository", "github", null)).toEqual({
       items: [GITHUB],
-      nextCursor: "c-1",
+      next_cursor: "c-1",
     });
     await listCredentialPage("repository", null, "c-1");
     await listCredentialPage("llm", null, null, true);
@@ -101,7 +101,7 @@ describe("listCredentialPage", () => {
     expect(seen.map((req) => req.url)).toEqual([
       "/api/repository/credential?platform=github",
       "/api/repository/credential?cursor=c-1",
-      "/api/llm/credential?includeArchived=true",
+      "/api/llm/credential?include_archived=true",
       "/api/storage/credential",
     ]);
     expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
@@ -111,8 +111,8 @@ describe("listCredentialPage", () => {
 describe("listCredentials", () => {
   it("reads every live credential page of one platform of the component", async () => {
     await serve(200, [
-      { items: [GITHUB], nextCursor: "c-1" },
-      { items: [], nextCursor: null },
+      { items: [GITHUB], next_cursor: "c-1" },
+      { items: [], next_cursor: null },
     ]);
 
     expect(await listCredentials("repository", "github")).toEqual([GITHUB]);
@@ -125,7 +125,7 @@ describe("listCredentials", () => {
 
 describe("listAllCredentials", () => {
   it("reads every live credential page of every platform of the component", async () => {
-    await serve(200, [{ items: [GITHUB], nextCursor: null }]);
+    await serve(200, [{ items: [GITHUB], next_cursor: null }]);
 
     expect(await listAllCredentials("repository")).toEqual([GITHUB]);
     expect(seen.map((req) => req.url)).toEqual(["/api/repository/credential?limit=1000"]);
@@ -138,9 +138,9 @@ describe("listCredentialPlatforms", () => {
       items: [
         {
           platform: "github",
-          secretShape: "api_key",
-          loginModes: [],
-          metadataFields: [],
+          secret_shape: "api_key",
+          login_modes: [],
+          metadata_fields: [],
           verifiable: true,
         },
       ],
@@ -164,9 +164,9 @@ describe("readCredential", () => {
       ...GITHUB,
       bindings: [
         {
-          projectId: "project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
-          projectName: "atlas",
-          bindingId: "binding_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
+          project_id: "project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
+          project_name: "atlas",
+          binding_id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
           name: "source",
         },
       ],
@@ -181,7 +181,7 @@ describe("readCredential", () => {
     await serve(404, [
       {
         error: { code: "credential.credential.not_found", message: "Not found." },
-        requestId: "r1",
+        request_id: "r1",
       },
     ]);
 
@@ -236,13 +236,13 @@ describe("credential mutations", () => {
     await serve(200, [GITHUB]);
 
     await rotateCredential("repository", "ci-github", {
-      expectedRevision: 1,
+      expected_revision: 1,
       secret: { key: "ghp-2" },
     });
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.url).toBe("/api/repository/credential/ci-github/revision");
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
-      expectedRevision: 1,
+      expected_revision: 1,
       secret: { key: "ghp-2" },
     });
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
@@ -250,12 +250,12 @@ describe("credential mutations", () => {
 
   it("puts the metadata update at the expected revision", async () => {
     await serve(200, [GITHUB]);
-    const metadata = { baseUrl: "https://api.openai.com/v1", models: [{ id: "gpt-5" }] };
+    const metadata = { base_url: "https://api.openai.com/v1", models: [{ id: "gpt-5" }] };
 
-    await updateCredentialMetadata("llm", "ci-openai", { expectedRevision: 2, metadata });
+    await updateCredentialMetadata("llm", "ci-openai", { expected_revision: 2, metadata });
     expect(seen[0]?.method).toBe("PUT");
     expect(seen[0]?.url).toBe("/api/llm/credential/ci-openai/metadata");
-    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ expectedRevision: 2, metadata });
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ expected_revision: 2, metadata });
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 
@@ -315,29 +315,29 @@ describe("discoverSshAliases", () => {
 describe("credential login", () => {
   it("starts a session, supplies a code and reads the status on the llm paths", async () => {
     const session = {
-      sessionId: "login_session_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
+      session_id: "login_session_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
       address: "https://github.com/login/device",
       code: "ABCD-1234",
-      expiresAt: 900000,
+      expires_at: 900000,
     };
     const status = {
-      sessionId: session.sessionId,
+      session_id: session.session_id,
       state: "pending",
-      lastMessage: null,
-      failureReason: null,
+      last_message: null,
+      failure_reason: null,
     };
-    await serve(200, [session, { sessionId: session.sessionId }, status]);
+    await serve(200, [session, { session_id: session.session_id }, status]);
 
     expect(
       await startCredentialLogin({ platform: "github-copilot", name: "copilot", mode: "device" }),
     ).toEqual(session);
-    await submitCredentialLoginCode(session.sessionId, "https://localhost/callback?code=1");
-    expect(await readCredentialLoginStatus(session.sessionId)).toEqual(status);
+    await submitCredentialLoginCode(session.session_id, "https://localhost/callback?code=1");
+    expect(await readCredentialLoginStatus(session.session_id)).toEqual(status);
 
     expect(seen.map((req) => `${req.method} ${req.url}`)).toEqual([
       "POST /api/llm/credential/login",
-      `POST /api/llm/credential/login/${session.sessionId}/code`,
-      `GET /api/llm/credential/login/${session.sessionId}`,
+      `POST /api/llm/credential/login/${session.session_id}/code`,
+      `GET /api/llm/credential/login/${session.session_id}`,
     ]);
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
       platform: "github-copilot",

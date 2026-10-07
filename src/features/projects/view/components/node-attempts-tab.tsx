@@ -52,16 +52,16 @@ export function NodeAttemptsTab({
             <ItemContent className="min-w-0">
               <ItemTitle className="w-full flex-wrap">
                 Attempt {attempt.attempt}
-                <Badge variant={attempt.closedAt === null ? "default" : "outline"}>
-                  {attempt.closedAt === null ? "open" : "closed"}
+                <Badge variant={attempt.closed_at === null ? "default" : "outline"}>
+                  {attempt.closed_at === null ? "open" : "closed"}
                 </Badge>
               </ItemTitle>
               <ItemDescription className="flex flex-col gap-0.5">
-                <span>Pins revision {attempt.nodeRevision}</span>
+                <span>Pins revision {attempt.node_revision}</span>
                 <span className="break-all">
-                  Opened by {actorText(attempt.openedBy)}, {utcDateTime(attempt.openedAt)}
+                  Opened by {actorText(attempt.opened_by)}, {utcDateTime(attempt.opened_at)}
                 </span>
-                {attempt.closedAt !== null && <span>Closed {utcDateTime(attempt.closedAt)}</span>}
+                {attempt.closed_at !== null && <span>Closed {utcDateTime(attempt.closed_at)}</span>}
               </ItemDescription>
             </ItemContent>
             <CollapsibleTrigger

@@ -6,16 +6,16 @@ import type { CredentialBinding } from "@/api/types";
 import { BindingList } from "./binding-list";
 
 const SOURCE: CredentialBinding = {
-  projectId: "prj-atlas",
-  projectName: "atlas",
-  bindingId: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BR1",
+  project_id: "prj-atlas",
+  project_name: "atlas",
+  binding_id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BR1",
   name: "source",
 };
 
 const MIRROR: CredentialBinding = {
-  projectId: "prj two",
-  projectName: "beacon",
-  bindingId: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BR2",
+  project_id: "prj two",
+  project_name: "beacon",
+  binding_id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BR2",
   name: "mirror",
 };
 

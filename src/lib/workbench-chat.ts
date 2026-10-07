@@ -65,8 +65,8 @@ function assistantItems(
   for (const block of blocks) {
     if (block["type"] !== "toolCall") continue;
     const callId = stringOf(block["id"]);
-    const awaiting = snapshot.pendingApproval?.toolCallId === callId;
-    const running = streaming || snapshot.pendingToolCalls.includes(callId);
+    const awaiting = snapshot.pending_approval?.tool_call_id === callId;
+    const running = streaming || snapshot.pending_tool_calls.includes(callId);
     items.push({
       kind: "tool-call",
       id: `${id}:${callId}`,
@@ -108,13 +108,13 @@ export function chatItemsOf(
   snapshot: WorkbenchRunSnapshot,
 ): readonly ChatItem[] {
   const items = entries.flatMap((entry) => entryItems(entry, snapshot));
-  const streaming = snapshot.streamingMessage;
+  const streaming = snapshot.streaming_message;
   if (streaming === null || streaming["role"] !== "assistant") return items;
   return [...items, ...assistantItems("streaming", streaming, snapshot, true)];
 }
 
 export function agentWorking(items: readonly ChatItem[], snapshot: WorkbenchRunSnapshot): boolean {
-  if (!snapshot.runActive || snapshot.pendingApproval !== null) return false;
+  if (!snapshot.run_active || snapshot.pending_approval !== null) return false;
   const last = items.at(-1);
   return !(last?.kind === "assistant" && last.streaming);
 }

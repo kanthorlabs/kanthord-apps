@@ -73,9 +73,9 @@ function BlockedSection({
                           {node.content.name}
                         </Link>
                       </ItemTitle>
-                      {node.blockedContext !== undefined && (
+                      {node.blocked_context !== undefined && (
                         <p className="text-sm break-words text-muted-foreground">
-                          {closingEventText(node.blockedContext.outcome.closingEvent)}
+                          {closingEventText(node.blocked_context.outcome.closing_event)}
                         </p>
                       )}
                     </ItemContent>
@@ -116,11 +116,11 @@ function RunningSection({
             ) : (
               <ItemGroup aria-label="Live executions" className="gap-2">
                 {data.map(({ execution, nodeName }) => (
-                  <Item key={execution.executionId} role="listitem" variant="outline" size="sm">
+                  <Item key={execution.execution_id} role="listitem" variant="outline" size="sm">
                     <ItemContent className="min-w-0">
                       <ItemTitle>{nodeName}</ItemTitle>
                       <p className="text-sm break-all text-muted-foreground">
-                        {execution.claimant.workerBindingId}
+                        {execution.claimant.worker_binding_id}
                       </p>
                     </ItemContent>
                   </Item>

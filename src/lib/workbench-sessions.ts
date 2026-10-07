@@ -8,7 +8,7 @@ export function sessionsNewestFirst(
 
 export function sessionTitle(item: WorkbenchSessionListItem): string {
   if (item.name !== null && item.name !== "") return item.name;
-  return item.firstMessage === "" ? "Empty Session" : item.firstMessage;
+  return item.first_message === "" ? "Empty Session" : item.first_message;
 }
 
 export function workbenchSessionPath(sessionId: string): string {

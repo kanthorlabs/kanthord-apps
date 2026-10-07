@@ -37,7 +37,7 @@ export async function listCredentialPage(
 ): Promise<Page<Credential>> {
   const query = new URLSearchParams();
   if (platform !== null) query.set("platform", platform);
-  if (includeArchived) query.set("includeArchived", "true");
+  if (includeArchived) query.set("include_archived", "true");
   if (cursor !== null) query.set("cursor", cursor);
   const suffix = query.size === 0 ? "" : `?${query}`;
   return request<Page<Credential>>(`${credentialRoot(component)}${suffix}`);
@@ -144,8 +144,8 @@ export async function startCredentialLogin(
 export async function submitCredentialLoginCode(
   sessionId: string,
   value: string,
-): Promise<{ readonly sessionId: string }> {
-  return request<{ readonly sessionId: string }>(
+): Promise<{ readonly session_id: string }> {
+  return request<{ readonly session_id: string }>(
     `${LOGIN_PATH}/${encodeURIComponent(sessionId)}/code`,
     { method: "POST", body: { value }, headers: { "idempotency-key": newUlid() } },
   );

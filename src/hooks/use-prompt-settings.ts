@@ -25,9 +25,10 @@ export function usePromptSettings(
   target: PromptTarget,
   onChanged: () => void,
 ): PromptSettingsState {
-  const { scope, agentName } = target;
+  const { scope, agent_name: agentName } = target;
   const resource = useResource(
-    () => readPromptSettings({ scope, ...(agentName === undefined ? {} : { agentName }) }),
+    () =>
+      readPromptSettings({ scope, ...(agentName === undefined ? {} : { agent_name: agentName }) }),
     [scope, agentName],
   );
   const [pending, setPending] = useState(false);
@@ -66,7 +67,7 @@ export function usePromptSettings(
       write(
         (current) =>
           switchPromptSource(
-            { scope, ...(agentName === undefined ? {} : { agentName }) },
+            { scope, ...(agentName === undefined ? {} : { agent_name: agentName }) },
             current.revision,
             name,
             enabled,
@@ -91,7 +92,7 @@ export function usePromptSettings(
     (text: string): Promise<PromptSaveResult> => {
       if (settings === null) return Promise.resolve({ ok: false, message: "", conflict: false });
       return putPromptText(
-        { scope, ...(agentName === undefined ? {} : { agentName }) },
+        { scope, ...(agentName === undefined ? {} : { agent_name: agentName }) },
         settings.revision,
         text,
       ).then(

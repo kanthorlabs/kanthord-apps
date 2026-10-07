@@ -57,7 +57,7 @@ export function useMissionExport(
       run(async (id) => {
         const plan = await exportMissionJson(id);
         return {
-          filename: missionExportFilename(projectName, plan.missionVersion, "json"),
+          filename: missionExportFilename(projectName, plan.mission_version, "json"),
           blob: new Blob([`${JSON.stringify(plan, null, 2)}\n`], { type: "application/json" }),
         };
       }),
@@ -69,7 +69,7 @@ export function useMissionExport(
       run(async (id) => {
         const plan = await exportMissionMarkdown(id);
         return {
-          filename: missionExportFilename(projectName, plan.missionVersion, "zip"),
+          filename: missionExportFilename(projectName, plan.mission_version, "zip"),
           blob: new Blob([planArchive(plan.files)], { type: "application/zip" }),
         };
       }),

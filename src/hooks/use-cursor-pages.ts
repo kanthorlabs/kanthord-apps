@@ -113,8 +113,8 @@ export function useCursorPages<T>(
 
   const next = useCallback(() => {
     const { committed, pending } = stateRef.current;
-    if (pending || committed === null || committed.page.nextCursor === null) return;
-    transition({ move: "next", cursors: [...committed.cursors, committed.page.nextCursor] });
+    if (pending || committed === null || committed.page.next_cursor === null) return;
+    transition({ move: "next", cursors: [...committed.cursors, committed.page.next_cursor] });
   }, [transition]);
 
   const previous = useCallback(() => {
@@ -141,7 +141,7 @@ export function useCursorPages<T>(
     error: state.error,
     pending: state.pending,
     hasPrevious: committed !== null && committed.cursors.length > 1,
-    hasNext: committed !== null && committed.page.nextCursor !== null,
+    hasNext: committed !== null && committed.page.next_cursor !== null,
     position: committed?.position ?? 0,
     next,
     previous,

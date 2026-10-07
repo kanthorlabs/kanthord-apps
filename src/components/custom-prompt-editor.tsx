@@ -13,7 +13,7 @@ interface CustomPromptEditorProps {
 
 export function CustomPromptEditor({ title, description, settings }: CustomPromptEditorProps) {
   const editor = usePromptEditor(
-    settings.settings?.customText ?? "",
+    settings.settings?.custom_text ?? "",
     settings.saveText,
     settings.reload,
   );

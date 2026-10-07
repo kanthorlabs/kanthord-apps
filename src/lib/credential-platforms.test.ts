@@ -5,17 +5,17 @@ import { platformEntryOf, platformIdsOf } from "./credential-platforms";
 
 const ANTHROPIC = {
   platform: "anthropic",
-  secretShape: "api_key",
-  loginModes: [],
-  metadataFields: [],
+  secret_shape: "api_key",
+  login_modes: [],
+  metadata_fields: [],
   verifiable: true,
 } as const;
 
 const GATEWAY = {
   platform: "cloudflare-ai-gateway",
-  secretShape: "api_key",
-  loginModes: [],
-  metadataFields: ["account_id", "gateway_id"],
+  secret_shape: "api_key",
+  login_modes: [],
+  metadata_fields: ["account_id", "gateway_id"],
   verifiable: false,
 } as const;
 

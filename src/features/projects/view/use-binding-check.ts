@@ -99,7 +99,7 @@ export function useBindingCheck(
       );
     setCheckState({ inputs: started, result: { status: "checking" } });
     checkBinding(projectId, entry).then(
-      ({ address, sshCredential, credential }) =>
+      ({ address, ssh_credential: sshCredential, credential }) =>
         settle({ status: "ready", address, sshCredential, credential }),
       (cause: unknown) =>
         settle({ status: "failed", message: credentialMessage(asApiError(cause)) }),

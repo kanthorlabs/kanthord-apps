@@ -5,7 +5,7 @@ export type BindingChangeKind = "create" | "revise" | "replace" | "disable" | "r
 const REPOSITORY_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git(?![\s\S])/;
 
 export function isAvailable(entry: BindingSetEntry): boolean {
-  return entry.kind === "worker" ? entry.config.instanceCount > 0 : entry.config.available;
+  return entry.kind === "worker" ? entry.config.instance_count > 0 : entry.config.available;
 }
 
 export function resourceIdentityOf(name: string, entry: BindingSetEntry): string | null {
@@ -38,7 +38,7 @@ export function isGuarded(kind: BindingChangeKind): boolean {
 }
 
 export function unavailableOf(entry: BindingSetEntry): BindingSetEntry {
-  if (entry.kind === "worker") return { ...entry, config: { ...entry.config, instanceCount: 0 } };
+  if (entry.kind === "worker") return { ...entry, config: { ...entry.config, instance_count: 0 } };
   if (entry.kind === "repository") {
     return { ...entry, config: { ...entry.config, available: false } };
   }

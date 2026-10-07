@@ -27,7 +27,10 @@ export function useSchedulerQueue(): QueueState {
 
   const entries = useMemo(() => {
     const names = new Map((nodes.data ?? []).map((node) => [node.id, node.content.name]));
-    return (jobs.data ?? []).map((job) => ({ job, nodeName: names.get(job.nodeId) ?? job.nodeId }));
+    return (jobs.data ?? []).map((job) => ({
+      job,
+      nodeName: names.get(job.node_id) ?? job.node_id,
+    }));
   }, [jobs.data, nodes.data]);
 
   const reload = () => {

@@ -20,11 +20,11 @@ vi.mock("sonner", () => ({
 
 import { MissionPanel } from "./mission-panel";
 
-const MISSION = { id: "mission_1", projectId: "project_1", version: 3 };
+const MISSION = { id: "mission_1", project_id: "project_1", version: 3 };
 
 const CURRENT: MissionJsonExport = {
-  missionId: "mission_1",
-  missionVersion: 3,
+  mission_id: "mission_1",
+  mission_version: 3,
   entries: [
     {
       filename: "onboarding.md",
@@ -51,14 +51,14 @@ const CURRENT: MissionJsonExport = {
 };
 
 const PREVIEW: MissionImportPreview = {
-  missionId: "mission_1",
-  expectedMissionVersion: 3,
-  previewDigest: "d".repeat(64),
+  mission_id: "mission_1",
+  expected_mission_version: 3,
+  preview_digest: "d".repeat(64),
   creates: ["new-task.md"],
   updates: ["node_1"],
   retirements: ["node_2"],
-  removedEdges: [],
-  noOps: [],
+  removed_edges: [],
+  no_ops: [],
   violations: [],
 };
 
@@ -73,16 +73,16 @@ function runnable(
     id,
     kind,
     filename: `${id}.md`,
-    missionId: "mission_1",
-    parentId,
-    visibleRevision: 1,
+    mission_id: "mission_1",
+    parent_id: parentId,
+    visible_revision: 1,
     content: { name, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
     state,
     attempt: 0,
     priority: 0,
-    dependsOn: [],
+    depends_on: [],
   };
 }
 
@@ -94,9 +94,9 @@ const GRAPH: readonly MissionNodeRecord[] = [
     id: "node_2",
     kind: "task",
     filename: "reset-expiry.md",
-    missionId: "mission_1",
-    parentId: "node_4",
-    visibleRevision: 1,
+    mission_id: "mission_1",
+    parent_id: "node_4",
+    visible_revision: 1,
     content: {
       name: "Add reset token expiry",
       requirement: "r",
@@ -104,8 +104,8 @@ const GRAPH: readonly MissionNodeRecord[] = [
       verifications: ["v"],
       bindings: [],
     },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
   },
 ];
 
@@ -144,7 +144,7 @@ describe("MissionPanel", () => {
       return node;
     });
     vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
-      { kind: "dependency", dependentId: "node_4", dependsOnId: "node_3" },
+      { kind: "dependency", dependent_id: "node_4", depends_on_id: "node_3" },
     ]);
   });
 
@@ -203,7 +203,7 @@ describe("MissionPanel", () => {
 
   it("warns when a dependency names a node that the read does not hold", async () => {
     vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
-      { kind: "dependency", dependentId: "node_4", dependsOnId: "node_9" },
+      { kind: "dependency", dependent_id: "node_4", depends_on_id: "node_9" },
     ]);
     renderPanel();
 
@@ -240,8 +240,8 @@ describe("MissionPanel", () => {
 
   it("downloads the Markdown export as one zip archive", async () => {
     vi.mocked(missionApi.exportMissionMarkdown).mockResolvedValue({
-      missionId: "mission_1",
-      missionVersion: 3,
+      mission_id: "mission_1",
+      mission_version: 3,
       files: [{ filename: "onboarding.md", content: "# Onboarding\n" }],
     });
     const createObjectURL = vi.fn(() => "blob:plan");
@@ -267,8 +267,8 @@ describe("MissionPanel", () => {
     expect(within(retirements).getByText("Add reset token expiry")).toBeTruthy();
     expect(missionApi.previewMissionImport).toHaveBeenCalledWith({
       format: "json",
-      missionId: "mission_1",
-      missionVersion: 3,
+      mission_id: "mission_1",
+      mission_version: 3,
       reason: "Drop the expiry task",
       entries: [CURRENT.entries[0]],
     });
@@ -276,9 +276,9 @@ describe("MissionPanel", () => {
 
   it("applies only after the human confirms the whole retirement set", async () => {
     vi.mocked(missionApi.applyMissionImport).mockResolvedValue({
-      missionId: "mission_1",
-      missionVersion: 4,
-      assignedIds: [],
+      mission_id: "mission_1",
+      mission_version: 4,
+      assigned_ids: [],
     });
     await previewImport();
 
@@ -289,8 +289,8 @@ describe("MissionPanel", () => {
 
     expect(missionApi.applyMissionImport).toHaveBeenCalledWith(
       expect.objectContaining({
-        previewDigest: PREVIEW.previewDigest,
-        confirmedRetirements: ["node_2"],
+        preview_digest: PREVIEW.preview_digest,
+        confirmed_retirements: ["node_2"],
       }),
     );
     await waitFor(() =>
@@ -309,11 +309,11 @@ describe("MissionPanel", () => {
       retirements: [],
     });
     vi.mocked(missionApi.applyMissionImport).mockResolvedValue({
-      missionId: "mission_1",
-      missionVersion: 4,
-      assignedIds: [
-        { filename: "reset-email.md", nodeId: "node_1" },
-        { filename: "expiry.md", nodeId: "node_2" },
+      mission_id: "mission_1",
+      mission_version: 4,
+      assigned_ids: [
+        { filename: "reset-email.md", node_id: "node_1" },
+        { filename: "expiry.md", node_id: "node_2" },
       ],
     });
     await previewImport();
@@ -350,7 +350,7 @@ describe("MissionPanel", () => {
           code: "mission.import.plan_invalid",
           message: "A plan file breaks the import grammar.",
           filename: "plan.md",
-          nodeId: null,
+          node_id: null,
           details: null,
         },
       ],

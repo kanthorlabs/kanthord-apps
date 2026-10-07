@@ -8,7 +8,7 @@ async function listRepositoryCredentials(): Promise<readonly Credential[]> {
   do {
     const page = await listCredentialPage("repository", null, cursor);
     credentials.push(...page.items);
-    cursor = page.nextCursor;
+    cursor = page.next_cursor;
   } while (cursor !== null);
   return credentials;
 }

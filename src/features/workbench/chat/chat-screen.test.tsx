@@ -17,11 +17,11 @@ const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 
 const SESSION: WorkbenchSession = {
   id: SESSION_ID,
-  agentName: "swe@1",
+  agent_name: "swe@1",
   configuration: {
-    agentProvider: "atlas-llm",
-    modelIdentifier: "gpt-5",
-    reasoningEffort: "off",
+    agent_provider: "atlas-llm",
+    model_identifier: "gpt-5",
+    reasoning_effort: "off",
   },
   entries: [
     {
@@ -32,25 +32,25 @@ const SESSION: WorkbenchSession = {
       message: { role: "user", content: "List the open objectives" },
     },
   ],
-  runActive: false,
-  resumeCommand: "pi --session ~/session.jsonl",
+  run_active: false,
+  resume_command: "pi --session ~/session.jsonl",
 };
 
 const AGENT: AgentDeclaration = {
-  agentName: "swe@1",
-  configurationSchema: {},
-  overridableFields: [],
+  agent_name: "swe@1",
+  configuration_schema: {},
+  overridable_fields: [],
   enablement: {
-    agentName: "swe@1",
+    agent_name: "swe@1",
     state: "enabled",
-    agentProviders: [
+    agent_providers: [
       { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" },
       { name: "openai-org", provider: "openai-compatible", credential: "openai-main" },
     ],
-    defaultConfiguration: {
-      agentProvider: "atlas-llm",
-      modelIdentifier: "qwen3-coder",
-      reasoningEffort: "off",
+    default_configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
     },
     revision: 2,
   },
@@ -75,7 +75,7 @@ beforeEach(() => {
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue(AGENT);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
-    { modelIdentifier: "gpt-5", reasoningEfforts: ["off"] },
+    { model_identifier: "gpt-5", reasoning_efforts: ["off"] },
   ]);
 });
 

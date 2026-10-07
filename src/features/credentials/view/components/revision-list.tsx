@@ -26,8 +26,8 @@ export function RevisionList({ credential, canRevoke, onRevoke }: RevisionListPr
           title={`Revision ${revision.revision}`}
           status={
             <span className="flex flex-wrap gap-1">
-              <Badge variant={revision.endedAt === null ? "default" : "secondary"}>
-                {revision.endedAt === null ? "live" : "ended"}
+              <Badge variant={revision.ended_at === null ? "default" : "secondary"}>
+                {revision.ended_at === null ? "live" : "ended"}
               </Badge>
               {revision.revision === newest?.revision && <Badge variant="outline">newest</Badge>}
             </span>
@@ -37,10 +37,10 @@ export function RevisionList({ credential, canRevoke, onRevoke }: RevisionListPr
               label: "Identity",
               value: <span className="font-mono break-all">{revision.id}</span>,
             },
-            { label: "Created", value: utcDateTime(revision.createdAt) },
+            { label: "Created", value: utcDateTime(revision.created_at) },
             {
               label: "Ended",
-              value: revision.endedAt === null ? "—" : utcDateTime(revision.endedAt),
+              value: revision.ended_at === null ? "—" : utcDateTime(revision.ended_at),
             },
             ...metadataFacts(credential.platform, revision.metadata).map((fact) => ({
               label: fact.label,

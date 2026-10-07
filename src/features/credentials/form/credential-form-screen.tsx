@@ -38,7 +38,7 @@ function SignInFields({
   form: CredentialFormState;
   entry: CredentialPlatformEntry;
 }) {
-  const modes = entry.loginModes;
+  const modes = entry.login_modes;
   const items = modes.map((mode) => ({ value: mode, label: MODE_LABELS[mode] }));
   return (
     <Field className="md:col-span-2">
@@ -117,16 +117,16 @@ export function CreateForm({
           <>
             <FieldGroup className="md:col-span-2">
               <SecretFields
-                shape={form.entry.secretShape}
+                shape={form.entry.secret_shape}
                 draft={form.secret}
                 errors={form.errors}
                 onEdit={form.setSecret}
               />
             </FieldGroup>
-            {form.entry.metadataFields.length > 0 && (
+            {form.entry.metadata_fields.length > 0 && (
               <FieldGroup className="md:col-span-2">
                 <MetadataFields
-                  fields={form.entry.metadataFields}
+                  fields={form.entry.metadata_fields}
                   draft={form.metadata}
                   errors={form.errors}
                   baseUrlDescription="Fixed for the revision. Only a rotation sets another base URL. Add approved models after creation."

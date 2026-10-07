@@ -42,21 +42,21 @@ export function Composer({ composer, configuration, runActive, onStop }: Compose
         <InputGroupAddon align="block-end" className="flex-wrap gap-2">
           <ComposerPicker
             label="Agent Provider"
-            value={configuration.configuration.agentProvider}
+            value={configuration.configuration.agent_provider}
             options={configuration.agentProviders}
             disabled={configuration.pending}
             onChange={configuration.selectAgentProvider}
           />
           <ComposerPicker
             label="Model"
-            value={configuration.configuration.modelIdentifier}
+            value={configuration.configuration.model_identifier}
             options={configuration.models}
             disabled={configuration.pending}
             onChange={configuration.selectModel}
           />
           <ComposerPicker
             label="Reasoning Effort"
-            value={configuration.configuration.reasoningEffort}
+            value={configuration.configuration.reasoning_effort}
             options={configuration.reasoningEfforts}
             disabled={configuration.pending}
             onChange={configuration.selectReasoningEffort}

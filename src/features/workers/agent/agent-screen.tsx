@@ -94,7 +94,7 @@ function AgentProviderList({
   return (
     <>
       <ItemGroup aria-label="Agent providers" className="gap-2">
-        {enablement.agentProviders.map((p) => (
+        {enablement.agent_providers.map((p) => (
           <Item key={p.name} variant="outline" size="sm" role="listitem">
             <ItemContent className="min-w-0">
               <ItemTitle>
@@ -147,14 +147,14 @@ function EnablementSection({ agentName, enablement, reload }: EnablementSectionP
               <dd className="tabular-nums">{enablement.revision}</dd>
               <dt className="text-muted-foreground">Default agent provider</dt>
               <dd className="font-mono break-all">
-                {enablement.defaultConfiguration.agentProvider}
+                {enablement.default_configuration.agent_provider}
               </dd>
               <dt className="text-muted-foreground">Default model</dt>
               <dd className="font-mono break-all">
-                {enablement.defaultConfiguration.modelIdentifier}
+                {enablement.default_configuration.model_identifier}
               </dd>
               <dt className="text-muted-foreground">Default reasoning effort</dt>
-              <dd className="font-mono">{enablement.defaultConfiguration.reasoningEffort}</dd>
+              <dd className="font-mono">{enablement.default_configuration.reasoning_effort}</dd>
             </dl>
             <AgentProviderList agentName={agentName} enablement={enablement} reload={reload} />
           </>
@@ -213,8 +213,8 @@ function PromptLayers({
   readonly reload: () => void;
 }) {
   const server = usePromptSettings({ scope: "system" }, reload);
-  const agent = usePromptSettings({ scope: "agent", agentName }, reload);
-  const working = usePromptSettings({ scope: "workbench", agentName }, reload);
+  const agent = usePromptSettings({ scope: "agent", agent_name: agentName }, reload);
+  const working = usePromptSettings({ scope: "workbench", agent_name: agentName }, reload);
   const scopes = { system: agent, agent, working } as const;
   return (
     <>
@@ -258,7 +258,7 @@ export function AgentScreen() {
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-mono text-lg font-semibold">{agent.agentName}</h2>
+        <h2 className="font-mono text-lg font-semibold">{agent.agent_name}</h2>
         <Badge variant={enablementVariant(agent.enablement)}>
           {enablementLabel(agent.enablement)}
         </Badge>
@@ -266,14 +266,14 @@ export function AgentScreen() {
           variant="outline"
           size="sm"
           nativeButton={false}
-          render={<Link to={workbenchListPath(agent.agentName)} />}
+          render={<Link to={workbenchListPath(agent.agent_name)} />}
         >
           Workbench
         </Button>
       </div>
       <div className="flex flex-wrap items-center gap-1 text-sm">
         <span className="text-muted-foreground">Overridable in a worker binding:</span>
-        {agent.overridableFields.map((field) => (
+        {agent.overridable_fields.map((field) => (
           <Badge key={field} variant="outline">
             {field}
           </Badge>
@@ -281,14 +281,14 @@ export function AgentScreen() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <EnablementSection
-          agentName={agent.agentName}
+          agentName={agent.agent_name}
           enablement={agent.enablement}
           reload={reload}
         />
         <ToolsSection tools={agent.tools} />
       </div>
       <PromptLayers
-        agentName={agent.agentName}
+        agentName={agent.agent_name}
         layers={agent.prompt.layers ?? []}
         reload={reload}
       />

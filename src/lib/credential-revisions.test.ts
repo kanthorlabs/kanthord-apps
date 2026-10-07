@@ -14,8 +14,8 @@ function revision(number: number, endedAt: number | null) {
     id: `credential_${number}`,
     revision: number,
     metadata: null,
-    createdAt: number,
-    endedAt,
+    created_at: number,
+    ended_at: endedAt,
   };
 }
 

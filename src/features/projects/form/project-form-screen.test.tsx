@@ -19,9 +19,9 @@ import { ProjectFormScreen } from "./project-form-screen";
 const KANTHORD: Project = {
   id: "project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
   name: "kanthord",
-  bindingSetVersion: 3,
-  createdAt: 1,
-  workspaceDirectory:
+  binding_set_version: 3,
+  created_at: 1,
+  workspace_directory:
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
 

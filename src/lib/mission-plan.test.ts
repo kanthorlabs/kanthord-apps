@@ -78,8 +78,8 @@ describe("importSnapshotOf", () => {
       importSnapshotOf({ format: "json", entries: [ENTRY] }, "mission_1", 3, "Split onboarding"),
     ).toEqual({
       format: "json",
-      missionId: "mission_1",
-      missionVersion: 3,
+      mission_id: "mission_1",
+      mission_version: 3,
       reason: "Split onboarding",
       entries: [ENTRY],
     });

@@ -35,7 +35,7 @@ export function useChatConfiguration(
   const [configuration, setConfiguration] = useState(initial);
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const providerModels = useAgentProviderModels(agentName, configuration.agentProvider);
+  const providerModels = useAgentProviderModels(agentName, configuration.agent_provider);
 
   const change = useCallback(
     (patch: Promise<Partial<WorkbenchConfiguration>> | Partial<WorkbenchConfiguration>) => {
@@ -60,15 +60,15 @@ export function useChatConfiguration(
 
   const selectAgentProvider = useCallback(
     (value: string | null) => {
-      if (value === null || value === configuration.agentProvider || pending) return;
+      if (value === null || value === configuration.agent_provider || pending) return;
       change(
         listAgentProviderModels(agentName, value).then((models) => {
           const modelIdentifier = modelAfterProviderChange(models);
           return {
-            agentProvider: value,
-            modelIdentifier,
-            reasoningEffort: effortAfterModelChange(
-              configuration.reasoningEffort,
+            agent_provider: value,
+            model_identifier: modelIdentifier,
+            reasoning_effort: effortAfterModelChange(
+              configuration.reasoning_effort,
               modelIdentifier,
               models,
             ),
@@ -81,42 +81,42 @@ export function useChatConfiguration(
 
   const selectModel = useCallback(
     (value: string | null) => {
-      if (value !== null && value !== configuration.modelIdentifier) {
+      if (value !== null && value !== configuration.model_identifier) {
         change({
-          modelIdentifier: value,
-          reasoningEffort: effortAfterModelChange(
-            configuration.reasoningEffort,
+          model_identifier: value,
+          reasoning_effort: effortAfterModelChange(
+            configuration.reasoning_effort,
             value,
             providerModels.models ?? [],
           ),
         });
       }
     },
-    [change, configuration.modelIdentifier, configuration.reasoningEffort, providerModels.models],
+    [change, configuration.model_identifier, configuration.reasoning_effort, providerModels.models],
   );
 
   const selectReasoningEffort = useCallback(
     (value: string | null) => {
       const effort: ReasoningEffort | "" = reasoningEffortOf(value);
-      if (effort !== "" && effort !== configuration.reasoningEffort) {
-        change({ reasoningEffort: effort });
+      if (effort !== "" && effort !== configuration.reasoning_effort) {
+        change({ reasoning_effort: effort });
       }
     },
-    [change, configuration.reasoningEffort],
+    [change, configuration.reasoning_effort],
   );
 
   return {
     configuration,
     agentProviders: [
       ...new Set([
-        configuration.agentProvider,
-        ...(enablement?.agentProviders ?? []).map((provider) => provider.name),
+        configuration.agent_provider,
+        ...(enablement?.agent_providers ?? []).map((provider) => provider.name),
       ]),
     ],
-    models: modelOptions(configuration.modelIdentifier, providerModels.models),
+    models: modelOptions(configuration.model_identifier, providerModels.models),
     reasoningEfforts: effortOptions(
-      configuration.reasoningEffort,
-      configuration.modelIdentifier,
+      configuration.reasoning_effort,
+      configuration.model_identifier,
       providerModels.models,
     ),
     modelsFailure: providerModels.failure,

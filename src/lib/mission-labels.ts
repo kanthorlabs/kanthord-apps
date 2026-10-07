@@ -60,7 +60,7 @@ export function resolutionVariant(
 export function actorText(actor: MissionActor): string {
   if (actor.kind === "human") return `${actor.name} (${actor.account})`;
   if (actor.kind === "execution") {
-    return actor.name === null ? actor.executionId : `${actor.name} (${actor.executionId})`;
+    return actor.name === null ? actor.execution_id : `${actor.name} (${actor.execution_id})`;
   }
   const event = actor.inbound_event_id === undefined ? "" : ` (${actor.inbound_event_id})`;
   return `${actor.service} service${event}`;
@@ -72,27 +72,27 @@ function shortCommit(commit: string): string {
 
 export function assetText(asset: MissionEvidenceAsset): string {
   if (asset.kind === "repository") {
-    return `commit ${shortCommit(asset.address.commit)} on binding ${asset.address.bindingId}`;
+    return `commit ${shortCommit(asset.address.commit)} on binding ${asset.address.binding_id}`;
   }
   if (asset.kind === "produced")
     return `produced content sha256 ${shortCommit(asset.address.sha256)}`;
   if (asset.kind === "object") return `object ${asset.address.location}, ${asset.size} bytes`;
   const address = asset.address;
   if (address.kind === "pull_request") {
-    return `pull request #${address.number} on ${address.resourceIdentity}`;
+    return `pull request #${address.number} on ${address.resource_identity}`;
   }
-  return `push of ${shortCommit(address.commit)} to ${address.branch} on ${address.resourceIdentity}`;
+  return `push of ${shortCommit(address.commit)} to ${address.branch} on ${address.resource_identity}`;
 }
 
 export type VerificationResult = MissionVerification["results"][number];
 
 export function verificationResultText(result: VerificationResult): string {
-  if (result.timedOut) return "timed out";
+  if (result.timed_out) return "timed out";
   if (result.signal !== null) return `ended by ${result.signal}`;
-  if (result.exitCode === null) return "did not run";
-  return result.exitCode === 0 ? "passed" : `failed with exit code ${result.exitCode}`;
+  if (result.exit_code === null) return "did not run";
+  return result.exit_code === 0 ? "passed" : `failed with exit code ${result.exit_code}`;
 }
 
 export function verificationPasses(verification: MissionVerification): boolean {
-  return verification.results.every((result) => result.exitCode === 0);
+  return verification.results.every((result) => result.exit_code === 0);
 }

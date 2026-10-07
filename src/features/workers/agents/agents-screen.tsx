@@ -53,13 +53,13 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
             <>
               <dt className="text-muted-foreground">Agent providers</dt>
               <dd className="font-mono break-all">
-                {enablement.agentProviders.map((p) => p.name).join(", ")}
+                {enablement.agent_providers.map((p) => p.name).join(", ")}
               </dd>
               <dt className="text-muted-foreground">Default</dt>
               <dd className="font-mono break-all">
-                {enablement.defaultConfiguration.agentProvider} ·{" "}
-                {enablement.defaultConfiguration.modelIdentifier} ·{" "}
-                {enablement.defaultConfiguration.reasoningEffort}
+                {enablement.default_configuration.agent_provider} ·{" "}
+                {enablement.default_configuration.model_identifier} ·{" "}
+                {enablement.default_configuration.reasoning_effort}
               </dd>
             </>
           )}

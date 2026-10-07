@@ -74,28 +74,34 @@ afterEach(async () => {
 
 const SETTINGS = {
   scope: "agent",
-  agentName: "swe@1",
+  agent_name: "swe@1",
   switches: { agent_file: true, shipped: true, custom: true },
-  customText: "",
+  custom_text: "",
   system_layer: "inherit",
   revision: 2,
 };
 
 describe("prompt settings resources", () => {
   it("reads the settings of a scope", async () => {
-    await serve({ "GET /api/agent/prompt?scope=agent&agentName=swe%401": SETTINGS });
+    await serve({ "GET /api/agent/prompt?scope=agent&agent_name=swe%401": SETTINGS });
 
-    expect(await readPromptSettings({ scope: "agent", agentName: "swe@1" })).toEqual(SETTINGS);
+    expect(await readPromptSettings({ scope: "agent", agent_name: "swe@1" })).toEqual(SETTINGS);
   });
 
   it("switches a source at its revision and omits an absent revision", async () => {
     await serve({ "POST /api/agent/prompt/switch": SETTINGS });
 
-    await switchPromptSource({ scope: "agent", agentName: "swe@1" }, 2, "custom", false);
+    await switchPromptSource({ scope: "agent", agent_name: "swe@1" }, 2, "custom", false);
     await switchPromptSource({ scope: "system" }, 0, "layer", false);
 
     expect(seen.map((call) => JSON.parse(call.body))).toEqual([
-      { scope: "agent", agentName: "swe@1", expectedRevision: 2, switch: "custom", enabled: false },
+      {
+        scope: "agent",
+        agent_name: "swe@1",
+        expected_revision: 2,
+        switch: "custom",
+        enabled: false,
+      },
       { scope: "system", switch: "layer", enabled: false },
     ]);
     expect(seen.every((call) => call.idempotencyKey !== undefined)).toBe(true);
@@ -108,8 +114,8 @@ describe("prompt settings resources", () => {
 
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
       scope: "agent",
-      agentName: "swe@1",
-      expectedRevision: 2,
+      agent_name: "swe@1",
+      expected_revision: 2,
       system_layer: "off",
     });
   });
@@ -117,13 +123,13 @@ describe("prompt settings resources", () => {
   it("replaces the custom text of a scope at its revision", async () => {
     await serve({ "PUT /api/agent/prompt": SETTINGS });
 
-    await putPromptText({ scope: "agent", agentName: "swe@1" }, 2, "# Rules");
+    await putPromptText({ scope: "agent", agent_name: "swe@1" }, 2, "# Rules");
 
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
       scope: "agent",
-      agentName: "swe@1",
-      expectedRevision: 2,
-      customText: "# Rules",
+      agent_name: "swe@1",
+      expected_revision: 2,
+      custom_text: "# Rules",
     });
     expect(seen[0]?.idempotencyKey).toBeDefined();
   });

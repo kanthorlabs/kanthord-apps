@@ -22,9 +22,9 @@ vi.mock("@/api/resources/prompts");
 import { AgentScreen } from "./agent-screen";
 
 const RE: AgentDeclaration = {
-  agentName: "re@1",
-  configurationSchema: { type: "object" },
-  overridableFields: ["agentProvider", "modelIdentifier", "reasoningEffort"],
+  agent_name: "re@1",
+  configuration_schema: { type: "object" },
+  overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
   enablement: null,
   prompt: {
     layers: [
@@ -72,19 +72,19 @@ const RE: AgentDeclaration = {
       "Framing of the final prompt.\n\nInstructions of file AGENTS.md:\n\nThe final reviewer text.",
   },
   tools: [
-    { name: "read", source: "builtin", inputSchema: {} },
-    { name: "grep", source: "builtin", inputSchema: {} },
+    { name: "read", source: "builtin", input_schema: {} },
+    { name: "grep", source: "builtin", input_schema: {} },
   ],
 };
 
 const ENABLEMENT: AgentEnablement = {
-  agentName: "re@1",
+  agent_name: "re@1",
   state: "enabled",
-  agentProviders: [{ name: "router", provider: "openrouter", credential: "router-main" }],
-  defaultConfiguration: {
-    agentProvider: "router",
-    modelIdentifier: "qwen/qwen3-coder",
-    reasoningEffort: "off",
+  agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+  default_configuration: {
+    agent_provider: "router",
+    model_identifier: "qwen/qwen3-coder",
+    reasoning_effort: "off",
   },
   revision: 2,
 };
@@ -100,9 +100,9 @@ const SWITCHES: Readonly<Record<string, Readonly<Record<string, boolean>>>> = {
 function settingsOf(target: PromptTarget): PromptSettings {
   return {
     scope: target.scope,
-    agentName: target.agentName ?? "",
+    agent_name: target.agent_name ?? "",
     switches: SWITCHES[target.scope] ?? {},
-    customText: "",
+    custom_text: "",
     system_layer: target.scope === "agent" ? "inherit" : null,
     revision: 3,
   };
@@ -212,7 +212,7 @@ describe("AgentScreen", () => {
   it("sets the system layer override of the agent at its revision", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(promptsApi.setSystemLayerOverride).mockResolvedValue({
-      ...settingsOf({ scope: "agent", agentName: "re@1" }),
+      ...settingsOf({ scope: "agent", agent_name: "re@1" }),
       system_layer: "on",
     });
     mount();
@@ -229,7 +229,7 @@ describe("AgentScreen", () => {
   it("switches an agent layer source and locks the last source that is on", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
-      settingsOf({ scope: "agent", agentName: "re@1" }),
+      settingsOf({ scope: "agent", agent_name: "re@1" }),
     );
     mount();
 
@@ -279,7 +279,7 @@ describe("AgentScreen", () => {
       }),
     );
     vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
-      settingsOf({ scope: "agent", agentName: "re@1" }),
+      settingsOf({ scope: "agent", agent_name: "re@1" }),
     );
     mount();
 
@@ -288,7 +288,7 @@ describe("AgentScreen", () => {
     await userEvent.click(shipped);
 
     expect(promptsApi.switchPromptSource).toHaveBeenCalledWith(
-      { scope: "agent", agentName: "re@1" },
+      { scope: "agent", agent_name: "re@1" },
       3,
       "shipped",
       false,
@@ -299,16 +299,16 @@ describe("AgentScreen", () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue({
       ...RE,
       enablement: {
-        agentName: "re@1",
+        agent_name: "re@1",
         state: "enabled",
-        agentProviders: [
+        agent_providers: [
           { name: "router", provider: "openrouter", credential: "router-main" },
           { name: "codex", provider: "openai-codex", credential: "codex-main" },
         ],
-        defaultConfiguration: {
-          agentProvider: "router",
-          modelIdentifier: "qwen/qwen3-coder",
-          reasoningEffort: "off",
+        default_configuration: {
+          agent_provider: "router",
+          model_identifier: "qwen/qwen3-coder",
+          reasoning_effort: "off",
         },
         revision: 2,
       },
@@ -329,8 +329,8 @@ describe("AgentScreen", () => {
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
     vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...ENABLEMENT, revision: 1 });
     vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
-      { modelIdentifier: "anthropic/claude", reasoningEfforts: ["high"] },
-      { modelIdentifier: "qwen/qwen3-coder", reasoningEfforts: ["off", "high"] },
+      { model_identifier: "anthropic/claude", reasoning_efforts: ["high"] },
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off", "high"] },
     ]);
     mount();
 
@@ -350,11 +350,11 @@ describe("AgentScreen", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
 
     expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("re@1", {
-      agentProviders: [{ name: "router", provider: "openrouter", credential: "router-main" }],
-      defaultConfiguration: {
-        agentProvider: "router",
-        modelIdentifier: "qwen/qwen3-coder",
-        reasoningEffort: "off",
+      agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+      default_configuration: {
+        agent_provider: "router",
+        model_identifier: "qwen/qwen3-coder",
+        reasoning_effort: "off",
       },
     });
     expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
@@ -424,8 +424,8 @@ describe("AgentScreen", () => {
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex]);
     vi.mocked(workersApi.addAgentProvider).mockResolvedValue({
       ...ENABLEMENT,
-      agentProviders: [
-        ...ENABLEMENT.agentProviders,
+      agent_providers: [
+        ...ENABLEMENT.agent_providers,
         { name: "codex", provider: "openai-codex", credential: "codex-main" },
       ],
       revision: 3,
@@ -443,7 +443,7 @@ describe("AgentScreen", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Add agent provider" }));
 
     expect(workersApi.addAgentProvider).toHaveBeenCalledWith("re@1", {
-      expectedRevision: 2,
+      expected_revision: 2,
       name: "codex",
       provider: "openai-codex",
       credential: "codex-main",
@@ -452,8 +452,8 @@ describe("AgentScreen", () => {
   it("removes an agent provider after the human confirms and keeps the default one", async () => {
     const two: AgentEnablement = {
       ...ENABLEMENT,
-      agentProviders: [
-        ...ENABLEMENT.agentProviders,
+      agent_providers: [
+        ...ENABLEMENT.agent_providers,
         { name: "codex", provider: "openai-codex", credential: "codex-main" },
       ],
     };
@@ -488,16 +488,16 @@ describe("AgentScreen", () => {
   it("saves a new default configuration and keeps the agent providers", async () => {
     const two: AgentEnablement = {
       ...ENABLEMENT,
-      agentProviders: [
-        ...ENABLEMENT.agentProviders,
+      agent_providers: [
+        ...ENABLEMENT.agent_providers,
         { name: "codex", provider: "openai-codex", credential: "codex-main" },
       ],
     };
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: two });
     vi.mocked(workersApi.listAgentProviderModels).mockImplementation(async (_agent, provider) =>
       provider === "codex"
-        ? [{ modelIdentifier: "gpt-5-codex", reasoningEfforts: ["low", "high"] }]
-        : [{ modelIdentifier: "qwen/qwen3-coder", reasoningEfforts: ["off"] }],
+        ? [{ model_identifier: "gpt-5-codex", reasoning_efforts: ["low", "high"] }]
+        : [{ model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off"] }],
     );
     vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...two, revision: 3 });
     mount();
@@ -513,12 +513,12 @@ describe("AgentScreen", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Save default" }));
 
     expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("re@1", {
-      expectedRevision: 2,
-      agentProviders: two.agentProviders,
-      defaultConfiguration: {
-        agentProvider: "codex",
-        modelIdentifier: "gpt-5-codex",
-        reasoningEffort: "low",
+      expected_revision: 2,
+      agent_providers: two.agent_providers,
+      default_configuration: {
+        agent_provider: "codex",
+        model_identifier: "gpt-5-codex",
+        reasoning_effort: "low",
       },
     });
   });

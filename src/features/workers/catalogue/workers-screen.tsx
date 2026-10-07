@@ -42,8 +42,8 @@ function CatalogItem({ item }: { item: WorkerCatalogItem }) {
         </ItemTitle>
       </ItemHeader>
       <ItemContent className="min-w-0 gap-4">
-        <BadgeList label="Declared node states" values={item.declaredNodeStates} />
-        <BadgeList label="Required node format" values={item.requiredNodeFormat} />
+        <BadgeList label="Declared node states" values={item.declared_node_states} />
+        <BadgeList label="Required node format" values={item.required_node_format} />
       </ItemContent>
     </Item>
   );
@@ -54,16 +54,16 @@ function InstanceItem({ instance }: { instance: WorkerInstanceRecord }) {
     <Item variant="outline" size="sm" role="listitem">
       <ItemContent className="min-w-0">
         <ItemTitle className="flex-wrap">
-          <span className="font-mono break-all">{instance.name ?? instance.runtimeIdentity}</span>
+          <span className="font-mono break-all">{instance.name ?? instance.runtime_identity}</span>
           <Badge variant={instance.activity === "idle" ? "secondary" : "default"}>
             {instance.activity}
           </Badge>
           {instance.draining && <Badge variant="outline">draining</Badge>}
         </ItemTitle>
         <ItemDescription className="break-all">
-          {instance.workerName} · {instance.host}
+          {instance.worker_name} · {instance.host}
           {instance.host === "kanthord" ? ` · ${instance.placement}` : ""}
-          {instance.executionId !== undefined ? ` · ${instance.executionId}` : ""}
+          {instance.execution_id !== undefined ? ` · ${instance.execution_id}` : ""}
         </ItemDescription>
       </ItemContent>
     </Item>
@@ -158,7 +158,7 @@ export function WorkersScreen() {
         ) : (
           <ItemGroup className="gap-2">
             {instanceItems.map((instance) => (
-              <InstanceItem key={instance.runtimeIdentity} instance={instance} />
+              <InstanceItem key={instance.runtime_identity} instance={instance} />
             ))}
           </ItemGroup>
         )}

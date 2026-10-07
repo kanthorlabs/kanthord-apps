@@ -64,7 +64,7 @@ on("GET", /^\/api\/liveness$/, (_m, _b, res) => {
       message: "A component is unavailable.",
       details: services,
     },
-    requestId: `req-${Math.random().toString(36).slice(2, 10)}`,
+    request_id: `req-${Math.random().toString(36).slice(2, 10)}`,
   });
 });
 
@@ -77,7 +77,7 @@ const PROJECT_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 const projectEnvelope = (res, status, code, message) =>
   json(res, status, {
     error: { code, message, details: null },
-    requestId: "request_01J00000000000000000000000",
+    request_id: "request_01J00000000000000000000000",
   });
 
 const refuseProjectName = (res, name, selfId) => {
@@ -101,7 +101,7 @@ on("GET", /^\/api\/project$/, (_m, _b, res, _t, url) => {
   const ordered = [...projects].sort((a, b) => (a.id < b.id ? 1 : -1));
   const items = ordered.slice(offset, offset + limit);
   const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
-  return json(res, 200, { items, nextCursor });
+  return json(res, 200, { items, next_cursor: nextCursor });
 });
 
 on("POST", /^\/api\/project$/, (_m, b, res) => {
@@ -111,9 +111,9 @@ on("POST", /^\/api\/project$/, (_m, b, res) => {
   const project = {
     id,
     name: b.name,
-    bindingSetVersion: 1,
-    createdAt: Date.now(),
-    workspaceDirectory: `/home/kanthord/.local/state/kanthord/projects/${id}`,
+    binding_set_version: 1,
+    created_at: Date.now(),
+    workspace_directory: `/home/kanthord/.local/state/kanthord/projects/${id}`,
   };
   projects.push(project);
   return json(res, 200, project);
@@ -150,31 +150,31 @@ on("PATCH", /^\/api\/project\/([^/]+)$/, (m, b, res) => {
 
 on("GET", /^\/api\/worker\/catalog$/, (_m, _b, res) => json(res, 200, page(fx.WORKER_CATALOG)));
 on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
-  const projectId = url.searchParams.get("projectId");
+  const projectId = url.searchParams.get("project_id");
   const items = fx.WORKER_INSTANCES.filter(
-    (instance) => projectId === null || instance.projectId === projectId,
+    (instance) => projectId === null || instance.project_id === projectId,
   );
   return json(res, 200, page(items));
 });
 const WORKER_METHODS = { "general@1": "steps", "reviewer@1": "evaluation" };
 on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
   const item = fx.WORKER_CATALOG.find((w) => w.name === decodeURIComponent(m[1]));
-  const agent = agents.find((a) => a.workerNames.includes(item?.name));
+  const agent = agents.find((a) => a.worker_names.includes(item?.name));
   if (item === undefined || agent === undefined) {
     return projectEnvelope(res, 404, "worker.catalog.not_found", "The worker is not supplied.");
   }
   return json(res, 200, {
     ...item,
     method: WORKER_METHODS[item.name],
-    agentName: agent.agentName,
-    resourceBudget: { wallTimeMs: 3600000 },
+    agent_name: agent.agent_name,
+    resource_budget: { wall_time_ms: 3600000 },
   });
 });
 on("GET", /^\/api\/agent\/enablement$/, (_m, _b, res) =>
   json(res, 200, page(agents.flatMap((a) => (a.enablement === null ? [] : [a.enablement])))),
 );
 const enablementTarget = (res, name, expectedRevision) => {
-  const agent = agents.find((a) => a.agentName === decodeURIComponent(name));
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(name));
   if (agent === undefined) {
     projectEnvelope(res, 404, "agent.catalog.not_found", "The agent is absent from the catalog.");
     return null;
@@ -191,19 +191,19 @@ const enablementTarget = (res, name, expectedRevision) => {
   return agent;
 };
 on("PUT", /^\/api\/agent\/enablement\/([^/]+)$/, (m, b, res) => {
-  const agent = enablementTarget(res, m[1], b?.expectedRevision);
+  const agent = enablementTarget(res, m[1], b?.expected_revision);
   if (agent === null) return undefined;
   agent.enablement = {
-    agentName: agent.agentName,
+    agent_name: agent.agent_name,
     state: agent.enablement?.state ?? "enabled",
-    agentProviders: b.agentProviders,
-    defaultConfiguration: b.defaultConfiguration,
+    agent_providers: b.agent_providers,
+    default_configuration: b.default_configuration,
     revision: (agent.enablement?.revision ?? 0) + 1,
   };
   return json(res, 200, agent.enablement);
 });
 on("POST", /^\/api\/agent\/enablement\/([^/]+)\/(enable|disable)$/, (m, b, res) => {
-  const agent = enablementTarget(res, m[1], b?.expectedRevision);
+  const agent = enablementTarget(res, m[1], b?.expected_revision);
   if (agent === null) return undefined;
   if (agent.enablement === null) {
     return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
@@ -216,7 +216,7 @@ on("POST", /^\/api\/agent\/enablement\/([^/]+)\/(enable|disable)$/, (m, b, res) 
   return json(res, 200, agent.enablement);
 });
 on("GET", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)\/model$/, (m, _b, res) => {
-  const agent = agents.find((a) => a.agentName === decodeURIComponent(m[1]));
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
   if (agent === undefined) {
     return projectEnvelope(
       res,
@@ -228,7 +228,9 @@ on("GET", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)\/model$/, (m, _
   if (agent.enablement === null) {
     return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
   }
-  const provider = agent.enablement.agentProviders.find((p) => p.name === decodeURIComponent(m[2]));
+  const provider = agent.enablement.agent_providers.find(
+    (p) => p.name === decodeURIComponent(m[2]),
+  );
   if (provider === undefined) {
     return projectEnvelope(
       res,
@@ -240,11 +242,16 @@ on("GET", /^\/api\/agent\/enablement\/([^/]+)\/provider\/([^/]+)\/model$/, (m, _
   return json(res, 200, { items: fx.AGENT_PROVIDER_MODELS[provider.credential] ?? [] });
 });
 on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res) => {
-  const declaration = agents.find((a) => a.agentName === decodeURIComponent(m[1]));
+  const declaration = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
   if (declaration === undefined) {
     return refuse(res, 404, "not_found", "The agent name is absent from the worker catalog.");
   }
-  const { agentName, configurationSchema, overridableFields, enablement } = declaration;
+  const {
+    agent_name: agentName,
+    configuration_schema: configurationSchema,
+    overridable_fields: overridableFields,
+    enablement,
+  } = declaration;
   const { basePrompt, agentPrompt, tools } = declaration;
   const present = (source, text) => ({
     source,
@@ -261,9 +268,9 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res) => {
   ];
   const final = [basePrompt, agentPrompt].join("\n");
   return json(res, 200, {
-    agentName,
-    configurationSchema,
-    overridableFields,
+    agent_name: agentName,
+    configuration_schema: configurationSchema,
+    overridable_fields: overridableFields,
     enablement,
     prompt: { layers, final },
     tools,
@@ -315,7 +322,7 @@ const previewOf = (body) => {
             code: "mission.import.plan_invalid",
             message: "The import holds no plan file.",
             filename: null,
-            nodeId: null,
+            node_id: null,
             details: null,
           },
         ]
@@ -326,21 +333,21 @@ const previewOf = (body) => {
   return {
     plan,
     preview: {
-      missionId: mission.id,
-      expectedMissionVersion: mission.version,
-      previewDigest,
+      mission_id: mission.id,
+      expected_mission_version: mission.version,
+      preview_digest: previewDigest,
       creates,
       updates,
       retirements,
-      removedEdges: [],
-      noOps,
+      removed_edges: [],
+      no_ops: noOps,
       violations,
     },
   };
 };
 
 const refuseMissionVersion = (res, body) => {
-  if (body.missionVersion === mission.version) return null;
+  if (body.mission_version === mission.version) return null;
   return projectEnvelope(
     res,
     409,
@@ -350,19 +357,23 @@ const refuseMissionVersion = (res, body) => {
 };
 
 on("GET", /^\/api\/mission\/project\/([^/]+)$/, (m, _b, res) =>
-  json(res, 200, { id: mission.id, projectId: decodeURIComponent(m[1]), version: mission.version }),
+  json(res, 200, {
+    id: mission.id,
+    project_id: decodeURIComponent(m[1]),
+    version: mission.version,
+  }),
 );
 
 on("GET", /^\/api\/mission\/([^/]+)\/export$/, (_m, _b, res, _t, url) =>
   url.searchParams.get("format") === "json"
     ? json(res, 200, {
-        missionId: mission.id,
-        missionVersion: mission.version,
+        mission_id: mission.id,
+        mission_version: mission.version,
         entries: mission.entries,
       })
     : json(res, 200, {
-        missionId: mission.id,
-        missionVersion: mission.version,
+        mission_id: mission.id,
+        mission_version: mission.version,
         files: mission.entries.map((entry) => ({
           filename: entry.filename,
           content: `# ${entry.name}\n`,
@@ -380,9 +391,9 @@ on("POST", /^\/api\/mission\/([^/]+)\/import$/, (_m, b, res) => {
   const refused = refuseMissionVersion(res, b);
   if (refused !== null) return refused;
   const { plan, preview } = previewOf(b);
-  const confirmed = [...b.confirmedRetirements].sort().join(",");
+  const confirmed = [...b.confirmed_retirements].sort().join(",");
   if (
-    b.previewDigest !== preview.previewDigest ||
+    b.preview_digest !== preview.preview_digest ||
     confirmed !== [...preview.retirements].sort().join(",")
   ) {
     return projectEnvelope(
@@ -396,11 +407,15 @@ on("POST", /^\/api\/mission\/([^/]+)\/import$/, (_m, b, res) => {
   mission.entries = plan.map((entry) => {
     if (entry.id !== undefined) return entry;
     const nodeId = nodeIdOf();
-    assignedIds.push({ filename: entry.filename, nodeId });
+    assignedIds.push({ filename: entry.filename, node_id: nodeId });
     return { ...entry, id: nodeId };
   });
   mission.version += 1;
-  return json(res, 200, { missionId: mission.id, missionVersion: mission.version, assignedIds });
+  return json(res, 200, {
+    mission_id: mission.id,
+    mission_version: mission.version,
+    assigned_ids: assignedIds,
+  });
 });
 
 on("GET", /^\/api\/project\/([^/]+)\/binding-set$/, (_m, _b, res) => json(res, 200, bindingSet));
@@ -422,65 +437,65 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       name,
       {
         id: `binding_${name}`,
-        projectId,
+        project_id: projectId,
         name,
         kind: entry.kind,
-        resourceIdentity: `${entry.kind}:${name}`,
+        resource_identity: `${entry.kind}:${name}`,
         revision: 1,
         config: entry.config,
-        createdAt: Date.now(),
-        removedAt: null,
+        created_at: Date.now(),
+        removed_at: null,
       },
     ]),
   );
   return json(res, 200, {
-    projectId,
-    bindingSetVersion: bindingSet.version,
+    project_id: projectId,
+    binding_set_version: bindingSet.version,
     bindings: stored,
     changes: [],
   });
 });
 
-const page = (items) => ({ items, nextCursor: null });
+const page = (items) => ({ items, next_cursor: null });
 
 const dependsOnOf = (nodeId) =>
-  fx.GRAPH_EDGES.filter((edge) => edge.kind === "dependency" && edge.dependentId === nodeId)
-    .map((edge) => edge.dependsOnId)
+  fx.GRAPH_EDGES.filter((edge) => edge.kind === "dependency" && edge.dependent_id === nodeId)
+    .map((edge) => edge.depends_on_id)
     .sort();
 
 const graphNodeRead = (node) => {
   if (node.kind === "task") return node;
-  const runnable = { ...node, dependsOn: dependsOnOf(node.id) };
+  const runnable = { ...node, depends_on: dependsOnOf(node.id) };
   if (node.state !== "Blocked") return runnable;
-  const outcome = fx.GRAPH_OUTCOMES.filter((item) => item.nodeId === node.id).at(-1);
+  const outcome = fx.GRAPH_OUTCOMES.filter((item) => item.node_id === node.id).at(-1);
   return outcome === undefined
     ? runnable
-    : { ...runnable, blockedContext: { outcome, requests: [] } };
+    : { ...runnable, blocked_context: { outcome, requests: [] } };
 };
 
 const graphNodeById = (id) => fx.GRAPH_NODES.find((node) => node.id === id);
 
 const graphRevisions = (node) => {
-  const owner = node.kind === "task" ? graphNodeById(node.parentId) : node;
+  const owner = node.kind === "task" ? graphNodeById(node.parent_id) : node;
   const tasks = fx.GRAPH_NODES.filter(
-    (child) => child.parentId === owner.id && child.kind === "task",
+    (child) => child.parent_id === owner.id && child.kind === "task",
   );
   const first = {
-    nodeId: owner.id,
+    node_id: owner.id,
     filename: owner.filename,
     revision: 1,
     reason: "Import the mission plan.",
     actor: fx.GRAPH_HUMAN,
-    createdAt: Date.now() - 9_000 * 60_000,
+    created_at: Date.now() - 9_000 * 60_000,
     content: fx.GRAPH_ORIGINAL_CONTENT[owner.id] ?? owner.content,
-    change: { write: "import", previousRevision: null, changedFields: [] },
-    pinnedByAttempts: owner.pinnedByAttempts,
+    change: { write: "import", previous_revision: null, changed_fields: [] },
+    pinned_by_attempts: owner.pinned_by_attempts,
   };
   const later = (fx.GRAPH_EXTRA_REVISIONS[owner.id] ?? []).map(({ contentAt, ...revision }) => ({
-    nodeId: owner.id,
+    node_id: owner.id,
     filename: owner.filename,
     content: contentAt(owner),
-    pinnedByAttempts: [],
+    pinned_by_attempts: [],
     ...revision,
   }));
   const revisions = [first, ...later].map((revision) =>
@@ -499,7 +514,7 @@ const graphRevisions = (node) => {
     node.kind === "task"
       ? revisions.map((revision) => ({
           ...revision,
-          nodeId: node.id,
+          node_id: node.id,
           filename: node.filename,
           content: node.content,
         }))
@@ -511,7 +526,7 @@ const byAttempt = (records, nodeId, url) => {
   const attempt = url.searchParams.get("attempt");
   return records.filter(
     (record) =>
-      record.nodeId === nodeId && (attempt === null || String(record.attempt) === attempt),
+      record.node_id === nodeId && (attempt === null || String(record.attempt) === attempt),
   );
 };
 
@@ -564,19 +579,19 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
 on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
   const nodeId = decodeURIComponent(m[1]);
   const actions = (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
-    attempt.requiredExternalActions.map((action) => {
+    attempt.required_external_actions.map((action) => {
       const request = fx.GRAPH_EVIDENCE.find(
         (item) =>
-          item.nodeId === nodeId &&
+          item.node_id === nodeId &&
           item.attempt === attempt.attempt &&
-          item.requirementKey === action.key,
+          item.requirement_key === action.key,
       );
       return {
-        nodeId,
+        node_id: nodeId,
         attempt: attempt.attempt,
         action,
         requested: request !== undefined,
-        requestEvidenceId: request?.id ?? null,
+        request_evidence_id: request?.id ?? null,
         resolution: request === undefined ? "unrequested" : "unresolved",
       };
     }),
@@ -591,7 +606,7 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
   if (binding === undefined) {
     return projectEnvelope(res, 404, "project.binding.not_found", "No such binding.");
   }
-  return json(res, 200, { ...binding, projectId: decodeURIComponent(m[1]), config: {} });
+  return json(res, 200, { ...binding, project_id: decodeURIComponent(m[1]), config: {} });
 });
 
 on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (_m, _b, res) =>
@@ -599,16 +614,18 @@ on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (_m, _b, res) =>
     res,
     200,
     page(
-      [...fx.GRAPH_QUEUE].sort((a, x) => x.priority - a.priority || a.jobId.localeCompare(x.jobId)),
+      [...fx.GRAPH_QUEUE].sort(
+        (a, x) => x.priority - a.priority || a.job_id.localeCompare(x.job_id),
+      ),
     ),
   ),
 );
 on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (_m, _b, res, _t, url) => {
-  const nodeId = url.searchParams.get("nodeId");
+  const nodeId = url.searchParams.get("node_id");
   const attempt = url.searchParams.get("attempt");
   const items = fx.GRAPH_EXECUTIONS.filter(
     (item) =>
-      (nodeId === null || item.nodeId === nodeId) &&
+      (nodeId === null || item.node_id === nodeId) &&
       (attempt === null || String(item.attempt) === attempt),
   );
   return json(res, 200, page(items));
@@ -616,9 +633,9 @@ on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (_m, _b, res, _t, u
 
 const platformEntry = (platform, secretShape, loginModes, metadataFields, verifiable) => ({
   platform,
-  secretShape,
-  loginModes,
-  metadataFields,
+  secret_shape: secretShape,
+  login_modes: loginModes,
+  metadata_fields: metadataFields,
   verifiable,
 });
 const CREDENTIAL_PLATFORM_LISTS = {
@@ -627,7 +644,7 @@ const CREDENTIAL_PLATFORM_LISTS = {
       platformEntry("github-copilot", "oauth", ["device"], [], true),
       platformEntry("openai-codex", "oauth", ["browser", "device"], [], true),
       platformEntry("anthropic", "api_key", [], [], true),
-      platformEntry("openai-compatible", "api_key", [], ["baseUrl"], true),
+      platformEntry("openai-compatible", "api_key", [], ["base_url"], true),
       platformEntry("openrouter", "api_key", [], [], true),
       platformEntry("openai", "api_key", [], [], true),
       platformEntry("amazon-bedrock", "api_key", [], ["region"], false),
@@ -683,7 +700,7 @@ let credentialSequence = 100;
 const credentialEnvelope = (res, status, code, message, details = null) =>
   json(res, status, {
     error: { code, message, details },
-    requestId: "request_01J00000000000000000000000",
+    request_id: "request_01J00000000000000000000000",
   });
 
 const nextCredentialId = () => {
@@ -692,13 +709,13 @@ const nextCredentialId = () => {
 };
 
 const newestLive = (credential) =>
-  credential.revisions.filter((revision) => revision.endedAt === null)[0] ?? null;
+  credential.revisions.filter((revision) => revision.ended_at === null)[0] ?? null;
 
 const drainOlder = (credential, now) => {
   const newest = newestLive(credential);
   for (const revision of credential.revisions) {
-    if (revision === newest || revision.endedAt !== null) continue;
-    if (!pinnedRevisions.has(revision.id)) revision.endedAt = now;
+    if (revision === newest || revision.ended_at !== null) continue;
+    if (!pinnedRevisions.has(revision.id)) revision.ended_at = now;
   }
 };
 
@@ -708,7 +725,7 @@ const secretIsValid = (shape, secret) => {
   if (typeof secret !== "object" || secret === null) return false;
   if (shape === "api_key") return isNonblank(secret.key);
   if (shape === "s3_access_key") {
-    return isNonblank(secret.accessKeyId) && isNonblank(secret.secretAccessKey);
+    return isNonblank(secret.access_key_id) && isNonblank(secret.secret_access_key);
   }
   return (
     isNonblank(secret.refresh) && isNonblank(secret.access) && Number.isInteger(secret.expires)
@@ -720,14 +737,14 @@ const metadataIsValid = (platform, metadata) => {
     return (
       typeof metadata === "object" &&
       metadata !== null &&
-      typeof metadata.baseUrl === "string" &&
-      BASE_URL.test(metadata.baseUrl) &&
+      typeof metadata.base_url === "string" &&
+      BASE_URL.test(metadata.base_url) &&
       Array.isArray(metadata.models) &&
       metadata.models.every((model) => isNonblank(model?.id)) &&
       new Set(metadata.models.map((model) => model.id.trim())).size === metadata.models.length
     );
   }
-  const fields = CREDENTIAL_PLATFORMS[platform]?.metadataFields ?? [];
+  const fields = CREDENTIAL_PLATFORMS[platform]?.metadata_fields ?? [];
   if (fields.length === 0) return metadata === null;
   return (
     typeof metadata === "object" &&
@@ -751,7 +768,7 @@ const findCredential = (res, component, encoded) => {
 };
 
 const isArchived = (credential) =>
-  credential.revisions.every((revision) => revision.endedAt !== null);
+  credential.revisions.every((revision) => revision.ended_at !== null);
 
 const refuseArchived = (res, credential) => {
   if (!isArchived(credential)) return false;
@@ -784,8 +801,8 @@ const addRevision = (credential, metadata, res) => {
     id: nextCredentialId(),
     revision: credential.revisions[0].revision + 1,
     metadata,
-    createdAt: now,
-    endedAt: null,
+    created_at: now,
+    ended_at: null,
   });
   drainOlder(credential, now);
   return json(res, 200, credential);
@@ -796,16 +813,16 @@ const bindingsNaming = (component, credential) =>
     .filter(([, binding]) => binding.kind === component)
     .filter(([, binding]) => binding.config.credential === credential.name)
     .map(([name]) => ({
-      projectId: projects[0].id,
-      projectName: projects[0].name,
-      bindingId:
+      project_id: projects[0].id,
+      project_name: projects[0].name,
+      binding_id:
         Object.values(fx.GRAPH_BINDINGS).findLast((binding) => binding.name === name)?.id ?? name,
       name,
     }));
 
 const dependentsOf = (component, credential) =>
   component === "llm"
-    ? { agentProviders: [] }
+    ? { agent_providers: [] }
     : { bindings: bindingsNaming(component, credential) };
 
 on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
@@ -814,7 +831,7 @@ on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
 
 on("GET", credentialRoute(""), (m, _b, res, _t, url) => {
   const platform = url.searchParams.get("platform");
-  const includeArchived = url.searchParams.get("includeArchived") === "true";
+  const includeArchived = url.searchParams.get("include_archived") === "true";
   const limit = Number(url.searchParams.get("limit") ?? 100);
   const offset = Number(url.searchParams.get("cursor") ?? 0);
   const ordered = credentials
@@ -825,7 +842,7 @@ on("GET", credentialRoute(""), (m, _b, res, _t, url) => {
   for (const credential of ordered) drainOlder(credential, Date.now());
   const items = ordered.slice(offset, offset + limit);
   const nextCursor = offset + limit < ordered.length ? String(offset + limit) : null;
-  return json(res, 200, { items, nextCursor });
+  return json(res, 200, { items, next_cursor: nextCursor });
 });
 
 on("POST", credentialRoute("\\/check"), (m, b, res) => {
@@ -833,7 +850,7 @@ on("POST", credentialRoute("\\/check"), (m, b, res) => {
   if (entry === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
-  if (!entry.verifiable || entry.secretShape === "oauth") {
+  if (!entry.verifiable || entry.secret_shape === "oauth") {
     return credentialEnvelope(
       res,
       400,
@@ -841,7 +858,7 @@ on("POST", credentialRoute("\\/check"), (m, b, res) => {
       "The platform has no check before the save.",
     );
   }
-  if (!secretIsValid(entry.secretShape, b.secret)) return refuseInvalidInput(res);
+  if (!secretIsValid(entry.secret_shape, b.secret)) return refuseInvalidInput(res);
   if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
   return json(res, 200, {
     status: secretIsRejected(b.secret) ? "unhealthy" : "healthy",
@@ -854,7 +871,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   const entry = CREDENTIAL_PLATFORMS[credential.platform];
-  if (!entry.verifiable || entry.secretShape === "oauth") {
+  if (!entry.verifiable || entry.secret_shape === "oauth") {
     return credentialEnvelope(
       res,
       400,
@@ -873,7 +890,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
 });
 
 on("POST", credentialRoute(""), (m, b, res) => {
-  const shape = componentEntry(m[1], b?.platform)?.secretShape;
+  const shape = componentEntry(m[1], b?.platform)?.secret_shape;
   if (shape === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
@@ -915,8 +932,8 @@ on("POST", credentialRoute(""), (m, b, res) => {
         id: nextCredentialId(),
         revision: 1,
         metadata: b.metadata,
-        createdAt: Date.now(),
-        endedAt: null,
+        created_at: Date.now(),
+        ended_at: null,
       },
     ],
   };
@@ -926,7 +943,7 @@ on("POST", credentialRoute(""), (m, b, res) => {
 });
 
 on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
-  const shape = componentEntry("llm", b?.platform)?.secretShape;
+  const shape = componentEntry("llm", b?.platform)?.secret_shape;
   if (shape === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
@@ -964,7 +981,7 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
   const now = Date.now();
   const pending = [...loginSessions.values()].some(
     (session) =>
-      session.platform === b.platform && session.state === "pending" && session.expiresAt > now,
+      session.platform === b.platform && session.state === "pending" && session.expires_at > now,
   );
   if (pending) {
     return credentialEnvelope(res, 409, "credential.login.pending", "Another login is pending.");
@@ -972,28 +989,28 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
   const sessionId = `login_session_01J9ZQ4XKM3B6V8N2R5T7W${String(now % 10000).padStart(4, "0")}`;
   const device = b.platform === "github-copilot" || b.mode === "device";
   const session = {
-    sessionId,
+    session_id: sessionId,
     platform: b.platform,
     name: b.name,
     state: "pending",
     startedAt: now,
-    expiresAt: now + LOGIN_EXPIRY_MS,
+    expires_at: now + LOGIN_EXPIRY_MS,
     device,
     codeReceived: false,
   };
   loginSessions.set(sessionId, session);
   return json(res, 200, {
-    sessionId,
+    session_id: sessionId,
     address: device ? "https://github.com/login/device" : "https://auth.example.test/authorize",
     code: device ? "MOCK-1234" : null,
-    expiresAt: session.expiresAt,
+    expires_at: session.expires_at,
   });
 });
 
 const settleLogin = (session) => {
   const now = Date.now();
   if (session.state !== "pending") return;
-  if (now >= session.expiresAt) {
+  if (now >= session.expires_at) {
     session.state = "expired";
     return;
   }
@@ -1006,7 +1023,7 @@ const settleLogin = (session) => {
     name: session.name,
     platform: session.platform,
     revisions: [
-      { id: nextCredentialId(), revision: 1, metadata: null, createdAt: now, endedAt: null },
+      { id: nextCredentialId(), revision: 1, metadata: null, created_at: now, ended_at: null },
     ],
   });
 };
@@ -1027,7 +1044,7 @@ on("POST", /^\/api\/llm\/credential\/login\/([^/]+)\/code$/, (m, b, res) => {
   }
   if (!isNonblank(b?.value)) return refuseInvalidInput(res);
   session.codeReceived = true;
-  return json(res, 200, { sessionId: session.sessionId });
+  return json(res, 200, { session_id: session.session_id });
 });
 
 on("GET", /^\/api\/llm\/credential\/login\/([^/]+)$/, (m, _b, res) => {
@@ -1037,10 +1054,10 @@ on("GET", /^\/api\/llm\/credential\/login\/([^/]+)$/, (m, _b, res) => {
   }
   settleLogin(session);
   return json(res, 200, {
-    sessionId: session.sessionId,
+    session_id: session.session_id,
     state: session.state,
-    lastMessage: session.state === "pending" ? "Waiting for the platform interaction." : null,
-    failureReason: null,
+    last_message: session.state === "pending" ? "Waiting for the platform interaction." : null,
+    failure_reason: null,
   });
 });
 
@@ -1055,8 +1072,8 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res) => {
   const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
-  if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
-  if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform].secretShape, b.secret)) {
+  if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
+  if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform].secret_shape, b.secret)) {
     return refuseInvalidInput(res);
   }
   const metadata = b.metadata === undefined ? newestLive(credential).metadata : b.metadata;
@@ -1069,10 +1086,10 @@ on("PUT", credentialRoute("\\/([^/]+)\\/metadata"), (m, b, res) => {
   const credential = findCredential(res, m[1], m[2]);
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
-  if (refuseStaleRevision(res, credential, b?.expectedRevision)) return undefined;
+  if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
   if (!metadataIsValid(credential.platform, b.metadata)) return refuseInvalidInput(res);
   const current = newestLive(credential).metadata;
-  if (credential.platform === "openai-compatible" && current.baseUrl !== b.metadata.baseUrl) {
+  if (credential.platform === "openai-compatible" && current.base_url !== b.metadata.base_url) {
     return credentialEnvelope(
       res,
       409,
@@ -1090,7 +1107,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision\\/(\\d+)\\/revoke"), (m, _b, r
   if (target === undefined) {
     return credentialEnvelope(res, 404, "credential.revision.not_found", "Revision not found.");
   }
-  if (target.endedAt !== null) {
+  if (target.ended_at !== null) {
     return credentialEnvelope(res, 409, "credential.revision.ended", "Revision already ended.");
   }
   if (target === newestLive(credential)) {
@@ -1102,7 +1119,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision\\/(\\d+)\\/revoke"), (m, _b, r
     );
   }
   const now = Date.now();
-  target.endedAt = now;
+  target.ended_at = now;
   pinnedRevisions.delete(target.id);
   drainOlder(credential, now);
   return json(res, 200, credential);
@@ -1124,7 +1141,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
   }
   const now = Date.now();
   for (const revision of credential.revisions) {
-    if (revision.endedAt === null) revision.endedAt = now;
+    if (revision.ended_at === null) revision.ended_at = now;
     pinnedRevisions.delete(revision.id);
   }
   return json(res, 200, credential);

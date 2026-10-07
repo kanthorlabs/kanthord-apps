@@ -55,10 +55,10 @@ export function useOverview(): OverviewData {
   const liveExecutions = useMemo(() => {
     const names = new Map((nodes.data ?? []).map((node) => [node.id, node.content.name]));
     return (executions.data ?? [])
-      .filter((execution) => execution.claimState === "running")
+      .filter((execution) => execution.claim_state === "running")
       .map((execution) => ({
         execution,
-        nodeName: names.get(execution.nodeId) ?? execution.nodeId,
+        nodeName: names.get(execution.node_id) ?? execution.node_id,
       }));
   }, [executions.data, nodes.data]);
 

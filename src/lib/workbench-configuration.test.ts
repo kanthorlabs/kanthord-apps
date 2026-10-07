@@ -11,13 +11,13 @@ import {
 } from "./workbench-configuration";
 
 const ENABLEMENT: AgentEnablement = {
-  agentName: "swe@1",
+  agent_name: "swe@1",
   state: "enabled",
-  agentProviders: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
-  defaultConfiguration: {
-    agentProvider: "atlas-llm",
-    modelIdentifier: "qwen3-coder",
-    reasoningEffort: "off",
+  agent_providers: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
+  default_configuration: {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-coder",
+    reasoning_effort: "off",
   },
   revision: 2,
 };
@@ -47,9 +47,9 @@ describe("configurationOf", () => {
     ).toEqual({
       ok: true,
       configuration: {
-        agentProvider: "atlas-llm",
-        modelIdentifier: "gpt-5",
-        reasoningEffort: "high",
+        agent_provider: "atlas-llm",
+        model_identifier: "gpt-5",
+        reasoning_effort: "high",
       },
     });
   });
@@ -67,9 +67,9 @@ describe("configurationOf", () => {
 });
 
 const MODELS: readonly AgentModel[] = [
-  { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off", "low", "high"] },
-  { modelIdentifier: "glm-4.6", reasoningEfforts: ["off"] },
-  { modelIdentifier: "plain", reasoningEfforts: [] },
+  { model_identifier: "qwen3-coder", reasoning_efforts: ["off", "low", "high"] },
+  { model_identifier: "glm-4.6", reasoning_efforts: ["off"] },
+  { model_identifier: "plain", reasoning_efforts: [] },
 ];
 
 describe("modelOptions", () => {

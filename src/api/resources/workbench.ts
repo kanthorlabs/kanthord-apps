@@ -28,7 +28,7 @@ function post<T>(path: string, body?: unknown): Promise<T> {
 export async function listWorkbenchSessions(
   agentName: string | null,
 ): Promise<readonly WorkbenchSessionListItem[]> {
-  const query = agentName === null ? "" : `?${new URLSearchParams({ agentName })}`;
+  const query = agentName === null ? "" : `?${new URLSearchParams({ agent_name: agentName })}`;
   const answer = await request<{ items: readonly WorkbenchSessionListItem[] }>(
     `${SESSION_ROOT}${query}`,
   );
@@ -73,7 +73,7 @@ export async function approveWorkbenchCall(
   approved: boolean,
 ): Promise<WorkbenchApprovalAnswer> {
   return post<WorkbenchApprovalAnswer>(`${sessionPath(sessionId)}/approve`, {
-    toolCallId,
+    tool_call_id: toolCallId,
     approved,
   });
 }

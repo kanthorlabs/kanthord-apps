@@ -32,9 +32,9 @@ function runnable(
     id,
     kind,
     filename: `${id}.md`,
-    missionId: "mission_1",
-    parentId,
-    visibleRevision: 1,
+    mission_id: "mission_1",
+    parent_id: parentId,
+    visible_revision: 1,
     content: {
       name,
       requirement: `${name} requirement`,
@@ -42,12 +42,12 @@ function runnable(
       verifications: ["pnpm test"],
       bindings: [],
     },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
     state: "Pending",
     attempt: 0,
     priority: 0,
-    dependsOn: [],
+    depends_on: [],
     ...extra,
   };
 }
@@ -55,7 +55,7 @@ function runnable(
 const AUDIT = runnable("node_audit", "objective", "Audit log", "node_recovery", {
   state: "Blocked",
   attempt: 1,
-  visibleRevision: 2,
+  visible_revision: 2,
   content: {
     name: "Audit log",
     requirement: "Audit log requirement",
@@ -63,17 +63,17 @@ const AUDIT = runnable("node_audit", "objective", "Audit log", "node_recovery", 
     verifications: ["pnpm test"],
     bindings: ["binding_repo_2"],
   },
-  blockedContext: {
+  blocked_context: {
     outcome: {
       id: "outcome_1",
-      nodeId: "node_audit",
+      node_id: "node_audit",
       attempt: 1,
-      nodeRevision: 1,
-      closingEvent: "assessment-not-passed",
+      node_revision: 1,
+      closing_event: "assessment-not-passed",
       result: "criterion-not-met",
-      assessmentId: "assessment_1",
-      evidenceIds: [],
-      createdAt: 0,
+      assessment_id: "assessment_1",
+      evidence_ids: [],
+      created_at: 0,
     },
     requests: [],
   },
@@ -87,9 +87,9 @@ const NODES: readonly MissionNodeRecord[] = [
     id: "node_task",
     kind: "task",
     filename: "audit-task.md",
-    missionId: "mission_1",
-    parentId: "node_audit",
-    visibleRevision: 2,
+    mission_id: "mission_1",
+    parent_id: "node_audit",
+    visible_revision: 2,
     content: {
       name: "Write the audit entry",
       requirement: "r",
@@ -97,45 +97,45 @@ const NODES: readonly MissionNodeRecord[] = [
       verifications: ["v"],
       bindings: [],
     },
-    retiredAt: null,
-    pinnedByAttempts: [],
+    retired_at: null,
+    pinned_by_attempts: [],
   },
 ];
 
 const MODEL = buildGraph(NODES, [
-  { kind: "dependency", dependentId: "node_recovery", dependsOnId: "node_onboarding" },
+  { kind: "dependency", dependent_id: "node_recovery", depends_on_id: "node_onboarding" },
 ]);
 
 const ATTEMPT: MissionAttempt = {
-  nodeId: "node_audit",
+  node_id: "node_audit",
   attempt: 1,
-  nodeRevision: 1,
-  requiredExternalActions: [
+  node_revision: 1,
+  required_external_actions: [
     {
       key: "repo.pull_request",
-      bindingId: "binding_repo_1",
+      binding_id: "binding_repo_1",
       action: "pull_request",
-      expectedEndState: "pull_request_merged",
+      expected_end_state: "pull_request_merged",
       follows: null,
-      configuration: { baseBranch: "main" },
+      configuration: { base_branch: "main" },
     },
   ],
-  openedAt: 0,
-  closedAt: 1,
-  outcomeIds: ["outcome_1"],
-  openedBy: { kind: "human", account: "ulrich", name: "Ulrich" },
+  opened_at: 0,
+  closed_at: 1,
+  outcome_ids: ["outcome_1"],
+  opened_by: { kind: "human", account: "ulrich", name: "Ulrich" },
 };
 
 const REVISION_1: MissionRevision = {
-  nodeId: "node_audit",
+  node_id: "node_audit",
   filename: "node_audit.md",
   revision: 1,
   reason: "Import the plan.",
   actor: { kind: "human", account: "ulrich", name: "Ulrich" },
-  createdAt: 0,
+  created_at: 0,
   content: { ...AUDIT.content, criterion: "Old criterion", bindings: ["binding_repo_1"] },
-  change: { write: "import", previousRevision: null, changedFields: [] },
-  pinnedByAttempts: [1],
+  change: { write: "import", previous_revision: null, changed_fields: [] },
+  pinned_by_attempts: [1],
 };
 
 const REVISION_2: MissionRevision = {
@@ -143,21 +143,21 @@ const REVISION_2: MissionRevision = {
   revision: 2,
   reason: "Move to the new binding.",
   content: AUDIT.content,
-  change: { write: "node.update", previousRevision: 1, changedFields: ["criterion", "bindings"] },
-  pinnedByAttempts: [],
+  change: { write: "node.update", previous_revision: 1, changed_fields: ["criterion", "bindings"] },
+  pinned_by_attempts: [],
 };
 
 function binding(id: string, revision: number): ProjectBindingRecord {
   return {
     id,
-    projectId: "project_1",
+    project_id: "project_1",
     name: "kanthord-repo",
     kind: "repository",
-    resourceIdentity: "repository:github:kanthorlabs/kanthord",
+    resource_identity: "repository:github:kanthorlabs/kanthord",
     revision,
     config: {},
-    createdAt: 0,
-    removedAt: null,
+    created_at: 0,
+    removed_at: null,
   };
 }
 
@@ -187,32 +187,38 @@ describe("NodeSheet", () => {
     vi.mocked(missionApi.listNodeAssessments).mockResolvedValue([
       {
         id: "assessment_1",
-        nodeId: "node_audit",
-        executionId: "execution_9",
+        node_id: "node_audit",
+        execution_id: "execution_9",
         attempt: 1,
-        nodeRevision: 1,
-        evidenceIds: [],
-        childOutcomeIds: [],
+        node_revision: 1,
+        evidence_ids: [],
+        child_outcome_ids: [],
         result: "criterion-not-met",
         rationale: "The audit entry holds no actor.",
-        testedInput: null,
-        actor: { kind: "execution", executionId: "execution_9", clientId: null, name: "reviewer" },
-        createdAt: 0,
+        tested_input: null,
+        actor: {
+          kind: "execution",
+          execution_id: "execution_9",
+          client_id: null,
+          name: "reviewer",
+        },
+        created_at: 0,
         currency: null,
-        childNodeIds: [],
-        workerVersion: "reviewer@1",
+        child_node_ids: [],
+        worker_version: "reviewer@1",
       },
     ]);
     vi.mocked(missionApi.listNodeOutcomes).mockResolvedValue([
-      AUDIT.blockedContext?.outcome as NonNullable<typeof AUDIT.blockedContext>["outcome"],
+      AUDIT.blocked_context?.outcome as NonNullable<typeof AUDIT.blocked_context>["outcome"],
     ]);
     vi.mocked(missionApi.listNodeExternalActions).mockResolvedValue([
       {
-        nodeId: "node_audit",
+        node_id: "node_audit",
         attempt: 1,
-        action: ATTEMPT.requiredExternalActions[0] as MissionAttempt["requiredExternalActions"][0],
+        action: ATTEMPT
+          .required_external_actions[0] as MissionAttempt["required_external_actions"][0],
         requested: false,
-        requestEvidenceId: null,
+        request_evidence_id: null,
         resolution: "unrequested",
       },
     ]);

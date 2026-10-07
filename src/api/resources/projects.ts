@@ -21,7 +21,7 @@ export async function listProjects(): Promise<readonly Project[]> {
     if (cursor !== null) query.set("cursor", cursor);
     const page: Page<Project> = await request<Page<Project>>(`/api/project?${query}`);
     projects.push(...page.items);
-    cursor = page.nextCursor;
+    cursor = page.next_cursor;
   } while (cursor !== null);
   return projects;
 }
@@ -78,7 +78,7 @@ export async function listBindings(projectId: string): Promise<readonly ProjectB
       `/api/project/${encodeURIComponent(projectId)}/binding?${query}`,
     );
     bindings.push(...page.items);
-    cursor = page.nextCursor;
+    cursor = page.next_cursor;
   } while (cursor !== null);
   return bindings;
 }

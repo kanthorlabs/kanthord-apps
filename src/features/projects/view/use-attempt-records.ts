@@ -32,10 +32,10 @@ async function readAttemptRecords(
   projectId: string,
   attempt: MissionAttempt,
 ): Promise<AttemptRecords> {
-  const { nodeId } = attempt;
+  const { node_id: nodeId } = attempt;
   const [revision, executions, evidence, assessments, outcomes, externalActions] =
     await Promise.all([
-      settle(readNodeRevision(nodeId, attempt.nodeRevision)),
+      settle(readNodeRevision(nodeId, attempt.node_revision)),
       settle(listNodeExecutions(projectId, nodeId, attempt.attempt)),
       settle(listNodeEvidence(nodeId, attempt.attempt)),
       settle(listNodeAssessments(nodeId, attempt.attempt)),
@@ -44,7 +44,7 @@ async function readAttemptRecords(
     ]);
   const bindingIds = [
     ...(revision.data?.content.bindings ?? []),
-    ...attempt.requiredExternalActions.map((action) => action.bindingId),
+    ...attempt.required_external_actions.map((action) => action.binding_id),
   ];
   const bindings = await readBindings(projectId, bindingIds);
   return { revision, executions, evidence, assessments, outcomes, externalActions, bindings };
@@ -56,6 +56,6 @@ export function useAttemptRecords(
 ): Resource<AttemptRecords> {
   return useResource(
     () => readAttemptRecords(projectId, attempt),
-    [projectId, attempt.nodeId, attempt.attempt],
+    [projectId, attempt.node_id, attempt.attempt],
   );
 }

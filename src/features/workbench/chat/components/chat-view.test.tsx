@@ -21,21 +21,21 @@ import { ChatView } from "./chat-view";
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 
 const IDLE: WorkbenchRunSnapshot = {
-  streamingMessage: null,
-  pendingToolCalls: [],
-  pendingApproval: null,
-  runActive: false,
-  errorMessage: null,
+  streaming_message: null,
+  pending_tool_calls: [],
+  pending_approval: null,
+  run_active: false,
+  error_message: null,
 };
 
 const ENABLEMENT: AgentEnablement = {
-  agentName: "swe@1",
+  agent_name: "swe@1",
   state: "enabled",
-  agentProviders: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
-  defaultConfiguration: {
-    agentProvider: "atlas-llm",
-    modelIdentifier: "qwen3-coder",
-    reasoningEffort: "off",
+  agent_providers: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
+  default_configuration: {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-coder",
+    reasoning_effort: "off",
   },
   revision: 2,
 };
@@ -56,11 +56,11 @@ function session(
 ): WorkbenchSession {
   return {
     id: SESSION_ID,
-    agentName: "swe@1",
-    configuration: ENABLEMENT.defaultConfiguration,
+    agent_name: "swe@1",
+    configuration: ENABLEMENT.default_configuration,
     entries,
-    runActive,
-    resumeCommand: "pi --session ~/session.jsonl",
+    run_active: runActive,
+    resume_command: "pi --session ~/session.jsonl",
   };
 }
 
@@ -92,7 +92,7 @@ function mount(held: WorkbenchSession) {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
-    { modelIdentifier: "qwen3-coder", reasoningEfforts: ["off"] },
+    { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
   ]);
 });
 
@@ -194,8 +194,8 @@ describe("ChatView", () => {
 
     await polls.answer({
       snapshot: {
-        runActive: true,
-        streamingMessage: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
+        run_active: true,
+        streaming_message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
       },
     });
     expect(await screen.findByText("Hel")).toBeTruthy();
@@ -204,7 +204,7 @@ describe("ChatView", () => {
 
     await polls.answer({
       entries: [message("e2", { role: "assistant", content: [{ type: "text", text: "Hello" }] })],
-      snapshot: { runActive: false },
+      snapshot: { run_active: false },
     });
     expect(await screen.findByText("Hello")).toBeTruthy();
     expect(screen.queryByText("Streaming")).toBeNull();
@@ -219,11 +219,11 @@ describe("ChatView", () => {
   it("keeps the draft editable and swaps Send for Stop while a run is active", async () => {
     const polls = pollQueue();
     vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
-      sessionId: SESSION_ID,
-      runActive: false,
+      session_id: SESSION_ID,
+      run_active: false,
     });
     mount(session([], true));
-    await polls.answer({ snapshot: { runActive: true } });
+    await polls.answer({ snapshot: { run_active: true } });
 
     expect(await screen.findByText("Running")).toBeTruthy();
     expect(screen.getByText("The agent is working")).toBeTruthy();
@@ -243,7 +243,7 @@ describe("ChatView", () => {
     const polls = pollQueue();
     mount(session());
 
-    await polls.answer({ snapshot: { errorMessage: "The model provider refused the request." } });
+    await polls.answer({ snapshot: { error_message: "The model provider refused the request." } });
 
     expect(await screen.findByText("The model provider refused the request.")).toBeTruthy();
   });
@@ -251,18 +251,18 @@ describe("ChatView", () => {
   it("shows the operation and the input of a pending approval and approves it", async () => {
     const polls = pollQueue();
     vi.mocked(workbenchApi.approveWorkbenchCall).mockResolvedValue({
-      sessionId: SESSION_ID,
-      toolCallId: "call_2",
+      session_id: SESSION_ID,
+      tool_call_id: "call_2",
       approved: true,
     });
     mount(session([], true));
 
     await polls.answer({
       snapshot: {
-        runActive: true,
-        pendingApproval: {
-          toolCallId: "call_2",
-          operationId: "project.create",
+        run_active: true,
+        pending_approval: {
+          tool_call_id: "call_2",
+          operation_id: "project.create",
           input: { name: "account-recovery" },
         },
       },
@@ -282,16 +282,16 @@ describe("ChatView", () => {
   it("rejects a pending approval", async () => {
     const polls = pollQueue();
     vi.mocked(workbenchApi.approveWorkbenchCall).mockResolvedValue({
-      sessionId: SESSION_ID,
-      toolCallId: "call_2",
+      session_id: SESSION_ID,
+      tool_call_id: "call_2",
       approved: false,
     });
     mount(session([], true));
 
     await polls.answer({
       snapshot: {
-        runActive: true,
-        pendingApproval: { toolCallId: "call_2", operationId: "project.create", input: {} },
+        run_active: true,
+        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
       },
     });
     await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
@@ -302,8 +302,8 @@ describe("ChatView", () => {
   it("sends the message, clears the draft and starts the run state at once", async () => {
     pollQueue();
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
-      sessionId: SESSION_ID,
-      runActive: true,
+      session_id: SESSION_ID,
+      run_active: true,
     });
     mount(session());
 

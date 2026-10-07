@@ -4,13 +4,13 @@ import type { AgentEnablement } from "@/api/types";
 import { enablementLabel, enablementVariant } from "./agent-enablement";
 
 const ENABLED: AgentEnablement = {
-  agentName: "swe@1",
+  agent_name: "swe@1",
   state: "enabled",
-  agentProviders: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
-  defaultConfiguration: {
-    agentProvider: "atlas-llm",
-    modelIdentifier: "qwen3-coder",
-    reasoningEffort: "off",
+  agent_providers: [{ name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" }],
+  default_configuration: {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-coder",
+    reasoning_effort: "off",
   },
   revision: 1,
 };

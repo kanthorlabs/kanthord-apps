@@ -80,7 +80,7 @@ export function useCredentialLogin(
   useEffect(() => {
     if (!waiting || session === null) return;
     const timer = setTimeout(() => {
-      readCredentialLoginStatus(session.sessionId).then(
+      readCredentialLoginStatus(session.session_id).then(
         (next) => {
           setStatus(next);
           if (next.state !== "completed") return;
@@ -147,7 +147,7 @@ export function useCredentialLogin(
     setCodeError(null);
     const value = code;
     setCodeValue("");
-    submitCredentialLoginCode(session.sessionId, value).then(
+    submitCredentialLoginCode(session.session_id, value).then(
       () => {
         setCodeSubmitting(false);
         toast.success("The sign-in received the code.");
