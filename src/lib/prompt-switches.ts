@@ -2,7 +2,7 @@ import type { PromptLayerKind, PromptScope, PromptSource, SystemLayerOverride } 
 
 export const SYSTEM_LAYER_SWITCH = "layer";
 
-export const SWITCH_LOCKED_CODE = "agent.prompt.switch_locked";
+export const PROMPT_REVISION_CONFLICT_CODE = "agent.prompt.revision_conflict";
 
 const LAYER_SCOPES: Readonly<Record<PromptLayerKind, PromptScope>> = {
   system: "system",

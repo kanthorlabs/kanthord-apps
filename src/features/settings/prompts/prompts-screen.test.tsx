@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { toast } from "sonner";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -8,6 +9,9 @@ import * as promptsApi from "@/api/resources/prompts";
 import type { PromptSettings } from "@/api/types";
 
 vi.mock("@/api/resources/prompts");
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
 
 import { PromptsScreen } from "./prompts-screen";
 
@@ -81,6 +85,7 @@ describe("PromptsScreen", () => {
     expect(host).not.toBeChecked();
     expect(host).toHaveAttribute("aria-disabled", "true");
     expect(host).toHaveAccessibleDescription("kanthord.yaml turns the host agent file off.");
+    expect(list.getAllByText("kanthord.yaml turns the host agent file off.")).toHaveLength(2);
     expect(list.getByRole("switch", { name: "Shipped base prompt switch" })).toBeChecked();
     expect(list.getByRole("switch", { name: "Shipped base prompt switch" })).not.toHaveAttribute(
       "aria-disabled",
@@ -97,6 +102,48 @@ describe("PromptsScreen", () => {
     expect(host).not.toHaveAttribute("aria-disabled", "true");
     expect(host).toHaveAccessibleDescription("");
     expect(screen.queryByText("kanthord.yaml turns the host agent file off.")).toBeNull();
+  });
+
+  it("shows the server message for a refusal that is no revision conflict", async () => {
+    vi.mocked(promptsApi.readPromptSettings).mockResolvedValue(SYSTEM);
+    vi.mocked(promptsApi.switchPromptSource).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "The configuration locks this prompt switch.",
+        409,
+        "agent.prompt.switch_locked",
+      ),
+    );
+    mount();
+
+    const list = within(await screen.findByRole("list", { name: "System layer sources" }));
+    await userEvent.click(list.getByRole("switch", { name: "Shipped base prompt switch" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("The configuration locks this prompt switch."),
+    );
+  });
+
+  it("names a revision conflict of a switch as a change elsewhere", async () => {
+    vi.mocked(promptsApi.readPromptSettings).mockResolvedValue(SYSTEM);
+    vi.mocked(promptsApi.switchPromptSource).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "Prompt settings revision conflict.",
+        409,
+        "agent.prompt.revision_conflict",
+      ),
+    );
+    mount();
+
+    const list = within(await screen.findByRole("list", { name: "System layer sources" }));
+    await userEvent.click(list.getByRole("switch", { name: "Shipped base prompt switch" }));
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith(
+        "The prompt settings changed elsewhere. The page shows the current state.",
+      ),
+    );
   });
 
   it("saves the custom system prompt from the editor at the revision of the scope", async () => {

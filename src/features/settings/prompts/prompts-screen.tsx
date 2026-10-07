@@ -83,6 +83,7 @@ export function PromptsScreen() {
                   <ItemContent>
                     <ItemTitle>{title}</ItemTitle>
                     <ItemDescription>{description}</ItemDescription>
+                    {lockedReason !== null && <ItemDescription>{lockedReason}</ItemDescription>}
                   </ItemContent>
                   <ItemActions>
                     {source === "custom" && (
