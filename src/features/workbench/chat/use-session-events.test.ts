@@ -78,8 +78,8 @@ describe("useSessionEvents", () => {
   it("reports the snapshot of the active run", async () => {
     const snapshot = {
       ...IDLE,
-      runActive: true,
-      streamingMessage: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
+      run_active: true,
+      streaming_message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
     };
     vi.mocked(workbenchApi.readWorkbenchEvents)
       .mockResolvedValueOnce({ entries: [], snapshot, version: 1 })

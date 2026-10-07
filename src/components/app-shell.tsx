@@ -28,8 +28,13 @@ import {
   SidebarTrigger,
 } from "./ui/sidebar";
 
-function servesWithoutProject(pathname: string): boolean {
-  return pathname === "/projects" || pathname.startsWith("/projects/");
+const PROJECT_SCOPED_ROUTES = ["/scheduler", "/executions", "/workers"];
+
+function waitsForProject(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    PROJECT_SCOPED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+  );
 }
 
 function isActive(pathname: string, to: string): boolean {
@@ -108,7 +113,7 @@ export function AppShell() {
             )}
           </header>
           <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-4 lg:p-6">
-            {project !== null || servesWithoutProject(pathname) ? (
+            {project !== null || !waitsForProject(pathname) ? (
               <Outlet />
             ) : loading ? null : error !== null ? (
               <Alert variant="destructive">

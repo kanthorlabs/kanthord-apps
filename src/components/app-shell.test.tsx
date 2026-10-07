@@ -16,7 +16,7 @@ vi.mock("@/api/client", () => ({
   setConnection: vi.fn(),
 }));
 
-const PROJECT = { id: "prj-1", name: "kanthord", bindingSetVersion: 1, createdAt: 1 };
+const PROJECT = { id: "prj-1", name: "kanthord", binding_set_version: 1, created_at: 1 };
 
 const projectState = vi.hoisted(() => ({
   value: {
@@ -46,6 +46,9 @@ function mount(path = "/") {
           <Route element={<AppShell />}>
             <Route index element={<p>Overview body</p>} />
             <Route path="projects/new" element={<p>New project body</p>} />
+            <Route path="scheduler" element={<p>Scheduler body</p>} />
+            <Route path="llm" element={<p>LLM body</p>} />
+            <Route path="agents/:agentName" element={<p>Agent body</p>} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -89,6 +92,28 @@ describe("AppShell", () => {
     mount("/projects/new");
 
     expect(screen.getByText("New project body")).toBeTruthy();
+  });
+
+  it("serves the server-wide screens to an instance that holds no project", () => {
+    projectState.value = { ...projectState.value, projects: [], project: null };
+    mount("/llm");
+
+    expect(screen.getByText("LLM body")).toBeTruthy();
+  });
+
+  it("serves an agent page to an instance that holds no project", () => {
+    projectState.value = { ...projectState.value, projects: [], project: null };
+    mount("/agents/re@1");
+
+    expect(screen.getByText("Agent body")).toBeTruthy();
+  });
+
+  it("holds a project-scoped screen until the instance holds a project", () => {
+    projectState.value = { ...projectState.value, projects: [], project: null };
+    mount("/scheduler");
+
+    expect(screen.queryByText("Scheduler body")).toBeNull();
+    expect(screen.getByText("No projects")).toBeTruthy();
   });
 
   it("reports a project list that failed", () => {
