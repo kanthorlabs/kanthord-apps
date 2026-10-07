@@ -3,7 +3,8 @@ import { ChevronDownIcon } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RevealPanel } from "@/components/reveal";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
@@ -47,7 +48,7 @@ export function NodeAttemptsTab({
   return (
     <ItemGroup aria-label="Attempts" className="gap-3">
       {attempts.data.map((attempt) => (
-        <Collapsible key={attempt.attempt} role="listitem" className="flex flex-col gap-3">
+        <Collapsible key={attempt.attempt} role="listitem" className="flex flex-col">
           <Item variant="outline" size="sm">
             <ItemContent className="min-w-0">
               <ItemTitle className="w-full flex-wrap">
@@ -72,14 +73,16 @@ export function NodeAttemptsTab({
               Records
             </CollapsibleTrigger>
           </Item>
-          <CollapsibleContent>
-            <AttemptRecords
-              projectId={projectId}
-              model={model}
-              attempt={attempt}
-              currentRevision={currentRevision}
-            />
-          </CollapsibleContent>
+          <RevealPanel>
+            <div className="pt-3">
+              <AttemptRecords
+                projectId={projectId}
+                model={model}
+                attempt={attempt}
+                currentRevision={currentRevision}
+              />
+            </div>
+          </RevealPanel>
         </Collapsible>
       ))}
     </ItemGroup>

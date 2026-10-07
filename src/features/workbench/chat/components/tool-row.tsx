@@ -1,7 +1,8 @@
 import { ChevronRightIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RevealPanel } from "@/components/reveal";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import { summaryOf } from "@/lib/workbench-chat";
 import { ToolDetail } from "./tool-detail";
@@ -34,9 +35,9 @@ export function ToolRow({ label, name, status, detail }: ToolRowProps) {
           {summaryOf(detail)}
         </span>
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <RevealPanel>
         <ToolDetail detail={detail} />
-      </CollapsibleContent>
+      </RevealPanel>
     </Collapsible>
   );
 }

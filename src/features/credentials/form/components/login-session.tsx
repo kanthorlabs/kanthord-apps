@@ -2,7 +2,8 @@ import type { CredentialLoginSession, CredentialLoginStatus } from "@/api/types"
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RevealPanel } from "@/components/reveal";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { utcDateTime } from "@/lib/format";
@@ -132,13 +133,15 @@ export function LoginSession({
         </Alert>
       )}
       {state === "pending" && (
-        <Collapsible className="flex flex-col gap-2">
+        <Collapsible className="flex flex-col">
           <CollapsibleTrigger render={<Button variant="link" size="sm" className="self-start" />}>
             The callback failed?
           </CollapsibleTrigger>
-          <CollapsibleContent>
-            <CodeForm login={login} />
-          </CollapsibleContent>
+          <RevealPanel>
+            <div className="pt-2">
+              <CodeForm login={login} />
+            </div>
+          </RevealPanel>
         </Collapsible>
       )}
       {(state === "failed" || state === "expired") && (
