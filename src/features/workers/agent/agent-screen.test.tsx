@@ -238,6 +238,38 @@ describe("AgentScreen", () => {
     expect(screen.queryByRole("switch", { name: "Shipped base prompt switch" })).toBeNull();
   });
 
+  it("disables the switch of a file source that does not exist", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      prompt: {
+        ...RE.prompt,
+        layers: [
+          ...(RE.prompt.layers ?? []),
+          {
+            layer: "working",
+            enabled: true,
+            sources: [
+              {
+                source: "agents_md",
+                origin: "file",
+                path: "~/workbench/AGENTS.md",
+                enabled: true,
+                state: "absent",
+                digest: null,
+                text: null,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    mount();
+
+    const missing = await screen.findByRole("switch", { name: "~/workbench/AGENTS.md switch" });
+    await waitFor(() => expect(missing).toHaveAttribute("aria-disabled", "true"));
+    expect(screen.getByText("~/workbench/AGENTS.md does not exist.")).toBeTruthy();
+  });
+
   it("turns an agent layer source off at the revision of its scope", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>

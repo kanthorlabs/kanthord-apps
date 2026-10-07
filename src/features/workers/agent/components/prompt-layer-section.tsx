@@ -25,6 +25,17 @@ const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
 
 const LAST_SOURCE_REASON = "The agent layer needs one source that is on.";
 
+function lockedReason(
+  layer: PromptLayer,
+  source: PromptLayer["sources"][number],
+  title: string,
+  switches: Readonly<Record<string, boolean>>,
+): string | null {
+  if (source.origin === "file" && source.state === "absent") return `${title} does not exist.`;
+  if (layer.layer === "agent" && isLastSourceOn(switches, source.source)) return LAST_SOURCE_REASON;
+  return null;
+}
+
 interface PromptLayerSectionProps {
   readonly agentName: string;
   readonly layer: PromptLayer;
@@ -120,11 +131,7 @@ export function PromptLayerSection({ agentName, layer, server, scope }: PromptLa
                       title={sourceTitle}
                       checked={checked}
                       disabled={scope.pending || scope.settings === null}
-                      lockedReason={
-                        layer.layer === "agent" && isLastSourceOn(switches, source.source)
-                          ? LAST_SOURCE_REASON
-                          : null
-                      }
+                      lockedReason={lockedReason(layer, source, sourceTitle, switches)}
                       onChange={(enabled) =>
                         scope.switchSource(source.source, enabled, sourceTitle)
                       }
