@@ -77,8 +77,9 @@ The `## Design` section is normative. A change that breaks a rule in it is a def
   a `Combobox` of its own. A feature component that needs a searchable field composes
   `SearchChoiceField`, as `CredentialCombobox` does.
 - **Content that a control shows and hides renders through `Reveal`.** It lives in `src/components`
-  and animates the height and the opacity, with no motion under `prefers-reduced-motion`. A screen
-  never writes its own show or hide transition.
+  and animates the height and the opacity, with no motion under `prefers-reduced-motion`. A
+  `Collapsible` with its own trigger renders its panel through `RevealPanel` from the same file. A
+  screen never writes its own show or hide transition.
 - **No tables.** A collection renders as a list of `Item` inside `ItemGroup`. The list keeps every
   field, navigation path and action that the screen needs on both widths. One collection has one
   rendering: a screen never renders the same data twice behind `hidden md:block` and `md:hidden`.
