@@ -312,7 +312,7 @@ export function missingForCheck(draft: RepositoryDraft): readonly string[] {
     ["Address", blank(draft.address)],
     ["SSH credential", blank(draft.sshCredential)],
     [
-      "Credential",
+      "GitHub credential",
       draft.platform === "github" && draft.actionName === "pull_request" && blank(draft.credential),
     ],
   ]);
@@ -326,7 +326,7 @@ export function missingForSave(draft: BindingDraft): readonly string[] {
       ["Address", blank(draft.address)],
       ["SSH credential", blank(draft.sshCredential)],
       [
-        "Credential",
+        "GitHub credential",
         draft.platform === "github" &&
           draft.actionName === "pull_request" &&
           blank(draft.credential),
@@ -344,6 +344,6 @@ export function missingForSave(draft: BindingDraft): readonly string[] {
     ["Endpoint", blank(draft.endpoint)],
     ["Bucket", blank(draft.bucket)],
     ["Region", blank(draft.region)],
-    ["Credential", blank(draft.credential)],
+    ["Storage credential", blank(draft.credential)],
   ]);
 }

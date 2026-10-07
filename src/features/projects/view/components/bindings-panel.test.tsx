@@ -181,7 +181,7 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
-    const credential = screen.getByLabelText("Credential");
+    const credential = screen.getByLabelText("GitHub credential");
     await userEvent.clear(credential);
     await userEvent.type(credential, "kanth");
     await userEvent.click(
@@ -262,7 +262,7 @@ describe("BindingsPanel", () => {
     const policy = screen.getByRole("group", { name: "Project policy" });
     expect(within(connection).getByLabelText("Address")).toBeTruthy();
     expect(within(connection).getByLabelText("SSH credential")).toBeTruthy();
-    expect(within(connection).getByLabelText("Credential")).toBeTruthy();
+    expect(within(connection).getByLabelText("GitHub credential")).toBeTruthy();
     expect(within(policy).getByLabelText("Base branch")).toBeTruthy();
     expect(within(policy).getByLabelText("External action")).toBeTruthy();
     expect(within(policy).getByLabelText("Project prompt")).toBeTruthy();
@@ -305,7 +305,7 @@ describe("BindingsPanel", () => {
 
     expect(await screen.findByText("Address · Healthy")).toBeTruthy();
     expect(screen.getByText("SSH credential · Healthy")).toBeTruthy();
-    expect(screen.getByText("Credential · Healthy")).toBeTruthy();
+    expect(screen.getByText("GitHub credential · Healthy")).toBeTruthy();
     expect(projectsApi.verifyBinding).toHaveBeenCalledWith("project_1", "binding_REPO1");
   });
 

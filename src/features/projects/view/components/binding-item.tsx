@@ -93,7 +93,7 @@ export function BindingItem({
                 <HealthBadge badge={verifyState.sshCredentialBadge} label="SSH credential" />
               )}
               {verifyState.credentialBadge !== null && (
-                <HealthBadge badge={verifyState.credentialBadge} label="Credential" />
+                <HealthBadge badge={verifyState.credentialBadge} label="GitHub credential" />
               )}
             </span>
           )}

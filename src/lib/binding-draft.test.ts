@@ -214,7 +214,7 @@ describe("missingForCheck, missingForSave and missingHint", () => {
     expect(missingForSave(filled)).toEqual([]);
     expect(missingHint(missingForSave(filled), "save")).toBeNull();
     const pullRequest = { ...filled, actionName: "pull_request" as const };
-    expect(missingForCheck(pullRequest)).toEqual(["Credential"]);
+    expect(missingForCheck(pullRequest)).toEqual(["GitHub credential"]);
     expect(missingForCheck({ ...pullRequest, platform: "gitlab" as const })).toEqual([]);
   });
 
@@ -225,7 +225,7 @@ describe("missingForCheck, missingForSave and missingHint", () => {
       "Endpoint",
       "Bucket",
       "Region",
-      "Credential",
+      "Storage credential",
     ]);
   });
 });

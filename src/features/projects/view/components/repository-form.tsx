@@ -110,7 +110,7 @@ export function RepositoryForm({
         {draft.platform === "github" && (
           <CredentialCombobox
             id="binding-credential"
-            label="Credential"
+            label="GitHub credential"
             credentials={apiCredentials}
             value={draft.credential}
             error={errors["credential"]}

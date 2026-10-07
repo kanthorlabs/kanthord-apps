@@ -50,7 +50,7 @@ export function StorageForm({ draft, errors, onEdit }: StorageFormProps) {
       />
       <DraftField
         id="binding-credential"
-        label="Credential"
+        label="Storage credential"
         value={draft.credential}
         error={errors["credential"]}
         onChange={(credential) => onEdit({ ...draft, credential })}
