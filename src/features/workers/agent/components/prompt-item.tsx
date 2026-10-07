@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 
 import { MarkdownText } from "@/components/markdown-text";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { RevealPanel } from "@/components/reveal";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "cn";
 import { useCopyText } from "../use-copy-text";
@@ -83,11 +84,11 @@ export function PromptItem({
         <CopyMarkdownButton title={title} text={text} />
         {control}
       </div>
-      <CollapsibleContent>
+      <RevealPanel>
         <div className="max-h-[32rem] overflow-y-auto border-t px-4 py-3">
           <MarkdownText text={text} />
         </div>
-      </CollapsibleContent>
+      </RevealPanel>
     </Collapsible>
   );
 }
