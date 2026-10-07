@@ -63,28 +63,53 @@ function modelInUseMessage(details: unknown): string {
   return uses.length === 0 ? base : `${base} In use: ${uses.join("; ")}.`;
 }
 
-function dependentLabel(entry: unknown): string {
-  if (typeof entry === "string") return entry;
-  if (isRecord(entry)) {
-    for (const key of ["name", "id"]) {
-      const value = entry[key];
-      if (typeof value === "string") return value;
-    }
-  }
-  return JSON.stringify(entry);
+function field(entry: Readonly<Record<string, unknown>>, key: string): string | null {
+  const value = entry[key];
+  return typeof value === "string" ? value : null;
+}
+
+interface DependentGroup {
+  readonly key: string;
+  readonly title: string;
+  readonly label: (entry: Readonly<Record<string, unknown>>) => string | null;
+}
+
+const DEPENDENT_GROUPS: readonly DependentGroup[] = [
+  {
+    key: "agent_providers",
+    title: "agent providers",
+    label: (entry) => {
+      const agent = field(entry, "agent_name");
+      const provider = field(entry, "provider_name");
+      return agent === null || provider === null ? null : `${agent} (provider ${provider})`;
+    },
+  },
+  {
+    key: "bindings",
+    title: "project bindings",
+    label: (entry) => {
+      const binding = field(entry, "binding_id");
+      const project = field(entry, "project_id");
+      return binding === null || project === null ? null : `${binding} of ${project}`;
+    },
+  },
+  { key: "inbounds", title: "inbounds", label: (entry) => field(entry, "inbound_id") },
+];
+
+function dependentLabel(group: DependentGroup, entry: unknown): string {
+  return (isRecord(entry) ? group.label(entry) : null) ?? JSON.stringify(entry);
 }
 
 function inUseMessage(details: unknown): string {
-  const groups = isRecord(details)
-    ? Object.entries(details).filter(([, value]) => Array.isArray(value) && value.length > 0)
-    : [];
   const base =
     "A dependent still uses this credential. Remove or change each dependent first, then archive the credential.";
-  if (groups.length === 0) return base;
-  const lines = groups.map(
-    ([group, entries]) => `${group}: ${(entries as unknown[]).map(dependentLabel).join(", ")}`,
-  );
-  return `${base} Dependents: ${lines.join("; ")}.`;
+  if (!isRecord(details)) return base;
+  const lines = DEPENDENT_GROUPS.flatMap((group) => {
+    const entries = details[group.key];
+    if (!Array.isArray(entries) || entries.length === 0) return [];
+    return [`${group.title}: ${entries.map((entry) => dependentLabel(group, entry)).join(", ")}`];
+  });
+  return lines.length === 0 ? base : `${base} Dependents: ${lines.join("; ")}.`;
 }
 
 export function credentialMessage(cause: ApiError): string {

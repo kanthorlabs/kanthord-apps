@@ -208,8 +208,8 @@ describe("CredentialScreen", () => {
   it("shows the dependents of a refused archive and stays on the detail", async () => {
     vi.mocked(credentialsApi.archiveCredential).mockRejectedValue(
       new ApiError("conflict", "In use.", 409, "credential.credential.in_use", {
-        agent_providers: ["codex"],
-        bindings: ["binding_1"],
+        agent_providers: [{ agent_name: "swe@1", provider_name: "codex" }],
+        bindings: [{ binding_id: "binding_1", project_id: "project_1" }],
       }),
     );
     mountWithList();
@@ -219,7 +219,9 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
 
     const alert = await within(dialog).findByRole("alert");
-    expect(alert.textContent).toMatch(/agent_providers: codex; bindings: binding_1/);
+    expect(alert.textContent).toMatch(
+      /agent providers: swe@1 \(provider codex\); project bindings: binding_1 of project_1/,
+    );
     expect(screen.queryByText("Credential list")).toBeNull();
   });
 

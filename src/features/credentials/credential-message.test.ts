@@ -40,16 +40,26 @@ describe("credentialMessage", () => {
     expect(credentialMessage(refusal("credential.input.invalid"))).toMatch(/refused the secret/);
   });
 
-  it("lists every dependent array of a credential in use", () => {
+  it("names every dependent of a credential in use by its own fields", () => {
     const message = credentialMessage(
       refusal("credential.credential.in_use", {
-        agentProviders: ["codex"],
-        bindings: [{ id: "binding_1" }],
+        agent_providers: [{ agent_name: "swe@1", provider_name: "codex" }],
+        bindings: [{ binding_id: "binding_1", project_id: "project_1" }],
         inbounds: [],
       }),
     );
-    expect(message).toMatch(/Dependents: agentProviders: codex; bindings: binding_1\./);
+    expect(message).toMatch(
+      /Dependents: agent providers: swe@1 \(provider codex\); project bindings: binding_1 of project_1\.$/,
+    );
     expect(message).not.toMatch(/inbounds/);
+  });
+
+  it("names an inbound dependent by its identity", () => {
+    expect(
+      credentialMessage(
+        refusal("credential.credential.in_use", { inbounds: [{ inbound_id: "inbound_1" }] }),
+      ),
+    ).toMatch(/Dependents: inbounds: inbound_1\.$/);
   });
 
   it("names an archived credential as final", () => {
