@@ -2,6 +2,8 @@ import type { PromptLayerKind, PromptScope, PromptSource, SystemLayerOverride } 
 
 export const SYSTEM_LAYER_SWITCH = "layer";
 
+export const SWITCH_LOCKED_CODE = "agent.prompt.switch_locked";
+
 const LAYER_SCOPES: Readonly<Record<PromptLayerKind, PromptScope>> = {
   system: "system",
   agent: "agent",
@@ -38,6 +40,14 @@ export function systemLayerSummary(
   const server = serverOn ? "on" : "off";
   if (override === "inherit") return `Follows the server switch, which is ${server}.`;
   return `Turned ${override} for ${agentName} only. The server switch is ${server}.`;
+}
+
+const LOCKED_SWITCH_REASONS: Readonly<Record<string, string>> = {
+  host_file: "kanthord.yaml turns the host agent file off.",
+};
+
+export function lockedSwitchReason(lockedSwitches: readonly string[], name: string): string | null {
+  return lockedSwitches.includes(name) ? (LOCKED_SWITCH_REASONS[name] ?? null) : null;
 }
 
 const LAST_SOURCE_REASON = "The agent layer needs one source that is on.";

@@ -1,3 +1,4 @@
+import { SourceSwitch } from "@/components/source-switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -5,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { CustomPromptEditor } from "@/components/custom-prompt-editor";
 import { usePromptSettings } from "@/hooks/use-prompt-settings";
-import { SYSTEM_LAYER_SWITCH } from "@/lib/prompt-switches";
+import { lockedSwitchReason, SYSTEM_LAYER_SWITCH } from "@/lib/prompt-switches";
 
 const SYSTEM_SOURCES = [
   {
@@ -75,29 +76,33 @@ export function PromptsScreen() {
         </CardHeader>
         <CardContent>
           <div role="list" aria-label="System layer sources" className="grid gap-2">
-            {SYSTEM_SOURCES.map(({ source, title, description }) => (
-              <Item key={source} role="listitem" variant="outline" size="sm">
-                <ItemContent>
-                  <ItemTitle>{title}</ItemTitle>
-                  <ItemDescription>{description}</ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  {source === "custom" && (
-                    <CustomPromptEditor
+            {SYSTEM_SOURCES.map(({ source, title, description }) => {
+              const lockedReason = lockedSwitchReason(settings.locked_switches, source);
+              return (
+                <Item key={source} role="listitem" variant="outline" size="sm">
+                  <ItemContent>
+                    <ItemTitle>{title}</ItemTitle>
+                    <ItemDescription>{description}</ItemDescription>
+                  </ItemContent>
+                  <ItemActions>
+                    {source === "custom" && (
+                      <CustomPromptEditor
+                        title={title}
+                        description="Markdown that the system layer of every agent joins after its other sources."
+                        settings={system}
+                      />
+                    )}
+                    <SourceSwitch
                       title={title}
-                      description="Markdown that the system layer of every agent joins after its other sources."
-                      settings={system}
+                      checked={lockedReason === null && (settings.switches[source] ?? true)}
+                      disabled={system.pending}
+                      lockedReason={lockedReason}
+                      onChange={(enabled) => system.switchSource(source, enabled, title)}
                     />
-                  )}
-                  <Switch
-                    aria-label={`${title} switch`}
-                    checked={settings.switches[source] ?? true}
-                    disabled={system.pending}
-                    onCheckedChange={(enabled) => system.switchSource(source, enabled, title)}
-                  />
-                </ItemActions>
-              </Item>
-            ))}
+                  </ItemActions>
+                </Item>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

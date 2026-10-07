@@ -76,6 +76,7 @@ const SETTINGS = {
   scope: "agent",
   agent_name: "swe@1",
   switches: { agent_file: true, shipped: true, custom: true },
+  locked_switches: [],
   custom_text: "",
   system_layer: "inherit",
   revision: 2,

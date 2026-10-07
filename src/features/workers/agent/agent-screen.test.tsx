@@ -102,6 +102,7 @@ function settingsOf(target: PromptTarget): PromptSettings {
     scope: target.scope,
     agent_name: target.agent_name ?? "",
     switches: SWITCHES[target.scope] ?? {},
+    locked_switches: [],
     custom_text: "",
     system_layer: target.scope === "agent" ? "inherit" : null,
     revision: 3,

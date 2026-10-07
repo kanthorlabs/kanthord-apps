@@ -16,6 +16,7 @@ const ORIGIN = process.env.KANTHORD_HTTP_ALLOWED_ORIGINS ?? "http://localhost:27
 const USERNAME = "kanthorlabs";
 const DEV_TOKEN = process.env.KANTHORD_DEV_TOKEN ?? "dev-human-token";
 const UNHEALTHY = process.env.KANTHORD_MOCK_UNHEALTHY === "1";
+const HOST_FILE_LOCKED = process.env.KANTHORD_MOCK_HOST_FILE_LOCKED === "1";
 
 const HEALTHY_SERVICES = {
   server: { gateway: 200, store: 200, log: 200 },
@@ -427,6 +428,7 @@ const promptSettingsOf = (scope, agentName = "") => {
       ...Object.fromEntries(fx.PROMPT_SWITCHES[scope].map((name) => [name, true])),
       ...stored?.switches,
     },
+    locked_switches: scope === "system" && HOST_FILE_LOCKED ? ["host_file"] : [],
     custom_text: stored?.custom_text ?? "",
     system_layer: stored?.system_layer ?? (scope === "agent" ? "inherit" : null),
     revision: stored?.revision ?? 0,
@@ -524,6 +526,15 @@ on("POST", /^\/api\/agent\/prompt\/switch$/, (_m, b, res) => {
   if (b.system_layer !== undefined) {
     return json(res, 200, savePromptSettings({ ...current, system_layer: b.system_layer }));
   }
+  if (current.locked_switches.includes(b.switch)) {
+    return projectEnvelope(
+      res,
+      409,
+      "agent.prompt.switch_locked",
+      "The configuration locks this prompt switch.",
+      { scope: b.scope, switch: b.switch },
+    );
+  }
   const switches = { ...current.switches, [b.switch]: b.enabled };
   if (b.scope === "agent" && Object.values(switches).every((enabled) => !enabled)) {
     return projectEnvelope(
@@ -567,7 +578,7 @@ const layerOf = (layer, layerEnabled, switches, specs) => ({
   layer,
   enabled: layerEnabled,
   sources: specs.map((spec) => ({
-    ...sourceOf(spec, layerEnabled && switches[spec.source] === true),
+    ...sourceOf(spec, layerEnabled && switches[spec.source] === true && !spec.locked),
     label: spec.label,
   })),
 });
@@ -586,6 +597,7 @@ const promptLayersOf = (agent) => {
         origin: "file",
         path: "~/.claude/CLAUDE.md",
         text: null,
+        locked: system.locked_switches.includes("host_file"),
         label: "file ~/.claude/CLAUDE.md",
       },
       {

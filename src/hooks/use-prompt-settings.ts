@@ -10,6 +10,7 @@ import {
 import type { PromptSettings, PromptTarget, SystemLayerOverride } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import type { PromptSaveResult } from "@/lib/prompt-text";
+import { SWITCH_LOCKED_CODE } from "@/lib/prompt-switches";
 
 export interface PromptSettingsState {
   readonly settings: PromptSettings | null;
@@ -50,7 +51,7 @@ export function usePromptSettings(
           setPending(false);
           const error = asApiError(cause);
           toast.error(
-            error.code === "conflict"
+            error.code === "conflict" && error.detail !== SWITCH_LOCKED_CODE
               ? "The prompt settings changed elsewhere. The page shows the current state."
               : error.message,
           );

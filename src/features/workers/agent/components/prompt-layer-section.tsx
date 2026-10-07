@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import type { PromptLayer, PromptLayerKind, SystemLayerOverride } from "@/api/types";
 import { SYSTEM_LAYER_OVERRIDES } from "@/api/types";
+import { SourceSwitch } from "@/components/source-switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -16,7 +17,6 @@ import {
   systemLayerSummary,
 } from "@/lib/prompt-switches";
 import { PromptItem } from "./prompt-item";
-import { SourceSwitch } from "./source-switch";
 
 const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
   system: "System layer",

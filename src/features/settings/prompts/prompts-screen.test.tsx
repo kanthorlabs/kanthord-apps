@@ -15,6 +15,7 @@ const SYSTEM: PromptSettings = {
   scope: "system",
   agent_name: "",
   switches: { host_file: true, base: true, custom: false, layer: true },
+  locked_switches: [],
   custom_text: "",
   system_layer: null,
   revision: 4,
@@ -66,6 +67,36 @@ describe("PromptsScreen", () => {
         true,
       ),
     );
+  });
+
+  it("shows the host agent file as off and locked while the configuration locks it", async () => {
+    vi.mocked(promptsApi.readPromptSettings).mockResolvedValue({
+      ...SYSTEM,
+      locked_switches: ["host_file"],
+    });
+    mount();
+
+    const list = within(await screen.findByRole("list", { name: "System layer sources" }));
+    const host = list.getByRole("switch", { name: "Host agent file switch" });
+    expect(host).not.toBeChecked();
+    expect(host).toHaveAttribute("aria-disabled", "true");
+    expect(host).toHaveAccessibleDescription("kanthord.yaml turns the host agent file off.");
+    expect(list.getByRole("switch", { name: "Shipped base prompt switch" })).toBeChecked();
+    expect(list.getByRole("switch", { name: "Shipped base prompt switch" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("gives the host agent file no reason while nothing is locked", async () => {
+    vi.mocked(promptsApi.readPromptSettings).mockResolvedValue(SYSTEM);
+    mount();
+
+    const list = within(await screen.findByRole("list", { name: "System layer sources" }));
+    const host = list.getByRole("switch", { name: "Host agent file switch" });
+    expect(host).not.toHaveAttribute("aria-disabled", "true");
+    expect(host).toHaveAccessibleDescription("");
+    expect(screen.queryByText("kanthord.yaml turns the host agent file off.")).toBeNull();
   });
 
   it("saves the custom system prompt from the editor at the revision of the scope", async () => {

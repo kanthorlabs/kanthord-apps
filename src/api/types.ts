@@ -196,6 +196,7 @@ export interface PromptSettings {
   readonly scope: PromptScope;
   readonly agent_name: string;
   readonly switches: Readonly<Record<string, boolean>>;
+  readonly locked_switches: readonly string[];
   readonly custom_text: string;
   readonly system_layer: SystemLayerOverride | null;
   readonly revision: number;
