@@ -7,7 +7,7 @@ import { RevealPanel } from "@/components/reveal";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "cn";
-import { useCopyText } from "../use-copy-text";
+import { useCopyText } from "@/hooks/use-copy-text";
 
 interface PromptItemProps {
   readonly title: string;

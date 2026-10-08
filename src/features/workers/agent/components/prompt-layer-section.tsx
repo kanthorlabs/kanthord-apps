@@ -21,7 +21,7 @@ import {
 } from "@/lib/prompt-switches";
 import { hiddenSourcesLabel } from "@/lib/prompt-visibility";
 import type { InactiveSourcesState } from "../use-inactive-sources";
-import { PromptItem } from "./prompt-item";
+import { PromptItem } from "@/components/prompt-item";
 
 const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
   system: "System layer",

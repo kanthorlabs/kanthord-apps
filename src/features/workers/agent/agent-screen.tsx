@@ -19,7 +19,7 @@ import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
-import { PromptItem } from "./components/prompt-item";
+import { PromptItem } from "@/components/prompt-item";
 import { PromptLayerSection } from "./components/prompt-layer-section";
 import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
