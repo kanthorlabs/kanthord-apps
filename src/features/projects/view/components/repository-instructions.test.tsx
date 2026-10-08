@@ -229,6 +229,7 @@ describe("RepositoryInstructions", () => {
 
     expect(screen.getByText("Save the binding to read its instruction files.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+    expect(screen.queryByText(/so this list is a snapshot/)).toBeNull();
     expect(screen.getByRole("button", { name: "Edit Project prompt" })).toBeTruthy();
     expect(projectsApi.readInstructionFiles).not.toHaveBeenCalled();
   });
@@ -320,6 +321,23 @@ describe("RepositoryInstructions", () => {
 
     expect(draftState().prompt).toBe("Old text");
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("refuses to apply a Project prompt above the byte limit", async () => {
+    mount({ ...SAVED, project_prompt: "x".repeat(32768) });
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Project prompt" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Edit Project prompt" });
+    const field = within(dialog).getByLabelText("Project prompt markdown");
+    expect(within(dialog).getByRole("button", { name: "Apply" })).toBeEnabled();
+    expect(within(dialog).getByText("32,768 / 32,768 bytes")).toBeTruthy();
+
+    await userEvent.type(field, "y");
+
+    expect(field).toHaveAttribute("aria-invalid", "true");
+    expect(within(dialog).getByText("The text is above the limit.")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled();
+    expect(draftState().prompt).toBe("x".repeat(32768));
   });
 
   it("turns the Project prompt switch off in the draft", async () => {

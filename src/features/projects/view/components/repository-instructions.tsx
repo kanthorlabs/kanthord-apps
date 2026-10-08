@@ -34,11 +34,13 @@ export function RepositoryInstructions({
     <FieldSet>
       <FieldLegend>Repository instructions</FieldLegend>
       {view.status !== "unsaved" && (
-        <InstructionFilesHeader baseBranch={draft.baseBranch.trim()} state={state} />
+        <>
+          <InstructionFilesHeader baseBranch={draft.baseBranch.trim()} state={state} />
+          <p className="text-sm text-muted-foreground">
+            An agent reads these files at the execution, so this list is a snapshot.
+          </p>
+        </>
       )}
-      <p className="text-sm text-muted-foreground">
-        An agent reads these files at the execution, so this list is a snapshot.
-      </p>
       <InstructionNotice
         state={state}
         bindingName={draft.name}

@@ -1,8 +1,12 @@
 import { useCallback, useState } from "react";
 
+import { byteUsage, PROMPT_TEXT_MAX_BYTES, utf8Bytes } from "@/lib/prompt-text";
+
 export interface ProjectPromptDialogState {
   readonly open: boolean;
   readonly draft: string;
+  readonly usage: string;
+  readonly tooLarge: boolean;
   readonly start: () => void;
   readonly setDraft: (text: string) => void;
   readonly apply: () => void;
@@ -15,6 +19,7 @@ export function useProjectPromptDialog(
 ): ProjectPromptDialogState {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(current);
+  const tooLarge = utf8Bytes(draft) > PROMPT_TEXT_MAX_BYTES;
 
   const start = useCallback(() => {
     setDraft(current);
@@ -22,11 +27,12 @@ export function useProjectPromptDialog(
   }, [current]);
 
   const apply = useCallback(() => {
+    if (tooLarge) return;
     write(draft);
     setOpen(false);
-  }, [write, draft]);
+  }, [write, draft, tooLarge]);
 
   const cancel = useCallback(() => setOpen(false), []);
 
-  return { open, draft, start, setDraft, apply, cancel };
+  return { open, draft, usage: byteUsage(draft), tooLarge, start, setDraft, apply, cancel };
 }
