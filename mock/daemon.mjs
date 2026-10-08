@@ -1111,6 +1111,57 @@ on("POST", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/verify$/, (m, _b, res) =
   return json(res, 200, bindingHealthOf(bindingSet.bindings[binding.name].config));
 });
 
+const INSTRUCTION_FILES = [
+  { source: "agents_md", path: "AGENTS.md" },
+  { source: "agents_local_md", path: "AGENTS.local.md" },
+  { source: "claude_md", path: "CLAUDE.md" },
+  { source: "claude_local_md", path: "CLAUDE.local.md" },
+];
+
+const INSTRUCTION_TEXTS = {
+  agents_md:
+    "# Repository rules\n\n## Toolchain\n\n- Node 24 and pnpm.\n- Run `pnpm verify` before every commit.\n\n## Style\n\n- No code comments.\n- Match the surrounding style.\n",
+  claude_md: "@AGENTS.md\n\nRead AGENTS.md first.\n",
+};
+
+const instructionFileOf = ({ source, path }) =>
+  INSTRUCTION_TEXTS[source] === undefined
+    ? { source, path, state: "absent", reason: null, text: null }
+    : { source, path, state: "present", reason: null, text: INSTRUCTION_TEXTS[source] };
+
+on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/instruction_files$/, (m, _b, res) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined || binding.kind !== "repository" || binding.removed_at !== null) {
+    return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
+  }
+  const { config } = bindingSet.bindings[binding.name];
+  if (config.address.includes("bad-")) {
+    return projectEnvelope(
+      res,
+      422,
+      "project.bindings.repository.ssh_unreachable",
+      "The repository did not answer within the deadline.",
+    );
+  }
+  if (config.strategy.base_branch.includes("missing")) {
+    return projectEnvelope(
+      res,
+      422,
+      "project.bindings.repository.base_branch_absent",
+      `The remote holds no branch ${config.strategy.base_branch}.`,
+    );
+  }
+  return json(res, 200, {
+    commit: "3f2a9c1d4e5b6a7988776655443322110fedcba9",
+    read_at: Date.now() - 120_000,
+    files: INSTRUCTION_FILES.map(instructionFileOf),
+  });
+});
+
 on("POST", /^\/api\/project\/([^/]+)\/binding\/check$/, (m, b, res) => {
   const project = projectOrRefuse(res, m[1]);
   if (project === undefined) return undefined;

@@ -117,6 +117,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
           key={`${target.kind}:${target.name ?? "new"}`}
           projectId={projectId}
           target={target}
+          bindingId={target.name === null ? null : bindingVerify.bindingIdOf(target.name)}
           takenNames={Object.keys(current)}
           saving={bindings.saving}
           conflict={bindings.conflict}

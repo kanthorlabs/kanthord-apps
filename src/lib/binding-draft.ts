@@ -5,6 +5,8 @@ import type {
   RepositoryActionName,
   RepositoryPlatform,
   WorkerAgentEntry,
+  WorkingLayerKey,
+  WorkingLayerSwitches,
 } from "@/api/types";
 
 export const REASONING_EFFORTS = [
@@ -37,6 +39,7 @@ export interface RepositoryDraft {
   readonly sshCredentialHost: string;
   readonly credential: string;
   readonly projectPrompt: string;
+  readonly workingLayer: WorkingLayerSwitches;
 }
 
 export interface WorkerDraft {
@@ -72,6 +75,13 @@ const BINDING_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 const REPOSITORY_ADDRESS = /^git@[A-Za-z0-9][A-Za-z0-9.-]*:[^/\s:]+\/[^/\s:]+\.git(?![\s\S])/;
 const ASSESSMENT_PASSED: RepositoryActionFollows = { type: "assessment_passed" };
 const REQUIRED = "Enter a value.";
+const ALL_SWITCHES_ON: WorkingLayerSwitches = {
+  agents_md: true,
+  agents_local_md: true,
+  claude_md: true,
+  claude_local_md: true,
+  project_prompt: true,
+};
 const GIT_ADDRESS_HOST = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):/;
 
 export function emptyDraft(kind: BindingSetKind): BindingDraft {
@@ -89,6 +99,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       sshCredentialHost: "",
       credential: "",
       projectPrompt: "",
+      workingLayer: ALL_SWITCHES_ON,
     };
   }
   if (kind === "worker") {
@@ -112,6 +123,14 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
     prefix: "",
     credential: "",
   };
+}
+
+export function withWorkingLayerSwitch(
+  draft: RepositoryDraft,
+  key: WorkingLayerKey,
+  enabled: boolean,
+): RepositoryDraft {
+  return { ...draft, workingLayer: { ...draft.workingLayer, [key]: enabled } };
 }
 
 function agentDraftOf(entry: WorkerAgentEntry): AgentEntryDraft {
@@ -139,6 +158,7 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       sshCredentialHost: "",
       credential: config.credential ?? "",
       projectPrompt: config.project_prompt ?? "",
+      workingLayer: { ...ALL_SWITCHES_ON, ...config.working_layer },
     };
   }
   if (entry.kind === "worker") {
@@ -239,6 +259,7 @@ function repositoryEntryOf(
       ssh_credential: draft.sshCredential.trim(),
       ...(credential !== undefined && credential !== "" ? { credential } : {}),
       ...(projectPrompt === undefined ? {} : { project_prompt: projectPrompt }),
+      working_layer: draft.workingLayer,
     },
   };
 }

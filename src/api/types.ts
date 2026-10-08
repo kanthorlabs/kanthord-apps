@@ -315,6 +315,18 @@ export type RepositoryActionFollows =
 
 export type RepositoryPlatform = "github" | "gitlab" | "bitbucket";
 
+export const WORKING_LAYER_KEYS = [
+  "agents_md",
+  "agents_local_md",
+  "claude_md",
+  "claude_local_md",
+  "project_prompt",
+] as const;
+
+export type WorkingLayerKey = (typeof WORKING_LAYER_KEYS)[number];
+
+export type WorkingLayerSwitches = Readonly<Record<WorkingLayerKey, boolean>>;
+
 export interface RepositoryBindingConfig {
   readonly available: boolean;
   readonly platform: RepositoryPlatform;
@@ -329,6 +341,26 @@ export interface RepositoryBindingConfig {
   readonly ssh_credential: string;
   readonly credential?: string;
   readonly project_prompt?: string;
+  readonly working_layer?: WorkingLayerSwitches;
+}
+
+export type InstructionFileSource =
+  "agents_md" | "agents_local_md" | "claude_md" | "claude_local_md";
+
+export type InstructionFileState = "present" | "absent" | "invalid";
+
+export interface InstructionFile {
+  readonly source: InstructionFileSource;
+  readonly path: string;
+  readonly state: InstructionFileState;
+  readonly reason: string | null;
+  readonly text: string | null;
+}
+
+export interface InstructionFiles {
+  readonly commit: string;
+  readonly read_at: number;
+  readonly files: readonly InstructionFile[];
 }
 
 export interface WorkerAgentEntry {

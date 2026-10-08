@@ -31,6 +31,13 @@ const REPO: BindingSetEntry = {
     strategy: { base_branch: "main" },
     ssh_credential: "github-ssh",
     credential: "github-main",
+    working_layer: {
+      agents_md: true,
+      agents_local_md: true,
+      claude_md: true,
+      claude_local_md: true,
+      project_prompt: true,
+    },
   },
 };
 const WORKER: BindingSetEntry = {
@@ -140,6 +147,34 @@ describe("BindingsPanel", () => {
       address: { status: "healthy", capability: "network git read" },
       ssh_credential: { status: "healthy", capability: "ssh credential verify" },
       credential: null,
+    });
+    vi.mocked(projectsApi.readInstructionFiles).mockResolvedValue({
+      commit: "3f2a9c1d4e5b6a7988776655443322110fedcba9",
+      read_at: Date.now(),
+      files: [
+        { source: "agents_md", path: "AGENTS.md", state: "present", reason: null, text: "# Rules" },
+        {
+          source: "agents_local_md",
+          path: "AGENTS.local.md",
+          state: "absent",
+          reason: null,
+          text: null,
+        },
+        {
+          source: "claude_md",
+          path: "CLAUDE.md",
+          state: "present",
+          reason: null,
+          text: "# Claude",
+        },
+        {
+          source: "claude_local_md",
+          path: "CLAUDE.local.md",
+          state: "absent",
+          reason: null,
+          text: null,
+        },
+      ],
     });
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission_1",
@@ -265,12 +300,41 @@ describe("BindingsPanel", () => {
     expect(within(connection).getByLabelText("GitHub credential")).toBeTruthy();
     expect(within(policy).getByLabelText("Base branch")).toBeTruthy();
     expect(within(policy).getByLabelText("External action")).toBeTruthy();
-    expect(within(policy).queryByLabelText("Repository instructions")).toBeNull();
-    const instructions = screen.getByRole("group", { name: "Agent instructions" });
-    expect(within(instructions).getByLabelText("Repository instructions")).toBeTruthy();
+    expect(within(policy).queryByRole("list", { name: "Repository instructions" })).toBeNull();
+    const instructions = screen.getByRole("group", { name: "Repository instructions" });
+    expect(screen.queryByRole("group", { name: "Agent instructions" })).toBeNull();
+    expect(await within(instructions).findByRole("button", { name: "Refresh" })).toBeTruthy();
     expect(
-      within(instructions).getByRole("button", { name: "About Repository instructions" }),
+      within(instructions).getByRole("list", { name: "Repository instructions" }),
     ).toBeTruthy();
+  });
+
+  it("reads the instruction files of the saved binding when its form opens", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+
+    expect(await screen.findByRole("button", { name: "AGENTS.md" })).toBeTruthy();
+    expect(projectsApi.readInstructionFiles).toHaveBeenCalledWith("project_1", "binding_REPO1");
+  });
+
+  it("keeps a switch that the human turns off in the written binding", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(await screen.findByRole("switch", { name: "CLAUDE.md switch" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": {
+        ...REPO,
+        config: {
+          ...REPO.config,
+          working_layer: { ...REPO.config.working_layer, claude_md: false },
+        },
+      },
+      "general-main": WORKER,
+    });
   });
 
   it("explains the SSH credential and the GitHub credential next to their labels", async () => {

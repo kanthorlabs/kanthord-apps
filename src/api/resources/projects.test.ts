@@ -9,6 +9,7 @@ import {
   createProject,
   listProjectPage,
   listProjects,
+  readInstructionFiles,
   renameProject,
   verifyBinding,
   writeBindingSet,
@@ -138,6 +139,30 @@ describe("verifyBinding", () => {
     expect(await verifyBinding("prj-1", "binding_ABC")).toEqual(result);
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.url).toBe("/api/project/prj-1/binding/binding_ABC/verify");
+  });
+});
+
+describe("readInstructionFiles", () => {
+  it("gets project.binding.instruction_files.get and returns the commit and the files", async () => {
+    const result = {
+      commit: "3f2a9c1d4e5b6a7988776655443322110fedcba9",
+      read_at: 1760000000000,
+      files: [
+        {
+          source: "agents_md",
+          path: "AGENTS.md",
+          state: "present",
+          reason: null,
+          text: "# Rules",
+        },
+      ],
+    };
+    const base = await serve([result]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await readInstructionFiles("prj-1", "binding_ABC")).toEqual(result);
+    expect(seen[0]?.method).toBe("GET");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/binding/binding_ABC/instruction_files");
   });
 });
 

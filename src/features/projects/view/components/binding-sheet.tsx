@@ -31,6 +31,7 @@ const KIND_LABELS = { repository: "repository", worker: "worker", storage: "stor
 interface BindingSheetProps {
   readonly projectId: string;
   readonly target: BindingTarget;
+  readonly bindingId: string | null;
   readonly takenNames: readonly string[];
   readonly saving: boolean;
   readonly conflict: boolean;
@@ -55,6 +56,7 @@ function sshHostOf(credentials: readonly Credential[], name: string): string {
 export function BindingSheet({
   projectId,
   target,
+  bindingId,
   takenNames,
   saving,
   conflict,
@@ -160,6 +162,9 @@ export function BindingSheet({
                 />
                 {draft.kind === "repository" && (
                   <RepositoryForm
+                    projectId={projectId}
+                    bindingId={bindingId}
+                    saved={target.entry?.kind === "repository" ? target.entry.config : null}
                     draft={draft}
                     errors={errors}
                     sshCredentials={sshCredentials}

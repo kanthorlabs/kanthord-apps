@@ -5,6 +5,7 @@ import type {
   BindingSetEntry,
   BindingSetWriteResult,
   BindingVerifyResult,
+  InstructionFiles,
   Page,
   Project,
   ProjectBindingRecord,
@@ -99,6 +100,15 @@ export async function verifyBinding(
   return request<BindingVerifyResult>(
     `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/verify`,
     { method: "POST" },
+  );
+}
+
+export async function readInstructionFiles(
+  projectId: string,
+  bindingId: string,
+): Promise<InstructionFiles> {
+  return request<InstructionFiles>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/instruction_files`,
   );
 }
 

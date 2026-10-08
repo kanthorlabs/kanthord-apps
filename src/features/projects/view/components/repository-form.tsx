@@ -1,5 +1,9 @@
-import type { Credential, RepositoryActionName, RepositoryPlatform } from "@/api/types";
-import { LabelHint } from "@/components/label-hint";
+import type {
+  Credential,
+  RepositoryActionName,
+  RepositoryBindingConfig,
+  RepositoryPlatform,
+} from "@/api/types";
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import {
   Select,
@@ -8,11 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import type { DraftErrors, RepositoryDraft } from "@/lib/binding-draft";
 import { AvailabilityField } from "./availability-field";
 import { CredentialCombobox } from "./credential-combobox";
 import { DraftField } from "./draft-field";
+import { RepositoryInstructions } from "./repository-instructions";
 
 const NO_ACTION = "none";
 
@@ -28,9 +32,6 @@ const SSH_CREDENTIAL_HINT =
 const GITHUB_CREDENTIAL_HINT =
   "The GitHub API token that opens a pull request. Git over SSH cannot call the GitHub API, so a pull request needs this second credential.";
 
-const REPOSITORY_INSTRUCTIONS_HINT =
-  "Instructions for the agents that work in this repository. The agent reads AGENTS.md, AGENTS.local.md, CLAUDE.md and CLAUDE.local.md of the repository first, then this text. Use it for rules that the repository files do not hold.";
-
 const GIT_ONLY_ACTIONS = ALL_ACTIONS.filter((a) => a.value !== "pull_request");
 
 const PLATFORMS: readonly { readonly value: RepositoryPlatform; readonly label: string }[] = [
@@ -40,6 +41,9 @@ const PLATFORMS: readonly { readonly value: RepositoryPlatform; readonly label: 
 ];
 
 interface RepositoryFormProps {
+  readonly projectId: string;
+  readonly bindingId: string | null;
+  readonly saved: RepositoryBindingConfig | null;
   readonly draft: RepositoryDraft;
   readonly errors: DraftErrors;
   readonly sshCredentials: readonly Credential[];
@@ -52,6 +56,9 @@ interface RepositoryFormProps {
 }
 
 export function RepositoryForm({
+  projectId,
+  bindingId,
+  saved,
   draft,
   errors,
   sshCredentials,
@@ -174,24 +181,13 @@ export function RepositoryForm({
           <FieldDescription>The action follows a passing assessment.</FieldDescription>
         </Field>
       </FieldSet>
-      <FieldSet>
-        <FieldLegend>Agent instructions</FieldLegend>
-        <Field>
-          <div className="flex items-center gap-1">
-            <FieldLabel htmlFor="binding-project-prompt">Repository instructions</FieldLabel>
-            <LabelHint label="Repository instructions" hint={REPOSITORY_INSTRUCTIONS_HINT} />
-          </div>
-          <Textarea
-            id="binding-project-prompt"
-            value={draft.projectPrompt}
-            onChange={(event) => onEdit({ ...draft, projectPrompt: event.target.value })}
-          />
-          <FieldDescription>
-            Optional. Agents that work in this repository read it after the AGENTS.md and CLAUDE.md
-            files of the repository.
-          </FieldDescription>
-        </Field>
-      </FieldSet>
+      <RepositoryInstructions
+        projectId={projectId}
+        bindingId={bindingId}
+        saved={saved}
+        draft={draft}
+        onEdit={onEdit}
+      />
     </>
   );
 }

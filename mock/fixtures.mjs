@@ -208,6 +208,13 @@ export const BINDING_SET = {
         },
         ssh_credential: "atlas-ssh",
         credential: "atlas-github",
+        working_layer: {
+          agents_md: true,
+          agents_local_md: true,
+          claude_md: true,
+          claude_local_md: true,
+          project_prompt: true,
+        },
       },
     },
     "general-main": {
