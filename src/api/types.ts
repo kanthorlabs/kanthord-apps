@@ -70,13 +70,13 @@ export interface WorkerResourceBudget {
   readonly turns?: number;
 }
 
-export type WorkerMethod = "steps" | "evaluation";
+export type WorkerMethod = "steps" | "evaluation" | "reviewed_steps";
 
 export type WorkerCatalogEntry =
   | (WorkerCatalogItem & {
       readonly host: "kanthord";
       readonly method: WorkerMethod;
-      readonly agent_name: string;
+      readonly agent_names: readonly string[];
       readonly resource_budget: WorkerResourceBudget;
     })
   | (WorkerCatalogItem & {

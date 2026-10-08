@@ -164,7 +164,7 @@ on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
   return json(res, 200, {
     ...item,
     method: WORKER_METHODS[item.name],
-    agent_name: agent.agent_name,
+    agent_names: [agent.agent_name],
     resource_budget: { wall_time_ms: 3600000 },
   });
 });
