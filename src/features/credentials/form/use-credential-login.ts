@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
+  browserLoginAvailable,
   readCredentialLoginStatus,
   startCredentialLogin,
   submitCredentialLoginCode,
@@ -25,6 +26,7 @@ const MODES: readonly CredentialLoginMode[] = ["browser", "device"];
 
 export interface CredentialLoginState {
   readonly mode: CredentialLoginMode | null;
+  readonly browserAvailable: boolean;
   readonly sessionMode: CredentialLoginMode | null;
   readonly platform: CredentialPlatform | null;
   readonly inProgress: boolean;
@@ -58,7 +60,8 @@ export function useCredentialLogin(
   const onCreatedRef = useRef(onCreated);
   const [selected, setSelected] = useState<CredentialLoginMode | null>(null);
   const [sessionMode, setSessionMode] = useState<CredentialLoginMode | null>(null);
-  const mode = loginModeOf(modes, selected);
+  const browserAvailable = browserLoginAvailable();
+  const mode = loginModeOf(modes, selected, browserAvailable);
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -171,6 +174,7 @@ export function useCredentialLogin(
 
   return {
     mode,
+    browserAvailable,
     sessionMode,
     platform,
     inProgress: session !== null && (status?.state ?? "pending") === "pending",

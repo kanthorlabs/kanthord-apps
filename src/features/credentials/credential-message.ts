@@ -26,6 +26,8 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "credential.login.value_not_awaited": "The sign-in does not wait for a code now.",
   "credential.login.mode_unsupported":
     "The platform does not support this sign-in mode. Choose another mode.",
+  "credential.login.browser_unavailable":
+    "Browser sign-in works only from the server host. Choose Headless (device code).",
   "llm.lifecycle.stopped": "The LLM component stopped and accepts no sign-in. Restart the daemon.",
   "system.pagination.cursor_invalid": "The page cursor is no longer valid. Reload the list.",
   "project.bindings.repository.credential_required":

@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setConnection } from "../client";
 import {
   archiveCredential,
+  browserLoginAvailable,
   checkCredential,
   createCredential,
   discoverSshAliases,
@@ -348,5 +349,16 @@ describe("credential login", () => {
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
     expect(seen[1]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
     expect(seen[2]?.headers["idempotency-key"]).toBeUndefined();
+  });
+});
+
+describe("browserLoginAvailable", () => {
+  afterEach(() => setConnection(null));
+
+  it("offers browser sign-in only through a loopback address", () => {
+    setConnection({ baseUrl: "http://localhost:31415", token: null });
+    expect(browserLoginAvailable()).toBe(true);
+    setConnection({ baseUrl: "http://192.168.1.64:31415", token: null });
+    expect(browserLoginAvailable()).toBe(false);
   });
 });

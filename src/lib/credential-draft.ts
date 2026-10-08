@@ -18,9 +18,12 @@ export const OPENAI_COMPATIBLE = "openai-compatible";
 export function loginModeOf(
   modes: readonly CredentialLoginMode[],
   selected: CredentialLoginMode | null,
+  browserAvailable: boolean,
 ): CredentialLoginMode | null {
-  if (selected !== null && modes.includes(selected)) return selected;
-  return modes.includes("browser") ? "browser" : null;
+  const usable = browserAvailable ? modes : modes.filter((mode) => mode !== "browser");
+  if (selected !== null && usable.includes(selected)) return selected;
+  if (!modes.includes("browser")) return null;
+  return usable[0] ?? null;
 }
 
 export const MODEL_DEFAULT_CONTEXT_WINDOW = 128000;

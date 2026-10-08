@@ -334,12 +334,18 @@ describe("oauth platform", () => {
 
 describe("loginModeOf", () => {
   it("defaults to browser when the platform offers it", () => {
-    expect(loginModeOf(["browser", "device"], null)).toBe("browser");
-    expect(loginModeOf(["browser", "device"], "device")).toBe("device");
+    expect(loginModeOf(["browser", "device"], null, true)).toBe("browser");
+    expect(loginModeOf(["browser", "device"], "device", true)).toBe("device");
   });
 
   it("sends no mode when the platform offers only device", () => {
-    expect(loginModeOf(["device"], "browser")).toBeNull();
-    expect(loginModeOf(["device"], null)).toBeNull();
+    expect(loginModeOf(["device"], "browser", true)).toBeNull();
+    expect(loginModeOf(["device"], null, true)).toBeNull();
+  });
+
+  it("selects device when browser sign-in is not available", () => {
+    expect(loginModeOf(["browser", "device"], null, false)).toBe("device");
+    expect(loginModeOf(["browser", "device"], "browser", false)).toBe("device");
+    expect(loginModeOf(["device"], null, false)).toBeNull();
   });
 });

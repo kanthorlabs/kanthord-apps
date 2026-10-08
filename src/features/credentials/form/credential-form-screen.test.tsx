@@ -103,6 +103,7 @@ async function choosePlatform(platform: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(credentialsApi.browserLoginAvailable).mockReturnValue(true);
   vi.mocked(credentialsApi.listCredentialPlatforms).mockImplementation(
     async (component) => PLATFORMS[component],
   );
@@ -593,6 +594,36 @@ describe("CredentialFormScreen", () => {
       mode: "device",
     });
     expect(screen.queryByRole("button", { name: "Open sign-in page" })).toBeNull();
+  });
+
+  it("forces a headless openai-codex sign-in away from the server host", async () => {
+    vi.mocked(credentialsApi.browserLoginAvailable).mockReturnValue(false);
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: SESSION.session_id,
+      state: "pending",
+      last_message: null,
+      failure_reason: null,
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "codex");
+    await choosePlatform("openai-codex");
+    const select = screen.getByRole("combobox", { name: "Sign-in Mode" });
+    expect(select.textContent).toContain("Headless (device code)");
+    expect(screen.getByText(/Browser sign-in is not available at this address\./)).toBeTruthy();
+    await userEvent.click(select);
+    const browser = await screen.findByRole("option", { name: "Browser" });
+    expect(browser.getAttribute("aria-disabled")).toBe("true");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+
+    expect(await screen.findByText("ABCD-1234")).toBeTruthy();
+    expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
+      platform: "openai-codex",
+      name: "codex",
+      mode: "device",
+    });
   });
 
   it("explains a pending sign-in", async () => {

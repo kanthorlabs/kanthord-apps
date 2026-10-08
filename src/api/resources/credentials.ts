@@ -1,5 +1,6 @@
+import { isLoopbackUrl } from "@/lib/loopback-url";
 import { newUlid } from "@/lib/ulid";
-import { request } from "../client";
+import { connectionBaseUrl, request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   ComponentCredential,
@@ -129,6 +130,11 @@ export async function archiveCredential(
     method: "POST",
     headers: { "idempotency-key": newUlid() },
   });
+}
+
+export function browserLoginAvailable(): boolean {
+  const baseUrl = connectionBaseUrl();
+  return baseUrl === null || isLoopbackUrl(baseUrl);
 }
 
 export async function startCredentialLogin(

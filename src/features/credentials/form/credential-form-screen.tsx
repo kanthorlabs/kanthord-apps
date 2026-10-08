@@ -51,7 +51,11 @@ function SignInFields({
             </SelectTrigger>
             <SelectContent>
               {items.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
+                <SelectItem
+                  key={item.value}
+                  value={item.value}
+                  disabled={item.value === "browser" && !form.login.browserAvailable}
+                >
                   {item.label}
                 </SelectItem>
               ))}
@@ -63,6 +67,12 @@ function SignInFields({
         This platform takes its credential through a sign-in. Custody stores the credential under
         the name when the sign-in completes.
       </FieldDescription>
+      {modes.includes("browser") && !form.login.browserAvailable && (
+        <FieldDescription>
+          Browser sign-in is not available at this address. The provider returns the browser to
+          localhost, which reaches the server only from its own host. Use Headless (device code).
+        </FieldDescription>
+      )}
     </Field>
   );
 }

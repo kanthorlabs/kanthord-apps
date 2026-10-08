@@ -11,6 +11,10 @@ export function setConnection(next: Connection | null): void {
   current = next;
 }
 
+export function connectionBaseUrl(): string | null {
+  return current?.baseUrl ?? null;
+}
+
 function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
