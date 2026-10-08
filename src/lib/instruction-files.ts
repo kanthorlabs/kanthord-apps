@@ -21,6 +21,11 @@ export function holdsNoInstructionFile(files: readonly InstructionFile[]): boole
   return files.every((file) => file.state === "absent");
 }
 
+export function readingInstructionFilesLine(bindingName: string): string {
+  const names = Object.values(INSTRUCTION_FILE_NAMES).join(", ");
+  return `The server fetches ${names} from ${bindingName}. This can take a few seconds.`;
+}
+
 export function noInstructionFileLine(bindingName: string, baseBranch: string): string {
   const names = Object.values(INSTRUCTION_FILE_NAMES).join(", ");
   return `${bindingName} holds none of ${names} on ${baseBranch}.`;

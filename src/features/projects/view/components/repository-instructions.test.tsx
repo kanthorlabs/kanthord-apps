@@ -108,11 +108,15 @@ describe("RepositoryInstructions", () => {
     );
   });
 
-  it("shows one skeleton row per file name while it reads, and keeps the Project prompt row", async () => {
+  it("explains what it reads while it reads, and keeps the Project prompt row", async () => {
     vi.mocked(projectsApi.readInstructionFiles).mockReturnValue(new Promise(() => undefined));
     mount();
 
-    expect(screen.getByRole("status", { name: "Reading the instruction files" })).toBeTruthy();
+    const status = screen.getByRole("status", { name: "Reading the instruction files" });
+    expect(status).toHaveTextContent("Reading the instruction files from main.");
+    expect(status).toHaveTextContent(
+      /fetches AGENTS\.md, AGENTS\.local\.md, CLAUDE\.md, CLAUDE\.local\.md from .+\. This can take a few seconds\./,
+    );
     expect(screen.getByRole("button", { name: "Refresh" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Edit Project prompt" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "AGENTS.md" })).toBeNull();
@@ -122,7 +126,7 @@ describe("RepositoryInstructions", () => {
     mount();
 
     expect(await screen.findByText("main · 3f2a9c1 · read 2 minutes ago")).toBeTruthy();
-    expect(screen.getByText(/at the execution, so this list is a snapshot/)).toBeTruthy();
+    expect(screen.queryByText(/so this list is a snapshot/)).toBeNull();
     expect(projectsApi.readInstructionFiles).toHaveBeenCalledWith("project_1", "binding_WEB1");
   });
 
@@ -229,7 +233,6 @@ describe("RepositoryInstructions", () => {
 
     expect(screen.getByText("Save the binding to read its instruction files.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
-    expect(screen.queryByText(/so this list is a snapshot/)).toBeNull();
     expect(screen.getByRole("button", { name: "Edit Project prompt" })).toBeTruthy();
     expect(projectsApi.readInstructionFiles).not.toHaveBeenCalled();
   });

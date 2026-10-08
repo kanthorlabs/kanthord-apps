@@ -1,8 +1,8 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
 import {
   holdsNoInstructionFile,
-  INSTRUCTION_FILE_NAMES,
   noInstructionFileLine,
+  readingInstructionFilesLine,
 } from "@/lib/instruction-files";
 import type { InstructionFilesState } from "../use-instruction-files";
 import { InstructionRefusal } from "./instruction-refusal";
@@ -30,10 +30,17 @@ export function InstructionNotice({
   }
   if (view.status === "loading") {
     return (
-      <div role="status" aria-label="Reading the instruction files" className="flex flex-col gap-2">
-        {Object.values(INSTRUCTION_FILE_NAMES).map((name) => (
-          <Skeleton key={name} className="h-10 w-full" />
-        ))}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-label="Reading the instruction files"
+        className="flex items-start gap-2 text-sm"
+      >
+        <Spinner aria-hidden="true" role="presentation" className="mt-0.5 shrink-0" />
+        <div className="flex min-w-0 flex-col gap-1">
+          <p>Reading the instruction files from {baseBranch}.</p>
+          <p className="text-muted-foreground">{readingInstructionFilesLine(bindingName)}</p>
+        </div>
       </div>
     );
   }
