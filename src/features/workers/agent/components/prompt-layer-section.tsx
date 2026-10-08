@@ -169,7 +169,7 @@ export function PromptLayerSection({
           </div>
           <Reveal open={hiddenCount > 0}>
             <div className="pb-2">
-              <Button variant="ghost" size="sm" onClick={() => visibility.setShow(true)}>
+              <Button variant="ghost" size="sm" onClick={() => visibility.showLayer(layer.layer)}>
                 <EyeIcon aria-hidden="true" data-icon="inline-start" />
                 {hiddenSourcesLabel(hiddenCount)}
               </Button>

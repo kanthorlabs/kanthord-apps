@@ -9,6 +9,7 @@ export interface InactiveSourcesState {
   readonly show: boolean;
   readonly available: boolean;
   readonly setShow: (show: boolean) => void;
+  readonly showLayer: (layer: PromptLayerKind) => void;
   readonly hides: (layer: PromptLayerKind, source: PromptSource) => boolean;
 }
 
@@ -42,6 +43,7 @@ export function useInactiveSources(layers: readonly PromptLayer[]): InactiveSour
   const activeKey = active.join(" ");
   const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set(active));
   const [seenKey, setSeenKey] = useState(activeKey);
+  const [revealed, setRevealed] = useState<ReadonlySet<PromptLayerKind>>(() => new Set());
 
   if (seenKey !== activeKey) {
     setSeenKey(activeKey);
@@ -51,15 +53,23 @@ export function useInactiveSources(layers: readonly PromptLayer[]): InactiveSour
   const setShow = useCallback((next: boolean) => {
     setShowState(next);
     saveShow(next);
+    setRevealed(new Set());
+  }, []);
+
+  const showLayer = useCallback((layer: PromptLayerKind) => {
+    setRevealed((current) => new Set([...current, layer]));
   }, []);
 
   const hides = useCallback(
     (layer: PromptLayerKind, source: PromptSource) =>
-      !show && isInactiveSource(source) && !seen.has(sourceKey(layer, source)),
-    [show, seen],
+      !show &&
+      !revealed.has(layer) &&
+      isInactiveSource(source) &&
+      !seen.has(sourceKey(layer, source)),
+    [show, revealed, seen],
   );
 
   const available = layers.some((layer) => layer.sources.some(isInactiveSource));
 
-  return { show, available, setShow, hides };
+  return { show, available, setShow, showLayer, hides };
 }

@@ -260,14 +260,42 @@ describe("AgentScreen", () => {
     await waitFor(() => expect(screen.queryByText("~/.claude/CLAUDE.md")).toBeNull());
   });
 
-  it("shows the hidden sources of a layer from its footer", async () => {
-    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+  it("shows only the hidden sources of its own layer from a footer", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      prompt: {
+        ...RE.prompt,
+        layers: [
+          ...(RE.prompt.layers ?? []),
+          {
+            layer: "working",
+            enabled: true,
+            sources: [
+              {
+                source: "agents_md",
+                origin: "file",
+                path: "~/workbench/AGENTS.md",
+                enabled: true,
+                state: "absent",
+                digest: null,
+                text: null,
+              },
+            ],
+          },
+        ],
+      },
+    });
     mount();
 
-    await userEvent.click(await screen.findByRole("button", { name: "1 inactive source hidden" }));
+    const [systemFooter] = await screen.findAllByRole("button", {
+      name: "1 inactive source hidden",
+    });
+    await userEvent.click(systemFooter!);
 
     expect(await screen.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
-    expect(screen.getByRole("switch", { name: "Show inactive sources" })).toBeChecked();
+    expect(screen.queryByText("~/workbench/AGENTS.md")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "1 inactive source hidden" })).toHaveLength(1);
+    expect(screen.getByRole("switch", { name: "Show inactive sources" })).not.toBeChecked();
   });
 
   it("keeps the preference of the viewer", async () => {
