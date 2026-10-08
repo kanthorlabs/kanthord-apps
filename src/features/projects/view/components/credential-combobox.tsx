@@ -10,6 +10,7 @@ interface CredentialComboboxProps {
   readonly value: string;
   readonly error: string | undefined;
   readonly description?: string;
+  readonly hint?: string;
   readonly onChange: (value: string) => void;
   readonly onNew?: () => void;
   readonly onRotate?: () => void;
@@ -23,6 +24,7 @@ export function CredentialCombobox({
   value,
   error,
   description,
+  hint,
   onChange,
   onNew,
   onRotate,
@@ -47,6 +49,7 @@ export function CredentialCombobox({
       emptyText="No credential matches."
       labelOf={labelOf}
       description={description}
+      hint={hint}
       actions={
         onNew !== undefined && (
           <div className="flex gap-2">

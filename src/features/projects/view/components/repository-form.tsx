@@ -21,6 +21,12 @@ const ALL_ACTIONS = [
   { value: "merge_push", label: "Merge and push" },
 ] as const;
 
+const SSH_CREDENTIAL_HINT =
+  "The SSH key that git uses to clone, fetch and push this repository. Every binding needs it.";
+
+const GITHUB_CREDENTIAL_HINT =
+  "The GitHub API token that opens a pull request. Git over SSH cannot call the GitHub API, so a pull request needs this second credential.";
+
 const GIT_ONLY_ACTIONS = ALL_ACTIONS.filter((a) => a.value !== "pull_request");
 
 const PLATFORMS: readonly { readonly value: RepositoryPlatform; readonly label: string }[] = [
@@ -101,6 +107,7 @@ export function RepositoryForm({
         <CredentialCombobox
           id="binding-ssh-credential"
           label="SSH credential"
+          hint={SSH_CREDENTIAL_HINT}
           credentials={sshCredentials}
           value={draft.sshCredential}
           error={errors["sshCredential"]}
@@ -111,6 +118,7 @@ export function RepositoryForm({
           <CredentialCombobox
             id="binding-credential"
             label="GitHub credential"
+            hint={GITHUB_CREDENTIAL_HINT}
             credentials={apiCredentials}
             value={draft.credential}
             error={errors["credential"]}

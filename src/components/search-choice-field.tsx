@@ -9,6 +9,7 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
+import { LabelHint } from "@/components/label-hint";
 
 interface SearchChoiceFieldProps {
   readonly id: string;
@@ -20,6 +21,7 @@ interface SearchChoiceFieldProps {
   readonly emptyText: string;
   readonly labelOf?: (option: string) => string;
   readonly description?: string;
+  readonly hint?: string;
   readonly actions?: ReactNode;
   readonly onChange: (value: string | null) => void;
 }
@@ -38,12 +40,20 @@ export function SearchChoiceField({
   emptyText,
   labelOf = sameLabel,
   description,
+  hint,
   actions,
   onChange,
 }: SearchChoiceFieldProps) {
   return (
     <Field data-invalid={error !== undefined}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      {hint === undefined ? (
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      ) : (
+        <div className="flex items-center gap-1">
+          <FieldLabel htmlFor={id}>{label}</FieldLabel>
+          <LabelHint label={label} hint={hint} />
+        </div>
+      )}
       <Combobox
         items={options}
         value={value === "" ? null : value}

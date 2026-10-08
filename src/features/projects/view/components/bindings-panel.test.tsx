@@ -268,6 +268,19 @@ describe("BindingsPanel", () => {
     expect(within(policy).getByLabelText("Project prompt")).toBeTruthy();
   });
 
+  it("explains the SSH credential and the GitHub credential next to their labels", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const connection = screen.getByRole("group", { name: "Repository" });
+    expect(within(connection).getByRole("button", { name: "About SSH credential" })).toBeTruthy();
+    await userEvent.click(
+      within(connection).getByRole("button", { name: "About GitHub credential" }),
+    );
+
+    expect(await screen.findByText(/Git over SSH cannot call the GitHub API/)).toBeTruthy();
+  });
+
   it("keeps the draft and does not resend after a version conflict", async () => {
     vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
       new ApiError("conflict", "The submitted binding-set version differs.", 409),
