@@ -10,6 +10,7 @@ import {
 import type { InstancesState } from "@/features/auth/instances/use-instances";
 import { useInstanceVerify, type VerifyState } from "@/features/auth/instances/use-instance-verify";
 import { useSession } from "@/features/auth/session/session-context";
+import { newUlid } from "@/lib/ulid";
 import { blankInstanceDraft, firstInstanceDraft } from "./default-instance";
 import { signInMessage } from "./sign-in-message";
 
@@ -71,7 +72,7 @@ export function useSignIn(store: Pick<InstancesState, "instances" | "put">): Sig
       setErrors(result.errors ?? {});
       return;
     }
-    const instance = { id: result.id ?? crypto.randomUUID(), ...result.fields };
+    const instance = { id: result.id ?? newUlid(), ...result.fields };
     setPending(true);
     setError(null);
     try {

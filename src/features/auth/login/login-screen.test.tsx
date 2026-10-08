@@ -147,7 +147,7 @@ describe("LoginScreen", () => {
     expect(stored()).toEqual({
       instances: [
         {
-          id: expect.any(String),
+          id: expect.stringMatching(/^[0-9A-HJKMNP-TV-Z]{26}$/),
           name: "localhost",
           baseUrl: "http://localhost:31415",
           token: "dev-human-token",
