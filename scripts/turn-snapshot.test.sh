@@ -72,7 +72,7 @@ decoy=$(mktemp -d)
 git init -q "$decoy"
 leaked=$(GIT_DIR="$decoy/.git" GIT_WORK_TREE="$decoy" GIT_INDEX_FILE="$decoy/.git/index" \
   "$snapshot" "$work")
-printf '%s\n' "$leaked" | grep -q "\tsrc/kept.ts$" ||
+printf '%s\n' "$leaked" | grep -q "	src/kept.ts\$" ||
   fail "the snapshot must honour its root argument, not an inherited GIT_DIR"
 rm -rf "$decoy"
 
