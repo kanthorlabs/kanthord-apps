@@ -10,17 +10,10 @@ import {
 import type { InstancesState } from "@/features/auth/instances/use-instances";
 import { useInstanceVerify, type VerifyState } from "@/features/auth/instances/use-instance-verify";
 import { useSession } from "@/features/auth/session/session-context";
+import { blankInstanceDraft, firstInstanceDraft } from "./default-instance";
 import { signInMessage } from "./sign-in-message";
 
 const VERIFY_KEY = "form";
-
-const BLANK: InstanceDraft = { name: "", baseUrl: "http://localhost:31415", token: "" };
-
-const LOCALHOST: InstanceDraft = {
-  name: "localhost",
-  baseUrl: "http://localhost:31415",
-  token: "",
-};
 
 export interface SignInFormState {
   readonly draft: InstanceDraft;
@@ -39,7 +32,7 @@ export function useSignIn(store: Pick<InstancesState, "instances" | "put">): Sig
   const { signIn } = useSession();
   const { states, verify: runVerify, clear } = useInstanceVerify();
   const [draft, setDraft] = useState<InstanceDraft>(() =>
-    store.instances.length === 0 ? LOCALHOST : BLANK,
+    store.instances.length === 0 ? firstInstanceDraft() : blankInstanceDraft(),
   );
   const [errors, setErrors] = useState<InstanceErrors>({});
   const [pending, setPending] = useState(false);
