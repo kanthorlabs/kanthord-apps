@@ -265,7 +265,12 @@ describe("BindingsPanel", () => {
     expect(within(connection).getByLabelText("GitHub credential")).toBeTruthy();
     expect(within(policy).getByLabelText("Base branch")).toBeTruthy();
     expect(within(policy).getByLabelText("External action")).toBeTruthy();
-    expect(within(policy).getByLabelText("Project prompt")).toBeTruthy();
+    expect(within(policy).queryByLabelText("Repository instructions")).toBeNull();
+    const instructions = screen.getByRole("group", { name: "Agent instructions" });
+    expect(within(instructions).getByLabelText("Repository instructions")).toBeTruthy();
+    expect(
+      within(instructions).getByRole("button", { name: "About Repository instructions" }),
+    ).toBeTruthy();
   });
 
   it("explains the SSH credential and the GitHub credential next to their labels", async () => {

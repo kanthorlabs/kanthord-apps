@@ -1,4 +1,5 @@
 import type { Credential, RepositoryActionName, RepositoryPlatform } from "@/api/types";
+import { LabelHint } from "@/components/label-hint";
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import {
   Select,
@@ -26,6 +27,9 @@ const SSH_CREDENTIAL_HINT =
 
 const GITHUB_CREDENTIAL_HINT =
   "The GitHub API token that opens a pull request. Git over SSH cannot call the GitHub API, so a pull request needs this second credential.";
+
+const REPOSITORY_INSTRUCTIONS_HINT =
+  "Instructions for the agents that work in this repository. The agent reads AGENTS.md, AGENTS.local.md, CLAUDE.md and CLAUDE.local.md of the repository first, then this text. Use it for rules that the repository files do not hold.";
 
 const GIT_ONLY_ACTIONS = ALL_ACTIONS.filter((a) => a.value !== "pull_request");
 
@@ -169,15 +173,22 @@ export function RepositoryForm({
           </Select>
           <FieldDescription>The action follows a passing assessment.</FieldDescription>
         </Field>
+      </FieldSet>
+      <FieldSet>
+        <FieldLegend>Agent instructions</FieldLegend>
         <Field>
-          <FieldLabel htmlFor="binding-project-prompt">Project prompt</FieldLabel>
+          <div className="flex items-center gap-1">
+            <FieldLabel htmlFor="binding-project-prompt">Repository instructions</FieldLabel>
+            <LabelHint label="Repository instructions" hint={REPOSITORY_INSTRUCTIONS_HINT} />
+          </div>
           <Textarea
             id="binding-project-prompt"
             value={draft.projectPrompt}
             onChange={(event) => onEdit({ ...draft, projectPrompt: event.target.value })}
           />
           <FieldDescription>
-            Optional. Every native agent of this project reads it.
+            Optional. Agents that work in this repository read it after the AGENTS.md and CLAUDE.md
+            files of the repository.
           </FieldDescription>
         </Field>
       </FieldSet>
