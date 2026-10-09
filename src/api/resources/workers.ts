@@ -46,10 +46,8 @@ export async function listAgents(): Promise<readonly AgentSummary[]> {
   const workersByAgent = new Map<string, string[]>();
   for (const entry of entries) {
     if (entry.host !== "kanthord") continue;
-    workersByAgent.set(entry.agent_name, [
-      ...(workersByAgent.get(entry.agent_name) ?? []),
-      entry.name,
-    ]);
+    for (const agentName of entry.agent_names)
+      workersByAgent.set(agentName, [...(workersByAgent.get(agentName) ?? []), entry.name]);
   }
   return [...workersByAgent.entries()]
     .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
