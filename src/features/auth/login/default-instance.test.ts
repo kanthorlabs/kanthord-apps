@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { blankInstanceDraft, defaultBaseUrl, firstInstanceDraft } from "./default-instance";
 
 afterEach(() => {
+  document.querySelector("base")?.remove();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
@@ -47,5 +48,26 @@ describe("default instance", () => {
       token: "",
     });
     expect(blankInstanceDraft()).toEqual({ name: "", baseUrl: window.location.origin, token: "" });
+  });
+
+  it("points a production build at the origin and the prefix that served the page", () => {
+    vi.stubEnv("PROD", true);
+    const element = document.createElement("base");
+    element.setAttribute("href", "/s/kanthord/");
+    document.head.prepend(element);
+    expect(defaultBaseUrl()).toBe(`${window.location.origin}/s/kanthord`);
+    expect(blankInstanceDraft()).toEqual({
+      name: "",
+      baseUrl: `${window.location.origin}/s/kanthord`,
+      token: "",
+    });
+  });
+
+  it("ignores the prefix in a development build", () => {
+    vi.stubEnv("PROD", false);
+    const element = document.createElement("base");
+    element.setAttribute("href", "/s/kanthord/");
+    document.head.prepend(element);
+    expect(defaultBaseUrl()).toBe("http://localhost:31415");
   });
 });

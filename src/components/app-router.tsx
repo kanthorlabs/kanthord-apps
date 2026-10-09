@@ -19,6 +19,7 @@ import { PromptsScreen } from "@/features/settings/prompts/prompts-screen";
 import { AgentScreen } from "@/features/workers/agent/agent-screen";
 import { AgentsScreen } from "@/features/workers/agents/agents-screen";
 import { WorkersScreen } from "@/features/workers/catalogue/workers-screen";
+import { basePath } from "@/lib/base-path";
 import { AppShell } from "./app-shell";
 import { Toaster } from "./ui/sonner";
 
@@ -29,7 +30,7 @@ export function AppRouter() {
 
   return (
     <ProjectProvider>
-      <BrowserRouter>
+      <BrowserRouter basename={basePath()}>
         <Routes>
           <Route element={<AppShell />}>
             <Route index element={<OverviewScreen />} />

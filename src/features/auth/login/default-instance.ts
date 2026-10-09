@@ -1,4 +1,5 @@
 import type { InstanceDraft } from "@/features/auth/instances/instance-validation";
+import { basePath } from "@/lib/base-path";
 
 const DEVELOPMENT_DAEMON_PORT = "31415";
 const IPV4_ADDRESS = /^\d{1,3}(\.\d{1,3}){3}$/;
@@ -13,8 +14,13 @@ function developmentBaseUrl(): string {
   return `${protocol}//${host}`;
 }
 
+function productionBaseUrl(): string {
+  const path = basePath();
+  return path === "/" ? window.location.origin : `${window.location.origin}${path}`;
+}
+
 export function defaultBaseUrl(): string {
-  return import.meta.env.PROD ? window.location.origin : developmentBaseUrl();
+  return import.meta.env.PROD ? productionBaseUrl() : developmentBaseUrl();
 }
 
 export function firstInstanceDraft(): InstanceDraft {
