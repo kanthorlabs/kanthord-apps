@@ -9,6 +9,7 @@ import {
   missingForCheck,
   missingForSave,
   withAgentEntry,
+  withWorker,
   withWorkingLayerSwitch,
   type WorkerDraft,
 } from "./binding-draft";
@@ -239,6 +240,22 @@ describe("entryOfDraft", () => {
       ok: false,
       errors: { endpoint: expect.any(String) },
     });
+  });
+});
+
+describe("withWorker", () => {
+  const draft = emptyDraft("worker") as WorkerDraft;
+
+  it("fills an empty name with the worker name before the version", () => {
+    expect(withWorker(draft, "developer@1")).toMatchObject({
+      name: "developer",
+      worker: "developer@1",
+    });
+  });
+
+  it("keeps a name that the human typed and clears the agent entries", () => {
+    const typed = withAgentEntry({ ...draft, name: "dev-main" }, "swe@1", true);
+    expect(withWorker(typed, "developer@1")).toMatchObject({ name: "dev-main", entries: [] });
   });
 });
 

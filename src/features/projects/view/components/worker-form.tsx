@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   agentRowsOf,
   withAgentEntry,
+  withWorker,
   type AgentEntryDraft,
   type DraftErrors,
   type WorkerDraft,
@@ -92,7 +93,7 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
           placeholder="Search workers"
           emptyText="No worker matches."
           description="A worker of the catalog."
-          onChange={(worker) => onEdit({ ...draft, worker: worker ?? "", entries: [] })}
+          onChange={(worker) => onEdit(withWorker(draft, worker ?? ""))}
         />
       ) : (
         <DraftField

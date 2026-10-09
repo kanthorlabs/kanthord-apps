@@ -163,6 +163,11 @@ export function agentRowsOf(
   return [...declared, ...undeclared];
 }
 
+export function withWorker(draft: WorkerDraft, worker: string): WorkerDraft {
+  const name = blank(draft.name) ? (worker.split("@")[0] ?? "") : draft.name;
+  return { ...draft, name, worker, entries: [] };
+}
+
 export function withAgentEntry(draft: WorkerDraft, agent: string, custom: boolean): WorkerDraft {
   const others = draft.entries.filter((entry) => entry.agent !== agent);
   return {

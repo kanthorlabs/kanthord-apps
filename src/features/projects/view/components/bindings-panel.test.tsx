@@ -199,6 +199,10 @@ describe("BindingsPanel", () => {
         revision: 1,
       },
     ]);
+    vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
+      { model_identifier: "gpt-6-luna", reasoning_efforts: ["medium", "high"] },
+      { model_identifier: "gpt-6-sol", reasoning_efforts: ["high"] },
+    ]);
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
       project_id: "project_1",
       binding_set_version: 3,
@@ -475,7 +479,9 @@ describe("BindingsPanel", () => {
     await chooseWorker("developer@1");
     const swe = await agentItem("swe@1");
     await userEvent.click(within(swe).getByRole("switch", { name: "Custom configuration" }));
-    await userEvent.type(within(swe).getByLabelText("Model identifier"), "gpt-6-sol");
+    await userEvent.click(within(swe).getByRole("combobox", { name: "Model identifier" }));
+    await userEvent.click(await screen.findByRole("option", { name: "gpt-6-sol" }));
+    expect(workersApi.listAgentProviderModels).toHaveBeenCalledWith("swe@1", "codex");
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -492,6 +498,25 @@ describe("BindingsPanel", () => {
         },
       }),
     );
+  });
+
+  it("offers a typed model identifier when the model list is unavailable", async () => {
+    vi.mocked(workersApi.listAgentProviderModels).mockRejectedValue(
+      new ApiError("unavailable", "The provider does not answer.", 502),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("developer@1");
+    const swe = await agentItem("swe@1");
+    await userEvent.click(within(swe).getByRole("switch", { name: "Custom configuration" }));
+
+    expect(
+      await within(swe).findByText(
+        "Optional. Empty keeps the default model. The model list of codex is unavailable: The provider does not answer.",
+      ),
+    ).toBeTruthy();
+    expect(within(swe).getByRole("textbox", { name: "Model identifier" })).toBeTruthy();
   });
 
   it("refuses a custom configuration that changes no value", async () => {

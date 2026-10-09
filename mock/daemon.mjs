@@ -146,7 +146,9 @@ on("PATCH", /^\/api\/project\/([^/]+)$/, (m, b, res) => {
   return json(res, 200, project);
 });
 
-on("GET", /^\/api\/worker\/catalog$/, (_m, _b, res) => json(res, 200, page(fx.WORKER_CATALOG)));
+on("GET", /^\/api\/worker\/catalog$/, (_m, _b, res) =>
+  json(res, 200, page(fx.WORKER_CATALOG.filter((w) => fx.RELEASED_WORKERS.includes(w.name)))),
+);
 on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
   const projectId = url.searchParams.get("project_id");
   const items = fx.WORKER_INSTANCES.filter(
@@ -154,17 +156,23 @@ on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
   );
   return json(res, 200, page(items));
 });
-const WORKER_METHODS = { "general@1": "steps", "reviewer@1": "evaluation" };
+const WORKER_METHODS = {
+  "general@1": "steps",
+  "reviewer@1": "evaluation",
+  "developer@1": "reviewed_steps",
+};
 on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
   const item = fx.WORKER_CATALOG.find((w) => w.name === decodeURIComponent(m[1]));
-  const agent = agents.find((a) => a.worker_names.includes(item?.name));
-  if (item === undefined || agent === undefined) {
+  const agentNames = agents
+    .filter((a) => a.worker_names.includes(item?.name))
+    .map((a) => a.agent_name);
+  if (item === undefined || agentNames.length === 0) {
     return projectEnvelope(res, 404, "worker.catalog.not_found", "The worker is not supplied.");
   }
   return json(res, 200, {
     ...item,
     method: WORKER_METHODS[item.name],
-    agent_names: [agent.agent_name],
+    agent_names: agentNames,
     resource_budget: { wall_time_ms: 3600000 },
   });
 });

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 
 import { Reveal } from "@/components/reveal";
+import { SearchChoiceField } from "@/components/search-choice-field";
 import { Badge } from "@/components/ui/badge";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -12,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useAgentProviderModels } from "@/hooks/use-agent-provider-models";
 import { REASONING_EFFORTS, type AgentEntryDraft, type DraftErrors } from "@/lib/binding-draft";
 import type { WorkerAgent } from "../use-worker-agents";
 import { DraftField } from "./draft-field";
@@ -24,6 +26,55 @@ const EFFORTS = [
 ];
 
 const STATE_LABELS = { enabled: "Enabled", disabled: "Disabled", absent: "Not enabled" } as const;
+
+interface AgentModelFieldProps {
+  readonly id: string;
+  readonly agentName: string;
+  readonly providerName: string;
+  readonly value: string;
+  readonly error: string | undefined;
+  readonly description: string;
+  readonly onChange: (value: string) => void;
+}
+
+function AgentModelField({
+  id,
+  agentName,
+  providerName,
+  value,
+  error,
+  description,
+  onChange,
+}: AgentModelFieldProps) {
+  const { models, failure } = useAgentProviderModels(agentName, providerName);
+  if (failure !== null)
+    return (
+      <DraftField
+        id={id}
+        label="Model identifier"
+        value={value}
+        error={error}
+        description={`${description} The model list of ${providerName} is unavailable: ${failure}`}
+        onChange={onChange}
+      />
+    );
+  const identifiers = (models ?? []).map((model) => model.model_identifier);
+  const options =
+    value === "" || identifiers.includes(value) ? identifiers : [value, ...identifiers];
+  return (
+    <SearchChoiceField
+      id={id}
+      label="Model identifier"
+      value={value}
+      options={options}
+      error={error}
+      placeholder={models === null ? "Reading the models" : "Search models"}
+      emptyText="No model matches."
+      description={`${description} The models of ${providerName}.`}
+      onChange={(next) => onChange(next ?? "")}
+    />
+  );
+}
 
 interface WorkerAgentItemProps {
   readonly agentName: string;
@@ -53,6 +104,12 @@ export function WorkerAgentItem({
     })),
   ];
   const defaults = agent?.defaults ?? null;
+  const modelProvider =
+    agent?.state === "enabled" ? entry?.agentProvider || (defaults?.agent_provider ?? "") : "";
+  const modelDescription =
+    entry?.agentProvider === ""
+      ? "Optional. Empty keeps the default model."
+      : "Required with a custom agent provider.";
 
   return (
     <Item variant="outline" role="listitem" className="items-start">
@@ -79,8 +136,13 @@ export function WorkerAgentItem({
         {agent !== null && agent.state !== "enabled" && (
           <p className="text-sm text-destructive">
             Enable this agent on its{" "}
-            <Link to={`/agents/${encodeURIComponent(agentName)}`}>agent page</Link> before you save.
-            The server refuses a worker binding with an agent that is not enabled.
+            <Link
+              to={`/agents/${encodeURIComponent(agentName)}`}
+              className="underline underline-offset-4"
+            >
+              agent page
+            </Link>{" "}
+            before you save. The server refuses a worker binding with an agent that is not enabled.
           </p>
         )}
         <Field orientation="horizontal">
@@ -114,18 +176,26 @@ export function WorkerAgentItem({
                   </SelectContent>
                 </Select>
               </Field>
-              <DraftField
-                id={`${id}-model`}
-                label="Model identifier"
-                value={entry.modelIdentifier}
-                error={errors[`entries.${index}.modelIdentifier`]}
-                description={
-                  entry.agentProvider === ""
-                    ? "Optional. Empty keeps the default model."
-                    : "Required with a custom agent provider."
-                }
-                onChange={(modelIdentifier) => onEdit({ ...entry, modelIdentifier })}
-              />
+              {modelProvider === "" ? (
+                <DraftField
+                  id={`${id}-model`}
+                  label="Model identifier"
+                  value={entry.modelIdentifier}
+                  error={errors[`entries.${index}.modelIdentifier`]}
+                  description={modelDescription}
+                  onChange={(modelIdentifier) => onEdit({ ...entry, modelIdentifier })}
+                />
+              ) : (
+                <AgentModelField
+                  id={`${id}-model`}
+                  agentName={agentName}
+                  providerName={modelProvider}
+                  value={entry.modelIdentifier}
+                  error={errors[`entries.${index}.modelIdentifier`]}
+                  description={modelDescription}
+                  onChange={(modelIdentifier) => onEdit({ ...entry, modelIdentifier })}
+                />
+              )}
               <Field data-invalid={errors[`entries.${index}.reasoningEffort`] !== undefined}>
                 <FieldLabel htmlFor={`${id}-effort`}>Reasoning effort</FieldLabel>
                 <Select

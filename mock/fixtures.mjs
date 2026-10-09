@@ -44,7 +44,15 @@ export const WORKER_CATALOG = [
     declared_node_states: ["Evaluating"],
     required_node_format: ["objective"],
   },
+  {
+    name: "developer@1",
+    host: "kanthord",
+    declared_node_states: ["Available"],
+    required_node_format: ["objective"],
+  },
 ];
+
+export const RELEASED_WORKERS = ["developer@1"];
 
 export const WORKER_INSTANCES = [
   {
@@ -75,7 +83,7 @@ export const WORKER_INSTANCES = [
 export const AGENT_DECLARATIONS = [
   {
     agent_name: "re@1",
-    worker_names: ["reviewer@1"],
+    worker_names: ["reviewer@1", "developer@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
     enablement: null,
@@ -94,7 +102,7 @@ Change no file of the repository.`,
   },
   {
     agent_name: "swe@1",
-    worker_names: ["general@1"],
+    worker_names: ["general@1", "developer@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
     enablement: {
