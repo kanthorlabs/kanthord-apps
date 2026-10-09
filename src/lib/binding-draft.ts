@@ -142,6 +142,37 @@ function agentDraftOf(entry: WorkerAgentEntry): AgentEntryDraft {
   };
 }
 
+export interface AgentRow {
+  readonly agent: string;
+  readonly declared: boolean;
+  readonly index: number | null;
+}
+
+export function agentRowsOf(
+  agentNames: readonly string[],
+  entries: readonly AgentEntryDraft[],
+): readonly AgentRow[] {
+  const indexOf = (agent: string) => {
+    const index = entries.findIndex((entry) => entry.agent === agent);
+    return index === -1 ? null : index;
+  };
+  const declared = agentNames.map((agent) => ({ agent, declared: true, index: indexOf(agent) }));
+  const undeclared = entries
+    .map((entry, index) => ({ agent: entry.agent, declared: false, index }))
+    .filter((row) => !agentNames.includes(row.agent));
+  return [...declared, ...undeclared];
+}
+
+export function withAgentEntry(draft: WorkerDraft, agent: string, custom: boolean): WorkerDraft {
+  const others = draft.entries.filter((entry) => entry.agent !== agent);
+  return {
+    ...draft,
+    entries: custom
+      ? [...others, { agent, agentProvider: "", modelIdentifier: "", reasoningEffort: "" }]
+      : others,
+  };
+}
+
 export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
   if (entry.kind === "repository") {
     const { config } = entry;
@@ -275,6 +306,16 @@ function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): Bind
   if (budgetGiven && wallTimeMs === null) errors["wallTimeMs"] = "Enter a whole number above 0.";
   draft.entries.forEach((entry, index) => {
     if (blank(entry.agent)) errors[`entries.${index}.agent`] = REQUIRED;
+    const complete = !blank(entry.agentProvider);
+    if (complete && blank(entry.modelIdentifier))
+      errors[`entries.${index}.modelIdentifier`] =
+        "A custom agent provider needs a model identifier.";
+    if (complete && blank(entry.reasoningEffort))
+      errors[`entries.${index}.reasoningEffort`] =
+        "A custom agent provider needs a reasoning effort.";
+    if (!complete && blank(entry.modelIdentifier) && blank(entry.reasoningEffort))
+      errors[`entries.${index}.modelIdentifier`] =
+        "Give a model identifier, a reasoning effort or both. To keep the defaults, turn off the custom configuration.";
   });
   return {
     kind: "worker",

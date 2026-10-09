@@ -1,66 +1,110 @@
-import { PlusIcon, Trash2Icon } from "lucide-react";
-
+import type { Resource } from "@/hooks/use-resource";
+import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
-import { Field, FieldLabel } from "@/components/ui/field";
-import { Item, ItemActions, ItemContent, ItemGroup } from "@/components/ui/item";
+import { ItemGroup } from "@/components/ui/item";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  REASONING_EFFORTS,
+  agentRowsOf,
+  withAgentEntry,
   type AgentEntryDraft,
   type DraftErrors,
   type WorkerDraft,
 } from "@/lib/binding-draft";
+import type { WorkerAgents } from "../use-worker-agents";
 import { DraftField } from "./draft-field";
+import { WorkerAgentItem } from "./worker-agent-item";
 
-const DEFAULT_EFFORT = "default";
-
-const EFFORTS = [
-  { value: DEFAULT_EFFORT, label: "Agent default" },
-  ...REASONING_EFFORTS.map((effort) => ({ value: effort, label: effort })),
-];
-
-const EMPTY_ENTRY: AgentEntryDraft = {
-  agent: "",
-  agentProvider: "",
-  modelIdentifier: "",
-  reasoningEffort: "",
-};
-
-interface WorkerFormProps {
+interface WorkerAgentListProps {
   readonly draft: WorkerDraft;
   readonly errors: DraftErrors;
-  readonly creating: boolean;
+  readonly agents: Resource<WorkerAgents>;
   readonly onEdit: (draft: WorkerDraft) => void;
 }
 
-export function WorkerForm({ draft, errors, creating, onEdit }: WorkerFormProps) {
+function WorkerAgentList({ draft, errors, agents, onEdit }: WorkerAgentListProps) {
+  if (draft.worker === "")
+    return <p className="text-sm text-muted-foreground">Choose a worker to see its agents.</p>;
+  if (agents.loading) return <Skeleton className="h-16 w-full" />;
+  if (agents.error !== null)
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-sm text-destructive">{agents.error.message}</p>
+        <Button size="sm" variant="outline" onClick={agents.reload}>
+          Retry
+        </Button>
+      </div>
+    );
+  const data = agents.data;
+  if (data === null) return null;
+  if (data.external)
+    return (
+      <p className="text-sm text-muted-foreground">
+        The harness of this worker selects and authenticates its agents. The binding holds no agent
+        configuration.
+      </p>
+    );
+  const rows = agentRowsOf(
+    data.agents.map((agent) => agent.agentName),
+    draft.entries,
+  );
   const editEntry = (index: number, entry: AgentEntryDraft) =>
     onEdit({
       ...draft,
       entries: draft.entries.map((current, position) => (position === index ? entry : current)),
     });
+  return (
+    <ItemGroup aria-label="Agents" className="gap-2">
+      {rows.map((row) => (
+        <WorkerAgentItem
+          key={row.agent}
+          agentName={row.agent}
+          agent={data.agents.find((agent) => agent.agentName === row.agent) ?? null}
+          entry={row.index === null ? null : (draft.entries[row.index] ?? null)}
+          index={row.index}
+          errors={errors}
+          onCustom={(custom) => onEdit(withAgentEntry(draft, row.agent, custom))}
+          onEdit={(entry) => row.index !== null && editEntry(row.index, entry)}
+        />
+      ))}
+    </ItemGroup>
+  );
+}
 
+interface WorkerFormProps {
+  readonly draft: WorkerDraft;
+  readonly errors: DraftErrors;
+  readonly creating: boolean;
+  readonly workers: readonly string[];
+  readonly agents: Resource<WorkerAgents>;
+  readonly onEdit: (draft: WorkerDraft) => void;
+}
+
+export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }: WorkerFormProps) {
   return (
     <>
-      <DraftField
-        id="binding-worker"
-        label="Worker"
-        value={draft.worker}
-        error={errors["worker"]}
-        readOnly={!creating}
-        description={
-          creating
-            ? "The catalog name, for example general@1."
-            : "A worker binding keeps its worker. Remove the binding and add another to change it."
-        }
-        onChange={(worker) => onEdit({ ...draft, worker })}
-      />
+      {creating ? (
+        <SearchChoiceField
+          id="binding-worker"
+          label="Worker"
+          value={draft.worker}
+          options={workers}
+          error={errors["worker"]}
+          placeholder="Search workers"
+          emptyText="No worker matches."
+          description="A worker of the catalog."
+          onChange={(worker) => onEdit({ ...draft, worker: worker ?? "", entries: [] })}
+        />
+      ) : (
+        <DraftField
+          id="binding-worker"
+          label="Worker"
+          value={draft.worker}
+          error={errors["worker"]}
+          readOnly
+          description="A worker binding keeps its worker. Remove the binding and add another to change it."
+          onChange={(worker) => onEdit({ ...draft, worker })}
+        />
+      )}
       <DraftField
         id="binding-instance-count"
         label="Instance count"
@@ -87,96 +131,9 @@ export function WorkerForm({ draft, errors, creating, onEdit }: WorkerFormProps)
         inputMode="numeric"
         onChange={(wallTimeMs) => onEdit({ ...draft, wallTimeMs })}
       />
-      <section aria-label="Agent entries" className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-medium">Agent entries</h4>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onEdit({ ...draft, entries: [...draft.entries, EMPTY_ENTRY] })}
-          >
-            <PlusIcon aria-hidden="true" data-icon="inline-start" />
-            Add entry
-          </Button>
-        </div>
-        {draft.entries.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No entry. Each agent uses its global default configuration.
-          </p>
-        ) : (
-          <ItemGroup aria-label="Agent entries" className="gap-2">
-            {draft.entries.map((entry, index) => (
-              <Item key={index} variant="outline" role="listitem" className="items-start">
-                <ItemContent className="min-w-0 gap-3">
-                  <DraftField
-                    id={`binding-entry-${index}-agent`}
-                    label="Agent"
-                    value={entry.agent}
-                    error={errors[`entries.${index}.agent`]}
-                    onChange={(agent) => editEntry(index, { ...entry, agent })}
-                  />
-                  <DraftField
-                    id={`binding-entry-${index}-provider`}
-                    label="Agent provider"
-                    value={entry.agentProvider}
-                    error={undefined}
-                    description="Optional."
-                    onChange={(agentProvider) => editEntry(index, { ...entry, agentProvider })}
-                  />
-                  <DraftField
-                    id={`binding-entry-${index}-model`}
-                    label="Model identifier"
-                    value={entry.modelIdentifier}
-                    error={undefined}
-                    description="Optional."
-                    onChange={(modelIdentifier) => editEntry(index, { ...entry, modelIdentifier })}
-                  />
-                  <Field>
-                    <FieldLabel htmlFor={`binding-entry-${index}-effort`}>
-                      Reasoning effort
-                    </FieldLabel>
-                    <Select
-                      items={EFFORTS}
-                      value={entry.reasoningEffort === "" ? DEFAULT_EFFORT : entry.reasoningEffort}
-                      onValueChange={(value) =>
-                        editEntry(index, {
-                          ...entry,
-                          reasoningEffort: value === null || value === DEFAULT_EFFORT ? "" : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger id={`binding-entry-${index}-effort`} className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EFFORTS.map((effort) => (
-                          <SelectItem key={effort.value} value={effort.value}>
-                            {effort.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </ItemContent>
-                <ItemActions>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove entry ${index + 1}`}
-                    onClick={() =>
-                      onEdit({
-                        ...draft,
-                        entries: draft.entries.filter((_, position) => position !== index),
-                      })
-                    }
-                  >
-                    <Trash2Icon />
-                  </Button>
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
-        )}
+      <section aria-label="Agents" className="flex flex-col gap-2">
+        <h4 className="text-sm font-medium">Agents</h4>
+        <WorkerAgentList draft={draft} errors={errors} agents={agents} onEdit={onEdit} />
       </section>
     </>
   );

@@ -8,9 +8,16 @@ import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
-import type { BindingSet, BindingSetEntry, ProjectBindingRecord } from "@/api/types";
+import * as workersApi from "@/api/resources/workers";
+import type {
+  BindingSet,
+  BindingSetEntry,
+  ProjectBindingRecord,
+  WorkerCatalogEntry,
+} from "@/api/types";
 
 vi.mock("@/api/resources/projects");
+vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/credentials");
 vi.mock("sonner", async (importOriginal) => ({
@@ -71,7 +78,45 @@ const BINDING_WORKER: ProjectBindingRecord = {
   removed_at: null,
 };
 
+const CATALOG_ITEM = {
+  host: "kanthord",
+  declared_node_states: ["Available"],
+  required_node_format: ["name"],
+} as const;
+
+const CATALOG_ENTRIES: Readonly<Record<string, WorkerCatalogEntry>> = {
+  "developer@1": {
+    ...CATALOG_ITEM,
+    name: "developer@1",
+    method: "reviewed_steps",
+    agent_names: ["swe@1", "re@1"],
+    resource_budget: { turns: 200, wall_time_ms: 7200000 },
+  },
+  "general@1": {
+    ...CATALOG_ITEM,
+    name: "general@1",
+    method: "steps",
+    agent_names: ["swe@1"],
+    resource_budget: { turns: 200, wall_time_ms: 7200000 },
+  },
+};
+
 const onWritten = vi.fn();
+
+async function chooseWorker(worker: string) {
+  const input = screen.getByRole("combobox", { name: "Worker" });
+  await userEvent.click(input);
+  await userEvent.click(await screen.findByRole("option", { name: worker }));
+}
+
+async function agentItem(agent: string) {
+  const list = await screen.findByRole("list", { name: "Agents" });
+  const item = within(list)
+    .getAllByRole("listitem")
+    .find((candidate) => within(candidate).queryByText(agent) !== null);
+  expect(item).toBeDefined();
+  return item!;
+}
 
 function mount() {
   return render(
@@ -133,6 +178,27 @@ describe("BindingsPanel", () => {
       ],
     });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
+      { ...CATALOG_ITEM, name: "developer@1" },
+    ]);
+    vi.mocked(workersApi.readWorkerCatalogEntry).mockImplementation(async (name) => {
+      const entry = CATALOG_ENTRIES[name];
+      if (entry === undefined) throw new ApiError("not_found", "The worker is not supplied.", 404);
+      return entry;
+    });
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      {
+        agent_name: "swe@1",
+        state: "enabled",
+        agent_providers: [{ name: "codex", provider: "openai-codex", credential: "codex-main" }],
+        default_configuration: {
+          agent_provider: "codex",
+          model_identifier: "gpt-6-luna",
+          reasoning_effort: "medium",
+        },
+        revision: 1,
+      },
+    ]);
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
       project_id: "project_1",
       binding_set_version: 3,
@@ -373,11 +439,87 @@ describe("BindingsPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await userEvent.type(screen.getByLabelText("Name"), "general-main");
-    await userEvent.type(screen.getByLabelText("Worker"), "general@1");
+    await chooseWorker("developer@1");
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     expect(screen.getByText("Another binding of this project uses this name.")).toBeTruthy();
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+  });
+
+  it("offers the released workers and lists the agents of the chosen worker", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    expect(screen.getByText("Choose a worker to see its agents.")).toBeTruthy();
+    await userEvent.click(screen.getByRole("combobox", { name: "Worker" }));
+    const options = await screen.findAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["developer@1"]);
+    await userEvent.click(options[0]!);
+
+    const swe = await agentItem("swe@1");
+    expect(within(swe).getByText("Enabled")).toBeTruthy();
+    expect(within(swe).getByText("Default: codex · gpt-6-luna · medium")).toBeTruthy();
+    const re = await agentItem("re@1");
+    expect(within(re).getByText("Not enabled")).toBeTruthy();
+    expect(within(re).getByRole("link", { name: "agent page" })).toHaveAttribute(
+      "href",
+      "/agents/re%401",
+    );
+  });
+
+  it("writes the custom configuration of an agent in a new worker binding", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "developer-main");
+    await chooseWorker("developer@1");
+    const swe = await agentItem("swe@1");
+    await userEvent.click(within(swe).getByRole("switch", { name: "Custom configuration" }));
+    await userEvent.type(within(swe).getByLabelText("Model identifier"), "gpt-6-sol");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        "developer-main": {
+          kind: "worker",
+          config: {
+            worker: "developer@1",
+            instance_count: 1,
+            entries: [{ agent: "swe@1", model_identifier: "gpt-6-sol" }],
+          },
+        },
+      }),
+    );
+  });
+
+  it("refuses a custom configuration that changes no value", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "developer-main");
+    await chooseWorker("developer@1");
+    const swe = await agentItem("swe@1");
+    await userEvent.click(within(swe).getByRole("switch", { name: "Custom configuration" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(
+      await screen.findByText(
+        "Give a model identifier, a reasoning effort or both. To keep the defaults, turn off the custom configuration.",
+      ),
+    ).toBeTruthy();
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+  });
+
+  it("lists the agents of the worker of a saved binding", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+
+    const swe = await agentItem("swe@1");
+    expect(within(swe).getByText("Enabled")).toBeTruthy();
+    expect(within(swe).getByRole("switch", { name: "Custom configuration" })).not.toBeChecked();
   });
 
   it("presses Verify on kanthord-repo and shows address and credential badges", async () => {

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { BindingSetEntry } from "@/api/types";
 import {
+  agentRowsOf,
   draftOf,
   emptyDraft,
   entryOfDraft,
   missingForCheck,
   missingForSave,
+  withAgentEntry,
   withWorkingLayerSwitch,
   type WorkerDraft,
 } from "./binding-draft";
@@ -237,6 +239,64 @@ describe("entryOfDraft", () => {
       ok: false,
       errors: { endpoint: expect.any(String) },
     });
+  });
+});
+
+describe("worker agent entries", () => {
+  const draft = draftOf("general-main", WORKER) as WorkerDraft;
+
+  it("lists the declared agents first and then the entries of undeclared agents", () => {
+    const withExtra = withAgentEntry(draft, "old@1", true);
+    expect(agentRowsOf(["re@1", "swe@1"], withExtra.entries)).toEqual([
+      { agent: "re@1", declared: true, index: null },
+      { agent: "swe@1", declared: true, index: 0 },
+      { agent: "old@1", declared: false, index: 1 },
+    ]);
+  });
+
+  it("adds an empty entry for a custom configuration and removes it again", () => {
+    const custom = withAgentEntry(draft, "re@1", true);
+    expect(custom.entries.map((entry) => entry.agent)).toEqual(["swe@1", "re@1"]);
+    expect(withAgentEntry(custom, "re@1", false).entries).toEqual(draft.entries);
+  });
+
+  it("refuses an entry that changes no value", () => {
+    const empty = withAgentEntry({ ...draft, entries: [] }, "swe@1", true);
+    expect(entryOfDraft(empty, [])).toMatchObject({
+      ok: false,
+      errors: { "entries.0.modelIdentifier": expect.any(String) },
+    });
+  });
+
+  it("refuses a custom agent provider without a model and an effort", () => {
+    const provider = {
+      ...draft,
+      entries: [
+        { agent: "swe@1", agentProvider: "codex", modelIdentifier: "", reasoningEffort: "" },
+      ],
+    };
+    expect(entryOfDraft(provider, [])).toMatchObject({
+      ok: false,
+      errors: {
+        "entries.0.modelIdentifier": "A custom agent provider needs a model identifier.",
+        "entries.0.reasoningEffort": "A custom agent provider needs a reasoning effort.",
+      },
+    });
+  });
+
+  it("accepts a complete entry", () => {
+    const complete = {
+      ...draft,
+      entries: [
+        {
+          agent: "swe@1",
+          agentProvider: "codex",
+          modelIdentifier: "gpt-6-luna",
+          reasoningEffort: "high",
+        },
+      ],
+    };
+    expect(entryOfDraft(complete, [])).toMatchObject({ ok: true });
   });
 });
 

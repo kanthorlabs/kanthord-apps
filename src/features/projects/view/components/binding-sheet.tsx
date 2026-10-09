@@ -21,6 +21,8 @@ import { useBindingCredential } from "../use-binding-credential";
 import { useBindingCheck } from "../use-binding-check";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
 import { useRepositoryCredentials } from "../use-repository-credentials";
+import { useWorkerAgents } from "../use-worker-agents";
+import { useWorkerNames } from "../use-worker-names";
 import { DraftField } from "./draft-field";
 import { RepositoryForm } from "./repository-form";
 import { StorageForm } from "./storage-form";
@@ -69,6 +71,8 @@ export function BindingSheet({
   const kindLabel = KIND_LABELS[target.kind];
 
   const credentials = useRepositoryCredentials();
+  const workerNames = useWorkerNames();
+  const workerAgents = useWorkerAgents(draft.kind === "worker" ? draft.worker : "");
   const allCredentials = credentials.data ?? [];
   const sshCredentials = allCredentials.filter((c) => c.platform === "ssh");
   const apiCredentials = allCredentials.filter((c) => c.platform === "github");
@@ -187,6 +191,8 @@ export function BindingSheet({
                     draft={draft}
                     errors={errors}
                     creating={form.creating}
+                    workers={workerNames.data ?? []}
+                    agents={workerAgents}
                     onEdit={form.edit}
                   />
                 )}
