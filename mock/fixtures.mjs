@@ -52,7 +52,7 @@ export const WORKER_CATALOG = [
   },
 ];
 
-export const RELEASED_WORKERS = ["developer@1"];
+export const RELEASED_WORKERS = ["developer@1", "reviewer@1"];
 
 export const WORKER_INSTANCES = [
   {
