@@ -1,3 +1,4 @@
+import { RecordName } from "@/components/record-name";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,7 +47,7 @@ export function BindingGuardDialog({ guard, saving, onConfirm, onSafer }: Bindin
               <ul className="mt-1 list-disc pl-4">
                 {nodes.map((node) => (
                   <li key={node.filename} className="break-words">
-                    {node.name}
+                    <RecordName>{node.name}</RecordName>
                   </li>
                 ))}
               </ul>

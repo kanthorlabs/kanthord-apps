@@ -4,8 +4,7 @@ import type { InstructionFile } from "@/api/types";
 import {
   absentFilesLabel,
   holdsNoInstructionFile,
-  noInstructionFileLine,
-  readingInstructionFilesLine,
+  instructionFileNamesText,
   shortCommit,
 } from "./instruction-files";
 
@@ -29,15 +28,9 @@ describe("instruction files", () => {
     expect(holdsNoInstructionFile([file("absent"), file("present")])).toBe(false);
   });
 
-  it("names the four files and the base branch in the empty line", () => {
-    expect(noInstructionFileLine("web-app", "main")).toBe(
-      "web-app holds none of AGENTS.md, AGENTS.local.md, CLAUDE.md, CLAUDE.local.md on main.",
-    );
-  });
-
-  it("names the four files and the binding in the reading line", () => {
-    expect(readingInstructionFilesLine("web-app")).toBe(
-      "The server fetches AGENTS.md, AGENTS.local.md, CLAUDE.md, CLAUDE.local.md from web-app. This can take a few seconds.",
+  it("names the four files in order", () => {
+    expect(instructionFileNamesText()).toBe(
+      "AGENTS.md, AGENTS.local.md, CLAUDE.md, CLAUDE.local.md",
     );
   });
 });

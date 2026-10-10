@@ -17,6 +17,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { NodeControls } from "./node-controls";
+import { textContent } from "../../../../../test/text-content";
 
 const TEAM: MissionRunnableNode = {
   id: "node_team",
@@ -115,7 +116,9 @@ describe("NodeControls", () => {
     const dialog = await screen.findByRole("alertdialog");
     expect(
       within(dialog).getByText(
-        "Unblock rejects the open proposals: Send the invite email in the workspace language. They stay recorded, but the initiative runs the next attempt without the fix objective.",
+        textContent(
+          "Unblock rejects the open proposals: Send the invite email in the workspace language. They stay recorded, but the initiative runs the next attempt without the fix objective.",
+        ),
       ),
     ).toBeTruthy();
     await userEvent.type(within(dialog).getByLabelText("Reason"), "Retry without the fix.");

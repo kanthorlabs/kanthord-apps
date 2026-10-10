@@ -5,6 +5,7 @@ import { ApiError } from "@/api/errors";
 import { discardNode } from "@/api/resources/mission";
 import type { MissionControlResult, MissionRunnableNode, NodeState } from "@/api/types";
 import { useNodeDiscard } from "./use-node-discard";
+import { renderedText } from "../../../../test/text-content";
 
 vi.mock("@/api/resources/mission", () => ({ discardNode: vi.fn() }));
 vi.mock("sonner", () => ({
@@ -97,12 +98,16 @@ describe("useNodeDiscard", () => {
   });
 
   it("names the closed attempt, the outcome and the lost dependency", () => {
-    expect(mount().result.current.consequence).toBe(
-      "Discard closes attempt 3 of Audit log, writes an undetermined outcome with the reason and ends the node as Discarded. A discarded node satisfies no dependency, so a node that depends on Audit log cannot start. A discard cannot be undone.",
-    );
-    expect(mount({ ...OBJECTIVE, state: "Blocked" }).result.current.saferPath).toBe(
-      "To run Audit log again instead, keep it and unblock it.",
-    );
+    expect(renderedText(mount().result.current.consequence)).toEqual({
+      text: "Discard closes attempt 3 of Audit log, writes an undetermined outcome with the reason and ends the node as Discarded. A discarded node satisfies no dependency, so a node that depends on Audit log cannot start. A discard cannot be undone.",
+      bold: ["Audit log", "Audit log"],
+    });
+    expect(
+      renderedText(mount({ ...OBJECTIVE, state: "Blocked" }).result.current.saferPath),
+    ).toEqual({
+      text: "To run Audit log again instead, keep it and unblock it.",
+      bold: ["Audit log"],
+    });
   });
 
   it.each([

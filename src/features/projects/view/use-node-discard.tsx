@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { discardNode } from "@/api/resources/mission";
 import type { MissionRunnableNode, NodeState } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 
 export interface NodeDiscardState {
@@ -12,8 +13,8 @@ export interface NodeDiscardState {
   readonly missing: string | null;
   readonly error: string | null;
   readonly discarding: boolean;
-  readonly consequence: string;
-  readonly saferPath: string;
+  readonly consequence: ReactNode;
+  readonly saferPath: ReactNode;
   readonly request: () => void;
   readonly setReason: (reason: string) => void;
   readonly cancel: () => void;
@@ -49,22 +50,41 @@ function isDiscardable(node: MissionRunnableNode): boolean {
   return node.retired_at === null && DISCARD_STATES.includes(node.state);
 }
 
-function consequenceOf(node: MissionRunnableNode): string {
+function consequenceOf(node: MissionRunnableNode): ReactNode {
   const outcome = "writes an undetermined outcome with the reason and ends the node as Discarded";
+  const name = <RecordName>{node.content.name}</RecordName>;
   const close =
-    node.attempt === 0
-      ? `No attempt of ${node.content.name} is open. Discard ${outcome}.`
-      : node.state === "Blocked"
-        ? `Attempt ${node.attempt} of ${node.content.name} is closed. Discard ${outcome}.`
-        : `Discard closes attempt ${node.attempt} of ${node.content.name}, ${outcome}.`;
-  return `${close} A discarded node satisfies no dependency, so a node that depends on ${node.content.name} cannot start. A discard cannot be undone.`;
+    node.attempt === 0 ? (
+      <>
+        No attempt of {name} is open. Discard {outcome}.
+      </>
+    ) : node.state === "Blocked" ? (
+      <>
+        Attempt {node.attempt} of {name} is closed. Discard {outcome}.
+      </>
+    ) : (
+      <>
+        Discard closes attempt {node.attempt} of {name}, {outcome}.
+      </>
+    );
+  return (
+    <>
+      {close} A discarded node satisfies no dependency, so a node that depends on {name} cannot
+      start. A discard cannot be undone.
+    </>
+  );
 }
 
-function saferPathOf(node: MissionRunnableNode): string {
+function saferPathOf(node: MissionRunnableNode): ReactNode {
+  const name = <RecordName>{node.content.name}</RecordName>;
   if (node.state === "Blocked") {
-    return `To run ${node.content.name} again instead, keep it and unblock it.`;
+    return <>To run {name} again instead, keep it and unblock it.</>;
   }
-  return `To keep ${node.content.name}, cancel. The node stays ${node.state}.`;
+  return (
+    <>
+      To keep {name}, cancel. The node stays {node.state}.
+    </>
+  );
 }
 
 export function useNodeDiscard(

@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { approveProposal } from "@/api/resources/mission";
 import type { MissionProposal, MissionRunnableNode } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 
 export interface ProposalApproveState {
@@ -10,8 +11,8 @@ export interface ProposalApproveState {
   readonly reason: string;
   readonly error: string | null;
   readonly approving: boolean;
-  readonly consequence: string;
-  readonly saferPath: string;
+  readonly consequence: ReactNode;
+  readonly saferPath: ReactNode;
   readonly canApprove: (proposal: MissionProposal) => boolean;
   readonly unavailableReason: (proposal: MissionProposal) => string | null;
   readonly request: (proposal: MissionProposal) => void;
@@ -101,7 +102,12 @@ export function useProposalApprove(
       () => {
         setApproving(false);
         toast.success(`Approved the proposal ${target.content.name}.`, {
-          description: `The objective is created under ${initiative.content.name}, and the initiative is unblocked.`,
+          description: (
+            <>
+              The objective is created under <RecordName>{initiative.content.name}</RecordName>, and
+              the initiative is unblocked.
+            </>
+          ),
         });
         setTarget(null);
         reload();
@@ -120,8 +126,19 @@ export function useProposalApprove(
     reason,
     error,
     approving,
-    consequence: `Approve creates the objective ${target?.content.name ?? ""} with its task under ${initiative.content.name} and unblocks the initiative. An approve cannot be undone.`,
-    saferPath: `To reject the proposal, keep it unapproved and use Unblock or Discard in the Controls section of ${initiative.content.name} instead.`,
+    consequence: (
+      <>
+        Approve creates the objective <RecordName>{target?.content.name ?? ""}</RecordName> with its
+        task under <RecordName>{initiative.content.name}</RecordName> and unblocks the initiative.
+        An approve cannot be undone.
+      </>
+    ),
+    saferPath: (
+      <>
+        To reject the proposal, keep it unapproved and use Unblock or Discard in the Controls
+        section of <RecordName>{initiative.content.name}</RecordName> instead.
+      </>
+    ),
     canApprove,
     unavailableReason,
     request,

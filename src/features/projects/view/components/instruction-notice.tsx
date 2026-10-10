@@ -1,9 +1,6 @@
+import { RecordName } from "@/components/record-name";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  holdsNoInstructionFile,
-  noInstructionFileLine,
-  readingInstructionFilesLine,
-} from "@/lib/instruction-files";
+import { holdsNoInstructionFile, instructionFileNamesText } from "@/lib/instruction-files";
 import type { InstructionFilesState } from "../use-instruction-files";
 import { InstructionRefusal } from "./instruction-refusal";
 
@@ -38,8 +35,13 @@ export function InstructionNotice({
       >
         <Spinner aria-hidden="true" role="presentation" className="mt-0.5 shrink-0" />
         <div className="flex min-w-0 flex-col gap-1">
-          <p>Reading the instruction files from {baseBranch}.</p>
-          <p className="text-muted-foreground">{readingInstructionFilesLine(bindingName)}</p>
+          <p>
+            Reading the instruction files from <RecordName>{baseBranch}</RecordName>.
+          </p>
+          <p className="text-muted-foreground">
+            The server fetches {instructionFileNamesText()} from{" "}
+            <RecordName>{bindingName}</RecordName>. This can take a few seconds.
+          </p>
         </div>
       </div>
     );
@@ -56,7 +58,8 @@ export function InstructionNotice({
   if (holdsNoInstructionFile(view.files.files)) {
     return (
       <p className="text-sm text-muted-foreground">
-        {noInstructionFileLine(bindingName, baseBranch)}
+        <RecordName>{bindingName}</RecordName> holds none of {instructionFileNamesText()} on{" "}
+        <RecordName>{baseBranch}</RecordName>.
       </p>
     );
   }

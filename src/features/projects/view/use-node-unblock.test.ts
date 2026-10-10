@@ -5,6 +5,7 @@ import { ApiError } from "@/api/errors";
 import { unblockNode } from "@/api/resources/mission";
 import type { MissionControlResult, MissionProposal, MissionRunnableNode } from "@/api/types";
 import { useNodeUnblock } from "./use-node-unblock";
+import { renderedText } from "../../../../test/text-content";
 
 vi.mock("@/api/resources/mission", () => ({ unblockNode: vi.fn() }));
 vi.mock("sonner", () => ({
@@ -127,12 +128,14 @@ describe("useNodeUnblock", () => {
       },
     ]);
 
-    expect(result.current.proposalNotice).toBe(
-      "Unblock rejects the open proposals: Fix the invite link. They stay recorded, but the initiative runs the next attempt without the fix objective.",
-    );
-    expect(result.current.consequence).toBe(
-      "Unblock opens attempt 3 of Team workspaces at revision 3 and makes the node Available.",
-    );
+    expect(renderedText(result.current.proposalNotice)).toEqual({
+      text: "Unblock rejects the open proposals: Fix the invite link. They stay recorded, but the initiative runs the next attempt without the fix objective.",
+      bold: ["Fix the invite link"],
+    });
+    expect(renderedText(result.current.consequence)).toEqual({
+      text: "Unblock opens attempt 3 of Team workspaces at revision 3 and makes the node Available.",
+      bold: ["Team workspaces"],
+    });
   });
 
   it("states no proposal notice without an open proposal", () => {

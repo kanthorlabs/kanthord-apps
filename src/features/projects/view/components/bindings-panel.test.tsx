@@ -28,6 +28,7 @@ vi.mock("sonner", async (importOriginal) => ({
 import { toast } from "sonner";
 
 import { BindingsPanel } from "./bindings-panel";
+import { textContent } from "../../../../../test/text-content";
 
 const REPO: BindingSetEntry = {
   kind: "repository",
@@ -462,7 +463,7 @@ describe("BindingsPanel", () => {
 
     const swe = await agentItem("swe@1");
     expect(within(swe).getByText("Enabled")).toBeTruthy();
-    expect(within(swe).getByText("Default: codex · gpt-6-luna · medium")).toBeTruthy();
+    expect(within(swe).getByText(textContent("Default: codex · gpt-6-luna · medium"))).toBeTruthy();
     const re = await agentItem("re@1");
     expect(within(re).getByText("Not enabled")).toBeTruthy();
     expect(within(re).getByRole("link", { name: "agent page" })).toHaveAttribute(
@@ -513,7 +514,9 @@ describe("BindingsPanel", () => {
 
     expect(
       await within(swe).findByText(
-        "Optional. Empty keeps the default model. The model list of codex is unavailable: The provider does not answer.",
+        textContent(
+          "Optional. Empty keeps the default model. The model list of codex is unavailable: The provider does not answer.",
+        ),
       ),
     ).toBeTruthy();
     expect(within(swe).getByRole("textbox", { name: "Model identifier" })).toBeTruthy();
