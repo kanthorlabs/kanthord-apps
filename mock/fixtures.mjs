@@ -346,6 +346,10 @@ export const GRAPH_IDS = {
   webhook: graphId("YC2"),
   invoices: graphId("YC3"),
   metering: graphId("YC4"),
+  team: graphId("YD1"),
+  invite: graphId("YD2"),
+  inviteFix: graphId("YD3"),
+  inviteFixTask: graphId("YD4"),
 };
 
 const ids = GRAPH_IDS;
@@ -440,6 +444,31 @@ export const GRAPH_NODES = [
       REPO,
     ]),
     { state: "Pending", attempt: 0 },
+  ),
+  graphNode("YD1", "initiative", "team-workspaces.md", null, content("Team workspaces", []), {
+    state: "Blocked",
+    attempt: 2,
+    pinned_by_attempts: [2],
+  }),
+  graphNode("YD2", "objective", "invite-members.md", ids.team, content("Invite members", [REPO]), {
+    state: "Completed",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  graphNode(
+    "YD3",
+    "objective",
+    "proposal-01j9zq4xkm3b6v8n2r5t7w0pd1.md",
+    ids.team,
+    content("Expire an invite link after its first use", [REPO]),
+    { state: "Completed", attempt: 1, pinned_by_attempts: [1] },
+  ),
+  graphNode(
+    "YD4",
+    "task",
+    "proposal-01j9zq4xkm3b6v8n2r5t7w0pd1-task.md",
+    ids.inviteFix,
+    content("Mark the invite link used", []),
   ),
 ];
 
@@ -546,6 +575,16 @@ export const GRAPH_ATTEMPTS = {
       opened_by: execution("EC3", "general-main #2"),
     },
   ],
+  [ids.team]: [1, 2].map((attempt) => ({
+    node_id: ids.team,
+    attempt,
+    node_revision: 1,
+    required_external_actions: [],
+    opened_at: minutes(attempt === 1 ? 1800 : 1400),
+    closed_at: minutes(attempt === 1 ? 1600 : 90),
+    outcome_ids: attempt === 1 ? [] : ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0OD1"],
+    opened_by: execution("ED9", "reviewer-main #1"),
+  })),
   [ids.verify]: [
     {
       node_id: ids.verify,
@@ -697,6 +736,26 @@ export const GRAPH_ASSESSMENTS = [
     child_node_ids: [],
     worker_version: "reviewer@1",
   },
+  ...[1, 2].map((attempt) => ({
+    id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD${attempt}`,
+    node_id: ids.team,
+    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0ED9",
+    attempt,
+    node_revision: 1,
+    evidence_ids: [],
+    child_outcome_ids: [],
+    result: "criterion-not-met",
+    rationale:
+      attempt === 1
+        ? "Invite members is Completed, but one invite link admits a second member."
+        : "Invite members is Completed, but the invite email uses the language of the sender.",
+    tested_input: null,
+    actor: execution("ED9", "reviewer-main #1"),
+    created_at: minutes(attempt === 1 ? 1600 : 95),
+    currency: null,
+    child_node_ids: [ids.invite],
+    worker_version: "reviewer@1",
+  })),
 ];
 
 export const GRAPH_OUTCOMES = [
@@ -721,6 +780,68 @@ export const GRAPH_OUTCOMES = [
     assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SS1",
     evidence_ids: ["evidence_01J9ZQ4XKM3B6V8N2R5T7W0VS1"],
     created_at: minutes(5000),
+  },
+  {
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OD1",
+    node_id: ids.team,
+    attempt: 2,
+    node_revision: 1,
+    closing_event: "assessment-not-passed",
+    result: "criterion-not-met",
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD2",
+    evidence_ids: [],
+    created_at: minutes(90),
+  },
+];
+
+const proposalTask = (name, requirement, criterion) => ({
+  name,
+  requirement,
+  criterion,
+  verifications: ["pnpm test invites", "pnpm lint"],
+});
+
+export const GRAPH_PROPOSALS = [
+  {
+    id: "proposal_01J9ZQ4XKM3B6V8N2R5T7W0PD1",
+    node_id: ids.team,
+    attempt: 1,
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD1",
+    content: {
+      objective_id: ids.invite,
+      name: "Expire an invite link after its first use",
+      requirement: "An invite link admits one member. A second use of the link fails.",
+      criterion: "A test uses one invite link twice and the second use answers 410.",
+      task: proposalTask(
+        "Mark the invite link used",
+        "Store the first use of an invite link and refuse every later use.",
+        "The invite store holds the use time after the first use.",
+      ),
+    },
+    objective_node_id: ids.inviteFix,
+    approved_at: minutes(1500),
+    created_at: minutes(1600),
+  },
+  {
+    id: "proposal_01J9ZQ4XKM3B6V8N2R5T7W0PD2",
+    node_id: ids.team,
+    attempt: 2,
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD2",
+    content: {
+      objective_id: ids.invite,
+      name: "Send the invite email in the language of the workspace",
+      requirement:
+        "The invite email uses the language that the workspace settings name, not the language of the sender.",
+      criterion: "A test invites a member to a German workspace and the email text is German.",
+      task: proposalTask(
+        "Pick the invite template by the workspace language",
+        "Read the workspace language before the invite email renders.",
+        "The rendered email names the workspace language in its lang attribute.",
+      ),
+    },
+    objective_node_id: null,
+    approved_at: null,
+    created_at: minutes(90),
   },
 ];
 
