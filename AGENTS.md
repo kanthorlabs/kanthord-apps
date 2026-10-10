@@ -108,6 +108,13 @@ The `## Design` section is normative. A change that breaks a rule in it is a def
 - **A data list row is compact by default.** A field of a `DataListItem` shows its label and its value
   on one line, and the fields wrap as a flow. A long value wraps inside its field and never widens
   the page.
+- **A record name outside a title renders in bold.** A record name is a short data value that names a
+  record, for example a node name, a credential name, an agent name or a binding name. It renders
+  through `RecordName` in prose, dialogs, toasts, notices, tooltips, empty text, field values, fact
+  values and labels that are not a title. In a title slot it keeps the weight of the title. Long
+  data text, for example a reason, a body or a message, keeps the regular weight. A machine
+  identifier, for example an id, an execution id or a commit, keeps the regular weight. An option of
+  a select and the text of a `Badge` keep their stock appearance.
 - **Review at both baselines.** jsdom cannot assert layout. Before approval, the reviewer runs the
   dev server with the mock daemon and exercises each changed screen at both baselines: touch and
   keyboard use, focus, overflow, long content, and the empty, loading and error states.
