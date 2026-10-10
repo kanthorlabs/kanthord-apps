@@ -1,16 +1,17 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { archiveCredential } from "@/api/resources/credentials";
 import type { Credential, CredentialComponent } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { credentialSectionPath } from "@/lib/credential-sections";
 import { writeFailureOf } from "../write-failure";
 
 export interface CredentialArchiveState {
   readonly open: boolean;
-  readonly consequence: string;
-  readonly saferPath: string;
+  readonly consequence: ReactNode;
+  readonly saferPath: ReactNode;
   readonly error: string | null;
   readonly archiving: boolean;
   readonly request: () => void;
@@ -57,8 +58,19 @@ export function useCredentialArchive(
 
   return {
     open,
-    consequence: `Every live revision of ${credential.name} ends at once. Every execution that pins one is refused at its next use. The record stays, because an execution record references it. An archive is final, and the name stays taken.`,
-    saferPath: `Keep ${credential.name}. Rotate the secret instead when only the secret changes.`,
+    consequence: (
+      <>
+        Every live revision of <RecordName>{credential.name}</RecordName> ends at once. Every
+        execution that pins one is refused at its next use. The record stays, because an execution
+        record references it. An archive is final, and the name stays taken.
+      </>
+    ),
+    saferPath: (
+      <>
+        Keep <RecordName>{credential.name}</RecordName>. Rotate the secret instead when only the
+        secret changes.
+      </>
+    ),
     error,
     archiving,
     request,

@@ -13,6 +13,7 @@ import { archiveTime, isArchived, newestLiveRevision } from "@/lib/credential-re
 import { platformEntryOf } from "@/lib/credential-platforms";
 import { credentialDetailPath, credentialSectionPath } from "@/lib/credential-sections";
 import { utcDateTime } from "@/lib/format";
+import { RecordName } from "@/components/record-name";
 import { CheckStatusBadge } from "../components/check-status-badge";
 import { MetadataSheet } from "../components/metadata-sheet";
 import { PlatformCombobox } from "../components/platform-combobox";
@@ -65,7 +66,14 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
         }
         select={{ label: `Open ${name}`, disabled: false, onSelect: () => navigate(detailPath) }}
         fields={[
-          { label: "Platform", value: <span className="font-mono">{credential.platform}</span> },
+          {
+            label: "Platform",
+            value: (
+              <span className="font-mono">
+                <RecordName>{credential.platform}</RecordName>
+              </span>
+            ),
+          },
           archivedAt === null
             ? { label: "Updated", value: newest === null ? "—" : utcDateTime(newest.created_at) }
             : { label: "Archived", value: utcDateTime(archivedAt) },

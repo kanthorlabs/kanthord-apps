@@ -22,6 +22,7 @@ vi.mock("sonner", async (importOriginal) => ({
 
 import { toast } from "sonner";
 import { CredentialScreen } from "./credential-screen";
+import { textContent } from "../../../../test/text-content";
 
 const BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -171,8 +172,11 @@ describe("CredentialScreen", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
     const dialog = await screen.findByRole("alertdialog");
-    expect(within(dialog).getByText(/Every live revision of router ends at once\./)).toBeTruthy();
+    expect(
+      within(dialog).getByText(textContent(/Every live revision of router ends at once\./)),
+    ).toBeTruthy();
     expect(within(dialog).getByText(/The record stays/)).toBeTruthy();
+    expect(within(dialog).getAllByText("router", { selector: "strong" })).toHaveLength(2);
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive router" }));
 
     expect(credentialsApi.archiveCredential).toHaveBeenCalledWith("llm", "router");
@@ -410,7 +414,9 @@ describe("CredentialScreen", () => {
     expect(trigger).toHaveFocus();
 
     expect(
-      await screen.findByText("Verification is not supported yet for cloudflare-ai-gateway."),
+      await screen.findByText(
+        textContent("Verification is not supported yet for cloudflare-ai-gateway."),
+      ),
     ).toBeTruthy();
     expect(credentialsApi.verifyCredential).not.toHaveBeenCalled();
   });

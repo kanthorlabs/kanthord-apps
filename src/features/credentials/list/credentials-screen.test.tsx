@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { CredentialsScreen } from "./credentials-screen";
 import { utcDateTime } from "@/lib/format";
+import { textContent } from "../../../../test/text-content";
 
 const OPENROUTER: Credential = {
   name: "ci-openrouter",
@@ -132,7 +133,7 @@ describe("CredentialsScreen", () => {
     const list = await screen.findByRole("list", { name: "Credentials" });
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
-    expect(within(items[0]!).getByText("openrouter")).toBeTruthy();
+    expect(within(items[0]!).getByText("openrouter").tagName).toBe("STRONG");
     expect(within(items[0]!).getByText("(v2)")).toBeTruthy();
     expect(within(items[0]!).getByText("2026-10-03 14:05 UTC")).toBeTruthy();
     expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("llm", null, null, false);
@@ -228,9 +229,13 @@ describe("CredentialsScreen", () => {
     });
 
     expect(
-      await screen.findByText("Verification is not supported yet for amazon-bedrock.", undefined, {
-        timeout: 300,
-      }),
+      await screen.findByText(
+        textContent("Verification is not supported yet for amazon-bedrock."),
+        undefined,
+        {
+          timeout: 300,
+        },
+      ),
     ).toBeTruthy();
     expect(credentialsApi.verifyCredential).not.toHaveBeenCalled();
   });
@@ -251,9 +256,13 @@ describe("CredentialsScreen", () => {
     await userEvent.hover(screen.getByRole("button", { name: "Verify bedrock" }));
 
     expect(
-      await screen.findByText("Verification is not supported yet for amazon-bedrock.", undefined, {
-        timeout: 2000,
-      }),
+      await screen.findByText(
+        textContent("Verification is not supported yet for amazon-bedrock."),
+        undefined,
+        {
+          timeout: 2000,
+        },
+      ),
     ).toBeTruthy();
   });
 
