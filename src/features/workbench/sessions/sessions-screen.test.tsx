@@ -18,6 +18,7 @@ vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
 import { SessionsScreen } from "./sessions-screen";
+import { textContent } from "../../../../test/text-content";
 
 const ENABLEMENT: AgentEnablement = {
   agent_name: "swe@1",
@@ -148,7 +149,7 @@ describe("SessionsScreen", () => {
     const dialog = await openDialog();
 
     expect(
-      within(dialog).getByText(/The enablement of swe@1 names 2 agent providers\./),
+      within(dialog).getByText(textContent(/The enablement of swe@1 names 2 agent providers\./)),
     ).toBeTruthy();
     expect(
       within(dialog).getByRole("link", { name: "Add an agent provider on the agent page." }),

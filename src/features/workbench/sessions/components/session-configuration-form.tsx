@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { ConfigurationFields } from "@/components/configuration-fields";
+import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
@@ -53,7 +54,8 @@ export function SessionConfigurationForm({
           errors={errors}
         />
         <FieldDescription className="md:col-span-2">
-          {agentProviderCountText(agentName, enablement.agent_providers.length)}{" "}
+          The enablement of <RecordName>{agentName}</RecordName> names{" "}
+          {agentProviderCountText(enablement.agent_providers.length)}.{" "}
           <Link to={agentPath(agentName)}>Add an agent provider on the agent page.</Link>
         </FieldDescription>
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end md:col-span-2 [&>button]:max-sm:w-full">

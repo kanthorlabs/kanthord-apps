@@ -29,7 +29,6 @@ export function agentPath(agentName: string): string {
   return `/agents/${encodeURIComponent(agentName)}`;
 }
 
-export function agentProviderCountText(agentName: string, count: number): string {
-  const noun = count === 1 ? "agent provider" : "agent providers";
-  return `The enablement of ${agentName} names ${count} ${noun}.`;
+export function agentProviderCountText(count: number): string {
+  return `${count} ${count === 1 ? "agent provider" : "agent providers"}`;
 }
