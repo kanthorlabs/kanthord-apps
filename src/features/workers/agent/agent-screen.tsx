@@ -152,11 +152,11 @@ function EnablementSection({ agentName, enablement, reload }: EnablementSectionP
               <dd className="tabular-nums">{enablement.revision}</dd>
               <dt className="text-muted-foreground">Default agent provider</dt>
               <dd className="font-mono break-all">
-                <RecordName>{enablement.default_configuration.agent_provider}</RecordName>
+                {enablement.default_configuration.agent_provider}
               </dd>
               <dt className="text-muted-foreground">Default model</dt>
               <dd className="font-mono break-all">
-                <RecordName>{enablement.default_configuration.model_identifier}</RecordName>
+                {enablement.default_configuration.model_identifier}
               </dd>
               <dt className="text-muted-foreground">Default reasoning effort</dt>
               <dd className="font-mono">{enablement.default_configuration.reasoning_effort}</dd>

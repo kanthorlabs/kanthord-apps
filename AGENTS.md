@@ -108,15 +108,17 @@ The `## Design` section is normative. A change that breaks a rule in it is a def
 - **A data list row is compact by default.** A field of a `DataListItem` shows its label and its value
   on one line, and the fields wrap as a flow. A long value wraps inside its field and never widens
   the page.
-- **A record name outside a title renders in bold.** A record name is a short data value that names a
-  record, for example a node name, a credential name, an agent name or a binding name. It renders
-  through `RecordName` in prose, dialog descriptions, notices, tooltips, toast descriptions, field
-  values, fact values and labels that are not a title. A title slot keeps the weight of the title. A
-  title slot is a `DataListItem` title, an `ItemTitle`, the title of a card, a sheet or a dialog, a
-  section heading, an `EmptyTitle` and the message of a toast. Long data text, for example a reason,
-  a body or a message, keeps the regular weight. A machine identifier, for example an id, an
-  execution id or a commit, keeps the regular weight. The label of a `Button`, an option of a select
-  and the text of a `Badge` keep their stock appearance.
+- **A record name inside prose renders in bold.** A record name is a short data value that names a
+  record, for example a node name, a credential name, an agent name or a binding name. Inside a
+  sentence or an inline line of facts, it renders through `RecordName`. This covers dialog
+  descriptions, notices, tooltips, toast descriptions and lines such as `ssh atlas-ssh · credential
+atlas-github`. A field value, a fact value or a list item that holds only names keeps the regular
+  weight, because its label marks it and a bold value outweighs the title. A title slot keeps the
+  weight of the title. A title slot is a `DataListItem` title, an `ItemTitle`, the title of a card, a
+  sheet or a dialog, a section heading, an `EmptyTitle` and the message of a toast. Long data text,
+  for example a reason, a body or a message, keeps the regular weight. A machine identifier, for
+  example an id, an execution id or a commit, keeps the regular weight. The label of a `Button`, an
+  option of a select and the text of a `Badge` keep their stock appearance.
 - **Review at both baselines.** jsdom cannot assert layout. Before approval, the reviewer runs the
   dev server with the mock daemon and exercises each changed screen at both baselines: touch and
   keyboard use, focus, overflow, long content, and the empty, loading and error states.

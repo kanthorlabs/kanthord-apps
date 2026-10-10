@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import type { CredentialBinding } from "@/api/types";
 import { DataListItem } from "@/components/data-list-item";
-import { RecordName } from "@/components/record-name";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
@@ -27,9 +26,7 @@ export function BindingList({ bindings }: { bindings: readonly CredentialBinding
             <DataListItem
               key={binding.binding_id}
               title={binding.name}
-              fields={[
-                { label: "Project", value: <RecordName>{binding.project_name}</RecordName> },
-              ]}
+              fields={[{ label: "Project", value: binding.project_name }]}
               actions={
                 <Button
                   nativeButton={false}
