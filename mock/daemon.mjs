@@ -36,6 +36,7 @@ const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
 const graphNodes = structuredClone(fx.GRAPH_NODES);
 const graphEdges = structuredClone(fx.GRAPH_EDGES);
 const proposals = structuredClone(fx.GRAPH_PROPOSALS);
+const graphOutcomes = structuredClone(fx.GRAPH_OUTCOMES);
 let nodeSequence = 10;
 
 const routes = [];
@@ -905,7 +906,7 @@ const graphNodeRead = (node) => {
   if (node.kind === "task") return node;
   const runnable = { ...node, depends_on: dependsOnOf(node.id) };
   if (node.state !== "Blocked") return runnable;
-  const outcome = fx.GRAPH_OUTCOMES.filter((item) => item.node_id === node.id).at(-1);
+  const outcome = graphOutcomes.filter((item) => item.node_id === node.id).at(-1);
   return outcome === undefined
     ? runnable
     : { ...runnable, blocked_context: { outcome, requests: [] } };
@@ -1009,7 +1010,7 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/assessment$/, (m, _b, res, _t, url) =
 );
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
-  json(res, 200, page(byAttempt(fx.GRAPH_OUTCOMES, decodeURIComponent(m[1]), url))),
+  json(res, 200, page(byAttempt(graphOutcomes, decodeURIComponent(m[1]), url))),
 );
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
@@ -1095,6 +1096,123 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
       actor: fx.GRAPH_HUMAN,
       accepted_at: now,
     },
+  });
+});
+
+const DISCARD_STATES = [
+  "Pending",
+  "Available",
+  "Executing",
+  "Waiting",
+  "Evaluating",
+  "Blocked",
+  "Paused",
+  "External.Success",
+  "External.Failed",
+];
+
+const controlRefusal = (res, node, expectedVersion) => {
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  if (node.retired_at !== null)
+    return projectEnvelope(res, 409, "mission.node.retired", "Node is retired.");
+  if (node.kind === "task")
+    return projectEnvelope(
+      res,
+      400,
+      "mission.node.control_task",
+      "Task nodes have no controls or execution records.",
+    );
+  if (expectedVersion !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  if (node.state === "Completed" || node.state === "Discarded")
+    return projectEnvelope(res, 409, "mission.node.terminal", "Node is terminal.");
+  return null;
+};
+
+const stateConflict = (res, node) =>
+  projectEnvelope(res, 409, "mission.node.state_conflict", "Node state or attempt changed.", {
+    state: node.state,
+    attempt: node.attempt,
+  });
+
+const controlRefused = (res, node) =>
+  projectEnvelope(
+    res,
+    409,
+    "mission.node.control_refused",
+    "Control is not admitted in this state.",
+    {
+      state: node.state,
+    },
+  );
+
+const blankReason = (res) =>
+  projectEnvelope(res, 400, "mission.node.content_invalid", "The reason is blank.", {
+    field: "reason",
+  });
+
+const isBlank = (value) => typeof value !== "string" || value.trim().length === 0;
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = controlRefusal(res, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (node.attempt !== b.blocked_attempt) return stateConflict(res, node);
+  if (node.state !== "Blocked") return controlRefused(res, node);
+  if (b.reason !== undefined && isBlank(b.reason)) return blankReason(res);
+  if (node.visible_revision !== b.expected_revision)
+    return projectEnvelope(res, 409, "mission.revision.conflict", "Node revision changed.", {
+      current: node.visible_revision,
+    });
+  if (node.attempt > 0) {
+    node.attempt += 1;
+    node.pinned_by_attempts = [...node.pinned_by_attempts, node.attempt];
+  }
+  node.state = "Available";
+  return json(res, 200, {
+    node: graphNodeRead(node),
+    attempt: null,
+    outcome: null,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: Date.now(),
+  });
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = controlRefusal(res, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (node.state !== b.expected_state || node.attempt !== b.expected_attempt)
+    return stateConflict(res, node);
+  if (!DISCARD_STATES.includes(node.state)) return controlRefused(res, node);
+  if (isBlank(b.reason)) return blankReason(res);
+  const now = Date.now();
+  const sequence = String(graphOutcomes.length).padStart(2, "0");
+  const outcome = {
+    id: `outcome_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    node_id: node.id,
+    attempt: node.attempt,
+    node_revision: node.visible_revision,
+    closing_event: "human-discard",
+    result: "undetermined",
+    assessment_id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    evidence_ids: [],
+    created_at: now,
+  };
+  graphOutcomes.push(outcome);
+  node.state = "Discarded";
+  return json(res, 200, {
+    node: graphNodeRead(node),
+    attempt: null,
+    outcome,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: now,
   });
 });
 
