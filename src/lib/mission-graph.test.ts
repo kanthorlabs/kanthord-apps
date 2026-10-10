@@ -8,7 +8,7 @@ import type {
   NodeState,
 } from "@/api/types";
 
-import { buildGraph, closureOf, diagnosticText, objectiveProgress } from "./mission-graph";
+import { buildGraph, closureOf, diagnosticKey, objectiveProgress } from "./mission-graph";
 
 function runnable(
   id: string,
@@ -197,13 +197,13 @@ describe("objectiveProgress", () => {
   });
 });
 
-describe("diagnosticText", () => {
-  it("names both ends of an unresolved dependency", () => {
+describe("diagnosticKey", () => {
+  it("keys an unresolved dependency by both ends", () => {
     const model = buildGraph(NODES, [dependency("reset", "node_missing")]);
     const [diagnostic] = model.diagnostics;
 
-    expect(diagnostic && diagnosticText(model, diagnostic)).toBe(
-      "A dependency of reset names node_missing, and the read does not hold that node.",
+    expect(diagnostic && diagnosticKey(diagnostic)).toBe(
+      "unresolved-dependency:reset:node_missing",
     );
   });
 });

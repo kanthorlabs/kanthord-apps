@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool, PromptLayer } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -104,13 +105,14 @@ function AgentProviderList({
                 <span className="font-mono">{p.name}</span>
               </ItemTitle>
               <p className="text-sm break-all text-muted-foreground">
-                {p.provider} · credential {p.credential}
+                <RecordName>{p.provider}</RecordName> · credential{" "}
+                <RecordName>{p.credential}</RecordName>
               </p>
             </ItemContent>
             <ItemActions>
               <RemoveProviderButton
                 providerName={p.name}
-                blockedReason={providerRemovalBlock(enablement, p.name)}
+                block={providerRemovalBlock(enablement, p.name)}
                 onRemove={() => remove.request(p.name)}
               />
             </ItemActions>

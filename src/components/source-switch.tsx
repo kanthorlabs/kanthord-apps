@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -7,7 +7,7 @@ interface SourceSwitchProps {
   readonly title: string;
   readonly checked: boolean;
   readonly disabled: boolean;
-  readonly lockedReason: string | null;
+  readonly lockedReason: ReactNode;
   readonly onChange: (checked: boolean) => void;
 }
 

@@ -1,4 +1,5 @@
 import { PencilIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { PromptEditorSheet } from "@/components/prompt-editor-sheet";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,7 @@ import type { PromptSettingsState } from "@/hooks/use-prompt-settings";
 
 interface CustomPromptEditorProps {
   readonly title: string;
-  readonly description: string;
+  readonly description: ReactNode;
   readonly settings: PromptSettingsState;
 }
 

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
@@ -7,7 +9,7 @@ interface DraftFieldProps {
   readonly value: string;
   readonly error: string | undefined;
   readonly onChange: (value: string) => void;
-  readonly description?: string;
+  readonly description?: ReactNode;
   readonly inputMode?: "text" | "numeric" | "url";
   readonly readOnly?: boolean;
 }

@@ -1,5 +1,6 @@
 import { RefreshCwIcon } from "lucide-react";
 
+import { RecordName } from "@/components/record-name";
 import { Button } from "@/components/ui/button";
 import { shortCommit } from "@/lib/instruction-files";
 import { relativeAge } from "@/lib/relative-age";
@@ -12,18 +13,15 @@ interface InstructionFilesHeaderProps {
 
 export function InstructionFilesHeader({ baseBranch, state }: InstructionFilesHeaderProps) {
   const { view } = state;
-  const facts =
+  const readFacts =
     view.status === "ready"
-      ? [
-          baseBranch,
-          shortCommit(view.files.commit),
-          `read ${relativeAge(view.files.read_at, state.now)}`,
-        ]
-      : [baseBranch];
+      ? ` · ${shortCommit(view.files.commit)} · read ${relativeAge(view.files.read_at, state.now)}`
+      : "";
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <p className="min-w-0 font-mono text-sm break-all text-muted-foreground">
-        {facts.join(" · ")}
+        <RecordName>{baseBranch}</RecordName>
+        {readFacts}
       </p>
       <Button
         type="button"

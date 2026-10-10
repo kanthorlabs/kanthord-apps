@@ -20,6 +20,7 @@ vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/scheduler");
 
 import { NodeSheet } from "./node-sheet";
+import { textContent } from "../../../../../test/text-content";
 
 function runnable(
   id: string,
@@ -266,7 +267,9 @@ describe("NodeSheet", () => {
 
     const closure = await screen.findByRole("region", { name: "Dependency closure" });
     expect(within(closure).getByRole("button", { name: "Onboarding" })).toBeTruthy();
-    expect(within(closure).getByText("through the ancestor Account recovery")).toBeTruthy();
+    expect(
+      within(closure).getByText(textContent("through the ancestor Account recovery")),
+    ).toBeTruthy();
     expect(
       screen.getByText("The dependency closure holds. Every node that it names is Completed."),
     ).toBeTruthy();
@@ -295,11 +298,13 @@ describe("NodeSheet", () => {
     expect(screen.getByText("Old criterion")).toBeTruthy();
     const actions = screen.getByRole("list", { name: "External actions" });
     expect(
-      within(actions).getByText("pull_request on kanthord-repo revision 1, base main"),
+      within(actions).getByText(textContent("pull_request on kanthord-repo revision 1, base main")),
     ).toBeTruthy();
     const outcomes = screen.getByRole("list", { name: "Outcomes" });
     expect(
-      within(outcomes).getByText("Basis: criterion-not-met assessment by reviewer (execution_9)"),
+      within(outcomes).getByText(
+        textContent("Basis: criterion-not-met assessment by reviewer (execution_9)"),
+      ),
     ).toBeTruthy();
   });
 

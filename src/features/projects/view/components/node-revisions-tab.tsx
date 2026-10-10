@@ -4,8 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
-import { actorText } from "@/lib/mission-labels";
 import { useNodeRevisions } from "../use-node-revisions";
+import { ActorLabel } from "./actor-label";
 
 interface NodeRevisionsTabProps {
   readonly nodeId: string;
@@ -42,7 +42,7 @@ export function NodeRevisionsTab({ nodeId, currentRevision }: NodeRevisionsTabPr
             <ItemDescription className="flex flex-col gap-0.5">
               <span className="break-words text-foreground">{revision.reason}</span>
               <span className="break-all">
-                {actorText(revision.actor)}, {utcDateTime(revision.created_at)}
+                <ActorLabel actor={revision.actor} />, {utcDateTime(revision.created_at)}
               </span>
               {revision.change.changed_fields.length > 0 && (
                 <span className="break-words">

@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { utcDateTime } from "@/lib/format";
+import { RecordName } from "@/components/record-name";
 import { CredentialField } from "../../components/credential-field";
 import type { CredentialLoginState } from "../use-credential-login";
 
@@ -51,8 +52,8 @@ function WaitingStatus({ login }: { login: CredentialLoginState }) {
       <Spinner aria-hidden="true" role="presentation" className="mt-0.5 shrink-0" />
       <div className="flex min-w-0 flex-col gap-1">
         <p>
-          Waiting for {login.platform} to confirm the sign-in. This can take up to 15 seconds after
-          you approve.
+          Waiting for <RecordName>{login.platform}</RecordName> to confirm the sign-in. This can
+          take up to 15 seconds after you approve.
         </p>
         {login.status?.last_message != null && (
           <p className="break-words text-muted-foreground">{login.status.last_message}</p>

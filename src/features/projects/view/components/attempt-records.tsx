@@ -1,4 +1,7 @@
+import { Fragment } from "react";
+
 import type { MissionAttempt } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
@@ -18,6 +21,7 @@ import { useAttemptRecords } from "../use-attempt-records";
 import { BindingList } from "./binding-list";
 import { FactList } from "./fact-list";
 import { RecordSection } from "./record-section";
+import { ActorLabel } from "./actor-label";
 
 interface AttemptRecordsProps {
   readonly projectId: string;
@@ -51,9 +55,13 @@ export function AttemptRecords({
   const subjectOf = (id: string) => evidence.data?.find((item) => item.id === id)?.subject ?? id;
   const bindingName = (id: string) => {
     const read = bindings.get(id);
-    return read?.data === undefined || read.data === null
-      ? id
-      : `${read.data.name} revision ${read.data.revision}`;
+    return read?.data === undefined || read.data === null ? (
+      id
+    ) : (
+      <>
+        <RecordName>{read.data.name}</RecordName> revision {read.data.revision}
+      </>
+    );
   };
 
   return (
@@ -144,13 +152,23 @@ export function AttemptRecords({
                         <span>Written {utcDateTime(item.created_at)}</span>
                         <span className="break-words">
                           Basis:{" "}
-                          {basis === undefined
-                            ? item.assessment_id
-                            : `${basis.result} assessment by ${actorText(basis.actor)}`}
+                          {basis === undefined ? (
+                            item.assessment_id
+                          ) : (
+                            <>
+                              {basis.result} assessment by <ActorLabel actor={basis.actor} />
+                            </>
+                          )}
                         </span>
                         {item.evidence_ids.length > 0 && (
                           <span className="break-words">
-                            Evidence: {item.evidence_ids.map(subjectOf).join(", ")}
+                            Evidence:{" "}
+                            {item.evidence_ids.map((id, index) => (
+                              <Fragment key={id}>
+                                {index > 0 && ", "}
+                                <RecordName>{subjectOf(id)}</RecordName>
+                              </Fragment>
+                            ))}
                           </span>
                         )}
                       </ItemDescription>
@@ -180,7 +198,12 @@ export function AttemptRecords({
                       <span className="break-words text-foreground">{item.rationale}</span>
                       <span>
                         Accepted {utcDateTime(item.created_at)} on revision {item.node_revision}
-                        {item.worker_version === null ? "" : ` by ${item.worker_version}`}
+                        {item.worker_version !== null && (
+                          <>
+                            {" "}
+                            by <RecordName>{item.worker_version}</RecordName>
+                          </>
+                        )}
                       </span>
                       <span className="break-words">
                         {item.currency === null
@@ -191,13 +214,24 @@ export function AttemptRecords({
                       </span>
                       {item.evidence_ids.length > 0 && (
                         <span className="break-words">
-                          Evidence: {item.evidence_ids.map(subjectOf).join(", ")}
+                          Evidence:{" "}
+                          {item.evidence_ids.map((id, index) => (
+                            <Fragment key={id}>
+                              {index > 0 && ", "}
+                              <RecordName>{subjectOf(id)}</RecordName>
+                            </Fragment>
+                          ))}
                         </span>
                       )}
                       {item.child_node_ids.length > 0 && (
                         <span className="break-words">
                           Child outcomes of:{" "}
-                          {item.child_node_ids.map((id) => nameOf(model, id)).join(", ")}
+                          {item.child_node_ids.map((id, index) => (
+                            <Fragment key={id}>
+                              {index > 0 && ", "}
+                              <RecordName>{nameOf(model, id)}</RecordName>
+                            </Fragment>
+                          ))}
                         </span>
                       )}
                     </ItemDescription>
@@ -226,7 +260,7 @@ export function AttemptRecords({
                     </ItemTitle>
                     <ItemDescription className="flex flex-col gap-0.5">
                       <span className="break-all">
-                        {actorText(item.provenance)}, {utcDateTime(item.created_at)}
+                        <ActorLabel actor={item.provenance} />, {utcDateTime(item.created_at)}
                       </span>
                       {item.requirement_key !== undefined && (
                         <span className="break-all">
@@ -270,12 +304,12 @@ export function AttemptRecords({
                     <ItemDescription className="flex flex-col gap-0.5">
                       <span className="break-all">
                         {item.action.action} on {bindingName(item.action.binding_id)}, base{" "}
-                        {item.action.configuration.base_branch}
+                        <RecordName>{item.action.configuration.base_branch}</RecordName>
                       </span>
                       <span>Expected end state {item.action.expected_end_state}</span>
                       {item.request_evidence_id !== null && (
                         <span className="break-words">
-                          Request: {subjectOf(item.request_evidence_id)}
+                          Request: <RecordName>{subjectOf(item.request_evidence_id)}</RecordName>
                         </span>
                       )}
                     </ItemDescription>

@@ -326,14 +326,10 @@ export function dependencyNames(model: GraphModel, nodeId: string): readonly str
   return (model.dependsOn.get(nodeId) ?? []).map((id) => nameOf(model, id));
 }
 
-export function diagnosticText(model: GraphModel, diagnostic: GraphDiagnostic): string {
+export function diagnosticKey(diagnostic: GraphDiagnostic): string {
   if (diagnostic.kind === "unresolved-dependency") {
-    const { dependentId, dependsOnId } = diagnostic.link;
-    return `A dependency of ${nameOf(model, dependentId)} names ${nameOf(model, dependsOnId)}, and the read does not hold that node.`;
+    return `${diagnostic.kind}:${diagnostic.link.dependentId}:${diagnostic.link.dependsOnId}`;
   }
-  if (diagnostic.kind === "unplaced-node") {
-    return `The node ${nameOf(model, diagnostic.nodeId)} has no place under an initiative, so the graph does not show it.`;
-  }
-  const names = diagnostic.nodeIds.map((id) => nameOf(model, id)).join(", ");
-  return `The dependencies of ${names} form a cycle, so each of these nodes waits for another node of the cycle.`;
+  if (diagnostic.kind === "unplaced-node") return `${diagnostic.kind}:${diagnostic.nodeId}`;
+  return `${diagnostic.kind}:${diagnostic.nodeIds.join(",")}`;
 }

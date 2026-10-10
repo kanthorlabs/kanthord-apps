@@ -9,6 +9,7 @@ import * as projectsApi from "@/api/resources/projects";
 import type { InstructionFile, InstructionFiles, RepositoryBindingConfig } from "@/api/types";
 import { draftOf, type RepositoryDraft } from "@/lib/binding-draft";
 import { RepositoryInstructions } from "./repository-instructions";
+import { textContent } from "../../../../../test/text-content";
 
 vi.mock("@/api/resources/projects");
 
@@ -125,7 +126,9 @@ describe("RepositoryInstructions", () => {
   it("shows the base branch, the short commit and the age of the read in the header", async () => {
     mount();
 
-    expect(await screen.findByText("main · 3f2a9c1 · read 2 minutes ago")).toBeTruthy();
+    expect(
+      await screen.findByText(textContent("main · 3f2a9c1 · read 2 minutes ago")),
+    ).toBeTruthy();
     expect(screen.queryByText(/so this list is a snapshot/)).toBeNull();
     expect(projectsApi.readInstructionFiles).toHaveBeenCalledWith("project_1", "binding_WEB1");
   });
@@ -185,7 +188,9 @@ describe("RepositoryInstructions", () => {
 
     expect(
       await screen.findByText(
-        "web-app holds none of AGENTS.md, AGENTS.local.md, CLAUDE.md, CLAUDE.local.md on main.",
+        textContent(
+          "web-app holds none of AGENTS.md, AGENTS.local.md, CLAUDE.md, CLAUDE.local.md on main.",
+        ),
       ),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: /absent file/ })).toBeNull();

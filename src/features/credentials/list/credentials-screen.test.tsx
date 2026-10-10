@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { CredentialsScreen } from "./credentials-screen";
 import { utcDateTime } from "@/lib/format";
+import { textContent } from "../../../../test/text-content";
 
 const OPENROUTER: Credential = {
   name: "ci-openrouter",
@@ -228,9 +229,13 @@ describe("CredentialsScreen", () => {
     });
 
     expect(
-      await screen.findByText("Verification is not supported yet for amazon-bedrock.", undefined, {
-        timeout: 300,
-      }),
+      await screen.findByText(
+        textContent("Verification is not supported yet for amazon-bedrock."),
+        undefined,
+        {
+          timeout: 300,
+        },
+      ),
     ).toBeTruthy();
     expect(credentialsApi.verifyCredential).not.toHaveBeenCalled();
   });
@@ -251,9 +256,13 @@ describe("CredentialsScreen", () => {
     await userEvent.hover(screen.getByRole("button", { name: "Verify bedrock" }));
 
     expect(
-      await screen.findByText("Verification is not supported yet for amazon-bedrock.", undefined, {
-        timeout: 2000,
-      }),
+      await screen.findByText(
+        textContent("Verification is not supported yet for amazon-bedrock."),
+        undefined,
+        {
+          timeout: 2000,
+        },
+      ),
     ).toBeTruthy();
   });
 

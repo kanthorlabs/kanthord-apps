@@ -1,14 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { revokeCredentialRevision } from "@/api/resources/credentials";
 import type { Credential, CredentialComponent, CredentialRevision } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { isRevocable } from "@/lib/credential-revisions";
 import { writeFailureOf } from "../write-failure";
 
 export interface RevisionRevokeState {
   readonly target: CredentialRevision | null;
-  readonly consequence: string;
+  readonly consequence: ReactNode;
   readonly saferPath: string;
   readonly error: string | null;
   readonly revoking: boolean;
@@ -73,7 +74,12 @@ export function useRevisionRevoke(
   const revision = target?.revision ?? 0;
   return {
     target,
-    consequence: `Revision ${revision} ends at once. Every execution that pins it is refused at its next use of ${credential.name}. A revoke cannot be undone.`,
+    consequence: (
+      <>
+        Revision {revision} ends at once. Every execution that pins it is refused at its next use of{" "}
+        <RecordName>{credential.name}</RecordName>. A revoke cannot be undone.
+      </>
+    ),
     saferPath: `Keep revision ${revision}. Custody ends it on its own after the last execution that pins it lets it go.`,
     error,
     revoking,

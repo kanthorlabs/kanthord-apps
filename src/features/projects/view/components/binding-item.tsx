@@ -1,6 +1,8 @@
 import { Loader2Icon, ShieldCheckIcon } from "lucide-react";
+import { Fragment, type ReactNode } from "react";
 
 import type { BindingSetEntry } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -18,20 +20,28 @@ interface BindingItemProps {
   readonly onRemove: () => void;
 }
 
-function factsOf(entry: BindingSetEntry): readonly string[] {
+function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
   if (entry.kind === "repository") {
     const { config } = entry;
     return [
       config.address,
-      config.platform,
-      `ssh ${config.ssh_credential}`,
-      ...(config.credential !== undefined ? [`credential ${config.credential}`] : []),
+      <RecordName>{config.platform}</RecordName>,
+      <>
+        ssh <RecordName>{config.ssh_credential}</RecordName>
+      </>,
+      ...(config.credential !== undefined
+        ? [
+            <>
+              credential <RecordName>{config.credential}</RecordName>
+            </>,
+          ]
+        : []),
     ];
   }
   if (entry.kind === "worker") {
     const { config } = entry;
     return [
-      config.worker,
+      <RecordName>{config.worker}</RecordName>,
       `instance count ${config.instance_count}`,
       config.resource_budget === undefined
         ? "worker default budget"
@@ -42,10 +52,14 @@ function factsOf(entry: BindingSetEntry): readonly string[] {
   const { config } = entry;
   return [
     config.endpoint,
-    `bucket ${config.bucket}`,
+    <>
+      bucket <RecordName>{config.bucket}</RecordName>
+    </>,
     config.region,
     config.prefix === "" ? "no prefix" : `prefix ${config.prefix}`,
-    `credential ${config.credential}`,
+    <>
+      credential <RecordName>{config.credential}</RecordName>
+    </>,
   ];
 }
 
@@ -98,7 +112,14 @@ export function BindingItem({
             </span>
           )}
         </ItemTitle>
-        <ItemDescription className="break-words">{factsOf(entry).join(" · ")}</ItemDescription>
+        <ItemDescription className="break-words">
+          {factsOf(entry).map((fact, index) => (
+            <Fragment key={index}>
+              {index > 0 && " · "}
+              {fact}
+            </Fragment>
+          ))}
+        </ItemDescription>
       </ItemContent>
       <ItemActions className="basis-full md:basis-auto">
         {showVerify && (

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { RecordName } from "@/components/record-name";
 import {
   closureOf,
   objectiveProgress,
@@ -117,7 +118,8 @@ export function NodeStructure({ model, nodeId, onSelect }: NodeStructureProps) {
           const via = closure.members.find((member) => member.nodeId === id)?.via;
           return via === undefined || via === nodeId ? null : (
             <span className="pl-2.5 text-xs text-muted-foreground">
-              through the ancestor {model.nodeById.get(via)?.content.name ?? via}
+              through the ancestor{" "}
+              <RecordName>{model.nodeById.get(via)?.content.name ?? via}</RecordName>
             </span>
           );
         }}

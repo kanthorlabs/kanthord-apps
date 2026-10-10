@@ -9,9 +9,9 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
-import { actorText } from "@/lib/mission-labels";
 import { useNodeAttempts } from "../use-node-attempts";
 import { AttemptRecords } from "./attempt-records";
+import { ActorLabel } from "./actor-label";
 
 interface NodeAttemptsTabProps {
   readonly projectId: string;
@@ -60,7 +60,8 @@ export function NodeAttemptsTab({
               <ItemDescription className="flex flex-col gap-0.5">
                 <span>Pins revision {attempt.node_revision}</span>
                 <span className="break-all">
-                  Opened by {actorText(attempt.opened_by)}, {utcDateTime(attempt.opened_at)}
+                  Opened by <ActorLabel actor={attempt.opened_by} />,{" "}
+                  {utcDateTime(attempt.opened_at)}
                 </span>
                 {attempt.closed_at !== null && <span>Closed {utcDateTime(attempt.closed_at)}</span>}
               </ItemDescription>

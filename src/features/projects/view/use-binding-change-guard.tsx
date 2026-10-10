@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 
 import type { ApiError } from "@/api/errors";
 import { exportMissionJson, readMission } from "@/api/resources/mission";
 import type { BindingSetEntry, MissionPlanEntry } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 import { isAvailable, nodesNaming, type BindingChangeKind } from "@/lib/binding-change";
 
@@ -15,7 +16,7 @@ export interface BindingChange {
 
 export interface BindingChangeGuardState {
   readonly change: BindingChange | null;
-  readonly consequence: string;
+  readonly consequence: ReactNode;
   readonly confirmLabel: string;
   readonly saferLabel: string | null;
   readonly nodes: readonly MissionPlanEntry[] | null;
@@ -24,13 +25,29 @@ export interface BindingChangeGuardState {
   readonly close: () => void;
 }
 
-function consequenceOf(change: BindingChange): string {
+function consequenceOf(change: BindingChange): ReactNode {
   const refusal = "refuses every use of it, including records that pin an earlier revision";
-  if (change.kind === "remove") return `Removing ${change.name} ${refusal}.`;
-  if (change.kind === "disable") {
-    return `Making ${change.name} unavailable ${refusal}, until it is available again.`;
+  const name = <RecordName>{change.name}</RecordName>;
+  if (change.kind === "remove") {
+    return (
+      <>
+        Removing {name} {refusal}.
+      </>
+    );
   }
-  return `This change names another resource, so it removes ${change.name} and adds a new binding. The old binding ${refusal}.`;
+  if (change.kind === "disable") {
+    return (
+      <>
+        Making {name} unavailable {refusal}, until it is available again.
+      </>
+    );
+  }
+  return (
+    <>
+      This change names another resource, so it removes {name} and adds a new binding. The old
+      binding {refusal}.
+    </>
+  );
 }
 
 function confirmLabelOf(kind: BindingChangeKind): string {
@@ -72,7 +89,7 @@ export function useBindingChangeGuard(projectId: string): BindingChangeGuardStat
 
   return {
     change,
-    consequence: change === null ? "" : consequenceOf(change),
+    consequence: change === null ? null : consequenceOf(change),
     confirmLabel: change === null ? "" : confirmLabelOf(change.kind),
     saferLabel: change === null ? null : saferLabelOf(change),
     nodes,

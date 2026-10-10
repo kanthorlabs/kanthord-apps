@@ -1,14 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { removeAgentProvider } from "@/api/resources/workers";
 import type { AgentEnablement } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 
 export interface AgentProviderRemoveState {
   readonly providerName: string | null;
-  readonly consequence: string;
-  readonly saferPath: string;
+  readonly consequence: ReactNode;
+  readonly saferPath: ReactNode;
   readonly error: string | null;
   readonly removing: boolean;
   readonly request: (providerName: string) => void;
@@ -56,10 +57,18 @@ export function useAgentProviderRemove(
     );
   }, [removing, providerName, agentName, enablement.revision, reload]);
 
+  const name = <RecordName>{providerName ?? ""}</RecordName>;
   return {
     providerName,
-    consequence: `A workbench session that names ${providerName ?? ""} cannot run again until a human changes its configuration. The engine refuses the removal while a worker binding names ${providerName ?? ""}.`,
-    saferPath: `Keep ${providerName ?? ""}. Add another agent provider instead when only the credential is wrong.`,
+    consequence: (
+      <>
+        A workbench session that names {name} cannot run again until a human changes its
+        configuration. The engine refuses the removal while a worker binding names {name}.
+      </>
+    ),
+    saferPath: (
+      <>Keep {name}. Add another agent provider instead when only the credential is wrong.</>
+    ),
     error,
     removing,
     request,

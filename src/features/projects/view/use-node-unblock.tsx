@@ -1,8 +1,9 @@
-import { useCallback, useState } from "react";
+import { Fragment, useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { unblockNode } from "@/api/resources/mission";
 import type { MissionProposal, MissionRunnableNode } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 
 export interface NodeUnblockState {
@@ -11,9 +12,9 @@ export interface NodeUnblockState {
   readonly reason: string;
   readonly error: string | null;
   readonly unblocking: boolean;
-  readonly consequence: string;
-  readonly proposalNotice: string | null;
-  readonly saferPath: string;
+  readonly consequence: ReactNode;
+  readonly proposalNotice: ReactNode;
+  readonly saferPath: ReactNode;
   readonly request: () => void;
   readonly setReason: (reason: string) => void;
   readonly cancel: () => void;
@@ -46,21 +47,42 @@ function openProposalsOf(
   );
 }
 
-function consequenceOf(node: MissionRunnableNode): string {
+function consequenceOf(node: MissionRunnableNode): ReactNode {
+  const name = <RecordName>{node.content.name}</RecordName>;
   if (node.attempt === 0) {
-    return `Unblock makes ${node.content.name} Available at revision ${node.visible_revision}. The scheduler then routes the node.`;
+    return (
+      <>
+        Unblock makes {name} Available at revision {node.visible_revision}. The scheduler then
+        routes the node.
+      </>
+    );
   }
-  return `Unblock opens attempt ${node.attempt + 1} of ${node.content.name} at revision ${node.visible_revision} and makes the node Available.`;
+  return (
+    <>
+      Unblock opens attempt {node.attempt + 1} of {name} at revision {node.visible_revision} and
+      makes the node Available.
+    </>
+  );
 }
 
 function proposalNoticeOf(
   node: MissionRunnableNode,
   proposals: readonly MissionProposal[],
-): string | null {
+): ReactNode {
   const open = openProposalsOf(node, proposals);
   if (open.length === 0) return null;
-  const names = open.map((proposal) => proposal.content.name).join(", ");
-  return `Unblock rejects the open proposals: ${names}. They stay recorded, but the initiative runs the next attempt without the fix objective.`;
+  return (
+    <>
+      Unblock rejects the open proposals:{" "}
+      {open.map((proposal, index) => (
+        <Fragment key={proposal.id}>
+          {index > 0 && ", "}
+          <RecordName>{proposal.content.name}</RecordName>
+        </Fragment>
+      ))}
+      . They stay recorded, but the initiative runs the next attempt without the fix objective.
+    </>
+  );
 }
 
 export function useNodeUnblock(
@@ -131,7 +153,11 @@ export function useNodeUnblock(
     unblocking,
     consequence: consequenceOf(node),
     proposalNotice: node.kind === "initiative" ? proposalNoticeOf(node, proposals) : null,
-    saferPath: `To end ${node.content.name} instead, keep it Blocked and discard it.`,
+    saferPath: (
+      <>
+        To end <RecordName>{node.content.name}</RecordName> instead, keep it Blocked and discard it.
+      </>
+    ),
     request,
     setReason,
     cancel,

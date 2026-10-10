@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { RecordName } from "@/components/record-name";
 
 interface VerifyButtonProps {
   readonly platform: string;
@@ -66,7 +67,9 @@ export function VerifyButton({
       >
         <VerifyLabel />
       </TooltipTrigger>
-      <TooltipContent>Verification is not supported yet for {platform}.</TooltipContent>
+      <TooltipContent>
+        Verification is not supported yet for <RecordName>{platform}</RecordName>.
+      </TooltipContent>
     </Tooltip>
   );
 }

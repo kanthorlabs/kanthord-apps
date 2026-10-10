@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { RecordName } from "@/components/record-name";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -82,7 +83,9 @@ export function AgentProviderSheet({ agentName, revision, add }: AgentProviderSh
                   onChange={add.selectCredential}
                 />
                 {add.provider !== null && (
-                  <FieldDescription>Provider: {add.provider}</FieldDescription>
+                  <FieldDescription>
+                    Provider: <RecordName>{add.provider}</RecordName>
+                  </FieldDescription>
                 )}
                 {add.credentialsError !== null && (
                   <FieldDescription>{add.credentialsError}</FieldDescription>

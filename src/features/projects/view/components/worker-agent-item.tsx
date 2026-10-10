@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { RecordName } from "@/components/record-name";
 import { Reveal } from "@/components/reveal";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,12 @@ function AgentModelField({
         label="Model identifier"
         value={value}
         error={error}
-        description={`${description} The model list of ${providerName} is unavailable: ${failure}`}
+        description={
+          <>
+            {description} The model list of <RecordName>{providerName}</RecordName> is unavailable:{" "}
+            {failure}
+          </>
+        }
         onChange={onChange}
       />
     );
@@ -70,7 +76,11 @@ function AgentModelField({
       error={error}
       placeholder={models === null ? "Reading the models" : "Search models"}
       emptyText="No model matches."
-      description={`${description} The models of ${providerName}.`}
+      description={
+        <>
+          {description} The models of <RecordName>{providerName}</RecordName>.
+        </>
+      }
       onChange={(next) => onChange(next ?? "")}
     />
   );
@@ -123,9 +133,14 @@ export function WorkerAgentItem({
           )}
         </ItemTitle>
         <ItemDescription>
-          {defaults === null
-            ? "No default configuration."
-            : `Default: ${defaults.agent_provider} · ${defaults.model_identifier} · ${defaults.reasoning_effort}`}
+          {defaults === null ? (
+            "No default configuration."
+          ) : (
+            <>
+              Default: <RecordName>{defaults.agent_provider}</RecordName> ·{" "}
+              <RecordName>{defaults.model_identifier}</RecordName> · {defaults.reasoning_effort}
+            </>
+          )}
         </ItemDescription>
         {agent === null && (
           <p className="text-sm text-destructive">

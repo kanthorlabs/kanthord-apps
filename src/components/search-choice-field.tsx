@@ -20,7 +20,7 @@ interface SearchChoiceFieldProps {
   readonly placeholder: string;
   readonly emptyText: string;
   readonly labelOf?: (option: string) => string;
-  readonly description?: string;
+  readonly description?: ReactNode;
   readonly hint?: string;
   readonly actions?: ReactNode;
   readonly onChange: (value: string | null) => void;

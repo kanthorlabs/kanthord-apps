@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type * as Sonner from "sonner";
@@ -21,6 +21,7 @@ vi.mock("sonner", async (importOriginal) => ({
 }));
 
 import { CredentialFormScreen } from "./credential-form-screen";
+import { textContent } from "../../../../test/text-content";
 
 const ROUTER: Credential = {
   name: "router",
@@ -406,7 +407,9 @@ describe("CredentialFormScreen", () => {
       disabled.getAttribute("aria-disabled") ?? disabled.hasAttribute("disabled"),
     ).toBeTruthy();
     await userEvent.click(disabled);
-    expect(await screen.findByText("Verification is not supported yet for mistral.")).toBeTruthy();
+    expect(
+      await screen.findByText(textContent("Verification is not supported yet for mistral.")),
+    ).toBeTruthy();
     expect(credentialsApi.checkCredential).not.toHaveBeenCalled();
     await choosePlatform("openrouter");
     await userEvent.type(screen.getByLabelText("API Key"), "or-secret");
@@ -466,6 +469,9 @@ describe("CredentialFormScreen", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Waiting for github-copilot to confirm the sign-in.",
     );
+    expect(
+      within(screen.getByRole("status")).getByText("github-copilot", { selector: "strong" }),
+    ).toBeTruthy();
     expect(screen.queryByLabelText("Code or Redirect URL")).toBeNull();
     expect(screen.getByRole("link", { name: SESSION.address })).toBeTruthy();
     expect(screen.getByText("2026-10-04 07:15 UTC")).toBeTruthy();
