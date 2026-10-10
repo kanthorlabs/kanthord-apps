@@ -1,5 +1,6 @@
 import { ChevronDownIcon } from "lucide-react";
 
+import { RecordName } from "@/components/record-name";
 import { RevealPanel } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export function ProposalItem({ model, proposal, approve, onSelect }: ProposalIte
     },
     { label: "Requirement", value: content.requirement },
     { label: "Criterion", value: content.criterion },
-    { label: "Task", value: content.task.name },
+    { label: "Task", value: <RecordName>{content.task.name}</RecordName> },
     { label: "Task requirement", value: content.task.requirement },
     { label: "Task criterion", value: content.task.criterion },
     { label: "Verifications", value: <CommandList commands={content.task.verifications} /> },

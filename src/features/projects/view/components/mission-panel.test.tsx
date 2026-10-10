@@ -19,6 +19,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { MissionPanel } from "./mission-panel";
+import { textContent } from "../../../../../test/text-content";
 
 const MISSION = { id: "mission_1", project_id: "project_1", version: 3 };
 
@@ -156,7 +157,9 @@ describe("MissionPanel", () => {
     expect(within(graph).getByRole("button", { name: "Onboarding" })).toBeTruthy();
     const objectives = within(graph).getByRole("list", { name: "Objectives of Onboarding" });
     expect(within(objectives).getByText("Completed")).toBeTruthy();
-    expect(within(objectives).getByText("Depends on: Add recovery codes")).toBeTruthy();
+    expect(
+      within(objectives).getByText(textContent("Depends on: Add recovery codes")),
+    ).toBeTruthy();
     const tasks = within(graph).getByRole("list", { name: "Tasks of Add password reset" });
     expect(within(tasks).getByRole("button", { name: "Add reset token expiry" })).toBeTruthy();
   });
@@ -211,7 +214,9 @@ describe("MissionPanel", () => {
     expect(missionApi.listMissionNodes).toHaveBeenCalledTimes(2);
     expect(
       screen.getByText(
-        "A dependency of Add password reset names node_9, and the read does not hold that node.",
+        textContent(
+          "A dependency of Add password reset names node_9, and the read does not hold that node.",
+        ),
       ),
     ).toBeTruthy();
   });

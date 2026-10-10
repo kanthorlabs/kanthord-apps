@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { RecordName } from "@/components/record-name";
 import {
   Sheet,
   SheetContent,
@@ -81,7 +82,7 @@ export function NodeSheet({
                 {node.kind === "task" && owner !== undefined && (
                   <p className="text-sm">
                     A task holds no attempt. The attempts below belong to its objective{" "}
-                    {owner.content.name}.
+                    <RecordName>{owner.content.name}</RecordName>.
                   </p>
                 )}
                 {owner !== undefined && (

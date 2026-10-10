@@ -1,6 +1,8 @@
 import { ListChecksIcon } from "lucide-react";
+import { Fragment } from "react";
 
 import type { MissionRunnableNode, MissionTaskNode } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,7 +51,13 @@ export function GraphNode({
           </div>
           {dependsOn.length > 0 && (
             <p className="text-xs break-words text-muted-foreground">
-              Depends on: {dependsOn.join(", ")}
+              Depends on:{" "}
+              {dependsOn.map((name, index) => (
+                <Fragment key={name}>
+                  {index > 0 && ", "}
+                  <RecordName>{name}</RecordName>
+                </Fragment>
+              ))}
             </p>
           )}
           {progress !== null && (
