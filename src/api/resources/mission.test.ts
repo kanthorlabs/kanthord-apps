@@ -7,6 +7,7 @@ import { setConnection } from "../client";
 import {
   applyMissionImport,
   approveProposal,
+  discardNode,
   exportMissionJson,
   listMissionDependencies,
   listMissionNodes,
@@ -15,6 +16,7 @@ import {
   previewMissionImport,
   readMission,
   readNodeRevision,
+  unblockNode,
 } from "./mission";
 
 let server: Server | null = null;
@@ -147,6 +149,48 @@ describe("mission proposal resources", () => {
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
       expected_mission_version: 7,
       reason: "Fix it",
+    });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+  });
+});
+
+describe("mission node control resources", () => {
+  it("unblocks a node with the blocked attempt, the revision, the mission version and an idempotency key", async () => {
+    await serve({});
+
+    await unblockNode("node_1", {
+      blocked_attempt: 2,
+      expected_revision: 3,
+      expected_mission_version: 7,
+      reason: "Retry it",
+    });
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/unblock");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      blocked_attempt: 2,
+      expected_revision: 3,
+      expected_mission_version: 7,
+      reason: "Retry it",
+    });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+  });
+
+  it("discards a node with the reason, the expected state and attempt and an idempotency key", async () => {
+    await serve({});
+
+    await discardNode("node_1", {
+      reason: "Out of scope",
+      expected_mission_version: 7,
+      expected_state: "Blocked",
+      expected_attempt: 2,
+    });
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/discard");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      reason: "Out of scope",
+      expected_mission_version: 7,
+      expected_state: "Blocked",
+      expected_attempt: 2,
     });
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
   });

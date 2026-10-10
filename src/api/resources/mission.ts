@@ -12,9 +12,12 @@ import type {
   MissionAssessment,
   MissionAttempt,
   MissionEdge,
+  MissionControlResult,
+  MissionHumanActBody,
   MissionEvidence,
   MissionExternalAction,
   MissionNodeRecord,
+  MissionNodeUnblockBody,
   MissionOutcome,
   MissionProposal,
   MissionProposalApproveBody,
@@ -140,4 +143,26 @@ export async function approveProposal(
       headers: { "idempotency-key": newUlid() },
     },
   );
+}
+
+export async function unblockNode(
+  nodeId: string,
+  body: MissionNodeUnblockBody,
+): Promise<MissionControlResult> {
+  return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/unblock`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function discardNode(
+  nodeId: string,
+  body: MissionHumanActBody,
+): Promise<MissionControlResult> {
+  return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/discard`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
 }

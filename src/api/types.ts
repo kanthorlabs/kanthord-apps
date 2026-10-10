@@ -702,6 +702,20 @@ export interface MissionControlResult {
   readonly accepted_at: number;
 }
 
+export interface MissionNodeUnblockBody {
+  readonly blocked_attempt: number;
+  readonly expected_revision: number;
+  readonly expected_mission_version: number;
+  readonly reason?: string;
+}
+
+export interface MissionHumanActBody {
+  readonly reason: string;
+  readonly expected_mission_version: number;
+  readonly expected_state: NodeState;
+  readonly expected_attempt: number;
+}
+
 export interface MissionProposalApproveResult {
   readonly objective: MissionNodeChange;
   readonly initiative: MissionControlResult;
