@@ -258,7 +258,7 @@ describe("LoginScreen", () => {
 
     expect(
       await screen.findByText(
-        "The instance refused the token. Use a human token from kanthord jwt generate.",
+        "The instance refused the token. Use a human token from kanthord auth jwt generate.",
       ),
     ).toBeInTheDocument();
     expect(window.localStorage.getItem("kanthord.instances")).toBeNull();
@@ -299,7 +299,7 @@ describe("LoginScreen", () => {
 
     expect(
       await within(row("local")).findByText(
-        "The instance refused the token. Use a human token from kanthord jwt generate.",
+        "The instance refused the token. Use a human token from kanthord auth jwt generate.",
       ),
     ).toBeInTheDocument();
   });

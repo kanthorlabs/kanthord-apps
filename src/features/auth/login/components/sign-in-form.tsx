@@ -67,7 +67,7 @@ export function SignInForm({ form }: { form: SignInFormState }) {
                 onChange={(event) => form.setField("token", event.target.value)}
               />
               <FieldDescription id="login-token-description">
-                Generate a human token with <code>kanthord jwt generate</code>.
+                Generate a human token with <code>kanthord auth jwt generate</code>.
               </FieldDescription>
               <FieldError>{errors.token}</FieldError>
             </Field>
