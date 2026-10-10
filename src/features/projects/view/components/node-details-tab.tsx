@@ -9,9 +9,11 @@ import { nameOf, type GraphModel } from "@/lib/mission-graph";
 import { closingEventText, resultVariant } from "@/lib/mission-labels";
 import { badgeVariantOf, meaningOf } from "@/lib/node-state";
 import { useBindingRecords } from "../use-binding-records";
+import { useNodeProposals } from "../use-node-proposals";
 import { useNodeRecord } from "../use-node-record";
 import { BindingList } from "./binding-list";
 import { FactList, type Fact } from "./fact-list";
+import { NodeControls } from "./node-controls";
 import { NodeStructure } from "./node-structure";
 import { ProposalSection } from "./proposal-section";
 import type { MissionNodeRecord } from "@/api/types";
@@ -98,10 +100,13 @@ export function NodeDetailsTab({
 }: NodeDetailsTabProps) {
   const record = useNodeRecord(nodeId);
   const { reload: reloadRecord } = record;
+  const proposals = useNodeProposals(nodeId, model.nodeById.get(nodeId)?.kind === "initiative");
+  const { reload: reloadProposals } = proposals;
   const reloadAll = useCallback(() => {
     reloadRecord();
+    reloadProposals();
     onChanged();
-  }, [reloadRecord, onChanged]);
+  }, [reloadRecord, reloadProposals, onChanged]);
   const bindingIds = record.data?.content.bindings ?? [];
   const bindings = useBindingRecords(projectId, bindingIds);
   const node = record.data;
@@ -125,10 +130,19 @@ export function NodeDetailsTab({
   return (
     <div className="flex flex-col gap-5">
       <BlockedNotice node={node} />
+      {node.kind !== "task" && (
+        <NodeControls
+          node={node}
+          missionVersion={missionVersion}
+          proposals={proposals.data ?? []}
+          onChanged={reloadAll}
+        />
+      )}
       {node.kind === "initiative" && (
         <ProposalSection
           model={model}
           initiative={node}
+          proposals={proposals}
           missionVersion={missionVersion}
           onChanged={reloadAll}
           onSelect={onSelect}

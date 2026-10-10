@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import { useCallback } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +12,7 @@ import type {
   MissionRunnableNode,
 } from "@/api/types";
 import { buildGraph } from "@/lib/mission-graph";
+import { useNodeProposals } from "../use-node-proposals";
 
 vi.mock("@/api/resources/mission");
 vi.mock("sonner", () => ({
@@ -88,16 +90,33 @@ const APPROVED: MissionProposal = {
   approved_at: 1,
 };
 
-function mount(onChanged = vi.fn(), onSelect = vi.fn()) {
-  render(
+function Harness({
+  onChanged,
+  onSelect,
+}: {
+  onChanged: () => void;
+  onSelect: (nodeId: string) => void;
+}) {
+  const proposals = useNodeProposals(TEAM.id, true);
+  const { reload } = proposals;
+  const reloadAll = useCallback(() => {
+    reload();
+    onChanged();
+  }, [reload, onChanged]);
+  return (
     <ProposalSection
       model={MODEL}
       initiative={TEAM}
+      proposals={proposals}
       missionVersion={9}
-      onChanged={onChanged}
+      onChanged={reloadAll}
       onSelect={onSelect}
-    />,
+    />
   );
+}
+
+function mount(onChanged = vi.fn(), onSelect = vi.fn()) {
+  render(<Harness onChanged={onChanged} onSelect={onSelect} />);
   return { onChanged, onSelect };
 }
 

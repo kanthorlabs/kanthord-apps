@@ -121,7 +121,7 @@ export function useProposalApprove(
     error,
     approving,
     consequence: `Approve creates the objective ${target?.content.name ?? ""} with its task under ${initiative.content.name} and unblocks the initiative. An approve cannot be undone.`,
-    saferPath: `To reject the proposal, keep it unapproved and unblock or discard ${initiative.content.name} instead.`,
+    saferPath: `To reject the proposal, keep it unapproved and use Unblock or Discard in the Controls section of ${initiative.content.name} instead.`,
     canApprove,
     unavailableReason,
     request,

@@ -243,6 +243,24 @@ describe("NodeSheet", () => {
     expect(within(bindings).getByText("revision 2")).toBeTruthy();
   });
 
+  it("offers the controls beside the blocked notice of an objective and none for a task", async () => {
+    renderSheet("node_audit");
+
+    const controls = await screen.findByRole("region", { name: "Controls" });
+    expect(within(controls).getByRole("button", { name: "Unblock" })).toBeTruthy();
+    expect(within(controls).getByRole("button", { name: "Discard" })).toBeTruthy();
+    expect(missionApi.listNodeProposals).not.toHaveBeenCalled();
+  });
+
+  it("offers no control for a task", async () => {
+    renderSheet("node_task");
+
+    await screen.findByText("A task holds no state, no attempt and no revision of its own.", {
+      exact: false,
+    });
+    expect(screen.queryByRole("region", { name: "Controls" })).toBeNull();
+  });
+
   it("shows the dependency closure through an ancestor", async () => {
     renderSheet("node_audit");
 

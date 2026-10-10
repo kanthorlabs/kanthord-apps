@@ -1,11 +1,9 @@
-import { useCallback } from "react";
-
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
-import type { MissionRunnableNode } from "@/api/types";
+import type { MissionProposal, MissionRunnableNode } from "@/api/types";
+import type { Resource } from "@/hooks/use-resource";
 import type { GraphModel } from "@/lib/mission-graph";
-import { useNodeProposals } from "../use-node-proposals";
 import { useProposalApprove } from "../use-proposal-approve";
 import { ProposalApproveDialog } from "./proposal-approve-dialog";
 import { ProposalItem } from "./proposal-item";
@@ -13,6 +11,7 @@ import { ProposalItem } from "./proposal-item";
 interface ProposalSectionProps {
   readonly model: GraphModel;
   readonly initiative: MissionRunnableNode;
+  readonly proposals: Resource<readonly MissionProposal[]>;
   readonly missionVersion: number;
   readonly onChanged: () => void;
   readonly onSelect: (nodeId: string) => void;
@@ -21,17 +20,12 @@ interface ProposalSectionProps {
 export function ProposalSection({
   model,
   initiative,
+  proposals,
   missionVersion,
   onChanged,
   onSelect,
 }: ProposalSectionProps) {
-  const proposals = useNodeProposals(initiative.id);
-  const { reload } = proposals;
-  const reloadAll = useCallback(() => {
-    reload();
-    onChanged();
-  }, [reload, onChanged]);
-  const approve = useProposalApprove(initiative, missionVersion, reloadAll);
+  const approve = useProposalApprove(initiative, missionVersion, onChanged);
 
   if (proposals.loading) return null;
   if (proposals.data === null) {
