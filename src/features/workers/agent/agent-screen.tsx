@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool, PromptLayer } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -104,13 +105,14 @@ function AgentProviderList({
                 <span className="font-mono">{p.name}</span>
               </ItemTitle>
               <p className="text-sm break-all text-muted-foreground">
-                {p.provider} · credential {p.credential}
+                <RecordName>{p.provider}</RecordName> · credential{" "}
+                <RecordName>{p.credential}</RecordName>
               </p>
             </ItemContent>
             <ItemActions>
               <RemoveProviderButton
                 providerName={p.name}
-                blockedReason={providerRemovalBlock(enablement, p.name)}
+                block={providerRemovalBlock(enablement, p.name)}
                 onRemove={() => remove.request(p.name)}
               />
             </ItemActions>
@@ -150,11 +152,11 @@ function EnablementSection({ agentName, enablement, reload }: EnablementSectionP
               <dd className="tabular-nums">{enablement.revision}</dd>
               <dt className="text-muted-foreground">Default agent provider</dt>
               <dd className="font-mono break-all">
-                {enablement.default_configuration.agent_provider}
+                <RecordName>{enablement.default_configuration.agent_provider}</RecordName>
               </dd>
               <dt className="text-muted-foreground">Default model</dt>
               <dd className="font-mono break-all">
-                {enablement.default_configuration.model_identifier}
+                <RecordName>{enablement.default_configuration.model_identifier}</RecordName>
               </dd>
               <dt className="text-muted-foreground">Default reasoning effort</dt>
               <dd className="font-mono">{enablement.default_configuration.reasoning_effort}</dd>

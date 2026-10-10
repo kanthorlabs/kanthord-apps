@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { MarkdownText } from "@/components/markdown-text";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -26,7 +28,7 @@ import type { PromptEditorState } from "@/hooks/use-prompt-editor";
 
 interface PromptEditorSheetProps {
   readonly title: string;
-  readonly description: string;
+  readonly description: ReactNode;
   readonly editor: PromptEditorState;
 }
 

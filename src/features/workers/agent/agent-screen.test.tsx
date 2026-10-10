@@ -20,6 +20,7 @@ vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/prompts");
 
 import { AgentScreen } from "./agent-screen";
+import { textContent } from "../../../../test/text-content";
 
 const RE: AgentDeclaration = {
   agent_name: "re@1",
@@ -378,7 +379,7 @@ describe("AgentScreen", () => {
     await userEvent.click(await screen.findByRole("switch", { name: "Show inactive sources" }));
     const missing = await screen.findByRole("switch", { name: "~/workbench/AGENTS.md switch" });
     await waitFor(() => expect(missing).toHaveAttribute("aria-disabled", "true"));
-    expect(screen.getByText("~/workbench/AGENTS.md does not exist.")).toBeTruthy();
+    expect(screen.getByText(textContent("~/workbench/AGENTS.md does not exist."))).toBeTruthy();
   });
 
   it("turns an agent layer source off at the revision of its scope", async () => {
@@ -550,7 +551,7 @@ describe("AgentScreen", () => {
     ).toBeTruthy();
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "codex");
     await choose("LLM credential", "codex-main (openai-codex)");
-    expect(within(sheet).getByText("Provider: openai-codex")).toBeTruthy();
+    expect(within(sheet).getByText(textContent("Provider: openai-codex"))).toBeTruthy();
     await userEvent.click(within(sheet).getByRole("button", { name: "Add agent provider" }));
 
     expect(workersApi.addAgentProvider).toHaveBeenCalledWith("re@1", {

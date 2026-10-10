@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { ApiError } from "@/api/errors";
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -61,7 +62,7 @@ function InstanceItem({ instance }: { instance: WorkerInstanceRecord }) {
           {instance.draining && <Badge variant="outline">draining</Badge>}
         </ItemTitle>
         <ItemDescription className="break-all">
-          {instance.worker_name} · {instance.host}
+          <RecordName>{instance.worker_name}</RecordName> · <RecordName>{instance.host}</RecordName>
           {instance.host === "kanthord" ? ` · ${instance.placement}` : ""}
           {instance.execution_id !== undefined ? ` · ${instance.execution_id}` : ""}
         </ItemDescription>

@@ -76,13 +76,13 @@ export function agentProviderBodyOf(
   };
 }
 
+export type ProviderRemovalBlock = "last-provider" | "default-provider";
+
 export function providerRemovalBlock(
   enablement: AgentEnablement,
   providerName: string,
-): string | null {
-  if (enablement.agent_providers.length <= 1)
-    return "An enablement keeps at least one agent provider. Add another agent provider first.";
-  if (enablement.default_configuration.agent_provider === providerName)
-    return `The default configuration names ${providerName}. Change the default configuration first.`;
+): ProviderRemovalBlock | null {
+  if (enablement.agent_providers.length <= 1) return "last-provider";
+  if (enablement.default_configuration.agent_provider === providerName) return "default-provider";
   return null;
 }

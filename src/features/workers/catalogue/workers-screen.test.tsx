@@ -12,6 +12,7 @@ vi.mock("@/features/projects/project-context", () => ({
 }));
 
 import { WorkersScreen } from "./workers-screen";
+import { textContent } from "../../../../test/text-content";
 
 const CATALOG_TDD: WorkerCatalogItem = {
   name: "tdd",
@@ -54,7 +55,7 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(screen.getByText("worker_instance_01")).toBeDefined());
     expect(screen.getByText("executing")).toBeDefined();
     expect(screen.getByText("draining")).toBeDefined();
-    expect(screen.getByText("tdd · kanthord · server · execution_01")).toBeDefined();
+    expect(screen.getByText(textContent("tdd · kanthord · server · execution_01"))).toBeDefined();
     expect(screen.getByText("No workers.")).toBeDefined();
   });
 

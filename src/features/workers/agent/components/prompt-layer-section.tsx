@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import type { PromptLayer, PromptLayerKind, SystemLayerOverride } from "@/api/types";
 import { SYSTEM_LAYER_OVERRIDES } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { Reveal } from "@/components/reveal";
 import { SourceSwitch } from "@/components/source-switch";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +16,9 @@ import { CustomPromptEditor } from "@/components/custom-prompt-editor";
 import {
   OVERRIDE_LABELS,
   overrideOf,
-  sourceLockReason,
+  sourceLockOf,
   SYSTEM_LAYER_SWITCH,
-  systemLayerSummary,
+  type SourceLock,
 } from "@/lib/prompt-switches";
 import { hiddenSourcesLabel } from "@/lib/prompt-visibility";
 import type { InactiveSourcesState } from "../use-inactive-sources";
@@ -28,6 +29,34 @@ const LAYER_TITLES: Readonly<Record<PromptLayerKind, string>> = {
   agent: "Agent layer",
   working: "Working layer",
 };
+
+function SystemLayerSummary({
+  override,
+  serverOn,
+  agentName,
+}: {
+  override: SystemLayerOverride;
+  serverOn: boolean;
+  agentName: string;
+}) {
+  const server = serverOn ? "on" : "off";
+  if (override === "inherit") return <>Follows the server switch, which is {server}.</>;
+  return (
+    <>
+      Turned {override} for <RecordName>{agentName}</RecordName> only. The server switch is {server}
+      .
+    </>
+  );
+}
+
+function SourceLockReason({ lock, title }: { lock: SourceLock; title: string }) {
+  if (lock === "last-source") return <>The agent layer needs one source that is on.</>;
+  return (
+    <>
+      <RecordName>{title}</RecordName> does not exist.
+    </>
+  );
+}
 
 interface PromptLayerSectionProps {
   readonly agentName: string;
@@ -65,7 +94,7 @@ function SystemLayerControl({
         ))}
       </ToggleGroup>
       <p className="text-sm text-muted-foreground">
-        {systemLayerSummary(override, serverOn, agentName)}{" "}
+        <SystemLayerSummary override={override} serverOn={serverOn} agentName={agentName} />{" "}
         <Link to="/settings/prompts" className="underline underline-offset-4">
           Server settings
         </Link>
@@ -100,7 +129,7 @@ export function PromptLayerSection({
           {system && (
             <CardDescription>
               The server owns the source switches of this layer. The control decides whether{" "}
-              {agentName} receives the layer.
+              <RecordName>{agentName}</RecordName> receives the layer.
             </CardDescription>
           )}
         </div>
@@ -109,8 +138,8 @@ export function PromptLayerSection({
       <CardContent className="grid grid-cols-[minmax(0,1fr)] gap-2">
         {!layer.enabled && (
           <p className="text-sm text-muted-foreground">
-            The system layer is off for {agentName}. Each source keeps its switch for when the layer
-            turns on.
+            The system layer is off for <RecordName>{agentName}</RecordName>. Each source keeps its
+            switch for when the layer turns on.
           </p>
         )}
         <div className="-mb-2 grid grid-cols-[minmax(0,1fr)]">
@@ -118,6 +147,7 @@ export function PromptLayerSection({
             {layer.sources.map((source) => {
               const sourceTitle = promptSourceTitle(layer.layer, source);
               const checked = switches[source.source] ?? source.enabled;
+              const lock = sourceLockOf(layer.layer, source, switches);
               return (
                 <Reveal key={source.source} open={!visibility.hides(layer.layer, source)}>
                   <div className="pb-2">
@@ -140,7 +170,13 @@ export function PromptLayerSection({
                             {source.source === "custom" && (
                               <CustomPromptEditor
                                 title={sourceTitle}
-                                description={`Markdown that the ${title.toLowerCase()} of ${agentName} joins after its other sources.`}
+                                description={
+                                  <>
+                                    Markdown that the {title.toLowerCase()} of{" "}
+                                    <RecordName>{agentName}</RecordName> joins after its other
+                                    sources.
+                                  </>
+                                }
                                 settings={scope}
                               />
                             )}
@@ -148,12 +184,11 @@ export function PromptLayerSection({
                               title={sourceTitle}
                               checked={checked}
                               disabled={scope.pending || scope.settings === null}
-                              lockedReason={sourceLockReason(
-                                layer.layer,
-                                source,
-                                sourceTitle,
-                                switches,
-                              )}
+                              lockedReason={
+                                lock === null ? null : (
+                                  <SourceLockReason lock={lock} title={sourceTitle} />
+                                )
+                              }
                               onChange={(enabled) =>
                                 scope.switchSource(source.source, enabled, sourceTitle)
                               }

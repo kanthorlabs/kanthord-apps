@@ -80,15 +80,11 @@ describe("providerRemovalBlock", () => {
   };
 
   it("keeps the last agent provider", () => {
-    expect(providerRemovalBlock(ENABLEMENT, "copilot")).toBe(
-      "An enablement keeps at least one agent provider. Add another agent provider first.",
-    );
+    expect(providerRemovalBlock(ENABLEMENT, "copilot")).toBe("last-provider");
   });
 
   it("keeps the agent provider of the default configuration", () => {
-    expect(providerRemovalBlock(two, "copilot")).toBe(
-      "The default configuration names copilot. Change the default configuration first.",
-    );
+    expect(providerRemovalBlock(two, "copilot")).toBe("default-provider");
   });
 
   it("allows another agent provider", () => {

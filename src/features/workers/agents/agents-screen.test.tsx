@@ -12,6 +12,7 @@ vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
 import { AgentsScreen } from "./agents-screen";
+import { textContent } from "../../../../test/text-content";
 
 const SWE: AgentSummary = {
   agentName: "swe@1",
@@ -69,7 +70,7 @@ describe("AgentsScreen", () => {
     mount();
 
     expect(await screen.findByText("enabled")).toBeTruthy();
-    expect(screen.getByText("atlas-llm, openai-org")).toBeTruthy();
+    expect(screen.getByText(textContent("atlas-llm, openai-org"))).toBeTruthy();
     expect(screen.getByText(/qwen3-coder/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "swe@1" })).toHaveAttribute("href", "/agents/swe%401");
   });

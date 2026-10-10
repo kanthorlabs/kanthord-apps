@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { AgentSummary } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
@@ -48,17 +49,29 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
       <ItemContent className="min-w-0 gap-3">
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
           <dt className="text-muted-foreground">Workers</dt>
-          <dd className="font-mono break-all">{workerNames.join(", ")}</dd>
+          <dd className="font-mono break-all">
+            {workerNames.map((name, index) => (
+              <Fragment key={name}>
+                {index > 0 && ", "}
+                <RecordName>{name}</RecordName>
+              </Fragment>
+            ))}
+          </dd>
           {enablement !== null && (
             <>
               <dt className="text-muted-foreground">Agent providers</dt>
               <dd className="font-mono break-all">
-                {enablement.agent_providers.map((p) => p.name).join(", ")}
+                {enablement.agent_providers.map((p, index) => (
+                  <Fragment key={p.name}>
+                    {index > 0 && ", "}
+                    <RecordName>{p.name}</RecordName>
+                  </Fragment>
+                ))}
               </dd>
               <dt className="text-muted-foreground">Default</dt>
               <dd className="font-mono break-all">
-                {enablement.default_configuration.agent_provider} ·{" "}
-                {enablement.default_configuration.model_identifier} ·{" "}
+                <RecordName>{enablement.default_configuration.agent_provider}</RecordName> ·{" "}
+                <RecordName>{enablement.default_configuration.model_identifier}</RecordName> ·{" "}
                 {enablement.default_configuration.reasoning_effort}
               </dd>
             </>
