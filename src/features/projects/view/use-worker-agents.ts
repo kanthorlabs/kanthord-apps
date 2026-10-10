@@ -39,6 +39,22 @@ async function readWorkerAgents(workerName: string): Promise<WorkerAgents> {
   };
 }
 
+interface ReadAgents {
+  readonly workerName: string;
+  readonly agents: WorkerAgents;
+}
+
 export function useWorkerAgents(workerName: string): Resource<WorkerAgents> {
-  return useResource(() => readWorkerAgents(workerName), [workerName]);
+  const read = useResource<ReadAgents>(
+    () => readWorkerAgents(workerName).then((agents) => ({ workerName, agents })),
+    [workerName],
+  );
+  const current = read.data?.workerName === workerName ? read.data.agents : null;
+  const stale = read.data !== null && current === null;
+  return {
+    data: current,
+    error: stale ? null : read.error,
+    loading: read.loading || stale,
+    reload: read.reload,
+  };
 }
