@@ -16,6 +16,9 @@ import type {
   MissionExternalAction,
   MissionNodeRecord,
   MissionOutcome,
+  MissionProposal,
+  MissionProposalApproveBody,
+  MissionProposalApproveResult,
   MissionRevision,
 } from "../types";
 
@@ -118,5 +121,23 @@ export async function listNodeExternalActions(
   return readAllPages<MissionExternalAction>(
     `/api/mission/node/${encodeURIComponent(nodeId)}/external-action`,
     { attempt: String(attempt) },
+  );
+}
+
+export async function listNodeProposals(nodeId: string): Promise<readonly MissionProposal[]> {
+  return readAllPages<MissionProposal>(`/api/mission/node/${encodeURIComponent(nodeId)}/proposal`);
+}
+
+export async function approveProposal(
+  proposalId: string,
+  body: MissionProposalApproveBody,
+): Promise<MissionProposalApproveResult> {
+  return request<MissionProposalApproveResult>(
+    `/api/mission/proposal/${encodeURIComponent(proposalId)}/approve`,
+    {
+      method: "POST",
+      body,
+      headers: { "idempotency-key": newUlid() },
+    },
   );
 }
