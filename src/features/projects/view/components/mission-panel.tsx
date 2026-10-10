@@ -125,6 +125,8 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
               projectId={projectId}
               model={graph.data.model}
               selectedId={selection.selectedId}
+              missionVersion={graph.data.mission.version}
+              onChanged={reloadAll}
               onSelect={selection.select}
             />
           </>

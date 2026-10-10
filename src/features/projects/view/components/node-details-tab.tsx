@@ -1,3 +1,5 @@
+import { useCallback } from "react";
+
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,12 +13,15 @@ import { useNodeRecord } from "../use-node-record";
 import { BindingList } from "./binding-list";
 import { FactList, type Fact } from "./fact-list";
 import { NodeStructure } from "./node-structure";
+import { ProposalSection } from "./proposal-section";
 import type { MissionNodeRecord } from "@/api/types";
 
 interface NodeDetailsTabProps {
   readonly projectId: string;
   readonly model: GraphModel;
   readonly nodeId: string;
+  readonly missionVersion: number;
+  readonly onChanged: () => void;
   readonly onSelect: (nodeId: string) => void;
 }
 
@@ -83,8 +88,20 @@ function BlockedNotice({ node }: { node: MissionNodeRecord }) {
   );
 }
 
-export function NodeDetailsTab({ projectId, model, nodeId, onSelect }: NodeDetailsTabProps) {
+export function NodeDetailsTab({
+  projectId,
+  model,
+  nodeId,
+  missionVersion,
+  onChanged,
+  onSelect,
+}: NodeDetailsTabProps) {
   const record = useNodeRecord(nodeId);
+  const { reload: reloadRecord } = record;
+  const reloadAll = useCallback(() => {
+    reloadRecord();
+    onChanged();
+  }, [reloadRecord, onChanged]);
   const bindingIds = record.data?.content.bindings ?? [];
   const bindings = useBindingRecords(projectId, bindingIds);
   const node = record.data;
@@ -108,6 +125,15 @@ export function NodeDetailsTab({ projectId, model, nodeId, onSelect }: NodeDetai
   return (
     <div className="flex flex-col gap-5">
       <BlockedNotice node={node} />
+      {node.kind === "initiative" && (
+        <ProposalSection
+          model={model}
+          initiative={node}
+          missionVersion={missionVersion}
+          onChanged={reloadAll}
+          onSelect={onSelect}
+        />
+      )}
       {owner !== null && (
         <p className="text-sm">
           A task holds no state, no attempt and no revision of its own. Its objective{" "}
