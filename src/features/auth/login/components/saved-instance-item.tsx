@@ -1,4 +1,5 @@
 import { DataListItem } from "@/components/data-list-item";
+import { RecordName } from "@/components/record-name";
 import { Button } from "@/components/ui/button";
 import { VerifyStatus } from "@/features/auth/instances/components/verify-status";
 import type { SavedInstance } from "@/features/auth/instances/instance-storage";
@@ -34,8 +35,8 @@ export function SavedInstanceItem({
         description={instance.baseUrl}
         notice={
           <p role="alert" className="text-sm break-words">
-            Delete {instance.name}? This browser forgets its endpoint and token. The instance itself
-            does not change.
+            Delete <RecordName>{instance.name}</RecordName>? This browser forgets its endpoint and
+            token. The instance itself does not change.
           </p>
         }
         actions={

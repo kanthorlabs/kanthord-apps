@@ -72,7 +72,7 @@ function form() {
 function row(name: string) {
   return within(screen.getByRole("list", { name: "Saved instances" }))
     .getAllByRole("listitem")
-    .find((item) => within(item).queryByText(name) !== null) as HTMLElement;
+    .find((item) => within(item).queryAllByText(name).length > 0) as HTMLElement;
 }
 
 async function replace(label: string, value: string) {

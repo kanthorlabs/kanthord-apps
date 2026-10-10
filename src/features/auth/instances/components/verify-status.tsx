@@ -1,3 +1,4 @@
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import type { VerifyState } from "../use-instance-verify";
 
@@ -27,7 +28,9 @@ function Detail({ state }: { state: VerifyState }) {
           <p>Failing components:</p>
           <ul className="list-disc pl-5 break-all">
             {state.failing.map((component) => (
-              <li key={component}>{component}</li>
+              <li key={component}>
+                <RecordName>{component}</RecordName>
+              </li>
             ))}
           </ul>
         </div>
