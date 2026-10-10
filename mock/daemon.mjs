@@ -33,6 +33,9 @@ const mission = { ...structuredClone(fx.MISSION), entries: structuredClone(fx.MI
 const bindingSet = structuredClone(fx.BINDING_SET);
 const agents = structuredClone(fx.AGENT_DECLARATIONS);
 const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
+const graphNodes = structuredClone(fx.GRAPH_NODES);
+const graphEdges = structuredClone(fx.GRAPH_EDGES);
+const proposals = structuredClone(fx.GRAPH_PROPOSALS);
 let nodeSequence = 10;
 
 const routes = [];
@@ -893,7 +896,8 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
 const page = (items) => ({ items, next_cursor: null });
 
 const dependsOnOf = (nodeId) =>
-  fx.GRAPH_EDGES.filter((edge) => edge.kind === "dependency" && edge.dependent_id === nodeId)
+  graphEdges
+    .filter((edge) => edge.kind === "dependency" && edge.dependent_id === nodeId)
     .map((edge) => edge.depends_on_id)
     .sort();
 
@@ -907,13 +911,11 @@ const graphNodeRead = (node) => {
     : { ...runnable, blocked_context: { outcome, requests: [] } };
 };
 
-const graphNodeById = (id) => fx.GRAPH_NODES.find((node) => node.id === id);
+const graphNodeById = (id) => graphNodes.find((node) => node.id === id);
 
 const graphRevisions = (node) => {
   const owner = node.kind === "task" ? graphNodeById(node.parent_id) : node;
-  const tasks = fx.GRAPH_NODES.filter(
-    (child) => child.parent_id === owner.id && child.kind === "task",
-  );
+  const tasks = graphNodes.filter((child) => child.parent_id === owner.id && child.kind === "task");
   const first = {
     node_id: owner.id,
     filename: owner.filename,
@@ -965,12 +967,12 @@ const byAttempt = (records, nodeId, url) => {
 };
 
 on("GET", /^\/api\/mission\/([^/]+)\/node$/, (_m, _b, res) =>
-  json(res, 200, page(fx.GRAPH_NODES.map(graphNodeRead))),
+  json(res, 200, page(graphNodes.map(graphNodeRead))),
 );
 
 on("GET", /^\/api\/mission\/([^/]+)\/edge$/, (_m, _b, res, _t, url) => {
   const kind = url.searchParams.get("kind");
-  return json(res, 200, page(fx.GRAPH_EDGES.filter((edge) => kind === null || edge.kind === kind)));
+  return json(res, 200, page(graphEdges.filter((edge) => kind === null || edge.kind === kind)));
 });
 
 on("GET", /^\/api\/mission\/node\/([^/]+)$/, (m, _b, res) => {
@@ -1009,6 +1011,92 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/assessment$/, (m, _b, res, _t, url) =
 on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
   json(res, 200, page(byAttempt(fx.GRAPH_OUTCOMES, decodeURIComponent(m[1]), url))),
 );
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(byAttempt(proposals, decodeURIComponent(m[1]), url))),
+);
+
+on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
+  const proposal = proposals.find((item) => item.id === decodeURIComponent(m[1]));
+  if (proposal === undefined)
+    return projectEnvelope(res, 404, "mission.record.not_found", "No such proposal.");
+  if (proposal.approved_at !== null)
+    return projectEnvelope(res, 409, "mission.proposal.already_approved", "Proposal is approved.");
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const initiative = graphNodeById(proposal.node_id);
+  if (initiative.state !== "Blocked" || initiative.attempt !== proposal.attempt)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.state_conflict",
+      "The node state does not admit the control.",
+    );
+  const now = Date.now();
+  const stem = `proposal-${proposal.id.slice("proposal_".length).toLowerCase()}`;
+  const { task, objective_id: sourceId, ...objectiveContent } = proposal.content;
+  const objective = {
+    id: nodeIdOf(),
+    filename: `${stem}.md`,
+    mission_id: mission.id,
+    kind: "objective",
+    parent_id: initiative.id,
+    visible_revision: 1,
+    content: {
+      ...objectiveContent,
+      verifications: task.verifications,
+      bindings: graphNodeById(sourceId)?.content.bindings ?? [],
+    },
+    retired_at: null,
+    pinned_by_attempts: [],
+    state: "Available",
+    attempt: 0,
+    priority: 0,
+  };
+  const taskNode = {
+    id: nodeIdOf(),
+    filename: `${stem}-task.md`,
+    mission_id: mission.id,
+    kind: "task",
+    parent_id: objective.id,
+    visible_revision: 1,
+    content: { ...task, bindings: [] },
+    retired_at: null,
+    pinned_by_attempts: [],
+  };
+  const addedEdges = [
+    { kind: "containment", parent_id: initiative.id, child_id: objective.id },
+    { kind: "containment", parent_id: objective.id, child_id: taskNode.id },
+  ];
+  graphNodes.push(objective, taskNode);
+  graphEdges.push(...addedEdges);
+  initiative.state = "Pending";
+  mission.version += 1;
+  proposal.approved_at = now;
+  proposal.objective_node_id = objective.id;
+  return json(res, 200, {
+    objective: {
+      mission_version: mission.version,
+      revisions: [],
+      retired_node_ids: [],
+      added_edges: addedEdges,
+      removed_edges: [],
+      open_attempts_unchanged: [],
+    },
+    initiative: {
+      node: graphNodeRead(initiative),
+      attempt: null,
+      outcome: null,
+      actor: fx.GRAPH_HUMAN,
+      accepted_at: now,
+    },
+  });
+});
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
   const nodeId = decodeURIComponent(m[1]);

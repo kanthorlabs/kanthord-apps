@@ -6,10 +6,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setConnection } from "../client";
 import {
   applyMissionImport,
+  approveProposal,
   exportMissionJson,
   listMissionDependencies,
   listMissionNodes,
   listNodeEvidence,
+  listNodeProposals,
   previewMissionImport,
   readMission,
   readNodeRevision,
@@ -125,5 +127,27 @@ describe("mission graph resources", () => {
 
     await readNodeRevision("node_1", 3);
     expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/revision/3");
+  });
+});
+
+describe("mission proposal resources", () => {
+  it("reads every proposal of an initiative through mission.proposal.list", async () => {
+    await serve({ items: [], next_cursor: null });
+
+    await listNodeProposals("node_1");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/proposal?limit=1000");
+  });
+
+  it("approves a proposal with the mission version and an idempotency key", async () => {
+    await serve({});
+
+    await approveProposal("proposal_1", { expected_mission_version: 7, reason: "Fix it" });
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/proposal/proposal_1/approve");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      expected_mission_version: 7,
+      reason: "Fix it",
+    });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
   });
 });

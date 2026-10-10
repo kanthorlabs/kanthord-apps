@@ -20,10 +20,19 @@ interface NodeSheetProps {
   readonly projectId: string;
   readonly model: GraphModel;
   readonly selectedId: string | null;
+  readonly missionVersion: number;
+  readonly onChanged: () => void;
   readonly onSelect: (nodeId: string | null) => void;
 }
 
-export function NodeSheet({ projectId, model, selectedId, onSelect }: NodeSheetProps) {
+export function NodeSheet({
+  projectId,
+  model,
+  selectedId,
+  missionVersion,
+  onChanged,
+  onSelect,
+}: NodeSheetProps) {
   const mobile = useIsMobile();
   const [tab, setTab] = useState<NodeSheetTab>("details");
   const node = selectedId === null ? undefined : model.nodeById.get(selectedId);
@@ -63,6 +72,8 @@ export function NodeSheet({ projectId, model, selectedId, onSelect }: NodeSheetP
                   projectId={projectId}
                   model={model}
                   nodeId={node.id}
+                  missionVersion={missionVersion}
+                  onChanged={onChanged}
                   onSelect={onSelect}
                 />
               </TabsContent>

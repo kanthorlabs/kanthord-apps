@@ -651,6 +651,62 @@ export interface MissionRevision {
   readonly pinned_by_attempts: readonly number[];
 }
 
+export interface MissionProposalTask {
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+  readonly verifications: readonly string[];
+}
+
+export interface MissionProposalContent {
+  readonly objective_id: string;
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+  readonly task: MissionProposalTask;
+}
+
+export interface MissionProposal {
+  readonly id: string;
+  readonly node_id: string;
+  readonly attempt: number;
+  readonly assessment_id: string;
+  readonly content: MissionProposalContent;
+  readonly objective_node_id: string | null;
+  readonly approved_at: number | null;
+  readonly created_at: number;
+}
+
+export interface MissionProposalApproveBody {
+  readonly expected_mission_version: number;
+  readonly reason?: string;
+}
+
+export interface MissionNodeChange {
+  readonly mission_version: number;
+  readonly revisions: readonly MissionRevision[];
+  readonly retired_node_ids: readonly string[];
+  readonly added_edges: readonly MissionEdge[];
+  readonly removed_edges: readonly MissionEdge[];
+  readonly open_attempts_unchanged: readonly {
+    readonly node_id: string;
+    readonly attempt: number;
+  }[];
+}
+
+export interface MissionControlResult {
+  readonly node: MissionNodeRecord;
+  readonly attempt: MissionAttempt | null;
+  readonly outcome: MissionOutcome | null;
+  readonly actor: MissionActor;
+  readonly accepted_at: number;
+}
+
+export interface MissionProposalApproveResult {
+  readonly objective: MissionNodeChange;
+  readonly initiative: MissionControlResult;
+}
+
 export interface ProjectBindingRecord {
   readonly id: string;
   readonly project_id: string;

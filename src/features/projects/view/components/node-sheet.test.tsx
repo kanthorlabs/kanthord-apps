@@ -163,7 +163,14 @@ function binding(id: string, revision: number): ProjectBindingRecord {
 
 function renderSheet(selectedId: string, onSelect = vi.fn()) {
   render(
-    <NodeSheet projectId="project_1" model={MODEL} selectedId={selectedId} onSelect={onSelect} />,
+    <NodeSheet
+      projectId="project_1"
+      model={MODEL}
+      selectedId={selectedId}
+      missionVersion={3}
+      onChanged={vi.fn()}
+      onSelect={onSelect}
+    />,
   );
   return onSelect;
 }
