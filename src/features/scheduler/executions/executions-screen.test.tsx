@@ -40,6 +40,7 @@ function execution(
     },
     attempt: 2,
     pinned_revision: 3,
+    node_branch: "kanthord/node_reset",
     credentials: [],
     claim_state: "running",
     expired_at: now + 120_000,

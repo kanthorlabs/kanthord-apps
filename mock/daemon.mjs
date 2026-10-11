@@ -1157,6 +1157,8 @@ const blankReason = (res) =>
     field: "reason",
   });
 
+const START_POINTS = ["base_branch", "node_branch"];
+
 const isBlank = (value) => typeof value !== "string" || value.trim().length === 0;
 
 on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
@@ -1166,6 +1168,14 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
   if (node.attempt !== b.blocked_attempt) return stateConflict(res, node);
   if (node.state !== "Blocked") return controlRefused(res, node);
   if (b.reason !== undefined && isBlank(b.reason)) return blankReason(res);
+  if (b.start_point !== undefined && !START_POINTS.includes(b.start_point))
+    return projectEnvelope(
+      res,
+      400,
+      "gateway.request.validation_failed",
+      "Request validation failed.",
+      [{ path: ["body", "start_point"], code: "invalid_value" }],
+    );
   if (node.visible_revision !== b.expected_revision)
     return projectEnvelope(res, 409, "mission.revision.conflict", "Node revision changed.", {
       current: node.visible_revision,

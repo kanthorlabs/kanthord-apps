@@ -9,6 +9,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import type { NodeUnblockState } from "../use-node-unblock";
 
@@ -32,6 +33,20 @@ export function NodeUnblockDialog({ name, unblock }: { name: string; unblock: No
           />
           <FieldDescription>Optional. The unblock records it.</FieldDescription>
         </Field>
+        {unblock.startChoice && (
+          <Field orientation="horizontal">
+            <Switch
+              id="node-unblock-start-point"
+              checked={unblock.fromBase}
+              disabled={unblock.unblocking}
+              onCheckedChange={(checked) => unblock.setFromBase(checked)}
+            />
+            <FieldLabel htmlFor="node-unblock-start-point">
+              Start the next attempt from the base branch on a new node branch. The earlier branch
+              and its pull request stay. Close that pull request yourself.
+            </FieldLabel>
+          </Field>
+        )}
         {unblock.error !== null && (
           <p role="alert" className="text-sm text-destructive">
             {unblock.error}

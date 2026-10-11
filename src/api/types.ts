@@ -558,10 +558,13 @@ export interface FrozenAction {
   readonly configuration: { readonly base_branch: string };
 }
 
+export type StartPoint = "base_branch" | "node_branch";
+
 export interface MissionAttempt {
   readonly node_id: string;
   readonly attempt: number;
   readonly node_revision: number;
+  readonly start_point: StartPoint;
   readonly required_external_actions: readonly FrozenAction[];
   readonly opened_at: number;
   readonly closed_at: number | null;
@@ -707,6 +710,7 @@ export interface MissionNodeUnblockBody {
   readonly expected_revision: number;
   readonly expected_mission_version: number;
   readonly reason?: string;
+  readonly start_point?: StartPoint;
 }
 
 export interface MissionHumanActBody {
@@ -755,6 +759,7 @@ export interface SchedulerExecutionRecord {
   };
   readonly attempt: number;
   readonly pinned_revision: number;
+  readonly node_branch: string;
   readonly credentials: readonly string[];
   readonly claim_state: ClaimState;
   readonly expired_at: number;
