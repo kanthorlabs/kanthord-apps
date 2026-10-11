@@ -10,6 +10,8 @@ export interface NodeUnblockState {
   readonly available: boolean;
   readonly open: boolean;
   readonly reason: string;
+  readonly startChoice: boolean;
+  readonly fromBase: boolean;
   readonly error: string | null;
   readonly unblocking: boolean;
   readonly consequence: ReactNode;
@@ -17,6 +19,7 @@ export interface NodeUnblockState {
   readonly saferPath: ReactNode;
   readonly request: () => void;
   readonly setReason: (reason: string) => void;
+  readonly setFromBase: (fromBase: boolean) => void;
   readonly cancel: () => void;
   readonly confirm: () => void;
 }
@@ -36,6 +39,10 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
 
 function isUnblockable(node: MissionRunnableNode): boolean {
   return node.retired_at === null && node.state === "Blocked";
+}
+
+function hasStartChoice(node: MissionRunnableNode): boolean {
+  return node.kind === "objective" && node.attempt > 0;
 }
 
 function openProposalsOf(
@@ -93,6 +100,7 @@ export function useNodeUnblock(
 ): NodeUnblockState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [fromBase, setFromBase] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [unblocking, setUnblocking] = useState(false);
   const available = isUnblockable(node);
@@ -101,6 +109,7 @@ export function useNodeUnblock(
     if (!isUnblockable(node)) return;
     setError(null);
     setReason("");
+    setFromBase(false);
     setOpen(true);
   }, [node]);
 
@@ -124,6 +133,7 @@ export function useNodeUnblock(
       expected_revision: node.visible_revision,
       expected_mission_version: missionVersion,
       ...(trimmed.length === 0 ? {} : { reason: trimmed }),
+      ...(fromBase && hasStartChoice(node) ? { start_point: "base_branch" as const } : {}),
     }).then(
       () => {
         setUnblocking(false);
@@ -143,12 +153,14 @@ export function useNodeUnblock(
         reload();
       },
     );
-  }, [unblocking, open, node, reason, missionVersion, reload]);
+  }, [unblocking, open, node, reason, fromBase, missionVersion, reload]);
 
   return {
     available,
     open,
     reason,
+    startChoice: hasStartChoice(node),
+    fromBase,
     error,
     unblocking,
     consequence: consequenceOf(node),
@@ -160,6 +172,7 @@ export function useNodeUnblock(
     ),
     request,
     setReason,
+    setFromBase,
     cancel,
     confirm,
   };

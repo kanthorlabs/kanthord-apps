@@ -111,6 +111,7 @@ const ATTEMPT: MissionAttempt = {
   node_id: "node_audit",
   attempt: 1,
   node_revision: 1,
+  start_point: "base_branch",
   required_external_actions: [
     {
       key: "repo.pull_request",

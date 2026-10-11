@@ -80,6 +80,7 @@ function execution(
     },
     attempt: 1,
     pinned_revision: 1,
+    node_branch: `kanthord/${nodeId}`,
     credentials: [],
     claim_state: claimState,
     expired_at: Date.now() + 60_000,

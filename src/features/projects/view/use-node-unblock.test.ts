@@ -111,6 +111,43 @@ describe("useNodeUnblock", () => {
     });
   });
 
+  it("offers the start point choice only for an objective with an attempt", () => {
+    expect(mount().result.current.startChoice).toBe(false);
+    expect(mount({ ...INITIATIVE, kind: "objective" }).result.current.startChoice).toBe(true);
+    expect(mount({ ...INITIATIVE, kind: "objective", attempt: 0 }).result.current.startChoice).toBe(
+      false,
+    );
+  });
+
+  it("sends start_point base_branch for an objective when the human chooses it", async () => {
+    const { result } = mount({ ...INITIATIVE, kind: "objective" });
+
+    act(() => result.current.request());
+    act(() => result.current.setFromBase(true));
+    await act(async () => result.current.confirm());
+
+    expect(unblockMock).toHaveBeenCalledWith("node_team", {
+      blocked_attempt: 2,
+      expected_revision: 3,
+      expected_mission_version: 7,
+      start_point: "base_branch",
+    });
+  });
+
+  it("sends no start_point for an initiative", async () => {
+    const { result } = mount();
+
+    act(() => result.current.request());
+    act(() => result.current.setFromBase(true));
+    await act(async () => result.current.confirm());
+
+    expect(unblockMock).toHaveBeenCalledWith("node_team", {
+      blocked_attempt: 2,
+      expected_revision: 3,
+      expected_mission_version: 7,
+    });
+  });
+
   it("names the open proposals of the blocked attempt that an unblock rejects", () => {
     const { result } = mount(INITIATIVE, [
       PROPOSAL,
