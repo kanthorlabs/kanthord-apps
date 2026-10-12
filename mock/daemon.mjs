@@ -161,9 +161,8 @@ on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
   return json(res, 200, page(items));
 });
 const WORKER_METHODS = {
-  "general@1": "steps",
+  "coder@1": "steps",
   "reviewer@1": "evaluation",
-  "developer@1": "reviewed_steps",
 };
 on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
   const item = fx.WORKER_CATALOG.find((w) => w.name === decodeURIComponent(m[1]));

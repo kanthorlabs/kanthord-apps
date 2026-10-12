@@ -70,7 +70,7 @@ export interface WorkerResourceBudget {
   readonly turns?: number;
 }
 
-export type WorkerMethod = "steps" | "evaluation" | "reviewed_steps";
+export type WorkerMethod = "steps" | "evaluation";
 
 export type WorkerCatalogEntry =
   | (WorkerCatalogItem & {

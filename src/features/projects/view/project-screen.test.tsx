@@ -66,7 +66,7 @@ describe("ProjectScreen", () => {
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
       version: 3,
       bindings: {
-        "general-main": { kind: "worker", config: { worker: "general@1", instance_count: 2 } },
+        "general-main": { kind: "worker", config: { worker: "coder@1", instance_count: 2 } },
       },
     });
     vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({

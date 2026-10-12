@@ -41,7 +41,7 @@ const REPO: BindingSetEntry = {
 const WORKER: BindingSetEntry = {
   kind: "worker",
   config: {
-    worker: "general@1",
+    worker: "coder@1",
     instance_count: 2,
     resource_budget: { turns: 200, wall_time_ms: 7200000 },
     entries: [{ agent: "swe@1", reasoning_effort: "high" }],
@@ -117,7 +117,7 @@ describe("binding-level fallback chain", () => {
   ];
   const workerWith = (entry: object): BindingSetEntry => ({
     kind: "worker",
-    config: { worker: "general@1", instance_count: 1, entries: [{ agent: "swe@1", ...entry }] },
+    config: { worker: "coder@1", instance_count: 1, entries: [{ agent: "swe@1", ...entry }] },
   });
 
   it("keeps a one-entry chain unchanged", () => {
@@ -144,7 +144,7 @@ describe("binding-level fallback chain", () => {
 
 describe("entryOfDraft", () => {
   it("refuses a taken name and a name outside the pattern", () => {
-    const draft = { ...emptyDraft("worker"), name: "general-main", worker: "general@1" };
+    const draft = { ...emptyDraft("worker"), name: "general-main", worker: "coder@1" };
     expect(entryOfDraft(draft, ["general-main"])).toMatchObject({
       ok: false,
       errors: { name: "Another binding of this project uses this name." },
@@ -278,15 +278,15 @@ describe("withWorker", () => {
   const draft = emptyDraft("worker") as WorkerDraft;
 
   it("fills an empty name with the worker name before the version", () => {
-    expect(withWorker(draft, "developer@1")).toMatchObject({
-      name: "developer",
-      worker: "developer@1",
+    expect(withWorker(draft, "coder@1")).toMatchObject({
+      name: "coder",
+      worker: "coder@1",
     });
   });
 
   it("keeps a name that the human typed and clears the agent entries", () => {
     const typed = withAgentEntry({ ...draft, name: "dev-main" }, "swe@1", true);
-    expect(withWorker(typed, "developer@1")).toMatchObject({ name: "dev-main", entries: [] });
+    expect(withWorker(typed, "coder@1")).toMatchObject({ name: "dev-main", entries: [] });
   });
 });
 
