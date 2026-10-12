@@ -1,4 +1,5 @@
 import type {
+  AgentDefaultConfiguration,
   BindingSetEntry,
   BindingSetKind,
   RepositoryActionFollows,
@@ -24,6 +25,7 @@ export interface AgentEntryDraft {
   readonly agentProvider: string;
   readonly modelIdentifier: string;
   readonly reasoningEffort: string;
+  readonly fallbackConfigurations?: readonly AgentDefaultConfiguration[];
 }
 
 export interface RepositoryDraft {
@@ -139,6 +141,9 @@ function agentDraftOf(entry: WorkerAgentEntry): AgentEntryDraft {
     agentProvider: entry.agent_provider ?? "",
     modelIdentifier: entry.model_identifier ?? "",
     reasoningEffort: entry.reasoning_effort ?? "",
+    ...(entry.fallback_configurations === undefined
+      ? {}
+      : { fallbackConfigurations: entry.fallback_configurations }),
   };
 }
 
@@ -243,6 +248,9 @@ function agentEntryOf(draft: AgentEntryDraft): WorkerAgentEntry {
     ...(agentProvider === undefined ? {} : { agent_provider: agentProvider }),
     ...(modelIdentifier === undefined ? {} : { model_identifier: modelIdentifier }),
     ...(reasoningEffort === undefined ? {} : { reasoning_effort: reasoningEffort }),
+    ...(draft.fallbackConfigurations === undefined
+      ? {}
+      : { fallback_configurations: draft.fallbackConfigurations }),
   };
 }
 
@@ -318,7 +326,12 @@ function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): Bind
     if (complete && blank(entry.reasoningEffort))
       errors[`entries.${index}.reasoningEffort`] =
         "A custom agent provider needs a reasoning effort.";
-    if (!complete && blank(entry.modelIdentifier) && blank(entry.reasoningEffort))
+    if (
+      !complete &&
+      blank(entry.modelIdentifier) &&
+      blank(entry.reasoningEffort) &&
+      entry.fallbackConfigurations === undefined
+    )
       errors[`entries.${index}.modelIdentifier`] =
         "Give a model identifier, a reasoning effort or both. To keep the defaults, turn off the custom configuration.";
   });
