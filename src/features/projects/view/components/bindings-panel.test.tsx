@@ -50,7 +50,7 @@ const REPO: BindingSetEntry = {
 };
 const WORKER: BindingSetEntry = {
   kind: "worker",
-  config: { worker: "general@1", instance_count: 2 },
+  config: { worker: "coder@1", instance_count: 2 },
 };
 
 const SET: BindingSet = { version: 2, bindings: { "kanthord-repo": REPO, "general-main": WORKER } };
@@ -86,18 +86,18 @@ const CATALOG_ITEM = {
 } as const;
 
 const CATALOG_ENTRIES: Readonly<Record<string, WorkerCatalogEntry>> = {
-  "developer@1": {
+  "coder@1": {
     ...CATALOG_ITEM,
-    name: "developer@1",
-    method: "reviewed_steps",
-    agent_names: ["swe@1", "re@1"],
-    resource_budget: { turns: 200, wall_time_ms: 7200000 },
-  },
-  "general@1": {
-    ...CATALOG_ITEM,
-    name: "general@1",
+    name: "coder@1",
     method: "steps",
     agent_names: ["swe@1"],
+    resource_budget: { turns: 200, wall_time_ms: 7200000 },
+  },
+  "reviewer@1": {
+    ...CATALOG_ITEM,
+    name: "reviewer@1",
+    method: "evaluation",
+    agent_names: ["re@1"],
     resource_budget: { turns: 200, wall_time_ms: 7200000 },
   },
 };
@@ -180,7 +180,8 @@ describe("BindingsPanel", () => {
     });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
-      { ...CATALOG_ITEM, name: "developer@1" },
+      { ...CATALOG_ITEM, name: "coder@1" },
+      { ...CATALOG_ITEM, name: "reviewer@1" },
     ]);
     vi.mocked(workersApi.readWorkerCatalogEntry).mockImplementation(async (name) => {
       const entry = CATALOG_ENTRIES[name];
@@ -445,7 +446,7 @@ describe("BindingsPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await userEvent.type(screen.getByLabelText("Name"), "general-main");
-    await chooseWorker("developer@1");
+    await chooseWorker("coder@1");
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     expect(screen.getByText("Another binding of this project uses this name.")).toBeTruthy();
@@ -459,12 +460,13 @@ describe("BindingsPanel", () => {
     expect(screen.getByText("Choose a worker to see its agents.")).toBeTruthy();
     await userEvent.click(screen.getByRole("combobox", { name: "Worker" }));
     const options = await screen.findAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual(["developer@1"]);
+    expect(options.map((option) => option.textContent)).toEqual(["coder@1", "reviewer@1"]);
     await userEvent.click(options[0]!);
 
     const swe = await agentItem("swe@1");
     expect(within(swe).getByText("Enabled")).toBeTruthy();
     expect(within(swe).getByText(textContent("Default: codex · gpt-6-luna · medium"))).toBeTruthy();
+    await chooseWorker("reviewer@1");
     const re = await agentItem("re@1");
     expect(within(re).getByText("Not enabled")).toBeTruthy();
     expect(within(re).getByRole("link", { name: "agent page" })).toHaveAttribute(
@@ -477,8 +479,8 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await userEvent.type(screen.getByLabelText("Name"), "developer-main");
-    await chooseWorker("developer@1");
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
     const swe = await agentItem("swe@1");
     await userEvent.click(within(swe).getByRole("switch", { name: "Custom configuration" }));
     await userEvent.click(within(swe).getByRole("combobox", { name: "Model identifier" }));
@@ -490,10 +492,10 @@ describe("BindingsPanel", () => {
       expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
         "kanthord-repo": REPO,
         "general-main": WORKER,
-        "developer-main": {
+        "coder-main": {
           kind: "worker",
           config: {
-            worker: "developer@1",
+            worker: "coder@1",
             instance_count: 1,
             entries: [{ agent: "swe@1", model_identifier: "gpt-6-sol" }],
           },
@@ -509,7 +511,7 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await chooseWorker("developer@1");
+    await chooseWorker("coder@1");
     const swe = await agentItem("swe@1");
     await userEvent.click(within(swe).getByRole("switch", { name: "Custom configuration" }));
 
@@ -527,8 +529,8 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await userEvent.type(screen.getByLabelText("Name"), "developer-main");
-    await chooseWorker("developer@1");
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
     const swe = await agentItem("swe@1");
     await userEvent.click(within(swe).getByRole("switch", { name: "Custom configuration" }));
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));

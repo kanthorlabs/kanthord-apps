@@ -24,7 +24,7 @@ const REPO: BindingSetEntry = {
 };
 const WORKER: BindingSetEntry = {
   kind: "worker",
-  config: { worker: "general@1", instance_count: 2 },
+  config: { worker: "coder@1", instance_count: 2 },
 };
 const STORAGE: BindingSetEntry = {
   kind: "storage",

@@ -93,14 +93,14 @@ const SWE_ENABLEMENT = {
 const CATALOG_ROUTES = {
   "GET /api/worker/catalog?limit=1000": {
     items: [
-      { name: "general@1", host: "kanthord", ...CATALOG_ITEM },
+      { name: "coder@1", host: "kanthord", ...CATALOG_ITEM },
       { name: "harness@1", host: "external-harness", ...CATALOG_ITEM },
       { name: "reviewer@1", host: "kanthord", ...CATALOG_ITEM },
     ],
     next_cursor: null,
   },
-  "GET /api/worker/catalog/general%401": {
-    name: "general@1",
+  "GET /api/worker/catalog/coder%401": {
+    name: "coder@1",
     host: "kanthord",
     method: "steps",
     agent_names: ["swe@1"],
@@ -124,7 +124,7 @@ describe("listAgents", () => {
 
     expect(await listAgents()).toEqual([
       { agentName: "re@1", workerNames: ["reviewer@1"], enablement: null },
-      { agentName: "swe@1", workerNames: ["general@1"], enablement: SWE_ENABLEMENT },
+      { agentName: "swe@1", workerNames: ["coder@1"], enablement: SWE_ENABLEMENT },
     ]);
     expect(seen.map((call) => call.url).sort()).toEqual(
       Object.keys(CATALOG_ROUTES)

@@ -15,7 +15,7 @@ import { AgentsScreen } from "./agents-screen";
 
 const SWE: AgentSummary = {
   agentName: "swe@1",
-  workerNames: ["general@1"],
+  workerNames: ["coder@1"],
   enablement: {
     agent_name: "swe@1",
     state: "enabled",

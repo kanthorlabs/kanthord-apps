@@ -33,7 +33,7 @@ const AGENT_CONFIGURATION_SCHEMA = {
 
 export const WORKER_CATALOG = [
   {
-    name: "general@1",
+    name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available", "Waiting"],
     required_node_format: ["objective"],
@@ -44,22 +44,16 @@ export const WORKER_CATALOG = [
     declared_node_states: ["Evaluating"],
     required_node_format: ["objective"],
   },
-  {
-    name: "developer@1",
-    host: "kanthord",
-    declared_node_states: ["Available"],
-    required_node_format: ["objective"],
-  },
 ];
 
-export const RELEASED_WORKERS = ["developer@1", "reviewer@1"];
+export const RELEASED_WORKERS = ["coder@1", "reviewer@1"];
 
 export const WORKER_INSTANCES = [
   {
     runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A01",
     project_id: PROJECT.id,
     resource_identity: "worker:kanthord:general-main",
-    worker_name: "general@1",
+    worker_name: "coder@1",
     host: "kanthord",
     placement: "server",
     activity: "executing",
@@ -83,7 +77,7 @@ export const WORKER_INSTANCES = [
 export const AGENT_DECLARATIONS = [
   {
     agent_name: "re@1",
-    worker_names: ["reviewer@1", "developer@1"],
+    worker_names: ["reviewer@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
     enablement: null,
@@ -102,7 +96,7 @@ Change no file of the repository.`,
   },
   {
     agent_name: "swe@1",
-    worker_names: ["general@1", "developer@1"],
+    worker_names: ["coder@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
     enablement: {
@@ -229,7 +223,7 @@ export const BINDING_SET = {
     "general-main": {
       kind: "worker",
       config: {
-        worker: "general@1",
+        worker: "coder@1",
         instance_count: 2,
         resource_budget: { turns: 200, wall_time_ms: 7200000 },
         entries: [{ agent: "swe@1", reasoning_effort: "high" }],

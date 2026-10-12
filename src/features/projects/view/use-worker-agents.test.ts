@@ -24,16 +24,16 @@ describe("useWorkerAgents", () => {
     let finishSecond: (value: WorkerCatalogEntry) => void = () => {};
     vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([]);
     vi.mocked(workersApi.readWorkerCatalogEntry).mockImplementation((name) =>
-      name === "developer@1"
-        ? Promise.resolve(entry("developer@1", ["swe@1", "re@1"]))
+      name === "coder@1"
+        ? Promise.resolve(entry("coder@1", ["swe@1"]))
         : new Promise((resolve) => {
             finishSecond = resolve;
           }),
     );
     const { result, rerender } = renderHook(({ worker }) => useWorkerAgents(worker), {
-      initialProps: { worker: "developer@1" },
+      initialProps: { worker: "coder@1" },
     });
-    await waitFor(() => expect(result.current.data?.agents).toHaveLength(2));
+    await waitFor(() => expect(result.current.data?.agents).toHaveLength(1));
 
     rerender({ worker: "reviewer@1" });
 
