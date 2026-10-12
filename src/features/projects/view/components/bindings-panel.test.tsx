@@ -197,6 +197,7 @@ describe("BindingsPanel", () => {
           model_identifier: "gpt-6-luna",
           reasoning_effort: "medium",
         },
+        fallback_configurations: [],
         revision: 1,
       },
     ]);

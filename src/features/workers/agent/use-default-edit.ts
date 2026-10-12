@@ -44,6 +44,7 @@ export function useDefaultEdit(
       expected_revision: enablement.revision,
       agent_providers: enablement.agent_providers,
       default_configuration: result.configuration,
+      fallback_configurations: enablement.fallback_configurations,
     }).then(
       (answer) => {
         setSubmitting(false);
