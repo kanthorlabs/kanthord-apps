@@ -111,6 +111,37 @@ describe("draftOf and entryOfDraft", () => {
   });
 });
 
+describe("binding-level fallback chain", () => {
+  const chain = [
+    { agent_provider: "router", model_identifier: "qwen/qwen3-max", reasoning_effort: "off" },
+  ];
+  const workerWith = (entry: object): BindingSetEntry => ({
+    kind: "worker",
+    config: { worker: "general@1", instance_count: 1, entries: [{ agent: "swe@1", ...entry }] },
+  });
+
+  it("keeps a one-entry chain unchanged", () => {
+    const entry = workerWith({ reasoning_effort: "high", fallback_configurations: chain });
+    expect(entryOfDraft(draftOf("general-main", entry), [])).toEqual({ ok: true, entry });
+  });
+
+  it("keeps an empty chain and an entry that holds only a chain", () => {
+    for (const entry of [
+      workerWith({ reasoning_effort: "high", fallback_configurations: [] }),
+      workerWith({ fallback_configurations: chain }),
+    ]) {
+      expect(entryOfDraft(draftOf("general-main", entry), [])).toEqual({ ok: true, entry });
+    }
+  });
+
+  it("keeps an entry without the field without it", () => {
+    const entry = workerWith({ reasoning_effort: "high" });
+    const result = entryOfDraft(draftOf("general-main", entry), []);
+    expect(result).toEqual({ ok: true, entry });
+    expect(JSON.stringify(result)).not.toContain("fallback_configurations");
+  });
+});
+
 describe("entryOfDraft", () => {
   it("refuses a taken name and a name outside the pattern", () => {
     const draft = { ...emptyDraft("worker"), name: "general-main", worker: "general@1" };

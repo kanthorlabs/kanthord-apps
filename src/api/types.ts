@@ -370,6 +370,7 @@ export interface WorkerAgentEntry {
   readonly agent_provider?: string;
   readonly model_identifier?: string;
   readonly reasoning_effort?: string;
+  readonly fallback_configurations?: readonly AgentDefaultConfiguration[];
 }
 
 export interface WorkerBindingConfig {
