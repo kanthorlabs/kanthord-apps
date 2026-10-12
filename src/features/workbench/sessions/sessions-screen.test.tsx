@@ -32,6 +32,7 @@ const ENABLEMENT: AgentEnablement = {
     model_identifier: "qwen3-coder",
     reasoning_effort: "off",
   },
+  fallback_configurations: [],
   revision: 2,
 };
 

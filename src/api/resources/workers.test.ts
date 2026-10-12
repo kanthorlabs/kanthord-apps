@@ -141,6 +141,9 @@ const PUT_BODY = {
     model_identifier: "qwen/qwen3-coder",
     reasoning_effort: "off",
   },
+  fallback_configurations: [
+    { agent_provider: "router", model_identifier: "qwen/qwen3-max", reasoning_effort: "off" },
+  ],
 } as const;
 
 describe("putAgentEnablement", () => {

@@ -19,6 +19,7 @@ const ENABLEMENT: AgentEnablement = {
     model_identifier: "claude-haiku-4.5",
     reasoning_effort: "off",
   },
+  fallback_configurations: [],
   revision: 3,
 };
 

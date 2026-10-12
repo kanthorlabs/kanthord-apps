@@ -28,6 +28,7 @@ describe("enablementBodyOf", () => {
           model_identifier: "qwen/qwen3-coder",
           reasoning_effort: "off",
         },
+        fallback_configurations: [],
       },
     });
   });

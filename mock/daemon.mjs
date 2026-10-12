@@ -208,6 +208,7 @@ on("PUT", /^\/api\/agent\/enablement\/([^/]+)$/, (m, b, res) => {
     state: agent.enablement?.state ?? "enabled",
     agent_providers: b.agent_providers,
     default_configuration: b.default_configuration,
+    fallback_configurations: b.fallback_configurations,
     revision: (agent.enablement?.revision ?? 0) + 1,
   };
   return json(res, 200, agent.enablement);

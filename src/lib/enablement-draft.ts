@@ -53,6 +53,7 @@ export function enablementBodyOf(
         model_identifier: modelIdentifier,
         reasoning_effort: draft.reasoningEffort,
       },
+      fallback_configurations: [],
     },
   };
 }

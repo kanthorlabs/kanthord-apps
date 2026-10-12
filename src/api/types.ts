@@ -133,6 +133,7 @@ export interface AgentEnablement {
   readonly state: AgentEnablementState;
   readonly agent_providers: readonly AgentProvider[];
   readonly default_configuration: AgentDefaultConfiguration;
+  readonly fallback_configurations: readonly AgentDefaultConfiguration[];
   readonly revision: number;
 }
 
@@ -149,6 +150,7 @@ export interface AgentEnablementPutBody {
   readonly expected_revision?: number;
   readonly agent_providers: readonly AgentProvider[];
   readonly default_configuration: AgentDefaultConfiguration;
+  readonly fallback_configurations: readonly AgentDefaultConfiguration[];
 }
 
 export interface AgentSummary {

@@ -52,6 +52,7 @@ const AGENT: AgentDeclaration = {
       model_identifier: "qwen3-coder",
       reasoning_effort: "off",
     },
+    fallback_configurations: [],
     revision: 2,
   },
   prompt: { layers: [], final: "" },

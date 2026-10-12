@@ -87,6 +87,7 @@ const ENABLEMENT: AgentEnablement = {
     model_identifier: "qwen/qwen3-coder",
     reasoning_effort: "off",
   },
+  fallback_configurations: [],
   revision: 2,
 };
 
@@ -422,6 +423,7 @@ describe("AgentScreen", () => {
           model_identifier: "qwen/qwen3-coder",
           reasoning_effort: "off",
         },
+        fallback_configurations: [],
         revision: 2,
       },
     });
@@ -468,6 +470,7 @@ describe("AgentScreen", () => {
         model_identifier: "qwen/qwen3-coder",
         reasoning_effort: "off",
       },
+      fallback_configurations: [],
     });
     expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
   });
@@ -597,12 +600,15 @@ describe("AgentScreen", () => {
     expect(within(sheet).queryByRole("button", { name: "Add agent provider" })).toBeNull();
     expect(within(sheet).getAllByRole("button", { name: "Add an LLM credential" })).toHaveLength(1);
   });
-  it("saves a new default configuration and keeps the agent providers", async () => {
+  it("saves a new default configuration and keeps the agent providers and the fallback chain", async () => {
     const two: AgentEnablement = {
       ...ENABLEMENT,
       agent_providers: [
         ...ENABLEMENT.agent_providers,
         { name: "codex", provider: "openai-codex", credential: "codex-main" },
+      ],
+      fallback_configurations: [
+        { agent_provider: "router", model_identifier: "qwen/qwen3-max", reasoning_effort: "off" },
       ],
     };
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: two });
@@ -632,6 +638,7 @@ describe("AgentScreen", () => {
         model_identifier: "gpt-5-codex",
         reasoning_effort: "low",
       },
+      fallback_configurations: two.fallback_configurations,
     });
   });
 });
