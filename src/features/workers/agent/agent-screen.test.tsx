@@ -564,7 +564,7 @@ describe("AgentScreen", () => {
       credential: "codex-main",
     });
   });
-  it("adds an anthropic-subscription agent provider under its display label", async () => {
+  it("adds an anthropic-subscription agent provider", async () => {
     const claude: Credential = {
       name: "claude-main",
       platform: "anthropic-subscription",
@@ -585,7 +585,7 @@ describe("AgentScreen", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
     const sheet = await screen.findByRole("dialog");
     await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "claude");
-    await choose("LLM credential", "claude-main (Anthropic (Claude Pro/Max))");
+    await choose("LLM credential", "claude-main (anthropic-subscription)");
     expect(within(sheet).getByText(textContent("Provider: anthropic-subscription"))).toBeTruthy();
     await userEvent.click(within(sheet).getByRole("button", { name: "Add agent provider" }));
 
