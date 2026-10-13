@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CredentialPlatformList } from "@/api/types";
-import { platformEntryOf, platformIdsOf } from "./credential-platforms";
+import { platformEntryOf, platformIdsOf, platformLabel } from "./credential-platforms";
 
 const ANTHROPIC = {
   platform: "anthropic",
@@ -37,5 +37,15 @@ describe("platformIdsOf", () => {
   it("lists the platform ids in the answer order", () => {
     expect(platformIdsOf(LIST)).toEqual(["anthropic", "cloudflare-ai-gateway"]);
     expect(platformIdsOf(null)).toEqual([]);
+  });
+});
+
+describe("platformLabel", () => {
+  it("names anthropic-subscription by its plan", () => {
+    expect(platformLabel("anthropic-subscription")).toBe("Anthropic (Claude Pro/Max)");
+  });
+
+  it("keeps the platform id when no display label exists", () => {
+    expect(platformLabel("openai-codex")).toBe("openai-codex");
   });
 });

@@ -8,4 +8,10 @@ describe("credentialLabel", () => {
       "openai-codex-elsa (openai-codex)",
     );
   });
+
+  it("shows the display label of the platform", () => {
+    expect(credentialLabel("claude-elsa", "anthropic-subscription")).toBe(
+      "claude-elsa (Anthropic (Claude Pro/Max))",
+    );
+  });
 });
