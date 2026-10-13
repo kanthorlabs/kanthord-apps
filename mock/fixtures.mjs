@@ -149,6 +149,18 @@ export const AGENT_KIND_MODELS = {
     },
     { model_identifier: "claude-haiku-4-5", reasoning_efforts: ["off", "low"] },
   ],
+  "anthropic-subscription": [
+    { model_identifier: "claude-haiku-5-5", reasoning_efforts: ["off", "low"] },
+    {
+      model_identifier: "claude-sonnet-5-5",
+      reasoning_efforts: ["off", "minimal", "low", "medium", "high"],
+    },
+    {
+      model_identifier: "claude-opus-5-5",
+      reasoning_efforts: ["off", "minimal", "low", "medium", "high", "xhigh"],
+    },
+    { model_identifier: "claude-fable-5-1", reasoning_efforts: ["off", "low", "medium", "high"] },
+  ],
   "github-copilot": [{ model_identifier: "gpt-5", reasoning_efforts: ["off", "low", "high"] }],
   "openai-codex": [
     { model_identifier: "gpt-5-codex", reasoning_efforts: ["low", "medium", "high"] },

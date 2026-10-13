@@ -59,6 +59,7 @@ const PLATFORMS: Readonly<Record<CredentialComponent, CredentialPlatformList>> =
     items: [
       entry("github-copilot", "oauth", ["device"], []),
       entry("openai-codex", "oauth", ["browser", "device"], []),
+      entry("anthropic-subscription", "oauth", ["copy_code"], []),
       entry("openai-compatible", "api_key", [], ["base_url"]),
       entry("openrouter", "api_key", [], []),
       entry("cloudflare-ai-gateway", "api_key", [], ["account_id", "gateway_id"]),
@@ -95,11 +96,11 @@ async function mount(component: CredentialComponent) {
   await screen.findByLabelText("Name");
 }
 
-async function choosePlatform(platform: string) {
+async function choosePlatform(platform: string, label = platform) {
   const input = screen.getByRole("combobox", { name: "Platform" });
   await userEvent.clear(input);
-  await userEvent.type(input, platform);
-  await userEvent.click(await screen.findByRole("option", { name: platform }));
+  await userEvent.type(input, label);
+  await userEvent.click(await screen.findByRole("option", { name: label }));
 }
 
 beforeEach(() => {
@@ -630,6 +631,71 @@ describe("CredentialFormScreen", () => {
       name: "codex",
       mode: "device",
     });
+  });
+
+  it("runs a paste code sign-in for anthropic-subscription", async () => {
+    const authorization = "https://claude.ai/oauth/authorize?code=true";
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue({
+      ...SESSION,
+      address: authorization,
+      code: null,
+    });
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: SESSION.session_id,
+      state: "pending",
+      last_message: null,
+      failure_reason: null,
+    });
+    vi.mocked(credentialsApi.submitCredentialLoginCode).mockResolvedValue({
+      session_id: SESSION.session_id,
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "claude");
+    await choosePlatform("anthropic-subscription", "Anthropic (Claude Pro/Max)");
+    expect(screen.queryByLabelText("API Key")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Sign-in Mode" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+
+    expect(await screen.findByRole("link", { name: authorization })).toBeTruthy();
+    expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
+      platform: "anthropic-subscription",
+      name: "claude",
+      mode: "copy_code",
+    });
+    const open = screen.getByRole("button", { name: "Open sign-in page" });
+    expect(open.getAttribute("href")).toBe(authorization);
+    expect(screen.queryByRole("button", { name: "The callback failed?" })).toBeNull();
+    const field = screen.getByLabelText("Paste code");
+    await userEvent.type(field, "abc123#state456");
+    await userEvent.click(screen.getByRole("button", { name: "Send code" }));
+
+    expect(credentialsApi.submitCredentialLoginCode).toHaveBeenCalledWith(
+      SESSION.session_id,
+      "abc123#state456",
+    );
+    expect((field as HTMLInputElement).value).toBe("");
+  });
+
+  it("opens the credential when the paste code sign-in completes", async () => {
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue({
+      ...SESSION,
+      address: "https://claude.ai/oauth/authorize?code=true",
+      code: null,
+    });
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: SESSION.session_id,
+      state: "completed",
+      last_message: null,
+      failure_reason: null,
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "claude");
+    await choosePlatform("anthropic-subscription", "Anthropic (Claude Pro/Max)");
+    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+
+    expect(await screen.findByText("Credential view", undefined, { timeout: 4000 })).toBeTruthy();
   });
 
   it("explains a pending sign-in", async () => {

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CredentialComponent, CredentialPlatformEntry } from "@/api/types";
+import { platformLabel } from "@/lib/credential-platforms";
 import { credentialSectionPath } from "@/lib/credential-sections";
 import { CredentialField } from "../components/credential-field";
 import { MetadataFields } from "../components/metadata-fields";
@@ -25,11 +26,8 @@ import { useCredentialForm, type CredentialFormState } from "./use-credential-fo
 const MODE_LABELS = {
   browser: "Browser",
   device: "Headless (device code)",
+  copy_code: "Paste code",
 };
-
-function platformLabel(platform: string): string {
-  return platform;
-}
 
 function SignInFields({
   form,
