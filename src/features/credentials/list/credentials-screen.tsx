@@ -10,7 +10,7 @@ import { Field, FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { archiveTime, isArchived, newestLiveRevision } from "@/lib/credential-revisions";
-import { platformEntryOf } from "@/lib/credential-platforms";
+import { platformEntryOf, platformLabel } from "@/lib/credential-platforms";
 import { credentialDetailPath, credentialSectionPath } from "@/lib/credential-sections";
 import { utcDateTime } from "@/lib/format";
 import { CheckStatusBadge } from "../components/check-status-badge";
@@ -24,8 +24,8 @@ import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
 import { ALL_PLATFORMS, useCredentialList } from "./use-credential-list";
 
-function platformLabel(value: string): string {
-  return value === ALL_PLATFORMS ? "All platforms" : value;
+function platformFilterLabel(value: string): string {
+  return value === ALL_PLATFORMS ? "All platforms" : platformLabel(value);
 }
 
 interface CredentialItemProps {
@@ -133,7 +133,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
             label="Platform"
             items={platformIds}
             value={platform ?? ALL_PLATFORMS}
-            labelOf={platformLabel}
+            labelOf={platformFilterLabel}
             onValueChange={selectPlatform}
           />
         </div>

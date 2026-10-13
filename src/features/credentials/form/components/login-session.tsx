@@ -64,6 +64,7 @@ function WaitingStatus({ login }: { login: CredentialLoginState }) {
 }
 
 function CodeForm({ login }: { login: CredentialLoginState }) {
+  const copyCode = login.sessionMode === "copy_code";
   return (
     <form
       noValidate
@@ -76,10 +77,14 @@ function CodeForm({ login }: { login: CredentialLoginState }) {
       <FieldGroup>
         <CredentialField
           id="login-code"
-          label="Code or Redirect URL"
+          label={copyCode ? "Paste code" : "Code or Redirect URL"}
           value={login.code}
           error={login.codeError ?? undefined}
-          description="Paste it only when the sign-in asks for it, for example when the browser callback fails."
+          description={
+            copyCode
+              ? "Paste the code that the provider shows after you approve."
+              : "Paste it only when the sign-in asks for it, for example when the browser callback fails."
+          }
           onChange={login.setCode}
         />
         <div className="flex sm:justify-end">
@@ -109,7 +114,7 @@ export function LoginSession({
       </p>
       <SessionFacts session={session} status={login.status} />
       {login.inProgress && <WaitingStatus login={login} />}
-      {login.sessionMode === "browser" && (
+      {(login.sessionMode === "browser" || login.sessionMode === "copy_code") && (
         <div className="flex sm:justify-end">
           <Button
             nativeButton={false}
@@ -133,7 +138,8 @@ export function LoginSession({
           </AlertAction>
         </Alert>
       )}
-      {state === "pending" && (
+      {state === "pending" && login.sessionMode === "copy_code" && <CodeForm login={login} />}
+      {state === "pending" && login.sessionMode !== "copy_code" && (
         <Collapsible className="flex flex-col">
           <CollapsibleTrigger render={<Button variant="link" size="sm" className="self-start" />}>
             The callback failed?

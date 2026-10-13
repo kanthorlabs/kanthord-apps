@@ -25,7 +25,29 @@ const ENABLEMENT: AgentEnablement = {
 
 const CODEX: Credential = { name: "openai-codex-elsa", platform: "openai-codex", revisions: [] };
 
+const SUBSCRIPTION: Credential = {
+  name: "claude-elsa",
+  platform: "anthropic-subscription",
+  revisions: [],
+};
+
 describe("agentProviderBodyOf", () => {
+  it("derives anthropic-subscription from the platform of the credential", () => {
+    expect(
+      agentProviderBodyOf({ name: "claude", credential: SUBSCRIPTION.name }, ENABLEMENT, [
+        SUBSCRIPTION,
+      ]),
+    ).toEqual({
+      ok: true,
+      body: {
+        expected_revision: 3,
+        name: "claude",
+        provider: "anthropic-subscription",
+        credential: "claude-elsa",
+      },
+    });
+  });
+
   it("derives the provider from the platform of the credential", () => {
     expect(
       agentProviderBodyOf({ name: " codex ", credential: CODEX.name }, ENABLEMENT, [CODEX]),
@@ -67,7 +89,10 @@ describe("unusedProviderCredentials", () => {
       platform: "github-copilot",
       revisions: [],
     };
-    expect(unusedProviderCredentials([CODEX, custom, used], ENABLEMENT)).toEqual([CODEX]);
+    expect(unusedProviderCredentials([CODEX, SUBSCRIPTION, custom, used], ENABLEMENT)).toEqual([
+      CODEX,
+      SUBSCRIPTION,
+    ]);
   });
 });
 

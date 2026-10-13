@@ -22,7 +22,7 @@ export function loginModeOf(
 ): CredentialLoginMode | null {
   const usable = browserAvailable ? modes : modes.filter((mode) => mode !== "browser");
   if (selected !== null && usable.includes(selected)) return selected;
-  if (!modes.includes("browser")) return null;
+  if (!modes.includes("browser")) return modes.includes("copy_code") ? "copy_code" : null;
   return usable[0] ?? null;
 }
 

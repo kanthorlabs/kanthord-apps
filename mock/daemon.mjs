@@ -1459,6 +1459,7 @@ const CREDENTIAL_PLATFORM_LISTS = {
     items: [
       platformEntry("github-copilot", "oauth", ["device"], [], true),
       platformEntry("openai-codex", "oauth", ["browser", "device"], [], true),
+      platformEntry("anthropic-subscription", "oauth", ["copy_code"], [], true),
       platformEntry("anthropic", "api_key", [], [], true),
       platformEntry("openai-compatible", "api_key", [], ["base_url"], true),
       platformEntry("openrouter", "api_key", [], [], true),
@@ -1494,6 +1495,7 @@ const HEALTH_CAPABILITIES = {
   github: "rate-limit read",
   "github-copilot": "copilot-token read",
   "openai-codex": "model-list read",
+  "anthropic-subscription": "model call",
   anthropic: "model-list read",
   openrouter: "model-list read",
   "openai-compatible": "model-list read",
@@ -1811,7 +1813,12 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
   if (typeof b.name !== "string" || !CREDENTIAL_NAME.test(b.name) || b.name === "login") {
     return refuseInvalidInput(res);
   }
-  if (b.mode !== undefined && b.mode !== "browser" && b.mode !== "device") {
+  if (
+    b.mode !== undefined &&
+    b.mode !== "browser" &&
+    b.mode !== "device" &&
+    b.mode !== "copy_code"
+  ) {
     return credentialEnvelope(
       res,
       400,
@@ -1840,7 +1847,8 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
     return credentialEnvelope(res, 409, "credential.login.pending", "Another login is pending.");
   }
   const sessionId = `login_session_01J9ZQ4XKM3B6V8N2R5T7W${String(now % 10000).padStart(4, "0")}`;
-  const device = b.platform === "github-copilot" || b.mode === "device";
+  const copyCode = b.platform === "anthropic-subscription";
+  const device = !copyCode && (b.platform === "github-copilot" || b.mode === "device");
   const session = {
     session_id: sessionId,
     platform: b.platform,
@@ -1854,7 +1862,11 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
   loginSessions.set(sessionId, session);
   return json(res, 200, {
     session_id: sessionId,
-    address: device ? "https://github.com/login/device" : "https://auth.example.test/authorize",
+    address: copyCode
+      ? "https://claude.ai/oauth/authorize?code=true&client_id=mock"
+      : device
+        ? "https://github.com/login/device"
+        : "https://auth.example.test/authorize",
     code: device ? "MOCK-1234" : null,
     expires_at: session.expires_at,
   });

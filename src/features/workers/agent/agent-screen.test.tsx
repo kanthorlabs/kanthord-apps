@@ -564,6 +564,38 @@ describe("AgentScreen", () => {
       credential: "codex-main",
     });
   });
+  it("adds an anthropic-subscription agent provider", async () => {
+    const claude: Credential = {
+      name: "claude-main",
+      platform: "anthropic-subscription",
+      revisions: [],
+    };
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, claude]);
+    vi.mocked(workersApi.addAgentProvider).mockResolvedValue({
+      ...ENABLEMENT,
+      agent_providers: [
+        ...ENABLEMENT.agent_providers,
+        { name: "claude", provider: "anthropic-subscription", credential: "claude-main" },
+      ],
+      revision: 3,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
+    const sheet = await screen.findByRole("dialog");
+    await userEvent.type(within(sheet).getByRole("textbox", { name: "Name" }), "claude");
+    await choose("LLM credential", "claude-main (anthropic-subscription)");
+    expect(within(sheet).getByText(textContent("Provider: anthropic-subscription"))).toBeTruthy();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Add agent provider" }));
+
+    expect(workersApi.addAgentProvider).toHaveBeenCalledWith("re@1", {
+      expected_revision: 2,
+      name: "claude",
+      provider: "anthropic-subscription",
+      credential: "claude-main",
+    });
+  });
   it("removes an agent provider after the human confirms and keeps the default one", async () => {
     const two: AgentEnablement = {
       ...ENABLEMENT,

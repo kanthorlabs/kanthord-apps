@@ -107,6 +107,7 @@ export type AgentEnablementState = "enabled" | "disabled";
 export const AGENT_PROVIDER_KINDS = [
   "github-copilot",
   "openai-codex",
+  "anthropic-subscription",
   "anthropic",
   "openai-compatible",
   "openrouter",
@@ -893,7 +894,7 @@ export interface CredentialMetadataBody {
   readonly metadata: CredentialMetadata;
 }
 
-export type CredentialLoginMode = "browser" | "device";
+export type CredentialLoginMode = "browser" | "device" | "copy_code";
 
 export interface CredentialLoginBody {
   readonly platform: CredentialPlatform;

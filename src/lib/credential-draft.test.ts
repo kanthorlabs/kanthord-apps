@@ -343,6 +343,11 @@ describe("loginModeOf", () => {
     expect(loginModeOf(["device"], null, true)).toBeNull();
   });
 
+  it("selects copy_code when the platform offers only copy_code", () => {
+    expect(loginModeOf(["copy_code"], null, true)).toBe("copy_code");
+    expect(loginModeOf(["copy_code"], "browser", false)).toBe("copy_code");
+  });
+
   it("selects device when browser sign-in is not available", () => {
     expect(loginModeOf(["browser", "device"], null, false)).toBe("device");
     expect(loginModeOf(["browser", "device"], "browser", false)).toBe("device");

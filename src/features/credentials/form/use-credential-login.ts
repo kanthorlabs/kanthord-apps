@@ -22,7 +22,7 @@ import { credentialMessage } from "../credential-message";
 
 export const LOGIN_POLL_MS = 2000;
 
-const MODES: readonly CredentialLoginMode[] = ["browser", "device"];
+const MODES: readonly CredentialLoginMode[] = ["browser", "device", "copy_code"];
 
 export interface CredentialLoginState {
   readonly mode: CredentialLoginMode | null;
