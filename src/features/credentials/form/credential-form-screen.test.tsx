@@ -652,7 +652,7 @@ describe("CredentialFormScreen", () => {
     await mount("llm");
 
     await userEvent.type(screen.getByLabelText("Name"), "claude");
-    await choosePlatform("anthropic-subscription", "Anthropic (Claude Pro/Max)");
+    await choosePlatform("anthropic-subscription");
     expect(screen.queryByLabelText("API Key")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Sign-in Mode" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
@@ -692,7 +692,7 @@ describe("CredentialFormScreen", () => {
     await mount("llm");
 
     await userEvent.type(screen.getByLabelText("Name"), "claude");
-    await choosePlatform("anthropic-subscription", "Anthropic (Claude Pro/Max)");
+    await choosePlatform("anthropic-subscription");
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("Credential view", undefined, { timeout: 4000 })).toBeTruthy();

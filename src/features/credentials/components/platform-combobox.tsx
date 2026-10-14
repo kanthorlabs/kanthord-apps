@@ -7,12 +7,16 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 
+function sameLabel(value: string): string {
+  return value;
+}
+
 interface PlatformComboboxProps {
   readonly id: string;
   readonly label?: string;
   readonly items: readonly string[];
   readonly value: string;
-  readonly labelOf: (value: string) => string;
+  readonly labelOf?: (value: string) => string;
   readonly onValueChange: (value: string | null) => void;
 }
 
@@ -21,7 +25,7 @@ export function PlatformCombobox({
   label,
   items,
   value,
-  labelOf,
+  labelOf = sameLabel,
   onValueChange,
 }: PlatformComboboxProps) {
   return (

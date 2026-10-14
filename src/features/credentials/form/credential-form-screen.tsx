@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CredentialComponent, CredentialPlatformEntry } from "@/api/types";
-import { platformLabel } from "@/lib/credential-platforms";
 import { credentialSectionPath } from "@/lib/credential-sections";
 import { CredentialField } from "../components/credential-field";
 import { MetadataFields } from "../components/metadata-fields";
@@ -114,7 +113,6 @@ export function CreateForm({
             id="credential-platform"
             items={form.platformIds}
             value={form.platform}
-            labelOf={platformLabel}
             onValueChange={form.selectPlatform}
           />
           <FieldError>{form.errors["platform"]}</FieldError>
