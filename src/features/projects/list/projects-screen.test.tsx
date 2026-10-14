@@ -16,6 +16,7 @@ const KANTHORD: Project = {
   name: "kanthord",
   binding_set_version: 3,
   created_at: Date.UTC(2026, 9, 3, 14, 5),
+  paused_at: null,
   workspace_directory:
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
@@ -46,6 +47,20 @@ describe("ProjectsScreen", () => {
     expect(items).toHaveLength(2);
     expect(within(items[0]!).getByText(KANTHORD.id)).toBeTruthy();
     expect(within(items[0]!).getByText("2026-10-03 14:05 UTC")).toBeTruthy();
+  });
+
+  it("marks a paused project with the Paused badge", async () => {
+    vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
+      items: [{ ...KANTHORD, paused_at: Date.UTC(2026, 9, 4, 8, 30) }, BILLING],
+      next_cursor: null,
+    });
+    mount();
+
+    const items = within(await screen.findByRole("list", { name: "Projects" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(items[0]!).getByText("Paused")).toBeTruthy();
+    expect(within(items[1]!).queryByText("Paused")).toBeNull();
   });
 
   it("opens a project from its row", async () => {

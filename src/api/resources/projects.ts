@@ -54,6 +54,20 @@ export async function renameProject(projectId: string, name: string): Promise<Pr
   });
 }
 
+export async function pauseProject(projectId: string): Promise<Project> {
+  return request<Project>(`/api/project/${encodeURIComponent(projectId)}/pause`, {
+    method: "POST",
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function resumeProject(projectId: string): Promise<Project> {
+  return request<Project>(`/api/project/${encodeURIComponent(projectId)}/resume`, {
+    method: "POST",
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
 export async function readBindingSet(projectId: string): Promise<BindingSet> {
   return request<BindingSet>(`/api/project/${encodeURIComponent(projectId)}/binding-set`);
 }

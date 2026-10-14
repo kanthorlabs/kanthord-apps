@@ -5,6 +5,7 @@ export const PROJECT = {
   name: "kanthord",
   binding_set_version: 1,
   created_at: now,
+  paused_at: null,
   workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-kanthord",
 };
 

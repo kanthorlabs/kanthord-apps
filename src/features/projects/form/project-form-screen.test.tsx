@@ -21,6 +21,7 @@ const KANTHORD: Project = {
   name: "kanthord",
   binding_set_version: 3,
   created_at: 1,
+  paused_at: null,
   workspace_directory:
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
