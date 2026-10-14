@@ -18,6 +18,7 @@ const KANTHORD: Project = {
   name: "kanthord",
   binding_set_version: 3,
   created_at: Date.UTC(2026, 9, 3, 14, 5),
+  paused_at: null,
   workspace_directory:
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
@@ -57,6 +58,70 @@ describe("ProjectScreen", () => {
       "href",
       `/projects/${KANTHORD.id}/edit`,
     );
+  });
+
+  it("shows an active project with the Pause button and no Paused badge", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Pause" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+    expect(screen.queryByText("Paused")).toBeNull();
+  });
+
+  it("shows a paused project with the Paused badge, its time and the Resume button", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue({
+      ...KANTHORD,
+      paused_at: Date.UTC(2026, 9, 4, 8, 30),
+    });
+    mount();
+
+    expect(await screen.findByText("Paused")).toBeTruthy();
+    expect(screen.getByText("2026-10-04 08:30 UTC")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
+  });
+
+  it("pauses the project without a confirmation and reloads it", async () => {
+    const paused = { ...KANTHORD, paused_at: Date.UTC(2026, 9, 4, 8, 30) };
+    vi.mocked(projectsApi.readProject).mockResolvedValueOnce(KANTHORD).mockResolvedValue(paused);
+    vi.mocked(projectsApi.pauseProject).mockResolvedValue(paused);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Pause" }));
+
+    expect(projectsApi.pauseProject).toHaveBeenCalledWith(KANTHORD.id);
+    expect(await screen.findByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(screen.getByText("Paused")).toBeTruthy();
+  });
+
+  it("resumes the project and reloads it", async () => {
+    const paused = { ...KANTHORD, paused_at: Date.UTC(2026, 9, 4, 8, 30) };
+    vi.mocked(projectsApi.readProject).mockResolvedValueOnce(paused).mockResolvedValue(KANTHORD);
+    vi.mocked(projectsApi.resumeProject).mockResolvedValue(KANTHORD);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Resume" }));
+
+    expect(projectsApi.resumeProject).toHaveBeenCalledWith(KANTHORD.id);
+    expect(await screen.findByRole("button", { name: "Pause" })).toBeTruthy();
+    expect(screen.queryByText("Paused")).toBeNull();
+  });
+
+  it("keeps the state and reloads nothing when the pause fails", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    vi.mocked(projectsApi.pauseProject).mockRejectedValue(
+      new ApiError("not_found", "The project identity does not exist.", 404),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Pause" }));
+    const readsBeforeFailure = vi.mocked(projectsApi.readProject).mock.calls.length;
+    const pausesBefore = vi.mocked(projectsApi.pauseProject).mock.calls.length;
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Pause" })).toBeEnabled());
+    expect(projectsApi.pauseProject).toHaveBeenCalledTimes(pausesBefore);
+    expect(projectsApi.readProject).toHaveBeenCalledTimes(readsBeforeFailure);
   });
 
   it("reloads the project after a binding save", async () => {

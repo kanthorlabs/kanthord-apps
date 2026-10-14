@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { Project } from "@/api/types";
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { utcDateTime } from "@/lib/format";
 import { useProjectList } from "./use-project-list";
@@ -14,6 +15,7 @@ function ProjectItem({ project }: { project: Project }) {
   return (
     <DataListItem
       title={project.name}
+      status={project.paused_at !== null ? <Badge variant="secondary">Paused</Badge> : undefined}
       select={{
         label: `Open ${project.name}`,
         disabled: false,

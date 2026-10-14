@@ -50,6 +50,7 @@ export interface Project {
   readonly name: string;
   readonly binding_set_version: number;
   readonly created_at: number;
+  readonly paused_at: number | null;
   readonly workspace_directory: string;
 }
 

@@ -1,6 +1,7 @@
 import { PencilIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,6 +9,7 @@ import { utcDateTime } from "@/lib/format";
 import { useCrumbLabel } from "@/components/crumb-labels";
 import { BindingsPanel } from "./components/bindings-panel";
 import { MissionPanel } from "./components/mission-panel";
+import { ProjectPauseButton } from "./components/project-pause-button";
 import { useProjectDetail } from "./use-project-detail";
 import { useProjectTab, type ProjectTab } from "./use-project-tab";
 
@@ -46,16 +48,22 @@ export function ProjectScreen() {
     <div className="flex flex-1 flex-col gap-3">
       <section aria-label="Project" className="flex flex-col gap-1 border-b pb-3">
         <div className="flex flex-col items-start gap-2 md:flex-row md:justify-between">
-          <h2 className="min-w-0 text-lg font-semibold break-words">{project.name}</h2>
-          <Button
-            nativeButton={false}
-            render={<Link to={`/projects/${encodeURIComponent(project.id)}/edit`} />}
-            variant="outline"
-            size="sm"
-          >
-            <PencilIcon aria-hidden="true" data-icon="inline-start" />
-            Edit
-          </Button>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <h2 className="min-w-0 text-lg font-semibold break-words">{project.name}</h2>
+            {project.paused_at !== null && <Badge variant="secondary">Paused</Badge>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <ProjectPauseButton project={project} onChanged={reload} />
+            <Button
+              nativeButton={false}
+              render={<Link to={`/projects/${encodeURIComponent(project.id)}/edit`} />}
+              variant="outline"
+              size="sm"
+            >
+              <PencilIcon aria-hidden="true" data-icon="inline-start" />
+              Edit
+            </Button>
+          </div>
         </div>
         <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <div className="flex min-w-0 gap-1">
@@ -66,6 +74,12 @@ export function ProjectScreen() {
             <dt>Created</dt>
             <dd className="text-foreground">{utcDateTime(project.created_at)}</dd>
           </div>
+          {project.paused_at !== null && (
+            <div className="flex gap-1">
+              <dt>Paused at</dt>
+              <dd className="text-foreground">{utcDateTime(project.paused_at)}</dd>
+            </div>
+          )}
           <div className="flex min-w-0 gap-1">
             <dt>Workspace Directory</dt>
             <dd className="min-w-0 font-mono break-all text-foreground">

@@ -15,6 +15,7 @@ const KANTHORD: Project = {
   name: "kanthord",
   binding_set_version: 1,
   created_at: 1,
+  paused_at: null,
   workspace_directory: "/home/kanthord/.local/state/kanthord/projects/project_1",
 };
 const BILLING: Project = {
@@ -22,6 +23,7 @@ const BILLING: Project = {
   name: "billing",
   binding_set_version: 1,
   created_at: 2,
+  paused_at: null,
   workspace_directory: "/home/kanthord/.local/state/kanthord/projects/project_2",
 };
 

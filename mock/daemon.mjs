@@ -115,6 +115,7 @@ on("POST", /^\/api\/project$/, (_m, b, res) => {
     name: b.name,
     binding_set_version: 1,
     created_at: Date.now(),
+    paused_at: null,
     workspace_directory: `/home/kanthord/.local/state/kanthord/projects/${id}`,
   };
   projects.push(project);
@@ -133,6 +134,25 @@ on("GET", /^\/api\/project\/([^/]+)$/, (m, _b, res) => {
   }
   return json(res, 200, project);
 });
+
+for (const [action, pausedAt] of [
+  ["pause", () => Date.now()],
+  ["resume", () => null],
+]) {
+  on("POST", new RegExp(`^\\/api\\/project\\/([^/]+)\\/${action}$`), (m, _b, res) => {
+    const project = projects.find((p) => p.id === decodeURIComponent(m[1]));
+    if (project === undefined) {
+      return projectEnvelope(
+        res,
+        404,
+        "project.project.not_found",
+        "The project identity does not exist.",
+      );
+    }
+    if ((project.paused_at === null) === (action === "pause")) project.paused_at = pausedAt();
+    return json(res, 200, project);
+  });
+}
 
 on("PATCH", /^\/api\/project\/([^/]+)$/, (m, b, res) => {
   const project = projects.find((p) => p.id === decodeURIComponent(m[1]));

@@ -9,8 +9,10 @@ import {
   createProject,
   listProjectPage,
   listProjects,
+  pauseProject,
   readInstructionFiles,
   renameProject,
+  resumeProject,
   verifyBinding,
   writeBindingSet,
 } from "./projects";
@@ -46,6 +48,7 @@ const FIRST = {
   name: "second",
   binding_set_version: 1,
   created_at: 2,
+  paused_at: null,
   workspace_directory: "/state/projects/prj-2",
 };
 const SECOND = {
@@ -53,6 +56,7 @@ const SECOND = {
   name: "first",
   binding_set_version: 3,
   created_at: 1,
+  paused_at: null,
   workspace_directory: "/state/projects/prj-1",
 };
 
@@ -109,6 +113,29 @@ describe("renameProject", () => {
     expect(await renameProject("prj-1", "first")).toEqual(SECOND);
     expect(seen[0]?.method).toBe("PATCH");
     expect(seen[0]?.url).toBe("/api/project/prj-1");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
+describe("pauseProject and resumeProject", () => {
+  it("posts project.pause with an idempotency key", async () => {
+    const paused = { ...SECOND, paused_at: 5 };
+    const base = await serve([paused]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await pauseProject("prj-1")).toEqual(paused);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/pause");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("posts project.resume with an idempotency key", async () => {
+    const base = await serve([SECOND]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await resumeProject("prj-1")).toEqual(SECOND);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/resume");
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 });
