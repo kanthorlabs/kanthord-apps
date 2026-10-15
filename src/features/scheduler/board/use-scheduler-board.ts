@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import type { ApiError } from "@/api/errors";
 import { listWorkerCatalog } from "@/api/resources/workers";
@@ -51,6 +51,11 @@ export interface DoneSource {
   readonly nodeNames: ReadonlyMap<string, string>;
 }
 
+export interface RefreshSignal {
+  readonly at: number | null;
+  readonly manual: number;
+}
+
 export interface SchedulerBoardState {
   readonly status: "loading" | "ready" | "error";
   readonly error: ApiError | null;
@@ -63,6 +68,7 @@ export interface SchedulerBoardState {
   readonly queue: readonly QueueGroup[];
   readonly done: readonly DoneSource[];
   readonly updatedAt: number | null;
+  readonly refreshSignal: RefreshSignal;
   readonly now: number;
   readonly refresh: () => void;
 }
@@ -138,6 +144,16 @@ export function useSchedulerBoard(): SchedulerBoardState {
     [snapshot, projectId],
   );
   const catalogData = catalog.data;
+  const [manualRefreshes, setManualRefreshes] = useState(0);
+  const { updatedAt, refresh: refreshBoard } = board;
+  const refreshSignal = useMemo(
+    () => ({ at: updatedAt, manual: manualRefreshes }),
+    [updatedAt, manualRefreshes],
+  );
+  const refresh = useCallback(() => {
+    setManualRefreshes((count) => count + 1);
+    refreshBoard();
+  }, [refreshBoard]);
 
   const running = useMemo(
     () =>
@@ -185,8 +201,9 @@ export function useSchedulerBoard(): SchedulerBoardState {
     running,
     queue,
     done,
-    updatedAt: board.updatedAt,
+    updatedAt,
+    refreshSignal,
     now: board.now,
-    refresh: board.refresh,
+    refresh,
   };
 }

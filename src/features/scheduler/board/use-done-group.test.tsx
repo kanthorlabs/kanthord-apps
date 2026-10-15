@@ -10,6 +10,7 @@ vi.mock("@/api/resources/scheduler", () => ({
 import { listProjectExecutionPage } from "@/api/resources/scheduler";
 
 import { useDoneGroup } from "./use-done-group";
+import type { RefreshSignal } from "./use-scheduler-board";
 
 function record(id: string): SchedulerExecutionRecord {
   return {
@@ -40,6 +41,10 @@ function record(id: string): SchedulerExecutionRecord {
 const FIRST: Page<SchedulerExecutionRecord> = { items: [record("e_one")], next_cursor: "c-1" };
 const SECOND: Page<SchedulerExecutionRecord> = { items: [record("e_two")], next_cursor: null };
 
+function signalOf(at: number, manual = 0): RefreshSignal {
+  return { at, manual };
+}
+
 function idsOf(items: readonly SchedulerExecutionRecord[]): string[] {
   return items.map((item) => item.execution_id);
 }
@@ -58,11 +63,13 @@ describe("useDoneGroup", () => {
           })
         : Promise.resolve(FIRST),
     );
-    const view = renderHook(({ at }) => useDoneGroup("prj-1", at), { initialProps: { at: 1 } });
+    const view = renderHook(({ signal }) => useDoneGroup("prj-1", signal), {
+      initialProps: { signal: signalOf(1) },
+    });
     await waitFor(() => expect(view.result.current.pages.status).toBe("ready"));
 
     act(() => view.result.current.pages.next());
-    view.rerender({ at: 2 });
+    view.rerender({ signal: signalOf(2) });
     await act(async () => {
       finish(SECOND);
     });
@@ -73,12 +80,50 @@ describe("useDoneGroup", () => {
 
   it("reloads the first page when a refresh arrives", async () => {
     vi.mocked(listProjectExecutionPage).mockResolvedValue(FIRST);
-    const view = renderHook(({ at }) => useDoneGroup("prj-1", at), { initialProps: { at: 1 } });
+    const view = renderHook(({ signal }) => useDoneGroup("prj-1", signal), {
+      initialProps: { signal: signalOf(1) },
+    });
     await waitFor(() => expect(view.result.current.pages.status).toBe("ready"));
 
-    view.rerender({ at: 2 });
+    view.rerender({ signal: signalOf(2) });
 
     await waitFor(() => expect(listProjectExecutionPage).toHaveBeenCalledTimes(2));
     expect(listProjectExecutionPage).toHaveBeenLastCalledWith("prj-1", null, 20);
+  });
+
+  it("reloads only the first page when the cycle refreshes", async () => {
+    vi.mocked(listProjectExecutionPage).mockImplementation(async (_projectId, cursor) =>
+      cursor === "c-1" ? SECOND : FIRST,
+    );
+    const view = renderHook(({ signal }) => useDoneGroup("prj-1", signal), {
+      initialProps: { signal: signalOf(1) },
+    });
+    await waitFor(() => expect(view.result.current.pages.status).toBe("ready"));
+    act(() => view.result.current.pages.next());
+    await waitFor(() => expect(idsOf(view.result.current.executions)).toEqual(["e_two"]));
+
+    view.rerender({ signal: signalOf(2) });
+
+    await act(async () => undefined);
+    expect(listProjectExecutionPage).toHaveBeenCalledTimes(2);
+  });
+
+  it("reloads the current page when a manual refresh completes", async () => {
+    vi.mocked(listProjectExecutionPage).mockImplementation(async (_projectId, cursor) =>
+      cursor === "c-1" ? SECOND : FIRST,
+    );
+    const view = renderHook(({ signal }) => useDoneGroup("prj-1", signal), {
+      initialProps: { signal: signalOf(1) },
+    });
+    await waitFor(() => expect(view.result.current.pages.status).toBe("ready"));
+    act(() => view.result.current.pages.next());
+    await waitFor(() => expect(idsOf(view.result.current.executions)).toEqual(["e_two"]));
+
+    view.rerender({ signal: signalOf(1, 1) });
+    view.rerender({ signal: signalOf(2, 1) });
+
+    await waitFor(() => expect(listProjectExecutionPage).toHaveBeenCalledTimes(3));
+    expect(listProjectExecutionPage).toHaveBeenLastCalledWith("prj-1", "c-1", 20);
+    expect(idsOf(view.result.current.executions)).toEqual(["e_two"]);
   });
 });

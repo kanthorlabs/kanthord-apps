@@ -2,26 +2,26 @@ import { DataList } from "@/components/data-list";
 import { nodePath } from "@/lib/node-path";
 
 import { useDoneGroup } from "../use-done-group";
-import type { DoneSource } from "../use-scheduler-board";
+import type { DoneSource, RefreshSignal } from "../use-scheduler-board";
 import { ExecutionItem } from "./execution-item";
 
 interface DoneSectionProps {
   readonly done: readonly DoneSource[];
   readonly showProjects: boolean;
-  readonly refreshedAt: number | null;
+  readonly signal: RefreshSignal;
   readonly now: number;
 }
 
 interface DoneGroupProps {
   readonly source: DoneSource;
   readonly showProject: boolean;
-  readonly refreshedAt: number | null;
+  readonly signal: RefreshSignal;
   readonly now: number;
 }
 
-function DoneGroup({ source, showProject, refreshedAt, now }: DoneGroupProps) {
+function DoneGroup({ source, showProject, signal, now }: DoneGroupProps) {
   const { project, nodeNames } = source;
-  const { pages, executions } = useDoneGroup(project.id, refreshedAt);
+  const { pages, executions } = useDoneGroup(project.id, signal);
   return (
     <div className="flex flex-col gap-2">
       {showProject && <h4 className="text-sm font-medium">{project.name}</h4>}
@@ -56,7 +56,7 @@ function DoneGroup({ source, showProject, refreshedAt, now }: DoneGroupProps) {
   );
 }
 
-export function DoneSection({ done, showProjects, refreshedAt, now }: DoneSectionProps) {
+export function DoneSection({ done, showProjects, signal, now }: DoneSectionProps) {
   return (
     <section aria-labelledby="scheduler-done" className="flex flex-col gap-3">
       <h3 id="scheduler-done" className="text-base font-semibold">
@@ -67,7 +67,7 @@ export function DoneSection({ done, showProjects, refreshedAt, now }: DoneSectio
           key={source.project.id}
           source={source}
           showProject={showProjects}
-          refreshedAt={refreshedAt}
+          signal={signal}
           now={now}
         />
       ))}

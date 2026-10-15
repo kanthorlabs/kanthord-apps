@@ -84,7 +84,7 @@ export function SchedulerScreen() {
           <DoneSection
             done={board.done}
             showProjects={board.showProjects}
-            refreshedAt={board.updatedAt}
+            signal={board.refreshSignal}
             now={board.now}
           />
         </>
