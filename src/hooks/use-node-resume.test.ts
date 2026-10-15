@@ -259,6 +259,31 @@ describe("useNodeResume notes", () => {
     ]);
   });
 
+  it("leaves out the Waiting sentence while a Waiting need is unmet", () => {
+    const dependent = node("node_rates", "Compute the rates", "Paused", { depends_on: ["node_x"] });
+    const blocker = node("node_x", "Export the orders", "Executing");
+    const { result } = mount({
+      node: dependent,
+      nodes: [dependent, blocker],
+      cause: "further-work-limit",
+    });
+    act(() => result.current.request());
+
+    expect(result.current.notes.map((note) => renderedText(note).text)).toEqual([
+      "A resume resets no stall count. The next execution that ends at its budget pauses Compute the rates again.",
+    ]);
+  });
+
+  it.each<PauseCause>(["failure-limit", "further-work-limit"])(
+    "adds no note at the %s when the end is External.Success",
+    (cause) => {
+      const { result } = mount({ cause, actions: [action("expected-end")] });
+      act(() => result.current.request());
+
+      expect(result.current.notes).toEqual([]);
+    },
+  );
+
   it("adds no note for the target Waiting at the Further-work limit", () => {
     const { result } = mount({ cause: "further-work-limit" });
     act(() => result.current.request());

@@ -26,7 +26,7 @@ export type ResumeEnd =
   | { readonly kind: "pending"; readonly dependency: string }
   | { readonly kind: "waiting" };
 
-export type ResumeNote = "failure-count" | "stall-count";
+export type ResumeNote = "failure-count" | "stall-count" | "stall-count-waiting-offered";
 
 function byId(nodes: readonly MissionNodeRecord[]): ReadonlyMap<string, MissionNodeRecord> {
   return new Map(nodes.map((node) => [node.id, node]));
@@ -112,7 +112,10 @@ export function choosesTarget(end: ResumeEnd): boolean {
 }
 
 export function resumeNotesOf(context: ResumeContext, target: ResumeTarget): readonly ResumeNote[] {
+  if (!choosesTarget(resumeEndOf(context, target))) return [];
   if (context.cause === "failure-limit") return ["failure-count"];
-  if (context.cause === "further-work-limit" && target === "Available") return ["stall-count"];
+  if (context.cause === "further-work-limit" && target === "Available") {
+    return [waitingNeedsOf(context).length === 0 ? "stall-count-waiting-offered" : "stall-count"];
+  }
   return [];
 }

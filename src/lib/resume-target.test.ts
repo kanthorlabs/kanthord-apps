@@ -214,8 +214,33 @@ describe("resumeNotesOf", () => {
   it("adds the stall count note at the Further-work limit for the target Available only", () => {
     const further = context({ cause: "further-work-limit" });
 
-    expect(resumeNotesOf(further, "Available")).toEqual(["stall-count"]);
+    expect(resumeNotesOf(further, "Available")).toEqual(["stall-count-waiting-offered"]);
     expect(resumeNotesOf(further, "Waiting")).toEqual([]);
+  });
+
+  it("leaves out the Waiting sentence when a Waiting need is unmet", () => {
+    const dependent = node("n1", "Compute the rates", "Paused", { depends_on: ["n2"] });
+    const blocker = node("n2", "Export the orders", "Executing");
+    const further = context({
+      node: dependent,
+      nodes: [dependent, blocker],
+      cause: "further-work-limit",
+    });
+
+    expect(resumeNotesOf(further, "Available")).toEqual(["stall-count"]);
+  });
+
+  it.each([
+    ["Failure limit", "failure-limit"],
+    ["Further-work limit", "further-work-limit"],
+  ] as const)("adds no note at the %s when the end is external", (_label, cause) => {
+    for (const actions of [
+      [action("expected-end")],
+      [action("other-end")],
+      [action("unresolved")],
+    ]) {
+      expect(resumeNotesOf(context({ cause, actions }), "Available")).toEqual([]);
+    }
   });
 
   it("adds no note for a pause by a human", () => {

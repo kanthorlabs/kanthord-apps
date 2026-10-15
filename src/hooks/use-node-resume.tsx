@@ -110,8 +110,8 @@ function noteOf(node: MissionRunnableNode, note: ResumeNote): ReactNode {
   return (
     <>
       A resume resets no stall count. The next execution that ends at its budget pauses{" "}
-      <RecordName>{node.content.name}</RecordName> again. To accept the work done, resume to
-      Waiting.
+      <RecordName>{node.content.name}</RecordName> again.
+      {note === "stall-count-waiting-offered" && " To accept the work done, resume to Waiting."}
     </>
   );
 }
