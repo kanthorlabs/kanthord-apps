@@ -1,5 +1,4 @@
 import {
-  Activity,
   Bot,
   Boxes,
   BrainCircuit,
@@ -26,7 +25,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard, group: "Work" },
   { to: "/projects", label: "Projects", icon: FolderKanban, group: "Work" },
   { to: "/scheduler", label: "Scheduler", icon: ListOrdered, group: "Work" },
-  { to: "/executions", label: "Executions", icon: Activity, group: "Work" },
   { to: "/workers", label: "Workers", icon: Boxes, group: "Workforce" },
   { to: "/agents", label: "Agents", icon: Bot, group: "Workforce" },
   { to: "/workbench", label: "Workbench", icon: MessagesSquare, group: "Workforce" },

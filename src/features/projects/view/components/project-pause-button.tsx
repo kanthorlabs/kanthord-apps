@@ -2,7 +2,7 @@ import { PauseIcon, PlayIcon } from "lucide-react";
 
 import type { Project } from "@/api/types";
 import { Button } from "@/components/ui/button";
-import { useProjectPause } from "../use-project-pause";
+import { useProjectPause } from "@/hooks/use-project-pause";
 
 export function ProjectPauseButton({
   project,

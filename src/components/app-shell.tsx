@@ -28,7 +28,7 @@ import {
   SidebarTrigger,
 } from "./ui/sidebar";
 
-const PROJECT_SCOPED_ROUTES = ["/scheduler", "/executions", "/workers"];
+const PROJECT_SCOPED_ROUTES = ["/scheduler", "/workers"];
 
 function waitsForProject(pathname: string): boolean {
   return (

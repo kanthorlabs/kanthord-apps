@@ -116,6 +116,13 @@ describe("AppShell", () => {
     expect(screen.getByText("No projects")).toBeTruthy();
   });
 
+  it("names the merged Scheduler in the sidebar and no Executions item", () => {
+    mount();
+
+    expect(screen.getByRole("link", { name: "Scheduler" })).toHaveAttribute("href", "/scheduler");
+    expect(screen.queryByRole("link", { name: "Executions" })).toBeNull();
+  });
+
   it("reports a project list that failed", () => {
     projectState.value = {
       ...projectState.value,
