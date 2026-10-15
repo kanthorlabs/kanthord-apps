@@ -9,6 +9,7 @@ import type {
 
 import {
   hasOpenAttempt,
+  readFailureText,
   requestsClearOf,
   unresolvedRequestsOf,
   unresolvedRequestsText,
@@ -134,5 +135,16 @@ describe("requestsClearOf", () => {
     expect(requestsClearOf(node("Executing", 2), open)).toBe(false);
     expect(requestsClearOf(node("External.Success", 2), open)).toBe(false);
     expect(requestsClearOf(node("Paused", 2), open)).toBe(false);
+  });
+});
+
+describe("readFailureText", () => {
+  it("names the failed read and the consequence", () => {
+    expect(readFailureText(2, "The daemon did not answer.", true)).toBe(
+      "The executions or the external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
+    );
+    expect(readFailureText(3, "Unreachable", false)).toBe(
+      "The external actions of attempt 3 could not be read: Unreachable. The controls wait for them.",
+    );
   });
 });

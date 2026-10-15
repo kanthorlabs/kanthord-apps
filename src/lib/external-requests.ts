@@ -37,3 +37,8 @@ export function unresolvedRequestsText(
   }
   return `Attempt ${attempt} has ${unresolved.length} unresolved requests. Override and discard wait for their end states.${resume}`;
 }
+
+export function readFailureText(attempt: number, message: string, withExecutions: boolean): string {
+  const subject = withExecutions ? "executions or the external actions" : "external actions";
+  return `The ${subject} of attempt ${attempt} could not be read: ${message.replace(/\.$/, "")}. The controls wait for them.`;
+}

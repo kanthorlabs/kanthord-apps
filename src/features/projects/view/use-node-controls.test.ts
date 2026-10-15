@@ -133,10 +133,10 @@ describe("useNodeControls guard line", () => {
     const executing = mount(node("Executing"), actions, executions);
 
     expect(paused.guardLine).toBe(
-      "The executions or the external actions of attempt 2 could not be read: The daemon did not answer.",
+      "The executions or the external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
     );
     expect(executing.guardLine).toBe(
-      "The external actions of attempt 2 could not be read: The daemon did not answer.",
+      "The external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
     );
     paused.retry?.();
     expect(actions.reload).toHaveBeenCalledTimes(1);

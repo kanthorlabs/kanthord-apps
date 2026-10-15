@@ -13,6 +13,7 @@ import type { Resource } from "@/hooks/use-resource";
 import { pauseCauseOf } from "@/lib/execution-stop";
 import {
   hasOpenAttempt,
+  readFailureText,
   unresolvedRequestsOf,
   unresolvedRequestsText,
 } from "@/lib/external-requests";
@@ -50,7 +51,7 @@ function guardLineOf(
   }
   const failure = actions.error ?? executions.error;
   if (actions.data === null || executions.data === null) {
-    return `The ${paused ? "executions or the external actions" : "external actions"} of attempt ${node.attempt} could not be read: ${failure?.message}`;
+    return readFailureText(node.attempt, failure?.message ?? "", paused);
   }
   const unresolved = unresolvedRequestsOf(actions.data);
   return unresolved.length === 0 ? null : unresolvedRequestsText(node.attempt, unresolved, paused);

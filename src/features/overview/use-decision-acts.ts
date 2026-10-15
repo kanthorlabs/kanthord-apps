@@ -9,6 +9,7 @@ import { useProposalApprove, type ProposalApproveState } from "@/hooks/use-propo
 import { openProposalsOf, type AttentionDetail, type AttentionItem } from "@/lib/attention";
 import {
   hasOpenAttempt,
+  readFailureText,
   unresolvedRequestsOf,
   unresolvedRequestsText,
 } from "@/lib/external-requests";
@@ -74,7 +75,7 @@ function pausedStateOf(attempt: number, detail: AttentionDetail | null): ReadSta
   if (failure?.status === "failed") {
     return {
       ready: false,
-      waiting: `The executions or the external actions of attempt ${attempt} could not be read: ${failure.message}. The acts wait for them.`,
+      waiting: readFailureText(attempt, failure.message, true),
       failed: true,
     };
   }
@@ -92,7 +93,7 @@ function openStateOf(attempt: number, detail: AttentionDetail | null): ReadState
   if (detail.actions.status === "failed") {
     return {
       ready: false,
-      waiting: `The external actions of attempt ${attempt} could not be read: ${detail.actions.message}. The acts wait for them.`,
+      waiting: readFailureText(attempt, detail.actions.message, false),
       failed: true,
     };
   }

@@ -875,7 +875,7 @@ describe("OverviewScreen paused items", () => {
     const item = await waitFor(() => itemOf("Draft the notes"));
     expect(
       await within(item).findByText(
-        /The executions or the external actions of attempt 2 could not be read: The daemon did not answer\./,
+        "The executions or the external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
       ),
     ).toBeInTheDocument();
     expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
