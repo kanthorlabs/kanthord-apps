@@ -117,7 +117,9 @@ export function useNodeOverride(
       (cause: unknown) => {
         setOverriding(false);
         const failure = asApiError(cause);
-        setError(CONFLICT_MESSAGES[failure.detail] ?? failure.message);
+        const message = CONFLICT_MESSAGES[failure.detail] ?? failure.message;
+        setError(message);
+        toast.error(`Overriding ${node.content.name} failed.`, { description: message });
         reload();
       },
     );

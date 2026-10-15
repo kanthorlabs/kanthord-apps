@@ -177,7 +177,9 @@ export function useNodeResume(
       (cause: unknown) => {
         setResuming(false);
         const failure = asApiError(cause);
-        setError(CONFLICT_MESSAGES[failure.detail] ?? failure.message);
+        const message = CONFLICT_MESSAGES[failure.detail] ?? failure.message;
+        setError(message);
+        toast.error(`Resuming ${node.content.name} failed.`, { description: message });
         reload();
       },
     );

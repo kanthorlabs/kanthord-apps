@@ -145,7 +145,9 @@ export function useNodeDiscard(
       (cause: unknown) => {
         setDiscarding(false);
         const failure = asApiError(cause);
-        setError(CONFLICT_MESSAGES[failure.detail] ?? failure.message);
+        const message = CONFLICT_MESSAGES[failure.detail] ?? failure.message;
+        setError(message);
+        toast.error(`Discarding ${node.content.name} failed.`, { description: message });
         reload();
       },
     );

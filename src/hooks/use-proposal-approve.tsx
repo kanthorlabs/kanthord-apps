@@ -115,7 +115,11 @@ export function useProposalApprove(
       (cause: unknown) => {
         setApproving(false);
         const failure = asApiError(cause);
-        setError(CONFLICT_MESSAGES[failure.detail] ?? failure.message);
+        const message = CONFLICT_MESSAGES[failure.detail] ?? failure.message;
+        setError(message);
+        toast.error(`Approving the proposal ${target.content.name} failed.`, {
+          description: message,
+        });
         reload();
       },
     );

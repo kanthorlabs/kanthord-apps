@@ -1,9 +1,14 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
 
 vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
@@ -1200,6 +1205,27 @@ describe("OverviewScreen override", () => {
     await waitFor(() =>
       expect(vi.mocked(listMissionNodes).mock.calls.length).toBeGreaterThan(reads),
     );
+  });
+
+  it("shows the conflict in a toast when the refresh removes the item", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    vi.mocked(overrideNode).mockRejectedValue(
+      new ApiError("conflict", "State conflict.", 409, "mission.node.state_conflict"),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Audit log"));
+    await user.click(within(item).getByRole("button", { name: "Override" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Verified.");
+    vi.mocked(listMissionNodes).mockResolvedValue([]);
+    await user.click(within(dialog).getByRole("button", { name: "Override node" }));
+
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Audit log" })).toBeNull());
+    expect(toast.error).toHaveBeenCalledWith("Overriding Audit log failed.", {
+      description: expect.stringContaining("The state or the attempt of the node changed"),
+    });
   });
 
   it("offers no Override for a Pending node that waits on a Discarded node", async () => {

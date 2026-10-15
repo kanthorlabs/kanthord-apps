@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -185,6 +186,9 @@ describe("useNodeOverride", () => {
     await act(async () => result.current.confirm());
 
     expect(result.current.error).toContain(message);
+    expect(toast.error).toHaveBeenCalledWith("Overriding Audit log failed.", {
+      description: expect.stringContaining(message),
+    });
     expect(result.current.open).toBe(true);
     expect(reload).toHaveBeenCalledTimes(1);
   });

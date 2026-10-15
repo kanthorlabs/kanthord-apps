@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -124,6 +125,12 @@ describe("useDependencyRemove", () => {
     await act(async () => result.current.confirm());
 
     expect(result.current.error).toContain(message);
+    expect(toast.error).toHaveBeenCalledWith(
+      "Removing the dependency of Redirect the links on Drop the legacy checkout failed.",
+      {
+        description: expect.stringContaining(message),
+      },
+    );
     expect(result.current.target).toEqual(DROPPED);
     expect(reload).toHaveBeenCalledTimes(1);
   });

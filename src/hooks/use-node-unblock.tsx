@@ -141,7 +141,9 @@ export function useNodeUnblock(
       (cause: unknown) => {
         setUnblocking(false);
         const failure = asApiError(cause);
-        setError(CONFLICT_MESSAGES[failure.detail] ?? failure.message);
+        const message = CONFLICT_MESSAGES[failure.detail] ?? failure.message;
+        setError(message);
+        toast.error(`Unblocking ${node.content.name} failed.`, { description: message });
         reload();
       },
     );
