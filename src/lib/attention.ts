@@ -14,8 +14,10 @@ import type {
   WorkerCatalogItem,
   WorkerInstanceRecord,
   BindingAgentView,
+  WorkbenchSessionListItem,
 } from "@/api/types";
 
+import { approvalItemsOf, type ToolApprovalItem } from "./approval-attention";
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
 import { fixItemsOf, type FixAttentionItem } from "./fix-attention";
@@ -73,6 +75,7 @@ export interface AttentionContext {
   readonly now: number;
   readonly catalog: readonly WorkerCatalogItem[] | null;
   readonly credentials: readonly Credential[] | null;
+  readonly sessions: readonly WorkbenchSessionListItem[] | null;
 }
 
 export type DetailRead<T> =
@@ -173,7 +176,8 @@ export type DecisionAttentionItem = BlockedItem | PausedItem | DependencyItem;
 
 export type OutsideAttentionItem = MergeWaitItem | DeliveryItem;
 
-export type AttentionItem = DecisionAttentionItem | FixAttentionItem | OutsideAttentionItem;
+export type AttentionItem =
+  DecisionAttentionItem | ToolApprovalItem | FixAttentionItem | OutsideAttentionItem;
 
 export interface DetailTarget {
   readonly kind: "blocked" | "paused" | "open" | "external";
@@ -187,6 +191,7 @@ const KIND_ORDER: readonly AttentionItem["kind"][] = [
   "blocked",
   "paused",
   "dependency_discarded",
+  "tool_approval",
   "project_paused",
   "no_taker",
   "agent_invalid",
@@ -428,6 +433,7 @@ export function deriveAttention(
 ): readonly AttentionItem[] {
   return [
     ...snapshots.flatMap((snapshot) => itemsOf(snapshot, details, context.now)),
+    ...approvalItemsOf(context.sessions),
     ...fixItemsOf(snapshots, context),
   ].sort(compareItems);
 }

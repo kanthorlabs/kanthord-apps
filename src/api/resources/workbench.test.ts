@@ -94,6 +94,8 @@ describe("listWorkbenchSessions", () => {
       modified: 2,
       message_count: 0,
       first_message: "",
+      run_active: false,
+      pending_approval: null,
     };
     await serve({ "GET /api/workbench/session?agent_name=swe%401": { body: { items: [item] } } });
 
@@ -109,6 +111,8 @@ describe("listWorkbenchSessions", () => {
       modified: 2,
       message_count: 0,
       first_message: "",
+      run_active: false,
+      pending_approval: null,
     };
     await serve({ "GET /api/workbench/session": { body: { items: [item] } } });
 

@@ -115,8 +115,9 @@ export function useOverview(): OverviewState {
       now: snapshot.now,
       catalog: setupData?.catalog ?? null,
       credentials: setupData?.credentials ?? null,
+      sessions: projectId === null ? (data?.sessions ?? null) : null,
     }),
-    [snapshot.now, setupData],
+    [snapshot.now, setupData, data, projectId],
   );
   const items = useMemo<readonly AttentionItem[]>(
     () => deriveAttention(snapshots, details, context),

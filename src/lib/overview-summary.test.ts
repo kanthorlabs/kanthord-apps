@@ -76,7 +76,7 @@ describe("attentionSummary", () => {
         },
       ],
       new Map(),
-      { now: 1, catalog: null, credentials: null },
+      { now: 1, catalog: null, credentials: null, sessions: null },
     );
 
     expect(attentionSummary(items)).toBe("2 decisions");
@@ -96,7 +96,7 @@ describe("attentionSummary", () => {
         },
       ],
       new Map(),
-      { now: 1, catalog: null, credentials: null },
+      { now: 1, catalog: null, credentials: null, sessions: null },
     );
 
     expect(attentionSummary(items)).toBe("1 decision · 1 fix");

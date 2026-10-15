@@ -62,6 +62,8 @@ const OLD: WorkbenchSessionListItem = {
   modified: Date.parse("2026-10-01T10:00:00Z"),
   message_count: 4,
   first_message: "List the open objectives",
+  run_active: false,
+  pending_approval: null,
 };
 const NEW: WorkbenchSessionListItem = {
   id: "workbench_session_NEW",
@@ -71,6 +73,8 @@ const NEW: WorkbenchSessionListItem = {
   modified: Date.parse("2026-10-05T10:00:00Z"),
   message_count: 2,
   first_message: "Read the plan of Billing",
+  run_active: false,
+  pending_approval: null,
 };
 
 function Opened() {

@@ -1074,6 +1074,8 @@ export interface WorkbenchSessionListItem {
   readonly modified: number;
   readonly message_count: number;
   readonly first_message: string;
+  readonly run_active: boolean;
+  readonly pending_approval: WorkbenchPendingApprovalRef | null;
 }
 
 export interface WorkbenchSessionEntry {
@@ -1093,9 +1095,12 @@ export interface WorkbenchSession {
   readonly resume_command: string;
 }
 
-export interface WorkbenchPendingApproval {
+export interface WorkbenchPendingApprovalRef {
   readonly tool_call_id: string;
   readonly operation_id: string;
+}
+
+export interface WorkbenchPendingApproval extends WorkbenchPendingApprovalRef {
   readonly input: Readonly<Record<string, unknown>>;
 }
 

@@ -2,6 +2,7 @@ import { ItemGroup } from "@/components/ui/item";
 import type { AttentionDetails, AttentionGroup as Group, AttentionItem } from "@/lib/attention";
 import { detailOf } from "@/lib/attention";
 
+import { ApprovalItem } from "./approval-item";
 import { DecisionItem } from "./decision-item";
 import { FixItem } from "./fix-item";
 import { OutsideItem } from "./outside-item";
@@ -39,6 +40,11 @@ export function AttentionGroup({
       <p className="text-sm text-muted-foreground">{group.description}</p>
       <ItemGroup aria-label={group.heading} className="gap-2">
         {items.map((item) => {
+          if (item.kind === "tool_approval") {
+            return (
+              <ApprovalItem key={item.id} item={item} now={now} titleRef={titleRef(item.id)} />
+            );
+          }
           if (item.group === "fixes") {
             return (
               <FixItem
