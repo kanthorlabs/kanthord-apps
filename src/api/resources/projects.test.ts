@@ -223,14 +223,20 @@ describe("checkBinding", () => {
 });
 
 describe("listWorkerBindings", () => {
-  it("keeps only the worker bindings of the project", async () => {
-    const repository = { id: "binding_r", kind: "repository", name: "repo" };
-    const worker = { id: "binding_w", kind: "worker", name: "coder-main" };
-    const base = await serve([{ items: [repository, worker], next_cursor: null }]);
+  it("asks for the worker bindings of the project and reads every page", async () => {
+    const first = { id: "binding_w1", kind: "worker", name: "coder-main" };
+    const second = { id: "binding_w2", kind: "worker", name: "coder-extra" };
+    const base = await serve([
+      { items: [first], next_cursor: "c-1" },
+      { items: [second], next_cursor: null },
+    ]);
     setConnection({ baseUrl: base, token: "jwt-1" });
 
-    expect(await listWorkerBindings("prj-1")).toEqual([worker]);
-    expect(seen[0]?.url).toBe("/api/project/prj-1/binding?limit=1000");
+    expect(await listWorkerBindings("prj-1")).toEqual([first, second]);
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/project/prj-1/binding?limit=1000&kind=worker",
+      "/api/project/prj-1/binding?limit=1000&kind=worker&cursor=c-1",
+    ]);
   });
 });
 
