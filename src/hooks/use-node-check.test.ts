@@ -82,7 +82,7 @@ function mount(
 ) {
   const reload = vi.fn();
   const markActed = vi.fn();
-  const view = renderHook(() => useNodeCheck(nodeIn(state), 7, actions, reload, markActed));
+  const view = renderHook(() => useNodeCheck(nodeIn(state), 7, actions, markActed, reload));
   return { ...view, reload, markActed };
 }
 
@@ -190,6 +190,50 @@ describe("useNodeCheck", () => {
     await act(async () => retry.onClick());
 
     expect(checkMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("runs the latest check from the Retry action after the mission version moved", async () => {
+    checkMock.mockRejectedValue(new ApiError("unreachable", "No answer.", 0));
+    const reload = vi.fn();
+    const markActed = vi.fn();
+    const actions = [action("unresolved")];
+    const { result, rerender } = renderHook(
+      ({ missionVersion }: { missionVersion: number }) =>
+        useNodeCheck(nodeIn("External.Requested"), missionVersion, actions, markActed, reload),
+      { initialProps: { missionVersion: 7 } },
+    );
+    await act(async () => result.current.check());
+    const retry = vi.mocked(toast.error).mock.calls[0]?.[1]?.action as unknown as {
+      onClick: () => void;
+    };
+
+    rerender({ missionVersion: 8 });
+    await act(async () => retry.onClick());
+
+    expect(checkMock).toHaveBeenLastCalledWith("node_webhook", { expected_mission_version: 8 });
+  });
+
+  it("shows no label when every request of the answer failed", async () => {
+    checkMock.mockResolvedValue(
+      answer(
+        [],
+        [
+          {
+            evidence_id: "evidence_2",
+            error: {
+              error: { code: "system.operation.unknown", message: "Unknown.", details: null },
+              request_id: "r",
+            },
+          },
+        ],
+      ),
+    );
+    const { result } = mount();
+
+    await act(async () => result.current.check());
+
+    expect(result.current.label).toBeNull();
+    expect(toast.error).toHaveBeenCalledTimes(1);
   });
 
   it("names the conflict message and reads again on a stale mission version", async () => {

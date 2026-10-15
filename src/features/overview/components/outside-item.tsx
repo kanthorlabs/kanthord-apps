@@ -45,7 +45,7 @@ export function OutsideItem({
     detail?.kind === "external" && detail.actions.status === "ready" ? detail.actions.data : null;
   const itemId = item.id;
   const acted = useCallback(() => markActed(itemId), [markActed, itemId]);
-  const check = useNodeCheck(node, item.missionVersion, actions, reload, acted);
+  const check = useNodeCheck(node, item.missionVersion, actions, acted, reload);
 
   return (
     <Item variant="outline" size="sm" role="listitem">

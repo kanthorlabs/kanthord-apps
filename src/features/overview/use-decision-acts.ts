@@ -132,7 +132,7 @@ export function useDecisionActs(
   const discard = useNodeDiscard(node, missionVersion, actions, reload);
   const itemId = item.id;
   const checkActed = useCallback(() => markActed(itemId), [markActed, itemId]);
-  const check = useNodeCheck(node, missionVersion, actions, reload, checkActed);
+  const check = useNodeCheck(node, missionVersion, actions, checkActed, reload);
   const open =
     unblock.open ||
     approve.target !== null ||

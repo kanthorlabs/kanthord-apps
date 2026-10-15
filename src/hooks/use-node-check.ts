@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { checkNode } from "@/api/resources/mission";
@@ -45,10 +45,11 @@ export function useNodeCheck(
   node: MissionRunnableNode,
   missionVersion: number,
   actions: readonly MissionExternalAction[] | null,
-  reload: () => void,
   markActed: () => void,
+  reload: () => void,
 ): NodeCheckState {
   const [checking, setChecking] = useState(false);
+  const latest = useRef<() => void>(() => undefined);
   const [label, setLabel] = useState<string | null>(null);
   const available = isCheckable(node, actions);
 
@@ -60,11 +61,11 @@ export function useNodeCheck(
       checkNode(node.id, { expected_mission_version: missionVersion }).then(
         (answer) => {
           setChecking(false);
-          setLabel(checkLabelOf(answer.results));
+          setLabel(checkLabelOf(answer));
           for (const failure of answer.failures) {
             toast.error(`A request of ${node.content.name} could not be checked.`, {
               description: failureDescriptionOf(failure),
-              action: { label: "Retry", onClick: run },
+              action: { label: "Retry", onClick: () => latest.current() },
             });
           }
           markActed();
@@ -78,7 +79,7 @@ export function useNodeCheck(
           if (conflict === undefined) {
             toast.error(`Checking ${node.content.name} failed.`, {
               description: failure.message,
-              action: { label: "Retry", onClick: run },
+              action: { label: "Retry", onClick: () => latest.current() },
             });
             return;
           }
@@ -89,6 +90,10 @@ export function useNodeCheck(
     },
     [checking, node, actions, missionVersion, reload, markActed],
   );
+
+  useEffect(() => {
+    latest.current = check;
+  });
 
   return { available, checking, label, check };
 }
