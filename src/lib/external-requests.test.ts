@@ -45,7 +45,7 @@ function action(
   kind: RepositoryActionName,
   resolution: MissionExternalAction["resolution"],
   requested = true,
-  landing?: ActionLanding,
+  landing: ActionLanding = "human",
 ): MissionExternalAction {
   return {
     node_id: "node_1",
@@ -56,8 +56,7 @@ function action(
       action: kind,
       expected_end_state: kind === "pull_request" ? "pull_request_merged" : "base_branch_pushed",
       follows: null,
-      configuration:
-        landing === undefined ? { base_branch: "main" } : { base_branch: "main", landing },
+      configuration: { base_branch: "main", landing },
     },
     requested,
     request_evidence_id: requested ? "evidence_1" : null,
@@ -187,7 +186,7 @@ function evidenceOf(createdAt: number, number: number | null): MissionEvidence {
 }
 
 describe("humanMergeRequestOf and deliveryRequestsOf", () => {
-  it("treats a pull request without landing as a human merge", () => {
+  it("treats a pull request that a human lands as a human merge", () => {
     const merge = action("pull_request", "unresolved");
 
     expect(humanMergeRequestOf([action("merge_push", "unresolved"), merge])).toBe(merge);

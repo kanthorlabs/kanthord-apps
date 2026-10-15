@@ -561,7 +561,7 @@ const pullRequest = (key, bindingId) => ({
   action: "pull_request",
   expected_end_state: "pull_request_merged",
   follows: null,
-  configuration: { base_branch: "main" },
+  configuration: { base_branch: "main", landing: "human" },
 });
 
 export const GRAPH_ATTEMPTS = {

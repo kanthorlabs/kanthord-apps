@@ -53,7 +53,7 @@ function action(
       action: "pull_request",
       expected_end_state: "pull_request_merged",
       follows: null,
-      configuration: { base_branch: "main" },
+      configuration: { base_branch: "main", landing: "human" },
     },
     requested,
     request_evidence_id: requested ? "evidence_1" : null,

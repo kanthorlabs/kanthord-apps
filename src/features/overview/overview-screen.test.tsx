@@ -259,10 +259,7 @@ function requested(
       action,
       expected_end_state: action === "pull_request" ? "pull_request_merged" : "base_branch_pushed",
       follows: null,
-      configuration:
-        options.landing === undefined
-          ? { base_branch: "main" }
-          : { base_branch: "main", landing: options.landing },
+      configuration: { base_branch: "main", landing: options.landing ?? "human" },
     },
     requested: true,
     request_evidence_id: "evidence_1",

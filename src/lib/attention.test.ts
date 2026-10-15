@@ -451,7 +451,7 @@ describe("detailTargetsOf and detailOf", () => {
 
 function request(
   kind: RepositoryActionName,
-  landing?: ActionLanding,
+  landing: ActionLanding = "human",
   resolution: MissionExternalAction["resolution"] = "unresolved",
   key = `repo.${kind}`,
 ): MissionExternalAction {
@@ -464,8 +464,7 @@ function request(
       action: kind,
       expected_end_state: kind === "pull_request" ? "pull_request_merged" : "base_branch_pushed",
       follows: null,
-      configuration:
-        landing === undefined ? { base_branch: "main" } : { base_branch: "main", landing },
+      configuration: { base_branch: "main", landing },
     },
     requested: true,
     request_evidence_id: `evidence_${key}`,

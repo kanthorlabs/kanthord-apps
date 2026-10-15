@@ -1,5 +1,4 @@
 import type {
-  ActionLanding,
   MissionEvidence,
   MissionExternalAction,
   MissionRunnableNode,
@@ -33,12 +32,8 @@ export function requestsClearOf(
   return actions !== null && unresolvedRequestsOf(actions).length === 0;
 }
 
-function landingOf(action: MissionExternalAction): ActionLanding {
-  return action.action.configuration.landing ?? "human";
-}
-
 function isHumanMerge(action: MissionExternalAction): boolean {
-  return action.action.action === "pull_request" && landingOf(action) === "human";
+  return action.action.action === "pull_request" && action.action.configuration.landing === "human";
 }
 
 export function humanMergeRequestOf(

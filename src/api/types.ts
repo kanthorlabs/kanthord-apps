@@ -565,7 +565,7 @@ export interface FrozenAction {
   readonly action: RepositoryActionName;
   readonly expected_end_state: "pull_request_merged" | "base_branch_pushed";
   readonly follows: string | null;
-  readonly configuration: { readonly base_branch: string; readonly landing?: ActionLanding };
+  readonly configuration: { readonly base_branch: string; readonly landing: ActionLanding };
 }
 
 export type StartPoint = "base_branch" | "node_branch";

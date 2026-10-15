@@ -43,7 +43,7 @@ const ACTION: MissionExternalAction = {
     action: "pull_request",
     expected_end_state: "pull_request_merged",
     follows: null,
-    configuration: { base_branch: "main" },
+    configuration: { base_branch: "main", landing: "human" },
   },
   requested: true,
   request_evidence_id: "evidence_1",

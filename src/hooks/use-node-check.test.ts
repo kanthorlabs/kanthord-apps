@@ -55,7 +55,7 @@ function action(resolution: MissionExternalAction["resolution"]): MissionExterna
       action: "pull_request",
       expected_end_state: "pull_request_merged",
       follows: null,
-      configuration: { base_branch: "main" },
+      configuration: { base_branch: "main", landing: "human" },
     },
     requested: resolution !== "unrequested",
     request_evidence_id: resolution === "unrequested" ? null : "evidence_1",
