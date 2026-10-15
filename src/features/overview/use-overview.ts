@@ -72,7 +72,7 @@ export function useOverview(): OverviewState {
   const { projectId: requested, select } = useScopedProject();
   const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
   const hold = openDialogs.size > 0;
-  const snapshot = useOverviewSnapshot(hold);
+  const snapshot = useOverviewSnapshot(hold, requested);
   const setup = useOverviewSetup(hold);
 
   const data = snapshot.data;

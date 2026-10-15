@@ -23,12 +23,13 @@ export function ApprovalItem({ item, now, titleRef }: ApprovalItemProps) {
     <Item variant="outline" size="sm" role="listitem">
       <ItemContent className="min-w-0">
         <ItemTitle className="w-full">
-          <Link ref={titleRef} to={chatPath} className="min-w-0 break-words underline">
+          <Link ref={titleRef} to={chatPath} className="line-clamp-3 min-w-0 break-words underline">
             {item.subject}
           </Link>
         </ItemTitle>
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant="outline">{item.agent}</Badge>
+          <Badge variant="outline">Waits for approval</Badge>
         </div>
         <ItemDescription className="line-clamp-none break-words">
           {approvalFactOf(item)} · {relativeAge(item.at, now)}

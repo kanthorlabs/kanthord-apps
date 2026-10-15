@@ -2568,6 +2568,7 @@ describe("OverviewScreen tool approvals", () => {
 
     const item = await waitFor(() => itemOf("Create the project account-recovery"));
     expect(within(item).getByText("swe@1")).toBeInTheDocument();
+    expect(within(item).getByText("Waits for approval")).toBeInTheDocument();
     expect(within(item).getByText(/operation project\.create · 1 hour ago/)).toBeInTheDocument();
     expect(within(item).getByRole("button", { name: "Open chat" })).toHaveAttribute(
       "href",
@@ -2625,6 +2626,35 @@ describe("OverviewScreen tool approvals", () => {
     expect(await screen.findByRole("link", { name: "B" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Open chat" })).toBeNull();
     expect(screen.getByText("1 decision")).toBeInTheDocument();
+  });
+
+  it("does not read the sessions under a project filter, so a failed read cannot hold All clear back", async () => {
+    serve({});
+    vi.mocked(listWorkbenchSessions).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    renderScreen("/?project=prj-1");
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(listWorkbenchSessions).not.toHaveBeenCalled();
+  });
+
+  it("reads the sessions again when the human returns to All projects", async () => {
+    const user = userEvent.setup();
+    serve({ sessions: [session("workbench_session_A")] });
+
+    renderScreen("/?project=prj-1");
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(listWorkbenchSessions).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("combobox", { name: "Project" }));
+    await user.click(await screen.findByRole("option", { name: "All projects" }));
+
+    expect(
+      await screen.findByRole("link", { name: "Create the project account-recovery" }),
+    ).toBeInTheDocument();
+    expect(listWorkbenchSessions).toHaveBeenCalledTimes(1);
   });
 
   it("names the failed session read and holds back All clear", async () => {
