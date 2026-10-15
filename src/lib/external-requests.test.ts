@@ -9,7 +9,9 @@ import type {
   RepositoryActionName,
 } from "@/api/types";
 
+import type { OutsideAttentionItem } from "./attention";
 import {
+  causeSentenceOf,
   deliveryRequestsOf,
   deliveryText,
   hasOpenAttempt,
@@ -235,6 +237,64 @@ describe("deliveryText", () => {
       ),
     ).toBe(
       "kanthord requested the merge of pull request #7 12 minutes ago, and no end state arrived. Check the delivery.",
+    );
+  });
+});
+
+describe("causeSentenceOf", () => {
+  const NOW = 100 * 60_000;
+  const waiting = node("External.Requested", 2);
+
+  function itemOf(
+    kind: OutsideAttentionItem["kind"],
+    request: OutsideAttentionItem["request"],
+  ): OutsideAttentionItem {
+    return {
+      id: `${kind}:node_1`,
+      group: "outside",
+      kind,
+      project: {
+        id: "prj-1",
+        name: "atlas",
+        binding_set_version: 1,
+        created_at: 1,
+        paused_at: null,
+        workspace_directory: "/state/prj-1",
+      },
+      subject: "Audit log",
+      at: null,
+      missionVersion: 7,
+      node: waiting,
+      nodes: [waiting],
+      cause: "Waits",
+      request,
+    };
+  }
+
+  it("names the pull request that waits for a merge", () => {
+    const request = { action: action("pull_request", "unresolved"), evidence: evidenceOf(1, 12) };
+
+    expect(causeSentenceOf(itemOf("merge_wait", request), NOW)).toBe(
+      "Pull request #12 on github.com/kanthorlabs/atlas waits for a merge. Merge it, then check.",
+    );
+  });
+
+  it("names the delivery that has its evidence", () => {
+    const request = {
+      action: action("merge_push", "unresolved"),
+      evidence: evidenceOf(NOW - 25 * 60_000, null),
+    };
+
+    expect(causeSentenceOf(itemOf("delivery_unconfirmed", request), NOW)).toBe(
+      "kanthord pushed to main 25 minutes ago, and no end state arrived. Check the delivery.",
+    );
+  });
+
+  it("names a delivery without evidence", () => {
+    const request = { action: action("merge_push", "unresolved"), evidence: null };
+
+    expect(causeSentenceOf(itemOf("delivery_unconfirmed", request), NOW)).toBe(
+      "No end state arrived. Check the delivery.",
     );
   });
 });

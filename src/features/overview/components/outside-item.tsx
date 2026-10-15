@@ -1,17 +1,16 @@
-import { useCallback } from "react";
 import { Link } from "react-router-dom";
 
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { useNodeCheck } from "@/hooks/use-node-check";
 import type { AttentionDetail, OutsideAttentionItem } from "@/lib/attention";
-import { deliveryText, mergeWaitText } from "@/lib/external-requests";
+import { causeSentenceOf } from "@/lib/external-requests";
 import { nodePath } from "@/lib/node-path";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
 
+import { useOutsideActs } from "../use-outside-acts";
 import { CheckBadge } from "./check-badge";
 
 interface OutsideItemProps {
@@ -24,13 +23,6 @@ interface OutsideItemProps {
   readonly titleRef: (element: HTMLElement | null) => void;
 }
 
-function causeSentenceOf(item: OutsideAttentionItem, now: number): string {
-  if (item.kind === "merge_wait") return mergeWaitText(item.request.evidence);
-  return item.request.evidence === null
-    ? "No end state arrived. Check the delivery."
-    : deliveryText(item.request.action, item.request.evidence, now);
-}
-
 export function OutsideItem({
   item,
   detail,
@@ -41,11 +33,7 @@ export function OutsideItem({
   titleRef,
 }: OutsideItemProps) {
   const { node } = item;
-  const actions =
-    detail?.kind === "external" && detail.actions.status === "ready" ? detail.actions.data : null;
-  const itemId = item.id;
-  const acted = useCallback(() => markActed(itemId), [markActed, itemId]);
-  const check = useNodeCheck(node, item.missionVersion, actions, acted, reload);
+  const { check } = useOutsideActs(item, detail, { reload, markActed });
 
   return (
     <Item variant="outline" size="sm" role="listitem">

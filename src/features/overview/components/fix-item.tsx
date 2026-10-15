@@ -1,17 +1,15 @@
-import { PlayIcon } from "lucide-react";
-import { useCallback } from "react";
 import { Link } from "react-router-dom";
 
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { useProjectPause } from "@/hooks/use-project-pause";
 import { fixTargetOf, spreadTextOf, type FixAttentionItem } from "@/lib/fix-attention";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
 
 import { FixCauseText } from "./fix-cause-text";
+import { ResumeProjectAction } from "./resume-project-action";
 
 interface FixItemProps {
   readonly item: FixAttentionItem;
@@ -25,12 +23,6 @@ interface FixItemProps {
 export function FixItem({ item, showProject, now, reload, markActed, titleRef }: FixItemProps) {
   const target = fixTargetOf(item);
   const spread = spreadTextOf(item);
-  const itemId = item.id;
-  const resumed = useCallback(() => {
-    markActed(itemId);
-    reload();
-  }, [markActed, itemId, reload]);
-  const pause = useProjectPause(item.project, resumed);
 
   return (
     <Item variant="outline" size="sm" role="listitem">
@@ -61,10 +53,7 @@ export function FixItem({ item, showProject, now, reload, markActed, titleRef }:
       </ItemContent>
       <ItemActions className="w-full flex-wrap justify-start md:w-auto md:justify-end">
         {item.kind === "project_paused" ? (
-          <Button variant="outline" size="sm" disabled={pause.busy} onClick={pause.toggle}>
-            <PlayIcon aria-hidden="true" data-icon="inline-start" />
-            Resume project
-          </Button>
+          <ResumeProjectAction item={item} reload={reload} markActed={markActed} />
         ) : (
           <Button
             nativeButton={false}

@@ -6,6 +6,7 @@ import type {
   RepositoryActionName,
 } from "@/api/types";
 
+import type { OutsideAttentionItem } from "./attention";
 import { isTerminal } from "./node-state";
 import { relativeAge } from "./relative-age";
 
@@ -109,4 +110,11 @@ export function deliveryText(
           request === null ? "the pull request" : `pull request #${request.number}`
         }`;
   return `${done} ${age}, and no end state arrived. Check the delivery.`;
+}
+
+export function causeSentenceOf(item: OutsideAttentionItem, now: number): string {
+  if (item.kind === "merge_wait") return mergeWaitText(item.request.evidence);
+  return item.request.evidence === null
+    ? "No end state arrived. Check the delivery."
+    : deliveryText(item.request.action, item.request.evidence, now);
 }
