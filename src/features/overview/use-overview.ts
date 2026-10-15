@@ -18,6 +18,7 @@ import {
   attentionSummary,
   claimedNodeCount,
   coolingFactsOf,
+  projectsWithoutSetup,
   type CoolingFact,
 } from "@/lib/overview-summary";
 import { tallyStates, type StateTally } from "@/lib/state-tally";
@@ -216,6 +217,7 @@ export function useOverview(): OverviewState {
       faults.length === 0 &&
       externalReads.pending === 0 &&
       setupData !== null &&
+      projectsWithoutSetup(snapshots, setupData.projects) === 0 &&
       livenessFailure === null &&
       items.length === 0,
     progress: snapshots.map((entry) => ({

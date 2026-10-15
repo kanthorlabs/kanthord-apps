@@ -1831,6 +1831,18 @@ describe("OverviewScreen waiting outside kanthord", () => {
     expect(await screen.findByText("All clear")).toBeInTheDocument();
   });
 
+  it("holds All clear back for a project that the setup read omits", async () => {
+    serve({ nodes: { "prj-1": [], "prj-2": [] } });
+    vi.mocked(listProjects)
+      .mockResolvedValueOnce([KANTHORD, ATLAS])
+      .mockResolvedValueOnce([KANTHORD]);
+
+    renderScreen();
+
+    await screen.findByText("Needs you");
+    expect(screen.queryByText("All clear")).toBeNull();
+  });
+
   it("names a failed external read in the alert and suppresses All clear", async () => {
     serve({ nodes: { "prj-1": [outside("n_o", "Stripe webhook")] } });
     vi.mocked(listNodeExternalActions).mockRejectedValue(

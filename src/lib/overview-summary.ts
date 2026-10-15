@@ -56,3 +56,12 @@ export function coolingFactsOf(snapshots: readonly ProjectSnapshot[]): readonly 
     ),
   );
 }
+
+export function projectsWithoutSetup(
+  snapshots: readonly ProjectSnapshot[],
+  setupProjects: readonly { readonly project: Project }[],
+): number {
+  return snapshots.filter(
+    (snapshot) => !setupProjects.some((entry) => entry.project.id === snapshot.project.id),
+  ).length;
+}

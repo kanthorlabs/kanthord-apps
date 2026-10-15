@@ -7,6 +7,7 @@ import {
   attentionSummary,
   claimedNodeCount,
   coolingFactsOf,
+  projectsWithoutSetup,
   statusLineText,
 } from "./overview-summary";
 
@@ -183,5 +184,41 @@ describe("coolingFactsOf", () => {
         },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe("projectsWithoutSetup", () => {
+  const atlas = {
+    id: "p1",
+    name: "atlas",
+    binding_set_version: 1,
+    created_at: 1,
+    paused_at: null,
+    workspace_directory: "/p1",
+  };
+  const beta = { ...atlas, id: "p2", name: "beta" };
+
+  function snapshotOf(project: typeof atlas) {
+    return {
+      project,
+      missionVersion: 1,
+      nodes: [],
+      jobs: [],
+      instances: [],
+      executions: [],
+      bindings: null,
+    };
+  }
+
+  it("counts each snapshot project that the setup read omits", () => {
+    expect(projectsWithoutSetup([snapshotOf(atlas), snapshotOf(beta)], [{ project: atlas }])).toBe(
+      1,
+    );
+  });
+
+  it("counts none when the setup read holds every snapshot project", () => {
+    expect(projectsWithoutSetup([snapshotOf(atlas)], [{ project: atlas }, { project: beta }])).toBe(
+      0,
+    );
   });
 });
