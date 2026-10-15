@@ -1,9 +1,9 @@
 import { Button } from "@/components/ui/button";
 import type { MissionProposal, MissionRunnableNode } from "@/api/types";
-import { useNodeDiscard } from "../use-node-discard";
-import { useNodeUnblock } from "../use-node-unblock";
-import { NodeDiscardDialog } from "./node-discard-dialog";
-import { NodeUnblockDialog } from "./node-unblock-dialog";
+import { useNodeDiscard } from "@/hooks/use-node-discard";
+import { useNodeUnblock } from "@/hooks/use-node-unblock";
+import { NodeDiscardDialog } from "@/components/node-discard-dialog";
+import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 
 interface NodeControlsProps {
   readonly node: MissionRunnableNode;

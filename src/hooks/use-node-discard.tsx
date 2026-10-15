@@ -35,15 +35,15 @@ const DISCARD_STATES: readonly NodeState[] = [
 
 const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.node.state_conflict":
-    "The state or the attempt of the node changed after this read. The sheet now shows its current state. Review it and discard again.",
+    "The state or the attempt of the node changed after this read. The view now shows its current state. Review it and discard again.",
   "mission.node.control_refused":
-    "The node is in a state that admits no discard. The sheet now shows its current state.",
+    "The node is in a state that admits no discard. The view now shows its current state.",
   "mission.node.action_unresolved":
     "The open attempt has a requested external action without its end state. Wait for the action to end, then discard.",
   "mission.version.conflict":
-    "The mission changed after this read. The sheet now shows the current mission. Review the node and discard again.",
-  "mission.node.retired": "The node is retired. The sheet now shows its current state.",
-  "mission.node.terminal": "The node is terminal. The sheet now shows its current state.",
+    "The mission changed after this read. The view now shows the current mission. Review the node and discard again.",
+  "mission.node.retired": "The node is retired. The view now shows its current state.",
+  "mission.node.terminal": "The node is terminal. The view now shows its current state.",
 };
 
 function isDiscardable(node: MissionRunnableNode): boolean {

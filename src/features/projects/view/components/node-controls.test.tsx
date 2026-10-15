@@ -171,7 +171,7 @@ describe("NodeControls", () => {
 
     expect(await within(dialog).findByRole("alert")).toHaveProperty(
       "textContent",
-      "The state or the attempt of the node changed after this read. The sheet now shows its current state. Review it and discard again.",
+      "The state or the attempt of the node changed after this read. The view now shows its current state. Review it and discard again.",
     );
     expect(onChanged).toHaveBeenCalledTimes(1);
   });

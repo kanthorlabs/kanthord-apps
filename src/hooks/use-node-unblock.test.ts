@@ -5,7 +5,7 @@ import { ApiError } from "@/api/errors";
 import { unblockNode } from "@/api/resources/mission";
 import type { MissionControlResult, MissionProposal, MissionRunnableNode } from "@/api/types";
 import { useNodeUnblock } from "./use-node-unblock";
-import { renderedText } from "../../../../test/text-content";
+import { renderedText } from "../../test/text-content";
 
 vi.mock("@/api/resources/mission", () => ({ unblockNode: vi.fn() }));
 vi.mock("sonner", () => ({

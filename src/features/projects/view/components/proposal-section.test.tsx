@@ -225,7 +225,7 @@ describe("ProposalSection", () => {
 
     expect(await within(dialog).findByRole("alert")).toHaveProperty(
       "textContent",
-      "The mission changed after this read. The section now shows the current mission. Review the proposal and approve again.",
+      "The mission changed after this read. The view now shows the current mission. Review the proposal and approve again.",
     );
     expect(onChanged).toHaveBeenCalledTimes(1);
   });

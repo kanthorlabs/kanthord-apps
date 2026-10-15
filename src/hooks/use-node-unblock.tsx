@@ -26,15 +26,15 @@ export interface NodeUnblockState {
 
 const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.node.state_conflict":
-    "The node is no longer Blocked at this attempt. The sheet now shows its current state.",
+    "The node is no longer Blocked at this attempt. The view now shows its current state.",
   "mission.node.control_refused":
-    "The node is no longer Blocked. The sheet now shows its current state.",
+    "The node is no longer Blocked. The view now shows its current state.",
   "mission.revision.conflict":
-    "The content of the node changed after this read. The sheet now shows the current revision. Review it and unblock again.",
+    "The content of the node changed after this read. The view now shows the current revision. Review it and unblock again.",
   "mission.version.conflict":
-    "The mission changed after this read. The sheet now shows the current mission. Review the node and unblock again.",
-  "mission.node.retired": "The node is retired. The sheet now shows its current state.",
-  "mission.node.terminal": "The node is terminal. The sheet now shows its current state.",
+    "The mission changed after this read. The view now shows the current mission. Review the node and unblock again.",
+  "mission.node.retired": "The node is retired. The view now shows its current state.",
+  "mission.node.terminal": "The node is terminal. The view now shows its current state.",
 };
 
 function isUnblockable(node: MissionRunnableNode): boolean {

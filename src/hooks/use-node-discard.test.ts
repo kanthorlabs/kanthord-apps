@@ -5,7 +5,7 @@ import { ApiError } from "@/api/errors";
 import { discardNode } from "@/api/resources/mission";
 import type { MissionControlResult, MissionRunnableNode, NodeState } from "@/api/types";
 import { useNodeDiscard } from "./use-node-discard";
-import { renderedText } from "../../../../test/text-content";
+import { renderedText } from "../../test/text-content";
 
 vi.mock("@/api/resources/mission", () => ({ discardNode: vi.fn() }));
 vi.mock("sonner", () => ({
