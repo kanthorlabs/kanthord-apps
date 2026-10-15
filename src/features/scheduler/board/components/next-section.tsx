@@ -19,10 +19,12 @@ function JobItem({ view, now }: { readonly view: JobView; readonly now: number }
     <Item variant="outline" role="listitem">
       <ItemContent className="min-w-0">
         <ItemTitle className="w-full flex-wrap">
-          <span className="tabular-nums text-muted-foreground">{view.position}</span>
-          <Link to={view.href} className="break-words underline underline-offset-4">
-            {view.nodeName}
-          </Link>
+          <span className="flex min-w-0 items-baseline gap-2">
+            <span className="tabular-nums text-muted-foreground">{view.position}</span>
+            <Link to={view.href} className="break-words underline underline-offset-4">
+              {view.nodeName}
+            </Link>
+          </span>
           {view.state !== null && <Badge variant={badgeVariantOf(view.state)}>{view.state}</Badge>}
           {view.claim !== null && <Badge variant="secondary">{view.claim} claim</Badge>}
           {view.noTaker && <Badge variant="destructive">No taker</Badge>}
