@@ -1,7 +1,7 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 
@@ -223,6 +223,22 @@ function titles(list: HTMLElement): string[] {
 beforeEach(() => {
   vi.resetAllMocks();
 });
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+async function advance(ms: number) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
+}
+
+function doneReadsAt(cursor: string | null): number {
+  return vi
+    .mocked(listProjectExecutionPage)
+    .mock.calls.filter(([, at, limit]) => at === cursor && limit === 20).length;
+}
 
 describe("SchedulerScreen Now", () => {
   it("lists the running executions of every project by the nearest deadline", async () => {
@@ -595,6 +611,34 @@ describe("SchedulerScreen Done", () => {
 
     await user.click(screen.getByRole("button", { name: "Previous" }));
     expect(await screen.findByText("execution execution_one")).toBeInTheDocument();
+  });
+
+  it("reloads page 1 on the cycle and leaves page 2 alone", async () => {
+    vi.useFakeTimers();
+    serve({ nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] } });
+    vi.mocked(listProjectExecutionPage).mockImplementation(async (_projectId, cursor, limit) => {
+      if (limit === 100) return { items: [], next_cursor: null };
+      return cursor === "c-1"
+        ? { items: [ended("prj-1", "execution_two", "n_a")], next_cursor: null }
+        : { items: [ended("prj-1", "execution_one", "n_a")], next_cursor: "c-1" };
+    });
+
+    renderScreen("/scheduler?project=prj-1");
+    await advance(0);
+    expect(screen.getByText("execution execution_one")).toBeInTheDocument();
+    expect(doneReadsAt(null)).toBe(1);
+
+    await advance(15_000);
+    expect(doneReadsAt(null)).toBe(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await advance(0);
+    expect(screen.getByText("execution execution_two")).toBeInTheDocument();
+
+    await advance(15_000);
+    expect(doneReadsAt(null)).toBe(2);
+    expect(doneReadsAt("c-1")).toBe(1);
+    expect(screen.getByText("execution execution_two")).toBeInTheDocument();
   });
 
   it("names an empty group", async () => {
