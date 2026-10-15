@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -730,6 +730,35 @@ describe("SchedulerScreen states", () => {
 
     expect(await screen.findByText("The scheduler could not be refreshed.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Add recovery codes" })).toBeInTheDocument();
+  });
+
+  it("names the failed worker catalog and marks no job as No taker", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [node("n_a", "Add password reset", "Available", 0)] },
+      jobs: { "prj-1": [job("prj-1", "n_a", 0, MINUTE)] },
+    });
+    vi.mocked(listWorkerCatalog).mockRejectedValue(
+      new ApiError("unavailable", "The catalog did not answer.", 503),
+    );
+
+    renderScreen("/scheduler?project=prj-1");
+
+    expect(await screen.findByText("The scheduler could not be refreshed.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        textContent("The worker catalog could not be read. No taker is not checked."),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add password reset" })).toBeInTheDocument();
+    expect(screen.queryByText("No taker")).toBeNull();
+
+    vi.mocked(listWorkerCatalog).mockResolvedValue(CATALOG);
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() =>
+      expect(screen.queryByText("The scheduler could not be refreshed.")).toBeNull(),
+    );
   });
 
   it("names the age of the data", async () => {

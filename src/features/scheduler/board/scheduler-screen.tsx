@@ -63,11 +63,14 @@ export function SchedulerScreen() {
 
       {board.status === "ready" && (
         <>
-          {board.error !== null && (
+          {(board.error !== null || board.catalogError !== null) && (
             <Alert variant="destructive">
               <AlertTitle>The scheduler could not be refreshed.</AlertTitle>
               <AlertDescription>
-                {board.error.message} The lists show the last data that was read.
+                {board.error !== null &&
+                  `${board.error.message} The lists show the last data that was read. `}
+                {board.catalogError !== null &&
+                  "The worker catalog could not be read. No taker is not checked."}
               </AlertDescription>
               <div className="mt-2 flex md:justify-end">
                 <Button variant="outline" size="sm" onClick={board.refresh}>

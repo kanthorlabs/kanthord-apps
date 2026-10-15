@@ -59,6 +59,7 @@ export interface RefreshSignal {
 export interface SchedulerBoardState {
   readonly status: "loading" | "ready" | "error";
   readonly error: ApiError | null;
+  readonly catalogError: ApiError | null;
   readonly projects: readonly Project[];
   readonly projectId: string | null;
   readonly selectProject: (projectId: string | null) => void;
@@ -146,6 +147,7 @@ export function useSchedulerBoard(): SchedulerBoardState {
   const catalogData = catalog.data;
   const [manualRefreshes, setManualRefreshes] = useState(0);
   const { updatedAt, refresh: refreshBoard } = board;
+  const { refresh: refreshCatalog } = catalog;
   const refreshSignal = useMemo(
     () => ({ at: updatedAt, manual: manualRefreshes }),
     [updatedAt, manualRefreshes],
@@ -153,7 +155,8 @@ export function useSchedulerBoard(): SchedulerBoardState {
   const refresh = useCallback(() => {
     setManualRefreshes((count) => count + 1);
     refreshBoard();
-  }, [refreshBoard]);
+    refreshCatalog();
+  }, [refreshBoard, refreshCatalog]);
 
   const running = useMemo(
     () =>
@@ -193,6 +196,7 @@ export function useSchedulerBoard(): SchedulerBoardState {
   return {
     status,
     error: board.error,
+    catalogError: catalogData === null ? catalog.error : null,
     projects,
     projectId,
     selectProject: select,
