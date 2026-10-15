@@ -543,6 +543,33 @@ describe("SchedulerScreen Done", () => {
     expect(within(item).queryByText(/^Deadline/)).toBeNull();
   });
 
+  it("shows the runtime identity of an unnamed instance as a plain breaking value", async () => {
+    const { name: _, ...unnamed } = execution("prj-1", "x", "n_a").claimant;
+    serve({
+      nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] },
+      executions: {
+        "prj-1": [ended("prj-1", "execution_unnamed", "n_a", { claimant: unnamed })],
+      },
+    });
+
+    renderScreen("/scheduler?project=prj-1");
+
+    const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
+      "listitem",
+    );
+    const identity = within(item).getByText("worker_instance_01");
+    expect(identity.tagName).toBe("SPAN");
+    expect(identity).toHaveClass("break-all");
+    expect(within(item).queryByText("worker_instance_01", { selector: "strong" })).toBeNull();
+    expect(
+      within(item).getByText(
+        textContent(
+          "binding general-main · instance worker_instance_01 · attempt 2 · pinned revision 3",
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("pages through the ended executions of a project", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] } });

@@ -4,7 +4,7 @@ import type { ClaimState, SchedulerExecutionRecord } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { bindingNameOf, instanceNameOf } from "@/lib/execution-claimant";
+import { bindingNameOf } from "@/lib/execution-claimant";
 import { endTimeOf, stopLabel } from "@/lib/execution-stop";
 import { durationText, utcDateTime } from "@/lib/format";
 import { relativeAge } from "@/lib/relative-age";
@@ -55,8 +55,12 @@ export function ExecutionItem({
         )}
         <ItemDescription>
           binding <RecordName>{bindingNameOf(execution.claimant)}</RecordName> · instance{" "}
-          <RecordName>{instanceNameOf(execution.claimant)}</RecordName> · attempt{" "}
-          {execution.attempt} · pinned revision {execution.pinned_revision}
+          {execution.claimant.name === undefined ? (
+            <span className="break-all">{execution.claimant.runtime_identity}</span>
+          ) : (
+            <RecordName>{execution.claimant.name}</RecordName>
+          )}{" "}
+          · attempt {execution.attempt} · pinned revision {execution.pinned_revision}
         </ItemDescription>
         <ItemDescription className="break-all">execution {execution.execution_id}</ItemDescription>
         {endedAt === null ? (

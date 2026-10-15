@@ -912,7 +912,7 @@ const executionRecord = (projectId, spec, index) => ({
     worker_binding_id: spec.binding.id,
     resource_identity: spec.binding.resource_identity,
     runtime_identity: `worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I${String(index).padStart(2, "0")}`,
-    name: `${spec.binding.name} #${(index % 2) + 1}`,
+    ...(spec.unnamed ? {} : { name: `${spec.binding.name} #${(index % 2) + 1}` }),
   },
   attempt: spec.attempt ?? 1,
   pinned_revision: 1,
@@ -957,7 +957,8 @@ export const GRAPH_EXECUTIONS = [
   ],
   ["EC5", ids.invoices, "lost", 300, 20, GRAPH_BINDINGS.reviewer],
   ["EC6", ids.invoices, "lost", 330, null, GRAPH_BINDINGS.worker],
-].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop], index) =>
+  ["EC7", ids.invoices, "finished", 160, 140, GRAPH_BINDINGS.worker, null, true],
+].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop, unnamed], index) =>
   executionRecord(
     PROJECT.id,
     {
@@ -969,6 +970,7 @@ export const GRAPH_EXECUTIONS = [
       endedAgo,
       binding,
       stop,
+      unnamed,
     },
     index,
   ),

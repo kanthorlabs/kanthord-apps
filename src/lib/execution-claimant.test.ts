@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bindingNameOf, instanceNameOf } from "./execution-claimant";
+import { bindingNameOf } from "./execution-claimant";
 
 const CLAIMANT = {
   worker_binding_id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BW1",
@@ -15,15 +15,5 @@ describe("bindingNameOf", () => {
 
   it("answers the whole text when it holds no colon", () => {
     expect(bindingNameOf({ ...CLAIMANT, resource_identity: "general-main" })).toBe("general-main");
-  });
-});
-
-describe("instanceNameOf", () => {
-  it("prefers the name of the instance", () => {
-    expect(instanceNameOf({ ...CLAIMANT, name: "general-main #1" })).toBe("general-main #1");
-  });
-
-  it("falls back to the runtime identity", () => {
-    expect(instanceNameOf(CLAIMANT)).toBe("worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I00");
   });
 });
