@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 import { usePolledResource, type PolledResource } from "@/hooks/use-polled-resource";
 
@@ -6,15 +6,26 @@ import { readOverviewSnapshot, type OverviewSnapshot } from "./read-overview-sna
 
 const SNAPSHOT_INTERVAL_MS = 15_000;
 
-export function useOverviewSnapshot(hold: boolean): PolledResource<OverviewSnapshot> {
+export function useOverviewSnapshot(
+  hold: boolean,
+  selectedProjectId: string | null,
+): PolledResource<OverviewSnapshot> {
   const last = useRef<OverviewSnapshot | null>(null);
-  return usePolledResource(
+  const selected = useRef(selectedProjectId);
+  const polled = usePolledResource(
     async () => {
-      const snapshot = await readOverviewSnapshot(last.current);
+      const snapshot = await readOverviewSnapshot(last.current, selected.current);
       last.current = snapshot;
       return snapshot;
     },
     [],
     { intervalMs: SNAPSHOT_INTERVAL_MS, hold },
   );
+  const { refresh } = polled;
+  useEffect(() => {
+    const before = selected.current;
+    selected.current = selectedProjectId;
+    if (before !== null && selectedProjectId === null) refresh();
+  }, [selectedProjectId, refresh]);
+  return polled;
 }

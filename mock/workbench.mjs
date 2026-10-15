@@ -129,6 +129,18 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       run.cancel = () => run.decide?.(false);
     });
 
+  const answerApproval = async (session, run, call, approved) => {
+    if (run.cancelled) return;
+    await settle(
+      session,
+      run,
+      call,
+      approved
+        ? { isError: false, text: '{"id":"project_1"}' }
+        : { isError: true, text: "The human rejected the call." },
+    );
+  };
+
   const play = async (session, run, text) => {
     const state = stateOf(session);
     await sleep(run, STEP_DELAY_MS);
@@ -151,16 +163,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         operation_id: call.name,
         input: call.arguments,
       });
-      if (!run.cancelled) {
-        await settle(
-          session,
-          run,
-          call,
-          approved
-            ? { isError: false, text: '{"id":"project_1"}' }
-            : { isError: true, text: "The human rejected the call." },
-        );
-      }
+      await answerApproval(session, run, call, approved);
     } else {
       announce(session, call);
       await settle(session, run, call, { isError: false, text: '{"items":[]}' });
@@ -182,6 +185,27 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     state.pending_approval = null;
     notify(session);
   };
+
+  const resumeApproval = async (session) => {
+    const { approval } = session;
+    const state = stateOf(session);
+    const run = { cancelled: false, cancel: null, decide: null };
+    state.run = run;
+    const approved = await awaitApproval(session, run, approval);
+    const call = { id: approval.tool_call_id, name: approval.operation_id };
+    await answerApproval(session, run, call, approved);
+    if (!run.cancelled) {
+      await stream(
+        session,
+        run,
+        "The mock daemon finished the run and answers with this scripted text.",
+      );
+    }
+  };
+
+  for (const session of sessions) {
+    if (session.approval !== undefined) resumeApproval(session).finally(() => finish(session));
+  }
 
   const find = (res, id) => {
     const session = sessions.find((candidate) => candidate.id === decodeURIComponent(id));
@@ -214,6 +238,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       .map((session) => {
         const messages = session.entries.filter((entry) => entry.type === "message");
         const first = messages.find((entry) => entry.message.role === "user");
+        const state = stateOf(session);
         return {
           id: session.id,
           agent_name: session.agent_name,
@@ -222,6 +247,11 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
           modified: Date.parse(session.entries.at(-1)?.timestamp ?? "") || session.created,
           message_count: messages.length,
           first_message: textOf(first?.message),
+          run_active: state.run !== null,
+          pending_approval: state.pending_approval && {
+            tool_call_id: state.pending_approval.tool_call_id,
+            operation_id: state.pending_approval.operation_id,
+          },
         };
       });
     return json(res, 200, { items });

@@ -72,7 +72,7 @@ export function useOverview(): OverviewState {
   const { projectId: requested, select } = useScopedProject();
   const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
   const hold = openDialogs.size > 0;
-  const snapshot = useOverviewSnapshot(hold);
+  const snapshot = useOverviewSnapshot(hold, requested);
   const setup = useOverviewSetup(hold);
 
   const data = snapshot.data;
@@ -115,8 +115,9 @@ export function useOverview(): OverviewState {
       now: snapshot.now,
       catalog: setupData?.catalog ?? null,
       credentials: setupData?.credentials ?? null,
+      sessions: projectId === null ? (data?.sessions ?? null) : null,
     }),
-    [snapshot.now, setupData],
+    [snapshot.now, setupData, data, projectId],
   );
   const items = useMemo<readonly AttentionItem[]>(
     () => deriveAttention(snapshots, details, context),

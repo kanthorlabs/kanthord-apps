@@ -12,6 +12,8 @@ function item(id: string, modified: number, patch: Partial<WorkbenchSessionListI
     modified,
     message_count: 1,
     first_message: "",
+    run_active: false,
+    pending_approval: null,
     ...patch,
   };
 }

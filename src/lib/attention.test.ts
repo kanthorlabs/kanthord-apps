@@ -12,6 +12,7 @@ import type {
   NodeState,
   Project,
   SchedulerExecutionRecord,
+  WorkbenchSessionListItem,
 } from "@/api/types";
 
 import {
@@ -35,7 +36,12 @@ function derive(
   details: AttentionDetails = NO_DETAILS,
   now = NOW,
 ) {
-  return deriveAttention(snapshots, details, { now, catalog: null, credentials: null });
+  return deriveAttention(snapshots, details, {
+    now,
+    catalog: null,
+    credentials: null,
+    sessions: null,
+  });
 }
 
 function execution(
@@ -184,7 +190,7 @@ describe("deriveAttention", () => {
       at: 500,
       missionVersion: 4,
     });
-    expect(items[0]?.project.id).toBe("atlas");
+    expect(items[0]).toMatchObject({ project: { id: "atlas" } });
   });
 
   it("skips tasks, retired nodes and every state but Blocked", () => {
@@ -673,5 +679,54 @@ describe("externalReadStateOf", () => {
       pending: 0,
       failures: [],
     });
+  });
+});
+
+describe("deriveAttention tool_approval", () => {
+  const waiting: WorkbenchSessionListItem = {
+    id: "workbench_session_A",
+    agent_name: "swe@1",
+    name: null,
+    created: 1,
+    modified: 700,
+    message_count: 2,
+    first_message: "Create the project",
+    run_active: true,
+    pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+  };
+
+  it("sorts the approval after the node decisions and ahead of the fixes", () => {
+    const items = deriveAttention(
+      [
+        snapshot("atlas", [
+          node("n9", "Pending", "Pending", { depends_on: ["n8"] }),
+          node("n8", "Gone", "Discarded"),
+          blocked("n2", "Blocked", 100),
+        ]),
+        { ...snapshot("orbit", []), project: { ...project("orbit", "orbit"), paused_at: 5 } },
+      ],
+      NO_DETAILS,
+      { now: NOW, catalog: null, credentials: null, sessions: [waiting] },
+    );
+
+    expect(items.map((item) => item.kind)).toEqual([
+      "blocked",
+      "dependency_discarded",
+      "tool_approval",
+      "project_paused",
+    ]);
+  });
+
+  it("derives the approval of a session that waits and no other session", () => {
+    const items = deriveAttention([], NO_DETAILS, {
+      now: NOW,
+      catalog: null,
+      credentials: null,
+      sessions: [waiting, { ...waiting, id: "workbench_session_B", pending_approval: null }],
+    });
+
+    expect(items).toMatchObject([
+      { id: "tool_approval:workbench_session_A", at: 700, operationId: "project.create" },
+    ]);
   });
 });

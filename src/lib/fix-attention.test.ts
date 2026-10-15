@@ -198,7 +198,7 @@ function snapshot(overrides: Partial<ProjectSnapshot> = {}): ProjectSnapshot {
 }
 
 function context(overrides: Partial<AttentionContext> = {}): AttentionContext {
-  return { now: NOW, catalog: CATALOG, credentials: [], ...overrides };
+  return { now: NOW, catalog: CATALOG, credentials: [], sessions: null, ...overrides };
 }
 
 function credential(name: string, revisions: Credential["revisions"]): Credential {

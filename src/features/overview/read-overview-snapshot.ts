@@ -1,6 +1,7 @@
 import { listMissionNodes, readMission } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
 import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
+import { listWorkbenchSessions } from "@/api/resources/workbench";
 import { listWorkerInstances } from "@/api/resources/workers";
 import type {
   Mission,
@@ -8,6 +9,7 @@ import type {
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
+  WorkbenchSessionListItem,
   WorkerInstanceRecord,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
@@ -33,6 +35,7 @@ export interface ReadFault {
 export interface OverviewSnapshot {
   readonly projects: readonly Project[];
   readonly reads: readonly ProjectRead[];
+  readonly sessions: readonly WorkbenchSessionListItem[] | null;
   readonly faults: readonly ReadFault[];
 }
 
@@ -114,16 +117,35 @@ async function readProject(
 
 export async function readOverviewSnapshot(
   previous: OverviewSnapshot | null,
+  selectedProjectId: string | null,
 ): Promise<OverviewSnapshot> {
   const projects = await listProjects();
-  const results = await Promise.all(
-    projects.map((project) =>
-      readProject(project, previous?.reads.find((read) => read.project.id === project.id) ?? null),
+  const scoped = projects.some((project) => project.id === selectedProjectId);
+  const [results, sessions] = await Promise.all([
+    Promise.all(
+      projects.map((project) =>
+        readProject(
+          project,
+          previous?.reads.find((read) => read.project.id === project.id) ?? null,
+        ),
+      ),
     ),
-  );
+    scoped
+      ? { data: previous?.sessions ?? null, fault: null }
+      : settle(
+          null,
+          "workbench sessions",
+          () => listWorkbenchSessions(null),
+          previous?.sessions ?? null,
+        ),
+  ]);
   return {
     projects,
     reads: results.map((result) => result.read),
-    faults: results.flatMap((result) => result.faults),
+    sessions: sessions.data,
+    faults: [
+      ...results.flatMap((result) => result.faults),
+      ...(sessions.fault === null ? [] : [sessions.fault]),
+    ],
   };
 }

@@ -51,6 +51,10 @@ vi.mock("@/api/resources/mission", () => ({
   discardNode: vi.fn(),
 }));
 
+vi.mock("@/api/resources/workbench", () => ({
+  listWorkbenchSessions: vi.fn(),
+}));
+
 vi.mock("@/api/resources/scheduler", () => ({
   listQueueJobs: vi.fn(),
   listNodeExecutions: vi.fn(),
@@ -87,6 +91,7 @@ import {
   listProjectExecutionPage,
   listQueueJobs,
 } from "@/api/resources/scheduler";
+import { listWorkbenchSessions } from "@/api/resources/workbench";
 import { listWorkerCatalog, listWorkerInstances } from "@/api/resources/workers";
 import type {
   ActionLanding,
@@ -110,6 +115,7 @@ import type {
   RepositoryActionName,
   SchedulerExecutionRecord,
   SchedulerJob,
+  WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerInstanceRecord,
@@ -362,6 +368,7 @@ interface World {
   readonly agents?: Readonly<Record<string, readonly BindingAgentView[]>>;
   readonly credentials?: readonly Credential[];
   readonly liveness?: LivenessReport;
+  readonly sessions?: readonly WorkbenchSessionListItem[];
 }
 
 const HEALTHY: LivenessReport = {
@@ -423,6 +430,7 @@ function serve(world: World) {
     async (_projectId, bindingId) => world.agents?.[bindingId] ?? [],
   );
   vi.mocked(listAllCredentials).mockResolvedValue(world.credentials ?? []);
+  vi.mocked(listWorkbenchSessions).mockResolvedValue(world.sessions ?? []);
   vi.mocked(connectionBaseUrl).mockReturnValue("http://daemon.test");
   vi.mocked(readLiveness).mockResolvedValue(world.liveness ?? HEALTHY);
   vi.mocked(resumeProject).mockResolvedValue(KANTHORD);
@@ -2529,6 +2537,136 @@ describe("OverviewScreen system health", () => {
       within(alert).getByText(
         "The liveness of the daemon could not be read: The daemon did not answer.",
       ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("All clear")).toBeNull();
+  });
+});
+
+function session(
+  id: string,
+  patch: Partial<WorkbenchSessionListItem> = {},
+): WorkbenchSessionListItem {
+  return {
+    id,
+    agent_name: "swe@1",
+    name: null,
+    created: NOW - 2 * HOUR,
+    modified: NOW - HOUR,
+    message_count: 2,
+    first_message: "Create the project account-recovery",
+    run_active: true,
+    pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+    ...patch,
+  };
+}
+
+describe("OverviewScreen tool approvals", () => {
+  it("lists a session that waits for an approval with its agent, operation and age", async () => {
+    serve({ sessions: [session("workbench_session_A")] });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Create the project account-recovery"));
+    expect(within(item).getByText("swe@1")).toBeInTheDocument();
+    expect(within(item).getByText("Waits for approval")).toBeInTheDocument();
+    expect(within(item).getByText(/operation project\.create · 1 hour ago/)).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Open chat" })).toHaveAttribute(
+      "href",
+      "/workbench/workbench_session_A",
+    );
+    expect(within(item).getByRole("link", { name: /Create the project/ })).toHaveAttribute(
+      "href",
+      "/workbench/workbench_session_A",
+    );
+    expect(screen.getByText("1 decision")).toBeInTheDocument();
+    expect(screen.queryByText("All clear")).toBeNull();
+  });
+
+  it("titles the item with the name of the session before its first message", async () => {
+    serve({ sessions: [session("workbench_session_A", { name: "Recovery flow" })] });
+
+    renderScreen();
+
+    expect(await screen.findByRole("link", { name: "Recovery flow" })).toBeInTheDocument();
+  });
+
+  it("skips a session with no pending approval and a pending approval of an ended run", async () => {
+    serve({
+      sessions: [
+        session("workbench_session_A", { pending_approval: null }),
+        session("workbench_session_B", { run_active: false }),
+      ],
+    });
+
+    renderScreen();
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open chat" })).toBeNull();
+  });
+
+  it("counts the approval with the decisions of the nodes", async () => {
+    serve({
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+      sessions: [session("workbench_session_A")],
+    });
+
+    renderScreen();
+
+    expect(await screen.findByText("2 decisions")).toBeInTheDocument();
+  });
+
+  it("hides the approval under a project filter", async () => {
+    serve({
+      nodes: { "prj-2": [blocked("n_b", "B")] },
+      sessions: [session("workbench_session_A")],
+    });
+
+    renderScreen("/?project=prj-2");
+
+    expect(await screen.findByRole("link", { name: "B" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open chat" })).toBeNull();
+    expect(screen.getByText("1 decision")).toBeInTheDocument();
+  });
+
+  it("does not read the sessions under a project filter, so a failed read cannot hold All clear back", async () => {
+    serve({});
+    vi.mocked(listWorkbenchSessions).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    renderScreen("/?project=prj-1");
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(listWorkbenchSessions).not.toHaveBeenCalled();
+  });
+
+  it("reads the sessions again when the human returns to All projects", async () => {
+    const user = userEvent.setup();
+    serve({ sessions: [session("workbench_session_A")] });
+
+    renderScreen("/?project=prj-1");
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(listWorkbenchSessions).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("combobox", { name: "Project" }));
+    await user.click(await screen.findByRole("option", { name: "All projects" }));
+
+    expect(
+      await screen.findByRole("link", { name: "Create the project account-recovery" }),
+    ).toBeInTheDocument();
+    expect(listWorkbenchSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the failed session read and holds back All clear", async () => {
+    serve({});
+    vi.mocked(listWorkbenchSessions).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    renderScreen();
+
+    expect(
+      await screen.findByText(textContent(/Some records could not be read: workbench sessions/)),
     ).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
   });

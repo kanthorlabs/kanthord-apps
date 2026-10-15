@@ -1564,4 +1564,54 @@ export const WORKBENCH_SESSIONS = [
     },
     entries: [],
   },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB3",
+    agent_name: "swe@1",
+    created: SESSION_BASE + 2 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    approval: {
+      tool_call_id: "call_approval_01",
+      operation_id: "project.create",
+      input: { name: "account-recovery" },
+    },
+    entries: [
+      {
+        type: "model_change",
+        id: "e0000101",
+        parentId: null,
+        timestamp: entryAt(2880),
+        provider: "openai-compatible",
+        modelId: "qwen3-coder",
+      },
+      {
+        type: "message",
+        id: "e0000102",
+        parentId: "e0000101",
+        timestamp: entryAt(2881),
+        message: { role: "user", content: "Create the project account-recovery" },
+      },
+      {
+        type: "message",
+        id: "e0000103",
+        parentId: "e0000102",
+        timestamp: entryAt(2882),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I create the project now." },
+            {
+              type: "toolCall",
+              id: "call_approval_01",
+              name: "project.create",
+              arguments: { name: "account-recovery" },
+            },
+          ],
+        },
+      },
+    ],
+  },
 ];
