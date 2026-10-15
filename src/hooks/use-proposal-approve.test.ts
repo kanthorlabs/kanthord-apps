@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -128,6 +129,9 @@ describe("useProposalApprove", () => {
     await act(async () => result.current.confirm());
 
     expect(result.current.error).toContain(message);
+    expect(toast.error).toHaveBeenCalledWith("Approving the proposal Fix the invite link failed.", {
+      description: expect.stringContaining(message),
+    });
     expect(result.current.target).toBe(PROPOSAL);
     expect(reload).toHaveBeenCalledTimes(1);
   });

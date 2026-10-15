@@ -4,8 +4,8 @@ import { ItemGroup } from "@/components/ui/item";
 import type { MissionProposal, MissionRunnableNode } from "@/api/types";
 import type { Resource } from "@/hooks/use-resource";
 import type { GraphModel } from "@/lib/mission-graph";
-import { useProposalApprove } from "../use-proposal-approve";
-import { ProposalApproveDialog } from "./proposal-approve-dialog";
+import { useProposalApprove } from "@/hooks/use-proposal-approve";
+import { ProposalApproveDialog } from "@/components/proposal-approve-dialog";
 import { ProposalItem } from "./proposal-item";
 
 interface ProposalSectionProps {

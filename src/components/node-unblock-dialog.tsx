@@ -11,7 +11,7 @@ import {
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import type { NodeUnblockState } from "../use-node-unblock";
+import type { NodeUnblockState } from "@/hooks/use-node-unblock";
 
 export function NodeUnblockDialog({ name, unblock }: { name: string; unblock: NodeUnblockState }) {
   return (

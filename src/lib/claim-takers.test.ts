@@ -4,11 +4,13 @@ import type {
   MissionNodeRecord,
   NodeState,
   SchedulerJob,
+  WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerInstanceRecord,
+  WorkerPlacement,
 } from "@/api/types";
 
-import { uncoveredStates } from "./claim-takers";
+import { takerHintOf, uncoveredJobsOf, uncoveredStates } from "./claim-takers";
 
 const CATALOG: readonly WorkerCatalogItem[] = [
   {
@@ -120,5 +122,88 @@ describe("uncoveredStates", () => {
     const uncovered = uncoveredStates([job("a")], NODES, [instance("unknown@1")], CATALOG);
 
     expect([...uncovered]).toEqual(["Available"]);
+  });
+});
+
+describe("uncoveredJobsOf", () => {
+  it("groups the jobs of each uncovered state in the order of the queue", () => {
+    const jobs = [job("w"), job("a"), job("x"), job("w2")];
+    const nodes = [...NODES, node("w2", "Waiting")];
+
+    const uncovered = uncoveredJobsOf(jobs, nodes, [instance("coder@1")], CATALOG);
+
+    expect([...uncovered.keys()].sort()).toEqual(["External.Requested", "Waiting"]);
+    expect(uncovered.get("Waiting")?.map((entry) => entry.node_id)).toEqual(["w", "w2"]);
+  });
+});
+
+function binding(name: string, worker: string, placement?: WorkerPlacement): WorkerBindingRecord {
+  return {
+    id: `binding_${name}`,
+    project_id: "prj-1",
+    name,
+    kind: "worker",
+    resource_identity: `worker:kanthord:${name}`,
+    revision: 1,
+    config:
+      placement === undefined
+        ? { worker, instance_count: 1 }
+        : { worker, instance_count: 1, placement },
+    created_at: 1,
+    removed_at: null,
+  };
+}
+
+describe("takerHintOf", () => {
+  it("names the binding at the server placement", () => {
+    expect(
+      takerHintOf("Waiting", [binding("reviewer-main", "reviewer@1", "server")], CATALOG),
+    ).toEqual({
+      kind: "server",
+      binding: "reviewer-main",
+      worker: "reviewer@1",
+    });
+  });
+
+  it("reads an absent placement as the worker placement", () => {
+    expect(takerHintOf("Waiting", [binding("reviewer-main", "reviewer@1")], CATALOG).kind).toBe(
+      "worker",
+    );
+  });
+
+  it("reads the worker placement of an explicit setting", () => {
+    expect(
+      takerHintOf("Waiting", [binding("reviewer-main", "reviewer@1", "worker")], CATALOG).kind,
+    ).toBe("worker");
+  });
+
+  it("reads an external harness as the worker placement", () => {
+    const harness: WorkerCatalogItem = {
+      name: "claude-code@1",
+      host: "external-harness",
+      declared_node_states: ["Waiting"],
+      required_node_format: ["objective"],
+    };
+
+    expect(
+      takerHintOf("Waiting", [binding("claude-main", "claude-code@1", "server")], [harness]),
+    ).toEqual({ kind: "worker", binding: "claude-main", worker: "claude-code@1" });
+  });
+
+  it("takes the first binding by name that declares the state", () => {
+    const hint = takerHintOf(
+      "Waiting",
+      [binding("z-review", "reviewer@1"), binding("a-review", "reviewer@1", "server")],
+      CATALOG,
+    );
+
+    expect(hint).toMatchObject({ binding: "a-review" });
+  });
+
+  it("answers none when no binding declares the state", () => {
+    expect(takerHintOf("Waiting", [binding("general-main", "coder@1")], CATALOG)).toEqual({
+      kind: "none",
+    });
+    expect(takerHintOf("Waiting", [], CATALOG)).toEqual({ kind: "none" });
   });
 });

@@ -28,7 +28,11 @@ const HEALTHY_SERVICES = {
   project: { bindings: 200 },
   mission: { operations: 200 },
 };
-const projects = [structuredClone(fx.PROJECT), structuredClone(fx.PROJECT_ATLAS)];
+const projects = [
+  structuredClone(fx.PROJECT),
+  structuredClone(fx.PROJECT_ATLAS),
+  structuredClone(fx.PROJECT_ORBIT),
+];
 const bindingSet = structuredClone(fx.BINDING_SET);
 const agents = structuredClone(fx.AGENT_DECLARATIONS);
 const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
@@ -52,7 +56,7 @@ const projectStates = new Map([
       nodes: fx.ATLAS_NODES,
       edges: fx.ATLAS_EDGES,
       proposals: [],
-      outcomes: [],
+      outcomes: fx.ATLAS_OUTCOMES,
       queue: fx.ATLAS_QUEUE,
       executions: fx.ATLAS_EXECUTIONS,
     }),
@@ -69,6 +73,8 @@ const emptyProjectState = (projectId) => ({
   queue: [],
   executions: [],
 });
+
+projectStates.set(fx.PROJECT_ORBIT.id, emptyProjectState(fx.PROJECT_ORBIT.id));
 
 const stateOfProject = (projectId) => projectStates.get(projectId);
 const stateOfMission = (missionId) =>
@@ -1361,9 +1367,12 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
   });
 });
 
-on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
-  const nodeId = decodeURIComponent(m[1]);
-  const actions = (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
+const checkResolutions = new Map();
+const checkCounts = new Map();
+const resolutionKey = (nodeId, attemptNumber, key) => `${nodeId}:${attemptNumber}:${key}`;
+
+const externalActionsOf = (nodeId) =>
+  (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
     attempt.required_external_actions.map((action) => {
       const request = fx.GRAPH_EVIDENCE.find(
         (item) =>
@@ -1377,17 +1386,217 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, u
         action,
         requested: request !== undefined,
         request_evidence_id: request?.id ?? null,
-        resolution: request === undefined ? "unrequested" : "unresolved",
+        resolution:
+          request === undefined
+            ? "unrequested"
+            : (checkResolutions.get(resolutionKey(nodeId, attempt.attempt, action.key)) ??
+              "unresolved"),
       };
     }),
   );
-  return json(res, 200, page(byAttempt(actions, nodeId, url), url));
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
+  const nodeId = decodeURIComponent(m[1]);
+  return json(res, 200, page(byAttempt(externalActionsOf(nodeId), nodeId, url), url));
 });
+
+const CHECK_FAILURE_NODES = new Set([fx.ATLAS_RELEASE_NOTES_ID]);
+
+const checkFailureOf = (evidenceId) => ({
+  evidence_id: evidenceId,
+  error: {
+    error: {
+      code: "system.operation.unknown",
+      message: "Operation failed.",
+      details: null,
+    },
+    request_id: "request_01J9ZQ4XKM3B6V8N2R5T7W0RQ1",
+  },
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (!hasOnly(b, ["expected_mission_version"]))
+    return validationFailed(res, "expected_mission_version");
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  const unresolved = externalActionsOf(node.id).filter(
+    (action) =>
+      action.attempt === node.attempt && action.requested && action.resolution === "unresolved",
+  );
+  if (unresolved.length === 0)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.no_unresolved_request",
+      "The open attempt has no unresolved request.",
+    );
+  const count = (checkCounts.get(node.id) ?? 0) + 1;
+  checkCounts.set(node.id, count);
+  if (count === 1 && CHECK_FAILURE_NODES.has(node.id))
+    return json(res, 200, {
+      results: [],
+      failures: unresolved.map((action) => checkFailureOf(action.request_evidence_id)),
+    });
+  const resolution = count === 1 ? "unresolved" : "expected-end";
+  for (const action of unresolved) {
+    checkResolutions.set(resolutionKey(node.id, node.attempt, action.action.key), resolution);
+  }
+  if (resolution === "expected-end" && node.state === "External.Requested") {
+    node.state = "External.Success";
+    state.queue = state.queue.filter((job) => job.node_id !== node.id);
+  }
+  return json(res, 200, {
+    results: unresolved.map((action) => ({
+      evidence_id: action.request_evidence_id,
+      requirement_key: action.action.key,
+      resolution,
+    })),
+    failures: [],
+  });
+});
+
+const OVERRIDE_STATES = [
+  "Pending",
+  "Available",
+  "Executing",
+  "Waiting",
+  "Blocked",
+  "Paused",
+  "External.Success",
+  "External.Failed",
+];
+
+const RESUME_TARGETS = ["Available", "Waiting"];
+
+const validationFailed = (res, field) =>
+  projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+    { path: ["body", field], code: "invalid_value" },
+  ]);
+
+const outcomeOf = (state, node, closingEvent, result) => {
+  const sequence = String(state.outcomes.length).padStart(2, "0");
+  const outcome = {
+    id: `outcome_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    node_id: node.id,
+    attempt: node.attempt,
+    node_revision: node.visible_revision,
+    closing_event: closingEvent,
+    result,
+    assessment_id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    evidence_ids: [],
+    created_at: Date.now(),
+  };
+  state.outcomes.push(outcome);
+  return outcome;
+};
+
+const humanControlRefusal = (res, state, node, b, states) => {
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (node.state !== b.expected_state || node.attempt !== b.expected_attempt)
+    return stateConflict(res, node);
+  if (!states.includes(node.state)) return controlRefused(res, node);
+  if (isBlank(b.reason)) return blankReason(res);
+  return null;
+};
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/override$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (b.result !== "success") return validationFailed(res, "result");
+  const refusal = humanControlRefusal(res, state, node, b, OVERRIDE_STATES);
+  if (refusal !== null) return refusal;
+  const unresolved = externalActionsOf(node.id).filter(
+    (action) =>
+      action.attempt === node.attempt && action.requested && action.resolution === "unresolved",
+  );
+  if (unresolved.length > 0)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.action_unresolved",
+      "The open attempt has unresolved requests.",
+      { requirement_keys: unresolved.map((action) => action.action.key) },
+    );
+  const outcome = outcomeOf(state, node, "success-override", "success");
+  node.state = "Completed";
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: outcome.created_at,
+  });
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/resume$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (!RESUME_TARGETS.includes(b.target)) return validationFailed(res, "target");
+  const refusal = humanControlRefusal(res, state, node, b, ["Paused"]);
+  if (refusal !== null) return refusal;
+  const actions = externalActionsOf(node.id).filter((action) => action.attempt === node.attempt);
+  if (actions.some((action) => action.requested)) {
+    node.state = actions.every((action) => action.resolution === "expected-end")
+      ? "External.Success"
+      : "External.Requested";
+  } else if (b.target === "Waiting") {
+    node.state = "Waiting";
+  } else {
+    const open = dependsOnOf(state, node.id).some((id) => graphNodeById(id)?.state !== "Completed");
+    node.state = open ? "Pending" : "Available";
+  }
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome: null,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: Date.now(),
+  });
+});
+
+on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (isBlank(b.reason)) return blankReason(res);
+  const dependsOnId = decodeURIComponent(m[2]);
+  const removed = state.edges.filter(
+    (edge) =>
+      edge.kind === "dependency" &&
+      edge.dependent_id === node.id &&
+      edge.depends_on_id === dependsOnId,
+  );
+  state.edges = state.edges.filter((edge) => !removed.includes(edge));
+  if (removed.length > 0) state.mission.version += 1;
+  if (
+    node.state === "Pending" &&
+    dependsOnOf(state, node.id).every((id) => graphNodeById(id)?.state === "Completed")
+  )
+    node.state = "Available";
+  return json(res, 200, {
+    mission_version: state.mission.version,
+    revisions: [],
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: removed,
+    open_attempts_unchanged: [],
+  });
+});
+
+const bindingConfigOf = (binding, projectId) => {
+  const config = bindingSet.bindings[binding.name]?.config ?? {};
+  const placement = fx.BINDING_PLACEMENTS[projectId]?.[binding.name];
+  return binding.kind === "worker" && placement !== undefined ? { ...config, placement } : config;
+};
 
 const bindingRecordOf = (binding, projectId) => ({
   ...binding,
   project_id: projectId,
-  config: bindingSet.bindings[binding.name]?.config ?? {},
+  config: bindingConfigOf(binding, projectId),
 });
 
 const bindingRecordByName = (name) =>
@@ -1434,6 +1643,80 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
     return projectEnvelope(res, 404, "project.binding.not_found", "No such binding.");
   }
   return json(res, 200, bindingRecordOf(binding, decodeURIComponent(m[1])));
+});
+
+const COOLING_UNTIL = Date.now() + 3 * 60 * 60_000;
+const COOLING_AGENTS = { [fx.PROJECT.id]: ["swe@1"] };
+
+const agentViewOf = (agent, binding, projectId) => {
+  const base = {
+    agent: agent.agent_name,
+    worker: bindingConfigOf(binding, projectId).worker,
+    worker_binding_id: binding.id,
+    binding_set_version: bindingSet.version,
+  };
+  const enablement = agent.enablement;
+  if (enablement === null || enablement.state !== "enabled") {
+    return {
+      ...base,
+      defaults: null,
+      entry: null,
+      effective: null,
+      chain: [],
+      active_position: null,
+      cooling: null,
+      valid: false,
+      issues: [{ path: [], code: "agent.enablement.unavailable" }],
+    };
+  }
+  const head = enablement.agent_providers.find(
+    (provider) => provider.name === enablement.default_configuration.agent_provider,
+  );
+  const cooling = COOLING_AGENTS[projectId]?.includes(agent.agent_name) ?? false;
+  const effective = {
+    agent_provider: head.name,
+    provider: head.provider,
+    credential: head.credential,
+    model_identifier: enablement.default_configuration.model_identifier,
+    reasoning_effort: enablement.default_configuration.reasoning_effort,
+  };
+  return {
+    ...base,
+    defaults: enablement.default_configuration,
+    entry: null,
+    effective,
+    chain: [
+      {
+        position: 0,
+        level: "enablement",
+        ...effective,
+        cooldown: cooling ? { code: "rate_limited", until_at: COOLING_UNTIL } : null,
+      },
+    ],
+    active_position: cooling ? null : 0,
+    cooling: cooling
+      ? { code: "agent.configuration.chain_cooling", until_at: COOLING_UNTIL }
+      : null,
+    valid: true,
+    issues: [],
+  };
+};
+
+on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/agent$/, (m, _b, res, _t, url) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined || binding.kind !== "worker") {
+    return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
+  }
+  const { worker } = bindingConfigOf(binding, project.id);
+  const items = agents
+    .filter((agent) => agent.worker_names.includes(worker))
+    .map((agent) => agentViewOf(agent, binding, project.id))
+    .sort((a, b) => a.agent.localeCompare(b.agent));
+  return json(res, 200, page(items, url));
 });
 
 const SSH_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git$/;
@@ -1582,6 +1865,9 @@ on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (m, _b, res, _t, ur
   if (state === undefined) return undefined;
   const nodeId = url.searchParams.get("node_id");
   const attempt = url.searchParams.get("attempt");
+  if (attempt !== null && !(Number.isInteger(Number(attempt)) && Number(attempt) > 0)) {
+    return refuseValidation(res);
+  }
   const items = state.executions
     .filter(
       (item) =>

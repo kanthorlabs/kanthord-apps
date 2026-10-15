@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import type { ProposalApproveState } from "../use-proposal-approve";
+import type { ProposalApproveState } from "@/hooks/use-proposal-approve";
 
 export function ProposalApproveDialog({ approve }: { approve: ProposalApproveState }) {
   const target = approve.target;

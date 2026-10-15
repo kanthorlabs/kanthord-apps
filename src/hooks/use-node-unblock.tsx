@@ -5,6 +5,7 @@ import { unblockNode } from "@/api/resources/mission";
 import type { MissionProposal, MissionRunnableNode } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
+import { openProposalsOf } from "@/lib/attention";
 
 export interface NodeUnblockState {
   readonly available: boolean;
@@ -26,15 +27,15 @@ export interface NodeUnblockState {
 
 const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.node.state_conflict":
-    "The node is no longer Blocked at this attempt. The sheet now shows its current state.",
+    "The node is no longer Blocked at this attempt. The view now shows its current state.",
   "mission.node.control_refused":
-    "The node is no longer Blocked. The sheet now shows its current state.",
+    "The node is no longer Blocked. The view now shows its current state.",
   "mission.revision.conflict":
-    "The content of the node changed after this read. The sheet now shows the current revision. Review it and unblock again.",
+    "The content of the node changed after this read. The view now shows the current revision. Review it and unblock again.",
   "mission.version.conflict":
-    "The mission changed after this read. The sheet now shows the current mission. Review the node and unblock again.",
-  "mission.node.retired": "The node is retired. The sheet now shows its current state.",
-  "mission.node.terminal": "The node is terminal. The sheet now shows its current state.",
+    "The mission changed after this read. The view now shows the current mission. Review the node and unblock again.",
+  "mission.node.retired": "The node is retired. The view now shows its current state.",
+  "mission.node.terminal": "The node is terminal. The view now shows its current state.",
 };
 
 function isUnblockable(node: MissionRunnableNode): boolean {
@@ -43,15 +44,6 @@ function isUnblockable(node: MissionRunnableNode): boolean {
 
 function hasStartChoice(node: MissionRunnableNode): boolean {
   return node.kind === "objective" && node.attempt > 0;
-}
-
-function openProposalsOf(
-  node: MissionRunnableNode,
-  proposals: readonly MissionProposal[],
-): readonly MissionProposal[] {
-  return proposals.filter(
-    (proposal) => proposal.approved_at === null && proposal.attempt === node.attempt,
-  );
 }
 
 function consequenceOf(node: MissionRunnableNode): ReactNode {
@@ -149,7 +141,9 @@ export function useNodeUnblock(
       (cause: unknown) => {
         setUnblocking(false);
         const failure = asApiError(cause);
-        setError(CONFLICT_MESSAGES[failure.detail] ?? failure.message);
+        const message = CONFLICT_MESSAGES[failure.detail] ?? failure.message;
+        setError(message);
+        toast.error(`Unblocking ${node.content.name} failed.`, { description: message });
         reload();
       },
     );

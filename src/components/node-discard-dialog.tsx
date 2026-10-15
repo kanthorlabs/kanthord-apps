@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import type { NodeDiscardState } from "../use-node-discard";
+import type { NodeDiscardState } from "@/hooks/use-node-discard";
 
 export function NodeDiscardDialog({ name, discard }: { name: string; discard: NodeDiscardState }) {
   return (

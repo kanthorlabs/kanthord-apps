@@ -18,6 +18,20 @@ export const PROJECT_ATLAS = {
   workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-atlas",
 };
 
+export const PROJECT_ORBIT = {
+  id: "prj-orbit",
+  name: "orbit",
+  binding_set_version: 1,
+  created_at: now,
+  paused_at: now - 3 * 60 * 60_000,
+  workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-orbit",
+};
+
+export const BINDING_PLACEMENTS = {
+  [PROJECT.id]: { "general-main": "server", "reviewer-main": "worker" },
+  [PROJECT_ATLAS.id]: { "general-main": "server", "reviewer-main": "server" },
+};
+
 const BASE_PROMPT = `You are a senior software engineer.
 
 ## Principles
@@ -510,6 +524,14 @@ export const GRAPH_NODES = [
     ids.inviteFix,
     content("Mark the invite link used", []),
   ),
+  graphNode(
+    "YE1",
+    "objective",
+    "api-changelog.md",
+    ids.billing,
+    content("Publish the API changelog", [REPO]),
+    { state: "Paused", attempt: 1, pinned_by_attempts: [1] },
+  ),
 ];
 
 export const GRAPH_EDGES = [
@@ -539,7 +561,7 @@ const pullRequest = (key, bindingId) => ({
   action: "pull_request",
   expected_end_state: "pull_request_merged",
   follows: null,
-  configuration: { base_branch: "main" },
+  configuration: { base_branch: "main", landing: "human" },
 });
 
 export const GRAPH_ATTEMPTS = {
@@ -632,6 +654,19 @@ export const GRAPH_ATTEMPTS = {
     outcome_ids: attempt === 1 ? [] : ["outcome_01J9ZQ4XKM3B6V8N2R5T7W0OD1"],
     opened_by: execution("ED9", "reviewer-main #1"),
   })),
+  [graphId("YE1")]: [
+    {
+      node_id: graphId("YE1"),
+      attempt: 1,
+      node_revision: 1,
+      start_point: "base_branch",
+      required_external_actions: [pullRequest("kanthord-repo.pull_request", REPO)],
+      opened_at: minutes(150),
+      closed_at: null,
+      outcome_ids: [],
+      opened_by: human,
+    },
+  ],
   [ids.verify]: [
     {
       node_id: ids.verify,
@@ -720,6 +755,29 @@ export const GRAPH_EVIDENCE = [
   },
 ];
 
+GRAPH_EVIDENCE.push({
+  id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0RE1",
+  node_id: graphId("YE1"),
+  attempt: 1,
+  subject: "Pull request for the API changelog",
+  assets: [
+    {
+      id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PE1",
+      kind: "platform",
+      address: {
+        kind: "pull_request",
+        resource_identity: "repository:github:kanthorlabs/kanthord",
+        number: 151,
+      },
+      published_at: minutes(140),
+      expired_at: null,
+    },
+  ],
+  provenance: execution("EE1", "reviewer-main #1"),
+  created_at: minutes(140),
+  requirement_key: "kanthord-repo.pull_request",
+});
+
 export const GRAPH_ASSESSMENTS = [
   {
     id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SB3",
@@ -804,6 +862,24 @@ export const GRAPH_ASSESSMENTS = [
     child_node_ids: [ids.invite],
     worker_version: "reviewer@1",
   })),
+  {
+    id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SF8",
+    node_id: graphId("YF8"),
+    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0EF9",
+    attempt: 1,
+    node_revision: 1,
+    evidence_ids: [],
+    child_outcome_ids: [],
+    result: "undetermined",
+    rationale:
+      "The criterion names the language of the receiver, and the plan file lists no source for it. The reviewer cannot judge the email text.",
+    tested_input: null,
+    actor: execution("EF9", "reviewer-main #1"),
+    created_at: minutes(42),
+    currency: null,
+    child_node_ids: [],
+    worker_version: "reviewer@1",
+  },
 ];
 
 export const GRAPH_OUTCOMES = [
@@ -958,6 +1034,15 @@ export const GRAPH_EXECUTIONS = [
   ["EC5", ids.invoices, "lost", 300, 20, GRAPH_BINDINGS.reviewer],
   ["EC6", ids.invoices, "lost", 330, null, GRAPH_BINDINGS.worker],
   ["EC7", ids.invoices, "finished", 160, 140, GRAPH_BINDINGS.worker, null, true],
+  [
+    "EC8",
+    ids.invoices,
+    "finished",
+    40,
+    20,
+    GRAPH_BINDINGS.reviewer,
+    { reason: "provider_failed", code: "bad_request" },
+  ],
 ].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop, unnamed], index) =>
   executionRecord(
     PROJECT.id,
@@ -1045,13 +1130,108 @@ export const ATLAS_NODES = [
     attempt: 1,
     pinned_by_attempts: [1],
   }),
+  atlasNode("YF8", "objective", "order-email-locale.md", "YF1", "Localize the order email", {
+    state: "Blocked",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  atlasNode("YF9", "objective", "shipping-rates.md", "YF1", "Compute the shipping rates", {
+    state: "Paused",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  atlasNode("YFA", "objective", "packing-slip.md", "YF1", "Print the packing slip", {
+    state: "Paused",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  atlasNode("YFB", "objective", "legacy-checkout.md", "YF1", "Drop the legacy checkout", {
+    state: "Discarded",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  atlasNode("YFC", "objective", "legacy-links.md", "YF1", "Redirect the legacy checkout links", {
+    state: "Pending",
+    attempt: 0,
+  }),
+  atlasNode("YFD", "objective", "release-notes.md", "YF1", "Publish the release notes", {
+    state: "External.Requested",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
 ];
 
-export const ATLAS_EDGES = ATLAS_NODES.filter((node) => node.parent_id !== null).map((node) => ({
-  kind: "containment",
-  parent_id: node.parent_id,
-  child_id: node.id,
-}));
+export const ATLAS_RELEASE_NOTES_ID = atlasId("YFD");
+
+GRAPH_ATTEMPTS[ATLAS_RELEASE_NOTES_ID] = [
+  {
+    node_id: ATLAS_RELEASE_NOTES_ID,
+    attempt: 1,
+    node_revision: 1,
+    start_point: "base_branch",
+    required_external_actions: [
+      {
+        key: "kanthord-repo.merge_push",
+        binding_id: REPO,
+        action: "merge_push",
+        expected_end_state: "base_branch_pushed",
+        follows: null,
+        configuration: { base_branch: "main", landing: "kanthord" },
+      },
+    ],
+    opened_at: minutes(80),
+    closed_at: null,
+    outcome_ids: [],
+    opened_by: human,
+  },
+];
+
+GRAPH_EVIDENCE.push({
+  id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0RF1",
+  node_id: ATLAS_RELEASE_NOTES_ID,
+  attempt: 1,
+  subject: "Push of the release notes to main",
+  assets: [
+    {
+      id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PF1",
+      kind: "platform",
+      address: {
+        kind: "branch_push",
+        resource_identity: "repository:github:kanthorlabs/kanthord",
+        branch: "main",
+        commit: commitOf("f1"),
+      },
+      published_at: minutes(40),
+      expired_at: null,
+    },
+  ],
+  provenance: execution("EF1", "reviewer-main #1"),
+  created_at: minutes(40),
+  requirement_key: "kanthord-repo.merge_push",
+});
+
+export const ATLAS_EDGES = [
+  ...ATLAS_NODES.filter((node) => node.parent_id !== null).map((node) => ({
+    kind: "containment",
+    parent_id: node.parent_id,
+    child_id: node.id,
+  })),
+  { kind: "dependency", dependent_id: atlasId("YFC"), depends_on_id: atlasId("YFB") },
+];
+
+export const ATLAS_OUTCOMES = [
+  {
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OF8",
+    node_id: atlasId("YF8"),
+    attempt: 1,
+    node_revision: 1,
+    closing_event: "assessment-not-passed",
+    result: "undetermined",
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SF8",
+    evidence_ids: [],
+    created_at: minutes(40),
+  },
+];
 
 export const ATLAS_QUEUE = [
   jobOf(PROJECT_ATLAS.id, atlasId("YF4"), 3, 50, "K01"),
@@ -1102,6 +1282,41 @@ export const ATLAS_EXECUTIONS = [
     endedAgo: null,
     binding: GRAPH_BINDINGS.reviewer,
     expiresIn: 2,
+  },
+  ...[
+    ["L01", "YF9", "lost", 200, null, -150, null],
+    ["L02", "YF9", "lost", 140, null, -100, null],
+    ["L03", "YFA", "finished", 90, 70, undefined, { reason: "budget_end", code: "turns" }],
+  ].map(([suffix, nodeSuffix, claimState, startedAgo, endedAgo, expiresIn, stop]) => ({
+    executionId: `execution_${ulidAt(minutes(startedAgo), suffix)}`,
+    traceSeed: suffix.toLowerCase(),
+    nodeId: atlasId(nodeSuffix),
+    claimState,
+    startedAgo,
+    endedAgo,
+    expiresIn,
+    binding: GRAPH_BINDINGS.worker,
+    stop,
+  })),
+  {
+    executionId: `execution_${ulidAt(minutes(25), "AG1")}`,
+    traceSeed: "ag1",
+    nodeId: atlasId("YF6"),
+    claimState: "finished",
+    startedAgo: 25,
+    endedAgo: 5,
+    binding: GRAPH_BINDINGS.worker,
+    stop: { reason: "provider_failed", code: "unauthorized" },
+  },
+  {
+    executionId: `execution_${ulidAt(minutes(43230), "AG2")}`,
+    traceSeed: "ag2",
+    nodeId: atlasId("YF8"),
+    claimState: "finished",
+    startedAgo: 43230,
+    endedAgo: 43200,
+    binding: GRAPH_BINDINGS.reviewer,
+    stop: { reason: "provider_failed", code: "unauthorized" },
   },
   ...atlasHistory,
 ].map((spec, index) => executionRecord(PROJECT_ATLAS.id, spec, index));

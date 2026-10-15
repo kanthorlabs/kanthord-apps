@@ -1,11 +1,17 @@
 import { act, renderHook } from "@testing-library/react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { discardNode } from "@/api/resources/mission";
-import type { MissionControlResult, MissionRunnableNode, NodeState } from "@/api/types";
+import type {
+  MissionControlResult,
+  MissionExternalAction,
+  MissionRunnableNode,
+  NodeState,
+} from "@/api/types";
 import { useNodeDiscard } from "./use-node-discard";
-import { renderedText } from "../../../../test/text-content";
+import { renderedText } from "../../test/text-content";
 
 vi.mock("@/api/resources/mission", () => ({ discardNode: vi.fn() }));
 vi.mock("sonner", () => ({
@@ -36,8 +42,30 @@ const OBJECTIVE: MissionRunnableNode = {
   depends_on: [],
 };
 
-function mount(node: MissionRunnableNode = OBJECTIVE, reload = vi.fn()) {
-  const view = renderHook(() => useNodeDiscard(node, 7, reload));
+function action(resolution: MissionExternalAction["resolution"]): MissionExternalAction {
+  return {
+    node_id: "node_audit",
+    attempt: 3,
+    action: {
+      key: "repo.pull_request",
+      binding_id: "binding_1",
+      action: "pull_request",
+      expected_end_state: "pull_request_merged",
+      follows: null,
+      configuration: { base_branch: "main", landing: "human" },
+    },
+    requested: resolution !== "unrequested",
+    request_evidence_id: resolution === "unrequested" ? null : "evidence_1",
+    resolution,
+  };
+}
+
+function mount(
+  node: MissionRunnableNode = OBJECTIVE,
+  reload = vi.fn(),
+  actions: readonly MissionExternalAction[] | null = [],
+) {
+  const view = renderHook(() => useNodeDiscard(node, 7, actions, reload));
   return { ...view, reload };
 }
 
@@ -63,8 +91,55 @@ describe("useNodeDiscard", () => {
     expect(mount({ ...OBJECTIVE, state }).result.current.available).toBe(available);
   });
 
+  it("holds discard of a Paused node until the external actions answer", () => {
+    expect(mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), null).result.current.available).toBe(
+      false,
+    );
+  });
+
+  it.each<[MissionExternalAction["resolution"], boolean]>([
+    ["unrequested", true],
+    ["expected-end", true],
+    ["other-end", true],
+    ["unresolved", false],
+  ])("offers discard of a Paused node with a request that is %s: %s", (resolution, available) => {
+    const { result } = mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), [action(resolution)]);
+
+    expect(result.current.available).toBe(available);
+  });
+
+  it("sends no call for a Paused node with an unresolved request", async () => {
+    const { result } = mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), [action("unresolved")]);
+
+    act(() => result.current.request());
+
+    expect(result.current.open).toBe(false);
+    await act(async () => result.current.confirm());
+    expect(discardMock).not.toHaveBeenCalled();
+  });
+
   it("offers no discard for a retired node", () => {
     expect(mount({ ...OBJECTIVE, retired_at: 1 }).result.current.available).toBe(false);
+  });
+
+  it.each<NodeState>(["Pending", "Available", "Executing", "Waiting", "External.Success"])(
+    "holds discard of a %s node with an open attempt until the actions answer and clear",
+    (state) => {
+      const node = { ...OBJECTIVE, state };
+
+      expect(mount(node, vi.fn(), null).result.current.available).toBe(false);
+      expect(mount(node, vi.fn(), [action("unresolved")]).result.current.available).toBe(false);
+      expect(mount(node, vi.fn(), [action("expected-end")]).result.current.available).toBe(true);
+    },
+  );
+
+  it("needs no external action read for a Blocked node or a node at attempt 0", () => {
+    expect(mount({ ...OBJECTIVE, state: "Blocked" }, vi.fn(), null).result.current.available).toBe(
+      true,
+    );
+    expect(
+      mount({ ...OBJECTIVE, state: "Pending", attempt: 0 }, vi.fn(), null).result.current.available,
+    ).toBe(true);
   });
 
   it("requires a nonblank reason before the call", async () => {
@@ -126,6 +201,9 @@ describe("useNodeDiscard", () => {
     await act(async () => result.current.confirm());
 
     expect(result.current.error).toContain(message);
+    expect(toast.error).toHaveBeenCalledWith("Discarding Audit log failed.", {
+      description: expect.stringContaining(message),
+    });
     expect(result.current.open).toBe(true);
     expect(reload).toHaveBeenCalledTimes(1);
   });

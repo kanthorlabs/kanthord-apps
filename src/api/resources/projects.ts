@@ -1,6 +1,8 @@
 import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
+import { readAllPages } from "../pages";
 import type {
+  BindingAgentView,
   BindingSet,
   BindingSetEntry,
   BindingSetWriteResult,
@@ -9,6 +11,7 @@ import type {
   Page,
   Project,
   ProjectBindingRecord,
+  WorkerBindingRecord,
 } from "../types";
 
 const PROJECT_PAGE_LIMIT = 1000;
@@ -83,19 +86,42 @@ export async function writeBindingSet(
   );
 }
 
-export async function listBindings(projectId: string): Promise<readonly ProjectBindingRecord[]> {
-  const bindings: ProjectBindingRecord[] = [];
+async function readBindingPages<T extends ProjectBindingRecord>(
+  projectId: string,
+  kind: T["kind"] | null,
+): Promise<readonly T[]> {
+  const bindings: T[] = [];
   let cursor: string | null = null;
   do {
     const query = new URLSearchParams({ limit: String(BINDING_PAGE_LIMIT) });
+    if (kind !== null) query.set("kind", kind);
     if (cursor !== null) query.set("cursor", cursor);
-    const page: Page<ProjectBindingRecord> = await request<Page<ProjectBindingRecord>>(
+    const page: Page<T> = await request<Page<T>>(
       `/api/project/${encodeURIComponent(projectId)}/binding?${query}`,
     );
     bindings.push(...page.items);
     cursor = page.next_cursor;
   } while (cursor !== null);
   return bindings;
+}
+
+export async function listBindings(projectId: string): Promise<readonly ProjectBindingRecord[]> {
+  return readBindingPages<ProjectBindingRecord>(projectId, null);
+}
+
+export async function listWorkerBindings(
+  projectId: string,
+): Promise<readonly WorkerBindingRecord[]> {
+  return readBindingPages<WorkerBindingRecord>(projectId, "worker");
+}
+
+export async function listBindingAgents(
+  projectId: string,
+  bindingId: string,
+): Promise<readonly BindingAgentView[]> {
+  return readAllPages<BindingAgentView>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/agent`,
+  );
 }
 
 export async function readBinding(

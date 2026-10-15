@@ -3,6 +3,7 @@ import type {
   MissionActor,
   MissionAssessmentResult,
   MissionClosingEvent,
+  MissionEvidence,
   MissionEvidenceAsset,
   MissionExternalAction,
   MissionVerification,
@@ -82,6 +83,14 @@ export function assetText(asset: MissionEvidenceAsset): string {
     return `pull request #${address.number} on ${address.resource_identity}`;
   }
   return `push of ${shortCommit(address.commit)} to ${address.branch} on ${address.resource_identity}`;
+}
+
+export function requestText(request: MissionEvidence): string {
+  const assets = request.assets.map(assetText).join("; ");
+  const endState = request.end_state === undefined ? "not set" : request.end_state;
+  return `${request.requirement_key ?? "request"}: ${request.subject}${
+    assets.length === 0 ? "" : `, ${assets}`
+  }. End state ${endState}.`;
 }
 
 export type VerificationResult = MissionVerification["results"][number];

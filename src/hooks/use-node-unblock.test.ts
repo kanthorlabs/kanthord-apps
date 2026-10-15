@@ -1,11 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { unblockNode } from "@/api/resources/mission";
 import type { MissionControlResult, MissionProposal, MissionRunnableNode } from "@/api/types";
 import { useNodeUnblock } from "./use-node-unblock";
-import { renderedText } from "../../../../test/text-content";
+import { renderedText } from "../../test/text-content";
 
 vi.mock("@/api/resources/mission", () => ({ unblockNode: vi.fn() }));
 vi.mock("sonner", () => ({
@@ -194,6 +195,9 @@ describe("useNodeUnblock", () => {
     await act(async () => result.current.confirm());
 
     expect(result.current.error).toContain(message);
+    expect(toast.error).toHaveBeenCalledWith("Unblocking Team workspaces failed.", {
+      description: expect.stringContaining(message),
+    });
     expect(result.current.open).toBe(true);
     expect(reload).toHaveBeenCalledTimes(1);
   });

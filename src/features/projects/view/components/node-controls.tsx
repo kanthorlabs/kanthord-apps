@@ -1,30 +1,42 @@
 import { Button } from "@/components/ui/button";
-import type { MissionProposal, MissionRunnableNode } from "@/api/types";
-import { useNodeDiscard } from "../use-node-discard";
-import { useNodeUnblock } from "../use-node-unblock";
-import { NodeDiscardDialog } from "./node-discard-dialog";
-import { NodeUnblockDialog } from "./node-unblock-dialog";
+import { NodeDiscardDialog } from "@/components/node-discard-dialog";
+import { NodeOverrideDialog } from "@/components/node-override-dialog";
+import { NodeResumeDialog } from "@/components/node-resume-dialog";
+import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 
-interface NodeControlsProps {
-  readonly node: MissionRunnableNode;
-  readonly missionVersion: number;
-  readonly proposals: readonly MissionProposal[];
-  readonly onChanged: () => void;
-}
+import { useNodeControls, type NodeControlsInput } from "../use-node-controls";
 
-export function NodeControls({ node, missionVersion, proposals, onChanged }: NodeControlsProps) {
-  const unblock = useNodeUnblock(node, missionVersion, proposals, onChanged);
-  const discard = useNodeDiscard(node, missionVersion, onChanged);
+export function NodeControls(input: NodeControlsInput) {
+  const { unblock, resume, override, discard, guardLine, retry, visible } = useNodeControls(input);
+  const name = input.node.content.name;
 
-  if (!unblock.available && !discard.available) return null;
+  if (!visible) return null;
 
   return (
     <section aria-label="Controls" className="flex flex-col gap-2">
       <h3 className="font-semibold">Controls</h3>
+      {guardLine !== null && <p className="text-sm text-muted-foreground">{guardLine}</p>}
+      {retry !== null && (
+        <div className="flex md:justify-end">
+          <Button variant="outline" size="sm" onClick={retry}>
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2 md:justify-end">
         {unblock.available && (
           <Button variant="outline" size="sm" onClick={unblock.request}>
             Unblock
+          </Button>
+        )}
+        {resume.available && (
+          <Button variant="outline" size="sm" onClick={resume.request}>
+            Resume
+          </Button>
+        )}
+        {override.available && (
+          <Button variant="outline" size="sm" onClick={override.request}>
+            Override
           </Button>
         )}
         {discard.available && (
@@ -33,8 +45,10 @@ export function NodeControls({ node, missionVersion, proposals, onChanged }: Nod
           </Button>
         )}
       </div>
-      <NodeUnblockDialog name={node.content.name} unblock={unblock} />
-      <NodeDiscardDialog name={node.content.name} discard={discard} />
+      <NodeUnblockDialog name={name} unblock={unblock} />
+      <NodeResumeDialog name={name} resume={resume} />
+      <NodeOverrideDialog name={name} override={override} />
+      <NodeDiscardDialog name={name} discard={discard} />
     </section>
   );
 }

@@ -80,7 +80,10 @@ const AUDIT = runnable("node_audit", "objective", "Audit log", "node_recovery", 
   },
 });
 
+const HELD = runnable("node_held", "objective", "Held work", null, { state: "Paused", attempt: 0 });
+
 const NODES: readonly MissionNodeRecord[] = [
+  HELD,
   runnable("node_onboarding", "initiative", "Onboarding", null, { state: "Completed" }),
   runnable("node_recovery", "initiative", "Account recovery", null, { state: "Available" }),
   AUDIT,
@@ -119,7 +122,7 @@ const ATTEMPT: MissionAttempt = {
       action: "pull_request",
       expected_end_state: "pull_request_merged",
       follows: null,
-      configuration: { base_branch: "main" },
+      configuration: { base_branch: "main", landing: "human" },
     },
   ],
   opened_at: 0,
@@ -252,6 +255,20 @@ describe("NodeSheet", () => {
     expect(within(controls).getByRole("button", { name: "Unblock" })).toBeTruthy();
     expect(within(controls).getByRole("button", { name: "Discard" })).toBeTruthy();
     expect(missionApi.listNodeProposals).not.toHaveBeenCalled();
+  });
+
+  it("offers Resume, Override and Discard for a Paused node at attempt 0 without a read", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockRejectedValue(
+      new ApiError("malformed", "Request validation failed.", 400),
+    );
+    renderSheet("node_held");
+
+    const controls = await screen.findByRole("region", { name: "Controls" });
+    expect(within(controls).getByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(within(controls).getByRole("button", { name: "Override" })).toBeTruthy();
+    expect(within(controls).getByRole("button", { name: "Discard" })).toBeTruthy();
+    expect(schedulerApi.listNodeExecutions).not.toHaveBeenCalled();
+    expect(missionApi.listNodeExternalActions).not.toHaveBeenCalled();
   });
 
   it("offers no control for a task", async () => {

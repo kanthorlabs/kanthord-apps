@@ -1,0 +1,224 @@
+import { describe, expect, it } from "vitest";
+
+import type { MissionNodeRecord, NodeState } from "@/api/types";
+
+import { deriveAttention } from "./attention";
+import {
+  attentionSummary,
+  claimedNodeCount,
+  coolingFactsOf,
+  projectsWithoutSetup,
+  statusLineText,
+} from "./overview-summary";
+
+function node(id: string, state: NodeState, retiredAt: number | null = null): MissionNodeRecord {
+  return {
+    id,
+    filename: `${id}.md`,
+    mission_id: "mission_1",
+    parent_id: null,
+    visible_revision: 1,
+    content: { name: id, requirement: "", criterion: "", verifications: [], bindings: [] },
+    retired_at: retiredAt,
+    pinned_by_attempts: [],
+    kind: "objective",
+    state,
+    attempt: 1,
+    priority: 0,
+    depends_on: [],
+  };
+}
+
+describe("statusLineText", () => {
+  it("counts the executions and the jobs", () => {
+    expect(statusLineText(3, 4)).toBe("3 executions run · 4 jobs wait");
+  });
+
+  it("uses the singular for one", () => {
+    expect(statusLineText(1, 1)).toBe("1 execution runs · 1 job waits");
+  });
+});
+
+describe("claimedNodeCount", () => {
+  it("counts the nodes in Executing and Evaluating", () => {
+    expect(
+      claimedNodeCount([
+        node("a", "Executing"),
+        node("b", "Evaluating"),
+        node("c", "Waiting"),
+        node("d", "Executing", 7),
+      ]),
+    ).toBe(2);
+  });
+});
+
+describe("attentionSummary", () => {
+  const project = {
+    id: "p",
+    name: "p",
+    binding_set_version: 1,
+    created_at: 1,
+    paused_at: null,
+    workspace_directory: "/p",
+  };
+
+  it("names the count of each group", () => {
+    const items = deriveAttention(
+      [
+        {
+          project,
+          missionVersion: 1,
+          nodes: [node("a", "Blocked"), node("b", "Blocked")],
+          jobs: null,
+          instances: null,
+          executions: null,
+          bindings: null,
+        },
+      ],
+      new Map(),
+      { now: 1, catalog: null, credentials: null },
+    );
+
+    expect(attentionSummary(items)).toBe("2 decisions");
+  });
+
+  it("names the decisions and the fixes in the order of the groups", () => {
+    const items = deriveAttention(
+      [
+        {
+          project: { ...project, paused_at: 5 },
+          missionVersion: 1,
+          nodes: [node("a", "Blocked")],
+          jobs: null,
+          instances: null,
+          executions: null,
+          bindings: null,
+        },
+      ],
+      new Map(),
+      { now: 1, catalog: null, credentials: null },
+    );
+
+    expect(attentionSummary(items)).toBe("1 decision · 1 fix");
+  });
+
+  it("says that no item waits when the list is empty", () => {
+    expect(attentionSummary([])).toBe("No item waits for you");
+  });
+});
+
+describe("coolingFactsOf", () => {
+  const project = {
+    id: "p",
+    name: "atlas",
+    binding_set_version: 1,
+    created_at: 1,
+    paused_at: null,
+    workspace_directory: "/p",
+  };
+
+  function agentView(agent: string, cooling: { code: string; until_at: number } | null) {
+    return {
+      agent,
+      worker: "coder@1",
+      worker_binding_id: "binding_1",
+      binding_set_version: 1,
+      defaults: null,
+      entry: null,
+      effective: null,
+      chain: [],
+      active_position: null,
+      cooling,
+      valid: true,
+      issues: [],
+    };
+  }
+
+  it("lists each agent whose chain cools down, with its binding and end", () => {
+    const facts = coolingFactsOf([
+      {
+        project,
+        missionVersion: 1,
+        nodes: [],
+        jobs: null,
+        instances: null,
+        executions: null,
+        bindings: [
+          {
+            binding: {
+              id: "binding_1",
+              project_id: "p",
+              name: "coder-main",
+              kind: "worker",
+              resource_identity: "worker:kanthord:coder-main",
+              revision: 1,
+              config: { worker: "coder@1", instance_count: 1 },
+              created_at: 1,
+              removed_at: null,
+            },
+            agents: [
+              agentView("swe@1", { code: "agent.configuration.chain_cooling", until_at: 99 }),
+              agentView("re@1", null),
+            ],
+          },
+        ],
+      },
+    ]);
+
+    expect(facts).toEqual([
+      { key: "p:binding_1:swe@1", agent: "swe@1", binding: "coder-main", project, untilAt: 99 },
+    ]);
+  });
+
+  it("lists nothing while the bindings are unread", () => {
+    expect(
+      coolingFactsOf([
+        {
+          project,
+          missionVersion: 1,
+          nodes: [],
+          jobs: null,
+          instances: null,
+          executions: null,
+          bindings: null,
+        },
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe("projectsWithoutSetup", () => {
+  const atlas = {
+    id: "p1",
+    name: "atlas",
+    binding_set_version: 1,
+    created_at: 1,
+    paused_at: null,
+    workspace_directory: "/p1",
+  };
+  const beta = { ...atlas, id: "p2", name: "beta" };
+
+  function snapshotOf(project: typeof atlas) {
+    return {
+      project,
+      missionVersion: 1,
+      nodes: [],
+      jobs: [],
+      instances: [],
+      executions: [],
+      bindings: null,
+    };
+  }
+
+  it("counts each snapshot project that the setup read omits", () => {
+    expect(projectsWithoutSetup([snapshotOf(atlas), snapshotOf(beta)], [{ project: atlas }])).toBe(
+      1,
+    );
+  });
+
+  it("counts none when the setup read holds every snapshot project", () => {
+    expect(projectsWithoutSetup([snapshotOf(atlas)], [{ project: atlas }, { project: beta }])).toBe(
+      0,
+    );
+  });
+});

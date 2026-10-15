@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { actorText, assetText, verificationPasses, verificationResultText } from "./mission-labels";
+import {
+  actorText,
+  assetText,
+  requestText,
+  verificationPasses,
+  verificationResultText,
+} from "./mission-labels";
 
 describe("mission labels", () => {
   it("names each actor form", () => {
@@ -40,5 +46,38 @@ describe("mission labels", () => {
     expect(
       verificationPasses({ tested_input: testedInput, results: [ok, { ...ok, exit_code: 1 }] }),
     ).toBe(false);
+  });
+
+  it("states a request with its assets and its end state", () => {
+    const request = {
+      id: "evidence_1",
+      node_id: "node_1",
+      attempt: 2,
+      subject: "Open the pull request",
+      assets: [
+        {
+          id: "evidence_asset_1",
+          kind: "platform" as const,
+          address: {
+            kind: "pull_request" as const,
+            resource_identity: "repository:github:a/b",
+            number: 7,
+          },
+          published_at: 1,
+          expired_at: null,
+        },
+      ],
+      provenance: { kind: "human" as const, account: "ulrich", name: "Ulrich" },
+      created_at: 1,
+      requirement_key: "repo.pull_request",
+      end_state: "expected" as const,
+    };
+
+    expect(requestText(request)).toBe(
+      "repo.pull_request: Open the pull request, pull request #7 on repository:github:a/b. End state expected.",
+    );
+    expect(
+      requestText({ ...request, assets: [], requirement_key: undefined, end_state: undefined }),
+    ).toBe("request: Open the pull request. End state not set.");
   });
 });

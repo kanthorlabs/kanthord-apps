@@ -7,8 +7,10 @@ import { setConnection } from "../client";
 import {
   checkBinding,
   createProject,
+  listBindingAgents,
   listProjectPage,
   listProjects,
+  listWorkerBindings,
   pauseProject,
   readInstructionFiles,
   renameProject,
@@ -217,5 +219,41 @@ describe("checkBinding", () => {
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.url).toBe("/api/project/prj-1/binding/check");
     expect(seen[0]?.headers["idempotency-key"]).toBeUndefined();
+  });
+});
+
+describe("listWorkerBindings", () => {
+  it("asks for the worker bindings of the project and reads every page", async () => {
+    const first = { id: "binding_w1", kind: "worker", name: "coder-main" };
+    const second = { id: "binding_w2", kind: "worker", name: "coder-extra" };
+    const base = await serve([
+      { items: [first], next_cursor: "c-1" },
+      { items: [second], next_cursor: null },
+    ]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await listWorkerBindings("prj-1")).toEqual([first, second]);
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/project/prj-1/binding?limit=1000&kind=worker",
+      "/api/project/prj-1/binding?limit=1000&kind=worker&cursor=c-1",
+    ]);
+  });
+});
+
+describe("listBindingAgents", () => {
+  it("reads every page of project.agentConfiguration.list", async () => {
+    const first = { agent: "swe@1", valid: true };
+    const second = { agent: "re@1", valid: false };
+    const base = await serve([
+      { items: [first], next_cursor: "c-1" },
+      { items: [second], next_cursor: null },
+    ]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await listBindingAgents("prj-1", "binding_w")).toEqual([first, second]);
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/project/prj-1/binding/binding_w/agent?limit=1000",
+      "/api/project/prj-1/binding/binding_w/agent?limit=1000&cursor=c-1",
+    ]);
   });
 });

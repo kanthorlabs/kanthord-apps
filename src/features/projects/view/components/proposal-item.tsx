@@ -8,7 +8,7 @@ import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/i
 import type { MissionProposal } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
-import type { ProposalApproveState } from "../use-proposal-approve";
+import type { ProposalApproveState } from "@/hooks/use-proposal-approve";
 import { FactList, type Fact } from "./fact-list";
 import { NodeLink } from "./node-link";
 

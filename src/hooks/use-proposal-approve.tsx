@@ -23,11 +23,11 @@ export interface ProposalApproveState {
 
 const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.proposal.already_approved":
-    "Another approve of this proposal came first. The section now shows the objective that it created.",
+    "Another approve of this proposal came first. The view now shows the objective that it created.",
   "mission.node.state_conflict":
-    "The initiative is no longer Blocked at the attempt of this proposal. The section now shows its current state.",
+    "The initiative is no longer Blocked at the attempt of this proposal. The view now shows its current state.",
   "mission.version.conflict":
-    "The mission changed after this read. The section now shows the current mission. Review the proposal and approve again.",
+    "The mission changed after this read. The view now shows the current mission. Review the proposal and approve again.",
 };
 
 function unavailableReasonOf(
@@ -115,7 +115,11 @@ export function useProposalApprove(
       (cause: unknown) => {
         setApproving(false);
         const failure = asApiError(cause);
-        setError(CONFLICT_MESSAGES[failure.detail] ?? failure.message);
+        const message = CONFLICT_MESSAGES[failure.detail] ?? failure.message;
+        setError(message);
+        toast.error(`Approving the proposal ${target.content.name} failed.`, {
+          description: message,
+        });
         reload();
       },
     );
@@ -135,8 +139,8 @@ export function useProposalApprove(
     ),
     saferPath: (
       <>
-        To reject the proposal, keep it unapproved and use Unblock or Discard in the Controls
-        section of <RecordName>{initiative.content.name}</RecordName> instead.
+        To reject the proposal, keep it unapproved and use Unblock or Discard on{" "}
+        <RecordName>{initiative.content.name}</RecordName> instead.
       </>
     ),
     canApprove,

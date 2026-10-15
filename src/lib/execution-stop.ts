@@ -21,7 +21,7 @@ const CODE_LABELS: Readonly<Record<string, string>> = {
   unavailable: "unavailable",
 };
 
-function codeLabel(code: string): string {
+export function codeLabel(code: string): string {
   return CODE_LABELS[code] ?? code;
 }
 
@@ -33,4 +33,56 @@ export function stopLabel(stop: ExecutionStop): string {
 export function endTimeOf(execution: SchedulerExecutionRecord): number | null {
   if (execution.ended_at !== null) return execution.ended_at;
   return execution.claim_state === "lost" ? execution.expired_at : null;
+}
+
+export function stopSentence(stop: ExecutionStop): string {
+  const reason = REASON_LABELS[stop.reason].toLowerCase();
+  return stop.code === null ? reason : `${reason} (${codeLabel(stop.code)})`;
+}
+
+export type PauseCause = "failure-limit" | "further-work-limit" | "human";
+
+export const PAUSE_CAUSE_LABELS: Readonly<Record<PauseCause, string>> = {
+  "failure-limit": "Failure limit",
+  "further-work-limit": "Further-work limit",
+  human: "Paused by a human",
+};
+
+export interface PauseDerivation {
+  readonly cause: PauseCause;
+  readonly execution: SchedulerExecutionRecord | null;
+  readonly endedAt: number | null;
+}
+
+export function pauseCauseOf(executions: readonly SchedulerExecutionRecord[]): PauseDerivation {
+  let latest: SchedulerExecutionRecord | null = null;
+  let latestEnd = 0;
+  for (const execution of executions) {
+    const end = endTimeOf(execution);
+    if (end !== null && (latest === null || end > latestEnd)) {
+      latest = execution;
+      latestEnd = end;
+    }
+  }
+  if (latest === null) return { cause: "human", execution: null, endedAt: null };
+  if (latest.stop?.reason === "budget_end") {
+    return { cause: "further-work-limit", execution: latest, endedAt: latestEnd };
+  }
+  if (latest.claim_state === "lost" || latest.stop !== null) {
+    return { cause: "failure-limit", execution: latest, endedAt: latestEnd };
+  }
+  return { cause: "human", execution: latest, endedAt: latestEnd };
+}
+
+export function pauseSentence(pause: PauseDerivation): string {
+  const stop = pause.execution?.stop ?? null;
+  if (pause.cause === "failure-limit") {
+    return `The last execution ended: ${stop === null ? "lost" : stopSentence(stop)}.`;
+  }
+  if (pause.cause === "further-work-limit" && stop !== null) {
+    return `The last execution ended at its budget${
+      stop.code === null ? "" : ` (${codeLabel(stop.code)})`
+    }.`;
+  }
+  return "No execution limit explains the pause.";
 }
