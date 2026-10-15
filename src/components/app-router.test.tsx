@@ -41,13 +41,4 @@ describe("AppRouter", () => {
 
     expect(screen.getByText("Scheduler body")).toBeInTheDocument();
   });
-
-  it("redirects the executions route to the scheduler", () => {
-    window.history.pushState({}, "", "/executions");
-
-    render(<AppRouter />);
-
-    expect(screen.getByText("Scheduler body")).toBeInTheDocument();
-    expect(window.location.pathname).toBe("/scheduler");
-  });
 });

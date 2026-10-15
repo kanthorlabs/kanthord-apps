@@ -38,7 +38,6 @@ export function AppRouter() {
             <Route path="projects/:projectId" element={<ProjectScreen />} />
             <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
             <Route path="scheduler" element={<SchedulerScreen />} />
-            <Route path="executions" element={<Navigate to="/scheduler" replace />} />
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
