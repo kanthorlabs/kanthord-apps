@@ -116,6 +116,12 @@ describe("AppShell", () => {
     expect(screen.getByText("No projects")).toBeTruthy();
   });
 
+  it("names Scheduler in the sidebar", () => {
+    mount();
+
+    expect(screen.getByRole("link", { name: "Scheduler" })).toHaveAttribute("href", "/scheduler");
+  });
+
   it("reports a project list that failed", () => {
     projectState.value = {
       ...projectState.value,

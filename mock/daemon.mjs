@@ -28,16 +28,57 @@ const HEALTHY_SERVICES = {
   project: { bindings: 200 },
   mission: { operations: 200 },
 };
-const projects = [structuredClone(fx.PROJECT)];
-const mission = { ...structuredClone(fx.MISSION), entries: structuredClone(fx.MISSION_ENTRIES) };
+const projects = [structuredClone(fx.PROJECT), structuredClone(fx.PROJECT_ATLAS)];
 const bindingSet = structuredClone(fx.BINDING_SET);
 const agents = structuredClone(fx.AGENT_DECLARATIONS);
 const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
-const graphNodes = structuredClone(fx.GRAPH_NODES);
-const graphEdges = structuredClone(fx.GRAPH_EDGES);
-const proposals = structuredClone(fx.GRAPH_PROPOSALS);
-const graphOutcomes = structuredClone(fx.GRAPH_OUTCOMES);
+const projectStates = new Map([
+  [
+    fx.PROJECT.id,
+    structuredClone({
+      mission: { ...fx.MISSION, entries: fx.MISSION_ENTRIES },
+      nodes: fx.GRAPH_NODES,
+      edges: fx.GRAPH_EDGES,
+      proposals: fx.GRAPH_PROPOSALS,
+      outcomes: fx.GRAPH_OUTCOMES,
+      queue: fx.GRAPH_QUEUE,
+      executions: fx.GRAPH_EXECUTIONS,
+    }),
+  ],
+  [
+    fx.PROJECT_ATLAS.id,
+    structuredClone({
+      mission: { ...fx.ATLAS_MISSION, entries: [] },
+      nodes: fx.ATLAS_NODES,
+      edges: fx.ATLAS_EDGES,
+      proposals: [],
+      outcomes: [],
+      queue: fx.ATLAS_QUEUE,
+      executions: fx.ATLAS_EXECUTIONS,
+    }),
+  ],
+]);
 let nodeSequence = 10;
+
+const emptyProjectState = (projectId) => ({
+  mission: { id: `mission_${projectId}`, version: 1, entries: [] },
+  nodes: [],
+  edges: [],
+  proposals: [],
+  outcomes: [],
+  queue: [],
+  executions: [],
+});
+
+const stateOfProject = (projectId) => projectStates.get(projectId);
+const stateOfMission = (missionId) =>
+  [...projectStates.values()].find((state) => state.mission.id === missionId);
+const stateOfNode = (nodeId) =>
+  [...projectStates.values()].find((state) => state.nodes.some((node) => node.id === nodeId));
+const stateOfProposal = (proposalId) =>
+  [...projectStates.values()].find((state) =>
+    state.proposals.some((proposal) => proposal.id === proposalId),
+  );
 
 const routes = [];
 const on = (method, pattern, handler) => routes.push({ method, pattern, handler });
@@ -119,6 +160,7 @@ on("POST", /^\/api\/project$/, (_m, b, res) => {
     workspace_directory: `/home/kanthord/.local/state/kanthord/projects/${id}`,
   };
   projects.push(project);
+  projectStates.set(id, emptyProjectState(id));
   return json(res, 200, project);
 });
 
@@ -737,7 +779,7 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
 
 const nodeIdOf = () => `node_01J9ZQ4XKM3B6V8N2R5T7W0Y${String(nodeSequence++).padStart(2, "0")}`;
 
-const planOf = (body) =>
+const planOf = (mission, body) =>
   body.format === "json"
     ? body.entries
     : body.files.map((file) => {
@@ -756,8 +798,8 @@ const planOf = (body) =>
         };
       });
 
-const previewOf = (body) => {
-  const plan = planOf(body).map((entry) => {
+const previewOf = (mission, body) => {
+  const plan = planOf(mission, body).map((entry) => {
     const known = mission.entries.find((current) => current.filename === entry.filename);
     return entry.id === undefined && known ? { ...entry, id: known.id } : entry;
   });
@@ -804,7 +846,7 @@ const previewOf = (body) => {
   };
 };
 
-const refuseMissionVersion = (res, body) => {
+const refuseMissionVersion = (res, body, mission) => {
   if (body.mission_version === mission.version) return null;
   return projectEnvelope(
     res,
@@ -814,16 +856,24 @@ const refuseMissionVersion = (res, body) => {
   );
 };
 
-on("GET", /^\/api\/mission\/project\/([^/]+)$/, (m, _b, res) =>
-  json(res, 200, {
-    id: mission.id,
-    project_id: decodeURIComponent(m[1]),
-    version: mission.version,
-  }),
-);
+const missionNotFound = (res) =>
+  projectEnvelope(res, 404, "mission.record.not_found", "No such mission.");
 
-on("GET", /^\/api\/mission\/([^/]+)\/export$/, (_m, _b, res, _t, url) =>
-  url.searchParams.get("format") === "json"
+on("GET", /^\/api\/mission\/project\/([^/]+)$/, (m, _b, res) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  return json(res, 200, {
+    id: state.mission.id,
+    project_id: decodeURIComponent(m[1]),
+    version: state.mission.version,
+  });
+});
+
+on("GET", /^\/api\/mission\/([^/]+)\/export$/, (m, _b, res, _t, url) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  const { mission } = state;
+  return url.searchParams.get("format") === "json"
     ? json(res, 200, {
         mission_id: mission.id,
         mission_version: mission.version,
@@ -836,19 +886,24 @@ on("GET", /^\/api\/mission\/([^/]+)\/export$/, (_m, _b, res, _t, url) =>
           filename: entry.filename,
           content: `# ${entry.name}\n`,
         })),
-      }),
-);
-
-on("POST", /^\/api\/mission\/([^/]+)\/import\/preview$/, (_m, b, res) => {
-  const refused = refuseMissionVersion(res, b);
-  if (refused !== null) return refused;
-  return json(res, 200, previewOf(b).preview);
+      });
 });
 
-on("POST", /^\/api\/mission\/([^/]+)\/import$/, (_m, b, res) => {
-  const refused = refuseMissionVersion(res, b);
+on("POST", /^\/api\/mission\/([^/]+)\/import\/preview$/, (m, b, res) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  const refused = refuseMissionVersion(res, b, state.mission);
   if (refused !== null) return refused;
-  const { plan, preview } = previewOf(b);
+  return json(res, 200, previewOf(state.mission, b).preview);
+});
+
+on("POST", /^\/api\/mission\/([^/]+)\/import$/, (m, b, res) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  const { mission } = state;
+  const refused = refuseMissionVersion(res, b, mission);
+  if (refused !== null) return refused;
+  const { plan, preview } = previewOf(mission, b);
   const confirmed = [...b.confirmed_retirements].sort().join(",");
   if (
     b.preview_digest !== preview.preview_digest ||
@@ -914,29 +969,41 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   });
 });
 
-const page = (items) => ({ items, next_cursor: null });
+const page = (items, url = null) => {
+  const requested = Number(url?.searchParams.get("limit"));
+  const cursor = Number(url?.searchParams.get("cursor"));
+  const limit = Number.isInteger(requested) && requested > 0 ? requested : items.length;
+  const offset = Number.isInteger(cursor) && cursor > 0 ? cursor : 0;
+  const next = offset + limit;
+  return {
+    items: items.slice(offset, next),
+    next_cursor: next < items.length ? String(next) : null,
+  };
+};
 
-const dependsOnOf = (nodeId) =>
-  graphEdges
+const dependsOnOf = (state, nodeId) =>
+  state.edges
     .filter((edge) => edge.kind === "dependency" && edge.dependent_id === nodeId)
     .map((edge) => edge.depends_on_id)
     .sort();
 
-const graphNodeRead = (node) => {
+const graphNodeRead = (state, node) => {
   if (node.kind === "task") return node;
-  const runnable = { ...node, depends_on: dependsOnOf(node.id) };
+  const runnable = { ...node, depends_on: dependsOnOf(state, node.id) };
   if (node.state !== "Blocked") return runnable;
-  const outcome = graphOutcomes.filter((item) => item.node_id === node.id).at(-1);
+  const outcome = state.outcomes.filter((item) => item.node_id === node.id).at(-1);
   return outcome === undefined
     ? runnable
     : { ...runnable, blocked_context: { outcome, requests: [] } };
 };
 
-const graphNodeById = (id) => graphNodes.find((node) => node.id === id);
+const graphNodeById = (id) => stateOfNode(id)?.nodes.find((node) => node.id === id);
 
-const graphRevisions = (node) => {
+const graphRevisions = (state, node) => {
   const owner = node.kind === "task" ? graphNodeById(node.parent_id) : node;
-  const tasks = graphNodes.filter((child) => child.parent_id === owner.id && child.kind === "task");
+  const tasks = state.nodes.filter(
+    (child) => child.parent_id === owner.id && child.kind === "task",
+  );
   const first = {
     node_id: owner.id,
     filename: owner.filename,
@@ -987,60 +1054,106 @@ const byAttempt = (records, nodeId, url) => {
   );
 };
 
-on("GET", /^\/api\/mission\/([^/]+)\/node$/, (_m, _b, res) =>
-  json(res, 200, page(graphNodes.map(graphNodeRead))),
-);
+on("GET", /^\/api\/mission\/([^/]+)\/node$/, (m, _b, res, _t, url) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  return json(
+    res,
+    200,
+    page(
+      state.nodes.map((node) => graphNodeRead(state, node)),
+      url,
+    ),
+  );
+});
 
-on("GET", /^\/api\/mission\/([^/]+)\/edge$/, (_m, _b, res, _t, url) => {
+on("GET", /^\/api\/mission\/([^/]+)\/edge$/, (m, _b, res, _t, url) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
   const kind = url.searchParams.get("kind");
-  return json(res, 200, page(graphEdges.filter((edge) => kind === null || edge.kind === kind)));
+  return json(
+    res,
+    200,
+    page(
+      state.edges.filter((edge) => kind === null || edge.kind === kind),
+      url,
+    ),
+  );
 });
 
 on("GET", /^\/api\/mission\/node\/([^/]+)$/, (m, _b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));
   if (node === undefined)
     return projectEnvelope(res, 404, "mission.record.not_found", "No such node.");
-  return json(res, 200, graphNodeRead(node));
+  return json(res, 200, graphNodeRead(state, node));
 });
 
-on("GET", /^\/api\/mission\/node\/([^/]+)\/revision$/, (m, _b, res) => {
+on("GET", /^\/api\/mission\/node\/([^/]+)\/revision$/, (m, _b, res, _t, url) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));
   if (node === undefined)
     return projectEnvelope(res, 404, "mission.record.not_found", "No such node.");
-  return json(res, 200, page(graphRevisions(node)));
+  return json(res, 200, page(graphRevisions(state, node), url));
 });
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/revision\/(\d+)$/, (m, _b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));
-  const revision = node && graphRevisions(node).find((item) => item.revision === Number(m[2]));
+  const revision =
+    node && graphRevisions(state, node).find((item) => item.revision === Number(m[2]));
   if (!revision) return projectEnvelope(res, 404, "mission.record.not_found", "No such revision.");
   return json(res, 200, revision);
 });
 
-on("GET", /^\/api\/mission\/node\/([^/]+)\/attempt$/, (m, _b, res) =>
-  json(res, 200, page(fx.GRAPH_ATTEMPTS[decodeURIComponent(m[1])] ?? [])),
+on("GET", /^\/api\/mission\/node\/([^/]+)\/attempt$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(fx.GRAPH_ATTEMPTS[decodeURIComponent(m[1])] ?? [], url)),
 );
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/evidence$/, (m, _b, res, _t, url) =>
-  json(res, 200, page(byAttempt(fx.GRAPH_EVIDENCE, decodeURIComponent(m[1]), url))),
+  json(res, 200, page(byAttempt(fx.GRAPH_EVIDENCE, decodeURIComponent(m[1]), url), url)),
 );
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/assessment$/, (m, _b, res, _t, url) =>
-  json(res, 200, page(byAttempt(fx.GRAPH_ASSESSMENTS, decodeURIComponent(m[1]), url))),
+  json(res, 200, page(byAttempt(fx.GRAPH_ASSESSMENTS, decodeURIComponent(m[1]), url), url)),
 );
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
-  json(res, 200, page(byAttempt(graphOutcomes, decodeURIComponent(m[1]), url))),
+  json(
+    res,
+    200,
+    page(
+      byAttempt(
+        stateOfNode(decodeURIComponent(m[1]))?.outcomes ?? [],
+        decodeURIComponent(m[1]),
+        url,
+      ),
+      url,
+    ),
+  ),
 );
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
-  json(res, 200, page(byAttempt(proposals, decodeURIComponent(m[1]), url))),
+  json(
+    res,
+    200,
+    page(
+      byAttempt(
+        stateOfNode(decodeURIComponent(m[1]))?.proposals ?? [],
+        decodeURIComponent(m[1]),
+        url,
+      ),
+      url,
+    ),
+  ),
 );
 
 on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
-  const proposal = proposals.find((item) => item.id === decodeURIComponent(m[1]));
+  const state = stateOfProposal(decodeURIComponent(m[1]));
+  const proposal = state?.proposals.find((item) => item.id === decodeURIComponent(m[1]));
   if (proposal === undefined)
     return projectEnvelope(res, 404, "mission.record.not_found", "No such proposal.");
+  const { mission } = state;
   if (proposal.approved_at !== null)
     return projectEnvelope(res, 409, "mission.proposal.already_approved", "Proposal is approved.");
   if (b.expected_mission_version !== mission.version)
@@ -1094,8 +1207,8 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
     { kind: "containment", parent_id: initiative.id, child_id: objective.id },
     { kind: "containment", parent_id: objective.id, child_id: taskNode.id },
   ];
-  graphNodes.push(objective, taskNode);
-  graphEdges.push(...addedEdges);
+  state.nodes.push(objective, taskNode);
+  state.edges.push(...addedEdges);
   initiative.state = "Pending";
   mission.version += 1;
   proposal.approved_at = now;
@@ -1110,7 +1223,7 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
       open_attempts_unchanged: [],
     },
     initiative: {
-      node: graphNodeRead(initiative),
+      node: graphNodeRead(state, initiative),
       attempt: null,
       outcome: null,
       actor: fx.GRAPH_HUMAN,
@@ -1131,7 +1244,7 @@ const DISCARD_STATES = [
   "External.Failed",
 ];
 
-const controlRefusal = (res, node, expectedVersion) => {
+const controlRefusal = (res, state, node, expectedVersion) => {
   if (node === undefined)
     return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
   if (node.retired_at !== null)
@@ -1143,7 +1256,7 @@ const controlRefusal = (res, node, expectedVersion) => {
       "mission.node.control_task",
       "Task nodes have no controls or execution records.",
     );
-  if (expectedVersion !== mission.version)
+  if (expectedVersion !== state.mission.version)
     return projectEnvelope(
       res,
       409,
@@ -1182,8 +1295,9 @@ const START_POINTS = ["base_branch", "node_branch"];
 const isBlank = (value) => typeof value !== "string" || value.trim().length === 0;
 
 on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));
-  const refusal = controlRefusal(res, node, b.expected_mission_version);
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
   if (refusal !== null) return refusal;
   if (node.attempt !== b.blocked_attempt) return stateConflict(res, node);
   if (node.state !== "Blocked") return controlRefused(res, node);
@@ -1206,7 +1320,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
   }
   node.state = "Available";
   return json(res, 200, {
-    node: graphNodeRead(node),
+    node: graphNodeRead(state, node),
     attempt: null,
     outcome: null,
     actor: fx.GRAPH_HUMAN,
@@ -1215,15 +1329,16 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
 });
 
 on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));
-  const refusal = controlRefusal(res, node, b.expected_mission_version);
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
   if (refusal !== null) return refusal;
   if (node.state !== b.expected_state || node.attempt !== b.expected_attempt)
     return stateConflict(res, node);
   if (!DISCARD_STATES.includes(node.state)) return controlRefused(res, node);
   if (isBlank(b.reason)) return blankReason(res);
   const now = Date.now();
-  const sequence = String(graphOutcomes.length).padStart(2, "0");
+  const sequence = String(state.outcomes.length).padStart(2, "0");
   const outcome = {
     id: `outcome_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
     node_id: node.id,
@@ -1235,10 +1350,10 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
     evidence_ids: [],
     created_at: now,
   };
-  graphOutcomes.push(outcome);
+  state.outcomes.push(outcome);
   node.state = "Discarded";
   return json(res, 200, {
-    node: graphNodeRead(node),
+    node: graphNodeRead(state, node),
     attempt: null,
     outcome,
     actor: fx.GRAPH_HUMAN,
@@ -1266,7 +1381,7 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, u
       };
     }),
   );
-  return json(res, 200, page(byAttempt(actions, nodeId, url)));
+  return json(res, 200, page(byAttempt(actions, nodeId, url), url));
 });
 
 const bindingRecordOf = (binding, projectId) => ({
@@ -1445,26 +1560,36 @@ on("POST", /^\/api\/project\/([^/]+)\/binding\/check$/, (m, b, res) => {
   return json(res, 200, bindingHealthOf(config));
 });
 
-on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (_m, _b, res) =>
-  json(
-    res,
-    200,
-    page(
-      [...fx.GRAPH_QUEUE].sort(
-        (a, x) => x.priority - a.priority || a.job_id.localeCompare(x.job_id),
-      ),
-    ),
-  ),
-);
-on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (_m, _b, res, _t, url) => {
+const projectOrRefuseScheduler = (res, encodedId) => {
+  const state = stateOfProject(decodeURIComponent(encodedId));
+  if (state === undefined) {
+    projectEnvelope(res, 404, "project.project.not_found", "The project identity does not exist.");
+  }
+  return state;
+};
+
+on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (m, _b, res, _t, url) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined) return json(res, 200, page([], url));
+  const ordered = [...state.queue].sort(
+    (a, x) => x.priority - a.priority || a.job_id.localeCompare(x.job_id),
+  );
+  return json(res, 200, page(ordered, url));
+});
+
+on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (m, _b, res, _t, url) => {
+  const state = projectOrRefuseScheduler(res, m[1]);
+  if (state === undefined) return undefined;
   const nodeId = url.searchParams.get("node_id");
   const attempt = url.searchParams.get("attempt");
-  const items = fx.GRAPH_EXECUTIONS.filter(
-    (item) =>
-      (nodeId === null || item.node_id === nodeId) &&
-      (attempt === null || String(item.attempt) === attempt),
-  );
-  return json(res, 200, page(items));
+  const items = state.executions
+    .filter(
+      (item) =>
+        (nodeId === null || item.node_id === nodeId) &&
+        (attempt === null || String(item.attempt) === attempt),
+    )
+    .sort((a, b) => b.execution_id.localeCompare(a.execution_id));
+  return json(res, 200, page(items, url));
 });
 
 const platformEntry = (platform, secretShape, loginModes, metadataFields, verifiable) => ({

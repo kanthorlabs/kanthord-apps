@@ -9,6 +9,15 @@ export const PROJECT = {
   workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-kanthord",
 };
 
+export const PROJECT_ATLAS = {
+  id: "prj-atlas",
+  name: "atlas",
+  binding_set_version: 1,
+  created_at: now,
+  paused_at: null,
+  workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-atlas",
+};
+
 const BASE_PROMPT = `You are a senior software engineer.
 
 ## Principles
@@ -36,13 +45,13 @@ export const WORKER_CATALOG = [
   {
     name: "coder@1",
     host: "kanthord",
-    declared_node_states: ["Available", "Waiting"],
+    declared_node_states: ["Available"],
     required_node_format: ["objective"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
-    declared_node_states: ["Evaluating"],
+    declared_node_states: ["Waiting", "External.Requested"],
     required_node_format: ["objective"],
   },
 ];
@@ -71,6 +80,18 @@ export const WORKER_INSTANCES = [
     placement: "worker",
     activity: "idle",
     draining: true,
+    registered: true,
+  },
+  {
+    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A03",
+    project_id: PROJECT_ATLAS.id,
+    resource_identity: "worker:kanthord:general-main",
+    worker_name: "coder@1",
+    host: "kanthord",
+    placement: "server",
+    activity: "executing",
+    draining: false,
+    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0AF2",
     registered: true,
   },
 ];
@@ -261,6 +282,17 @@ export const BINDING_SET = {
 };
 
 const minutes = (count) => now - count * 60_000;
+
+const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const ulidAt = (ms, tail) => {
+  let rest = ms;
+  let time = "";
+  for (let i = 0; i < 10; i += 1) {
+    time = ULID_ALPHABET.charAt(rest % 32) + time;
+    rest = Math.floor(rest / 32);
+  }
+  return `${time}${tail.padStart(16, "0")}`;
+};
 const graphId = (suffix) => `node_01J9ZQ4XKM3B6V8N2R5T7W0${suffix}`;
 const commitOf = (seed) => seed.repeat(40).slice(0, 40);
 
@@ -861,42 +893,218 @@ export const GRAPH_PROPOSALS = [
   },
 ];
 
+const selection = (agentName, credential, modelIdentifier) => ({
+  agent_name: agentName,
+  position: 0,
+  level: "enablement",
+  agent_provider: "openai-org",
+  provider: "openai-compatible",
+  credential,
+  model_identifier: modelIdentifier,
+  reasoning_effort: "off",
+});
+
+const executionRecord = (projectId, spec, index) => ({
+  execution_id: spec.executionId,
+  project_id: projectId,
+  node_id: spec.nodeId,
+  claimant: {
+    worker_binding_id: spec.binding.id,
+    resource_identity: spec.binding.resource_identity,
+    runtime_identity: `worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I${String(index).padStart(2, "0")}`,
+    ...(spec.unnamed ? {} : { name: `${spec.binding.name} #${(index % 2) + 1}` }),
+  },
+  attempt: spec.attempt ?? 1,
+  pinned_revision: 1,
+  node_branch: `kanthord/${spec.nodeId}`,
+  credentials: ["credential_01J9ZQ4XKM3B6V8N2R5T7W0CR1"],
+  agent_selections:
+    spec.binding === GRAPH_BINDINGS.worker
+      ? [selection("swe@1", "openai-main", "gpt-5")]
+      : [selection("re@1", "atlas-router", "qwen3-coder")],
+  claim_state: spec.claimState,
+  expired_at:
+    spec.expiresIn === undefined ? minutes(spec.startedAgo - 240) : minutes(-spec.expiresIn),
+  created_at: minutes(spec.startedAgo),
+  ended_at: spec.endedAgo === null ? null : minutes(spec.endedAgo),
+  stop: spec.stop ?? null,
+  trace_id: `${spec.traceSeed}${"0".repeat(32 - spec.traceSeed.length)}`,
+  root_span_id: `${spec.traceSeed}${"0".repeat(16 - spec.traceSeed.length)}`,
+});
+
 export const GRAPH_EXECUTIONS = [
   ["EB2", ids.codes, "running", 30, null, GRAPH_BINDINGS.worker],
   ["EB3", ids.audit, "finished", 400, 210, GRAPH_BINDINGS.worker],
-  ["EB9", ids.audit, "finished", 180, 120, GRAPH_BINDINGS.reviewer],
+  [
+    "EB9",
+    ids.audit,
+    "finished",
+    180,
+    120,
+    GRAPH_BINDINGS.reviewer,
+    { reason: "provider_failed", code: "rate_limited" },
+  ],
   ["EC2", ids.webhook, "finished", 290, 255, GRAPH_BINDINGS.worker],
   ["EC9", ids.webhook, "finished", 250, 235, GRAPH_BINDINGS.reviewer],
-  ["EC3", ids.invoices, "finished", 200, 150, GRAPH_BINDINGS.worker],
+  [
+    "EC3",
+    ids.invoices,
+    "finished",
+    200,
+    150,
+    GRAPH_BINDINGS.worker,
+    { reason: "budget_end", code: "turns" },
+  ],
   ["EC5", ids.invoices, "lost", 300, 20, GRAPH_BINDINGS.reviewer],
-].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding], index) => ({
-  execution_id: `execution_01J9ZQ4XKM3B6V8N2R5T7W0${suffix}`,
-  project_id: PROJECT.id,
+  ["EC6", ids.invoices, "lost", 330, null, GRAPH_BINDINGS.worker],
+  ["EC7", ids.invoices, "finished", 160, 140, GRAPH_BINDINGS.worker, null, true],
+].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop, unnamed], index) =>
+  executionRecord(
+    PROJECT.id,
+    {
+      executionId: `execution_01J9ZQ4XKM3B6V8N2R5T7W0${suffix}`,
+      traceSeed: suffix.toLowerCase(),
+      nodeId,
+      claimState,
+      startedAgo,
+      endedAgo,
+      binding,
+      stop,
+      unnamed,
+    },
+    index,
+  ),
+);
+
+const jobOf = (projectId, nodeId, priority, agoMinutes, tail) => ({
+  job_id: `job_${ulidAt(minutes(agoMinutes), tail)}`,
+  project_id: projectId,
   node_id: nodeId,
-  claimant: {
-    worker_binding_id: binding.id,
-    resource_identity: binding.resource_identity,
-    runtime_identity: `worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I${index}`,
-    name: `${binding.name} #${(index % 2) + 1}`,
-  },
-  attempt: 1,
-  pinned_revision: 1,
-  node_branch: `kanthord/${nodeId}`,
-  credentials: ["credential_01J9ZQ4XKM3B6V8N2R5T7W0CR1"],
-  claim_state: claimState,
-  expired_at: minutes(startedAgo - 240),
-  created_at: minutes(startedAgo),
-  ended_at: endedAgo === null ? null : minutes(endedAgo),
-  trace_id: `${suffix.toLowerCase()}${"0".repeat(30)}`,
-  root_span_id: `${suffix.toLowerCase()}${"0".repeat(14)}`,
-}));
+  priority,
+});
 
 export const GRAPH_QUEUE = [
-  { job_id: "job_01J9ZQ4XKM3B6V8N2R5T7W0J01", node_id: ids.billing, priority: 5 },
-  { job_id: "job_01J9ZQ4XKM3B6V8N2R5T7W0J02", node_id: ids.recovery, priority: 0 },
-  { job_id: "job_01J9ZQ4XKM3B6V8N2R5T7W0J03", node_id: ids.webhook, priority: 0 },
-  { job_id: "job_01J9ZQ4XKM3B6V8N2R5T7W0J04", node_id: ids.invoices, priority: 0 },
-].map((job) => ({ ...job, project_id: PROJECT.id }));
+  jobOf(PROJECT.id, ids.billing, 5, 600, "J01"),
+  jobOf(PROJECT.id, ids.recovery, 0, 540, "J02"),
+  jobOf(PROJECT.id, ids.webhook, 0, 180, "J03"),
+  jobOf(PROJECT.id, ids.invoices, 0, 95, "J04"),
+];
+
+const atlasId = (suffix) => graphId(suffix);
+const atlasNode = (suffix, kind, filename, parentSuffix, name, runtime) => ({
+  ...graphNode(
+    suffix,
+    kind,
+    filename,
+    parentSuffix === null ? null : atlasId(parentSuffix),
+    content(name, [REPO]),
+    runtime,
+  ),
+  mission_id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM2",
+});
+
+export const ATLAS_MISSION = {
+  id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM2",
+  version: 1,
+};
+
+export const ATLAS_NODES = [
+  atlasNode("YF1", "initiative", "checkout.md", null, "Checkout", {
+    state: "Pending",
+    attempt: 0,
+  }),
+  atlasNode("YF2", "objective", "cart-totals.md", "YF1", "Add cart totals", {
+    state: "Executing",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  atlasNode("YF3", "objective", "receipt-email.md", "YF1", "Verify the receipt email", {
+    state: "Evaluating",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  atlasNode("YF4", "objective", "discount-codes.md", "YF1", "Apply discount codes", {
+    state: "Available",
+    attempt: 0,
+    priority: 3,
+  }),
+  atlasNode(
+    "YF5",
+    "objective",
+    "tax-rounding.md",
+    "YF1",
+    "Round the tax of every line item and print the rounding rule on the receipt of the order",
+    { state: "Waiting", attempt: 1, pinned_by_attempts: [1] },
+  ),
+  atlasNode("YF6", "objective", "order-archive.md", "YF1", "Archive the order history", {
+    state: "Available",
+    attempt: 0,
+  }),
+  atlasNode("YF7", "objective", "order-export.md", "YF1", "Export the orders as CSV", {
+    state: "Completed",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+];
+
+export const ATLAS_EDGES = ATLAS_NODES.filter((node) => node.parent_id !== null).map((node) => ({
+  kind: "containment",
+  parent_id: node.parent_id,
+  child_id: node.id,
+}));
+
+export const ATLAS_QUEUE = [
+  jobOf(PROJECT_ATLAS.id, atlasId("YF4"), 3, 50, "K01"),
+  jobOf(PROJECT_ATLAS.id, atlasId("YF6"), 0, 130, "K02"),
+  jobOf(PROJECT_ATLAS.id, atlasId("YF5"), 0, 25, "K03"),
+];
+
+const ATLAS_HISTORY_NODES = ["YF7", "YF4", "YF6", "YF5"];
+
+const atlasHistory = Array.from({ length: 24 }, (_, index) => {
+  const startedAgo = 60 + index * 45;
+  const stop =
+    index % 5 === 0
+      ? { reason: "provider_failed", code: "rate_limited" }
+      : index % 7 === 1
+        ? { reason: "budget_end", code: "turns" }
+        : null;
+  return {
+    executionId: `execution_${ulidAt(minutes(startedAgo), `H${String(index).padStart(2, "0")}`)}`,
+    traceSeed: `h${String(index).padStart(2, "0")}`,
+    nodeId: atlasId(ATLAS_HISTORY_NODES[index % ATLAS_HISTORY_NODES.length]),
+    claimState: index % 7 === 3 ? "lost" : "finished",
+    startedAgo,
+    endedAgo: startedAgo - 20,
+    binding: index % 2 === 0 ? GRAPH_BINDINGS.worker : GRAPH_BINDINGS.reviewer,
+    attempt: Math.floor(index / 4) + 1,
+    stop,
+  };
+});
+
+export const ATLAS_EXECUTIONS = [
+  {
+    executionId: `execution_${ulidAt(minutes(12), "AF2")}`,
+    traceSeed: "af2",
+    nodeId: atlasId("YF2"),
+    claimState: "running",
+    startedAgo: 12,
+    endedAgo: null,
+    binding: GRAPH_BINDINGS.worker,
+    expiresIn: 45,
+  },
+  {
+    executionId: `execution_${ulidAt(minutes(4), "AF3")}`,
+    traceSeed: "af3",
+    nodeId: atlasId("YF3"),
+    claimState: "running",
+    startedAgo: 4,
+    endedAgo: null,
+    binding: GRAPH_BINDINGS.reviewer,
+    expiresIn: 2,
+  },
+  ...atlasHistory,
+].map((spec, index) => executionRecord(PROJECT_ATLAS.id, spec, index));
 
 export const GRAPH_EXTRA_REVISIONS = {
   [ids.audit]: [

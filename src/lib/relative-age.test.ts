@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { relativeAge } from "./relative-age";
+import { isStale, relativeAge } from "./relative-age";
 
 const NOW = 1_760_000_000_000;
 
@@ -16,5 +16,12 @@ describe("relativeAge", () => {
     expect(relativeAge(NOW - 3_600_000, NOW)).toBe("1 hour ago");
     expect(relativeAge(NOW - 5 * 3_600_000, NOW)).toBe("5 hours ago");
     expect(relativeAge(NOW - 2 * 86_400_000, NOW)).toBe("2 days ago");
+  });
+});
+
+describe("isStale", () => {
+  it("holds for data that is older than one minute", () => {
+    expect(isStale(NOW - 60_000, NOW)).toBe(false);
+    expect(isStale(NOW - 60_001, NOW)).toBe(true);
   });
 });

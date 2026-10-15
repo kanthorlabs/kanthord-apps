@@ -129,12 +129,12 @@ function RunningSection({
             )}
             <Button
               nativeButton={false}
-              render={<Link to="/executions" />}
+              render={<Link to="/scheduler" />}
               variant="outline"
               size="sm"
               className="mt-4"
             >
-              View executions
+              Open scheduler
             </Button>
           </>
         )}

@@ -82,10 +82,12 @@ function execution(
     pinned_revision: 1,
     node_branch: `kanthord/${nodeId}`,
     credentials: [],
+    agent_selections: [],
     claim_state: claimState,
     expired_at: Date.now() + 60_000,
     created_at: Date.now(),
     ended_at: claimState === "running" ? null : Date.now(),
+    stop: null,
     trace_id: "0".repeat(31) + "1",
     root_span_id: "0".repeat(15) + "1",
   };
