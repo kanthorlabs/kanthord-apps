@@ -6,6 +6,7 @@ import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import type {
   MissionControlResult,
+  MissionExternalAction,
   MissionProposal,
   MissionRunnableNode,
   NodeState,
@@ -16,6 +17,7 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
 
+import type { Resource } from "@/hooks/use-resource";
 import { NodeControls } from "./node-controls";
 import { textContent } from "../../../../../test/text-content";
 
@@ -58,13 +60,44 @@ const OPEN: MissionProposal = {
   created_at: 0,
 };
 
+function requested(resolution: MissionExternalAction["resolution"]): MissionExternalAction {
+  return {
+    node_id: "node_team",
+    attempt: 2,
+    action: {
+      key: "repo.pull_request",
+      binding_id: "binding_1",
+      action: "pull_request",
+      expected_end_state: "pull_request_merged",
+      follows: null,
+      configuration: { base_branch: "main" },
+    },
+    requested: true,
+    request_evidence_id: "evidence_1",
+    resolution,
+  };
+}
+
+function answered(
+  data: readonly MissionExternalAction[] = [],
+): Resource<readonly MissionExternalAction[]> {
+  return { data, error: null, loading: false, reload: vi.fn() };
+}
+
 function mount(
   node: MissionRunnableNode = TEAM,
   proposals: readonly MissionProposal[] = [],
   onChanged = vi.fn(),
+  actions: Resource<readonly MissionExternalAction[]> = answered(),
 ) {
   render(
-    <NodeControls node={node} missionVersion={9} proposals={proposals} onChanged={onChanged} />,
+    <NodeControls
+      node={node}
+      missionVersion={9}
+      proposals={proposals}
+      actions={actions}
+      onChanged={onChanged}
+    />,
   );
   return { onChanged };
 }
@@ -93,6 +126,48 @@ describe("NodeControls", () => {
       expect(screen.getByRole("button", { name: "Discard" })).toBeTruthy();
     },
   );
+
+  it("holds Discard of a Paused node while the external actions load", () => {
+    mount({ ...TEAM, state: "Paused" }, [], vi.fn(), {
+      data: null,
+      error: null,
+      loading: true,
+      reload: vi.fn(),
+    });
+
+    expect(screen.getByText("Reading the external actions of attempt 2.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it("names a failed external action read and offers Retry", async () => {
+    const reload = vi.fn();
+    mount({ ...TEAM, state: "Paused" }, [], vi.fn(), {
+      data: null,
+      error: new ApiError("unreachable", "The daemon did not answer.", 0),
+      loading: false,
+      reload,
+    });
+
+    expect(
+      screen.getByText(
+        "The external actions of attempt 2 could not be read: The daemon did not answer.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("states why a Paused node with an unresolved request has no Discard", () => {
+    mount({ ...TEAM, state: "Paused" }, [], vi.fn(), answered([requested("unresolved")]));
+
+    expect(
+      screen.getByText(
+        "Attempt 2 has an unresolved pull request. Override and discard wait for its end state. Resume the node.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+  });
 
   it.each<NodeState>(["Completed", "Discarded", "External.Requested"])(
     "offers no control for a %s node",

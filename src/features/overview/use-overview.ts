@@ -16,6 +16,7 @@ import { tallyStates, type StateTally } from "@/lib/state-tally";
 
 import type { ReadFault } from "./read-overview-snapshot";
 import { useAttentionDetails } from "./use-attention-details";
+import { useAttentionFocus, type AttentionFocus } from "./use-attention-focus";
 import { useOverviewSnapshot } from "./use-overview-snapshot";
 
 export interface ProjectProgress {
@@ -41,6 +42,7 @@ export interface OverviewState {
   readonly details: AttentionDetails;
   readonly retryDetail: (nodeId: string) => void;
   readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly focus: AttentionFocus;
   readonly updatedAt: number | null;
   readonly now: number;
   readonly refresh: () => void;
@@ -76,9 +78,15 @@ export function useOverview(): OverviewState {
     [reads],
   );
 
-  const items = useMemo<readonly AttentionItem[]>(() => deriveAttention(snapshots), [snapshots]);
-  const targets = useMemo(() => detailTargetsOf(items), [items]);
+  const targets = useMemo(() => detailTargetsOf(snapshots), [snapshots]);
   const { details, refresh: refreshDetail } = useAttentionDetails(targets);
+  const items = useMemo<readonly AttentionItem[]>(
+    () => deriveAttention(snapshots, details),
+    [snapshots, details],
+  );
+
+  const focus = useAttentionFocus(items, snapshot.updatedAt);
+  const { markActed } = focus;
 
   const faults = useMemo<readonly ReadFault[]>(() => {
     const scoped = (data?.faults ?? NO_FAULTS).filter(
@@ -106,8 +114,9 @@ export function useOverview(): OverviewState {
         return next;
       });
       if (open) refreshDetail(nodeId);
+      else markActed(nodeId);
     },
-    [refreshDetail],
+    [refreshDetail, markActed],
   );
 
   const status = data !== null ? "ready" : snapshot.loading ? "loading" : "error";
@@ -133,6 +142,7 @@ export function useOverview(): OverviewState {
     details,
     retryDetail: refreshDetail,
     setDialogOpen,
+    focus,
     updatedAt: snapshot.updatedAt,
     now: snapshot.now,
     refresh: snapshot.refresh,

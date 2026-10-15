@@ -1,11 +1,15 @@
 import type {
   MissionAssessment,
   MissionBlockedContext,
+  MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
   MissionRunnableNode,
   Project,
+  SchedulerExecutionRecord,
 } from "@/api/types";
+
+import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 
 export type AttentionGroupId = "decisions";
 
@@ -44,7 +48,14 @@ export interface BlockedDetail {
   readonly proposals: DetailRead<readonly MissionProposal[]>;
 }
 
-export type AttentionDetail = BlockedDetail;
+export interface PausedDetail {
+  readonly kind: "paused";
+  readonly key: string;
+  readonly executions: DetailRead<readonly SchedulerExecutionRecord[]>;
+  readonly actions: DetailRead<readonly MissionExternalAction[]>;
+}
+
+export type AttentionDetail = BlockedDetail | PausedDetail;
 
 export type AttentionDetails = ReadonlyMap<string, AttentionDetail>;
 
@@ -62,14 +73,32 @@ export interface BlockedItem extends ItemBase {
   readonly cause: string;
 }
 
-export type AttentionItem = BlockedItem;
+export interface PausedItem extends ItemBase {
+  readonly kind: "paused";
+  readonly pause: PauseDerivation | null;
+  readonly cause: string | null;
+}
+
+export interface DiscardedDependency {
+  readonly id: string;
+  readonly name: string;
+}
+
+export interface DependencyItem extends ItemBase {
+  readonly kind: "dependency_discarded";
+  readonly cause: string;
+  readonly discarded: readonly DiscardedDependency[];
+}
+
+export type AttentionItem = BlockedItem | PausedItem | DependencyItem;
 
 export interface DetailTarget {
+  readonly kind: "blocked" | "paused";
   readonly projectId: string;
   readonly node: MissionRunnableNode;
 }
 
-const KIND_ORDER: readonly AttentionItem["kind"][] = ["blocked"];
+const KIND_ORDER: readonly AttentionItem["kind"][] = ["blocked", "paused", "dependency_discarded"];
 
 function isRunnable(node: MissionNodeRecord): node is MissionRunnableNode {
   return node.kind !== "task" && node.retired_at === null;
@@ -121,11 +150,60 @@ function blockedItemOf(snapshot: ProjectSnapshot, node: MissionRunnableNode): Bl
   };
 }
 
-function itemsOf(snapshot: ProjectSnapshot): readonly AttentionItem[] {
-  return snapshot.nodes
-    .filter(isRunnable)
-    .filter((node) => node.state === "Blocked")
-    .map((node) => blockedItemOf(snapshot, node));
+function pausedItemOf(
+  snapshot: ProjectSnapshot,
+  node: MissionRunnableNode,
+  details: AttentionDetails,
+): PausedItem {
+  const detail = detailOf(details, node);
+  const executions = detail?.kind === "paused" ? detail.executions : null;
+  const pause = executions?.status === "ready" ? pauseCauseOf(executions.data) : null;
+  return {
+    id: `paused:${node.id}`,
+    kind: "paused",
+    group: "decisions",
+    project: snapshot.project,
+    missionVersion: snapshot.missionVersion,
+    node,
+    at: pause?.endedAt ?? null,
+    pause,
+    cause: pause === null ? null : PAUSE_CAUSE_LABELS[pause.cause],
+  };
+}
+
+function discardedDependenciesOf(
+  snapshot: ProjectSnapshot,
+  node: MissionRunnableNode,
+): readonly DiscardedDependency[] {
+  return node.depends_on.flatMap((id) => {
+    const target = snapshot.nodes.find((candidate) => candidate.id === id);
+    return target !== undefined && target.kind !== "task" && target.state === "Discarded"
+      ? [{ id, name: target.content.name }]
+      : [];
+  });
+}
+
+function itemsOf(snapshot: ProjectSnapshot, details: AttentionDetails): readonly AttentionItem[] {
+  return snapshot.nodes.filter(isRunnable).flatMap((node): readonly AttentionItem[] => {
+    if (node.state === "Blocked") return [blockedItemOf(snapshot, node)];
+    if (node.state === "Paused") return [pausedItemOf(snapshot, node, details)];
+    if (node.state !== "Pending") return [];
+    const discarded = discardedDependenciesOf(snapshot, node);
+    if (discarded.length === 0) return [];
+    return [
+      {
+        id: `dependency_discarded:${node.id}`,
+        kind: "dependency_discarded",
+        group: "decisions",
+        project: snapshot.project,
+        missionVersion: snapshot.missionVersion,
+        node,
+        at: null,
+        cause: "Discarded dependency",
+        discarded,
+      },
+    ];
+  });
 }
 
 function compareAt(left: number | null, right: number | null): number {
@@ -142,12 +220,23 @@ function compareItems(left: AttentionItem, right: AttentionItem): number {
   );
 }
 
-export function deriveAttention(snapshots: readonly ProjectSnapshot[]): readonly AttentionItem[] {
-  return snapshots.flatMap(itemsOf).sort(compareItems);
+export function deriveAttention(
+  snapshots: readonly ProjectSnapshot[],
+  details: AttentionDetails,
+): readonly AttentionItem[] {
+  return snapshots.flatMap((snapshot) => itemsOf(snapshot, details)).sort(compareItems);
 }
 
-export function detailTargetsOf(items: readonly AttentionItem[]): readonly DetailTarget[] {
-  return items.map((item) => ({ projectId: item.project.id, node: item.node }));
+export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly DetailTarget[] {
+  return snapshots.flatMap((snapshot) =>
+    snapshot.nodes.filter(isRunnable).flatMap((node): readonly DetailTarget[] => {
+      if (node.state === "Blocked")
+        return [{ kind: "blocked", projectId: snapshot.project.id, node }];
+      if (node.state === "Paused")
+        return [{ kind: "paused", projectId: snapshot.project.id, node }];
+      return [];
+    }),
+  );
 }
 
 export function groupItems(

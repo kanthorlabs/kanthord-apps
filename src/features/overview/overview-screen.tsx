@@ -78,6 +78,7 @@ export function OverviewScreen() {
             reload={overview.refresh}
             retryDetail={overview.retryDetail}
             setDialogOpen={overview.setDialogOpen}
+            focus={overview.focus}
           />
           <ProgressSection progress={overview.progress} />
         </>

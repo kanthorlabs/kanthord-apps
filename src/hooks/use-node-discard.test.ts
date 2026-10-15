@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { discardNode } from "@/api/resources/mission";
-import type { MissionControlResult, MissionRunnableNode, NodeState } from "@/api/types";
+import type {
+  MissionControlResult,
+  MissionExternalAction,
+  MissionRunnableNode,
+  NodeState,
+} from "@/api/types";
 import { useNodeDiscard } from "./use-node-discard";
 import { renderedText } from "../../test/text-content";
 
@@ -36,8 +41,30 @@ const OBJECTIVE: MissionRunnableNode = {
   depends_on: [],
 };
 
-function mount(node: MissionRunnableNode = OBJECTIVE, reload = vi.fn()) {
-  const view = renderHook(() => useNodeDiscard(node, 7, reload));
+function action(resolution: MissionExternalAction["resolution"]): MissionExternalAction {
+  return {
+    node_id: "node_audit",
+    attempt: 3,
+    action: {
+      key: "repo.pull_request",
+      binding_id: "binding_1",
+      action: "pull_request",
+      expected_end_state: "pull_request_merged",
+      follows: null,
+      configuration: { base_branch: "main" },
+    },
+    requested: resolution !== "unrequested",
+    request_evidence_id: resolution === "unrequested" ? null : "evidence_1",
+    resolution,
+  };
+}
+
+function mount(
+  node: MissionRunnableNode = OBJECTIVE,
+  reload = vi.fn(),
+  actions: readonly MissionExternalAction[] | null = [],
+) {
+  const view = renderHook(() => useNodeDiscard(node, 7, reload, actions));
   return { ...view, reload };
 }
 
@@ -61,6 +88,33 @@ describe("useNodeDiscard", () => {
     ["Discarded", false],
   ])("offers discard in the state %s: %s", (state, available) => {
     expect(mount({ ...OBJECTIVE, state }).result.current.available).toBe(available);
+  });
+
+  it("holds discard of a Paused node until the external actions answer", () => {
+    expect(mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), null).result.current.available).toBe(
+      false,
+    );
+  });
+
+  it.each<[MissionExternalAction["resolution"], boolean]>([
+    ["unrequested", true],
+    ["expected-end", true],
+    ["other-end", true],
+    ["unresolved", false],
+  ])("offers discard of a Paused node with a request that is %s: %s", (resolution, available) => {
+    const { result } = mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), [action(resolution)]);
+
+    expect(result.current.available).toBe(available);
+  });
+
+  it("sends no call for a Paused node with an unresolved request", async () => {
+    const { result } = mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), [action("unresolved")]);
+
+    act(() => result.current.request());
+
+    expect(result.current.open).toBe(false);
+    await act(async () => result.current.confirm());
+    expect(discardMock).not.toHaveBeenCalled();
   });
 
   it("offers no discard for a retired node", () => {

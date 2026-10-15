@@ -1,5 +1,6 @@
 import type { AttentionDetails, AttentionGroup as Group, AttentionItem } from "@/lib/attention";
 
+import type { AttentionFocus } from "../use-attention-focus";
 import type { ReadFault } from "../read-overview-snapshot";
 import { AllClear } from "./all-clear";
 import { AttentionGroup } from "./attention-group";
@@ -16,6 +17,7 @@ interface AttentionSectionProps {
   readonly reload: () => void;
   readonly retryDetail: (nodeId: string) => void;
   readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly focus: AttentionFocus;
 }
 
 export function AttentionSection({
@@ -29,6 +31,7 @@ export function AttentionSection({
   reload,
   retryDetail,
   setDialogOpen,
+  focus,
 }: AttentionSectionProps) {
   return (
     <section aria-labelledby="overview-needs-you" className="flex flex-col gap-3">
@@ -41,7 +44,7 @@ export function AttentionSection({
         </div>
       </div>
       {faults.length > 0 && <ReadFaultsAlert faults={faults} onRetry={reload} />}
-      {allClear && <AllClear />}
+      {allClear && <AllClear titleRef={focus.allClearRef} />}
       {groups.map(({ group, items }) => (
         <AttentionGroup
           key={group.id}
@@ -53,6 +56,7 @@ export function AttentionSection({
           reload={reload}
           retryDetail={retryDetail}
           setDialogOpen={setDialogOpen}
+          titleRef={focus.titleRef}
         />
       ))}
     </section>

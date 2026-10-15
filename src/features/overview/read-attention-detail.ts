@@ -1,4 +1,9 @@
-import { listNodeAssessments, listNodeProposals } from "@/api/resources/mission";
+import {
+  listNodeAssessments,
+  listNodeExternalActions,
+  listNodeProposals,
+} from "@/api/resources/mission";
+import { listNodeExecutions } from "@/api/resources/scheduler";
 import type { MissionAssessment, MissionProposal } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import {
@@ -7,6 +12,7 @@ import {
   type BlockedDetail,
   type DetailRead,
   type DetailTarget,
+  type PausedDetail,
 } from "@/lib/attention";
 
 async function settle<T>(read: Promise<T>): Promise<DetailRead<T>> {
@@ -36,6 +42,15 @@ async function readBlocked(target: DetailTarget): Promise<BlockedDetail> {
   return { kind: "blocked", key: detailKeyOf(target.node), assessment, proposals };
 }
 
+async function readPaused(target: DetailTarget): Promise<PausedDetail> {
+  const { node, projectId } = target;
+  const [executions, actions] = await Promise.all([
+    settle(listNodeExecutions(projectId, node.id, node.attempt)),
+    settle(listNodeExternalActions(node.id, node.attempt)),
+  ]);
+  return { kind: "paused", key: detailKeyOf(node), executions, actions };
+}
+
 export async function readAttentionDetail(target: DetailTarget): Promise<AttentionDetail> {
-  return readBlocked(target);
+  return target.kind === "blocked" ? readBlocked(target) : readPaused(target);
 }

@@ -2,9 +2,10 @@ import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { discardNode } from "@/api/resources/mission";
-import type { MissionRunnableNode, NodeState } from "@/api/types";
+import type { MissionExternalAction, MissionRunnableNode, NodeState } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
+import { unresolvedRequestsOf } from "@/lib/external-requests";
 
 export interface NodeDiscardState {
   readonly available: boolean;
@@ -46,8 +47,13 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.node.terminal": "The node is terminal. The view now shows its current state.",
 };
 
-function isDiscardable(node: MissionRunnableNode): boolean {
-  return node.retired_at === null && DISCARD_STATES.includes(node.state);
+function isDiscardable(
+  node: MissionRunnableNode,
+  actions: readonly MissionExternalAction[] | null,
+): boolean {
+  if (node.retired_at !== null || !DISCARD_STATES.includes(node.state)) return false;
+  if (node.state !== "Paused") return true;
+  return actions !== null && unresolvedRequestsOf(actions).length === 0;
 }
 
 function consequenceOf(node: MissionRunnableNode): ReactNode {
@@ -91,20 +97,21 @@ export function useNodeDiscard(
   node: MissionRunnableNode,
   missionVersion: number,
   reload: () => void,
+  actions: readonly MissionExternalAction[] | null,
 ): NodeDiscardState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [discarding, setDiscarding] = useState(false);
-  const available = isDiscardable(node);
+  const available = isDiscardable(node, actions);
   const trimmed = reason.trim();
 
   const request = useCallback(() => {
-    if (!isDiscardable(node)) return;
+    if (!isDiscardable(node, actions)) return;
     setError(null);
     setReason("");
     setOpen(true);
-  }, [node]);
+  }, [node, actions]);
 
   const cancel = useCallback(() => {
     if (discarding) return;
@@ -114,7 +121,7 @@ export function useNodeDiscard(
 
   const confirm = useCallback(() => {
     if (discarding || !open || trimmed.length === 0) return;
-    if (!isDiscardable(node)) {
+    if (!isDiscardable(node, actions)) {
       setOpen(false);
       return;
     }
@@ -142,7 +149,7 @@ export function useNodeDiscard(
         reload();
       },
     );
-  }, [discarding, open, trimmed, node, missionVersion, reload]);
+  }, [discarding, open, trimmed, node, actions, missionVersion, reload]);
 
   return {
     available,

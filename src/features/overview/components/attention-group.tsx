@@ -13,6 +13,7 @@ interface AttentionGroupProps {
   readonly reload: () => void;
   readonly retryDetail: (nodeId: string) => void;
   readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly titleRef: (itemId: string) => (element: HTMLElement | null) => void;
 }
 
 export function AttentionGroup({
@@ -24,6 +25,7 @@ export function AttentionGroup({
   reload,
   retryDetail,
   setDialogOpen,
+  titleRef,
 }: AttentionGroupProps) {
   return (
     <section aria-labelledby={`attention-${group.id}`} className="flex flex-col gap-2">
@@ -42,6 +44,7 @@ export function AttentionGroup({
             reload={reload}
             retryDetail={retryDetail}
             setDialogOpen={setDialogOpen}
+            titleRef={titleRef(item.id)}
           />
         ))}
       </ItemGroup>

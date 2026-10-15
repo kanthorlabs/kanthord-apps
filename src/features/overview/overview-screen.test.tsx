@@ -1,7 +1,7 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 
@@ -14,35 +14,43 @@ vi.mock("@/api/resources/mission", () => ({
   listMissionNodes: vi.fn(),
   listNodeAssessments: vi.fn(),
   listNodeProposals: vi.fn(),
+  listNodeExternalActions: vi.fn(),
   unblockNode: vi.fn(),
+  approveProposal: vi.fn(),
   discardNode: vi.fn(),
 }));
 
 vi.mock("@/api/resources/scheduler", () => ({
   listQueueJobs: vi.fn(),
+  listNodeExecutions: vi.fn(),
 }));
 
 import {
+  approveProposal,
   discardNode,
   listMissionNodes,
   listNodeAssessments,
+  listNodeExternalActions,
   listNodeProposals,
   readMission,
   unblockNode,
 } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
-import { listQueueJobs } from "@/api/resources/scheduler";
+import { listNodeExecutions, listQueueJobs } from "@/api/resources/scheduler";
 import type {
   MissionAssessment,
   MissionAssessmentResult,
   MissionClosingEvent,
   MissionControlResult,
   MissionEvidence,
+  MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
+  MissionProposalApproveResult,
   MissionRunnableNode,
   NodeState,
   Project,
+  SchedulerExecutionRecord,
   SchedulerJob,
 } from "@/api/types";
 import { closingEventText } from "@/lib/mission-labels";
@@ -127,6 +135,69 @@ function plain(id: string, name: string, state: NodeState): MissionNodeRecord {
   };
 }
 
+function paused(id: string, name: string, attempt = 2): MissionRunnableNode {
+  return { ...(plain(id, name, "Paused") as MissionRunnableNode), attempt };
+}
+
+function pending(id: string, name: string, dependsOn: readonly string[]): MissionRunnableNode {
+  return {
+    ...(plain(id, name, "Pending") as MissionRunnableNode),
+    attempt: 0,
+    depends_on: dependsOn,
+  };
+}
+
+function ended(
+  id: string,
+  nodeId: string,
+  overrides: Partial<SchedulerExecutionRecord> = {},
+): SchedulerExecutionRecord {
+  return {
+    execution_id: id,
+    project_id: "prj-1",
+    node_id: nodeId,
+    claimant: {
+      worker_binding_id: "binding_1",
+      resource_identity: "worker:kanthord:general-main",
+      runtime_identity: "worker_instance_01",
+    },
+    attempt: 2,
+    pinned_revision: 1,
+    node_branch: `kanthord/${nodeId}`,
+    credentials: [],
+    agent_selections: [],
+    claim_state: "finished",
+    expired_at: NOW + HOUR,
+    created_at: NOW - 3 * HOUR,
+    ended_at: NOW - 2 * HOUR,
+    stop: null,
+    trace_id: "0".repeat(31) + "1",
+    root_span_id: "0".repeat(15) + "1",
+    ...overrides,
+  };
+}
+
+function requested(
+  nodeId: string,
+  resolution: MissionExternalAction["resolution"],
+): MissionExternalAction {
+  return {
+    node_id: nodeId,
+    attempt: 2,
+    action: {
+      key: "repo.pull_request",
+      binding_id: "binding_1",
+      action: "pull_request",
+      expected_end_state: "pull_request_merged",
+      follows: null,
+      configuration: { base_branch: "main" },
+    },
+    requested: true,
+    request_evidence_id: "evidence_1",
+    resolution,
+  };
+}
+
 function assessment(nodeId: string, rationale: string): MissionAssessment {
   return {
     id: `assessment_${nodeId}`,
@@ -176,6 +247,8 @@ interface World {
   readonly jobs?: Readonly<Record<string, readonly SchedulerJob[]>>;
   readonly rationales?: Readonly<Record<string, string>>;
   readonly proposals?: Readonly<Record<string, readonly MissionProposal[]>>;
+  readonly executions?: Readonly<Record<string, readonly SchedulerExecutionRecord[]>>;
+  readonly actions?: Readonly<Record<string, readonly MissionExternalAction[]>>;
 }
 
 function serve(world: World) {
@@ -195,7 +268,14 @@ function serve(world: World) {
   vi.mocked(listNodeProposals).mockImplementation(
     async (nodeId) => world.proposals?.[nodeId] ?? [],
   );
+  vi.mocked(listNodeExecutions).mockImplementation(
+    async (_projectId, nodeId) => world.executions?.[nodeId] ?? [],
+  );
+  vi.mocked(listNodeExternalActions).mockImplementation(
+    async (nodeId) => world.actions?.[nodeId] ?? [],
+  );
   vi.mocked(unblockNode).mockResolvedValue({} as MissionControlResult);
+  vi.mocked(approveProposal).mockResolvedValue({} as MissionProposalApproveResult);
   vi.mocked(discardNode).mockResolvedValue({} as MissionControlResult);
 }
 
@@ -215,6 +295,10 @@ function itemOf(name: string): HTMLElement {
 
 beforeEach(() => {
   vi.resetAllMocks();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("OverviewScreen inbox", () => {
@@ -642,5 +726,386 @@ describe("OverviewScreen states", () => {
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("All clear")).toBeInTheDocument();
+  });
+});
+
+describe("OverviewScreen paused items", () => {
+  it("names the Failure limit with the stop of the last execution", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Compute the shipping rates")] },
+      executions: {
+        n_p: [
+          ended("e1", "n_p", {
+            stop: { reason: "provider_failed", code: "rate_limited" },
+            ended_at: NOW - 2 * HOUR,
+          }),
+          ended("e0", "n_p", { ended_at: NOW - 5 * HOUR }),
+        ],
+      },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Compute the shipping rates"));
+    expect(await within(item).findByText("Failure limit")).toBeInTheDocument();
+    expect(within(item).getByText("Paused")).toBeInTheDocument();
+    expect(
+      within(item).getByText("The last execution ended: provider failed (rate limited)."),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByText(textContent("project kanthord · attempt 2 · 2 hours ago")),
+    ).toBeInTheDocument();
+    expect(listNodeExecutions).toHaveBeenCalledWith("prj-1", "n_p", 2);
+    expect(listNodeExternalActions).toHaveBeenCalledWith("n_p", 2);
+  });
+
+  it("names a lost execution as the Failure limit and takes the expiry as its end", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Compute the shipping rates")] },
+      executions: {
+        n_p: [
+          ended("e1", "n_p", {
+            claim_state: "lost",
+            ended_at: null,
+            expired_at: NOW - 4 * HOUR,
+          }),
+        ],
+      },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Compute the shipping rates"));
+    expect(await within(item).findByText("Failure limit")).toBeInTheDocument();
+    expect(within(item).getByText("The last execution ended: lost.")).toBeInTheDocument();
+    expect(within(item).getByText(/4 hours ago/)).toBeInTheDocument();
+  });
+
+  it("names the Further-work limit after a budget end", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the packing slip")] },
+      executions: {
+        n_p: [ended("e1", "n_p", { stop: { reason: "budget_end", code: "turns" } })],
+      },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Print the packing slip"));
+    expect(await within(item).findByText("Further-work limit")).toBeInTheDocument();
+    expect(
+      within(item).getByText("The last execution ended at its budget (turns)."),
+    ).toBeInTheDocument();
+  });
+
+  it("names a pause by a human with an unknown age when no execution ran", async () => {
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    expect(await within(item).findByText("Paused by a human")).toBeInTheDocument();
+    expect(
+      within(item).getByText(textContent("project kanthord · attempt 2 · age unknown")),
+    ).toBeInTheDocument();
+    expect(within(item).getByText("No execution limit explains the pause.")).toBeInTheDocument();
+  });
+
+  it("holds Discard of a Paused node until the executions and the actions answer", async () => {
+    let answer: (value: readonly MissionExternalAction[]) => void = () => undefined;
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
+    vi.mocked(listNodeExternalActions).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    expect(
+      within(item).getByText(/Reading the executions and the external actions of attempt 2/),
+    ).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+
+    answer([]);
+
+    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
+  });
+
+  it("keeps Discard off and names the reason when an unresolved request waits", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Publish the changelog")] },
+      actions: { n_p: [requested("n_p", "unresolved")] },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Publish the changelog"));
+    expect(
+      await within(item).findByText(
+        "Attempt 2 has an unresolved pull request. Override and discard wait for its end state. Resume the node.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it("keeps Discard off when a read fails and reads again on Retry", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
+    vi.mocked(listNodeExecutions).mockRejectedValueOnce(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    expect(
+      await within(item).findByText(
+        /The executions or the external actions of attempt 2 could not be read: The daemon did not answer\./,
+      ),
+    ).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    await user.click(within(item).getByRole("button", { name: "Retry" }));
+
+    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
+  });
+
+  it("discards a Paused node with the expected state Paused", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes", 3)] } });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    await user.click(await within(item).findByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "The feature moves.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    expect(discardNode).toHaveBeenCalledWith("n_p", {
+      reason: "The feature moves.",
+      expected_mission_version: 7,
+      expected_state: "Paused",
+      expected_attempt: 3,
+    });
+  });
+});
+
+describe("OverviewScreen dependency items", () => {
+  const world = {
+    nodes: {
+      "prj-2": [
+        pending("n_c", "Redirect the legacy links", ["n_b", "n_ok"]),
+        plain("n_b", "Drop the legacy checkout", "Discarded"),
+        plain("n_ok", "Export the orders", "Completed"),
+      ],
+    },
+  };
+
+  it("lists a Pending node that depends on a Discarded node", async () => {
+    serve(world);
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    expect(within(item).getByText("Pending")).toBeInTheDocument();
+    expect(within(item).getByText("Discarded dependency")).toBeInTheDocument();
+    expect(
+      within(item).getByText(
+        textContent(
+          "It depends on Drop the legacy checkout, which is Discarded. A discarded node satisfies no dependency.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByText(textContent("project atlas · no attempt · age unknown")),
+    ).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Show assessment" })).toBeNull();
+    expect(listNodeExecutions).not.toHaveBeenCalled();
+  });
+
+  it("offers Discard at once and sends it with the expected state Pending", async () => {
+    const user = userEvent.setup();
+    serve(world);
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    await user.click(within(item).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "The links die with the checkout.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    expect(discardNode).toHaveBeenCalledWith("n_c", {
+      reason: "The links die with the checkout.",
+      expected_mission_version: 7,
+      expected_state: "Pending",
+      expected_attempt: 0,
+    });
+  });
+});
+
+describe("OverviewScreen proposal approval", () => {
+  it("approves the open proposal of an initiative in place", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] },
+      proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Team workspaces"));
+    await user.click(await within(item).findByRole("button", { name: "Approve proposal" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText("Approve the proposal Send the invite in the workspace language?"),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Reason"), "The fix is right.");
+    await user.click(within(dialog).getByRole("button", { name: "Approve proposal" }));
+
+    expect(approveProposal).toHaveBeenCalledWith(
+      "proposal_Send the invite in the workspace language",
+      {
+        expected_mission_version: 7,
+        reason: "The fix is right.",
+      },
+    );
+  });
+
+  it("offers no approval for an approved proposal or for an objective", async () => {
+    serve({
+      nodes: {
+        "prj-1": [
+          blocked("n_t", "Team workspaces", { kind: "initiative" }),
+          blocked("n_a", "Audit log"),
+        ],
+      },
+      proposals: { n_t: [proposal("n_t", "Old fix", 5)] },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Team workspaces"));
+    await within(item).findByRole("button", { name: "Unblock" });
+    expect(screen.queryByRole("button", { name: "Approve proposal" })).toBeNull();
+  });
+});
+
+describe("OverviewScreen focus handoff", () => {
+  it("moves focus to the title of the next item after a discard removes an item", async () => {
+    const user = userEvent.setup();
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+        blocked("n_c", "Third item", { createdAt: NOW - 7 * HOUR }),
+      ],
+    };
+    serve({ nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const second = await waitFor(() => itemOf("Second item"));
+    await user.click(within(second).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Second item" })).toBeNull());
+    await waitFor(() => expect(screen.getByRole("link", { name: "Third item" })).toHaveFocus());
+  });
+
+  it("moves focus to the last item when the discarded item was the last", async () => {
+    const user = userEvent.setup();
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+      ],
+    };
+    serve({ nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const second = await waitFor(() => itemOf("Second item"));
+    await user.click(within(second).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    await waitFor(() => expect(screen.getByRole("link", { name: "First item" })).toHaveFocus());
+  });
+
+  it("moves focus to the All clear title when no item is left", async () => {
+    const user = userEvent.setup();
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [blocked("n_a", "Only item")],
+    };
+    serve({ nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Only item"));
+    await user.click(within(item).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    await waitFor(() => expect(screen.getByText("All clear")).toHaveFocus());
+  });
+
+  it("moves no focus when the human cancels a dialog", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "First item"), blocked("n_b", "Second item")] } });
+    renderScreen();
+
+    const first = await waitFor(() => itemOf("First item"));
+    await user.click(within(first).getByRole("button", { name: "Discard" }));
+    await user.click(await screen.findByRole("button", { name: "Keep the node" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.getByRole("link", { name: "Second item" })).not.toHaveFocus();
+  });
+});
+
+describe("OverviewScreen polling", () => {
+  it("holds the poll while a dialog is open and reads at once after it closes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    serve({ nodes: { "prj-1": [blocked("n_a", "First item")] } });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("First item"));
+    await user.click(within(item).getByRole("button", { name: "Discard" }));
+    await screen.findByRole("alertdialog");
+    const reads = vi.mocked(listProjects).mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+
+    expect(vi.mocked(listProjects).mock.calls.length).toBe(reads);
+    await user.click(screen.getByRole("button", { name: "Keep the node" }));
+
+    await waitFor(() => expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads));
+  });
+
+  it("reads the inbox again every 15 s while no dialog is open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    serve({ nodes: { "prj-1": [blocked("n_a", "First item")] } });
+    renderScreen();
+    await waitFor(() => itemOf("First item"));
+    const reads = vi.mocked(listProjects).mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads);
   });
 });
