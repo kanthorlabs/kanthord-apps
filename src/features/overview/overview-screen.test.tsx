@@ -879,6 +879,22 @@ describe("OverviewScreen paused items", () => {
     expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
   });
 
+  it("offers Resume, Override and Discard for a Paused node at attempt 0 without a read", async () => {
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes", 0)] } });
+    vi.mocked(listNodeExecutions).mockRejectedValue(
+      new ApiError("malformed", "Request validation failed.", 400),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    expect(await within(item).findByRole("button", { name: "Resume" })).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Override" })).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Discard" })).toBeInTheDocument();
+    expect(within(item).getByText("Paused by a human")).toBeInTheDocument();
+    expect(listNodeExecutions).not.toHaveBeenCalled();
+    expect(listNodeExternalActions).not.toHaveBeenCalled();
+  });
+
   it("discards a Paused node with the expected state Paused", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes", 3)] } });

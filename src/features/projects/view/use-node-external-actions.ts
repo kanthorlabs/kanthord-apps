@@ -10,7 +10,10 @@ export function useNodeExternalActions(
   paused: boolean,
 ): Resource<readonly MissionExternalAction[]> {
   return useResource(
-    () => (paused ? listNodeExternalActions(nodeId, attempt) : Promise.resolve(NO_ACTIONS)),
+    () =>
+      paused && attempt > 0
+        ? listNodeExternalActions(nodeId, attempt)
+        : Promise.resolve(NO_ACTIONS),
     [nodeId, attempt, paused],
   );
 }

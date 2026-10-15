@@ -12,7 +12,9 @@ export function useNodeExecutions(
 ): Resource<readonly SchedulerExecutionRecord[]> {
   return useResource(
     () =>
-      paused ? listNodeExecutions(projectId, nodeId, attempt) : Promise.resolve(NO_EXECUTIONS),
+      paused && attempt > 0
+        ? listNodeExecutions(projectId, nodeId, attempt)
+        : Promise.resolve(NO_EXECUTIONS),
     [projectId, nodeId, attempt, paused],
   );
 }

@@ -113,6 +113,23 @@ describe("useAttentionDetails", () => {
     expect(listNodeExternalActions).toHaveBeenCalledWith("n2", 4);
   });
 
+  it("answers empty reads without a call for a Paused node at attempt 0", async () => {
+    const target = paused("n2", { attempt: 0 });
+
+    const { result } = renderHook(() => useAttentionDetails([target]));
+
+    await waitFor(() =>
+      expect(result.current.details.get("n2")).toEqual({
+        kind: "paused",
+        key: detailKeyOf(target.node),
+        executions: { status: "ready", data: [] },
+        actions: { status: "ready", data: [] },
+      }),
+    );
+    expect(listNodeExecutions).not.toHaveBeenCalled();
+    expect(listNodeExternalActions).not.toHaveBeenCalled();
+  });
+
   it("reads a detail once for one key, across renders and new target lists", async () => {
     const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets), {
       initialProps: { targets: [paused("n2")] },

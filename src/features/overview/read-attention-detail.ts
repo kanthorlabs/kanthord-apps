@@ -45,8 +45,14 @@ async function readBlocked(target: DetailTarget): Promise<BlockedDetail> {
 async function readPaused(target: DetailTarget): Promise<PausedDetail> {
   const { node, projectId } = target;
   const [executions, actions] = await Promise.all([
-    settle(listNodeExecutions(projectId, node.id, node.attempt)),
-    settle(listNodeExternalActions(node.id, node.attempt)),
+    settle(
+      node.attempt === 0
+        ? Promise.resolve([])
+        : listNodeExecutions(projectId, node.id, node.attempt),
+    ),
+    settle(
+      node.attempt === 0 ? Promise.resolve([]) : listNodeExternalActions(node.id, node.attempt),
+    ),
   ]);
   return { kind: "paused", key: detailKeyOf(node), executions, actions };
 }

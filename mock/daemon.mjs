@@ -1714,6 +1714,9 @@ on("GET", /^\/api\/scheduler\/project\/([^/]+)\/execution$/, (m, _b, res, _t, ur
   if (state === undefined) return undefined;
   const nodeId = url.searchParams.get("node_id");
   const attempt = url.searchParams.get("attempt");
+  if (attempt !== null && !(Number.isInteger(Number(attempt)) && Number(attempt) > 0)) {
+    return refuseValidation(res);
+  }
   const items = state.executions
     .filter(
       (item) =>
