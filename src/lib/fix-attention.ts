@@ -197,8 +197,9 @@ function credentialRefusedOf(
   if (credentials === null) return [];
   const refusals = snapshots.flatMap((snapshot) => refusalsOf(snapshot, "unauthorized"));
   const items: CredentialRefusedItem[] = [];
-  for (const [credential, refusal] of oldestBy(refusals, (entry) => entry.credentials)) {
-    if (isRotatedAfter(credentials, credential, refusal.endedAt)) continue;
+  const unrotatedOf = (refusal: Refusal) =>
+    refusal.credentials.filter((name) => !isRotatedAfter(credentials, name, refusal.endedAt));
+  for (const [credential, refusal] of oldestBy(refusals, unrotatedOf)) {
     items.push({
       id: `credential_refused:${credential}`,
       kind: "credential_refused",

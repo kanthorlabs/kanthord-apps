@@ -439,6 +439,26 @@ describe("fixItemsOf credential_refused", () => {
     expect(fixItemsOf([refused()], context({ credentials: [rotated] }))).toEqual([]);
   });
 
+  it("judges the refusals after the rotation and ignores the ones before it", () => {
+    const later = node("n2", "Waiting", { content: { ...work.content, name: "Add export" } });
+    const rotated = credential("openai-main", [revision(1, END), revision(END)]);
+    const items = fixItemsOf(
+      [
+        refused({
+          nodes: [work, later],
+          executions: [
+            execution("execution_1", "n1", END - 10 * MINUTE, UNAUTHORIZED),
+            execution("execution_2", "n2", END + 10 * MINUTE, UNAUTHORIZED),
+          ],
+        }),
+      ],
+      context({ credentials: [rotated] }),
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ at: END + 10 * MINUTE, nodeName: "Add export" });
+  });
+
   it("keeps the item when the new revision predates the end or is no longer live", () => {
     const older = credential("openai-main", [revision(END - 1)]);
     const revoked = credential("openai-main", [revision(END + 1, END + 2)]);
