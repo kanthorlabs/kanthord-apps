@@ -68,8 +68,8 @@ function saferPathOf(node: MissionRunnableNode): ReactNode {
 export function useNodeOverride(
   node: MissionRunnableNode,
   missionVersion: number,
-  reload: () => void,
   actions: readonly MissionExternalAction[] | null,
+  reload: () => void,
 ): NodeOverrideState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");

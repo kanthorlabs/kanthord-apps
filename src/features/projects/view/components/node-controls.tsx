@@ -59,8 +59,8 @@ export function NodeControls({
   const cause = executions.data === null ? null : pauseCauseOf(executions.data).cause;
   const unblock = useNodeUnblock(node, missionVersion, proposals, onChanged);
   const resume = useNodeResume(node, missionVersion, nodes, guard, cause, onChanged);
-  const override = useNodeOverride(node, missionVersion, onChanged, guard);
-  const discard = useNodeDiscard(node, missionVersion, onChanged, guard);
+  const override = useNodeOverride(node, missionVersion, guard, onChanged);
+  const discard = useNodeDiscard(node, missionVersion, guard, onChanged);
   const guardLine = guardLineOf(node, actions, executions);
 
   if (

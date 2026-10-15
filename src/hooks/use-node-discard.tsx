@@ -96,8 +96,8 @@ function saferPathOf(node: MissionRunnableNode): ReactNode {
 export function useNodeDiscard(
   node: MissionRunnableNode,
   missionVersion: number,
-  reload: () => void,
   actions: readonly MissionExternalAction[] | null,
+  reload: () => void,
 ): NodeDiscardState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");

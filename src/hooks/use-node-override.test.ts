@@ -64,7 +64,7 @@ function mount(
   reload = vi.fn(),
   actions: readonly MissionExternalAction[] | null = [],
 ) {
-  const view = renderHook(() => useNodeOverride(node, 7, reload, actions));
+  const view = renderHook(() => useNodeOverride(node, 7, actions, reload));
   return { ...view, reload };
 }
 

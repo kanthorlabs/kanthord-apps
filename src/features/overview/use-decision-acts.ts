@@ -88,11 +88,11 @@ export function useDecisionActs(
     detail?.kind === "paused" && detail.actions.status === "ready" ? detail.actions.data : null;
   const unblock = useNodeUnblock(node, missionVersion, proposals, reload);
   const approve = useProposalApprove(node, missionVersion, reload);
-  const override = useNodeOverride(node, missionVersion, reload, actions);
+  const override = useNodeOverride(node, missionVersion, actions, reload);
   const cause = item.kind === "paused" ? (item.pause?.cause ?? null) : null;
   const resume = useNodeResume(node, missionVersion, item.nodes, actions, cause, reload);
   const remove = useDependencyRemove(node, missionVersion, reload);
-  const discard = useNodeDiscard(node, missionVersion, reload, actions);
+  const discard = useNodeDiscard(node, missionVersion, actions, reload);
   const open =
     unblock.open ||
     approve.target !== null ||
