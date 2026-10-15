@@ -6,17 +6,27 @@ import { useScopedProject } from "@/hooks/use-scoped-project";
 import {
   deriveAttention,
   detailTargetsOf,
+  externalReadStateOf,
   groupItems,
   type AttentionDetails,
+  type AttentionContext,
   type AttentionItem,
   type ProjectSnapshot,
 } from "@/lib/attention";
-import { attentionSummary, claimedNodeCount } from "@/lib/overview-summary";
+import { unavailableComponentsOf } from "@/lib/liveness-alert";
+import {
+  attentionSummary,
+  claimedNodeCount,
+  coolingFactsOf,
+  projectsWithoutSetup,
+  type CoolingFact,
+} from "@/lib/overview-summary";
 import { tallyStates, type StateTally } from "@/lib/state-tally";
 
 import type { ReadFault } from "./read-overview-snapshot";
 import { useAttentionDetails } from "./use-attention-details";
 import { useAttentionFocus, type AttentionFocus } from "./use-attention-focus";
+import { useOverviewSetup } from "./use-overview-setup";
 import { useOverviewSnapshot } from "./use-overview-snapshot";
 
 export interface ProjectProgress {
@@ -34,6 +44,9 @@ export interface OverviewState {
   readonly running: number;
   readonly waiting: number;
   readonly schedulerPath: string;
+  readonly cooling: readonly CoolingFact[];
+  readonly unavailable: readonly string[];
+  readonly livenessFailure: string | null;
   readonly summary: string;
   readonly groups: ReturnType<typeof groupItems>;
   readonly faults: readonly ReadFault[];
@@ -41,7 +54,7 @@ export interface OverviewState {
   readonly progress: readonly ProjectProgress[];
   readonly details: AttentionDetails;
   readonly retryDetail: (nodeId: string) => void;
-  readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
   readonly focus: AttentionFocus;
   readonly updatedAt: number | null;
   readonly now: number;
@@ -49,6 +62,7 @@ export interface OverviewState {
 }
 
 const NO_FAULTS: readonly ReadFault[] = [];
+const NO_COMPONENTS: readonly string[] = [];
 
 function schedulerPathOf(projectId: string | null): string {
   return projectId === null ? "/scheduler" : `/scheduler?project=${encodeURIComponent(projectId)}`;
@@ -57,7 +71,9 @@ function schedulerPathOf(projectId: string | null): string {
 export function useOverview(): OverviewState {
   const { projectId: requested, select } = useScopedProject();
   const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
-  const snapshot = useOverviewSnapshot(openDialogs.size > 0);
+  const hold = openDialogs.size > 0;
+  const snapshot = useOverviewSnapshot(hold);
+  const setup = useOverviewSetup(hold);
 
   const data = snapshot.data;
   const projects = useMemo(() => data?.projects ?? [], [data]);
@@ -68,22 +84,45 @@ export function useOverview(): OverviewState {
     [data, projectId],
   );
 
+  const setupData = setup.data;
+
   const snapshots = useMemo<readonly ProjectSnapshot[]>(
     () =>
       reads.flatMap((read) =>
         read.mission === null || read.nodes === null
           ? []
-          : [{ project: read.project, missionVersion: read.mission.version, nodes: read.nodes }],
+          : [
+              {
+                project: read.project,
+                missionVersion: read.mission.version,
+                nodes: read.nodes,
+                jobs: read.jobs,
+                instances: read.instances,
+                executions: read.executions,
+                bindings:
+                  setupData?.projects.find((entry) => entry.project.id === read.project.id)
+                    ?.bindings ?? null,
+              },
+            ],
       ),
-    [reads],
+    [reads, setupData],
   );
 
   const targets = useMemo(() => detailTargetsOf(snapshots), [snapshots]);
-  const { details, refresh: refreshDetail } = useAttentionDetails(targets);
-  const items = useMemo<readonly AttentionItem[]>(
-    () => deriveAttention(snapshots, details),
-    [snapshots, details],
+  const { details, refresh: refreshDetail } = useAttentionDetails(targets, snapshot.updatedAt);
+  const context = useMemo<AttentionContext>(
+    () => ({
+      now: snapshot.now,
+      catalog: setupData?.catalog ?? null,
+      credentials: setupData?.credentials ?? null,
+    }),
+    [snapshot.now, setupData],
   );
+  const items = useMemo<readonly AttentionItem[]>(
+    () => deriveAttention(snapshots, details, context),
+    [snapshots, details, context],
+  );
+  const externalReads = useMemo(() => externalReadStateOf(targets, details), [targets, details]);
 
   const focus = useAttentionFocus(items, snapshot.updatedAt);
   const { markActed } = focus;
@@ -92,32 +131,69 @@ export function useOverview(): OverviewState {
     const scoped = (data?.faults ?? NO_FAULTS).filter(
       (fault) => projectId === null || fault.projectId === projectId,
     );
-    if (snapshot.error === null || data === null) return scoped;
-    return [
-      ...scoped,
-      {
-        projectId: null,
-        projectName: null,
-        source: "project list",
-        message: snapshot.error.message,
-      },
-    ];
-  }, [data, projectId, snapshot.error]);
+    const outside = externalReads.failures.map(({ target, message }) => ({
+      projectId: target.projectId,
+      projectName: projects.find((project) => project.id === target.projectId)?.name ?? null,
+      source: `external actions of ${target.node.content.name}`,
+      message,
+    }));
+    const listFault =
+      snapshot.error === null || data === null
+        ? NO_FAULTS
+        : [
+            {
+              projectId: null,
+              projectName: null,
+              source: "project list",
+              message: snapshot.error.message,
+            },
+          ];
+    const setupFaults = (setupData?.faults ?? NO_FAULTS).filter(
+      (fault) => projectId === null || fault.projectId === null || fault.projectId === projectId,
+    );
+    const setupFailure =
+      setup.error === null
+        ? NO_FAULTS
+        : [
+            {
+              projectId: null,
+              projectName: null,
+              source: "worker setup",
+              message: setup.error.message,
+            },
+          ];
+    return [...scoped, ...outside, ...listFault, ...setupFaults, ...setupFailure];
+  }, [data, projectId, projects, externalReads, snapshot.error, setupData, setup.error]);
 
   const setDialogOpen = useCallback(
-    (nodeId: string, open: boolean) => {
+    (itemId: string, nodeId: string, open: boolean) => {
       setOpenDialogs((current) => {
-        if (current.has(nodeId) === open) return current;
+        if (current.has(itemId) === open) return current;
         const next = new Set(current);
-        if (open) next.add(nodeId);
-        else next.delete(nodeId);
+        if (open) next.add(itemId);
+        else next.delete(itemId);
         return next;
       });
       if (open) refreshDetail(nodeId);
-      else markActed(nodeId);
+      else markActed(itemId);
     },
     [refreshDetail, markActed],
   );
+
+  const cooling = useMemo(() => coolingFactsOf(snapshots), [snapshots]);
+  const unavailable = useMemo(
+    () =>
+      setupData?.liveness == null ? NO_COMPONENTS : unavailableComponentsOf(setupData.liveness),
+    [setupData],
+  );
+  const livenessFailure = setupData?.livenessFailure ?? null;
+
+  const { refresh: refreshSnapshot } = snapshot;
+  const { refresh: refreshSetup } = setup;
+  const refresh = useCallback(() => {
+    refreshSnapshot();
+    refreshSetup();
+  }, [refreshSnapshot, refreshSetup]);
 
   const status = data !== null ? "ready" : snapshot.loading ? "loading" : "error";
 
@@ -131,10 +207,19 @@ export function useOverview(): OverviewState {
     running: snapshots.reduce((total, entry) => total + claimedNodeCount(entry.nodes), 0),
     waiting: reads.reduce((total, read) => total + (read.jobs?.length ?? 0), 0),
     schedulerPath: schedulerPathOf(projectId),
+    cooling,
+    unavailable,
+    livenessFailure,
     summary: attentionSummary(items),
     groups: groupItems(items),
     faults,
-    allClear: faults.length === 0 && items.length === 0,
+    allClear:
+      faults.length === 0 &&
+      externalReads.pending === 0 &&
+      setupData !== null &&
+      projectsWithoutSetup(snapshots, setupData.projects) === 0 &&
+      livenessFailure === null &&
+      items.length === 0,
     progress: snapshots.map((entry) => ({
       project: entry.project,
       tallies: tallyStates(entry.nodes),
@@ -145,6 +230,6 @@ export function useOverview(): OverviewState {
     focus,
     updatedAt: snapshot.updatedAt,
     now: snapshot.now,
-    refresh: snapshot.refresh,
+    refresh,
   };
 }

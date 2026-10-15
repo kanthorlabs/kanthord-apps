@@ -18,6 +18,20 @@ export const PROJECT_ATLAS = {
   workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-atlas",
 };
 
+export const PROJECT_ORBIT = {
+  id: "prj-orbit",
+  name: "orbit",
+  binding_set_version: 1,
+  created_at: now,
+  paused_at: now - 3 * 60 * 60_000,
+  workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-orbit",
+};
+
+export const BINDING_PLACEMENTS = {
+  [PROJECT.id]: { "general-main": "server", "reviewer-main": "worker" },
+  [PROJECT_ATLAS.id]: { "general-main": "server", "reviewer-main": "server" },
+};
+
 const BASE_PROMPT = `You are a senior software engineer.
 
 ## Principles
@@ -547,7 +561,7 @@ const pullRequest = (key, bindingId) => ({
   action: "pull_request",
   expected_end_state: "pull_request_merged",
   follows: null,
-  configuration: { base_branch: "main" },
+  configuration: { base_branch: "main", landing: "human" },
 });
 
 export const GRAPH_ATTEMPTS = {
@@ -1020,6 +1034,15 @@ export const GRAPH_EXECUTIONS = [
   ["EC5", ids.invoices, "lost", 300, 20, GRAPH_BINDINGS.reviewer],
   ["EC6", ids.invoices, "lost", 330, null, GRAPH_BINDINGS.worker],
   ["EC7", ids.invoices, "finished", 160, 140, GRAPH_BINDINGS.worker, null, true],
+  [
+    "EC8",
+    ids.invoices,
+    "finished",
+    40,
+    20,
+    GRAPH_BINDINGS.reviewer,
+    { reason: "provider_failed", code: "bad_request" },
+  ],
 ].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop, unnamed], index) =>
   executionRecord(
     PROJECT.id,
@@ -1131,7 +1154,61 @@ export const ATLAS_NODES = [
     state: "Pending",
     attempt: 0,
   }),
+  atlasNode("YFD", "objective", "release-notes.md", "YF1", "Publish the release notes", {
+    state: "External.Requested",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
 ];
+
+export const ATLAS_RELEASE_NOTES_ID = atlasId("YFD");
+
+GRAPH_ATTEMPTS[ATLAS_RELEASE_NOTES_ID] = [
+  {
+    node_id: ATLAS_RELEASE_NOTES_ID,
+    attempt: 1,
+    node_revision: 1,
+    start_point: "base_branch",
+    required_external_actions: [
+      {
+        key: "kanthord-repo.merge_push",
+        binding_id: REPO,
+        action: "merge_push",
+        expected_end_state: "base_branch_pushed",
+        follows: null,
+        configuration: { base_branch: "main", landing: "kanthord" },
+      },
+    ],
+    opened_at: minutes(80),
+    closed_at: null,
+    outcome_ids: [],
+    opened_by: human,
+  },
+];
+
+GRAPH_EVIDENCE.push({
+  id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0RF1",
+  node_id: ATLAS_RELEASE_NOTES_ID,
+  attempt: 1,
+  subject: "Push of the release notes to main",
+  assets: [
+    {
+      id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PF1",
+      kind: "platform",
+      address: {
+        kind: "branch_push",
+        resource_identity: "repository:github:kanthorlabs/kanthord",
+        branch: "main",
+        commit: commitOf("f1"),
+      },
+      published_at: minutes(40),
+      expired_at: null,
+    },
+  ],
+  provenance: execution("EF1", "reviewer-main #1"),
+  created_at: minutes(40),
+  requirement_key: "kanthord-repo.merge_push",
+});
 
 export const ATLAS_EDGES = [
   ...ATLAS_NODES.filter((node) => node.parent_id !== null).map((node) => ({
@@ -1221,6 +1298,26 @@ export const ATLAS_EXECUTIONS = [
     binding: GRAPH_BINDINGS.worker,
     stop,
   })),
+  {
+    executionId: `execution_${ulidAt(minutes(25), "AG1")}`,
+    traceSeed: "ag1",
+    nodeId: atlasId("YF6"),
+    claimState: "finished",
+    startedAgo: 25,
+    endedAgo: 5,
+    binding: GRAPH_BINDINGS.worker,
+    stop: { reason: "provider_failed", code: "unauthorized" },
+  },
+  {
+    executionId: `execution_${ulidAt(minutes(43230), "AG2")}`,
+    traceSeed: "ag2",
+    nodeId: atlasId("YF8"),
+    claimState: "finished",
+    startedAgo: 43230,
+    endedAgo: 43200,
+    binding: GRAPH_BINDINGS.reviewer,
+    stop: { reason: "provider_failed", code: "unauthorized" },
+  },
   ...atlasHistory,
 ].map((spec, index) => executionRecord(PROJECT_ATLAS.id, spec, index));
 

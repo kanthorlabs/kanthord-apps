@@ -22,6 +22,11 @@ export function useProjectPause(project: Project, onChanged: () => void): Projec
       (paused ? resumeProject : pauseProject)(project.id).then(
         () => {
           setBusy(false);
+          if (paused) {
+            toast.success(`Resumed ${project.name}.`, {
+              description: "Workers can claim its nodes.",
+            });
+          }
           onChanged();
         },
         (cause: unknown) => {
@@ -33,7 +38,7 @@ export function useProjectPause(project: Project, onChanged: () => void): Projec
         },
       );
     },
-    [busy, paused, project.id, onChanged],
+    [busy, paused, project.id, project.name, onChanged],
   );
 
   return { paused, busy, toggle };

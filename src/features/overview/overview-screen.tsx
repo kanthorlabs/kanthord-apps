@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AttentionSection } from "./components/attention-section";
 import { ProgressSection } from "./components/progress-section";
 import { StatusLine } from "./components/status-line";
+import { SystemHealthAlert } from "./components/system-health-alert";
 import { useOverview } from "./use-overview";
 
 function SectionSkeletons() {
@@ -62,10 +63,13 @@ export function OverviewScreen() {
 
       {overview.status === "ready" && (
         <>
+          <SystemHealthAlert components={overview.unavailable} failure={overview.livenessFailure} />
           <StatusLine
             running={overview.running}
             waiting={overview.waiting}
             schedulerPath={overview.schedulerPath}
+            cooling={overview.cooling}
+            showProject={overview.showProjects}
           />
           <AttentionSection
             summary={overview.summary}

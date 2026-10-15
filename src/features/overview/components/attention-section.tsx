@@ -16,7 +16,7 @@ interface AttentionSectionProps {
   readonly now: number;
   readonly reload: () => void;
   readonly retryDetail: (nodeId: string) => void;
-  readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
   readonly focus: AttentionFocus;
 }
 
@@ -54,6 +54,7 @@ export function AttentionSection({
           showProject={showProject}
           now={now}
           reload={reload}
+          markActed={focus.markActed}
           retryDetail={retryDetail}
           setDialogOpen={setDialogOpen}
           titleRef={focus.titleRef}

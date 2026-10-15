@@ -1,12 +1,13 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 
 import type { MissionProposal } from "@/api/types";
+import { useNodeCheck, type NodeCheckState } from "@/hooks/use-node-check";
 import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
 import { useNodeOverride, type NodeOverrideState } from "@/hooks/use-node-override";
 import { useNodeResume, type NodeResumeState } from "@/hooks/use-node-resume";
 import { useNodeUnblock, type NodeUnblockState } from "@/hooks/use-node-unblock";
 import { useProposalApprove, type ProposalApproveState } from "@/hooks/use-proposal-approve";
-import { openProposalsOf, type AttentionDetail, type AttentionItem } from "@/lib/attention";
+import { openProposalsOf, type AttentionDetail, type DecisionAttentionItem } from "@/lib/attention";
 import {
   hasOpenAttempt,
   readFailureText,
@@ -23,6 +24,7 @@ export interface DecisionActs {
   readonly resume: NodeResumeState;
   readonly remove: DependencyRemoveState;
   readonly discard: NodeDiscardState;
+  readonly check: NodeCheckState;
   readonly ready: boolean;
   readonly waiting: string | null;
   readonly failed: boolean;
@@ -32,7 +34,8 @@ export interface DecisionActs {
 
 interface DecisionContext {
   readonly reload: () => void;
-  readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly markActed: (itemId: string) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
 }
 
 interface ReadState {
@@ -100,7 +103,7 @@ function openStateOf(attempt: number, detail: AttentionDetail | null): ReadState
   return READY;
 }
 
-function readStateOf(item: AttentionItem, detail: AttentionDetail | null): ReadState {
+function readStateOf(item: DecisionAttentionItem, detail: AttentionDetail | null): ReadState {
   if (item.kind === "paused") return pausedStateOf(item.node.attempt, detail);
   if (item.kind === "dependency_discarded" && hasOpenAttempt(item.node)) {
     return openStateOf(item.node.attempt, detail);
@@ -110,9 +113,9 @@ function readStateOf(item: AttentionItem, detail: AttentionDetail | null): ReadS
 }
 
 export function useDecisionActs(
-  item: AttentionItem,
+  item: DecisionAttentionItem,
   detail: AttentionDetail | null,
-  { reload, setDialogOpen }: DecisionContext,
+  { reload, markActed, setDialogOpen }: DecisionContext,
 ): DecisionActs {
   const { node, missionVersion } = item;
   const proposalsRead =
@@ -127,6 +130,9 @@ export function useDecisionActs(
   const resume = useNodeResume(node, missionVersion, item.nodes, actions, cause, reload);
   const remove = useDependencyRemove(node, missionVersion, reload);
   const discard = useNodeDiscard(node, missionVersion, actions, reload);
+  const itemId = item.id;
+  const checkActed = useCallback(() => markActed(itemId), [markActed, itemId]);
+  const check = useNodeCheck(node, missionVersion, actions, checkActed, reload);
   const open =
     unblock.open ||
     approve.target !== null ||
@@ -137,9 +143,9 @@ export function useDecisionActs(
 
   useEffect(() => {
     if (!open) return undefined;
-    setDialogOpen(node.id, true);
-    return () => setDialogOpen(node.id, false);
-  }, [node.id, open, setDialogOpen]);
+    setDialogOpen(itemId, node.id, true);
+    return () => setDialogOpen(itemId, node.id, false);
+  }, [itemId, node.id, open, setDialogOpen]);
 
   return {
     unblock,
@@ -148,6 +154,7 @@ export function useDecisionActs(
     resume,
     remove,
     discard,
+    check,
     proposals: item.kind === "blocked" ? openProposalsOf(node, proposalsRead) : NO_PROPOSALS,
     unresolved:
       unresolved.length === 0

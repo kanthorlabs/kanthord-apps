@@ -7,6 +7,7 @@ import { setConnection } from "../client";
 import {
   applyMissionImport,
   approveProposal,
+  checkNode,
   discardNode,
   exportMissionJson,
   listMissionDependencies,
@@ -242,6 +243,28 @@ describe("mission node control resources", () => {
       result: "success",
     });
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+  });
+
+  it("checks a node with only the expected mission version and answers results and failures", async () => {
+    const answer = {
+      results: [
+        {
+          evidence_id: "evidence_1",
+          requirement_key: "repo.pull_request",
+          resolution: "unresolved",
+        },
+      ],
+      failures: [],
+    };
+    await serve(answer);
+
+    const checked = await checkNode("node_1", { expected_mission_version: 7 });
+
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/check");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ expected_mission_version: 7 });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(checked).toEqual(answer);
   });
 
   it("removes a dependency with a DELETE body and an idempotency key", async () => {

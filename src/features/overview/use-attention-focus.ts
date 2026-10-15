@@ -11,7 +11,7 @@ interface PendingHandoff {
 export interface AttentionFocus {
   readonly titleRef: (itemId: string) => (element: HTMLElement | null) => void;
   readonly allClearRef: (element: HTMLElement | null) => void;
-  readonly markActed: (nodeId: string) => void;
+  readonly markActed: (itemId: string) => void;
 }
 
 export function useAttentionFocus(
@@ -36,10 +36,9 @@ export function useAttentionFocus(
     allClear.current = element;
   }, []);
 
-  const markActed = useCallback((nodeId: string) => {
-    const index = shown.current.findIndex((item) => item.node.id === nodeId);
-    const item = shown.current[index];
-    if (item !== undefined) pending.current = { itemId: item.id, index, readAt: readAt.current };
+  const markActed = useCallback((itemId: string) => {
+    const index = shown.current.findIndex((item) => item.id === itemId);
+    if (index >= 0) pending.current = { itemId, index, readAt: readAt.current };
   }, []);
 
   useEffect(() => {

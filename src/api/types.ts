@@ -557,13 +557,15 @@ export interface MissionOutcome {
   readonly created_at: number;
 }
 
+export type ActionLanding = "human" | "kanthord";
+
 export interface FrozenAction {
   readonly key: string;
   readonly binding_id: string;
   readonly action: RepositoryActionName;
   readonly expected_end_state: "pull_request_merged" | "base_branch_pushed";
   readonly follows: string | null;
-  readonly configuration: { readonly base_branch: string };
+  readonly configuration: { readonly base_branch: string; readonly landing: ActionLanding };
 }
 
 export type StartPoint = "base_branch" | "node_branch";
@@ -741,6 +743,35 @@ export interface MissionDependencyBody {
   readonly expected_mission_version: number;
 }
 
+export interface MissionNodeCheckBody {
+  readonly expected_mission_version: number;
+}
+
+export type MissionCheckResolution = "unresolved" | "expected-end" | "other-end";
+
+export interface MissionNodeCheckResult {
+  readonly evidence_id: string;
+  readonly requirement_key: string;
+  readonly resolution: MissionCheckResolution;
+}
+
+export interface MissionNodeCheckFailure {
+  readonly evidence_id: string;
+  readonly error: {
+    readonly error: {
+      readonly code: string;
+      readonly message: string;
+      readonly details: unknown;
+    };
+    readonly request_id: string;
+  };
+}
+
+export interface MissionNodeCheckAnswer {
+  readonly results: readonly MissionNodeCheckResult[];
+  readonly failures: readonly MissionNodeCheckFailure[];
+}
+
 export interface MissionProposalApproveResult {
   readonly objective: MissionNodeChange;
   readonly initiative: MissionControlResult;
@@ -756,6 +787,36 @@ export interface ProjectBindingRecord {
   readonly config: unknown;
   readonly created_at: number;
   readonly removed_at: number | null;
+}
+
+export interface WorkerBindingRecord extends ProjectBindingRecord {
+  readonly kind: "worker";
+  readonly config: WorkerBindingConfig;
+}
+
+export interface AgentCooling {
+  readonly code: string;
+  readonly until_at: number;
+}
+
+export interface BindingAgentIssue {
+  readonly path: readonly string[];
+  readonly code: string;
+}
+
+export interface BindingAgentView {
+  readonly agent: string;
+  readonly worker: string;
+  readonly worker_binding_id: string;
+  readonly binding_set_version: number;
+  readonly defaults: Readonly<Record<string, unknown>> | null;
+  readonly entry: Readonly<Record<string, unknown>> | null;
+  readonly effective: Readonly<Record<string, unknown>> | null;
+  readonly chain: readonly unknown[];
+  readonly active_position: number | null;
+  readonly cooling: AgentCooling | null;
+  readonly valid: boolean;
+  readonly issues: readonly BindingAgentIssue[];
 }
 
 export type ClaimState = "running" | "lost" | "finished";

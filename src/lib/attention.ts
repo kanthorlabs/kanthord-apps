@@ -1,18 +1,26 @@
 import type {
   MissionAssessment,
   MissionBlockedContext,
+  MissionEvidence,
   MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
   MissionRunnableNode,
+  Credential,
   Project,
   SchedulerExecutionRecord,
+  SchedulerJob,
+  WorkerBindingRecord,
+  WorkerCatalogItem,
+  WorkerInstanceRecord,
+  BindingAgentView,
 } from "@/api/types";
 
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
-import { hasOpenAttempt } from "./external-requests";
+import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
+import { fixItemsOf, type FixAttentionItem } from "./fix-attention";
 
-export type AttentionGroupId = "decisions";
+export type AttentionGroupId = "decisions" | "fixes" | "outside";
 
 export interface AttentionGroup {
   readonly id: AttentionGroupId;
@@ -30,12 +38,41 @@ export const ATTENTION_GROUPS: readonly AttentionGroup[] = [
     noun: "decision",
     plural: "decisions",
   },
+  {
+    id: "fixes",
+    heading: "Fixes",
+    description: "The workforce cannot progress until a human changes the setup.",
+    noun: "fix",
+    plural: "fixes",
+  },
+  {
+    id: "outside",
+    heading: "Waiting outside kanthord",
+    description: "The node waits for an act on an external platform.",
+    noun: "waiting outside",
+    plural: "waiting outside",
+  },
 ];
+
+export interface WorkerBindingView {
+  readonly binding: WorkerBindingRecord;
+  readonly agents: readonly BindingAgentView[] | null;
+}
 
 export interface ProjectSnapshot {
   readonly project: Project;
   readonly missionVersion: number;
   readonly nodes: readonly MissionNodeRecord[];
+  readonly jobs: readonly SchedulerJob[] | null;
+  readonly instances: readonly WorkerInstanceRecord[] | null;
+  readonly executions: readonly SchedulerExecutionRecord[] | null;
+  readonly bindings: readonly WorkerBindingView[] | null;
+}
+
+export interface AttentionContext {
+  readonly now: number;
+  readonly catalog: readonly WorkerCatalogItem[] | null;
+  readonly credentials: readonly Credential[] | null;
 }
 
 export type DetailRead<T> =
@@ -62,26 +99,40 @@ export interface OpenDetail {
   readonly actions: DetailRead<readonly MissionExternalAction[]>;
 }
 
-export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail;
+export interface ExternalDetail {
+  readonly kind: "external";
+  readonly key: string;
+  readonly actions: DetailRead<readonly MissionExternalAction[]>;
+  readonly evidence: DetailRead<readonly MissionEvidence[]>;
+  readonly refreshFault: string | null;
+}
+
+export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail | ExternalDetail;
 
 export type AttentionDetails = ReadonlyMap<string, AttentionDetail>;
 
-interface ItemBase {
+export interface ItemBase {
   readonly id: string;
   readonly group: AttentionGroupId;
   readonly project: Project;
-  readonly missionVersion: number;
-  readonly node: MissionRunnableNode;
-  readonly nodes: readonly MissionNodeRecord[];
+  readonly subject: string;
   readonly at: number | null;
 }
 
-export interface BlockedItem extends ItemBase {
+interface NodeItemBase extends ItemBase {
+  readonly missionVersion: number;
+  readonly node: MissionRunnableNode;
+  readonly nodes: readonly MissionNodeRecord[];
+}
+
+export interface BlockedItem extends NodeItemBase {
+  readonly group: "decisions";
   readonly kind: "blocked";
   readonly cause: string;
 }
 
-export interface PausedItem extends ItemBase {
+export interface PausedItem extends NodeItemBase {
+  readonly group: "decisions";
   readonly kind: "paused";
   readonly pause: PauseDerivation | null;
   readonly cause: string | null;
@@ -92,21 +143,58 @@ export interface DiscardedDependency {
   readonly name: string;
 }
 
-export interface DependencyItem extends ItemBase {
+export interface DependencyItem extends NodeItemBase {
+  readonly group: "decisions";
   readonly kind: "dependency_discarded";
   readonly cause: string;
   readonly discarded: readonly DiscardedDependency[];
 }
 
-export type AttentionItem = BlockedItem | PausedItem | DependencyItem;
+export interface OutsideRequest {
+  readonly action: MissionExternalAction;
+  readonly evidence: MissionEvidence | null;
+}
+
+export interface MergeWaitItem extends NodeItemBase {
+  readonly group: "outside";
+  readonly kind: "merge_wait";
+  readonly cause: string;
+  readonly request: OutsideRequest;
+}
+
+export interface DeliveryItem extends NodeItemBase {
+  readonly group: "outside";
+  readonly kind: "delivery_unconfirmed";
+  readonly cause: string;
+  readonly request: OutsideRequest;
+}
+
+export type DecisionAttentionItem = BlockedItem | PausedItem | DependencyItem;
+
+export type OutsideAttentionItem = MergeWaitItem | DeliveryItem;
+
+export type AttentionItem = DecisionAttentionItem | FixAttentionItem | OutsideAttentionItem;
 
 export interface DetailTarget {
-  readonly kind: "blocked" | "paused" | "open";
+  readonly kind: "blocked" | "paused" | "open" | "external";
   readonly projectId: string;
   readonly node: MissionRunnableNode;
 }
 
-const KIND_ORDER: readonly AttentionItem["kind"][] = ["blocked", "paused", "dependency_discarded"];
+const DELIVERY_GRACE_MS = 10 * 60_000;
+
+const KIND_ORDER: readonly AttentionItem["kind"][] = [
+  "blocked",
+  "paused",
+  "dependency_discarded",
+  "project_paused",
+  "no_taker",
+  "agent_invalid",
+  "credential_refused",
+  "request_rejected",
+  "merge_wait",
+  "delivery_unconfirmed",
+];
 
 function isRunnable(node: MissionNodeRecord): node is MissionRunnableNode {
   return node.kind !== "task" && node.retired_at === null;
@@ -114,6 +202,26 @@ function isRunnable(node: MissionNodeRecord): node is MissionRunnableNode {
 
 export function detailKeyOf(node: MissionRunnableNode): string {
   return `${node.id}:${node.attempt}:${node.state}:${node.visible_revision}`;
+}
+
+function keptReadOf<T>(previous: DetailRead<T>, next: DetailRead<T>): DetailRead<T> {
+  return next.status === "failed" && previous.status === "ready" ? previous : next;
+}
+
+export function refreshedDetailOf(
+  previous: AttentionDetail | undefined,
+  next: AttentionDetail,
+): AttentionDetail {
+  if (previous?.kind !== "external" || next.kind !== "external" || previous.key !== next.key) {
+    return next;
+  }
+  const failed = [next.actions, next.evidence].find((read) => read.status === "failed");
+  return {
+    ...next,
+    actions: keptReadOf(previous.actions, next.actions),
+    evidence: keptReadOf(previous.evidence, next.evidence),
+    refreshFault: failed?.status === "failed" ? failed.message : null,
+  };
 }
 
 export function detailOf(
@@ -151,6 +259,7 @@ function blockedItemOf(snapshot: ProjectSnapshot, node: MissionRunnableNode): Bl
     kind: "blocked",
     group: "decisions",
     project: snapshot.project,
+    subject: node.content.name,
     missionVersion: snapshot.missionVersion,
     node,
     nodes: snapshot.nodes,
@@ -172,6 +281,7 @@ function pausedItemOf(
     kind: "paused",
     group: "decisions",
     project: snapshot.project,
+    subject: node.content.name,
     missionVersion: snapshot.missionVersion,
     node,
     nodes: snapshot.nodes,
@@ -197,10 +307,85 @@ function isDependencyItem(snapshot: ProjectSnapshot, node: MissionRunnableNode):
   return node.state === "Pending" && discardedDependenciesOf(snapshot, node).length > 0;
 }
 
-function itemsOf(snapshot: ProjectSnapshot, details: AttentionDetails): readonly AttentionItem[] {
+function evidenceOf(detail: ExternalDetail, action: MissionExternalAction): MissionEvidence | null {
+  if (detail.evidence.status !== "ready") return null;
+  return detail.evidence.data.find((item) => item.id === action.request_evidence_id) ?? null;
+}
+
+interface AgedDelivery {
+  readonly action: MissionExternalAction;
+  readonly evidence: MissionEvidence;
+}
+
+function agedDeliveryOf(
+  detail: ExternalDetail,
+  actions: readonly MissionExternalAction[],
+  now: number,
+): AgedDelivery | null {
+  let oldest: AgedDelivery | null = null;
+  for (const action of deliveryRequestsOf(actions)) {
+    const evidence = evidenceOf(detail, action);
+    if (evidence === null || now - evidence.created_at <= DELIVERY_GRACE_MS) continue;
+    if (oldest === null || evidence.created_at < oldest.evidence.created_at) {
+      oldest = { action, evidence };
+    }
+  }
+  return oldest;
+}
+
+function outsideItemOf(
+  snapshot: ProjectSnapshot,
+  node: MissionRunnableNode,
+  details: AttentionDetails,
+  now: number,
+): readonly AttentionItem[] {
+  const detail = detailOf(details, node);
+  if (detail?.kind !== "external" || detail.actions.status !== "ready") return [];
+  const base = {
+    group: "outside",
+    project: snapshot.project,
+    subject: node.content.name,
+    missionVersion: snapshot.missionVersion,
+    node,
+    nodes: snapshot.nodes,
+  } as const;
+  const merge = humanMergeRequestOf(detail.actions.data);
+  if (merge !== null) {
+    const evidence = evidenceOf(detail, merge);
+    return [
+      {
+        ...base,
+        id: `merge_wait:${node.id}`,
+        kind: "merge_wait",
+        at: evidence?.created_at ?? null,
+        cause: "Waits for merge",
+        request: { action: merge, evidence },
+      },
+    ];
+  }
+  const delivery = agedDeliveryOf(detail, detail.actions.data, now);
+  if (delivery === null) return [];
+  return [
+    {
+      ...base,
+      id: `delivery_unconfirmed:${node.id}`,
+      kind: "delivery_unconfirmed",
+      at: delivery.evidence.created_at,
+      cause: "Delivery not confirmed",
+      request: delivery,
+    },
+  ];
+}
+
+function itemsOf(
+  snapshot: ProjectSnapshot,
+  details: AttentionDetails,
+  now: number,
+): readonly AttentionItem[] {
   return snapshot.nodes.filter(isRunnable).flatMap((node): readonly AttentionItem[] => {
     if (node.state === "Blocked") return [blockedItemOf(snapshot, node)];
     if (node.state === "Paused") return [pausedItemOf(snapshot, node, details)];
+    if (node.state === "External.Requested") return outsideItemOf(snapshot, node, details, now);
     if (node.state !== "Pending") return [];
     const discarded = discardedDependenciesOf(snapshot, node);
     if (discarded.length === 0) return [];
@@ -210,6 +395,7 @@ function itemsOf(snapshot: ProjectSnapshot, details: AttentionDetails): readonly
         kind: "dependency_discarded",
         group: "decisions",
         project: snapshot.project,
+        subject: node.content.name,
         missionVersion: snapshot.missionVersion,
         node,
         nodes: snapshot.nodes,
@@ -230,7 +416,7 @@ function compareItems(left: AttentionItem, right: AttentionItem): number {
   return (
     KIND_ORDER.indexOf(left.kind) - KIND_ORDER.indexOf(right.kind) ||
     compareAt(left.at, right.at) ||
-    left.node.content.name.localeCompare(right.node.content.name) ||
+    left.subject.localeCompare(right.subject) ||
     left.id.localeCompare(right.id)
   );
 }
@@ -238,8 +424,12 @@ function compareItems(left: AttentionItem, right: AttentionItem): number {
 export function deriveAttention(
   snapshots: readonly ProjectSnapshot[],
   details: AttentionDetails,
+  context: AttentionContext,
 ): readonly AttentionItem[] {
-  return snapshots.flatMap((snapshot) => itemsOf(snapshot, details)).sort(compareItems);
+  return [
+    ...snapshots.flatMap((snapshot) => itemsOf(snapshot, details, context.now)),
+    ...fixItemsOf(snapshots, context),
+  ].sort(compareItems);
 }
 
 export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly DetailTarget[] {
@@ -251,9 +441,41 @@ export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly
         return [{ kind: "paused", projectId: snapshot.project.id, node }];
       if (isDependencyItem(snapshot, node) && hasOpenAttempt(node))
         return [{ kind: "open", projectId: snapshot.project.id, node }];
+      if (node.state === "External.Requested")
+        return [{ kind: "external", projectId: snapshot.project.id, node }];
       return [];
     }),
   );
+}
+
+export interface ExternalReadFailure {
+  readonly target: DetailTarget;
+  readonly message: string;
+}
+
+export interface ExternalReadState {
+  readonly pending: number;
+  readonly failures: readonly ExternalReadFailure[];
+}
+
+export function externalReadStateOf(
+  targets: readonly DetailTarget[],
+  details: AttentionDetails,
+): ExternalReadState {
+  let pending = 0;
+  const failures: ExternalReadFailure[] = [];
+  for (const target of targets) {
+    if (target.kind !== "external") continue;
+    const detail = detailOf(details, target.node);
+    if (detail?.kind !== "external") {
+      pending += 1;
+      continue;
+    }
+    const failed = [detail.actions, detail.evidence].find((read) => read.status === "failed");
+    const message = failed?.status === "failed" ? failed.message : detail.refreshFault;
+    if (message !== null) failures.push({ target, message });
+  }
+  return { pending, failures };
 }
 
 export function groupItems(

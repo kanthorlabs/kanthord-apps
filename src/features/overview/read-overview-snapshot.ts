@@ -1,14 +1,26 @@
 import { listMissionNodes, readMission } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
-import { listQueueJobs } from "@/api/resources/scheduler";
-import type { Mission, MissionNodeRecord, Project, SchedulerJob } from "@/api/types";
+import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
+import { listWorkerInstances } from "@/api/resources/workers";
+import type {
+  Mission,
+  MissionNodeRecord,
+  Project,
+  SchedulerExecutionRecord,
+  SchedulerJob,
+  WorkerInstanceRecord,
+} from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
+
+const EXECUTION_PAGE_LIMIT = 100;
 
 export interface ProjectRead {
   readonly project: Project;
   readonly mission: Mission | null;
   readonly nodes: readonly MissionNodeRecord[] | null;
   readonly jobs: readonly SchedulerJob[] | null;
+  readonly instances: readonly WorkerInstanceRecord[] | null;
+  readonly executions: readonly SchedulerExecutionRecord[] | null;
 }
 
 export interface ReadFault {
@@ -24,13 +36,13 @@ export interface OverviewSnapshot {
   readonly faults: readonly ReadFault[];
 }
 
-interface Settled<T> {
+export interface Settled<T> {
   readonly data: T | null;
   readonly fault: ReadFault | null;
 }
 
-async function settle<T>(
-  project: Project,
+export async function settle<T>(
+  project: Project | null,
   source: string,
   read: () => Promise<T>,
   kept: T | null,
@@ -41,8 +53,8 @@ async function settle<T>(
     return {
       data: kept,
       fault: {
-        projectId: project.id,
-        projectName: project.name,
+        projectId: project?.id ?? null,
+        projectName: project?.name ?? null,
         source,
         message: asApiError(cause).message,
       },
@@ -69,14 +81,33 @@ async function readProject(
     () => readMission(project.id),
     previous?.mission ?? null,
   );
-  const [nodes, jobs] = await Promise.all([
+  const [nodes, jobs, instances, executions] = await Promise.all([
     readNodes(project, mission.data, previous),
     settle(project, "queue", () => listQueueJobs(project.id), previous?.jobs ?? null),
+    settle(
+      project,
+      "worker instances",
+      () => listWorkerInstances(project.id),
+      previous?.instances ?? null,
+    ),
+    settle(
+      project,
+      "executions",
+      async () => (await listProjectExecutionPage(project.id, null, EXECUTION_PAGE_LIMIT)).items,
+      previous?.executions ?? null,
+    ),
   ]);
   return {
-    read: { project, mission: mission.data, nodes: nodes.data, jobs: jobs.data },
-    faults: [mission.fault, nodes.fault, jobs.fault].flatMap((fault) =>
-      fault === null ? [] : [fault],
+    read: {
+      project,
+      mission: mission.data,
+      nodes: nodes.data,
+      jobs: jobs.data,
+      instances: instances.data,
+      executions: executions.data,
+    },
+    faults: [mission.fault, nodes.fault, jobs.fault, instances.fault, executions.fault].flatMap(
+      (fault) => (fault === null ? [] : [fault]),
     ),
   };
 }
