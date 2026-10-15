@@ -199,4 +199,28 @@ describe("usePolledResource", () => {
     await advance(0);
     expect(view.result.current.data).toBe("b");
   });
+
+  it("starts no read after unmount, also when a read was running", async () => {
+    let finish: (value: string) => void = () => {};
+    const read = vi.fn().mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const view = render(read);
+    expect(read).toHaveBeenCalledTimes(1);
+
+    view.unmount();
+    await advance(INTERVAL * 3);
+    show("hidden");
+    show("visible");
+    await act(async () => {
+      window.dispatchEvent(new Event("focus"));
+      finish("a");
+    });
+    await advance(INTERVAL * 3);
+
+    expect(read).toHaveBeenCalledTimes(1);
+  });
 });
