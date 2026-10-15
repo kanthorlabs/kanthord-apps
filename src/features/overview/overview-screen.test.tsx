@@ -1295,7 +1295,10 @@ describe("OverviewScreen resume", () => {
         textContent("Resume returns Print the packing slip to Waiting for its evaluation."),
       ),
     ).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Available" }));
+    const target = within(dialog).getByRole("radiogroup", { name: "Resume to" });
+    expect(within(target).getByRole("radio", { name: "Waiting" })).toBeChecked();
+    await user.click(within(target).getByRole("radio", { name: "Available" }));
+    expect(within(target).getByRole("radio", { name: "Available" })).toBeChecked();
 
     expect(
       within(dialog).getByText(textContent(/Resume returns Print the packing slip to Available\./)),

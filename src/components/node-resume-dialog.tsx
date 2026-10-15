@@ -9,12 +9,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { NodeResumeState } from "@/hooks/use-node-resume";
 import type { ResumeTarget } from "@/lib/resume-target";
 
-function isTarget(value: string | undefined): value is ResumeTarget {
+function isTarget(value: unknown): value is ResumeTarget {
   return value === "Available" || value === "Waiting";
 }
 
@@ -36,31 +36,23 @@ export function NodeResumeDialog({ name, resume }: { name: string; resume: NodeR
           <Field>
             <FieldLabel id="node-resume-target">Resume to</FieldLabel>
             {resume.waitingNeeds === null ? (
-              <ToggleGroup
-                variant="outline"
-                size="sm"
-                spacing={0}
+              <RadioGroup
                 aria-labelledby="node-resume-target"
-                value={[resume.target]}
+                value={resume.target}
                 disabled={resume.resuming}
-                onValueChange={(value: string[]) => {
-                  const next = value[0];
-                  if (isTarget(next)) resume.setTarget(next);
+                onValueChange={(value) => {
+                  if (isTarget(value)) resume.setTarget(value);
                 }}
               >
-                <ToggleGroupItem
-                  value="Available"
-                  className="aria-pressed:bg-primary aria-pressed:text-primary-foreground"
-                >
-                  Available
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="Waiting"
-                  className="aria-pressed:bg-primary aria-pressed:text-primary-foreground"
-                >
-                  Waiting
-                </ToggleGroupItem>
-              </ToggleGroup>
+                <Field orientation="horizontal">
+                  <RadioGroupItem id="node-resume-target-available" value="Available" />
+                  <FieldLabel htmlFor="node-resume-target-available">Available</FieldLabel>
+                </Field>
+                <Field orientation="horizontal">
+                  <RadioGroupItem id="node-resume-target-waiting" value="Waiting" />
+                  <FieldLabel htmlFor="node-resume-target-waiting">Waiting</FieldLabel>
+                </Field>
+              </RadioGroup>
             ) : (
               <FieldDescription>Available. Waiting needs: {resume.waitingNeeds}.</FieldDescription>
             )}
