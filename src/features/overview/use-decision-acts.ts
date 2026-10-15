@@ -1,11 +1,12 @@
 import { useEffect } from "react";
 
+import type { MissionProposal } from "@/api/types";
 import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
 import { useNodeOverride, type NodeOverrideState } from "@/hooks/use-node-override";
 import { useNodeResume, type NodeResumeState } from "@/hooks/use-node-resume";
 import { useNodeUnblock, type NodeUnblockState } from "@/hooks/use-node-unblock";
 import { useProposalApprove, type ProposalApproveState } from "@/hooks/use-proposal-approve";
-import type { AttentionDetail, AttentionItem } from "@/lib/attention";
+import { openProposalsOf, type AttentionDetail, type AttentionItem } from "@/lib/attention";
 import {
   hasOpenAttempt,
   unresolvedRequestsOf,
@@ -24,6 +25,7 @@ export interface DecisionActs {
   readonly ready: boolean;
   readonly waiting: string | null;
   readonly failed: boolean;
+  readonly proposals: readonly MissionProposal[];
   readonly unresolved: string | null;
 }
 
@@ -37,6 +39,8 @@ interface ReadState {
   readonly waiting: string | null;
   readonly failed: boolean;
 }
+
+const NO_PROPOSALS: readonly MissionProposal[] = [];
 
 const READY: ReadState = { ready: true, waiting: null, failed: false };
 
@@ -110,12 +114,12 @@ export function useDecisionActs(
   { reload, setDialogOpen }: DecisionContext,
 ): DecisionActs {
   const { node, missionVersion } = item;
-  const proposals =
+  const proposalsRead =
     detail?.kind === "blocked" && detail.proposals.status === "ready" ? detail.proposals.data : [];
   const actionsRead = detail?.kind === "paused" || detail?.kind === "open" ? detail.actions : null;
   const actions = actionsRead?.status === "ready" ? actionsRead.data : null;
   const unresolved = actions === null ? [] : unresolvedRequestsOf(actions);
-  const unblock = useNodeUnblock(node, missionVersion, proposals, reload);
+  const unblock = useNodeUnblock(node, missionVersion, proposalsRead, reload);
   const approve = useProposalApprove(node, missionVersion, reload);
   const override = useNodeOverride(node, missionVersion, actions, reload);
   const cause = item.kind === "paused" ? (item.pause?.cause ?? null) : null;
@@ -143,6 +147,7 @@ export function useDecisionActs(
     resume,
     remove,
     discard,
+    proposals: item.kind === "blocked" ? openProposalsOf(node, proposalsRead) : NO_PROPOSALS,
     unresolved:
       unresolved.length === 0
         ? null

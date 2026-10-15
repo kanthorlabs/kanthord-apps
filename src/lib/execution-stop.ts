@@ -73,3 +73,16 @@ export function pauseCauseOf(executions: readonly SchedulerExecutionRecord[]): P
   }
   return { cause: "human", execution: latest, endedAt: latestEnd };
 }
+
+export function pauseSentence(pause: PauseDerivation): string {
+  const stop = pause.execution?.stop ?? null;
+  if (pause.cause === "failure-limit") {
+    return `The last execution ended: ${stop === null ? "lost" : stopSentence(stop)}.`;
+  }
+  if (pause.cause === "further-work-limit" && stop !== null) {
+    return `The last execution ended at its budget${
+      stop.code === null ? "" : ` (${codeLabel(stop.code)})`
+    }.`;
+  }
+  return "No execution limit explains the pause.";
+}

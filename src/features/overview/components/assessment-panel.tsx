@@ -1,28 +1,18 @@
-import type { MissionEvidence } from "@/api/types";
+import type { MissionProposal } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { RecordName } from "@/components/record-name";
 import type { BlockedDetail, BlockedItem } from "@/lib/attention";
-import { openProposalsOf } from "@/lib/attention";
-import { assetText } from "@/lib/mission-labels";
+import { requestText } from "@/lib/mission-labels";
 
 interface AssessmentPanelProps {
   readonly item: BlockedItem;
   readonly detail: BlockedDetail | null;
+  readonly proposals: readonly MissionProposal[];
   readonly onRetry: () => void;
 }
 
-function requestText(request: MissionEvidence): string {
-  const assets = request.assets.map(assetText).join("; ");
-  const endState = request.end_state === undefined ? "not set" : request.end_state;
-  return `${request.requirement_key ?? "request"}: ${request.subject}${
-    assets.length === 0 ? "" : `, ${assets}`
-  }. End state ${endState}.`;
-}
-
-export function AssessmentPanel({ item, detail, onRetry }: AssessmentPanelProps) {
+export function AssessmentPanel({ item, detail, proposals, onRetry }: AssessmentPanelProps) {
   const requests = item.node.blocked_context?.requests ?? [];
-  const proposals =
-    detail?.proposals.status === "ready" ? openProposalsOf(item.node, detail.proposals.data) : [];
 
   return (
     <div className="flex flex-col gap-3 pt-3 text-sm">

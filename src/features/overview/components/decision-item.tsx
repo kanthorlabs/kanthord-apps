@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import type { AttentionDetail, AttentionItem } from "@/lib/attention";
-import { openProposalsOf } from "@/lib/attention";
 import { nodePath } from "@/lib/node-path";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
@@ -47,10 +46,6 @@ export function DecisionItem({
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const acts = useDecisionActs(item, detail, { reload, setDialogOpen });
   const blockedDetail = detail?.kind === "blocked" ? detail : null;
-  const proposals =
-    item.kind === "blocked" && blockedDetail?.proposals.status === "ready"
-      ? openProposalsOf(node, blockedDetail.proposals.data)
-      : [];
 
   return (
     <Item variant="outline" size="sm" role="listitem">
@@ -112,6 +107,7 @@ export function DecisionItem({
               <AssessmentPanel
                 item={item}
                 detail={blockedDetail}
+                proposals={acts.proposals}
                 onRetry={() => retryDetail(node.id)}
               />
             </Reveal>
@@ -125,7 +121,7 @@ export function DecisionItem({
               Unblock
             </Button>
           )}
-          {proposals
+          {acts.proposals
             .filter((proposal) => acts.approve.canApprove(proposal))
             .map((proposal) => (
               <Button
@@ -133,7 +129,9 @@ export function DecisionItem({
                 variant="outline"
                 size="sm"
                 aria-label={
-                  proposals.length > 1 ? `Approve proposal ${proposal.content.name}` : undefined
+                  acts.proposals.length > 1
+                    ? `Approve proposal ${proposal.content.name}`
+                    : undefined
                 }
                 onClick={() => acts.approve.request(proposal)}
               >

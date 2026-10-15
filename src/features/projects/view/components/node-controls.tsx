@@ -1,98 +1,24 @@
 import { Button } from "@/components/ui/button";
-import type {
-  MissionExternalAction,
-  MissionNodeRecord,
-  MissionProposal,
-  MissionRunnableNode,
-  SchedulerExecutionRecord,
-} from "@/api/types";
-import type { Resource } from "@/hooks/use-resource";
-import { pauseCauseOf } from "@/lib/execution-stop";
-import {
-  hasOpenAttempt,
-  unresolvedRequestsOf,
-  unresolvedRequestsText,
-} from "@/lib/external-requests";
-import { useNodeDiscard } from "@/hooks/use-node-discard";
-import { useNodeOverride } from "@/hooks/use-node-override";
-import { useNodeResume } from "@/hooks/use-node-resume";
-import { useNodeUnblock } from "@/hooks/use-node-unblock";
 import { NodeDiscardDialog } from "@/components/node-discard-dialog";
 import { NodeOverrideDialog } from "@/components/node-override-dialog";
 import { NodeResumeDialog } from "@/components/node-resume-dialog";
 import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 
-interface NodeControlsProps {
-  readonly node: MissionRunnableNode;
-  readonly nodes: readonly MissionNodeRecord[];
-  readonly missionVersion: number;
-  readonly proposals: readonly MissionProposal[];
-  readonly actions: Resource<readonly MissionExternalAction[]>;
-  readonly executions: Resource<readonly SchedulerExecutionRecord[]>;
-  readonly onChanged: () => void;
-}
+import { useNodeControls, type NodeControlsInput } from "../use-node-controls";
 
-function guardLineOf(
-  node: MissionRunnableNode,
-  actions: NodeControlsProps["actions"],
-  executions: NodeControlsProps["executions"],
-): string | null {
-  if (!hasOpenAttempt(node)) return null;
-  const paused = node.state === "Paused";
-  const subject = paused ? "executions and the external actions" : "external actions";
-  if (actions.loading || executions.loading) {
-    return `Reading the ${subject} of attempt ${node.attempt}.`;
-  }
-  const failure = actions.error ?? executions.error;
-  if (actions.data === null || executions.data === null) {
-    return `The ${paused ? "executions or the external actions" : "external actions"} of attempt ${node.attempt} could not be read: ${failure?.message}`;
-  }
-  const unresolved = unresolvedRequestsOf(actions.data);
-  return unresolved.length === 0 ? null : unresolvedRequestsText(node.attempt, unresolved, paused);
-}
+export function NodeControls(input: NodeControlsInput) {
+  const { unblock, resume, override, discard, guardLine, retry, visible } = useNodeControls(input);
+  const name = input.node.content.name;
 
-export function NodeControls({
-  node,
-  nodes,
-  missionVersion,
-  proposals,
-  actions,
-  executions,
-  onChanged,
-}: NodeControlsProps) {
-  const answered = actions.data !== null && executions.data !== null;
-  const guard = answered ? actions.data : null;
-  const cause = executions.data === null ? null : pauseCauseOf(executions.data).cause;
-  const unblock = useNodeUnblock(node, missionVersion, proposals, onChanged);
-  const resume = useNodeResume(node, missionVersion, nodes, guard, cause, onChanged);
-  const override = useNodeOverride(node, missionVersion, guard, onChanged);
-  const discard = useNodeDiscard(node, missionVersion, guard, onChanged);
-  const guardLine = guardLineOf(node, actions, executions);
-
-  if (
-    !unblock.available &&
-    !resume.available &&
-    !override.available &&
-    !discard.available &&
-    guardLine === null
-  ) {
-    return null;
-  }
+  if (!visible) return null;
 
   return (
     <section aria-label="Controls" className="flex flex-col gap-2">
       <h3 className="font-semibold">Controls</h3>
       {guardLine !== null && <p className="text-sm text-muted-foreground">{guardLine}</p>}
-      {hasOpenAttempt(node) && !answered && !actions.loading && !executions.loading && (
+      {retry !== null && (
         <div className="flex md:justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              actions.reload();
-              executions.reload();
-            }}
-          >
+          <Button variant="outline" size="sm" onClick={retry}>
             Retry
           </Button>
         </div>
@@ -119,10 +45,10 @@ export function NodeControls({
           </Button>
         )}
       </div>
-      <NodeUnblockDialog name={node.content.name} unblock={unblock} />
-      <NodeResumeDialog name={node.content.name} resume={resume} />
-      <NodeOverrideDialog name={node.content.name} override={override} />
-      <NodeDiscardDialog name={node.content.name} discard={discard} />
+      <NodeUnblockDialog name={name} unblock={unblock} />
+      <NodeResumeDialog name={name} resume={resume} />
+      <NodeOverrideDialog name={name} override={override} />
+      <NodeDiscardDialog name={name} discard={discard} />
     </section>
   );
 }
