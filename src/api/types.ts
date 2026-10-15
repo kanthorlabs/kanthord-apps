@@ -100,7 +100,7 @@ interface WorkerInstanceBase {
 }
 
 export type WorkerInstanceRecord =
-  | (WorkerInstanceBase & { readonly host: "kanthord"; readonly placement: "server" | "worker" })
+  | (WorkerInstanceBase & { readonly host: "kanthord"; readonly placement: WorkerPlacement })
   | (WorkerInstanceBase & { readonly host: "external-harness" });
 
 export type AgentEnablementState = "enabled" | "disabled";
@@ -375,9 +375,12 @@ export interface WorkerAgentEntry {
   readonly fallback_configurations?: readonly AgentDefaultConfiguration[];
 }
 
+export type WorkerPlacement = "server" | "worker";
+
 export interface WorkerBindingConfig {
   readonly worker: string;
   readonly instance_count: number;
+  readonly placement?: WorkerPlacement;
   readonly resource_budget?: { readonly turns: number; readonly wall_time_ms: number };
   readonly entries?: readonly WorkerAgentEntry[];
 }
@@ -751,6 +754,32 @@ export interface SchedulerJob {
   readonly priority: number;
 }
 
+export type ExecutionStopReason =
+  | "operation_failed"
+  | "judgement_invalid"
+  | "report_absent"
+  | "action_unsettled"
+  | "assessment_absent"
+  | "budget_end"
+  | "provider_failed"
+  | "no_progress";
+
+export interface ExecutionStop {
+  readonly reason: ExecutionStopReason;
+  readonly code: string | null;
+}
+
+export interface AgentSelection {
+  readonly agent_name: string;
+  readonly position: number;
+  readonly level: "enablement" | "binding";
+  readonly agent_provider: string;
+  readonly provider: string;
+  readonly credential: string;
+  readonly model_identifier: string;
+  readonly reasoning_effort: string;
+}
+
 export interface SchedulerExecutionRecord {
   readonly execution_id: string;
   readonly project_id: string;
@@ -766,10 +795,12 @@ export interface SchedulerExecutionRecord {
   readonly pinned_revision: number;
   readonly node_branch: string;
   readonly credentials: readonly string[];
+  readonly agent_selections: readonly AgentSelection[];
   readonly claim_state: ClaimState;
   readonly expired_at: number;
   readonly created_at: number;
   readonly ended_at: number | null;
+  readonly stop: ExecutionStop | null;
   readonly trace_id: string;
   readonly root_span_id: string;
 }
