@@ -789,6 +789,36 @@ export interface ProjectBindingRecord {
   readonly removed_at: number | null;
 }
 
+export interface WorkerBindingRecord extends ProjectBindingRecord {
+  readonly kind: "worker";
+  readonly config: WorkerBindingConfig;
+}
+
+export interface AgentCooling {
+  readonly code: string;
+  readonly until_at: number;
+}
+
+export interface BindingAgentIssue {
+  readonly path: readonly string[];
+  readonly code: string;
+}
+
+export interface BindingAgentView {
+  readonly agent: string;
+  readonly worker: string;
+  readonly worker_binding_id: string;
+  readonly binding_set_version: number;
+  readonly defaults: Readonly<Record<string, unknown>> | null;
+  readonly entry: Readonly<Record<string, unknown>> | null;
+  readonly effective: Readonly<Record<string, unknown>> | null;
+  readonly chain: readonly unknown[];
+  readonly active_position: number | null;
+  readonly cooling: AgentCooling | null;
+  readonly valid: boolean;
+  readonly issues: readonly BindingAgentIssue[];
+}
+
 export type ClaimState = "running" | "lost" | "finished";
 
 export interface SchedulerJob {

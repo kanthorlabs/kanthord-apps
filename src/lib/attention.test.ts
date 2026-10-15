@@ -35,7 +35,7 @@ function derive(
   details: AttentionDetails = NO_DETAILS,
   now = NOW,
 ) {
-  return deriveAttention(snapshots, details, now);
+  return deriveAttention(snapshots, details, { now, catalog: null, credentials: null });
 }
 
 function execution(
@@ -145,7 +145,15 @@ function snapshot(
   nodes: readonly MissionNodeRecord[],
   missionVersion = 4,
 ): ProjectSnapshot {
-  return { project: project(id, id), missionVersion, nodes };
+  return {
+    project: project(id, id),
+    missionVersion,
+    nodes,
+    jobs: null,
+    instances: null,
+    executions: null,
+    bindings: null,
+  };
 }
 
 describe("blockedCauseOf", () => {
@@ -215,7 +223,7 @@ describe("deriveAttention", () => {
       ]),
     ]);
 
-    expect(items.map((item) => item.node.content.name)).toEqual([
+    expect(items.map((item) => item.subject)).toEqual([
       "Oldest",
       "Alpha",
       "Zeta",
@@ -609,7 +617,7 @@ describe("deriveAttention outside", () => {
       details,
     );
 
-    expect(items.map((item) => item.node.id)).toEqual(["n3", "n2", "n1"]);
+    expect(items.map((item) => item.id)).toEqual(["blocked:n3", "merge_wait:n2", "merge_wait:n1"]);
   });
 });
 

@@ -1,6 +1,6 @@
-import type { MissionNodeRecord } from "@/api/types";
+import type { MissionNodeRecord, Project } from "@/api/types";
 
-import { ATTENTION_GROUPS, type AttentionItem } from "./attention";
+import { ATTENTION_GROUPS, type AttentionItem, type ProjectSnapshot } from "./attention";
 
 function counted(count: number, noun: string, plural: string): string {
   return `${count} ${count === 1 ? noun : plural}`;
@@ -27,4 +27,32 @@ export function claimedNodeCount(nodes: readonly MissionNodeRecord[]): number {
       node.retired_at === null &&
       (node.state === "Executing" || node.state === "Evaluating"),
   ).length;
+}
+
+export interface CoolingFact {
+  readonly key: string;
+  readonly agent: string;
+  readonly binding: string;
+  readonly project: Project;
+  readonly untilAt: number;
+}
+
+export function coolingFactsOf(snapshots: readonly ProjectSnapshot[]): readonly CoolingFact[] {
+  return snapshots.flatMap((snapshot) =>
+    (snapshot.bindings ?? []).flatMap((entry) =>
+      (entry.agents ?? []).flatMap((view) =>
+        view.cooling === null
+          ? []
+          : [
+              {
+                key: `${snapshot.project.id}:${entry.binding.id}:${view.agent}`,
+                agent: view.agent,
+                binding: entry.binding.name,
+                project: snapshot.project,
+                untilAt: view.cooling.until_at,
+              },
+            ],
+      ),
+    ),
+  );
 }

@@ -6,12 +6,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 
-vi.mock("sonner", () => ({
-  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+vi.mock("@/api/client", () => ({
+  connectionBaseUrl: vi.fn(),
 }));
 
 vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
+  listWorkerBindings: vi.fn(),
+  listBindingAgents: vi.fn(),
+  resumeProject: vi.fn(),
+  pauseProject: vi.fn(),
+}));
+
+vi.mock("@/api/resources/workers", () => ({
+  listWorkerCatalog: vi.fn(),
+  listWorkerInstances: vi.fn(),
+}));
+
+vi.mock("@/api/resources/credentials", () => ({
+  listAllCredentials: vi.fn(),
+}));
+
+vi.mock("@/api/resources/gateway", () => ({
+  readLiveness: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -37,6 +54,7 @@ vi.mock("@/api/resources/mission", () => ({
 vi.mock("@/api/resources/scheduler", () => ({
   listQueueJobs: vi.fn(),
   listNodeExecutions: vi.fn(),
+  listProjectExecutionPage: vi.fn(),
 }));
 
 import {
@@ -54,10 +72,27 @@ import {
   resumeNode,
   unblockNode,
 } from "@/api/resources/mission";
-import { listProjects } from "@/api/resources/projects";
-import { listNodeExecutions, listQueueJobs } from "@/api/resources/scheduler";
+import { connectionBaseUrl } from "@/api/client";
+import { listAllCredentials } from "@/api/resources/credentials";
+import { readLiveness } from "@/api/resources/gateway";
+import {
+  listBindingAgents,
+  listProjects,
+  listWorkerBindings,
+  pauseProject,
+  resumeProject,
+} from "@/api/resources/projects";
+import {
+  listNodeExecutions,
+  listProjectExecutionPage,
+  listQueueJobs,
+} from "@/api/resources/scheduler";
+import { listWorkerCatalog, listWorkerInstances } from "@/api/resources/workers";
 import type {
   ActionLanding,
+  BindingAgentView,
+  Credential,
+  LivenessReport,
   MissionAssessment,
   MissionAssessmentResult,
   MissionClosingEvent,
@@ -75,8 +110,12 @@ import type {
   RepositoryActionName,
   SchedulerExecutionRecord,
   SchedulerJob,
+  WorkerBindingRecord,
+  WorkerCatalogItem,
+  WorkerInstanceRecord,
 } from "@/api/types";
 import { closingEventText } from "@/lib/mission-labels";
+import { newUlid } from "@/lib/ulid";
 
 import { textContent } from "../../../test/text-content";
 import { OverviewScreen } from "./overview-screen";
@@ -319,7 +358,34 @@ interface World {
   readonly executions?: Readonly<Record<string, readonly SchedulerExecutionRecord[]>>;
   readonly actions?: Readonly<Record<string, readonly MissionExternalAction[]>>;
   readonly evidence?: Readonly<Record<string, readonly MissionEvidence[]>>;
+  readonly pages?: Readonly<Record<string, readonly SchedulerExecutionRecord[]>>;
+  readonly instances?: Readonly<Record<string, readonly WorkerInstanceRecord[]>>;
+  readonly catalog?: readonly WorkerCatalogItem[];
+  readonly bindings?: Readonly<Record<string, readonly WorkerBindingRecord[]>>;
+  readonly agents?: Readonly<Record<string, readonly BindingAgentView[]>>;
+  readonly credentials?: readonly Credential[];
+  readonly liveness?: LivenessReport;
 }
+
+const HEALTHY: LivenessReport = {
+  healthy: true,
+  services: { server: { gateway: 200, store: 200, log: 200 } },
+};
+
+const CATALOG: readonly WorkerCatalogItem[] = [
+  {
+    name: "coder@1",
+    host: "kanthord",
+    declared_node_states: ["Available"],
+    required_node_format: ["objective"],
+  },
+  {
+    name: "reviewer@1",
+    host: "kanthord",
+    declared_node_states: ["Waiting", "External.Requested"],
+    required_node_format: ["objective"],
+  },
+];
 
 function serve(world: World) {
   vi.mocked(listProjects).mockResolvedValue(world.projects ?? [KANTHORD, ATLAS]);
@@ -345,6 +411,25 @@ function serve(world: World) {
     async (nodeId) => world.actions?.[nodeId] ?? [],
   );
   vi.mocked(listNodeEvidence).mockImplementation(async (nodeId) => world.evidence?.[nodeId] ?? []);
+  vi.mocked(listProjectExecutionPage).mockImplementation(async (projectId) => ({
+    items: world.pages?.[projectId] ?? [],
+    next_cursor: null,
+  }));
+  vi.mocked(listWorkerInstances).mockImplementation(
+    async (projectId) => world.instances?.[projectId] ?? [],
+  );
+  vi.mocked(listWorkerCatalog).mockResolvedValue(world.catalog ?? CATALOG);
+  vi.mocked(listWorkerBindings).mockImplementation(
+    async (projectId) => world.bindings?.[projectId] ?? [],
+  );
+  vi.mocked(listBindingAgents).mockImplementation(
+    async (_projectId, bindingId) => world.agents?.[bindingId] ?? [],
+  );
+  vi.mocked(listAllCredentials).mockResolvedValue(world.credentials ?? []);
+  vi.mocked(connectionBaseUrl).mockReturnValue("http://daemon.test");
+  vi.mocked(readLiveness).mockResolvedValue(world.liveness ?? HEALTHY);
+  vi.mocked(resumeProject).mockResolvedValue(KANTHORD);
+  vi.mocked(pauseProject).mockResolvedValue(KANTHORD);
   vi.mocked(unblockNode).mockResolvedValue({} as MissionControlResult);
   vi.mocked(approveProposal).mockResolvedValue({} as MissionProposalApproveResult);
   vi.mocked(overrideNode).mockResolvedValue({} as MissionControlResult);
@@ -1921,5 +2006,472 @@ describe("OverviewScreen waiting outside kanthord", () => {
 
     await waitFor(() => expect(screen.queryByRole("link", { name: "First wait" })).toBeNull());
     await waitFor(() => expect(screen.getByRole("link", { name: "Second wait" })).toHaveFocus());
+  });
+});
+
+function agedJob(projectId: string, nodeId: string, ageMs: number): SchedulerJob {
+  return {
+    job_id: `job_${newUlid(NOW - ageMs)}`,
+    project_id: projectId,
+    node_id: nodeId,
+    priority: 0,
+  };
+}
+
+function workerBinding(
+  name: string,
+  worker: string,
+  placement?: "server" | "worker",
+  projectId = "prj-1",
+): WorkerBindingRecord {
+  return {
+    id: `binding_${name}`,
+    project_id: projectId,
+    name,
+    kind: "worker",
+    resource_identity: `worker:kanthord:${name}`,
+    revision: 1,
+    config:
+      placement === undefined
+        ? { worker, instance_count: 1 }
+        : { worker, instance_count: 1, placement },
+    created_at: 1,
+    removed_at: null,
+  };
+}
+
+function agentView(agent: string, overrides: Partial<BindingAgentView> = {}): BindingAgentView {
+  return {
+    agent,
+    worker: "coder@1",
+    worker_binding_id: "binding_coder-main",
+    binding_set_version: 1,
+    defaults: null,
+    entry: null,
+    effective: null,
+    chain: [],
+    active_position: 0,
+    cooling: null,
+    valid: true,
+    issues: [],
+    ...overrides,
+  };
+}
+
+function llmCredential(name: string, createdAt: number): Credential {
+  return {
+    name,
+    platform: "openai-compatible",
+    revisions: [
+      {
+        id: `credential_${name}`,
+        revision: 1,
+        metadata: null,
+        created_at: createdAt,
+        ended_at: null,
+      },
+    ],
+  };
+}
+
+function providerStop(
+  id: string,
+  nodeId: string,
+  code: "unauthorized" | "bad_request",
+  credential = "openai-main",
+  agent = "swe@1",
+): SchedulerExecutionRecord {
+  return ended(id, nodeId, {
+    stop: { reason: "provider_failed", code },
+    ended_at: NOW - 2 * HOUR,
+    agent_selections: [
+      {
+        agent_name: agent,
+        position: 0,
+        level: "enablement",
+        agent_provider: "openai-org",
+        provider: "openai-compatible",
+        credential,
+        model_identifier: "gpt-5",
+        reasoning_effort: "off",
+      },
+    ],
+  });
+}
+
+describe("OverviewScreen fixes", () => {
+  it("lists a paused project and resumes it in place", async () => {
+    const user = userEvent.setup();
+    const paused = { ...KANTHORD, paused_at: NOW - 3 * HOUR };
+    serve({ projects: [paused, ATLAS] });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("kanthord"));
+    expect(within(item).getByText("Project paused")).toBeInTheDocument();
+    expect(
+      within(item).getByText(textContent("kanthord is paused. Workers claim none of its nodes.")),
+    ).toBeInTheDocument();
+    expect(within(item).getByText("3 hours ago")).toBeInTheDocument();
+    await user.click(within(item).getByRole("button", { name: "Resume project" }));
+
+    expect(resumeProject).toHaveBeenCalledWith("prj-1");
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("Resumed kanthord.", {
+        description: "Workers can claim its nodes.",
+      }),
+    );
+  });
+
+  it("names the group Fixes and counts it in the summary", async () => {
+    serve({
+      projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS],
+      nodes: { "prj-2": [blocked("n_b", "Localize the order email")] },
+    });
+
+    renderScreen();
+
+    expect(await screen.findByRole("heading", { name: "Fixes" })).toBeInTheDocument();
+    expect(screen.getByText("1 decision · 1 fix")).toBeInTheDocument();
+  });
+
+  describe("no taker", () => {
+    const waiting = plain("n_w", "Invoices page", "Waiting");
+
+    it("names the binding at the server placement and its instance_count", async () => {
+      serve({
+        nodes: { "prj-1": [waiting] },
+        jobs: {
+          "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000), agedJob("prj-1", "n_w", 3 * 60_000)],
+        },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "server")] },
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      expect(within(item).getByText("No taker")).toBeInTheDocument();
+      expect(within(item).getByText("Waiting")).toBeInTheDocument();
+      expect(
+        within(item).getByText(
+          textContent(
+            "2 jobs wait in state Waiting. Binding reviewer-main (reviewer@1) declares Waiting and runs no instance. Raise its instance_count, or check the server log.",
+          ),
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(item).getByText(textContent("project kanthord · 5 minutes ago")),
+      ).toBeInTheDocument();
+      expect(within(item).getByRole("button", { name: "Open bindings" })).toHaveAttribute(
+        "href",
+        "/projects/prj-1?tab=bindings",
+      );
+    });
+
+    it("tells the human to start the worker program at the worker placement", async () => {
+      serve({
+        nodes: { "prj-1": [waiting] },
+        jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "worker")] },
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      expect(
+        within(item).getByText(
+          textContent(
+            "1 job waits in state Waiting. Binding reviewer-main (reviewer@1) declares Waiting and has no live instance. Start its worker program.",
+          ),
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("tells the human to add a binding when no binding declares the state", async () => {
+      serve({
+        nodes: { "prj-1": [waiting] },
+        jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
+        bindings: { "prj-1": [workerBinding("general-main", "coder@1")] },
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      expect(
+        within(item).getByText(
+          textContent("No worker binding declares Waiting. Add one on the Bindings tab."),
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("lists nothing while the oldest job is 60 s old or younger", async () => {
+      serve({
+        nodes: { "prj-1": [waiting] },
+        jobs: { "prj-1": [agedJob("prj-1", "n_w", 30_000)] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "server")] },
+      });
+
+      renderScreen();
+
+      expect(await screen.findByText("All clear")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Jobs in state Waiting" })).toBeNull();
+    });
+
+    it("lists nothing when a live instance declares the state", async () => {
+      serve({
+        nodes: { "prj-1": [waiting] },
+        jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "server")] },
+        instances: {
+          "prj-1": [
+            {
+              runtime_identity: "worker_instance_1",
+              project_id: "prj-1",
+              resource_identity: "worker:kanthord:reviewer-main",
+              worker_name: "reviewer@1",
+              host: "kanthord",
+              placement: "server",
+              activity: "idle",
+              draining: false,
+              registered: true,
+            },
+          ],
+        },
+      });
+
+      renderScreen();
+
+      expect(await screen.findByText("All clear")).toBeInTheDocument();
+    });
+  });
+
+  it("lists an invalid agent configuration with a link to the agent", async () => {
+    serve({
+      nodes: { "prj-1": [] },
+      bindings: { "prj-1": [workerBinding("coder-main", "coder@1")] },
+      agents: {
+        "binding_coder-main": [
+          agentView("swe@1", {
+            valid: false,
+            issues: [{ path: [], code: "agent.enablement.unavailable" }],
+          }),
+          agentView("re@1"),
+        ],
+      },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("swe@1 in coder-main"));
+    expect(within(item).getByText("Invalid agent configuration")).toBeInTheDocument();
+    expect(
+      within(item).getByText(
+        textContent(
+          "Agent swe@1 of binding coder-main has an invalid configuration (agent.enablement.unavailable). Fix the enablement on the agent page.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByText(textContent("project kanthord · age unknown")),
+    ).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Open agent" })).toHaveAttribute(
+      "href",
+      "/agents/swe%401",
+    );
+    expect(screen.queryByRole("link", { name: "re@1 in coder-main" })).toBeNull();
+  });
+
+  describe("provider refusals", () => {
+    const run = plain("n_r", "Add password reset", "Waiting");
+
+    it("lists a refused credential with the execution and a link to the credential", async () => {
+      serve({
+        nodes: { "prj-1": [run] },
+        pages: { "prj-1": [providerStop("e1", "n_r", "unauthorized")] },
+        credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("openai-main"));
+      expect(within(item).getByText("Credential refused")).toBeInTheDocument();
+      expect(
+        within(item).getByText(
+          textContent(
+            "The provider refused openai-main (unauthorized) in the execution of Add password reset. Rotate the credential.",
+          ),
+        ),
+      ).toBeInTheDocument();
+      expect(
+        within(item).getByText(textContent("project kanthord · 2 hours ago")),
+      ).toBeInTheDocument();
+      expect(within(item).getByRole("button", { name: "Open credential" })).toHaveAttribute(
+        "href",
+        "/llm/openai-main",
+      );
+    });
+
+    it("clears after a live revision that postdates the stop", async () => {
+      serve({
+        nodes: { "prj-1": [run] },
+        pages: { "prj-1": [providerStop("e1", "n_r", "unauthorized")] },
+        credentials: [llmCredential("openai-main", NOW - HOUR)],
+      });
+
+      renderScreen();
+
+      expect(await screen.findByText("All clear")).toBeInTheDocument();
+    });
+
+    it("lists a rejected request once for each agent with a link to the agent", async () => {
+      serve({
+        nodes: { "prj-1": [run] },
+        pages: { "prj-1": [providerStop("e1", "n_r", "bad_request")] },
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("swe@1"));
+      expect(within(item).getByText("Provider rejected the request")).toBeInTheDocument();
+      expect(
+        within(item).getByText(
+          textContent(
+            "The provider rejected a request of swe@1 (bad request) in the execution of Add password reset. Check its model and settings.",
+          ),
+        ),
+      ).toBeInTheDocument();
+      expect(within(item).getByRole("button", { name: "Open agent" })).toHaveAttribute(
+        "href",
+        "/agents/swe%401",
+      );
+    });
+
+    it("clears when a later execution of the node ends without the stop", async () => {
+      serve({
+        nodes: { "prj-1": [run] },
+        pages: {
+          "prj-1": [
+            providerStop("e1", "n_r", "bad_request"),
+            ended("e2", "n_r", { ended_at: NOW - HOUR }),
+          ],
+        },
+      });
+
+      renderScreen();
+
+      expect(await screen.findByText("All clear")).toBeInTheDocument();
+    });
+
+    it("clears when the node becomes terminal", async () => {
+      serve({
+        nodes: { "prj-1": [plain("n_r", "Add password reset", "Completed")] },
+        pages: { "prj-1": [providerStop("e1", "n_r", "bad_request")] },
+      });
+
+      renderScreen();
+
+      expect(await screen.findByText("All clear")).toBeInTheDocument();
+    });
+  });
+
+  it("shows a cooling chain as a fact line of the status area, not as an item", async () => {
+    serve({
+      nodes: { "prj-1": [] },
+      bindings: { "prj-1": [workerBinding("coder-main", "coder@1")] },
+      agents: {
+        "binding_coder-main": [
+          agentView("swe@1", {
+            cooling: {
+              code: "agent.configuration.chain_cooling",
+              until_at: Date.UTC(2026, 9, 15, 14, 5),
+            },
+          }),
+        ],
+      },
+    });
+
+    renderScreen();
+
+    expect(
+      await screen.findByText(
+        textContent(
+          "swe@1 in coder-main of kanthord: every model cools down until 2026-10-15 14:05 UTC.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "swe@1" })).toHaveAttribute("href", "/agents/swe%401");
+    expect(screen.getByText("All clear")).toBeInTheDocument();
+  });
+
+  it("names the project only under All projects", async () => {
+    serve({ projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS] });
+
+    renderScreen("/?project=prj-1");
+
+    const item = await waitFor(() => itemOf("kanthord"));
+    expect(within(item).getByText("1 hour ago")).toBeInTheDocument();
+  });
+
+  it("keeps All clear back and names a failed setup read", async () => {
+    serve({ nodes: { "prj-1": [] } });
+    vi.mocked(listAllCredentials).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    renderScreen();
+
+    expect(
+      await screen.findByText(
+        textContent(
+          "Some records could not be read: LLM credentials (The daemon did not answer.). The list can miss items.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("All clear")).toBeNull();
+  });
+});
+
+describe("OverviewScreen system health", () => {
+  it("names each unavailable component", async () => {
+    serve({
+      liveness: {
+        healthy: false,
+        services: { server: { gateway: 200, store: 503, log: 503 } },
+      },
+    });
+
+    renderScreen();
+
+    const alert = await screen.findByRole("alert");
+    expect(
+      within(alert).getByText(
+        "server.store unavailable, server.log unavailable. Operate the host.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no alert while every component answers", async () => {
+    serve({});
+
+    renderScreen();
+
+    await screen.findByText("All clear");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("shows an alert and no All clear when the liveness read fails", async () => {
+    serve({});
+    vi.mocked(readLiveness).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    renderScreen();
+
+    const alert = await screen.findByRole("alert");
+    expect(
+      within(alert).getByText(
+        "The liveness of the daemon could not be read: The daemon did not answer.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("All clear")).toBeNull();
   });
 });

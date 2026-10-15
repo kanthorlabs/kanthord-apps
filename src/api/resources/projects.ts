@@ -1,6 +1,8 @@
 import { newUlid } from "@/lib/ulid";
 import { request } from "../client";
+import { readAllPages } from "../pages";
 import type {
+  BindingAgentView,
   BindingSet,
   BindingSetEntry,
   BindingSetWriteResult,
@@ -9,6 +11,7 @@ import type {
   Page,
   Project,
   ProjectBindingRecord,
+  WorkerBindingRecord,
 } from "../types";
 
 const PROJECT_PAGE_LIMIT = 1000;
@@ -96,6 +99,22 @@ export async function listBindings(projectId: string): Promise<readonly ProjectB
     cursor = page.next_cursor;
   } while (cursor !== null);
   return bindings;
+}
+
+export async function listWorkerBindings(
+  projectId: string,
+): Promise<readonly WorkerBindingRecord[]> {
+  const bindings = await listBindings(projectId);
+  return bindings.filter((binding): binding is WorkerBindingRecord => binding.kind === "worker");
+}
+
+export async function listBindingAgents(
+  projectId: string,
+  bindingId: string,
+): Promise<readonly BindingAgentView[]> {
+  return readAllPages<BindingAgentView>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/agent`,
+  );
 }
 
 export async function readBinding(

@@ -3,6 +3,7 @@ import type { AttentionDetails, AttentionGroup as Group, AttentionItem } from "@
 import { detailOf } from "@/lib/attention";
 
 import { DecisionItem } from "./decision-item";
+import { FixItem } from "./fix-item";
 import { OutsideItem } from "./outside-item";
 
 interface AttentionGroupProps {
@@ -37,8 +38,21 @@ export function AttentionGroup({
       </h4>
       <p className="text-sm text-muted-foreground">{group.description}</p>
       <ItemGroup aria-label={group.heading} className="gap-2">
-        {items.map((item) =>
-          item.kind === "merge_wait" || item.kind === "delivery_unconfirmed" ? (
+        {items.map((item) => {
+          if (item.group === "fixes") {
+            return (
+              <FixItem
+                key={item.id}
+                item={item}
+                showProject={showProject}
+                now={now}
+                reload={reload}
+                markActed={markActed}
+                titleRef={titleRef(item.id)}
+              />
+            );
+          }
+          return item.group === "outside" ? (
             <OutsideItem
               key={item.id}
               item={item}
@@ -62,8 +76,8 @@ export function AttentionGroup({
               setDialogOpen={setDialogOpen}
               titleRef={titleRef(item.id)}
             />
-          ),
-        )}
+          );
+        })}
       </ItemGroup>
     </section>
   );

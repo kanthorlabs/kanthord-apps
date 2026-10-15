@@ -28,7 +28,11 @@ const HEALTHY_SERVICES = {
   project: { bindings: 200 },
   mission: { operations: 200 },
 };
-const projects = [structuredClone(fx.PROJECT), structuredClone(fx.PROJECT_ATLAS)];
+const projects = [
+  structuredClone(fx.PROJECT),
+  structuredClone(fx.PROJECT_ATLAS),
+  structuredClone(fx.PROJECT_ORBIT),
+];
 const bindingSet = structuredClone(fx.BINDING_SET);
 const agents = structuredClone(fx.AGENT_DECLARATIONS);
 const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
@@ -69,6 +73,8 @@ const emptyProjectState = (projectId) => ({
   queue: [],
   executions: [],
 });
+
+projectStates.set(fx.PROJECT_ORBIT.id, emptyProjectState(fx.PROJECT_ORBIT.id));
 
 const stateOfProject = (projectId) => projectStates.get(projectId);
 const stateOfMission = (missionId) =>
@@ -1579,10 +1585,16 @@ on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res)
   });
 });
 
+const bindingConfigOf = (binding, projectId) => {
+  const config = bindingSet.bindings[binding.name]?.config ?? {};
+  const placement = fx.BINDING_PLACEMENTS[projectId]?.[binding.name];
+  return binding.kind === "worker" && placement !== undefined ? { ...config, placement } : config;
+};
+
 const bindingRecordOf = (binding, projectId) => ({
   ...binding,
   project_id: projectId,
-  config: bindingSet.bindings[binding.name]?.config ?? {},
+  config: bindingConfigOf(binding, projectId),
 });
 
 const bindingRecordByName = (name) =>
@@ -1629,6 +1641,80 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)$/, (m, _b, res) => {
     return projectEnvelope(res, 404, "project.binding.not_found", "No such binding.");
   }
   return json(res, 200, bindingRecordOf(binding, decodeURIComponent(m[1])));
+});
+
+const COOLING_UNTIL = Date.now() + 3 * 60 * 60_000;
+const COOLING_AGENTS = { [fx.PROJECT.id]: ["swe@1"] };
+
+const agentViewOf = (agent, binding, projectId) => {
+  const base = {
+    agent: agent.agent_name,
+    worker: bindingConfigOf(binding, projectId).worker,
+    worker_binding_id: binding.id,
+    binding_set_version: bindingSet.version,
+  };
+  const enablement = agent.enablement;
+  if (enablement === null || enablement.state !== "enabled") {
+    return {
+      ...base,
+      defaults: null,
+      entry: null,
+      effective: null,
+      chain: [],
+      active_position: null,
+      cooling: null,
+      valid: false,
+      issues: [{ path: [], code: "agent.enablement.unavailable" }],
+    };
+  }
+  const head = enablement.agent_providers.find(
+    (provider) => provider.name === enablement.default_configuration.agent_provider,
+  );
+  const cooling = COOLING_AGENTS[projectId]?.includes(agent.agent_name) ?? false;
+  const effective = {
+    agent_provider: head.name,
+    provider: head.provider,
+    credential: head.credential,
+    model_identifier: enablement.default_configuration.model_identifier,
+    reasoning_effort: enablement.default_configuration.reasoning_effort,
+  };
+  return {
+    ...base,
+    defaults: enablement.default_configuration,
+    entry: null,
+    effective,
+    chain: [
+      {
+        position: 0,
+        level: "enablement",
+        ...effective,
+        cooldown: cooling ? { code: "rate_limited", until_at: COOLING_UNTIL } : null,
+      },
+    ],
+    active_position: cooling ? null : 0,
+    cooling: cooling
+      ? { code: "agent.configuration.chain_cooling", until_at: COOLING_UNTIL }
+      : null,
+    valid: true,
+    issues: [],
+  };
+};
+
+on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/agent$/, (m, _b, res, _t, url) => {
+  const project = projectOrRefuse(res, m[1]);
+  if (project === undefined) return undefined;
+  const binding = Object.values(fx.GRAPH_BINDINGS).find(
+    (item) => item.id === decodeURIComponent(m[2]),
+  );
+  if (binding === undefined || binding.kind !== "worker") {
+    return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
+  }
+  const { worker } = bindingConfigOf(binding, project.id);
+  const items = agents
+    .filter((agent) => agent.worker_names.includes(worker))
+    .map((agent) => agentViewOf(agent, binding, project.id))
+    .sort((a, b) => a.agent.localeCompare(b.agent));
+  return json(res, 200, page(items, url));
 });
 
 const SSH_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git$/;

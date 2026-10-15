@@ -18,6 +18,20 @@ export const PROJECT_ATLAS = {
   workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-atlas",
 };
 
+export const PROJECT_ORBIT = {
+  id: "prj-orbit",
+  name: "orbit",
+  binding_set_version: 1,
+  created_at: now,
+  paused_at: now - 3 * 60 * 60_000,
+  workspace_directory: "/home/kanthord/.local/state/kanthord/projects/prj-orbit",
+};
+
+export const BINDING_PLACEMENTS = {
+  [PROJECT.id]: { "general-main": "server", "reviewer-main": "worker" },
+  [PROJECT_ATLAS.id]: { "general-main": "server", "reviewer-main": "server" },
+};
+
 const BASE_PROMPT = `You are a senior software engineer.
 
 ## Principles
@@ -1020,6 +1034,15 @@ export const GRAPH_EXECUTIONS = [
   ["EC5", ids.invoices, "lost", 300, 20, GRAPH_BINDINGS.reviewer],
   ["EC6", ids.invoices, "lost", 330, null, GRAPH_BINDINGS.worker],
   ["EC7", ids.invoices, "finished", 160, 140, GRAPH_BINDINGS.worker, null, true],
+  [
+    "EC8",
+    ids.invoices,
+    "finished",
+    40,
+    20,
+    GRAPH_BINDINGS.reviewer,
+    { reason: "provider_failed", code: "bad_request" },
+  ],
 ].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop, unnamed], index) =>
   executionRecord(
     PROJECT.id,
@@ -1275,6 +1298,26 @@ export const ATLAS_EXECUTIONS = [
     binding: GRAPH_BINDINGS.worker,
     stop,
   })),
+  {
+    executionId: `execution_${ulidAt(minutes(25), "AG1")}`,
+    traceSeed: "ag1",
+    nodeId: atlasId("YF6"),
+    claimState: "finished",
+    startedAgo: 25,
+    endedAgo: 5,
+    binding: GRAPH_BINDINGS.worker,
+    stop: { reason: "provider_failed", code: "unauthorized" },
+  },
+  {
+    executionId: `execution_${ulidAt(minutes(43230), "AG2")}`,
+    traceSeed: "ag2",
+    nodeId: atlasId("YF8"),
+    claimState: "finished",
+    startedAgo: 43230,
+    endedAgo: 43200,
+    binding: GRAPH_BINDINGS.reviewer,
+    stop: { reason: "provider_failed", code: "unauthorized" },
+  },
   ...atlasHistory,
 ].map((spec, index) => executionRecord(PROJECT_ATLAS.id, spec, index));
 

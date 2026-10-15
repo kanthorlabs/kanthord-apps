@@ -6,14 +6,21 @@ import type {
   MissionNodeRecord,
   MissionProposal,
   MissionRunnableNode,
+  Credential,
   Project,
   SchedulerExecutionRecord,
+  SchedulerJob,
+  WorkerBindingRecord,
+  WorkerCatalogItem,
+  WorkerInstanceRecord,
+  BindingAgentView,
 } from "@/api/types";
 
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
+import { fixItemsOf, type FixAttentionItem } from "./fix-attention";
 
-export type AttentionGroupId = "decisions" | "outside";
+export type AttentionGroupId = "decisions" | "fixes" | "outside";
 
 export interface AttentionGroup {
   readonly id: AttentionGroupId;
@@ -32,6 +39,13 @@ export const ATTENTION_GROUPS: readonly AttentionGroup[] = [
     plural: "decisions",
   },
   {
+    id: "fixes",
+    heading: "Fixes",
+    description: "The workforce cannot progress until a human changes the setup.",
+    noun: "fix",
+    plural: "fixes",
+  },
+  {
     id: "outside",
     heading: "Waiting outside kanthord",
     description: "The node waits for an act on an external platform.",
@@ -40,10 +54,25 @@ export const ATTENTION_GROUPS: readonly AttentionGroup[] = [
   },
 ];
 
+export interface WorkerBindingView {
+  readonly binding: WorkerBindingRecord;
+  readonly agents: readonly BindingAgentView[] | null;
+}
+
 export interface ProjectSnapshot {
   readonly project: Project;
   readonly missionVersion: number;
   readonly nodes: readonly MissionNodeRecord[];
+  readonly jobs: readonly SchedulerJob[] | null;
+  readonly instances: readonly WorkerInstanceRecord[] | null;
+  readonly executions: readonly SchedulerExecutionRecord[] | null;
+  readonly bindings: readonly WorkerBindingView[] | null;
+}
+
+export interface AttentionContext {
+  readonly now: number;
+  readonly catalog: readonly WorkerCatalogItem[] | null;
+  readonly credentials: readonly Credential[] | null;
 }
 
 export type DetailRead<T> =
@@ -81,22 +110,28 @@ export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail | Extern
 
 export type AttentionDetails = ReadonlyMap<string, AttentionDetail>;
 
-interface ItemBase {
+export interface ItemBase {
   readonly id: string;
   readonly group: AttentionGroupId;
   readonly project: Project;
-  readonly missionVersion: number;
-  readonly node: MissionRunnableNode;
-  readonly nodes: readonly MissionNodeRecord[];
+  readonly subject: string;
   readonly at: number | null;
 }
 
-export interface BlockedItem extends ItemBase {
+interface NodeItemBase extends ItemBase {
+  readonly missionVersion: number;
+  readonly node: MissionRunnableNode;
+  readonly nodes: readonly MissionNodeRecord[];
+}
+
+export interface BlockedItem extends NodeItemBase {
+  readonly group: "decisions";
   readonly kind: "blocked";
   readonly cause: string;
 }
 
-export interface PausedItem extends ItemBase {
+export interface PausedItem extends NodeItemBase {
+  readonly group: "decisions";
   readonly kind: "paused";
   readonly pause: PauseDerivation | null;
   readonly cause: string | null;
@@ -107,7 +142,8 @@ export interface DiscardedDependency {
   readonly name: string;
 }
 
-export interface DependencyItem extends ItemBase {
+export interface DependencyItem extends NodeItemBase {
+  readonly group: "decisions";
   readonly kind: "dependency_discarded";
   readonly cause: string;
   readonly discarded: readonly DiscardedDependency[];
@@ -118,13 +154,15 @@ export interface OutsideRequest {
   readonly evidence: MissionEvidence | null;
 }
 
-export interface MergeWaitItem extends ItemBase {
+export interface MergeWaitItem extends NodeItemBase {
+  readonly group: "outside";
   readonly kind: "merge_wait";
   readonly cause: string;
   readonly request: OutsideRequest;
 }
 
-export interface DeliveryItem extends ItemBase {
+export interface DeliveryItem extends NodeItemBase {
+  readonly group: "outside";
   readonly kind: "delivery_unconfirmed";
   readonly cause: string;
   readonly request: OutsideRequest;
@@ -134,7 +172,7 @@ export type DecisionAttentionItem = BlockedItem | PausedItem | DependencyItem;
 
 export type OutsideAttentionItem = MergeWaitItem | DeliveryItem;
 
-export type AttentionItem = DecisionAttentionItem | OutsideAttentionItem;
+export type AttentionItem = DecisionAttentionItem | FixAttentionItem | OutsideAttentionItem;
 
 export interface DetailTarget {
   readonly kind: "blocked" | "paused" | "open" | "external";
@@ -148,6 +186,11 @@ const KIND_ORDER: readonly AttentionItem["kind"][] = [
   "blocked",
   "paused",
   "dependency_discarded",
+  "project_paused",
+  "no_taker",
+  "agent_invalid",
+  "credential_refused",
+  "request_rejected",
   "merge_wait",
   "delivery_unconfirmed",
 ];
@@ -195,6 +238,7 @@ function blockedItemOf(snapshot: ProjectSnapshot, node: MissionRunnableNode): Bl
     kind: "blocked",
     group: "decisions",
     project: snapshot.project,
+    subject: node.content.name,
     missionVersion: snapshot.missionVersion,
     node,
     nodes: snapshot.nodes,
@@ -216,6 +260,7 @@ function pausedItemOf(
     kind: "paused",
     group: "decisions",
     project: snapshot.project,
+    subject: node.content.name,
     missionVersion: snapshot.missionVersion,
     node,
     nodes: snapshot.nodes,
@@ -278,6 +323,7 @@ function outsideItemOf(
   const base = {
     group: "outside",
     project: snapshot.project,
+    subject: node.content.name,
     missionVersion: snapshot.missionVersion,
     node,
     nodes: snapshot.nodes,
@@ -328,6 +374,7 @@ function itemsOf(
         kind: "dependency_discarded",
         group: "decisions",
         project: snapshot.project,
+        subject: node.content.name,
         missionVersion: snapshot.missionVersion,
         node,
         nodes: snapshot.nodes,
@@ -348,7 +395,7 @@ function compareItems(left: AttentionItem, right: AttentionItem): number {
   return (
     KIND_ORDER.indexOf(left.kind) - KIND_ORDER.indexOf(right.kind) ||
     compareAt(left.at, right.at) ||
-    left.node.content.name.localeCompare(right.node.content.name) ||
+    left.subject.localeCompare(right.subject) ||
     left.id.localeCompare(right.id)
   );
 }
@@ -356,9 +403,12 @@ function compareItems(left: AttentionItem, right: AttentionItem): number {
 export function deriveAttention(
   snapshots: readonly ProjectSnapshot[],
   details: AttentionDetails,
-  now: number,
+  context: AttentionContext,
 ): readonly AttentionItem[] {
-  return snapshots.flatMap((snapshot) => itemsOf(snapshot, details, now)).sort(compareItems);
+  return [
+    ...snapshots.flatMap((snapshot) => itemsOf(snapshot, details, context.now)),
+    ...fixItemsOf(snapshots, context),
+  ].sort(compareItems);
 }
 
 export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly DetailTarget[] {
