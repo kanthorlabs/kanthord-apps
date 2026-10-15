@@ -104,6 +104,7 @@ export interface ExternalDetail {
   readonly key: string;
   readonly actions: DetailRead<readonly MissionExternalAction[]>;
   readonly evidence: DetailRead<readonly MissionEvidence[]>;
+  readonly refreshFault: string | null;
 }
 
 export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail | ExternalDetail;
@@ -201,6 +202,26 @@ function isRunnable(node: MissionNodeRecord): node is MissionRunnableNode {
 
 export function detailKeyOf(node: MissionRunnableNode): string {
   return `${node.id}:${node.attempt}:${node.state}:${node.visible_revision}`;
+}
+
+function keptReadOf<T>(previous: DetailRead<T>, next: DetailRead<T>): DetailRead<T> {
+  return next.status === "failed" && previous.status === "ready" ? previous : next;
+}
+
+export function refreshedDetailOf(
+  previous: AttentionDetail | undefined,
+  next: AttentionDetail,
+): AttentionDetail {
+  if (previous?.kind !== "external" || next.kind !== "external" || previous.key !== next.key) {
+    return next;
+  }
+  const failed = [next.actions, next.evidence].find((read) => read.status === "failed");
+  return {
+    ...next,
+    actions: keptReadOf(previous.actions, next.actions),
+    evidence: keptReadOf(previous.evidence, next.evidence),
+    refreshFault: failed?.status === "failed" ? failed.message : null,
+  };
 }
 
 export function detailOf(
@@ -451,7 +472,8 @@ export function externalReadStateOf(
       continue;
     }
     const failed = [detail.actions, detail.evidence].find((read) => read.status === "failed");
-    if (failed?.status === "failed") failures.push({ target, message: failed.message });
+    const message = failed?.status === "failed" ? failed.message : detail.refreshFault;
+    if (message !== null) failures.push({ target, message });
   }
   return { pending, failures };
 }

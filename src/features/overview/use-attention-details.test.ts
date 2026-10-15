@@ -275,6 +275,50 @@ describe("useAttentionDetails", () => {
     expect(listNodeEvidence).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps the earlier answer when a read of the next cycle fails, and reports the fault", async () => {
+    const target = requested("n3");
+    vi.mocked(listNodeExternalActions)
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new ApiError("unreachable", "The daemon did not answer.", 0))
+      .mockResolvedValue([]);
+    const { result, rerender } = renderHook(
+      ({ cycleAt }) => useAttentionDetails([target], cycleAt),
+      { initialProps: { cycleAt: 1 } },
+    );
+    await waitFor(() => expect(result.current.details.get("n3")).toBeDefined());
+
+    rerender({ cycleAt: 2 });
+
+    await waitFor(() => {
+      const detail = result.current.details.get("n3");
+      expect(detail?.kind === "external" && detail.refreshFault).toBe("The daemon did not answer.");
+    });
+    const kept = result.current.details.get("n3");
+    expect(kept?.kind === "external" && kept.actions).toEqual({ status: "ready", data: [] });
+
+    rerender({ cycleAt: 3 });
+
+    await waitFor(() => {
+      const detail = result.current.details.get("n3");
+      expect(detail?.kind === "external" && detail.refreshFault).toBeNull();
+    });
+  });
+
+  it("shows a failed first read of an External.Requested node as failed", async () => {
+    vi.mocked(listNodeExternalActions).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    const { result } = renderHook(() => useAttentionDetails([requested("n3")], null));
+
+    await waitFor(() => expect(result.current.details.get("n3")).toBeDefined());
+
+    const detail = result.current.details.get("n3");
+    expect(detail?.kind === "external" && detail.actions).toEqual({
+      status: "failed",
+      message: "The daemon did not answer.",
+    });
+  });
+
   it("reads a Paused node again on no cycle", async () => {
     const target = paused("n2");
     const { result, rerender } = renderHook(

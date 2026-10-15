@@ -499,6 +499,7 @@ function externalDetail(
         key: detailKeyOf(requested),
         actions: { status: "ready", data: actions },
         evidence: { status: "ready", data: evidence },
+        refreshFault: null,
       },
     ],
   ]);
@@ -638,6 +639,7 @@ describe("externalReadStateOf", () => {
           key: detailKeyOf(requested),
           actions: { status: "failed" as const, message: "No answer." },
           evidence: { status: "ready" as const, data: [] },
+          refreshFault: null,
         },
       ],
     ]);
@@ -645,6 +647,25 @@ describe("externalReadStateOf", () => {
     const state = externalReadStateOf(targets, details);
 
     expect(state.pending).toBe(0);
+    expect(state.failures.map((failure) => failure.message)).toEqual(["No answer."]);
+  });
+
+  it("reports the fault of a refresh that kept the earlier answer", () => {
+    const details = new Map([
+      [
+        "n1",
+        {
+          kind: "external" as const,
+          key: detailKeyOf(requested),
+          actions: { status: "ready" as const, data: [] },
+          evidence: { status: "ready" as const, data: [] },
+          refreshFault: "No answer.",
+        },
+      ],
+    ]);
+
+    const state = externalReadStateOf(targets, details);
+
     expect(state.failures.map((failure) => failure.message)).toEqual(["No answer."]);
   });
 

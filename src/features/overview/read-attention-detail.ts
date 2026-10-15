@@ -75,7 +75,7 @@ async function readExternal(target: DetailTarget): Promise<ExternalDetail> {
     settle(listNodeExternalActions(node.id, node.attempt)),
     settle(listNodeEvidence(node.id, node.attempt)),
   ]);
-  return { kind: "external", key: detailKeyOf(node), actions, evidence };
+  return { kind: "external", key: detailKeyOf(node), actions, evidence, refreshFault: null };
 }
 
 export async function readAttentionDetail(target: DetailTarget): Promise<AttentionDetail> {

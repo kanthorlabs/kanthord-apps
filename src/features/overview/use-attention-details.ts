@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { detailKeyOf, type AttentionDetails, type DetailTarget } from "@/lib/attention";
+import {
+  detailKeyOf,
+  refreshedDetailOf,
+  type AttentionDetails,
+  type DetailTarget,
+} from "@/lib/attention";
 
 import { readAttentionDetail } from "./read-attention-detail";
 
@@ -39,7 +44,11 @@ export function useAttentionDetails(
     readAttentionDetail(target).then((detail) => {
       if (reading.current.get(nodeId) !== key) return;
       reading.current.delete(nodeId);
-      if (live.current) setDetails((current) => new Map(current).set(nodeId, detail));
+      if (live.current) {
+        setDetails((current) =>
+          new Map(current).set(nodeId, refreshedDetailOf(current.get(nodeId), detail)),
+        );
+      }
     });
   }, []);
 
