@@ -164,6 +164,19 @@ describe("useNodeResume consequence", () => {
     ).toBe("Resume returns Compute the rates to Pending, because Sign-up form is not Completed.");
   });
 
+  it("names an unknown dependency by its identity in the regular weight", () => {
+    const dependent = node("node_rates", "Compute the rates", "Paused", {
+      depends_on: ["node_gone"],
+    });
+    const { result } = mount({ node: dependent, nodes: [dependent] });
+    act(() => result.current.request());
+
+    expect(renderedText(result.current.consequence)).toEqual({
+      text: "Resume returns Compute the rates to Pending, because node_gone is not Completed.",
+      bold: ["Compute the rates"],
+    });
+  });
+
   it("returns to Waiting for the evaluation at the Further-work limit", () => {
     expect(consequence({ cause: "further-work-limit" })).toBe(
       "Resume returns Compute the rates to Waiting for its evaluation.",
@@ -203,6 +216,19 @@ describe("useNodeResume target", () => {
     expect(result.current.target).toBe("Available");
     expect(result.current.choice).toBe(true);
     expect(renderedText(result.current.waitingNeeds).text).toBe("Sign-up form to be Completed");
+  });
+
+  it("names an unknown dependency of a Waiting need by its identity in the regular weight", () => {
+    const dependent = node("node_rates", "Compute the rates", "Paused", {
+      depends_on: ["node_gone"],
+    });
+    const { result } = mount({ node: dependent, nodes: [dependent], cause: "further-work-limit" });
+    act(() => result.current.request());
+
+    expect(renderedText(result.current.waitingNeeds)).toEqual({
+      text: "node_gone to be Completed",
+      bold: [],
+    });
   });
 
   it("sends the target that the human picks", async () => {

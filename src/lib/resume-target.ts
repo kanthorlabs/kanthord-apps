@@ -13,17 +13,19 @@ export interface ResumeContext {
   readonly cause: PauseCause | null;
 }
 
+export type DependencyRef = { readonly name: string } | { readonly id: string };
+
 export type WaitingNeed =
   | { readonly kind: "objectives" }
   | { readonly kind: "requests" }
-  | { readonly kind: "dependency"; readonly name: string };
+  | { readonly kind: "dependency"; readonly dependency: DependencyRef };
 
 export type ResumeEnd =
   | { readonly kind: "external-failed" }
   | { readonly kind: "external-success" }
   | { readonly kind: "external-requested"; readonly open: boolean }
   | { readonly kind: "available" }
-  | { readonly kind: "pending"; readonly dependency: string }
+  | { readonly kind: "pending"; readonly dependency: DependencyRef }
   | { readonly kind: "waiting" };
 
 export type ResumeNote = "failure-count" | "stall-count" | "stall-count-waiting-offered";
@@ -52,13 +54,15 @@ function ownersOf(
 function unsatisfiedDependencyOf(
   node: MissionRunnableNode,
   nodes: readonly MissionNodeRecord[],
-): string | null {
+): DependencyRef | null {
   const known = byId(nodes);
   for (const owner of ownersOf(node, known)) {
     for (const id of owner.depends_on) {
       const target = known.get(id);
-      if (target === undefined) return id;
-      if (target.kind === "task" || target.state !== "Completed") return target.content.name;
+      if (target === undefined) return { id };
+      if (target.kind === "task" || target.state !== "Completed") {
+        return { name: target.content.name };
+      }
     }
   }
   return null;
@@ -82,7 +86,7 @@ export function waitingNeedsOf(context: ResumeContext): readonly WaitingNeed[] {
   if (!objectivesTerminal(context.node, context.nodes)) needs.push({ kind: "objectives" });
   if (unresolvedRequestsOf(context.actions).length > 0) needs.push({ kind: "requests" });
   const dependency = unsatisfiedDependencyOf(context.node, context.nodes);
-  if (dependency !== null) needs.push({ kind: "dependency", name: dependency });
+  if (dependency !== null) needs.push({ kind: "dependency", dependency });
   return needs;
 }
 

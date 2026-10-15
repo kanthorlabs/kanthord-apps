@@ -115,7 +115,7 @@ describe("resumeEndOf", () => {
 
     expect(resumeEndOf(context({ node: dependent, nodes }), "Available")).toEqual({
       kind: "pending",
-      dependency: "Sign-up form",
+      dependency: { name: "Sign-up form" },
     });
   });
 
@@ -141,7 +141,7 @@ describe("resumeEndOf", () => {
 
     expect(resumeEndOf(context({ node: dependent, nodes: [dependent] }), "Available")).toEqual({
       kind: "pending",
-      dependency: "n_missing",
+      dependency: { id: "n_missing" },
     });
   });
 });
@@ -180,7 +180,7 @@ describe("waitingNeedsOf", () => {
     const nodes = [dependent, node("n2", "Sign-up form", "Blocked")];
 
     expect(waitingNeedsOf(context({ node: dependent, nodes }))).toEqual([
-      { kind: "dependency", name: "Sign-up form" },
+      { kind: "dependency", dependency: { name: "Sign-up form" } },
     ]);
   });
 });
@@ -252,7 +252,7 @@ describe("choosesTarget", () => {
   it("offers the choice only when the target decides the end", () => {
     expect(choosesTarget({ kind: "available" })).toBe(true);
     expect(choosesTarget({ kind: "waiting" })).toBe(true);
-    expect(choosesTarget({ kind: "pending", dependency: "x" })).toBe(true);
+    expect(choosesTarget({ kind: "pending", dependency: { name: "x" } })).toBe(true);
     expect(choosesTarget({ kind: "external-success" })).toBe(false);
     expect(choosesTarget({ kind: "external-failed" })).toBe(false);
     expect(choosesTarget({ kind: "external-requested", open: true })).toBe(false);

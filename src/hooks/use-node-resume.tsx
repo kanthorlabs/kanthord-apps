@@ -12,6 +12,7 @@ import {
   resumeEndOf,
   resumeNotesOf,
   waitingNeedsOf,
+  type DependencyRef,
   type ResumeContext,
   type ResumeEnd,
   type ResumeNote,
@@ -56,14 +57,15 @@ function isResumable(node: MissionRunnableNode, actions: readonly MissionExterna
   return node.retired_at === null && node.state === "Paused" && actions !== null;
 }
 
+function dependencyOf(dependency: DependencyRef): ReactNode {
+  if ("name" in dependency) return <RecordName>{dependency.name}</RecordName>;
+  return <span className="break-all">{dependency.id}</span>;
+}
+
 function needText(need: WaitingNeed): ReactNode {
   if (need.kind === "objectives") return "every objective of the initiative to be terminal";
   if (need.kind === "requests") return "every request of the open attempt to reach its end state";
-  return (
-    <>
-      <RecordName>{need.name}</RecordName> to be Completed
-    </>
-  );
+  return <>{dependencyOf(need.dependency)} to be Completed</>;
 }
 
 function needsOf(needs: readonly WaitingNeed[]): ReactNode {
@@ -94,8 +96,7 @@ function consequenceOf(node: MissionRunnableNode, end: ResumeEnd): ReactNode {
   if (end.kind === "pending") {
     return (
       <>
-        Resume returns {name} to Pending, because <RecordName>{end.dependency}</RecordName> is not
-        Completed.
+        Resume returns {name} to Pending, because {dependencyOf(end.dependency)} is not Completed.
       </>
     );
   }
