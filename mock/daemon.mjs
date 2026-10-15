@@ -1443,8 +1443,10 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
   for (const action of unresolved) {
     checkResolutions.set(resolutionKey(node.id, node.attempt, action.action.key), resolution);
   }
-  if (resolution === "expected-end" && node.state === "External.Requested")
+  if (resolution === "expected-end" && node.state === "External.Requested") {
     node.state = "External.Success";
+    state.queue = state.queue.filter((job) => job.node_id !== node.id);
+  }
   return json(res, 200, {
     results: unresolved.map((action) => ({
       evidence_id: action.request_evidence_id,
