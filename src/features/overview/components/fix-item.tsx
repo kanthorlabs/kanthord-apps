@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { useProjectPause } from "@/hooks/use-project-pause";
-import { fixTargetOf, type FixAttentionItem } from "@/lib/fix-attention";
+import { fixTargetOf, spreadTextOf, type FixAttentionItem } from "@/lib/fix-attention";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
 
@@ -24,6 +24,7 @@ interface FixItemProps {
 
 export function FixItem({ item, showProject, now, reload, markActed, titleRef }: FixItemProps) {
   const target = fixTargetOf(item);
+  const spread = spreadTextOf(item);
   const itemId = item.id;
   const resumed = useCallback(() => {
     markActed(itemId);
@@ -46,7 +47,8 @@ export function FixItem({ item, showProject, now, reload, markActed, titleRef }:
           <Badge variant="outline">{item.cause}</Badge>
         </div>
         <ItemDescription className="line-clamp-none">
-          {showProject && item.kind !== "project_paused" && (
+          {spread !== null && `${spread} · `}
+          {spread === null && showProject && item.kind !== "project_paused" && (
             <>
               project <RecordName>{item.project.name}</RecordName> ·{" "}
             </>

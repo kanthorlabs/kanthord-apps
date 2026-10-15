@@ -2261,12 +2261,12 @@ describe("OverviewScreen fixes", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("swe@1 in coder-main"));
+    const item = await waitFor(() => itemOf("swe@1"));
     expect(within(item).getByText("Invalid agent configuration")).toBeInTheDocument();
     expect(
       within(item).getByText(
         textContent(
-          "Agent swe@1 of binding coder-main has an invalid configuration (agent.enablement.unavailable). Fix the enablement on the agent page.",
+          "Agent swe@1 has an invalid configuration (agent.enablement.unavailable) in binding coder-main in project kanthord. Fix the enablement on the agent page.",
         ),
       ),
     ).toBeInTheDocument();
@@ -2277,7 +2277,37 @@ describe("OverviewScreen fixes", () => {
       "href",
       "/agents/swe%401",
     );
-    expect(screen.queryByRole("link", { name: "re@1 in coder-main" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "re@1" })).toBeNull();
+  });
+
+  it("lists one item for a server-wide agent fault and names each binding in its project", async () => {
+    const invalid = agentView("swe@1", {
+      valid: false,
+      issues: [{ path: [], code: "agent.enablement.unavailable" }],
+    });
+    serve({
+      nodes: { "prj-1": [], "prj-2": [] },
+      bindings: {
+        "prj-1": [workerBinding("coder-main", "coder@1")],
+        "prj-2": [workerBinding("coder-extra", "coder@1", undefined, "prj-2")],
+      },
+      agents: { "binding_coder-main": [invalid], "binding_coder-extra": [invalid] },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("swe@1"));
+    expect(screen.getAllByRole("link", { name: "swe@1" })).toHaveLength(1);
+    expect(
+      within(item).getByText(
+        textContent(
+          "Agent swe@1 has an invalid configuration (agent.enablement.unavailable) in binding coder-main in project kanthord, binding coder-extra in project atlas. Fix the enablement on the agent page.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByText(textContent("2 bindings in 2 projects · age unknown")),
+    ).toBeInTheDocument();
   });
 
   describe("provider refusals", () => {
@@ -2308,6 +2338,25 @@ describe("OverviewScreen fixes", () => {
         "href",
         "/llm/openai-main",
       );
+    });
+
+    it("states the count of nodes and projects of a refused credential", async () => {
+      serve({
+        nodes: { "prj-1": [run], "prj-2": [plain("n_s", "Add export", "Waiting")] },
+        pages: {
+          "prj-1": [providerStop("e1", "n_r", "unauthorized")],
+          "prj-2": [providerStop("e2", "n_s", "unauthorized")],
+        },
+        credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("openai-main"));
+      expect(
+        within(item).getByText(textContent("2 nodes in 2 projects · 2 hours ago")),
+      ).toBeInTheDocument();
+      expect(within(item).getByText(/, for example in the execution of/)).toBeInTheDocument();
     });
 
     it("clears after a live revision that postdates the stop", async () => {

@@ -24,21 +24,31 @@ export interface NoTakerItem extends FixBase {
   readonly hint: TakerHint;
 }
 
-export interface AgentInvalidItem extends FixBase {
+interface SpreadBase extends FixBase {
+  readonly count: number;
+  readonly projectCount: number;
+}
+
+export interface InvalidBinding {
+  readonly binding: string;
+  readonly project: string;
+}
+
+export interface AgentInvalidItem extends SpreadBase {
   readonly kind: "agent_invalid";
   readonly agent: string;
-  readonly binding: string;
+  readonly bindings: readonly InvalidBinding[];
   readonly issues: readonly string[];
 }
 
-export interface CredentialRefusedItem extends FixBase {
+export interface CredentialRefusedItem extends SpreadBase {
   readonly kind: "credential_refused";
   readonly credential: string;
   readonly credentials: readonly string[];
   readonly nodeName: string;
 }
 
-export interface RequestRejectedItem extends FixBase {
+export interface RequestRejectedItem extends SpreadBase {
   readonly kind: "request_rejected";
   readonly agent: string;
   readonly nodeName: string;
@@ -105,23 +115,65 @@ function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readon
   return items;
 }
 
-function agentInvalidOf(snapshot: ProjectSnapshot): readonly AgentInvalidItem[] {
-  return (snapshot.bindings ?? []).flatMap((entry) =>
-    (entry.agents ?? [])
-      .filter((view) => !view.valid)
-      .map((view) => ({
-        id: `agent_invalid:${snapshot.project.id}:${entry.binding.id}:${view.agent}`,
-        kind: "agent_invalid" as const,
-        group: "fixes" as const,
-        project: snapshot.project,
-        at: null,
-        subject: `${view.agent} in ${entry.binding.name}`,
-        cause: "Invalid agent configuration",
-        agent: view.agent,
-        binding: entry.binding.name,
-        issues: view.issues.map((issue) => issue.code),
-      })),
+interface InvalidGroup {
+  readonly project: Project;
+  readonly agent: string;
+  readonly issues: readonly string[];
+  readonly bindings: InvalidBinding[];
+  readonly projectIds: Set<string>;
+}
+
+interface InvalidView {
+  readonly project: Project;
+  readonly binding: string;
+  readonly agent: string;
+  readonly issues: readonly string[];
+}
+
+function invalidViewsOf(snapshots: readonly ProjectSnapshot[]): readonly InvalidView[] {
+  return snapshots.flatMap((snapshot) =>
+    (snapshot.bindings ?? []).flatMap((entry) =>
+      (entry.agents ?? [])
+        .filter((view) => !view.valid)
+        .map((view) => ({
+          project: snapshot.project,
+          binding: entry.binding.name,
+          agent: view.agent,
+          issues: [...new Set(view.issues.map((issue) => issue.code))].sort(),
+        })),
+    ),
   );
+}
+
+function agentInvalidOf(snapshots: readonly ProjectSnapshot[]): readonly AgentInvalidItem[] {
+  const groups = new Map<string, InvalidGroup>();
+  for (const view of invalidViewsOf(snapshots)) {
+    const key = `${view.agent}:${view.issues.join(",")}`;
+    const group = groups.get(key) ?? {
+      project: view.project,
+      agent: view.agent,
+      issues: view.issues,
+      bindings: [],
+      projectIds: new Set<string>(),
+    };
+    group.bindings.push({ binding: view.binding, project: view.project.name });
+    group.projectIds.add(view.project.id);
+    groups.set(key, group);
+  }
+  return [...groups].map(([key, group]) => ({
+    id: `agent_invalid:${key}`,
+    kind: "agent_invalid" as const,
+    group: "fixes" as const,
+    project: group.project,
+    at: null,
+    subject: group.agent,
+    cause: "Invalid agent configuration",
+    agent: group.agent,
+    bindings: group.bindings,
+    issues: group.issues,
+    count: group.bindings.length,
+    projectCount: group.projectIds.size,
+  }));
 }
 
 function latestEndedOf(
@@ -162,18 +214,30 @@ function refusalsOf(
   });
 }
 
-function oldestBy(
+interface RefusalGroup {
+  readonly oldest: Refusal;
+  readonly count: number;
+  readonly projectCount: number;
+}
+
+function groupBy(
   refusals: readonly Refusal[],
   keysOf: (refusal: Refusal) => readonly string[],
-): ReadonlyMap<string, Refusal> {
-  const oldest = new Map<string, Refusal>();
+): ReadonlyMap<string, RefusalGroup> {
+  const members = new Map<string, Refusal[]>();
   for (const refusal of refusals) {
-    for (const key of keysOf(refusal)) {
-      const held = oldest.get(key);
-      if (held === undefined || refusal.endedAt < held.endedAt) oldest.set(key, refusal);
-    }
+    for (const key of keysOf(refusal)) members.set(key, [...(members.get(key) ?? []), refusal]);
   }
-  return oldest;
+  return new Map(
+    [...members].map(([key, group]) => [
+      key,
+      {
+        oldest: group.reduce((held, refusal) => (refusal.endedAt < held.endedAt ? refusal : held)),
+        count: group.length,
+        projectCount: new Set(group.map((refusal) => refusal.project.id)).size,
+      },
+    ]),
+  );
 }
 
 function isRotatedAfter(
@@ -199,7 +263,10 @@ function credentialRefusedOf(
   const items: CredentialRefusedItem[] = [];
   const unrotatedOf = (refusal: Refusal) =>
     refusal.credentials.filter((name) => !isRotatedAfter(credentials, name, refusal.endedAt));
-  for (const [credential, refusal] of oldestBy(refusals, unrotatedOf)) {
+  for (const [credential, { oldest: refusal, count, projectCount }] of groupBy(
+    refusals,
+    unrotatedOf,
+  )) {
     items.push({
       id: `credential_refused:${credential}`,
       kind: "credential_refused",
@@ -211,6 +278,8 @@ function credentialRefusedOf(
       credential,
       credentials: refusal.credentials,
       nodeName: refusal.nodeName,
+      count,
+      projectCount,
     });
   }
   return items;
@@ -218,17 +287,21 @@ function credentialRefusedOf(
 
 function requestRejectedOf(snapshots: readonly ProjectSnapshot[]): readonly RequestRejectedItem[] {
   const refusals = snapshots.flatMap((snapshot) => refusalsOf(snapshot, "bad_request"));
-  return [...oldestBy(refusals, (entry) => entry.agents)].map(([agent, refusal]) => ({
-    id: `request_rejected:${agent}`,
-    kind: "request_rejected" as const,
-    group: "fixes" as const,
-    project: refusal.project,
-    at: refusal.endedAt,
-    subject: agent,
-    cause: "Provider rejected the request",
-    agent,
-    nodeName: refusal.nodeName,
-  }));
+  return [...groupBy(refusals, (entry) => entry.agents)].map(
+    ([agent, { oldest: refusal, count, projectCount }]) => ({
+      id: `request_rejected:${agent}`,
+      kind: "request_rejected" as const,
+      group: "fixes" as const,
+      project: refusal.project,
+      at: refusal.endedAt,
+      subject: agent,
+      cause: "Provider rejected the request",
+      agent,
+      nodeName: refusal.nodeName,
+      count,
+      projectCount,
+    }),
+  );
 }
 
 export function fixItemsOf(
@@ -238,7 +311,7 @@ export function fixItemsOf(
   return [
     ...snapshots.flatMap(projectPausedOf),
     ...snapshots.flatMap((snapshot) => noTakerOf(snapshot, context)),
-    ...snapshots.flatMap(agentInvalidOf),
+    ...agentInvalidOf(snapshots),
     ...credentialRefusedOf(snapshots, context),
     ...requestRejectedOf(snapshots),
   ];
@@ -257,4 +330,15 @@ export function fixTargetOf(item: FixAttentionItem): FixTarget {
     return { path: `/llm/${encodeURIComponent(item.credential)}`, label: "Open credential" };
   }
   return { path: `/agents/${encodeURIComponent(item.agent)}`, label: "Open agent" };
+}
+
+function plural(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+export function spreadTextOf(item: FixAttentionItem): string | null {
+  if (item.kind === "project_paused" || item.kind === "no_taker") return null;
+  if (item.count === 1 && item.projectCount === 1) return null;
+  const noun = item.kind === "agent_invalid" ? "binding" : "node";
+  return `${plural(item.count, noun)} in ${plural(item.projectCount, "project")}`;
 }

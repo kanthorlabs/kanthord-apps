@@ -17,7 +17,7 @@ import type {
 } from "@/api/types";
 
 import type { AttentionContext, ProjectSnapshot, WorkerBindingView } from "./attention";
-import { fixItemsOf, fixTargetOf } from "./fix-attention";
+import { fixItemsOf, fixTargetOf, spreadTextOf } from "./fix-attention";
 import { newUlid } from "./ulid";
 
 const NOW = 1_000_000_000_000;
@@ -380,15 +380,81 @@ describe("fixItemsOf agent_invalid", () => {
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      id: "agent_invalid:prj-1:binding_coder-main:swe@1",
+      id: "agent_invalid:swe@1:agent.enablement.unavailable",
       kind: "agent_invalid",
       cause: "Invalid agent configuration",
-      subject: "swe@1 in coder-main",
+      subject: "swe@1",
       agent: "swe@1",
-      binding: "coder-main",
+      bindings: [{ binding: "coder-main", project: "atlas" }],
       issues: ["agent.enablement.unavailable"],
+      count: 1,
+      projectCount: 1,
       at: null,
     });
+  });
+
+  it("lists one item for an agent and its issue codes across bindings and projects", () => {
+    const invalid = agentView("swe@1", {
+      valid: false,
+      issues: [{ path: [], code: "agent.enablement.unavailable" }],
+    });
+    const other = { ...PROJECT, id: "prj-2", name: "beta" };
+
+    const items = fixItemsOf(
+      [
+        snapshot({
+          bindings: [
+            bindingView("coder-main", "coder@1", undefined, [invalid]),
+            bindingView("coder-extra", "coder@1", undefined, [invalid]),
+          ],
+        }),
+        snapshot({
+          project: other,
+          bindings: [bindingView("coder-main", "coder@1", undefined, [invalid])],
+        }),
+      ],
+      context(),
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "agent_invalid",
+      bindings: [
+        { binding: "coder-main", project: "atlas" },
+        { binding: "coder-extra", project: "atlas" },
+        { binding: "coder-main", project: "beta" },
+      ],
+      count: 3,
+      projectCount: 2,
+    });
+  });
+
+  it("lists an item for each set of issue codes of an agent", () => {
+    const unavailable = agentView("swe@1", {
+      valid: false,
+      issues: [{ path: [], code: "agent.enablement.unavailable" }],
+    });
+    const missing = agentView("swe@1", {
+      valid: false,
+      issues: [{ path: [], code: "agent.provider.missing" }],
+    });
+
+    const items = fixItemsOf(
+      [
+        snapshot({
+          bindings: [
+            bindingView("coder-main", "coder@1", undefined, [unavailable]),
+            bindingView("coder-extra", "coder@1", undefined, [missing]),
+          ],
+        }),
+      ],
+      context(),
+    );
+
+    expect(items.map((item) => item.id).sort()).toEqual([
+      "agent_invalid:swe@1:agent.enablement.unavailable",
+      "agent_invalid:swe@1:agent.provider.missing",
+    ]);
   });
 
   it("lists nothing while the agent views are unread", () => {
@@ -429,6 +495,8 @@ describe("fixItemsOf credential_refused", () => {
       credential: "openai-main",
       credentials: ["openai-main"],
       nodeName: "Add reset",
+      count: 1,
+      projectCount: 1,
       at: END,
     });
   });
@@ -510,7 +578,31 @@ describe("fixItemsOf credential_refused", () => {
     );
 
     expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ at: END - 10 * MINUTE, nodeName: "Add export" });
+    expect(items[0]).toMatchObject({
+      at: END - 10 * MINUTE,
+      nodeName: "Add export",
+      count: 2,
+      projectCount: 1,
+    });
+  });
+
+  it("counts the projects of the nodes that the provider refused", () => {
+    const other = { ...PROJECT, id: "prj-2", name: "beta" };
+    const second = node("n2", "Waiting", { content: { ...work.content, name: "Add export" } });
+
+    const [item] = fixItemsOf(
+      [
+        refused(),
+        snapshot({
+          project: other,
+          nodes: [second],
+          executions: [execution("execution_2", "n2", END + MINUTE, UNAUTHORIZED)],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ project: PROJECT, count: 2, projectCount: 2 });
   });
 
   it("judges by the execution that ended last", () => {
@@ -620,6 +712,41 @@ describe("fixItemsOf request_rejected", () => {
 
   it("lists nothing while the executions are unread", () => {
     expect(fixItemsOf([snapshot({ nodes: [work], executions: null })], context())).toEqual([]);
+  });
+});
+
+describe("spreadTextOf", () => {
+  const END = NOW - 10 * MINUTE;
+  const work = node("n1", "Waiting");
+
+  function rejectedIn(projects: readonly Project[]) {
+    return fixItemsOf(
+      projects.map((project) =>
+        snapshot({
+          project,
+          nodes: [work],
+          executions: [execution("execution_1", "n1", END, BAD_REQUEST)],
+        }),
+      ),
+      context(),
+    );
+  }
+
+  it("states the count of nodes and projects", () => {
+    const second = { ...PROJECT, id: "prj-2", name: "beta" };
+    const third = { ...PROJECT, id: "prj-3", name: "gamma" };
+
+    expect(spreadTextOf(rejectedIn([PROJECT, second, third])[0]!)).toBe("3 nodes in 3 projects");
+  });
+
+  it("states nothing for one node in one project", () => {
+    expect(spreadTextOf(rejectedIn([PROJECT])[0]!)).toBeNull();
+  });
+
+  it("states nothing for a paused project", () => {
+    const [item] = fixItemsOf([snapshot({ project: { ...PROJECT, paused_at: 5 } })], context());
+
+    expect(spreadTextOf(item!)).toBeNull();
   });
 });
 
