@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { AttentionItem } from "@/lib/attention";
 
 interface PendingHandoff {
-  readonly nodeId: string;
+  readonly itemId: string;
   readonly index: number;
   readonly readAt: number | null;
 }
@@ -38,7 +38,8 @@ export function useAttentionFocus(
 
   const markActed = useCallback((nodeId: string) => {
     const index = shown.current.findIndex((item) => item.node.id === nodeId);
-    if (index >= 0) pending.current = { nodeId, index, readAt: readAt.current };
+    const item = shown.current[index];
+    if (item !== undefined) pending.current = { itemId: item.id, index, readAt: readAt.current };
   }, []);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function useAttentionFocus(
     shown.current = items;
     readAt.current = updatedAt;
     if (handoff === null) return;
-    if (items.some((item) => item.node.id === handoff.nodeId)) {
+    if (items.some((item) => item.id === handoff.itemId)) {
       if (handoff.readAt !== updatedAt) pending.current = null;
       return;
     }

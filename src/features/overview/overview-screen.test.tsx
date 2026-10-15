@@ -1094,6 +1094,38 @@ describe("OverviewScreen focus handoff", () => {
     await waitFor(() => expect(screen.getByRole("link", { name: "Third item" })).toHaveFocus());
   });
 
+  it("moves focus to the title of the new item when an act changes the kind of the item", async () => {
+    const user = userEvent.setup();
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [
+        paused("n_p", "Compute the rates", 3),
+        plain("n_b", "Drop the legacy checkout", "Discarded"),
+      ],
+    };
+    serve({ nodes });
+    vi.mocked(resumeNode).mockImplementation(async () => {
+      nodes["prj-1"] = [
+        { ...pending("n_p", "Compute the rates", ["n_b"]), attempt: 0 },
+        plain("n_b", "Drop the legacy checkout", "Discarded"),
+      ];
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Compute the rates"));
+    await user.click(await within(item).findByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Try again.");
+    await user.click(within(dialog).getByRole("button", { name: "Resume node" }));
+
+    await waitFor(() =>
+      expect(within(itemOf("Compute the rates")).getByText("Discarded dependency")).toBeVisible(),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Compute the rates" })).toHaveFocus(),
+    );
+  });
+
   it("moves focus to the last item when the discarded item was the last", async () => {
     const user = userEvent.setup();
     const nodes: Record<string, MissionNodeRecord[]> = {
