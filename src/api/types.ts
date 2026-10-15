@@ -557,13 +557,15 @@ export interface MissionOutcome {
   readonly created_at: number;
 }
 
+export type ActionLanding = "human" | "kanthord";
+
 export interface FrozenAction {
   readonly key: string;
   readonly binding_id: string;
   readonly action: RepositoryActionName;
   readonly expected_end_state: "pull_request_merged" | "base_branch_pushed";
   readonly follows: string | null;
-  readonly configuration: { readonly base_branch: string };
+  readonly configuration: { readonly base_branch: string; readonly landing?: ActionLanding };
 }
 
 export type StartPoint = "base_branch" | "node_branch";
@@ -739,6 +741,35 @@ export interface MissionNodeOverrideBody extends MissionHumanActBody {
 export interface MissionDependencyBody {
   readonly reason: string;
   readonly expected_mission_version: number;
+}
+
+export interface MissionNodeCheckBody {
+  readonly expected_mission_version: number;
+}
+
+export type MissionCheckResolution = "unresolved" | "expected-end" | "other-end";
+
+export interface MissionNodeCheckResult {
+  readonly evidence_id: string;
+  readonly requirement_key: string;
+  readonly resolution: MissionCheckResolution;
+}
+
+export interface MissionNodeCheckFailure {
+  readonly evidence_id: string;
+  readonly error: {
+    readonly error: {
+      readonly code: string;
+      readonly message: string;
+      readonly details: unknown;
+    };
+    readonly request_id: string;
+  };
+}
+
+export interface MissionNodeCheckAnswer {
+  readonly results: readonly MissionNodeCheckResult[];
+  readonly failures: readonly MissionNodeCheckFailure[];
 }
 
 export interface MissionProposalApproveResult {

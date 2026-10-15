@@ -1361,6 +1361,10 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
   });
 });
 
+const checkResolutions = new Map();
+const checkCounts = new Map();
+const resolutionKey = (nodeId, attemptNumber, key) => `${nodeId}:${attemptNumber}:${key}`;
+
 const externalActionsOf = (nodeId) =>
   (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
     attempt.required_external_actions.map((action) => {
@@ -1376,7 +1380,11 @@ const externalActionsOf = (nodeId) =>
         action,
         requested: request !== undefined,
         request_evidence_id: request?.id ?? null,
-        resolution: request === undefined ? "unrequested" : "unresolved",
+        resolution:
+          request === undefined
+            ? "unrequested"
+            : (checkResolutions.get(resolutionKey(nodeId, attempt.attempt, action.key)) ??
+              "unresolved"),
       };
     }),
   );
@@ -1384,6 +1392,61 @@ const externalActionsOf = (nodeId) =>
 on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
   const nodeId = decodeURIComponent(m[1]);
   return json(res, 200, page(byAttempt(externalActionsOf(nodeId), nodeId, url), url));
+});
+
+const CHECK_FAILURE_NODES = new Set([fx.ATLAS_RELEASE_NOTES_ID]);
+
+const checkFailureOf = (evidenceId) => ({
+  evidence_id: evidenceId,
+  error: {
+    error: {
+      code: "mission.node.claim_live",
+      message: "The platform did not answer within the deadline.",
+      details: null,
+    },
+    request_id: "request_01J9ZQ4XKM3B6V8N2R5T7W0RQ1",
+  },
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (!hasOnly(b, ["expected_mission_version"]))
+    return validationFailed(res, "expected_mission_version");
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  const unresolved = externalActionsOf(node.id).filter(
+    (action) =>
+      action.attempt === node.attempt && action.requested && action.resolution === "unresolved",
+  );
+  if (unresolved.length === 0)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.no_unresolved_request",
+      "The open attempt has no unresolved request.",
+    );
+  const count = (checkCounts.get(node.id) ?? 0) + 1;
+  checkCounts.set(node.id, count);
+  if (count === 1 && CHECK_FAILURE_NODES.has(node.id))
+    return json(res, 200, {
+      results: [],
+      failures: unresolved.map((action) => checkFailureOf(action.request_evidence_id)),
+    });
+  const resolution = count === 1 ? "unresolved" : "expected-end";
+  for (const action of unresolved) {
+    checkResolutions.set(resolutionKey(node.id, node.attempt, action.action.key), resolution);
+  }
+  if (resolution === "expected-end" && node.state === "External.Requested")
+    node.state = "External.Success";
+  return json(res, 200, {
+    results: unresolved.map((action) => ({
+      evidence_id: action.request_evidence_id,
+      requirement_key: action.action.key,
+      resolution,
+    })),
+    failures: [],
+  });
 });
 
 const OVERRIDE_STATES = [

@@ -8,7 +8,7 @@ import type {
   NodeState,
   Project,
 } from "@/api/types";
-import { detailKeyOf, type AttentionDetail, type AttentionItem } from "@/lib/attention";
+import { detailKeyOf, type AttentionDetail, type DecisionAttentionItem } from "@/lib/attention";
 
 vi.mock("@/api/resources/mission");
 vi.mock("sonner", () => ({
@@ -81,16 +81,16 @@ function unresolved(): MissionExternalAction {
   };
 }
 
-function actsOf(item: AttentionItem, detail: AttentionDetail | null) {
+function actsOf(item: DecisionAttentionItem, detail: AttentionDetail | null) {
   return renderHook(() =>
-    useDecisionActs(item, detail, { reload: vi.fn(), setDialogOpen: vi.fn() }),
+    useDecisionActs(item, detail, { reload: vi.fn(), markActed: vi.fn(), setDialogOpen: vi.fn() }),
   ).result.current;
 }
 
 describe("useDecisionActs", () => {
   it("exposes the open proposals of a Blocked initiative", () => {
     const target = node("initiative", "Blocked");
-    const item: AttentionItem = {
+    const item: DecisionAttentionItem = {
       id: "blocked:node_1",
       kind: "blocked",
       group: "decisions",
@@ -117,7 +117,7 @@ describe("useDecisionActs", () => {
 
   it("exposes the unresolved request sentence of a Paused node", () => {
     const target = node("objective", "Paused");
-    const item: AttentionItem = {
+    const item: DecisionAttentionItem = {
       id: "paused:node_1",
       kind: "paused",
       group: "decisions",

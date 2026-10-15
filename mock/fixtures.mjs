@@ -1131,7 +1131,61 @@ export const ATLAS_NODES = [
     state: "Pending",
     attempt: 0,
   }),
+  atlasNode("YFD", "objective", "release-notes.md", "YF1", "Publish the release notes", {
+    state: "External.Requested",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
 ];
+
+export const ATLAS_RELEASE_NOTES_ID = atlasId("YFD");
+
+GRAPH_ATTEMPTS[ATLAS_RELEASE_NOTES_ID] = [
+  {
+    node_id: ATLAS_RELEASE_NOTES_ID,
+    attempt: 1,
+    node_revision: 1,
+    start_point: "base_branch",
+    required_external_actions: [
+      {
+        key: "kanthord-repo.merge_push",
+        binding_id: REPO,
+        action: "merge_push",
+        expected_end_state: "base_branch_pushed",
+        follows: null,
+        configuration: { base_branch: "main", landing: "kanthord" },
+      },
+    ],
+    opened_at: minutes(80),
+    closed_at: null,
+    outcome_ids: [],
+    opened_by: human,
+  },
+];
+
+GRAPH_EVIDENCE.push({
+  id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0RF1",
+  node_id: ATLAS_RELEASE_NOTES_ID,
+  attempt: 1,
+  subject: "Push of the release notes to main",
+  assets: [
+    {
+      id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PF1",
+      kind: "platform",
+      address: {
+        kind: "branch_push",
+        resource_identity: "repository:github:kanthorlabs/kanthord",
+        branch: "main",
+        commit: commitOf("f1"),
+      },
+      published_at: minutes(40),
+      expired_at: null,
+    },
+  ],
+  provenance: execution("EF1", "reviewer-main #1"),
+  created_at: minutes(40),
+  requirement_key: "kanthord-repo.merge_push",
+});
 
 export const ATLAS_EDGES = [
   ...ATLAS_NODES.filter((node) => node.parent_id !== null).map((node) => ({

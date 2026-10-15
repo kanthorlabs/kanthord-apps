@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  ActionLanding,
   MissionClosingEvent,
   MissionAssessmentResult,
+  MissionEvidence,
   MissionExternalAction,
+  RepositoryActionName,
   MissionNodeRecord,
   MissionRunnableNode,
   NodeState,
@@ -17,14 +20,22 @@ import {
   detailKeyOf,
   detailOf,
   detailTargetsOf,
+  externalReadStateOf,
   groupItems,
 } from "./attention";
 import type { AttentionDetail, AttentionDetails, ProjectSnapshot } from "./attention";
 
 const NO_DETAILS: AttentionDetails = new Map();
 
-function derive(snapshots: readonly ProjectSnapshot[], details: AttentionDetails = NO_DETAILS) {
-  return deriveAttention(snapshots, details);
+const NOW = 10_000_000;
+const MINUTE = 60_000;
+
+function derive(
+  snapshots: readonly ProjectSnapshot[],
+  details: AttentionDetails = NO_DETAILS,
+  now = NOW,
+) {
+  return deriveAttention(snapshots, details, now);
 }
 
 function execution(
@@ -389,19 +400,21 @@ describe("deriveAttention dependency_discarded", () => {
 });
 
 describe("detailTargetsOf and detailOf", () => {
-  it("targets the Blocked and the Paused nodes only", () => {
+  it("targets the Blocked, the Paused and the External.Requested nodes only", () => {
     const targets = detailTargetsOf([
       snapshot("atlas", [
         blocked("n1", "A", 1),
         node("n2", "B", "Paused"),
         node("n3", "C", "Pending"),
         node("n4", "D", "Paused", { retired_at: 3 }),
+        node("n5", "E", "External.Requested"),
       ]),
     ]);
 
     expect(targets.map((target) => [target.kind, target.node.id, target.projectId])).toEqual([
       ["blocked", "n1", "atlas"],
       ["paused", "n2", "atlas"],
+      ["external", "n5", "atlas"],
     ]);
   });
 
@@ -425,5 +438,212 @@ describe("detailTargetsOf and detailOf", () => {
 
     expect(detailOf(details, paused)?.kind).toBe("paused");
     expect(detailOf(details, { ...paused, attempt: 9 })).toBeNull();
+  });
+});
+
+function request(
+  kind: RepositoryActionName,
+  landing?: ActionLanding,
+  resolution: MissionExternalAction["resolution"] = "unresolved",
+  key = `repo.${kind}`,
+): MissionExternalAction {
+  return {
+    node_id: "n1",
+    attempt: 2,
+    action: {
+      key,
+      binding_id: "binding_1",
+      action: kind,
+      expected_end_state: kind === "pull_request" ? "pull_request_merged" : "base_branch_pushed",
+      follows: null,
+      configuration:
+        landing === undefined ? { base_branch: "main" } : { base_branch: "main", landing },
+    },
+    requested: true,
+    request_evidence_id: `evidence_${key}`,
+    resolution,
+  };
+}
+
+function evidenceFor(action: MissionExternalAction, createdAt: number): MissionEvidence {
+  return {
+    id: action.request_evidence_id ?? "evidence_none",
+    node_id: "n1",
+    attempt: 2,
+    subject: "Request",
+    assets: [],
+    provenance: { kind: "human", account: "a", name: "A" },
+    created_at: createdAt,
+    requirement_key: action.action.key,
+  };
+}
+
+function externalDetail(
+  requested: MissionRunnableNode,
+  actions: readonly MissionExternalAction[],
+  evidence: readonly MissionEvidence[],
+): AttentionDetails {
+  return new Map([
+    [
+      requested.id,
+      {
+        kind: "external",
+        key: detailKeyOf(requested),
+        actions: { status: "ready", data: actions },
+        evidence: { status: "ready", data: evidence },
+      },
+    ],
+  ]);
+}
+
+describe("deriveAttention outside", () => {
+  const requested = node("n1", "Stripe webhook", "External.Requested");
+
+  it("lists nothing before the external reads answer", () => {
+    expect(derive([snapshot("atlas", [requested])])).toEqual([]);
+  });
+
+  it("lists a pull request that waits for a human merge, aged by its request evidence", () => {
+    const pr = request("pull_request");
+    const items = derive(
+      [snapshot("atlas", [requested])],
+      externalDetail(requested, [pr], [evidenceFor(pr, NOW - 5 * MINUTE)]),
+    );
+
+    expect(items[0]).toMatchObject({
+      id: "merge_wait:n1",
+      kind: "merge_wait",
+      group: "outside",
+      cause: "Waits for merge",
+      at: NOW - 5 * MINUTE,
+    });
+  });
+
+  it("lists a human merge with an unknown age when the evidence is missing", () => {
+    const items = derive(
+      [snapshot("atlas", [requested])],
+      externalDetail(requested, [request("pull_request", "human")], []),
+    );
+
+    expect(items[0]).toMatchObject({ kind: "merge_wait", at: null });
+  });
+
+  it("lists a push as unconfirmed only after 10 minutes", () => {
+    const push = request("merge_push");
+    const snapshots = [snapshot("atlas", [requested])];
+
+    const fresh = derive(
+      snapshots,
+      externalDetail(requested, [push], [evidenceFor(push, NOW - 10 * MINUTE)]),
+    );
+    const aged = derive(
+      snapshots,
+      externalDetail(requested, [push], [evidenceFor(push, NOW - 10 * MINUTE - 1)]),
+    );
+
+    expect(fresh).toEqual([]);
+    expect(aged[0]).toMatchObject({
+      kind: "delivery_unconfirmed",
+      cause: "Delivery not confirmed",
+      at: NOW - 10 * MINUTE - 1,
+    });
+  });
+
+  it("treats a pull request that kanthord lands as a delivery", () => {
+    const landed = request("pull_request", "kanthord");
+    const items = derive(
+      [snapshot("atlas", [requested])],
+      externalDetail(requested, [landed], [evidenceFor(landed, NOW - 30 * MINUTE)]),
+    );
+
+    expect(items[0]).toMatchObject({ kind: "delivery_unconfirmed" });
+  });
+
+  it("skips a delivery without its request evidence", () => {
+    const push = request("merge_push");
+
+    expect(derive([snapshot("atlas", [requested])], externalDetail(requested, [push], []))).toEqual(
+      [],
+    );
+  });
+
+  it("skips a request that holds its end state", () => {
+    const done = request("pull_request", undefined, "expected-end");
+
+    expect(
+      derive(
+        [snapshot("atlas", [requested])],
+        externalDetail(requested, [done], [evidenceFor(done, 1)]),
+      ),
+    ).toEqual([]);
+  });
+
+  it("takes the human merge first and the oldest aged delivery otherwise", () => {
+    const pr = request("pull_request");
+    const push = request("merge_push", undefined, "unresolved", "repo.merge_push");
+    const both = derive(
+      [snapshot("atlas", [requested])],
+      externalDetail(requested, [push, pr], [evidenceFor(pr, 1), evidenceFor(push, 1)]),
+    );
+
+    expect(both).toHaveLength(1);
+    expect(both[0]?.kind).toBe("merge_wait");
+  });
+
+  it("sorts the outside items after the decisions, then the oldest first", () => {
+    const first = node("n1", "A", "External.Requested");
+    const second = node("n2", "B", "External.Requested");
+    const prFirst = { ...request("pull_request"), node_id: "n1" };
+    const prSecond = {
+      ...request("pull_request"),
+      node_id: "n2",
+      request_evidence_id: "evidence_2",
+    };
+    const details = new Map([
+      ...externalDetail(first, [prFirst], [evidenceFor(prFirst, 200)]),
+      ...externalDetail(second, [prSecond], [{ ...evidenceFor(prSecond, 100), id: "evidence_2" }]),
+    ]);
+
+    const items = derive(
+      [snapshot("atlas", [first, second, blocked("n3", "Blocked one", 999)])],
+      details,
+    );
+
+    expect(items.map((item) => item.node.id)).toEqual(["n3", "n2", "n1"]);
+  });
+});
+
+describe("externalReadStateOf", () => {
+  const requested = node("n1", "Stripe webhook", "External.Requested");
+  const targets = detailTargetsOf([snapshot("atlas", [requested])]);
+
+  it("counts a target without its detail as pending", () => {
+    expect(externalReadStateOf(targets, NO_DETAILS)).toEqual({ pending: 1, failures: [] });
+  });
+
+  it("reports a failed read with its message", () => {
+    const details = new Map([
+      [
+        "n1",
+        {
+          kind: "external" as const,
+          key: detailKeyOf(requested),
+          actions: { status: "failed" as const, message: "No answer." },
+          evidence: { status: "ready" as const, data: [] },
+        },
+      ],
+    ]);
+
+    const state = externalReadStateOf(targets, details);
+
+    expect(state.pending).toBe(0);
+    expect(state.failures.map((failure) => failure.message)).toEqual(["No answer."]);
+  });
+
+  it("reports nothing for answered reads", () => {
+    expect(externalReadStateOf(targets, externalDetail(requested, [], []))).toEqual({
+      pending: 0,
+      failures: [],
+    });
   });
 });

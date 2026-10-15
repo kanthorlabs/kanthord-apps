@@ -6,6 +6,7 @@ import { useScopedProject } from "@/hooks/use-scoped-project";
 import {
   deriveAttention,
   detailTargetsOf,
+  externalReadStateOf,
   groupItems,
   type AttentionDetails,
   type AttentionItem,
@@ -41,7 +42,7 @@ export interface OverviewState {
   readonly progress: readonly ProjectProgress[];
   readonly details: AttentionDetails;
   readonly retryDetail: (nodeId: string) => void;
-  readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
   readonly focus: AttentionFocus;
   readonly updatedAt: number | null;
   readonly now: number;
@@ -79,11 +80,12 @@ export function useOverview(): OverviewState {
   );
 
   const targets = useMemo(() => detailTargetsOf(snapshots), [snapshots]);
-  const { details, refresh: refreshDetail } = useAttentionDetails(targets);
+  const { details, refresh: refreshDetail } = useAttentionDetails(targets, snapshot.updatedAt);
   const items = useMemo<readonly AttentionItem[]>(
-    () => deriveAttention(snapshots, details),
-    [snapshots, details],
+    () => deriveAttention(snapshots, details, snapshot.now),
+    [snapshots, details, snapshot.now],
   );
+  const externalReads = useMemo(() => externalReadStateOf(targets, details), [targets, details]);
 
   const focus = useAttentionFocus(items, snapshot.updatedAt);
   const { markActed } = focus;
@@ -92,29 +94,37 @@ export function useOverview(): OverviewState {
     const scoped = (data?.faults ?? NO_FAULTS).filter(
       (fault) => projectId === null || fault.projectId === projectId,
     );
-    if (snapshot.error === null || data === null) return scoped;
-    return [
-      ...scoped,
-      {
-        projectId: null,
-        projectName: null,
-        source: "project list",
-        message: snapshot.error.message,
-      },
-    ];
-  }, [data, projectId, snapshot.error]);
+    const outside = externalReads.failures.map(({ target, message }) => ({
+      projectId: target.projectId,
+      projectName: projects.find((project) => project.id === target.projectId)?.name ?? null,
+      source: `external actions of ${target.node.content.name}`,
+      message,
+    }));
+    const listFault =
+      snapshot.error === null || data === null
+        ? NO_FAULTS
+        : [
+            {
+              projectId: null,
+              projectName: null,
+              source: "project list",
+              message: snapshot.error.message,
+            },
+          ];
+    return [...scoped, ...outside, ...listFault];
+  }, [data, projectId, projects, externalReads, snapshot.error]);
 
   const setDialogOpen = useCallback(
-    (nodeId: string, open: boolean) => {
+    (itemId: string, nodeId: string, open: boolean) => {
       setOpenDialogs((current) => {
-        if (current.has(nodeId) === open) return current;
+        if (current.has(itemId) === open) return current;
         const next = new Set(current);
-        if (open) next.add(nodeId);
-        else next.delete(nodeId);
+        if (open) next.add(itemId);
+        else next.delete(itemId);
         return next;
       });
       if (open) refreshDetail(nodeId);
-      else markActed(nodeId);
+      else markActed(itemId);
     },
     [refreshDetail, markActed],
   );
@@ -134,7 +144,7 @@ export function useOverview(): OverviewState {
     summary: attentionSummary(items),
     groups: groupItems(items),
     faults,
-    allClear: faults.length === 0 && items.length === 0,
+    allClear: faults.length === 0 && externalReads.pending === 0 && items.length === 0,
     progress: snapshots.map((entry) => ({
       project: entry.project,
       tallies: tallyStates(entry.nodes),

@@ -1,6 +1,7 @@
 import type {
   MissionAssessment,
   MissionBlockedContext,
+  MissionEvidence,
   MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
@@ -10,9 +11,9 @@ import type {
 } from "@/api/types";
 
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
-import { hasOpenAttempt } from "./external-requests";
+import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
 
-export type AttentionGroupId = "decisions";
+export type AttentionGroupId = "decisions" | "outside";
 
 export interface AttentionGroup {
   readonly id: AttentionGroupId;
@@ -29,6 +30,13 @@ export const ATTENTION_GROUPS: readonly AttentionGroup[] = [
     description: "The work of a node stops until a human rules.",
     noun: "decision",
     plural: "decisions",
+  },
+  {
+    id: "outside",
+    heading: "Waiting outside kanthord",
+    description: "The node waits for an act on an external platform.",
+    noun: "waiting outside",
+    plural: "waiting outside",
   },
 ];
 
@@ -62,7 +70,14 @@ export interface OpenDetail {
   readonly actions: DetailRead<readonly MissionExternalAction[]>;
 }
 
-export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail;
+export interface ExternalDetail {
+  readonly kind: "external";
+  readonly key: string;
+  readonly actions: DetailRead<readonly MissionExternalAction[]>;
+  readonly evidence: DetailRead<readonly MissionEvidence[]>;
+}
+
+export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail | ExternalDetail;
 
 export type AttentionDetails = ReadonlyMap<string, AttentionDetail>;
 
@@ -98,15 +113,44 @@ export interface DependencyItem extends ItemBase {
   readonly discarded: readonly DiscardedDependency[];
 }
 
-export type AttentionItem = BlockedItem | PausedItem | DependencyItem;
+export interface OutsideRequest {
+  readonly action: MissionExternalAction;
+  readonly evidence: MissionEvidence | null;
+}
+
+export interface MergeWaitItem extends ItemBase {
+  readonly kind: "merge_wait";
+  readonly cause: string;
+  readonly request: OutsideRequest;
+}
+
+export interface DeliveryItem extends ItemBase {
+  readonly kind: "delivery_unconfirmed";
+  readonly cause: string;
+  readonly request: OutsideRequest;
+}
+
+export type DecisionAttentionItem = BlockedItem | PausedItem | DependencyItem;
+
+export type OutsideAttentionItem = MergeWaitItem | DeliveryItem;
+
+export type AttentionItem = DecisionAttentionItem | OutsideAttentionItem;
 
 export interface DetailTarget {
-  readonly kind: "blocked" | "paused" | "open";
+  readonly kind: "blocked" | "paused" | "open" | "external";
   readonly projectId: string;
   readonly node: MissionRunnableNode;
 }
 
-const KIND_ORDER: readonly AttentionItem["kind"][] = ["blocked", "paused", "dependency_discarded"];
+const DELIVERY_GRACE_MS = 10 * 60_000;
+
+const KIND_ORDER: readonly AttentionItem["kind"][] = [
+  "blocked",
+  "paused",
+  "dependency_discarded",
+  "merge_wait",
+  "delivery_unconfirmed",
+];
 
 function isRunnable(node: MissionNodeRecord): node is MissionRunnableNode {
   return node.kind !== "task" && node.retired_at === null;
@@ -197,10 +241,84 @@ function isDependencyItem(snapshot: ProjectSnapshot, node: MissionRunnableNode):
   return node.state === "Pending" && discardedDependenciesOf(snapshot, node).length > 0;
 }
 
-function itemsOf(snapshot: ProjectSnapshot, details: AttentionDetails): readonly AttentionItem[] {
+function evidenceOf(detail: ExternalDetail, action: MissionExternalAction): MissionEvidence | null {
+  if (detail.evidence.status !== "ready") return null;
+  return detail.evidence.data.find((item) => item.id === action.request_evidence_id) ?? null;
+}
+
+interface AgedDelivery {
+  readonly action: MissionExternalAction;
+  readonly evidence: MissionEvidence;
+}
+
+function agedDeliveryOf(
+  detail: ExternalDetail,
+  actions: readonly MissionExternalAction[],
+  now: number,
+): AgedDelivery | null {
+  let oldest: AgedDelivery | null = null;
+  for (const action of deliveryRequestsOf(actions)) {
+    const evidence = evidenceOf(detail, action);
+    if (evidence === null || now - evidence.created_at <= DELIVERY_GRACE_MS) continue;
+    if (oldest === null || evidence.created_at < oldest.evidence.created_at) {
+      oldest = { action, evidence };
+    }
+  }
+  return oldest;
+}
+
+function outsideItemOf(
+  snapshot: ProjectSnapshot,
+  node: MissionRunnableNode,
+  details: AttentionDetails,
+  now: number,
+): readonly AttentionItem[] {
+  const detail = detailOf(details, node);
+  if (detail?.kind !== "external" || detail.actions.status !== "ready") return [];
+  const base = {
+    group: "outside",
+    project: snapshot.project,
+    missionVersion: snapshot.missionVersion,
+    node,
+    nodes: snapshot.nodes,
+  } as const;
+  const merge = humanMergeRequestOf(detail.actions.data);
+  if (merge !== null) {
+    const evidence = evidenceOf(detail, merge);
+    return [
+      {
+        ...base,
+        id: `merge_wait:${node.id}`,
+        kind: "merge_wait",
+        at: evidence?.created_at ?? null,
+        cause: "Waits for merge",
+        request: { action: merge, evidence },
+      },
+    ];
+  }
+  const delivery = agedDeliveryOf(detail, detail.actions.data, now);
+  if (delivery === null) return [];
+  return [
+    {
+      ...base,
+      id: `delivery_unconfirmed:${node.id}`,
+      kind: "delivery_unconfirmed",
+      at: delivery.evidence.created_at,
+      cause: "Delivery not confirmed",
+      request: delivery,
+    },
+  ];
+}
+
+function itemsOf(
+  snapshot: ProjectSnapshot,
+  details: AttentionDetails,
+  now: number,
+): readonly AttentionItem[] {
   return snapshot.nodes.filter(isRunnable).flatMap((node): readonly AttentionItem[] => {
     if (node.state === "Blocked") return [blockedItemOf(snapshot, node)];
     if (node.state === "Paused") return [pausedItemOf(snapshot, node, details)];
+    if (node.state === "External.Requested") return outsideItemOf(snapshot, node, details, now);
     if (node.state !== "Pending") return [];
     const discarded = discardedDependenciesOf(snapshot, node);
     if (discarded.length === 0) return [];
@@ -238,8 +356,9 @@ function compareItems(left: AttentionItem, right: AttentionItem): number {
 export function deriveAttention(
   snapshots: readonly ProjectSnapshot[],
   details: AttentionDetails,
+  now: number,
 ): readonly AttentionItem[] {
-  return snapshots.flatMap((snapshot) => itemsOf(snapshot, details)).sort(compareItems);
+  return snapshots.flatMap((snapshot) => itemsOf(snapshot, details, now)).sort(compareItems);
 }
 
 export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly DetailTarget[] {
@@ -251,9 +370,40 @@ export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly
         return [{ kind: "paused", projectId: snapshot.project.id, node }];
       if (isDependencyItem(snapshot, node) && hasOpenAttempt(node))
         return [{ kind: "open", projectId: snapshot.project.id, node }];
+      if (node.state === "External.Requested")
+        return [{ kind: "external", projectId: snapshot.project.id, node }];
       return [];
     }),
   );
+}
+
+export interface ExternalReadFailure {
+  readonly target: DetailTarget;
+  readonly message: string;
+}
+
+export interface ExternalReadState {
+  readonly pending: number;
+  readonly failures: readonly ExternalReadFailure[];
+}
+
+export function externalReadStateOf(
+  targets: readonly DetailTarget[],
+  details: AttentionDetails,
+): ExternalReadState {
+  let pending = 0;
+  const failures: ExternalReadFailure[] = [];
+  for (const target of targets) {
+    if (target.kind !== "external") continue;
+    const detail = detailOf(details, target.node);
+    if (detail?.kind !== "external") {
+      pending += 1;
+      continue;
+    }
+    const failed = [detail.actions, detail.evidence].find((read) => read.status === "failed");
+    if (failed?.status === "failed") failures.push({ target, message: failed.message });
+  }
+  return { pending, failures };
 }
 
 export function groupItems(

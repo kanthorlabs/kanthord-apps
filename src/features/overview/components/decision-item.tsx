@@ -11,7 +11,7 @@ import { Reveal } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import type { AttentionDetail, AttentionItem } from "@/lib/attention";
+import type { AttentionDetail, DecisionAttentionItem } from "@/lib/attention";
 import { nodePath } from "@/lib/node-path";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
@@ -19,16 +19,18 @@ import { relativeAge } from "@/lib/relative-age";
 import { useDecisionActs } from "../use-decision-acts";
 import { AssessmentPanel } from "./assessment-panel";
 import { CauseText } from "./cause-text";
+import { CheckBadge } from "./check-badge";
 import { DependencyRemoveDialog } from "./dependency-remove-dialog";
 
 interface DecisionItemProps {
-  readonly item: AttentionItem;
+  readonly item: DecisionAttentionItem;
   readonly detail: AttentionDetail | null;
   readonly showProject: boolean;
   readonly now: number;
   readonly reload: () => void;
+  readonly markActed: (itemId: string) => void;
   readonly retryDetail: (nodeId: string) => void;
-  readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
   readonly titleRef: (element: HTMLElement | null) => void;
 }
 
@@ -38,13 +40,14 @@ export function DecisionItem({
   showProject,
   now,
   reload,
+  markActed,
   retryDetail,
   setDialogOpen,
   titleRef,
 }: DecisionItemProps) {
   const { node } = item;
   const [assessmentOpen, setAssessmentOpen] = useState(false);
-  const acts = useDecisionActs(item, detail, { reload, setDialogOpen });
+  const acts = useDecisionActs(item, detail, { reload, markActed, setDialogOpen });
   const blockedDetail = detail?.kind === "blocked" ? detail : null;
 
   return (
@@ -62,6 +65,7 @@ export function DecisionItem({
         <div className="flex flex-wrap items-center gap-1.5">
           <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>
           {item.cause !== null && <Badge variant="outline">{item.cause}</Badge>}
+          <CheckBadge label={acts.check.label} />
         </div>
         <ItemDescription className="line-clamp-none">
           {showProject && (
@@ -116,6 +120,16 @@ export function DecisionItem({
       </ItemContent>
       {acts.ready && (
         <ItemActions className="w-full flex-wrap justify-start md:w-auto md:justify-end">
+          {acts.check.available && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={acts.check.checking}
+              onClick={acts.check.check}
+            >
+              Check now
+            </Button>
+          )}
           {item.kind === "blocked" && acts.unblock.available && (
             <Button variant="outline" size="sm" onClick={acts.unblock.request}>
               Unblock

@@ -1,5 +1,6 @@
 import {
   listNodeAssessments,
+  listNodeEvidence,
   listNodeExternalActions,
   listNodeProposals,
 } from "@/api/resources/mission";
@@ -12,6 +13,7 @@ import {
   type BlockedDetail,
   type DetailRead,
   type DetailTarget,
+  type ExternalDetail,
   type OpenDetail,
   type PausedDetail,
 } from "@/lib/attention";
@@ -67,7 +69,17 @@ async function readOpen(target: DetailTarget): Promise<OpenDetail> {
   };
 }
 
+async function readExternal(target: DetailTarget): Promise<ExternalDetail> {
+  const { node } = target;
+  const [actions, evidence] = await Promise.all([
+    settle(listNodeExternalActions(node.id, node.attempt)),
+    settle(listNodeEvidence(node.id, node.attempt)),
+  ]);
+  return { kind: "external", key: detailKeyOf(node), actions, evidence };
+}
+
 export async function readAttentionDetail(target: DetailTarget): Promise<AttentionDetail> {
   if (target.kind === "blocked") return readBlocked(target);
-  return target.kind === "paused" ? readPaused(target) : readOpen(target);
+  if (target.kind === "paused") return readPaused(target);
+  return target.kind === "open" ? readOpen(target) : readExternal(target);
 }

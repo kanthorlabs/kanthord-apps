@@ -1,12 +1,12 @@
 import { Fragment } from "react";
 
 import { RecordName } from "@/components/record-name";
-import type { AttentionItem, DiscardedDependency } from "@/lib/attention";
+import type { DecisionAttentionItem, DiscardedDependency } from "@/lib/attention";
 import { pauseSentence } from "@/lib/execution-stop";
 import { closingEventText } from "@/lib/mission-labels";
 
 interface CauseTextProps {
-  readonly item: AttentionItem;
+  readonly item: DecisionAttentionItem;
 }
 
 function DependencyNames({ discarded }: { readonly discarded: readonly DiscardedDependency[] }) {

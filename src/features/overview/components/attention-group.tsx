@@ -3,6 +3,7 @@ import type { AttentionDetails, AttentionGroup as Group, AttentionItem } from "@
 import { detailOf } from "@/lib/attention";
 
 import { DecisionItem } from "./decision-item";
+import { OutsideItem } from "./outside-item";
 
 interface AttentionGroupProps {
   readonly group: Group;
@@ -11,8 +12,9 @@ interface AttentionGroupProps {
   readonly showProject: boolean;
   readonly now: number;
   readonly reload: () => void;
+  readonly markActed: (itemId: string) => void;
   readonly retryDetail: (nodeId: string) => void;
-  readonly setDialogOpen: (nodeId: string, open: boolean) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
   readonly titleRef: (itemId: string) => (element: HTMLElement | null) => void;
 }
 
@@ -23,6 +25,7 @@ export function AttentionGroup({
   showProject,
   now,
   reload,
+  markActed,
   retryDetail,
   setDialogOpen,
   titleRef,
@@ -34,19 +37,33 @@ export function AttentionGroup({
       </h4>
       <p className="text-sm text-muted-foreground">{group.description}</p>
       <ItemGroup aria-label={group.heading} className="gap-2">
-        {items.map((item) => (
-          <DecisionItem
-            key={item.id}
-            item={item}
-            detail={detailOf(details, item.node)}
-            showProject={showProject}
-            now={now}
-            reload={reload}
-            retryDetail={retryDetail}
-            setDialogOpen={setDialogOpen}
-            titleRef={titleRef(item.id)}
-          />
-        ))}
+        {items.map((item) =>
+          item.kind === "merge_wait" || item.kind === "delivery_unconfirmed" ? (
+            <OutsideItem
+              key={item.id}
+              item={item}
+              detail={detailOf(details, item.node)}
+              showProject={showProject}
+              now={now}
+              reload={reload}
+              markActed={markActed}
+              titleRef={titleRef(item.id)}
+            />
+          ) : (
+            <DecisionItem
+              key={item.id}
+              item={item}
+              detail={detailOf(details, item.node)}
+              showProject={showProject}
+              now={now}
+              reload={reload}
+              markActed={markActed}
+              retryDetail={retryDetail}
+              setDialogOpen={setDialogOpen}
+              titleRef={titleRef(item.id)}
+            />
+          ),
+        )}
       </ItemGroup>
     </section>
   );

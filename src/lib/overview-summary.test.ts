@@ -60,6 +60,7 @@ describe("attentionSummary", () => {
     const items = deriveAttention(
       [{ project, missionVersion: 1, nodes: [node("a", "Blocked"), node("b", "Blocked")] }],
       new Map(),
+      1,
     );
 
     expect(attentionSummary(items)).toBe("2 decisions");

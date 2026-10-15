@@ -5,6 +5,7 @@ import { ApiError } from "@/api/errors";
 
 vi.mock("@/api/resources/mission", () => ({
   listNodeAssessments: vi.fn(),
+  listNodeEvidence: vi.fn(),
   listNodeExternalActions: vi.fn(),
   listNodeProposals: vi.fn(),
 }));
@@ -15,6 +16,7 @@ vi.mock("@/api/resources/scheduler", () => ({
 
 import {
   listNodeAssessments,
+  listNodeEvidence,
   listNodeExternalActions,
   listNodeProposals,
 } from "@/api/resources/mission";
@@ -75,8 +77,13 @@ function paused(id: string, overrides: Partial<MissionRunnableNode> = {}): Detai
   return { kind: "paused", projectId: "prj-1", node: node(id, "Paused", overrides) };
 }
 
+function requested(id: string, overrides: Partial<MissionRunnableNode> = {}): DetailTarget {
+  return { kind: "external", projectId: "prj-1", node: node(id, "External.Requested", overrides) };
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(listNodeEvidence).mockResolvedValue([]);
   vi.mocked(listNodeAssessments).mockResolvedValue([]);
   vi.mocked(listNodeProposals).mockResolvedValue([]);
   vi.mocked(listNodeExecutions).mockResolvedValue([]);
@@ -87,7 +94,7 @@ describe("useAttentionDetails", () => {
   it("reads the assessment of the outcome attempt and the proposals of an initiative", async () => {
     const target = blocked("n1", { kind: "initiative" });
 
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
 
     await waitFor(() => expect(result.current.details.get("n1")?.kind).toBe("blocked"));
     expect(listNodeAssessments).toHaveBeenCalledWith("n1", 2);
@@ -97,7 +104,7 @@ describe("useAttentionDetails", () => {
   it("reads no proposals for an objective", async () => {
     const target = blocked("n1");
 
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
 
     await waitFor(() => expect(result.current.details.get("n1")).toBeDefined());
     expect(listNodeProposals).not.toHaveBeenCalled();
@@ -106,7 +113,7 @@ describe("useAttentionDetails", () => {
   it("reads the executions and the external actions of a Paused node for its attempt", async () => {
     const target = paused("n2", { attempt: 4 });
 
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
 
     await waitFor(() => expect(result.current.details.get("n2")?.kind).toBe("paused"));
     expect(listNodeExecutions).toHaveBeenCalledWith("prj-1", "n2", 4);
@@ -120,7 +127,7 @@ describe("useAttentionDetails", () => {
       node: node("n3", "Pending", { attempt: 2, depends_on: ["n9"] }),
     };
 
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
 
     await waitFor(() => expect(result.current.details.get("n3")?.kind).toBe("open"));
     expect(listNodeExternalActions).toHaveBeenCalledWith("n3", 2);
@@ -130,7 +137,7 @@ describe("useAttentionDetails", () => {
   it("answers empty reads without a call for a Paused node at attempt 0", async () => {
     const target = paused("n2", { attempt: 0 });
 
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
 
     await waitFor(() =>
       expect(result.current.details.get("n2")).toEqual({
@@ -145,7 +152,7 @@ describe("useAttentionDetails", () => {
   });
 
   it("reads a detail once for one key, across renders and new target lists", async () => {
-    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets), {
+    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets, null), {
       initialProps: { targets: [paused("n2")] },
     });
     await waitFor(() => expect(result.current.details.get("n2")).toBeDefined());
@@ -158,7 +165,7 @@ describe("useAttentionDetails", () => {
   });
 
   it("reads again when the attempt, the state or the revision changes", async () => {
-    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets), {
+    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets, null), {
       initialProps: { targets: [paused("n2")] },
     });
     await waitFor(() => expect(result.current.details.get("n2")).toBeDefined());
@@ -174,7 +181,7 @@ describe("useAttentionDetails", () => {
   it("keeps the key of the read in the detail", async () => {
     const target = paused("n2");
 
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
 
     await waitFor(() => expect(result.current.details.get("n2")).toBeDefined());
     expect(result.current.details.get("n2")?.key).toBe(detailKeyOf(target.node));
@@ -182,7 +189,7 @@ describe("useAttentionDetails", () => {
 
   it("reads again on refresh, for the dialog and for Retry", async () => {
     const target = paused("n2");
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
     await waitFor(() => expect(result.current.details.get("n2")).toBeDefined());
 
     act(() => result.current.refresh("n2"));
@@ -198,7 +205,7 @@ describe("useAttentionDetails", () => {
       }),
     );
     const target = paused("n2");
-    const { result } = renderHook(() => useAttentionDetails([target]));
+    const { result } = renderHook(() => useAttentionDetails([target], null));
     await waitFor(() => expect(listNodeExecutions).toHaveBeenCalledTimes(1));
 
     act(() => result.current.refresh("n2"));
@@ -214,7 +221,7 @@ describe("useAttentionDetails", () => {
       new ApiError("unreachable", "The daemon did not answer.", 0),
     );
     const target = paused("n2");
-    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets), {
+    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets, null), {
       initialProps: { targets: [target] },
     });
     await waitFor(() => expect(result.current.details.get("n2")).toBeDefined());
@@ -230,13 +237,53 @@ describe("useAttentionDetails", () => {
   });
 
   it("keeps the detail of a node that leaves the list and returns with the same key", async () => {
-    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets), {
+    const { result, rerender } = renderHook(({ targets }) => useAttentionDetails(targets, null), {
       initialProps: { targets: [paused("n2")] },
     });
     await waitFor(() => expect(result.current.details.get("n2")).toBeDefined());
 
     rerender({ targets: [] });
     rerender({ targets: [paused("n2")] });
+
+    expect(listNodeExecutions).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the external actions and the request evidence of an External.Requested node", async () => {
+    const target = requested("n3", { attempt: 1 });
+
+    const { result } = renderHook(() => useAttentionDetails([target], null));
+
+    await waitFor(() => expect(result.current.details.get("n3")?.kind).toBe("external"));
+    expect(listNodeExternalActions).toHaveBeenCalledWith("n3", 1);
+    expect(listNodeEvidence).toHaveBeenCalledWith("n3", 1);
+  });
+
+  it("reads an External.Requested node again on each cycle, because an end state changes no key", async () => {
+    const target = requested("n3");
+    const { result, rerender } = renderHook(
+      ({ cycleAt }) => useAttentionDetails([target], cycleAt),
+      { initialProps: { cycleAt: 1 } },
+    );
+    await waitFor(() => expect(result.current.details.get("n3")).toBeDefined());
+    expect(listNodeExternalActions).toHaveBeenCalledTimes(1);
+
+    rerender({ cycleAt: 2 });
+    await waitFor(() => expect(listNodeExternalActions).toHaveBeenCalledTimes(2));
+    rerender({ cycleAt: 3 });
+
+    await waitFor(() => expect(listNodeExternalActions).toHaveBeenCalledTimes(3));
+    expect(listNodeEvidence).toHaveBeenCalledTimes(3);
+  });
+
+  it("reads a Paused node again on no cycle", async () => {
+    const target = paused("n2");
+    const { result, rerender } = renderHook(
+      ({ cycleAt }) => useAttentionDetails([target], cycleAt),
+      { initialProps: { cycleAt: 1 } },
+    );
+    await waitFor(() => expect(result.current.details.get("n2")).toBeDefined());
+
+    rerender({ cycleAt: 2 });
 
     expect(listNodeExecutions).toHaveBeenCalledTimes(1);
   });

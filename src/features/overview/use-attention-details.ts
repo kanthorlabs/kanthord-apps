@@ -11,7 +11,10 @@ export interface AttentionDetailReads {
 
 const NO_DETAILS: AttentionDetails = new Map();
 
-export function useAttentionDetails(targets: readonly DetailTarget[]): AttentionDetailReads {
+export function useAttentionDetails(
+  targets: readonly DetailTarget[],
+  cycleAt: number | null,
+): AttentionDetailReads {
   const [details, setDetails] = useState<AttentionDetails>(NO_DETAILS);
   const reading = useRef(new Map<string, string>());
   const targetsRef = useRef(targets);
@@ -45,6 +48,10 @@ export function useAttentionDetails(targets: readonly DetailTarget[]): Attention
       if (details.get(target.node.id)?.key !== detailKeyOf(target.node)) read(target);
     }
   }, [targets, details, read]);
+
+  useEffect(() => {
+    for (const target of targetsRef.current) if (target.kind === "external") read(target);
+  }, [cycleAt, read]);
 
   const refresh = useCallback(
     (nodeId: string) => {

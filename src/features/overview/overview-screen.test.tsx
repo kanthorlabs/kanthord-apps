@@ -14,10 +14,16 @@ vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
 }));
 
+vi.mock("sonner", () => ({
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+}));
+
 vi.mock("@/api/resources/mission", () => ({
   readMission: vi.fn(),
   listMissionNodes: vi.fn(),
   listNodeAssessments: vi.fn(),
+  listNodeEvidence: vi.fn(),
+  checkNode: vi.fn(),
   listNodeProposals: vi.fn(),
   listNodeExternalActions: vi.fn(),
   unblockNode: vi.fn(),
@@ -35,9 +41,11 @@ vi.mock("@/api/resources/scheduler", () => ({
 
 import {
   approveProposal,
+  checkNode,
   discardNode,
   listMissionNodes,
   listNodeAssessments,
+  listNodeEvidence,
   listNodeExternalActions,
   listNodeProposals,
   overrideNode,
@@ -49,6 +57,7 @@ import {
 import { listProjects } from "@/api/resources/projects";
 import { listNodeExecutions, listQueueJobs } from "@/api/resources/scheduler";
 import type {
+  ActionLanding,
   MissionAssessment,
   MissionAssessmentResult,
   MissionClosingEvent,
@@ -56,12 +65,14 @@ import type {
   MissionEvidence,
   MissionExternalAction,
   MissionNodeChange,
+  MissionNodeCheckAnswer,
   MissionNodeRecord,
   MissionProposal,
   MissionProposalApproveResult,
   MissionRunnableNode,
   NodeState,
   Project,
+  RepositoryActionName,
   SchedulerExecutionRecord,
   SchedulerJob,
 } from "@/api/types";
@@ -189,25 +200,71 @@ function ended(
   };
 }
 
+interface RequestOptions {
+  readonly action?: RepositoryActionName;
+  readonly landing?: ActionLanding;
+}
+
 function requested(
   nodeId: string,
   resolution: MissionExternalAction["resolution"],
+  options: RequestOptions = {},
 ): MissionExternalAction {
+  const action = options.action ?? "pull_request";
   return {
     node_id: nodeId,
     attempt: 2,
     action: {
-      key: "repo.pull_request",
+      key: `repo.${action}`,
       binding_id: "binding_1",
-      action: "pull_request",
-      expected_end_state: "pull_request_merged",
+      action,
+      expected_end_state: action === "pull_request" ? "pull_request_merged" : "base_branch_pushed",
       follows: null,
-      configuration: { base_branch: "main" },
+      configuration:
+        options.landing === undefined
+          ? { base_branch: "main" }
+          : { base_branch: "main", landing: options.landing },
     },
     requested: true,
     request_evidence_id: "evidence_1",
     resolution,
   };
+}
+
+function requestEvidence(
+  nodeId: string,
+  createdAt: number,
+  pullRequest: number | null = 12,
+): MissionEvidence {
+  return {
+    id: "evidence_1",
+    node_id: nodeId,
+    attempt: 2,
+    subject: "Request",
+    assets:
+      pullRequest === null
+        ? []
+        : [
+            {
+              id: "asset_1",
+              kind: "platform",
+              address: {
+                kind: "pull_request",
+                resource_identity: "repository:github:kanthorlabs/atlas",
+                number: pullRequest,
+              },
+              published_at: createdAt,
+              expired_at: null,
+            },
+          ],
+    provenance: { kind: "human", account: "a", name: "A" },
+    created_at: createdAt,
+    requirement_key: "repo.pull_request",
+  };
+}
+
+function outside(id: string, name: string, state: NodeState = "External.Requested") {
+  return { ...(plain(id, name, state) as MissionRunnableNode), attempt: 2 };
 }
 
 function assessment(nodeId: string, rationale: string): MissionAssessment {
@@ -261,6 +318,7 @@ interface World {
   readonly proposals?: Readonly<Record<string, readonly MissionProposal[]>>;
   readonly executions?: Readonly<Record<string, readonly SchedulerExecutionRecord[]>>;
   readonly actions?: Readonly<Record<string, readonly MissionExternalAction[]>>;
+  readonly evidence?: Readonly<Record<string, readonly MissionEvidence[]>>;
 }
 
 function serve(world: World) {
@@ -286,6 +344,7 @@ function serve(world: World) {
   vi.mocked(listNodeExternalActions).mockImplementation(
     async (nodeId) => world.actions?.[nodeId] ?? [],
   );
+  vi.mocked(listNodeEvidence).mockImplementation(async (nodeId) => world.evidence?.[nodeId] ?? []);
   vi.mocked(unblockNode).mockResolvedValue({} as MissionControlResult);
   vi.mocked(approveProposal).mockResolvedValue({} as MissionProposalApproveResult);
   vi.mocked(overrideNode).mockResolvedValue({} as MissionControlResult);
@@ -1607,5 +1666,260 @@ describe("OverviewScreen dialog focus", () => {
     await user.click(within(item).getByRole("button", { name: /Remove dependency/ }));
 
     await expectReasonFocused();
+  });
+});
+
+describe("OverviewScreen waiting outside kanthord", () => {
+  const AGED = NOW - 25 * 60_000;
+
+  it("lists a pull request that waits for a human merge with its text and age", async () => {
+    serve({
+      nodes: { "prj-2": [outside("n_o", "Stripe webhook")] },
+      actions: { n_o: [requested("n_o", "unresolved")] },
+      evidence: { n_o: [requestEvidence("n_o", AGED)] },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Stripe webhook"));
+    expect(within(item).getByText("External.Requested")).toBeInTheDocument();
+    expect(within(item).getByText("Waits for merge")).toBeInTheDocument();
+    expect(
+      within(item).getByText(
+        textContent(
+          "Pull request #12 on github.com/kanthorlabs/atlas waits for a merge. Merge it, then check.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByText(textContent("project atlas · attempt 2 · 25 minutes ago")),
+    ).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Check now" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Waiting outside kanthord" })).toBeInTheDocument();
+    expect(screen.getByText("1 waiting outside")).toBeInTheDocument();
+  });
+
+  it("lists a push as unconfirmed after 10 minutes and names it", async () => {
+    serve({
+      nodes: { "prj-1": [outside("n_o", "Publish the changelog")] },
+      actions: { n_o: [requested("n_o", "unresolved", { action: "merge_push" })] },
+      evidence: { n_o: [requestEvidence("n_o", AGED, null)] },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Publish the changelog"));
+    expect(within(item).getByText("Delivery not confirmed")).toBeInTheDocument();
+    expect(
+      within(item).getByText(
+        textContent(
+          "kanthord pushed to main 25 minutes ago, and no end state arrived. Check the delivery.",
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("lists no fresh delivery and shows All clear", async () => {
+    serve({
+      nodes: { "prj-1": [outside("n_o", "Publish the changelog")] },
+      actions: { n_o: [requested("n_o", "unresolved", { action: "merge_push" })] },
+      evidence: { n_o: [requestEvidence("n_o", NOW - 9 * 60_000, null)] },
+    });
+
+    renderScreen();
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Publish the changelog" })).toBeNull();
+  });
+
+  it("holds All clear back while the external reads run", async () => {
+    let settle: (actions: readonly MissionExternalAction[]) => void = () => undefined;
+    serve({ nodes: { "prj-1": [outside("n_o", "Stripe webhook")] } });
+    vi.mocked(listNodeExternalActions).mockReturnValue(
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+    );
+
+    renderScreen();
+
+    await screen.findByText("Needs you");
+    expect(screen.queryByText("All clear")).toBeNull();
+    await act(async () => settle([]));
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+  });
+
+  it("names a failed external read in the alert and suppresses All clear", async () => {
+    serve({ nodes: { "prj-1": [outside("n_o", "Stripe webhook")] } });
+    vi.mocked(listNodeExternalActions).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    renderScreen();
+
+    expect(
+      await screen.findByText(
+        textContent(
+          "Some records could not be read: kanthord external actions of Stripe webhook (The daemon did not answer.). The list can miss items.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("All clear")).toBeNull();
+  });
+
+  it("shows Checking, then Merged, and sends only the mission version", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-2": [outside("n_o", "Stripe webhook")] },
+      actions: { n_o: [requested("n_o", "unresolved")] },
+      evidence: { n_o: [requestEvidence("n_o", AGED)] },
+    });
+    let settle: (answer: MissionNodeCheckAnswer) => void = () => undefined;
+    vi.mocked(checkNode).mockReturnValue(
+      new Promise((resolve) => {
+        settle = resolve;
+      }),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Stripe webhook"));
+    await user.click(await within(item).findByRole("button", { name: "Check now" }));
+
+    expect(checkNode).toHaveBeenCalledWith("n_o", { expected_mission_version: 7 });
+    expect(within(item).getByText("Checking")).toBeInTheDocument();
+    await act(async () =>
+      settle({
+        results: [
+          {
+            evidence_id: "evidence_1",
+            requirement_key: "repo.pull_request",
+            resolution: "expected-end",
+          },
+        ],
+        failures: [],
+      }),
+    );
+
+    expect(await within(item).findByText("Merged")).toBeInTheDocument();
+    expect(within(item).queryByText("Checking")).toBeNull();
+  });
+
+  it("shows Not delivered yet for an unresolved result and one toast for each failure", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-2": [outside("n_o", "Stripe webhook")] },
+      actions: { n_o: [requested("n_o", "unresolved")] },
+      evidence: { n_o: [requestEvidence("n_o", AGED)] },
+    });
+    vi.mocked(checkNode).mockResolvedValue({
+      results: [
+        {
+          evidence_id: "evidence_1",
+          requirement_key: "repo.pull_request",
+          resolution: "unresolved",
+        },
+      ],
+      failures: [
+        {
+          evidence_id: "evidence_2",
+          error: {
+            error: { code: "system.operation.unknown", message: "Unknown failure.", details: null },
+            request_id: "request_1",
+          },
+        },
+      ],
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Stripe webhook"));
+    await user.click(await within(item).findByRole("button", { name: "Check now" }));
+
+    expect(await within(item).findByText("Not delivered yet")).toBeInTheDocument();
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast.error).mock.calls[0]?.[1]).toMatchObject({
+      description: "Unknown failure. (system.operation.unknown)",
+      action: { label: "Retry" },
+    });
+  });
+
+  it("reads the inbox again after a check", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-2": [outside("n_o", "Stripe webhook")] },
+      actions: { n_o: [requested("n_o", "unresolved")] },
+      evidence: { n_o: [requestEvidence("n_o", AGED)] },
+    });
+    vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [] });
+    renderScreen();
+    const item = await waitFor(() => itemOf("Stripe webhook"));
+    const reads = vi.mocked(listProjects).mock.calls.length;
+
+    await user.click(await within(item).findByRole("button", { name: "Check now" }));
+
+    await waitFor(() => expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads));
+  });
+
+  it("offers Check now on a Paused node with an unresolved request and no other node act that conflicts", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Publish the changelog")] },
+      actions: { n_p: [requested("n_p", "unresolved")] },
+    });
+    vi.mocked(checkNode).mockResolvedValue({
+      results: [
+        {
+          evidence_id: "evidence_1",
+          requirement_key: "repo.pull_request",
+          resolution: "other-end",
+        },
+      ],
+      failures: [],
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Publish the changelog"));
+    await user.click(await within(item).findByRole("button", { name: "Check now" }));
+
+    expect(await within(item).findByText("Ended in another state")).toBeInTheDocument();
+    expect(checkNode).toHaveBeenCalledWith("n_p", { expected_mission_version: 7 });
+  });
+
+  it("offers no Check now on a Paused node whose requests hold their end state", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Publish the changelog")] },
+      actions: { n_p: [requested("n_p", "expected-end")] },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Publish the changelog"));
+    await within(item).findByRole("button", { name: "Resume" });
+
+    expect(within(item).queryByRole("button", { name: "Check now" })).toBeNull();
+  });
+
+  it("moves focus to the next item after a check removes an item", async () => {
+    const user = userEvent.setup();
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [outside("n_a", "First wait"), outside("n_b", "Second wait")],
+    };
+    serve({
+      nodes,
+      actions: { n_a: [requested("n_a", "unresolved")], n_b: [requested("n_b", "unresolved")] },
+      evidence: {
+        n_a: [requestEvidence("n_a", NOW - 40 * 60_000)],
+        n_b: [requestEvidence("n_b", NOW - 30 * 60_000)],
+      },
+    });
+    vi.mocked(checkNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return { results: [], failures: [] };
+    });
+    renderScreen();
+
+    const first = await waitFor(() => itemOf("First wait"));
+    await user.click(await within(first).findByRole("button", { name: "Check now" }));
+
+    await waitFor(() => expect(screen.queryByRole("link", { name: "First wait" })).toBeNull());
+    await waitFor(() => expect(screen.getByRole("link", { name: "Second wait" })).toHaveFocus());
   });
 });

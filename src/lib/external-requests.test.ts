@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  ActionLanding,
+  MissionEvidence,
   MissionExternalAction,
   MissionRunnableNode,
   NodeState,
@@ -8,7 +10,11 @@ import type {
 } from "@/api/types";
 
 import {
+  deliveryRequestsOf,
+  deliveryText,
   hasOpenAttempt,
+  humanMergeRequestOf,
+  mergeWaitText,
   readFailureText,
   requestsClearOf,
   unresolvedRequestsOf,
@@ -37,6 +43,7 @@ function action(
   kind: RepositoryActionName,
   resolution: MissionExternalAction["resolution"],
   requested = true,
+  landing?: ActionLanding,
 ): MissionExternalAction {
   return {
     node_id: "node_1",
@@ -47,7 +54,8 @@ function action(
       action: kind,
       expected_end_state: kind === "pull_request" ? "pull_request_merged" : "base_branch_pushed",
       follows: null,
-      configuration: { base_branch: "main" },
+      configuration:
+        landing === undefined ? { base_branch: "main" } : { base_branch: "main", landing },
     },
     requested,
     request_evidence_id: requested ? "evidence_1" : null,
@@ -145,6 +153,88 @@ describe("readFailureText", () => {
     );
     expect(readFailureText(3, "Unreachable", false)).toBe(
       "The external actions of attempt 3 could not be read: Unreachable. The controls wait for them.",
+    );
+  });
+});
+
+function evidenceOf(createdAt: number, number: number | null): MissionEvidence {
+  return {
+    id: "evidence_1",
+    node_id: "node_1",
+    attempt: 2,
+    subject: "Pull request",
+    assets:
+      number === null
+        ? []
+        : [
+            {
+              id: "asset_1",
+              kind: "platform",
+              address: {
+                kind: "pull_request",
+                resource_identity: "repository:github:kanthorlabs/atlas",
+                number,
+              },
+              published_at: createdAt,
+              expired_at: null,
+            },
+          ],
+    provenance: { kind: "human", account: "a", name: "A" },
+    created_at: createdAt,
+  };
+}
+
+describe("humanMergeRequestOf and deliveryRequestsOf", () => {
+  it("treats a pull request without landing as a human merge", () => {
+    const merge = action("pull_request", "unresolved");
+
+    expect(humanMergeRequestOf([action("merge_push", "unresolved"), merge])).toBe(merge);
+    expect(deliveryRequestsOf([merge])).toEqual([]);
+  });
+
+  it("treats a pull request that kanthord lands and a push as deliveries", () => {
+    const landed = action("pull_request", "unresolved", true, "kanthord");
+    const push = action("merge_push", "unresolved");
+
+    expect(humanMergeRequestOf([landed, push])).toBeNull();
+    expect(deliveryRequestsOf([landed, push])).toEqual([landed, push]);
+  });
+
+  it("ignores a request that has its end state", () => {
+    expect(humanMergeRequestOf([action("pull_request", "expected-end")])).toBeNull();
+  });
+});
+
+describe("mergeWaitText", () => {
+  it("names the pull request and its repository", () => {
+    expect(mergeWaitText(evidenceOf(1, 12))).toBe(
+      "Pull request #12 on github.com/kanthorlabs/atlas waits for a merge. Merge it, then check.",
+    );
+  });
+
+  it("names no number when the evidence carries no pull request", () => {
+    expect(mergeWaitText(null)).toBe("A pull request waits for a merge. Merge it, then check.");
+  });
+});
+
+describe("deliveryText", () => {
+  const NOW = 100 * 60_000;
+
+  it("names a push with its branch and age", () => {
+    expect(
+      deliveryText(action("merge_push", "unresolved"), evidenceOf(NOW - 25 * 60_000, null), NOW),
+    ).toBe("kanthord pushed to main 25 minutes ago, and no end state arrived. Check the delivery.");
+  });
+
+  it("names the merge that kanthord requests", () => {
+    expect(
+      deliveryText(
+        action("pull_request", "unresolved", true, "kanthord"),
+        evidenceOf(NOW - 12 * 60_000, 7),
+        NOW,
+      ),
+    ).toBe(
+      "kanthord requested the merge of pull request #7 12 minutes ago, and no end state arrived. Check the delivery.",
     );
   });
 });
