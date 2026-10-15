@@ -5,6 +5,7 @@ import { unblockNode } from "@/api/resources/mission";
 import type { MissionProposal, MissionRunnableNode } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
+import { openProposalsOf } from "@/lib/attention";
 
 export interface NodeUnblockState {
   readonly available: boolean;
@@ -43,15 +44,6 @@ function isUnblockable(node: MissionRunnableNode): boolean {
 
 function hasStartChoice(node: MissionRunnableNode): boolean {
   return node.kind === "objective" && node.attempt > 0;
-}
-
-function openProposalsOf(
-  node: MissionRunnableNode,
-  proposals: readonly MissionProposal[],
-): readonly MissionProposal[] {
-  return proposals.filter(
-    (proposal) => proposal.approved_at === null && proposal.attempt === node.attempt,
-  );
 }
 
 function consequenceOf(node: MissionRunnableNode): ReactNode {

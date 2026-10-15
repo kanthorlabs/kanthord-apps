@@ -804,6 +804,24 @@ export const GRAPH_ASSESSMENTS = [
     child_node_ids: [ids.invite],
     worker_version: "reviewer@1",
   })),
+  {
+    id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SF8",
+    node_id: graphId("YF8"),
+    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0EF9",
+    attempt: 1,
+    node_revision: 1,
+    evidence_ids: [],
+    child_outcome_ids: [],
+    result: "undetermined",
+    rationale:
+      "The criterion names the language of the receiver, and the plan file lists no source for it. The reviewer cannot judge the email text.",
+    tested_input: null,
+    actor: execution("EF9", "reviewer-main #1"),
+    created_at: minutes(42),
+    currency: null,
+    child_node_ids: [],
+    worker_version: "reviewer@1",
+  },
 ];
 
 export const GRAPH_OUTCOMES = [
@@ -1045,6 +1063,11 @@ export const ATLAS_NODES = [
     attempt: 1,
     pinned_by_attempts: [1],
   }),
+  atlasNode("YF8", "objective", "order-email-locale.md", "YF1", "Localize the order email", {
+    state: "Blocked",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
 ];
 
 export const ATLAS_EDGES = ATLAS_NODES.filter((node) => node.parent_id !== null).map((node) => ({
@@ -1052,6 +1075,20 @@ export const ATLAS_EDGES = ATLAS_NODES.filter((node) => node.parent_id !== null)
   parent_id: node.parent_id,
   child_id: node.id,
 }));
+
+export const ATLAS_OUTCOMES = [
+  {
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OF8",
+    node_id: atlasId("YF8"),
+    attempt: 1,
+    node_revision: 1,
+    closing_event: "assessment-not-passed",
+    result: "undetermined",
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SF8",
+    evidence_ids: [],
+    created_at: minutes(40),
+  },
+];
 
 export const ATLAS_QUEUE = [
   jobOf(PROJECT_ATLAS.id, atlasId("YF4"), 3, 50, "K01"),

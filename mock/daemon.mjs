@@ -52,7 +52,7 @@ const projectStates = new Map([
       nodes: fx.ATLAS_NODES,
       edges: fx.ATLAS_EDGES,
       proposals: [],
-      outcomes: [],
+      outcomes: fx.ATLAS_OUTCOMES,
       queue: fx.ATLAS_QUEUE,
       executions: fx.ATLAS_EXECUTIONS,
     }),
