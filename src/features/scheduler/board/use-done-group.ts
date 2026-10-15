@@ -16,14 +16,14 @@ export function useDoneGroup(projectId: string, refreshedAt: number | null): Don
     (cursor) => listProjectExecutionPage(projectId, cursor, DONE_PAGE_LIMIT),
     [projectId],
   );
-  const { hasPrevious, reload } = pages;
+  const { hasPrevious, pending, reload } = pages;
   const seenRefresh = useRef(refreshedAt);
 
   useEffect(() => {
     if (refreshedAt === seenRefresh.current) return;
     seenRefresh.current = refreshedAt;
-    if (!hasPrevious) reload();
-  }, [refreshedAt, hasPrevious, reload]);
+    if (!hasPrevious && !pending) reload();
+  }, [refreshedAt, hasPrevious, pending, reload]);
 
   const executions = useMemo(
     () => pages.items.filter((execution) => execution.claim_state !== "running"),
