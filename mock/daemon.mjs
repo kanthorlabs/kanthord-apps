@@ -1406,8 +1406,8 @@ const checkFailureOf = (evidenceId) => ({
   evidence_id: evidenceId,
   error: {
     error: {
-      code: "mission.node.claim_live",
-      message: "The platform did not answer within the deadline.",
+      code: "system.operation.unknown",
+      message: "Operation failed.",
       details: null,
     },
     request_id: "request_01J9ZQ4XKM3B6V8N2R5T7W0RQ1",
