@@ -8,7 +8,11 @@ import type {
 } from "@/api/types";
 import type { Resource } from "@/hooks/use-resource";
 import { pauseCauseOf } from "@/lib/execution-stop";
-import { unresolvedRequestsOf, unresolvedRequestsText } from "@/lib/external-requests";
+import {
+  hasOpenAttempt,
+  unresolvedRequestsOf,
+  unresolvedRequestsText,
+} from "@/lib/external-requests";
 import { useNodeDiscard } from "@/hooks/use-node-discard";
 import { useNodeOverride } from "@/hooks/use-node-override";
 import { useNodeResume } from "@/hooks/use-node-resume";
@@ -33,16 +37,18 @@ function guardLineOf(
   actions: NodeControlsProps["actions"],
   executions: NodeControlsProps["executions"],
 ): string | null {
-  if (node.state !== "Paused") return null;
+  if (!hasOpenAttempt(node)) return null;
+  const paused = node.state === "Paused";
+  const subject = paused ? "executions and the external actions" : "external actions";
   if (actions.loading || executions.loading) {
-    return `Reading the executions and the external actions of attempt ${node.attempt}.`;
+    return `Reading the ${subject} of attempt ${node.attempt}.`;
   }
   const failure = actions.error ?? executions.error;
   if (actions.data === null || executions.data === null) {
-    return `The executions or the external actions of attempt ${node.attempt} could not be read: ${failure?.message}`;
+    return `The ${paused ? "executions or the external actions" : "external actions"} of attempt ${node.attempt} could not be read: ${failure?.message}`;
   }
   const unresolved = unresolvedRequestsOf(actions.data);
-  return unresolved.length === 0 ? null : unresolvedRequestsText(node.attempt, unresolved);
+  return unresolved.length === 0 ? null : unresolvedRequestsText(node.attempt, unresolved, paused);
 }
 
 export function NodeControls({
@@ -77,7 +83,7 @@ export function NodeControls({
     <section aria-label="Controls" className="flex flex-col gap-2">
       <h3 className="font-semibold">Controls</h3>
       {guardLine !== null && <p className="text-sm text-muted-foreground">{guardLine}</p>}
-      {node.state === "Paused" && !answered && !actions.loading && !executions.loading && (
+      {hasOpenAttempt(node) && !answered && !actions.loading && !executions.loading && (
         <div className="flex md:justify-end">
           <Button
             variant="outline"

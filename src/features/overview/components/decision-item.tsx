@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import type { AttentionDetail, AttentionItem } from "@/lib/attention";
 import { openProposalsOf } from "@/lib/attention";
-import { unresolvedRequestsOf, unresolvedRequestsText } from "@/lib/external-requests";
 import { nodePath } from "@/lib/node-path";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
@@ -48,10 +47,6 @@ export function DecisionItem({
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const acts = useDecisionActs(item, detail, { reload, setDialogOpen });
   const blockedDetail = detail?.kind === "blocked" ? detail : null;
-  const unresolved =
-    detail?.kind === "paused" && detail.actions.status === "ready"
-      ? unresolvedRequestsOf(detail.actions.data)
-      : [];
   const proposals =
     item.kind === "blocked" && blockedDetail?.proposals.status === "ready"
       ? openProposalsOf(node, blockedDetail.proposals.data)
@@ -85,10 +80,8 @@ export function DecisionItem({
         <ItemDescription className="line-clamp-none">
           <CauseText item={item} />
         </ItemDescription>
-        {unresolved.length > 0 && (
-          <ItemDescription className="line-clamp-none">
-            {unresolvedRequestsText(node.attempt, unresolved)}
-          </ItemDescription>
+        {acts.unresolved !== null && (
+          <ItemDescription className="line-clamp-none">{acts.unresolved}</ItemDescription>
         )}
         {acts.waiting !== null && (
           <ItemDescription className="line-clamp-none">

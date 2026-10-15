@@ -7,13 +7,13 @@ const NO_ACTIONS: readonly MissionExternalAction[] = [];
 export function useNodeExternalActions(
   nodeId: string,
   attempt: number,
-  paused: boolean,
+  enabled: boolean,
 ): Resource<readonly MissionExternalAction[]> {
   return useResource(
     () =>
-      paused && attempt > 0
+      enabled && attempt > 0
         ? listNodeExternalActions(nodeId, attempt)
         : Promise.resolve(NO_ACTIONS),
-    [nodeId, attempt, paused],
+    [nodeId, attempt, enabled],
   );
 }

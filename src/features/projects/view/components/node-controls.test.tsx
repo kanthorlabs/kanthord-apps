@@ -307,6 +307,50 @@ describe("NodeControls", () => {
     expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
   });
 
+  it("states why an Executing node with an unresolved request has no Override or Discard", () => {
+    mount({ ...TEAM, state: "Executing" }, [], vi.fn(), answered([requested("unresolved")]));
+
+    expect(
+      screen.getByText(
+        "Attempt 2 has an unresolved pull request. Override and discard wait for its end state.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Override" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it("holds Override and Discard of an Executing node while the external actions load", () => {
+    mount({ ...TEAM, state: "Executing" }, [], vi.fn(), {
+      data: null,
+      error: null,
+      loading: true,
+      reload: vi.fn(),
+    });
+
+    expect(screen.getByText("Reading the external actions of attempt 2.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Override" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it("names a failed external action read of an Executing node and offers Retry", async () => {
+    const reload = vi.fn();
+    mount({ ...TEAM, state: "Executing" }, [], vi.fn(), {
+      data: null,
+      error: new ApiError("unreachable", "The daemon did not answer.", 0),
+      loading: false,
+      reload,
+    });
+
+    expect(
+      screen.getByText(
+        "The external actions of attempt 2 could not be read: The daemon did not answer.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
   it.each<NodeState>(["Completed", "Discarded", "External.Requested"])(
     "offers no control for a %s node",
     (state) => {

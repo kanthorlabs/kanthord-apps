@@ -6,6 +6,11 @@ import { useNodeResume, type NodeResumeState } from "@/hooks/use-node-resume";
 import { useNodeUnblock, type NodeUnblockState } from "@/hooks/use-node-unblock";
 import { useProposalApprove, type ProposalApproveState } from "@/hooks/use-proposal-approve";
 import type { AttentionDetail, AttentionItem } from "@/lib/attention";
+import {
+  hasOpenAttempt,
+  unresolvedRequestsOf,
+  unresolvedRequestsText,
+} from "@/lib/external-requests";
 
 import { useDependencyRemove, type DependencyRemoveState } from "./use-dependency-remove";
 
@@ -19,6 +24,7 @@ export interface DecisionActs {
   readonly ready: boolean;
   readonly waiting: string | null;
   readonly failed: boolean;
+  readonly unresolved: string | null;
 }
 
 interface DecisionContext {
@@ -71,8 +77,29 @@ function pausedStateOf(attempt: number, detail: AttentionDetail | null): ReadSta
   return READY;
 }
 
+function openStateOf(attempt: number, detail: AttentionDetail | null): ReadState {
+  if (detail?.kind !== "open") {
+    return {
+      ready: false,
+      waiting: `Reading the external actions of attempt ${attempt}. The acts show after the read.`,
+      failed: false,
+    };
+  }
+  if (detail.actions.status === "failed") {
+    return {
+      ready: false,
+      waiting: `The external actions of attempt ${attempt} could not be read: ${detail.actions.message}. The acts wait for them.`,
+      failed: true,
+    };
+  }
+  return READY;
+}
+
 function readStateOf(item: AttentionItem, detail: AttentionDetail | null): ReadState {
   if (item.kind === "paused") return pausedStateOf(item.node.attempt, detail);
+  if (item.kind === "dependency_discarded" && hasOpenAttempt(item.node)) {
+    return openStateOf(item.node.attempt, detail);
+  }
   if (item.kind === "blocked" && item.node.kind === "initiative") return proposalsStateOf(detail);
   return READY;
 }
@@ -85,8 +112,9 @@ export function useDecisionActs(
   const { node, missionVersion } = item;
   const proposals =
     detail?.kind === "blocked" && detail.proposals.status === "ready" ? detail.proposals.data : [];
-  const actions =
-    detail?.kind === "paused" && detail.actions.status === "ready" ? detail.actions.data : null;
+  const actionsRead = detail?.kind === "paused" || detail?.kind === "open" ? detail.actions : null;
+  const actions = actionsRead?.status === "ready" ? actionsRead.data : null;
+  const unresolved = actions === null ? [] : unresolvedRequestsOf(actions);
   const unblock = useNodeUnblock(node, missionVersion, proposals, reload);
   const approve = useProposalApprove(node, missionVersion, reload);
   const override = useNodeOverride(node, missionVersion, actions, reload);
@@ -115,6 +143,10 @@ export function useDecisionActs(
     resume,
     remove,
     discard,
+    unresolved:
+      unresolved.length === 0
+        ? null
+        : unresolvedRequestsText(node.attempt, unresolved, item.kind === "paused"),
     ...readStateOf(item, detail),
   };
 }

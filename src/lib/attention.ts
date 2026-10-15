@@ -10,6 +10,7 @@ import type {
 } from "@/api/types";
 
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
+import { hasOpenAttempt } from "./external-requests";
 
 export type AttentionGroupId = "decisions";
 
@@ -55,7 +56,13 @@ export interface PausedDetail {
   readonly actions: DetailRead<readonly MissionExternalAction[]>;
 }
 
-export type AttentionDetail = BlockedDetail | PausedDetail;
+export interface OpenDetail {
+  readonly kind: "open";
+  readonly key: string;
+  readonly actions: DetailRead<readonly MissionExternalAction[]>;
+}
+
+export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail;
 
 export type AttentionDetails = ReadonlyMap<string, AttentionDetail>;
 
@@ -94,7 +101,7 @@ export interface DependencyItem extends ItemBase {
 export type AttentionItem = BlockedItem | PausedItem | DependencyItem;
 
 export interface DetailTarget {
-  readonly kind: "blocked" | "paused";
+  readonly kind: "blocked" | "paused" | "open";
   readonly projectId: string;
   readonly node: MissionRunnableNode;
 }
@@ -186,6 +193,10 @@ function discardedDependenciesOf(
   });
 }
 
+function isDependencyItem(snapshot: ProjectSnapshot, node: MissionRunnableNode): boolean {
+  return node.state === "Pending" && discardedDependenciesOf(snapshot, node).length > 0;
+}
+
 function itemsOf(snapshot: ProjectSnapshot, details: AttentionDetails): readonly AttentionItem[] {
   return snapshot.nodes.filter(isRunnable).flatMap((node): readonly AttentionItem[] => {
     if (node.state === "Blocked") return [blockedItemOf(snapshot, node)];
@@ -238,6 +249,8 @@ export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly
         return [{ kind: "blocked", projectId: snapshot.project.id, node }];
       if (node.state === "Paused")
         return [{ kind: "paused", projectId: snapshot.project.id, node }];
+      if (isDependencyItem(snapshot, node) && hasOpenAttempt(node))
+        return [{ kind: "open", projectId: snapshot.project.id, node }];
       return [];
     }),
   );

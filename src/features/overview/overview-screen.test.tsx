@@ -973,6 +973,54 @@ describe("OverviewScreen dependency items", () => {
   });
 });
 
+describe("OverviewScreen dependency items with an open attempt", () => {
+  function started(): MissionRunnableNode {
+    return { ...pending("n_c", "Redirect the legacy links", ["n_b"]), attempt: 2 };
+  }
+
+  it("keeps Discard off and names the unresolved request without the Resume sentence", async () => {
+    serve({
+      nodes: { "prj-2": [started(), plain("n_b", "Drop the legacy checkout", "Discarded")] },
+      actions: { n_c: [requested("n_c", "unresolved")] },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    expect(
+      await within(item).findByText(
+        "Attempt 2 has an unresolved pull request. Override and discard wait for its end state.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    expect(listNodeExternalActions).toHaveBeenCalledWith("n_c", 2);
+    expect(listNodeExecutions).not.toHaveBeenCalled();
+  });
+
+  it("holds Discard until the external actions answer", async () => {
+    let answer: (value: readonly MissionExternalAction[]) => void = () => undefined;
+    serve({
+      nodes: { "prj-2": [started(), plain("n_b", "Drop the legacy checkout", "Discarded")] },
+    });
+    vi.mocked(listNodeExternalActions).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    expect(
+      within(item).getByText(/Reading the external actions of attempt 2\. The acts show/),
+    ).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+
+    answer([]);
+
+    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
+  });
+});
+
 describe("OverviewScreen proposal approval", () => {
   it("approves the open proposal of an initiative in place", async () => {
     const user = userEvent.setup();

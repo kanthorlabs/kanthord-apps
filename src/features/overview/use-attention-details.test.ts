@@ -113,6 +113,20 @@ describe("useAttentionDetails", () => {
     expect(listNodeExternalActions).toHaveBeenCalledWith("n2", 4);
   });
 
+  it("reads the external actions of an open attempt and no executions", async () => {
+    const target: DetailTarget = {
+      kind: "open",
+      projectId: "prj-1",
+      node: node("n3", "Pending", { attempt: 2, depends_on: ["n9"] }),
+    };
+
+    const { result } = renderHook(() => useAttentionDetails([target]));
+
+    await waitFor(() => expect(result.current.details.get("n3")?.kind).toBe("open"));
+    expect(listNodeExternalActions).toHaveBeenCalledWith("n3", 2);
+    expect(listNodeExecutions).not.toHaveBeenCalled();
+  });
+
   it("answers empty reads without a call for a Paused node at attempt 0", async () => {
     const target = paused("n2", { attempt: 0 });
 

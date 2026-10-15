@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { hasOpenAttempt } from "@/lib/external-requests";
 import { utcDateTime } from "@/lib/format";
 import { nameOf, type GraphModel } from "@/lib/mission-graph";
 import { closingEventText, resultVariant } from "@/lib/mission-labels";
@@ -108,7 +109,7 @@ export function NodeDetailsTab({
   const actions = useNodeExternalActions(
     nodeId,
     runnable?.attempt ?? 0,
-    runnable?.state === "Paused",
+    runnable !== null && hasOpenAttempt(runnable),
   );
   const executions = useNodeExecutions(
     projectId,

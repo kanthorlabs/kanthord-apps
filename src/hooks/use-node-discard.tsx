@@ -5,7 +5,7 @@ import { discardNode } from "@/api/resources/mission";
 import type { MissionExternalAction, MissionRunnableNode, NodeState } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
-import { unresolvedRequestsOf } from "@/lib/external-requests";
+import { requestsClearOf } from "@/lib/external-requests";
 
 export interface NodeDiscardState {
   readonly available: boolean;
@@ -52,8 +52,7 @@ function isDiscardable(
   actions: readonly MissionExternalAction[] | null,
 ): boolean {
   if (node.retired_at !== null || !DISCARD_STATES.includes(node.state)) return false;
-  if (node.state !== "Paused") return true;
-  return actions !== null && unresolvedRequestsOf(actions).length === 0;
+  return requestsClearOf(node, actions);
 }
 
 function consequenceOf(node: MissionRunnableNode): ReactNode {

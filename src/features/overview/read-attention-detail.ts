@@ -12,6 +12,7 @@ import {
   type BlockedDetail,
   type DetailRead,
   type DetailTarget,
+  type OpenDetail,
   type PausedDetail,
 } from "@/lib/attention";
 
@@ -57,6 +58,16 @@ async function readPaused(target: DetailTarget): Promise<PausedDetail> {
   return { kind: "paused", key: detailKeyOf(node), executions, actions };
 }
 
+async function readOpen(target: DetailTarget): Promise<OpenDetail> {
+  const { node } = target;
+  return {
+    kind: "open",
+    key: detailKeyOf(node),
+    actions: await settle(listNodeExternalActions(node.id, node.attempt)),
+  };
+}
+
 export async function readAttentionDetail(target: DetailTarget): Promise<AttentionDetail> {
-  return target.kind === "blocked" ? readBlocked(target) : readPaused(target);
+  if (target.kind === "blocked") return readBlocked(target);
+  return target.kind === "paused" ? readPaused(target) : readOpen(target);
 }

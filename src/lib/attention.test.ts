@@ -405,6 +405,20 @@ describe("detailTargetsOf and detailOf", () => {
     ]);
   });
 
+  it("targets a Pending node with an open attempt that waits on a Discarded node", () => {
+    const targets = detailTargetsOf([
+      snapshot("atlas", [
+        node("n1", "A", "Pending", { depends_on: ["n9"] }),
+        node("n2", "B", "Pending", { depends_on: ["n9"], attempt: 0 }),
+        node("n3", "C", "Pending", { depends_on: ["n8"] }),
+        node("n8", "Done", "Completed"),
+        node("n9", "Dropped", "Discarded"),
+      ]),
+    ]);
+
+    expect(targets.map((target) => [target.kind, target.node.id])).toEqual([["open", "n1"]]);
+  });
+
   it("answers a detail only for the key of the node", () => {
     const paused = node("n1", "A", "Paused");
     const details = new Map([["n1", pausedDetail(paused, [])]]);

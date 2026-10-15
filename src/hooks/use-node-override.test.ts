@@ -120,6 +120,24 @@ describe("useNodeOverride", () => {
     expect(overrideMock).not.toHaveBeenCalled();
   });
 
+  it.each<NodeState>(["Pending", "Available", "Executing", "Waiting", "External.Success"])(
+    "holds override of a %s node with an open attempt until the actions answer and clear",
+    (state) => {
+      const node = { ...NODE, state };
+
+      expect(mount(node, vi.fn(), null).result.current.available).toBe(false);
+      expect(mount(node, vi.fn(), [action("unresolved")]).result.current.available).toBe(false);
+      expect(mount(node, vi.fn(), [action("expected-end")]).result.current.available).toBe(true);
+    },
+  );
+
+  it("needs no external action read for a Blocked node or a node at attempt 0", () => {
+    expect(mount({ ...NODE, state: "Blocked" }, vi.fn(), null).result.current.available).toBe(true);
+    expect(
+      mount({ ...NODE, state: "Pending", attempt: 0 }, vi.fn(), null).result.current.available,
+    ).toBe(true);
+  });
+
   it("requires a nonblank reason before the call", async () => {
     const { result } = mount();
 
