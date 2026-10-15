@@ -1569,8 +1569,8 @@ const projectOrRefuseScheduler = (res, encodedId) => {
 };
 
 on("GET", /^\/api\/scheduler\/project\/([^/]+)\/queue$/, (m, _b, res, _t, url) => {
-  const state = projectOrRefuseScheduler(res, m[1]);
-  if (state === undefined) return undefined;
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined) return json(res, 200, page([], url));
   const ordered = [...state.queue].sort(
     (a, x) => x.priority - a.priority || a.job_id.localeCompare(x.job_id),
   );
