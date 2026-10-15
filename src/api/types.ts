@@ -728,6 +728,19 @@ export interface MissionHumanActBody {
   readonly expected_attempt: number;
 }
 
+export interface MissionNodeResumeBody extends MissionHumanActBody {
+  readonly target: "Available" | "Waiting";
+}
+
+export interface MissionNodeOverrideBody extends MissionHumanActBody {
+  readonly result: "success";
+}
+
+export interface MissionDependencyBody {
+  readonly reason: string;
+  readonly expected_mission_version: number;
+}
+
 export interface MissionProposalApproveResult {
   readonly objective: MissionNodeChange;
   readonly initiative: MissionControlResult;

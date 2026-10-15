@@ -9,6 +9,7 @@ import { nameOf, type GraphModel } from "@/lib/mission-graph";
 import { closingEventText, resultVariant } from "@/lib/mission-labels";
 import { badgeVariantOf, meaningOf } from "@/lib/node-state";
 import { useBindingRecords } from "../use-binding-records";
+import { useNodeExecutions } from "../use-node-executions";
 import { useNodeExternalActions } from "../use-node-external-actions";
 import { useNodeProposals } from "../use-node-proposals";
 import { useNodeRecord } from "../use-node-record";
@@ -109,13 +110,21 @@ export function NodeDetailsTab({
     runnable?.attempt ?? 0,
     runnable?.state === "Paused",
   );
+  const executions = useNodeExecutions(
+    projectId,
+    nodeId,
+    runnable?.attempt ?? 0,
+    runnable?.state === "Paused",
+  );
   const { reload: reloadActions } = actions;
+  const { reload: reloadExecutions } = executions;
   const reloadAll = useCallback(() => {
     reloadRecord();
     reloadProposals();
     reloadActions();
+    reloadExecutions();
     onChanged();
-  }, [reloadRecord, reloadProposals, reloadActions, onChanged]);
+  }, [reloadRecord, reloadProposals, reloadActions, reloadExecutions, onChanged]);
   const bindingIds = record.data?.content.bindings ?? [];
   const bindings = useBindingRecords(projectId, bindingIds);
   const node = record.data;
@@ -142,9 +151,11 @@ export function NodeDetailsTab({
       {node.kind !== "task" && (
         <NodeControls
           node={node}
+          nodes={[...model.nodeById.values()]}
           missionVersion={missionVersion}
           proposals={proposals.data ?? []}
           actions={actions}
+          executions={executions}
           onChanged={reloadAll}
         />
       )}

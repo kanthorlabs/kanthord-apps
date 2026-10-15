@@ -1361,9 +1361,8 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
   });
 });
 
-on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
-  const nodeId = decodeURIComponent(m[1]);
-  const actions = (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
+const externalActionsOf = (nodeId) =>
+  (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
     attempt.required_external_actions.map((action) => {
       const request = fx.GRAPH_EVIDENCE.find(
         (item) =>
@@ -1381,7 +1380,140 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, u
       };
     }),
   );
-  return json(res, 200, page(byAttempt(actions, nodeId, url), url));
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/external-action$/, (m, _b, res, _t, url) => {
+  const nodeId = decodeURIComponent(m[1]);
+  return json(res, 200, page(byAttempt(externalActionsOf(nodeId), nodeId, url), url));
+});
+
+const OVERRIDE_STATES = [
+  "Pending",
+  "Available",
+  "Executing",
+  "Waiting",
+  "Blocked",
+  "Paused",
+  "External.Success",
+  "External.Failed",
+];
+
+const RESUME_TARGETS = ["Available", "Waiting"];
+
+const validationFailed = (res, field) =>
+  projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+    { path: ["body", field], code: "invalid_value" },
+  ]);
+
+const outcomeOf = (state, node, closingEvent, result) => {
+  const sequence = String(state.outcomes.length).padStart(2, "0");
+  const outcome = {
+    id: `outcome_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    node_id: node.id,
+    attempt: node.attempt,
+    node_revision: node.visible_revision,
+    closing_event: closingEvent,
+    result,
+    assessment_id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0X${sequence}`,
+    evidence_ids: [],
+    created_at: Date.now(),
+  };
+  state.outcomes.push(outcome);
+  return outcome;
+};
+
+const humanControlRefusal = (res, state, node, b, states) => {
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (node.state !== b.expected_state || node.attempt !== b.expected_attempt)
+    return stateConflict(res, node);
+  if (!states.includes(node.state)) return controlRefused(res, node);
+  if (isBlank(b.reason)) return blankReason(res);
+  return null;
+};
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/override$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (b.result !== "success") return validationFailed(res, "result");
+  const refusal = humanControlRefusal(res, state, node, b, OVERRIDE_STATES);
+  if (refusal !== null) return refusal;
+  const unresolved = externalActionsOf(node.id).filter(
+    (action) =>
+      action.attempt === node.attempt && action.requested && action.resolution === "unresolved",
+  );
+  if (unresolved.length > 0)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.action_unresolved",
+      "The open attempt has unresolved requests.",
+      { requirement_keys: unresolved.map((action) => action.action.key) },
+    );
+  const outcome = outcomeOf(state, node, "success-override", "success");
+  node.state = "Completed";
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: outcome.created_at,
+  });
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/resume$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  if (!RESUME_TARGETS.includes(b.target)) return validationFailed(res, "target");
+  const refusal = humanControlRefusal(res, state, node, b, ["Paused"]);
+  if (refusal !== null) return refusal;
+  const actions = externalActionsOf(node.id).filter((action) => action.attempt === node.attempt);
+  if (actions.some((action) => action.requested)) {
+    node.state = actions.every((action) => action.resolution === "expected-end")
+      ? "External.Success"
+      : "External.Requested";
+  } else if (b.target === "Waiting") {
+    node.state = "Waiting";
+  } else {
+    const open = dependsOnOf(state, node.id).some((id) => graphNodeById(id)?.state !== "Completed");
+    node.state = open ? "Pending" : "Available";
+  }
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome: null,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: Date.now(),
+  });
+});
+
+on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = controlRefusal(res, state, node, b.expected_mission_version);
+  if (refusal !== null) return refusal;
+  if (isBlank(b.reason)) return blankReason(res);
+  const dependsOnId = decodeURIComponent(m[2]);
+  const removed = state.edges.filter(
+    (edge) =>
+      edge.kind === "dependency" &&
+      edge.dependent_id === node.id &&
+      edge.depends_on_id === dependsOnId,
+  );
+  state.edges = state.edges.filter((edge) => !removed.includes(edge));
+  if (removed.length > 0) state.mission.version += 1;
+  if (
+    node.state === "Pending" &&
+    dependsOnOf(state, node.id).every((id) => graphNodeById(id)?.state === "Completed")
+  )
+    node.state = "Available";
+  return json(res, 200, {
+    mission_version: state.mission.version,
+    revisions: [],
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: removed,
+    open_attempts_unchanged: [],
+  });
 });
 
 const bindingRecordOf = (binding, projectId) => ({

@@ -13,10 +13,14 @@ import type {
   MissionAttempt,
   MissionEdge,
   MissionControlResult,
+  MissionDependencyBody,
   MissionHumanActBody,
   MissionEvidence,
   MissionExternalAction,
+  MissionNodeChange,
+  MissionNodeOverrideBody,
   MissionNodeRecord,
+  MissionNodeResumeBody,
   MissionNodeUnblockBody,
   MissionOutcome,
   MissionProposal,
@@ -165,4 +169,41 @@ export async function discardNode(
     body,
     headers: { "idempotency-key": newUlid() },
   });
+}
+
+export async function resumeNode(
+  nodeId: string,
+  body: MissionNodeResumeBody,
+): Promise<MissionControlResult> {
+  return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/resume`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function overrideNode(
+  nodeId: string,
+  body: MissionNodeOverrideBody,
+): Promise<MissionControlResult> {
+  return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/override`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function removeDependency(
+  nodeId: string,
+  dependsOnId: string,
+  body: MissionDependencyBody,
+): Promise<MissionNodeChange> {
+  return request<MissionNodeChange>(
+    `/api/mission/node/${encodeURIComponent(nodeId)}/dependency/${encodeURIComponent(dependsOnId)}`,
+    {
+      method: "DELETE",
+      body,
+      headers: { "idempotency-key": newUlid() },
+    },
+  );
 }

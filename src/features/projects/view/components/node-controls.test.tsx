@@ -10,6 +10,7 @@ import type {
   MissionProposal,
   MissionRunnableNode,
   NodeState,
+  SchedulerExecutionRecord,
 } from "@/api/types";
 
 vi.mock("@/api/resources/mission");
@@ -84,18 +85,53 @@ function answered(
   return { data, error: null, loading: false, reload: vi.fn() };
 }
 
+function ended(overrides: Partial<SchedulerExecutionRecord> = {}): SchedulerExecutionRecord {
+  return {
+    execution_id: "execution_1",
+    project_id: "prj-1",
+    node_id: "node_team",
+    claimant: {
+      worker_binding_id: "binding_1",
+      resource_identity: "worker:kanthord:general-main",
+      runtime_identity: "worker_instance_01",
+    },
+    attempt: 2,
+    pinned_revision: 1,
+    node_branch: "kanthord/node_team",
+    credentials: [],
+    agent_selections: [],
+    claim_state: "finished",
+    expired_at: 9_000,
+    created_at: 1_000,
+    ended_at: 2_000,
+    stop: null,
+    trace_id: "0".repeat(31) + "1",
+    root_span_id: "0".repeat(15) + "1",
+    ...overrides,
+  };
+}
+
+function runs(
+  data: readonly SchedulerExecutionRecord[] = [],
+): Resource<readonly SchedulerExecutionRecord[]> {
+  return { data, error: null, loading: false, reload: vi.fn() };
+}
+
 function mount(
   node: MissionRunnableNode = TEAM,
   proposals: readonly MissionProposal[] = [],
   onChanged = vi.fn(),
   actions: Resource<readonly MissionExternalAction[]> = answered(),
+  executions: Resource<readonly SchedulerExecutionRecord[]> = runs(),
 ) {
   render(
     <NodeControls
       node={node}
+      nodes={[node]}
       missionVersion={9}
       proposals={proposals}
       actions={actions}
+      executions={executions}
       onChanged={onChanged}
     />,
   );
@@ -107,6 +143,8 @@ describe("NodeControls", () => {
     vi.clearAllMocks();
     vi.mocked(missionApi.unblockNode).mockResolvedValue({} as MissionControlResult);
     vi.mocked(missionApi.discardNode).mockResolvedValue({} as MissionControlResult);
+    vi.mocked(missionApi.overrideNode).mockResolvedValue({} as MissionControlResult);
+    vi.mocked(missionApi.resumeNode).mockResolvedValue({} as MissionControlResult);
   });
 
   it("offers Unblock and Discard for a Blocked node", () => {
@@ -117,15 +155,113 @@ describe("NodeControls", () => {
     expect(within(controls).getByRole("button", { name: "Discard" })).toBeTruthy();
   });
 
-  it.each<NodeState>(["Available", "Executing", "Paused"])(
-    "offers only Discard for a %s node",
+  it.each<NodeState>(["Available", "Executing"])(
+    "offers Override and Discard but not Unblock or Resume for a %s node",
     (state) => {
       mount({ ...TEAM, state });
 
       expect(screen.queryByRole("button", { name: "Unblock" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+      expect(screen.getByRole("button", { name: "Override" })).toBeTruthy();
       expect(screen.getByRole("button", { name: "Discard" })).toBeTruthy();
     },
   );
+
+  it("offers Resume, Override and Discard for a Paused node", () => {
+    mount({ ...TEAM, state: "Paused" });
+
+    expect(screen.queryByRole("button", { name: "Unblock" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Override" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Discard" })).toBeTruthy();
+  });
+
+  it("holds the controls of a Paused node while the executions load", () => {
+    mount({ ...TEAM, state: "Paused" }, [], vi.fn(), answered(), {
+      data: null,
+      error: null,
+      loading: true,
+      reload: vi.fn(),
+    });
+
+    expect(
+      screen.getByText("Reading the executions and the external actions of attempt 2."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Override" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it("overrides a Blocked node with the result success after the reason", async () => {
+    const { onChanged } = mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Override" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(
+        textContent(
+          "Override records a success outcome for Team workspaces on your authority and ends it as Completed. Nodes that depend on it can start. No commit is recorded. An override cannot be undone.",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("To run it again, unblock it.")).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Override node" })).toHaveProperty(
+      "disabled",
+      true,
+    );
+    await userEvent.type(within(dialog).getByLabelText("Reason"), "Verified by hand.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Override node" }));
+
+    expect(missionApi.overrideNode).toHaveBeenCalledWith("node_team", {
+      reason: "Verified by hand.",
+      expected_mission_version: 9,
+      expected_state: "Blocked",
+      expected_attempt: 2,
+      result: "success",
+    });
+    await vi.waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+  });
+
+  it("resumes a Paused node to Available by default and sends the target", async () => {
+    const { onChanged } = mount({ ...TEAM, state: "Paused" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(textContent("Resume returns Team workspaces to Available.")),
+    ).toBeTruthy();
+    expect(within(dialog).getByText("To keep it held, cancel.")).toBeTruthy();
+    await userEvent.type(within(dialog).getByLabelText("Reason"), "Try again.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Resume node" }));
+
+    expect(missionApi.resumeNode).toHaveBeenCalledWith("node_team", {
+      reason: "Try again.",
+      expected_mission_version: 9,
+      expected_state: "Paused",
+      expected_attempt: 2,
+      target: "Available",
+    });
+    await vi.waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+  });
+
+  it("defaults the resume of a Further-work pause to Waiting", async () => {
+    mount(
+      { ...TEAM, state: "Paused" },
+      [],
+      vi.fn(),
+      answered(),
+      runs([ended({ stop: { reason: "budget_end", code: "turns" } })]),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    expect(
+      within(dialog).getByText(
+        textContent("Resume returns Team workspaces to Waiting for its evaluation."),
+      ),
+    ).toBeTruthy();
+  });
 
   it("holds Discard of a Paused node while the external actions load", () => {
     mount({ ...TEAM, state: "Paused" }, [], vi.fn(), {
@@ -135,7 +271,9 @@ describe("NodeControls", () => {
       reload: vi.fn(),
     });
 
-    expect(screen.getByText("Reading the external actions of attempt 2.")).toBeTruthy();
+    expect(
+      screen.getByText("Reading the executions and the external actions of attempt 2."),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
   });
 
@@ -150,7 +288,7 @@ describe("NodeControls", () => {
 
     expect(
       screen.getByText(
-        "The external actions of attempt 2 could not be read: The daemon did not answer.",
+        "The executions or the external actions of attempt 2 could not be read: The daemon did not answer.",
       ),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();

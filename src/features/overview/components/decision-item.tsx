@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
+import { DependencyRemoveDialog } from "@/components/dependency-remove-dialog";
 import { NodeDiscardDialog } from "@/components/node-discard-dialog";
+import { NodeOverrideDialog } from "@/components/node-override-dialog";
+import { NodeResumeDialog } from "@/components/node-resume-dialog";
 import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 import { ProposalApproveDialog } from "@/components/proposal-approve-dialog";
 import { RecordName } from "@/components/record-name";
@@ -144,6 +147,29 @@ export function DecisionItem({
                 Approve proposal
               </Button>
             ))}
+          {item.kind === "paused" && acts.resume.available && (
+            <Button variant="outline" size="sm" onClick={acts.resume.request}>
+              Resume
+            </Button>
+          )}
+          {item.kind === "dependency_discarded" &&
+            acts.remove.available &&
+            item.discarded.map((dependency) => (
+              <Button
+                key={dependency.id}
+                variant="outline"
+                size="sm"
+                aria-label={`Remove dependency on ${dependency.name}`}
+                onClick={() => acts.remove.request(dependency)}
+              >
+                Remove dependency
+              </Button>
+            ))}
+          {item.kind !== "dependency_discarded" && acts.override.available && (
+            <Button variant="outline" size="sm" onClick={acts.override.request}>
+              Override
+            </Button>
+          )}
           {acts.discard.available && (
             <Button variant="destructive" size="sm" onClick={acts.discard.request}>
               Discard
@@ -153,6 +179,9 @@ export function DecisionItem({
       )}
       <NodeUnblockDialog name={node.content.name} unblock={acts.unblock} />
       <ProposalApproveDialog approve={acts.approve} />
+      <NodeResumeDialog name={node.content.name} resume={acts.resume} />
+      <NodeOverrideDialog name={node.content.name} override={acts.override} />
+      <DependencyRemoveDialog name={node.content.name} remove={acts.remove} />
       <NodeDiscardDialog name={node.content.name} discard={acts.discard} />
     </Item>
   );

@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 
+import { useDependencyRemove, type DependencyRemoveState } from "@/hooks/use-dependency-remove";
 import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
+import { useNodeOverride, type NodeOverrideState } from "@/hooks/use-node-override";
+import { useNodeResume, type NodeResumeState } from "@/hooks/use-node-resume";
 import { useNodeUnblock, type NodeUnblockState } from "@/hooks/use-node-unblock";
 import { useProposalApprove, type ProposalApproveState } from "@/hooks/use-proposal-approve";
 import type { AttentionDetail, AttentionItem } from "@/lib/attention";
@@ -8,6 +11,9 @@ import type { AttentionDetail, AttentionItem } from "@/lib/attention";
 export interface DecisionActs {
   readonly unblock: NodeUnblockState;
   readonly approve: ProposalApproveState;
+  readonly override: NodeOverrideState;
+  readonly resume: NodeResumeState;
+  readonly remove: DependencyRemoveState;
   readonly discard: NodeDiscardState;
   readonly ready: boolean;
   readonly waiting: string | null;
@@ -82,8 +88,18 @@ export function useDecisionActs(
     detail?.kind === "paused" && detail.actions.status === "ready" ? detail.actions.data : null;
   const unblock = useNodeUnblock(node, missionVersion, proposals, reload);
   const approve = useProposalApprove(node, missionVersion, reload);
+  const override = useNodeOverride(node, missionVersion, reload, actions);
+  const cause = item.kind === "paused" ? (item.pause?.cause ?? null) : null;
+  const resume = useNodeResume(node, missionVersion, item.nodes, actions, cause, reload);
+  const remove = useDependencyRemove(node, missionVersion, reload);
   const discard = useNodeDiscard(node, missionVersion, reload, actions);
-  const open = unblock.open || approve.target !== null || discard.open;
+  const open =
+    unblock.open ||
+    approve.target !== null ||
+    override.open ||
+    resume.open ||
+    remove.target !== null ||
+    discard.open;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -91,5 +107,13 @@ export function useDecisionActs(
     return () => setDialogOpen(node.id, false);
   }, [node.id, open, setDialogOpen]);
 
-  return { unblock, approve, discard, ...readStateOf(item, detail) };
+  return {
+    unblock,
+    approve,
+    override,
+    resume,
+    remove,
+    discard,
+    ...readStateOf(item, detail),
+  };
 }

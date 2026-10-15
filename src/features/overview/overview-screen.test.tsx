@@ -17,6 +17,9 @@ vi.mock("@/api/resources/mission", () => ({
   listNodeExternalActions: vi.fn(),
   unblockNode: vi.fn(),
   approveProposal: vi.fn(),
+  overrideNode: vi.fn(),
+  resumeNode: vi.fn(),
+  removeDependency: vi.fn(),
   discardNode: vi.fn(),
 }));
 
@@ -32,7 +35,10 @@ import {
   listNodeAssessments,
   listNodeExternalActions,
   listNodeProposals,
+  overrideNode,
   readMission,
+  removeDependency,
+  resumeNode,
   unblockNode,
 } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
@@ -44,6 +50,7 @@ import type {
   MissionControlResult,
   MissionEvidence,
   MissionExternalAction,
+  MissionNodeChange,
   MissionNodeRecord,
   MissionProposal,
   MissionProposalApproveResult,
@@ -276,6 +283,9 @@ function serve(world: World) {
   );
   vi.mocked(unblockNode).mockResolvedValue({} as MissionControlResult);
   vi.mocked(approveProposal).mockResolvedValue({} as MissionProposalApproveResult);
+  vi.mocked(overrideNode).mockResolvedValue({} as MissionControlResult);
+  vi.mocked(resumeNode).mockResolvedValue({} as MissionControlResult);
+  vi.mocked(removeDependency).mockResolvedValue({} as MissionNodeChange);
   vi.mocked(discardNode).mockResolvedValue({} as MissionControlResult);
 }
 
@@ -1107,5 +1117,300 @@ describe("OverviewScreen polling", () => {
     });
 
     expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads);
+  });
+});
+
+describe("OverviewScreen override", () => {
+  it("overrides a Blocked node with the result success", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Audit log"));
+    await user.click(within(item).getByRole("button", { name: "Override" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("To run it again, unblock it.")).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Reason"), "Verified by hand.");
+    await user.click(within(dialog).getByRole("button", { name: "Override node" }));
+
+    expect(overrideNode).toHaveBeenCalledWith("n_a", {
+      reason: "Verified by hand.",
+      expected_mission_version: 7,
+      expected_state: "Blocked",
+      expected_attempt: 2,
+      result: "success",
+    });
+  });
+
+  it("overrides a Paused node after the actions answer and names the resume as the safer path", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes", 3)] } });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    await user.click(await within(item).findByRole("button", { name: "Override" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("To continue the work, resume it.")).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Reason"), "Done elsewhere.");
+    await user.click(within(dialog).getByRole("button", { name: "Override node" }));
+
+    expect(overrideNode).toHaveBeenCalledWith("n_p", {
+      reason: "Done elsewhere.",
+      expected_mission_version: 7,
+      expected_state: "Paused",
+      expected_attempt: 3,
+      result: "success",
+    });
+  });
+
+  it("shows the message of a state conflict in the dialog and reads the inbox again", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    vi.mocked(overrideNode).mockRejectedValue(
+      new ApiError("conflict", "State conflict.", 409, "mission.node.state_conflict"),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Audit log"));
+    await user.click(within(item).getByRole("button", { name: "Override" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Verified.");
+    const reads = vi.mocked(listMissionNodes).mock.calls.length;
+    await user.click(within(dialog).getByRole("button", { name: "Override node" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The state or the attempt of the node changed after this read. The view now shows its current state. Review it and override again.",
+    );
+    await waitFor(() =>
+      expect(vi.mocked(listMissionNodes).mock.calls.length).toBeGreaterThan(reads),
+    );
+  });
+
+  it("offers no Override for a Pending node that waits on a Discarded node", async () => {
+    serve({
+      nodes: {
+        "prj-2": [
+          pending("n_c", "Redirect the legacy links", ["n_b"]),
+          plain("n_b", "Drop the legacy checkout", "Discarded"),
+        ],
+      },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+
+    expect(within(item).queryByRole("button", { name: "Override" })).toBeNull();
+  });
+});
+
+describe("OverviewScreen resume", () => {
+  it("resumes a Paused node to Available at the Failure limit", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Compute the rates", 3)] },
+      executions: {
+        n_p: [ended("e1", "n_p", { claim_state: "lost", ended_at: null, expired_at: NOW - HOUR })],
+      },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Compute the rates"));
+    await within(item).findByText("Failure limit");
+    await user.click(within(item).getByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(textContent("Resume returns Compute the rates to Available.")),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("A resume resets no failure count, so it grants one more try."),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Reason"), "Try again.");
+    await user.click(within(dialog).getByRole("button", { name: "Resume node" }));
+
+    expect(resumeNode).toHaveBeenCalledWith("n_p", {
+      reason: "Try again.",
+      expected_mission_version: 7,
+      expected_state: "Paused",
+      expected_attempt: 3,
+      target: "Available",
+    });
+  });
+
+  it("defaults the resume at the Further-work limit to Waiting and lets the human pick Available", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the packing slip")] },
+      executions: { n_p: [ended("e1", "n_p", { stop: { reason: "budget_end", code: "turns" } })] },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Print the packing slip"));
+    await within(item).findByText("Further-work limit");
+    await user.click(within(item).getByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(
+        textContent("Resume returns Print the packing slip to Waiting for its evaluation."),
+      ),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Available" }));
+
+    expect(
+      within(dialog).getByText(textContent(/Resume returns Print the packing slip to Available\./)),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText(/A resume resets no stall count/)).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Reason"), "Another try.");
+    await user.click(within(dialog).getByRole("button", { name: "Resume node" }));
+
+    expect(resumeNode).toHaveBeenCalledWith(
+      "n_p",
+      expect.objectContaining({ target: "Available", reason: "Another try." }),
+    );
+  });
+
+  it("names what Waiting needs when a dependency is open", async () => {
+    const user = userEvent.setup();
+    const dependent: MissionRunnableNode = {
+      ...paused("n_p", "Print the packing slip"),
+      depends_on: ["n_form"],
+    };
+    serve({
+      nodes: { "prj-1": [dependent, plain("n_form", "Sign-up form", "Executing")] },
+      executions: { n_p: [ended("e1", "n_p", { stop: { reason: "budget_end", code: "turns" } })] },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Print the packing slip"));
+    await within(item).findByText("Further-work limit");
+    await user.click(within(item).getByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    expect(
+      within(dialog).getByText(
+        textContent(
+          "Resume returns Print the packing slip to Pending, because Sign-up form is not Completed.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        textContent("Available. Waiting needs: Sign-up form to be Completed."),
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("offers Resume but no Override or Discard while a request is unresolved", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Publish the changelog")] },
+      actions: { n_p: [requested("n_p", "unresolved")] },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Publish the changelog"));
+    await user.click(await within(item).findByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    expect(
+      within(dialog).getByText(
+        textContent(
+          "Resume returns Publish the changelog to External.Requested, because its request is still open.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).queryByText("Resume to")).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Keep it paused" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(within(item).queryByRole("button", { name: "Override" })).toBeNull();
+    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it("shows the message of a not-ready conflict and keeps the dialog open", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
+    vi.mocked(resumeNode).mockRejectedValue(
+      new ApiError("conflict", "Not ready.", 409, "mission.node.not_ready"),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    await user.click(await within(item).findByRole("button", { name: "Resume" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Try.");
+    await user.click(within(dialog).getByRole("button", { name: "Resume node" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The node is not ready for its evaluation. The view now shows its current state. Resume to Available instead.",
+    );
+  });
+});
+
+describe("OverviewScreen dependency removal", () => {
+  it("removes the dependency on a Discarded node after the reason", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: {
+        "prj-2": [
+          pending("n_c", "Redirect the legacy links", ["n_b", "n_x"]),
+          plain("n_b", "Drop the legacy checkout", "Discarded"),
+          plain("n_x", "Drop the old login", "Discarded"),
+        ],
+      },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    await user.click(
+      within(item).getByRole("button", { name: "Remove dependency on Drop the legacy checkout" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(
+        textContent(
+          "Remove dependency deletes the edge from Redirect the legacy links to Drop the legacy checkout. Redirect the legacy links can start when its other dependencies are Completed. The edit changes the mission version.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        textContent("To end Redirect the legacy links instead, discard it."),
+      ),
+    ).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText("Reason"), "The checkout is gone.");
+    await user.click(within(dialog).getByRole("button", { name: "Remove dependency" }));
+
+    expect(removeDependency).toHaveBeenCalledWith("n_c", "n_b", {
+      reason: "The checkout is gone.",
+      expected_mission_version: 7,
+    });
+    expect(
+      within(item).getByRole("button", { name: "Remove dependency on Drop the old login" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the message of a version conflict in the dialog", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: {
+        "prj-2": [
+          pending("n_c", "Redirect the legacy links", ["n_b"]),
+          plain("n_b", "Drop the legacy checkout", "Discarded"),
+        ],
+      },
+    });
+    vi.mocked(removeDependency).mockRejectedValue(
+      new ApiError("conflict", "Version.", 409, "mission.version.conflict"),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    await user.click(within(item).getByRole("button", { name: /Remove dependency on/ }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Gone.");
+    await user.click(within(dialog).getByRole("button", { name: "Remove dependency" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "The mission changed after this read. The view now shows the current mission. Review the node and remove the dependency again.",
+    );
   });
 });

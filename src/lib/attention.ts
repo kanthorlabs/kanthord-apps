@@ -65,6 +65,7 @@ interface ItemBase {
   readonly project: Project;
   readonly missionVersion: number;
   readonly node: MissionRunnableNode;
+  readonly nodes: readonly MissionNodeRecord[];
   readonly at: number | null;
 }
 
@@ -145,6 +146,7 @@ function blockedItemOf(snapshot: ProjectSnapshot, node: MissionRunnableNode): Bl
     project: snapshot.project,
     missionVersion: snapshot.missionVersion,
     node,
+    nodes: snapshot.nodes,
     at: node.blocked_context?.outcome.created_at ?? null,
     cause: blockedCauseOf(node.blocked_context),
   };
@@ -165,6 +167,7 @@ function pausedItemOf(
     project: snapshot.project,
     missionVersion: snapshot.missionVersion,
     node,
+    nodes: snapshot.nodes,
     at: pause?.endedAt ?? null,
     pause,
     cause: pause === null ? null : PAUSE_CAUSE_LABELS[pause.cause],
@@ -198,6 +201,7 @@ function itemsOf(snapshot: ProjectSnapshot, details: AttentionDetails): readonly
         project: snapshot.project,
         missionVersion: snapshot.missionVersion,
         node,
+        nodes: snapshot.nodes,
         at: null,
         cause: "Discarded dependency",
         discarded,
