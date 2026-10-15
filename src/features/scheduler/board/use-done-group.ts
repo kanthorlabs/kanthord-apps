@@ -3,17 +3,30 @@ import { useEffect, useMemo, useRef } from "react";
 import { listProjectExecutionPage } from "@/api/resources/scheduler";
 import type { SchedulerExecutionRecord } from "@/api/types";
 import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
+import { nodePath } from "@/lib/node-path";
 
-import type { RefreshSignal } from "./use-scheduler-board";
+import type { DoneSource, RefreshSignal } from "./use-scheduler-board";
 
 const DONE_PAGE_LIMIT = 20;
 
-export interface DoneGroupState {
-  readonly pages: CursorPages<SchedulerExecutionRecord>;
-  readonly executions: readonly SchedulerExecutionRecord[];
+export interface DoneView {
+  readonly execution: SchedulerExecutionRecord;
+  readonly nodeName: string;
+  readonly projectName: string | null;
+  readonly href: string;
 }
 
-export function useDoneGroup(projectId: string, signal: RefreshSignal): DoneGroupState {
+export interface DoneGroupState {
+  readonly pages: CursorPages<SchedulerExecutionRecord>;
+  readonly views: readonly DoneView[];
+}
+
+export function useDoneGroup(
+  { project, nodeNames }: DoneSource,
+  showProject: boolean,
+  signal: RefreshSignal,
+): DoneGroupState {
+  const projectId = project.id;
   const pages = useCursorPages(
     (cursor) => listProjectExecutionPage(projectId, cursor, DONE_PAGE_LIMIT),
     [projectId],
@@ -33,10 +46,18 @@ export function useDoneGroup(projectId: string, signal: RefreshSignal): DoneGrou
     if (manual || !hasPrevious) reload();
   }, [signal, hasPrevious, pending, reload]);
 
-  const executions = useMemo(
-    () => pages.items.filter((execution) => execution.claim_state !== "running"),
-    [pages.items],
+  const views = useMemo(
+    () =>
+      pages.items
+        .filter((execution) => execution.claim_state !== "running")
+        .map((execution) => ({
+          execution,
+          nodeName: nodeNames.get(execution.node_id) ?? execution.node_id,
+          projectName: showProject ? project.name : null,
+          href: nodePath(projectId, execution.node_id),
+        })),
+    [pages.items, nodeNames, showProject, project.name, projectId],
   );
 
-  return { pages, executions };
+  return { pages, views };
 }

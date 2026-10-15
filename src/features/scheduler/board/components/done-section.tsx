@@ -1,5 +1,4 @@
 import { DataList } from "@/components/data-list";
-import { nodePath } from "@/lib/node-path";
 
 import { useDoneGroup } from "../use-done-group";
 import type { DoneSource, RefreshSignal } from "../use-scheduler-board";
@@ -20,21 +19,21 @@ interface DoneGroupProps {
 }
 
 function DoneGroup({ source, showProject, signal, now }: DoneGroupProps) {
-  const { project, nodeNames } = source;
-  const { pages, executions } = useDoneGroup(project.id, signal);
+  const { project } = source;
+  const { pages, views } = useDoneGroup(source, showProject, signal);
   return (
     <div className="flex flex-col gap-2">
       {showProject && <h4 className="text-sm font-medium">{project.name}</h4>}
       <DataList
         label={showProject ? `Done executions of ${project.name}` : "Done executions"}
-        items={executions}
-        getKey={(execution) => execution.execution_id}
-        renderItem={(execution) => (
+        items={views}
+        getKey={(view) => view.execution.execution_id}
+        renderItem={(view) => (
           <ExecutionItem
-            execution={execution}
-            nodeName={nodeNames.get(execution.node_id) ?? execution.node_id}
-            href={nodePath(project.id, execution.node_id)}
-            projectName={showProject ? project.name : null}
+            execution={view.execution}
+            nodeName={view.nodeName}
+            href={view.href}
+            projectName={view.projectName}
             kind={null}
             now={now}
           />
