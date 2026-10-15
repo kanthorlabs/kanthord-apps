@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,9 +21,11 @@ function isTarget(value: unknown): value is ResumeTarget {
 }
 
 export function NodeResumeDialog({ name, resume }: { name: string; resume: NodeResumeState }) {
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+
   return (
     <AlertDialog open={resume.open} onOpenChange={(open) => !open && resume.cancel()}>
-      <AlertDialogContent>
+      <AlertDialogContent initialFocus={reasonRef}>
         <AlertDialogHeader>
           <AlertDialogTitle>Resume {name}?</AlertDialogTitle>
           <AlertDialogDescription>{resume.consequence}</AlertDialogDescription>
@@ -62,6 +66,7 @@ export function NodeResumeDialog({ name, resume }: { name: string; resume: NodeR
           <FieldLabel htmlFor="node-resume-reason">Reason</FieldLabel>
           <Textarea
             id="node-resume-reason"
+            ref={reasonRef}
             value={resume.reason}
             required
             disabled={resume.resuming}

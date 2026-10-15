@@ -1459,3 +1459,73 @@ describe("OverviewScreen dependency removal", () => {
     );
   });
 });
+
+describe("OverviewScreen dialog focus", () => {
+  async function expectReasonFocused() {
+    const dialog = await screen.findByRole("alertdialog");
+    await waitFor(() => expect(within(dialog).getByLabelText("Reason")).toHaveFocus());
+  }
+
+  it("focuses Reason first in the Unblock, Override and Discard dialogs", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    renderScreen();
+    const item = await waitFor(() => itemOf("Audit log"));
+
+    for (const act of ["Unblock", "Override", "Discard"]) {
+      await user.click(within(item).getByRole("button", { name: act }));
+      await expectReasonFocused();
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    }
+  });
+
+  it("focuses Reason first in the Approve proposal dialog", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] },
+      proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
+    });
+    renderScreen();
+    const item = await waitFor(() => itemOf("Team workspaces"));
+
+    await user.click(await within(item).findByRole("button", { name: "Approve proposal" }));
+
+    await expectReasonFocused();
+  });
+
+  it("focuses Reason first in the Resume dialog that offers a target choice", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the packing slip")] },
+      executions: { n_p: [ended("e1", "n_p", { stop: { reason: "budget_end", code: "turns" } })] },
+    });
+    renderScreen();
+    const item = await waitFor(() => itemOf("Print the packing slip"));
+    await within(item).findByText("Further-work limit");
+
+    await user.click(within(item).getByRole("button", { name: "Resume" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("radiogroup", { name: "Resume to" })).toBeInTheDocument();
+    await expectReasonFocused();
+  });
+
+  it("focuses Reason first in the Remove dependency dialog", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: {
+        "prj-2": [
+          pending("n_c", "Redirect the legacy links", ["n_b"]),
+          plain("n_b", "Drop the legacy checkout", "Discarded"),
+        ],
+      },
+    });
+    renderScreen();
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+
+    await user.click(within(item).getByRole("button", { name: /Remove dependency/ }));
+
+    await expectReasonFocused();
+  });
+});
