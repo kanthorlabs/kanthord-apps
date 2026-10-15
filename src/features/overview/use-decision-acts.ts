@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 
-import { useDependencyRemove, type DependencyRemoveState } from "@/hooks/use-dependency-remove";
 import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
 import { useNodeOverride, type NodeOverrideState } from "@/hooks/use-node-override";
 import { useNodeResume, type NodeResumeState } from "@/hooks/use-node-resume";
 import { useNodeUnblock, type NodeUnblockState } from "@/hooks/use-node-unblock";
 import { useProposalApprove, type ProposalApproveState } from "@/hooks/use-proposal-approve";
 import type { AttentionDetail, AttentionItem } from "@/lib/attention";
+
+import { useDependencyRemove, type DependencyRemoveState } from "./use-dependency-remove";
 
 export interface DecisionActs {
   readonly unblock: NodeUnblockState;

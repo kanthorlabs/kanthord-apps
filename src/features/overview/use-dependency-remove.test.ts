@@ -5,7 +5,7 @@ import { ApiError } from "@/api/errors";
 import { removeDependency } from "@/api/resources/mission";
 import type { MissionNodeChange, MissionRunnableNode, NodeState } from "@/api/types";
 import { useDependencyRemove } from "./use-dependency-remove";
-import { renderedText } from "../../test/text-content";
+import { renderedText } from "../../../test/text-content";
 
 vi.mock("@/api/resources/mission", () => ({ removeDependency: vi.fn() }));
 vi.mock("sonner", () => ({

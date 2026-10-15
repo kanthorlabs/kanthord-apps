@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import { DependencyRemoveDialog } from "@/components/dependency-remove-dialog";
 import { NodeDiscardDialog } from "@/components/node-discard-dialog";
 import { NodeOverrideDialog } from "@/components/node-override-dialog";
 import { NodeResumeDialog } from "@/components/node-resume-dialog";
@@ -22,6 +21,7 @@ import { relativeAge } from "@/lib/relative-age";
 import { useDecisionActs } from "../use-decision-acts";
 import { AssessmentPanel } from "./assessment-panel";
 import { CauseText } from "./cause-text";
+import { DependencyRemoveDialog } from "./dependency-remove-dialog";
 
 interface DecisionItemProps {
   readonly item: AttentionItem;

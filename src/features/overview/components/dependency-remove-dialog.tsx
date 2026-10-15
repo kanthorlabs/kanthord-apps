@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import type { DependencyRemoveState } from "@/hooks/use-dependency-remove";
+
+import type { DependencyRemoveState } from "../use-dependency-remove";
 
 export function DependencyRemoveDialog({
   name,
