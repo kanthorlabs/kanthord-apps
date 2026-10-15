@@ -64,7 +64,7 @@ export function DecisionItem({
           <Link
             ref={titleRef}
             to={nodePath(item.project.id, node.id)}
-            className="break-words underline"
+            className="min-w-0 break-words underline"
           >
             {node.content.name}
           </Link>
