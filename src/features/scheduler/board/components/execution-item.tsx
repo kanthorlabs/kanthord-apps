@@ -53,7 +53,7 @@ export function ExecutionItem({
             project <RecordName>{projectName}</RecordName>
           </ItemDescription>
         )}
-        <ItemDescription>
+        <ItemDescription className="line-clamp-none">
           binding <RecordName>{bindingNameOf(execution.claimant)}</RecordName> · instance{" "}
           {execution.claimant.name === undefined ? (
             <span className="break-all">{execution.claimant.runtime_identity}</span>
