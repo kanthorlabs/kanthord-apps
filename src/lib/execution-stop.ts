@@ -1,4 +1,4 @@
-import type { ExecutionStop, ExecutionStopReason } from "@/api/types";
+import type { ExecutionStop, ExecutionStopReason, SchedulerExecutionRecord } from "@/api/types";
 
 const REASON_LABELS: Record<ExecutionStopReason, string> = {
   operation_failed: "Operation failed",
@@ -28,4 +28,9 @@ function codeLabel(code: string): string {
 export function stopLabel(stop: ExecutionStop): string {
   const reason = REASON_LABELS[stop.reason];
   return stop.code === null ? reason : `${reason}: ${codeLabel(stop.code)}`;
+}
+
+export function endTimeOf(execution: SchedulerExecutionRecord): number | null {
+  if (execution.ended_at !== null) return execution.ended_at;
+  return execution.claim_state === "lost" ? execution.expired_at : null;
 }

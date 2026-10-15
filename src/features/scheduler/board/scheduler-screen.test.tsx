@@ -517,6 +517,32 @@ describe("SchedulerScreen Done", () => {
     expect(within(item).queryByText(/failed/i)).toBeNull();
   });
 
+  it("ends a lost execution that never ended at its deadline", async () => {
+    serve({
+      nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] },
+      executions: {
+        "prj-1": [
+          execution("prj-1", "execution_lost", "n_a", {
+            claim_state: "lost",
+            created_at: NOW - 80 * MINUTE,
+            expired_at: NOW - 30 * MINUTE,
+            ended_at: null,
+          }),
+        ],
+      },
+    });
+
+    renderScreen("/scheduler?project=prj-1");
+
+    const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
+      "listitem",
+    );
+    expect(within(item).getByText("Ended 30 minutes ago")).toBeInTheDocument();
+    expect(within(item).getByText("duration 50 min")).toBeInTheDocument();
+    expect(within(item).queryByText(/^Started/)).toBeNull();
+    expect(within(item).queryByText(/^Deadline/)).toBeNull();
+  });
+
   it("pages through the ended executions of a project", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] } });

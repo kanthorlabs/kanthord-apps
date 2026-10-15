@@ -5,7 +5,7 @@ import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { bindingNameOf, instanceNameOf } from "@/lib/execution-claimant";
-import { stopLabel } from "@/lib/execution-stop";
+import { endTimeOf, stopLabel } from "@/lib/execution-stop";
 import { durationText, utcDateTime } from "@/lib/format";
 import { relativeAge } from "@/lib/relative-age";
 
@@ -36,6 +36,7 @@ export function ExecutionItem({
   now,
 }: ExecutionItemProps) {
   const ended = ENDED_BADGES[execution.claim_state];
+  const endedAt = endTimeOf(execution);
   return (
     <Item variant="outline" role="listitem">
       <ItemContent className="min-w-0">
@@ -58,15 +59,15 @@ export function ExecutionItem({
           {execution.attempt} · pinned revision {execution.pinned_revision}
         </ItemDescription>
         <ItemDescription className="break-all">execution {execution.execution_id}</ItemDescription>
-        {execution.ended_at === null ? (
+        {endedAt === null ? (
           <ItemDescription>
             <span>Started {relativeAge(execution.created_at, now)}</span> ·{" "}
             <span>Deadline {utcDateTime(execution.expired_at)}</span>
           </ItemDescription>
         ) : (
           <ItemDescription>
-            <span>Ended {relativeAge(execution.ended_at, now)}</span> ·{" "}
-            <span>duration {durationText(execution.ended_at - execution.created_at)}</span>
+            <span>Ended {relativeAge(endedAt, now)}</span> ·{" "}
+            <span>duration {durationText(endedAt - execution.created_at)}</span>
           </ItemDescription>
         )}
         {execution.claim_state === "lost" && (

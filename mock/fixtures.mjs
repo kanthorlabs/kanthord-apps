@@ -956,6 +956,7 @@ export const GRAPH_EXECUTIONS = [
     { reason: "budget_end", code: "turns" },
   ],
   ["EC5", ids.invoices, "lost", 300, 20, GRAPH_BINDINGS.reviewer],
+  ["EC6", ids.invoices, "lost", 330, null, GRAPH_BINDINGS.worker],
 ].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop], index) =>
   executionRecord(
     PROJECT.id,
