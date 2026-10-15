@@ -48,8 +48,18 @@ export function NodeResumeDialog({ name, resume }: { name: string; resume: NodeR
                   if (isTarget(next)) resume.setTarget(next);
                 }}
               >
-                <ToggleGroupItem value="Available">Available</ToggleGroupItem>
-                <ToggleGroupItem value="Waiting">Waiting</ToggleGroupItem>
+                <ToggleGroupItem
+                  value="Available"
+                  className="aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                >
+                  Available
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="Waiting"
+                  className="aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                >
+                  Waiting
+                </ToggleGroupItem>
               </ToggleGroup>
             ) : (
               <FieldDescription>Available. Waiting needs: {resume.waitingNeeds}.</FieldDescription>
