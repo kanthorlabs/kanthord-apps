@@ -1,8 +1,10 @@
 import type { Resource } from "@/hooks/use-resource";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
   agentRowsOf,
   withAgentEntry,
@@ -132,6 +134,20 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
         inputMode="numeric"
         onChange={(wallTimeMs) => onEdit({ ...draft, wallTimeMs })}
       />
+      <Field>
+        <FieldLabel htmlFor="binding-traits">Traits</FieldLabel>
+        <Textarea
+          id="binding-traits"
+          value={draft.traits}
+          autoComplete="off"
+          spellCheck={false}
+          onChange={(event) => onEdit({ ...draft, traits: event.target.value })}
+        />
+        <FieldDescription>
+          One key per line, for example platform.macos. A node runs only on a binding that holds
+          every key of its requires list.
+        </FieldDescription>
+      </Field>
       <section aria-label="Agents" className="flex flex-col gap-2">
         <h4 className="text-sm font-medium">Agents</h4>
         <WorkerAgentList draft={draft} errors={errors} agents={agents} onEdit={onEdit} />

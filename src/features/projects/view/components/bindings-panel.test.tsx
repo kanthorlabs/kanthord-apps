@@ -350,6 +350,55 @@ describe("BindingsPanel", () => {
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
   });
 
+  it("writes the traits of a worker binding one key per line", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    expect(
+      screen.getByText(
+        "One key per line, for example platform.macos. A node runs only on a binding that holds every key of its requires list.",
+      ),
+    ).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("Traits"), "platform.macos{enter}gpu.cuda");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": REPO,
+      "general-main": {
+        ...WORKER,
+        config: { ...WORKER.config, traits: ["platform.macos", "gpu.cuda"] },
+      },
+    });
+  });
+
+  it("names Traits and keeps the save off for a repeated key", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    await userEvent.type(screen.getByLabelText("Traits"), "platform.macos{enter}platform.macos");
+
+    expect(screen.getByText("Fill Traits to save.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
+  });
+
+  it("shows the traits of a worker binding as badges in its row", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: {
+        ...SET.bindings,
+        "general-main": {
+          kind: "worker",
+          config: { worker: "coder@1", instance_count: 2, traits: ["platform.macos"] },
+        },
+      },
+    });
+    mount();
+
+    const traits = await screen.findByRole("list", { name: "Traits of general-main" });
+    expect(within(traits).getByText("platform.macos")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Traits of kanthord-repo" })).toBeNull();
+  });
+
   it("shows only the connection of a repository binding in its row", async () => {
     mount();
 

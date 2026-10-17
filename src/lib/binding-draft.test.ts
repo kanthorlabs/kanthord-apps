@@ -348,6 +348,59 @@ describe("worker agent entries", () => {
   });
 });
 
+describe("worker traits", () => {
+  const filled: WorkerDraft = {
+    ...(emptyDraft("worker") as WorkerDraft),
+    name: "general-mac",
+    worker: "coder@1",
+  };
+
+  it("reads the traits of the config one key per line and writes them in order", () => {
+    const entry: BindingSetEntry = {
+      kind: "worker",
+      config: {
+        worker: "coder@1",
+        instance_count: 1,
+        traits: ["toolchain.xcode_16", "platform.macos"],
+      },
+    };
+    const draft = draftOf("general-mac", entry);
+
+    expect(draft.kind === "worker" && draft.traits).toBe("toolchain.xcode_16\nplatform.macos");
+    expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry });
+  });
+
+  it("trims each line, drops empty lines and omits an empty list", () => {
+    const result = entryOfDraft({ ...filled, traits: "  platform.macos \n\n gpu.cuda\n" }, []);
+    expect(result.ok && result.entry.kind === "worker" && result.entry.config.traits).toEqual([
+      "platform.macos",
+      "gpu.cuda",
+    ]);
+
+    const empty = entryOfDraft({ ...filled, traits: " \n" }, []);
+    expect(empty.ok && empty.entry.kind === "worker" && "traits" in empty.entry.config).toBe(false);
+  });
+
+  it("starts a new worker draft with no trait", () => {
+    expect((emptyDraft("worker") as WorkerDraft).traits).toBe("");
+  });
+
+  it("accepts a key of 64 bytes and names Traits for a malformed, long or repeated key", () => {
+    const at64 = `a.${"b".repeat(62)}`;
+    expect(missingForSave({ ...filled, traits: at64 })).toEqual([]);
+    for (const traits of [
+      "Platform.macos",
+      "platform..macos",
+      "platform.",
+      "9platform",
+      `a.${"b".repeat(63)}`,
+      "platform.macos\nplatform.macos",
+    ]) {
+      expect(missingForSave({ ...filled, traits })).toEqual(["Traits"]);
+    }
+  });
+});
+
 describe("missingForCheck, missingForSave and missingHint", () => {
   it("names the required fields of an empty repository draft", () => {
     const draft = emptyDraft("repository");
