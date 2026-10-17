@@ -88,11 +88,11 @@ function job(nodeId: string, ageMs: number): SchedulerJob {
   };
 }
 
-function instance(workerName: string, draining = false): WorkerInstanceRecord {
+function instance(binding: string, workerName: string, draining = false): WorkerInstanceRecord {
   return {
-    runtime_identity: `worker_instance_${workerName}`,
+    runtime_identity: `worker_instance_${binding}`,
     project_id: PROJECT.id,
-    resource_identity: `worker:kanthord:${workerName}`,
+    resource_identity: `worker:kanthord:${binding}`,
     worker_name: workerName,
     host: "kanthord",
     placement: "server",
@@ -125,6 +125,7 @@ function bindingView(
   worker: string,
   placement?: WorkerPlacement,
   agents: readonly BindingAgentView[] | null = [],
+  traits?: readonly string[],
 ): WorkerBindingView {
   const binding: WorkerBindingRecord = {
     id: `binding_${name}`,
@@ -133,10 +134,12 @@ function bindingView(
     kind: "worker",
     resource_identity: `worker:kanthord:${name}`,
     revision: 1,
-    config:
-      placement === undefined
-        ? { worker, instance_count: 1 }
-        : { worker, instance_count: 1, placement },
+    config: {
+      worker,
+      instance_count: 1,
+      ...(placement === undefined ? {} : { placement }),
+      ...(traits === undefined ? {} : { traits }),
+    },
     created_at: 1,
     removed_at: null,
   };
@@ -332,11 +335,40 @@ describe("fixItemsOf no_taker", () => {
     const base = { nodes: [waiting], jobs: [job("w", 5 * MINUTE)], bindings: [reviewer] };
 
     expect(
-      fixItemsOf([snapshot({ ...base, instances: [instance("reviewer@1")] })], context()),
+      fixItemsOf(
+        [snapshot({ ...base, instances: [instance("reviewer-main", "reviewer@1")] })],
+        context(),
+      ),
     ).toEqual([]);
     expect(
-      fixItemsOf([snapshot({ ...base, instances: [instance("reviewer@1", true)] })], context()),
+      fixItemsOf(
+        [snapshot({ ...base, instances: [instance("reviewer-main", "reviewer@1", true)] })],
+        context(),
+      ),
     ).toHaveLength(1);
+  });
+
+  it("names the binding whose traits hold the requires list of the stuck node", () => {
+    const mac = node("m", "Available", { requires: ["platform.macos"] });
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          nodes: [mac],
+          jobs: [job("m", 5 * MINUTE)],
+          instances: [instance("coder-main", "coder@1")],
+          bindings: [
+            bindingView("coder-main", "coder@1", "server"),
+            bindingView("coder-mac", "coder@1", "worker", [], ["platform.macos"]),
+          ],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({
+      id: "no_taker:prj-1:Available",
+      hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
+    });
   });
 
   it("lists nothing for a paused project", () => {

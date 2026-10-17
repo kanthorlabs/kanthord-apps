@@ -2207,7 +2207,7 @@ describe("OverviewScreen fixes", () => {
       expect(
         within(item).getByText(
           textContent(
-            "2 jobs wait in state Waiting. Binding reviewer-main (reviewer@1) declares Waiting and runs no instance. Raise its instance_count, or check the server log.",
+            "2 jobs wait in state Waiting. Binding reviewer-main (reviewer@1) matches the oldest job and runs no instance. Raise its instance_count, or check the server log.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2233,13 +2233,13 @@ describe("OverviewScreen fixes", () => {
       expect(
         within(item).getByText(
           textContent(
-            "1 job waits in state Waiting. Binding reviewer-main (reviewer@1) declares Waiting and has no live instance. Start its worker program.",
+            "1 job waits in state Waiting. Binding reviewer-main (reviewer@1) matches the oldest job and has no live instance. Start its worker program.",
           ),
         ),
       ).toBeInTheDocument();
     });
 
-    it("tells the human to add a binding when no binding declares the state", async () => {
+    it("tells the human to add a binding when no binding matches the job", async () => {
       serve({
         nodes: { "prj-1": [waiting] },
         jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
@@ -2251,7 +2251,9 @@ describe("OverviewScreen fixes", () => {
       const item = await waitFor(() => itemOf("Jobs in state Waiting"));
       expect(
         within(item).getByText(
-          textContent("No worker binding declares Waiting. Add one on the Bindings tab."),
+          textContent(
+            "No worker binding matches the oldest job in state Waiting. Add a binding whose worker and traits match it on the Bindings tab.",
+          ),
         ),
       ).toBeInTheDocument();
     });

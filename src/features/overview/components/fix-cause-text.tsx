@@ -18,13 +18,18 @@ interface FixCauseTextProps {
 function NoTakerSentence({ item }: { readonly item: NoTakerItem }) {
   const { hint, state, jobCount } = item;
   if (hint.kind === "none") {
-    return <>No worker binding declares {state}. Add one on the Bindings tab.</>;
+    return (
+      <>
+        No worker binding matches the oldest job in state {state}. Add a binding whose worker and
+        traits match it on the Bindings tab.
+      </>
+    );
   }
   return (
     <>
       {jobCount} {jobCount === 1 ? "job waits" : "jobs wait"} in state {state}. Binding{" "}
-      <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) declares{" "}
-      {state} and <TakerSituation hint={hint} />
+      <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) matches the
+      oldest job and <TakerSituation hint={hint} />
     </>
   );
 }

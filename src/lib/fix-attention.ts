@@ -1,7 +1,7 @@
 import type { Credential, NodeState, Project, SchedulerExecutionRecord } from "@/api/types";
 
 import type { AttentionContext, ItemBase, ProjectSnapshot } from "./attention";
-import { takerHintOf, uncoveredJobsOf, type TakerHint } from "./claim-takers";
+import { factsOf, takerHintOf, uncoveredJobsOf, type TakerHint } from "./claim-takers";
 import { endTimeOf } from "./execution-stop";
 import { isTerminal } from "./node-state";
 import { ulidTime } from "./ulid";
@@ -87,13 +87,19 @@ function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readon
   if (project.paused_at !== null) return [];
   if (jobs === null || instances === null || bindings === null || catalog === null) return [];
   const items: NoTakerItem[] = [];
-  for (const [state, stuck] of uncoveredJobsOf(jobs, snapshot.nodes, instances, catalog)) {
-    const times = stuck.flatMap((job) => {
-      const time = ulidTime(job.job_id);
-      return time === null ? [] : [time];
-    });
-    if (times.length === 0) continue;
-    const oldest = Math.min(...times);
+  const workerBindings = bindings.map((entry) => entry.binding);
+  const nodeById = new Map(snapshot.nodes.map((node) => [node.id, node]));
+  const stuckJobs = uncoveredJobsOf(jobs, snapshot.nodes, instances, workerBindings, catalog);
+  for (const [state, stuck] of stuckJobs) {
+    const [first] = stuck
+      .flatMap((job) => {
+        const time = ulidTime(job.job_id);
+        return time === null ? [] : [{ job, time }];
+      })
+      .sort((left, right) => left.time - right.time);
+    const node = first === undefined ? undefined : nodeById.get(first.job.node_id);
+    if (first === undefined || node === undefined) continue;
+    const oldest = first.time;
     if (context.now - oldest <= NO_TAKER_GRACE_MS) continue;
     items.push({
       id: `no_taker:${project.id}:${state}`,
@@ -105,11 +111,7 @@ function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readon
       cause: "No taker",
       state,
       jobCount: stuck.length,
-      hint: takerHintOf(
-        state,
-        bindings.map((entry) => entry.binding),
-        catalog,
-      ),
+      hint: takerHintOf(factsOf(node), workerBindings, catalog),
     });
   }
   return items;

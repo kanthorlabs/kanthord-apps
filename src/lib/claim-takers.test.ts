@@ -10,7 +10,7 @@ import type {
   WorkerPlacement,
 } from "@/api/types";
 
-import { takerHintOf, uncoveredJobsOf, uncoveredStates } from "./claim-takers";
+import { factsOf, takerHintOf, uncoveredJobsOf, uncoveredStates } from "./claim-takers";
 
 const CATALOG: readonly WorkerCatalogItem[] = [
   {
@@ -27,7 +27,7 @@ const CATALOG: readonly WorkerCatalogItem[] = [
   },
 ];
 
-function node(id: string, state: NodeState): MissionNodeRecord {
+function node(id: string, state: NodeState, requires: readonly string[] = []): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
@@ -45,7 +45,7 @@ function node(id: string, state: NodeState): MissionNodeRecord {
     retired_at: null,
     pinned_by_attempts: [],
     work: "implement",
-    requires: [],
+    requires,
     tasks: [],
     state,
     attempt: 0,
@@ -134,19 +134,12 @@ describe("uncoveredStates", () => {
   });
 });
 
-describe("uncoveredJobsOf", () => {
-  it("groups the jobs of each uncovered state in the order of the queue", () => {
-    const jobs = [job("w"), job("a"), job("x"), job("w2")];
-    const nodes = [...NODES, node("w2", "Waiting")];
-
-    const uncovered = uncoveredJobsOf(jobs, nodes, [instance("coder@1")], CATALOG);
-
-    expect([...uncovered.keys()].sort()).toEqual(["External.Requested", "Waiting"]);
-    expect(uncovered.get("Waiting")?.map((entry) => entry.node_id)).toEqual(["w", "w2"]);
-  });
-});
-
-function binding(name: string, worker: string, placement?: WorkerPlacement): WorkerBindingRecord {
+function binding(
+  name: string,
+  worker: string,
+  placement?: WorkerPlacement,
+  traits?: readonly string[],
+): WorkerBindingRecord {
   return {
     id: `binding_${name}`,
     project_id: "prj-1",
@@ -154,19 +147,96 @@ function binding(name: string, worker: string, placement?: WorkerPlacement): Wor
     kind: "worker",
     resource_identity: `worker:kanthord:${name}`,
     revision: 1,
-    config:
-      placement === undefined
-        ? { worker, instance_count: 1 }
-        : { worker, instance_count: 1, placement },
+    config: {
+      worker,
+      instance_count: 1,
+      ...(placement === undefined ? {} : { placement }),
+      ...(traits === undefined ? {} : { traits }),
+    },
     created_at: 1,
     removed_at: null,
   };
 }
 
+function liveOf(...names: readonly string[]): WorkerInstanceRecord[] {
+  return names.map((name) => instance(name));
+}
+
+const CODER = binding("coder@1", "coder@1");
+const REVIEWER = binding("reviewer@1", "reviewer@1");
+
+describe("uncoveredJobsOf", () => {
+  it("groups the jobs of each uncovered state in the order of the queue", () => {
+    const jobs = [job("w"), job("a"), job("x"), job("w2")];
+    const nodes = [...NODES, node("w2", "Waiting")];
+
+    const uncovered = uncoveredJobsOf(jobs, nodes, liveOf("coder@1"), [CODER, REVIEWER], CATALOG);
+
+    expect([...uncovered.keys()].sort()).toEqual(["External.Requested", "Waiting"]);
+    expect(uncovered.get("Waiting")?.map((entry) => entry.node_id)).toEqual(["w", "w2"]);
+  });
+
+  it("a node with requires [platform.macos] has no taker while every binding holds traits []", () => {
+    const nodes = [node("a", "Available", ["platform.macos"]), node("b", "Available")];
+    const jobs = [job("a"), job("b")];
+
+    const uncovered = uncoveredJobsOf(jobs, nodes, liveOf("coder@1"), [CODER], CATALOG);
+
+    expect(uncovered.get("Available")?.map((entry) => entry.node_id)).toEqual(["a"]);
+  });
+
+  it("covers a node whose requires list is a subset of the traits of a live binding", () => {
+    const mac = binding("coder-mac", "coder@1", undefined, [
+      "platform.macos",
+      "toolchain.xcode_16",
+    ]);
+    const nodes = [node("a", "Available", ["platform.macos"])];
+
+    expect(uncoveredJobsOf([job("a")], nodes, liveOf("coder-mac"), [mac], CATALOG).size).toBe(0);
+  });
+
+  it("leaves a node uncovered when its work is not a declared work of the worker", () => {
+    const catalog: readonly WorkerCatalogItem[] = [
+      { ...(CATALOG[0] as WorkerCatalogItem), declared_works: ["examine"] },
+    ];
+
+    const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("coder@1"), [CODER], catalog);
+
+    expect([...uncovered.keys()]).toEqual(["Available"]);
+  });
+
+  it("names the binding of an instance through its resource identity", () => {
+    const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("other"), [CODER], CATALOG);
+
+    expect([...uncovered.keys()]).toEqual(["Available"]);
+  });
+
+  it("admits nothing for a binding with no catalog item", () => {
+    const unknown = binding("unknown", "unknown@1");
+
+    const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("unknown"), [unknown], CATALOG);
+
+    expect([...uncovered.keys()]).toEqual(["Available"]);
+  });
+
+  it("ignores a draining instance and an instance that left the registration", () => {
+    const instances = [
+      instance("coder@1", { draining: true }),
+      instance("coder@1", { registered: false }),
+    ];
+
+    expect(uncoveredJobsOf([job("a")], NODES, instances, [CODER], CATALOG).has("Available")).toBe(
+      true,
+    );
+  });
+});
+
+const WAITING = factsOf(node("w", "Waiting"));
+
 describe("takerHintOf", () => {
   it("names the binding at the server placement", () => {
     expect(
-      takerHintOf("Waiting", [binding("reviewer-main", "reviewer@1", "server")], CATALOG),
+      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", "server")], CATALOG),
     ).toEqual({
       kind: "server",
       binding: "reviewer-main",
@@ -175,14 +245,14 @@ describe("takerHintOf", () => {
   });
 
   it("reads an absent placement as the worker placement", () => {
-    expect(takerHintOf("Waiting", [binding("reviewer-main", "reviewer@1")], CATALOG).kind).toBe(
+    expect(takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1")], CATALOG).kind).toBe(
       "worker",
     );
   });
 
   it("reads the worker placement of an explicit setting", () => {
     expect(
-      takerHintOf("Waiting", [binding("reviewer-main", "reviewer@1", "worker")], CATALOG).kind,
+      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", "worker")], CATALOG).kind,
     ).toBe("worker");
   });
 
@@ -195,13 +265,13 @@ describe("takerHintOf", () => {
     };
 
     expect(
-      takerHintOf("Waiting", [binding("claude-main", "claude-code@1", "server")], [harness]),
+      takerHintOf(WAITING, [binding("claude-main", "claude-code@1", "server")], [harness]),
     ).toEqual({ kind: "worker", binding: "claude-main", worker: "claude-code@1" });
   });
 
-  it("takes the first binding by name that declares the state", () => {
+  it("takes the first binding by name that admits the node", () => {
     const hint = takerHintOf(
-      "Waiting",
+      WAITING,
       [binding("z-review", "reviewer@1"), binding("a-review", "reviewer@1", "server")],
       CATALOG,
     );
@@ -209,10 +279,24 @@ describe("takerHintOf", () => {
     expect(hint).toMatchObject({ binding: "a-review" });
   });
 
-  it("answers none when no binding declares the state", () => {
-    expect(takerHintOf("Waiting", [binding("general-main", "coder@1")], CATALOG)).toEqual({
+  it("a binding with the trait platform.macos and no instance is the hint", () => {
+    const facts = factsOf(node("a", "Available", ["platform.macos"]));
+    const bindings = [
+      binding("a-general", "coder@1"),
+      binding("m-mac", "coder@1", "server", ["platform.macos"]),
+    ];
+
+    expect(takerHintOf(facts, bindings, CATALOG)).toEqual({
+      kind: "server",
+      binding: "m-mac",
+      worker: "coder@1",
+    });
+  });
+
+  it("answers none when no binding admits the node", () => {
+    expect(takerHintOf(WAITING, [binding("general-main", "coder@1")], CATALOG)).toEqual({
       kind: "none",
     });
-    expect(takerHintOf("Waiting", [], CATALOG)).toEqual({ kind: "none" });
+    expect(takerHintOf(WAITING, [], CATALOG)).toEqual({ kind: "none" });
   });
 });
