@@ -1,7 +1,7 @@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
-import type { MissionProposal, MissionRunnableNode } from "@/api/types";
+import type { MissionNodeRecord, MissionProposal } from "@/api/types";
 import type { Resource } from "@/hooks/use-resource";
 import type { GraphModel } from "@/lib/mission-graph";
 import { useProposalApprove } from "@/hooks/use-proposal-approve";
@@ -10,7 +10,7 @@ import { ProposalItem } from "./proposal-item";
 
 interface ProposalSectionProps {
   readonly model: GraphModel;
-  readonly initiative: MissionRunnableNode;
+  readonly proposer: MissionNodeRecord;
   readonly proposals: Resource<readonly MissionProposal[]>;
   readonly missionVersion: number;
   readonly onChanged: () => void;
@@ -19,13 +19,13 @@ interface ProposalSectionProps {
 
 export function ProposalSection({
   model,
-  initiative,
+  proposer,
   proposals,
   missionVersion,
   onChanged,
   onSelect,
 }: ProposalSectionProps) {
-  const approve = useProposalApprove(initiative, missionVersion, onChanged);
+  const approve = useProposalApprove(proposer, missionVersion, onChanged);
 
   if (proposals.loading) return null;
   if (proposals.data === null) {
@@ -49,9 +49,9 @@ export function ProposalSection({
     <section aria-label="Fix proposals" className="flex flex-col gap-2">
       <h3 className="font-semibold">Fix proposals</h3>
       <p className="text-sm text-muted-foreground">
-        A judgement of this initiative proposes a fix objective for a defect in a completed
-        objective. Approve creates the objective with its task under this initiative and unblocks
-        the initiative.
+        A judgement of this examine node proposes a fix node for a defect in a completed dependency.
+        Approve creates the fix node with its task, adds it as a dependency of this node and
+        unblocks this node.
       </p>
       <ItemGroup aria-label="Proposals" className="gap-3">
         {proposals.data.map((proposal) => (

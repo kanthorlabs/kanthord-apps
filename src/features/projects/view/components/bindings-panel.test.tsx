@@ -82,7 +82,7 @@ const BINDING_WORKER: ProjectBindingRecord = {
 const CATALOG_ITEM = {
   host: "kanthord",
   declared_node_states: ["Available"],
-  required_node_format: ["name"],
+  declared_works: ["implement", "examine"],
 } as const;
 
 const CATALOG_ENTRIES: Readonly<Record<string, WorkerCatalogEntry>> = {
@@ -261,7 +261,7 @@ describe("BindingsPanel", () => {
         {
           filename: "reset-email.md",
           id: "node_1",
-          kind: "objective",
+          work: "implement",
           name: "Add password reset",
           requirement: "r",
           criterion: "c",

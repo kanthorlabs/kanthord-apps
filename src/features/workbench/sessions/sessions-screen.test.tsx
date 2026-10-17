@@ -61,7 +61,7 @@ const OLD: WorkbenchSessionListItem = {
   created: Date.parse("2026-10-01T09:00:00Z"),
   modified: Date.parse("2026-10-01T10:00:00Z"),
   message_count: 4,
-  first_message: "List the open objectives",
+  first_message: "List the open nodes",
   run_active: false,
   pending_approval: null,
 };
@@ -184,7 +184,7 @@ describe("SessionsScreen", () => {
     expect(workbenchApi.listWorkbenchSessions).toHaveBeenCalledWith("swe@1");
     expect(rows).toHaveLength(2);
     expect(within(rows[0]!).getByText("Billing plan")).toBeTruthy();
-    expect(within(rows[1]!).getByText("List the open objectives")).toBeTruthy();
+    expect(within(rows[1]!).getByText("List the open nodes")).toBeTruthy();
     expect(within(rows[1]!).getByText("4 messages")).toBeTruthy();
   });
 

@@ -9,7 +9,7 @@ import type {
   MissionNodeRecord,
   MissionProposal,
   MissionProposalApproveResult,
-  MissionRunnableNode,
+  Work,
 } from "@/api/types";
 import { buildGraph } from "@/lib/mission-graph";
 import { useNodeProposals } from "../use-node-proposals";
@@ -21,21 +21,29 @@ vi.mock("sonner", () => ({
 
 import { ProposalSection } from "./proposal-section";
 
-function runnable(
+function node(
   id: string,
-  kind: "initiative" | "objective",
+  work: Work,
   name: string,
-  parentId: string | null,
-  extra: Partial<MissionRunnableNode> = {},
-): MissionRunnableNode {
+  extra: Partial<MissionNodeRecord> = {},
+): MissionNodeRecord {
   return {
     id,
-    kind,
+    work,
+    requires: [],
+    tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: parentId,
     visible_revision: 1,
-    content: { name, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
+    content: {
+      name,
+      requirement: "r",
+      criterion: "c",
+      verifications: ["v"],
+      bindings: [],
+      work,
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state: "Completed",
@@ -46,15 +54,15 @@ function runnable(
   };
 }
 
-const TEAM = runnable("node_team", "initiative", "Team workspaces", null, {
+const TEAM = node("node_team", "examine", "Team workspaces", {
   state: "Blocked",
   attempt: 2,
 });
 
 const NODES: readonly MissionNodeRecord[] = [
   TEAM,
-  runnable("node_invite", "objective", "Invite members", "node_team"),
-  runnable("node_fix", "objective", "Fix the invite expiry", "node_team"),
+  node("node_invite", "implement", "Invite members"),
+  node("node_fix", "implement", "Fix the invite expiry"),
 ];
 
 const MODEL = buildGraph(NODES, []);
@@ -65,7 +73,7 @@ const OPEN: MissionProposal = {
   attempt: 2,
   assessment_id: "assessment_2",
   content: {
-    objective_id: "node_invite",
+    dependency_id: "node_invite",
     name: "Fix the invite link reuse",
     requirement: "An invite link works once.",
     criterion: "A second use of the link fails.",
@@ -76,7 +84,7 @@ const OPEN: MissionProposal = {
       verifications: ["pnpm test invites"],
     },
   },
-  objective_node_id: null,
+  created_node_id: null,
   approved_at: null,
   created_at: 0,
 };
@@ -86,8 +94,26 @@ const APPROVED: MissionProposal = {
   id: "proposal_done",
   attempt: 1,
   content: { ...OPEN.content, name: "Fix the invite expiry" },
-  objective_node_id: "node_fix",
+  created_node_id: "node_fix",
   approved_at: 1,
+};
+
+const APPROVE_ANSWER: MissionProposalApproveResult = {
+  created: {
+    mission_version: 10,
+    revisions: [],
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  },
+  proposer: {
+    node: { ...TEAM, state: "Pending", attempt: 3 },
+    attempt: null,
+    outcome: null,
+    actor: { kind: "human", account: "ulrich", name: "Ulrich" },
+    accepted_at: 1,
+  },
 };
 
 function Harness({
@@ -106,7 +132,7 @@ function Harness({
   return (
     <ProposalSection
       model={MODEL}
-      initiative={TEAM}
+      proposer={TEAM}
       proposals={proposals}
       missionVersion={9}
       onChanged={reloadAll}
@@ -132,10 +158,10 @@ describe("ProposalSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(missionApi.listNodeProposals).mockResolvedValue([OPEN, APPROVED]);
-    vi.mocked(missionApi.approveProposal).mockResolvedValue({} as MissionProposalApproveResult);
+    vi.mocked(missionApi.approveProposal).mockResolvedValue(APPROVE_ANSWER);
   });
 
-  it("renders nothing for an initiative without proposals", async () => {
+  it("renders nothing for an examine node without proposals", async () => {
     vi.mocked(missionApi.listNodeProposals).mockResolvedValue([]);
     mount();
 
@@ -143,7 +169,7 @@ describe("ProposalSection", () => {
     expect(screen.queryByRole("region", { name: "Fix proposals" })).toBeNull();
   });
 
-  it("shows the target, the content and the task of a proposal", async () => {
+  it("shows the dependency, the content and the task of a proposal", async () => {
     const { onSelect } = mount();
 
     await screen.findByRole("region", { name: "Fix proposals" });
@@ -161,11 +187,12 @@ describe("ProposalSection", () => {
     expect(within(item).getByText("Store the use of the link.")).toBeTruthy();
     expect(within(item).getByText("The store holds the use.")).toBeTruthy();
     expect(within(item).getByText("pnpm test invites")).toBeTruthy();
+    expect(within(item).getByText("Dependency")).toBeTruthy();
     await userEvent.click(within(item).getByRole("button", { name: "Invite members" }));
     expect(onSelect).toHaveBeenCalledWith("node_invite");
   });
 
-  it("shows an approved proposal with its objective and no approve", async () => {
+  it("shows an approved proposal with its created node and no approve", async () => {
     const { onSelect } = mount();
 
     await screen.findByRole("region", { name: "Fix proposals" });
@@ -176,10 +203,11 @@ describe("ProposalSection", () => {
 
     expect(within(item).getByText("approved")).toBeTruthy();
     expect(within(item).queryByRole("button", { name: "Approve proposal" })).toBeNull();
-    const objective = within(item)
+    expect(within(item).getByText("Created node")).toBeTruthy();
+    const created = within(item)
       .getAllByRole("button", { name: "Fix the invite expiry" })
       .at(-1) as HTMLElement;
-    await userEvent.click(objective);
+    await userEvent.click(created);
     expect(onSelect).toHaveBeenCalledWith("node_fix");
   });
 

@@ -8,7 +8,7 @@ import type {
   MissionExternalAction,
   MissionNodeCheckAnswer,
   MissionNodeCheckResult,
-  MissionRunnableNode,
+  MissionNodeRecord,
   NodeState,
 } from "@/api/types";
 
@@ -21,13 +21,14 @@ vi.mock("sonner", () => ({
 
 const checkMock = vi.mocked(checkNode);
 
-function nodeIn(state: NodeState): MissionRunnableNode {
+function nodeIn(state: NodeState): MissionNodeRecord {
   return {
     id: "node_webhook",
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     filename: "webhook.md",
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
     content: {
       name: "Stripe webhook",
@@ -35,6 +36,8 @@ function nodeIn(state: NodeState): MissionRunnableNode {
       criterion: "c",
       verifications: [],
       bindings: [],
+      work: "implement",
+      requires: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

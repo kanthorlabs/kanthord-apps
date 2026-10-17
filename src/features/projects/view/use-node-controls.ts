@@ -2,7 +2,6 @@ import type {
   MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
-  MissionRunnableNode,
   SchedulerExecutionRecord,
 } from "@/api/types";
 import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
@@ -19,7 +18,7 @@ import {
 } from "@/lib/external-requests";
 
 export interface NodeControlsInput {
-  readonly node: MissionRunnableNode;
+  readonly node: MissionNodeRecord;
   readonly nodes: readonly MissionNodeRecord[];
   readonly missionVersion: number;
   readonly proposals: readonly MissionProposal[];
@@ -39,7 +38,7 @@ export interface NodeControlsState {
 }
 
 function guardLineOf(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   actions: NodeControlsInput["actions"],
   executions: NodeControlsInput["executions"],
 ): string | null {

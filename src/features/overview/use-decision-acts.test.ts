@@ -4,9 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 import type {
   MissionExternalAction,
   MissionProposal,
-  MissionRunnableNode,
+  MissionNodeRecord,
   NodeState,
   Project,
+  Work,
 } from "@/api/types";
 import { detailKeyOf, type AttentionDetail, type DecisionAttentionItem } from "@/lib/attention";
 
@@ -26,15 +27,24 @@ const PROJECT: Project = {
   workspace_directory: "/state/prj-1",
 };
 
-function node(kind: "initiative" | "objective", state: NodeState): MissionRunnableNode {
+function node(work: Work, state: NodeState): MissionNodeRecord {
   return {
     id: "node_1",
-    kind,
+    work,
+    requires: [],
+    tasks: [],
     filename: "node_1.md",
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name: "Team", requirement: "r", criterion: "c", verifications: [], bindings: [] },
+    content: {
+      name: "Team",
+      requirement: "r",
+      criterion: "c",
+      verifications: [],
+      bindings: [],
+      work,
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state,
@@ -51,13 +61,13 @@ function proposal(id: string, attempt: number, approvedAt: number | null): Missi
     attempt,
     assessment_id: "assessment_1",
     content: {
-      objective_id: "node_2",
+      dependency_id: "node_2",
       name: id,
       requirement: "r",
       criterion: "c",
       task: { name: "t", requirement: "r", criterion: "c", verifications: ["v"] },
     },
-    objective_node_id: null,
+    created_node_id: null,
     approved_at: approvedAt,
     created_at: 1,
   };
@@ -88,8 +98,8 @@ function actsOf(item: DecisionAttentionItem, detail: AttentionDetail | null) {
 }
 
 describe("useDecisionActs", () => {
-  it("exposes the open proposals of a Blocked initiative", () => {
-    const target = node("initiative", "Blocked");
+  it("exposes the open proposals of a Blocked examine node", () => {
+    const target = node("examine", "Blocked");
     const item: DecisionAttentionItem = {
       id: "blocked:node_1",
       kind: "blocked",
@@ -117,7 +127,7 @@ describe("useDecisionActs", () => {
   });
 
   it("exposes the unresolved request sentence of a Paused node", () => {
-    const target = node("objective", "Paused");
+    const target = node("implement", "Paused");
     const item: DecisionAttentionItem = {
       id: "paused:node_1",
       kind: "paused",

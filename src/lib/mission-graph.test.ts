@@ -1,30 +1,32 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  MissionEdge,
-  MissionNodeRecord,
-  MissionRunnableNode,
-  MissionTaskNode,
-  NodeState,
-} from "@/api/types";
+import type { MissionEdge, MissionNodeRecord, NodeState, Work } from "@/api/types";
 
-import { buildGraph, closureOf, diagnosticKey, objectiveProgress } from "./mission-graph";
+import { buildGraph, closureOf, diagnosticKey } from "./mission-graph";
 
-function runnable(
+function node(
   id: string,
-  kind: "initiative" | "objective",
-  parentId: string | null,
+  work: Work,
   state: NodeState = "Pending",
   priority = 0,
-): MissionRunnableNode {
+): MissionNodeRecord {
   return {
     id,
-    kind,
+    work,
+    requires: [],
+    tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: parentId,
     visible_revision: 1,
-    content: { name: id, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
+    content: {
+      name: id,
+      requirement: "r",
+      criterion: "c",
+      verifications: ["v"],
+      bindings: [],
+      work,
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state,
@@ -34,89 +36,63 @@ function runnable(
   };
 }
 
-function task(id: string, parentId: string): MissionTaskNode {
-  return {
-    id,
-    kind: "task",
-    filename: `${id}.md`,
-    mission_id: "mission_1",
-    parent_id: parentId,
-    visible_revision: 1,
-    content: { name: id, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
-    retired_at: null,
-    pinned_by_attempts: [],
-  };
-}
-
 function dependency(dependentId: string, dependsOnId: string): MissionEdge {
-  return { kind: "dependency", dependent_id: dependentId, depends_on_id: dependsOnId };
+  return { dependent_id: dependentId, depends_on_id: dependsOnId };
 }
 
 const NODES: readonly MissionNodeRecord[] = [
-  runnable("recovery", "initiative", null),
-  runnable("onboarding", "initiative", null, "Completed"),
-  runnable("signup", "objective", "onboarding", "Completed"),
-  runnable("codes", "objective", "recovery", "Executing"),
-  runnable("reset", "objective", "recovery"),
-  runnable("audit", "objective", "recovery", "Blocked"),
-  task("expiry", "reset"),
-  task("email", "reset"),
+  node("recovery", "examine"),
+  node("onboarding", "examine", "Completed"),
+  node("signup", "implement", "Completed"),
+  node("codes", "implement", "Executing"),
+  node("reset", "implement"),
+  node("audit", "implement", "Blocked"),
 ];
 
+function rowIds(nodes: readonly MissionNodeRecord[], edges: readonly MissionEdge[]) {
+  return buildGraph(nodes, edges).rows.map((row) => row.map((item) => item.id));
+}
+
 describe("buildGraph", () => {
-  it("orders initiatives after the initiatives they wait for", () => {
-    const model = buildGraph(NODES, [dependency("recovery", "onboarding")]);
-
-    expect(model.initiatives.map((block) => [block.node.id, block.rank])).toEqual([
-      ["onboarding", 0],
-      ["recovery", 1],
+  it("a node ranks below every node that it depends on", () => {
+    const rows = rowIds(NODES, [
+      dependency("reset", "codes"),
+      dependency("recovery", "reset"),
+      dependency("recovery", "audit"),
+      dependency("onboarding", "signup"),
     ]);
+
+    expect(rows).toEqual([["audit", "codes", "signup"], ["onboarding", "reset"], ["recovery"]]);
   });
 
-  it("lifts a cross-initiative objective dependency into the initiative order", () => {
-    const model = buildGraph(NODES, [dependency("audit", "signup")]);
-
-    expect(model.initiatives.map((block) => block.node.id)).toEqual(["onboarding", "recovery"]);
-  });
-
-  it("puts an objective in the row after the objective that it depends on", () => {
-    const model = buildGraph(NODES, [dependency("reset", "codes")]);
-    const recovery = model.initiatives.find((block) => block.node.id === "recovery");
-
-    expect(recovery?.rows.map((row) => row.map((cell) => cell.node.id))).toEqual([
-      ["audit", "codes"],
-      ["reset"],
+  it("ranks a node by the longest dependency path", () => {
+    const rows = rowIds(NODES, [
+      dependency("reset", "codes"),
+      dependency("audit", "reset"),
+      dependency("recovery", "audit"),
+      dependency("recovery", "codes"),
     ]);
+
+    expect(rows[rows.length - 1]).toEqual(["recovery"]);
+    expect(rows).toHaveLength(4);
   });
 
-  it("nests tasks inside their objective in filename order", () => {
-    const model = buildGraph(NODES, []);
-    const reset = model.initiatives
-      .flatMap((block) => block.rows.flat())
-      .find((cell) => cell.node.id === "reset");
-
-    expect(reset?.tasks.map((item) => item.id)).toEqual(["email", "expiry"]);
-  });
-
-  it("sorts ties by priority, then by filename", () => {
+  it("sorts a row by priority, then by filename", () => {
     const nodes = [
-      runnable("b", "initiative", null, "Pending", 0),
-      runnable("a", "initiative", null, "Pending", 0),
-      runnable("c", "initiative", null, "Pending", 5),
+      node("b", "implement", "Pending", 0),
+      node("a", "implement", "Pending", 0),
+      node("c", "examine", "Pending", 5),
     ];
 
-    expect(buildGraph(nodes, []).initiatives.map((block) => block.node.id)).toEqual([
-      "c",
-      "a",
-      "b",
-    ]);
+    expect(rowIds(nodes, [])).toEqual([["c", "a", "b"]]);
   });
 
   it("leaves out retired nodes", () => {
-    const retired = { ...runnable("old", "objective", "recovery"), retired_at: 1 };
+    const retired = { ...node("old", "implement"), retired_at: 1 };
     const model = buildGraph([...NODES, retired], []);
 
     expect(model.nodeById.has("old")).toBe(false);
+    expect(model.rows.flat().map((item) => item.id)).not.toContain("old");
   });
 
   it("reports a dependency whose endpoint is not in the read", () => {
@@ -137,10 +113,10 @@ describe("buildGraph", () => {
     expect(model.diagnostics).toContainEqual({ kind: "cycle", nodeIds: ["codes", "reset"] });
   });
 
-  it("reports a cycle between objectives of two initiatives", () => {
-    const model = buildGraph(NODES, [dependency("signup", "audit"), dependency("audit", "signup")]);
+  it("places the members of a cycle in the last row", () => {
+    const rows = rowIds(NODES, [dependency("codes", "reset"), dependency("reset", "codes")]);
 
-    expect(model.diagnostics).toEqual([{ kind: "cycle", nodeIds: ["signup", "audit"] }]);
+    expect(rows[rows.length - 1]).toEqual(["codes", "reset"]);
   });
 
   it("reports only the members of a cycle, not the nodes that wait for it", () => {
@@ -152,48 +128,30 @@ describe("buildGraph", () => {
 
     expect(model.diagnostics).toEqual([{ kind: "cycle", nodeIds: ["codes", "reset"] }]);
   });
-
-  it("reports a node that has no place in the containment tree", () => {
-    const model = buildGraph([...NODES, runnable("stray", "objective", "node_missing")], []);
-
-    expect(model.diagnostics).toContainEqual({ kind: "unplaced-node", nodeId: "stray" });
-  });
 });
 
 describe("closureOf", () => {
-  it("holds the dependencies of the node and of its ancestors", () => {
+  it("the closure holds the direct dependencies alone", () => {
     const model = buildGraph(NODES, [
-      dependency("recovery", "onboarding"),
+      dependency("recovery", "reset"),
       dependency("reset", "codes"),
     ]);
-    const closure = closureOf(model, "expiry");
+    const closure = closureOf(model, "recovery");
 
-    expect(closure.members.map((member) => [member.nodeId, member.via])).toEqual([
-      ["codes", "reset"],
-      ["onboarding", "recovery"],
-    ]);
+    expect(closure.members.map((member) => member.nodeId)).toEqual(["reset"]);
     expect(closure.status).toBe("does not hold");
   });
 
   it("holds when every member is Completed", () => {
     const model = buildGraph(NODES, [dependency("recovery", "onboarding")]);
 
-    expect(closureOf(model, "codes").status).toBe("holds");
+    expect(closureOf(model, "recovery").status).toBe("holds");
   });
 
   it("is unknown when a member is not in the read", () => {
     const model = buildGraph(NODES, [dependency("codes", "node_missing")]);
 
     expect(closureOf(model, "codes").status).toBe("unknown");
-  });
-});
-
-describe("objectiveProgress", () => {
-  it("counts the terminal objectives of an initiative", () => {
-    const model = buildGraph(NODES, []);
-
-    expect(objectiveProgress(model, "recovery")).toEqual({ terminal: 0, total: 3 });
-    expect(objectiveProgress(model, "onboarding")).toEqual({ terminal: 1, total: 1 });
   });
 });
 

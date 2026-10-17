@@ -8,7 +8,6 @@ import {
 import { listWorkerInstances } from "@/api/resources/workers";
 import type {
   MissionNodeRecord,
-  MissionRunnableNode,
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
@@ -30,8 +29,8 @@ export interface BoardSnapshot {
   readonly boards: readonly ProjectBoard[];
 }
 
-function holdsClaim(node: MissionNodeRecord): node is MissionRunnableNode {
-  return node.kind !== "task" && (node.state === "Executing" || node.state === "Evaluating");
+function holdsClaim(node: MissionNodeRecord): boolean {
+  return node.state === "Executing" || node.state === "Evaluating";
 }
 
 async function readMissingClaims(

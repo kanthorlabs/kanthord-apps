@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { resumeNode } from "@/api/resources/mission";
-import type { MissionExternalAction, MissionNodeRecord, MissionRunnableNode } from "@/api/types";
+import type { MissionExternalAction, MissionNodeRecord } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 import type { PauseCause } from "@/lib/execution-stop";
@@ -53,7 +53,7 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.node.terminal": "The node is terminal. The view now shows its current state.",
 };
 
-function isResumable(node: MissionRunnableNode, actions: readonly MissionExternalAction[] | null) {
+function isResumable(node: MissionNodeRecord, actions: readonly MissionExternalAction[] | null) {
   return node.retired_at === null && node.state === "Paused" && actions !== null;
 }
 
@@ -63,7 +63,6 @@ function dependencyOf(dependency: DependencyRef): ReactNode {
 }
 
 function needText(need: WaitingNeed): ReactNode {
-  if (need.kind === "objectives") return "every objective of the initiative to be terminal";
   if (need.kind === "requests") return "every request of the open attempt to reach its end state";
   return <>{dependencyOf(need.dependency)} to be Completed</>;
 }
@@ -77,7 +76,7 @@ function needsOf(needs: readonly WaitingNeed[]): ReactNode {
   ));
 }
 
-function consequenceOf(node: MissionRunnableNode, end: ResumeEnd): ReactNode {
+function consequenceOf(node: MissionNodeRecord, end: ResumeEnd): ReactNode {
   const name = <RecordName>{node.content.name}</RecordName>;
   if (end.kind === "external-failed") {
     return <>Resume moves {name} to External.Failed, and its attempt then closes.</>;
@@ -104,7 +103,7 @@ function consequenceOf(node: MissionRunnableNode, end: ResumeEnd): ReactNode {
   return <>Resume returns {name} to Available.</>;
 }
 
-function noteOf(node: MissionRunnableNode, note: ResumeNote): ReactNode {
+function noteOf(node: MissionNodeRecord, note: ResumeNote): ReactNode {
   if (note === "failure-count") {
     return "A resume resets no failure count, so it grants one more try.";
   }
@@ -118,7 +117,7 @@ function noteOf(node: MissionRunnableNode, note: ResumeNote): ReactNode {
 }
 
 export function useNodeResume(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   missionVersion: number,
   nodes: readonly MissionNodeRecord[],
   actions: readonly MissionExternalAction[] | null,

@@ -7,7 +7,7 @@ import { discardNode } from "@/api/resources/mission";
 import type {
   MissionControlResult,
   MissionExternalAction,
-  MissionRunnableNode,
+  MissionNodeRecord,
   NodeState,
 } from "@/api/types";
 import { useNodeDiscard } from "./use-node-discard";
@@ -20,12 +20,13 @@ vi.mock("sonner", () => ({
 
 const discardMock = vi.mocked(discardNode);
 
-const OBJECTIVE: MissionRunnableNode = {
+const IMPLEMENT: MissionNodeRecord = {
   id: "node_audit",
-  kind: "objective",
+  work: "implement",
+  requires: [],
+  tasks: [],
   filename: "audit.md",
   mission_id: "mission_1",
-  parent_id: "node_team",
   visible_revision: 2,
   content: {
     name: "Audit log",
@@ -33,6 +34,8 @@ const OBJECTIVE: MissionRunnableNode = {
     criterion: "c",
     verifications: ["pnpm test"],
     bindings: [],
+    work: "implement",
+    requires: [],
   },
   retired_at: null,
   pinned_by_attempts: [],
@@ -61,7 +64,7 @@ function action(resolution: MissionExternalAction["resolution"]): MissionExterna
 }
 
 function mount(
-  node: MissionRunnableNode = OBJECTIVE,
+  node: MissionNodeRecord = IMPLEMENT,
   reload = vi.fn(),
   actions: readonly MissionExternalAction[] | null = [],
 ) {
@@ -88,11 +91,11 @@ describe("useNodeDiscard", () => {
     ["Completed", false],
     ["Discarded", false],
   ])("offers discard in the state %s: %s", (state, available) => {
-    expect(mount({ ...OBJECTIVE, state }).result.current.available).toBe(available);
+    expect(mount({ ...IMPLEMENT, state }).result.current.available).toBe(available);
   });
 
   it("holds discard of a Paused node until the external actions answer", () => {
-    expect(mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), null).result.current.available).toBe(
+    expect(mount({ ...IMPLEMENT, state: "Paused" }, vi.fn(), null).result.current.available).toBe(
       false,
     );
   });
@@ -103,13 +106,13 @@ describe("useNodeDiscard", () => {
     ["other-end", true],
     ["unresolved", false],
   ])("offers discard of a Paused node with a request that is %s: %s", (resolution, available) => {
-    const { result } = mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), [action(resolution)]);
+    const { result } = mount({ ...IMPLEMENT, state: "Paused" }, vi.fn(), [action(resolution)]);
 
     expect(result.current.available).toBe(available);
   });
 
   it("sends no call for a Paused node with an unresolved request", async () => {
-    const { result } = mount({ ...OBJECTIVE, state: "Paused" }, vi.fn(), [action("unresolved")]);
+    const { result } = mount({ ...IMPLEMENT, state: "Paused" }, vi.fn(), [action("unresolved")]);
 
     act(() => result.current.request());
 
@@ -119,13 +122,13 @@ describe("useNodeDiscard", () => {
   });
 
   it("offers no discard for a retired node", () => {
-    expect(mount({ ...OBJECTIVE, retired_at: 1 }).result.current.available).toBe(false);
+    expect(mount({ ...IMPLEMENT, retired_at: 1 }).result.current.available).toBe(false);
   });
 
   it.each<NodeState>(["Pending", "Available", "Executing", "Waiting", "External.Success"])(
     "holds discard of a %s node with an open attempt until the actions answer and clear",
     (state) => {
-      const node = { ...OBJECTIVE, state };
+      const node = { ...IMPLEMENT, state };
 
       expect(mount(node, vi.fn(), null).result.current.available).toBe(false);
       expect(mount(node, vi.fn(), [action("unresolved")]).result.current.available).toBe(false);
@@ -134,11 +137,11 @@ describe("useNodeDiscard", () => {
   );
 
   it("needs no external action read for a Blocked node or a node at attempt 0", () => {
-    expect(mount({ ...OBJECTIVE, state: "Blocked" }, vi.fn(), null).result.current.available).toBe(
+    expect(mount({ ...IMPLEMENT, state: "Blocked" }, vi.fn(), null).result.current.available).toBe(
       true,
     );
     expect(
-      mount({ ...OBJECTIVE, state: "Pending", attempt: 0 }, vi.fn(), null).result.current.available,
+      mount({ ...IMPLEMENT, state: "Pending", attempt: 0 }, vi.fn(), null).result.current.available,
     ).toBe(true);
   });
 
@@ -178,7 +181,7 @@ describe("useNodeDiscard", () => {
       bold: ["Audit log", "Audit log"],
     });
     expect(
-      renderedText(mount({ ...OBJECTIVE, state: "Blocked" }).result.current.saferPath),
+      renderedText(mount({ ...IMPLEMENT, state: "Blocked" }).result.current.saferPath),
     ).toEqual({
       text: "To run Audit log again instead, keep it and unblock it.",
       bold: ["Audit log"],

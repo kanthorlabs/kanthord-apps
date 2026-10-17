@@ -156,9 +156,9 @@ describe("sendWorkbenchMessage", () => {
       [`POST ${PATH}/message`]: { status: 202, body: { session_id: SESSION_ID, run_active: true } },
     });
 
-    await sendWorkbenchMessage(SESSION_ID, "List the objectives");
+    await sendWorkbenchMessage(SESSION_ID, "List the nodes");
 
-    expect(JSON.parse(seen[0]!.body)).toEqual({ text: "List the objectives" });
+    expect(JSON.parse(seen[0]!.body)).toEqual({ text: "List the nodes" });
     expect(seen[0]!.idempotencyKey).toBeTruthy();
   });
 

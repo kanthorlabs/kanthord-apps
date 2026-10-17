@@ -28,7 +28,7 @@ export function uncoveredJobsOf(
 ): ReadonlyMap<NodeState, readonly SchedulerJob[]> {
   const declared = declaredStatesOf(instances, catalog);
   const stateOf = new Map<string, NodeState>();
-  for (const node of nodes) if (node.kind !== "task") stateOf.set(node.id, node.state);
+  for (const node of nodes) stateOf.set(node.id, node.state);
   const uncovered = new Map<NodeState, SchedulerJob[]>();
   for (const job of jobs) {
     const state = stateOf.get(job.node_id);

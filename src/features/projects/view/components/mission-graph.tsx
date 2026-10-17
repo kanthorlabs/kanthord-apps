@@ -1,8 +1,8 @@
-import { useRef, type CSSProperties, type ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { Box, GraphLayout } from "@/lib/graph-layout";
-import { dependencyNames, objectiveProgress, type GraphModel } from "@/lib/mission-graph";
+import type { GraphLayout } from "@/lib/graph-layout";
+import { dependencyNames, type GraphModel } from "@/lib/mission-graph";
 import { GRAPH_NODE_ATTRIBUTE, useGraphLayout } from "../use-graph-layout";
 import { DependencyEdges } from "./dependency-edges";
 import { EdgeLegend } from "./edge-legend";
@@ -19,10 +19,6 @@ interface PlacedProps {
   readonly layout: GraphLayout | null;
   readonly width: number | undefined;
   readonly children: ReactNode;
-}
-
-function boxStyle(box: Box): CSSProperties {
-  return { left: box.x, top: box.y, width: box.width, height: box.height };
 }
 
 function Placed({ nodeId, layout, width, children }: PlacedProps) {
@@ -58,46 +54,18 @@ export function MissionGraph({ model, selectedId, onSelect }: MissionGraphProps)
           className={`relative ${layout === null ? "invisible" : ""}`}
           style={{ width: layout?.width, height: layout?.height }}
         >
-          {layout?.bands.map((band) => (
-            <div
-              key={band.initiativeId}
-              aria-hidden="true"
-              className="absolute rounded-xl border bg-muted"
-              style={boxStyle(band.box)}
-            />
-          ))}
           {layout !== null && <DependencyEdges geometry={layout} selectedId={selectedId} />}
-          <ol aria-label="Initiatives">
-            {model.initiatives.map((block) => (
-              <li key={block.node.id}>
-                <Placed nodeId={block.node.id} layout={layout} width={grid?.bandWidth}>
+          <ol aria-label="Nodes">
+            {model.rows.flat().map((node) => (
+              <li key={node.id}>
+                <Placed nodeId={node.id} layout={layout} width={grid?.laneWidth}>
                   <GraphNode
-                    node={block.node}
-                    tasks={[]}
-                    dependsOn={dependencyNames(model, block.node.id)}
-                    progress={objectiveProgress(model, block.node.id)}
+                    node={node}
+                    dependsOn={dependencyNames(model, node.id)}
                     selectedId={selectedId}
                     onSelect={onSelect}
                   />
                 </Placed>
-                {block.rows.length > 0 && (
-                  <ol aria-label={`Objectives of ${block.node.content.name}`}>
-                    {block.rows.flat().map((cell) => (
-                      <li key={cell.node.id}>
-                        <Placed nodeId={cell.node.id} layout={layout} width={grid?.laneWidth}>
-                          <GraphNode
-                            node={cell.node}
-                            tasks={cell.tasks}
-                            dependsOn={dependencyNames(model, cell.node.id)}
-                            progress={null}
-                            selectedId={selectedId}
-                            onSelect={onSelect}
-                          />
-                        </Placed>
-                      </li>
-                    ))}
-                  </ol>
-                )}
               </li>
             ))}
           </ol>

@@ -17,13 +17,13 @@ const CATALOG: readonly WorkerCatalogItem[] = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
 ];
 
@@ -32,12 +32,21 @@ function node(id: string, state: NodeState): MissionNodeRecord {
     id,
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name: id, requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name: id,
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt: 0,
     priority: 0,
@@ -182,7 +191,7 @@ describe("takerHintOf", () => {
       name: "claude-code@1",
       host: "external-harness",
       declared_node_states: ["Waiting"],
-      required_node_format: ["objective"],
+      declared_works: ["implement", "examine"],
     };
 
     expect(

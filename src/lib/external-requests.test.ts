@@ -4,7 +4,7 @@ import type {
   ActionLanding,
   MissionEvidence,
   MissionExternalAction,
-  MissionRunnableNode,
+  MissionNodeRecord,
   NodeState,
   RepositoryActionName,
 } from "@/api/types";
@@ -23,17 +23,26 @@ import {
   unresolvedRequestsText,
 } from "./external-requests";
 
-function node(state: NodeState, attempt: number): MissionRunnableNode {
+function node(state: NodeState, attempt: number): MissionNodeRecord {
   return {
     id: "node_1",
     filename: "node_1.md",
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name: "Audit log", requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name: "Audit log",
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt,
     priority: 0,

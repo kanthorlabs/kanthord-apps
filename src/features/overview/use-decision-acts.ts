@@ -108,7 +108,7 @@ function readStateOf(item: DecisionAttentionItem, detail: AttentionDetail | null
   if (item.kind === "dependency_discarded" && hasOpenAttempt(item.node)) {
     return openStateOf(item.node.attempt, detail);
   }
-  if (item.kind === "blocked" && item.node.kind === "initiative") return proposalsStateOf(detail);
+  if (item.kind === "blocked" && item.node.work === "examine") return proposalsStateOf(detail);
   return READY;
 }
 

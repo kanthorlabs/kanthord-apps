@@ -103,9 +103,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
             <Empty>
               <EmptyHeader>
                 <EmptyTitle>The mission holds no nodes.</EmptyTitle>
-                <EmptyDescription>
-                  Import a plan to create its initiatives and objectives.
-                </EmptyDescription>
+                <EmptyDescription>Import a plan to create its nodes.</EmptyDescription>
               </EmptyHeader>
             </Empty>
           </div>

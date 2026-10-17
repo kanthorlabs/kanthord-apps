@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { discardNode } from "@/api/resources/mission";
-import type { MissionExternalAction, MissionRunnableNode, NodeState } from "@/api/types";
+import type { MissionExternalAction, MissionNodeRecord, NodeState } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 import { requestsClearOf } from "@/lib/external-requests";
@@ -48,14 +48,14 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
 };
 
 function isDiscardable(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   actions: readonly MissionExternalAction[] | null,
 ): boolean {
   if (node.retired_at !== null || !DISCARD_STATES.includes(node.state)) return false;
   return requestsClearOf(node, actions);
 }
 
-function consequenceOf(node: MissionRunnableNode): ReactNode {
+function consequenceOf(node: MissionNodeRecord): ReactNode {
   const outcome = "writes an undetermined outcome with the reason and ends the node as Discarded";
   const name = <RecordName>{node.content.name}</RecordName>;
   const close =
@@ -80,7 +80,7 @@ function consequenceOf(node: MissionRunnableNode): ReactNode {
   );
 }
 
-function saferPathOf(node: MissionRunnableNode): ReactNode {
+function saferPathOf(node: MissionNodeRecord): ReactNode {
   const name = <RecordName>{node.content.name}</RecordName>;
   if (node.state === "Blocked") {
     return <>To run {name} again instead, keep it and unblock it.</>;
@@ -93,7 +93,7 @@ function saferPathOf(node: MissionRunnableNode): ReactNode {
 }
 
 export function useNodeDiscard(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   missionVersion: number,
   actions: readonly MissionExternalAction[] | null,
   reload: () => void,

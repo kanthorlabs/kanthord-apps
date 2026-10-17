@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  MissionExternalAction,
-  MissionNodeRecord,
-  MissionRunnableNode,
-  NodeState,
-} from "@/api/types";
+import type { MissionExternalAction, MissionNodeRecord, NodeState } from "@/api/types";
 
 import {
   choosesTarget,
@@ -20,18 +15,27 @@ function node(
   id: string,
   name: string,
   state: NodeState,
-  overrides: Partial<MissionRunnableNode> = {},
-): MissionRunnableNode {
+  overrides: Partial<MissionNodeRecord> = {},
+): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name, requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name,
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt: 2,
     priority: 0,
@@ -119,12 +123,14 @@ describe("resumeEndOf", () => {
     });
   });
 
-  it("reads the dependencies of an ancestor too", () => {
-    const parent = node("n0", "Checkout", "Pending", { depends_on: ["n2"] });
-    const child = node("n1", "Compute the rates", "Paused", { parent_id: "n0" });
-    const nodes = [parent, child, node("n2", "Sign-up form", "Available")];
+  it("reads the direct dependencies alone", () => {
+    const upstream = node("n0", "Checkout", "Completed", { depends_on: ["n2"] });
+    const dependent = node("n1", "Compute the rates", "Paused", { depends_on: ["n0"] });
+    const nodes = [upstream, dependent, node("n2", "Sign-up form", "Available")];
 
-    expect(resumeEndOf(context({ node: child, nodes }), "Available").kind).toBe("pending");
+    expect(resumeEndOf(context({ node: dependent, nodes }), "Available")).toEqual({
+      kind: "available",
+    });
   });
 
   it("returns to Available when every dependency is Completed", () => {
@@ -147,26 +153,8 @@ describe("resumeEndOf", () => {
 });
 
 describe("waitingNeedsOf", () => {
-  it("holds no need for an objective with no request and no open dependency", () => {
+  it("holds no need for a node with no request and no open dependency", () => {
     expect(waitingNeedsOf(context())).toEqual([]);
-  });
-
-  it("needs every objective of an initiative to be terminal", () => {
-    const initiative = node("n1", "Checkout", "Paused", { kind: "initiative" });
-    const nodes = [
-      initiative,
-      node("n2", "Done", "Completed", { parent_id: "n1" }),
-      node("n3", "Open", "Available", { parent_id: "n1" }),
-    ];
-
-    expect(waitingNeedsOf(context({ node: initiative, nodes }))).toEqual([{ kind: "objectives" }]);
-  });
-
-  it("skips a retired objective of an initiative", () => {
-    const initiative = node("n1", "Checkout", "Paused", { kind: "initiative" });
-    const nodes = [initiative, node("n3", "Old", "Available", { parent_id: "n1", retired_at: 5 })];
-
-    expect(waitingNeedsOf(context({ node: initiative, nodes }))).toEqual([]);
   });
 
   it("needs an unresolved request to end", () => {

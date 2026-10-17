@@ -1,14 +1,11 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { approveProposal } from "@/api/resources/mission";
-import type {
-  MissionProposal,
-  MissionProposalApproveResult,
-  MissionRunnableNode,
-} from "@/api/types";
+import type { MissionProposal, MissionProposalApproveResult, MissionNodeRecord } from "@/api/types";
 import { useProposalApprove } from "./use-proposal-approve";
 
 vi.mock("@/api/resources/mission", () => ({ approveProposal: vi.fn() }));
@@ -18,12 +15,13 @@ vi.mock("sonner", () => ({
 
 const approveMock = vi.mocked(approveProposal);
 
-const INITIATIVE: MissionRunnableNode = {
+const PROPOSER: MissionNodeRecord = {
   id: "node_team",
-  kind: "initiative",
+  work: "examine",
+  requires: [],
+  tasks: [],
   filename: "team.md",
   mission_id: "mission_1",
-  parent_id: null,
   visible_revision: 1,
   content: {
     name: "Team workspaces",
@@ -31,6 +29,8 @@ const INITIATIVE: MissionRunnableNode = {
     criterion: "c",
     verifications: ["pnpm test"],
     bindings: [],
+    work: "examine",
+    requires: [],
   },
   retired_at: null,
   pinned_by_attempts: [],
@@ -46,7 +46,7 @@ const PROPOSAL: MissionProposal = {
   attempt: 2,
   assessment_id: "assessment_1",
   content: {
-    objective_id: "node_invite",
+    dependency_id: "node_invite",
     name: "Fix the invite link",
     requirement: "Invite links expire after one use.",
     criterion: "A second use of a link fails.",
@@ -57,18 +57,36 @@ const PROPOSAL: MissionProposal = {
       verifications: ["pnpm test"],
     },
   },
-  objective_node_id: null,
+  created_node_id: null,
   approved_at: null,
   created_at: 0,
 };
 
-function mount(initiative = INITIATIVE, reload = vi.fn()) {
-  const view = renderHook(() => useProposalApprove(initiative, 7, reload));
+const APPROVED: MissionProposalApproveResult = {
+  created: {
+    mission_version: 8,
+    revisions: [],
+    retired_node_ids: [],
+    added_edges: [{ dependent_id: "node_team", depends_on_id: "node_fix" }],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  },
+  proposer: {
+    node: { ...PROPOSER, state: "Pending", attempt: 3 },
+    attempt: null,
+    outcome: null,
+    actor: { kind: "human", account: "ulrich", name: "Ulrich" },
+    accepted_at: 1,
+  },
+};
+
+function mount(proposer = PROPOSER, reload = vi.fn()) {
+  const view = renderHook(() => useProposalApprove(proposer, 7, reload));
   return { ...view, reload };
 }
 
 beforeEach(() => {
-  approveMock.mockReset().mockResolvedValue({} as MissionProposalApproveResult);
+  approveMock.mockReset().mockResolvedValue(APPROVED);
 });
 
 describe("useProposalApprove", () => {
@@ -78,16 +96,16 @@ describe("useProposalApprove", () => {
     expect(result.current.canApprove(PROPOSAL)).toBe(true);
     expect(result.current.canApprove({ ...PROPOSAL, approved_at: 1 })).toBe(false);
     expect(result.current.unavailableReason({ ...PROPOSAL, attempt: 1 })).toBe(
-      "The proposal belongs to attempt 1. The initiative is blocked after attempt 2.",
+      "The proposal belongs to attempt 1. The proposer is blocked after attempt 2.",
     );
   });
 
-  it("names why approve is unavailable when the initiative is not blocked", () => {
-    const { result } = mount({ ...INITIATIVE, state: "Available" });
+  it("names why approve is unavailable when the proposer is not blocked", () => {
+    const { result } = mount({ ...PROPOSER, state: "Available" });
 
     expect(result.current.canApprove(PROPOSAL)).toBe(false);
     expect(result.current.unavailableReason(PROPOSAL)).toBe(
-      "The initiative is Available. Approve needs a Blocked initiative.",
+      "The proposer is Available. Approve needs a Blocked proposer.",
     );
     act(() => result.current.request(PROPOSAL));
     expect(result.current.target).toBeNull();
@@ -106,6 +124,12 @@ describe("useProposalApprove", () => {
     });
     expect(result.current.target).toBeNull();
     expect(reload).toHaveBeenCalledTimes(1);
+    const [message, options] = vi.mocked(toast.success).mock.calls.at(-1) ?? [];
+    expect(message).toBe("Approved the proposal Fix the invite link.");
+    render(options?.description as ReactElement);
+    expect(
+      screen.getByText(/The proposer is Pending at mission version 8\./, { exact: false }),
+    ).toBeTruthy();
   });
 
   it("omits an empty reason", async () => {
@@ -119,7 +143,7 @@ describe("useProposalApprove", () => {
 
   it.each([
     ["mission.proposal.already_approved", "Another approve of this proposal came first."],
-    ["mission.node.state_conflict", "The initiative is no longer Blocked"],
+    ["mission.node.state_conflict", "The proposer is no longer Blocked"],
     ["mission.version.conflict", "The mission changed after this read."],
   ])("maps the conflict %s to a message and reloads", async (code, message) => {
     approveMock.mockRejectedValue(new ApiError("conflict", "Conflict.", 409, code));

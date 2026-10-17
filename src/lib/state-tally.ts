@@ -9,7 +9,7 @@ export interface StateTally {
 export function tallyStates(nodes: readonly MissionNodeRecord[]): readonly StateTally[] {
   const counts = new Map<NodeState, number>();
   for (const node of nodes) {
-    if (node.kind === "task" || node.retired_at !== null) continue;
+    if (node.retired_at !== null) continue;
     counts.set(node.state, (counts.get(node.state) ?? 0) + 1);
   }
   return NODE_STATES.flatMap((state) => {

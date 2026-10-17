@@ -13,7 +13,6 @@ export interface Box {
 export interface LaneGrid {
   readonly lanes: number;
   readonly laneWidth: number;
-  readonly bandWidth: number;
 }
 
 export interface EdgeShape extends DependencyLink {
@@ -27,18 +26,12 @@ export interface EdgeGeometry {
   readonly edges: readonly EdgeShape[];
 }
 
-export interface BandShape {
-  readonly initiativeId: string;
-  readonly box: Box;
-}
-
 export interface GraphLayout extends EdgeGeometry {
   readonly boxes: ReadonlyMap<string, Box>;
-  readonly bands: readonly BandShape[];
 }
 
 const LANE_GAP = 16;
-const BAND_PADDING = 8;
+const GRAPH_PADDING = 8;
 const MIN_LANE_WIDTH = 180;
 const MAX_LANES = 4;
 const EDGE_GUTTER = 16;
@@ -49,19 +42,15 @@ export function laneGrid(width: number): LaneGrid {
   if (!Number.isFinite(width) || width <= 0) {
     throw new Error(`The graph width ${width} is not a positive number.`);
   }
-  const bandWidth = Math.max(MIN_LANE_WIDTH, Math.floor(width - 2 * BAND_PADDING - EDGE_GUTTER));
-  const room = bandWidth;
+  const room = Math.max(MIN_LANE_WIDTH, Math.floor(width - 2 * GRAPH_PADDING - EDGE_GUTTER));
   const fit = Math.floor((room + LANE_GAP) / (MIN_LANE_WIDTH + LANE_GAP));
   const lanes = Math.min(MAX_LANES, Math.max(1, fit));
   const laneWidth = Math.max(MIN_LANE_WIDTH, Math.floor((room - (lanes - 1) * LANE_GAP) / lanes));
-  return { lanes, laneWidth, bandWidth };
+  return { lanes, laneWidth };
 }
 
 export function placedNodeIds(model: GraphModel): readonly string[] {
-  return model.initiatives.flatMap((block) => [
-    block.node.id,
-    ...block.rows.flatMap((row) => row.map((cell) => cell.node.id)),
-  ]);
+  return model.rows.flatMap((row) => row.map((node) => node.id));
 }
 
 function edgeId(link: DependencyLink): string {
@@ -84,12 +73,9 @@ export function layoutRequest(
   grid: LaneGrid,
   heights: ReadonlyMap<string, number>,
 ): ElkNode {
-  const children = model.initiatives.flatMap((block, index) => [
-    sized(block.node.id, grid.bandWidth, heights, 2 * index),
-    ...block.rows.flatMap((row) =>
-      row.map((cell) => sized(cell.node.id, grid.laneWidth, heights, 2 * index + 1)),
-    ),
-  ]);
+  const children = model.rows.flatMap((row, index) =>
+    row.map((node) => sized(node.id, grid.laneWidth, heights, index)),
+  );
   const placed = new Set(children.map((child) => child.id));
   const edges: ElkExtendedEdge[] = model.links
     .filter((link) => placed.has(link.dependsOnId) && placed.has(link.dependentId))
@@ -115,7 +101,7 @@ export function layoutRequest(
       "elk.layered.spacing.edgeNodeBetweenLayers": "10",
       "elk.spacing.edgeEdge": "6",
       "elk.spacing.edgeNode": "8",
-      "elk.padding": `[top=${BAND_PADDING},left=${BAND_PADDING},bottom=${BAND_PADDING},right=${BAND_PADDING}]`,
+      "elk.padding": `[top=${GRAPH_PADDING},left=${GRAPH_PADDING},bottom=${GRAPH_PADDING},right=${GRAPH_PADDING}]`,
     },
     children,
     edges,
@@ -176,28 +162,6 @@ function boxOf(node: ElkNode): Box {
   return { x, y, width, height };
 }
 
-function bandOf(model: GraphModel, index: number, boxes: ReadonlyMap<string, Box>, width: number) {
-  const block = model.initiatives[index];
-  const header = block === undefined ? undefined : boxes.get(block.node.id);
-  if (block === undefined || header === undefined) {
-    throw new Error(`The layout holds no initiative at band ${index}.`);
-  }
-  const members = block.rows.flatMap((row) => row.map((cell) => boxes.get(cell.node.id)));
-  const bottom = Math.max(
-    ...members.map((box) => (box ? box.y + box.height : 0)),
-    header.y + header.height,
-  );
-  return {
-    initiativeId: block.node.id,
-    box: {
-      x: 0,
-      y: header.y - BAND_PADDING,
-      width,
-      height: bottom - header.y + 2 * BAND_PADDING,
-    },
-  };
-}
-
 export function readLayout(model: GraphModel, result: ElkNode): GraphLayout {
   const width = result.width ?? 0;
   const height = result.height ?? 0;
@@ -209,6 +173,5 @@ export function readLayout(model: GraphModel, result: ElkNode): GraphLayout {
     if (link === undefined) throw new Error(`The layout holds an unknown edge ${edge.id}.`);
     return { ...link, group: edgeGroupOf(model, link), path: roundedPath(edgePoints(edge)) };
   });
-  const bands = model.initiatives.map((_, index) => bandOf(model, index, boxes, width));
-  return { width, height, edges, boxes, bands };
+  return { width, height, edges, boxes };
 }

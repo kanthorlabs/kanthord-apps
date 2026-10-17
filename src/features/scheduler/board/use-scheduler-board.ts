@@ -79,7 +79,7 @@ function nodeNamesOf(nodes: readonly MissionNodeRecord[]): ReadonlyMap<string, s
 }
 
 function nodeStatesOf(nodes: readonly MissionNodeRecord[]): ReadonlyMap<string, NodeState> {
-  return new Map(nodes.flatMap((node) => (node.kind === "task" ? [] : [[node.id, node.state]])));
+  return new Map(nodes.map((node) => [node.id, node.state]));
 }
 
 function claimKindOfState(state: NodeState | null): ClaimKind | null {

@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { removeDependency } from "@/api/resources/mission";
-import type { MissionRunnableNode } from "@/api/types";
+import type { MissionNodeRecord } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 import type { DiscardedDependency } from "@/lib/attention";
@@ -30,12 +30,12 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.node.terminal": "The node is terminal. The view now shows its current state.",
 };
 
-function isRemovable(node: MissionRunnableNode): boolean {
+function isRemovable(node: MissionNodeRecord): boolean {
   return node.retired_at === null && !isTerminal(node.state);
 }
 
 export function useDependencyRemove(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   missionVersion: number,
   reload: () => void,
 ): DependencyRemoveState {

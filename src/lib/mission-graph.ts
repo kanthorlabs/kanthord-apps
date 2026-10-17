@@ -1,23 +1,4 @@
-import type {
-  MissionEdge,
-  MissionNodeRecord,
-  MissionRunnableNode,
-  MissionTaskNode,
-} from "@/api/types";
-
-import { isTerminal } from "./node-state";
-
-export interface ObjectiveCell {
-  readonly node: MissionRunnableNode;
-  readonly rank: number;
-  readonly tasks: readonly MissionTaskNode[];
-}
-
-export interface InitiativeBlock {
-  readonly node: MissionRunnableNode;
-  readonly rank: number;
-  readonly rows: readonly (readonly ObjectiveCell[])[];
-}
+import type { MissionEdge, MissionNodeRecord } from "@/api/types";
 
 export interface DependencyLink {
   readonly dependentId: string;
@@ -26,15 +7,13 @@ export interface DependencyLink {
 
 export type GraphDiagnostic =
   | { readonly kind: "unresolved-dependency"; readonly link: DependencyLink }
-  | { readonly kind: "unplaced-node"; readonly nodeId: string }
   | { readonly kind: "cycle"; readonly nodeIds: readonly string[] };
 
 export interface GraphModel {
-  readonly initiatives: readonly InitiativeBlock[];
+  readonly rows: readonly (readonly MissionNodeRecord[])[];
   readonly nodeById: ReadonlyMap<string, MissionNodeRecord>;
   readonly dependsOn: ReadonlyMap<string, readonly string[]>;
   readonly dependents: ReadonlyMap<string, readonly string[]>;
-  readonly children: ReadonlyMap<string, readonly MissionNodeRecord[]>;
   readonly links: readonly DependencyLink[];
   readonly diagnostics: readonly GraphDiagnostic[];
 }
@@ -43,8 +22,7 @@ export type ClosureStatus = "holds" | "does not hold" | "unknown";
 
 export interface ClosureMember {
   readonly nodeId: string;
-  readonly node: MissionRunnableNode | null;
-  readonly via: string;
+  readonly node: MissionNodeRecord | null;
 }
 
 export interface Closure {
@@ -57,7 +35,7 @@ interface Ranking {
   readonly cyclic: readonly string[];
 }
 
-function byPriorityThenFilename(a: MissionRunnableNode, b: MissionRunnableNode): number {
+function byPriorityThenFilename(a: MissionNodeRecord, b: MissionNodeRecord): number {
   if (a.priority !== b.priority) return b.priority - a.priority;
   return a.filename.localeCompare(b.filename);
 }
@@ -86,31 +64,6 @@ function rankByLongestPath(ids: readonly string[], links: readonly DependencyLin
   }
   const cyclic = ids.filter((id) => (incoming.get(id) ?? 0) > 0);
   return { rank, cyclic };
-}
-
-function liftedLinks(
-  links: readonly DependencyLink[],
-  initiativeOf: ReadonlyMap<string, string>,
-): DependencyLink[] {
-  const lifted: DependencyLink[] = [];
-  for (const link of links) {
-    const dependentId = initiativeOf.get(link.dependentId);
-    const dependsOnId = initiativeOf.get(link.dependsOnId);
-    if (dependentId === undefined || dependsOnId === undefined) continue;
-    if (dependentId === dependsOnId) continue;
-    lifted.push({ dependentId, dependsOnId });
-  }
-  return lifted;
-}
-
-function rankInitiatives(
-  ids: readonly string[],
-  links: readonly DependencyLink[],
-  initiativeOf: ReadonlyMap<string, string>,
-): Ranking {
-  const lifted = rankByLongestPath(ids, liftedLinks(links, initiativeOf));
-  if (lifted.cyclic.length === 0) return lifted;
-  return rankByLongestPath(ids, links);
 }
 
 function pushTo<T>(map: Map<string, T[]>, key: string, value: T): void {
@@ -158,12 +111,16 @@ function placeCyclic(ranking: Ranking): ReadonlyMap<string, number> {
   return rank;
 }
 
-function groupRows(cells: readonly ObjectiveCell[]): ObjectiveCell[][] {
-  const rows: ObjectiveCell[][] = [];
-  for (const cell of cells) {
-    const row = rows[cell.rank];
-    if (row === undefined) rows[cell.rank] = [cell];
-    else row.push(cell);
+function groupRows(
+  nodes: readonly MissionNodeRecord[],
+  rank: ReadonlyMap<string, number>,
+): MissionNodeRecord[][] {
+  const rows: MissionNodeRecord[][] = [];
+  for (const node of nodes) {
+    const index = rank.get(node.id) ?? 0;
+    const row = rows[index];
+    if (row === undefined) rows[index] = [node];
+    else row.push(node);
   }
   return rows.filter((row) => row.length > 0);
 }
@@ -180,7 +137,6 @@ export function buildGraph(
   const dependents = new Map<string, string[]>();
   const links: DependencyLink[] = [];
   for (const edge of edges) {
-    if (edge.kind !== "dependency") continue;
     const link = { dependentId: edge.dependent_id, dependsOnId: edge.depends_on_id };
     if (!nodeById.has(link.dependentId) || !nodeById.has(link.dependsOnId)) {
       diagnostics.push({ kind: "unresolved-dependency", link });
@@ -191,31 +147,6 @@ export function buildGraph(
     if (nodeById.has(link.dependsOnId)) pushTo(dependents, link.dependsOnId, link.dependentId);
   }
 
-  const children = new Map<string, MissionNodeRecord[]>();
-  for (const node of nodes) {
-    if (node.parent_id !== null) pushTo(children, node.parent_id, node);
-  }
-
-  const initiatives = nodes
-    .filter((node): node is MissionRunnableNode => node.kind === "initiative")
-    .sort(byPriorityThenFilename);
-  const initiativeOf = new Map<string, string>();
-  const placed = new Set<string>();
-  for (const initiative of initiatives) {
-    initiativeOf.set(initiative.id, initiative.id);
-    placed.add(initiative.id);
-    for (const child of children.get(initiative.id) ?? []) {
-      if (child.kind !== "objective") continue;
-      initiativeOf.set(child.id, initiative.id);
-      placed.add(child.id);
-      for (const task of children.get(child.id) ?? []) {
-        if (task.kind === "task") placed.add(task.id);
-      }
-    }
-  }
-  for (const node of nodes) {
-    if (!placed.has(node.id)) diagnostics.push({ kind: "unplaced-node", nodeId: node.id });
-  }
   for (const nodeIds of findCycles(
     nodes.map((node) => node.id),
     links,
@@ -223,74 +154,22 @@ export function buildGraph(
     diagnostics.push({ kind: "cycle", nodeIds });
   }
 
-  const initiativeRank = placeCyclic(
-    rankInitiatives(
-      initiatives.map((node) => node.id),
+  const ordered = [...nodes].sort(byPriorityThenFilename);
+  const rank = placeCyclic(
+    rankByLongestPath(
+      ordered.map((node) => node.id),
       links,
-      initiativeOf,
     ),
   );
 
-  const blocks = initiatives.map((initiative): InitiativeBlock => {
-    const objectives = (children.get(initiative.id) ?? [])
-      .filter((node): node is MissionRunnableNode => node.kind === "objective")
-      .sort(byPriorityThenFilename);
-    const objectiveRank = placeCyclic(
-      rankByLongestPath(
-        objectives.map((node) => node.id),
-        links,
-      ),
-    );
-    const cells = objectives
-      .map((node): ObjectiveCell => ({
-        node,
-        rank: objectiveRank.get(node.id) ?? 0,
-        tasks: (children.get(node.id) ?? [])
-          .filter((child): child is MissionTaskNode => child.kind === "task")
-          .sort((a, b) => a.filename.localeCompare(b.filename)),
-      }))
-      .sort((a, b) => a.rank - b.rank);
-    return {
-      node: initiative,
-      rank: initiativeRank.get(initiative.id) ?? 0,
-      rows: groupRows(cells),
-    };
-  });
-  blocks.sort((a, b) => a.rank - b.rank);
-
-  return { initiatives: blocks, nodeById, dependsOn, dependents, children, links, diagnostics };
-}
-
-export function ancestorsOf(model: GraphModel, nodeId: string): readonly MissionNodeRecord[] {
-  const ancestors: MissionNodeRecord[] = [];
-  const seen = new Set<string>([nodeId]);
-  let parentId = model.nodeById.get(nodeId)?.parent_id ?? null;
-  while (parentId !== null && !seen.has(parentId)) {
-    seen.add(parentId);
-    const parent = model.nodeById.get(parentId);
-    if (parent === undefined) break;
-    ancestors.push(parent);
-    parentId = parent.parent_id;
-  }
-  return ancestors;
-}
-
-function asRunnable(node: MissionNodeRecord | undefined): MissionRunnableNode | null {
-  return node === undefined || node.kind === "task" ? null : node;
+  return { rows: groupRows(ordered, rank), nodeById, dependsOn, dependents, links, diagnostics };
 }
 
 export function closureOf(model: GraphModel, nodeId: string): Closure {
-  const node = model.nodeById.get(nodeId);
-  const owners = node === undefined ? [] : [node, ...ancestorsOf(model, nodeId)];
-  const members: ClosureMember[] = [];
-  const seen = new Set<string>();
-  for (const owner of owners) {
-    for (const id of model.dependsOn.get(owner.id) ?? []) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      members.push({ nodeId: id, node: asRunnable(model.nodeById.get(id)), via: owner.id });
-    }
-  }
+  const members = (model.dependsOn.get(nodeId) ?? []).map((id): ClosureMember => ({
+    nodeId: id,
+    node: model.nodeById.get(id) ?? null,
+  }));
   return { members, status: closureStatus(members) };
 }
 
@@ -301,21 +180,6 @@ function closureStatus(members: readonly ClosureMember[]): ClosureStatus {
     return "does not hold";
   }
   return members.some((member) => member.node === null) ? "unknown" : "holds";
-}
-
-export interface ObjectiveProgress {
-  readonly terminal: number;
-  readonly total: number;
-}
-
-export function objectiveProgress(model: GraphModel, initiativeId: string): ObjectiveProgress {
-  const objectives = (model.children.get(initiativeId) ?? []).filter(
-    (child): child is MissionRunnableNode => child.kind === "objective",
-  );
-  return {
-    terminal: objectives.filter((objective) => isTerminal(objective.state)).length,
-    total: objectives.length,
-  };
 }
 
 export function nameOf(model: GraphModel, nodeId: string): string {
@@ -330,6 +194,5 @@ export function diagnosticKey(diagnostic: GraphDiagnostic): string {
   if (diagnostic.kind === "unresolved-dependency") {
     return `${diagnostic.kind}:${diagnostic.link.dependentId}:${diagnostic.link.dependsOnId}`;
   }
-  if (diagnostic.kind === "unplaced-node") return `${diagnostic.kind}:${diagnostic.nodeId}`;
   return `${diagnostic.kind}:${diagnostic.nodeIds.join(",")}`;
 }

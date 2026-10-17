@@ -197,7 +197,7 @@ function refusalsOf(
   const { executions } = snapshot;
   if (executions === null) return [];
   return snapshot.nodes.flatMap((node): readonly Refusal[] => {
-    if (node.kind === "task" || node.retired_at !== null || isTerminal(node.state)) return [];
+    if (node.retired_at !== null || isTerminal(node.state)) return [];
     const latest = latestEndedOf(executions, node.id);
     const stop = latest?.execution.stop ?? null;
     if (latest === null || stop?.reason !== "provider_failed" || stop.code !== code) return [];

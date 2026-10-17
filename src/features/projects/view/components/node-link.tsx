@@ -24,11 +24,7 @@ export function NodeLink({ model, nodeId, onSelect }: NodeLinkProps) {
       <Button variant="link" size="sm" className="max-w-full" onClick={() => onSelect(nodeId)}>
         <span className="truncate">{nameOf(model, nodeId)}</span>
       </Button>
-      {node.kind === "task" ? (
-        <Badge variant="outline">task</Badge>
-      ) : (
-        <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>
-      )}
+      <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>
     </span>
   );
 }

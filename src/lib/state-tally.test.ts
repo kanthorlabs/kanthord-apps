@@ -9,12 +9,21 @@ function node(id: string, state: NodeState, retiredAt: number | null = null): Mi
     id,
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name: id, requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name: id,
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: retiredAt,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt: 0,
     priority: 0,
@@ -38,19 +47,7 @@ describe("tallyStates", () => {
     ]);
   });
 
-  it("skips a retired node and a task", () => {
-    const task: MissionNodeRecord = {
-      id: "t",
-      filename: "t.md",
-      mission_id: "mission_1",
-      parent_id: "a",
-      visible_revision: 1,
-      content: { name: "t", requirement: "", criterion: "", verifications: [], bindings: [] },
-      retired_at: null,
-      pinned_by_attempts: [],
-      kind: "task",
-    };
-
-    expect(tallyStates([task, node("a", "Pending", 5)])).toEqual([]);
+  it("skips a retired node", () => {
+    expect(tallyStates([node("a", "Pending", 5)])).toEqual([]);
   });
 });

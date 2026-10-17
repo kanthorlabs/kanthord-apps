@@ -1,7 +1,7 @@
 import Elk from "elkjs/lib/elk.bundled.js";
 import { describe, expect, it } from "vitest";
 
-import type { MissionEdge, MissionNodeRecord, MissionRunnableNode } from "@/api/types";
+import type { MissionEdge, MissionNodeRecord, Work } from "@/api/types";
 
 import {
   laneGrid,
@@ -13,19 +13,24 @@ import {
 } from "./graph-layout";
 import { buildGraph } from "./mission-graph";
 
-function runnable(
-  id: string,
-  kind: "initiative" | "objective",
-  parentId: string | null,
-): MissionRunnableNode {
+function node(id: string, work: Work): MissionNodeRecord {
   return {
     id,
-    kind,
+    work,
+    requires: [],
+    tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: parentId,
     visible_revision: 1,
-    content: { name: id, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
+    content: {
+      name: id,
+      requirement: "r",
+      criterion: "c",
+      verifications: ["v"],
+      bindings: [],
+      work,
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state: "Pending",
@@ -36,17 +41,17 @@ function runnable(
 }
 
 function dependency(dependentId: string, dependsOnId: string): MissionEdge {
-  return { kind: "dependency", dependent_id: dependentId, depends_on_id: dependsOnId };
+  return { dependent_id: dependentId, depends_on_id: dependsOnId };
 }
 
 const NODES: readonly MissionNodeRecord[] = [
-  runnable("onboarding", "initiative", null),
-  runnable("signup", "objective", "onboarding"),
-  runnable("verify", "objective", "onboarding"),
-  runnable("recovery", "initiative", null),
-  runnable("codes", "objective", "recovery"),
-  runnable("reset", "objective", "recovery"),
-  runnable("audit", "objective", "recovery"),
+  node("onboarding", "examine"),
+  node("signup", "implement"),
+  node("verify", "implement"),
+  node("recovery", "examine"),
+  node("codes", "implement"),
+  node("reset", "implement"),
+  node("audit", "implement"),
 ];
 
 const EDGES: readonly MissionEdge[] = [
@@ -70,11 +75,11 @@ async function layoutAt(width: number) {
 
 describe("laneGrid", () => {
   it("gives a phone one full-width lane", () => {
-    expect(laneGrid(366)).toEqual({ lanes: 1, laneWidth: 334, bandWidth: 334 });
+    expect(laneGrid(366)).toEqual({ lanes: 1, laneWidth: 334 });
   });
 
   it("gives a desktop at most four lanes", () => {
-    expect(laneGrid(1000)).toEqual({ lanes: 4, laneWidth: 230, bandWidth: 968 });
+    expect(laneGrid(1000)).toEqual({ lanes: 4, laneWidth: 230 });
   });
 
   it("refuses a width that is not positive", () => {
@@ -83,7 +88,7 @@ describe("laneGrid", () => {
 });
 
 describe("layoutRequest", () => {
-  it("puts each initiative and its objectives into two consecutive partitions", () => {
+  it("puts the nodes of each row into the partition of that row", () => {
     const model = buildGraph(NODES, EDGES);
     const heights = new Map(placedNodeIds(model).map((id) => [id, 80]));
     const request = layoutRequest(model, laneGrid(366), heights);
@@ -95,13 +100,13 @@ describe("layoutRequest", () => {
       ]),
     );
     expect(partitions).toEqual({
+      codes: "0",
       onboarding: "0",
-      signup: "1",
-      verify: "1",
-      recovery: "2",
-      codes: "3",
-      reset: "3",
-      audit: "3",
+      recovery: "1",
+      reset: "1",
+      audit: "2",
+      signup: "2",
+      verify: "2",
     });
     expect(request.edges).toHaveLength(EDGES.length);
   });
@@ -109,7 +114,7 @@ describe("layoutRequest", () => {
   it("refuses a node without a measured height", () => {
     const model = buildGraph(NODES, EDGES);
     expect(() => layoutRequest(model, laneGrid(366), new Map())).toThrow(
-      "The graph holds no measured height for onboarding.",
+      "The graph holds no measured height for codes.",
     );
   });
 });
@@ -155,19 +160,21 @@ describe("readLayout", () => {
     const { layout } = await layoutAt(366);
 
     expect(layout.edges.map((edge) => `${edge.dependsOnId}->${edge.dependentId}`).sort()).toEqual(
-      EDGES.map((edge) =>
-        edge.kind === "dependency" ? `${edge.depends_on_id}->${edge.dependent_id}` : "",
-      ).sort(),
+      EDGES.map((edge) => `${edge.depends_on_id}->${edge.dependent_id}`).sort(),
     );
     for (const edge of layout.edges) expect(edge.path).toMatch(/^M [\d.]+ [\d.]+ /);
     expect(layout.edges.filter((edge) => edge.group === "stuck")).toHaveLength(2);
   });
 
-  it("stacks the initiative bands in order without an overlap", async () => {
-    const { layout } = await layoutAt(366);
-    const [first, second] = layout.bands;
+  it("places each row below the rows before it", async () => {
+    const { model, layout } = await layoutAt(1000);
+    const boxesOf = (index: number) =>
+      (model.rows[index] ?? []).map((item) => layout.boxes.get(item.id) as Box);
 
-    expect(layout.bands.map((band) => band.initiativeId)).toEqual(["onboarding", "recovery"]);
-    expect(first && second && first.box.y + first.box.height <= second.box.y).toBe(true);
+    for (let index = 1; index < model.rows.length; index += 1) {
+      const top = Math.min(...boxesOf(index).map((box) => box.y));
+      const bottom = Math.max(...boxesOf(index - 1).map((box) => box.y + box.height));
+      expect(top).toBeGreaterThanOrEqual(bottom);
+    }
   });
 });
