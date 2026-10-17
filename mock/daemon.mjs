@@ -1005,17 +1005,26 @@ const graphNodeRead = (state, node) => {
 
 const graphNodeById = (id) => stateOfNode(id)?.nodes.find((node) => node.id === id);
 
+const createdFirstRevisions = new Map();
+
+const importFirstRevision = () => ({
+  write: "import",
+  reason: "Import the mission plan.",
+  created_at: Date.now() - 9_000 * 60_000,
+});
+
 const graphRevisions = (node) => {
+  const { write, reason, created_at } = createdFirstRevisions.get(node.id) ?? importFirstRevision();
   const first = {
     node_id: node.id,
     filename: node.filename,
     revision: 1,
-    reason: "Import the mission plan.",
+    reason,
     actor: fx.GRAPH_HUMAN,
-    created_at: Date.now() - 9_000 * 60_000,
+    created_at,
     content: fx.GRAPH_ORIGINAL_CONTENT[node.id] ?? node.content,
     tasks: node.tasks,
-    change: { write: "import", previous_revision: null, changed_fields: [] },
+    change: { write, previous_revision: null, changed_fields: [] },
     pinned_by_attempts: node.pinned_by_attempts,
   };
   const later = (fx.GRAPH_EXTRA_REVISIONS[node.id] ?? []).map(({ contentAt, ...revision }) => ({
@@ -1176,6 +1185,11 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
     priority: 0,
   };
   const addedEdges = [{ dependent_id: proposer.id, depends_on_id: created.id }];
+  createdFirstRevisions.set(created.id, {
+    write: "node.create",
+    reason: b.reason ?? `Approve fix-node proposal ${proposal.id}`,
+    created_at: now,
+  });
   state.nodes.push(created);
   state.edges.push(...addedEdges);
   proposer.state = "Pending";
