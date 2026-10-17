@@ -812,15 +812,31 @@ const previewOf = (mission, body) => {
   });
   const ids = new Set(plan.filter((entry) => entry.id !== undefined).map((entry) => entry.id));
   const creates = plan.filter((entry) => entry.id === undefined).map((entry) => entry.filename);
+  const isTask = (entry) => entry.node !== undefined;
+  const ownerIdOf = (entries, task) =>
+    entries.find((entry) => !isTask(entry) && entry.filename === task.node)?.id;
+  const owners = new Set();
+  for (const entry of plan.filter(isTask)) {
+    const current = mission.entries.find((candidate) => candidate.id === entry.id);
+    if (current !== undefined && JSON.stringify(current) === JSON.stringify(entry)) continue;
+    owners.add(ownerIdOf(plan, entry));
+    if (current !== undefined) owners.add(ownerIdOf(mission.entries, current));
+  }
+  for (const current of mission.entries.filter(isTask)) {
+    if (!ids.has(current.id)) owners.add(ownerIdOf(mission.entries, current));
+  }
   const updates = [];
   const noOps = [];
-  for (const entry of plan.filter((candidate) => candidate.id !== undefined)) {
+  for (const entry of plan.filter(
+    (candidate) => candidate.id !== undefined && !isTask(candidate),
+  )) {
     const current = mission.entries.find((candidate) => candidate.id === entry.id);
-    if (JSON.stringify(current) === JSON.stringify(entry)) noOps.push(entry.id);
+    if (JSON.stringify(current) === JSON.stringify(entry) && !owners.has(entry.id))
+      noOps.push(entry.id);
     else updates.push(entry.id);
   }
   const retirements = mission.entries
-    .filter((entry) => !ids.has(entry.id))
+    .filter((entry) => !isTask(entry) && !ids.has(entry.id))
     .map((entry) => entry.id);
   const violations =
     plan.length === 0
