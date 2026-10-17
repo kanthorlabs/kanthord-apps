@@ -793,7 +793,8 @@ const planOf = (mission, body) =>
         const heading = /^#\s+(.+)$/m.exec(file.content);
         return {
           ...(known ?? {
-            kind: "task",
+            work: "implement",
+            requires: [],
             requirement: "-",
             criterion: "-",
             verifications: ["-"],
@@ -989,12 +990,11 @@ const page = (items, url = null) => {
 
 const dependsOnOf = (state, nodeId) =>
   state.edges
-    .filter((edge) => edge.kind === "dependency" && edge.dependent_id === nodeId)
+    .filter((edge) => edge.dependent_id === nodeId)
     .map((edge) => edge.depends_on_id)
     .sort();
 
 const graphNodeRead = (state, node) => {
-  if (node.kind === "task") return node;
   const runnable = { ...node, depends_on: dependsOnOf(state, node.id) };
   if (node.state !== "Blocked") return runnable;
   const outcome = state.outcomes.filter((item) => item.node_id === node.id).at(-1);
@@ -1005,51 +1005,28 @@ const graphNodeRead = (state, node) => {
 
 const graphNodeById = (id) => stateOfNode(id)?.nodes.find((node) => node.id === id);
 
-const graphRevisions = (state, node) => {
-  const owner = node.kind === "task" ? graphNodeById(node.parent_id) : node;
-  const tasks = state.nodes.filter(
-    (child) => child.parent_id === owner.id && child.kind === "task",
-  );
+const graphRevisions = (node) => {
   const first = {
-    node_id: owner.id,
-    filename: owner.filename,
+    node_id: node.id,
+    filename: node.filename,
     revision: 1,
     reason: "Import the mission plan.",
     actor: fx.GRAPH_HUMAN,
     created_at: Date.now() - 9_000 * 60_000,
-    content: fx.GRAPH_ORIGINAL_CONTENT[owner.id] ?? owner.content,
+    content: fx.GRAPH_ORIGINAL_CONTENT[node.id] ?? node.content,
+    tasks: node.tasks,
     change: { write: "import", previous_revision: null, changed_fields: [] },
-    pinned_by_attempts: owner.pinned_by_attempts,
+    pinned_by_attempts: node.pinned_by_attempts,
   };
-  const later = (fx.GRAPH_EXTRA_REVISIONS[owner.id] ?? []).map(({ contentAt, ...revision }) => ({
-    node_id: owner.id,
-    filename: owner.filename,
-    content: contentAt(owner),
+  const later = (fx.GRAPH_EXTRA_REVISIONS[node.id] ?? []).map(({ contentAt, ...revision }) => ({
+    node_id: node.id,
+    filename: node.filename,
+    content: contentAt(node),
+    tasks: node.tasks,
     pinned_by_attempts: [],
     ...revision,
   }));
-  const revisions = [first, ...later].map((revision) =>
-    owner.kind === "objective"
-      ? {
-          ...revision,
-          tasks: tasks.map((child) => ({
-            id: child.id,
-            filename: child.filename,
-            content: child.content,
-          })),
-        }
-      : revision,
-  );
-  const selected =
-    node.kind === "task"
-      ? revisions.map((revision) => ({
-          ...revision,
-          node_id: node.id,
-          filename: node.filename,
-          content: node.content,
-        }))
-      : revisions;
-  return selected.reverse();
+  return [first, ...later].reverse();
 };
 
 const byAttempt = (records, nodeId, url) => {
@@ -1076,15 +1053,7 @@ on("GET", /^\/api\/mission\/([^/]+)\/node$/, (m, _b, res, _t, url) => {
 on("GET", /^\/api\/mission\/([^/]+)\/edge$/, (m, _b, res, _t, url) => {
   const state = stateOfMission(decodeURIComponent(m[1]));
   if (state === undefined) return missionNotFound(res);
-  const kind = url.searchParams.get("kind");
-  return json(
-    res,
-    200,
-    page(
-      state.edges.filter((edge) => kind === null || edge.kind === kind),
-      url,
-    ),
-  );
+  return json(res, 200, page(state.edges, url));
 });
 
 on("GET", /^\/api\/mission\/node\/([^/]+)$/, (m, _b, res) => {
@@ -1096,18 +1065,15 @@ on("GET", /^\/api\/mission\/node\/([^/]+)$/, (m, _b, res) => {
 });
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/revision$/, (m, _b, res, _t, url) => {
-  const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));
   if (node === undefined)
     return projectEnvelope(res, 404, "mission.record.not_found", "No such node.");
-  return json(res, 200, page(graphRevisions(state, node), url));
+  return json(res, 200, page(graphRevisions(node), url));
 });
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/revision\/(\d+)$/, (m, _b, res) => {
-  const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));
-  const revision =
-    node && graphRevisions(state, node).find((item) => item.revision === Number(m[2]));
+  const revision = node && graphRevisions(node).find((item) => item.revision === Number(m[2]));
   if (!revision) return projectEnvelope(res, 404, "mission.record.not_found", "No such revision.");
   return json(res, 200, revision);
 });
@@ -1169,8 +1135,8 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
       "mission.version.conflict",
       "The expected mission version differs from the current version.",
     );
-  const initiative = graphNodeById(proposal.node_id);
-  if (initiative.state !== "Blocked" || initiative.attempt !== proposal.attempt)
+  const proposer = graphNodeById(proposal.node_id);
+  if (proposer.state !== "Blocked" || proposer.attempt !== proposal.attempt)
     return projectEnvelope(
       res,
       409,
@@ -1179,18 +1145,29 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
     );
   const now = Date.now();
   const stem = `proposal-${proposal.id.slice("proposal_".length).toLowerCase()}`;
-  const { task, objective_id: sourceId, ...objectiveContent } = proposal.content;
-  const objective = {
+  const { task, dependency_id: dependencyId, ...fixContent } = proposal.content;
+  const dependency = graphNodeById(dependencyId);
+  const requires = dependency?.content.requires ?? [];
+  const created = {
     id: nodeIdOf(),
     filename: `${stem}.md`,
     mission_id: mission.id,
-    kind: "objective",
-    parent_id: initiative.id,
+    work: "implement",
+    requires,
+    tasks: [
+      {
+        id: `task_${proposal.id.slice("proposal_".length)}`,
+        filename: `${stem}-task.md`,
+        content: { ...task, bindings: [] },
+      },
+    ],
     visible_revision: 1,
     content: {
-      ...objectiveContent,
+      ...fixContent,
       verifications: task.verifications,
-      bindings: graphNodeById(sourceId)?.content.bindings ?? [],
+      bindings: dependency?.content.bindings ?? [],
+      work: "implement",
+      requires,
     },
     retired_at: null,
     pinned_by_attempts: [],
@@ -1198,38 +1175,25 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
     attempt: 0,
     priority: 0,
   };
-  const taskNode = {
-    id: nodeIdOf(),
-    filename: `${stem}-task.md`,
-    mission_id: mission.id,
-    kind: "task",
-    parent_id: objective.id,
-    visible_revision: 1,
-    content: { ...task, bindings: [] },
-    retired_at: null,
-    pinned_by_attempts: [],
-  };
-  const addedEdges = [
-    { kind: "containment", parent_id: initiative.id, child_id: objective.id },
-    { kind: "containment", parent_id: objective.id, child_id: taskNode.id },
-  ];
-  state.nodes.push(objective, taskNode);
+  const addedEdges = [{ dependent_id: proposer.id, depends_on_id: created.id }];
+  state.nodes.push(created);
   state.edges.push(...addedEdges);
-  initiative.state = "Pending";
+  proposer.state = "Pending";
+  proposer.attempt += 1;
   mission.version += 1;
   proposal.approved_at = now;
-  proposal.objective_node_id = objective.id;
+  proposal.created_node_id = created.id;
   return json(res, 200, {
-    objective: {
+    created: {
       mission_version: mission.version,
-      revisions: [],
+      revisions: graphRevisions(created),
       retired_node_ids: [],
       added_edges: addedEdges,
       removed_edges: [],
       open_attempts_unchanged: [],
     },
-    initiative: {
-      node: graphNodeRead(state, initiative),
+    proposer: {
+      node: graphNodeRead(state, proposer),
       attempt: null,
       outcome: null,
       actor: fx.GRAPH_HUMAN,
@@ -1255,13 +1219,6 @@ const controlRefusal = (res, state, node, expectedVersion) => {
     return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
   if (node.retired_at !== null)
     return projectEnvelope(res, 409, "mission.node.retired", "Node is retired.");
-  if (node.kind === "task")
-    return projectEnvelope(
-      res,
-      400,
-      "mission.node.control_task",
-      "Task nodes have no controls or execution records.",
-    );
   if (expectedVersion !== state.mission.version)
     return projectEnvelope(
       res,
@@ -1565,10 +1522,7 @@ on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res)
   if (isBlank(b.reason)) return blankReason(res);
   const dependsOnId = decodeURIComponent(m[2]);
   const removed = state.edges.filter(
-    (edge) =>
-      edge.kind === "dependency" &&
-      edge.dependent_id === node.id &&
-      edge.depends_on_id === dependsOnId,
+    (edge) => edge.dependent_id === node.id && edge.depends_on_id === dependsOnId,
   );
   state.edges = state.edges.filter((edge) => !removed.includes(edge));
   if (removed.length > 0) state.mission.version += 1;

@@ -60,13 +60,13 @@ export const WORKER_CATALOG = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
 ];
 
@@ -213,34 +213,36 @@ export const MISSION_ENTRIES = [
   {
     filename: "onboarding.md",
     id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA1",
-    kind: "initiative",
+    work: "examine",
     name: "Onboarding",
     requirement: "A new account reaches a usable workspace.",
     criterion: "A new account reaches the workspace in one session.",
     verifications: ["pnpm test"],
     bindings: ["kanthord-repo", "evidence"],
+    requires: [],
+    depends_on: ["reset-email.md"],
   },
   {
     filename: "reset-email.md",
     id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2",
-    kind: "objective",
+    work: "implement",
     name: "Add password reset",
     requirement: "A human resets a forgotten password by email.",
     criterion: "The reset link signs the human in once.",
     verifications: ["pnpm test --filter reset"],
     bindings: ["kanthord-repo", "general-main", "reviewer-main", "evidence"],
-    parent: "onboarding.md",
+    requires: [],
+    depends_on: [],
   },
   {
     filename: "reset-expiry.md",
-    id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA3",
-    kind: "task",
+    id: "task_01J9ZQ4XKM3B6V8N2R5T7W0YA3",
+    node: "reset-email.md",
     name: "Add reset token expiry",
     requirement: "A reset token expires after 30 minutes.",
     criterion: "An expired token refuses the reset.",
     verifications: ["pnpm test --filter expiry"],
     bindings: [],
-    parent: "reset-email.md",
   },
 ];
 
@@ -280,6 +282,10 @@ export const BINDING_SET = {
     "reviewer-main": {
       kind: "worker",
       config: { worker: "reviewer@1", instance_count: 1 },
+    },
+    "mac-main": {
+      kind: "worker",
+      config: { worker: "coder@1", instance_count: 1, traits: ["platform.macos"] },
     },
     evidence: {
       kind: "storage",
@@ -356,13 +362,22 @@ export const GRAPH_BINDINGS = {
     created_at: minutes(9000),
     removed_at: null,
   },
+  mac: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BW3",
+    name: "mac-main",
+    kind: "worker",
+    resource_identity: "worker:kanthord:mac-main",
+    revision: 1,
+    created_at: minutes(600),
+    removed_at: null,
+  },
 };
 
 const REPO = GRAPH_BINDINGS.repository.id;
 const REPO_OLD = GRAPH_BINDINGS.repositoryOld.id;
 const STORAGE = GRAPH_BINDINGS.storage.id;
 
-const content = (name, bindings, extra = {}) => ({
+const body = (name, bindings, extra = {}) => ({
   name,
   requirement: `${name}: the requirement that the plan file states.`,
   criterion: `${name}: the criterion that a reviewer checks.`,
@@ -371,180 +386,182 @@ const content = (name, bindings, extra = {}) => ({
   ...extra,
 });
 
-const graphNode = (suffix, kind, filename, parentId, nodeContent, runtime) => ({
+const content = (name, bindings, extra = {}) => ({
+  work: "implement",
+  requires: [],
+  ...body(name, bindings, extra),
+});
+
+const examine = (name, bindings, extra = {}) => ({
+  ...content(name, bindings, extra),
+  work: "examine",
+});
+
+const task = (suffix, filename, name) => ({
+  id: `task_01J9ZQ4XKM3B6V8N2R5T7W0${suffix}`,
+  filename,
+  content: body(name, []),
+});
+
+const graphNode = (suffix, filename, nodeContent, runtime, tasks = []) => ({
   id: graphId(suffix),
   filename,
   mission_id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM1",
-  kind,
-  parent_id: parentId,
-  visible_revision: runtime?.visible_revision ?? 1,
+  work: nodeContent.work,
+  requires: nodeContent.requires,
+  tasks,
+  visible_revision: runtime.visible_revision ?? 1,
   content: nodeContent,
   retired_at: null,
-  pinned_by_attempts: runtime?.pinned_by_attempts ?? [],
-  ...(kind === "task"
-    ? {}
-    : { state: runtime.state, attempt: runtime.attempt, priority: runtime.priority ?? 0 }),
+  pinned_by_attempts: runtime.pinned_by_attempts ?? [],
+  state: runtime.state,
+  attempt: runtime.attempt,
+  priority: runtime.priority ?? 0,
 });
 
 export const GRAPH_IDS = {
   onboarding: graphId("YA1"),
   reset: graphId("YA2"),
-  expiry: graphId("YA3"),
   recovery: graphId("YB1"),
   billing: graphId("YC1"),
   signup: graphId("YA4"),
   verify: graphId("YA5"),
   codes: graphId("YB2"),
   audit: graphId("YB3"),
-  mail: graphId("YB4"),
   webhook: graphId("YC2"),
   invoices: graphId("YC3"),
   metering: graphId("YC4"),
   team: graphId("YD1"),
   invite: graphId("YD2"),
   inviteFix: graphId("YD3"),
-  inviteFixTask: graphId("YD4"),
+  changelog: graphId("YE1"),
+  macBuild: graphId("YE2"),
 };
 
 const ids = GRAPH_IDS;
 
 export const GRAPH_NODES = [
-  graphNode("YA1", "initiative", "onboarding.md", null, content("Onboarding", [STORAGE]), {
+  graphNode("YA1", "onboarding.md", examine("Onboarding", [REPO, STORAGE]), {
     state: "Completed",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  graphNode("YB1", "initiative", "account-recovery.md", null, content("Account recovery", []), {
-    state: "Available",
+  graphNode("YB1", "account-recovery.md", examine("Account recovery", [REPO]), {
+    state: "Pending",
     attempt: 0,
   }),
-  graphNode("YC1", "initiative", "billing.md", null, content("Billing", []), {
-    state: "Available",
+  graphNode("YC1", "billing.md", examine("Billing", [REPO]), {
+    state: "Pending",
     attempt: 0,
     priority: 5,
   }),
-  graphNode("YA4", "objective", "signup-form.md", ids.onboarding, content("Sign-up form", [REPO]), {
+  graphNode("YA4", "signup-form.md", content("Sign-up form", [REPO]), {
     state: "Completed",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  graphNode(
-    "YA5",
-    "objective",
-    "email-verification.md",
-    ids.onboarding,
-    content("Email verification", [REPO]),
-    { state: "Completed", attempt: 1, pinned_by_attempts: [1] },
-  ),
-  graphNode(
-    "YB2",
-    "objective",
-    "recovery-codes.md",
-    ids.recovery,
-    content("Add recovery codes", [REPO]),
-    {
-      state: "Executing",
-      attempt: 1,
-      pinned_by_attempts: [1],
-    },
-  ),
+  graphNode("YA5", "email-verification.md", content("Email verification", [REPO]), {
+    state: "Completed",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  graphNode("YB2", "recovery-codes.md", content("Add recovery codes", [REPO]), {
+    state: "Executing",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
   graphNode(
     "YA2",
-    "objective",
     "reset-email.md",
-    ids.recovery,
     content("Add password reset", [REPO, STORAGE]),
-    {
-      state: "Pending",
-      attempt: 0,
-      priority: 2,
-    },
+    { state: "Pending", attempt: 0, priority: 2 },
+    [
+      task("YA3", "reset-expiry.md", "Add reset token expiry"),
+      task("YB4", "reset-mail.md", "Send the reset email"),
+      task("YB5", "reset-rate-limit.md", "Rate-limit the reset form"),
+    ],
   ),
-  graphNode("YA3", "task", "reset-expiry.md", ids.reset, content("Add reset token expiry", [])),
-  graphNode("YB4", "task", "reset-mail.md", ids.reset, content("Send the reset email", [])),
   graphNode(
     "YB3",
-    "objective",
     "audit-log.md",
-    ids.recovery,
     content("Audit log for account changes", [REPO], {
       criterion: "Every account change writes one audit entry with the actor and the time.",
     }),
     { state: "Blocked", attempt: 1, pinned_by_attempts: [1], visible_revision: 2 },
   ),
-  graphNode(
-    "YC2",
-    "objective",
-    "stripe-webhook.md",
-    ids.billing,
-    content("Stripe webhook", [REPO]),
-    {
-      state: "External.Requested",
-      attempt: 1,
-      pinned_by_attempts: [1],
-    },
-  ),
-  graphNode("YC3", "objective", "invoices-page.md", ids.billing, content("Invoices page", [REPO]), {
+  graphNode("YC2", "stripe-webhook.md", content("Stripe webhook", [REPO]), {
+    state: "External.Requested",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
+  graphNode("YC3", "invoices-page.md", content("Invoices page", [REPO]), {
     state: "Waiting",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
   graphNode(
     "YC4",
-    "objective",
     "usage-metering.md",
-    ids.billing,
     content("Meter the usage of every workspace and report it to the billing provider each night", [
       REPO,
     ]),
     { state: "Pending", attempt: 0 },
   ),
-  graphNode("YD1", "initiative", "team-workspaces.md", null, content("Team workspaces", []), {
+  graphNode("YD1", "team-workspaces.md", examine("Team workspaces", [REPO]), {
     state: "Blocked",
     attempt: 2,
     pinned_by_attempts: [2],
   }),
-  graphNode("YD2", "objective", "invite-members.md", ids.team, content("Invite members", [REPO]), {
+  graphNode("YD2", "invite-members.md", content("Invite members", [REPO]), {
     state: "Completed",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
   graphNode(
     "YD3",
-    "objective",
     "proposal-01j9zq4xkm3b6v8n2r5t7w0pd1.md",
-    ids.team,
     content("Expire an invite link after its first use", [REPO]),
     { state: "Completed", attempt: 1, pinned_by_attempts: [1] },
+    [task("YD4", "proposal-01j9zq4xkm3b6v8n2r5t7w0pd1-task.md", "Mark the invite link used")],
   ),
+  graphNode("YE1", "api-changelog.md", content("Publish the API changelog", [REPO]), {
+    state: "Paused",
+    attempt: 1,
+    pinned_by_attempts: [1],
+  }),
   graphNode(
-    "YD4",
-    "task",
-    "proposal-01j9zq4xkm3b6v8n2r5t7w0pd1-task.md",
-    ids.inviteFix,
-    content("Mark the invite link used", []),
-  ),
-  graphNode(
-    "YE1",
-    "objective",
-    "api-changelog.md",
-    ids.billing,
-    content("Publish the API changelog", [REPO]),
-    { state: "Paused", attempt: 1, pinned_by_attempts: [1] },
+    "YE2",
+    "macos-build.md",
+    content("Sign the macOS build of the desktop client", [REPO], {
+      requires: ["platform.macos"],
+    }),
+    { state: "Available", attempt: 0 },
   ),
 ];
 
+const dependency = (dependentId, dependsOnId) => ({
+  dependent_id: dependentId,
+  depends_on_id: dependsOnId,
+});
+
 export const GRAPH_EDGES = [
-  { kind: "dependency", dependent_id: ids.recovery, depends_on_id: ids.onboarding },
-  { kind: "dependency", dependent_id: ids.verify, depends_on_id: ids.signup },
-  { kind: "dependency", dependent_id: ids.reset, depends_on_id: ids.codes },
-  { kind: "dependency", dependent_id: ids.audit, depends_on_id: ids.signup },
-  { kind: "dependency", dependent_id: ids.metering, depends_on_id: ids.webhook },
-  ...GRAPH_NODES.filter((node) => node.parent_id !== null).map((node) => ({
-    kind: "containment",
-    parent_id: node.parent_id,
-    child_id: node.id,
-  })),
+  dependency(ids.recovery, ids.onboarding),
+  dependency(ids.verify, ids.signup),
+  dependency(ids.reset, ids.codes),
+  dependency(ids.audit, ids.signup),
+  dependency(ids.metering, ids.webhook),
+  dependency(ids.onboarding, ids.signup),
+  dependency(ids.onboarding, ids.verify),
+  dependency(ids.recovery, ids.codes),
+  dependency(ids.recovery, ids.reset),
+  dependency(ids.recovery, ids.audit),
+  dependency(ids.billing, ids.webhook),
+  dependency(ids.billing, ids.invoices),
+  dependency(ids.billing, ids.metering),
+  dependency(ids.billing, ids.changelog),
+  dependency(ids.billing, ids.macBuild),
+  dependency(ids.team, ids.invite),
+  dependency(ids.team, ids.inviteFix),
 ];
 
 const human = { kind: "human", account: "kanthorlabs", name: "Kanthor Labs" };
@@ -786,7 +803,7 @@ export const GRAPH_ASSESSMENTS = [
     attempt: 1,
     node_revision: 1,
     evidence_ids: ["evidence_01J9ZQ4XKM3B6V8N2R5T7W0VB3"],
-    child_outcome_ids: [],
+    dependency_outcome_ids: [],
     result: "criterion-not-met",
     rationale: "The verification pnpm lint exits 1. The audit entry holds no actor.",
     tested_input: { kind: "repository", binding_id: REPO_OLD, commit: commitOf("b3") },
@@ -799,7 +816,7 @@ export const GRAPH_ASSESSMENTS = [
       order_selected: true,
       reasons: [],
     },
-    child_node_ids: [],
+    dependency_node_ids: [],
     worker_version: "reviewer@1",
   },
   {
@@ -809,14 +826,14 @@ export const GRAPH_ASSESSMENTS = [
     attempt: 1,
     node_revision: 1,
     evidence_ids: ["evidence_01J9ZQ4XKM3B6V8N2R5T7W0VS1"],
-    child_outcome_ids: [],
+    dependency_outcome_ids: [],
     result: "success",
     rationale: "Every verification exits 0, and the form meets the criterion.",
     tested_input: { kind: "repository", binding_id: REPO_OLD, commit: commitOf("a4") },
     actor: execution("ES9", "reviewer-main #1"),
     created_at: minutes(5100),
     currency: null,
-    child_node_ids: [],
+    dependency_node_ids: [],
     worker_version: "reviewer@1",
   },
   {
@@ -826,7 +843,7 @@ export const GRAPH_ASSESSMENTS = [
     attempt: 1,
     node_revision: 1,
     evidence_ids: ["evidence_01J9ZQ4XKM3B6V8N2R5T7W0VC2"],
-    child_outcome_ids: [],
+    dependency_outcome_ids: [],
     result: "success",
     rationale: "Every verification exits 0. The pull request waits for its merge.",
     tested_input: { kind: "repository", binding_id: REPO, commit: commitOf("c2") },
@@ -839,7 +856,7 @@ export const GRAPH_ASSESSMENTS = [
       order_selected: true,
       reasons: [],
     },
-    child_node_ids: [],
+    dependency_node_ids: [],
     worker_version: "reviewer@1",
   },
   ...[1, 2].map((attempt) => ({
@@ -849,7 +866,7 @@ export const GRAPH_ASSESSMENTS = [
     attempt,
     node_revision: 1,
     evidence_ids: [],
-    child_outcome_ids: [],
+    dependency_outcome_ids: [],
     result: "criterion-not-met",
     rationale:
       attempt === 1
@@ -859,7 +876,7 @@ export const GRAPH_ASSESSMENTS = [
     actor: execution("ED9", "reviewer-main #1"),
     created_at: minutes(attempt === 1 ? 1600 : 95),
     currency: null,
-    child_node_ids: [ids.invite],
+    dependency_node_ids: [ids.invite],
     worker_version: "reviewer@1",
   })),
   {
@@ -869,7 +886,7 @@ export const GRAPH_ASSESSMENTS = [
     attempt: 1,
     node_revision: 1,
     evidence_ids: [],
-    child_outcome_ids: [],
+    dependency_outcome_ids: [],
     result: "undetermined",
     rationale:
       "The criterion names the language of the receiver, and the plan file lists no source for it. The reviewer cannot judge the email text.",
@@ -877,7 +894,7 @@ export const GRAPH_ASSESSMENTS = [
     actor: execution("EF9", "reviewer-main #1"),
     created_at: minutes(42),
     currency: null,
-    child_node_ids: [],
+    dependency_node_ids: [],
     worker_version: "reviewer@1",
   },
 ];
@@ -932,7 +949,7 @@ export const GRAPH_PROPOSALS = [
     attempt: 1,
     assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD1",
     content: {
-      objective_id: ids.invite,
+      dependency_id: ids.invite,
       name: "Expire an invite link after its first use",
       requirement: "An invite link admits one member. A second use of the link fails.",
       criterion: "A test uses one invite link twice and the second use answers 410.",
@@ -942,7 +959,7 @@ export const GRAPH_PROPOSALS = [
         "The invite store holds the use time after the first use.",
       ),
     },
-    objective_node_id: ids.inviteFix,
+    created_node_id: ids.inviteFix,
     approved_at: minutes(1500),
     created_at: minutes(1600),
   },
@@ -952,7 +969,7 @@ export const GRAPH_PROPOSALS = [
     attempt: 2,
     assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD2",
     content: {
-      objective_id: ids.invite,
+      dependency_id: ids.invite,
       name: "Send the invite email in the language of the workspace",
       requirement:
         "The invite email uses the language that the workspace settings name, not the language of the sender.",
@@ -963,7 +980,7 @@ export const GRAPH_PROPOSALS = [
         "The rendered email names the workspace language in its lang attribute.",
       ),
     },
-    objective_node_id: null,
+    created_node_id: null,
     approved_at: null,
     created_at: minutes(90),
   },
@@ -1069,20 +1086,17 @@ const jobOf = (projectId, nodeId, priority, agoMinutes, tail) => ({
 });
 
 export const GRAPH_QUEUE = [
-  jobOf(PROJECT.id, ids.billing, 5, 600, "J01"),
-  jobOf(PROJECT.id, ids.recovery, 0, 540, "J02"),
+  jobOf(PROJECT.id, ids.macBuild, 0, 600, "J01"),
   jobOf(PROJECT.id, ids.webhook, 0, 180, "J03"),
   jobOf(PROJECT.id, ids.invoices, 0, 95, "J04"),
 ];
 
 const atlasId = (suffix) => graphId(suffix);
-const atlasNode = (suffix, kind, filename, parentSuffix, name, runtime) => ({
+const atlasNode = (suffix, work, filename, name, runtime) => ({
   ...graphNode(
     suffix,
-    kind,
     filename,
-    parentSuffix === null ? null : atlasId(parentSuffix),
-    content(name, [REPO]),
+    work === "examine" ? examine(name, [REPO]) : content(name, [REPO]),
     runtime,
   ),
   mission_id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM2",
@@ -1094,67 +1108,66 @@ export const ATLAS_MISSION = {
 };
 
 export const ATLAS_NODES = [
-  atlasNode("YF1", "initiative", "checkout.md", null, "Checkout", {
+  atlasNode("YF1", "examine", "checkout.md", "Checkout", {
     state: "Pending",
     attempt: 0,
   }),
-  atlasNode("YF2", "objective", "cart-totals.md", "YF1", "Add cart totals", {
+  atlasNode("YF2", "implement", "cart-totals.md", "Add cart totals", {
     state: "Executing",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  atlasNode("YF3", "objective", "receipt-email.md", "YF1", "Verify the receipt email", {
+  atlasNode("YF3", "implement", "receipt-email.md", "Verify the receipt email", {
     state: "Evaluating",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  atlasNode("YF4", "objective", "discount-codes.md", "YF1", "Apply discount codes", {
+  atlasNode("YF4", "implement", "discount-codes.md", "Apply discount codes", {
     state: "Available",
     attempt: 0,
     priority: 3,
   }),
   atlasNode(
     "YF5",
-    "objective",
+    "implement",
     "tax-rounding.md",
-    "YF1",
     "Round the tax of every line item and print the rounding rule on the receipt of the order",
     { state: "Waiting", attempt: 1, pinned_by_attempts: [1] },
   ),
-  atlasNode("YF6", "objective", "order-archive.md", "YF1", "Archive the order history", {
+  atlasNode("YF6", "implement", "order-archive.md", "Archive the order history", {
     state: "Available",
     attempt: 0,
   }),
-  atlasNode("YF7", "objective", "order-export.md", "YF1", "Export the orders as CSV", {
+  atlasNode("YF7", "implement", "order-export.md", "Export the orders as CSV", {
     state: "Completed",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  atlasNode("YF8", "objective", "order-email-locale.md", "YF1", "Localize the order email", {
+  atlasNode("YF8", "implement", "order-email-locale.md", "Localize the order email", {
     state: "Blocked",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  atlasNode("YF9", "objective", "shipping-rates.md", "YF1", "Compute the shipping rates", {
+  atlasNode("YF9", "implement", "shipping-rates.md", "Compute the shipping rates", {
     state: "Paused",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  atlasNode("YFA", "objective", "packing-slip.md", "YF1", "Print the packing slip", {
+  atlasNode("YFA", "implement", "packing-slip.md", "Print the packing slip", {
     state: "Paused",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  atlasNode("YFB", "objective", "legacy-checkout.md", "YF1", "Drop the legacy checkout", {
+  atlasNode("YFB", "implement", "legacy-checkout.md", "Drop the legacy checkout", {
     state: "Discarded",
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  atlasNode("YFC", "objective", "legacy-links.md", "YF1", "Redirect the legacy checkout links", {
+  atlasNode("YFC", "implement", "legacy-links.md", "Redirect the legacy checkout links", {
     state: "Pending",
     attempt: 0,
   }),
-  atlasNode("YFD", "objective", "release-notes.md", "YF1", "Publish the release notes", {
+  atlasNode("YFD", "implement", "release-notes.md", "Publish the release notes", {
     state: "External.Requested",
     attempt: 1,
     pinned_by_attempts: [1],
@@ -1211,12 +1224,10 @@ GRAPH_EVIDENCE.push({
 });
 
 export const ATLAS_EDGES = [
-  ...ATLAS_NODES.filter((node) => node.parent_id !== null).map((node) => ({
-    kind: "containment",
-    parent_id: node.parent_id,
-    child_id: node.id,
-  })),
-  { kind: "dependency", dependent_id: atlasId("YFC"), depends_on_id: atlasId("YFB") },
+  ...ATLAS_NODES.filter((node) => node.id !== atlasId("YF1")).map((node) =>
+    dependency(atlasId("YF1"), node.id),
+  ),
+  dependency(atlasId("YFC"), atlasId("YFB")),
 ];
 
 export const ATLAS_OUTCOMES = [
@@ -1511,7 +1522,7 @@ export const WORKBENCH_SESSIONS = [
         id: "e0000002",
         parentId: "e0000001",
         timestamp: entryAt(1),
-        message: { role: "user", content: "List the open objectives of Account recovery" },
+        message: { role: "user", content: "List the open nodes of Account recovery" },
       },
       {
         type: "message",
@@ -1549,7 +1560,7 @@ export const WORKBENCH_SESSIONS = [
         id: "e0000005",
         parentId: "e0000004",
         timestamp: entryAt(4),
-        message: textMessage("assistant", "One objective is open: Add password reset."),
+        message: textMessage("assistant", "One node is open: Add password reset."),
       },
     ],
   },
