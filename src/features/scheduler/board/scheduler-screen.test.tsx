@@ -7,6 +7,7 @@ import { ApiError } from "@/api/errors";
 
 vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
+  listWorkerBindings: vi.fn(),
   pauseProject: vi.fn(),
   resumeProject: vi.fn(),
 }));
@@ -28,7 +29,7 @@ vi.mock("@/api/resources/workers", () => ({
 }));
 
 import { listMissionNodes, readMission } from "@/api/resources/mission";
-import { listProjects, resumeProject } from "@/api/resources/projects";
+import { listProjects, listWorkerBindings, resumeProject } from "@/api/resources/projects";
 import {
   listNodeExecutions,
   listProjectExecutionPage,
@@ -43,6 +44,7 @@ import type {
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
+  WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerInstanceRecord,
 } from "@/api/types";
@@ -69,7 +71,13 @@ function project(id: string, name: string, pausedAt: number | null = null): Proj
 const KANTHORD = project("prj-1", "kanthord");
 const ATLAS = project("prj-2", "atlas");
 
-function node(id: string, name: string, state: NodeState, attempt = 1): MissionNodeRecord {
+function node(
+  id: string,
+  name: string,
+  state: NodeState,
+  attempt = 1,
+  requires: readonly string[] = [],
+): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
@@ -87,7 +95,7 @@ function node(id: string, name: string, state: NodeState, attempt = 1): MissionN
     retired_at: null,
     pinned_by_attempts: [],
     work: "implement",
-    requires: [],
+    requires,
     tasks: [],
     state,
     attempt,
@@ -166,11 +174,15 @@ const CATALOG: readonly WorkerCatalogItem[] = [
   },
 ];
 
-function instance(projectId: string, workerName: string): WorkerInstanceRecord {
+function instance(
+  projectId: string,
+  workerName: string,
+  bindingName = workerName,
+): WorkerInstanceRecord {
   return {
-    runtime_identity: `worker_instance_${workerName}`,
+    runtime_identity: `worker_instance_${bindingName}`,
     project_id: projectId,
-    resource_identity: `worker:kanthord:${workerName}`,
+    resource_identity: `worker:kanthord:${bindingName}`,
     worker_name: workerName,
     host: "kanthord",
     placement: "server",
@@ -180,12 +192,36 @@ function instance(projectId: string, workerName: string): WorkerInstanceRecord {
   };
 }
 
+function binding(
+  projectId: string,
+  name: string,
+  worker: string,
+  traits: readonly string[] = [],
+): WorkerBindingRecord {
+  return {
+    id: `binding_${name}`,
+    project_id: projectId,
+    name,
+    kind: "worker",
+    resource_identity: `worker:kanthord:${name}`,
+    revision: 1,
+    config: { worker, instance_count: 1, traits },
+    created_at: 1,
+    removed_at: null,
+  };
+}
+
+function catalogBindings(projectId: string): readonly WorkerBindingRecord[] {
+  return CATALOG.map((item) => binding(projectId, item.name, item.name));
+}
+
 interface World {
   readonly projects?: readonly Project[];
   readonly nodes?: Readonly<Record<string, readonly MissionNodeRecord[]>>;
   readonly jobs?: Readonly<Record<string, readonly SchedulerJob[]>>;
   readonly executions?: Readonly<Record<string, readonly SchedulerExecutionRecord[]>>;
   readonly instances?: Readonly<Record<string, readonly WorkerInstanceRecord[]>>;
+  readonly bindings?: Readonly<Record<string, readonly WorkerBindingRecord[]>>;
 }
 
 function serve(world: World) {
@@ -202,6 +238,9 @@ function serve(world: World) {
   vi.mocked(listQueueJobs).mockImplementation(async (projectId) => world.jobs?.[projectId] ?? []);
   vi.mocked(listWorkerInstances).mockImplementation(
     async (projectId) => world.instances?.[projectId] ?? [],
+  );
+  vi.mocked(listWorkerBindings).mockImplementation(
+    async (projectId) => world.bindings?.[projectId] ?? catalogBindings(projectId),
   );
   vi.mocked(listWorkerCatalog).mockResolvedValue(CATALOG);
   vi.mocked(listProjectExecutionPage).mockImplementation(async (projectId) => ({
@@ -451,6 +490,33 @@ describe("SchedulerScreen Next", () => {
     ).getAllByRole("listitem");
     expect(within(covered!).queryByText("No taker")).toBeNull();
     expect(within(uncovered!).getByText("No taker")).toBeInTheDocument();
+  });
+
+  it("marks a job whose requires list no live binding holds with No taker", async () => {
+    serve({
+      nodes: {
+        "prj-1": [
+          node("n_mac", "Build the macOS app", "Available", 0, ["platform.macos"]),
+          node("n_a", "Add password reset", "Available", 0),
+        ],
+      },
+      jobs: { "prj-1": [job("prj-1", "n_mac", 0, MINUTE), job("prj-1", "n_a", 0, MINUTE)] },
+      instances: { "prj-1": [instance("prj-1", "coder@1", "general-main")] },
+      bindings: {
+        "prj-1": [
+          binding("prj-1", "general-main", "coder@1"),
+          binding("prj-1", "mac-main", "coder@1", ["platform.macos"]),
+        ],
+      },
+    });
+
+    renderScreen("/scheduler?project=prj-1");
+
+    const [mac, general] = within(await screen.findByRole("list", { name: "Queue" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(mac!).getByText("No taker")).toBeInTheDocument();
+    expect(within(general!).queryByText("No taker")).toBeNull();
   });
 
   it("falls back to the node identity when the node list omits the node", async () => {

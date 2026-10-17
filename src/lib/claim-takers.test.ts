@@ -10,13 +10,7 @@ import type {
   WorkerPlacement,
 } from "@/api/types";
 
-import {
-  factsOf,
-  takerHintOf,
-  uncoveredJobsOf,
-  uncoveredStates,
-  type UncoveredGroup,
-} from "./claim-takers";
+import { factsOf, takerHintOf, uncoveredJobsOf, type UncoveredGroup } from "./claim-takers";
 
 const CATALOG: readonly WorkerCatalogItem[] = [
   {
@@ -83,62 +77,6 @@ function instance(
 
 const NODES = [node("a", "Available"), node("w", "Waiting"), node("x", "External.Requested")];
 const JOBS = [job("a"), job("w"), job("x")];
-
-describe("uncoveredStates", () => {
-  it("answers no state when the live instances declare every queued state", () => {
-    const covered = uncoveredStates(
-      JOBS,
-      NODES,
-      [instance("coder@1"), instance("reviewer@1")],
-      CATALOG,
-    );
-
-    expect(covered.size).toBe(0);
-  });
-
-  it("answers the queued state that no live instance declares", () => {
-    const uncovered = uncoveredStates(JOBS, NODES, [instance("coder@1")], CATALOG);
-
-    expect([...uncovered].sort()).toEqual(["External.Requested", "Waiting"]);
-  });
-
-  it("ignores a draining instance and an instance that left the registration", () => {
-    const uncovered = uncoveredStates(
-      JOBS,
-      NODES,
-      [
-        instance("coder@1"),
-        instance("reviewer@1", { draining: true }),
-        instance("reviewer@1", { registered: false }),
-      ],
-      CATALOG,
-    );
-
-    expect(uncovered.has("Waiting")).toBe(true);
-  });
-
-  it("answers every queued state when the project runs no instance", () => {
-    const uncovered = uncoveredStates(JOBS, NODES, [], CATALOG);
-
-    expect([...uncovered].sort()).toEqual(["Available", "External.Requested", "Waiting"]);
-  });
-
-  it("answers a state that holds no job as covered", () => {
-    const uncovered = uncoveredStates([job("a")], NODES, [instance("coder@1")], CATALOG);
-
-    expect(uncovered.size).toBe(0);
-  });
-
-  it("skips a job whose node the list omits", () => {
-    expect(uncoveredStates([job("gone")], NODES, [], CATALOG).size).toBe(0);
-  });
-
-  it("treats a worker outside the catalog as declaring nothing", () => {
-    const uncovered = uncoveredStates([job("a")], NODES, [instance("unknown@1")], CATALOG);
-
-    expect([...uncovered]).toEqual(["Available"]);
-  });
-});
 
 function binding(
   name: string,
