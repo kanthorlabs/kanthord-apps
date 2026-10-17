@@ -425,7 +425,12 @@ describe("BindingsPanel", () => {
 
   it("keeps the draft and does not resend after a version conflict", async () => {
     vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
-      new ApiError("conflict", "The submitted binding-set version differs.", 409),
+      new ApiError(
+        "conflict",
+        "The submitted binding-set version differs.",
+        409,
+        "project.binding_set.version_conflict",
+      ),
     );
     mount();
 
@@ -439,6 +444,34 @@ describe("BindingsPanel", () => {
     expect(screen.getByLabelText("Base branch")).toHaveValue("develop");
     expect(projectsApi.writeBindingSet).toHaveBeenCalledOnce();
     expect(projectsApi.readBindingSet).toHaveBeenCalledTimes(2);
+  });
+
+  it("a node_unmatched refusal shows its message and keeps the draft", async () => {
+    vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "The binding set leaves a node and claimable state pair that no worker binding covers.",
+        409,
+        "project.bindings.worker.node_unmatched",
+        { node_ids: ["node_mac"] },
+      ),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const branch = screen.getByLabelText("Base branch");
+    await userEvent.clear(branch);
+    await userEvent.type(branch, "develop");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(
+      await screen.findByText(
+        "The change leaves a node with no matching worker binding. Keep a binding whose worker and traits match each listed node. Nodes: node_mac.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("The bindings changed.")).toBeNull();
+    expect(screen.getByLabelText("Base branch")).toHaveValue("develop");
+    expect(projectsApi.readBindingSet).toHaveBeenCalledOnce();
   });
 
   it("refuses a new binding whose name the project already uses", async () => {

@@ -190,6 +190,11 @@ describe("useNodeUnblock", () => {
     ["mission.revision.conflict", "The content of the node changed after this read."],
     ["mission.version.conflict", "The mission changed after this read."],
     ["mission.node.control_refused", "The node is no longer Blocked."],
+    [
+      "mission.node.requires_unmatched",
+      "No worker binding of the project matches the requires list of this node.",
+    ],
+    ["mission.node.work_locked", "The node opened an attempt, so its work cannot change."],
   ])("maps the conflict %s to a message and reloads", async (code, message) => {
     unblockMock.mockRejectedValue(new ApiError("conflict", "Conflict.", 409, code));
     const { result, reload } = mount();

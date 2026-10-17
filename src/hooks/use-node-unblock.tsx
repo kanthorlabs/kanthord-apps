@@ -36,6 +36,9 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
     "The mission changed after this read. The view now shows the current mission. Review the node and unblock again.",
   "mission.node.retired": "The node is retired. The view now shows its current state.",
   "mission.node.terminal": "The node is terminal. The view now shows its current state.",
+  "mission.node.requires_unmatched":
+    "No worker binding of the project matches the requires list of this node. Add a worker binding whose traits hold each key, then try again.",
+  "mission.node.work_locked": "The node opened an attempt, so its work cannot change.",
 };
 
 function isUnblockable(node: MissionNodeRecord): boolean {

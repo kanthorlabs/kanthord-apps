@@ -145,6 +145,10 @@ describe("useProposalApprove", () => {
     ["mission.proposal.already_approved", "Another approve of this proposal came first."],
     ["mission.node.state_conflict", "The proposer is no longer Blocked"],
     ["mission.version.conflict", "The mission changed after this read."],
+    [
+      "mission.node.requires_unmatched",
+      "Add a worker binding whose traits hold each key, then try again.",
+    ],
   ])("maps the conflict %s to a message and reloads", async (code, message) => {
     approveMock.mockRejectedValue(new ApiError("conflict", "Conflict.", 409, code));
     const { result, reload } = mount();
