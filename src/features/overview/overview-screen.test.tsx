@@ -2239,6 +2239,29 @@ describe("OverviewScreen fixes", () => {
       ).toBeInTheDocument();
     });
 
+    it("names the requires list of a job that no binding matches", async () => {
+      serve({
+        nodes: {
+          "prj-1": [
+            { ...plain("n_m", "Build the macOS app", "Available"), requires: ["platform.macos"] },
+          ],
+        },
+        jobs: { "prj-1": [agedJob("prj-1", "n_m", 5 * 60_000)] },
+        bindings: { "prj-1": [workerBinding("general-main", "coder@1", "server")] },
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("Implement jobs in state Available"));
+      expect(
+        within(item).getByText(
+          textContent(
+            "No worker binding matches the implement job in state Available that requires platform.macos. Add a binding whose worker and traits match it on the Bindings tab.",
+          ),
+        ),
+      ).toBeInTheDocument();
+    });
+
     it("tells the human to add a binding when no binding matches the job", async () => {
       serve({
         nodes: { "prj-1": [waiting] },

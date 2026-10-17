@@ -15,13 +15,14 @@ interface FixCauseTextProps {
   readonly item: FixAttentionItem;
 }
 
-function requiresTextOf(requires: readonly string[]): string {
-  return requires.length === 0 ? "" : ` that require ${requires.join(", ")}`;
+function requiresTextOf(requires: readonly string[], jobCount: number): string {
+  if (requires.length === 0) return "";
+  return ` that ${jobCount === 1 ? "requires" : "require"} ${requires.join(", ")}`;
 }
 
 function NoTakerSentence({ item }: { readonly item: NoTakerItem }) {
   const { hint, state, work, requires, jobCount } = item;
-  const jobs = `${work} ${jobCount === 1 ? "job" : "jobs"} in state ${state}${requiresTextOf(requires)}`;
+  const jobs = `${work} ${jobCount === 1 ? "job" : "jobs"} in state ${state}${requiresTextOf(requires, jobCount)}`;
   if (hint.kind === "none") {
     return (
       <>
