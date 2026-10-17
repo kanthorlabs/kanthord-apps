@@ -231,7 +231,7 @@ function traitsOf(text: string): readonly string[] {
     .filter((line) => line.length > 0);
 }
 
-function traitsInvalid(text: string): boolean {
+export function traitsInvalid(text: string): boolean {
   const traits = traitsOf(text);
   return (
     new Set(traits).size !== traits.length ||

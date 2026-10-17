@@ -356,7 +356,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
     expect(
       screen.getByText(
-        "One key per line, for example platform.macos. A node runs only on a binding that holds every key of its requires list.",
+        "One key per line, for example platform.macos. Use lower-case dotted keys, each at most 64 bytes, each once. A node runs only on a binding that holds every key of its requires list.",
       ),
     ).toBeTruthy();
     await userEvent.type(screen.getByLabelText("Traits"), "platform.macos{enter}gpu.cuda");
@@ -375,8 +375,10 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    expect(screen.getByLabelText("Traits")).toHaveAttribute("aria-invalid", "false");
     await userEvent.type(screen.getByLabelText("Traits"), "platform.macos{enter}platform.macos");
 
+    expect(screen.getByLabelText("Traits")).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByText("Fill Traits to save.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
   });
