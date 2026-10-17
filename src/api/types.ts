@@ -645,13 +645,7 @@ export interface MissionEdge {
 }
 
 export type MissionRevisionWrite =
-  | "import"
-  | "node.create"
-  | "node.update"
-  | "node.retire"
-  | "node.rebind"
-  | "criterion.set"
-  | "unblock";
+  "import" | "node.create" | "node.update" | "node.rebind" | "criterion.set" | "unblock";
 
 export interface MissionTaskContent {
   readonly id: string;
