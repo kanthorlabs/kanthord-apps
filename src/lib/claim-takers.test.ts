@@ -10,7 +10,13 @@ import type {
   WorkerPlacement,
 } from "@/api/types";
 
-import { factsOf, takerHintOf, uncoveredJobsOf, uncoveredStates } from "./claim-takers";
+import {
+  factsOf,
+  takerHintOf,
+  uncoveredJobsOf,
+  uncoveredStates,
+  type UncoveredGroup,
+} from "./claim-takers";
 
 const CATALOG: readonly WorkerCatalogItem[] = [
   {
@@ -162,6 +168,16 @@ function liveOf(...names: readonly string[]): WorkerInstanceRecord[] {
   return names.map((name) => instance(name));
 }
 
+function statesOf(groups: readonly UncoveredGroup[]): readonly NodeState[] {
+  return groups.map((group) => group.facts.state);
+}
+
+function nodeIdsIn(groups: readonly UncoveredGroup[], state: NodeState): readonly string[] {
+  return groups
+    .filter((group) => group.facts.state === state)
+    .flatMap((group) => group.jobs.map((entry) => entry.node_id));
+}
+
 const CODER = binding("coder@1", "coder@1");
 const REVIEWER = binding("reviewer@1", "reviewer@1");
 
@@ -172,8 +188,57 @@ describe("uncoveredJobsOf", () => {
 
     const uncovered = uncoveredJobsOf(jobs, nodes, liveOf("coder@1"), [CODER, REVIEWER], CATALOG);
 
-    expect([...uncovered.keys()].sort()).toEqual(["External.Requested", "Waiting"]);
-    expect(uncovered.get("Waiting")?.map((entry) => entry.node_id)).toEqual(["w", "w2"]);
+    expect([...statesOf(uncovered)].sort()).toEqual(["External.Requested", "Waiting"]);
+    expect(nodeIdsIn(uncovered, "Waiting")).toEqual(["w", "w2"]);
+  });
+
+  it("answers no group when the live bindings cover every queued job", () => {
+    const instances = liveOf("coder@1", "reviewer@1");
+
+    expect(uncoveredJobsOf(JOBS, NODES, instances, [CODER, REVIEWER], CATALOG)).toEqual([]);
+  });
+
+  it("answers every queued state when the project runs no instance", () => {
+    const uncovered = uncoveredJobsOf(JOBS, NODES, [], [CODER, REVIEWER], CATALOG);
+
+    expect([...statesOf(uncovered)].sort()).toEqual(["Available", "External.Requested", "Waiting"]);
+  });
+
+  it("skips a job whose node the list omits", () => {
+    expect(uncoveredJobsOf([job("gone")], NODES, [], [CODER], CATALOG)).toEqual([]);
+  });
+
+  it("splits the jobs of one state into a group for each requires list", () => {
+    const nodes = [
+      node("mac", "Available", ["platform.macos"]),
+      node("linux", "Available", ["platform.linux"]),
+      node("mac2", "Available", ["platform.macos"]),
+    ];
+    const jobs = [job("mac"), job("linux"), job("mac2")];
+
+    const uncovered = uncoveredJobsOf(jobs, nodes, [], [CODER], CATALOG);
+
+    expect(
+      uncovered.map((group) => ({
+        requires: group.facts.requires,
+        nodeIds: group.jobs.map((entry) => entry.node_id),
+      })),
+    ).toEqual([
+      { requires: ["platform.macos"], nodeIds: ["mac", "mac2"] },
+      { requires: ["platform.linux"], nodeIds: ["linux"] },
+    ]);
+  });
+
+  it("puts two requires lists that differ only in order into one group", () => {
+    const nodes = [
+      node("a", "Available", ["platform.macos", "toolchain.xcode_16"]),
+      node("b", "Available", ["toolchain.xcode_16", "platform.macos"]),
+    ];
+
+    const uncovered = uncoveredJobsOf([job("a"), job("b")], nodes, [], [CODER], CATALOG);
+
+    expect(uncovered).toHaveLength(1);
+    expect(uncovered[0]?.facts.requires).toEqual(["platform.macos", "toolchain.xcode_16"]);
   });
 
   it("a node with requires [platform.macos] has no taker while every binding holds traits []", () => {
@@ -182,7 +247,7 @@ describe("uncoveredJobsOf", () => {
 
     const uncovered = uncoveredJobsOf(jobs, nodes, liveOf("coder@1"), [CODER], CATALOG);
 
-    expect(uncovered.get("Available")?.map((entry) => entry.node_id)).toEqual(["a"]);
+    expect(nodeIdsIn(uncovered, "Available")).toEqual(["a"]);
   });
 
   it("covers a node whose requires list is a subset of the traits of a live binding", () => {
@@ -192,7 +257,7 @@ describe("uncoveredJobsOf", () => {
     ]);
     const nodes = [node("a", "Available", ["platform.macos"])];
 
-    expect(uncoveredJobsOf([job("a")], nodes, liveOf("coder-mac"), [mac], CATALOG).size).toBe(0);
+    expect(uncoveredJobsOf([job("a")], nodes, liveOf("coder-mac"), [mac], CATALOG)).toEqual([]);
   });
 
   it("leaves a node uncovered when its work is not a declared work of the worker", () => {
@@ -202,13 +267,13 @@ describe("uncoveredJobsOf", () => {
 
     const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("coder@1"), [CODER], catalog);
 
-    expect([...uncovered.keys()]).toEqual(["Available"]);
+    expect(statesOf(uncovered)).toEqual(["Available"]);
   });
 
   it("names the binding of an instance through its resource identity", () => {
     const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("other"), [CODER], CATALOG);
 
-    expect([...uncovered.keys()]).toEqual(["Available"]);
+    expect(statesOf(uncovered)).toEqual(["Available"]);
   });
 
   it("admits nothing for a binding with no catalog item", () => {
@@ -216,7 +281,7 @@ describe("uncoveredJobsOf", () => {
 
     const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("unknown"), [unknown], CATALOG);
 
-    expect([...uncovered.keys()]).toEqual(["Available"]);
+    expect(statesOf(uncovered)).toEqual(["Available"]);
   });
 
   it("ignores a draining instance and an instance that left the registration", () => {
@@ -225,9 +290,9 @@ describe("uncoveredJobsOf", () => {
       instance("coder@1", { registered: false }),
     ];
 
-    expect(uncoveredJobsOf([job("a")], NODES, instances, [CODER], CATALOG).has("Available")).toBe(
-      true,
-    );
+    expect(statesOf(uncoveredJobsOf([job("a")], NODES, instances, [CODER], CATALOG))).toEqual([
+      "Available",
+    ]);
   });
 });
 

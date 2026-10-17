@@ -28,7 +28,11 @@ export interface NodeFacts {
 }
 
 export function factsOf(node: MissionNodeRecord): NodeFacts {
-  return { state: node.state, work: node.work, requires: node.requires };
+  return {
+    state: node.state,
+    work: node.work,
+    requires: [...node.requires].sort((left, right) => left.localeCompare(right)),
+  };
 }
 
 function admits(
@@ -58,24 +62,35 @@ function liveBindingsOf(
   return bindings.filter((binding) => live.has(binding.resource_identity));
 }
 
+export interface UncoveredGroup {
+  readonly facts: NodeFacts;
+  readonly jobs: readonly SchedulerJob[];
+}
+
+function groupKeyOf(facts: NodeFacts): string {
+  return `${facts.state}:${facts.work}:${facts.requires.join(",")}`;
+}
+
 export function uncoveredJobsOf(
   jobs: readonly SchedulerJob[],
   nodes: readonly MissionNodeRecord[],
   instances: readonly WorkerInstanceRecord[],
   bindings: readonly WorkerBindingRecord[],
   catalog: readonly WorkerCatalogItem[],
-): ReadonlyMap<NodeState, readonly SchedulerJob[]> {
+): readonly UncoveredGroup[] {
   const live = liveBindingsOf(instances, bindings);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
-  const uncovered = new Map<NodeState, SchedulerJob[]>();
+  const groups = new Map<string, UncoveredGroup>();
   for (const job of jobs) {
     const node = nodeById.get(job.node_id);
     if (node === undefined) continue;
     const facts = factsOf(node);
     if (live.some((binding) => admits(binding, catalog, facts))) continue;
-    uncovered.set(node.state, [...(uncovered.get(node.state) ?? []), job]);
+    const key = groupKeyOf(facts);
+    const group = groups.get(key);
+    groups.set(key, { facts, jobs: [...(group?.jobs ?? []), job] });
   }
-  return uncovered;
+  return [...groups.values()];
 }
 
 export function uncoveredStates(

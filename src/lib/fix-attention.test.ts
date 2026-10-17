@@ -263,11 +263,13 @@ describe("fixItemsOf no_taker", () => {
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      id: "no_taker:prj-1:Waiting",
+      id: "no_taker:prj-1:Waiting:implement:",
       kind: "no_taker",
       cause: "No taker",
-      subject: "Jobs in state Waiting",
+      subject: "Implement jobs in state Waiting",
       state: "Waiting",
+      work: "implement",
+      requires: [],
       jobCount: 2,
       at: NOW - 120_000,
       hint: { kind: "server", binding: "reviewer-main", worker: "reviewer@1" },
@@ -296,9 +298,47 @@ describe("fixItemsOf no_taker", () => {
     );
 
     expect(items.map((item) => item.id).sort()).toEqual([
-      "no_taker:prj-1:External.Requested",
-      "no_taker:prj-1:Waiting",
+      "no_taker:prj-1:External.Requested:implement:",
+      "no_taker:prj-1:Waiting:implement:",
     ]);
+  });
+
+  it("lists one item for each requires list of one state, each with its own hint and count", () => {
+    const items = fixItemsOf(
+      [
+        snapshot({
+          nodes: [
+            node("m", "Available", { requires: ["platform.macos"] }),
+            node("l", "Available", { requires: ["platform.linux"] }),
+            node("l2", "Available", { requires: ["platform.linux"] }),
+          ],
+          jobs: [job("m", 5 * MINUTE), job("l", 5 * MINUTE), job("l2", 4 * MINUTE)],
+          bindings: [
+            bindingView("coder-mac", "coder@1", "worker", [], ["platform.macos"]),
+            bindingView("coder-linux", "coder@1", "server", [], ["platform.linux"]),
+          ],
+        }),
+      ],
+      context(),
+    );
+
+    expect(items).toHaveLength(2);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "no_taker:prj-1:Available:implement:platform.macos",
+          requires: ["platform.macos"],
+          jobCount: 1,
+          hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
+        }),
+        expect.objectContaining({
+          id: "no_taker:prj-1:Available:implement:platform.linux",
+          requires: ["platform.linux"],
+          jobCount: 2,
+          hint: { kind: "server", binding: "coder-linux", worker: "coder@1" },
+        }),
+      ]),
+    );
   });
 
   it("names a hint of the worker placement when the binding sets no placement", () => {
@@ -366,7 +406,7 @@ describe("fixItemsOf no_taker", () => {
     );
 
     expect(item).toMatchObject({
-      id: "no_taker:prj-1:Available",
+      id: "no_taker:prj-1:Available:implement:platform.macos",
       hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
     });
   });

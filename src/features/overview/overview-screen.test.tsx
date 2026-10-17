@@ -2201,13 +2201,13 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
       expect(within(item).getByText("No taker")).toBeInTheDocument();
       expect(within(item).getByText("Waiting")).toBeInTheDocument();
       expect(
         within(item).getByText(
           textContent(
-            "2 jobs wait in state Waiting. Binding reviewer-main (reviewer@1) matches the oldest job and runs no instance. Raise its instance_count, or check the server log.",
+            "2 implement jobs in state Waiting wait. Binding reviewer-main (reviewer@1) matches them and runs no instance. Raise its instance_count, or check the server log.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2229,11 +2229,11 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
       expect(
         within(item).getByText(
           textContent(
-            "1 job waits in state Waiting. Binding reviewer-main (reviewer@1) matches the oldest job and has no live instance. Start its worker program.",
+            "1 implement job in state Waiting waits. Binding reviewer-main (reviewer@1) matches it and has no live instance. Start its worker program.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2248,11 +2248,11 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
       expect(
         within(item).getByText(
           textContent(
-            "No worker binding matches the oldest job in state Waiting. Add a binding whose worker and traits match it on the Bindings tab.",
+            "No worker binding matches the implement job in state Waiting. Add a binding whose worker and traits match it on the Bindings tab.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2268,7 +2268,7 @@ describe("OverviewScreen fixes", () => {
       renderScreen();
 
       expect(await screen.findByText("All clear")).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Jobs in state Waiting" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Implement jobs in state Waiting" })).toBeNull();
     });
 
     it("lists nothing when a live instance declares the state", async () => {

@@ -15,21 +15,26 @@ interface FixCauseTextProps {
   readonly item: FixAttentionItem;
 }
 
+function requiresTextOf(requires: readonly string[]): string {
+  return requires.length === 0 ? "" : ` that require ${requires.join(", ")}`;
+}
+
 function NoTakerSentence({ item }: { readonly item: NoTakerItem }) {
-  const { hint, state, jobCount } = item;
+  const { hint, state, work, requires, jobCount } = item;
+  const jobs = `${work} ${jobCount === 1 ? "job" : "jobs"} in state ${state}${requiresTextOf(requires)}`;
   if (hint.kind === "none") {
     return (
       <>
-        No worker binding matches the oldest job in state {state}. Add a binding whose worker and
-        traits match it on the Bindings tab.
+        No worker binding matches the {jobs}. Add a binding whose worker and traits match{" "}
+        {jobCount === 1 ? "it" : "them"} on the Bindings tab.
       </>
     );
   }
   return (
     <>
-      {jobCount} {jobCount === 1 ? "job waits" : "jobs wait"} in state {state}. Binding{" "}
-      <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) matches the
-      oldest job and <TakerSituation hint={hint} />
+      {jobCount} {jobs} {jobCount === 1 ? "waits" : "wait"}. Binding{" "}
+      <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) matches{" "}
+      {jobCount === 1 ? "it" : "them"} and <TakerSituation hint={hint} />
     </>
   );
 }
