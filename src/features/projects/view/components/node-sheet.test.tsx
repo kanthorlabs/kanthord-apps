@@ -10,8 +10,8 @@ import type {
   MissionAttempt,
   MissionNodeRecord,
   MissionRevision,
-  MissionRunnableNode,
   ProjectBindingRecord,
+  Work,
 } from "@/api/types";
 import { buildGraph } from "@/lib/mission-graph";
 
@@ -22,19 +22,19 @@ vi.mock("@/api/resources/scheduler");
 import { NodeSheet } from "./node-sheet";
 import { textContent } from "../../../../../test/text-content";
 
-function runnable(
+function node(
   id: string,
-  kind: "initiative" | "objective",
+  work: Work,
   name: string,
-  parentId: string | null,
-  extra: Partial<MissionRunnableNode> = {},
-): MissionRunnableNode {
+  extra: Partial<MissionNodeRecord> = {},
+): MissionNodeRecord {
   return {
     id,
-    kind,
+    work,
+    requires: [],
+    tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: parentId,
     visible_revision: 1,
     content: {
       name,
@@ -42,6 +42,8 @@ function runnable(
       criterion: `${name} criterion`,
       verifications: ["pnpm test"],
       bindings: [],
+      work,
+      requires: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
@@ -53,16 +55,32 @@ function runnable(
   };
 }
 
-const AUDIT = runnable("node_audit", "objective", "Audit log", "node_recovery", {
+const AUDIT = node("node_audit", "implement", "Audit log", {
   state: "Blocked",
   attempt: 1,
   visible_revision: 2,
+  requires: ["platform.macos"],
+  tasks: [
+    {
+      id: "task_entry",
+      filename: "audit-task.md",
+      content: {
+        name: "Write the audit entry",
+        requirement: "r",
+        criterion: "c",
+        verifications: ["v"],
+        bindings: [],
+      },
+    },
+  ],
   content: {
     name: "Audit log",
     requirement: "Audit log requirement",
     criterion: "Audit log criterion",
     verifications: ["pnpm test"],
     bindings: ["binding_repo_2"],
+    work: "implement",
+    requires: ["platform.macos"],
   },
   blocked_context: {
     outcome: {
@@ -80,34 +98,18 @@ const AUDIT = runnable("node_audit", "objective", "Audit log", "node_recovery", 
   },
 });
 
-const HELD = runnable("node_held", "objective", "Held work", null, { state: "Paused", attempt: 0 });
+const HELD = node("node_held", "implement", "Held work", { state: "Paused", attempt: 0 });
 
 const NODES: readonly MissionNodeRecord[] = [
   HELD,
-  runnable("node_onboarding", "initiative", "Onboarding", null, { state: "Completed" }),
-  runnable("node_recovery", "initiative", "Account recovery", null, { state: "Available" }),
+  node("node_onboarding", "examine", "Onboarding", { state: "Completed" }),
+  node("node_recovery", "examine", "Account recovery", { state: "Pending" }),
   AUDIT,
-  {
-    id: "node_task",
-    kind: "task",
-    filename: "audit-task.md",
-    mission_id: "mission_1",
-    parent_id: "node_audit",
-    visible_revision: 2,
-    content: {
-      name: "Write the audit entry",
-      requirement: "r",
-      criterion: "c",
-      verifications: ["v"],
-      bindings: [],
-    },
-    retired_at: null,
-    pinned_by_attempts: [],
-  },
 ];
 
 const MODEL = buildGraph(NODES, [
-  { kind: "dependency", dependent_id: "node_recovery", depends_on_id: "node_onboarding" },
+  { dependent_id: "node_audit", depends_on_id: "node_onboarding" },
+  { dependent_id: "node_recovery", depends_on_id: "node_audit" },
 ]);
 
 const ATTEMPT: MissionAttempt = {
@@ -139,6 +141,7 @@ const REVISION_1: MissionRevision = {
   actor: { kind: "human", account: "ulrich", name: "Ulrich" },
   created_at: 0,
   content: { ...AUDIT.content, criterion: "Old criterion", bindings: ["binding_repo_1"] },
+  tasks: AUDIT.tasks,
   change: { write: "import", previous_revision: null, changed_fields: [] },
   pinned_by_attempts: [1],
 };
@@ -204,7 +207,7 @@ describe("NodeSheet", () => {
         attempt: 1,
         node_revision: 1,
         evidence_ids: [],
-        child_outcome_ids: [],
+        dependency_outcome_ids: [],
         result: "criterion-not-met",
         rationale: "The audit entry holds no actor.",
         tested_input: null,
@@ -216,7 +219,7 @@ describe("NodeSheet", () => {
         },
         created_at: 0,
         currency: null,
-        child_node_ids: [],
+        dependency_node_ids: [],
         worker_version: "reviewer@1",
       },
     ]);
@@ -248,7 +251,7 @@ describe("NodeSheet", () => {
     expect(within(bindings).getByText("revision 2")).toBeTruthy();
   });
 
-  it("offers the controls beside the blocked notice of an objective and none for a task", async () => {
+  it("offers the controls beside the blocked notice of an implement node", async () => {
     renderSheet("node_audit");
 
     const controls = await screen.findByRole("region", { name: "Controls" });
@@ -271,33 +274,49 @@ describe("NodeSheet", () => {
     expect(missionApi.listNodeExternalActions).not.toHaveBeenCalled();
   });
 
-  it("offers no control for a task", async () => {
-    renderSheet("node_task");
-
-    await screen.findByText("A task holds no state, no attempt and no revision of its own.", {
-      exact: false,
-    });
-    expect(screen.queryByRole("region", { name: "Controls" })).toBeNull();
-  });
-
-  it("shows the dependency closure through an ancestor", async () => {
+  it("shows the work and the requires list of the node", async () => {
     renderSheet("node_audit");
 
-    const closure = await screen.findByRole("region", { name: "Dependency closure" });
-    expect(within(closure).getByRole("button", { name: "Onboarding" })).toBeTruthy();
-    expect(
-      within(closure).getByText(textContent("through the ancestor Account recovery")),
-    ).toBeTruthy();
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText("implement · node_audit.md")).toBeTruthy();
+    expect(await within(sheet).findByText("platform.macos")).toBeTruthy();
+  });
+
+  it("shows None for an empty requires list", async () => {
+    renderSheet("node_held");
+
+    expect(await screen.findByText("None")).toBeTruthy();
+  });
+
+  it("shows the dependencies, the dependents and the tasks of an implement node", async () => {
+    renderSheet("node_audit");
+
+    const dependsOn = await screen.findByRole("region", { name: "Depends on" });
+    expect(within(dependsOn).getByRole("button", { name: "Onboarding" })).toBeTruthy();
+    const dependents = screen.getByRole("region", { name: "Dependents" });
+    expect(within(dependents).getByRole("button", { name: "Account recovery" })).toBeTruthy();
+    const tasks = screen.getByRole("region", { name: "Tasks" });
+    expect(within(tasks).getByText("Write the audit entry")).toBeTruthy();
     expect(
       screen.getByText("The dependency closure holds. Every node that it names is Completed."),
     ).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Parent" })).toBeNull();
+  });
+
+  it("shows no Tasks section for an examine node and reads its proposals", async () => {
+    vi.mocked(missionApi.listNodeProposals).mockResolvedValue([]);
+    renderSheet("node_recovery");
+
+    expect(await screen.findByRole("region", { name: "Depends on" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Tasks" })).toBeNull();
+    expect(missionApi.listNodeProposals).toHaveBeenCalledWith("node_recovery");
   });
 
   it("selects a related node", async () => {
     const onSelect = renderSheet("node_audit");
 
-    const parent = await screen.findByRole("region", { name: "Parent" });
-    await userEvent.click(within(parent).getByRole("button", { name: "Account recovery" }));
+    const dependents = await screen.findByRole("region", { name: "Dependents" });
+    await userEvent.click(within(dependents).getByRole("button", { name: "Account recovery" }));
 
     expect(onSelect).toHaveBeenCalledWith("node_recovery");
   });
@@ -337,21 +356,6 @@ describe("NodeSheet", () => {
 
     expect(await screen.findByText("The evidence read failed.")).toBeTruthy();
     expect(screen.getByRole("list", { name: "Assessments" })).toBeTruthy();
-  });
-
-  it("shows the attempts of the objective for a task", async () => {
-    renderSheet("node_task");
-
-    expect(
-      await screen.findByText(
-        "A task holds no state, no attempt and no revision of its own. Its objective",
-        { exact: false },
-      ),
-    ).toBeTruthy();
-    await userEvent.click(screen.getByRole("tab", { name: "Attempts" }));
-
-    expect(await screen.findByText("Attempt 1")).toBeTruthy();
-    expect(missionApi.listNodeAttempts).toHaveBeenCalledWith("node_audit");
   });
 
   it("marks the current revision", async () => {

@@ -102,7 +102,7 @@ describe("ChatView", () => {
     pollQueue();
     mount(
       session([
-        message("e1", { role: "user", content: "List the open objectives" }),
+        message("e1", { role: "user", content: "List the open nodes" }),
         message("e2", {
           role: "assistant",
           content: [
@@ -122,7 +122,7 @@ describe("ChatView", () => {
     );
 
     const log = screen.getByRole("log", { name: "Transcript" });
-    expect(within(log).getByText("List the open objectives")).toBeTruthy();
+    expect(within(log).getByText("List the open nodes")).toBeTruthy();
     expect(within(log).getByText("I read the mission first.")).toBeTruthy();
     expect(within(log).getByRole("button", { name: "Tool Call mission.node.list" })).toBeTruthy();
     expect(within(log).getByRole("button", { name: "Tool Result mission.node.list" })).toBeTruthy();
@@ -308,13 +308,10 @@ describe("ChatView", () => {
     });
     mount(session());
 
-    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "List the objectives");
+    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "List the nodes");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
-      SESSION_ID,
-      "List the objectives",
-    );
+    expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "List the nodes");
     expect(await screen.findByText("Running")).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("");
   });

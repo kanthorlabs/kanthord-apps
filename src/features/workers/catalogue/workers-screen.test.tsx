@@ -18,7 +18,7 @@ const CATALOG_TDD: WorkerCatalogItem = {
   name: "tdd",
   host: "kanthord",
   declared_node_states: ["Available", "Waiting"],
-  required_node_format: ["objective"],
+  declared_works: ["implement"],
 };
 
 const INSTANCE_EXECUTING: WorkerInstanceRecord = {
@@ -60,14 +60,16 @@ const INSTANCE_EXTERNAL: WorkerInstanceRecord = {
 };
 
 describe("WorkersScreen", () => {
-  it("lists the catalog workers with their node states and node format", async () => {
+  it("lists the catalog workers with their node states and declared works", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     render(<WorkersScreen />);
 
     await waitFor(() => expect(screen.getByText("tdd")).toBeDefined());
     expect(screen.getByText("Waiting")).toBeDefined();
-    expect(screen.getByText("objective")).toBeDefined();
+    expect(screen.getByText("Declared works")).toBeDefined();
+    expect(screen.getByText("implement")).toBeDefined();
+    expect(screen.queryByText("examine")).toBeNull();
     expect(screen.getByText("No instances.")).toBeDefined();
     expect(workersApi.listWorkerInstances).toHaveBeenCalledWith("prj-test");
   });

@@ -6,7 +6,7 @@
  * worker-service.md, together with their vocabulary siblings.
  */
 
-export type NodeKind = "initiative" | "objective" | "task";
+export type Work = "implement" | "examine";
 
 export const NODE_STATES = [
   "Pending",
@@ -63,7 +63,7 @@ export interface WorkerCatalogItem {
   readonly name: string;
   readonly host: WorkerHost;
   readonly declared_node_states: readonly string[];
-  readonly required_node_format: readonly string[];
+  readonly declared_works: readonly Work[];
 }
 
 export interface WorkerResourceBudget {
@@ -231,18 +231,31 @@ export interface Mission {
   readonly version: number;
 }
 
-export interface MissionPlanEntry {
+export interface MissionPlanNodeEntry {
   readonly filename: string;
   readonly id?: string;
-  readonly kind: NodeKind;
+  readonly work: Work;
   readonly name: string;
   readonly requirement: string;
   readonly criterion: string;
   readonly verifications: readonly string[];
   readonly bindings: readonly string[];
-  readonly parent?: string;
+  readonly requires?: readonly string[];
   readonly depends_on?: readonly string[];
 }
+
+export interface MissionPlanTaskEntry {
+  readonly filename: string;
+  readonly id?: string;
+  readonly node: string;
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+  readonly verifications: readonly string[];
+  readonly bindings: readonly string[];
+}
+
+export type MissionPlanEntry = MissionPlanNodeEntry | MissionPlanTaskEntry;
 
 export interface MissionPlanFile {
   readonly filename: string;
@@ -279,9 +292,10 @@ export type MissionImportApply = MissionImportSnapshot & {
   readonly confirmed_retirements: readonly string[];
 };
 
-export type MissionRemovedEdge =
-  | { readonly kind: "containment"; readonly parent_id: string; readonly child_id: string }
-  | { readonly kind: "dependency"; readonly dependent_id: string; readonly depends_on_id: string };
+export interface MissionRemovedEdge {
+  readonly dependent_id: string;
+  readonly depends_on_id: string;
+}
 
 export interface MissionImportViolation {
   readonly code: string;
@@ -383,6 +397,7 @@ export interface WorkerBindingConfig {
   readonly placement?: WorkerPlacement;
   readonly resource_budget?: { readonly turns: number; readonly wall_time_ms: number };
   readonly entries?: readonly WorkerAgentEntry[];
+  readonly traits?: readonly string[];
 }
 
 export interface StorageBindingConfig {
@@ -428,6 +443,16 @@ export type MissionActor =
     };
 
 export interface MissionContent {
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+  readonly verifications: readonly string[];
+  readonly bindings: readonly string[];
+  readonly work: Work;
+  readonly requires: readonly string[];
+}
+
+export interface MissionTaskBody {
   readonly name: string;
   readonly requirement: string;
   readonly criterion: string;
@@ -534,14 +559,14 @@ export interface MissionAssessment {
   readonly attempt: number;
   readonly node_revision: number;
   readonly evidence_ids: readonly string[];
-  readonly child_outcome_ids: readonly string[];
+  readonly dependency_outcome_ids: readonly string[];
   readonly result: MissionAssessmentResult;
   readonly rationale: string;
   readonly tested_input: MissionTestedInput | null;
   readonly actor: MissionActor;
   readonly created_at: number;
   readonly currency: MissionCurrency | null;
-  readonly child_node_ids: readonly string[];
+  readonly dependency_node_ids: readonly string[];
   readonly worker_version: string | null;
 }
 
@@ -596,50 +621,36 @@ export interface MissionBlockedContext {
   readonly requests: readonly MissionEvidence[];
 }
 
-interface MissionNodeBase {
+export interface MissionNodeRecord {
   readonly id: string;
   readonly filename: string;
   readonly mission_id: string;
-  readonly parent_id: string | null;
-  readonly visible_revision: number;
-  readonly content: MissionContent;
-  readonly retired_at: number | null;
-  readonly pinned_by_attempts: readonly number[];
-}
-
-export interface MissionRunnableNode extends MissionNodeBase {
-  readonly kind: "initiative" | "objective";
+  readonly work: Work;
+  readonly requires: readonly string[];
+  readonly tasks: readonly MissionTaskContent[];
   readonly state: NodeState;
   readonly attempt: number;
   readonly priority: number;
   readonly depends_on: readonly string[];
+  readonly visible_revision: number;
+  readonly content: MissionContent;
+  readonly retired_at: number | null;
+  readonly pinned_by_attempts: readonly number[];
   readonly blocked_context?: MissionBlockedContext;
 }
 
-export interface MissionTaskNode extends MissionNodeBase {
-  readonly kind: "task";
+export interface MissionEdge {
+  readonly dependent_id: string;
+  readonly depends_on_id: string;
 }
 
-export type MissionNodeRecord = MissionRunnableNode | MissionTaskNode;
-
-export type MissionEdge =
-  | { readonly kind: "containment"; readonly parent_id: string; readonly child_id: string }
-  | { readonly kind: "dependency"; readonly dependent_id: string; readonly depends_on_id: string };
-
 export type MissionRevisionWrite =
-  | "import"
-  | "node.create"
-  | "node.update"
-  | "node.move"
-  | "node.retire"
-  | "node.rebind"
-  | "criterion.set"
-  | "unblock";
+  "import" | "node.create" | "node.update" | "node.rebind" | "criterion.set" | "unblock";
 
 export interface MissionTaskContent {
   readonly id: string;
   readonly filename: string;
-  readonly content: MissionContent;
+  readonly content: MissionTaskBody;
 }
 
 export interface MissionRevision {
@@ -650,7 +661,7 @@ export interface MissionRevision {
   readonly actor: MissionActor;
   readonly created_at: number;
   readonly content: MissionContent;
-  readonly tasks?: readonly MissionTaskContent[];
+  readonly tasks: readonly MissionTaskContent[];
   readonly change: {
     readonly write: MissionRevisionWrite;
     readonly previous_revision: number | null;
@@ -672,7 +683,7 @@ export interface MissionProposalTask {
 }
 
 export interface MissionProposalContent {
-  readonly objective_id: string;
+  readonly dependency_id: string;
   readonly name: string;
   readonly requirement: string;
   readonly criterion: string;
@@ -685,7 +696,7 @@ export interface MissionProposal {
   readonly attempt: number;
   readonly assessment_id: string;
   readonly content: MissionProposalContent;
-  readonly objective_node_id: string | null;
+  readonly created_node_id: string | null;
   readonly approved_at: number | null;
   readonly created_at: number;
 }
@@ -773,8 +784,8 @@ export interface MissionNodeCheckAnswer {
 }
 
 export interface MissionProposalApproveResult {
-  readonly objective: MissionNodeChange;
-  readonly initiative: MissionControlResult;
+  readonly created: MissionNodeChange;
+  readonly proposer: MissionControlResult;
 }
 
 export interface ProjectBindingRecord {

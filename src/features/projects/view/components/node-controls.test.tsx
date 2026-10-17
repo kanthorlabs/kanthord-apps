@@ -8,7 +8,7 @@ import type {
   MissionControlResult,
   MissionExternalAction,
   MissionProposal,
-  MissionRunnableNode,
+  MissionNodeRecord,
   NodeState,
   SchedulerExecutionRecord,
 } from "@/api/types";
@@ -22,12 +22,13 @@ import type { Resource } from "@/hooks/use-resource";
 import { NodeControls } from "./node-controls";
 import { textContent } from "../../../../../test/text-content";
 
-const TEAM: MissionRunnableNode = {
+const TEAM: MissionNodeRecord = {
   id: "node_team",
-  kind: "initiative",
+  work: "examine",
+  requires: [],
+  tasks: [],
   filename: "team.md",
   mission_id: "mission_1",
-  parent_id: null,
   visible_revision: 1,
   content: {
     name: "Team workspaces",
@@ -35,6 +36,8 @@ const TEAM: MissionRunnableNode = {
     criterion: "c",
     verifications: ["v"],
     bindings: [],
+    work: "examine",
+    requires: [],
   },
   retired_at: null,
   pinned_by_attempts: [2],
@@ -50,13 +53,13 @@ const OPEN: MissionProposal = {
   attempt: 2,
   assessment_id: "assessment_2",
   content: {
-    objective_id: "node_invite",
+    dependency_id: "node_invite",
     name: "Send the invite email in the workspace language",
     requirement: "r",
     criterion: "c",
     task: { name: "t", requirement: "r", criterion: "c", verifications: ["v"] },
   },
-  objective_node_id: null,
+  created_node_id: null,
   approved_at: null,
   created_at: 0,
 };
@@ -118,7 +121,7 @@ function runs(
 }
 
 function mount(
-  node: MissionRunnableNode = TEAM,
+  node: MissionNodeRecord = TEAM,
   proposals: readonly MissionProposal[] = [],
   onChanged = vi.fn(),
   actions: Resource<readonly MissionExternalAction[]> = answered(),
@@ -374,7 +377,7 @@ describe("NodeControls", () => {
     expect(
       within(dialog).getByText(
         textContent(
-          "Unblock rejects the open proposals: Send the invite email in the workspace language. They stay recorded, but the initiative runs the next attempt without the fix objective.",
+          "Unblock rejects the open proposals: Send the invite email in the workspace language. They stay recorded, but the examine node runs the next attempt without the fix node.",
         ),
       ),
     ).toBeTruthy();

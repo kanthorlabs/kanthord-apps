@@ -8,7 +8,6 @@ import type {
   MissionExternalAction,
   RepositoryActionName,
   MissionNodeRecord,
-  MissionRunnableNode,
   NodeState,
   Project,
   SchedulerExecutionRecord,
@@ -74,7 +73,7 @@ function execution(
 }
 
 function pausedDetail(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   executions: readonly SchedulerExecutionRecord[],
   actions: readonly MissionExternalAction[] = [],
 ): AttentionDetail {
@@ -101,18 +100,27 @@ function node(
   id: string,
   name: string,
   state: NodeState,
-  overrides: Partial<MissionRunnableNode> = {},
-): MissionRunnableNode {
+  overrides: Partial<MissionNodeRecord> = {},
+): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name, requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name,
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt: 2,
     priority: 0,
@@ -127,7 +135,7 @@ function blocked(
   createdAt: number,
   closingEvent: MissionClosingEvent = "assessment-not-passed",
   result: MissionAssessmentResult = "criterion-not-met",
-): MissionRunnableNode {
+): MissionNodeRecord {
   return node(id, name, "Blocked", {
     blocked_context: {
       outcome: {
@@ -193,21 +201,9 @@ describe("deriveAttention", () => {
     expect(items[0]).toMatchObject({ project: { id: "atlas" } });
   });
 
-  it("skips tasks, retired nodes and every state but Blocked", () => {
-    const task: MissionNodeRecord = {
-      id: "t1",
-      filename: "t1.md",
-      mission_id: "mission_1",
-      parent_id: "n1",
-      visible_revision: 1,
-      content: { name: "task", requirement: "", criterion: "", verifications: [], bindings: [] },
-      retired_at: null,
-      pinned_by_attempts: [],
-      kind: "task",
-    };
+  it("skips retired nodes and every state but Blocked", () => {
     const items = derive([
       snapshot("atlas", [
-        task,
         node("n2", "Retired", "Blocked", { retired_at: 9 }),
         node("n3", "Pending", "Pending"),
         node("n4", "Executing", "Executing"),
@@ -492,7 +488,7 @@ function evidenceFor(action: MissionExternalAction, createdAt: number): MissionE
 }
 
 function externalDetail(
-  requested: MissionRunnableNode,
+  requested: MissionNodeRecord,
   actions: readonly MissionExternalAction[],
   evidence: readonly MissionEvidence[],
 ): AttentionDetails {

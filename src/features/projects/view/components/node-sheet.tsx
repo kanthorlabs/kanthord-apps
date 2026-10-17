@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import { RecordName } from "@/components/record-name";
 import {
   Sheet,
   SheetContent,
@@ -37,8 +36,6 @@ export function NodeSheet({
   const mobile = useIsMobile();
   const [tab, setTab] = useState<NodeSheetTab>("details");
   const node = selectedId === null ? undefined : model.nodeById.get(selectedId);
-  const attemptOwner = node?.kind === "task" ? node.parent_id : (node?.id ?? null);
-  const owner = attemptOwner === null ? undefined : model.nodeById.get(attemptOwner);
 
   return (
     <Sheet open={selectedId !== null} onOpenChange={(open) => !open && onSelect(null)}>
@@ -53,7 +50,7 @@ export function NodeSheet({
           <SheetDescription className="break-all">
             {node === undefined
               ? `The mission graph holds no node ${selectedId ?? ""}.`
-              : `${node.kind} · ${node.filename}`}
+              : `${node.work} · ${node.filename}`}
           </SheetDescription>
         </SheetHeader>
         {node !== undefined && (
@@ -79,20 +76,12 @@ export function NodeSheet({
                 />
               </TabsContent>
               <TabsContent value="attempts" className="flex flex-col gap-3">
-                {node.kind === "task" && owner !== undefined && (
-                  <p className="text-sm">
-                    A task holds no attempt. The attempts below belong to its objective{" "}
-                    <RecordName>{owner.content.name}</RecordName>.
-                  </p>
-                )}
-                {owner !== undefined && (
-                  <NodeAttemptsTab
-                    projectId={projectId}
-                    model={model}
-                    nodeId={owner.id}
-                    currentRevision={owner.visible_revision}
-                  />
-                )}
+                <NodeAttemptsTab
+                  projectId={projectId}
+                  model={model}
+                  nodeId={node.id}
+                  currentRevision={node.visible_revision}
+                />
               </TabsContent>
               <TabsContent value="revisions">
                 <NodeRevisionsTab nodeId={node.id} currentRevision={node.visible_revision} />

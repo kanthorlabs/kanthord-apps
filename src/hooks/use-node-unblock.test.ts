@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { unblockNode } from "@/api/resources/mission";
-import type { MissionControlResult, MissionProposal, MissionRunnableNode } from "@/api/types";
+import type { MissionControlResult, MissionProposal, MissionNodeRecord } from "@/api/types";
 import { useNodeUnblock } from "./use-node-unblock";
 import { renderedText } from "../../test/text-content";
 
@@ -15,12 +15,13 @@ vi.mock("sonner", () => ({
 
 const unblockMock = vi.mocked(unblockNode);
 
-const INITIATIVE: MissionRunnableNode = {
+const EXAMINE: MissionNodeRecord = {
   id: "node_team",
-  kind: "initiative",
+  work: "examine",
+  requires: [],
+  tasks: [],
   filename: "team.md",
   mission_id: "mission_1",
-  parent_id: null,
   visible_revision: 3,
   content: {
     name: "Team workspaces",
@@ -28,6 +29,8 @@ const INITIATIVE: MissionRunnableNode = {
     criterion: "c",
     verifications: ["pnpm test"],
     bindings: [],
+    work: "examine",
+    requires: [],
   },
   retired_at: null,
   pinned_by_attempts: [],
@@ -43,19 +46,19 @@ const PROPOSAL: MissionProposal = {
   attempt: 2,
   assessment_id: "assessment_1",
   content: {
-    objective_id: "node_invite",
+    dependency_id: "node_invite",
     name: "Fix the invite link",
     requirement: "r",
     criterion: "c",
     task: { name: "t", requirement: "r", criterion: "c", verifications: ["v"] },
   },
-  objective_node_id: null,
+  created_node_id: null,
   approved_at: null,
   created_at: 0,
 };
 
 function mount(
-  node: MissionRunnableNode = INITIATIVE,
+  node: MissionNodeRecord = EXAMINE,
   proposals: readonly MissionProposal[] = [],
   reload = vi.fn(),
 ) {
@@ -70,12 +73,12 @@ beforeEach(() => {
 describe("useNodeUnblock", () => {
   it("offers unblock only for a Blocked node that is not retired", () => {
     expect(mount().result.current.available).toBe(true);
-    expect(mount({ ...INITIATIVE, state: "Available" }).result.current.available).toBe(false);
-    expect(mount({ ...INITIATIVE, retired_at: 1 }).result.current.available).toBe(false);
+    expect(mount({ ...EXAMINE, state: "Available" }).result.current.available).toBe(false);
+    expect(mount({ ...EXAMINE, retired_at: 1 }).result.current.available).toBe(false);
   });
 
   it("opens no dialog for a node that is not Blocked", () => {
-    const { result } = mount({ ...INITIATIVE, state: "Paused" });
+    const { result } = mount({ ...EXAMINE, state: "Paused" });
 
     act(() => result.current.request());
     expect(result.current.open).toBe(false);
@@ -112,16 +115,16 @@ describe("useNodeUnblock", () => {
     });
   });
 
-  it("offers the start point choice only for an objective with an attempt", () => {
+  it("offers the start point choice only for an implement node with an attempt", () => {
     expect(mount().result.current.startChoice).toBe(false);
-    expect(mount({ ...INITIATIVE, kind: "objective" }).result.current.startChoice).toBe(true);
-    expect(mount({ ...INITIATIVE, kind: "objective", attempt: 0 }).result.current.startChoice).toBe(
+    expect(mount({ ...EXAMINE, work: "implement" }).result.current.startChoice).toBe(true);
+    expect(mount({ ...EXAMINE, work: "implement", attempt: 0 }).result.current.startChoice).toBe(
       false,
     );
   });
 
-  it("sends start_point base_branch for an objective when the human chooses it", async () => {
-    const { result } = mount({ ...INITIATIVE, kind: "objective" });
+  it("sends start_point base_branch for an implement node when the human chooses it", async () => {
+    const { result } = mount({ ...EXAMINE, work: "implement" });
 
     act(() => result.current.request());
     act(() => result.current.setFromBase(true));
@@ -135,7 +138,7 @@ describe("useNodeUnblock", () => {
     });
   });
 
-  it("sends no start_point for an initiative", async () => {
+  it("sends no start_point for an examine node", async () => {
     const { result } = mount();
 
     act(() => result.current.request());
@@ -150,7 +153,7 @@ describe("useNodeUnblock", () => {
   });
 
   it("names the open proposals of the blocked attempt that an unblock rejects", () => {
-    const { result } = mount(INITIATIVE, [
+    const { result } = mount(EXAMINE, [
       PROPOSAL,
       {
         ...PROPOSAL,
@@ -167,7 +170,7 @@ describe("useNodeUnblock", () => {
     ]);
 
     expect(renderedText(result.current.proposalNotice)).toEqual({
-      text: "Unblock rejects the open proposals: Fix the invite link. They stay recorded, but the initiative runs the next attempt without the fix objective.",
+      text: "Unblock rejects the open proposals: Fix the invite link. They stay recorded, but the examine node runs the next attempt without the fix node.",
       bold: ["Fix the invite link"],
     });
     expect(renderedText(result.current.consequence)).toEqual({
@@ -177,7 +180,7 @@ describe("useNodeUnblock", () => {
   });
 
   it("states no proposal notice without an open proposal", () => {
-    expect(mount(INITIATIVE, [{ ...PROPOSAL, approved_at: 1 }]).result.current.proposalNotice).toBe(
+    expect(mount(EXAMINE, [{ ...PROPOSAL, approved_at: 1 }]).result.current.proposalNotice).toBe(
       null,
     );
   });
@@ -187,6 +190,11 @@ describe("useNodeUnblock", () => {
     ["mission.revision.conflict", "The content of the node changed after this read."],
     ["mission.version.conflict", "The mission changed after this read."],
     ["mission.node.control_refused", "The node is no longer Blocked."],
+    [
+      "mission.node.requires_unmatched",
+      "No worker binding of the project matches the requires list of this node.",
+    ],
+    ["mission.node.work_locked", "The node opened an attempt, so its work cannot change."],
   ])("maps the conflict %s to a message and reloads", async (code, message) => {
     unblockMock.mockRejectedValue(new ApiError("conflict", "Conflict.", 409, code));
     const { result, reload } = mount();

@@ -36,8 +36,8 @@ export function ProposalItem({ model, proposal, approve, onSelect }: ProposalIte
   const unavailable = approve.unavailableReason(proposal);
   const facts: Fact[] = [
     {
-      label: "Targets",
-      value: <NodeLink model={model} nodeId={content.objective_id} onSelect={onSelect} />,
+      label: "Dependency",
+      value: <NodeLink model={model} nodeId={content.dependency_id} onSelect={onSelect} />,
     },
     { label: "Requirement", value: content.requirement },
     { label: "Criterion", value: content.criterion },
@@ -49,10 +49,10 @@ export function ProposalItem({ model, proposal, approve, onSelect }: ProposalIte
   if (proposal.approved_at !== null) {
     facts.push({ label: "Approved", value: utcDateTime(proposal.approved_at) });
   }
-  if (proposal.objective_node_id !== null) {
+  if (proposal.created_node_id !== null) {
     facts.push({
-      label: "Objective",
-      value: <NodeLink model={model} nodeId={proposal.objective_node_id} onSelect={onSelect} />,
+      label: "Created node",
+      value: <NodeLink model={model} nodeId={proposal.created_node_id} onSelect={onSelect} />,
     });
   }
 

@@ -21,14 +21,6 @@ function DiagnosticLine({ model, diagnostic }: { model: GraphModel; diagnostic: 
       </>
     );
   }
-  if (diagnostic.kind === "unplaced-node") {
-    return (
-      <>
-        The node <RecordName>{nameOf(model, diagnostic.nodeId)}</RecordName> has no place under an
-        initiative, so the graph does not show it.
-      </>
-    );
-  }
   return (
     <>
       The dependencies of{" "}

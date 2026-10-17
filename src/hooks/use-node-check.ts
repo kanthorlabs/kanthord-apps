@@ -5,7 +5,7 @@ import { checkNode } from "@/api/resources/mission";
 import type {
   MissionExternalAction,
   MissionNodeCheckFailure,
-  MissionRunnableNode,
+  MissionNodeRecord,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { CHECKING_LABEL, checkLabelOf } from "@/lib/check-result";
@@ -28,7 +28,7 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
 };
 
 function isCheckable(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   actions: readonly MissionExternalAction[] | null,
 ): boolean {
   if (node.retired_at !== null) return false;
@@ -42,7 +42,7 @@ function failureDescriptionOf(failure: MissionNodeCheckFailure): string {
 }
 
 export function useNodeCheck(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   missionVersion: number,
   actions: readonly MissionExternalAction[] | null,
   markActed: () => void,

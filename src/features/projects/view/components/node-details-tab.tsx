@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { hasOpenAttempt } from "@/lib/external-requests";
 import { utcDateTime } from "@/lib/format";
-import { nameOf, type GraphModel } from "@/lib/mission-graph";
+import type { GraphModel } from "@/lib/mission-graph";
 import { closingEventText, resultVariant } from "@/lib/mission-labels";
 import { badgeVariantOf, meaningOf } from "@/lib/node-state";
 import { useBindingRecords } from "../use-binding-records";
@@ -33,28 +33,26 @@ interface NodeDetailsTabProps {
 function factsOf(node: MissionNodeRecord): Fact[] {
   const facts: Fact[] = [
     { label: "Identity", value: <span className="font-mono text-xs break-all">{node.id}</span> },
-    { label: "Kind", value: node.kind },
+    { label: "Work", value: node.work },
+    {
+      label: "Requires",
+      value: node.requires.length === 0 ? "None" : node.requires.join(", "),
+    },
     { label: "Plan file", value: <span className="font-mono text-xs">{node.filename}</span> },
-  ];
-  if (node.kind !== "task") {
-    facts.push(
-      {
-        label: "State",
-        value: (
-          <span className="flex flex-col items-start gap-1">
-            <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>
-            <span className="text-muted-foreground">{meaningOf(node.state)}</span>
-          </span>
-        ),
-      },
-      {
-        label: "Attempt",
-        value: node.attempt === 0 ? "no attempt opened" : `attempt ${node.attempt}`,
-      },
-      { label: "Priority", value: String(node.priority) },
-    );
-  }
-  facts.push(
+    {
+      label: "State",
+      value: (
+        <span className="flex flex-col items-start gap-1">
+          <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>
+          <span className="text-muted-foreground">{meaningOf(node.state)}</span>
+        </span>
+      ),
+    },
+    {
+      label: "Attempt",
+      value: node.attempt === 0 ? "no attempt opened" : `attempt ${node.attempt}`,
+    },
+    { label: "Priority", value: String(node.priority) },
     { label: "Revision", value: `revision ${node.visible_revision}` },
     {
       label: "Pinned by",
@@ -63,12 +61,12 @@ function factsOf(node: MissionNodeRecord): Fact[] {
           ? "no attempt"
           : node.pinned_by_attempts.map((attempt) => `attempt ${attempt}`).join(", "),
     },
-  );
+  ];
   return facts;
 }
 
 function BlockedNotice({ node }: { node: MissionNodeRecord }) {
-  if (node.kind === "task" || node.blocked_context === undefined) return null;
+  if (node.blocked_context === undefined) return null;
   const { outcome, requests } = node.blocked_context;
   return (
     <Alert variant="destructive">
@@ -103,9 +101,9 @@ export function NodeDetailsTab({
 }: NodeDetailsTabProps) {
   const record = useNodeRecord(nodeId);
   const { reload: reloadRecord } = record;
-  const proposals = useNodeProposals(nodeId, model.nodeById.get(nodeId)?.kind === "initiative");
+  const proposals = useNodeProposals(nodeId, model.nodeById.get(nodeId)?.work === "examine");
   const { reload: reloadProposals } = proposals;
-  const runnable = record.data !== null && record.data.kind !== "task" ? record.data : null;
+  const runnable = record.data;
   const actions = useNodeExternalActions(
     nodeId,
     runnable?.attempt ?? 0,
@@ -144,40 +142,27 @@ export function NodeDetailsTab({
     );
   }
 
-  const owner = node.kind === "task" && node.parent_id !== null ? node.parent_id : null;
-
   return (
     <div className="flex flex-col gap-5">
       <BlockedNotice node={node} />
-      {node.kind !== "task" && (
-        <NodeControls
-          node={node}
-          nodes={[...model.nodeById.values()]}
-          missionVersion={missionVersion}
-          proposals={proposals.data ?? []}
-          actions={actions}
-          executions={executions}
-          onChanged={reloadAll}
-        />
-      )}
-      {node.kind === "initiative" && (
+      <NodeControls
+        node={node}
+        nodes={[...model.nodeById.values()]}
+        missionVersion={missionVersion}
+        proposals={proposals.data ?? []}
+        actions={actions}
+        executions={executions}
+        onChanged={reloadAll}
+      />
+      {node.work === "examine" && (
         <ProposalSection
           model={model}
-          initiative={node}
+          proposer={node}
           proposals={proposals}
           missionVersion={missionVersion}
           onChanged={reloadAll}
           onSelect={onSelect}
         />
-      )}
-      {owner !== null && (
-        <p className="text-sm">
-          A task holds no state, no attempt and no revision of its own. Its objective{" "}
-          <Button variant="link" size="sm" onClick={() => onSelect(owner)}>
-            {nameOf(model, owner)}
-          </Button>{" "}
-          holds them.
-        </p>
       )}
       <FactList facts={factsOf(node)} />
       <section aria-label="Content" className="flex flex-col gap-2">
@@ -205,24 +190,22 @@ export function NodeDetailsTab({
         <h3 className="font-semibold">Structure</h3>
         <NodeStructure model={model} nodeId={nodeId} onSelect={onSelect} />
       </section>
-      {node.kind !== "task" && (
-        <section aria-label="Bindings" className="flex flex-col gap-2">
-          <h3 className="font-semibold">Bindings of revision {node.visible_revision}</h3>
-          {bindings.loading ? (
-            <Skeleton className="h-16 w-full" />
-          ) : bindings.data === null ? (
-            <Alert variant="destructive">
-              <AlertDescription>{bindings.error?.message}</AlertDescription>
-            </Alert>
-          ) : (
-            <BindingList
-              label="Bindings of the current revision"
-              bindingIds={bindingIds}
-              reads={bindings.data}
-            />
-          )}
-        </section>
-      )}
+      <section aria-label="Bindings" className="flex flex-col gap-2">
+        <h3 className="font-semibold">Bindings of revision {node.visible_revision}</h3>
+        {bindings.loading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : bindings.data === null ? (
+          <Alert variant="destructive">
+            <AlertDescription>{bindings.error?.message}</AlertDescription>
+          </Alert>
+        ) : (
+          <BindingList
+            label="Bindings of the current revision"
+            bindingIds={bindingIds}
+            reads={bindings.data}
+          />
+        )}
+      </section>
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import type {
   MissionExternalAction,
-  MissionRunnableNode,
+  MissionNodeRecord,
   NodeState,
   SchedulerExecutionRecord,
 } from "@/api/types";
@@ -17,15 +17,24 @@ vi.mock("sonner", () => ({
 
 import { useNodeControls } from "./use-node-controls";
 
-function node(state: NodeState, attempt = 2): MissionRunnableNode {
+function node(state: NodeState, attempt = 2): MissionNodeRecord {
   return {
     id: "node_team",
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     filename: "team.md",
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name: "Team", requirement: "r", criterion: "c", verifications: [], bindings: [] },
+    content: {
+      name: "Team",
+      requirement: "r",
+      criterion: "c",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state,
@@ -84,7 +93,7 @@ function ended(overrides: Partial<SchedulerExecutionRecord>): SchedulerExecution
 }
 
 function mount(
-  target: MissionRunnableNode,
+  target: MissionNodeRecord,
   actions: Resource<readonly MissionExternalAction[]>,
   executions: Resource<readonly SchedulerExecutionRecord[]>,
 ) {

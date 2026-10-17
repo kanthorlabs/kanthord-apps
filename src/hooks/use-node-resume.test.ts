@@ -8,7 +8,6 @@ import type {
   MissionControlResult,
   MissionExternalAction,
   MissionNodeRecord,
-  MissionRunnableNode,
   NodeState,
 } from "@/api/types";
 import type { PauseCause } from "@/lib/execution-stop";
@@ -26,16 +25,25 @@ function node(
   id: string,
   name: string,
   state: NodeState,
-  overrides: Partial<MissionRunnableNode> = {},
-): MissionRunnableNode {
+  overrides: Partial<MissionNodeRecord> = {},
+): MissionNodeRecord {
   return {
     id,
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 2,
-    content: { name, requirement: "r", criterion: "c", verifications: [], bindings: [] },
+    content: {
+      name,
+      requirement: "r",
+      criterion: "c",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state,
@@ -67,7 +75,7 @@ function action(resolution: MissionExternalAction["resolution"]): MissionExterna
 }
 
 interface Setup {
-  readonly node?: MissionRunnableNode;
+  readonly node?: MissionNodeRecord;
   readonly nodes?: readonly MissionNodeRecord[];
   readonly actions?: readonly MissionExternalAction[] | null;
   readonly cause?: PauseCause | null;

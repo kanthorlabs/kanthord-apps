@@ -72,9 +72,7 @@ export async function listMissionNodes(missionId: string): Promise<readonly Miss
 }
 
 export async function listMissionDependencies(missionId: string): Promise<readonly MissionEdge[]> {
-  return readAllPages<MissionEdge>(`/api/mission/${encodeURIComponent(missionId)}/edge`, {
-    kind: "dependency",
-  });
+  return readAllPages<MissionEdge>(`/api/mission/${encodeURIComponent(missionId)}/edge`);
 }
 
 export async function readMissionNode(nodeId: string): Promise<MissionNodeRecord> {

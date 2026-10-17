@@ -1,24 +1,28 @@
 import { describe, expect, it } from "vitest";
 
-import type { MissionEdge, MissionRunnableNode, NodeState } from "@/api/types";
+import type { MissionEdge, MissionNodeRecord, NodeState, Work } from "@/api/types";
 
 import { edgeGroupOf } from "./edge-group";
 import { buildGraph } from "./mission-graph";
 
-function runnable(
-  id: string,
-  kind: "initiative" | "objective",
-  parentId: string | null,
-  state: NodeState,
-): MissionRunnableNode {
+function node(id: string, work: Work, state: NodeState): MissionNodeRecord {
   return {
     id,
-    kind,
+    work,
+    requires: [],
+    tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: parentId,
     visible_revision: 1,
-    content: { name: id, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
+    content: {
+      name: id,
+      requirement: "r",
+      criterion: "c",
+      verifications: ["v"],
+      bindings: [],
+      work,
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state,
@@ -29,16 +33,16 @@ function runnable(
 }
 
 function dependency(dependentId: string, dependsOnId: string): MissionEdge {
-  return { kind: "dependency", dependent_id: dependentId, depends_on_id: dependsOnId };
+  return { dependent_id: dependentId, depends_on_id: dependsOnId };
 }
 
 const NODES = [
-  runnable("recovery", "initiative", null, "Available"),
-  runnable("signup", "objective", "recovery", "Completed"),
-  runnable("codes", "objective", "recovery", "Executing"),
-  runnable("legacy", "objective", "recovery", "Discarded"),
-  runnable("reset", "objective", "recovery", "Pending"),
-  runnable("audit", "objective", "recovery", "Pending"),
+  node("recovery", "examine", "Available"),
+  node("signup", "implement", "Completed"),
+  node("codes", "implement", "Executing"),
+  node("legacy", "implement", "Discarded"),
+  node("reset", "implement", "Pending"),
+  node("audit", "implement", "Pending"),
 ];
 
 function groupOf(edges: readonly MissionEdge[], dependentId: string, dependsOnId: string) {

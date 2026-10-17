@@ -1,32 +1,23 @@
 import { ListChecksIcon } from "lucide-react";
 import { Fragment } from "react";
 
-import type { MissionRunnableNode, MissionTaskNode } from "@/api/types";
+import type { MissionNodeRecord } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import type { ObjectiveProgress } from "@/lib/mission-graph";
 import { badgeVariantOf } from "@/lib/node-state";
 
 interface GraphNodeProps {
-  readonly node: MissionRunnableNode;
-  readonly tasks: readonly MissionTaskNode[];
+  readonly node: MissionNodeRecord;
   readonly dependsOn: readonly string[];
-  readonly progress: ObjectiveProgress | null;
   readonly selectedId: string | null;
   readonly onSelect: (nodeId: string) => void;
 }
 
-export function GraphNode({
-  node,
-  tasks,
-  dependsOn,
-  progress,
-  selectedId,
-  onSelect,
-}: GraphNodeProps) {
+export function GraphNode({ node, dependsOn, selectedId, onSelect }: GraphNodeProps) {
   const selected = node.id === selectedId;
+  const tasks = node.work === "implement" ? node.tasks : [];
 
   return (
     <div
@@ -44,7 +35,7 @@ export function GraphNode({
             <span className="truncate">{node.content.name}</span>
           </Button>
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <Badge variant="outline">{node.kind}</Badge>
+            <Badge variant="outline">{node.work}</Badge>
             <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>
             {node.attempt > 0 && <span>attempt {node.attempt}</span>}
             {node.priority !== 0 && <span>priority {node.priority}</span>}
@@ -60,11 +51,6 @@ export function GraphNode({
               ))}
             </p>
           )}
-          {progress !== null && (
-            <p className="text-xs text-muted-foreground">
-              Objectives: {progress.terminal} of {progress.total} terminal
-            </p>
-          )}
           {tasks.length > 0 && (
             <section className="flex flex-col gap-1 border-t pt-2">
               <h4 className="text-xs font-medium text-muted-foreground">
@@ -77,8 +63,7 @@ export function GraphNode({
                       variant="ghost"
                       size="xs"
                       className="max-w-full justify-start"
-                      aria-current={task.id === selectedId ? "true" : undefined}
-                      onClick={() => onSelect(task.id)}
+                      onClick={() => onSelect(node.id)}
                     >
                       <ListChecksIcon aria-hidden="true" data-icon="inline-start" />
                       <span className="truncate">{task.content.name}</span>

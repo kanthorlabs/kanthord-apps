@@ -2,7 +2,7 @@ import { useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { approveProposal } from "@/api/resources/mission";
-import type { MissionProposal, MissionRunnableNode } from "@/api/types";
+import type { MissionNodeRecord, MissionProposal } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 
@@ -22,36 +22,38 @@ export interface ProposalApproveState {
 }
 
 const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
+  "mission.node.requires_unmatched":
+    "No worker binding of the project matches the requires list of this node. Add a worker binding whose traits hold each key, then try again.",
   "mission.proposal.already_approved":
-    "Another approve of this proposal came first. The view now shows the objective that it created.",
+    "Another approve of this proposal came first. The view now shows the fix node that it created.",
   "mission.node.state_conflict":
-    "The initiative is no longer Blocked at the attempt of this proposal. The view now shows its current state.",
+    "The proposer is no longer Blocked at the attempt of this proposal. The view now shows its current state.",
   "mission.version.conflict":
     "The mission changed after this read. The view now shows the current mission. Review the proposal and approve again.",
 };
 
 function unavailableReasonOf(
-  initiative: MissionRunnableNode,
+  proposer: MissionNodeRecord,
   proposal: MissionProposal,
 ): string | null {
   if (proposal.approved_at !== null) return null;
-  if (initiative.retired_at !== null)
-    return "The initiative is retired. Approve needs an active initiative.";
-  if (initiative.state !== "Blocked") {
-    return `The initiative is ${initiative.state}. Approve needs a Blocked initiative.`;
+  if (proposer.retired_at !== null)
+    return "The proposer is retired. Approve needs an active proposer.";
+  if (proposer.state !== "Blocked") {
+    return `The proposer is ${proposer.state}. Approve needs a Blocked proposer.`;
   }
-  if (initiative.attempt !== proposal.attempt) {
-    return `The proposal belongs to attempt ${proposal.attempt}. The initiative is blocked after attempt ${initiative.attempt}.`;
+  if (proposer.attempt !== proposal.attempt) {
+    return `The proposal belongs to attempt ${proposal.attempt}. The proposer is blocked after attempt ${proposer.attempt}.`;
   }
   return null;
 }
 
-function isApprovable(initiative: MissionRunnableNode, proposal: MissionProposal): boolean {
-  return proposal.approved_at === null && unavailableReasonOf(initiative, proposal) === null;
+function isApprovable(proposer: MissionNodeRecord, proposal: MissionProposal): boolean {
+  return proposal.approved_at === null && unavailableReasonOf(proposer, proposal) === null;
 }
 
 export function useProposalApprove(
-  initiative: MissionRunnableNode,
+  proposer: MissionNodeRecord,
   missionVersion: number,
   reload: () => void,
 ): ProposalApproveState {
@@ -61,23 +63,23 @@ export function useProposalApprove(
   const [approving, setApproving] = useState(false);
 
   const canApprove = useCallback(
-    (proposal: MissionProposal) => isApprovable(initiative, proposal),
-    [initiative],
+    (proposal: MissionProposal) => isApprovable(proposer, proposal),
+    [proposer],
   );
 
   const unavailableReason = useCallback(
-    (proposal: MissionProposal) => unavailableReasonOf(initiative, proposal),
-    [initiative],
+    (proposal: MissionProposal) => unavailableReasonOf(proposer, proposal),
+    [proposer],
   );
 
   const request = useCallback(
     (proposal: MissionProposal) => {
-      if (!isApprovable(initiative, proposal)) return;
+      if (!isApprovable(proposer, proposal)) return;
       setError(null);
       setReason("");
       setTarget(proposal);
     },
-    [initiative],
+    [proposer],
   );
 
   const cancel = useCallback(() => {
@@ -88,7 +90,7 @@ export function useProposalApprove(
 
   const confirm = useCallback(() => {
     if (approving || target === null) return;
-    if (!isApprovable(initiative, target)) {
+    if (!isApprovable(proposer, target)) {
       setTarget(null);
       return;
     }
@@ -99,13 +101,14 @@ export function useProposalApprove(
       expected_mission_version: missionVersion,
       ...(trimmed.length === 0 ? {} : { reason: trimmed }),
     }).then(
-      () => {
+      ({ created, proposer: unblocked }) => {
         setApproving(false);
         toast.success(`Approved the proposal ${target.content.name}.`, {
           description: (
             <>
-              The objective is created under <RecordName>{initiative.content.name}</RecordName>, and
-              the initiative is unblocked.
+              The fix node is created as a dependency of{" "}
+              <RecordName>{unblocked.node.content.name}</RecordName>. The proposer is{" "}
+              {unblocked.node.state} at mission version {created.mission_version}.
             </>
           ),
         });
@@ -123,7 +126,7 @@ export function useProposalApprove(
         reload();
       },
     );
-  }, [approving, target, initiative, reason, missionVersion, reload]);
+  }, [approving, target, proposer, reason, missionVersion, reload]);
 
   return {
     target,
@@ -132,15 +135,15 @@ export function useProposalApprove(
     approving,
     consequence: (
       <>
-        Approve creates the objective <RecordName>{target?.content.name ?? ""}</RecordName> with its
-        task under <RecordName>{initiative.content.name}</RecordName> and unblocks the initiative.
-        An approve cannot be undone.
+        Approve creates the fix node <RecordName>{target?.content.name ?? ""}</RecordName> with its
+        task, adds it as a dependency of <RecordName>{proposer.content.name}</RecordName> and
+        unblocks the proposer. An approve cannot be undone.
       </>
     ),
     saferPath: (
       <>
         To reject the proposal, keep it unapproved and use Unblock or Discard on{" "}
-        <RecordName>{initiative.content.name}</RecordName> instead.
+        <RecordName>{proposer.content.name}</RecordName> instead.
       </>
     ),
     canApprove,

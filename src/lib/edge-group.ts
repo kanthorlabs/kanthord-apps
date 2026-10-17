@@ -21,7 +21,7 @@ function inOneCycle(model: GraphModel, link: DependencyLink): boolean {
 
 export function edgeGroupOf(model: GraphModel, link: DependencyLink): EdgeGroup {
   const source = model.nodeById.get(link.dependsOnId);
-  if (source === undefined || source.kind === "task") return "stuck";
+  if (source === undefined) return "stuck";
   if (source.state === "Completed") return "done";
   if (source.state === "Discarded" || inOneCycle(model, link)) return "stuck";
   return "waiting";

@@ -29,7 +29,7 @@ const SESSION: WorkbenchSession = {
       id: "e1",
       parentId: null,
       timestamp: "2026-10-05T09:00:00.000Z",
-      message: { role: "user", content: "List the open objectives" },
+      message: { role: "user", content: "List the open nodes" },
     },
   ],
   run_active: false,
@@ -85,7 +85,7 @@ describe("ChatScreen", () => {
     vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(SESSION);
     mount();
 
-    expect(await screen.findByText("List the open objectives")).toBeTruthy();
+    expect(await screen.findByText("List the open nodes")).toBeTruthy();
     expect(workbenchApi.readWorkbenchSession).toHaveBeenCalledWith(SESSION_ID);
     await waitFor(() =>
       expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledWith(
@@ -127,6 +127,6 @@ describe("ChatScreen", () => {
     vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(SESSION);
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByText("List the open objectives")).toBeTruthy();
+    expect(await screen.findByText("List the open nodes")).toBeTruthy();
   });
 });

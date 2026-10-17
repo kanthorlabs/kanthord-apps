@@ -1,13 +1,12 @@
-import type { MissionExternalAction, MissionNodeRecord, MissionRunnableNode } from "@/api/types";
+import type { MissionExternalAction, MissionNodeRecord } from "@/api/types";
 
 import type { PauseCause } from "./execution-stop";
 import { unresolvedRequestsOf } from "./external-requests";
-import { isTerminal } from "./node-state";
 
 export type ResumeTarget = "Available" | "Waiting";
 
 export interface ResumeContext {
-  readonly node: MissionRunnableNode;
+  readonly node: MissionNodeRecord;
   readonly nodes: readonly MissionNodeRecord[];
   readonly actions: readonly MissionExternalAction[];
   readonly cause: PauseCause | null;
@@ -16,7 +15,6 @@ export interface ResumeContext {
 export type DependencyRef = { readonly name: string } | { readonly id: string };
 
 export type WaitingNeed =
-  | { readonly kind: "objectives" }
   | { readonly kind: "requests" }
   | { readonly kind: "dependency"; readonly dependency: DependencyRef };
 
@@ -34,56 +32,21 @@ function byId(nodes: readonly MissionNodeRecord[]): ReadonlyMap<string, MissionN
   return new Map(nodes.map((node) => [node.id, node]));
 }
 
-function ownersOf(
-  node: MissionRunnableNode,
-  nodes: ReadonlyMap<string, MissionNodeRecord>,
-): readonly MissionRunnableNode[] {
-  const owners: MissionRunnableNode[] = [node];
-  const seen = new Set<string>([node.id]);
-  let parentId = node.parent_id;
-  while (parentId !== null && !seen.has(parentId)) {
-    seen.add(parentId);
-    const parent = nodes.get(parentId);
-    if (parent === undefined || parent.kind === "task") break;
-    owners.push(parent);
-    parentId = parent.parent_id;
-  }
-  return owners;
-}
-
 function unsatisfiedDependencyOf(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   nodes: readonly MissionNodeRecord[],
 ): DependencyRef | null {
   const known = byId(nodes);
-  for (const owner of ownersOf(node, known)) {
-    for (const id of owner.depends_on) {
-      const target = known.get(id);
-      if (target === undefined) return { id };
-      if (target.kind === "task" || target.state !== "Completed") {
-        return { name: target.content.name };
-      }
-    }
+  for (const id of node.depends_on) {
+    const target = known.get(id);
+    if (target === undefined) return { id };
+    if (target.state !== "Completed") return { name: target.content.name };
   }
   return null;
 }
 
-function objectivesTerminal(
-  node: MissionRunnableNode,
-  nodes: readonly MissionNodeRecord[],
-): boolean {
-  if (node.kind !== "initiative") return true;
-  return nodes
-    .filter(
-      (child) =>
-        child.parent_id === node.id && child.kind === "objective" && child.retired_at === null,
-    )
-    .every((child) => child.kind !== "task" && isTerminal(child.state));
-}
-
 export function waitingNeedsOf(context: ResumeContext): readonly WaitingNeed[] {
   const needs: WaitingNeed[] = [];
-  if (!objectivesTerminal(context.node, context.nodes)) needs.push({ kind: "objectives" });
   if (unresolvedRequestsOf(context.actions).length > 0) needs.push({ kind: "requests" });
   const dependency = unsatisfiedDependencyOf(context.node, context.nodes);
   if (dependency !== null) needs.push({ kind: "dependency", dependency });

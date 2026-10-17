@@ -21,7 +21,7 @@ import {
   listNodeProposals,
 } from "@/api/resources/mission";
 import { listNodeExecutions } from "@/api/resources/scheduler";
-import type { MissionRunnableNode, NodeState } from "@/api/types";
+import type { MissionNodeRecord, NodeState } from "@/api/types";
 import { detailKeyOf, type DetailTarget } from "@/lib/attention";
 
 import { useAttentionDetails } from "./use-attention-details";
@@ -29,18 +29,27 @@ import { useAttentionDetails } from "./use-attention-details";
 function node(
   id: string,
   state: NodeState,
-  overrides: Partial<MissionRunnableNode> = {},
-): MissionRunnableNode {
+  overrides: Partial<MissionNodeRecord> = {},
+): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
-    content: { name: id, requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name: id,
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt: 2,
     priority: 0,
@@ -49,7 +58,7 @@ function node(
   };
 }
 
-function blocked(id: string, overrides: Partial<MissionRunnableNode> = {}): DetailTarget {
+function blocked(id: string, overrides: Partial<MissionNodeRecord> = {}): DetailTarget {
   return {
     kind: "blocked",
     projectId: "prj-1",
@@ -73,11 +82,11 @@ function blocked(id: string, overrides: Partial<MissionRunnableNode> = {}): Deta
   };
 }
 
-function paused(id: string, overrides: Partial<MissionRunnableNode> = {}): DetailTarget {
+function paused(id: string, overrides: Partial<MissionNodeRecord> = {}): DetailTarget {
   return { kind: "paused", projectId: "prj-1", node: node(id, "Paused", overrides) };
 }
 
-function requested(id: string, overrides: Partial<MissionRunnableNode> = {}): DetailTarget {
+function requested(id: string, overrides: Partial<MissionNodeRecord> = {}): DetailTarget {
   return { kind: "external", projectId: "prj-1", node: node(id, "External.Requested", overrides) };
 }
 
@@ -91,8 +100,8 @@ beforeEach(() => {
 });
 
 describe("useAttentionDetails", () => {
-  it("reads the assessment of the outcome attempt and the proposals of an initiative", async () => {
-    const target = blocked("n1", { kind: "initiative" });
+  it("reads the assessment of the outcome attempt and the proposals of an examine node", async () => {
+    const target = blocked("n1", { work: "examine" });
 
     const { result } = renderHook(() => useAttentionDetails([target], null));
 
@@ -101,7 +110,7 @@ describe("useAttentionDetails", () => {
     expect(listNodeProposals).toHaveBeenCalledWith("n1");
   });
 
-  it("reads no proposals for an objective", async () => {
+  it("reads no proposals for an implement node", async () => {
     const target = blocked("n1");
 
     const { result } = renderHook(() => useAttentionDetails([target], null));

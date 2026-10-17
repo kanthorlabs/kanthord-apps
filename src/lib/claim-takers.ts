@@ -5,46 +5,79 @@ import type {
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerInstanceRecord,
+  Work,
 } from "@/api/types";
 
-function declaredStatesOf(
-  instances: readonly WorkerInstanceRecord[],
+export interface NodeFacts {
+  readonly state: NodeState;
+  readonly work: Work;
+  readonly requires: readonly string[];
+}
+
+export function factsOf(node: MissionNodeRecord): NodeFacts {
+  return {
+    state: node.state,
+    work: node.work,
+    requires: [...node.requires].sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+function admits(
+  binding: WorkerBindingRecord,
   catalog: readonly WorkerCatalogItem[],
-): ReadonlySet<string> {
-  const declared = new Set<string>();
-  for (const instance of instances) {
-    if (!instance.registered || instance.draining) continue;
-    const worker = catalog.find((item) => item.name === instance.worker_name);
-    for (const state of worker?.declared_node_states ?? []) declared.add(state);
-  }
-  return declared;
+  facts: NodeFacts,
+): boolean {
+  const worker = catalog.find((item) => item.name === binding.config.worker);
+  if (worker === undefined) return false;
+  const traits = binding.config.traits ?? [];
+  return (
+    worker.declared_node_states.includes(facts.state) &&
+    worker.declared_works.includes(facts.work) &&
+    facts.requires.every((trait) => traits.includes(trait))
+  );
+}
+
+function liveBindingsOf(
+  instances: readonly WorkerInstanceRecord[],
+  bindings: readonly WorkerBindingRecord[],
+): readonly WorkerBindingRecord[] {
+  const live = new Set(
+    instances
+      .filter((instance) => instance.registered && !instance.draining)
+      .map((instance) => instance.resource_identity),
+  );
+  return bindings.filter((binding) => live.has(binding.resource_identity));
+}
+
+export interface UncoveredGroup {
+  readonly facts: NodeFacts;
+  readonly jobs: readonly SchedulerJob[];
+}
+
+function groupKeyOf(facts: NodeFacts): string {
+  return `${facts.state}:${facts.work}:${facts.requires.join(",")}`;
 }
 
 export function uncoveredJobsOf(
   jobs: readonly SchedulerJob[],
   nodes: readonly MissionNodeRecord[],
   instances: readonly WorkerInstanceRecord[],
+  bindings: readonly WorkerBindingRecord[],
   catalog: readonly WorkerCatalogItem[],
-): ReadonlyMap<NodeState, readonly SchedulerJob[]> {
-  const declared = declaredStatesOf(instances, catalog);
-  const stateOf = new Map<string, NodeState>();
-  for (const node of nodes) if (node.kind !== "task") stateOf.set(node.id, node.state);
-  const uncovered = new Map<NodeState, SchedulerJob[]>();
+): readonly UncoveredGroup[] {
+  const live = liveBindingsOf(instances, bindings);
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const groups = new Map<string, UncoveredGroup>();
   for (const job of jobs) {
-    const state = stateOf.get(job.node_id);
-    if (state === undefined || declared.has(state)) continue;
-    uncovered.set(state, [...(uncovered.get(state) ?? []), job]);
+    const node = nodeById.get(job.node_id);
+    if (node === undefined) continue;
+    const facts = factsOf(node);
+    if (live.some((binding) => admits(binding, catalog, facts))) continue;
+    const key = groupKeyOf(facts);
+    const group = groups.get(key);
+    groups.set(key, { facts, jobs: [...(group?.jobs ?? []), job] });
   }
-  return uncovered;
-}
-
-export function uncoveredStates(
-  jobs: readonly SchedulerJob[],
-  nodes: readonly MissionNodeRecord[],
-  instances: readonly WorkerInstanceRecord[],
-  catalog: readonly WorkerCatalogItem[],
-): ReadonlySet<NodeState> {
-  return new Set(uncoveredJobsOf(jobs, nodes, instances, catalog).keys());
+  return [...groups.values()];
 }
 
 export type TakerHint =
@@ -52,15 +85,15 @@ export type TakerHint =
   | { readonly kind: "server" | "worker"; readonly binding: string; readonly worker: string };
 
 export function takerHintOf(
-  state: NodeState,
+  facts: NodeFacts,
   bindings: readonly WorkerBindingRecord[],
   catalog: readonly WorkerCatalogItem[],
 ): TakerHint {
   const ordered = [...bindings].sort((left, right) => left.name.localeCompare(right.name));
   for (const binding of ordered) {
+    if (!admits(binding, catalog, facts)) continue;
     const worker = catalog.find((item) => item.name === binding.config.worker);
-    if (worker === undefined || !worker.declared_node_states.includes(state)) continue;
-    const atServer = worker.host === "kanthord" && binding.config.placement === "server";
+    const atServer = worker?.host === "kanthord" && binding.config.placement === "server";
     return {
       kind: atServer ? "server" : "worker",
       binding: binding.name,
