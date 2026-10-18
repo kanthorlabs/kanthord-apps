@@ -370,6 +370,34 @@ describe("MissionPanel", () => {
     );
   });
 
+  it("words the summary line and the retire label for one and for two nodes", async () => {
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      no_ops: ["node_5"],
+      removed_edges: [
+        { dependent_id: "node_1", depends_on_id: "node_3" },
+        { dependent_id: "node_1", depends_on_id: "node_4" },
+      ],
+    });
+    await previewImport();
+
+    expect(await screen.findByText("1 node stays unchanged. 2 edges are removed.")).toBeTruthy();
+    expect(screen.getByText(/^Retire the 1 node listed above\./)).toBeTruthy();
+  });
+
+  it("words the retire label for two nodes", async () => {
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      no_ops: ["node_5", "node_6"],
+      removed_edges: [{ dependent_id: "node_1", depends_on_id: "node_3" }],
+      retirements: ["node_2", "node_3"],
+    });
+    await previewImport();
+
+    expect(await screen.findByText("2 nodes stay unchanged. 1 edge is removed.")).toBeTruthy();
+    expect(screen.getByText(/^Retire the 2 nodes listed above\./)).toBeTruthy();
+  });
+
   it("returns to review when the mission changed after the preview", async () => {
     vi.mocked(missionApi.applyMissionImport).mockRejectedValue(
       new ApiError("conflict", "The expected mission version differs.", 409),

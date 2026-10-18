@@ -140,8 +140,8 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
                 empty="No node retires."
               />
               <p className="text-sm text-muted-foreground">
-                {counted(shown.no_ops.length, "node", "nodes")} unchanged.{" "}
-                {counted(shown.removed_edges.length, "edge", "edges")} removed.
+                {counted(shown.no_ops.length, "node stays", "nodes stay")} unchanged.{" "}
+                {counted(shown.removed_edges.length, "edge is", "edges are")} removed.
               </p>
               {retiring > 0 && (
                 <Field orientation="horizontal">
@@ -151,7 +151,7 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
                     onCheckedChange={state.confirmRetirements}
                   />
                   <FieldLabel htmlFor="mission-import-retire">
-                    Retire all {counted(retiring, "node", "nodes")} listed above. To keep one, add
+                    Retire the {counted(retiring, "node", "nodes")} listed above. To keep one, add
                     it to the import and preview again.
                   </FieldLabel>
                 </Field>

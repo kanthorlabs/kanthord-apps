@@ -44,7 +44,8 @@ export function DataList<T>({
 }: DataListProps<T>) {
   const region = useFocusOnMove(pager?.position);
   const ready = status === "ready";
-  const emptyFirstPage = items.length === 0 && pager?.hasPrevious !== true;
+  const emptyFirstPage =
+    items.length === 0 && pager?.hasPrevious !== true && pager?.hasNext !== true;
 
   return (
     <section ref={region} aria-label={label} tabIndex={-1} className="flex flex-col gap-4">
