@@ -37,7 +37,7 @@ export function StatusLine({
                 of <RecordName>{fact.project.name}</RecordName>
               </>
             )}
-            : every model cools down until {utcDateTime(fact.untilAt)}.
+            : every model cools down until {utcDateTime(fact.availableAt)}.
           </ItemDescription>
         ))}
       </ItemContent>

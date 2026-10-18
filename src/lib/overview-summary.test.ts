@@ -175,7 +175,7 @@ describe("coolingFactsOf", () => {
     ]);
 
     expect(facts).toEqual([
-      { key: "p:binding_1:swe@1", agent: "swe@1", binding: "coder-main", project, untilAt: 99 },
+      { key: "p:binding_1:swe@1", agent: "swe@1", binding: "coder-main", project, availableAt: 99 },
     ]);
   });
 
