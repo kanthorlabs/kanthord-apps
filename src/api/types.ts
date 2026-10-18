@@ -807,7 +807,7 @@ export interface WorkerBindingRecord extends ProjectBindingRecord {
 
 export interface AgentCooling {
   readonly code: string;
-  readonly until_at: number;
+  readonly available_at: number;
 }
 
 export interface BindingAgentIssue {

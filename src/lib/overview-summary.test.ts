@@ -126,7 +126,7 @@ describe("coolingFactsOf", () => {
     workspace_directory: "/p",
   };
 
-  function agentView(agent: string, cooling: { code: string; until_at: number } | null) {
+  function agentView(agent: string, cooling: { code: string; available_at: number } | null) {
     return {
       agent,
       worker: "coder@1",
@@ -166,7 +166,7 @@ describe("coolingFactsOf", () => {
               removed_at: null,
             },
             agents: [
-              agentView("swe@1", { code: "agent.configuration.chain_cooling", until_at: 99 }),
+              agentView("swe@1", { code: "agent.configuration.chain_cooling", available_at: 99 }),
               agentView("re@1", null),
             ],
           },
@@ -175,7 +175,7 @@ describe("coolingFactsOf", () => {
     ]);
 
     expect(facts).toEqual([
-      { key: "p:binding_1:swe@1", agent: "swe@1", binding: "coder-main", project, untilAt: 99 },
+      { key: "p:binding_1:swe@1", agent: "swe@1", binding: "coder-main", project, availableAt: 99 },
     ]);
   });
 

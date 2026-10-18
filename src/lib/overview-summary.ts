@@ -29,7 +29,7 @@ export interface CoolingFact {
   readonly agent: string;
   readonly binding: string;
   readonly project: Project;
-  readonly untilAt: number;
+  readonly availableAt: number;
 }
 
 export function coolingFactsOf(snapshots: readonly ProjectSnapshot[]): readonly CoolingFact[] {
@@ -44,7 +44,7 @@ export function coolingFactsOf(snapshots: readonly ProjectSnapshot[]): readonly 
                 agent: view.agent,
                 binding: entry.binding.name,
                 project: snapshot.project,
-                untilAt: view.cooling.until_at,
+                availableAt: view.cooling.available_at,
               },
             ],
       ),

@@ -1723,12 +1723,12 @@ const agentViewOf = (agent, binding, projectId) => {
         position: 0,
         level: "enablement",
         ...effective,
-        cooldown: cooling ? { code: "rate_limited", until_at: COOLING_UNTIL } : null,
+        cooldown: cooling ? { strikes: 1, available_at: COOLING_UNTIL } : null,
       },
     ],
     active_position: cooling ? null : 0,
     cooling: cooling
-      ? { code: "agent.configuration.chain_cooling", until_at: COOLING_UNTIL }
+      ? { code: "agent.configuration.chain_cooling", available_at: COOLING_UNTIL }
       : null,
     valid: true,
     issues: [],
