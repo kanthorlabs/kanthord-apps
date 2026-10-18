@@ -151,11 +151,12 @@ export function WorkersScreen() {
       <Section
         id="bindings-heading"
         title="Worker bindings"
-        loading={bindings.loading || instances.loading}
-        error={bindings.error ?? instances.error}
+        loading={bindings.loading || instances.loading || catalog.loading}
+        error={bindings.error ?? instances.error ?? catalog.error}
         reload={() => {
           bindings.reload();
           instances.reload();
+          catalog.reload();
         }}
       >
         {bindingEntries.length === 0 ? (

@@ -138,8 +138,8 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     render(<WorkersScreen />);
 
-    await waitFor(() => expect(screen.getByText("The daemon is unavailable.")).toBeDefined());
-    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getAllByText("The daemon is unavailable.")).toHaveLength(2));
+    await userEvent.click(screen.getAllByRole("button", { name: "Retry" })[0]!);
     await waitFor(() => expect(screen.getByText("tdd")).toBeDefined());
   });
 
@@ -197,10 +197,14 @@ describe("WorkersScreen", () => {
         "kanthord auth jwt generate --project prj-test --binding reviewer-main --output <file>",
       ),
     ).toBeDefined();
-    expect(screen.getByText("$XDG_CONFIG_HOME/kanthord")).toBeDefined();
-    expect(screen.getByText("~/.config/kanthord")).toBeDefined();
+    expect(screen.getByText("<dir>/config/kanthord/")).toBeDefined();
     expect(screen.getByText("0600")).toBeDefined();
-    expect(screen.getByText("kanthord serve worker --endpoint <url>")).toBeDefined();
+    expect(
+      screen.getByText(
+        "env -u KANTHORD_TOKEN XDG_CONFIG_HOME=<dir>/config XDG_STATE_HOME=<dir>/state kanthord serve worker --endpoint <url>",
+      ),
+    ).toBeDefined();
+    expect(screen.getAllByText("KANTHORD_TOKEN").length).toBeGreaterThan(0);
     expect(screen.getByText("client_secret")).toBeDefined();
   });
 
@@ -280,6 +284,41 @@ describe("WorkersScreen", () => {
     expect(screen.getAllByText("claude-code@1").length).toBeGreaterThan(0);
     expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
     expect(screen.queryByText(/ · worker$/)).toBeNull();
+  });
+
+  it("shows the catalog error and no hint when the catalog read fails", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockRejectedValue(
+      new ApiError("unavailable", "The daemon is unavailable.", 503),
+    );
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("reviewer-main", { instance_count: 2 }),
+    ]);
+    render(<WorkersScreen />);
+
+    await waitFor(() => expect(screen.getAllByText("The daemon is unavailable.")).toHaveLength(2));
+    expect(screen.queryByText("0 of 2 live")).toBeNull();
+    expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(2);
+  });
+
+  it("shows a loading state for the bindings until the catalog loads", async () => {
+    let resolveCatalog: (items: WorkerCatalogItem[]) => void = () => undefined;
+    vi.mocked(workersApi.listWorkerCatalog).mockReturnValue(
+      new Promise((resolve) => {
+        resolveCatalog = resolve;
+      }),
+    );
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("reviewer-main", { instance_count: 2 }),
+    ]);
+    render(<WorkersScreen />);
+
+    await waitFor(() => expect(workersApi.listWorkerInstances).toHaveBeenCalled());
+    expect(screen.queryByText("0 of 2 live")).toBeNull();
+    resolveCatalog([CATALOG_TDD]);
+    await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
+    expect(screen.getByText(/kanthord auth jwt generate/)).toBeDefined();
   });
 
   it("shows the empty state when the project has no worker binding", async () => {

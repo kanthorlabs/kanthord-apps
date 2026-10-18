@@ -22,14 +22,18 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
           .
         </li>
         <li>
-          Place the file as <code className="font-mono break-all">cli.yaml</code> with mode{" "}
+          Choose one directory <code className="font-mono">&lt;dir&gt;</code> for each instance.
+          Place the file as <code className="font-mono">cli.yaml</code> with mode{" "}
           <code className="font-mono">0600</code> in{" "}
-          <code className="font-mono break-all">$XDG_CONFIG_HOME/kanthord</code> or{" "}
-          <code className="font-mono break-all">~/.config/kanthord</code> on the worker host. Do not
-          replace a human <code className="font-mono">cli.yaml</code>. Use another user or another{" "}
-          <code className="font-mono">XDG_CONFIG_HOME</code> instead. Run{" "}
-          <code className="font-mono break-all">kanthord serve worker --endpoint &lt;url&gt;</code>.
-          The worker reads <code className="font-mono">client_secret</code> only from{" "}
+          <code className="font-mono break-all">&lt;dir&gt;/config/kanthord/</code> on the worker
+          host. Run{" "}
+          <code className="font-mono break-all">
+            env -u KANTHORD_TOKEN XDG_CONFIG_HOME=&lt;dir&gt;/config
+            XDG_STATE_HOME=&lt;dir&gt;/state kanthord serve worker --endpoint &lt;url&gt;
+          </code>
+          . A <code className="font-mono">KANTHORD_TOKEN</code> in the shell overrides the token of{" "}
+          <code className="font-mono">cli.yaml</code>. The worker reads{" "}
+          <code className="font-mono">client_secret</code> only from{" "}
           <code className="font-mono">cli.yaml</code>.
         </li>
       </ol>
