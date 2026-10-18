@@ -528,6 +528,27 @@ describe("NodeSheet", () => {
     await vi.waitFor(() => expect(workersApi.listWorkerInstances).toHaveBeenCalledTimes(2));
   });
 
+  it("shows no stall text while the executions of an Executing node load", async () => {
+    let answer: (value: SchedulerExecutionRecord[]) => void = () => undefined;
+    vi.mocked(schedulerApi.listNodeExecutions).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    renderSheet("node_running");
+
+    await screen.findByRole("region", { name: "Controls" });
+    await vi.waitFor(() => expect(schedulerApi.listNodeExecutions).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/No running execution/)).toBeNull();
+    expect(screen.queryByRole("region", { name: "Claimant" })).toBeNull();
+
+    answer([execution({})]);
+
+    expect(await screen.findByRole("region", { name: "Claimant" })).toBeTruthy();
+    expect(screen.queryByText(/No running execution/)).toBeNull();
+  });
+
   it("states that an Executing node holds no running execution", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
       execution({ claim_state: "finished", ended_at: 2_000 }),
