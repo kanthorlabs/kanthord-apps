@@ -53,7 +53,6 @@ export function SignInForm({ form }: { form: SignInFormState }) {
                 onChange={(event) => form.setField("baseUrl", event.target.value)}
               />
               <FieldError>{errors.baseUrl}</FieldError>
-              <VerifyStatus state={form.verifyState} />
             </Field>
             <Field data-invalid={errors.token !== undefined}>
               <FieldLabel htmlFor="login-token">JWT token</FieldLabel>
@@ -70,6 +69,7 @@ export function SignInForm({ form }: { form: SignInFormState }) {
                 Generate a human token with <code>kanthord auth jwt generate</code>.
               </FieldDescription>
               <FieldError>{errors.token}</FieldError>
+              <VerifyStatus state={form.verifyState} />
             </Field>
             {form.error !== null && (
               <Alert variant="destructive">
