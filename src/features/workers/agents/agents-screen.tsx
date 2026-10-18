@@ -30,6 +30,16 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           </Link>
         </ItemTitle>
         <Badge variant={enablementVariant(enablement)}>{enablementLabel(enablement)}</Badge>
+        {enablement === null && (
+          <Button
+            size="sm"
+            nativeButton={false}
+            aria-label={`Enable ${agentName}`}
+            render={<Link to={`/agents/${encodeURIComponent(agentName)}`} />}
+          >
+            Enable
+          </Button>
+        )}
         <NewSessionButton
           size="sm"
           label={`New session with ${agentName}`}
