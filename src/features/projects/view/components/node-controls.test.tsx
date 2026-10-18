@@ -148,6 +148,7 @@ describe("NodeControls", () => {
     vi.mocked(missionApi.discardNode).mockResolvedValue({} as MissionControlResult);
     vi.mocked(missionApi.overrideNode).mockResolvedValue({} as MissionControlResult);
     vi.mocked(missionApi.resumeNode).mockResolvedValue({} as MissionControlResult);
+    vi.mocked(missionApi.pauseNode).mockResolvedValue({} as MissionControlResult);
   });
 
   it("offers Unblock and Discard for a Blocked node", () => {
@@ -159,10 +160,11 @@ describe("NodeControls", () => {
   });
 
   it.each<NodeState>(["Available", "Executing"])(
-    "offers Override and Discard but not Unblock or Resume for a %s node",
+    "offers Pause, Override and Discard but not Unblock or Resume for a %s node",
     (state) => {
       mount({ ...TEAM, state });
 
+      expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Unblock" })).toBeNull();
       expect(screen.queryByRole("button", { name: "Resume" })).toBeNull();
       expect(screen.getByRole("button", { name: "Override" })).toBeTruthy();
@@ -170,9 +172,10 @@ describe("NodeControls", () => {
     },
   );
 
-  it("offers Resume, Override and Discard for a Paused node", () => {
+  it("offers Resume, Override and Discard but not Pause for a Paused node", () => {
     mount({ ...TEAM, state: "Paused" });
 
+    expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Unblock" })).toBeNull();
     expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Override" })).toBeTruthy();
@@ -223,6 +226,47 @@ describe("NodeControls", () => {
       result: "success",
     });
     await vi.waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+  });
+
+  it("pauses an Executing node after the reason and sends the expected state", async () => {
+    const { onChanged } = mount({ ...TEAM, state: "Executing" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Pause" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(
+        textContent(
+          "Pause ends the live claim on Team workspaces and holds the node as Paused. The worker stops its execution. The node runs no work until you resume it.",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        textContent("To keep Team workspaces as it is, cancel. The node stays Executing."),
+      ),
+    ).toBeTruthy();
+    const action = within(dialog).getByRole("button", { name: "Pause node" });
+    expect(action).toHaveProperty("disabled", true);
+    await userEvent.type(within(dialog).getByLabelText("Reason"), "Hold for review.");
+    await userEvent.click(action);
+
+    expect(missionApi.pauseNode).toHaveBeenCalledWith("node_team", {
+      reason: "Hold for review.",
+      expected_mission_version: 9,
+      expected_state: "Executing",
+      expected_attempt: 2,
+    });
+    await vi.waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
+  });
+
+  it("sends no pause call when the dialog is cancelled", async () => {
+    mount({ ...TEAM, state: "Waiting" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Pause" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep the node running" }));
+
+    expect(missionApi.pauseNode).not.toHaveBeenCalled();
   });
 
   it("resumes a Paused node to Available by default and sends the target", async () => {
@@ -354,14 +398,19 @@ describe("NodeControls", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it.each<NodeState>(["Completed", "Discarded", "External.Requested"])(
-    "offers no control for a %s node",
-    (state) => {
-      mount({ ...TEAM, state });
+  it("offers only Pause for an External.Requested node", () => {
+    mount({ ...TEAM, state: "External.Requested" });
 
-      expect(screen.queryByRole("region", { name: "Controls" })).toBeNull();
-    },
-  );
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Override" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it.each<NodeState>(["Completed", "Discarded"])("offers no control for a %s node", (state) => {
+    mount({ ...TEAM, state });
+
+    expect(screen.queryByRole("region", { name: "Controls" })).toBeNull();
+  });
 
   it("offers no control for a retired node", () => {
     mount({ ...TEAM, retired_at: 1 });

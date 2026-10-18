@@ -15,6 +15,7 @@ import {
   listNodeEvidence,
   listNodeProposals,
   overrideNode,
+  pauseNode,
   previewMissionImport,
   readMission,
   readNodeRevision,
@@ -194,6 +195,27 @@ describe("mission node control resources", () => {
       reason: "Out of scope",
       expected_mission_version: 7,
       expected_state: "Blocked",
+      expected_attempt: 2,
+    });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+  });
+
+  it("pauses a node with the reason, the expected state and attempt and an idempotency key", async () => {
+    await serve({});
+
+    await pauseNode("node_1", {
+      reason: "Hold the work",
+      expected_mission_version: 7,
+      expected_state: "Executing",
+      expected_attempt: 2,
+    });
+
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/pause");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      reason: "Hold the work",
+      expected_mission_version: 7,
+      expected_state: "Executing",
       expected_attempt: 2,
     });
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);

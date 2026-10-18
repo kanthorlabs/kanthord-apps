@@ -1,13 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { NodeDiscardDialog } from "@/components/node-discard-dialog";
 import { NodeOverrideDialog } from "@/components/node-override-dialog";
+import { NodePauseDialog } from "@/components/node-pause-dialog";
 import { NodeResumeDialog } from "@/components/node-resume-dialog";
 import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 
 import { useNodeControls, type NodeControlsInput } from "../use-node-controls";
 
 export function NodeControls(input: NodeControlsInput) {
-  const { unblock, resume, override, discard, guardLine, retry, visible } = useNodeControls(input);
+  const { pause, unblock, resume, override, discard, guardLine, retry, visible } =
+    useNodeControls(input);
   const name = input.node.content.name;
 
   if (!visible) return null;
@@ -24,6 +26,11 @@ export function NodeControls(input: NodeControlsInput) {
         </div>
       )}
       <div className="flex flex-wrap gap-2 md:justify-end">
+        {pause.available && (
+          <Button variant="outline" size="sm" onClick={pause.request}>
+            Pause
+          </Button>
+        )}
         {unblock.available && (
           <Button variant="outline" size="sm" onClick={unblock.request}>
             Unblock
@@ -45,6 +52,7 @@ export function NodeControls(input: NodeControlsInput) {
           </Button>
         )}
       </div>
+      <NodePauseDialog name={name} pause={pause} />
       <NodeUnblockDialog name={name} unblock={unblock} />
       <NodeResumeDialog name={name} resume={resume} />
       <NodeOverrideDialog name={name} override={override} />

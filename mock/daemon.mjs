@@ -1560,6 +1560,32 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/resume$/, (m, b, res) => {
   });
 });
 
+const PAUSE_STATES = [
+  "Pending",
+  "Available",
+  "Executing",
+  "Waiting",
+  "Evaluating",
+  "External.Requested",
+  "External.Success",
+  "External.Failed",
+];
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/pause$/, (m, b, res) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const node = graphNodeById(decodeURIComponent(m[1]));
+  const refusal = humanControlRefusal(res, state, node, b, PAUSE_STATES);
+  if (refusal !== null) return refusal;
+  node.state = "Paused";
+  return json(res, 200, {
+    node: graphNodeRead(state, node),
+    attempt: null,
+    outcome: null,
+    actor: fx.GRAPH_HUMAN,
+    accepted_at: Date.now(),
+  });
+});
+
 on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res) => {
   const state = stateOfNode(decodeURIComponent(m[1]));
   const node = graphNodeById(decodeURIComponent(m[1]));

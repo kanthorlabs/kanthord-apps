@@ -8,13 +8,13 @@ export function useNodeExecutions(
   projectId: string,
   nodeId: string,
   attempt: number,
-  paused: boolean,
+  enabled: boolean,
 ): Resource<readonly SchedulerExecutionRecord[]> {
   return useResource(
     () =>
-      paused && attempt > 0
+      enabled && attempt > 0
         ? listNodeExecutions(projectId, nodeId, attempt)
         : Promise.resolve(NO_EXECUTIONS),
-    [projectId, nodeId, attempt, paused],
+    [projectId, nodeId, attempt, enabled],
   );
 }

@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { stopLabel } from "@/lib/execution-stop";
 import { utcDateTime } from "@/lib/format";
 import { nameOf, type GraphModel } from "@/lib/mission-graph";
 import {
@@ -114,6 +115,9 @@ export function AttemptRecords({
                       <Badge variant={claimStateVariant(item.claim_state)}>
                         {item.claim_state}
                       </Badge>
+                      {item.stop !== null && (
+                        <Badge variant="outline">{stopLabel(item.stop)}</Badge>
+                      )}
                     </ItemTitle>
                     <ItemDescription className="flex flex-col gap-0.5">
                       <span className="font-mono text-xs break-all">{item.execution_id}</span>

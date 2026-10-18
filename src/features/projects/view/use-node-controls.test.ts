@@ -180,6 +180,26 @@ describe("useNodeControls", () => {
     expect(state.resume.target).toBe("Waiting");
   });
 
+  it("keeps the controls of an Executing node when the executions read fails", () => {
+    const executions = resource<readonly SchedulerExecutionRecord[]>({
+      error: new ApiError("unreachable", "The daemon did not answer.", 0),
+    });
+
+    const state = mount(node("Executing"), NONE, executions);
+
+    expect(state.guardLine).toBeNull();
+    expect(state.retry).toBeNull();
+    expect(state.override.available).toBe(true);
+    expect(state.discard.available).toBe(true);
+  });
+
+  it("offers the pause of a node without an open attempt and without a read", () => {
+    const state = mount(node("Pending", 0), resource({ loading: true }), NO_RUNS);
+
+    expect(state.pause.available).toBe(true);
+    expect(state.visible).toBe(true);
+  });
+
   it("hides the section of a node that offers nothing", () => {
     expect(mount(node("Completed"), NONE, NO_RUNS).visible).toBe(false);
     expect(mount(node("Executing"), NONE, NO_RUNS).visible).toBe(true);

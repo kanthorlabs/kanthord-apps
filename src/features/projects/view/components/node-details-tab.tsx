@@ -10,16 +10,18 @@ import type { GraphModel } from "@/lib/mission-graph";
 import { closingEventText, resultVariant } from "@/lib/mission-labels";
 import { badgeVariantOf, meaningOf } from "@/lib/node-state";
 import { useBindingRecords } from "../use-binding-records";
+import { useNodeClaimant } from "../use-node-claimant";
 import { useNodeExecutions } from "../use-node-executions";
 import { useNodeExternalActions } from "../use-node-external-actions";
 import { useNodeProposals } from "../use-node-proposals";
 import { useNodeRecord } from "../use-node-record";
 import { BindingList } from "./binding-list";
 import { FactList, type Fact } from "./fact-list";
+import { NodeClaimantFacts } from "./node-claimant";
 import { NodeControls } from "./node-controls";
 import { NodeStructure } from "./node-structure";
 import { ProposalSection } from "./proposal-section";
-import type { MissionNodeRecord } from "@/api/types";
+import type { MissionNodeRecord, NodeState } from "@/api/types";
 
 interface NodeDetailsTabProps {
   readonly projectId: string;
@@ -29,6 +31,8 @@ interface NodeDetailsTabProps {
   readonly onChanged: () => void;
   readonly onSelect: (nodeId: string) => void;
 }
+
+const EXECUTION_STATES: readonly NodeState[] = ["Paused", "Executing", "Evaluating"];
 
 function factsOf(node: MissionNodeRecord): Fact[] {
   const facts: Fact[] = [
@@ -113,8 +117,9 @@ export function NodeDetailsTab({
     projectId,
     nodeId,
     runnable?.attempt ?? 0,
-    runnable?.state === "Paused",
+    runnable !== null && EXECUTION_STATES.includes(runnable.state),
   );
+  const claimant = useNodeClaimant(projectId, executions);
   const { reload: reloadActions } = actions;
   const { reload: reloadExecutions } = executions;
   const reloadAll = useCallback(() => {
@@ -165,6 +170,7 @@ export function NodeDetailsTab({
         />
       )}
       <FactList facts={factsOf(node)} />
+      {claimant !== null && <NodeClaimantFacts {...claimant} />}
       <section aria-label="Content" className="flex flex-col gap-2">
         <h4 className="text-sm font-medium">Content of revision {node.visible_revision}</h4>
         <FactList
