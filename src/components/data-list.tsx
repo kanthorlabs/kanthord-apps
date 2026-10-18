@@ -44,6 +44,7 @@ export function DataList<T>({
 }: DataListProps<T>) {
   const region = useFocusOnMove(pager?.position);
   const ready = status === "ready";
+  const emptyFirstPage = items.length === 0 && pager?.hasPrevious !== true;
 
   return (
     <section ref={region} aria-label={label} tabIndex={-1} className="flex flex-col gap-4">
@@ -86,7 +87,7 @@ export function DataList<T>({
         </ItemGroup>
       )}
 
-      {ready && pager !== undefined && (
+      {ready && pager !== undefined && !emptyFirstPage && (
         <nav aria-label={`${label} pages`} className="flex justify-between gap-2">
           <Button
             variant="outline"

@@ -1,10 +1,7 @@
 import type { MissionNodeRecord, Project } from "@/api/types";
 
 import { ATTENTION_GROUPS, type AttentionItem, type ProjectSnapshot } from "./attention";
-
-function counted(count: number, noun: string, plural: string): string {
-  return `${count} ${count === 1 ? noun : plural}`;
-}
+import { counted } from "./counted";
 
 export function attentionSummary(items: readonly AttentionItem[]): string {
   const parts = ATTENTION_GROUPS.flatMap((group) => {
