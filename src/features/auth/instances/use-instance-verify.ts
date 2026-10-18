@@ -1,11 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { isApiError } from "@/api/errors";
+import { isApiError, type ApiError } from "@/api/errors";
 import { readLiveness, verifyHumanToken } from "@/api/resources/gateway";
 import type { ServiceMaps } from "@/api/types";
-import { signInMessage } from "@/features/auth/login/sign-in-message";
+import { utcDateTime } from "@/lib/format";
 import { jwtExpiryOf } from "@/lib/jwt-expiry";
+import { signInMessage } from "./sign-in-message";
 
 export type VerifyState =
   | { readonly status: "checking" }
@@ -45,6 +46,14 @@ function failingComponents(services: ServiceMaps): string[] {
   );
 }
 
+function refusalMessage(cause: ApiError, token: string | undefined): string {
+  const expiresAt = token === undefined ? null : jwtExpiryOf(token);
+  if (expiresAt !== null && expiresAt < Date.now()) {
+    return `The token expired at ${utcDateTime(expiresAt)}. Generate a new one with kanthord auth jwt generate.`;
+  }
+  return signInMessage(cause);
+}
+
 async function check(baseUrl: string, token: string | undefined): Promise<VerifyState> {
   try {
     if (token !== undefined) {
@@ -60,28 +69,46 @@ async function check(baseUrl: string, token: string | undefined): Promise<Verify
       return { status: "unreachable", origin: window.location.origin };
     }
     if (cause.code === "unavailable") return { status: "unhealthy", failing: [] };
-    if (cause.code === "unauthorized") return { status: "failed", message: signInMessage(cause) };
+    if (cause.code === "unauthorized") {
+      return { status: "failed", message: refusalMessage(cause, token) };
+    }
     return { status: "failed", message: cause.message };
   }
 }
 
 export function useInstanceVerify(): InstanceVerifyState {
   const [states, setStates] = useState<Readonly<Record<string, VerifyState>>>({});
+  const generations = useRef(new Map<string, number>());
 
-  const verify = useCallback(async (key: string, baseUrl: string, token?: string) => {
-    setStates((current) => ({ ...current, [key]: { status: "checking" } }));
-    const next = await check(baseUrl, token);
-    if (next.status === "reachable") {
-      toast.success(`${baseUrl} is reachable.`, { duration: REACHABLE_TOAST_MS });
+  const supersede = useCallback((key: string): number => {
+    const next = (generations.current.get(key) ?? 0) + 1;
+    generations.current.set(key, next);
+    return next;
+  }, []);
+
+  const verify = useCallback(
+    async (key: string, baseUrl: string, token?: string) => {
+      const generation = supersede(key);
+      setStates((current) => ({ ...current, [key]: { status: "checking" } }));
+      const next = await check(baseUrl, token);
+      if (generations.current.get(key) !== generation) return;
+      if (next.status === "reachable") {
+        toast.success(`${baseUrl} is reachable.`, { duration: REACHABLE_TOAST_MS });
+        setStates((current) => without(current, key));
+        return;
+      }
+      setStates((current) => ({ ...current, [key]: next }));
+    },
+    [supersede],
+  );
+
+  const clear = useCallback(
+    (key: string) => {
+      supersede(key);
       setStates((current) => without(current, key));
-      return;
-    }
-    setStates((current) => ({ ...current, [key]: next }));
-  }, []);
-
-  const clear = useCallback((key: string) => {
-    setStates((current) => without(current, key));
-  }, []);
+    },
+    [supersede],
+  );
 
   return { states, verify, clear };
 }

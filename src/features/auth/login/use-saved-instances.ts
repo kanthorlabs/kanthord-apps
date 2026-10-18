@@ -6,10 +6,10 @@ import {
   type InstanceEditState,
 } from "@/features/auth/instances/use-instance-edit";
 import { useInstanceRemoval } from "@/features/auth/instances/use-instance-removal";
+import { signInMessage } from "@/features/auth/instances/sign-in-message";
 import { useInstanceVerify, type VerifyState } from "@/features/auth/instances/use-instance-verify";
 import type { InstancesState } from "@/features/auth/instances/use-instances";
 import { useSession } from "@/features/auth/session/session-context";
-import { signInMessage } from "./sign-in-message";
 
 export type SavedInstanceMode = "view" | "edit" | "delete";
 
@@ -79,7 +79,8 @@ export function useSavedInstances(store: InstancesState): SavedInstancesState {
   );
 
   const verify = useCallback(
-    (instance: SavedInstance) => void verifier.verify(instance.id, instance.baseUrl),
+    (instance: SavedInstance) =>
+      void verifier.verify(instance.id, instance.baseUrl, instance.token),
     [verifier],
   );
 

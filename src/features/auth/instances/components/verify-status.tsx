@@ -46,8 +46,8 @@ function Detail({ state }: { state: VerifyState }) {
     case "unreachable":
       return (
         <p className="break-words">
-          The instance did not answer. Its configured origins may not include this dashboard origin,{" "}
-          {state.origin}.
+          The instance did not answer. Its allowed origins or allowed hosts may not include this
+          dashboard origin, {state.origin}.
         </p>
       );
     case "failed":

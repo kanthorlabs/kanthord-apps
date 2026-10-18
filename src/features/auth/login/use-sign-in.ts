@@ -8,11 +8,11 @@ import {
   type InstanceErrors,
 } from "@/features/auth/instances/instance-validation";
 import type { InstancesState } from "@/features/auth/instances/use-instances";
+import { signInMessage } from "@/features/auth/instances/sign-in-message";
 import { useInstanceVerify, type VerifyState } from "@/features/auth/instances/use-instance-verify";
 import { useSession } from "@/features/auth/session/session-context";
 import { newUlid } from "@/lib/ulid";
 import { blankInstanceDraft, firstInstanceDraft } from "./default-instance";
-import { signInMessage } from "./sign-in-message";
 
 const VERIFY_KEY = "form";
 

@@ -7,7 +7,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { setConnection } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { readLiveness, verifyHumanToken } from "@/api/resources/gateway";
-import type { LivenessReport } from "@/api/types";
 import { SessionProvider, useSession } from "@/features/auth/session/session-context";
 import { LoginScreen } from "./login-screen";
 
@@ -229,10 +228,65 @@ describe("LoginScreen", () => {
     expect(within(form()).queryByRole("status")).toBeNull();
   });
 
+  it("names the expiry of a refused token that has expired", async () => {
+    const expired = Date.UTC(2020, 0, 2, 3, 4) / 1000;
+    const token = `header.${btoa(JSON.stringify({ exp: expired }))}.signature`;
+    verifyMock.mockRejectedValue(new ApiError("unauthorized", "Unauthorized.", 401));
+    mount();
+
+    await fill("http://localhost:31415", token);
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+
+    expect(
+      await within(form()).findByText(
+        "The token expired at 2020-01-02 03:04 UTC. Generate a new one with kanthord auth jwt generate.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("resets the badge when the endpoint changes", async () => {
+    verifyMock.mockResolvedValue(IDENTITY);
+    mount();
+
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+    expect(await within(form()).findByText("Verified")).toBeInTheDocument();
+
+    await userEvent.type(within(form()).getByLabelText("Endpoint"), "0");
+
+    expect(within(form()).queryByRole("status")).toBeNull();
+  });
+
+  it("drops a late answer after the token changed", async () => {
+    let answer: (identity: typeof IDENTITY) => void = () => undefined;
+    verifyMock.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    mount();
+
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+    await userEvent.type(within(form()).getByLabelText("JWT token"), "x");
+    answer(IDENTITY);
+
+    expect(await within(form()).findByRole("button", { name: "Verify" })).toBeEnabled();
+    expect(within(form()).queryByRole("status")).toBeNull();
+  });
+
+  it("drops a late answer after the endpoint changed", async () => {
+    let answer: (identity: typeof IDENTITY) => void = () => undefined;
+    verifyMock.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    mount();
+
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+    await userEvent.type(within(form()).getByLabelText("Endpoint"), "0");
+    answer(IDENTITY);
+
+    expect(await within(form()).findByRole("button", { name: "Verify" })).toBeEnabled();
+    expect(within(form()).queryByRole("status")).toBeNull();
+  });
+
   it("shows the check on the Verify button and renders no chip while it runs", async () => {
-    let answerLiveness: (report: LivenessReport) => void = () => undefined;
     let answerToken: (identity: typeof IDENTITY) => void = () => undefined;
-    livenessMock.mockReturnValue(new Promise((resolve) => (answerLiveness = resolve)));
     verifyMock.mockReturnValue(new Promise((resolve) => (answerToken = resolve)));
     seed(LOCAL);
     mount();
@@ -245,13 +299,12 @@ describe("LoginScreen", () => {
     expect(screen.getByRole("button", { name: "Verifying local" })).toBeDisabled();
     expect(screen.queryByRole("status")).toBeNull();
 
-    answerLiveness({ healthy: true, services: {} });
     answerToken(IDENTITY);
 
     expect(await within(form()).findByRole("button", { name: "Verify" })).toBeEnabled();
     expect(await screen.findByRole("button", { name: "Verify local" })).toBeEnabled();
     expect(within(form()).getByText("Verified")).toBeInTheDocument();
-    expect(within(row("local")).queryByRole("status")).toBeNull();
+    expect(within(row("local")).getByText("Verified")).toBeInTheDocument();
   });
 
   it("keeps an unreachable endpoint of the form inline", async () => {
@@ -357,20 +410,27 @@ describe("LoginScreen", () => {
     ).toBeInTheDocument();
   });
 
-  it("toasts a reachable saved instance", async () => {
+  it("verifies the saved token of an instance and shows the subject", async () => {
     seed(LOCAL);
-    livenessMock.mockResolvedValue({ healthy: true, services: {} });
+    verifyMock.mockResolvedValue(IDENTITY);
     mount();
 
     await userEvent.click(screen.getByRole("button", { name: "Verify local" }));
 
-    expect(livenessMock).toHaveBeenCalledWith("http://localhost:31415");
-    await vi.waitFor(() =>
-      expect(toastSuccessMock).toHaveBeenCalledWith("http://localhost:31415 is reachable.", {
-        duration: 3000,
-      }),
-    );
-    expect(within(row("local")).queryByRole("status")).toBeNull();
+    expect(await within(row("local")).findByText("Verified")).toBeInTheDocument();
+    expect(verifyMock).toHaveBeenCalledWith("http://localhost:31415", "jwt-local");
+    expect(livenessMock).not.toHaveBeenCalled();
+    expect(within(row("local")).getByRole("status")).toHaveTextContent("Subject kanthorlabs.");
+  });
+
+  it("shows a refused saved token on Verify", async () => {
+    seed(LOCAL);
+    verifyMock.mockRejectedValue(new ApiError("unauthorized", "Unauthorized.", 401));
+    mount();
+
+    await userEvent.click(screen.getByRole("button", { name: "Verify local" }));
+
+    expect(await within(row("local")).findByText("Failed")).toBeInTheDocument();
   });
 
   it("asks before it deletes and keeps the instance on Keep", async () => {
