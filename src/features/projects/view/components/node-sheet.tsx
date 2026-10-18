@@ -50,7 +50,7 @@ export function NodeSheet({
           <SheetDescription className="break-all">
             {node === undefined
               ? `The mission graph holds no node ${selectedId ?? ""}.`
-              : `${node.work} · ${node.filename}`}
+              : `${node.intent} · ${node.filename}`}
           </SheetDescription>
         </SheetHeader>
         {node !== undefined && (

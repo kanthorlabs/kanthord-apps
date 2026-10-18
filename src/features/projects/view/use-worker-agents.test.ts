@@ -12,7 +12,7 @@ function entry(name: string, agentNames: readonly string[]): WorkerCatalogEntry 
     name,
     host: "kanthord",
     declared_node_states: ["Available"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
     method: "steps",
     agent_names: agentNames,
     resource_budget: { turns: 200, wall_time_ms: 7200000 },

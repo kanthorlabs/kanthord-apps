@@ -20,8 +20,8 @@ import { useNodeControls } from "./use-node-controls";
 function node(state: NodeState, attempt = 2): MissionNodeRecord {
   return {
     id: "node_team",
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
     tasks: [],
     filename: "team.md",
     mission_id: "mission_1",
@@ -32,8 +32,8 @@ function node(state: NodeState, attempt = 2): MissionNodeRecord {
       criterion: "c",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

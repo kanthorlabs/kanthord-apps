@@ -6,7 +6,7 @@
  * worker-service.md, together with their vocabulary siblings.
  */
 
-export type Work = "implement" | "examine";
+export type Intent = "implement" | "examine";
 
 export const NODE_STATES = [
   "Pending",
@@ -63,7 +63,7 @@ export interface WorkerCatalogItem {
   readonly name: string;
   readonly host: WorkerHost;
   readonly declared_node_states: readonly string[];
-  readonly declared_works: readonly Work[];
+  readonly declared_intents: readonly Intent[];
 }
 
 export interface WorkerResourceBudget {
@@ -234,13 +234,13 @@ export interface Mission {
 export interface MissionPlanNodeEntry {
   readonly filename: string;
   readonly id?: string;
-  readonly work: Work;
+  readonly intent: Intent;
   readonly name: string;
   readonly requirement: string;
   readonly criterion: string;
   readonly verifications: readonly string[];
   readonly bindings: readonly string[];
-  readonly requires?: readonly string[];
+  readonly tags?: readonly string[];
   readonly depends_on?: readonly string[];
 }
 
@@ -397,7 +397,7 @@ export interface WorkerBindingConfig {
   readonly placement?: WorkerPlacement;
   readonly resource_budget?: { readonly turns: number; readonly wall_time_ms: number };
   readonly entries?: readonly WorkerAgentEntry[];
-  readonly traits?: readonly string[];
+  readonly tags?: readonly string[];
 }
 
 export interface StorageBindingConfig {
@@ -448,8 +448,8 @@ export interface MissionContent {
   readonly criterion: string;
   readonly verifications: readonly string[];
   readonly bindings: readonly string[];
-  readonly work: Work;
-  readonly requires: readonly string[];
+  readonly intent: Intent;
+  readonly tags: readonly string[];
 }
 
 export interface MissionTaskBody {
@@ -625,8 +625,8 @@ export interface MissionNodeRecord {
   readonly id: string;
   readonly filename: string;
   readonly mission_id: string;
-  readonly work: Work;
-  readonly requires: readonly string[];
+  readonly intent: Intent;
+  readonly tags: readonly string[];
   readonly tasks: readonly MissionTaskContent[];
   readonly state: NodeState;
   readonly attempt: number;

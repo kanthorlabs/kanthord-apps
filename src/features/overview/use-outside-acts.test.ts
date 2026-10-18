@@ -14,8 +14,8 @@ vi.mock("sonner", () => ({
 
 const NODE: MissionNodeRecord = {
   id: "node_1",
-  work: "implement",
-  requires: [],
+  intent: "implement",
+  tags: [],
   tasks: [],
   filename: "node_1.md",
   mission_id: "mission_1",
@@ -26,8 +26,8 @@ const NODE: MissionNodeRecord = {
     criterion: "",
     verifications: [],
     bindings: [],
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
   },
   retired_at: null,
   pinned_by_attempts: [],

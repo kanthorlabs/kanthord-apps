@@ -17,8 +17,8 @@ const unblockMock = vi.mocked(unblockNode);
 
 const EXAMINE: MissionNodeRecord = {
   id: "node_team",
-  work: "examine",
-  requires: [],
+  intent: "examine",
+  tags: [],
   tasks: [],
   filename: "team.md",
   mission_id: "mission_1",
@@ -29,8 +29,8 @@ const EXAMINE: MissionNodeRecord = {
     criterion: "c",
     verifications: ["pnpm test"],
     bindings: [],
-    work: "examine",
-    requires: [],
+    intent: "examine",
+    tags: [],
   },
   retired_at: null,
   pinned_by_attempts: [],
@@ -117,14 +117,14 @@ describe("useNodeUnblock", () => {
 
   it("offers the start point choice only for an implement node with an attempt", () => {
     expect(mount().result.current.startChoice).toBe(false);
-    expect(mount({ ...EXAMINE, work: "implement" }).result.current.startChoice).toBe(true);
-    expect(mount({ ...EXAMINE, work: "implement", attempt: 0 }).result.current.startChoice).toBe(
+    expect(mount({ ...EXAMINE, intent: "implement" }).result.current.startChoice).toBe(true);
+    expect(mount({ ...EXAMINE, intent: "implement", attempt: 0 }).result.current.startChoice).toBe(
       false,
     );
   });
 
   it("sends start_point base_branch for an implement node when the human chooses it", async () => {
-    const { result } = mount({ ...EXAMINE, work: "implement" });
+    const { result } = mount({ ...EXAMINE, intent: "implement" });
 
     act(() => result.current.request());
     act(() => result.current.setFromBase(true));
@@ -191,10 +191,10 @@ describe("useNodeUnblock", () => {
     ["mission.version.conflict", "The mission changed after this read."],
     ["mission.node.control_refused", "The node is no longer Blocked."],
     [
-      "mission.node.requires_unmatched",
-      "No worker binding of the project matches the requires list of this node.",
+      "mission.node.tags_unmatched",
+      "No worker binding of the project matches the tags of this node.",
     ],
-    ["mission.node.work_locked", "The node opened an attempt, so its work cannot change."],
+    ["mission.node.intent_locked", "The node opened an attempt, so its intent cannot change."],
   ])("maps the conflict %s to a message and reloads", async (code, message) => {
     unblockMock.mockRejectedValue(new ApiError("conflict", "Conflict.", 409, code));
     const { result, reload } = mount();

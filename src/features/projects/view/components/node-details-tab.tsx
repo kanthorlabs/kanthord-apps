@@ -33,10 +33,10 @@ interface NodeDetailsTabProps {
 function factsOf(node: MissionNodeRecord): Fact[] {
   const facts: Fact[] = [
     { label: "Identity", value: <span className="font-mono text-xs break-all">{node.id}</span> },
-    { label: "Work", value: node.work },
+    { label: "Intent", value: node.intent },
     {
-      label: "Requires",
-      value: node.requires.length === 0 ? "None" : node.requires.join(", "),
+      label: "Tags",
+      value: node.tags.length === 0 ? "None" : node.tags.join(", "),
     },
     { label: "Plan file", value: <span className="font-mono text-xs">{node.filename}</span> },
     {
@@ -101,7 +101,7 @@ export function NodeDetailsTab({
 }: NodeDetailsTabProps) {
   const record = useNodeRecord(nodeId);
   const { reload: reloadRecord } = record;
-  const proposals = useNodeProposals(nodeId, model.nodeById.get(nodeId)?.work === "examine");
+  const proposals = useNodeProposals(nodeId, model.nodeById.get(nodeId)?.intent === "examine");
   const { reload: reloadProposals } = proposals;
   const runnable = record.data;
   const actions = useNodeExternalActions(
@@ -154,7 +154,7 @@ export function NodeDetailsTab({
         executions={executions}
         onChanged={reloadAll}
       />
-      {node.work === "examine" && (
+      {node.intent === "examine" && (
         <ProposalSection
           model={model}
           proposer={node}

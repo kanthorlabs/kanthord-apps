@@ -75,7 +75,7 @@ afterEach(async () => {
   });
 });
 
-const CATALOG_ITEM = { declared_node_states: [], declared_works: ["implement", "examine"] };
+const CATALOG_ITEM = { declared_node_states: [], declared_intents: ["implement", "examine"] };
 const BUDGET = { resource_budget: { wall_time_ms: 1000 } };
 
 const SWE_ENABLEMENT = {

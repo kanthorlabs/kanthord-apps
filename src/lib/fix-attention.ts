@@ -1,4 +1,4 @@
-import type { Credential, NodeState, Project, SchedulerExecutionRecord, Work } from "@/api/types";
+import type { Credential, NodeState, Project, SchedulerExecutionRecord, Intent } from "@/api/types";
 
 import type { AttentionContext, ItemBase, ProjectSnapshot } from "./attention";
 import { takerHintOf, uncoveredJobsOf, type TakerHint } from "./claim-takers";
@@ -20,8 +20,8 @@ export interface ProjectPausedItem extends FixBase {
 export interface NoTakerItem extends FixBase {
   readonly kind: "no_taker";
   readonly state: NodeState;
-  readonly work: Work;
-  readonly requires: readonly string[];
+  readonly intent: Intent;
+  readonly tags: readonly string[];
   readonly jobCount: number;
   readonly hint: TakerHint;
 }
@@ -100,18 +100,18 @@ function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readon
       .sort((left, right) => left - right);
     if (oldest === undefined) continue;
     if (context.now - oldest <= NO_TAKER_GRACE_MS) continue;
-    const { state, work, requires } = facts;
+    const { state, intent, tags } = facts;
     items.push({
-      id: `no_taker:${project.id}:${state}:${work}:${requires.join(",")}`,
+      id: `no_taker:${project.id}:${state}:${intent}:${tags.join(",")}`,
       kind: "no_taker",
       group: "fixes",
       project,
       at: oldest,
-      subject: `${work === "implement" ? "Implement" : "Examine"} jobs in state ${state}`,
+      subject: `${intent === "implement" ? "Implement" : "Examine"} jobs in state ${state}`,
       cause: "No taker",
       state,
-      work,
-      requires,
+      intent,
+      tags,
       jobCount: stuck.length,
       hint: takerHintOf(facts, workerBindings, catalog),
     });

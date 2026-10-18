@@ -63,8 +63,8 @@ function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
   ];
 }
 
-function traitsOf(entry: BindingSetEntry): readonly string[] {
-  return entry.kind === "worker" ? (entry.config.traits ?? []) : [];
+function tagsOf(entry: BindingSetEntry): readonly string[] {
+  return entry.kind === "worker" ? (entry.config.tags ?? []) : [];
 }
 
 function HealthBadge({ badge, label }: { badge: BindingCheckBadge; label: string }) {
@@ -90,7 +90,7 @@ export function BindingItem({
 }: BindingItemProps) {
   const available = isAvailable(entry);
   const showVerify = entry.kind === "repository" && bindingId !== null;
-  const traits = traitsOf(entry);
+  const tags = tagsOf(entry);
 
   return (
     <Item variant="outline" role="listitem">
@@ -125,11 +125,11 @@ export function BindingItem({
             </Fragment>
           ))}
         </ItemDescription>
-        {traits.length > 0 && (
-          <ul aria-label={`Traits of ${name}`} className="flex flex-wrap gap-1">
-            {traits.map((trait) => (
-              <li key={trait}>
-                <Badge variant="outline">{trait}</Badge>
+        {tags.length > 0 && (
+          <ul aria-label={`Tags of ${name}`} className="flex flex-wrap gap-1">
+            {tags.map((tag) => (
+              <li key={tag}>
+                <Badge variant="outline">{tag}</Badge>
               </li>
             ))}
           </ul>

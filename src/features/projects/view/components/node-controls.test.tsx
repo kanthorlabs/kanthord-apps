@@ -24,8 +24,8 @@ import { textContent } from "../../../../../test/text-content";
 
 const TEAM: MissionNodeRecord = {
   id: "node_team",
-  work: "examine",
-  requires: [],
+  intent: "examine",
+  tags: [],
   tasks: [],
   filename: "team.md",
   mission_id: "mission_1",
@@ -36,8 +36,8 @@ const TEAM: MissionNodeRecord = {
     criterion: "c",
     verifications: ["v"],
     bindings: [],
-    work: "examine",
-    requires: [],
+    intent: "examine",
+    tags: [],
   },
   retired_at: null,
   pinned_by_attempts: [2],

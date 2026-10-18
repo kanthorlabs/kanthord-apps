@@ -118,7 +118,7 @@ import type {
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerInstanceRecord,
-  Work,
+  Intent,
 } from "@/api/types";
 import { closingEventText } from "@/lib/mission-labels";
 import { newUlid } from "@/lib/ulid";
@@ -144,7 +144,7 @@ const KANTHORD = project("prj-1", "kanthord");
 const ATLAS = project("prj-2", "atlas");
 
 interface BlockedOptions {
-  readonly work?: Work;
+  readonly intent?: Intent;
   readonly attempt?: number;
   readonly closingEvent?: MissionClosingEvent;
   readonly result?: MissionAssessmentResult;
@@ -165,13 +165,13 @@ function blocked(id: string, name: string, options: BlockedOptions = {}): Missio
       criterion: "",
       verifications: [],
       bindings: [],
-      work: options.work ?? "implement",
-      requires: [],
+      intent: options.intent ?? "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
-    work: options.work ?? "implement",
-    requires: [],
+    intent: options.intent ?? "implement",
+    tags: [],
     tasks: [],
     state: "Blocked",
     attempt,
@@ -206,13 +206,13 @@ function plain(id: string, name: string, state: NodeState): MissionNodeRecord {
       criterion: "",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
     tasks: [],
     state,
     attempt: 1,
@@ -417,13 +417,13 @@ const CATALOG: readonly WorkerCatalogItem[] = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
 ];
 
@@ -695,7 +695,7 @@ describe("OverviewScreen assessment", () => {
   it("shows the open fix proposal of an examine node in the panel", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
       proposals: {
         n_t: [
           proposal("n_t", "Send the invite in the workspace language"),
@@ -751,7 +751,7 @@ describe("OverviewScreen acts", () => {
 
   it("holds Unblock and Discard of an examine node until the proposals read answers", async () => {
     let answer: (value: readonly MissionProposal[]) => void = () => undefined;
-    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] } });
+    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] } });
     vi.mocked(listNodeProposals).mockReturnValue(
       new Promise((resolve) => {
         answer = resolve;
@@ -772,7 +772,7 @@ describe("OverviewScreen acts", () => {
 
   it("keeps the acts of an examine node off when the proposals read fails", async () => {
     const user = userEvent.setup();
-    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] } });
+    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] } });
     vi.mocked(listNodeProposals).mockRejectedValueOnce(
       new ApiError("unreachable", "The daemon did not answer.", 0),
     );
@@ -796,7 +796,7 @@ describe("OverviewScreen acts", () => {
   it("names the rejected proposals in the Unblock dialog and sends the unblock", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
       proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
     });
     renderScreen();
@@ -1210,7 +1210,7 @@ describe("OverviewScreen proposal approval", () => {
   it("approves the open proposal of an examine node in place", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
       proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
     });
     renderScreen();
@@ -1237,7 +1237,7 @@ describe("OverviewScreen proposal approval", () => {
     serve({
       nodes: {
         "prj-1": [
-          blocked("n_t", "Team workspaces", { work: "examine" }),
+          blocked("n_t", "Team workspaces", { intent: "examine" }),
           blocked("n_a", "Audit log"),
         ],
       },
@@ -1748,7 +1748,7 @@ describe("OverviewScreen dialog focus", () => {
   it("focuses Reason first in the Approve proposal dialog", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
       proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
     });
     renderScreen();
@@ -2239,11 +2239,11 @@ describe("OverviewScreen fixes", () => {
       ).toBeInTheDocument();
     });
 
-    it("names the requires list of a job that no binding matches", async () => {
+    it("names the tags of a job that no binding matches", async () => {
       serve({
         nodes: {
           "prj-1": [
-            { ...plain("n_m", "Build the macOS app", "Available"), requires: ["platform.macos"] },
+            { ...plain("n_m", "Build the macOS app", "Available"), tags: ["platform.macos"] },
           ],
         },
         jobs: { "prj-1": [agedJob("prj-1", "n_m", 5 * 60_000)] },
@@ -2256,7 +2256,7 @@ describe("OverviewScreen fixes", () => {
       expect(
         within(item).getByText(
           textContent(
-            "No worker binding matches the implement job in state Available that requires platform.macos. Add a binding whose worker and traits match it on the Bindings tab.",
+            "No worker binding matches the implement job in state Available with the tags platform.macos. Add a binding whose worker and tags match it on the Bindings tab.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2275,7 +2275,7 @@ describe("OverviewScreen fixes", () => {
       expect(
         within(item).getByText(
           textContent(
-            "No worker binding matches the implement job in state Waiting. Add a binding whose worker and traits match it on the Bindings tab.",
+            "No worker binding matches the implement job in state Waiting. Add a binding whose worker and tags match it on the Bindings tab.",
           ),
         ),
       ).toBeInTheDocument();

@@ -22,8 +22,8 @@ export interface ProposalApproveState {
 }
 
 const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
-  "mission.node.requires_unmatched":
-    "No worker binding of the project matches the requires list of this node. Add a worker binding whose traits hold each key, then try again.",
+  "mission.node.tags_unmatched":
+    "No worker binding of the project matches the tags of this node. Add a worker binding whose tags include every tag of this node, then try again.",
   "mission.proposal.already_approved":
     "Another approve of this proposal came first. The view now shows the fix node that it created.",
   "mission.node.state_conflict":

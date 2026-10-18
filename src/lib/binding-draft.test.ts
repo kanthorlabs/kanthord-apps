@@ -348,47 +348,47 @@ describe("worker agent entries", () => {
   });
 });
 
-describe("worker traits", () => {
+describe("worker tags", () => {
   const filled: WorkerDraft = {
     ...(emptyDraft("worker") as WorkerDraft),
     name: "general-mac",
     worker: "coder@1",
   };
 
-  it("reads the traits of the config one key per line and writes them in order", () => {
+  it("reads the tags of the config one key per line and writes them in order", () => {
     const entry: BindingSetEntry = {
       kind: "worker",
       config: {
         worker: "coder@1",
         instance_count: 1,
-        traits: ["toolchain.xcode_16", "platform.macos"],
+        tags: ["toolchain.xcode_16", "platform.macos"],
       },
     };
     const draft = draftOf("general-mac", entry);
 
-    expect(draft.kind === "worker" && draft.traits).toBe("toolchain.xcode_16\nplatform.macos");
+    expect(draft.kind === "worker" && draft.tags).toBe("toolchain.xcode_16\nplatform.macos");
     expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry });
   });
 
   it("trims each line, drops empty lines and omits an empty list", () => {
-    const result = entryOfDraft({ ...filled, traits: "  platform.macos \n\n gpu.cuda\n" }, []);
-    expect(result.ok && result.entry.kind === "worker" && result.entry.config.traits).toEqual([
+    const result = entryOfDraft({ ...filled, tags: "  platform.macos \n\n gpu.cuda\n" }, []);
+    expect(result.ok && result.entry.kind === "worker" && result.entry.config.tags).toEqual([
       "platform.macos",
       "gpu.cuda",
     ]);
 
-    const empty = entryOfDraft({ ...filled, traits: " \n" }, []);
-    expect(empty.ok && empty.entry.kind === "worker" && "traits" in empty.entry.config).toBe(false);
+    const empty = entryOfDraft({ ...filled, tags: " \n" }, []);
+    expect(empty.ok && empty.entry.kind === "worker" && "tags" in empty.entry.config).toBe(false);
   });
 
-  it("starts a new worker draft with no trait", () => {
-    expect((emptyDraft("worker") as WorkerDraft).traits).toBe("");
+  it("starts a new worker draft with no tag", () => {
+    expect((emptyDraft("worker") as WorkerDraft).tags).toBe("");
   });
 
-  it("accepts a key of 64 bytes and names Traits for a malformed, long or repeated key", () => {
+  it("accepts a key of 64 bytes and names Tags for a malformed, long or repeated key", () => {
     const at64 = `a.${"b".repeat(62)}`;
-    expect(missingForSave({ ...filled, traits: at64 })).toEqual([]);
-    for (const traits of [
+    expect(missingForSave({ ...filled, tags: at64 })).toEqual([]);
+    for (const tags of [
       "Platform.macos",
       "platform..macos",
       "platform.",
@@ -396,7 +396,7 @@ describe("worker traits", () => {
       `a.${"b".repeat(63)}`,
       "platform.macos\nplatform.macos",
     ]) {
-      expect(missingForSave({ ...filled, traits })).toEqual(["Traits"]);
+      expect(missingForSave({ ...filled, tags })).toEqual(["Tags"]);
     }
   });
 });

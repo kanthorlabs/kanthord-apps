@@ -36,9 +36,9 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
     "The mission changed after this read. The view now shows the current mission. Review the node and unblock again.",
   "mission.node.retired": "The node is retired. The view now shows its current state.",
   "mission.node.terminal": "The node is terminal. The view now shows its current state.",
-  "mission.node.requires_unmatched":
-    "No worker binding of the project matches the requires list of this node. Add a worker binding whose traits hold each key, then try again.",
-  "mission.node.work_locked": "The node opened an attempt, so its work cannot change.",
+  "mission.node.tags_unmatched":
+    "No worker binding of the project matches the tags of this node. Add a worker binding whose tags include every tag of this node, then try again.",
+  "mission.node.intent_locked": "The node opened an attempt, so its intent cannot change.",
 };
 
 function isUnblockable(node: MissionNodeRecord): boolean {
@@ -46,7 +46,7 @@ function isUnblockable(node: MissionNodeRecord): boolean {
 }
 
 function hasStartChoice(node: MissionNodeRecord): boolean {
-  return node.work === "implement" && node.attempt > 0;
+  return node.intent === "implement" && node.attempt > 0;
 }
 
 function consequenceOf(node: MissionNodeRecord): ReactNode {
@@ -161,7 +161,7 @@ export function useNodeUnblock(
     error,
     unblocking,
     consequence: consequenceOf(node),
-    proposalNotice: node.work === "examine" ? proposalNoticeOf(node, proposals) : null,
+    proposalNotice: node.intent === "examine" ? proposalNoticeOf(node, proposals) : null,
     saferPath: (
       <>
         To end <RecordName>{node.content.name}</RecordName> instead, keep it Blocked and discard it.

@@ -1,19 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import type { MissionEdge, MissionNodeRecord, NodeState, Work } from "@/api/types";
+import type { MissionEdge, MissionNodeRecord, NodeState, Intent } from "@/api/types";
 
 import { buildGraph, closureOf, diagnosticKey } from "./mission-graph";
 
 function node(
   id: string,
-  work: Work,
+  intent: Intent,
   state: NodeState = "Pending",
   priority = 0,
 ): MissionNodeRecord {
   return {
     id,
-    work,
-    requires: [],
+    intent,
+    tags: [],
     tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
@@ -24,8 +24,8 @@ function node(
       criterion: "c",
       verifications: ["v"],
       bindings: [],
-      work,
-      requires: [],
+      intent,
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

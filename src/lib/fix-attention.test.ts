@@ -28,13 +28,13 @@ const CATALOG: readonly WorkerCatalogItem[] = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
 ];
 
@@ -63,13 +63,13 @@ function node(
       criterion: "",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
     tasks: [],
     state,
     attempt: 1,
@@ -125,7 +125,7 @@ function bindingView(
   worker: string,
   placement?: WorkerPlacement,
   agents: readonly BindingAgentView[] | null = [],
-  traits?: readonly string[],
+  tags?: readonly string[],
 ): WorkerBindingView {
   const binding: WorkerBindingRecord = {
     id: `binding_${name}`,
@@ -138,7 +138,7 @@ function bindingView(
       worker,
       instance_count: 1,
       ...(placement === undefined ? {} : { placement }),
-      ...(traits === undefined ? {} : { traits }),
+      ...(tags === undefined ? {} : { tags }),
     },
     created_at: 1,
     removed_at: null,
@@ -268,8 +268,8 @@ describe("fixItemsOf no_taker", () => {
       cause: "No taker",
       subject: "Implement jobs in state Waiting",
       state: "Waiting",
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
       jobCount: 2,
       at: NOW - 120_000,
       hint: { kind: "server", binding: "reviewer-main", worker: "reviewer@1" },
@@ -303,14 +303,14 @@ describe("fixItemsOf no_taker", () => {
     ]);
   });
 
-  it("lists one item for each requires list of one state, each with its own hint and count", () => {
+  it("lists one item for each tag set of one state, each with its own hint and count", () => {
     const items = fixItemsOf(
       [
         snapshot({
           nodes: [
-            node("m", "Available", { requires: ["platform.macos"] }),
-            node("l", "Available", { requires: ["platform.linux"] }),
-            node("l2", "Available", { requires: ["platform.linux"] }),
+            node("m", "Available", { tags: ["platform.macos"] }),
+            node("l", "Available", { tags: ["platform.linux"] }),
+            node("l2", "Available", { tags: ["platform.linux"] }),
           ],
           jobs: [job("m", 5 * MINUTE), job("l", 5 * MINUTE), job("l2", 4 * MINUTE)],
           bindings: [
@@ -327,13 +327,13 @@ describe("fixItemsOf no_taker", () => {
       expect.arrayContaining([
         expect.objectContaining({
           id: "no_taker:prj-1:Available:implement:platform.macos",
-          requires: ["platform.macos"],
+          tags: ["platform.macos"],
           jobCount: 1,
           hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
         }),
         expect.objectContaining({
           id: "no_taker:prj-1:Available:implement:platform.linux",
-          requires: ["platform.linux"],
+          tags: ["platform.linux"],
           jobCount: 2,
           hint: { kind: "server", binding: "coder-linux", worker: "coder@1" },
         }),
@@ -388,8 +388,8 @@ describe("fixItemsOf no_taker", () => {
     ).toHaveLength(1);
   });
 
-  it("names the binding whose traits hold the requires list of the stuck node", () => {
-    const mac = node("m", "Available", { requires: ["platform.macos"] });
+  it("names the binding whose tags hold the tags of the stuck node", () => {
+    const mac = node("m", "Available", { tags: ["platform.macos"] });
     const [item] = fixItemsOf(
       [
         snapshot({

@@ -17,8 +17,8 @@ const removeMock = vi.mocked(removeDependency);
 
 const NODE: MissionNodeRecord = {
   id: "node_links",
-  work: "implement",
-  requires: [],
+  intent: "implement",
+  tags: [],
   tasks: [],
   filename: "links.md",
   mission_id: "mission_1",
@@ -29,8 +29,8 @@ const NODE: MissionNodeRecord = {
     criterion: "",
     verifications: [],
     bindings: [],
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
   },
   retired_at: null,
   pinned_by_attempts: [],

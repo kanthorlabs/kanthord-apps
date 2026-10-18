@@ -7,7 +7,7 @@ import type {
   MissionNodeRecord,
   NodeState,
   Project,
-  Work,
+  Intent,
 } from "@/api/types";
 import { detailKeyOf, type AttentionDetail, type DecisionAttentionItem } from "@/lib/attention";
 
@@ -27,11 +27,11 @@ const PROJECT: Project = {
   workspace_directory: "/state/prj-1",
 };
 
-function node(work: Work, state: NodeState): MissionNodeRecord {
+function node(intent: Intent, state: NodeState): MissionNodeRecord {
   return {
     id: "node_1",
-    work,
-    requires: [],
+    intent,
+    tags: [],
     tasks: [],
     filename: "node_1.md",
     mission_id: "mission_1",
@@ -42,8 +42,8 @@ function node(work: Work, state: NodeState): MissionNodeRecord {
       criterion: "c",
       verifications: [],
       bindings: [],
-      work,
-      requires: [],
+      intent,
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

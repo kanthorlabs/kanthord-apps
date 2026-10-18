@@ -11,7 +11,7 @@ import type {
   MissionJsonExport,
   MissionNodeRecord,
   MissionTaskContent,
-  Work,
+  Intent,
 } from "@/api/types";
 
 vi.mock("@/api/resources/mission");
@@ -31,7 +31,7 @@ const CURRENT: MissionJsonExport = {
     {
       filename: "onboarding.md",
       id: "node_1",
-      work: "examine",
+      intent: "examine",
       name: "Onboarding",
       requirement: "r",
       criterion: "c",
@@ -41,13 +41,13 @@ const CURRENT: MissionJsonExport = {
     {
       filename: "reset-expiry.md",
       id: "node_2",
-      work: "implement",
+      intent: "implement",
       name: "Add reset token expiry",
       requirement: "r",
       criterion: "c",
       verifications: ["v"],
       bindings: [],
-      requires: [],
+      tags: [],
       depends_on: [],
     },
   ],
@@ -75,15 +75,15 @@ function task(id: string, name: string): MissionTaskContent {
 
 function node(
   id: string,
-  work: Work,
+  intent: Intent,
   name: string,
   state: MissionNodeRecord["state"],
   tasks: readonly MissionTaskContent[] = [],
 ): MissionNodeRecord {
   return {
     id,
-    work,
-    requires: [],
+    intent,
+    tags: [],
     tasks,
     filename: `${id}.md`,
     mission_id: "mission_1",
@@ -94,8 +94,8 @@ function node(
       criterion: "c",
       verifications: ["v"],
       bindings: [],
-      work,
-      requires: [],
+      intent,
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
@@ -157,7 +157,7 @@ describe("MissionPanel", () => {
     ]);
   });
 
-  it("shows every node of the mission as a rectangle with its work and state", async () => {
+  it("shows every node of the mission as a rectangle with its intent and state", async () => {
     renderPanel();
 
     expect(await screen.findByText("version 3")).toBeTruthy();
