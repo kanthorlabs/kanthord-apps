@@ -965,6 +965,22 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       "The submitted binding-set version differs from the current version.",
     );
   }
+  const placementChanged = Object.entries(b.bindings).some(([name, entry]) => {
+    const stored = bindingSet.bindings[name];
+    return (
+      stored?.kind === "worker" &&
+      entry.kind === "worker" &&
+      (stored.config.placement ?? "worker") !== (entry.config.placement ?? "worker")
+    );
+  });
+  if (placementChanged) {
+    return projectEnvelope(
+      res,
+      409,
+      "project.bindings.worker.placement_changed",
+      "A binding cannot change its placement.",
+    );
+  }
   bindingSet.bindings = b.bindings;
   bindingSet.version += 1;
   const projectId = decodeURIComponent(m[1]);

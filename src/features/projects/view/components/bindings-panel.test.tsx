@@ -350,6 +350,124 @@ describe("BindingsPanel", () => {
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
   });
 
+  it("keeps the placement of a server binding when the binding is edited", async () => {
+    const server: BindingSetEntry = {
+      kind: "worker",
+      config: { worker: "coder@1", instance_count: 2, placement: "server" },
+    };
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: { ...SET.bindings, "general-main": server },
+    });
+    mount();
+
+    expect(await screen.findByText(/placement server · instance count 2/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Edit general-main" }));
+    expect(await screen.findByLabelText("Placement")).toHaveAttribute("readonly");
+    expect(screen.getByLabelText("Placement")).toHaveValue("server");
+    const count = screen.getByLabelText("Instance count");
+    await userEvent.clear(count);
+    await userEvent.type(count, "3");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": REPO,
+      "general-main": { kind: "worker", config: { ...server.config, instance_count: 3 } },
+    });
+  });
+
+  it("shows the effective placement worker for a binding that holds none", async () => {
+    mount();
+
+    expect(await screen.findByText(/placement worker · instance count 2/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Edit general-main" }));
+    expect(await screen.findByLabelText("Placement")).toHaveValue("worker");
+    const count = screen.getByLabelText("Instance count");
+    await userEvent.clear(count);
+    await userEvent.type(count, "3");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": REPO,
+      "general-main": { kind: "worker", config: { worker: "coder@1", instance_count: 3 } },
+    });
+  });
+
+  it("shows no placement on the card of a worker of an external harness", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
+      { ...CATALOG_ITEM, host: "external-harness", name: "coder@1" },
+    ]);
+    mount();
+
+    expect(await screen.findByText(/instance count 2/)).toBeTruthy();
+    expect(screen.queryByText(/placement/)).toBeNull();
+  });
+
+  it("explains the permanent placement choice on create", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+
+    expect(
+      await screen.findByText(
+        "server runs the instances inside kanthord. worker waits for a machine with a machine token. The binding keeps this choice.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("writes the placement that the human chooses for a new worker binding", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    expect(screen.queryByRole("combobox", { name: "Placement" })).toBeNull();
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+    await userEvent.click(await screen.findByRole("option", { name: "server" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        "coder-main": {
+          kind: "worker",
+          config: { worker: "coder@1", instance_count: 1, placement: "server" },
+        },
+      }),
+    );
+  });
+
+  it("offers no placement for a worker of an external harness", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
+      { ...CATALOG_ITEM, name: "harness@1" },
+    ]);
+    vi.mocked(workersApi.readWorkerCatalogEntry).mockResolvedValue({
+      ...CATALOG_ITEM,
+      host: "external-harness",
+      name: "harness@1",
+      harness: "custom",
+      resource_budget: { turns: 200, wall_time_ms: 7200000 },
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("harness@1");
+
+    expect(await screen.findByText(/The harness of this worker selects/)).toBeTruthy();
+    expect(screen.queryByLabelText("Placement")).toBeNull();
+  });
+
+  it("names the machine tokens in the name hint of a worker binding only", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    expect(
+      screen.getByText("Unique in the project. Machine tokens name the binding by it."),
+    ).toBeTruthy();
+  });
+
   it("writes the tags of a worker binding one key per line", async () => {
     mount();
 

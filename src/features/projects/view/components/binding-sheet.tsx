@@ -159,7 +159,9 @@ export function BindingSheet({
                   readOnly={!form.creating}
                   description={
                     form.creating
-                      ? "Unique in the project. Mission nodes name the binding by it."
+                      ? draft.kind === "worker"
+                        ? "Unique in the project. Machine tokens name the binding by it."
+                        : "Unique in the project. Mission nodes name the binding by it."
                       : "A new name removes the binding and adds another one, so the name is fixed here."
                   }
                   onChange={(name) => form.edit({ ...draft, name })}

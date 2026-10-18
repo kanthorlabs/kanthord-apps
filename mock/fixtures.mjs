@@ -275,13 +275,14 @@ export const BINDING_SET = {
       config: {
         worker: "coder@1",
         instance_count: 2,
+        placement: "server",
         resource_budget: { turns: 200, wall_time_ms: 7200000 },
         entries: [{ agent: "swe@1", reasoning_effort: "high" }],
       },
     },
     "reviewer-main": {
       kind: "worker",
-      config: { worker: "reviewer@1", instance_count: 1 },
+      config: { worker: "reviewer@1", instance_count: 1, placement: "worker" },
     },
     "mac-main": {
       kind: "worker",

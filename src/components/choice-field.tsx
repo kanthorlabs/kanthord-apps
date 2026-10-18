@@ -1,4 +1,4 @@
-import { Field, FieldError, FieldLabel } from "@/components/ui/field";
+import { Field, FieldDescription, FieldError, FieldLabel } from "@/components/ui/field";
 import {
   Select,
   SelectContent,
@@ -13,10 +13,19 @@ interface ChoiceFieldProps {
   readonly value: string;
   readonly options: readonly string[];
   readonly error: string | undefined;
+  readonly description?: string;
   readonly onChange: (value: string | null) => void;
 }
 
-export function ChoiceField({ id, label, value, options, error, onChange }: ChoiceFieldProps) {
+export function ChoiceField({
+  id,
+  label,
+  value,
+  options,
+  error,
+  description,
+  onChange,
+}: ChoiceFieldProps) {
   const items = options.map((option) => ({ value: option, label: option }));
   return (
     <Field data-invalid={error !== undefined}>
@@ -33,6 +42,7 @@ export function ChoiceField({ id, label, value, options, error, onChange }: Choi
           ))}
         </SelectContent>
       </Select>
+      {description !== undefined && <FieldDescription>{description}</FieldDescription>}
       <FieldError>{error}</FieldError>
     </Field>
   );

@@ -1,4 +1,6 @@
 import type { Resource } from "@/hooks/use-resource";
+import type { WorkerPlacement } from "@/api/types";
+import { ChoiceField } from "@/components/choice-field";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
@@ -17,6 +19,8 @@ import {
 import type { WorkerAgents } from "../use-worker-agents";
 import { DraftField } from "./draft-field";
 import { WorkerAgentItem } from "./worker-agent-item";
+
+const PLACEMENTS: readonly WorkerPlacement[] = ["worker", "server"];
 
 interface WorkerAgentListProps {
   readonly draft: WorkerDraft;
@@ -84,6 +88,8 @@ interface WorkerFormProps {
 }
 
 export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }: WorkerFormProps) {
+  const hosted = draft.worker !== "" && agents.data !== null && !agents.data.external;
+  const placement = draft.placement ?? "worker";
   return (
     <>
       {creating ? (
@@ -109,6 +115,30 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
           onChange={(worker) => onEdit({ ...draft, worker })}
         />
       )}
+      {hosted &&
+        (creating ? (
+          <ChoiceField
+            id="binding-placement"
+            label="Placement"
+            value={placement}
+            options={PLACEMENTS}
+            error={errors["placement"]}
+            description="server runs the instances inside kanthord. worker waits for a machine with a machine token. The binding keeps this choice."
+            onChange={(next) =>
+              onEdit({ ...draft, placement: PLACEMENTS.find((item) => item === next) ?? null })
+            }
+          />
+        ) : (
+          <DraftField
+            id="binding-placement"
+            label="Placement"
+            value={placement}
+            error={errors["placement"]}
+            readOnly
+            description="A worker binding keeps its placement. Remove the binding and add another to change it."
+            onChange={() => undefined}
+          />
+        ))}
       <DraftField
         id="binding-instance-count"
         label="Instance count"
