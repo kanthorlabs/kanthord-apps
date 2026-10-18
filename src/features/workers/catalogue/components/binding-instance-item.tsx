@@ -15,7 +15,7 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
       <ol className="list-decimal space-y-1 pl-5">
         <li>
           On the server host, run{" "}
-          <code className="font-mono break-all">
+          <code className="font-mono wrap-anywhere">
             kanthord auth jwt generate --project {binding.project_id} --binding {binding.name}{" "}
             --output &lt;file&gt;
           </code>
@@ -26,9 +26,9 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
           instance, for example <code className="font-mono">/srv/kanthord/w1</code>. Place the file
           as <code className="font-mono">cli.yaml</code> with mode{" "}
           <code className="font-mono">0600</code> in{" "}
-          <code className="font-mono break-all">&lt;dir&gt;/config/kanthord/</code> on the worker
-          host. Run{" "}
-          <code className="font-mono break-all">
+          <code className="font-mono wrap-anywhere">&lt;dir&gt;/config/kanthord/</code> on the
+          worker host. Run{" "}
+          <code className="font-mono wrap-anywhere">
             env -u KANTHORD_TOKEN XDG_CONFIG_HOME=&lt;dir&gt;/config
             XDG_STATE_HOME=&lt;dir&gt;/state kanthord serve worker --endpoint &lt;url&gt;
           </code>
