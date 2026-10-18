@@ -61,7 +61,12 @@ function guardLineOf(
   }
   const failure = awaited.find((read) => read.error !== null)?.error;
   if (actions.data === null || awaited.some((read) => read.data === null)) {
-    return readFailureText(node.attempt, failure?.message ?? "", paused);
+    return readFailureText(
+      node.attempt,
+      failure?.message ?? "",
+      paused,
+      paused ? undefined : "Override and discard wait for them.",
+    );
   }
   const unresolved = unresolvedRequestsOf(actions.data);
   return unresolved.length === 0 ? null : unresolvedRequestsText(node.attempt, unresolved, paused);

@@ -96,7 +96,12 @@ function openStateOf(attempt: number, detail: AttentionDetail | null): ReadState
   if (detail.actions.status === "failed") {
     return {
       ready: false,
-      waiting: readFailureText(attempt, detail.actions.message, false),
+      waiting: readFailureText(
+        attempt,
+        detail.actions.message,
+        false,
+        "Check now, Remove dependency and Discard wait for them.",
+      ),
       failed: true,
     };
   }

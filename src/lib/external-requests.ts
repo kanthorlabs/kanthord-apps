@@ -61,11 +61,13 @@ export function unresolvedRequestsText(
   return `Attempt ${attempt} has ${unresolved.length} unresolved requests. Override and discard wait for their end states.${resume}`;
 }
 
-export function readFailureText(attempt: number, message: string, withExecutions: boolean): string {
+export function readFailureText(
+  attempt: number,
+  message: string,
+  withExecutions: boolean,
+  waiting = "The controls wait for them.",
+): string {
   const subject = withExecutions ? "executions or the external actions" : "external actions";
-  const waiting = withExecutions
-    ? "The controls wait for them."
-    : "Override and discard wait for them.";
   return `The ${subject} of attempt ${attempt} could not be read: ${message.replace(/\.$/, "")}. ${waiting}`;
 }
 
