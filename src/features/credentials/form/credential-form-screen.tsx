@@ -117,6 +117,15 @@ export function CreateForm({
           />
           <FieldError>{form.errors["platform"]}</FieldError>
         </Field>
+        {component === "repository" && form.onCancel === null && (
+          <p className="text-sm text-muted-foreground md:col-span-2">
+            An ssh credential is not created here. Open{" "}
+            <Link to={credentialSectionPath(component)} className="underline underline-offset-4">
+              Repositories
+            </Link>{" "}
+            and use Import from ~/.ssh/config.
+          </p>
+        )}
         {form.entry === null ? null : form.oauth ? (
           <SignInFields form={form} entry={form.entry} />
         ) : (

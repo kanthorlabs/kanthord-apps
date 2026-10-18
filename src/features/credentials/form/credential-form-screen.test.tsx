@@ -211,6 +211,23 @@ describe("CredentialFormScreen", () => {
     });
   });
 
+  it("points an ssh credential of the repository form at the import of the list", async () => {
+    await mount("repository");
+
+    expect(screen.getByText(textContent(/An ssh credential is not created here/))).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Repositories" })).toHaveAttribute(
+      "href",
+      "/repositories",
+    );
+    expect(screen.getByText(textContent(/use Import from ~\/\.ssh\/config\./))).toBeTruthy();
+  });
+
+  it("shows no ssh pointer in the LLM form", async () => {
+    await mount("llm");
+
+    expect(screen.queryByText(/An ssh credential is not created here/)).toBeNull();
+  });
+
   it("offers the platforms of the section in a flat list filtered by the typed id", async () => {
     await mount("llm");
 
