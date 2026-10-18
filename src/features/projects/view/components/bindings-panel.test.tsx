@@ -401,6 +401,29 @@ describe("BindingsPanel", () => {
     expect(screen.queryByRole("list", { name: "Tags of kanthord-repo" })).toBeNull();
   });
 
+  it("counts the turns of the budget of a worker binding in the singular", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: {
+        ...SET.bindings,
+        "general-main": {
+          kind: "worker",
+          config: {
+            worker: "coder@1",
+            instance_count: 2,
+            resource_budget: { turns: 1, wall_time_ms: 1000 },
+          },
+        },
+      },
+    });
+    mount();
+
+    const row = (await screen.findByRole("button", { name: "Edit general-main" })).closest(
+      "[role=listitem]",
+    ) as HTMLElement;
+    expect(row).toHaveTextContent("budget 1 turn, 1000 ms");
+  });
+
   it("shows only the connection of a repository binding in its row", async () => {
     mount();
 

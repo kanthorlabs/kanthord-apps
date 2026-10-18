@@ -5,6 +5,7 @@ import type { WorkbenchSessionListItem } from "@/api/types";
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Badge } from "@/components/ui/badge";
+import { counted } from "@/lib/counted";
 import { utcDateTime } from "@/lib/format";
 import { sessionTitle, workbenchSessionPath } from "@/lib/workbench-sessions";
 import { AgentFilter } from "./components/agent-filter";
@@ -30,7 +31,7 @@ export function SessionsScreen() {
         status={
           <>
             <Badge variant="secondary">{item.agent_name}</Badge>
-            <Badge variant="outline">{item.message_count} messages</Badge>
+            <Badge variant="outline">{counted(item.message_count, "message", "messages")}</Badge>
           </>
         }
         description={<span className="font-mono">{item.id}</span>}

@@ -131,6 +131,17 @@ describe("SessionsScreen", () => {
     expect(screen.getByRole("combobox", { name: "Agent" })).toHaveTextContent("All agents");
   });
 
+  it("counts the messages of a session in the singular and the plural", async () => {
+    serve([OLD, { ...NEW, message_count: 1 }]);
+    mount("/workbench");
+
+    const rows = within(await screen.findByRole("list", { name: "Sessions" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(rows[0]!).getByText("1 message")).toBeTruthy();
+    expect(within(rows[1]!).getByText("4 messages")).toBeTruthy();
+  });
+
   it("opens New Session with a blank agent and offers only the enabled agents", async () => {
     serve([OLD]);
     mount("/workbench");

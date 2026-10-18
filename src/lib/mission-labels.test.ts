@@ -31,6 +31,20 @@ describe("mission labels", () => {
     ).toBe("pull request #7 on repository:github:a/b");
   });
 
+  it("counts the bytes of an object asset in the singular and the plural", () => {
+    const asset = {
+      id: "evidence_asset_2",
+      kind: "object",
+      address: { kind: "object", location: "out/report.txt" },
+      storage_binding_id: "storage_1",
+      media_type: "text/plain",
+      published_at: 1,
+      expired_at: null,
+    } as const;
+    expect(assetText({ ...asset, size: 1 })).toBe("object out/report.txt, 1 byte");
+    expect(assetText({ ...asset, size: 2 })).toBe("object out/report.txt, 2 bytes");
+  });
+
   it("states how a verification command ended", () => {
     const base = { command: "pnpm test", exit_code: 0, signal: null, timed_out: false };
     expect(verificationResultText(base)).toBe("passed");

@@ -301,7 +301,7 @@ describe("MissionPanel", () => {
     });
     await previewImport();
 
-    const apply = await screen.findByRole("button", { name: "Apply and retire 1 nodes" });
+    const apply = await screen.findByRole("button", { name: "Apply and retire 1 node" });
     expect(apply).toBeDisabled();
     await userEvent.click(screen.getByRole("switch"));
     await userEvent.click(apply);
@@ -314,7 +314,7 @@ describe("MissionPanel", () => {
     );
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith("The import is applied.", {
-        description: "The mission is now at version 4. 1 new nodes received an identity.",
+        description: "The mission is now at version 4. 1 new node received an identity.",
       }),
     );
     expect(screen.queryByRole("dialog", { name: "Import mission" })).toBeNull();
@@ -346,6 +346,58 @@ describe("MissionPanel", () => {
     );
   });
 
+  it("names the node count of the toast and the apply button in the plural", async () => {
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      creates: ["a.md", "b.md"],
+      retirements: ["node_2", "node_3"],
+    });
+    vi.mocked(missionApi.applyMissionImport).mockResolvedValue({
+      mission_id: "mission_1",
+      mission_version: 4,
+      assigned_ids: [],
+    });
+    await previewImport();
+
+    const apply = await screen.findByRole("button", { name: "Apply and retire 2 nodes" });
+    await userEvent.click(screen.getByRole("switch"));
+    await userEvent.click(apply);
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith("The import is applied.", {
+        description: "The mission is now at version 4. 2 new nodes received an identity.",
+      }),
+    );
+  });
+
+  it("words the summary line and the retire label for one node", async () => {
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      no_ops: ["node_5"],
+      removed_edges: [
+        { dependent_id: "node_1", depends_on_id: "node_3" },
+        { dependent_id: "node_1", depends_on_id: "node_4" },
+      ],
+    });
+    await previewImport();
+
+    expect(await screen.findByText("1 node stays unchanged. 2 edges are removed.")).toBeTruthy();
+    expect(screen.getByText(/^Retire the 1 node listed above\./)).toBeTruthy();
+  });
+
+  it("words the retire label for two nodes", async () => {
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      no_ops: ["node_5", "node_6"],
+      removed_edges: [{ dependent_id: "node_1", depends_on_id: "node_3" }],
+      retirements: ["node_2", "node_3"],
+    });
+    await previewImport();
+
+    expect(await screen.findByText("2 nodes stay unchanged. 1 edge is removed.")).toBeTruthy();
+    expect(screen.getByText(/^Retire the 2 nodes listed above\./)).toBeTruthy();
+  });
+
   it("returns to review when the mission changed after the preview", async () => {
     vi.mocked(missionApi.applyMissionImport).mockRejectedValue(
       new ApiError("conflict", "The expected mission version differs.", 409),
@@ -353,7 +405,7 @@ describe("MissionPanel", () => {
     await previewImport();
 
     await userEvent.click(await screen.findByRole("switch"));
-    await userEvent.click(screen.getByRole("button", { name: "Apply and retire 1 nodes" }));
+    await userEvent.click(screen.getByRole("button", { name: "Apply and retire 1 node" }));
 
     expect(await screen.findByText("Preview again")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "Retirements" })).toBeNull();

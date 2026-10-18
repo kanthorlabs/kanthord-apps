@@ -86,6 +86,19 @@ describe("DataList", () => {
     expect(screen.getByText("No executions found.")).toBeInTheDocument();
   });
 
+  it("renders no pager on an empty first page", () => {
+    render(<DataList {...props({ items: [], pager: { ...PAGER, hasNext: false } })} />);
+
+    expect(screen.getByText("No executions found.")).toBeInTheDocument();
+    expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+  });
+
+  it("keeps Next on an empty first page with a next cursor", () => {
+    render(<DataList {...props({ items: [] })} />);
+
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+  });
+
   it("keeps Previous on an empty later page", () => {
     render(
       <DataList

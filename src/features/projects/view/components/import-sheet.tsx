@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { counted } from "@/lib/counted";
 import type { MissionImportState } from "../use-mission-import";
 
 interface ImportSheetProps {
@@ -139,8 +140,8 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
                 empty="No node retires."
               />
               <p className="text-sm text-muted-foreground">
-                {shown.no_ops.length} nodes stay unchanged. {shown.removed_edges.length} edges are
-                removed.
+                {counted(shown.no_ops.length, "node stays", "nodes stay")} unchanged.{" "}
+                {counted(shown.removed_edges.length, "edge is", "edges are")} removed.
               </p>
               {retiring > 0 && (
                 <Field orientation="horizontal">
@@ -150,8 +151,8 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
                     onCheckedChange={state.confirmRetirements}
                   />
                   <FieldLabel htmlFor="mission-import-retire">
-                    Retire all {retiring} nodes listed above. To keep one, add it to the import and
-                    preview again.
+                    Retire the {counted(retiring, "node", "nodes")} listed above. To keep one, add
+                    it to the import and preview again.
                   </FieldLabel>
                 </Field>
               )}
@@ -160,7 +161,9 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
         </div>
         <SheetFooter>
           <Button disabled={!state.canApply} onClick={state.apply}>
-            {retiring > 0 ? `Apply and retire ${retiring} nodes` : "Apply import"}
+            {retiring > 0
+              ? `Apply and retire ${counted(retiring, "node", "nodes")}`
+              : "Apply import"}
           </Button>
         </SheetFooter>
       </SheetContent>

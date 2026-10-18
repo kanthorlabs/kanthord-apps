@@ -10,6 +10,7 @@ import {
 } from "@/api/resources/mission";
 import type { MissionImportPreview, MissionImportSnapshot } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
+import { counted } from "@/lib/counted";
 import {
   importInputOf,
   importSnapshotOf,
@@ -158,7 +159,9 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
         toast.success("The import is applied.", {
           description:
             `The mission is now at version ${applied.mission_version}.` +
-            (created > 0 ? ` ${created} new nodes received an identity.` : ""),
+            (created > 0
+              ? ` ${counted(created, "new node", "new nodes")} received an identity.`
+              : ""),
         });
         onApplied();
       },
