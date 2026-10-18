@@ -145,7 +145,7 @@ describe("useNodeControls guard line", () => {
       "The executions or the external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
     );
     expect(executing.guardLine).toBe(
-      "The external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
+      "The external actions of attempt 2 could not be read: The daemon did not answer. Override and discard wait for them.",
     );
     paused.retry?.();
     expect(actions.reload).toHaveBeenCalledTimes(1);
@@ -178,6 +178,26 @@ describe("useNodeControls", () => {
     const state = mount(node("Paused"), NONE, executions);
 
     expect(state.resume.target).toBe("Waiting");
+  });
+
+  it("keeps the controls of an Executing node when the executions read fails", () => {
+    const executions = resource<readonly SchedulerExecutionRecord[]>({
+      error: new ApiError("unreachable", "The daemon did not answer.", 0),
+    });
+
+    const state = mount(node("Executing"), NONE, executions);
+
+    expect(state.guardLine).toBeNull();
+    expect(state.retry).toBeNull();
+    expect(state.override.available).toBe(true);
+    expect(state.discard.available).toBe(true);
+  });
+
+  it("offers the pause of a node without an open attempt and without a read", () => {
+    const state = mount(node("Pending", 0), resource({ loading: true }), NO_RUNS);
+
+    expect(state.pause.available).toBe(true);
+    expect(state.visible).toBe(true);
   });
 
   it("hides the section of a node that offers nothing", () => {

@@ -171,6 +171,17 @@ export async function discardNode(
   });
 }
 
+export async function pauseNode(
+  nodeId: string,
+  body: MissionHumanActBody,
+): Promise<MissionControlResult> {
+  return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/pause`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
 export async function resumeNode(
   nodeId: string,
   body: MissionNodeResumeBody,

@@ -1174,12 +1174,34 @@ describe("OverviewScreen dependency items with an open attempt", () => {
     const item = await waitFor(() => itemOf("Redirect the legacy links"));
     expect(
       await within(item).findByText(
-        "Attempt 2 has an unresolved pull request. Override and discard wait for its end state.",
+        "Attempt 2 has an unresolved pull request. Discard waits for its end state.",
       ),
     ).toBeInTheDocument();
     expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
     expect(listNodeExternalActions).toHaveBeenCalledWith("n_c", 2);
     expect(listNodeExecutions).not.toHaveBeenCalled();
+  });
+
+  it("names the acts that wait when the external actions read fails", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-2": [started(), plain("n_b", "Drop the legacy checkout", "Discarded")] },
+    });
+    vi.mocked(listNodeExternalActions).mockRejectedValueOnce(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    expect(
+      await within(item).findByText(
+        "The external actions of attempt 2 could not be read: The daemon did not answer. Check now, Remove dependency and Discard wait for them.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    await user.click(within(item).getByRole("button", { name: "Retry" }));
+
+    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
   });
 
   it("holds Discard until the external actions answer", async () => {

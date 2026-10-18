@@ -4,17 +4,34 @@ import { useResource, type Resource } from "@/hooks/use-resource";
 
 const NO_EXECUTIONS: readonly SchedulerExecutionRecord[] = [];
 
+interface ExecutionRead {
+  readonly key: string;
+  readonly items: readonly SchedulerExecutionRecord[];
+}
+
 export function useNodeExecutions(
   projectId: string,
   nodeId: string,
   attempt: number,
-  paused: boolean,
+  enabled: boolean,
 ): Resource<readonly SchedulerExecutionRecord[]> {
-  return useResource(
-    () =>
-      paused && attempt > 0
-        ? listNodeExecutions(projectId, nodeId, attempt)
-        : Promise.resolve(NO_EXECUTIONS),
-    [projectId, nodeId, attempt, paused],
+  const key = JSON.stringify([projectId, nodeId, attempt, enabled]);
+  const read = useResource(
+    async (): Promise<ExecutionRead> => ({
+      key,
+      items:
+        enabled && attempt > 0
+          ? await listNodeExecutions(projectId, nodeId, attempt)
+          : NO_EXECUTIONS,
+    }),
+    [key],
   );
+  const stale = read.data !== null && read.data.key !== key;
+
+  return {
+    data: stale ? null : (read.data?.items ?? null),
+    error: read.error,
+    loading: read.loading || stale,
+    reload: read.reload,
+  };
 }
