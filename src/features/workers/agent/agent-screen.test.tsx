@@ -116,9 +116,9 @@ async function choose(label: string, option: string) {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-function mount() {
+function mount(hash = "") {
   return render(
-    <MemoryRouter initialEntries={["/agents/re%401"]}>
+    <MemoryRouter initialEntries={[`/agents/re%401${hash}`]}>
       <Routes>
         <Route path="/agents/:agentName" element={<AgentScreen />} />
       </Routes>
@@ -129,6 +129,7 @@ function mount() {
 describe("AgentScreen", () => {
   beforeEach(() => {
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([]);
     vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
       Promise.resolve(settingsOf(target)),
     );
@@ -475,6 +476,98 @@ describe("AgentScreen", () => {
     expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
   });
 
+  it("focuses the name of the enable form when the path holds the enablement hash", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount("#enablement");
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+
+    expect(within(form).getByLabelText("Agent provider name")).toHaveFocus();
+  });
+
+  it("leaves the focus alone when the path holds no enablement hash", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+
+    expect(within(form).getByLabelText("Agent provider name")).not.toHaveFocus();
+  });
+
+  it("explains the agent provider name of the enable form", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    expect(
+      within(form).getByText(
+        /Reuse the name of an agent provider that has the same LLM credential/,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("prefills the name of an agent provider of another agent with the same credential", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      { ...ENABLEMENT, agent_name: "swe@1" },
+    ]);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await choose("LLM credential", "router-main (openrouter)");
+
+    await waitFor(() =>
+      expect(within(form).getByLabelText("Agent provider name")).toHaveValue("router"),
+    );
+  });
+
+  it("keeps the name that the human typed", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      { ...ENABLEMENT, agent_name: "swe@1" },
+    ]);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "mine");
+    await choose("LLM credential", "router-main (openrouter)");
+
+    expect(within(form).getByLabelText("Agent provider name")).toHaveValue("mine");
+  });
+
+  it("replaces a prefilled name when the human picks another credential", async () => {
+    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    const bare: Credential = { name: "bare-main", platform: "openrouter", revisions: [] };
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex, bare]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      {
+        ...ENABLEMENT,
+        agent_name: "swe@1",
+        agent_providers: [
+          { name: "router", provider: "openrouter", credential: "router-main" },
+          { name: "codex-shared", provider: "openai-codex", credential: "codex-main" },
+        ],
+      },
+    ]);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    const name = within(form).getByLabelText("Agent provider name");
+    await choose("LLM credential", "router-main (openrouter)");
+    await waitFor(() => expect(name).toHaveValue("router"));
+    await choose("LLM credential", "codex-main (openai-codex)");
+    await waitFor(() => expect(name).toHaveValue("codex-shared"));
+    await choose("LLM credential", "bare-main (openrouter)");
+
+    await waitFor(() => expect(name).toHaveValue(""));
+  });
+
   it("shows a model list failure on the model field and keeps the form grid", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
@@ -564,6 +657,64 @@ describe("AgentScreen", () => {
       credential: "codex-main",
     });
   });
+
+  it("explains the name and prefills it from an agent provider of another agent", async () => {
+    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      ENABLEMENT,
+      {
+        ...ENABLEMENT,
+        agent_name: "swe@1",
+        agent_providers: [
+          { name: "codex-shared", provider: "openai-codex", credential: "codex-main" },
+        ],
+      },
+    ]);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
+    const sheet = await screen.findByRole("dialog");
+    expect(
+      within(sheet).getByText(
+        /Reuse the name of an agent provider that has the same LLM credential/,
+      ),
+    ).toBeTruthy();
+    await choose("LLM credential", "codex-main (openai-codex)");
+
+    await waitFor(() =>
+      expect(within(sheet).getByRole("textbox", { name: "Name" })).toHaveValue("codex-shared"),
+    );
+  });
+
+  it("clears a prefilled name in the add sheet when the next credential has no known name", async () => {
+    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    const bare: Credential = { name: "bare-main", platform: "openrouter", revisions: [] };
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex, bare]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      ENABLEMENT,
+      {
+        ...ENABLEMENT,
+        agent_name: "swe@1",
+        agent_providers: [
+          { name: "codex-shared", provider: "openai-codex", credential: "codex-main" },
+        ],
+      },
+    ]);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
+    const sheet = await screen.findByRole("dialog");
+    const name = within(sheet).getByRole("textbox", { name: "Name" });
+    await choose("LLM credential", "codex-main (openai-codex)");
+    await waitFor(() => expect(name).toHaveValue("codex-shared"));
+    await choose("LLM credential", "bare-main (openrouter)");
+
+    await waitFor(() => expect(name).toHaveValue(""));
+  });
+
   it("adds an anthropic-subscription agent provider", async () => {
     const claude: Credential = {
       name: "claude-main",

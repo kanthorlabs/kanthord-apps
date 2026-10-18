@@ -4,6 +4,8 @@ import type { AgentEnablement, Credential } from "@/api/types";
 import {
   agentProviderBodyOf,
   missingAgentProviderFields,
+  nameAfterCredentialPick,
+  providerNameOfCredential,
   unusedProviderCredentials,
   providerRemovalBlock,
 } from "./agent-provider-draft";
@@ -115,5 +117,53 @@ describe("providerRemovalBlock", () => {
 
   it("allows another agent provider", () => {
     expect(providerRemovalBlock(two, "codex")).toBeNull();
+  });
+});
+
+describe("providerNameOfCredential", () => {
+  const OTHER: AgentEnablement = {
+    ...ENABLEMENT,
+    agent_name: "re@1",
+    agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+  };
+
+  it("returns the name of an agent provider that uses the credential", () => {
+    expect(providerNameOfCredential([ENABLEMENT, OTHER], "router-main")).toBe("router");
+  });
+
+  it("returns null when no agent provider uses the credential", () => {
+    expect(providerNameOfCredential([ENABLEMENT, OTHER], "codex-main")).toBeNull();
+  });
+
+  it("continues to a later enablement when an earlier name is taken", () => {
+    const later: AgentEnablement = {
+      ...OTHER,
+      agent_name: "qa@1",
+      agent_providers: [{ name: "router-qa", provider: "openrouter", credential: "router-main" }],
+    };
+
+    expect(providerNameOfCredential([OTHER, later], "router-main", ["router"])).toBe("router-qa");
+  });
+
+  it("skips a name that the target enablement holds", () => {
+    expect(providerNameOfCredential([OTHER], "router-main", ["router"])).toBeNull();
+  });
+});
+
+describe("nameAfterCredentialPick", () => {
+  it("takes the known name for an empty name", () => {
+    expect(nameAfterCredentialPick("  ", null, "router")).toBe("router");
+  });
+
+  it("replaces the name that the last pick prefilled", () => {
+    expect(nameAfterCredentialPick("router", "router", "codex")).toBe("codex");
+  });
+
+  it("clears the name that the last pick prefilled when the new credential has no known name", () => {
+    expect(nameAfterCredentialPick("router", "router", null)).toBe("");
+  });
+
+  it("keeps a name that the human typed", () => {
+    expect(nameAfterCredentialPick("mine", "router", "codex")).toBe("mine");
   });
 });

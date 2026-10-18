@@ -11,6 +11,7 @@ import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { newSessionUnavailableReason, workbenchSessionPath } from "@/lib/workbench-sessions";
 import { NewSessionButton } from "@/features/workbench/sessions/components/new-session-button";
 import { NewSessionDialog } from "@/features/workbench/sessions/components/new-session-dialog";
+import { ENABLEMENT_HASH } from "../agent/use-enablement-create";
 import { useAgents } from "./use-agents";
 
 function AgentItem({ agent }: { agent: AgentSummary }) {
@@ -30,6 +31,16 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           </Link>
         </ItemTitle>
         <Badge variant={enablementVariant(enablement)}>{enablementLabel(enablement)}</Badge>
+        {enablement === null && (
+          <Button
+            size="sm"
+            nativeButton={false}
+            aria-label={`Enable ${agentName}`}
+            render={<Link to={`/agents/${encodeURIComponent(agentName)}${ENABLEMENT_HASH}`} />}
+          >
+            Enable
+          </Button>
+        )}
         <NewSessionButton
           size="sm"
           label={`New session with ${agentName}`}

@@ -68,7 +68,7 @@ export function AgentProviderSheet({ agentName, revision, add }: AgentProviderSh
                   label="Name"
                   value={add.draft.name}
                   error={add.errors.name}
-                  description="A session configuration selects the agent provider by this name."
+                  description="A name that you choose for this agent provider. A session configuration selects it by this name. Reuse the name of an agent provider that has the same LLM credential."
                   onChange={add.setName}
                 />
                 <SearchChoiceField

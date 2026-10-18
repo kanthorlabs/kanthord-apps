@@ -4,17 +4,25 @@ import { useCallback, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMission } from "../use-mission";
 import { useMissionExport } from "../use-mission-export";
 import { useMissionGraph } from "../use-mission-graph";
 import { useMissionImport } from "../use-mission-import";
 import { useNodeSelection } from "../use-node-selection";
+import { useSamplePlan } from "../use-sample-plan";
 import { GraphDiagnostics } from "./graph-diagnostics";
 import { ImportSheet } from "./import-sheet";
 import { MissionGraph } from "./mission-graph";
 import { NodeSheet } from "./node-sheet";
+import { PlanFormatHelp } from "./plan-format-help";
 
 interface MissionPanelProps {
   readonly projectId: string;
@@ -38,6 +46,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
     setImporting(false);
   }, [reloadAll]);
   const importer = useMissionImport(projectId, closeAfterApply);
+  const sample = useSamplePlan(projectId);
 
   return (
     <div className="flex flex-1 flex-col gap-3">
@@ -105,6 +114,9 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
                 <EmptyTitle>The mission holds no nodes.</EmptyTitle>
                 <EmptyDescription>Import a plan to create its nodes.</EmptyDescription>
               </EmptyHeader>
+              <EmptyContent>
+                <PlanFormatHelp sample={sample} align="center" />
+              </EmptyContent>
             </Empty>
           </div>
         ) : (
@@ -137,6 +149,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
           if (!open) importer.reset();
         }}
         state={importer}
+        sample={sample}
       />
     </div>
   );

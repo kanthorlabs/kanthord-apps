@@ -41,6 +41,7 @@ describe("ProjectScreen", () => {
       version: 1,
     });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([]);
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({ version: 1, bindings: {} });
   });
 
   it("shows the information of the project in the path", async () => {

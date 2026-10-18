@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { listAllCredentials } from "@/api/resources/credentials";
-import { addAgentProvider } from "@/api/resources/workers";
+import { addAgentProvider, listAgentEnablements } from "@/api/resources/workers";
 import type { AgentEnablement, AgentProviderKind } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import { credentialLabel } from "@/lib/credential-label";
@@ -10,6 +10,8 @@ import {
   agentProviderBodyOf,
   EMPTY_AGENT_PROVIDER,
   missingAgentProviderFields,
+  nameAfterCredentialPick,
+  providerNameOfCredential,
   unusedProviderCredentials,
   providerOfCredential,
   type AgentProviderDraft,
@@ -52,8 +54,14 @@ export function useAgentProviderAdd(
     [open],
   );
   const usable = unusedProviderCredentials(credentials.data ?? [], enablement);
+  const prefilledName = useRef<string | null>(null);
+  const enablements = useResource(
+    () => (open ? listAgentEnablements() : Promise.resolve([])),
+    [open],
+  );
 
   const start = useCallback(() => {
+    prefilledName.current = null;
     setDraft(EMPTY_AGENT_PROVIDER);
     setErrors(NO_ERRORS);
     setFailure(null);
@@ -65,8 +73,22 @@ export function useAgentProviderAdd(
   const setName = useCallback((name: string) => setDraft((current) => ({ ...current, name })), []);
 
   const selectCredential = useCallback(
-    (value: string | null) => setDraft((current) => ({ ...current, credential: value ?? "" })),
-    [],
+    (value: string | null) => {
+      const credential = value ?? "";
+      const knownName = providerNameOfCredential(
+        enablements.data ?? [],
+        credential,
+        enablement.agent_providers.map((provider) => provider.name),
+      );
+      const previousPrefill = prefilledName.current;
+      prefilledName.current = knownName;
+      setDraft((current) => ({
+        ...current,
+        credential,
+        name: nameAfterCredentialPick(current.name, previousPrefill, knownName),
+      }));
+    },
+    [enablements.data, enablement.agent_providers],
   );
 
   const submit = useCallback(() => {
