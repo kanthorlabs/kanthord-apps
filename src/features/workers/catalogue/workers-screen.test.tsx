@@ -141,6 +141,7 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(screen.getAllByText("The daemon is unavailable.")).toHaveLength(2));
     await userEvent.click(screen.getAllByRole("button", { name: "Retry" })[0]!);
     await waitFor(() => expect(screen.getByText("tdd")).toBeDefined());
+    expect(screen.queryByText("The daemon is unavailable.")).toBeNull();
   });
 
   it("shows the revision, the expected and the live count of each worker binding", async () => {
@@ -197,6 +198,8 @@ describe("WorkersScreen", () => {
         "kanthord auth jwt generate --project prj-test --binding reviewer-main --output <file>",
       ),
     ).toBeDefined();
+    expect(screen.getByText(/Choose one absolute directory/)).toBeDefined();
+    expect(screen.getByText("/srv/kanthord/w1")).toBeDefined();
     expect(screen.getByText("<dir>/config/kanthord/")).toBeDefined();
     expect(screen.getByText("0600")).toBeDefined();
     expect(

@@ -22,8 +22,9 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
           .
         </li>
         <li>
-          Choose one directory <code className="font-mono">&lt;dir&gt;</code> for each instance.
-          Place the file as <code className="font-mono">cli.yaml</code> with mode{" "}
+          Choose one absolute directory <code className="font-mono">&lt;dir&gt;</code> for each
+          instance, for example <code className="font-mono">/srv/kanthord/w1</code>. Place the file
+          as <code className="font-mono">cli.yaml</code> with mode{" "}
           <code className="font-mono">0600</code> in{" "}
           <code className="font-mono break-all">&lt;dir&gt;/config/kanthord/</code> on the worker
           host. Run{" "}
