@@ -264,7 +264,7 @@ describe("NodeControls", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Pause" }));
     const dialog = await screen.findByRole("alertdialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Keep the node running" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep the node" }));
 
     expect(missionApi.pauseNode).not.toHaveBeenCalled();
   });
@@ -390,7 +390,7 @@ describe("NodeControls", () => {
 
     expect(
       screen.getByText(
-        "The external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
+        "The external actions of attempt 2 could not be read: The daemon did not answer. Override and discard wait for them.",
       ),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();

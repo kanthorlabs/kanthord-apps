@@ -17,7 +17,7 @@ import { useNodeProposals } from "../use-node-proposals";
 import { useNodeRecord } from "../use-node-record";
 import { BindingList } from "./binding-list";
 import { FactList, type Fact } from "./fact-list";
-import { NodeClaimantFacts } from "./node-claimant";
+import { NodeClaimantFacts } from "./node-claimant-facts";
 import { NodeControls } from "./node-controls";
 import { NodeStructure } from "./node-structure";
 import { ProposalSection } from "./proposal-section";
@@ -32,7 +32,8 @@ interface NodeDetailsTabProps {
   readonly onSelect: (nodeId: string) => void;
 }
 
-const EXECUTION_STATES: readonly NodeState[] = ["Paused", "Executing", "Evaluating"];
+const LIVE_STATES: readonly NodeState[] = ["Executing", "Evaluating"];
+const EXECUTION_STATES: readonly NodeState[] = ["Paused", ...LIVE_STATES];
 
 function factsOf(node: MissionNodeRecord): Fact[] {
   const facts: Fact[] = [
@@ -119,7 +120,12 @@ export function NodeDetailsTab({
     runnable?.attempt ?? 0,
     runnable !== null && EXECUTION_STATES.includes(runnable.state),
   );
-  const claimant = useNodeClaimant(projectId, executions);
+  const { claimant, reload: reloadClaimant } = useNodeClaimant(
+    projectId,
+    runnable?.attempt ?? 0,
+    runnable !== null && LIVE_STATES.includes(runnable.state),
+    executions,
+  );
   const { reload: reloadActions } = actions;
   const { reload: reloadExecutions } = executions;
   const reloadAll = useCallback(() => {
@@ -127,8 +133,9 @@ export function NodeDetailsTab({
     reloadProposals();
     reloadActions();
     reloadExecutions();
+    reloadClaimant();
     onChanged();
-  }, [reloadRecord, reloadProposals, reloadActions, reloadExecutions, onChanged]);
+  }, [reloadRecord, reloadProposals, reloadActions, reloadExecutions, reloadClaimant, onChanged]);
   const bindingIds = record.data?.content.bindings ?? [];
   const bindings = useBindingRecords(projectId, bindingIds);
   const node = record.data;
@@ -170,7 +177,7 @@ export function NodeDetailsTab({
         />
       )}
       <FactList facts={factsOf(node)} />
-      {claimant !== null && <NodeClaimantFacts {...claimant} />}
+      {claimant !== null && <NodeClaimantFacts claimant={claimant} />}
       <section aria-label="Content" className="flex flex-col gap-2">
         <h4 className="text-sm font-medium">Content of revision {node.visible_revision}</h4>
         <FactList

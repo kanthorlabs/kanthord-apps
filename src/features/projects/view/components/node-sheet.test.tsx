@@ -9,6 +9,7 @@ import * as schedulerApi from "@/api/resources/scheduler";
 import * as workersApi from "@/api/resources/workers";
 import type {
   MissionAttempt,
+  MissionControlResult,
   MissionNodeRecord,
   MissionRevision,
   ProjectBindingRecord,
@@ -109,9 +110,15 @@ const RUNNING = node("node_running", "implement", "Running work", {
   attempt: 1,
 });
 
+const EVALUATING = node("node_evaluating", "implement", "Evaluating work", {
+  state: "Evaluating",
+  attempt: 1,
+});
+
 const NODES: readonly MissionNodeRecord[] = [
   HELD,
   RUNNING,
+  EVALUATING,
   node("node_onboarding", "examine", "Onboarding", { state: "Completed" }),
   node("node_recovery", "examine", "Account recovery", { state: "Pending" }),
   AUDIT,
@@ -432,36 +439,126 @@ describe("NodeSheet", () => {
     expect(workersApi.listWorkerInstances).toHaveBeenCalledWith("project_1");
   });
 
-  it("shows the claimant of an Executing node without a registered instance", async () => {
+  it("shows the claimant and the activity of an Evaluating node", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([
+      instance({ activity: "pulling" }),
+    ]);
+    renderSheet("node_evaluating");
+
+    const claimant = await screen.findByRole("region", { name: "Claimant" });
+    expect(await within(claimant).findByText("pulling")).toBeTruthy();
+    expect(schedulerApi.listNodeExecutions).toHaveBeenCalledWith("project_1", "node_evaluating", 1);
+  });
+
+  it("names the resource identity of a claimant without a name", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
+      execution({
+        claimant: {
+          worker_binding_id: "binding_worker_1",
+          resource_identity: "worker:kanthord:general-main",
+          runtime_identity: "worker_instance_01",
+        },
+      }),
+    ]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    renderSheet("node_running");
+
+    const claimant = await screen.findByRole("region", { name: "Claimant" });
+    expect(await within(claimant).findByText("worker:kanthord:general-main")).toBeTruthy();
+  });
+
+  it("states that the instance read loads", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
+    vi.mocked(workersApi.listWorkerInstances).mockReturnValue(new Promise(() => undefined));
+    renderSheet("node_running");
+
+    const claimant = await screen.findByRole("region", { name: "Claimant" });
+    expect(await within(claimant).findByText("Reading the instance.")).toBeTruthy();
+    expect(within(claimant).queryByText(/not registered/)).toBeNull();
+  });
+
+  it("names a failed instance read and reads again on Retry", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
+    vi.mocked(workersApi.listWorkerInstances)
+      .mockRejectedValueOnce(new ApiError("unavailable", "The instance read failed.", 503))
+      .mockResolvedValue([instance({})]);
+    renderSheet("node_running");
+
+    const claimant = await screen.findByRole("region", { name: "Claimant" });
+    expect(
+      await within(claimant).findByText(
+        "The instance could not be read: The instance read failed.",
+      ),
+    ).toBeTruthy();
+    expect(within(claimant).queryByText(/not registered/)).toBeNull();
+    await userEvent.click(within(claimant).getByRole("button", { name: "Retry" }));
+
+    expect(await within(claimant).findByText("executing")).toBeTruthy();
+    expect(workersApi.listWorkerInstances).toHaveBeenCalledTimes(2);
+  });
+
+  it("states that the claim of a deregistered instance holds until its deadline", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
     renderSheet("node_running");
 
     const claimant = await screen.findByRole("region", { name: "Claimant" });
-    expect(await within(claimant).findByText("not reported")).toBeTruthy();
+    expect(await within(claimant).findByText("not registered")).toBeTruthy();
+    expect(
+      within(claimant).getByText(
+        textContent(
+          "The instance is not registered. The claim holds until its deadline, 1970-01-01 00:00 UTC. Pause frees it.",
+        ),
+      ),
+    ).toBeTruthy();
   });
 
-  it("shows no claimant for an Executing node without a running execution", async () => {
+  it("reads the instance again after a control", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    vi.mocked(missionApi.pauseNode).mockResolvedValue({} as MissionControlResult);
+    renderSheet("node_running");
+
+    await screen.findByText("executing");
+    await userEvent.click(await screen.findByRole("button", { name: "Pause" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.type(within(dialog).getByLabelText("Reason"), "Hold for review.");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Pause node" }));
+
+    await vi.waitFor(() => expect(workersApi.listWorkerInstances).toHaveBeenCalledTimes(2));
+  });
+
+  it("states that an Executing node holds no running execution", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
       execution({ claim_state: "finished", ended_at: 2_000 }),
     ]);
     renderSheet("node_running");
 
-    expect(await screen.findByRole("region", { name: "Controls" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Claimant" })).toBeNull();
+    const claimant = await screen.findByRole("region", { name: "Claimant" });
+    expect(within(claimant).getByText("No running execution for attempt 1.")).toBeTruthy();
     expect(workersApi.listWorkerInstances).not.toHaveBeenCalled();
   });
 
-  it("keeps the controls of an Executing node when the executions read fails", async () => {
-    vi.mocked(schedulerApi.listNodeExecutions).mockRejectedValue(
-      new ApiError("unavailable", "The executions read failed.", 503),
-    );
+  it("names a failed executions read of an Executing node, keeps the controls and reads again on Retry", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions)
+      .mockRejectedValueOnce(new ApiError("unavailable", "The executions read failed.", 503))
+      .mockResolvedValue([execution({})]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
     vi.mocked(missionApi.listNodeExternalActions).mockResolvedValue([]);
     renderSheet("node_running");
 
-    const controls = await screen.findByRole("region", { name: "Controls" });
-    expect(await within(controls).findByRole("button", { name: "Pause" })).toBeTruthy();
+    const claimant = await screen.findByRole("region", { name: "Claimant" });
+    expect(
+      await within(claimant).findByText(
+        "The executions could not be read: The executions read failed.",
+      ),
+    ).toBeTruthy();
+    const controls = screen.getByRole("region", { name: "Controls" });
+    expect(within(controls).getByRole("button", { name: "Pause" })).toBeTruthy();
     expect(within(controls).getByRole("button", { name: "Override" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "Claimant" })).toBeNull();
+    await userEvent.click(within(claimant).getByRole("button", { name: "Retry" }));
+
+    expect(await within(claimant).findByText("executing")).toBeTruthy();
   });
 
   it("keeps the other records when one read fails", async () => {

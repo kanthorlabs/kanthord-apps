@@ -1576,13 +1576,20 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/pause$/, (m, b, res) => {
   const node = graphNodeById(decodeURIComponent(m[1]));
   const refusal = humanControlRefusal(res, state, node, b, PAUSE_STATES);
   if (refusal !== null) return refusal;
+  const now = Date.now();
+  for (const execution of state.executions) {
+    if (execution.node_id === node.id && execution.claim_state === "running") {
+      execution.claim_state = "finished";
+      execution.ended_at = now;
+    }
+  }
   node.state = "Paused";
   return json(res, 200, {
     node: graphNodeRead(state, node),
     attempt: null,
     outcome: null,
     actor: fx.GRAPH_HUMAN,
-    accepted_at: Date.now(),
+    accepted_at: now,
   });
 });
 

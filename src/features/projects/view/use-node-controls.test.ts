@@ -145,7 +145,7 @@ describe("useNodeControls guard line", () => {
       "The executions or the external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
     );
     expect(executing.guardLine).toBe(
-      "The external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
+      "The external actions of attempt 2 could not be read: The daemon did not answer. Override and discard wait for them.",
     );
     paused.retry?.();
     expect(actions.reload).toHaveBeenCalledTimes(1);

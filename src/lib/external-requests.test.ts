@@ -162,7 +162,7 @@ describe("readFailureText", () => {
       "The executions or the external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
     );
     expect(readFailureText(3, "Unreachable", false)).toBe(
-      "The external actions of attempt 3 could not be read: Unreachable. The controls wait for them.",
+      "The external actions of attempt 3 could not be read: Unreachable. Override and discard wait for them.",
     );
   });
 });

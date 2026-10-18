@@ -63,7 +63,10 @@ export function unresolvedRequestsText(
 
 export function readFailureText(attempt: number, message: string, withExecutions: boolean): string {
   const subject = withExecutions ? "executions or the external actions" : "external actions";
-  return `The ${subject} of attempt ${attempt} could not be read: ${message.replace(/\.$/, "")}. The controls wait for them.`;
+  const waiting = withExecutions
+    ? "The controls wait for them."
+    : "Override and discard wait for them.";
+  return `The ${subject} of attempt ${attempt} could not be read: ${message.replace(/\.$/, "")}. ${waiting}`;
 }
 
 function pullRequestOf(

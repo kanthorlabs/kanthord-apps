@@ -39,7 +39,7 @@ export function NodePauseDialog({ name, pause }: { name: string; pause: NodePaus
           </p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pause.pausing}>Keep the node running</AlertDialogCancel>
+          <AlertDialogCancel disabled={pause.pausing}>Keep the node</AlertDialogCancel>
           <AlertDialogAction
             disabled={pause.pausing || !pause.available || pause.missing !== null}
             onClick={pause.confirm}
