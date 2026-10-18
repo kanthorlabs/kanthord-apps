@@ -237,7 +237,7 @@ describe("MissionPanel", () => {
     );
   });
 
-  it("names the only repository binding in the sample and asks for one when none exists", async () => {
+  it("asks for a repository binding when the project holds none", async () => {
     vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
     vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([]);
     renderPanel();

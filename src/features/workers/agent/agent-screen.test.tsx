@@ -670,6 +670,33 @@ describe("AgentScreen", () => {
     );
   });
 
+  it("clears a prefilled name in the add sheet when the next credential has no known name", async () => {
+    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    const bare: Credential = { name: "bare-main", platform: "openrouter", revisions: [] };
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex, bare]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      ENABLEMENT,
+      {
+        ...ENABLEMENT,
+        agent_name: "swe@1",
+        agent_providers: [
+          { name: "codex-shared", provider: "openai-codex", credential: "codex-main" },
+        ],
+      },
+    ]);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add agent provider" }));
+    const sheet = await screen.findByRole("dialog");
+    const name = within(sheet).getByRole("textbox", { name: "Name" });
+    await choose("LLM credential", "codex-main (openai-codex)");
+    await waitFor(() => expect(name).toHaveValue("codex-shared"));
+    await choose("LLM credential", "bare-main (openrouter)");
+
+    await waitFor(() => expect(name).toHaveValue(""));
+  });
+
   it("adds an anthropic-subscription agent provider", async () => {
     const claude: Credential = {
       name: "claude-main",
