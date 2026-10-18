@@ -146,8 +146,8 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
           onChange={(event) => onEdit({ ...draft, tags: event.target.value })}
         />
         <FieldDescription>
-          One key per line, for example platform.macos. Use lower-case dotted keys, each at most 64
-          bytes, each once. A node runs only on a binding that holds every key of its tags.
+          One tag per line, for example platform.macos. Use lower-case dotted tags, each at most 64
+          bytes, each once. A node runs only on a binding whose tags include every tag of the node.
         </FieldDescription>
       </Field>
       <section aria-label="Agents" className="flex flex-col gap-2">

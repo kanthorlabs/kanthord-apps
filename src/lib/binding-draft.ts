@@ -221,7 +221,7 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
   return { kind: "storage", name, ...entry.config };
 }
 
-const TAG_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/;
+const TAG_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/;
 const TAG_MAX_BYTES = 64;
 
 function tagsOf(text: string): readonly string[] {
@@ -235,7 +235,9 @@ export function tagsInvalid(text: string): boolean {
   const tags = tagsOf(text);
   return (
     new Set(tags).size !== tags.length ||
-    tags.some((tag) => !TAG_KEY.test(tag) || new TextEncoder().encode(tag).length > TAG_MAX_BYTES)
+    tags.some(
+      (tag) => !TAG_PATTERN.test(tag) || new TextEncoder().encode(tag).length > TAG_MAX_BYTES,
+    )
   );
 }
 

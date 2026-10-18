@@ -37,7 +37,7 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
   "mission.node.retired": "The node is retired. The view now shows its current state.",
   "mission.node.terminal": "The node is terminal. The view now shows its current state.",
   "mission.node.tags_unmatched":
-    "No worker binding of the project matches the tags of this node. Add a worker binding whose tags hold each key, then try again.",
+    "No worker binding of the project matches the tags of this node. Add a worker binding whose tags include every tag of this node, then try again.",
   "mission.node.intent_locked": "The node opened an attempt, so its intent cannot change.",
 };
 

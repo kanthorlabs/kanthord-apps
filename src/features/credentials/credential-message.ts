@@ -41,7 +41,7 @@ const MESSAGES: Readonly<Record<string, string>> = {
   "repository.credential.ssh_identity_ambiguous":
     "The SSH credential has no single identity file. Add IdentitiesOnly yes and one IdentityFile to the Host block in ~/.ssh/config.",
   "project.bindings.worker.tags_invalid":
-    "A tag key is malformed or repeated. Use lower-case dotted keys, each at most 64 bytes, each once.",
+    "A tag is malformed or repeated. Use lower-case dotted tags, each at most 64 bytes, each once.",
   "repository.credential.ssh_config_unreadable":
     "The server cannot read ~/.ssh/config. Check its permissions and syntax.",
 };

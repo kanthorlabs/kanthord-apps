@@ -31,9 +31,9 @@ describe("credentialMessage", () => {
     );
   });
 
-  it("states the tag key rule", () => {
+  it("states the tag rule", () => {
     expect(credentialMessage(refusal("project.bindings.worker.tags_invalid"))).toBe(
-      "A tag key is malformed or repeated. Use lower-case dotted keys, each at most 64 bytes, each once.",
+      "A tag is malformed or repeated. Use lower-case dotted tags, each at most 64 bytes, each once.",
     );
   });
 

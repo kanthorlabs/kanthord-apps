@@ -147,7 +147,7 @@ describe("useProposalApprove", () => {
     ["mission.version.conflict", "The mission changed after this read."],
     [
       "mission.node.tags_unmatched",
-      "Add a worker binding whose tags hold each key, then try again.",
+      "Add a worker binding whose tags include every tag of this node, then try again.",
     ],
   ])("maps the conflict %s to a message and reloads", async (code, message) => {
     approveMock.mockRejectedValue(new ApiError("conflict", "Conflict.", 409, code));

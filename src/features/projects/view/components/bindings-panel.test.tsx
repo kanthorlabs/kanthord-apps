@@ -356,7 +356,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
     expect(
       screen.getByText(
-        "One key per line, for example platform.macos. Use lower-case dotted keys, each at most 64 bytes, each once. A node runs only on a binding that holds every key of its tags.",
+        "One tag per line, for example platform.macos. Use lower-case dotted tags, each at most 64 bytes, each once. A node runs only on a binding whose tags include every tag of the node.",
       ),
     ).toBeTruthy();
     await userEvent.type(screen.getByLabelText("Tags"), "platform.macos{enter}gpu.cuda");
