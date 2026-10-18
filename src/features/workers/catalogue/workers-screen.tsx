@@ -16,6 +16,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { WorkerCatalogItem, WorkerInstanceRecord } from "@/api/types";
+import { BindingInstanceItem } from "./components/binding-instance-item";
 import { useWorkers } from "./use-workers";
 
 function BadgeList({ label, values }: { label: string; values: readonly string[] }) {
@@ -121,7 +122,7 @@ function EmptyList({ title }: { title: string }) {
 }
 
 export function WorkersScreen() {
-  const { catalog, instances } = useWorkers();
+  const { catalog, instances, bindings, bindingEntries } = useWorkers();
   const catalogItems = catalog.data ?? [];
   const instanceItems = instances.data ?? [];
 
@@ -140,6 +141,30 @@ export function WorkersScreen() {
           <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {catalogItems.map((item) => (
               <CatalogItem key={item.name} item={item} />
+            ))}
+          </ItemGroup>
+        )}
+      </Section>
+
+      <Separator />
+
+      <Section
+        id="bindings-heading"
+        title="Worker bindings"
+        loading={bindings.loading || instances.loading || catalog.loading}
+        error={bindings.error ?? instances.error ?? catalog.error}
+        reload={() => {
+          bindings.reload();
+          instances.reload();
+          catalog.reload();
+        }}
+      >
+        {bindingEntries.length === 0 ? (
+          <EmptyList title="No worker bindings." />
+        ) : (
+          <ItemGroup className="gap-2">
+            {bindingEntries.map((entry) => (
+              <BindingInstanceItem key={entry.binding.id} entry={entry} />
             ))}
           </ItemGroup>
         )}

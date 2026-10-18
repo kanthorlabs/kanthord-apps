@@ -68,9 +68,15 @@ export const WORKER_CATALOG = [
     declared_node_states: ["Waiting", "External.Requested"],
     declared_intents: ["implement", "examine"],
   },
+  {
+    name: "claude-code@1",
+    host: "external-harness",
+    declared_node_states: ["Available"],
+    declared_intents: ["implement"],
+  },
 ];
 
-export const RELEASED_WORKERS = ["coder@1", "reviewer@1"];
+export const RELEASED_WORKERS = ["coder@1", "reviewer@1", "claude-code@1"];
 
 export const WORKER_INSTANCES = [
   {
@@ -288,6 +294,14 @@ export const BINDING_SET = {
       kind: "worker",
       config: { worker: "coder@1", instance_count: 1, tags: ["platform.macos"] },
     },
+    "idle-main": {
+      kind: "worker",
+      config: { worker: "coder@1", instance_count: 0, placement: "server" },
+    },
+    "harness-main": {
+      kind: "worker",
+      config: { worker: "claude-code@1", instance_count: 1 },
+    },
     evidence: {
       kind: "storage",
       config: {
@@ -370,6 +384,24 @@ export const GRAPH_BINDINGS = {
     resource_identity: "worker:kanthord:mac-main",
     revision: 1,
     created_at: minutes(600),
+    removed_at: null,
+  },
+  idle: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BW4",
+    name: "idle-main",
+    kind: "worker",
+    resource_identity: "worker:kanthord:idle-main",
+    revision: 1,
+    created_at: minutes(500),
+    removed_at: null,
+  },
+  harness: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BW5",
+    name: "harness-main",
+    kind: "worker",
+    resource_identity: "worker:kanthord:harness-main",
+    revision: 1,
+    created_at: minutes(400),
     removed_at: null,
   },
 };
