@@ -126,7 +126,7 @@ describe("coolingFactsOf", () => {
     workspace_directory: "/p",
   };
 
-  function agentView(agent: string, cooling: { code: string; until_at: number } | null) {
+  function agentView(agent: string, cooling: { code: string; available_at: number } | null) {
     return {
       agent,
       worker: "coder@1",
@@ -166,7 +166,7 @@ describe("coolingFactsOf", () => {
               removed_at: null,
             },
             agents: [
-              agentView("swe@1", { code: "agent.configuration.chain_cooling", until_at: 99 }),
+              agentView("swe@1", { code: "agent.configuration.chain_cooling", available_at: 99 }),
               agentView("re@1", null),
             ],
           },

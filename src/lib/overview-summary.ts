@@ -44,7 +44,7 @@ export function coolingFactsOf(snapshots: readonly ProjectSnapshot[]): readonly 
                 agent: view.agent,
                 binding: entry.binding.name,
                 project: snapshot.project,
-                untilAt: view.cooling.until_at,
+                untilAt: view.cooling.available_at,
               },
             ],
       ),

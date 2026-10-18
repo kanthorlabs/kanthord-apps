@@ -2531,7 +2531,7 @@ describe("OverviewScreen fixes", () => {
           agentView("swe@1", {
             cooling: {
               code: "agent.configuration.chain_cooling",
-              until_at: Date.UTC(2026, 9, 15, 14, 5),
+              available_at: Date.UTC(2026, 9, 15, 14, 5),
             },
           }),
         ],
