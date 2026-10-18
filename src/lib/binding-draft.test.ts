@@ -274,6 +274,29 @@ describe("entryOfDraft", () => {
   });
 });
 
+describe("worker placement", () => {
+  const SERVER: BindingSetEntry = {
+    kind: "worker",
+    config: { worker: "coder@1", instance_count: 2, placement: "server" },
+  };
+
+  it("keeps the placement of a server binding from the read to the write", () => {
+    const draft = draftOf("general-main", SERVER);
+    expect(draft).toMatchObject({ placement: "server" });
+    expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry: SERVER });
+  });
+
+  it("writes no placement for a binding that reads none", () => {
+    const result = entryOfDraft(draftOf("general-main", WORKER), []);
+    expect(result).toEqual({ ok: true, entry: WORKER });
+  });
+
+  it("clears the placement when the worker changes", () => {
+    const draft = draftOf("general-main", SERVER) as WorkerDraft;
+    expect(withWorker(draft, "reviewer@1")).toMatchObject({ placement: null });
+  });
+});
+
 describe("withWorker", () => {
   const draft = emptyDraft("worker") as WorkerDraft;
 

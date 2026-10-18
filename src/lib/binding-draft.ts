@@ -6,6 +6,7 @@ import type {
   RepositoryActionName,
   RepositoryPlatform,
   WorkerAgentEntry,
+  WorkerPlacement,
   WorkingLayerKey,
   WorkingLayerSwitches,
 } from "@/api/types";
@@ -48,6 +49,7 @@ export interface WorkerDraft {
   readonly kind: "worker";
   readonly name: string;
   readonly worker: string;
+  readonly placement: WorkerPlacement | null;
   readonly instanceCount: string;
   readonly turns: string;
   readonly wallTimeMs: string;
@@ -110,6 +112,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       kind,
       name: "",
       worker: "",
+      placement: null,
       instanceCount: "1",
       turns: "",
       wallTimeMs: "",
@@ -172,7 +175,7 @@ export function agentRowsOf(
 
 export function withWorker(draft: WorkerDraft, worker: string): WorkerDraft {
   const name = blank(draft.name) ? (worker.split("@")[0] ?? "") : draft.name;
-  return { ...draft, name, worker, entries: [] };
+  return { ...draft, name, worker, placement: null, entries: [] };
 }
 
 export function withAgentEntry(draft: WorkerDraft, agent: string, custom: boolean): WorkerDraft {
@@ -210,6 +213,7 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       kind: "worker",
       name,
       worker: config.worker,
+      placement: config.placement ?? null,
       instanceCount: String(config.instance_count),
       turns: config.resource_budget === undefined ? "" : String(config.resource_budget.turns),
       wallTimeMs:
@@ -363,6 +367,7 @@ function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): Bind
     config: {
       worker: draft.worker.trim(),
       instance_count: instanceCount ?? 0,
+      ...(draft.placement === null ? {} : { placement: draft.placement }),
       ...(budgetGiven && turns !== null && wallTimeMs !== null
         ? { resource_budget: { turns, wall_time_ms: wallTimeMs } }
         : {}),
