@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { listAllCredentials } from "@/api/resources/credentials";
@@ -10,6 +10,7 @@ import {
   agentProviderBodyOf,
   EMPTY_AGENT_PROVIDER,
   missingAgentProviderFields,
+  nameAfterCredentialPick,
   providerNameOfCredential,
   unusedProviderCredentials,
   providerOfCredential,
@@ -53,12 +54,14 @@ export function useAgentProviderAdd(
     [open],
   );
   const usable = unusedProviderCredentials(credentials.data ?? [], enablement);
+  const prefilledName = useRef<string | null>(null);
   const enablements = useResource(
     () => (open ? listAgentEnablements() : Promise.resolve([])),
     [open],
   );
 
   const start = useCallback(() => {
+    prefilledName.current = null;
     setDraft(EMPTY_AGENT_PROVIDER);
     setErrors(NO_ERRORS);
     setFailure(null);
@@ -77,10 +80,12 @@ export function useAgentProviderAdd(
         credential,
         enablement.agent_providers.map((provider) => provider.name),
       );
+      const previousPrefill = prefilledName.current;
+      prefilledName.current = knownName;
       setDraft((current) => ({
         ...current,
         credential,
-        name: current.name.trim() === "" && knownName !== null ? knownName : current.name,
+        name: nameAfterCredentialPick(current.name, previousPrefill, knownName),
       }));
     },
     [enablements.data, enablement.agent_providers],

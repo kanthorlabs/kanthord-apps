@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { listAllCredentials } from "@/api/resources/credentials";
@@ -11,6 +11,7 @@ import type { AgentModel } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import {
   agentProviderCredentials,
+  nameAfterCredentialPick,
   providerNameOfCredential,
   providerOfCredential,
 } from "@/lib/agent-provider-draft";
@@ -58,6 +59,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const credentials = useResource(() => listAllCredentials("llm"), []);
   const usable = agentProviderCredentials(credentials.data ?? []);
   const enablements = useResource(listAgentEnablements, []);
+  const prefilledName = useRef<string | null>(null);
   const [models, setModels] = useState<readonly AgentModel[] | null>(null);
   const [modelsFailure, setModelsFailure] = useState<string | null>(null);
 
@@ -67,11 +69,13 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     (value: string | null) => {
       const credential = value ?? "";
       const knownName = providerNameOfCredential(enablements.data ?? [], credential);
+      const previousPrefill = prefilledName.current;
+      prefilledName.current = knownName;
       setDraft((current) => ({
         ...current,
         credential,
         modelIdentifier: "",
-        name: current.name.trim() === "" && knownName !== null ? knownName : current.name,
+        name: nameAfterCredentialPick(current.name, previousPrefill, knownName),
       }));
       setModels(null);
       setModelsFailure(null);

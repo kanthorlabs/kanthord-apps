@@ -55,6 +55,15 @@ export function providerNameOfCredential(
   return null;
 }
 
+export function nameAfterCredentialPick(
+  currentName: string,
+  prefilledName: string | null,
+  knownName: string | null,
+): string {
+  const replaceable = currentName.trim() === "" || currentName === prefilledName;
+  return replaceable ? (knownName ?? "") : currentName;
+}
+
 export function missingAgentProviderFields(draft: AgentProviderDraft): readonly string[] {
   return [
     ...(draft.name.trim() === "" ? ["Name"] : []),

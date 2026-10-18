@@ -521,6 +521,35 @@ describe("AgentScreen", () => {
     expect(within(form).getByLabelText("Agent provider name")).toHaveValue("mine");
   });
 
+  it("replaces a prefilled name when the human picks another credential", async () => {
+    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    const bare: Credential = { name: "bare-main", platform: "openrouter", revisions: [] };
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex, bare]);
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      {
+        ...ENABLEMENT,
+        agent_name: "swe@1",
+        agent_providers: [
+          { name: "router", provider: "openrouter", credential: "router-main" },
+          { name: "codex-shared", provider: "openai-codex", credential: "codex-main" },
+        ],
+      },
+    ]);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    const name = within(form).getByLabelText("Agent provider name");
+    await choose("LLM credential", "router-main (openrouter)");
+    await waitFor(() => expect(name).toHaveValue("router"));
+    await choose("LLM credential", "codex-main (openai-codex)");
+    await waitFor(() => expect(name).toHaveValue("codex-shared"));
+    await choose("LLM credential", "bare-main (openrouter)");
+
+    await waitFor(() => expect(name).toHaveValue(""));
+  });
+
   it("shows a model list failure on the model field and keeps the form grid", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
@@ -610,6 +639,7 @@ describe("AgentScreen", () => {
       credential: "codex-main",
     });
   });
+
   it("explains the name and prefills it from an agent provider of another agent", async () => {
     const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
