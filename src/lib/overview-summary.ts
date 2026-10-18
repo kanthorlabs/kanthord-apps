@@ -23,9 +23,7 @@ export function statusLineText(running: number, waiting: number): string {
 export function claimedNodeCount(nodes: readonly MissionNodeRecord[]): number {
   return nodes.filter(
     (node) =>
-      node.kind !== "task" &&
-      node.retired_at === null &&
-      (node.state === "Executing" || node.state === "Evaluating"),
+      node.retired_at === null && (node.state === "Executing" || node.state === "Evaluating"),
   ).length;
 }
 

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { removeDependency } from "@/api/resources/mission";
-import type { MissionNodeChange, MissionRunnableNode, NodeState } from "@/api/types";
+import type { MissionNodeChange, MissionNodeRecord, NodeState } from "@/api/types";
 import { useDependencyRemove } from "./use-dependency-remove";
 import { renderedText } from "../../../test/text-content";
 
@@ -15,12 +15,13 @@ vi.mock("sonner", () => ({
 
 const removeMock = vi.mocked(removeDependency);
 
-const NODE: MissionRunnableNode = {
+const NODE: MissionNodeRecord = {
   id: "node_links",
-  kind: "objective",
+  work: "implement",
+  requires: [],
+  tasks: [],
   filename: "links.md",
   mission_id: "mission_1",
-  parent_id: null,
   visible_revision: 1,
   content: {
     name: "Redirect the links",
@@ -28,6 +29,8 @@ const NODE: MissionRunnableNode = {
     criterion: "",
     verifications: [],
     bindings: [],
+    work: "implement",
+    requires: [],
   },
   retired_at: null,
   pinned_by_attempts: [],
@@ -39,7 +42,7 @@ const NODE: MissionRunnableNode = {
 
 const DROPPED = { id: "node_drop", name: "Drop the legacy checkout" };
 
-function mount(node: MissionRunnableNode = NODE, reload = vi.fn()) {
+function mount(node: MissionNodeRecord = NODE, reload = vi.fn()) {
   const view = renderHook(() => useDependencyRemove(node, 7, reload));
   return { ...view, reload };
 }

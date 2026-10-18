@@ -27,7 +27,7 @@ describe("chatItemsOf", () => {
   it("keeps user, assistant, tool call and tool result entries in order", () => {
     const items = chatItemsOf(
       [
-        message("e1", { role: "user", content: "List the objectives" }),
+        message("e1", { role: "user", content: "List the nodes" }),
         message("e2", { role: "assistant", content: [{ type: "text", text: "Reading." }, CALL] }),
         message("e3", {
           role: "toolResult",
@@ -41,7 +41,7 @@ describe("chatItemsOf", () => {
     );
 
     expect(items).toEqual([
-      { kind: "user", id: "e1", text: "List the objectives" },
+      { kind: "user", id: "e1", text: "List the nodes" },
       { kind: "assistant", id: "e2", text: "Reading.", streaming: false },
       {
         kind: "tool-call",

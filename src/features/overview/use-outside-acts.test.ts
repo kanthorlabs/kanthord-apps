@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkNode } from "@/api/resources/mission";
-import type { MissionExternalAction, MissionRunnableNode } from "@/api/types";
+import type { MissionExternalAction, MissionNodeRecord } from "@/api/types";
 import { detailKeyOf, type AttentionDetail, type OutsideAttentionItem } from "@/lib/attention";
 
 import { useOutsideActs } from "./use-outside-acts";
@@ -12,12 +12,13 @@ vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
 
-const NODE: MissionRunnableNode = {
+const NODE: MissionNodeRecord = {
   id: "node_1",
-  kind: "objective",
+  work: "implement",
+  requires: [],
+  tasks: [],
   filename: "node_1.md",
   mission_id: "mission_1",
-  parent_id: null,
   visible_revision: 1,
   content: {
     name: "Stripe webhook",
@@ -25,6 +26,8 @@ const NODE: MissionRunnableNode = {
     criterion: "",
     verifications: [],
     bindings: [],
+    work: "implement",
+    requires: [],
   },
   retired_at: null,
   pinned_by_attempts: [],

@@ -114,11 +114,11 @@ describe("mission graph resources", () => {
     expect(seen[0]?.req.url).toBe("/api/mission/mission_1/node?limit=1000");
   });
 
-  it("reads only the dependency edges through mission.edge.list", async () => {
+  it("reads the dependency edges through mission.edge.list without a kind query", async () => {
     await serve({ items: [], next_cursor: null });
 
     await listMissionDependencies("mission_1");
-    expect(seen[0]?.req.url).toBe("/api/mission/mission_1/edge?kind=dependency&limit=1000");
+    expect(seen[0]?.req.url).toBe("/api/mission/mission_1/edge?limit=1000");
   });
 
   it("reads the evidence of one attempt through mission.evidence.list", async () => {
@@ -137,7 +137,7 @@ describe("mission graph resources", () => {
 });
 
 describe("mission proposal resources", () => {
-  it("reads every proposal of an initiative through mission.proposal.list", async () => {
+  it("reads every proposal of an examine node through mission.proposal.list", async () => {
     await serve({ items: [], next_cursor: null });
 
     await listNodeProposals("node_1");

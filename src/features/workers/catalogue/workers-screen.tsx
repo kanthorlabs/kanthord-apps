@@ -44,7 +44,7 @@ function CatalogItem({ item }: { item: WorkerCatalogItem }) {
       </ItemHeader>
       <ItemContent className="min-w-0 gap-4">
         <BadgeList label="Declared node states" values={item.declared_node_states} />
-        <BadgeList label="Required node format" values={item.required_node_format} />
+        <BadgeList label="Declared works" values={item.declared_works} />
       </ItemContent>
     </Item>
   );

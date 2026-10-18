@@ -61,7 +61,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
       )}
       {target === null && bindings.error !== null && (
         <Alert variant="destructive">
-          <AlertDescription>{bindings.error.message}</AlertDescription>
+          <AlertDescription>{bindings.error}</AlertDescription>
         </Alert>
       )}
       {SECTIONS.map((section) => {
@@ -121,7 +121,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
           takenNames={Object.keys(current)}
           saving={bindings.saving}
           conflict={bindings.conflict}
-          errorMessage={bindings.error?.message ?? null}
+          errorMessage={bindings.error}
           onSave={editor.propose}
           onClose={editor.closeTarget}
         />

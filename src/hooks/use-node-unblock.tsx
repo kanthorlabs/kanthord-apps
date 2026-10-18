@@ -2,7 +2,7 @@ import { Fragment, useCallback, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { unblockNode } from "@/api/resources/mission";
-import type { MissionProposal, MissionRunnableNode } from "@/api/types";
+import type { MissionProposal, MissionNodeRecord } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 import { openProposalsOf } from "@/lib/attention";
@@ -36,17 +36,20 @@ const CONFLICT_MESSAGES: Readonly<Record<string, string>> = {
     "The mission changed after this read. The view now shows the current mission. Review the node and unblock again.",
   "mission.node.retired": "The node is retired. The view now shows its current state.",
   "mission.node.terminal": "The node is terminal. The view now shows its current state.",
+  "mission.node.requires_unmatched":
+    "No worker binding of the project matches the requires list of this node. Add a worker binding whose traits hold each key, then try again.",
+  "mission.node.work_locked": "The node opened an attempt, so its work cannot change.",
 };
 
-function isUnblockable(node: MissionRunnableNode): boolean {
+function isUnblockable(node: MissionNodeRecord): boolean {
   return node.retired_at === null && node.state === "Blocked";
 }
 
-function hasStartChoice(node: MissionRunnableNode): boolean {
-  return node.kind === "objective" && node.attempt > 0;
+function hasStartChoice(node: MissionNodeRecord): boolean {
+  return node.work === "implement" && node.attempt > 0;
 }
 
-function consequenceOf(node: MissionRunnableNode): ReactNode {
+function consequenceOf(node: MissionNodeRecord): ReactNode {
   const name = <RecordName>{node.content.name}</RecordName>;
   if (node.attempt === 0) {
     return (
@@ -65,7 +68,7 @@ function consequenceOf(node: MissionRunnableNode): ReactNode {
 }
 
 function proposalNoticeOf(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   proposals: readonly MissionProposal[],
 ): ReactNode {
   const open = openProposalsOf(node, proposals);
@@ -79,13 +82,13 @@ function proposalNoticeOf(
           <RecordName>{proposal.content.name}</RecordName>
         </Fragment>
       ))}
-      . They stay recorded, but the initiative runs the next attempt without the fix objective.
+      . They stay recorded, but the examine node runs the next attempt without the fix node.
     </>
   );
 }
 
 export function useNodeUnblock(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   missionVersion: number,
   proposals: readonly MissionProposal[],
   reload: () => void,
@@ -158,7 +161,7 @@ export function useNodeUnblock(
     error,
     unblocking,
     consequence: consequenceOf(node),
-    proposalNotice: node.kind === "initiative" ? proposalNoticeOf(node, proposals) : null,
+    proposalNotice: node.work === "examine" ? proposalNoticeOf(node, proposals) : null,
     saferPath: (
       <>
         To end <RecordName>{node.content.name}</RecordName> instead, keep it Blocked and discard it.

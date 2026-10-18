@@ -1,7 +1,7 @@
 import type {
   MissionEvidence,
   MissionExternalAction,
-  MissionRunnableNode,
+  MissionNodeRecord,
   RepositoryActionName,
 } from "@/api/types";
 
@@ -14,7 +14,7 @@ const ACTION_LABELS: Readonly<Record<RepositoryActionName, string>> = {
   merge_push: "push to the base branch",
 };
 
-export function hasOpenAttempt(node: MissionRunnableNode): boolean {
+export function hasOpenAttempt(node: MissionNodeRecord): boolean {
   return node.attempt > 0 && node.state !== "Blocked" && !isTerminal(node.state);
 }
 
@@ -25,7 +25,7 @@ export function unresolvedRequestsOf(
 }
 
 export function requestsClearOf(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   actions: readonly MissionExternalAction[] | null,
 ): boolean {
   if (!hasOpenAttempt(node)) return true;

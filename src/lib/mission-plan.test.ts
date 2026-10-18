@@ -14,7 +14,7 @@ import {
 const ENTRY: MissionPlanEntry = {
   filename: "onboarding.md",
   id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA1",
-  kind: "initiative",
+  work: "examine",
   name: "Onboarding",
   requirement: "r",
   criterion: "c",

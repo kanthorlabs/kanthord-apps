@@ -10,7 +10,8 @@ import type {
   MissionImportPreview,
   MissionJsonExport,
   MissionNodeRecord,
-  MissionRunnableNode,
+  MissionTaskContent,
+  Work,
 } from "@/api/types";
 
 vi.mock("@/api/resources/mission");
@@ -30,7 +31,7 @@ const CURRENT: MissionJsonExport = {
     {
       filename: "onboarding.md",
       id: "node_1",
-      kind: "initiative",
+      work: "examine",
       name: "Onboarding",
       requirement: "r",
       criterion: "c",
@@ -40,13 +41,14 @@ const CURRENT: MissionJsonExport = {
     {
       filename: "reset-expiry.md",
       id: "node_2",
-      kind: "task",
+      work: "implement",
       name: "Add reset token expiry",
       requirement: "r",
       criterion: "c",
       verifications: ["v"],
       bindings: [],
-      parent: "onboarding.md",
+      requires: [],
+      depends_on: [],
     },
   ],
 };
@@ -63,21 +65,38 @@ const PREVIEW: MissionImportPreview = {
   violations: [],
 };
 
-function runnable(
-  id: string,
-  kind: "initiative" | "objective",
-  name: string,
-  parentId: string | null,
-  state: MissionRunnableNode["state"],
-): MissionRunnableNode {
+function task(id: string, name: string): MissionTaskContent {
   return {
     id,
-    kind,
+    filename: `${id}.md`,
+    content: { name, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
+  };
+}
+
+function node(
+  id: string,
+  work: Work,
+  name: string,
+  state: MissionNodeRecord["state"],
+  tasks: readonly MissionTaskContent[] = [],
+): MissionNodeRecord {
+  return {
+    id,
+    work,
+    requires: [],
+    tasks,
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: parentId,
     visible_revision: 1,
-    content: { name, requirement: "r", criterion: "c", verifications: ["v"], bindings: [] },
+    content: {
+      name,
+      requirement: "r",
+      criterion: "c",
+      verifications: ["v"],
+      bindings: [],
+      work,
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
     state,
@@ -88,26 +107,14 @@ function runnable(
 }
 
 const GRAPH: readonly MissionNodeRecord[] = [
-  runnable("node_1", "initiative", "Onboarding", null, "Available"),
-  runnable("node_3", "objective", "Add recovery codes", "node_1", "Completed"),
-  runnable("node_4", "objective", "Add password reset", "node_1", "Pending"),
-  {
-    id: "node_2",
-    kind: "task",
-    filename: "reset-expiry.md",
-    mission_id: "mission_1",
-    parent_id: "node_4",
-    visible_revision: 1,
-    content: {
-      name: "Add reset token expiry",
-      requirement: "r",
-      criterion: "c",
-      verifications: ["v"],
-      bindings: [],
-    },
-    retired_at: null,
-    pinned_by_attempts: [],
-  },
+  node("node_1", "examine", "Onboarding", "Pending"),
+  node("node_3", "implement", "Add recovery codes", "Completed"),
+  node("node_4", "implement", "Add password reset", "Pending", [
+    task("task_1", "Add reset token expiry"),
+    task("task_2", "Send the reset email"),
+    task("task_3", "Rate-limit the reset form"),
+  ]),
+  node("node_2", "implement", "Add reset token expiry", "Pending"),
 ];
 
 function renderPanel() {
@@ -145,43 +152,50 @@ describe("MissionPanel", () => {
       return node;
     });
     vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
-      { kind: "dependency", dependent_id: "node_4", depends_on_id: "node_3" },
+      { dependent_id: "node_4", depends_on_id: "node_3" },
+      { dependent_id: "node_1", depends_on_id: "node_4" },
     ]);
   });
 
-  it("shows every node of the mission as a rectangle with its state", async () => {
+  it("shows every node of the mission as a rectangle with its work and state", async () => {
     renderPanel();
 
     expect(await screen.findByText("version 3")).toBeTruthy();
-    const graph = await screen.findByRole("list", { name: "Initiatives" });
+    const graph = await screen.findByRole("list", { name: "Nodes" });
     expect(within(graph).getByRole("button", { name: "Onboarding" })).toBeTruthy();
-    const objectives = within(graph).getByRole("list", { name: "Objectives of Onboarding" });
-    expect(within(objectives).getByText("Completed")).toBeTruthy();
-    expect(
-      within(objectives).getByText(textContent("Depends on: Add recovery codes")),
-    ).toBeTruthy();
-    const tasks = within(graph).getByRole("list", { name: "Tasks of Add password reset" });
-    expect(within(tasks).getByRole("button", { name: "Add reset token expiry" })).toBeTruthy();
+    expect(within(graph).getByText("Completed")).toBeTruthy();
+    expect(within(graph).getAllByText("examine")).toHaveLength(1);
+    expect(within(graph).getAllByText("implement")).toHaveLength(3);
+    expect(within(graph).getByText(textContent("Depends on: Add recovery codes"))).toBeTruthy();
   });
 
-  it("lists the tasks of an objective under a counted heading and opens a task", async () => {
+  it("an implement node card shows Tasks (3)", async () => {
     renderPanel();
 
-    const graph = await screen.findByRole("list", { name: "Initiatives" });
+    const graph = await screen.findByRole("list", { name: "Nodes" });
     const tasks = within(graph).getByRole("list", { name: "Tasks of Add password reset" });
-    expect(tasks.previousElementSibling).toHaveTextContent("Tasks (1)");
-    const task = within(tasks).getByRole("button", { name: "Add reset token expiry" });
-    await userEvent.click(task);
+    expect(tasks.previousElementSibling).toHaveTextContent("Tasks (3)");
+    expect(within(tasks).getAllByRole("button")).toHaveLength(3);
+  });
 
-    expect(task).toHaveAttribute("aria-current", "true");
+  it("opens the node sheet of its node from a task row", async () => {
+    renderPanel();
+
+    const graph = await screen.findByRole("list", { name: "Nodes" });
+    const tasks = within(graph).getByRole("list", { name: "Tasks of Add password reset" });
+    await userEvent.click(within(tasks).getByRole("button", { name: "Send the reset email" }));
+
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText(/^task · /)).toBeTruthy();
+    expect(within(sheet).getByText("implement · node_4.md")).toBeTruthy();
   });
 
-  it("states the progress of the objectives of an initiative", async () => {
+  it("an examine node card shows no Tasks section", async () => {
     renderPanel();
 
-    expect(await screen.findByText("Objectives: 1 of 2 terminal")).toBeTruthy();
+    const graph = await screen.findByRole("list", { name: "Nodes" });
+    expect(within(graph).queryByRole("list", { name: "Tasks of Onboarding" })).toBeNull();
+    expect(within(graph).queryByRole("list", { name: "Tasks of Add recovery codes" })).toBeNull();
+    expect(within(graph).getAllByText(/^Tasks/)).toHaveLength(1);
   });
 
   it("marks the selected node and opens its details", async () => {
@@ -192,7 +206,7 @@ describe("MissionPanel", () => {
 
     expect(node).toHaveAttribute("aria-current", "true");
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText("objective · node_3.md")).toBeTruthy();
+    expect(within(sheet).getByText("implement · node_3.md")).toBeTruthy();
     expect(await within(sheet).findByText("Content of revision 1")).toBeTruthy();
   });
 
@@ -206,7 +220,7 @@ describe("MissionPanel", () => {
 
   it("warns when a dependency names a node that the read does not hold", async () => {
     vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
-      { kind: "dependency", dependent_id: "node_4", depends_on_id: "node_9" },
+      { dependent_id: "node_4", depends_on_id: "node_9" },
     ]);
     renderPanel();
 

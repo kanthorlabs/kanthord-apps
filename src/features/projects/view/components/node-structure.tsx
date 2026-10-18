@@ -1,12 +1,5 @@
-import type { ReactNode } from "react";
-
-import { RecordName } from "@/components/record-name";
-import {
-  closureOf,
-  objectiveProgress,
-  type ClosureStatus,
-  type GraphModel,
-} from "@/lib/mission-graph";
+import type { MissionTaskContent } from "@/api/types";
+import { closureOf, type ClosureStatus, type GraphModel } from "@/lib/mission-graph";
 import { NodeLink } from "./node-link";
 
 interface NodeStructureProps {
@@ -27,14 +20,12 @@ function LinkList({
   empty,
   model,
   onSelect,
-  note,
 }: {
   label: string;
   ids: readonly string[];
   empty: string;
   model: GraphModel;
   onSelect: (nodeId: string) => void;
-  note?: (nodeId: string) => ReactNode;
 }) {
   return (
     <section aria-label={label} className="flex flex-col gap-1">
@@ -46,7 +37,28 @@ function LinkList({
           {ids.map((id) => (
             <li key={id} className="flex min-w-0 flex-col">
               <NodeLink model={model} nodeId={id} onSelect={onSelect} />
-              {note?.(id)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function TaskList({ tasks }: { tasks: readonly MissionTaskContent[] }) {
+  return (
+    <section aria-label="Tasks" className="flex flex-col gap-1">
+      <h4 className="text-sm font-medium">Tasks</h4>
+      {tasks.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          The node holds no task, so it is its own single work unit.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {tasks.map((task) => (
+            <li key={task.id} className="flex min-w-0 flex-col text-sm">
+              <span className="break-words">{task.content.name}</span>
+              <span className="text-xs break-all text-muted-foreground">{task.filename}</span>
             </li>
           ))}
         </ul>
@@ -58,73 +70,26 @@ function LinkList({
 export function NodeStructure({ model, nodeId, onSelect }: NodeStructureProps) {
   const node = model.nodeById.get(nodeId);
   if (node === undefined) return null;
-  const children = (model.children.get(nodeId) ?? []).map((child) => child.id);
   const closure = closureOf(model, nodeId);
-  const progress = node.kind === "initiative" ? objectiveProgress(model, nodeId) : null;
 
   return (
     <div className="flex flex-col gap-4">
       <LinkList
-        label="Parent"
-        ids={node.parent_id === null ? [] : [node.parent_id]}
-        empty="An initiative is a root of the mission graph."
-        model={model}
-        onSelect={onSelect}
-      />
-      {node.kind !== "task" && (
-        <LinkList
-          label={node.kind === "initiative" ? "Objectives" : "Tasks"}
-          ids={children}
-          empty={
-            node.kind === "initiative"
-              ? "The initiative holds no objective."
-              : "The objective holds no task."
-          }
-          model={model}
-          onSelect={onSelect}
-        />
-      )}
-      {progress !== null && (
-        <p className="text-sm">
-          The initiative waits for its objectives: {progress.terminal} of {progress.total} are
-          terminal.
-        </p>
-      )}
-      {node.kind !== "task" && (
-        <>
-          <LinkList
-            label="Depends on"
-            ids={model.dependsOn.get(nodeId) ?? []}
-            empty="The node names no dependency."
-            model={model}
-            onSelect={onSelect}
-          />
-          <LinkList
-            label="Dependents"
-            ids={model.dependents.get(nodeId) ?? []}
-            empty="No node depends on this node."
-            model={model}
-            onSelect={onSelect}
-          />
-        </>
-      )}
-      <LinkList
-        label="Dependency closure"
+        label="Depends on"
         ids={closure.members.map((member) => member.nodeId)}
-        empty="The node and its ancestors name no dependency."
+        empty="The node names no dependency."
         model={model}
         onSelect={onSelect}
-        note={(id) => {
-          const via = closure.members.find((member) => member.nodeId === id)?.via;
-          return via === undefined || via === nodeId ? null : (
-            <span className="pl-2.5 text-xs text-muted-foreground">
-              through the ancestor{" "}
-              <RecordName>{model.nodeById.get(via)?.content.name ?? via}</RecordName>
-            </span>
-          );
-        }}
       />
       {closure.members.length > 0 && <p className="text-sm">{CLOSURE_TEXT[closure.status]}</p>}
+      <LinkList
+        label="Dependents"
+        ids={model.dependents.get(nodeId) ?? []}
+        empty="No node depends on this node."
+        model={model}
+        onSelect={onSelect}
+      />
+      {node.work === "implement" && <TaskList tasks={node.tasks} />}
     </div>
   );
 }

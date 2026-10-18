@@ -52,6 +52,7 @@ export interface WorkerDraft {
   readonly turns: string;
   readonly wallTimeMs: string;
   readonly entries: readonly AgentEntryDraft[];
+  readonly traits: string;
 }
 
 export interface StorageDraft {
@@ -113,6 +114,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       turns: "",
       wallTimeMs: "",
       entries: [],
+      traits: "",
     };
   }
   return {
@@ -213,9 +215,30 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       wallTimeMs:
         config.resource_budget === undefined ? "" : String(config.resource_budget.wall_time_ms),
       entries: (config.entries ?? []).map(agentDraftOf),
+      traits: (config.traits ?? []).join("\n"),
     };
   }
   return { kind: "storage", name, ...entry.config };
+}
+
+const TRAIT_KEY = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/;
+const TRAIT_MAX_BYTES = 64;
+
+function traitsOf(text: string): readonly string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+export function traitsInvalid(text: string): boolean {
+  const traits = traitsOf(text);
+  return (
+    new Set(traits).size !== traits.length ||
+    traits.some(
+      (trait) => !TRAIT_KEY.test(trait) || new TextEncoder().encode(trait).length > TRAIT_MAX_BYTES,
+    )
+  );
 }
 
 function blank(value: string): boolean {
@@ -344,6 +367,7 @@ function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): Bind
         ? { resource_budget: { turns, wall_time_ms: wallTimeMs } }
         : {}),
       ...(draft.entries.length === 0 ? {} : { entries: draft.entries.map(agentEntryOf) }),
+      ...(traitsOf(draft.traits).length === 0 ? {} : { traits: traitsOf(draft.traits) }),
     },
   };
 }
@@ -418,6 +442,7 @@ export function missingForSave(draft: BindingDraft): readonly string[] {
       name,
       ["Worker", blank(draft.worker)],
       ["Instance count", blank(draft.instanceCount)],
+      ["Traits", traitsInvalid(draft.traits)],
     ]);
   return labelsOf([
     name,

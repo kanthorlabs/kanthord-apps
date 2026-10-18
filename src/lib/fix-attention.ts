@@ -1,4 +1,4 @@
-import type { Credential, NodeState, Project, SchedulerExecutionRecord } from "@/api/types";
+import type { Credential, NodeState, Project, SchedulerExecutionRecord, Work } from "@/api/types";
 
 import type { AttentionContext, ItemBase, ProjectSnapshot } from "./attention";
 import { takerHintOf, uncoveredJobsOf, type TakerHint } from "./claim-takers";
@@ -20,6 +20,8 @@ export interface ProjectPausedItem extends FixBase {
 export interface NoTakerItem extends FixBase {
   readonly kind: "no_taker";
   readonly state: NodeState;
+  readonly work: Work;
+  readonly requires: readonly string[];
   readonly jobCount: number;
   readonly hint: TakerHint;
 }
@@ -87,29 +89,31 @@ function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readon
   if (project.paused_at !== null) return [];
   if (jobs === null || instances === null || bindings === null || catalog === null) return [];
   const items: NoTakerItem[] = [];
-  for (const [state, stuck] of uncoveredJobsOf(jobs, snapshot.nodes, instances, catalog)) {
-    const times = stuck.flatMap((job) => {
-      const time = ulidTime(job.job_id);
-      return time === null ? [] : [time];
-    });
-    if (times.length === 0) continue;
-    const oldest = Math.min(...times);
+  const workerBindings = bindings.map((entry) => entry.binding);
+  const stuckGroups = uncoveredJobsOf(jobs, snapshot.nodes, instances, workerBindings, catalog);
+  for (const { facts, jobs: stuck } of stuckGroups) {
+    const [oldest] = stuck
+      .flatMap((job) => {
+        const time = ulidTime(job.job_id);
+        return time === null ? [] : [time];
+      })
+      .sort((left, right) => left - right);
+    if (oldest === undefined) continue;
     if (context.now - oldest <= NO_TAKER_GRACE_MS) continue;
+    const { state, work, requires } = facts;
     items.push({
-      id: `no_taker:${project.id}:${state}`,
+      id: `no_taker:${project.id}:${state}:${work}:${requires.join(",")}`,
       kind: "no_taker",
       group: "fixes",
       project,
       at: oldest,
-      subject: `Jobs in state ${state}`,
+      subject: `${work === "implement" ? "Implement" : "Examine"} jobs in state ${state}`,
       cause: "No taker",
       state,
+      work,
+      requires,
       jobCount: stuck.length,
-      hint: takerHintOf(
-        state,
-        bindings.map((entry) => entry.binding),
-        catalog,
-      ),
+      hint: takerHintOf(facts, workerBindings, catalog),
     });
   }
   return items;
@@ -197,7 +201,7 @@ function refusalsOf(
   const { executions } = snapshot;
   if (executions === null) return [];
   return snapshot.nodes.flatMap((node): readonly Refusal[] => {
-    if (node.kind === "task" || node.retired_at !== null || isTerminal(node.state)) return [];
+    if (node.retired_at !== null || isTerminal(node.state)) return [];
     const latest = latestEndedOf(executions, node.id);
     const stop = latest?.execution.stop ?? null;
     if (latest === null || stop?.reason !== "provider_failed" || stop.code !== code) return [];

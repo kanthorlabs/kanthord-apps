@@ -223,10 +223,10 @@ export function AttemptRecords({
                           ))}
                         </span>
                       )}
-                      {item.child_node_ids.length > 0 && (
+                      {item.dependency_node_ids.length > 0 && (
                         <span className="break-words">
-                          Child outcomes of:{" "}
-                          {item.child_node_ids.map((id, index) => (
+                          Dependencies:{" "}
+                          {item.dependency_node_ids.map((id, index) => (
                             <Fragment key={id}>
                               {index > 0 && ", "}
                               <RecordName>{nameOf(model, id)}</RecordName>

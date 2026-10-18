@@ -34,7 +34,7 @@ async function readAssessment(target: DetailTarget): Promise<MissionAssessment |
 }
 
 async function readProposals(target: DetailTarget): Promise<readonly MissionProposal[]> {
-  return target.node.kind === "initiative" ? listNodeProposals(target.node.id) : [];
+  return target.node.work === "examine" ? listNodeProposals(target.node.id) : [];
 }
 
 async function readBlocked(target: DetailTarget): Promise<BlockedDetail> {

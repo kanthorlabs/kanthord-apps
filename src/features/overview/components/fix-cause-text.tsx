@@ -15,16 +15,27 @@ interface FixCauseTextProps {
   readonly item: FixAttentionItem;
 }
 
+function requiresTextOf(requires: readonly string[], jobCount: number): string {
+  if (requires.length === 0) return "";
+  return ` that ${jobCount === 1 ? "requires" : "require"} ${requires.join(", ")}`;
+}
+
 function NoTakerSentence({ item }: { readonly item: NoTakerItem }) {
-  const { hint, state, jobCount } = item;
+  const { hint, state, work, requires, jobCount } = item;
+  const jobs = `${work} ${jobCount === 1 ? "job" : "jobs"} in state ${state}${requiresTextOf(requires, jobCount)}`;
   if (hint.kind === "none") {
-    return <>No worker binding declares {state}. Add one on the Bindings tab.</>;
+    return (
+      <>
+        No worker binding matches the {jobs}. Add a binding whose worker and traits match{" "}
+        {jobCount === 1 ? "it" : "them"} on the Bindings tab.
+      </>
+    );
   }
   return (
     <>
-      {jobCount} {jobCount === 1 ? "job waits" : "jobs wait"} in state {state}. Binding{" "}
-      <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) declares{" "}
-      {state} and <TakerSituation hint={hint} />
+      {jobCount} {jobs} {jobCount === 1 ? "waits" : "wait"}. Binding{" "}
+      <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) matches{" "}
+      {jobCount === 1 ? "it" : "them"} and <TakerSituation hint={hint} />
     </>
   );
 }

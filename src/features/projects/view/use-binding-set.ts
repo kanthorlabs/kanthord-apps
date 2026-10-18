@@ -1,16 +1,18 @@
 import { useCallback, useState } from "react";
 
-import type { ApiError } from "@/api/errors";
 import { readBindingSet, writeBindingSet } from "@/api/resources/projects";
 import type { BindingSet, BindingSetEntry } from "@/api/types";
+import { credentialMessage } from "@/features/credentials/credential-message";
 import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
 import { nextBindings } from "@/lib/binding-change";
+
+const VERSION_CONFLICT = "project.binding_set.version_conflict";
 
 export interface BindingSetState {
   readonly resource: Resource<BindingSet>;
   readonly saving: boolean;
   readonly conflict: boolean;
-  readonly error: ApiError | null;
+  readonly error: string | null;
   readonly write: (name: string, entry: BindingSetEntry | null, onWritten: () => void) => void;
   readonly clearFeedback: () => void;
 }
@@ -19,7 +21,7 @@ export function useBindingSet(projectId: string, onSetWritten: () => void): Bind
   const resource = useResource(() => readBindingSet(projectId), [projectId]);
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
-  const [error, setError] = useState<ApiError | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { data, reload } = resource;
 
   const clearFeedback = useCallback(() => {
@@ -42,12 +44,12 @@ export function useBindingSet(projectId: string, onSetWritten: () => void): Bind
         (cause: unknown) => {
           setSaving(false);
           const failure = asApiError(cause);
-          if (failure.status === 409) {
+          if (failure.status === 409 && failure.detail === VERSION_CONFLICT) {
             setConflict(true);
             reload();
             return;
           }
-          setError(failure);
+          setError(credentialMessage(failure));
         },
       );
     },

@@ -7,7 +7,7 @@ import { overrideNode } from "@/api/resources/mission";
 import type {
   MissionControlResult,
   MissionExternalAction,
-  MissionRunnableNode,
+  MissionNodeRecord,
   NodeState,
 } from "@/api/types";
 import { useNodeOverride } from "./use-node-override";
@@ -20,12 +20,13 @@ vi.mock("sonner", () => ({
 
 const overrideMock = vi.mocked(overrideNode);
 
-const NODE: MissionRunnableNode = {
+const NODE: MissionNodeRecord = {
   id: "node_audit",
-  kind: "objective",
+  work: "implement",
+  requires: [],
+  tasks: [],
   filename: "audit.md",
   mission_id: "mission_1",
-  parent_id: null,
   visible_revision: 2,
   content: {
     name: "Audit log",
@@ -33,6 +34,8 @@ const NODE: MissionRunnableNode = {
     criterion: "c",
     verifications: ["pnpm test"],
     bindings: [],
+    work: "implement",
+    requires: [],
   },
   retired_at: null,
   pinned_by_attempts: [],
@@ -61,7 +64,7 @@ function action(resolution: MissionExternalAction["resolution"]): MissionExterna
 }
 
 function mount(
-  node: MissionRunnableNode = NODE,
+  node: MissionNodeRecord = NODE,
   reload = vi.fn(),
   actions: readonly MissionExternalAction[] | null = [],
 ) {

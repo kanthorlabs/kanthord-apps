@@ -109,7 +109,6 @@ import type {
   MissionNodeRecord,
   MissionProposal,
   MissionProposalApproveResult,
-  MissionRunnableNode,
   NodeState,
   Project,
   RepositoryActionName,
@@ -119,6 +118,7 @@ import type {
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerInstanceRecord,
+  Work,
 } from "@/api/types";
 import { closingEventText } from "@/lib/mission-labels";
 import { newUlid } from "@/lib/ulid";
@@ -144,7 +144,7 @@ const KANTHORD = project("prj-1", "kanthord");
 const ATLAS = project("prj-2", "atlas");
 
 interface BlockedOptions {
-  readonly kind?: "initiative" | "objective";
+  readonly work?: Work;
   readonly attempt?: number;
   readonly closingEvent?: MissionClosingEvent;
   readonly result?: MissionAssessmentResult;
@@ -152,18 +152,27 @@ interface BlockedOptions {
   readonly requests?: readonly MissionEvidence[];
 }
 
-function blocked(id: string, name: string, options: BlockedOptions = {}): MissionRunnableNode {
+function blocked(id: string, name: string, options: BlockedOptions = {}): MissionNodeRecord {
   const attempt = options.attempt ?? 2;
   return {
     id,
     filename: `${id}.md`,
     mission_id: "mission",
-    parent_id: null,
     visible_revision: 3,
-    content: { name, requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name,
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: options.work ?? "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: options.kind ?? "objective",
+    work: options.work ?? "implement",
+    requires: [],
+    tasks: [],
     state: "Blocked",
     attempt,
     priority: 0,
@@ -190,12 +199,21 @@ function plain(id: string, name: string, state: NodeState): MissionNodeRecord {
     id,
     filename: `${id}.md`,
     mission_id: "mission",
-    parent_id: null,
     visible_revision: 1,
-    content: { name, requirement: "", criterion: "", verifications: [], bindings: [] },
+    content: {
+      name,
+      requirement: "",
+      criterion: "",
+      verifications: [],
+      bindings: [],
+      work: "implement",
+      requires: [],
+    },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt: 1,
     priority: 0,
@@ -203,13 +221,13 @@ function plain(id: string, name: string, state: NodeState): MissionNodeRecord {
   };
 }
 
-function paused(id: string, name: string, attempt = 2): MissionRunnableNode {
-  return { ...(plain(id, name, "Paused") as MissionRunnableNode), attempt };
+function paused(id: string, name: string, attempt = 2): MissionNodeRecord {
+  return { ...(plain(id, name, "Paused") as MissionNodeRecord), attempt };
 }
 
-function pending(id: string, name: string, dependsOn: readonly string[]): MissionRunnableNode {
+function pending(id: string, name: string, dependsOn: readonly string[]): MissionNodeRecord {
   return {
-    ...(plain(id, name, "Pending") as MissionRunnableNode),
+    ...(plain(id, name, "Pending") as MissionNodeRecord),
     attempt: 0,
     depends_on: dependsOn,
   };
@@ -306,7 +324,7 @@ function requestEvidence(
 }
 
 function outside(id: string, name: string, state: NodeState = "External.Requested") {
-  return { ...(plain(id, name, state) as MissionRunnableNode), attempt: 2 };
+  return { ...(plain(id, name, state) as MissionNodeRecord), attempt: 2 };
 }
 
 function assessment(nodeId: string, rationale: string): MissionAssessment {
@@ -317,14 +335,14 @@ function assessment(nodeId: string, rationale: string): MissionAssessment {
     attempt: 2,
     node_revision: 3,
     evidence_ids: [],
-    child_outcome_ids: [],
+    dependency_outcome_ids: [],
     result: "criterion-not-met",
     rationale,
     tested_input: null,
     actor: { kind: "human", account: "kanthorlabs", name: "Kanthor Labs" },
     created_at: NOW - 3 * HOUR,
     currency: null,
-    child_node_ids: [],
+    dependency_node_ids: [],
     worker_version: null,
   };
 }
@@ -336,17 +354,35 @@ function proposal(nodeId: string, name: string, approvedAt: number | null = null
     attempt: 2,
     assessment_id: `assessment_${nodeId}`,
     content: {
-      objective_id: "node_target",
+      dependency_id: "node_target",
       name,
       requirement: "The invite email uses the workspace language.",
       criterion: "c",
       task: { name: "t", requirement: "r", criterion: "c", verifications: ["v"] },
     },
-    objective_node_id: null,
+    created_node_id: null,
     approved_at: approvedAt,
     created_at: NOW - HOUR,
   };
 }
+
+const APPROVED: MissionProposalApproveResult = {
+  created: {
+    mission_version: 10,
+    revisions: [],
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  },
+  proposer: {
+    node: plain("n_t", "Team workspaces", "Pending"),
+    attempt: null,
+    outcome: null,
+    actor: { kind: "human", account: "ulrich", name: "Ulrich" },
+    accepted_at: 1,
+  },
+};
 
 function job(projectId: string, nodeId: string): SchedulerJob {
   return { job_id: `job_${nodeId}`, project_id: projectId, node_id: nodeId, priority: 0 };
@@ -381,13 +417,13 @@ const CATALOG: readonly WorkerCatalogItem[] = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
 ];
 
@@ -436,7 +472,7 @@ function serve(world: World) {
   vi.mocked(resumeProject).mockResolvedValue(KANTHORD);
   vi.mocked(pauseProject).mockResolvedValue(KANTHORD);
   vi.mocked(unblockNode).mockResolvedValue({} as MissionControlResult);
-  vi.mocked(approveProposal).mockResolvedValue({} as MissionProposalApproveResult);
+  vi.mocked(approveProposal).mockResolvedValue(APPROVED);
   vi.mocked(overrideNode).mockResolvedValue({} as MissionControlResult);
   vi.mocked(resumeNode).mockResolvedValue({} as MissionControlResult);
   vi.mocked(removeDependency).mockResolvedValue({} as MissionNodeChange);
@@ -656,10 +692,10 @@ describe("OverviewScreen assessment", () => {
     );
   });
 
-  it("shows the open fix proposal of an initiative in the panel", async () => {
+  it("shows the open fix proposal of an examine node in the panel", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
       proposals: {
         n_t: [
           proposal("n_t", "Send the invite in the workspace language"),
@@ -704,7 +740,7 @@ describe("OverviewScreen assessment", () => {
 });
 
 describe("OverviewScreen acts", () => {
-  it("offers Unblock and Discard for an objective at once", async () => {
+  it("offers Unblock and Discard for an implement node at once", async () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
     renderScreen();
 
@@ -713,9 +749,9 @@ describe("OverviewScreen acts", () => {
     expect(within(item).getByRole("button", { name: "Discard" })).toBeInTheDocument();
   });
 
-  it("holds Unblock and Discard of an initiative until the proposals read answers", async () => {
+  it("holds Unblock and Discard of an examine node until the proposals read answers", async () => {
     let answer: (value: readonly MissionProposal[]) => void = () => undefined;
-    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] } });
+    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] } });
     vi.mocked(listNodeProposals).mockReturnValue(
       new Promise((resolve) => {
         answer = resolve;
@@ -734,9 +770,9 @@ describe("OverviewScreen acts", () => {
     expect(within(item).getByRole("button", { name: "Discard" })).toBeInTheDocument();
   });
 
-  it("keeps the acts of an initiative off when the proposals read fails", async () => {
+  it("keeps the acts of an examine node off when the proposals read fails", async () => {
     const user = userEvent.setup();
-    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] } });
+    serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] } });
     vi.mocked(listNodeProposals).mockRejectedValueOnce(
       new ApiError("unreachable", "The daemon did not answer.", 0),
     );
@@ -760,7 +796,7 @@ describe("OverviewScreen acts", () => {
   it("names the rejected proposals in the Unblock dialog and sends the unblock", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
       proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
     });
     renderScreen();
@@ -771,7 +807,7 @@ describe("OverviewScreen acts", () => {
     expect(
       within(dialog).getByText(
         textContent(
-          "Unblock rejects the open proposals: Send the invite in the workspace language. They stay recorded, but the initiative runs the next attempt without the fix objective.",
+          "Unblock rejects the open proposals: Send the invite in the workspace language. They stay recorded, but the examine node runs the next attempt without the fix node.",
         ),
       ),
     ).toBeInTheDocument();
@@ -1123,7 +1159,7 @@ describe("OverviewScreen dependency items", () => {
 });
 
 describe("OverviewScreen dependency items with an open attempt", () => {
-  function started(): MissionRunnableNode {
+  function started(): MissionNodeRecord {
     return { ...pending("n_c", "Redirect the legacy links", ["n_b"]), attempt: 2 };
   }
 
@@ -1171,10 +1207,10 @@ describe("OverviewScreen dependency items with an open attempt", () => {
 });
 
 describe("OverviewScreen proposal approval", () => {
-  it("approves the open proposal of an initiative in place", async () => {
+  it("approves the open proposal of an examine node in place", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
       proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
     });
     renderScreen();
@@ -1197,11 +1233,11 @@ describe("OverviewScreen proposal approval", () => {
     );
   });
 
-  it("offers no approval for an approved proposal or for an objective", async () => {
+  it("offers no approval for an approved proposal or for an implement node", async () => {
     serve({
       nodes: {
         "prj-1": [
-          blocked("n_t", "Team workspaces", { kind: "initiative" }),
+          blocked("n_t", "Team workspaces", { work: "examine" }),
           blocked("n_a", "Audit log"),
         ],
       },
@@ -1544,7 +1580,7 @@ describe("OverviewScreen resume", () => {
 
   it("names what Waiting needs when a dependency is open", async () => {
     const user = userEvent.setup();
-    const dependent: MissionRunnableNode = {
+    const dependent: MissionNodeRecord = {
       ...paused("n_p", "Print the packing slip"),
       depends_on: ["n_form"],
     };
@@ -1712,7 +1748,7 @@ describe("OverviewScreen dialog focus", () => {
   it("focuses Reason first in the Approve proposal dialog", async () => {
     const user = userEvent.setup();
     serve({
-      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { kind: "initiative" })] },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { work: "examine" })] },
       proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
     });
     renderScreen();
@@ -2165,13 +2201,13 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
       expect(within(item).getByText("No taker")).toBeInTheDocument();
       expect(within(item).getByText("Waiting")).toBeInTheDocument();
       expect(
         within(item).getByText(
           textContent(
-            "2 jobs wait in state Waiting. Binding reviewer-main (reviewer@1) declares Waiting and runs no instance. Raise its instance_count, or check the server log.",
+            "2 implement jobs in state Waiting wait. Binding reviewer-main (reviewer@1) matches them and runs no instance. Raise its instance_count, or check the server log.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2193,17 +2229,40 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
       expect(
         within(item).getByText(
           textContent(
-            "1 job waits in state Waiting. Binding reviewer-main (reviewer@1) declares Waiting and has no live instance. Start its worker program.",
+            "1 implement job in state Waiting waits. Binding reviewer-main (reviewer@1) matches it and has no live instance. Start its worker program.",
           ),
         ),
       ).toBeInTheDocument();
     });
 
-    it("tells the human to add a binding when no binding declares the state", async () => {
+    it("names the requires list of a job that no binding matches", async () => {
+      serve({
+        nodes: {
+          "prj-1": [
+            { ...plain("n_m", "Build the macOS app", "Available"), requires: ["platform.macos"] },
+          ],
+        },
+        jobs: { "prj-1": [agedJob("prj-1", "n_m", 5 * 60_000)] },
+        bindings: { "prj-1": [workerBinding("general-main", "coder@1", "server")] },
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("Implement jobs in state Available"));
+      expect(
+        within(item).getByText(
+          textContent(
+            "No worker binding matches the implement job in state Available that requires platform.macos. Add a binding whose worker and traits match it on the Bindings tab.",
+          ),
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("tells the human to add a binding when no binding matches the job", async () => {
       serve({
         nodes: { "prj-1": [waiting] },
         jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
@@ -2212,10 +2271,12 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Jobs in state Waiting"));
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
       expect(
         within(item).getByText(
-          textContent("No worker binding declares Waiting. Add one on the Bindings tab."),
+          textContent(
+            "No worker binding matches the implement job in state Waiting. Add a binding whose worker and traits match it on the Bindings tab.",
+          ),
         ),
       ).toBeInTheDocument();
     });
@@ -2230,7 +2291,7 @@ describe("OverviewScreen fixes", () => {
       renderScreen();
 
       expect(await screen.findByText("All clear")).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Jobs in state Waiting" })).toBeNull();
+      expect(screen.queryByRole("link", { name: "Implement jobs in state Waiting" })).toBeNull();
     });
 
     it("lists nothing when a live instance declares the state", async () => {

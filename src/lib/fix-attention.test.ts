@@ -28,13 +28,13 @@ const CATALOG: readonly WorkerCatalogItem[] = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    required_node_format: ["objective"],
+    declared_works: ["implement", "examine"],
   },
 ];
 
@@ -56,7 +56,6 @@ function node(
     id,
     filename: `${id}.md`,
     mission_id: "mission_1",
-    parent_id: null,
     visible_revision: 1,
     content: {
       name: `Node ${id}`,
@@ -64,10 +63,14 @@ function node(
       criterion: "",
       verifications: [],
       bindings: [],
+      work: "implement",
+      requires: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
-    kind: "objective",
+    work: "implement",
+    requires: [],
+    tasks: [],
     state,
     attempt: 1,
     priority: 0,
@@ -85,11 +88,11 @@ function job(nodeId: string, ageMs: number): SchedulerJob {
   };
 }
 
-function instance(workerName: string, draining = false): WorkerInstanceRecord {
+function instance(binding: string, workerName: string, draining = false): WorkerInstanceRecord {
   return {
-    runtime_identity: `worker_instance_${workerName}`,
+    runtime_identity: `worker_instance_${binding}`,
     project_id: PROJECT.id,
-    resource_identity: `worker:kanthord:${workerName}`,
+    resource_identity: `worker:kanthord:${binding}`,
     worker_name: workerName,
     host: "kanthord",
     placement: "server",
@@ -122,6 +125,7 @@ function bindingView(
   worker: string,
   placement?: WorkerPlacement,
   agents: readonly BindingAgentView[] | null = [],
+  traits?: readonly string[],
 ): WorkerBindingView {
   const binding: WorkerBindingRecord = {
     id: `binding_${name}`,
@@ -130,10 +134,12 @@ function bindingView(
     kind: "worker",
     resource_identity: `worker:kanthord:${name}`,
     revision: 1,
-    config:
-      placement === undefined
-        ? { worker, instance_count: 1 }
-        : { worker, instance_count: 1, placement },
+    config: {
+      worker,
+      instance_count: 1,
+      ...(placement === undefined ? {} : { placement }),
+      ...(traits === undefined ? {} : { traits }),
+    },
     created_at: 1,
     removed_at: null,
   };
@@ -257,11 +263,13 @@ describe("fixItemsOf no_taker", () => {
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
-      id: "no_taker:prj-1:Waiting",
+      id: "no_taker:prj-1:Waiting:implement:",
       kind: "no_taker",
       cause: "No taker",
-      subject: "Jobs in state Waiting",
+      subject: "Implement jobs in state Waiting",
       state: "Waiting",
+      work: "implement",
+      requires: [],
       jobCount: 2,
       at: NOW - 120_000,
       hint: { kind: "server", binding: "reviewer-main", worker: "reviewer@1" },
@@ -290,9 +298,47 @@ describe("fixItemsOf no_taker", () => {
     );
 
     expect(items.map((item) => item.id).sort()).toEqual([
-      "no_taker:prj-1:External.Requested",
-      "no_taker:prj-1:Waiting",
+      "no_taker:prj-1:External.Requested:implement:",
+      "no_taker:prj-1:Waiting:implement:",
     ]);
+  });
+
+  it("lists one item for each requires list of one state, each with its own hint and count", () => {
+    const items = fixItemsOf(
+      [
+        snapshot({
+          nodes: [
+            node("m", "Available", { requires: ["platform.macos"] }),
+            node("l", "Available", { requires: ["platform.linux"] }),
+            node("l2", "Available", { requires: ["platform.linux"] }),
+          ],
+          jobs: [job("m", 5 * MINUTE), job("l", 5 * MINUTE), job("l2", 4 * MINUTE)],
+          bindings: [
+            bindingView("coder-mac", "coder@1", "worker", [], ["platform.macos"]),
+            bindingView("coder-linux", "coder@1", "server", [], ["platform.linux"]),
+          ],
+        }),
+      ],
+      context(),
+    );
+
+    expect(items).toHaveLength(2);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "no_taker:prj-1:Available:implement:platform.macos",
+          requires: ["platform.macos"],
+          jobCount: 1,
+          hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
+        }),
+        expect.objectContaining({
+          id: "no_taker:prj-1:Available:implement:platform.linux",
+          requires: ["platform.linux"],
+          jobCount: 2,
+          hint: { kind: "server", binding: "coder-linux", worker: "coder@1" },
+        }),
+      ]),
+    );
   });
 
   it("names a hint of the worker placement when the binding sets no placement", () => {
@@ -329,11 +375,40 @@ describe("fixItemsOf no_taker", () => {
     const base = { nodes: [waiting], jobs: [job("w", 5 * MINUTE)], bindings: [reviewer] };
 
     expect(
-      fixItemsOf([snapshot({ ...base, instances: [instance("reviewer@1")] })], context()),
+      fixItemsOf(
+        [snapshot({ ...base, instances: [instance("reviewer-main", "reviewer@1")] })],
+        context(),
+      ),
     ).toEqual([]);
     expect(
-      fixItemsOf([snapshot({ ...base, instances: [instance("reviewer@1", true)] })], context()),
+      fixItemsOf(
+        [snapshot({ ...base, instances: [instance("reviewer-main", "reviewer@1", true)] })],
+        context(),
+      ),
     ).toHaveLength(1);
+  });
+
+  it("names the binding whose traits hold the requires list of the stuck node", () => {
+    const mac = node("m", "Available", { requires: ["platform.macos"] });
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          nodes: [mac],
+          jobs: [job("m", 5 * MINUTE)],
+          instances: [instance("coder-main", "coder@1")],
+          bindings: [
+            bindingView("coder-main", "coder@1", "server"),
+            bindingView("coder-mac", "coder@1", "worker", [], ["platform.macos"]),
+          ],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({
+      id: "no_taker:prj-1:Available:implement:platform.macos",
+      hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
+    });
   });
 
   it("lists nothing for a paused project", () => {

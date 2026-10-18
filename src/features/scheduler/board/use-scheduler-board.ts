@@ -8,10 +8,11 @@ import type {
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
+  WorkerCatalogItem,
 } from "@/api/types";
 import { usePolledResource } from "@/hooks/use-polled-resource";
 import { useScopedProject } from "@/hooks/use-scoped-project";
-import { uncoveredStates } from "@/lib/claim-takers";
+import { uncoveredJobsOf } from "@/lib/claim-takers";
 import { nodePath } from "@/lib/node-path";
 import { ulidTime } from "@/lib/ulid";
 
@@ -79,7 +80,7 @@ function nodeNamesOf(nodes: readonly MissionNodeRecord[]): ReadonlyMap<string, s
 }
 
 function nodeStatesOf(nodes: readonly MissionNodeRecord[]): ReadonlyMap<string, NodeState> {
-  return new Map(nodes.flatMap((node) => (node.kind === "task" ? [] : [[node.id, node.state]])));
+  return new Map(nodes.map((node) => [node.id, node.state]));
 }
 
 function claimKindOfState(state: NodeState | null): ClaimKind | null {
@@ -108,6 +109,14 @@ function runningViewsOf(board: ProjectBoard, showProject: boolean): readonly Run
     }));
 }
 
+function uncoveredJobIdsOf(
+  board: ProjectBoard,
+  catalog: readonly WorkerCatalogItem[],
+): ReadonlySet<string> {
+  const groups = uncoveredJobsOf(board.jobs, board.nodes, board.instances, board.bindings, catalog);
+  return new Set(groups.flatMap((group) => group.jobs.map((job) => job.job_id)));
+}
+
 function queueGroupOf(board: ProjectBoard, uncovered: ReadonlySet<string> | null): QueueGroup {
   const names = nodeNamesOf(board.nodes);
   const states = nodeStatesOf(board.nodes);
@@ -122,7 +131,7 @@ function queueGroupOf(board: ProjectBoard, uncovered: ReadonlySet<string> | null
         state,
         claim: claimKindOfState(state),
         queuedAt: ulidTime(job.job_id),
-        noTaker: uncovered !== null && state !== null && uncovered.has(state),
+        noTaker: uncovered !== null && uncovered.has(job.job_id),
         href: nodePath(board.project.id, job.node_id),
       };
     }),
@@ -170,12 +179,7 @@ export function useSchedulerBoard(): SchedulerBoardState {
     () =>
       boards
         .map((entry) =>
-          queueGroupOf(
-            entry,
-            catalogData === null
-              ? null
-              : uncoveredStates(entry.jobs, entry.nodes, entry.instances, catalogData),
-          ),
+          queueGroupOf(entry, catalogData === null ? null : uncoveredJobIdsOf(entry, catalogData)),
         )
         .filter((group) => group.jobs.length > 0),
     [boards, catalogData],

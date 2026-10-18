@@ -40,6 +40,8 @@ const MESSAGES: Readonly<Record<string, string>> = {
     "The SSH credential changed since the binding was created. Re-verify or update the binding.",
   "repository.credential.ssh_identity_ambiguous":
     "The SSH credential has no single identity file. Add IdentitiesOnly yes and one IdentityFile to the Host block in ~/.ssh/config.",
+  "project.bindings.worker.traits_invalid":
+    "A trait key is malformed or repeated. Use lower-case dotted keys, each at most 64 bytes, each once.",
   "repository.credential.ssh_config_unreadable":
     "The server cannot read ~/.ssh/config. Check its permissions and syntax.",
 };
@@ -52,6 +54,13 @@ function nameConflictMessage(details: unknown): string {
   const holder = isRecord(details) && typeof details["id"] === "string" ? details["id"] : null;
   const base = "A credential with this name already exists. Choose another name.";
   return holder === null ? base : `${base} The holder is ${holder}.`;
+}
+
+function nodeUnmatchedMessage(details: unknown): string {
+  const ids = isRecord(details) && Array.isArray(details["node_ids"]) ? details["node_ids"] : [];
+  const base =
+    "The change leaves a node with no matching worker binding. Keep a binding whose worker and traits match each listed node.";
+  return ids.length === 0 ? base : `${base} Nodes: ${ids.map(String).join(", ")}.`;
 }
 
 function modelInUseMessage(details: unknown): string {
@@ -121,5 +130,8 @@ export function credentialMessage(cause: ApiError): string {
   if (cause.detail === "credential.name.conflict") return nameConflictMessage(cause.details);
   if (cause.detail === "llm.metadata.model_in_use") return modelInUseMessage(cause.details);
   if (cause.detail === "credential.credential.in_use") return inUseMessage(cause.details);
+  if (cause.detail === "project.bindings.worker.node_unmatched") {
+    return nodeUnmatchedMessage(cause.details);
+  }
   return MESSAGES[cause.detail] ?? cause.message;
 }

@@ -5,7 +5,6 @@ import type {
   MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
-  MissionRunnableNode,
   Credential,
   Project,
   SchedulerExecutionRecord,
@@ -124,7 +123,7 @@ export interface ItemBase {
 
 interface NodeItemBase extends ItemBase {
   readonly missionVersion: number;
-  readonly node: MissionRunnableNode;
+  readonly node: MissionNodeRecord;
   readonly nodes: readonly MissionNodeRecord[];
 }
 
@@ -182,7 +181,7 @@ export type AttentionItem =
 export interface DetailTarget {
   readonly kind: "blocked" | "paused" | "open" | "external";
   readonly projectId: string;
-  readonly node: MissionRunnableNode;
+  readonly node: MissionNodeRecord;
 }
 
 const DELIVERY_GRACE_MS = 10 * 60_000;
@@ -201,11 +200,11 @@ const KIND_ORDER: readonly AttentionItem["kind"][] = [
   "delivery_unconfirmed",
 ];
 
-function isRunnable(node: MissionNodeRecord): node is MissionRunnableNode {
-  return node.kind !== "task" && node.retired_at === null;
+function isRunnable(node: MissionNodeRecord): boolean {
+  return node.retired_at === null;
 }
 
-export function detailKeyOf(node: MissionRunnableNode): string {
+export function detailKeyOf(node: MissionNodeRecord): string {
   return `${node.id}:${node.attempt}:${node.state}:${node.visible_revision}`;
 }
 
@@ -231,14 +230,14 @@ export function refreshedDetailOf(
 
 export function detailOf(
   details: AttentionDetails,
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
 ): AttentionDetail | null {
   const detail = details.get(node.id);
   return detail !== undefined && detail.key === detailKeyOf(node) ? detail : null;
 }
 
 export function openProposalsOf(
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   proposals: readonly MissionProposal[],
 ): readonly MissionProposal[] {
   return proposals.filter(
@@ -258,7 +257,7 @@ export function blockedCauseOf(context: MissionBlockedContext | undefined): stri
   return "Blocked";
 }
 
-function blockedItemOf(snapshot: ProjectSnapshot, node: MissionRunnableNode): BlockedItem {
+function blockedItemOf(snapshot: ProjectSnapshot, node: MissionNodeRecord): BlockedItem {
   return {
     id: `blocked:${node.id}`,
     kind: "blocked",
@@ -275,7 +274,7 @@ function blockedItemOf(snapshot: ProjectSnapshot, node: MissionRunnableNode): Bl
 
 function pausedItemOf(
   snapshot: ProjectSnapshot,
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   details: AttentionDetails,
 ): PausedItem {
   const detail = detailOf(details, node);
@@ -298,17 +297,17 @@ function pausedItemOf(
 
 function discardedDependenciesOf(
   snapshot: ProjectSnapshot,
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
 ): readonly DiscardedDependency[] {
   return node.depends_on.flatMap((id) => {
     const target = snapshot.nodes.find((candidate) => candidate.id === id);
-    return target !== undefined && target.kind !== "task" && target.state === "Discarded"
+    return target !== undefined && target.state === "Discarded"
       ? [{ id, name: target.content.name }]
       : [];
   });
 }
 
-function isDependencyItem(snapshot: ProjectSnapshot, node: MissionRunnableNode): boolean {
+function isDependencyItem(snapshot: ProjectSnapshot, node: MissionNodeRecord): boolean {
   return node.state === "Pending" && discardedDependenciesOf(snapshot, node).length > 0;
 }
 
@@ -340,7 +339,7 @@ function agedDeliveryOf(
 
 function outsideItemOf(
   snapshot: ProjectSnapshot,
-  node: MissionRunnableNode,
+  node: MissionNodeRecord,
   details: AttentionDetails,
   now: number,
 ): readonly AttentionItem[] {

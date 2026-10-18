@@ -6,10 +6,10 @@ const NO_PROPOSALS: readonly MissionProposal[] = [];
 
 export function useNodeProposals(
   nodeId: string,
-  initiative: boolean,
+  examine: boolean,
 ): Resource<readonly MissionProposal[]> {
   return useResource(
-    () => (initiative ? listNodeProposals(nodeId) : Promise.resolve(NO_PROPOSALS)),
-    [nodeId, initiative],
+    () => (examine ? listNodeProposals(nodeId) : Promise.resolve(NO_PROPOSALS)),
+    [nodeId, examine],
   );
 }
