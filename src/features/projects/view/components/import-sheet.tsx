@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { counted } from "@/lib/counted";
 import type { MissionImportState } from "../use-mission-import";
+import { PlanFormatHelp } from "./plan-format-help";
 
 interface ImportSheetProps {
   readonly open: boolean;
@@ -96,6 +97,7 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
               <FieldDescription>
                 One .json mission export, or one or more .md plan files.
               </FieldDescription>
+              <PlanFormatHelp />
               <FieldError>{state.inputError}</FieldError>
             </Field>
             <Field>

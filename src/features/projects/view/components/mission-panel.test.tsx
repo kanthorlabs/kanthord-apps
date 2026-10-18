@@ -218,6 +218,37 @@ describe("MissionPanel", () => {
     expect(await screen.findByText("The mission holds no nodes.")).toBeTruthy();
   });
 
+  it("offers a sample plan and the plan format page when the mission holds no nodes", async () => {
+    vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
+    vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([]);
+    renderPanel();
+
+    await screen.findByText("The mission holds no nodes.");
+
+    const sample = screen.getByRole("button", { name: "Download a sample plan" });
+    expect(sample).toHaveAttribute("download", "sample-plan.md");
+    expect(sample.getAttribute("href")).toMatch(/^data:text\/markdown/);
+    expect(screen.getByRole("link", { name: "Plan file format" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("reference/mission/import.md#plan-files"),
+    );
+  });
+
+  it("offers a sample plan and the plan format page in the import sheet", async () => {
+    renderPanel();
+    await userEvent.click(await screen.findByRole("button", { name: "Import" }));
+
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("button", { name: "Download a sample plan" })).toHaveAttribute(
+      "download",
+      "sample-plan.md",
+    );
+    expect(within(sheet).getByRole("link", { name: "Plan file format" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("reference/mission/import.md#plan-files"),
+    );
+  });
+
   it("warns when a dependency names a node that the read does not hold", async () => {
     vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([
       { dependent_id: "node_4", depends_on_id: "node_9" },

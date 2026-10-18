@@ -4,7 +4,13 @@ import { useCallback, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMission } from "../use-mission";
 import { useMissionExport } from "../use-mission-export";
@@ -15,6 +21,7 @@ import { GraphDiagnostics } from "./graph-diagnostics";
 import { ImportSheet } from "./import-sheet";
 import { MissionGraph } from "./mission-graph";
 import { NodeSheet } from "./node-sheet";
+import { PlanFormatHelp } from "./plan-format-help";
 
 interface MissionPanelProps {
   readonly projectId: string;
@@ -105,6 +112,9 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
                 <EmptyTitle>The mission holds no nodes.</EmptyTitle>
                 <EmptyDescription>Import a plan to create its nodes.</EmptyDescription>
               </EmptyHeader>
+              <EmptyContent>
+                <PlanFormatHelp />
+              </EmptyContent>
             </Empty>
           </div>
         ) : (
