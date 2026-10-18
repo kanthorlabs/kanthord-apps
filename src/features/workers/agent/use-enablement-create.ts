@@ -2,10 +2,18 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { listAllCredentials } from "@/api/resources/credentials";
-import { listCredentialModels, putAgentEnablement } from "@/api/resources/workers";
+import {
+  listAgentEnablements,
+  listCredentialModels,
+  putAgentEnablement,
+} from "@/api/resources/workers";
 import type { AgentModel } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
-import { agentProviderCredentials, providerOfCredential } from "@/lib/agent-provider-draft";
+import {
+  agentProviderCredentials,
+  providerNameOfCredential,
+  providerOfCredential,
+} from "@/lib/agent-provider-draft";
 import { credentialLabel } from "@/lib/credential-label";
 import {
   EMPTY_ENABLEMENT,
@@ -49,6 +57,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const [submitting, setSubmitting] = useState(false);
   const credentials = useResource(() => listAllCredentials("llm"), []);
   const usable = agentProviderCredentials(credentials.data ?? []);
+  const enablements = useResource(listAgentEnablements, []);
   const [models, setModels] = useState<readonly AgentModel[] | null>(null);
   const [modelsFailure, setModelsFailure] = useState<string | null>(null);
 
@@ -57,7 +66,13 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const selectCredential = useCallback(
     (value: string | null) => {
       const credential = value ?? "";
-      setDraft((current) => ({ ...current, credential, modelIdentifier: "" }));
+      const knownName = providerNameOfCredential(enablements.data ?? [], credential);
+      setDraft((current) => ({
+        ...current,
+        credential,
+        modelIdentifier: "",
+        name: current.name.trim() === "" && knownName !== null ? knownName : current.name,
+      }));
       setModels(null);
       setModelsFailure(null);
       const provider = providerOfCredential(usable, credential);
@@ -82,7 +97,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
         (cause: unknown) => setModelsFailure(asApiError(cause).message),
       );
     },
-    [usable],
+    [usable, enablements.data],
   );
 
   const selectModel = useCallback(

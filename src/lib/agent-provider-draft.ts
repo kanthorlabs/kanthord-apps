@@ -41,6 +41,20 @@ export function providerOfCredential(
   return AGENT_PROVIDER_KINDS.find((kind) => kind === platform) ?? null;
 }
 
+export function providerNameOfCredential(
+  enablements: readonly AgentEnablement[],
+  credentialName: string,
+  takenNames: readonly string[] = [],
+): string | null {
+  for (const enablement of enablements) {
+    const match = enablement.agent_providers.find(
+      (provider) => provider.credential === credentialName && !takenNames.includes(provider.name),
+    );
+    if (match !== undefined) return match.name;
+  }
+  return null;
+}
+
 export function missingAgentProviderFields(draft: AgentProviderDraft): readonly string[] {
   return [
     ...(draft.name.trim() === "" ? ["Name"] : []),

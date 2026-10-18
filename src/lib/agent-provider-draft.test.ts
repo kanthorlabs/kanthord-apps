@@ -4,6 +4,7 @@ import type { AgentEnablement, Credential } from "@/api/types";
 import {
   agentProviderBodyOf,
   missingAgentProviderFields,
+  providerNameOfCredential,
   unusedProviderCredentials,
   providerRemovalBlock,
 } from "./agent-provider-draft";
@@ -115,5 +116,25 @@ describe("providerRemovalBlock", () => {
 
   it("allows another agent provider", () => {
     expect(providerRemovalBlock(two, "codex")).toBeNull();
+  });
+});
+
+describe("providerNameOfCredential", () => {
+  const OTHER: AgentEnablement = {
+    ...ENABLEMENT,
+    agent_name: "re@1",
+    agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+  };
+
+  it("returns the name of an agent provider that uses the credential", () => {
+    expect(providerNameOfCredential([ENABLEMENT, OTHER], "router-main")).toBe("router");
+  });
+
+  it("returns null when no agent provider uses the credential", () => {
+    expect(providerNameOfCredential([ENABLEMENT, OTHER], "codex-main")).toBeNull();
+  });
+
+  it("skips a name that the target enablement holds", () => {
+    expect(providerNameOfCredential([OTHER], "router-main", ["router"])).toBeNull();
   });
 });
