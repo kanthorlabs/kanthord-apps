@@ -9,6 +9,7 @@ import type {
   MissionVerification,
 } from "@/api/types";
 
+import { counted } from "./counted";
 import type { StateBadgeVariant } from "./node-state";
 
 const CLOSING_EVENTS: Record<MissionClosingEvent, string> = {
@@ -77,7 +78,8 @@ export function assetText(asset: MissionEvidenceAsset): string {
   }
   if (asset.kind === "produced")
     return `produced content sha256 ${shortCommit(asset.address.sha256)}`;
-  if (asset.kind === "object") return `object ${asset.address.location}, ${asset.size} bytes`;
+  if (asset.kind === "object")
+    return `object ${asset.address.location}, ${counted(asset.size, "byte", "bytes")}`;
   const address = asset.address;
   if (address.kind === "pull_request") {
     return `pull request #${address.number} on ${address.resource_identity}`;

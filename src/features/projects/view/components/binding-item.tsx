@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { isAvailable } from "@/lib/binding-change";
+import { counted } from "@/lib/counted";
 import type { BindingCheckBadge, BindingVerifyState } from "../use-binding-verify";
 
 interface BindingItemProps {
@@ -45,7 +46,7 @@ function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
       `instance count ${config.instance_count}`,
       config.resource_budget === undefined
         ? "worker default budget"
-        : `budget ${config.resource_budget.turns} turns, ${config.resource_budget.wall_time_ms} ms`,
+        : `budget ${counted(config.resource_budget.turns, "turn", "turns")}, ${config.resource_budget.wall_time_ms} ms`,
       `agent entries ${config.entries?.length ?? 0}`,
     ];
   }
