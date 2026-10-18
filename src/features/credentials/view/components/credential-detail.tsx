@@ -11,11 +11,12 @@ import { CheckStatusBadge } from "../../components/check-status-badge";
 import { MetadataSheet } from "../../components/metadata-sheet";
 import { RotateSheet } from "../../components/rotate-sheet";
 import { VerifyButton } from "../../components/verify-button";
-import { type CredentialCheck, useCredentialCheck } from "../../use-credential-check";
+import type { CredentialCheck } from "../../use-credential-check";
 import { useCredentialPlatforms } from "../../use-credential-platforms";
 import { useCredentialRotate } from "../../use-credential-rotate";
 import { useMetadataEdit } from "../../use-metadata-edit";
 import { useCredentialArchive } from "../use-credential-archive";
+import { useDetailCheck } from "../use-detail-check";
 import { useRevisionRevoke } from "../use-revision-revoke";
 import { ArchiveDialog } from "./archive-dialog";
 import { RevisionList } from "./revision-list";
@@ -73,7 +74,7 @@ export function CredentialDetail({
   const revoke = useRevisionRevoke(component, credential, reload);
   const archive = useCredentialArchive(component, credential);
   const archived = isArchived(credential);
-  const check = useCredentialCheck(component, credential.name);
+  const check = useDetailCheck(component, credential.name);
 
   return (
     <div className="flex flex-col gap-4">

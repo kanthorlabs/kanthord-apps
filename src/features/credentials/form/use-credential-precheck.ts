@@ -10,6 +10,7 @@ import {
   type SecretDraft,
 } from "@/lib/credential-draft";
 import { healthLabel, healthVariant } from "@/lib/credential-health";
+import type { PriorCheck } from "@/lib/prior-check";
 import { credentialMessage } from "../credential-message";
 import type { CheckBadge } from "../use-credential-check";
 
@@ -21,7 +22,7 @@ interface Inputs {
 
 type PrecheckResult =
   | { readonly status: "checking" }
-  | { readonly status: "ready"; readonly badge: CheckBadge }
+  | { readonly status: "ready"; readonly badge: CheckBadge; readonly checked: PriorCheck }
   | { readonly status: "failed"; readonly message: string };
 
 interface Precheck {
@@ -34,6 +35,7 @@ export interface CredentialPrecheck {
   readonly available: boolean;
   readonly checking: boolean;
   readonly badge: CheckBadge | null;
+  readonly checked: PriorCheck | null;
   readonly error: string | null;
   readonly run: () => void;
 }
@@ -90,6 +92,7 @@ export function useCredentialPrecheck(
         settle({
           status: "ready",
           badge: { label: healthLabel(health), variant: healthVariant(health), busy: false },
+          checked: { entry: health, checkedAt: Date.now() },
         }),
       (cause: unknown) =>
         settle({ status: "failed", message: credentialMessage(asApiError(cause)) }),
@@ -101,6 +104,7 @@ export function useCredentialPrecheck(
     available,
     checking: current?.status === "checking",
     badge: badgeOf(current),
+    checked: current?.status === "ready" ? current.checked : null,
     error: current?.status === "failed" ? current.message : null,
     run,
   };

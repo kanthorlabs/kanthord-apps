@@ -25,6 +25,7 @@ import {
 import { platformEntryOf, platformIdsOf } from "@/lib/credential-platforms";
 import { credentialDetailPath } from "@/lib/credential-sections";
 import { missingHint } from "@/lib/missing-fields";
+import type { PriorCheckState } from "@/lib/prior-check";
 import { credentialMessage } from "../credential-message";
 import { useCredentialPlatforms } from "../use-credential-platforms";
 import { useCredentialLogin, type CredentialLoginState } from "./use-credential-login";
@@ -121,6 +122,7 @@ export function useCredentialForm(
     setSubmitError(null);
     setSubmitting(true);
     setSecret(EMPTY_SECRET);
+    const { checked } = precheck;
     createCredential(component, body.value).then(
       (credential) => {
         setSubmitting(false);
@@ -128,7 +130,9 @@ export function useCredentialForm(
         if (onCreated !== undefined) {
           onCreated(credential.name);
         } else {
-          void navigate(credentialDetailPath(component, credential.name));
+          const state: PriorCheckState | undefined =
+            checked === null ? undefined : { priorCheck: checked };
+          void navigate(credentialDetailPath(component, credential.name), { state });
         }
       },
       (cause: unknown) => {
@@ -136,7 +140,7 @@ export function useCredentialForm(
         setSubmitError(credentialMessage(asApiError(cause)));
       },
     );
-  }, [component, name, entry, secret, metadata, navigate, onCreated]);
+  }, [component, name, entry, secret, metadata, precheck, navigate, onCreated]);
 
   const submit = useCallback(() => {
     if (submitting || login.starting) return;
