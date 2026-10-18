@@ -115,7 +115,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
                 <EmptyDescription>Import a plan to create its nodes.</EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <PlanFormatHelp sample={sample} />
+                <PlanFormatHelp sample={sample} align="center" />
               </EmptyContent>
             </Empty>
           </div>

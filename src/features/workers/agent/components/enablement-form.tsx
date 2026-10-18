@@ -39,6 +39,7 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           value={draft.name}
           error={errors["name"]}
           description="A name that you choose for this agent provider. The default configuration selects it by this name. Reuse the name of an agent provider that has the same LLM credential."
+          inputRef={form.nameInput}
           onChange={form.setName}
         />
         <SearchChoiceField

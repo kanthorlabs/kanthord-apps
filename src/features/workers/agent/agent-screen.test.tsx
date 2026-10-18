@@ -116,9 +116,9 @@ async function choose(label: string, option: string) {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-function mount() {
+function mount(hash = "") {
   return render(
-    <MemoryRouter initialEntries={["/agents/re%401"]}>
+    <MemoryRouter initialEntries={[`/agents/re%401${hash}`]}>
       <Routes>
         <Route path="/agents/:agentName" element={<AgentScreen />} />
       </Routes>
@@ -474,6 +474,24 @@ describe("AgentScreen", () => {
       fallback_configurations: [],
     });
     expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it("focuses the name of the enable form when the path holds the enablement hash", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount("#enablement");
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+
+    expect(within(form).getByLabelText("Agent provider name")).toHaveFocus();
+  });
+
+  it("leaves the focus alone when the path holds no enablement hash", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+
+    expect(within(form).getByLabelText("Agent provider name")).not.toHaveFocus();
   });
 
   it("explains the agent provider name of the enable form", async () => {

@@ -5,14 +5,23 @@ import { PLAN_FILES_DOC_URL, samplePlanHref, type SamplePlan } from "@/lib/missi
 
 interface PlanFormatHelpProps {
   readonly sample: SamplePlan;
+  readonly align: "start" | "center";
 }
 
-export function PlanFormatHelp({ sample }: PlanFormatHelpProps) {
+export function PlanFormatHelp({ sample, align }: PlanFormatHelpProps) {
   const { file, hint } = sample;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
+    <div
+      className={align === "center" ? "flex flex-col items-center gap-2" : "flex flex-col gap-2"}
+    >
+      <div
+        className={
+          align === "center"
+            ? "flex flex-wrap items-center justify-center gap-2"
+            : "flex flex-wrap items-center gap-2"
+        }
+      >
         <Button
           variant="outline"
           size="sm"

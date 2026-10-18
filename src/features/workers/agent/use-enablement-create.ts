@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
 import { listAllCredentials } from "@/api/resources/credentials";
@@ -42,12 +43,15 @@ export interface EnablementCreateState {
   readonly credentialsMissing: boolean;
   readonly failure: string | null;
   readonly submitting: boolean;
+  readonly nameInput: RefObject<HTMLInputElement | null>;
   readonly setName: (name: string) => void;
   readonly selectCredential: (value: string | null) => void;
   readonly selectModel: (value: string | null) => void;
   readonly selectReasoningEffort: (value: string | null) => void;
   readonly submit: () => void;
 }
+
+export const ENABLEMENT_HASH = "#enablement";
 
 const NO_ERRORS: EnablementErrors = {};
 
@@ -60,6 +64,12 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const usable = agentProviderCredentials(credentials.data ?? []);
   const enablements = useResource(listAgentEnablements, []);
   const prefilledName = useRef<string | null>(null);
+  const nameInput = useRef<HTMLInputElement>(null);
+  const focusName = useLocation().hash === ENABLEMENT_HASH;
+
+  useEffect(() => {
+    if (focusName) nameInput.current?.focus();
+  }, [focusName]);
   const [models, setModels] = useState<readonly AgentModel[] | null>(null);
   const [modelsFailure, setModelsFailure] = useState<string | null>(null);
 
@@ -160,6 +170,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     credentialsMissing: credentials.data !== null && usable.length === 0,
     failure,
     submitting,
+    nameInput,
     setName,
     selectCredential,
     selectModel,

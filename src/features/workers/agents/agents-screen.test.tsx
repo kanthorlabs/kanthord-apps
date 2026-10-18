@@ -65,7 +65,7 @@ describe("AgentsScreen", () => {
     expect(within(items[0]!).getByText("reviewer@1")).toBeTruthy();
   });
 
-  it("opens the detail form of a not enabled agent from its Enable button", async () => {
+  it("links the Enable button of a not enabled agent to the enablement form", async () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue([RE, SWE]);
     mount();
 
@@ -75,7 +75,7 @@ describe("AgentsScreen", () => {
     expect(within(items[1]!).queryByRole("button", { name: "Enable swe@1" })).toBeNull();
     expect(within(items[0]!).getByRole("button", { name: "Enable re@1" })).toHaveAttribute(
       "href",
-      "/agents/re%401",
+      "/agents/re%401#enablement",
     );
   });
 

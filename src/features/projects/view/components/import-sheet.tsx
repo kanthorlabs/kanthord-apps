@@ -99,7 +99,7 @@ export function ImportSheet({ open, onOpenChange, state, sample }: ImportSheetPr
               <FieldDescription>
                 One .json mission export, or one or more .md plan files.
               </FieldDescription>
-              <PlanFormatHelp sample={sample} />
+              <PlanFormatHelp sample={sample} align="start" />
               <FieldError>{state.inputError}</FieldError>
             </Field>
             <Field>
