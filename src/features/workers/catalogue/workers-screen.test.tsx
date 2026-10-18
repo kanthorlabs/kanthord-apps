@@ -143,8 +143,8 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(screen.getByText("tdd")).toBeDefined());
   });
 
-  it("shows the expected and the live count of each worker binding", async () => {
-    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
+  it("shows the revision, the expected and the live count of each worker binding", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([
       INSTANCE_EXECUTING,
       { ...INSTANCE_EXECUTING, runtime_identity: "worker_instance_04" },
@@ -159,11 +159,25 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(screen.getByText("tdd-main")).toBeDefined());
     expect(screen.getByText("2 of 2 live")).toBeDefined();
     expect(screen.getByText("1 of 3 live")).toBeDefined();
+    expect(screen.getAllByText("(v1)")).toHaveLength(2);
     expect(projectsApi.listWorkerBindings).toHaveBeenCalledWith("prj-test");
   });
 
-  it("shows both steps for a worker placement binding with a gap", async () => {
-    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
+  it("does not count an instance of another project with the same binding name", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([
+      { ...INSTANCE_IDLE_WORKER, project_id: "prj-other" },
+    ]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("reviewer-main", { instance_count: 1, placement: "worker" }),
+    ]);
+    render(<WorkersScreen />);
+
+    await waitFor(() => expect(screen.getByText("0 of 1 live")).toBeDefined());
+  });
+
+  it("shows the missing count and both steps for a worker placement binding with a gap", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 2 }),
@@ -173,16 +187,37 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
     expect(
       screen.getByText(
+        textContent(
+          "2 instances are missing. Repeat both steps once for each missing instance. Each instance needs its own token file and its own cli.yaml.",
+        ),
+      ),
+    ).toBeDefined();
+    expect(
+      screen.getByText(
         "kanthord auth jwt generate --project prj-test --binding reviewer-main --output <file>",
       ),
     ).toBeDefined();
+    expect(screen.getByText("$XDG_CONFIG_HOME/kanthord")).toBeDefined();
+    expect(screen.getByText("~/.config/kanthord")).toBeDefined();
+    expect(screen.getByText("0600")).toBeDefined();
     expect(screen.getByText("kanthord serve worker --endpoint <url>")).toBeDefined();
-    expect(screen.getAllByText("cli.yaml").length).toBeGreaterThan(0);
     expect(screen.getByText("client_secret")).toBeDefined();
   });
 
-  it("shows no steps for a server placement binding with a gap", async () => {
-    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
+  it("states one missing instance in the singular", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_IDLE_WORKER]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
+    ]);
+    render(<WorkersScreen />);
+
+    await waitFor(() => expect(screen.getByText("1 of 2 live")).toBeDefined());
+    expect(screen.getByText(/^1 instance is missing\./)).toBeDefined();
+  });
+
+  it("shows the slot limit cause for a server placement binding with a gap", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
@@ -190,11 +225,18 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
 
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
+    expect(
+      screen.getByText(
+        textContent(
+          "The server starts these instances. A lasting shortfall means the worker.server_slot_limit cap. See the server log for worker.pool.slot_limit.",
+        ),
+      ),
+    ).toBeDefined();
     expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
   });
 
   it("shows no steps for a worker placement binding with all instances live", async () => {
-    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_IDLE_WORKER]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 1, placement: "worker" }),
@@ -203,6 +245,41 @@ describe("WorkersScreen", () => {
 
     await waitFor(() => expect(screen.getByText("1 of 1 live")).toBeDefined());
     expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
+    expect(screen.queryByText(/worker.server_slot_limit/)).toBeNull();
+  });
+
+  it("shows a disabled mark for a binding with an instance count of 0", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("reviewer-main", { instance_count: 0 }),
+    ]);
+    render(<WorkersScreen />);
+
+    await waitFor(() => expect(screen.getByText("0 of 0 live")).toBeDefined());
+    expect(screen.getByText("disabled")).toBeDefined();
+    expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
+  });
+
+  it("shows no placement and no steps for an external-harness worker binding", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
+      {
+        name: "claude-code@1",
+        host: "external-harness",
+        declared_node_states: ["Available"],
+        declared_intents: ["implement"],
+      },
+    ]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("claude-code-main", { worker: "claude-code@1", instance_count: 1 }),
+    ]);
+    render(<WorkersScreen />);
+
+    await waitFor(() => expect(screen.getByText("0 of 1 live")).toBeDefined());
+    expect(screen.getAllByText("claude-code@1").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
+    expect(screen.queryByText(/ · worker$/)).toBeNull();
   });
 
   it("shows the empty state when the project has no worker binding", async () => {
