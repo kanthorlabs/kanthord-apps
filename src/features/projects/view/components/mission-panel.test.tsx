@@ -370,7 +370,7 @@ describe("MissionPanel", () => {
     );
   });
 
-  it("words the summary line and the retire label for one and for two nodes", async () => {
+  it("words the summary line and the retire label for one node", async () => {
     vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
       ...PREVIEW,
       no_ops: ["node_5"],
