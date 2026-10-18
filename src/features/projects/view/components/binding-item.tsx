@@ -13,6 +13,7 @@ interface BindingItemProps {
   readonly name: string;
   readonly entry: BindingSetEntry;
   readonly bindingId: string | null;
+  readonly hostedWorker: boolean;
   readonly revision: number | null;
   readonly verifyState: BindingVerifyState;
   readonly onVerify: () => void;
@@ -20,7 +21,7 @@ interface BindingItemProps {
   readonly onRemove: () => void;
 }
 
-function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
+function factsOf(entry: BindingSetEntry, hostedWorker: boolean): readonly ReactNode[] {
   if (entry.kind === "repository") {
     const { config } = entry;
     return [
@@ -42,7 +43,7 @@ function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
     const { config } = entry;
     return [
       <RecordName>{config.worker}</RecordName>,
-      ...(config.placement !== undefined ? [`placement ${config.placement}`] : []),
+      ...(hostedWorker ? [`placement ${config.placement ?? "worker"}`] : []),
       `instance count ${config.instance_count}`,
       config.resource_budget === undefined
         ? "worker default budget"
@@ -83,6 +84,7 @@ export function BindingItem({
   name,
   entry,
   bindingId,
+  hostedWorker,
   revision,
   verifyState,
   onVerify,
@@ -119,7 +121,7 @@ export function BindingItem({
           )}
         </ItemTitle>
         <ItemDescription className="break-words">
-          {factsOf(entry).map((fact, index) => (
+          {factsOf(entry, hostedWorker).map((fact, index) => (
             <Fragment key={index}>
               {index > 0 && " · "}
               {fact}

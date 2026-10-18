@@ -123,6 +123,7 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
             value={placement}
             options={PLACEMENTS}
             error={errors["placement"]}
+            description="server runs the instances inside kanthord. worker waits for a machine with a machine token. The binding keeps this choice."
             onChange={(next) =>
               onEdit({ ...draft, placement: PLACEMENTS.find((item) => item === next) ?? null })
             }

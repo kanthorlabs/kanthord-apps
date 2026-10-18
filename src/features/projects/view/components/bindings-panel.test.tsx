@@ -376,6 +376,46 @@ describe("BindingsPanel", () => {
     });
   });
 
+  it("shows the effective placement worker for a binding that holds none", async () => {
+    mount();
+
+    expect(await screen.findByText(/placement worker · instance count 2/)).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Edit general-main" }));
+    expect(await screen.findByLabelText("Placement")).toHaveValue("worker");
+    const count = screen.getByLabelText("Instance count");
+    await userEvent.clear(count);
+    await userEvent.type(count, "3");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": REPO,
+      "general-main": { kind: "worker", config: { worker: "coder@1", instance_count: 3 } },
+    });
+  });
+
+  it("shows no placement on the card of a worker of an external harness", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
+      { ...CATALOG_ITEM, host: "external-harness", name: "coder@1" },
+    ]);
+    mount();
+
+    expect(await screen.findByText(/instance count 2/)).toBeTruthy();
+    expect(screen.queryByText(/placement/)).toBeNull();
+  });
+
+  it("explains the permanent placement choice on create", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+
+    expect(
+      await screen.findByText(
+        "server runs the instances inside kanthord. worker waits for a machine with a machine token. The binding keeps this choice.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("writes the placement that the human chooses for a new worker binding", async () => {
     mount();
 

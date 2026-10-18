@@ -7,6 +7,7 @@ import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBindingEditor } from "../use-binding-editor";
 import { useBindingVerify } from "../use-binding-verify";
+import { useHostedWorkers } from "../use-hosted-workers";
 import { BindingGuardDialog } from "./binding-guard-dialog";
 import { BindingItem } from "./binding-item";
 import { BindingSheet } from "./binding-sheet";
@@ -29,6 +30,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
   const current = data?.bindings ?? {};
 
   const bindingVerify = useBindingVerify(projectId, data?.version ?? null);
+  const hostedWorkers = useHostedWorkers().data;
 
   if (loading && data === null) {
     return (
@@ -97,6 +99,10 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
                       name={name}
                       entry={entry}
                       bindingId={bindingId}
+                      hostedWorker={
+                        entry.kind === "worker" &&
+                        (hostedWorkers?.has(entry.config.worker) ?? false)
+                      }
                       revision={bindingVerify.revisionOf(name)}
                       verifyState={bindingVerify.getState(bindingId)}
                       onVerify={() => {
