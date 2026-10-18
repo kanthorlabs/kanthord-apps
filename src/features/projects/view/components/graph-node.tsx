@@ -17,7 +17,7 @@ interface GraphNodeProps {
 
 export function GraphNode({ node, dependsOn, selectedId, onSelect }: GraphNodeProps) {
   const selected = node.id === selectedId;
-  const tasks = node.work === "implement" ? node.tasks : [];
+  const tasks = node.intent === "implement" ? node.tasks : [];
 
   return (
     <div
@@ -35,7 +35,7 @@ export function GraphNode({ node, dependsOn, selectedId, onSelect }: GraphNodePr
             <span className="truncate">{node.content.name}</span>
           </Button>
           <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            <Badge variant="outline">{node.work}</Badge>
+            <Badge variant="outline">{node.intent}</Badge>
             <Badge variant={badgeVariantOf(node.state)}>{node.state}</Badge>
             {node.attempt > 0 && <span>attempt {node.attempt}</span>}
             {node.priority !== 0 && <span>priority {node.priority}</span>}

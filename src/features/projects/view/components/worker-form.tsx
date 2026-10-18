@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   agentRowsOf,
-  traitsInvalid,
+  tagsInvalid,
   withAgentEntry,
   withWorker,
   type AgentEntryDraft,
@@ -136,18 +136,18 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
         onChange={(wallTimeMs) => onEdit({ ...draft, wallTimeMs })}
       />
       <Field>
-        <FieldLabel htmlFor="binding-traits">Traits</FieldLabel>
+        <FieldLabel htmlFor="binding-tags">Tags</FieldLabel>
         <Textarea
-          id="binding-traits"
-          value={draft.traits}
-          aria-invalid={traitsInvalid(draft.traits)}
+          id="binding-tags"
+          value={draft.tags}
+          aria-invalid={tagsInvalid(draft.tags)}
           autoComplete="off"
           spellCheck={false}
-          onChange={(event) => onEdit({ ...draft, traits: event.target.value })}
+          onChange={(event) => onEdit({ ...draft, tags: event.target.value })}
         />
         <FieldDescription>
           One key per line, for example platform.macos. Use lower-case dotted keys, each at most 64
-          bytes, each once. A node runs only on a binding that holds every key of its requires list.
+          bytes, each once. A node runs only on a binding that holds every key of its tags.
         </FieldDescription>
       </Field>
       <section aria-label="Agents" className="flex flex-col gap-2">

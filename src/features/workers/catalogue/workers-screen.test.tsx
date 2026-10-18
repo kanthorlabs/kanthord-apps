@@ -18,7 +18,7 @@ const CATALOG_TDD: WorkerCatalogItem = {
   name: "tdd",
   host: "kanthord",
   declared_node_states: ["Available", "Waiting"],
-  declared_works: ["implement"],
+  declared_intents: ["implement"],
 };
 
 const INSTANCE_EXECUTING: WorkerInstanceRecord = {
@@ -67,7 +67,7 @@ describe("WorkersScreen", () => {
 
     await waitFor(() => expect(screen.getByText("tdd")).toBeDefined());
     expect(screen.getByText("Waiting")).toBeDefined();
-    expect(screen.getByText("Declared works")).toBeDefined();
+    expect(screen.getByText("Declared intents")).toBeDefined();
     expect(screen.getByText("implement")).toBeDefined();
     expect(screen.queryByText("examine")).toBeNull();
     expect(screen.getByText("No instances.")).toBeDefined();

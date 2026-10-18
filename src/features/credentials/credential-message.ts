@@ -40,8 +40,8 @@ const MESSAGES: Readonly<Record<string, string>> = {
     "The SSH credential changed since the binding was created. Re-verify or update the binding.",
   "repository.credential.ssh_identity_ambiguous":
     "The SSH credential has no single identity file. Add IdentitiesOnly yes and one IdentityFile to the Host block in ~/.ssh/config.",
-  "project.bindings.worker.traits_invalid":
-    "A trait key is malformed or repeated. Use lower-case dotted keys, each at most 64 bytes, each once.",
+  "project.bindings.worker.tags_invalid":
+    "A tag key is malformed or repeated. Use lower-case dotted keys, each at most 64 bytes, each once.",
   "repository.credential.ssh_config_unreadable":
     "The server cannot read ~/.ssh/config. Check its permissions and syntax.",
 };
@@ -59,7 +59,7 @@ function nameConflictMessage(details: unknown): string {
 function nodeUnmatchedMessage(details: unknown): string {
   const ids = isRecord(details) && Array.isArray(details["node_ids"]) ? details["node_ids"] : [];
   const base =
-    "The change leaves a node with no matching worker binding. Keep a binding whose worker and traits match each listed node.";
+    "The change leaves a node with no matching worker binding. Keep a binding whose worker and tags match each listed node.";
   return ids.length === 0 ? base : `${base} Nodes: ${ids.map(String).join(", ")}.`;
 }
 

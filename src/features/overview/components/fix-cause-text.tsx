@@ -15,18 +15,18 @@ interface FixCauseTextProps {
   readonly item: FixAttentionItem;
 }
 
-function requiresTextOf(requires: readonly string[], jobCount: number): string {
-  if (requires.length === 0) return "";
-  return ` that ${jobCount === 1 ? "requires" : "require"} ${requires.join(", ")}`;
+function tagsTextOf(tags: readonly string[]): string {
+  if (tags.length === 0) return "";
+  return ` with the tags ${tags.join(", ")}`;
 }
 
 function NoTakerSentence({ item }: { readonly item: NoTakerItem }) {
-  const { hint, state, work, requires, jobCount } = item;
-  const jobs = `${work} ${jobCount === 1 ? "job" : "jobs"} in state ${state}${requiresTextOf(requires, jobCount)}`;
+  const { hint, state, intent, tags, jobCount } = item;
+  const jobs = `${intent} ${jobCount === 1 ? "job" : "jobs"} in state ${state}${tagsTextOf(tags)}`;
   if (hint.kind === "none") {
     return (
       <>
-        No worker binding matches the {jobs}. Add a binding whose worker and traits match{" "}
+        No worker binding matches the {jobs}. Add a binding whose worker and tags match{" "}
         {jobCount === 1 ? "it" : "them"} on the Bindings tab.
       </>
     );

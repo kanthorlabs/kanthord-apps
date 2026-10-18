@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import type { MissionEdge, MissionNodeRecord, NodeState, Work } from "@/api/types";
+import type { MissionEdge, MissionNodeRecord, NodeState, Intent } from "@/api/types";
 
 import { edgeGroupOf } from "./edge-group";
 import { buildGraph } from "./mission-graph";
 
-function node(id: string, work: Work, state: NodeState): MissionNodeRecord {
+function node(id: string, intent: Intent, state: NodeState): MissionNodeRecord {
   return {
     id,
-    work,
-    requires: [],
+    intent,
+    tags: [],
     tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
@@ -20,8 +20,8 @@ function node(id: string, work: Work, state: NodeState): MissionNodeRecord {
       criterion: "c",
       verifications: ["v"],
       bindings: [],
-      work,
-      requires: [],
+      intent,
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

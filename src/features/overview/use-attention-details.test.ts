@@ -42,13 +42,13 @@ function node(
       criterion: "",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
     tasks: [],
     state,
     attempt: 2,
@@ -101,7 +101,7 @@ beforeEach(() => {
 
 describe("useAttentionDetails", () => {
   it("reads the assessment of the outcome attempt and the proposals of an examine node", async () => {
-    const target = blocked("n1", { work: "examine" });
+    const target = blocked("n1", { intent: "examine" });
 
     const { result } = renderHook(() => useAttentionDetails([target], null));
 

@@ -89,7 +89,7 @@ export function NodeStructure({ model, nodeId, onSelect }: NodeStructureProps) {
         model={model}
         onSelect={onSelect}
       />
-      {node.work === "implement" && <TaskList tasks={node.tasks} />}
+      {node.intent === "implement" && <TaskList tasks={node.tasks} />}
     </div>
   );
 }

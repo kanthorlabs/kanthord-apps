@@ -5,20 +5,20 @@ import type {
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerInstanceRecord,
-  Work,
+  Intent,
 } from "@/api/types";
 
 export interface NodeFacts {
   readonly state: NodeState;
-  readonly work: Work;
-  readonly requires: readonly string[];
+  readonly intent: Intent;
+  readonly tags: readonly string[];
 }
 
 export function factsOf(node: MissionNodeRecord): NodeFacts {
   return {
     state: node.state,
-    work: node.work,
-    requires: [...node.requires].sort((left, right) => left.localeCompare(right)),
+    intent: node.intent,
+    tags: [...node.tags].sort((left, right) => left.localeCompare(right)),
   };
 }
 
@@ -29,11 +29,11 @@ function admits(
 ): boolean {
   const worker = catalog.find((item) => item.name === binding.config.worker);
   if (worker === undefined) return false;
-  const traits = binding.config.traits ?? [];
+  const tags = binding.config.tags ?? [];
   return (
     worker.declared_node_states.includes(facts.state) &&
-    worker.declared_works.includes(facts.work) &&
-    facts.requires.every((trait) => traits.includes(trait))
+    worker.declared_intents.includes(facts.intent) &&
+    facts.tags.every((tag) => tags.includes(tag))
   );
 }
 
@@ -55,7 +55,7 @@ export interface UncoveredGroup {
 }
 
 function groupKeyOf(facts: NodeFacts): string {
-  return `${facts.state}:${facts.work}:${facts.requires.join(",")}`;
+  return `${facts.state}:${facts.intent}:${facts.tags.join(",")}`;
 }
 
 export function uncoveredJobsOf(

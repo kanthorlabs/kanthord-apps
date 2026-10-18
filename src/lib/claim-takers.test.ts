@@ -17,17 +17,17 @@ const CATALOG: readonly WorkerCatalogItem[] = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
 ];
 
-function node(id: string, state: NodeState, requires: readonly string[] = []): MissionNodeRecord {
+function node(id: string, state: NodeState, tags: readonly string[] = []): MissionNodeRecord {
   return {
     id,
     filename: `${id}.md`,
@@ -39,13 +39,13 @@ function node(id: string, state: NodeState, requires: readonly string[] = []): M
       criterion: "",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
-    work: "implement",
-    requires,
+    intent: "implement",
+    tags,
     tasks: [],
     state,
     attempt: 0,
@@ -82,7 +82,7 @@ function binding(
   name: string,
   worker: string,
   placement?: WorkerPlacement,
-  traits?: readonly string[],
+  tags?: readonly string[],
 ): WorkerBindingRecord {
   return {
     id: `binding_${name}`,
@@ -95,7 +95,7 @@ function binding(
       worker,
       instance_count: 1,
       ...(placement === undefined ? {} : { placement }),
-      ...(traits === undefined ? {} : { traits }),
+      ...(tags === undefined ? {} : { tags }),
     },
     created_at: 1,
     removed_at: null,
@@ -146,7 +146,7 @@ describe("uncoveredJobsOf", () => {
     expect(uncoveredJobsOf([job("gone")], NODES, [], [CODER], CATALOG)).toEqual([]);
   });
 
-  it("splits the jobs of one state into a group for each requires list", () => {
+  it("splits the jobs of one state into a group for each tag set", () => {
     const nodes = [
       node("mac", "Available", ["platform.macos"]),
       node("linux", "Available", ["platform.linux"]),
@@ -158,16 +158,16 @@ describe("uncoveredJobsOf", () => {
 
     expect(
       uncovered.map((group) => ({
-        requires: group.facts.requires,
+        tags: group.facts.tags,
         nodeIds: group.jobs.map((entry) => entry.node_id),
       })),
     ).toEqual([
-      { requires: ["platform.macos"], nodeIds: ["mac", "mac2"] },
-      { requires: ["platform.linux"], nodeIds: ["linux"] },
+      { tags: ["platform.macos"], nodeIds: ["mac", "mac2"] },
+      { tags: ["platform.linux"], nodeIds: ["linux"] },
     ]);
   });
 
-  it("puts two requires lists that differ only in order into one group", () => {
+  it("puts two tag sets that differ only in order into one group", () => {
     const nodes = [
       node("a", "Available", ["platform.macos", "toolchain.xcode_16"]),
       node("b", "Available", ["toolchain.xcode_16", "platform.macos"]),
@@ -176,10 +176,10 @@ describe("uncoveredJobsOf", () => {
     const uncovered = uncoveredJobsOf([job("a"), job("b")], nodes, [], [CODER], CATALOG);
 
     expect(uncovered).toHaveLength(1);
-    expect(uncovered[0]?.facts.requires).toEqual(["platform.macos", "toolchain.xcode_16"]);
+    expect(uncovered[0]?.facts.tags).toEqual(["platform.macos", "toolchain.xcode_16"]);
   });
 
-  it("a node with requires [platform.macos] has no taker while every binding holds traits []", () => {
+  it("a node with tags [platform.macos] has no taker while every binding holds tags []", () => {
     const nodes = [node("a", "Available", ["platform.macos"]), node("b", "Available")];
     const jobs = [job("a"), job("b")];
 
@@ -188,7 +188,7 @@ describe("uncoveredJobsOf", () => {
     expect(nodeIdsIn(uncovered, "Available")).toEqual(["a"]);
   });
 
-  it("covers a node whose requires list is a subset of the traits of a live binding", () => {
+  it("covers a node whose tags are a subset of the tags of a live binding", () => {
     const mac = binding("coder-mac", "coder@1", undefined, [
       "platform.macos",
       "toolchain.xcode_16",
@@ -198,9 +198,9 @@ describe("uncoveredJobsOf", () => {
     expect(uncoveredJobsOf([job("a")], nodes, liveOf("coder-mac"), [mac], CATALOG)).toEqual([]);
   });
 
-  it("leaves a node uncovered when its work is not a declared work of the worker", () => {
+  it("leaves a node uncovered when its intent is not a declared intent of the worker", () => {
     const catalog: readonly WorkerCatalogItem[] = [
-      { ...(CATALOG[0] as WorkerCatalogItem), declared_works: ["examine"] },
+      { ...(CATALOG[0] as WorkerCatalogItem), declared_intents: ["examine"] },
     ];
 
     const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("coder@1"), [CODER], catalog);
@@ -264,7 +264,7 @@ describe("takerHintOf", () => {
       name: "claude-code@1",
       host: "external-harness",
       declared_node_states: ["Waiting"],
-      declared_works: ["implement", "examine"],
+      declared_intents: ["implement", "examine"],
     };
 
     expect(
@@ -282,7 +282,7 @@ describe("takerHintOf", () => {
     expect(hint).toMatchObject({ binding: "a-review" });
   });
 
-  it("a binding with the trait platform.macos and no instance is the hint", () => {
+  it("a binding with the tag platform.macos and no instance is the hint", () => {
     const facts = factsOf(node("a", "Available", ["platform.macos"]));
     const bindings = [
       binding("a-general", "coder@1"),

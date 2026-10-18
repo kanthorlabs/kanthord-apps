@@ -24,16 +24,16 @@ describe("credentialMessage", () => {
         refusal("project.bindings.worker.node_unmatched", { node_ids: ["node_a", "node_b"] }),
       ),
     ).toBe(
-      "The change leaves a node with no matching worker binding. Keep a binding whose worker and traits match each listed node. Nodes: node_a, node_b.",
+      "The change leaves a node with no matching worker binding. Keep a binding whose worker and tags match each listed node. Nodes: node_a, node_b.",
     );
     expect(credentialMessage(refusal("project.bindings.worker.node_unmatched"))).toMatch(
       /match each listed node\.$/,
     );
   });
 
-  it("states the trait key rule", () => {
-    expect(credentialMessage(refusal("project.bindings.worker.traits_invalid"))).toBe(
-      "A trait key is malformed or repeated. Use lower-case dotted keys, each at most 64 bytes, each once.",
+  it("states the tag key rule", () => {
+    expect(credentialMessage(refusal("project.bindings.worker.tags_invalid"))).toBe(
+      "A tag key is malformed or repeated. Use lower-case dotted keys, each at most 64 bytes, each once.",
     );
   });
 

@@ -128,7 +128,7 @@ describe("nodesNaming", () => {
   it("lists the plan entries that name the binding", () => {
     const entry = (name: string, bindings: string[]): MissionPlanEntry => ({
       filename: `${name}.md`,
-      work: "implement",
+      intent: "implement",
       name,
       requirement: "r",
       criterion: "c",

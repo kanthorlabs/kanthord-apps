@@ -29,8 +29,8 @@ function node(
 ): MissionNodeRecord {
   return {
     id,
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
     tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
@@ -41,8 +41,8 @@ function node(
       criterion: "c",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

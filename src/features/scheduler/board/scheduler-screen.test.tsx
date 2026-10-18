@@ -76,7 +76,7 @@ function node(
   name: string,
   state: NodeState,
   attempt = 1,
-  requires: readonly string[] = [],
+  tags: readonly string[] = [],
 ): MissionNodeRecord {
   return {
     id,
@@ -89,13 +89,13 @@ function node(
       criterion: "",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
-    work: "implement",
-    requires,
+    intent: "implement",
+    tags,
     tasks: [],
     state,
     attempt,
@@ -164,13 +164,13 @@ const CATALOG: readonly WorkerCatalogItem[] = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
 ];
 
@@ -196,7 +196,7 @@ function binding(
   projectId: string,
   name: string,
   worker: string,
-  traits: readonly string[] = [],
+  tags: readonly string[] = [],
 ): WorkerBindingRecord {
   return {
     id: `binding_${name}`,
@@ -205,7 +205,7 @@ function binding(
     kind: "worker",
     resource_identity: `worker:kanthord:${name}`,
     revision: 1,
-    config: { worker, instance_count: 1, traits },
+    config: { worker, instance_count: 1, tags },
     created_at: 1,
     removed_at: null,
   };
@@ -492,7 +492,7 @@ describe("SchedulerScreen Next", () => {
     expect(within(uncovered!).getByText("No taker")).toBeInTheDocument();
   });
 
-  it("marks a job whose requires list no live binding holds with No taker", async () => {
+  it("marks a job whose tags no live binding holds with No taker", async () => {
     serve({
       nodes: {
         "prj-1": [

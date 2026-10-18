@@ -24,8 +24,8 @@ const checkMock = vi.mocked(checkNode);
 function nodeIn(state: NodeState): MissionNodeRecord {
   return {
     id: "node_webhook",
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
     tasks: [],
     filename: "webhook.md",
     mission_id: "mission_1",
@@ -36,8 +36,8 @@ function nodeIn(state: NodeState): MissionNodeRecord {
       criterion: "c",
       verifications: [],
       bindings: [],
-      work: "implement",
-      requires: [],
+      intent: "implement",
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

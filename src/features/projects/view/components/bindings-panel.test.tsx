@@ -82,7 +82,7 @@ const BINDING_WORKER: ProjectBindingRecord = {
 const CATALOG_ITEM = {
   host: "kanthord",
   declared_node_states: ["Available"],
-  declared_works: ["implement", "examine"],
+  declared_intents: ["implement", "examine"],
 } as const;
 
 const CATALOG_ENTRIES: Readonly<Record<string, WorkerCatalogEntry>> = {
@@ -261,7 +261,7 @@ describe("BindingsPanel", () => {
         {
           filename: "reset-email.md",
           id: "node_1",
-          work: "implement",
+          intent: "implement",
           name: "Add password reset",
           requirement: "r",
           criterion: "c",
@@ -350,55 +350,55 @@ describe("BindingsPanel", () => {
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
   });
 
-  it("writes the traits of a worker binding one key per line", async () => {
+  it("writes the tags of a worker binding one key per line", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
     expect(
       screen.getByText(
-        "One key per line, for example platform.macos. Use lower-case dotted keys, each at most 64 bytes, each once. A node runs only on a binding that holds every key of its requires list.",
+        "One key per line, for example platform.macos. Use lower-case dotted keys, each at most 64 bytes, each once. A node runs only on a binding that holds every key of its tags.",
       ),
     ).toBeTruthy();
-    await userEvent.type(screen.getByLabelText("Traits"), "platform.macos{enter}gpu.cuda");
+    await userEvent.type(screen.getByLabelText("Tags"), "platform.macos{enter}gpu.cuda");
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
       "kanthord-repo": REPO,
       "general-main": {
         ...WORKER,
-        config: { ...WORKER.config, traits: ["platform.macos", "gpu.cuda"] },
+        config: { ...WORKER.config, tags: ["platform.macos", "gpu.cuda"] },
       },
     });
   });
 
-  it("names Traits and keeps the save off for a repeated key", async () => {
+  it("names Tags and keeps the save off for a repeated key", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
-    expect(screen.getByLabelText("Traits")).toHaveAttribute("aria-invalid", "false");
-    await userEvent.type(screen.getByLabelText("Traits"), "platform.macos{enter}platform.macos");
+    expect(screen.getByLabelText("Tags")).toHaveAttribute("aria-invalid", "false");
+    await userEvent.type(screen.getByLabelText("Tags"), "platform.macos{enter}platform.macos");
 
-    expect(screen.getByLabelText("Traits")).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByText("Fill Traits to save.")).toBeTruthy();
+    expect(screen.getByLabelText("Tags")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Fill Tags to save.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
   });
 
-  it("shows the traits of a worker binding as badges in its row", async () => {
+  it("shows the tags of a worker binding as badges in its row", async () => {
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
       ...SET,
       bindings: {
         ...SET.bindings,
         "general-main": {
           kind: "worker",
-          config: { worker: "coder@1", instance_count: 2, traits: ["platform.macos"] },
+          config: { worker: "coder@1", instance_count: 2, tags: ["platform.macos"] },
         },
       },
     });
     mount();
 
-    const traits = await screen.findByRole("list", { name: "Traits of general-main" });
-    expect(within(traits).getByText("platform.macos")).toBeTruthy();
-    expect(screen.queryByRole("list", { name: "Traits of kanthord-repo" })).toBeNull();
+    const tags = await screen.findByRole("list", { name: "Tags of general-main" });
+    expect(within(tags).getByText("platform.macos")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Tags of kanthord-repo" })).toBeNull();
   });
 
   it("shows only the connection of a repository binding in its row", async () => {
@@ -517,7 +517,7 @@ describe("BindingsPanel", () => {
 
     expect(
       await screen.findByText(
-        "The change leaves a node with no matching worker binding. Keep a binding whose worker and traits match each listed node. Nodes: node_mac.",
+        "The change leaves a node with no matching worker binding. Keep a binding whose worker and tags match each listed node. Nodes: node_mac.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText("The bindings changed.")).toBeNull();

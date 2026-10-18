@@ -22,8 +22,8 @@ const discardMock = vi.mocked(discardNode);
 
 const IMPLEMENT: MissionNodeRecord = {
   id: "node_audit",
-  work: "implement",
-  requires: [],
+  intent: "implement",
+  tags: [],
   tasks: [],
   filename: "audit.md",
   mission_id: "mission_1",
@@ -34,8 +34,8 @@ const IMPLEMENT: MissionNodeRecord = {
     criterion: "c",
     verifications: ["pnpm test"],
     bindings: [],
-    work: "implement",
-    requires: [],
+    intent: "implement",
+    tags: [],
   },
   retired_at: null,
   pinned_by_attempts: [],

@@ -793,8 +793,8 @@ const planOf = (mission, body) =>
         const heading = /^#\s+(.+)$/m.exec(file.content);
         return {
           ...(known ?? {
-            work: "implement",
-            requires: [],
+            intent: "implement",
+            tags: [],
             requirement: "-",
             criterion: "-",
             verifications: ["-"],
@@ -1172,13 +1172,13 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
   const stem = `proposal-${proposal.id.slice("proposal_".length).toLowerCase()}`;
   const { task, dependency_id: dependencyId, ...fixContent } = proposal.content;
   const dependency = graphNodeById(dependencyId);
-  const requires = dependency?.content.requires ?? [];
+  const tags = dependency?.content.tags ?? [];
   const created = {
     id: nodeIdOf(),
     filename: `${stem}.md`,
     mission_id: mission.id,
-    work: "implement",
-    requires,
+    intent: "implement",
+    tags,
     tasks: [
       {
         id: `task_${proposal.id.slice("proposal_".length)}`,
@@ -1191,8 +1191,8 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
       ...fixContent,
       verifications: task.verifications,
       bindings: dependency?.content.bindings ?? [],
-      work: "implement",
-      requires,
+      intent: "implement",
+      tags,
     },
     retired_at: null,
     pinned_by_attempts: [],

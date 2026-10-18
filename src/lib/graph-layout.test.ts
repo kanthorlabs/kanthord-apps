@@ -1,7 +1,7 @@
 import Elk from "elkjs/lib/elk.bundled.js";
 import { describe, expect, it } from "vitest";
 
-import type { MissionEdge, MissionNodeRecord, Work } from "@/api/types";
+import type { MissionEdge, MissionNodeRecord, Intent } from "@/api/types";
 
 import {
   laneGrid,
@@ -13,11 +13,11 @@ import {
 } from "./graph-layout";
 import { buildGraph } from "./mission-graph";
 
-function node(id: string, work: Work): MissionNodeRecord {
+function node(id: string, intent: Intent): MissionNodeRecord {
   return {
     id,
-    work,
-    requires: [],
+    intent,
+    tags: [],
     tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
@@ -28,8 +28,8 @@ function node(id: string, work: Work): MissionNodeRecord {
       criterion: "c",
       verifications: ["v"],
       bindings: [],
-      work,
-      requires: [],
+      intent,
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

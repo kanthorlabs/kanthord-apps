@@ -11,7 +11,7 @@ import type {
   MissionNodeRecord,
   MissionRevision,
   ProjectBindingRecord,
-  Work,
+  Intent,
 } from "@/api/types";
 import { buildGraph } from "@/lib/mission-graph";
 
@@ -24,14 +24,14 @@ import { textContent } from "../../../../../test/text-content";
 
 function node(
   id: string,
-  work: Work,
+  intent: Intent,
   name: string,
   extra: Partial<MissionNodeRecord> = {},
 ): MissionNodeRecord {
   return {
     id,
-    work,
-    requires: [],
+    intent,
+    tags: [],
     tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
@@ -42,8 +42,8 @@ function node(
       criterion: `${name} criterion`,
       verifications: ["pnpm test"],
       bindings: [],
-      work,
-      requires: [],
+      intent,
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],
@@ -59,7 +59,7 @@ const AUDIT = node("node_audit", "implement", "Audit log", {
   state: "Blocked",
   attempt: 1,
   visible_revision: 2,
-  requires: ["platform.macos"],
+  tags: ["platform.macos"],
   tasks: [
     {
       id: "task_entry",
@@ -79,8 +79,8 @@ const AUDIT = node("node_audit", "implement", "Audit log", {
     criterion: "Audit log criterion",
     verifications: ["pnpm test"],
     bindings: ["binding_repo_2"],
-    work: "implement",
-    requires: ["platform.macos"],
+    intent: "implement",
+    tags: ["platform.macos"],
   },
   blocked_context: {
     outcome: {
@@ -274,7 +274,7 @@ describe("NodeSheet", () => {
     expect(missionApi.listNodeExternalActions).not.toHaveBeenCalled();
   });
 
-  it("shows the work and the requires list of the node", async () => {
+  it("shows the intent and the tags of the node", async () => {
     renderSheet("node_audit");
 
     const sheet = await screen.findByRole("dialog");
@@ -282,7 +282,7 @@ describe("NodeSheet", () => {
     expect(await within(sheet).findByText("platform.macos")).toBeTruthy();
   });
 
-  it("shows None for an empty requires list", async () => {
+  it("shows None for empty tags", async () => {
     renderSheet("node_held");
 
     expect(await screen.findByText("None")).toBeTruthy();

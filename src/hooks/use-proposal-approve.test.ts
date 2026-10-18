@@ -17,8 +17,8 @@ const approveMock = vi.mocked(approveProposal);
 
 const PROPOSER: MissionNodeRecord = {
   id: "node_team",
-  work: "examine",
-  requires: [],
+  intent: "examine",
+  tags: [],
   tasks: [],
   filename: "team.md",
   mission_id: "mission_1",
@@ -29,8 +29,8 @@ const PROPOSER: MissionNodeRecord = {
     criterion: "c",
     verifications: ["pnpm test"],
     bindings: [],
-    work: "examine",
-    requires: [],
+    intent: "examine",
+    tags: [],
   },
   retired_at: null,
   pinned_by_attempts: [],
@@ -146,8 +146,8 @@ describe("useProposalApprove", () => {
     ["mission.node.state_conflict", "The proposer is no longer Blocked"],
     ["mission.version.conflict", "The mission changed after this read."],
     [
-      "mission.node.requires_unmatched",
-      "Add a worker binding whose traits hold each key, then try again.",
+      "mission.node.tags_unmatched",
+      "Add a worker binding whose tags hold each key, then try again.",
     ],
   ])("maps the conflict %s to a message and reloads", async (code, message) => {
     approveMock.mockRejectedValue(new ApiError("conflict", "Conflict.", 409, code));

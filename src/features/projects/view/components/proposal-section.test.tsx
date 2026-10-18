@@ -9,7 +9,7 @@ import type {
   MissionNodeRecord,
   MissionProposal,
   MissionProposalApproveResult,
-  Work,
+  Intent,
 } from "@/api/types";
 import { buildGraph } from "@/lib/mission-graph";
 import { useNodeProposals } from "../use-node-proposals";
@@ -23,14 +23,14 @@ import { ProposalSection } from "./proposal-section";
 
 function node(
   id: string,
-  work: Work,
+  intent: Intent,
   name: string,
   extra: Partial<MissionNodeRecord> = {},
 ): MissionNodeRecord {
   return {
     id,
-    work,
-    requires: [],
+    intent,
+    tags: [],
     tasks: [],
     filename: `${id}.md`,
     mission_id: "mission_1",
@@ -41,8 +41,8 @@ function node(
       criterion: "c",
       verifications: ["v"],
       bindings: [],
-      work,
-      requires: [],
+      intent,
+      tags: [],
     },
     retired_at: null,
     pinned_by_attempts: [],

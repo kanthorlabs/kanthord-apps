@@ -60,13 +60,13 @@ export const WORKER_CATALOG = [
     name: "coder@1",
     host: "kanthord",
     declared_node_states: ["Available"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
   {
     name: "reviewer@1",
     host: "kanthord",
     declared_node_states: ["Waiting", "External.Requested"],
-    declared_works: ["implement", "examine"],
+    declared_intents: ["implement", "examine"],
   },
 ];
 
@@ -213,25 +213,25 @@ export const MISSION_ENTRIES = [
   {
     filename: "onboarding.md",
     id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA1",
-    work: "examine",
+    intent: "examine",
     name: "Onboarding",
     requirement: "A new account reaches a usable workspace.",
     criterion: "A new account reaches the workspace in one session.",
     verifications: ["pnpm test"],
     bindings: ["kanthord-repo", "evidence"],
-    requires: [],
+    tags: [],
     depends_on: ["reset-email.md"],
   },
   {
     filename: "reset-email.md",
     id: "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2",
-    work: "implement",
+    intent: "implement",
     name: "Add password reset",
     requirement: "A human resets a forgotten password by email.",
     criterion: "The reset link signs the human in once.",
     verifications: ["pnpm test --filter reset"],
     bindings: ["kanthord-repo", "general-main", "reviewer-main", "evidence"],
-    requires: [],
+    tags: [],
     depends_on: [],
   },
   {
@@ -285,7 +285,7 @@ export const BINDING_SET = {
     },
     "mac-main": {
       kind: "worker",
-      config: { worker: "coder@1", instance_count: 1, traits: ["platform.macos"] },
+      config: { worker: "coder@1", instance_count: 1, tags: ["platform.macos"] },
     },
     evidence: {
       kind: "storage",
@@ -387,14 +387,14 @@ const body = (name, bindings, extra = {}) => ({
 });
 
 const content = (name, bindings, extra = {}) => ({
-  work: "implement",
-  requires: [],
+  intent: "implement",
+  tags: [],
   ...body(name, bindings, extra),
 });
 
 const examine = (name, bindings, extra = {}) => ({
   ...content(name, bindings, extra),
-  work: "examine",
+  intent: "examine",
 });
 
 const task = (suffix, filename, name) => ({
@@ -407,8 +407,8 @@ const graphNode = (suffix, filename, nodeContent, runtime, tasks = []) => ({
   id: graphId(suffix),
   filename,
   mission_id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM1",
-  work: nodeContent.work,
-  requires: nodeContent.requires,
+  intent: nodeContent.intent,
+  tags: nodeContent.tags,
   tasks,
   visible_revision: runtime.visible_revision ?? 1,
   content: nodeContent,
@@ -533,7 +533,7 @@ export const GRAPH_NODES = [
     "YE2",
     "macos-build.md",
     content("Sign the macOS build of the desktop client", [REPO], {
-      requires: ["platform.macos"],
+      tags: ["platform.macos"],
     }),
     { state: "Available", attempt: 0 },
   ),
@@ -1092,11 +1092,11 @@ export const GRAPH_QUEUE = [
 ];
 
 const atlasId = (suffix) => graphId(suffix);
-const atlasNode = (suffix, work, filename, name, runtime) => ({
+const atlasNode = (suffix, intent, filename, name, runtime) => ({
   ...graphNode(
     suffix,
     filename,
-    work === "examine" ? examine(name, [REPO]) : content(name, [REPO]),
+    intent === "examine" ? examine(name, [REPO]) : content(name, [REPO]),
     runtime,
   ),
   mission_id: "mission_01J9ZQ4XKM3B6V8N2R5T7W0YM2",
