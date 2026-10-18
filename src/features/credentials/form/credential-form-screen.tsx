@@ -117,7 +117,7 @@ export function CreateForm({
           />
           <FieldError>{form.errors["platform"]}</FieldError>
         </Field>
-        {component === "repository" && form.onCancel === null && (
+        {form.sshImportPointer && (
           <p className="text-sm text-muted-foreground md:col-span-2">
             An ssh credential is not created here. Open{" "}
             <Link to={credentialSectionPath(component)} className="underline underline-offset-4">
