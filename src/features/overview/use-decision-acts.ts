@@ -164,7 +164,12 @@ export function useDecisionActs(
     unresolved:
       unresolved.length === 0
         ? null
-        : unresolvedRequestsText(node.attempt, unresolved, item.kind === "paused"),
+        : unresolvedRequestsText(
+            node.attempt,
+            unresolved,
+            item.kind === "paused",
+            item.kind === "dependency_discarded" ? "Discard waits" : undefined,
+          ),
     ...readStateOf(item, detail),
   };
 }

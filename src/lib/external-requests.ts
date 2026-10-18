@@ -52,13 +52,14 @@ export function unresolvedRequestsText(
   attempt: number,
   unresolved: readonly MissionExternalAction[],
   resumable: boolean,
+  waiting = "Override and discard wait",
 ): string {
   const [first] = unresolved;
   const resume = resumable ? " Resume the node." : "";
   if (unresolved.length === 1 && first !== undefined) {
-    return `Attempt ${attempt} has an unresolved ${ACTION_LABELS[first.action.action]}. Override and discard wait for its end state.${resume}`;
+    return `Attempt ${attempt} has an unresolved ${ACTION_LABELS[first.action.action]}. ${waiting} for its end state.${resume}`;
   }
-  return `Attempt ${attempt} has ${unresolved.length} unresolved requests. Override and discard wait for their end states.${resume}`;
+  return `Attempt ${attempt} has ${unresolved.length} unresolved requests. ${waiting} for their end states.${resume}`;
 }
 
 export function readFailureText(

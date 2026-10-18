@@ -1174,7 +1174,7 @@ describe("OverviewScreen dependency items with an open attempt", () => {
     const item = await waitFor(() => itemOf("Redirect the legacy links"));
     expect(
       await within(item).findByText(
-        "Attempt 2 has an unresolved pull request. Override and discard wait for its end state.",
+        "Attempt 2 has an unresolved pull request. Discard waits for its end state.",
       ),
     ).toBeInTheDocument();
     expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();

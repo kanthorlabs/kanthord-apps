@@ -113,6 +113,20 @@ describe("unresolvedRequestsText", () => {
     );
   });
 
+  it("names the acts that the caller passes", () => {
+    expect(
+      unresolvedRequestsText(2, [action("pull_request", "unresolved")], false, "Discard waits"),
+    ).toBe("Attempt 2 has an unresolved pull request. Discard waits for its end state.");
+    expect(
+      unresolvedRequestsText(
+        1,
+        [action("pull_request", "unresolved"), action("merge_push", "unresolved")],
+        false,
+        "Discard waits",
+      ),
+    ).toBe("Attempt 1 has 2 unresolved requests. Discard waits for their end states.");
+  });
+
   it("leaves out the Resume sentence for a node that is not Paused", () => {
     expect(unresolvedRequestsText(2, [action("pull_request", "unresolved")], false)).toBe(
       "Attempt 2 has an unresolved pull request. Override and discard wait for its end state.",
