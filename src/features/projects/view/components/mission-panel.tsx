@@ -17,6 +17,7 @@ import { useMissionExport } from "../use-mission-export";
 import { useMissionGraph } from "../use-mission-graph";
 import { useMissionImport } from "../use-mission-import";
 import { useNodeSelection } from "../use-node-selection";
+import { useSamplePlan } from "../use-sample-plan";
 import { GraphDiagnostics } from "./graph-diagnostics";
 import { ImportSheet } from "./import-sheet";
 import { MissionGraph } from "./mission-graph";
@@ -45,6 +46,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
     setImporting(false);
   }, [reloadAll]);
   const importer = useMissionImport(projectId, closeAfterApply);
+  const sample = useSamplePlan(projectId);
 
   return (
     <div className="flex flex-1 flex-col gap-3">
@@ -113,7 +115,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
                 <EmptyDescription>Import a plan to create its nodes.</EmptyDescription>
               </EmptyHeader>
               <EmptyContent>
-                <PlanFormatHelp />
+                <PlanFormatHelp sample={sample} />
               </EmptyContent>
             </Empty>
           </div>
@@ -147,6 +149,7 @@ export function MissionPanel({ projectId, projectName }: MissionPanelProps) {
           if (!open) importer.reset();
         }}
         state={importer}
+        sample={sample}
       />
     </div>
   );

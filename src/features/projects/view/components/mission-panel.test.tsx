@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
+import * as projectsApi from "@/api/resources/projects";
 import type {
   MissionImportPreview,
   MissionJsonExport,
@@ -15,6 +16,7 @@ import type {
 } from "@/api/types";
 
 vi.mock("@/api/resources/mission");
+vi.mock("@/api/resources/projects");
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
@@ -143,6 +145,7 @@ describe("MissionPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(missionApi.readMission).mockResolvedValue(MISSION);
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({ version: 1, bindings: {} });
     vi.mocked(missionApi.exportMissionJson).mockResolvedValue(CURRENT);
     vi.mocked(missionApi.previewMissionImport).mockResolvedValue(PREVIEW);
     vi.mocked(missionApi.listMissionNodes).mockResolvedValue(GRAPH);
@@ -232,6 +235,47 @@ describe("MissionPanel", () => {
       "href",
       expect.stringContaining("reference/mission/import.md#plan-files"),
     );
+  });
+
+  it("names the only repository binding in the sample and asks for one when none exists", async () => {
+    vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
+    vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([]);
+    renderPanel();
+
+    expect(
+      await screen.findByText("Add a repository binding in Bindings before the import."),
+    ).toBeTruthy();
+  });
+
+  it("names the only repository binding of the project in the sample", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      version: 1,
+      bindings: {
+        "acme-api": {
+          kind: "repository",
+          config: {
+            available: true,
+            platform: "github",
+            address: "git@github.com:acme/api.git",
+            strategy: { base_branch: "main" },
+            ssh_credential: "acme-ssh",
+          },
+        },
+      },
+    });
+    vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
+    vi.mocked(missionApi.listMissionDependencies).mockResolvedValue([]);
+    renderPanel();
+
+    await screen.findByText("The mission holds no nodes.");
+
+    await waitFor(() => {
+      const href = screen
+        .getByRole("button", { name: "Download a sample plan" })
+        .getAttribute("href");
+      expect(decodeURIComponent(href ?? "")).toContain("  - acme-api\n");
+    });
+    expect(screen.queryByText(/Add a repository binding/)).toBeNull();
   });
 
   it("offers a sample plan and the plan format page in the import sheet", async () => {

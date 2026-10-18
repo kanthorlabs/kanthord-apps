@@ -16,6 +16,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { counted } from "@/lib/counted";
+import type { SamplePlan } from "@/lib/mission-plan-sample";
 import type { MissionImportState } from "../use-mission-import";
 import { PlanFormatHelp } from "./plan-format-help";
 
@@ -23,6 +24,7 @@ interface ImportSheetProps {
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
   readonly state: MissionImportState;
+  readonly sample: SamplePlan;
 }
 
 function PreviewList({
@@ -56,7 +58,7 @@ function PreviewList({
   );
 }
 
-export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
+export function ImportSheet({ open, onOpenChange, state, sample }: ImportSheetProps) {
   const shown = state.reviewed?.preview;
   const nameOf = (nodeId: string) => state.reviewed?.names.get(nodeId) ?? nodeId;
   const retiring = shown?.retirements.length ?? 0;
@@ -97,7 +99,7 @@ export function ImportSheet({ open, onOpenChange, state }: ImportSheetProps) {
               <FieldDescription>
                 One .json mission export, or one or more .md plan files.
               </FieldDescription>
-              <PlanFormatHelp />
+              <PlanFormatHelp sample={sample} />
               <FieldError>{state.inputError}</FieldError>
             </Field>
             <Field>
