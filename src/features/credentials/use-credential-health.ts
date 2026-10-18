@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { verifyCredential } from "@/api/resources/credentials";
 import type { CredentialComponent, HealthEntry } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
+import type { PriorCheck } from "@/lib/prior-check";
 import { credentialMessage } from "./credential-message";
 
 export type CredentialHealthState =
@@ -22,8 +23,11 @@ export function useCredentialHealth(
   component: CredentialComponent,
   name: string,
   onFailure: HealthFailureHandler,
+  prior: PriorCheck | null = null,
 ): CredentialHealth {
-  const [state, setState] = useState<CredentialHealthState>({ status: "idle" });
+  const [state, setState] = useState<CredentialHealthState>(() =>
+    prior === null ? { status: "idle" } : { status: "ready", ...prior },
+  );
   const checking = useRef(false);
 
   const verify = useCallback(

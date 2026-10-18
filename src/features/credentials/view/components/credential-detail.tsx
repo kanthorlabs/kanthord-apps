@@ -1,5 +1,6 @@
 import { ArchiveIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 
 import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { isArchived } from "@/lib/credential-revisions";
 import { platformEntryOf } from "@/lib/credential-platforms";
+import { priorCheckOf } from "@/lib/prior-check";
 import { CheckStatusBadge } from "../../components/check-status-badge";
 import { MetadataSheet } from "../../components/metadata-sheet";
 import { RotateSheet } from "../../components/rotate-sheet";
@@ -73,7 +75,7 @@ export function CredentialDetail({
   const revoke = useRevisionRevoke(component, credential, reload);
   const archive = useCredentialArchive(component, credential);
   const archived = isArchived(credential);
-  const check = useCredentialCheck(component, credential.name);
+  const check = useCredentialCheck(component, credential.name, priorCheckOf(useLocation().state));
 
   return (
     <div className="flex flex-col gap-4">

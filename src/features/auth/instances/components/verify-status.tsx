@@ -1,9 +1,12 @@
+import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
+import { utcDateTime } from "@/lib/format";
 import type { VerifyState } from "../use-instance-verify";
 
 const LABEL: Record<VerifyState["status"], string> = {
   checking: "Checking…",
   reachable: "Reachable",
+  verified: "Verified",
   unhealthy: "Unhealthy",
   unreachable: "Unreachable",
   failed: "Failed",
@@ -12,6 +15,7 @@ const LABEL: Record<VerifyState["status"], string> = {
 const VARIANT: Record<VerifyState["status"], "outline" | "secondary" | "destructive"> = {
   checking: "outline",
   reachable: "secondary",
+  verified: "secondary",
   unhealthy: "destructive",
   unreachable: "destructive",
   failed: "destructive",
@@ -19,6 +23,13 @@ const VARIANT: Record<VerifyState["status"], "outline" | "secondary" | "destruct
 
 function Detail({ state }: { state: VerifyState }) {
   switch (state.status) {
+    case "verified":
+      return (
+        <p className="break-words">
+          Subject <RecordName>{state.sub}</RecordName>.
+          {state.expiresAt !== null && ` Expires ${utcDateTime(state.expiresAt)}.`}
+        </p>
+      );
     case "unhealthy":
       return state.failing.length === 0 ? (
         <p>The instance answered that it is unhealthy.</p>

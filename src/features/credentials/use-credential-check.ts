@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import type { CredentialComponent } from "@/api/types";
 import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
 import { utcDateTime } from "@/lib/format";
+import type { PriorCheck } from "@/lib/prior-check";
 import { type CredentialHealthState, useCredentialHealth } from "./use-credential-health";
 
 const NO_FACT = "—";
@@ -43,7 +44,11 @@ function checkedAtOf(state: CredentialHealthState): string {
   return state.status === "ready" ? utcDateTime(state.checkedAt) : NO_FACT;
 }
 
-export function useCredentialCheck(component: CredentialComponent, name: string): CredentialCheck {
+export function useCredentialCheck(
+  component: CredentialComponent,
+  name: string,
+  prior: PriorCheck | null = null,
+): CredentialCheck {
   const announceFailure = useCallback(
     (message: string, retry: () => void) => {
       toast.error(`Verifying ${name} failed.`, {
@@ -53,7 +58,7 @@ export function useCredentialCheck(component: CredentialComponent, name: string)
     },
     [name],
   );
-  const { state, verify } = useCredentialHealth(component, name, announceFailure);
+  const { state, verify } = useCredentialHealth(component, name, announceFailure, prior);
 
   return {
     badge: checkBadge(state),

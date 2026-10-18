@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type * as Sonner from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -83,13 +83,22 @@ const SESSION: CredentialLoginSession = {
   expires_at: Date.UTC(2026, 9, 4, 7, 15),
 };
 
+function CredentialView() {
+  return (
+    <>
+      <p>Credential view</p>
+      <p>{JSON.stringify(useLocation().state)}</p>
+    </>
+  );
+}
+
 async function mount(component: CredentialComponent) {
   const section = SECTIONS[component];
   render(
     <MemoryRouter initialEntries={[`${section}/new`]}>
       <Routes>
         <Route path={`${section}/new`} element={<CredentialFormScreen component={component} />} />
-        <Route path={`${section}/:credentialName`} element={<p>Credential view</p>} />
+        <Route path={`${section}/:credentialName`} element={<CredentialView />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -320,6 +329,49 @@ describe("CredentialFormScreen", () => {
       secret: { key: "ghp-secret" },
     });
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
+  });
+
+  it("passes the check of the form to the detail of the new credential", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "rate-limit read",
+    });
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "ci-github",
+      platform: "github",
+    });
+    await mount("repository");
+
+    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
+    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await screen.findByText("Healthy");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    const state = await screen.findByText(/priorCheck/);
+    expect(JSON.parse(state.textContent ?? "")).toEqual({
+      priorCheck: {
+        entry: { status: "healthy", capability: "rate-limit read" },
+        checkedAt: expect.any(Number),
+      },
+    });
+  });
+
+  it("passes no check to the detail when the form ran none", async () => {
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "ci-github",
+      platform: "github",
+    });
+    await mount("repository");
+
+    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
+    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    await screen.findByText("Credential view");
+    expect(screen.queryByText(/priorCheck/)).toBeNull();
   });
 
   it("shows an unhealthy and an unknown badge", async () => {

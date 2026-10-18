@@ -93,9 +93,13 @@ const GATEWAY: LlmCredential = {
 
 const HEALTHY: HealthEntry = { status: "healthy", capability: "model-list read" };
 
-function mount(component: CredentialComponent = "llm", section = "/llm") {
+function mount(
+  component: CredentialComponent = "llm",
+  section = "/llm",
+  state: unknown = undefined,
+) {
   return render(
-    <MemoryRouter initialEntries={[`${section}/router`]}>
+    <MemoryRouter initialEntries={[{ pathname: `${section}/router`, state }]}>
       <Routes>
         <Route
           path={`${section}/:credentialName`}
@@ -334,6 +338,28 @@ describe("CredentialScreen", () => {
     expect(verify).toBeEnabled();
     expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("model-list read");
     expect(screen.getByText("Checked").nextElementSibling?.textContent).toMatch(/ UTC$/);
+  });
+
+  it("shows the check of the form as the first result", async () => {
+    mount("llm", "/llm", {
+      priorCheck: { entry: HEALTHY, checkedAt: Date.UTC(2026, 9, 18, 8, 30) },
+    });
+
+    const section = await screen.findByRole("region", { name: "Credential" });
+    expect(within(section).getByRole("status").textContent).toBe("Healthy");
+    expect(screen.getByText("Capability").nextElementSibling?.textContent).toBe("model-list read");
+    expect(screen.getByText("Checked").nextElementSibling?.textContent).toBe(
+      "2026-10-18 08:30 UTC",
+    );
+    expect(credentialsApi.verifyCredential).not.toHaveBeenCalled();
+  });
+
+  it("shows no result when the navigation carries no check", async () => {
+    mount();
+
+    const section = await screen.findByRole("region", { name: "Credential" });
+    expect(within(section).getByRole("status").textContent).toBe("");
+    expect(screen.getByText("Checked").nextElementSibling?.textContent).toBe("—");
   });
 
   it("reports a failed verify with a badge and a toast that retries", async () => {

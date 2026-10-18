@@ -47,7 +47,7 @@ export function useSignIn(store: Pick<InstancesState, "instances" | "put">): Sig
 
   const setField = useCallback(
     (field: keyof InstanceDraft, value: string) => {
-      if (field === "baseUrl") clear(VERIFY_KEY);
+      if (field === "baseUrl" || field === "token") clear(VERIFY_KEY);
       setDraft((current) => ({ ...current, [field]: value }));
       setErrors((current) => ({ ...current, [field]: undefined }));
       setError(null);
@@ -62,8 +62,8 @@ export function useSignIn(store: Pick<InstancesState, "instances" | "put">): Sig
       setErrors((current) => ({ ...current, baseUrl: INVALID_BASE_URL }));
       return;
     }
-    void runVerify(VERIFY_KEY, baseUrl);
-  }, [canAct, verifying, draft.baseUrl, runVerify]);
+    void runVerify(VERIFY_KEY, baseUrl, draft.token.trim());
+  }, [canAct, verifying, draft.baseUrl, draft.token, runVerify]);
 
   const submit = useCallback(async () => {
     if (!canAct) return;

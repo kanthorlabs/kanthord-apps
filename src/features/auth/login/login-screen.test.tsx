@@ -43,6 +43,13 @@ const STAGING = {
   token: "jwt-staging",
 };
 const IDENTITY = { kind: "human", sub: "kanthorlabs", name: "Ulrich" } as const;
+const EXPIRY_SECONDS = Date.UTC(2026, 11, 31, 23, 59) / 1000;
+const TOKEN_WITH_EXPIRY = `header.${btoa(
+  JSON.stringify({ sub: "kanthorlabs", exp: EXPIRY_SECONDS }),
+)
+  .replace(/\+/g, "-")
+  .replace(/\//g, "_")
+  .replace(/=+$/, "")}.signature`;
 
 function seed(...instances: (typeof LOCAL)[]) {
   window.localStorage.setItem("kanthord.instances", JSON.stringify({ instances }));
@@ -164,25 +171,69 @@ describe("LoginScreen", () => {
     expect(token).toHaveAttribute("autocomplete", "off");
   });
 
-  it("toasts a reachable endpoint of the form for 3 seconds", async () => {
-    livenessMock.mockResolvedValue({ healthy: true, services: {} });
+  it("verifies the token of the form and shows the subject and the expiry", async () => {
+    verifyMock.mockResolvedValue(IDENTITY);
     mount();
 
-    await fill("http://localhost:31415/", "jwt-1");
+    await fill("http://localhost:31415/", TOKEN_WITH_EXPIRY);
     await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
 
-    expect(livenessMock).toHaveBeenCalledWith("http://localhost:31415");
-    await vi.waitFor(() =>
-      expect(toastSuccessMock).toHaveBeenCalledWith("http://localhost:31415 is reachable.", {
-        duration: 3000,
-      }),
+    expect(await within(form()).findByText("Verified")).toBeInTheDocument();
+    expect(verifyMock).toHaveBeenCalledWith("http://localhost:31415", TOKEN_WITH_EXPIRY);
+    expect(livenessMock).not.toHaveBeenCalled();
+    expect(within(form()).getByRole("status")).toHaveTextContent(
+      "Subject kanthorlabs. Expires 2026-12-31 23:59 UTC.",
     );
+    expect(toastSuccessMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the subject only when the token carries no expiry", async () => {
+    verifyMock.mockResolvedValue(IDENTITY);
+    mount();
+
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+
+    expect(await within(form()).findByText("Verified")).toBeInTheDocument();
+    expect(within(form()).getByRole("status")).toHaveTextContent(
+      /^Verified\s*Subject kanthorlabs\.$/,
+    );
+  });
+
+  it("shows a refused token as Failed with the way out", async () => {
+    verifyMock.mockRejectedValue(new ApiError("unauthorized", "Unauthorized.", 401));
+    mount();
+
+    await fill("http://localhost:31415", "machine-jwt");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+
+    expect(await within(form()).findByText("Failed")).toBeInTheDocument();
+    expect(
+      within(form()).getByText(
+        "The instance refused the token. Use a human token from kanthord auth jwt generate.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(form()).queryByText("Verified")).toBeNull();
+  });
+
+  it("resets the badge when the token changes", async () => {
+    verifyMock.mockResolvedValue(IDENTITY);
+    mount();
+
+    await fill("http://localhost:31415", "jwt-1");
+    await userEvent.click(within(form()).getByRole("button", { name: "Verify" }));
+    expect(await within(form()).findByText("Verified")).toBeInTheDocument();
+
+    await userEvent.type(within(form()).getByLabelText("JWT token"), "x");
+
     expect(within(form()).queryByRole("status")).toBeNull();
   });
 
   it("shows the check on the Verify button and renders no chip while it runs", async () => {
-    let answer: (report: LivenessReport) => void = () => undefined;
-    livenessMock.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    let answerLiveness: (report: LivenessReport) => void = () => undefined;
+    let answerToken: (identity: typeof IDENTITY) => void = () => undefined;
+    livenessMock.mockReturnValue(new Promise((resolve) => (answerLiveness = resolve)));
+    verifyMock.mockReturnValue(new Promise((resolve) => (answerToken = resolve)));
     seed(LOCAL);
     mount();
 
@@ -194,15 +245,17 @@ describe("LoginScreen", () => {
     expect(screen.getByRole("button", { name: "Verifying local" })).toBeDisabled();
     expect(screen.queryByRole("status")).toBeNull();
 
-    answer({ healthy: true, services: {} });
+    answerLiveness({ healthy: true, services: {} });
+    answerToken(IDENTITY);
 
     expect(await within(form()).findByRole("button", { name: "Verify" })).toBeEnabled();
     expect(await screen.findByRole("button", { name: "Verify local" })).toBeEnabled();
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(within(form()).getByText("Verified")).toBeInTheDocument();
+    expect(within(row("local")).queryByRole("status")).toBeNull();
   });
 
   it("keeps an unreachable endpoint of the form inline", async () => {
-    livenessMock.mockRejectedValue(new ApiError("unreachable", "The daemon did not answer.", 0));
+    verifyMock.mockRejectedValue(new ApiError("unreachable", "The daemon did not answer.", 0));
     mount();
 
     await fill("http://localhost:31415", "jwt-1");
