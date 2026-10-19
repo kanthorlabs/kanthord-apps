@@ -40,7 +40,7 @@ const bindingSet = structuredClone(EMPTY ? { ...fx.BINDING_SET, bindings: {} } :
 const agents = structuredClone(fx.AGENT_DECLARATIONS).map((agent) =>
   EMPTY ? { ...agent, enablement: null } : agent,
 );
-const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
+const workbenchSessions = EMPTY ? [] : structuredClone(fx.WORKBENCH_SESSIONS);
 const projectStates = new Map([
   [
     fx.PROJECT.id,
