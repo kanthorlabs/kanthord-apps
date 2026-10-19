@@ -103,7 +103,7 @@ export function secretOfDraft(
   draft: SecretDraft,
 ): DraftResult<CredentialSecret> {
   const errors: Record<string, string> = {};
-  if (shape === "none") {
+  if (shape === "ssh_key") {
     return { ok: true, value: {} as CredentialSecret };
   }
   if (shape === "api_key") {
@@ -353,7 +353,7 @@ const SECRET_FIELD_LABELS: Readonly<
     ["secretAccessKey", "Secret Access Key"],
   ],
   oauth: [],
-  none: [],
+  ssh_key: [],
 };
 
 export function missingForCredentialCheck(

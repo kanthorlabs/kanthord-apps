@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type * as Sonner from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
@@ -14,6 +14,7 @@ import type {
   CredentialPlatformList,
   HealthEntry,
   LlmCredential,
+  RepositoryCredential,
 } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
@@ -658,5 +659,130 @@ describe("CredentialScreen", () => {
     mount();
 
     expect(await screen.findByText("Credential not found.")).toBeTruthy();
+  });
+});
+
+describe("CredentialScreen of an ssh credential", () => {
+  const OLD_KEY = {
+    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOld kanthord-router",
+    fingerprint: "SHA256:oldoldoldoldoldoldoldoldoldoldoldoldoldoldo",
+  };
+  const NEW_KEY = {
+    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINew kanthord-router",
+    fingerprint: "SHA256:newnewnewnewnewnewnewnewnewnewnewnewnewnewn",
+  };
+  const SSH: RepositoryCredential = {
+    name: "router",
+    platform: "ssh",
+    bindings: [],
+    revisions: [
+      {
+        id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YB2",
+        revision: 2,
+        metadata: NEW_KEY,
+        created_at: Date.UTC(2026, 9, 3, 14, 5),
+        ended_at: null,
+      },
+      {
+        id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YB1",
+        revision: 1,
+        metadata: OLD_KEY,
+        created_at: Date.UTC(2026, 9, 1, 14, 5),
+        ended_at: null,
+      },
+    ],
+  };
+  const SSH_PLATFORMS: CredentialPlatformList = {
+    items: [
+      apiKey("github", [], true),
+      {
+        platform: "ssh",
+        secret_shape: "ssh_key",
+        login_modes: [],
+        metadata_fields: [],
+        verifiable: true,
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue(SSH);
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(SSH_PLATFORMS);
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, "clipboard");
+  });
+
+  it("shows the fingerprint and the public key of each revision with Copy on the newest", async () => {
+    mount("repository", "/repositories");
+
+    const list = await screen.findByRole("list", { name: "Revisions" });
+    const items = within(list).getAllByRole("listitem");
+    expect(within(items[0]!).getByText(NEW_KEY.fingerprint)).toBeTruthy();
+    expect(within(items[0]!).getByText(NEW_KEY.public_key)).toBeTruthy();
+    expect(within(items[1]!).getByText(OLD_KEY.fingerprint)).toBeTruthy();
+    expect(within(items[1]!).queryByRole("button", { name: "Copy public key" })).toBeNull();
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await userEvent.click(within(items[0]!).getByRole("button", { name: "Copy public key" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(NEW_KEY.public_key));
+  });
+
+  it("offers Rotate key and no secret rotate or metadata edit", async () => {
+    mount("repository", "/repositories");
+
+    expect(await screen.findByRole("button", { name: "Rotate key" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Rotate secret" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata" })).toBeNull();
+  });
+
+  it("gates the ssh actions on the platform when the engine answers an older ssh entry", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
+      items: [apiKey("ssh", ["host", "hostname", "identity_file"], true)],
+    });
+    mount("repository", "/repositories");
+
+    expect(await screen.findByRole("button", { name: "Rotate key" })).toBeTruthy();
+    await waitFor(() => expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Rotate secret" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata" })).toBeNull();
+  });
+
+  it("states the GitHub step in the revoke confirmation of an older revision", async () => {
+    mount("repository", "/repositories");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Revoke revision 1" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    expect(
+      within(dialog).getByText(
+        textContent(
+          /After the revoke, delete the deploy key of revision 1 at GitHub\. Its fingerprint is SHA256:old/,
+        ),
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows the alias metadata of a legacy revision as it is", async () => {
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue({
+      ...SSH,
+      revisions: [
+        {
+          id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YB3",
+          revision: 1,
+          metadata: { host: "github.com", identity_file: "~/.ssh/id_atlas" },
+          created_at: 1,
+          ended_at: null,
+        },
+      ],
+    });
+    mount("repository", "/repositories");
+
+    const list = await screen.findByRole("list", { name: "Revisions" });
+    expect(within(list).getByText("~/.ssh/id_atlas")).toBeTruthy();
+    expect(within(list).queryByRole("button", { name: "Copy public key" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Rotate key" })).toBeTruthy();
   });
 });

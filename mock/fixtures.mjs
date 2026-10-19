@@ -1476,8 +1476,24 @@ export const CREDENTIALS = [
       credentialRevision(
         "0002",
         1,
-        { host: "github.com", hostname: "github.com", port: 22, identity_file: "~/.ssh/id_atlas" },
+        {
+          public_key:
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBF8xPlGLwIShDyePUOlSytgj/CMxCMmWDXWn7BF2cDJ kanthord-atlas-ssh",
+          fingerprint: "SHA256:SS5y+4FAdGZpIGkhURFS2VSlcK1tTrWmGk8Az16VdMs",
+        },
         Date.UTC(2026, 8, 1, 9, 5),
+      ),
+    ],
+  },
+  {
+    name: "legacy-ssh",
+    platform: "ssh",
+    revisions: [
+      credentialRevision(
+        "0003",
+        1,
+        { host: "github-work", hostname: "github.com", port: 22, identity_file: "~/.ssh/id_work" },
+        Date.UTC(2026, 7, 20, 9, 0),
       ),
     ],
   },
@@ -1554,31 +1570,22 @@ export const CREDENTIALS = [
   },
 ];
 
-export const SSH_ALIASES = [
-  {
-    host: "github.com",
-    hostname: "github.com",
-    port: 22,
-    identity_file: "~/.ssh/id_atlas",
-    state: "present",
-    reason: null,
-  },
-  {
-    host: "github-personal",
-    hostname: "github.com",
-    port: 22,
-    identity_file: "~/.ssh/id_personal",
-    state: "ready",
-    reason: null,
-  },
-  {
-    host: "github-work",
-    hostname: "github.com",
-    port: 22,
-    identity_file: null,
-    state: "refused",
-    reason: "repository.credential.ssh_identity_ambiguous",
-  },
+export const HOST_KEYS = {
+  "github.com": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+  "ssh.github.com":
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+  "gitlab.com": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf",
+  "altssh.gitlab.com":
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf",
+  "bitbucket.org":
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIazEu89wgQZ4bqs3d63QSMzYVa0MuJ2e2gKTKqu+UUO",
+  "altssh.bitbucket.org":
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIazEu89wgQZ4bqs3d63QSMzYVa0MuJ2e2gKTKqu+UUO",
+};
+
+export const HOST_KEY_PINS = [
+  { host: "github.com", created_at: Date.UTC(2026, 8, 1, 9, 4) },
+  { host: "gitlab.com", created_at: Date.UTC(2026, 8, 12, 10, 30) },
 ];
 
 export const CREDENTIAL_DEPENDENTS = {

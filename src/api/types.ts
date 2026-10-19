@@ -894,7 +894,7 @@ export type CredentialComponent = "llm" | "repository" | "storage";
 
 export type CredentialPlatform = string;
 
-export type SecretShape = "api_key" | "oauth" | "s3_access_key" | "none";
+export type SecretShape = "api_key" | "oauth" | "s3_access_key" | "ssh_key";
 
 export interface CredentialPlatformEntry {
   readonly platform: CredentialPlatform;
@@ -965,10 +965,8 @@ export interface OpenAiCompatibleMetadata {
 }
 
 export interface SshMetadata {
-  readonly host: string;
-  readonly hostname: string;
-  readonly port: number;
-  readonly identity_file: string;
+  readonly public_key: string;
+  readonly fingerprint: string;
 }
 
 export type CredentialMetadata =
@@ -1062,23 +1060,29 @@ export interface BindingVerifyResult {
   readonly credential: HealthEntry | null;
 }
 
-interface SshAliasItemBase {
-  readonly host: string;
-  readonly hostname: string;
-  readonly port: number;
+export interface SshKeyCreateBody {
+  readonly name: string;
 }
 
-export type SshAliasItem =
-  | (SshAliasItemBase & { readonly state: "ready"; readonly identity_file: string })
-  | (SshAliasItemBase & {
-      readonly state: "refused";
-      readonly identity_file: string | null;
-      readonly reason: string | null;
-    })
-  | (SshAliasItemBase & { readonly state: "present"; readonly identity_file: string | null });
+export interface SshKeyRotateBody {
+  readonly expected_revision: number;
+}
 
-export interface SshDiscoverResult {
-  readonly items: readonly SshAliasItem[];
+export type HostKeySource = "github_meta" | "keyscan";
+
+export interface HostKeyScan {
+  readonly host: string;
+  readonly public_key: string;
+  readonly fingerprint: string;
+  readonly source: HostKeySource;
+}
+
+export interface HostKey extends HostKeyScan {
+  readonly created_at: number;
+}
+
+export interface HostKeyPinBody {
+  readonly fingerprint: string;
 }
 
 export interface WorkbenchConfiguration {

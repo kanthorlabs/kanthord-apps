@@ -1,4 +1,4 @@
-import { FileCogIcon, PlusIcon, RefreshCwIcon, UploadIcon } from "lucide-react";
+import { FileCogIcon, KeyRoundIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -14,14 +14,17 @@ import { platformEntryOf } from "@/lib/credential-platforms";
 import { credentialDetailPath, credentialSectionPath } from "@/lib/credential-sections";
 import { utcDateTime } from "@/lib/format";
 import { CheckStatusBadge } from "../components/check-status-badge";
+import { HostKeyPanel } from "../components/host-key-panel";
 import { MetadataSheet } from "../components/metadata-sheet";
 import { PlatformCombobox } from "../components/platform-combobox";
 import { RotateSheet } from "../components/rotate-sheet";
-import { SshImportDialog } from "../components/ssh-import-dialog";
+import { SshKeyRotateDialog } from "../components/ssh-key-rotate-dialog";
+import { SshKeySheet } from "../components/ssh-key-sheet";
 import { VerifyButton } from "../components/verify-button";
 import { useCredentialCheck } from "../use-credential-check";
 import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
+import { useSshKeyRotate } from "../use-ssh-key-rotate";
 import { ALL_PLATFORMS, useCredentialList } from "./use-credential-list";
 
 const SECTION_DESCRIPTIONS: Readonly<Record<CredentialComponent, string>> = {
@@ -48,6 +51,7 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
   const check = useCredentialCheck(component, credential.name);
   const rotate = useCredentialRotate(component, credential, entry, reload);
   const metadata = useMetadataEdit(component, credential, entry, reload);
+  const sshRotate = useSshKeyRotate(credential, reload);
   const newest = newestLiveRevision(credential);
   const archived = isArchived(credential);
   const archivedAt = archiveTime(credential);
@@ -99,6 +103,17 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
                   Rotate
                 </Button>
               )}
+              {sshRotate.available && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Rotate key of ${name}`}
+                  onClick={sshRotate.start}
+                >
+                  <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
+                  Rotate key
+                </Button>
+              )}
               {metadata.available && (
                 <Button
                   variant="outline"
@@ -116,6 +131,7 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
       />
       {entry !== null && <RotateSheet name={name} entry={entry} rotate={rotate} />}
       {entry !== null && <MetadataSheet name={name} entry={entry} edit={metadata} />}
+      {sshRotate.available && <SshKeyRotateDialog name={name} rotate={sshRotate} />}
     </>
   );
 }
@@ -130,7 +146,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
     selectPlatform,
     setIncludeArchived,
   } = useCredentialList(component);
-  const [sshImportOpen, setSshImportOpen] = useState(false);
+  const [sshKeyOpen, setSshKeyOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
@@ -156,9 +172,9 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
         </Field>
         <div className="flex gap-2 md:ml-auto">
           {component === "repository" && (
-            <Button variant="outline" onClick={() => setSshImportOpen(true)}>
-              <UploadIcon aria-hidden="true" data-icon="inline-start" />
-              Import from ~/.ssh/config
+            <Button variant="outline" onClick={() => setSshKeyOpen(true)}>
+              <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />
+              Create SSH key
             </Button>
           )}
           <Button
@@ -170,12 +186,11 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
           </Button>
         </div>
       </div>
-      {sshImportOpen && (
-        <SshImportDialog
-          open
-          onClose={() => setSshImportOpen(false)}
-          onImported={() => {
-            setSshImportOpen(false);
+      {sshKeyOpen && (
+        <SshKeySheet
+          onClose={() => setSshKeyOpen(false)}
+          onDone={() => {
+            setSshKeyOpen(false);
             pages.reload();
           }}
         />
@@ -209,6 +224,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
           onNext: pages.next,
         }}
       />
+      {component === "repository" && <HostKeyPanel />}
     </div>
   );
 }

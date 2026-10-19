@@ -15,7 +15,7 @@ import {
 import type { BindingSetEntry, Credential } from "@/api/types";
 import { CredentialCreateSheet } from "@/features/credentials/components/credential-create-sheet";
 import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
-import { SshImportDialog } from "@/features/credentials/components/ssh-import-dialog";
+import { SshKeySheet } from "@/features/credentials/components/ssh-key-sheet";
 import { EnablementSheet } from "@/features/workers/agent/components/enablement-sheet";
 import { newestLiveRevision } from "@/lib/credential-revisions";
 import { useBindingCredential } from "../use-binding-credential";
@@ -99,18 +99,15 @@ export function BindingSheet({
       : { platform: "", address: "", sshCredential: "", credential: "", actionName: "" };
   const check = useBindingCheck(projectId, checkDraft, form.validate);
 
-  const [sshImportOpen, setSshImportOpen] = useState(false);
+  const [sshKeyOpen, setSshKeyOpen] = useState(false);
 
-  const onNewSshCredential = useCallback(() => setSshImportOpen(true), []);
-  const onSshImported = useCallback(
-    (names: readonly string[]) => {
-      setSshImportOpen(false);
+  const onNewSshCredential = useCallback(() => setSshKeyOpen(true), []);
+  const onSshKeyCreated = useCallback(
+    (name: string) => {
+      setSshKeyOpen(false);
       credentials.reload();
-      if (names.length === 1 && draft.kind === "repository") {
-        const name = names[0];
-        if (name !== undefined) {
-          form.edit({ ...draft, sshCredential: name, sshCredentialHost: "" });
-        }
+      if (draft.kind === "repository") {
+        form.edit({ ...draft, sshCredential: name, sshCredentialHost: "" });
       }
     },
     [credentials, draft, form],
@@ -280,9 +277,7 @@ export function BindingSheet({
           onClose={() => setEnablingAgent(null)}
         />
       )}
-      {sshImportOpen && (
-        <SshImportDialog open onClose={() => setSshImportOpen(false)} onImported={onSshImported} />
-      )}
+      {sshKeyOpen && <SshKeySheet onClose={() => setSshKeyOpen(false)} onDone={onSshKeyCreated} />}
       {bindingCredential.createOpen && (
         <CredentialCreateSheet
           component="repository"

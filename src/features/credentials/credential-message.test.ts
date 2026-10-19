@@ -112,6 +112,53 @@ describe("credentialMessage", () => {
     expect(credentialMessage(refusal("credential.check.unsupported"))).toMatch(/no check/);
   });
 
+  it("points a legacy SSH credential at Rotate key", () => {
+    expect(credentialMessage(refusal("repository.credential.ssh_key_legacy"))).toMatch(
+      /Use Rotate key/,
+    );
+  });
+
+  it("maps the host key codes and names the host and the new fingerprint", () => {
+    expect(credentialMessage(refusal("repository.host_key.host_unsupported"))).toMatch(
+      /no SSH host set/,
+    );
+    expect(
+      credentialMessage(refusal("repository.host_key.scan_failed", { host: "gitlab.com" })),
+    ).toBe(
+      "The server cannot read the host key of gitlab.com. Check the network of the server, then try again.",
+    );
+    expect(
+      credentialMessage(
+        refusal("repository.host_key.changed", {
+          host: "gitlab.com",
+          fingerprint: "SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8",
+        }),
+      ),
+    ).toBe(
+      "The host key of gitlab.com changed after the scan. The host now presents SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8. Compare the fingerprint with the published one, then pin again.",
+    );
+    expect(credentialMessage(refusal("repository.host_key.unpinned", { host: "github.com" }))).toBe(
+      "The server holds no host key for github.com. Pin the host key, then try again.",
+    );
+  });
+
+  it("names Create SSH key when a generic entry names the ssh platform", () => {
+    expect(credentialMessage(refusal("credential.entry.unsupported"))).toMatch(
+      /An ssh credential enters through Create SSH key\.$/,
+    );
+  });
+
+  it("keeps no message of the removed SSH alias codes", () => {
+    for (const code of [
+      "repository.credential.ssh_identity_ambiguous",
+      "repository.credential.ssh_drift",
+      "repository.credential.ssh_config_unreadable",
+      "project.bindings.repository.ssh_host_mismatch",
+    ]) {
+      expect(credentialMessage(refusal(code))).toBe("Daemon text.");
+    }
+  });
+
   it("falls back to the daemon message", () => {
     expect(credentialMessage(refusal("other.code"))).toBe("Daemon text.");
   });

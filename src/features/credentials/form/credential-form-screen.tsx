@@ -127,13 +127,13 @@ export function CreateForm({
           />
           <FieldError>{form.errors["platform"]}</FieldError>
         </Field>
-        {form.sshImportPointer && (
+        {form.sshKeyPointer && (
           <p className="text-sm text-muted-foreground md:col-span-2">
             An ssh credential is not created here. Open{" "}
             <Link to={credentialSectionPath(component)} className="underline underline-offset-4">
               Git
             </Link>{" "}
-            and use Import from ~/.ssh/config.
+            and use Create SSH key.
           </p>
         )}
         {form.entry === null ? null : form.oauth ? (

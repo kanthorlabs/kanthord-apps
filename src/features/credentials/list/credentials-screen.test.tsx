@@ -95,6 +95,36 @@ const PLATFORMS: CredentialPlatformList = {
   ],
 };
 
+const SSH_KEY_CREDENTIAL: Credential = {
+  name: "atlas-ssh",
+  platform: "ssh",
+  revisions: [
+    {
+      id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAS",
+      revision: 1,
+      metadata: {
+        public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA kanthord-atlas-ssh",
+        fingerprint: "SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s",
+      },
+      created_at: Date.UTC(2026, 9, 1, 8, 0),
+      ended_at: null,
+    },
+  ],
+};
+
+const REPOSITORY_PLATFORMS: CredentialPlatformList = {
+  items: [
+    apiKey("github", [], true),
+    {
+      platform: "ssh",
+      secret_shape: "ssh_key",
+      login_modes: [],
+      metadata_fields: [],
+      verifiable: true,
+    },
+  ],
+};
+
 const UNHEALTHY: HealthEntry = {
   status: "unhealthy",
   capability: "rate-limit read",
@@ -128,6 +158,7 @@ async function filterBy(text: string, option: string) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
+  vi.mocked(credentialsApi.listHostKeys).mockResolvedValue([]);
 });
 
 describe("CredentialsScreen", () => {
@@ -484,6 +515,94 @@ describe("CredentialsScreen", () => {
 
     const item = within(screen.getByRole("list", { name: "Credentials" })).getByRole("listitem");
     await waitFor(() => expect(within(item).getByRole("status").textContent).toBe("Healthy"));
+  });
+
+  it("creates an SSH key from the repository section in place of an import", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    });
+    vi.mocked(credentialsApi.createSshKey).mockResolvedValue({
+      ...SSH_KEY_CREDENTIAL,
+      name: "deploy-atlas",
+    });
+    mount("repository", "/repositories");
+
+    expect(screen.queryByRole("button", { name: /Import from/ })).toBeNull();
+    await userEvent.click(await screen.findByRole("button", { name: "Create SSH key" }));
+    const sheet = await screen.findByRole("dialog", { name: "Create SSH key" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "deploy-atlas");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create SSH key" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Done" }));
+
+    expect(credentialsApi.createSshKey).toHaveBeenCalledWith({ name: "deploy-atlas" });
+    await waitFor(() => expect(credentialsApi.listCredentialPage).toHaveBeenCalledTimes(2));
+  });
+
+  it("offers Rotate key and no secret rotate or metadata edit on an ssh row", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(REPOSITORY_PLATFORMS);
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [SSH_KEY_CREDENTIAL],
+      next_cursor: null,
+    });
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue({
+      ...SSH_KEY_CREDENTIAL,
+      bindings: [],
+    });
+    mount("repository", "/repositories");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Rotate key of atlas-ssh" }));
+
+    expect(screen.queryByRole("button", { name: "Rotate atlas-ssh" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata of atlas-ssh" })).toBeNull();
+    expect(
+      await screen.findByRole("alertdialog", { name: "Rotate the key of atlas-ssh?" }),
+    ).toBeTruthy();
+  });
+
+  it("offers Rotate key only on an ssh row and not on a github row", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(REPOSITORY_PLATFORMS);
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [{ ...OPENROUTER, name: "atlas-github", platform: "github" }, SSH_KEY_CREDENTIAL],
+      next_cursor: null,
+    });
+    mount("repository", "/repositories");
+
+    expect(await screen.findByRole("button", { name: "Rotate key of atlas-ssh" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Rotate atlas-github" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Rotate key of atlas-github" })).toBeNull();
+  });
+
+  it("gates the ssh actions on the platform when the engine answers an older ssh entry", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
+      items: [apiKey("ssh", ["host", "hostname", "identity_file"], true)],
+    });
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [SSH_KEY_CREDENTIAL],
+      next_cursor: null,
+    });
+    mount("repository", "/repositories");
+
+    expect(await screen.findByRole("button", { name: "Rotate key of atlas-ssh" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Rotate atlas-ssh" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata of atlas-ssh" })).toBeNull();
+  });
+
+  it("shows the Host keys panel only in the repository section", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    });
+    const { unmount } = mount("repository", "/repositories");
+
+    expect(await screen.findByRole("heading", { name: "Host keys" })).toBeTruthy();
+    expect(credentialsApi.listHostKeys).toHaveBeenCalledTimes(1);
+    unmount();
+
+    mount();
+    await screen.findByText("No credentials. Create the first one with New credential.");
+    expect(screen.queryByRole("heading", { name: "Host keys" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create SSH key" })).toBeNull();
   });
 
   it("reports a failed read", async () => {

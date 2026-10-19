@@ -19,7 +19,7 @@ const MESSAGES: Readonly<Record<string, string>> = {
     "This platform has no check before the save. Save the credential, then use Verify.",
   "credential.platform.unsupported": "Custody does not support this platform.",
   "credential.entry.unsupported":
-    "This platform does not accept this entry method. An OAuth platform takes its credential through a sign-in.",
+    "This platform does not accept this entry method. An OAuth platform takes its credential through a sign-in. An ssh credential enters through Create SSH key.",
   "credential.login.pending":
     "Another sign-in of yours for this platform is pending. Finish it, or wait until it expires 15 minutes after its start.",
   "credential.login.not_found":
@@ -35,16 +35,12 @@ const MESSAGES: Readonly<Record<string, string>> = {
     "Open a pull request requires a credential. Add a GitHub credential to the binding.",
   "project.bindings.repository.action_unsupported":
     "GitLab and Bitbucket do not support open a pull request or a credential binding. Remove the credential and choose another action.",
-  "project.bindings.repository.ssh_host_mismatch":
-    "The address host does not match the SSH credential host. Use an address whose host equals the SSH credential host.",
-  "repository.credential.ssh_drift":
-    "The SSH credential changed since the binding was created. Re-verify or update the binding.",
-  "repository.credential.ssh_identity_ambiguous":
-    "The SSH credential has no single identity file. Add IdentitiesOnly yes and one IdentityFile to the Host block in ~/.ssh/config.",
+  "repository.credential.ssh_key_legacy":
+    "This SSH credential holds no key that the server generated. Use Rotate key to generate one.",
+  "repository.host_key.host_unsupported":
+    "The host is in no SSH host set of a platform. Use the host of the platform, for example github.com.",
   "project.bindings.worker.tags_invalid":
     "A tag is malformed or repeated. Use lower-case dotted tags, each at most 64 bytes, each once.",
-  "repository.credential.ssh_config_unreadable":
-    "The server cannot read ~/.ssh/config. Check its permissions and syntax.",
 };
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -55,6 +51,30 @@ function nameConflictMessage(details: unknown): string {
   const holder = isRecord(details) && typeof details["id"] === "string" ? details["id"] : null;
   const base = "A credential with this name already exists. Choose another name.";
   return holder === null ? base : `${base} The holder is ${holder}.`;
+}
+
+function hostOf(details: unknown): string | null {
+  return isRecord(details) && typeof details["host"] === "string" ? details["host"] : null;
+}
+
+function scanFailedMessage(details: unknown): string {
+  const host = hostOf(details);
+  const subject = host === null ? "the host" : host;
+  return `The server cannot read the host key of ${subject}. Check the network of the server, then try again.`;
+}
+
+function hostKeyChangedMessage(details: unknown): string {
+  const host = hostOf(details);
+  const fingerprint =
+    isRecord(details) && typeof details["fingerprint"] === "string" ? details["fingerprint"] : null;
+  const base = `The host key of ${host ?? "the host"} changed after the scan.`;
+  const now = fingerprint === null ? "" : ` The host now presents ${fingerprint}.`;
+  return `${base}${now} Compare the fingerprint with the published one, then pin again.`;
+}
+
+function unpinnedMessage(details: unknown): string {
+  const host = hostOf(details);
+  return `The server holds no host key for ${host ?? "the address host"}. Pin the host key, then try again.`;
 }
 
 function nodeUnmatchedMessage(details: unknown): string {
@@ -137,6 +157,9 @@ export function credentialMessage(cause: ApiError): string {
   if (cause.detail === "credential.name.conflict") return nameConflictMessage(cause.details);
   if (cause.detail === "llm.metadata.model_in_use") return modelInUseMessage(cause.details);
   if (cause.detail === "credential.credential.in_use") return inUseMessage(cause.details);
+  if (cause.detail === "repository.host_key.scan_failed") return scanFailedMessage(cause.details);
+  if (cause.detail === "repository.host_key.changed") return hostKeyChangedMessage(cause.details);
+  if (cause.detail === "repository.host_key.unpinned") return unpinnedMessage(cause.details);
   if (cause.detail === "project.bindings.worker.node_unmatched") {
     return nodeUnmatchedMessage(cause.details);
   }

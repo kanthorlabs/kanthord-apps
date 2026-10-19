@@ -19,6 +19,7 @@ import {
   type SecretDraft,
 } from "@/lib/credential-draft";
 import { newestLiveRevision } from "@/lib/credential-revisions";
+import { SSH_PLATFORM } from "@/lib/ssh-key";
 import { writeFailureOf, type WriteFailure } from "./write-failure";
 
 export interface CredentialRotateState {
@@ -111,7 +112,11 @@ export function useCredentialRotate(
   }, [submitting, newest, entry, secret, metadata, component, credential, reload]);
 
   return {
-    available: entry !== null && entry.secret_shape !== "none" && newest !== null,
+    available:
+      entry !== null &&
+      credential.platform !== SSH_PLATFORM &&
+      entry.secret_shape !== "ssh_key" &&
+      newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,
     secret,

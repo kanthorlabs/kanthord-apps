@@ -5,7 +5,7 @@
  * dashboard runs before the daemon exists. It is not part of the application
  * and no module under src/ reaches it.
  */
-import { createHash } from "node:crypto";
+import { createHash, generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:http";
 
 import * as fx from "./fixtures.mjs";
@@ -1823,7 +1823,7 @@ const credentialHealth = (name) => {
   if (credential === undefined || isArchived(credential)) {
     return healthEntry("unhealthy", HEALTH_CAPABILITIES[credential?.platform ?? "github"]);
   }
-  const rejected = secretIsRejected(storedSecrets.get(credential.name));
+  const rejected = secretIsRejected(storedSecrets.get(credential.name)) || isLegacySsh(credential);
   return healthEntry(
     rejected ? "unhealthy" : "healthy",
     HEALTH_CAPABILITIES[credential.platform],
@@ -1934,14 +1934,6 @@ on("POST", /^\/api\/project\/([^/]+)\/binding\/check$/, (m, b, res) => {
       "Repository address must have the form git@<host>:<owner>/<repository>.git.",
     );
   }
-  if (address[1] !== newestLive(sshCredential).metadata.host) {
-    return projectEnvelope(
-      res,
-      400,
-      "project.bindings.repository.ssh_host_mismatch",
-      "The repository address host differs from the host of the SSH credential.",
-    );
-  }
   return json(res, 200, bindingHealthOf(config));
 });
 
@@ -2007,7 +1999,7 @@ const CREDENTIAL_PLATFORM_LISTS = {
   repository: {
     items: [
       platformEntry("github", "api_key", [], [], true),
-      platformEntry("ssh", "none", [], ["host", "hostname", "identity_file"], true),
+      platformEntry("ssh", "ssh_key", [], [], true),
     ],
   },
   storage: {
@@ -2040,7 +2032,6 @@ const secretIsRejected = (secret) =>
   secret !== null &&
   Object.values(secret).some((value) => typeof value === "string" && value.startsWith("bad-"));
 const CREDENTIAL_NAME = /^[a-z][a-z0-9-]{0,62}$/;
-const SSH_HOST = /^[A-Za-z0-9][A-Za-z0-9.-]*$/;
 const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const LOGIN_EXPIRY_MS = 15 * 60 * 1000;
 const LOGIN_DEVICE_COMPLETION_MS = 10000;
@@ -2069,6 +2060,9 @@ const nextCredentialId = () => {
 const newestLive = (credential) =>
   credential.revisions.filter((revision) => revision.ended_at === null)[0] ?? null;
 
+const isLegacySsh = (credential) =>
+  credential.platform === "ssh" && typeof newestLive(credential)?.metadata?.public_key !== "string";
+
 const drainOlder = (credential, now) => {
   const newest = newestLive(credential);
   for (const revision of credential.revisions) {
@@ -2081,7 +2075,6 @@ const isNonblank = (value) => typeof value === "string" && value.trim().length >
 
 const secretIsValid = (shape, secret) => {
   if (typeof secret !== "object" || secret === null) return false;
-  if (shape === "none") return true;
   if (shape === "api_key") return isNonblank(secret.key);
   if (shape === "s3_access_key") {
     return isNonblank(secret.access_key_id) && isNonblank(secret.secret_access_key);
@@ -2101,19 +2094,6 @@ const metadataIsValid = (platform, metadata) => {
       Array.isArray(metadata.models) &&
       metadata.models.every((model) => isNonblank(model?.id)) &&
       new Set(metadata.models.map((model) => model.id.trim())).size === metadata.models.length
-    );
-  }
-  if (platform === "ssh") {
-    return (
-      typeof metadata === "object" &&
-      metadata !== null &&
-      Object.keys(metadata).length === 4 &&
-      SSH_HOST.test(metadata.host) &&
-      isNonblank(metadata.hostname) &&
-      Number.isInteger(metadata.port) &&
-      metadata.port >= 1 &&
-      metadata.port <= 65535 &&
-      isNonblank(metadata.identity_file)
     );
   }
   const fields = CREDENTIAL_PLATFORMS[platform]?.metadata_fields ?? [];
@@ -2201,16 +2181,133 @@ const dependentsOf = (component, credential) =>
     ? { agent_providers: [] }
     : { bindings: bindingsNaming(component, credential) };
 
-on("GET", /^\/api\/repository\/credential\/ssh\/discover$/, (_m, _b, res) => {
-  const pinnedHosts = new Set(
-    credentials
-      .filter((credential) => credential.platform === "ssh" && !isArchived(credential))
-      .map((credential) => newestLive(credential)?.metadata.host),
+const refuseSshEntry = (res) =>
+  credentialEnvelope(
+    res,
+    400,
+    "credential.entry.unsupported",
+    "An ssh credential enters only through Create SSH key.",
   );
-  const items = fx.SSH_ALIASES.map((alias) =>
-    pinnedHosts.has(alias.host) ? { ...alias, state: "present", reason: null } : alias,
+
+const sshBlobOf = (rawKey) => {
+  const type = Buffer.from("ssh-ed25519");
+  const length = (value) => {
+    const buffer = Buffer.alloc(4);
+    buffer.writeUInt32BE(value);
+    return buffer;
+  };
+  return Buffer.concat([length(type.length), type, length(rawKey.length), rawKey]);
+};
+
+const fingerprintOf = (blob) =>
+  `SHA256:${createHash("sha256").update(blob).digest("base64").replace(/=+$/, "")}`;
+
+const generatedSshKey = (name) => {
+  const { publicKey } = generateKeyPairSync("ed25519");
+  const blob = sshBlobOf(publicKey.export({ format: "der", type: "spki" }).subarray(-32));
+  return {
+    public_key: `ssh-ed25519 ${blob.toString("base64")} kanthord-${name}`,
+    fingerprint: fingerprintOf(blob),
+  };
+};
+
+const hostKeyScanOf = (host) => {
+  const publicKey = fx.HOST_KEYS[host];
+  return {
+    host,
+    public_key: publicKey,
+    fingerprint: fingerprintOf(Buffer.from(publicKey.split(" ")[1], "base64")),
+    source: host === "github.com" || host === "ssh.github.com" ? "github_meta" : "keyscan",
+  };
+};
+
+const hostKeyPins = new Map(EMPTY ? [] : fx.HOST_KEY_PINS.map((pin) => [pin.host, pin.created_at]));
+
+const refuseUnsupportedHost = (res, host) => {
+  if (typeof host === "string" && Object.hasOwn(fx.HOST_KEYS, host)) return false;
+  credentialEnvelope(
+    res,
+    400,
+    "repository.host_key.host_unsupported",
+    "The host is in no SSH host set.",
   );
-  return json(res, 200, { items });
+  return true;
+};
+
+on("POST", /^\/api\/repository\/credential\/ssh\/key$/, (_m, b, res) => {
+  if (
+    typeof b?.name !== "string" ||
+    !CREDENTIAL_NAME.test(b.name) ||
+    ["login", "check", "platform", "ssh"].includes(b.name)
+  ) {
+    return refuseInvalidInput(res);
+  }
+  const holder = credentials.find((item) => item.name === b.name);
+  if (holder !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.conflict",
+      "Credential name already exists.",
+      {
+        id: holder.revisions[0].id,
+      },
+    );
+  }
+  const credential = {
+    name: b.name,
+    platform: "ssh",
+    revisions: [
+      {
+        id: nextCredentialId(),
+        revision: 1,
+        metadata: generatedSshKey(b.name),
+        created_at: Date.now(),
+        ended_at: null,
+      },
+    ],
+  };
+  credentials.push(credential);
+  return json(res, 200, credential);
+});
+
+on("POST", /^\/api\/repository\/credential\/([^/]+)\/ssh\/key$/, (m, b, res) => {
+  const credential = findCredential(res, "repository", m[1]);
+  if (credential === undefined) return undefined;
+  if (credential.platform !== "ssh") return refuseSshEntry(res);
+  if (refuseArchived(res, credential)) return undefined;
+  if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
+  return addRevision(credential, generatedSshKey(credential.name), res);
+});
+
+on("GET", /^\/api\/repository\/host-key$/, (_m, _b, res, _t, url) => {
+  const items = [...hostKeyPins.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([host, createdAt]) => ({ ...hostKeyScanOf(host), created_at: createdAt }));
+  return json(res, 200, page(items, url));
+});
+
+on("POST", /^\/api\/repository\/host-key\/scan$/, (_m, b, res) => {
+  if (refuseUnsupportedHost(res, b?.host)) return undefined;
+  return json(res, 200, hostKeyScanOf(b.host));
+});
+
+on("PUT", /^\/api\/repository\/host-key\/([^/]+)$/, (m, b, res) => {
+  const host = decodeURIComponent(m[1]);
+  if (refuseUnsupportedHost(res, host)) return undefined;
+  const scan = hostKeyScanOf(host);
+  if (b?.fingerprint !== scan.fingerprint) {
+    return credentialEnvelope(
+      res,
+      409,
+      "repository.host_key.changed",
+      "The host presented another key on the second read.",
+      { host, fingerprint: scan.fingerprint },
+    );
+  }
+  const createdAt = Date.now();
+  hostKeyPins.set(host, createdAt);
+  return json(res, 200, { ...scan, created_at: createdAt });
 });
 
 on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
@@ -2238,7 +2335,7 @@ on("POST", credentialRoute("\\/check"), (m, b, res) => {
   if (entry === undefined) {
     return credentialEnvelope(res, 400, "credential.platform.unsupported", "Unsupported platform.");
   }
-  if (!entry.verifiable || entry.secret_shape === "oauth") {
+  if (!entry.verifiable || entry.secret_shape === "oauth" || entry.secret_shape === "ssh_key") {
     return credentialEnvelope(
       res,
       400,
@@ -2278,7 +2375,9 @@ on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
         res,
         200,
         healthEntry(
-          secretIsRejected(storedSecrets.get(credential.name)) ? "unhealthy" : "healthy",
+          secretIsRejected(storedSecrets.get(credential.name)) || isLegacySsh(credential)
+            ? "unhealthy"
+            : "healthy",
           HEALTH_CAPABILITIES[credential.platform],
           "unauthorized",
         ),
@@ -2300,6 +2399,7 @@ on("POST", credentialRoute(""), (m, b, res) => {
       "Unsupported credential entry.",
     );
   }
+  if (shape === "ssh_key") return refuseSshEntry(res);
   if (
     typeof b.name !== "string" ||
     !CREDENTIAL_NAME.test(b.name) ||
@@ -2481,6 +2581,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res) => {
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
+  if (credential.platform === "ssh") return refuseSshEntry(res);
   if (!secretIsValid(CREDENTIAL_PLATFORMS[credential.platform].secret_shape, b.secret)) {
     return refuseInvalidInput(res);
   }
@@ -2495,6 +2596,7 @@ on("PUT", credentialRoute("\\/([^/]+)\\/metadata"), (m, b, res) => {
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
+  if (credential.platform === "ssh") return refuseSshEntry(res);
   if (!metadataIsValid(credential.platform, b.metadata)) return refuseInvalidInput(res);
   const current = newestLive(credential).metadata;
   if (credential.platform === "openai-compatible" && current.base_url !== b.metadata.base_url) {
