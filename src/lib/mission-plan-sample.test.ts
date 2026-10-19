@@ -38,6 +38,17 @@ describe("samplePlanOf", () => {
     expect(content.match(/^## Criterion$/gm)).toHaveLength(1);
   });
 
+  it("asks for a HEALTH.md file and checks it with tools of the container image", () => {
+    const { content } = samplePlanOf(null).file;
+
+    expect(content).toContain("\n# Add a HEALTH.md file\n");
+    expect(content).toContain(
+      `\nverifications:\n  - "head -n 1 HEALTH.md | grep -qx 'status: ok'"\n---\n`,
+    );
+    expect(content).toMatch(/\nverifications:\n {2}- "[^"\n]+"\n---\n/);
+    expect(content).not.toMatch(/npm|\/health/);
+  });
+
   it("names the only repository binding of the project", () => {
     const sample = samplePlanOf(setOf({ "acme-api": REPOSITORY, "general-main": WORKER }));
 
