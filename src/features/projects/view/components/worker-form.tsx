@@ -27,9 +27,10 @@ interface WorkerAgentListProps {
   readonly errors: DraftErrors;
   readonly agents: Resource<WorkerAgents>;
   readonly onEdit: (draft: WorkerDraft) => void;
+  readonly onEnableAgent: (agentName: string) => void;
 }
 
-function WorkerAgentList({ draft, errors, agents, onEdit }: WorkerAgentListProps) {
+function WorkerAgentList({ draft, errors, agents, onEdit, onEnableAgent }: WorkerAgentListProps) {
   if (draft.worker === "")
     return <p className="text-sm text-muted-foreground">Choose a worker to see its agents.</p>;
   if (agents.loading) return <Skeleton className="h-16 w-full" />;
@@ -72,6 +73,7 @@ function WorkerAgentList({ draft, errors, agents, onEdit }: WorkerAgentListProps
           errors={errors}
           onCustom={(custom) => onEdit(withAgentEntry(draft, row.agent, custom))}
           onEdit={(entry) => row.index !== null && editEntry(row.index, entry)}
+          onEnable={() => onEnableAgent(row.agent)}
         />
       ))}
     </ItemGroup>
@@ -85,11 +87,19 @@ interface WorkerFormProps {
   readonly workers: readonly string[];
   readonly agents: Resource<WorkerAgents>;
   readonly onEdit: (draft: WorkerDraft) => void;
+  readonly onEnableAgent: (agentName: string) => void;
 }
 
-export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }: WorkerFormProps) {
+export function WorkerForm({
+  draft,
+  errors,
+  creating,
+  workers,
+  agents,
+  onEdit,
+  onEnableAgent,
+}: WorkerFormProps) {
   const hosted = draft.worker !== "" && agents.data !== null && !agents.data.external;
-  const placement = draft.placement ?? "worker";
   return (
     <>
       {creating ? (
@@ -120,7 +130,7 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
           <ChoiceField
             id="binding-placement"
             label="Placement"
-            value={placement}
+            value={draft.placement ?? ""}
             options={PLACEMENTS}
             error={errors["placement"]}
             description="server runs the instances inside kanthord. worker waits for a machine with a machine token. The binding keeps this choice."
@@ -132,7 +142,7 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
           <DraftField
             id="binding-placement"
             label="Placement"
-            value={placement}
+            value={draft.placement ?? "worker"}
             error={errors["placement"]}
             readOnly
             description="A worker binding keeps its placement. Remove the binding and add another to change it."
@@ -182,7 +192,13 @@ export function WorkerForm({ draft, errors, creating, workers, agents, onEdit }:
       </Field>
       <section aria-label="Agents" className="flex flex-col gap-2">
         <h4 className="text-sm font-medium">Agents</h4>
-        <WorkerAgentList draft={draft} errors={errors} agents={agents} onEdit={onEdit} />
+        <WorkerAgentList
+          draft={draft}
+          errors={errors}
+          agents={agents}
+          onEdit={onEdit}
+          onEnableAgent={onEnableAgent}
+        />
       </section>
     </>
   );

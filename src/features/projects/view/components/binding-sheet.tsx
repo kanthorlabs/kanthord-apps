@@ -16,10 +16,12 @@ import type { BindingSetEntry, Credential } from "@/api/types";
 import { CredentialCreateSheet } from "@/features/credentials/components/credential-create-sheet";
 import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
 import { SshImportDialog } from "@/features/credentials/components/ssh-import-dialog";
+import { EnablementSheet } from "@/features/workers/agent/components/enablement-sheet";
 import { newestLiveRevision } from "@/lib/credential-revisions";
 import { useBindingCredential } from "../use-binding-credential";
 import { useBindingCheck } from "../use-binding-check";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
+import { usePlacementDefault } from "../use-placement-default";
 import { useRepositoryCredentials } from "../use-repository-credentials";
 import { useWorkerAgents } from "../use-worker-agents";
 import { useWorkerNames } from "../use-worker-names";
@@ -73,6 +75,8 @@ export function BindingSheet({
   const credentials = useRepositoryCredentials();
   const workerNames = useWorkerNames();
   const workerAgents = useWorkerAgents(draft.kind === "worker" ? draft.worker : "");
+  const placementDefault = usePlacementDefault(form, workerAgents);
+  const [enablingAgent, setEnablingAgent] = useState<string | null>(null);
   const allCredentials = credentials.data ?? [];
   const sshCredentials = allCredentials.filter((c) => c.platform === "ssh");
   const apiCredentials = allCredentials.filter((c) => c.platform === "github");
@@ -196,6 +200,7 @@ export function BindingSheet({
                     workers={workerNames.data ?? []}
                     agents={workerAgents}
                     onEdit={form.edit}
+                    onEnableAgent={setEnablingAgent}
                   />
                 )}
                 {draft.kind === "storage" && (
@@ -204,8 +209,10 @@ export function BindingSheet({
               </FieldGroup>
             </div>
             <SheetFooter className="gap-3">
-              {form.missingHint !== null && (
-                <p className="text-sm text-muted-foreground">{form.missingHint}</p>
+              {(form.missingHint ?? placementDefault.reason) !== null && (
+                <p className="text-sm text-muted-foreground">
+                  {form.missingHint ?? placementDefault.reason}
+                </p>
               )}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 {draft.kind === "repository" && (
@@ -256,7 +263,7 @@ export function BindingSheet({
                   <Button
                     type="submit"
                     className="w-full sm:w-auto"
-                    disabled={saving || !form.saveReady}
+                    disabled={saving || !form.saveReady || placementDefault.waiting}
                   >
                     Save binding
                   </Button>
@@ -266,6 +273,13 @@ export function BindingSheet({
           </form>
         </SheetContent>
       </Sheet>
+      {enablingAgent !== null && (
+        <EnablementSheet
+          agentName={enablingAgent}
+          reload={workerAgents.reload}
+          onClose={() => setEnablingAgent(null)}
+        />
+      )}
       {sshImportOpen && (
         <SshImportDialog open onClose={() => setSshImportOpen(false)} onImported={onSshImported} />
       )}

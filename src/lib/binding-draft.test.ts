@@ -9,6 +9,7 @@ import {
   missingForCheck,
   missingForSave,
   withAgentEntry,
+  withPlacementDefault,
   withWorker,
   withWorkingLayerSwitch,
   type WorkerDraft,
@@ -294,6 +295,32 @@ describe("worker placement", () => {
   it("clears the placement when the worker changes", () => {
     const draft = draftOf("general-main", SERVER) as WorkerDraft;
     expect(withWorker(draft, "reviewer@1")).toMatchObject({ placement: null });
+  });
+
+  it("holds no placement for a new hosted binding before the agents load and server after", () => {
+    const draft = { ...withWorker(emptyDraft("worker") as WorkerDraft, "coder@1") };
+    expect(draft.placement).toBeNull();
+    const loaded = withPlacementDefault(draft, false);
+    expect(loaded.placement).toBe("server");
+    expect(entryOfDraft(loaded, [])).toEqual({
+      ok: true,
+      entry: {
+        kind: "worker",
+        config: { worker: "coder@1", instance_count: 1, placement: "server" },
+      },
+    });
+  });
+
+  it("keeps the placement that the human chose for a hosted worker", () => {
+    const draft = { ...withWorker(emptyDraft("worker") as WorkerDraft, "coder@1") };
+    const chosen: WorkerDraft = { ...draft, placement: "worker" };
+    expect(withPlacementDefault(chosen, false)).toBe(chosen);
+  });
+
+  it("holds no placement for a worker of an external harness", () => {
+    const draft = { ...withWorker(emptyDraft("worker") as WorkerDraft, "harness@1") };
+    expect(withPlacementDefault(draft, true)).toBe(draft);
+    expect(withPlacementDefault({ ...draft, placement: "server" }, true).placement).toBeNull();
   });
 });
 

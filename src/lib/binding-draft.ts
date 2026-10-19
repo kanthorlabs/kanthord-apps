@@ -178,6 +178,11 @@ export function withWorker(draft: WorkerDraft, worker: string): WorkerDraft {
   return { ...draft, name, worker, placement: null, entries: [] };
 }
 
+export function withPlacementDefault(draft: WorkerDraft, external: boolean): WorkerDraft {
+  const placement = external ? null : (draft.placement ?? "server");
+  return placement === draft.placement ? draft : { ...draft, placement };
+}
+
 export function withAgentEntry(draft: WorkerDraft, agent: string, custom: boolean): WorkerDraft {
   const others = draft.entries.filter((entry) => entry.agent !== agent);
   return {
