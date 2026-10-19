@@ -658,6 +658,41 @@ describe("AgentScreen", () => {
     await waitFor(() => expect(workersApi.putAgentEnablement).toHaveBeenCalledOnce());
   });
 
+  it("waits for a late verify answer before it enables the agent", async () => {
+    let answer: (entry: { status: "unhealthy"; capability: string }) => void = () => {};
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(credentialsApi.verifyCredential).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    vi.mocked(workersApi.putAgentEnablement).mockClear();
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["medium"] },
+    ]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
+    await choose("LLM credential", "router-main (openrouter)");
+    await waitFor(() =>
+      expect(within(form).getByRole("combobox", { name: "Reasoning effort" })).toHaveTextContent(
+        "medium",
+      ),
+    );
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+    answer({ status: "unhealthy", capability: "model-list read" });
+
+    expect(
+      await screen.findByRole("alertdialog", {
+        name: "Enable re@1 with an unhealthy credential?",
+      }),
+    ).toBeTruthy();
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+  });
+
   it("explains that an agent provider joins a credential and a model to an agent", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();

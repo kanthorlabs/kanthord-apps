@@ -4,10 +4,12 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as credentialsApi from "@/api/resources/credentials";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentEnablement, AgentSummary, Credential } from "@/api/types";
+import type { AgentEnablement, AgentSummary, Credential, HealthEntry } from "@/api/types";
 
 vi.mock("@/api/resources/workers");
+vi.mock("@/api/resources/credentials");
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { useAgentEnable } from "./use-agent-enable";
@@ -61,10 +63,11 @@ function wrapperAt(state: unknown) {
   };
 }
 
-async function openSheet(reload = vi.fn(), state: unknown = null) {
+async function openSheet(reload = vi.fn(), state: unknown = null, replaceSwe = true) {
   const hook = renderHook(() => useAgentEnable(OPENAI, reload), { wrapper: wrapperAt(state) });
   await waitFor(() => expect(hook.result.current.agentNames.length).toBeGreaterThan(0));
   act(() => hook.result.current.start());
+  if (replaceSwe) act(() => hook.result.current.toggleAgent("swe@1", true));
   await waitFor(() => expect(hook.result.current.reasoningEffort).toBe("medium"));
   return hook;
 }
@@ -84,7 +87,11 @@ beforeEach(() => {
     ),
   );
   vi.mocked(workersApi.enableAgentEnablement).mockResolvedValue(enabled("swe@1", 6));
+  vi.mocked(credentialsApi.verifyCredential).mockResolvedValue(HEALTHY);
 });
+
+const HEALTHY: HealthEntry = { status: "healthy", capability: "model-list read" };
+const UNHEALTHY: HealthEntry = { status: "unhealthy", capability: "model-list read" };
 
 describe("useAgentEnable", () => {
   it("prefills the first model and the medium effort", async () => {
@@ -96,6 +103,18 @@ describe("useAgentEnable", () => {
     );
     expect(result.current.modelIdentifier).toBe("gpt-5");
     expect(result.current.rows.map((row) => row.agentName)).toEqual(["re@1", "swe@1"]);
+  });
+
+  it("switches on a new agent and leaves the replace of a disabled enablement off", async () => {
+    const { result } = await openSheet(vi.fn(), null, false);
+
+    expect(result.current.rows).toEqual([
+      { agentName: "re@1", on: true, replaces: null },
+      { agentName: "swe@1", on: false, replaces: 4 },
+    ]);
+    act(() => result.current.submit());
+    await waitFor(() => expect(workersApi.putAgentEnablement).toHaveBeenCalledOnce());
+    expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("re@1", expect.anything());
   });
 
   it("names the agent provider after a new credential", async () => {
@@ -166,11 +185,12 @@ describe("useAgentEnable", () => {
 
     await waitFor(() => expect(result.current.outcomes).toHaveLength(2));
     expect(result.current.outcomes).toEqual([
-      { agentName: "re@1", ok: true, message: "Enabled re@1 at revision 1." },
+      { agentName: "re@1", result: "enabled", revision: 1, reason: null },
       {
         agentName: "swe@1",
-        ok: false,
-        message: "swe@1 was not enabled. Agent enablement revision conflict.",
+        result: "refused",
+        revision: null,
+        reason: "Agent enablement revision conflict.",
       },
     ]);
     expect(result.current.open).toBe(true);
@@ -186,9 +206,84 @@ describe("useAgentEnable", () => {
     act(() => result.current.submit());
 
     await waitFor(() => expect(result.current.outcomes).toHaveLength(2));
-    expect(result.current.outcomes[1]?.message).toBe(
-      "Saved the configuration of swe@1 at revision 5, but swe@1 stays disabled. The binding is not valid.",
+    expect(result.current.outcomes[1]).toEqual({
+      agentName: "swe@1",
+      result: "saved",
+      revision: 5,
+      reason: "The binding is not valid.",
+    });
+  });
+
+  it("retries only the enable of a saved agent at its saved revision", async () => {
+    vi.mocked(workersApi.enableAgentEnablement)
+      .mockRejectedValueOnce(new ApiError("conflict", "The binding is not valid.", 409))
+      .mockResolvedValueOnce(enabled("swe@1", 6));
+    const { result } = await openSheet();
+    act(() => result.current.submit());
+    await waitFor(() => expect(result.current.outcomes).toHaveLength(2));
+    vi.mocked(workersApi.putAgentEnablement).mockClear();
+
+    act(() => result.current.submit());
+
+    await waitFor(() => expect(result.current.open).toBe(false));
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+    expect(workersApi.enableAgentEnablement).toHaveBeenLastCalledWith("swe@1", 5);
+  });
+
+  it("asks before it enables the agents with an unhealthy credential", async () => {
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValue(UNHEALTHY);
+    const { result } = await openSheet();
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledWith("llm", "openai-main");
+
+    act(() => result.current.submit());
+
+    await waitFor(() => expect(result.current.unhealthyCredential).toBe("openai-main"));
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+    act(() => result.current.confirmUnhealthy());
+    await waitFor(() => expect(workersApi.putAgentEnablement).toHaveBeenCalledTimes(2));
+  });
+
+  it("waits for a late verify answer before it decides", async () => {
+    let answer: (entry: HealthEntry) => void = () => {};
+    vi.mocked(credentialsApi.verifyCredential).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
     );
+    const { result } = await openSheet();
+
+    act(() => result.current.submit());
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+    act(() => answer(UNHEALTHY));
+
+    await waitFor(() => expect(result.current.unhealthyCredential).toBe("openai-main"));
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+  });
+
+  it("leaves the effort empty and sends nothing when the first model lacks medium", async () => {
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "glm-4.6", reasoning_efforts: ["off", "low"] },
+    ]);
+    const { result } = renderHook(() => useAgentEnable(OPENAI, vi.fn()), {
+      wrapper: wrapperAt(null),
+    });
+    await waitFor(() => expect(result.current.agentNames.length).toBeGreaterThan(0));
+    act(() => result.current.start());
+    await waitFor(() => expect(result.current.modelIdentifier).toBe("glm-4.6"));
+
+    expect(result.current.reasoningEffort).toBe("");
+    expect(result.current.missing).toContain("Reasoning effort");
+    act(() => result.current.submit());
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+  });
+
+  it("blocks with no agent when no hosted worker declares one", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+    const { result } = renderHook(() => useAgentEnable(OPENAI, vi.fn()), {
+      wrapper: wrapperAt(null),
+    });
+
+    await waitFor(() => expect(result.current.blocked).toBe("No hosted worker declares an agent."));
   });
 
   it("sends only the agents that stay switched on", async () => {

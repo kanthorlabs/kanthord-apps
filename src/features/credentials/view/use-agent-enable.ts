@@ -17,6 +17,7 @@ import type {
   ReasoningEffort,
 } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
+import { useUnhealthyGuard } from "@/hooks/use-unhealthy-guard";
 import { providerNameOfCredential, providerOfCredential } from "@/lib/agent-provider-draft";
 import { enablementEffortOf, reasoningEffortOf } from "@/lib/enablement-draft";
 import { returnToOf } from "@/lib/return-to";
@@ -32,10 +33,13 @@ export interface AgentEnableRow {
   readonly replaces: number | null;
 }
 
+export type AgentEnableResult = "enabled" | "saved" | "refused";
+
 export interface AgentEnableOutcome {
   readonly agentName: string;
-  readonly message: string;
-  readonly ok: boolean;
+  readonly result: AgentEnableResult;
+  readonly revision: number | null;
+  readonly reason: string | null;
 }
 
 export interface AgentEnableState {
@@ -46,7 +50,7 @@ export interface AgentEnableState {
   readonly blocked: string | null;
   readonly open: boolean;
   readonly rows: readonly AgentEnableRow[];
-  readonly anyOn: boolean;
+  readonly chosenNames: readonly string[];
   readonly modelIdentifier: string;
   readonly reasoningEffort: ReasoningEffort | "";
   readonly models: readonly string[];
@@ -55,23 +59,38 @@ export interface AgentEnableState {
   readonly missing: readonly string[];
   readonly outcomes: readonly AgentEnableOutcome[];
   readonly submitting: boolean;
+  readonly unhealthyCredential: string | null;
   readonly start: () => void;
   readonly close: () => void;
   readonly toggleAgent: (agentName: string, on: boolean) => void;
   readonly selectModel: (value: string | null) => void;
   readonly selectReasoningEffort: (value: string | null) => void;
   readonly submit: () => void;
+  readonly confirmUnhealthy: () => void;
+  readonly cancelUnhealthy: () => void;
 }
 
 interface EnableTarget {
   readonly agentName: string;
   readonly body: AgentEnablementPutBody;
+  readonly savedRevision: number | null;
 }
 
 const NO_OUTCOMES: readonly AgentEnableOutcome[] = [];
 
+const EMPTY_AGENTS = "No hosted worker declares an agent.";
+const ALL_ENABLED = "Every agent of the hosted workers is enabled.";
+
 function pendingAgents(agents: readonly AgentSummary[]): readonly AgentSummary[] {
   return agents.filter((agent) => agent.enablement?.state !== "enabled");
+}
+
+type SwitchOverrides = Readonly<Record<string, boolean>>;
+
+const NO_SWITCHES: SwitchOverrides = {};
+
+function isSwitchedOn(agent: AgentSummary, switches: SwitchOverrides): boolean {
+  return switches[agent.agentName] ?? agent.enablement === null;
 }
 
 function enableBodyOf(
@@ -94,39 +113,60 @@ function enableBodyOf(
   };
 }
 
-async function enableAgent({ agentName, body }: EnableTarget): Promise<AgentEnableOutcome> {
+function outcomeOf(
+  agentName: string,
+  result: AgentEnableResult,
+  revision: number | null,
+  reason: string | null = null,
+): AgentEnableOutcome {
+  return { agentName, result, revision, reason };
+}
+
+async function enableSaved(agentName: string, savedRevision: number): Promise<AgentEnableOutcome> {
+  try {
+    const enabled = await enableAgentEnablement(agentName, savedRevision);
+    return outcomeOf(agentName, "enabled", enabled.revision);
+  } catch (cause) {
+    return outcomeOf(agentName, "saved", savedRevision, asApiError(cause).message);
+  }
+}
+
+async function enableAgent({
+  agentName,
+  body,
+  savedRevision,
+}: EnableTarget): Promise<AgentEnableOutcome> {
+  if (savedRevision !== null) return enableSaved(agentName, savedRevision);
   let saved;
   try {
     saved = await putAgentEnablement(agentName, body);
   } catch (cause) {
-    return {
-      agentName,
-      ok: false,
-      message: `${agentName} was not enabled. ${asApiError(cause).message}`,
-    };
+    return outcomeOf(agentName, "refused", null, asApiError(cause).message);
   }
-  if (saved.state === "enabled") {
-    return { agentName, ok: true, message: `Enabled ${agentName} at revision ${saved.revision}.` };
-  }
-  try {
-    const enabled = await enableAgentEnablement(agentName, saved.revision);
-    return {
-      agentName,
-      ok: true,
-      message: `Enabled ${agentName} at revision ${enabled.revision}.`,
-    };
-  } catch (cause) {
-    return {
-      agentName,
-      ok: false,
-      message: `Saved the configuration of ${agentName} at revision ${saved.revision}, but ${agentName} stays disabled. ${asApiError(cause).message}`,
-    };
-  }
+  if (saved.state === "enabled") return outcomeOf(agentName, "enabled", saved.revision);
+  return enableSaved(agentName, saved.revision);
+}
+
+function blockOf(
+  provider: AgentProviderKind | null,
+  platform: string,
+  agents: readonly AgentSummary[] | null,
+): string | null {
+  if (provider === null) return `An agent cannot use a credential of platform ${platform}.`;
+  if (agents === null) return null;
+  if (agents.length === 0) return EMPTY_AGENTS;
+  return pendingAgents(agents).length === 0 ? ALL_ENABLED : null;
+}
+
+function successMessage(outcomes: readonly AgentEnableOutcome[]): string {
+  return outcomes
+    .map((outcome) => `Enabled ${outcome.agentName} at revision ${outcome.revision}.`)
+    .join(" ");
 }
 
 export function useAgentEnable(credential: Credential, reload: () => void): AgentEnableState {
   const [open, setOpen] = useState(false);
-  const [switchedOff, setSwitchedOff] = useState<readonly string[]>([]);
+  const [switches, setSwitches] = useState<SwitchOverrides>(NO_SWITCHES);
   const [modelIdentifier, setModelIdentifier] = useState("");
   const [reasoningEffort, setReasoningEffort] = useState<ReasoningEffort | "">("");
   const [models, setModels] = useState<readonly AgentModel[] | null>(null);
@@ -134,6 +174,8 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
   const [outcomes, setOutcomes] = useState<readonly AgentEnableOutcome[]>(NO_OUTCOMES);
   const [submitting, setSubmitting] = useState(false);
   const agents = useResource(listAgents, []);
+  const guard = useUnhealthyGuard();
+  const checkCredential = guard.check;
   const agentList = agents.data;
   const reloadAgents = agents.reload;
   const navigate = useNavigate();
@@ -146,19 +188,20 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
   const providerName = providerNameOfCredential(enablements, credential.name) ?? credential.name;
   const rows = pending.map((agent) => ({
     agentName: agent.agentName,
-    on: !switchedOff.includes(agent.agentName),
+    on: isSwitchedOn(agent, switches),
     replaces: agent.enablement?.revision ?? null,
   }));
-  const chosen = pending.filter((agent) => !switchedOff.includes(agent.agentName));
+  const chosen = pending.filter((agent) => isSwitchedOn(agent, switches));
 
   const start = useCallback(() => {
-    setSwitchedOff([]);
+    setSwitches(NO_SWITCHES);
     setOutcomes(NO_OUTCOMES);
     setModels(null);
     setModelsFailure(null);
     setModelIdentifier("");
     setReasoningEffort("");
     setOpen(true);
+    checkCredential(credential.name);
     if (provider === null) return;
     listCredentialModels(provider, credential.name).then(
       (listed) => {
@@ -169,15 +212,12 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
       },
       (cause: unknown) => setModelsFailure(asApiError(cause).message),
     );
-  }, [provider, credential.name]);
+  }, [provider, credential.name, checkCredential]);
 
   const close = useCallback(() => setOpen(false), []);
 
   const toggleAgent = useCallback(
-    (agentName: string, on: boolean) =>
-      setSwitchedOff((current) =>
-        on ? current.filter((name) => name !== agentName) : [...current, agentName],
-      ),
+    (agentName: string, on: boolean) => setSwitches((current) => ({ ...current, [agentName]: on })),
     [],
   );
 
@@ -202,8 +242,10 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
 
   const submit = useCallback(() => {
     if (submitting || provider === null || reasoningEffort === "" || modelIdentifier === "") return;
+    const enabledBefore = outcomes.filter((outcome) => outcome.result === "enabled");
     const targets = pendingAgents(agentList ?? [])
-      .filter((agent) => !switchedOff.includes(agent.agentName))
+      .filter((agent) => isSwitchedOn(agent, switches))
+      .filter((agent) => !enabledBefore.some((outcome) => outcome.agentName === agent.agentName))
       .map((agent) => ({
         agentName: agent.agentName,
         body: enableBodyOf(
@@ -214,29 +256,35 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
           modelIdentifier,
           reasoningEffort,
         ),
+        savedRevision:
+          outcomes.find(
+            (outcome) => outcome.agentName === agent.agentName && outcome.result === "saved",
+          )?.revision ?? null,
       }));
     if (targets.length === 0) return;
-    setOutcomes(NO_OUTCOMES);
     setSubmitting(true);
     void Promise.all(targets.map(enableAgent)).then((results) => {
+      const all = [...enabledBefore, ...results];
       setSubmitting(false);
       reloadAgents();
       reload();
-      if (results.every((result) => result.ok)) {
+      if (all.every((outcome) => outcome.result === "enabled")) {
+        setOutcomes(NO_OUTCOMES);
         setOpen(false);
-        toast.success(results.map((result) => result.message).join(" "));
+        toast.success(successMessage(all));
         if (returnTo !== null) void navigate(returnTo);
         return;
       }
-      setOutcomes(results);
+      setOutcomes(all);
     });
   }, [
+    outcomes,
     submitting,
     provider,
     reasoningEffort,
     modelIdentifier,
     agentList,
-    switchedOff,
+    switches,
     providerName,
     credential.name,
     reloadAgents,
@@ -245,20 +293,21 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
     navigate,
   ]);
 
+  const runGuard = guard.run;
+  const ready = missing.length === 0 && chosen.length > 0;
+  const guardedSubmit = useCallback(() => {
+    if (ready) runGuard(credential.name, submit);
+  }, [ready, runGuard, credential.name, submit]);
+
   return {
     provider,
     providerName,
     agentNames: pending.map((agent) => agent.agentName),
     agentsError: agents.error?.message ?? null,
-    blocked:
-      provider === null
-        ? `An agent cannot use a credential of platform ${credential.platform}.`
-        : agents.data !== null && pending.length === 0
-          ? "Every agent of the hosted workers is enabled."
-          : null,
+    blocked: blockOf(provider, credential.platform, agentList),
     open,
     rows,
-    anyOn: chosen.length > 0,
+    chosenNames: chosen.map((agent) => agent.agentName),
     modelIdentifier,
     reasoningEffort,
     models: modelOptions(modelIdentifier, models),
@@ -267,11 +316,14 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
     missing,
     outcomes,
     submitting,
+    unhealthyCredential: guard.credential,
     start,
     close,
     toggleAgent,
     selectModel,
     selectReasoningEffort,
-    submit,
+    submit: guardedSubmit,
+    confirmUnhealthy: guard.confirm,
+    cancelUnhealthy: guard.cancel,
   };
 }

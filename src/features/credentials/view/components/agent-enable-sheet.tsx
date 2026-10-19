@@ -21,7 +21,32 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
-import type { AgentEnableState } from "../use-agent-enable";
+import { UnhealthyCredentialDialog } from "@/components/unhealthy-credential-dialog";
+import type { AgentEnableOutcome, AgentEnableState } from "../use-agent-enable";
+
+function OutcomeLine({ outcome }: { outcome: AgentEnableOutcome }) {
+  const name = <RecordName>{outcome.agentName}</RecordName>;
+  if (outcome.result === "enabled") {
+    return (
+      <p>
+        Enabled: {name} at revision {outcome.revision}.
+      </p>
+    );
+  }
+  if (outcome.result === "saved") {
+    return (
+      <p>
+        Not enabled: {name}. The configuration is saved at revision {outcome.revision}, but the
+        agent stays disabled. {outcome.reason}
+      </p>
+    );
+  }
+  return (
+    <p>
+      Not enabled: {name}. {outcome.reason}
+    </p>
+  );
+}
 
 interface AgentEnableSheetProps {
   readonly name: string;
@@ -52,11 +77,11 @@ export function AgentEnableSheet({ name, enable }: AgentEnableSheetProps) {
         >
           <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4">
             {enable.outcomes.length > 0 && (
-              <Alert variant="destructive">
-                <AlertTitle>Not every agent was enabled.</AlertTitle>
+              <Alert>
+                <AlertTitle>Some agents were not enabled.</AlertTitle>
                 <AlertDescription>
                   {enable.outcomes.map((outcome) => (
-                    <p key={outcome.agentName}>{outcome.message}</p>
+                    <OutcomeLine key={outcome.agentName} outcome={outcome} />
                   ))}
                 </AlertDescription>
               </Alert>
@@ -77,8 +102,9 @@ export function AgentEnableSheet({ name, enable }: AgentEnableSheetProps) {
                       </FieldLabel>
                       {row.replaces !== null && (
                         <FieldDescription>
-                          The disabled enablement at revision {row.replaces} gets this configuration
-                          in place of its own, and then the agent is enabled.
+                          Switch it on to replace the disabled enablement at revision {row.replaces}
+                          . Its agent providers and fallback configurations are replaced by this
+                          configuration, and then the agent is enabled.
                         </FieldDescription>
                       )}
                     </FieldContent>
@@ -105,8 +131,17 @@ export function AgentEnableSheet({ name, enable }: AgentEnableSheetProps) {
               />
             </FieldGroup>
           </div>
+          <UnhealthyCredentialDialog
+            agentNames={enable.chosenNames}
+            credential={enable.unhealthyCredential}
+            saferPath="Close this sheet, rotate the secret with Rotate secret, then enable the agents."
+            onConfirm={enable.confirmUnhealthy}
+            onCancel={enable.cancelUnhealthy}
+          />
           <SheetFooter>
-            {!enable.anyOn && <FieldDescription>Switch on at least one agent.</FieldDescription>}
+            {enable.chosenNames.length === 0 && (
+              <FieldDescription>Switch on at least one agent.</FieldDescription>
+            )}
             {enable.missing.length > 0 && (
               <FieldDescription>
                 Fill {enable.missing.join(" and ")} to enable the agents.
@@ -114,7 +149,9 @@ export function AgentEnableSheet({ name, enable }: AgentEnableSheetProps) {
             )}
             <Button
               type="submit"
-              disabled={enable.submitting || enable.missing.length > 0 || !enable.anyOn}
+              disabled={
+                enable.submitting || enable.missing.length > 0 || enable.chosenNames.length === 0
+              }
             >
               Enable agents
             </Button>

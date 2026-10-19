@@ -6,8 +6,8 @@ import { TextField } from "@/components/text-field";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
+import { UnhealthyCredentialDialog } from "@/components/unhealthy-credential-dialog";
 import { useEnablementCreate } from "../use-enablement-create";
-import { UnhealthyCredentialDialog } from "./unhealthy-credential-dialog";
 
 interface EnablementFormProps {
   readonly agentName: string;
@@ -93,8 +93,20 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
         </Button>
       </FieldGroup>
       <UnhealthyCredentialDialog
-        agentName={agentName}
+        agentNames={[agentName]}
         credential={form.unhealthyCredential}
+        saferPath={
+          <>
+            Rotate the secret on the{" "}
+            <Link
+              to={`/llm/${encodeURIComponent(form.unhealthyCredential ?? "")}`}
+              className="underline underline-offset-4"
+            >
+              page of {form.unhealthyCredential}
+            </Link>{" "}
+            first, then enable the agent.
+          </>
+        }
         onConfirm={form.confirmUnhealthy}
         onCancel={form.cancelUnhealthy}
       />

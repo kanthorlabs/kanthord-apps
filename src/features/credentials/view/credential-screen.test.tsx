@@ -132,6 +132,7 @@ beforeEach(() => {
   vi.mocked(credentialsApi.readCredential).mockResolvedValue(ROUTER);
   vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+  vi.mocked(credentialsApi.verifyCredential).mockResolvedValue(HEALTHY);
 });
 
 const AGENTS: readonly AgentSummary[] = [
@@ -191,20 +192,121 @@ describe("CredentialScreen", () => {
     );
   });
 
-  it("disables Enable agents and says why when every agent is enabled", async () => {
+  it.each([
+    ["every agent is enabled", "Every agent of the hosted workers is enabled.", true],
+    ["no hosted worker declares an agent", "No hosted worker declares an agent.", false],
+  ])("disables Enable agents and says why when %s", async (_case, reason, withAgents) => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue(
+      withAgents
+        ? AGENTS.map((agent) => ({
+            ...agent,
+            enablement: {
+              agent_name: agent.agentName,
+              state: "enabled" as const,
+              agent_providers: [],
+              default_configuration: {
+                agent_provider: "router",
+                model_identifier: "qwen-plus",
+                reasoning_effort: "medium" as const,
+              },
+              fallback_configurations: [],
+              revision: 1,
+            },
+          }))
+        : [],
+    );
     mount();
 
     const section = (await screen.findByRole("heading", { name: "Agents" })).closest(
       "[data-slot='card']",
     ) as HTMLElement;
 
-    expect(
-      await within(section).findByText("Every agent of the hosted workers is enabled."),
-    ).toBeTruthy();
+    expect(await within(section).findByText(reason)).toBeTruthy();
     expect(within(section).getByRole("button", { name: "Enable agents" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
+  });
+
+  it("leaves the replace of a disabled enablement off and names what it replaces", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([
+      AGENTS[0] as AgentSummary,
+      {
+        agentName: "swe@1",
+        workerNames: ["coder@1"],
+        enablement: {
+          agent_name: "swe@1",
+          state: "disabled",
+          agent_providers: [{ name: "atlas", provider: "openai-compatible", credential: "atlas" }],
+          default_configuration: {
+            agent_provider: "atlas",
+            model_identifier: "qwen3-coder",
+            reasoning_effort: "off",
+          },
+          fallback_configurations: [],
+          revision: 3,
+        },
+      },
+    ]);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([]);
+    mount();
+
+    const section = (await screen.findByRole("heading", { name: "Agents" })).closest(
+      "[data-slot='card']",
+    ) as HTMLElement;
+    await within(section).findByText("Not enabled: re@1, swe@1");
+    await userEvent.click(within(section).getByRole("button", { name: "Enable agents" }));
+    const sheet = await screen.findByRole("dialog", { name: "Enable agents with router" });
+
+    expect(within(sheet).getByRole("switch", { name: "re@1" })).toBeChecked();
+    expect(within(sheet).getByRole("switch", { name: "swe@1" })).not.toBeChecked();
+    expect(
+      within(sheet).getByText(
+        /Switch it on to replace the disabled enablement at revision 3\. Its agent providers and fallback configurations are replaced by this configuration/,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("marks each outcome as enabled or not enabled after a partial failure", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue(AGENTS);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen-plus", reasoning_efforts: ["medium"] },
+    ]);
+    vi.mocked(workersApi.putAgentEnablement).mockImplementation((agentName) =>
+      agentName === "swe@1"
+        ? Promise.reject(new ApiError("conflict", "The model is not approved.", 409))
+        : Promise.resolve({
+            agent_name: agentName,
+            state: "enabled",
+            agent_providers: [],
+            default_configuration: {
+              agent_provider: "router",
+              model_identifier: "qwen-plus",
+              reasoning_effort: "medium",
+            },
+            fallback_configurations: [],
+            revision: 1,
+          }),
+    );
+    mount();
+
+    const section = (await screen.findByRole("heading", { name: "Agents" })).closest(
+      "[data-slot='card']",
+    ) as HTMLElement;
+    await within(section).findByText("Not enabled: re@1, swe@1");
+    await userEvent.click(within(section).getByRole("button", { name: "Enable agents" }));
+    const sheet = await screen.findByRole("dialog", { name: "Enable agents with router" });
+    await waitFor(() =>
+      expect(within(sheet).getByRole("combobox", { name: "Reasoning effort" })).toHaveTextContent(
+        "medium",
+      ),
+    );
+    await userEvent.click(within(sheet).getByRole("button", { name: "Enable agents" }));
+
+    const notice = await within(sheet).findByRole("alert");
+    expect(notice.textContent).toContain("Enabled: re@1 at revision 1.");
+    expect(notice.textContent).toContain("Not enabled: swe@1. The model is not approved.");
+    expect(within(notice).getByText("swe@1").tagName).toBe("STRONG");
   });
 
   it("lists every revision newest first with its state and metadata", async () => {

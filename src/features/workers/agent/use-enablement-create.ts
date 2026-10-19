@@ -2,14 +2,15 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
-import { listAllCredentials, verifyCredential } from "@/api/resources/credentials";
+import { listAllCredentials } from "@/api/resources/credentials";
 import {
   listAgentEnablements,
   listCredentialModels,
   putAgentEnablement,
 } from "@/api/resources/workers";
-import type { AgentModel, HealthEntry } from "@/api/types";
+import type { AgentModel } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
+import { useUnhealthyGuard } from "@/hooks/use-unhealthy-guard";
 import {
   agentProviderCredentials,
   nameAfterCredentialPick,
@@ -63,10 +64,8 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const [errors, setErrors] = useState<EnablementErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [unhealthyCredential, setUnhealthyCredential] = useState<string | null>(null);
-  const health = useRef<HealthEntry | null>(null);
-  const pickedCredential = useRef("");
-  const unhealthyConfirmed = useRef(false);
+  const guard = useUnhealthyGuard();
+  const checkCredential = guard.check;
   const credentials = useResource(() => listAllCredentials("llm"), []);
   const usable = agentProviderCredentials(credentials.data ?? []);
   const enablements = useResource(listAgentEnablements, []);
@@ -85,7 +84,6 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const selectCredential = useCallback(
     (value: string | null) => {
       const credential = value ?? "";
-      pickedCredential.current = credential;
       const knownName = providerNameOfCredential(enablements.data ?? [], credential);
       const previousPrefill = prefilledName.current;
       prefilledName.current = knownName;
@@ -97,15 +95,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
       }));
       setModels(null);
       setModelsFailure(null);
-      health.current = null;
-      if (credential !== "") {
-        verifyCredential("llm", credential).then(
-          (entry) => {
-            if (pickedCredential.current === credential) health.current = entry;
-          },
-          () => undefined,
-        );
-      }
+      checkCredential(credential);
       const provider = providerOfCredential(usable, credential);
       if (provider === null) return;
       listCredentialModels(provider, credential).then(
@@ -124,7 +114,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
         (cause: unknown) => setModelsFailure(asApiError(cause).message),
       );
     },
-    [usable, enablements.data],
+    [usable, enablements.data, checkCredential],
   );
 
   const selectModel = useCallback(
@@ -152,11 +142,6 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
       setErrors(result.errors);
       return;
     }
-    if (health.current?.status === "unhealthy" && !unhealthyConfirmed.current) {
-      setUnhealthyCredential(draft.credential);
-      return;
-    }
-    unhealthyConfirmed.current = false;
     setErrors(NO_ERRORS);
     setFailure(null);
     setSubmitting(true);
@@ -173,13 +158,14 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     );
   }, [submitting, draft, usable, agentName, reload]);
 
-  const confirmUnhealthy = useCallback(() => {
-    unhealthyConfirmed.current = true;
-    setUnhealthyCredential(null);
-    submit();
-  }, [submit]);
-
-  const cancelUnhealthy = useCallback(() => setUnhealthyCredential(null), []);
+  const runGuard = guard.run;
+  const guardedSubmit = useCallback(() => {
+    if (!enablementBodyOf(draft, usable).ok) {
+      submit();
+      return;
+    }
+    runGuard(draft.credential, submit);
+  }, [draft, usable, submit, runGuard]);
 
   return {
     draft,
@@ -196,14 +182,14 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     credentialsMissing: credentials.data !== null && usable.length === 0,
     failure,
     submitting,
-    unhealthyCredential,
+    unhealthyCredential: guard.credential,
     nameInput,
     setName,
     selectCredential,
     selectModel,
     selectReasoningEffort,
-    submit,
-    confirmUnhealthy,
-    cancelUnhealthy,
+    submit: guardedSubmit,
+    confirmUnhealthy: guard.confirm,
+    cancelUnhealthy: guard.cancel,
   };
 }
