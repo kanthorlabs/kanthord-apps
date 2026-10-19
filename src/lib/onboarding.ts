@@ -1,8 +1,7 @@
 import type { AgentSummary, BindingSet, BindingSetKind, Credential, Project } from "@/api/types";
 
-import { agentProviderCredentials } from "./agent-provider-draft";
 import { isArchived } from "./credential-revisions";
-import { credentialDetailPath, ENABLE_AGENTS_HASH } from "./credential-sections";
+import { enableAgentsPath } from "./credential-sections";
 
 export type OnboardingStepKey =
   "llm_credential" | "agents" | "ssh_key" | "project" | "repository_binding" | "worker_bindings";
@@ -80,16 +79,8 @@ function agentsAction(
     disabled.find((agent) => agent.workerNames.some((worker) => boundWorkers.has(worker))) ??
     disabled[0];
   if (first === undefined) return { label: "Open agents", path: "/agents", returns: true };
-  const [provider] = agentProviderCredentials(
-    (llmCredentials ?? []).filter((credential) => !isArchived(credential)),
-  );
-  if (provider !== undefined) {
-    return {
-      label: "Enable agents",
-      path: `${credentialDetailPath("llm", provider.name)}${ENABLE_AGENTS_HASH}`,
-      returns: true,
-    };
-  }
+  const sheetPath = enableAgentsPath(llmCredentials);
+  if (sheetPath !== null) return { label: "Enable agents", path: sheetPath, returns: true };
   return {
     label: `Enable ${first.agentName}`,
     path: `/agents/${encodeURIComponent(first.agentName)}#enablement`,
