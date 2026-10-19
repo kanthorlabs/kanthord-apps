@@ -4,6 +4,7 @@ import { agentProviderCredentials } from "./agent-provider-draft";
 import { isArchived } from "./credential-revisions";
 
 export const ENABLE_AGENTS_HASH = "#enable-agents";
+export const CREATE_SSH_KEY_HASH = "#create-ssh-key";
 
 const SECTION_PATHS: Readonly<Record<CredentialComponent, string>> = {
   llm: "/llm",

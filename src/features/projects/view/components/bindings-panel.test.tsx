@@ -1463,6 +1463,45 @@ describe("BindingsPanel", () => {
     );
   });
 
+  it("keeps the binding sheet open after an SSH key create from onboarding", async () => {
+    const created: Credential = {
+      name: "deploy-atlas",
+      platform: "ssh",
+      revisions: [
+        {
+          id: "rev_new",
+          revision: 1,
+          metadata: {
+            public_key: "ssh-ed25519 AAAAdeploy kanthord-deploy-atlas",
+            fingerprint: "SHA256:ZGVwbG95LWF0bGFzLWZpbmdlcnByaW50LXZhbHVlLWhlcmU",
+          },
+          created_at: 2,
+          ended_at: null,
+        },
+      ],
+    };
+    vi.mocked(credentialsApi.createSshKey).mockResolvedValue(created);
+    mountFromOnboarding();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(await screen.findByRole("button", { name: "New SSH credential" }));
+    const sheet = await screen.findByRole("form", { name: "Create SSH key" });
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [created],
+      next_cursor: null,
+    });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "deploy-atlas");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create SSH key" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Done" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "SSH credential" })).toHaveValue(
+        "deploy-atlas (v1)",
+      ),
+    );
+    expect(screen.queryByText("Onboarding view")).toBeNull();
+  });
+
   it("shows the public key of the SSH credential when the host refuses the key", async () => {
     vi.mocked(projectsApi.checkBinding).mockResolvedValue({
       address: {

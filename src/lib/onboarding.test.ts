@@ -140,7 +140,6 @@ describe("onboardingStepsOf", () => {
       action: {
         label: "Enable agents",
         path: "/llm/router-main#enable-agents",
-        returns: true,
       },
     });
   });
@@ -155,7 +154,6 @@ describe("onboardingStepsOf", () => {
     expect(steps.find((step) => step.key === "agents")?.action).toEqual({
       label: "Enable re@1",
       path: "/agents/re%401#enablement",
-      returns: true,
     });
   });
 
@@ -245,7 +243,6 @@ describe("onboardingStepsOf", () => {
     expect(steps.find((step) => step.key === "repository_binding")?.action).toEqual({
       label: "Open bindings",
       path: "/projects/prj-1?tab=bindings",
-      returns: true,
     });
   });
 
@@ -255,15 +252,13 @@ describe("onboardingStepsOf", () => {
     expect(steps.find((step) => step.key === "worker_bindings")?.action).toEqual({
       label: "New project",
       path: "/projects/new",
-      returns: true,
     });
   });
 
-  it("opens the SSH credential list without a return", () => {
+  it("opens the Create SSH key sheet of the Git credentials", () => {
     expect(onboardingStepsOf(EMPTY).find((step) => step.key === "ssh_key")?.action).toEqual({
-      label: "Open Git credentials",
-      path: "/repositories",
-      returns: false,
+      label: "Create SSH key",
+      path: "/repositories#create-ssh-key",
     });
   });
 });
