@@ -8,6 +8,8 @@ import * as credentialsApi from "@/api/resources/credentials";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
 import type { AgentSummary, BindingSet, Credential, Project } from "@/api/types";
+import { AppBreadcrumb } from "@/components/app-breadcrumb";
+import { CrumbLabelsProvider } from "@/components/crumb-labels";
 import { Button } from "@/components/ui/button";
 
 vi.mock("@/api/resources/credentials");
@@ -89,11 +91,14 @@ function ReturnProbe() {
 function mount() {
   return render(
     <MemoryRouter initialEntries={["/"]}>
-      <Routes>
-        <Route path="/" element={<OnboardingScreen />} />
-        <Route path="/llm/new" element={<ReturnProbe />} />
-        <Route path="/repositories" element={<ReturnProbe />} />
-      </Routes>
+      <CrumbLabelsProvider>
+        <AppBreadcrumb />
+        <Routes>
+          <Route path="/" element={<OnboardingScreen />} />
+          <Route path="/llm/new" element={<ReturnProbe />} />
+          <Route path="/repositories" element={<ReturnProbe />} />
+        </Routes>
+      </CrumbLabelsProvider>
     </MemoryRouter>,
   );
 }
@@ -126,7 +131,7 @@ describe("OnboardingScreen", () => {
     serveEmpty();
     mount();
 
-    expect(await screen.findByRole("heading", { name: "Onboarding" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "Onboarding" })).toBeTruthy();
     const steps = within(screen.getByRole("list", { name: "Setup steps" })).getAllByRole(
       "listitem",
     );
@@ -182,6 +187,34 @@ describe("OnboardingScreen", () => {
     expect(within(stepOf("Enabled agents")).getByText("Next")).toBeTruthy();
   });
 
+  it("titles the page and the breadcrumb Onboarding, then Overview after the skip", async () => {
+    serveEmpty();
+    mount();
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Onboarding" })).toBeTruthy();
+    expect(
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Onboarding"),
+    ).toHaveAttribute("aria-current", "page");
+
+    await userEvent.click(screen.getByRole("button", { name: "Skip onboarding" }));
+
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Overview"),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("titles the page and the breadcrumb Overview when every step is done", async () => {
+    serveFull();
+    mount();
+
+    await screen.findByText("Overview body");
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Overview"),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
   it("skips to Overview and resumes Onboarding from it", async () => {
     serveEmpty();
     mount();
@@ -193,7 +226,8 @@ describe("OnboardingScreen", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Resume onboarding" }));
 
-    expect(screen.getByRole("heading", { name: "Onboarding" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Onboarding" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Onboarding" })).toBeTruthy();
     expect(window.localStorage.getItem("kanthord.onboarding.skipped")).toBeNull();
   });
 
@@ -223,7 +257,7 @@ describe("OnboardingScreen", () => {
     );
     mount();
 
-    expect(await screen.findByRole("heading", { name: "Onboarding" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "Onboarding" })).toBeTruthy();
     expect(screen.getByText(/agents \(The daemon did not answer\.\)/)).toBeTruthy();
     expect(within(stepOf("LLM credential")).getByText("Next")).toBeTruthy();
     expect(within(stepOf("Enabled agents")).getByText("Open")).toBeTruthy();

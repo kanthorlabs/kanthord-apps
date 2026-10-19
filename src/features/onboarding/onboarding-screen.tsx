@@ -1,3 +1,4 @@
+import { useCrumbLabel } from "@/components/crumb-labels";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +10,7 @@ import { useOnboarding } from "./use-onboarding";
 
 export function OnboardingScreen() {
   const onboarding = useOnboarding();
+  useCrumbLabel("/", onboarding.view === "onboarding" ? "Onboarding" : undefined);
 
   if (onboarding.view === "loading") {
     return (
