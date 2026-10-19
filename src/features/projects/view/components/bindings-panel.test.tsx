@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type * as Sonner from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,7 @@ import * as workersApi from "@/api/resources/workers";
 import type {
   BindingSet,
   BindingSetEntry,
+  Credential,
   ProjectBindingRecord,
   WorkerCatalogEntry,
 } from "@/api/types";
@@ -126,6 +127,22 @@ function mount() {
     </MemoryRouter>,
   );
 }
+
+function mountFromOnboarding() {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: "/projects/project_1", state: { return_to: "/" } }]}>
+      <Routes>
+        <Route path="/" element={<p>Onboarding view</p>} />
+        <Route
+          path="/projects/:projectId"
+          element={<BindingsPanel projectId="project_1" onWritten={onWritten} />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+const ROUTER_MAIN: Credential = { name: "router-main", platform: "openrouter", revisions: [] };
 
 describe("BindingsPanel", () => {
   beforeEach(() => {
@@ -439,6 +456,63 @@ describe("BindingsPanel", () => {
     );
   });
 
+  it("keeps Save off until the agents of a hosted worker load and then defaults to server", async () => {
+    let finishEntry: (entry: WorkerCatalogEntry) => void = () => {};
+    vi.mocked(workersApi.readWorkerCatalogEntry).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishEntry = resolve;
+        }),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
+
+    expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
+    expect(screen.queryByRole("combobox", { name: "Placement" })).toBeNull();
+    finishEntry(CATALOG_ENTRIES["coder@1"]!);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Save binding" })).not.toBeDisabled(),
+    );
+    expect(screen.getByRole("combobox", { name: "Placement" })).toHaveTextContent("server");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        "coder-main": {
+          kind: "worker",
+          config: { worker: "coder@1", instance_count: 1, placement: "server" },
+        },
+      }),
+    );
+  });
+
+  it("writes the placement worker when the human chooses it for a hosted worker", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+    await userEvent.click(await screen.findByRole("option", { name: "worker" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        "coder-main": {
+          kind: "worker",
+          config: { worker: "coder@1", instance_count: 1, placement: "worker" },
+        },
+      }),
+    );
+  });
+
   it("offers no placement for a worker of an external harness", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
       { ...CATALOG_ITEM, name: "harness@1" },
@@ -453,10 +527,20 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "harness-main");
     await chooseWorker("harness@1");
 
     expect(await screen.findByText(/The harness of this worker selects/)).toBeTruthy();
     expect(screen.queryByLabelText("Placement")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        "harness-main": { kind: "worker", config: { worker: "harness@1", instance_count: 1 } },
+      }),
+    );
   });
 
   it("names the machine tokens in the name hint of a worker binding only", async () => {
@@ -694,9 +778,108 @@ describe("BindingsPanel", () => {
     await chooseWorker("reviewer@1");
     const re = await agentItem("re@1");
     expect(within(re).getByText("Not enabled")).toBeTruthy();
+    expect(within(re).getByRole("button", { name: "Enable re@1" })).toBeTruthy();
+  });
+
+  it("links a disabled agent to its agent page", async () => {
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      {
+        agent_name: "re@1",
+        state: "disabled",
+        agent_providers: [],
+        default_configuration: {
+          agent_provider: "router",
+          model_identifier: "qwen/qwen3-coder",
+          reasoning_effort: "medium",
+        },
+        fallback_configurations: [],
+        revision: 2,
+      },
+    ]);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("reviewer@1");
+    const re = await agentItem("re@1");
+
+    expect(within(re).getByText("Disabled")).toBeTruthy();
     expect(within(re).getByRole("link", { name: "agent page" })).toHaveAttribute(
       "href",
       "/agents/re%401",
+    );
+    expect(within(re).queryByRole("button", { name: "Enable re@1" })).toBeNull();
+  });
+
+  it("enables an agent in a nested sheet and keeps the draft of the binding", async () => {
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "llm credential verify",
+      failure_reason: null,
+    } as never);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["medium", "high"] },
+    ]);
+    vi.mocked(workersApi.putAgentEnablement).mockImplementation(async (agentName, body) => {
+      const enablement = {
+        agent_name: agentName,
+        state: "enabled" as const,
+        agent_providers: body.agent_providers,
+        default_configuration: body.default_configuration,
+        fallback_configurations: [],
+        revision: 1,
+      };
+      vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([enablement]);
+      return enablement;
+    });
+    mountFromOnboarding();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "reviewer");
+    await chooseWorker("reviewer@1");
+    const count = screen.getByLabelText("Instance count");
+    await userEvent.clear(count);
+    await userEvent.type(count, "2");
+    const re = await agentItem("re@1");
+    await userEvent.click(within(re).getByRole("button", { name: "Enable re@1" }));
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
+    await userEvent.click(within(form).getByRole("combobox", { name: "LLM credential" }));
+    await userEvent.click(await screen.findByRole("option", { name: "router-main (openrouter)" }));
+    await waitFor(() =>
+      expect(within(form).getByRole("combobox", { name: "Model identifier" })).toHaveValue(
+        "qwen/qwen3-coder",
+      ),
+    );
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Enable re@1" })).toBeNull());
+    expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("re@1", {
+      agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+      default_configuration: {
+        agent_provider: "router",
+        model_identifier: "qwen/qwen3-coder",
+        reasoning_effort: "medium",
+      },
+      fallback_configurations: [],
+    });
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+    expect(screen.queryByText("Onboarding view")).toBeNull();
+    expect(within(await agentItem("re@1")).getByText("Enabled")).toBeTruthy();
+    expect(screen.getByLabelText("Name")).toHaveValue("reviewer");
+    expect(screen.getByLabelText("Instance count")).toHaveValue("2");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        reviewer: {
+          kind: "worker",
+          config: { worker: "reviewer@1", instance_count: 2, placement: "server" },
+        },
+      }),
     );
   });
 
@@ -722,6 +905,7 @@ describe("BindingsPanel", () => {
           config: {
             worker: "coder@1",
             instance_count: 1,
+            placement: "server",
             entries: [{ agent: "swe@1", model_identifier: "gpt-6-sol" }],
           },
         },

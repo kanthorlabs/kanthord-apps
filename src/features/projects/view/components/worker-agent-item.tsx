@@ -4,6 +4,7 @@ import { RecordName } from "@/components/record-name";
 import { Reveal } from "@/components/reveal";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import {
@@ -94,6 +95,7 @@ interface WorkerAgentItemProps {
   readonly errors: DraftErrors;
   readonly onCustom: (custom: boolean) => void;
   readonly onEdit: (entry: AgentEntryDraft) => void;
+  readonly onEnable: () => void;
 }
 
 export function WorkerAgentItem({
@@ -104,6 +106,7 @@ export function WorkerAgentItem({
   errors,
   onCustom,
   onEdit,
+  onEnable,
 }: WorkerAgentItemProps) {
   const id = `binding-agent-${agentName}`;
   const providers = [
@@ -148,7 +151,18 @@ export function WorkerAgentItem({
             entry.
           </p>
         )}
-        {agent !== null && agent.state !== "enabled" && (
+        {agent?.state === "absent" && (
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-sm text-destructive">
+              The server refuses a worker binding with an agent that is not enabled. Enable this
+              agent before you save.
+            </p>
+            <Button type="button" size="sm" variant="outline" onClick={onEnable}>
+              Enable {agentName}
+            </Button>
+          </div>
+        )}
+        {agent?.state === "disabled" && (
           <p className="text-sm text-destructive">
             Enable this agent on its{" "}
             <Link

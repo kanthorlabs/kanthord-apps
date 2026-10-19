@@ -60,7 +60,11 @@ export const ENABLEMENT_HASH = "#enablement";
 
 const NO_ERRORS: EnablementErrors = {};
 
-export function useEnablementCreate(agentName: string, reload: () => void): EnablementCreateState {
+export function useEnablementCreate(
+  agentName: string,
+  reload: () => void,
+  onEnabled?: () => void,
+): EnablementCreateState {
   const [draft, setDraft] = useState<EnablementDraft>(EMPTY_ENABLEMENT);
   const [errors, setErrors] = useState<EnablementErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<string | null>(null);
@@ -154,14 +158,15 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
         setSubmitting(false);
         toast.success(`Enabled ${answer.agent_name} at revision ${answer.revision}.`);
         reload();
-        if (returnTo !== null) void navigate(returnTo);
+        if (onEnabled !== undefined) onEnabled();
+        else if (returnTo !== null) void navigate(returnTo);
       },
       (cause: unknown) => {
         setSubmitting(false);
         setFailure(asApiError(cause).message);
       },
     );
-  }, [submitting, draft, usable, agentName, reload, returnTo, navigate]);
+  }, [submitting, draft, usable, agentName, reload, onEnabled, returnTo, navigate]);
 
   const runGuard = guard.run;
   const guardedSubmit = useCallback(() => {

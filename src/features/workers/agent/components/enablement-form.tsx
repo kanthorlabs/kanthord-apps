@@ -12,10 +12,11 @@ import { useEnablementCreate } from "../use-enablement-create";
 interface EnablementFormProps {
   readonly agentName: string;
   readonly reload: () => void;
+  readonly onEnabled?: () => void;
 }
 
-export function EnablementForm({ agentName, reload }: EnablementFormProps) {
-  const form = useEnablementCreate(agentName, reload);
+export function EnablementForm({ agentName, reload, onEnabled }: EnablementFormProps) {
+  const form = useEnablementCreate(agentName, reload, onEnabled);
   const { draft, errors } = form;
 
   return (

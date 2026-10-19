@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import * as workersApi from "@/api/resources/workers";
@@ -43,5 +43,29 @@ describe("useWorkerAgents", () => {
     await waitFor(() =>
       expect(result.current.data?.agents.map((agent) => agent.agentName)).toEqual(["re@1"]),
     );
+  });
+  it("reads the agent state again on reload after the human enables an agent", async () => {
+    vi.mocked(workersApi.readWorkerCatalogEntry).mockResolvedValue(entry("reviewer@1", ["re@1"]));
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([]);
+    const { result } = renderHook(() => useWorkerAgents("reviewer@1"));
+    await waitFor(() => expect(result.current.data?.agents[0]?.state).toBe("absent"));
+
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
+      {
+        agent_name: "re@1",
+        state: "enabled",
+        agent_providers: [{ name: "router", provider: "openrouter", credential: "router-main" }],
+        default_configuration: {
+          agent_provider: "router",
+          model_identifier: "qwen/qwen3-coder",
+          reasoning_effort: "medium",
+        },
+        fallback_configurations: [],
+        revision: 1,
+      },
+    ]);
+    act(() => result.current.reload());
+
+    await waitFor(() => expect(result.current.data?.agents[0]?.state).toBe("enabled"));
   });
 });
