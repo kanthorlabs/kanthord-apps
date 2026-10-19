@@ -222,7 +222,11 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
     if (!openOnArrival.current) return;
     openOnArrival.current = false;
     start();
-  }, [start]);
+    void navigate(
+      { pathname: location.pathname, search: location.search },
+      { replace: true, state: location.state },
+    );
+  }, [start, navigate, location.pathname, location.search, location.state]);
 
   const close = useCallback(() => setOpen(false), []);
 

@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -110,6 +110,21 @@ describe("useAgentEnable", () => {
 
     await waitFor(() => expect(result.current.open).toBe(true));
     await waitFor(() => expect(result.current.modelIdentifier).toBe("gpt-5"));
+  });
+
+  it("drops the hash after the open and keeps the return path", async () => {
+    const { result, rerender } = renderHook(
+      () => ({ enable: useAgentEnable(OPENAI, vi.fn()), location: useLocation() }),
+      { wrapper: wrapperAt({ return_to: "/" }, "#enable-agents") },
+    );
+
+    await waitFor(() => expect(result.current.enable.open).toBe(true));
+    await waitFor(() => expect(result.current.location.hash).toBe(""));
+    expect(result.current.location.state).toEqual({ return_to: "/" });
+    act(() => result.current.enable.close());
+    rerender();
+
+    expect(result.current.enable.open).toBe(false);
   });
 
   it("keeps the sheet closed on arrival with no hash", async () => {
