@@ -816,25 +816,31 @@ const frontBindingsOf = (content) => {
   return list ? [...list[1].matchAll(/^\s+- (.+)$/gm)].map((item) => item[1].trim()) : [];
 };
 
-const unknownBindingViolations = (body) =>
+const entryBindingsOf = (entry, body) =>
   body.format === "json"
-    ? []
-    : body.files.flatMap((file) => {
-        const unknown = frontBindingsOf(file.content).find(
-          (name) => bindingSet.bindings[name] === undefined,
-        );
-        return unknown === undefined
-          ? []
-          : [
-              {
-                code: "mission.node.bindings_invalid",
-                message: "Invalid node bindings.",
-                filename: file.filename,
-                node_id: null,
-                details: { binding: unknown },
-              },
-            ];
-      });
+    ? (entry.bindings ?? [])
+    : frontBindingsOf(body.files.find((file) => file.filename === entry.filename)?.content ?? "");
+
+const unknownBindingViolations = (plan, body) =>
+  plan
+    .filter((entry) => entry.node === undefined)
+    .flatMap((entry) => {
+      const unknown = entryBindingsOf(entry, body).find(
+        (name) => bindingSet.bindings[name] === undefined,
+      );
+      return unknown === undefined
+        ? []
+        : [
+            {
+              code: "mission.node.bindings_invalid",
+              message: "Invalid node bindings.",
+              filename: entry.filename ?? null,
+              node_id:
+                typeof entry.id === "string" && entry.id.startsWith("node_") ? entry.id : null,
+              details: { binding: unknown },
+            },
+          ];
+    });
 
 const previewOf = (mission, body) => {
   const plan = planOf(mission, body).map((entry) => {
@@ -880,7 +886,7 @@ const previewOf = (mission, body) => {
             details: null,
           },
         ]
-      : unknownBindingViolations(body);
+      : unknownBindingViolations(plan, body);
   const previewDigest = createHash("sha256")
     .update(JSON.stringify({ plan, retirements, version: mission.version }))
     .digest("hex");
