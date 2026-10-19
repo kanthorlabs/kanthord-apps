@@ -15,6 +15,13 @@ describe("returnToOf", () => {
     expect(returnToOf({ return_to: "//evil.example/" })).toBeNull();
     expect(returnToOf({ return_to: "/\\evil.example/" })).toBeNull();
     expect(returnToOf({ return_to: "javascript:alert(1)" })).toBeNull();
+    expect(returnToOf({ return_to: "/\t/evil.example/" })).toBeNull();
+    expect(returnToOf({ return_to: "/\n/evil.example/" })).toBeNull();
+    expect(returnToOf({ return_to: "/\r/evil.example/" })).toBeNull();
+  });
+
+  it("keeps an encoded slash pair inside the local path", () => {
+    expect(returnToOf({ return_to: "/%2F%2Fevil.example" })).toBe("/%2F%2Fevil.example");
   });
 
   it("refuses a state without a path", () => {
