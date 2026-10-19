@@ -399,6 +399,22 @@ describe("SessionsScreen", () => {
     );
   });
 
+  it("takes the first listed effort of a new model that lacks the current one and medium", async () => {
+    serve([]);
+    mount();
+
+    const dialog = await openDialog();
+    await waitFor(() => expect(workersApi.listAgentProviderModels).toHaveBeenCalled());
+    await choose(dialog, "Reasoning Effort", "low");
+    await choose(dialog, "Model Identifier", "glm-4.6");
+
+    await waitFor(() =>
+      expect(within(dialog).getByRole("combobox", { name: "Reasoning Effort" })).toHaveTextContent(
+        "off",
+      ),
+    );
+  });
+
   it("keeps the default configuration selectable while the list loads", async () => {
     serve([]);
     vi.mocked(workersApi.listAgentProviderModels).mockImplementation(

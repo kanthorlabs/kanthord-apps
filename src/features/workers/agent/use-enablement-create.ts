@@ -10,6 +10,7 @@ import {
 } from "@/api/resources/workers";
 import type { AgentModel } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
+import { useUnhealthyGuard } from "@/hooks/use-unhealthy-guard";
 import {
   agentProviderCredentials,
   nameAfterCredentialPick,
@@ -21,12 +22,12 @@ import { returnToOf } from "@/lib/return-to";
 import {
   EMPTY_ENABLEMENT,
   enablementBodyOf,
+  enablementEffortOf,
   reasoningEffortOf,
   type EnablementDraft,
   type EnablementErrors,
 } from "@/lib/enablement-draft";
 import {
-  effortAfterModelChange,
   effortOptions,
   modelAfterProviderChange,
   modelOptions,
@@ -44,12 +45,15 @@ export interface EnablementCreateState {
   readonly credentialsMissing: boolean;
   readonly failure: string | null;
   readonly submitting: boolean;
+  readonly unhealthyCredential: string | null;
   readonly nameInput: RefObject<HTMLInputElement | null>;
   readonly setName: (name: string) => void;
   readonly selectCredential: (value: string | null) => void;
   readonly selectModel: (value: string | null) => void;
   readonly selectReasoningEffort: (value: string | null) => void;
   readonly submit: () => void;
+  readonly confirmUnhealthy: () => void;
+  readonly cancelUnhealthy: () => void;
 }
 
 export const ENABLEMENT_HASH = "#enablement";
@@ -61,6 +65,8 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const [errors, setErrors] = useState<EnablementErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const guard = useUnhealthyGuard();
+  const checkCredential = guard.check;
   const credentials = useResource(() => listAllCredentials("llm"), []);
   const usable = agentProviderCredentials(credentials.data ?? []);
   const enablements = useResource(listAgentEnablements, []);
@@ -93,6 +99,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
       }));
       setModels(null);
       setModelsFailure(null);
+      checkCredential(credential);
       const provider = providerOfCredential(usable, credential);
       if (provider === null) return;
       listCredentialModels(provider, credential).then(
@@ -103,11 +110,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
             return {
               ...current,
               modelIdentifier,
-              reasoningEffort: effortAfterModelChange(
-                current.reasoningEffort,
-                modelIdentifier,
-                listed,
-              ),
+              reasoningEffort: enablementEffortOf(current.reasoningEffort, modelIdentifier, listed),
             };
           });
           setModels(listed);
@@ -115,7 +118,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
         (cause: unknown) => setModelsFailure(asApiError(cause).message),
       );
     },
-    [usable, enablements.data],
+    [usable, enablements.data, checkCredential],
   );
 
   const selectModel = useCallback(
@@ -124,7 +127,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
       setDraft((current) => ({
         ...current,
         modelIdentifier: value,
-        reasoningEffort: effortAfterModelChange(current.reasoningEffort, value, models ?? []),
+        reasoningEffort: enablementEffortOf(current.reasoningEffort, value, models ?? []),
       }));
     },
     [models],
@@ -160,6 +163,15 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     );
   }, [submitting, draft, usable, agentName, reload, returnTo, navigate]);
 
+  const runGuard = guard.run;
+  const guardedSubmit = useCallback(() => {
+    if (!enablementBodyOf(draft, usable).ok) {
+      submit();
+      return;
+    }
+    runGuard(draft.credential, submit);
+  }, [draft, usable, submit, runGuard]);
+
   return {
     draft,
     errors,
@@ -175,11 +187,14 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     credentialsMissing: credentials.data !== null && usable.length === 0,
     failure,
     submitting,
+    unhealthyCredential: guard.credential,
     nameInput,
     setName,
     selectCredential,
     selectModel,
     selectReasoningEffort,
-    submit,
+    submit: guardedSubmit,
+    confirmUnhealthy: guard.confirm,
+    cancelUnhealthy: guard.cancel,
   };
 }

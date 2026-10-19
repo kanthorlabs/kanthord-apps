@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { Credential } from "@/api/types";
-import { EMPTY_ENABLEMENT, enablementBodyOf, reasoningEffortOf } from "./enablement-draft";
+import type { AgentModel, Credential } from "@/api/types";
+import {
+  EMPTY_ENABLEMENT,
+  enablementBodyOf,
+  enablementEffortOf,
+  reasoningEffortOf,
+} from "./enablement-draft";
 
 const CREDENTIALS: readonly Credential[] = [
   { name: "router-main", platform: "openrouter", revisions: [] },
@@ -50,5 +55,29 @@ describe("reasoningEffortOf", () => {
   it("accepts only a contract value", () => {
     expect(reasoningEffortOf("xhigh")).toBe("xhigh");
     expect(reasoningEffortOf("extreme")).toBe("");
+  });
+});
+
+describe("enablementEffortOf", () => {
+  const MODELS: readonly AgentModel[] = [
+    { model_identifier: "gpt-5", reasoning_efforts: ["minimal", "low", "medium", "high"] },
+    { model_identifier: "glm-4.6", reasoning_efforts: ["minimal", "off"] },
+  ];
+
+  it("defaults to medium when the model lists it", () => {
+    expect(enablementEffortOf("", "gpt-5", MODELS)).toBe("medium");
+  });
+
+  it("stays empty when the model does not list medium", () => {
+    expect(enablementEffortOf("", "glm-4.6", MODELS)).toBe("");
+  });
+
+  it("keeps a chosen effort that the model lists", () => {
+    expect(enablementEffortOf("high", "gpt-5", MODELS)).toBe("high");
+    expect(enablementEffortOf("high", "glm-4.6", MODELS)).toBe("");
+  });
+
+  it("stays empty for a model that the list does not hold", () => {
+    expect(enablementEffortOf("high", "unknown", MODELS)).toBe("");
   });
 });

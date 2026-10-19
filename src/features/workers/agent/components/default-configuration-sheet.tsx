@@ -2,7 +2,7 @@ import type { AgentEnablement } from "@/api/types";
 import { ConfigurationFields } from "@/components/configuration-fields";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
+import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import {
   Sheet,
   SheetContent,
@@ -58,7 +58,15 @@ function DefaultConfigurationForm({
         </FieldGroup>
       </div>
       <SheetFooter>
-        <Button type="submit" disabled={edit.submitting || edit.switching}>
+        {edit.missing.length > 0 && (
+          <FieldDescription>
+            Fill {edit.missing.join(" and ")} to save the default.
+          </FieldDescription>
+        )}
+        <Button
+          type="submit"
+          disabled={edit.submitting || edit.switching || edit.missing.length > 0}
+        >
           Save default
         </Button>
       </SheetFooter>

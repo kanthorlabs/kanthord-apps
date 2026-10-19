@@ -5,10 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
+import * as workersApi from "@/api/resources/workers";
 import type { RepositoryCredential } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/gateway");
+vi.mock("@/api/resources/workers");
 
 import { RepositoryScreen } from "./repository-screen";
 
@@ -78,6 +80,17 @@ describe("RepositoryScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Bindings of atlas" }));
 
     expect(screen.getByText("Project view")).toBeTruthy();
+  });
+
+  it("offers no agents section for a repository credential", async () => {
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue(GITHUB);
+    mount();
+
+    await screen.findByRole("list", { name: "Bindings" });
+
+    expect(screen.queryByRole("heading", { name: "Agents" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Enable agents" })).toBeNull();
+    expect(workersApi.listAgents).not.toHaveBeenCalled();
   });
 
   it("states that no binding names the credential", async () => {
