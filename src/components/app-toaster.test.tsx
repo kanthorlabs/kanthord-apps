@@ -41,12 +41,11 @@ describe("AppToaster", () => {
     expect(toaster.style.getPropertyValue("--offset-top")).toBe("64px");
   });
 
-  it("keeps a toast at the bottom right on a desktop", async () => {
+  it("shows a toast at the top right on a desktop, 64 px down", async () => {
     const toaster = (await showToast(1280)) as HTMLElement;
 
-    expect(toaster).toHaveAttribute("data-y-position", "bottom");
+    expect(toaster).toHaveAttribute("data-y-position", "top");
     expect(toaster).toHaveAttribute("data-x-position", "right");
-    expect(toaster.style.getPropertyValue("--offset-bottom")).toBe("24px");
-    expect(toaster.style.getPropertyValue("--offset-right")).toBe("24px");
+    expect(toaster.style.getPropertyValue("--offset-top")).toBe("64px");
   });
 });

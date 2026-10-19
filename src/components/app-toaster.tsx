@@ -7,7 +7,7 @@ export function AppToaster() {
   const isMobile = useIsMobile();
   return (
     <Toaster
-      position={isMobile ? "top-center" : "bottom-right"}
+      position={isMobile ? "top-center" : "top-right"}
       offset={TOP_OFFSET}
       mobileOffset={TOP_OFFSET}
     />
