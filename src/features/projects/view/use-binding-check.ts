@@ -35,6 +35,8 @@ export interface BindingCheckState {
   readonly addressBadge: BindingCheckBadge | null;
   readonly addressHint: string | null;
   readonly sshCredentialBadge: BindingCheckBadge | null;
+  readonly sshCredentialHint: string | null;
+  readonly keyRefused: boolean;
   readonly credentialBadge: BindingCheckBadge | null;
   readonly checking: boolean;
   readonly error: string | null;
@@ -111,6 +113,8 @@ export function useBindingCheck(
   let addressBadge: BindingCheckBadge | null = null;
   let addressHint: string | null = null;
   let sshCredentialBadge: BindingCheckBadge | null = null;
+  let sshCredentialHint: string | null = null;
+  let keyRefused = false;
   let credentialBadge: BindingCheckBadge | null = null;
   let checking = false;
   let error: string | null = null;
@@ -125,11 +129,23 @@ export function useBindingCheck(
       addressBadge = toCheckBadge(current.address);
       addressHint = healthEntryHint(current.address, "repository");
       sshCredentialBadge = toCheckBadge(current.sshCredential);
+      sshCredentialHint = healthEntryHint(current.sshCredential, "repository");
+      keyRefused = current.address.failure_reason === "key_refused";
       credentialBadge = current.credential !== null ? toCheckBadge(current.credential) : null;
     } else {
       error = current.message;
     }
   }
 
-  return { addressBadge, addressHint, sshCredentialBadge, credentialBadge, checking, error, run };
+  return {
+    addressBadge,
+    addressHint,
+    sshCredentialBadge,
+    sshCredentialHint,
+    keyRefused,
+    credentialBadge,
+    checking,
+    error,
+    run,
+  };
 }

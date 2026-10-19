@@ -14,6 +14,8 @@ const REASONS: readonly ResourceFailureReason[] = [
   "rate_limited",
   "unreachable",
   "invalid_response",
+  "host_key_changed",
+  "identity_unavailable",
   "unclassified",
 ];
 
@@ -41,6 +43,24 @@ describe("failure reason hint", () => {
 
   it("names the host key for an unknown host key", () => {
     expect(failureReasonHint("host_key_unknown", "repository")).toContain("host key");
+  });
+
+  it("names the pin flow of the binding sheet for an unknown host key", () => {
+    expect(failureReasonHint("host_key_unknown", "repository")).toBe(
+      "Open the binding. The sheet pins the host key, or shows Confirm host key. Then verify again.",
+    );
+  });
+
+  it("gives the hint of a changed host key", () => {
+    expect(failureReasonHint("host_key_changed", "repository")).toBe(
+      "The host presented another key. Compare the fingerprint with the published one, then pin again.",
+    );
+  });
+
+  it("gives the ruled hint of an unavailable SSH identity", () => {
+    expect(failureReasonHint("identity_unavailable", "repository")).toBe(
+      "The server cannot load the SSH key. Rotate the key. If the fault stays, read the server log.",
+    );
   });
 
   it("gives the LLM hints of the HTTP values", () => {
@@ -104,9 +124,9 @@ describe("failure reason hint", () => {
 
   it("falls back for a value that the client does not know and names the value", () => {
     for (const component of COMPONENTS) {
-      const hint = failureReasonHint("host_key_changed", component);
+      const hint = failureReasonHint("host_key_moved", component);
       expect(REASONS.map((reason) => failureReasonHint(reason, component))).not.toContain(hint);
-      expect(hint).toContain("host_key_changed");
+      expect(hint).toContain("host_key_moved");
     }
   });
 

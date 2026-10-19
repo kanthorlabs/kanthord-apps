@@ -12,20 +12,25 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { BindingSetEntry, Credential } from "@/api/types";
+import type { BindingSetEntry } from "@/api/types";
 import { CredentialCreateSheet } from "@/features/credentials/components/credential-create-sheet";
 import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
+import { SshKeyFacts } from "@/features/credentials/components/ssh-key-facts";
 import { SshKeySheet } from "@/features/credentials/components/ssh-key-sheet";
 import { EnablementSheet } from "@/features/workers/agent/components/enablement-sheet";
-import { newestLiveRevision } from "@/lib/credential-revisions";
+import { pinnableHostOf } from "@/lib/binding-draft";
+import { isArchived } from "@/lib/credential-revisions";
+import { SSH_PLATFORM, sshKeyNamed } from "@/lib/ssh-key";
 import { useBindingCredential } from "../use-binding-credential";
 import { useBindingCheck } from "../use-binding-check";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
+import { useHostKeyPin } from "../use-host-key-pin";
 import { usePlacementDefault } from "../use-placement-default";
 import { useRepositoryCredentials } from "../use-repository-credentials";
 import { useWorkerAgents } from "../use-worker-agents";
 import { useWorkerNames } from "../use-worker-names";
 import { DraftField } from "./draft-field";
+import { HostKeyPin } from "./host-key-pin";
 import { RepositoryForm } from "./repository-form";
 import { StorageForm } from "./storage-form";
 import { WorkerForm } from "./worker-form";
@@ -42,19 +47,6 @@ interface BindingSheetProps {
   readonly errorMessage: string | null;
   readonly onSave: (name: string, entry: BindingSetEntry) => void;
   readonly onClose: () => void;
-}
-
-function sshHostOf(credentials: readonly Credential[], name: string): string {
-  const cred = credentials.find((c) => c.name === name);
-  if (cred === undefined) return "";
-  const rev = newestLiveRevision(cred);
-  if (rev === null) return "";
-  const meta = rev.metadata;
-  if (typeof meta === "object" && meta !== null && !Array.isArray(meta)) {
-    const host = (meta as Record<string, unknown>)["host"];
-    return typeof host === "string" ? host : "";
-  }
-  return "";
 }
 
 export function BindingSheet({
@@ -78,7 +70,9 @@ export function BindingSheet({
   const placementDefault = usePlacementDefault(form, workerAgents);
   const [enablingAgent, setEnablingAgent] = useState<string | null>(null);
   const allCredentials = credentials.data ?? [];
-  const sshCredentials = allCredentials.filter((c) => c.platform === "ssh");
+  const sshCredentials = allCredentials.filter(
+    (c) => c.platform === SSH_PLATFORM && !isArchived(c),
+  );
   const apiCredentials = allCredentials.filter((c) => c.platform === "github");
 
   const credentialName = draft.kind === "repository" ? draft.credential : "";
@@ -98,6 +92,11 @@ export function BindingSheet({
       ? draft
       : { platform: "", address: "", sshCredential: "", credential: "", actionName: "" };
   const check = useBindingCheck(projectId, checkDraft, form.validate);
+  const hostKeyPin = useHostKeyPin(draft.kind === "repository" ? pinnableHostOf(draft) : null);
+  const refusedKey =
+    draft.kind === "repository" && check.keyRefused
+      ? sshKeyNamed(sshCredentials, draft.sshCredential)
+      : null;
 
   const [sshKeyOpen, setSshKeyOpen] = useState(false);
 
@@ -107,7 +106,7 @@ export function BindingSheet({
       setSshKeyOpen(false);
       credentials.reload();
       if (draft.kind === "repository") {
-        form.edit({ ...draft, sshCredential: name, sshCredentialHost: "" });
+        form.edit({ ...draft, sshCredential: name });
       }
     },
     [credentials, draft, form],
@@ -176,13 +175,8 @@ export function BindingSheet({
                     errors={errors}
                     sshCredentials={sshCredentials}
                     apiCredentials={apiCredentials}
-                    onEdit={(next) => {
-                      const host =
-                        next.sshCredential !== draft.sshCredential
-                          ? sshHostOf(allCredentials, next.sshCredential)
-                          : next.sshCredentialHost;
-                      form.edit({ ...next, sshCredentialHost: host });
-                    }}
+                    hostKey={<HostKeyPin pin={hostKeyPin} />}
+                    onEdit={form.edit}
                     onNewSshCredential={onNewSshCredential}
                     onNewApiCredential={bindingCredential.openCreate}
                     onRotateApiCredential={bindingCredential.rotate.start}
@@ -245,6 +239,14 @@ export function BindingSheet({
                       {check.addressHint !== null && (
                         <p className="basis-full text-sm break-words">{check.addressHint}</p>
                       )}
+                      {check.sshCredentialHint !== null && (
+                        <p className="basis-full text-sm break-words">{check.sshCredentialHint}</p>
+                      )}
+                      {refusedKey !== null && (
+                        <div className="min-w-0 basis-full">
+                          <SshKeyFacts sshKey={refusedKey} />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -260,7 +262,9 @@ export function BindingSheet({
                   <Button
                     type="submit"
                     className="w-full sm:w-auto"
-                    disabled={saving || !form.saveReady || placementDefault.waiting}
+                    disabled={
+                      saving || !form.saveReady || placementDefault.waiting || !hostKeyPin.ready
+                    }
                   >
                     Save binding
                   </Button>

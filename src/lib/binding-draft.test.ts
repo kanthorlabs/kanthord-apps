@@ -8,10 +8,13 @@ import {
   entryOfDraft,
   missingForCheck,
   missingForSave,
+  pinnableHostOf,
   withAgentEntry,
   withPlacementDefault,
+  withPlatform,
   withWorker,
   withWorkingLayerSwitch,
+  type RepositoryDraft,
   type WorkerDraft,
 } from "./binding-draft";
 import { missingHint } from "./missing-fields";
@@ -161,13 +164,15 @@ describe("entryOfDraft", () => {
     });
   });
 
-  it("accepts an SSH alias host in a repository address", () => {
+  it("refuses an SSH alias host in a repository address and names the host set", () => {
     const draft = {
       ...draftOf("repo", REPO),
       address: "git@kanthorlabs.github.com:kanthorlabs/kanthord.git",
-      sshCredentialHost: "kanthorlabs.github.com",
     };
-    expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
+    expect(entryOfDraft(draft, [])).toMatchObject({
+      ok: false,
+      errors: { address: "The host of a GitHub address must be github.com or ssh.github.com." },
+    });
   });
 
   it("refuses a host that starts with a dash", () => {
@@ -178,24 +183,90 @@ describe("entryOfDraft", () => {
     });
   });
 
-  it("refuses when address host does not match ssh credential host", () => {
+  it("refuses a host of another platform", () => {
     const draft = {
       ...draftOf("repo", REPO),
       address: "git@bitbucket.org:kanthorlabs/kanthord.git",
-      sshCredentialHost: "github.com",
     };
     expect(entryOfDraft(draft, [])).toMatchObject({
       ok: false,
-      errors: { address: expect.stringContaining("github.com") },
+      errors: { address: "The host of a GitHub address must be github.com or ssh.github.com." },
     });
   });
 
-  it("skips host mismatch check when sshCredentialHost is empty", () => {
+  it("accepts each host of the host set of each platform", () => {
+    const hosts = {
+      github: ["github.com", "ssh.github.com"],
+      gitlab: ["gitlab.com", "altssh.gitlab.com"],
+      bitbucket: ["bitbucket.org", "altssh.bitbucket.org"],
+    } as const;
+    for (const [platform, names] of Object.entries(hosts)) {
+      for (const host of names) {
+        const draft = {
+          ...draftOf("repo", REPO),
+          platform: platform as keyof typeof hosts,
+          actionName: "" as const,
+          credential: "",
+          address: `git@${host}:kanthorlabs/kanthord.git`,
+        };
+        expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
+      }
+    }
+  });
+
+  it("names the host set of the platform in the form error", () => {
     const draft = {
-      ...draftOf("repo", REPO),
-      sshCredentialHost: "",
+      ...(draftOf("repo", REPO) as RepositoryDraft),
+      platform: "gitlab" as const,
+      actionName: "" as const,
+      credential: "",
     };
-    expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
+    expect(entryOfDraft({ ...draft, address: "gitlab.com:o/r" }, [])).toMatchObject({
+      ok: false,
+      errors: {
+        address:
+          "Use the form git@<host>:<owner>/<repository>.git. The host must be gitlab.com or altssh.gitlab.com.",
+      },
+    });
+  });
+
+  it("prefills the GitHub host in the address of a new repository draft", () => {
+    const draft = emptyDraft("repository");
+    expect(draft.kind === "repository" && draft.address).toBe("git@github.com:");
+  });
+
+  it("swaps a bare prefill for the prefill of the new platform and keeps a typed address", () => {
+    const draft = emptyDraft("repository");
+    if (draft.kind !== "repository") throw new Error("fixture");
+    expect(withPlatform(draft, "gitlab").address).toBe("");
+    expect(withPlatform({ ...draft, address: "" }, "github").address).toBe("git@github.com:");
+    const typed = { ...draft, address: "git@github.com:o/r.git" };
+    expect(withPlatform(typed, "gitlab").address).toBe("git@github.com:o/r.git");
+  });
+
+  it("drops the pull request action when the platform leaves GitHub", () => {
+    const draft = emptyDraft("repository");
+    if (draft.kind !== "repository") throw new Error("fixture");
+    const pullRequest = { ...draft, actionName: "pull_request" as const };
+    expect(withPlatform(pullRequest, "gitlab").actionName).toBe("");
+    expect(withPlatform(pullRequest, "github").actionName).toBe("pull_request");
+  });
+
+  it("names the host of the address to pin only when the host set holds it", () => {
+    expect(pinnableHostOf({ platform: "github", address: "git@github.com:" })).toBeNull();
+    expect(pinnableHostOf({ platform: "github", address: "git@github.com:o/r" })).toBeNull();
+    expect(pinnableHostOf({ platform: "github", address: "git@github.com:o/r.git" })).toBe(
+      "github.com",
+    );
+    expect(pinnableHostOf({ platform: "github", address: "git@SSH.github.com:o/r.git" })).toBe(
+      "ssh.github.com",
+    );
+    expect(pinnableHostOf({ platform: "gitlab", address: "git@gitlab.com:o/r.git" })).toBe(
+      "gitlab.com",
+    );
+    expect(pinnableHostOf({ platform: "github", address: "git@gitlab.com:o/r.git" })).toBeNull();
+    expect(pinnableHostOf({ platform: "github", address: "git@github-work:o/r.git" })).toBeNull();
+    expect(pinnableHostOf({ platform: "github", address: "git@github.co" })).toBeNull();
   });
 
   it("requires sshCredential", () => {
@@ -227,6 +298,7 @@ describe("entryOfDraft", () => {
     const draft = {
       ...draftOf("repo", REPO),
       platform: "gitlab" as const,
+      address: "git@gitlab.com:kanthorlabs/kanthord.git",
       actionName: "merge_push" as const,
       credential: "",
     };
@@ -463,13 +535,20 @@ describe("missingForCheck, missingForSave and missingHint", () => {
     );
   });
 
+  it("names Address while the address holds only the prefill", () => {
+    const draft = emptyDraft("repository");
+    if (draft.kind !== "repository") throw new Error("fixture");
+    expect(missingForCheck({ ...draft, address: "git@github.com:  " })).toContain("Address");
+    expect(missingForCheck({ ...draft, address: "git@github.com:o" })).not.toContain("Address");
+  });
+
   it("requires the credential only for a GitHub pull request", () => {
     const draft = emptyDraft("repository");
     if (draft.kind !== "repository") throw new Error("repository draft expected");
     const filled = {
       ...draft,
       name: "kanthord-repo",
-      address: "git@kanthorlabs.github.com:kanthorlabs/kanthord.git",
+      address: "git@github.com:kanthorlabs/kanthord.git",
       sshCredential: "kanthorlabs-github-com",
     };
     expect(missingForSave(filled)).toEqual([]);

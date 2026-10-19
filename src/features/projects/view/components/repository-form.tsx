@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type {
   Credential,
   RepositoryActionName,
@@ -12,7 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { DraftErrors, RepositoryDraft } from "@/lib/binding-draft";
+import {
+  addressRuleOf,
+  withPlatform,
+  type DraftErrors,
+  type RepositoryDraft,
+} from "@/lib/binding-draft";
 import { AvailabilityField } from "./availability-field";
 import { CredentialCombobox } from "./credential-combobox";
 import { DraftField } from "./draft-field";
@@ -48,6 +55,7 @@ interface RepositoryFormProps {
   readonly errors: DraftErrors;
   readonly sshCredentials: readonly Credential[];
   readonly apiCredentials: readonly Credential[];
+  readonly hostKey: ReactNode;
   readonly onEdit: (draft: RepositoryDraft) => void;
   readonly onNewSshCredential: () => void;
   readonly onNewApiCredential: () => void;
@@ -63,6 +71,7 @@ export function RepositoryForm({
   errors,
   sshCredentials,
   apiCredentials,
+  hostKey,
   onEdit,
   onNewSshCredential,
   onNewApiCredential,
@@ -86,13 +95,7 @@ export function RepositoryForm({
             items={PLATFORMS}
             value={draft.platform}
             onValueChange={(value) => {
-              if (value === null) return;
-              const platform = value as RepositoryPlatform;
-              const actionName =
-                platform !== "github" && draft.actionName === "pull_request"
-                  ? ""
-                  : draft.actionName;
-              onEdit({ ...draft, platform, actionName });
+              if (value !== null) onEdit(withPlatform(draft, value as RepositoryPlatform));
             }}
           >
             <SelectTrigger id="binding-platform" className="w-full">
@@ -112,9 +115,10 @@ export function RepositoryForm({
           label="Address"
           value={draft.address}
           error={errors["address"]}
-          description="An SSH address git@<host>:<owner>/<repository>.git. The host must equal the host of the SSH credential."
+          description={addressRuleOf(draft.platform)}
           onChange={(address) => onEdit({ ...draft, address })}
         />
+        {hostKey}
         <CredentialCombobox
           id="binding-ssh-credential"
           label="SSH credential"
@@ -124,6 +128,7 @@ export function RepositoryForm({
           error={errors["sshCredential"]}
           onChange={(sshCredential) => onEdit({ ...draft, sshCredential })}
           onNew={onNewSshCredential}
+          newLabel="New SSH credential"
         />
         {draft.platform === "github" && (
           <CredentialCombobox

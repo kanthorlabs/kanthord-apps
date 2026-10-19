@@ -17,6 +17,7 @@ export interface BindingVerifyState {
   readonly addressBadge: BindingCheckBadge | null;
   readonly addressHint: string | null;
   readonly sshCredentialBadge: BindingCheckBadge | null;
+  readonly sshCredentialHint: string | null;
   readonly credentialBadge: BindingCheckBadge | null;
   readonly checking: boolean;
 }
@@ -36,6 +37,7 @@ const IDLE: BindingVerifyState = {
   addressBadge: null,
   addressHint: null,
   sshCredentialBadge: null,
+  sshCredentialHint: null,
   credentialBadge: null,
   checking: false,
 };
@@ -51,6 +53,7 @@ function toVerifyState(inner: PerBindingState): BindingVerifyState {
       addressBadge: CHECKING_BADGE,
       addressHint: null,
       sshCredentialBadge: CHECKING_BADGE,
+      sshCredentialHint: null,
       credentialBadge: CHECKING_BADGE,
       checking: true,
     };
@@ -59,6 +62,7 @@ function toVerifyState(inner: PerBindingState): BindingVerifyState {
     addressBadge: toCheckBadge(inner.address),
     addressHint: healthEntryHint(inner.address, "repository"),
     sshCredentialBadge: toCheckBadge(inner.sshCredential),
+    sshCredentialHint: healthEntryHint(inner.sshCredential, "repository"),
     credentialBadge: inner.credential !== null ? toCheckBadge(inner.credential) : null,
     checking: false,
   };

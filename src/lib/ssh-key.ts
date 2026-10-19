@@ -14,3 +14,8 @@ export function sshKeyOf(metadata: Readonly<Record<string, unknown>> | null): Ss
 export function newestSshKeyOf(credential: Credential): SshMetadata | null {
   return sshKeyOf(newestLiveRevision(credential)?.metadata ?? null);
 }
+
+export function sshKeyNamed(credentials: readonly Credential[], name: string): SshMetadata | null {
+  const credential = credentials.find((item) => item.name === name);
+  return credential === undefined ? null : newestSshKeyOf(credential);
+}

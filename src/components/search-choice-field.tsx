@@ -20,6 +20,7 @@ interface SearchChoiceFieldProps {
   readonly placeholder: string;
   readonly emptyText: string;
   readonly labelOf?: (option: string) => string;
+  readonly detailOf?: (option: string) => string | null;
   readonly description?: ReactNode;
   readonly hint?: string;
   readonly actions?: ReactNode;
@@ -28,6 +29,10 @@ interface SearchChoiceFieldProps {
 
 function sameLabel(option: string): string {
   return option;
+}
+
+function noDetail(): null {
+  return null;
 }
 
 export function SearchChoiceField({
@@ -39,6 +44,7 @@ export function SearchChoiceField({
   placeholder,
   emptyText,
   labelOf = sameLabel,
+  detailOf = noDetail,
   description,
   hint,
   actions,
@@ -69,11 +75,23 @@ export function SearchChoiceField({
         <ComboboxContent>
           <ComboboxEmpty>{emptyText}</ComboboxEmpty>
           <ComboboxList>
-            {(item: string) => (
-              <ComboboxItem key={item} value={item}>
-                {labelOf(item)}
-              </ComboboxItem>
-            )}
+            {(item: string) => {
+              const detail = detailOf(item);
+              return (
+                <ComboboxItem key={item} value={item}>
+                  {detail === null ? (
+                    labelOf(item)
+                  ) : (
+                    <span className="flex min-w-0 flex-col">
+                      <span>{labelOf(item)}</span>
+                      <span className="font-mono text-xs break-all text-muted-foreground">
+                        {detail}
+                      </span>
+                    </span>
+                  )}
+                </ComboboxItem>
+              );
+            }}
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
