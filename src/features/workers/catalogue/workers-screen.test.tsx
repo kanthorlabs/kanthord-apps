@@ -206,6 +206,9 @@ describe("WorkersScreen", () => {
     expect(
       screen.getByText("podman cp <container>:/var/lib/kanthord/reviewer-main.cli.yaml ."),
     ).toBeDefined();
+    expect(
+      screen.getByText("podman exec <container> rm /var/lib/kanthord/reviewer-main.cli.yaml"),
+    ).toBeDefined();
     expect(screen.getByText(/Choose one absolute directory/)).toBeDefined();
     expect(screen.getByText("/srv/kanthord/w1")).toBeDefined();
     expect(screen.getByText("<dir>/config/kanthord/")).toBeDefined();

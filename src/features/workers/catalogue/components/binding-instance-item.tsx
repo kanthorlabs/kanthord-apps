@@ -28,6 +28,10 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
           <code className="font-mono wrap-anywhere">
             podman cp &lt;container&gt;:/var/lib/kanthord/{binding.name}.cli.yaml .
           </code>
+          . Then remove the file from the volume with{" "}
+          <code className="font-mono wrap-anywhere">
+            podman exec &lt;container&gt; rm /var/lib/kanthord/{binding.name}.cli.yaml
+          </code>
           .
         </li>
         <li>
