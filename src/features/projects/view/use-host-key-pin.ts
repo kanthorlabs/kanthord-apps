@@ -96,8 +96,10 @@ function viewOf(
 export function useHostKeyPin(host: string | null): HostKeyPinState {
   const pin = useResource(() => readHost(host), [host]);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [retriedRead, setRetriedRead] = useState<HostRead | null>(null);
   const own = confirmation !== null && confirmation.host === host ? confirmation : null;
-  const view = viewOf(host, pin.data, own);
+  const current = pin.data !== null && pin.data === retriedRead ? null : pin.data;
+  const view = viewOf(host, current, own);
 
   const scan = view.status === "unconfirmed" && !view.pinning ? view.scan : null;
   const confirm = useCallback(() => {
@@ -116,11 +118,12 @@ export function useHostKeyPin(host: string | null): HostKeyPinState {
     );
   }, [scan]);
 
-  const reload = pin.reload;
+  const { reload, data } = pin;
   const retry = useCallback(() => {
     setConfirmation(null);
+    setRetriedRead(data);
     reload();
-  }, [reload]);
+  }, [reload, data]);
 
   return { view, ready: view.status === "none" || view.status === "pinned", confirm, retry };
 }

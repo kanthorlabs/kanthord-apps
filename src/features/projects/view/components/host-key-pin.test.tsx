@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -122,6 +122,26 @@ describe("HostKeyPin", () => {
     expect(screen.getByText("Save blocked")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
+    expect(await screen.findByRole("button", { name: "Confirm host key" })).toBeTruthy();
+  });
+
+  it("shows a busy read and hides the failed read after Retry", async () => {
+    let answer!: (scan: HostKeyScan) => void;
+    vi.mocked(credentialsApi.scanHostKey)
+      .mockRejectedValueOnce(
+        new ApiError("refused", "Scan failed.", 422, "repository.host_key.scan_failed", {
+          host: "gitlab.com",
+        }),
+      )
+      .mockReturnValueOnce(new Promise<HostKeyScan>((resolve) => (answer = resolve)));
+    render(<Harness host="gitlab.com" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+    expect(screen.getByText("Checking")).toBeTruthy();
+    expect(screen.queryByText("The host key of gitlab.com was not read.")).toBeNull();
+    expect(screen.getByText("Save blocked")).toBeTruthy();
+    await act(async () => answer(GITLAB_SCAN));
     expect(await screen.findByRole("button", { name: "Confirm host key" })).toBeTruthy();
   });
 
