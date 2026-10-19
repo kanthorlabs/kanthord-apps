@@ -79,6 +79,26 @@ describe("HostKeyPanel", () => {
     await waitFor(() => expect(credentialsApi.listHostKeys).toHaveBeenCalledTimes(2));
   });
 
+  it("shows the scanned and the new fingerprint when a GitHub key changes between reads", async () => {
+    vi.mocked(credentialsApi.scanHostKey).mockResolvedValue(scanOf(GITHUB));
+    vi.mocked(credentialsApi.pinHostKey).mockRejectedValue(
+      new ApiError("conflict", "Changed.", 409, "repository.host_key.changed", {
+        host: "github.com",
+        fingerprint: OTHER_FINGERPRINT,
+      }),
+    );
+    render(<HostKeyPanel />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Pin again github.com" }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    const [title, options] = vi.mocked(toast.error).mock.calls[0]!;
+    expect(title).toBe("The host key of github.com was not pinned.");
+    const description = String((options as { description: string }).description);
+    expect(description).toContain(`The host now presents ${OTHER_FINGERPRINT}.`);
+    expect(description).toContain(`Scanned fingerprint: ${GITHUB_FINGERPRINT}.`);
+  });
+
   it("asks a human to confirm the fingerprint of another host before the pin", async () => {
     vi.mocked(credentialsApi.scanHostKey).mockResolvedValue(scanOf(GITLAB, OTHER_FINGERPRINT));
     vi.mocked(credentialsApi.pinHostKey).mockResolvedValue({

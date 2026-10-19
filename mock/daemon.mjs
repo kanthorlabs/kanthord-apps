@@ -2221,7 +2221,7 @@ const hostKeyScanOf = (host) => {
   };
 };
 
-const hostKeyPins = new Map(fx.HOST_KEY_PINS.map((pin) => [pin.host, pin.created_at]));
+const hostKeyPins = new Map(EMPTY ? [] : fx.HOST_KEY_PINS.map((pin) => [pin.host, pin.created_at]));
 
 const refuseUnsupportedHost = (res, host) => {
   if (typeof host === "string" && Object.hasOwn(fx.HOST_KEYS, host)) return false;

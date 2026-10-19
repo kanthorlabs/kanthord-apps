@@ -51,7 +51,7 @@ function CredentialItem({ component, credential, entry, reload }: CredentialItem
   const check = useCredentialCheck(component, credential.name);
   const rotate = useCredentialRotate(component, credential, entry, reload);
   const metadata = useMetadataEdit(component, credential, entry, reload);
-  const sshRotate = useSshKeyRotate(credential, entry, reload);
+  const sshRotate = useSshKeyRotate(credential, reload);
   const newest = newestLiveRevision(credential);
   const archived = isArchived(credential);
   const archivedAt = archiveTime(credential);

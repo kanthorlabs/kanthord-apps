@@ -5,7 +5,7 @@ import { revokeCredentialRevision } from "@/api/resources/credentials";
 import type { Credential, CredentialComponent, CredentialRevision } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { isRevocable } from "@/lib/credential-revisions";
-import { sshKeyOf } from "@/lib/ssh-key";
+import { SSH_PLATFORM, sshKeyOf } from "@/lib/ssh-key";
 import { writeFailureOf } from "../write-failure";
 
 export interface RevisionRevokeState {
@@ -73,14 +73,14 @@ export function useRevisionRevoke(
   }, [revoking, target, component, credential, reload]);
 
   const revision = target?.revision ?? 0;
-  const sshKey = credential.platform === "ssh" ? sshKeyOf(target?.metadata ?? null) : null;
+  const sshKey = credential.platform === SSH_PLATFORM ? sshKeyOf(target?.metadata ?? null) : null;
   return {
     target,
     consequence: (
       <>
         Revision {revision} ends at once. Every execution that pins it is refused at its next use of{" "}
         <RecordName>{credential.name}</RecordName>. A revoke cannot be undone.
-        {credential.platform === "ssh" && (
+        {credential.platform === SSH_PLATFORM && (
           <>
             {" "}
             After the revoke, delete the deploy key of revision {revision} at GitHub

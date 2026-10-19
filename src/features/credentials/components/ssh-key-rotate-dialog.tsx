@@ -110,7 +110,7 @@ export function SshKeyRotateDialog({ name, rotate }: SshKeyRotateDialogProps) {
         </section>
         {rotated === null ? (
           <p className="text-sm text-muted-foreground">
-            Keep the current key until you can add the new deploy key. The current key stays live.
+            Keep current key changes nothing. Rotate when you can add the new deploy key.
           </p>
         ) : (
           <section aria-labelledby="ssh-rotate-steps" className="flex flex-col gap-2">

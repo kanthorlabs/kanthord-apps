@@ -8,7 +8,7 @@ import { ItemGroup } from "@/components/ui/item";
 import { metadataFacts } from "@/lib/credential-facts";
 import { newestLiveRevision, revisionsNewestFirst } from "@/lib/credential-revisions";
 import { utcDateTime } from "@/lib/format";
-import { sshKeyOf } from "@/lib/ssh-key";
+import { SSH_PLATFORM, sshKeyOf } from "@/lib/ssh-key";
 import { usePublicKeyCopy } from "../../use-public-key-copy";
 
 interface RevisionListProps {
@@ -21,7 +21,7 @@ export function RevisionList({ credential, canRevoke, onRevoke }: RevisionListPr
   const newest = newestLiveRevision(credential);
   const copy = usePublicKeyCopy();
   const sshKeyOfRevision = (revision: CredentialRevision) =>
-    credential.platform === "ssh" ? sshKeyOf(revision.metadata) : null;
+    credential.platform === SSH_PLATFORM ? sshKeyOf(revision.metadata) : null;
 
   const metadataFields = (revision: CredentialRevision) => {
     const sshKey = sshKeyOfRevision(revision);

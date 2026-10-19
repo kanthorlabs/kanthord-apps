@@ -1,11 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type * as Sonner from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
-import type { Credential, CredentialPlatformEntry, RepositoryCredential } from "@/api/types";
+import type { Credential, RepositoryCredential } from "@/api/types";
 import { Button } from "@/components/ui/button";
 
 vi.mock("@/api/resources/credentials");
@@ -25,14 +25,6 @@ const OLD_KEY = {
 const NEW_KEY = {
   public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINew kanthord-atlas-ssh",
   fingerprint: "SHA256:newnewnewnewnewnewnewnewnewnewnewnewnewnewn",
-};
-
-const SSH_ENTRY: CredentialPlatformEntry = {
-  platform: "ssh",
-  secret_shape: "ssh_key",
-  login_modes: [],
-  metadata_fields: [],
-  verifiable: true,
 };
 
 const ATLAS_SSH: Credential = {
@@ -72,7 +64,7 @@ const WITH_BINDINGS: RepositoryCredential = {
 };
 
 function Harness({ reload }: { readonly reload: () => void }) {
-  const rotate = useSshKeyRotate(ATLAS_SSH, SSH_ENTRY, reload);
+  const rotate = useSshKeyRotate(ATLAS_SSH, reload);
   return (
     <>
       <Button onClick={rotate.start}>Start</Button>
@@ -149,6 +141,44 @@ describe("SshKeyRotateDialog", () => {
     expect(reload).not.toHaveBeenCalled();
     await userEvent.click(within(result).getByRole("button", { name: "Done" }));
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("states that Keep current key changes nothing", async () => {
+    mount();
+    await userEvent.click(screen.getByRole("button", { name: "Start" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      within(dialog).getByText(
+        "Keep current key changes nothing. Rotate when you can add the new deploy key.",
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).queryByText(/stays live/)).toBeNull();
+  });
+
+  it("rotates once while a rotate is in flight", () => {
+    vi.mocked(credentialsApi.rotateSshKey).mockReturnValue(new Promise(() => undefined));
+    const { result } = renderHook(() => useSshKeyRotate(ATLAS_SSH, vi.fn()));
+
+    act(() => result.current.start());
+    act(() => result.current.confirm());
+    act(() => result.current.confirm());
+
+    expect(credentialsApi.rotateSshKey).toHaveBeenCalledTimes(1);
+  });
+
+  it("names the computed revision in the toast when the answer holds no live revision", async () => {
+    vi.mocked(credentialsApi.rotateSshKey).mockResolvedValue({
+      ...ATLAS_SSH,
+      revisions: ATLAS_SSH.revisions.map((revision) => ({ ...revision, ended_at: 5 })),
+    });
+    const { result } = renderHook(() => useSshKeyRotate(ATLAS_SSH, vi.fn()));
+
+    act(() => result.current.start());
+    act(() => result.current.confirm());
+
+    await waitFor(() => expect(result.current.rotated?.revision).toBe(2));
+    expect(toast.success).toHaveBeenCalledWith("Rotated the key of atlas-ssh to revision 2.");
   });
 
   it("states that no binding names the credential", async () => {

@@ -2,15 +2,10 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { readCredential, rotateSshKey } from "@/api/resources/credentials";
-import type {
-  Credential,
-  CredentialBinding,
-  CredentialPlatformEntry,
-  SshMetadata,
-} from "@/api/types";
+import type { Credential, CredentialBinding, SshMetadata } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { newestLiveRevision } from "@/lib/credential-revisions";
-import { newestSshKeyOf } from "@/lib/ssh-key";
+import { newestSshKeyOf, SSH_PLATFORM } from "@/lib/ssh-key";
 import { credentialMessage } from "./credential-message";
 import { writeFailureOf, type WriteFailure } from "./write-failure";
 
@@ -41,11 +36,7 @@ export interface SshKeyRotateState {
 
 const LOADING: SshKeyBindings = { status: "loading" };
 
-export function useSshKeyRotate(
-  credential: Credential,
-  entry: CredentialPlatformEntry | null,
-  reload: () => void,
-): SshKeyRotateState {
+export function useSshKeyRotate(credential: Credential, reload: () => void): SshKeyRotateState {
   const [open, setOpen] = useState(false);
   const [bindings, setBindings] = useState<SshKeyBindings>(LOADING);
   const [failure, setFailure] = useState<WriteFailure | null>(null);
@@ -88,12 +79,9 @@ export function useSshKeyRotate(
     rotateSshKey(name, { expected_revision: newest.revision }).then(
       (answer) => {
         setSubmitting(false);
-        const next = newestLiveRevision(answer);
-        setRotated({
-          revision: next?.revision ?? newest.revision + 1,
-          key: newestSshKeyOf(answer),
-        });
-        toast.success(`Rotated the key of ${answer.name} to revision ${next?.revision ?? "?"}.`);
+        const revision = newestLiveRevision(answer)?.revision ?? newest.revision + 1;
+        setRotated({ revision, key: newestSshKeyOf(answer) });
+        toast.success(`Rotated the key of ${answer.name} to revision ${revision}.`);
       },
       (cause: unknown) => {
         setSubmitting(false);
@@ -103,7 +91,7 @@ export function useSshKeyRotate(
   }, [submitting, rotated, newest, name]);
 
   return {
-    available: entry !== null && entry.secret_shape === "ssh_key" && newest !== null,
+    available: credential.platform === SSH_PLATFORM && newest !== null,
     open,
     expectedRevision: newest?.revision ?? null,
     bindings,

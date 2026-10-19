@@ -13,6 +13,7 @@ import {
   type ModelDraft,
 } from "@/lib/credential-draft";
 import { newestLiveRevision } from "@/lib/credential-revisions";
+import { SSH_PLATFORM } from "@/lib/ssh-key";
 import { writeFailureOf, type WriteFailure } from "./write-failure";
 
 export interface MetadataEditState {
@@ -118,6 +119,7 @@ export function useMetadataEdit(
   return {
     available:
       entry !== null &&
+      credential.platform !== SSH_PLATFORM &&
       entry.secret_shape !== "ssh_key" &&
       entry.metadata_fields.length > 0 &&
       newest !== null,

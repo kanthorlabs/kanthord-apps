@@ -738,6 +738,18 @@ describe("CredentialScreen of an ssh credential", () => {
     expect(screen.queryByRole("button", { name: "Edit metadata" })).toBeNull();
   });
 
+  it("gates the ssh actions on the platform when the engine answers an older ssh entry", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
+      items: [apiKey("ssh", ["host", "hostname", "identity_file"], true)],
+    });
+    mount("repository", "/repositories");
+
+    expect(await screen.findByRole("button", { name: "Rotate key" })).toBeTruthy();
+    await waitFor(() => expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Rotate secret" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata" })).toBeNull();
+  });
+
   it("states the GitHub step in the revoke confirmation of an older revision", async () => {
     mount("repository", "/repositories");
 

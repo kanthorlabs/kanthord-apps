@@ -560,6 +560,34 @@ describe("CredentialsScreen", () => {
     ).toBeTruthy();
   });
 
+  it("offers Rotate key only on an ssh row and not on a github row", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(REPOSITORY_PLATFORMS);
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [{ ...OPENROUTER, name: "atlas-github", platform: "github" }, SSH_KEY_CREDENTIAL],
+      next_cursor: null,
+    });
+    mount("repository", "/repositories");
+
+    expect(await screen.findByRole("button", { name: "Rotate key of atlas-ssh" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Rotate atlas-github" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Rotate key of atlas-github" })).toBeNull();
+  });
+
+  it("gates the ssh actions on the platform when the engine answers an older ssh entry", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
+      items: [apiKey("ssh", ["host", "hostname", "identity_file"], true)],
+    });
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [SSH_KEY_CREDENTIAL],
+      next_cursor: null,
+    });
+    mount("repository", "/repositories");
+
+    expect(await screen.findByRole("button", { name: "Rotate key of atlas-ssh" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Rotate atlas-ssh" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Edit metadata of atlas-ssh" })).toBeNull();
+  });
+
   it("shows the Host keys panel only in the repository section", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [],

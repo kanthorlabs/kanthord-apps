@@ -87,7 +87,7 @@ export function SshKeySheet({ onClose, onDone }: SshKeySheetProps) {
             <SheetFooter>
               {blank && <p className="text-sm text-muted-foreground">Fill Name to create.</p>}
               <Button type="submit" disabled={blank || create.submitting}>
-                Create SSH key
+                {create.submitting ? "Creating…" : "Create SSH key"}
               </Button>
             </SheetFooter>
           </form>

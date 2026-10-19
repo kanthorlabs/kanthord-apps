@@ -111,6 +111,17 @@ describe("SshKeySheet", () => {
     expect(screen.getByLabelText("Name")).toHaveValue("atlas-ssh");
   });
 
+  it("shows Creating while the create is in flight", async () => {
+    vi.mocked(credentialsApi.createSshKey).mockReturnValue(new Promise(() => undefined));
+    mount();
+
+    await userEvent.type(screen.getByLabelText("Name"), "deploy-atlas");
+    await userEvent.click(screen.getByRole("button", { name: "Create SSH key" }));
+
+    expect(screen.getByRole("button", { name: "Creating…" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Create SSH key" })).toBeNull();
+  });
+
   it("closes without a create on Escape", async () => {
     const { onClose, onDone } = mount();
 

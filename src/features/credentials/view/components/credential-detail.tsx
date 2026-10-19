@@ -155,7 +155,7 @@ export function CredentialDetail({
   const entry = platformEntryOf(useCredentialPlatforms(component).data, credential.platform);
   const rotate = useCredentialRotate(component, credential, entry, reload);
   const metadata = useMetadataEdit(component, credential, entry, reload);
-  const sshRotate = useSshKeyRotate(credential, entry, reload);
+  const sshRotate = useSshKeyRotate(credential, reload);
   const revoke = useRevisionRevoke(component, credential, reload);
   const archive = useCredentialArchive(component, credential);
   const archived = isArchived(credential);

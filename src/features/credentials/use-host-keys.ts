@@ -50,8 +50,10 @@ export function useHostKeys(): HostKeysState {
     (pinned: HostKey) => {
       if (busyHost !== null) return;
       setBusyHost(pinned.host);
+      let scanned: HostKeyScan | null = null;
       scanHostKey(pinned.host)
         .then((scan) => {
+          scanned = scan;
           if (scan.source !== "github_meta") {
             setConfirmation({ pinned, scan, pinning: false, error: null });
             return undefined;
@@ -59,8 +61,12 @@ export function useHostKeys(): HostKeysState {
           return pin(scan);
         })
         .catch((cause: unknown) => {
+          const message = messageOf(cause);
           toast.error(`The host key of ${pinned.host} was not pinned.`, {
-            description: messageOf(cause),
+            description:
+              scanned === null
+                ? message
+                : `${message} Scanned fingerprint: ${scanned.fingerprint}.`,
           });
         })
         .finally(() => setBusyHost(null));
