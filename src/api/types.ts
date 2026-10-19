@@ -1037,9 +1037,18 @@ export interface CredentialLoginStatus {
 
 export type ResourceStatus = "healthy" | "unhealthy" | "unknown";
 
+export type ResourceFailureReason =
+  | "host_key_unknown"
+  | "key_refused"
+  | "repository_not_found"
+  | "host_unreachable"
+  | "address_invalid"
+  | "unclassified";
+
 export interface HealthEntry {
   readonly status: ResourceStatus;
   readonly capability: string;
+  readonly failure_reason: ResourceFailureReason | null;
 }
 
 export interface BindingVerifyResult {

@@ -8,6 +8,7 @@ import { ApiError } from "@/api/errors";
 import * as projectsApi from "@/api/resources/projects";
 import type { InstructionFile, InstructionFiles, RepositoryBindingConfig } from "@/api/types";
 import { draftOf, type RepositoryDraft } from "@/lib/binding-draft";
+import { failureReasonHint } from "@/lib/failure-reason";
 import { RepositoryInstructions } from "./repository-instructions";
 import { textContent } from "../../../../../test/text-content";
 
@@ -231,6 +232,22 @@ describe("RepositoryInstructions", () => {
 
     expect(await screen.findByRole("button", { name: "AGENTS.md" })).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("states the fix hint of the failure reason of a refused read", async () => {
+    vi.mocked(projectsApi.readInstructionFiles).mockRejectedValueOnce(
+      new ApiError(
+        "refused",
+        "The repository SSH read failed.",
+        422,
+        "project.bindings.repository.ssh_unreachable",
+        { failure_reason: "repository_not_found" },
+      ),
+    );
+    mount();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(failureReasonHint("repository_not_found"));
   });
 
   it("makes no read for a new binding", async () => {

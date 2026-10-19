@@ -95,8 +95,16 @@ const PLATFORMS: CredentialPlatformList = {
   ],
 };
 
-const UNHEALTHY: HealthEntry = { status: "unhealthy", capability: "rate-limit read" };
-const HEALTHY: HealthEntry = { status: "healthy", capability: "rate-limit read" };
+const UNHEALTHY: HealthEntry = {
+  status: "unhealthy",
+  capability: "rate-limit read",
+  failure_reason: "unclassified",
+};
+const HEALTHY: HealthEntry = {
+  status: "healthy",
+  capability: "rate-limit read",
+  failure_reason: null,
+};
 
 function mount(component: CredentialComponent = "llm", section = "/llm") {
   return render(

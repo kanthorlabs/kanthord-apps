@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import { failureReasonHint } from "@/lib/failure-reason";
 import { credentialMessage } from "./credential-message";
 
 function refusal(detail: string, details?: unknown): ApiError {
@@ -28,6 +29,20 @@ describe("credentialMessage", () => {
     );
     expect(credentialMessage(refusal("project.bindings.worker.node_unmatched"))).toMatch(
       /match each listed node\.$/,
+    );
+  });
+
+  it("states the fix hint of the failure reason of an unreachable repository", () => {
+    expect(
+      credentialMessage(
+        refusal("project.bindings.repository.ssh_unreachable", { failure_reason: "key_refused" }),
+      ),
+    ).toBe(`The server cannot read the repository. ${failureReasonHint("key_refused")}`);
+  });
+
+  it("states a way out for an unreachable repository without a failure reason", () => {
+    expect(credentialMessage(refusal("project.bindings.repository.ssh_unreachable"))).toBe(
+      "The server cannot read the repository. Check the address and the SSH credential. Then try again.",
     );
   });
 

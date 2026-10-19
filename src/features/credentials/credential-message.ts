@@ -1,4 +1,5 @@
 import type { ApiError } from "@/api/errors";
+import { failureReasonHintOf } from "@/lib/failure-reason";
 
 export const REVISION_CONFLICT = "credential.revision.conflict";
 
@@ -61,6 +62,12 @@ function nodeUnmatchedMessage(details: unknown): string {
   const base =
     "The change leaves a node with no matching worker binding. Keep a binding whose worker and tags match each listed node.";
   return ids.length === 0 ? base : `${base} Nodes: ${ids.map(String).join(", ")}.`;
+}
+
+function sshUnreachableMessage(details: unknown): string {
+  const hint =
+    failureReasonHintOf(details) ?? "Check the address and the SSH credential. Then try again.";
+  return `The server cannot read the repository. ${hint}`;
 }
 
 function modelInUseMessage(details: unknown): string {
@@ -132,6 +139,9 @@ export function credentialMessage(cause: ApiError): string {
   if (cause.detail === "credential.credential.in_use") return inUseMessage(cause.details);
   if (cause.detail === "project.bindings.worker.node_unmatched") {
     return nodeUnmatchedMessage(cause.details);
+  }
+  if (cause.detail === "project.bindings.repository.ssh_unreachable") {
+    return sshUnreachableMessage(cause.details);
   }
   return MESSAGES[cause.detail] ?? cause.message;
 }

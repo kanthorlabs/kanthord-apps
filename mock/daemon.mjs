@@ -986,6 +986,21 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       "A binding cannot change its placement.",
     );
   }
+  const unreachable = Object.entries(b.bindings).find(
+    ([name, entry]) =>
+      entry.kind === "repository" &&
+      JSON.stringify(entry) !== JSON.stringify(bindingSet.bindings[name]) &&
+      addressFailureOf(entry.config.address) !== null,
+  );
+  if (unreachable !== undefined) {
+    return projectEnvelope(
+      res,
+      422,
+      "project.bindings.repository.ssh_unreachable",
+      "The repository SSH read failed.",
+      { failure_reason: addressFailureOf(unreachable[1].config.address) },
+    );
+  }
   bindingSet.bindings = b.bindings;
   bindingSet.version += 1;
   const projectId = decodeURIComponent(m[1]);
@@ -1759,7 +1774,17 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/agent$/, (m, _b, res, _t,
 
 const SSH_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git$/;
 
-const healthEntry = (status, capability) => ({ status, capability });
+const healthEntry = (status, capability, failureReason = "unclassified") => ({
+  status,
+  capability,
+  failure_reason: status === "healthy" ? null : failureReason,
+});
+
+const addressFailureOf = (address) => {
+  if (address.includes("hostkey-")) return "host_key_unknown";
+  if (address.includes("bad-")) return "unclassified";
+  return null;
+};
 
 const credentialHealth = (name) => {
   const credential = credentials.find((item) => item.name === name);
@@ -1772,8 +1797,9 @@ const credentialHealth = (name) => {
 
 const bindingHealthOf = (config) => ({
   address: healthEntry(
-    config.address.includes("bad-") ? "unhealthy" : "healthy",
+    addressFailureOf(config.address) === null ? "healthy" : "unhealthy",
     "network git read",
+    addressFailureOf(config.address),
   ),
   ssh_credential: credentialHealth(config.ssh_credential),
   credential: config.credential === undefined ? null : credentialHealth(config.credential),
@@ -1819,12 +1845,14 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/instruction_files$/, (m, 
     return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
   }
   const { config } = bindingSet.bindings[binding.name];
-  if (config.address.includes("bad-")) {
+  const failureReason = addressFailureOf(config.address);
+  if (failureReason !== null) {
     return projectEnvelope(
       res,
       422,
       "project.bindings.repository.ssh_unreachable",
-      "The repository did not answer within the deadline.",
+      "The repository SSH read failed.",
+      { failure_reason: failureReason },
     );
   }
   if (config.strategy.base_branch.includes("missing")) {
@@ -2184,10 +2212,14 @@ on("POST", credentialRoute("\\/check"), (m, b, res) => {
   }
   if (!secretIsValid(entry.secret_shape, b.secret)) return refuseInvalidInput(res);
   if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
-  return json(res, 200, {
-    status: secretIsRejected(b.secret) ? "unhealthy" : "healthy",
-    capability: HEALTH_CAPABILITIES[b.platform],
-  });
+  return json(
+    res,
+    200,
+    healthEntry(
+      secretIsRejected(b.secret) ? "unhealthy" : "healthy",
+      HEALTH_CAPABILITIES[b.platform],
+    ),
+  );
 });
 
 on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
@@ -2205,10 +2237,14 @@ on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
   }
   setTimeout(
     () =>
-      json(res, 200, {
-        status: secretIsRejected(storedSecrets.get(credential.name)) ? "unhealthy" : "healthy",
-        capability: HEALTH_CAPABILITIES[credential.platform],
-      }),
+      json(
+        res,
+        200,
+        healthEntry(
+          secretIsRejected(storedSecrets.get(credential.name)) ? "unhealthy" : "healthy",
+          HEALTH_CAPABILITIES[credential.platform],
+        ),
+      ),
     HEALTHCHECK_DELAY_MS,
   );
 });

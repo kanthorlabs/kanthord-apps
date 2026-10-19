@@ -94,7 +94,11 @@ const GATEWAY: LlmCredential = {
   ],
 };
 
-const HEALTHY: HealthEntry = { status: "healthy", capability: "model-list read" };
+const HEALTHY: HealthEntry = {
+  status: "healthy",
+  capability: "model-list read",
+  failure_reason: null,
+};
 
 function mount(
   component: CredentialComponent = "llm",

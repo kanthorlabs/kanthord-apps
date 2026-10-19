@@ -11,6 +11,7 @@ import type {
   AgentDeclaration,
   AgentEnablement,
   Credential,
+  HealthEntry,
   PromptSettings,
   PromptTarget,
 } from "@/api/types";
@@ -133,6 +134,7 @@ describe("AgentScreen", () => {
     vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
       status: "healthy",
       capability: "model-list read",
+      failure_reason: null,
     });
     vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([]);
     vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
@@ -705,6 +707,7 @@ describe("AgentScreen", () => {
     vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
       status: "unhealthy",
       capability: "model-list read",
+      failure_reason: "unclassified",
     });
     vi.mocked(workersApi.putAgentEnablement)
       .mockClear()
@@ -737,7 +740,7 @@ describe("AgentScreen", () => {
   });
 
   it("waits for a late verify answer before it enables the agent", async () => {
-    let answer: (entry: { status: "unhealthy"; capability: string }) => void = () => {};
+    let answer: (entry: HealthEntry) => void = () => {};
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
     vi.mocked(credentialsApi.verifyCredential).mockReturnValue(
@@ -761,7 +764,7 @@ describe("AgentScreen", () => {
     );
     await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
     expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
-    answer({ status: "unhealthy", capability: "model-list read" });
+    answer({ status: "unhealthy", capability: "model-list read", failure_reason: "unclassified" });
 
     expect(
       await screen.findByRole("alertdialog", {

@@ -238,6 +238,9 @@ export function BindingSheet({
                       {check.error !== null && (
                         <span className="text-sm break-words text-destructive">{check.error}</span>
                       )}
+                      {check.addressHint !== null && (
+                        <p className="basis-full text-sm break-words">{check.addressHint}</p>
+                      )}
                     </div>
                   </div>
                 )}

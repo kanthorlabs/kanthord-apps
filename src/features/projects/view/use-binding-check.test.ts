@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { checkBinding } from "@/api/resources/projects";
 import type { BindingSetEntry, BindingVerifyResult } from "@/api/types";
+import { failureReasonHint } from "@/lib/failure-reason";
 import { useBindingCheck } from "./use-binding-check";
 
 vi.mock("@/api/resources/projects", () => ({
@@ -18,8 +19,16 @@ vi.mock("@/features/credentials/credential-message", () => ({
 
 const checkMock = vi.mocked(checkBinding);
 
-const HEALTHY_ADDRESS = { status: "healthy" as const, capability: "network git read" };
-const HEALTHY_SSH = { status: "healthy" as const, capability: "ssh credential verify" };
+const HEALTHY_ADDRESS = {
+  status: "healthy" as const,
+  capability: "network git read",
+  failure_reason: null,
+};
+const HEALTHY_SSH = {
+  status: "healthy" as const,
+  capability: "ssh credential verify",
+  failure_reason: null,
+};
 
 const VERIFY_RESULT: BindingVerifyResult = {
   address: HEALTHY_ADDRESS,
@@ -87,13 +96,36 @@ describe("useBindingCheck", () => {
   it("shows a credential badge when the result includes one", async () => {
     const withCredential: BindingVerifyResult = {
       ...VERIFY_RESULT,
-      credential: { status: "healthy", capability: "credential verify" },
+      credential: { status: "healthy", capability: "credential verify", failure_reason: null },
     };
     checkMock.mockResolvedValue(withCredential);
 
     const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
     await act(async () => result.current.run());
     expect(result.current.credentialBadge?.label).toBe("Healthy");
+  });
+
+  it("gives the hint of the failure reason of an unhealthy address", async () => {
+    checkMock.mockResolvedValue({
+      ...VERIFY_RESULT,
+      address: {
+        status: "unhealthy",
+        capability: "network git read",
+        failure_reason: "host_key_unknown",
+      },
+    });
+
+    const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
+    await act(async () => result.current.run());
+    expect(result.current.addressBadge?.label).toBe("Unhealthy");
+    expect(result.current.addressHint).toBe(failureReasonHint("host_key_unknown"));
+  });
+
+  it("gives no hint for a healthy address", async () => {
+    const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
+    expect(result.current.addressHint).toBeNull();
+    await act(async () => result.current.run());
+    expect(result.current.addressHint).toBeNull();
   });
 
   it("sends no request and calls validate when the draft is invalid", async () => {
