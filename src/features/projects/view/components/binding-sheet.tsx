@@ -209,8 +209,10 @@ export function BindingSheet({
               </FieldGroup>
             </div>
             <SheetFooter className="gap-3">
-              {form.missingHint !== null && (
-                <p className="text-sm text-muted-foreground">{form.missingHint}</p>
+              {(form.missingHint ?? placementDefault.reason) !== null && (
+                <p className="text-sm text-muted-foreground">
+                  {form.missingHint ?? placementDefault.reason}
+                </p>
               )}
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 {draft.kind === "repository" && (

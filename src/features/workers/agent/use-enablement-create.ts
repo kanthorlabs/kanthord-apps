@@ -46,6 +46,7 @@ export interface EnablementCreateState {
   readonly failure: string | null;
   readonly submitting: boolean;
   readonly unhealthyCredential: string | null;
+  readonly credentialCreateOpen: boolean;
   readonly nameInput: RefObject<HTMLInputElement | null>;
   readonly setName: (name: string) => void;
   readonly selectCredential: (value: string | null) => void;
@@ -54,6 +55,9 @@ export interface EnablementCreateState {
   readonly submit: () => void;
   readonly confirmUnhealthy: () => void;
   readonly cancelUnhealthy: () => void;
+  readonly openCredentialCreate: () => void;
+  readonly closeCredentialCreate: () => void;
+  readonly credentialCreated: (name: string) => void;
 }
 
 export const ENABLEMENT_HASH = "#enablement";
@@ -69,6 +73,8 @@ export function useEnablementCreate(
   const [errors, setErrors] = useState<EnablementErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [credentialCreateOpen, setCredentialCreateOpen] = useState(false);
+  const createdCredential = useRef<string | null>(null);
   const guard = useUnhealthyGuard();
   const checkCredential = guard.check;
   const credentials = useResource(() => listAllCredentials("llm"), []);
@@ -124,6 +130,26 @@ export function useEnablementCreate(
     },
     [usable, enablements.data, checkCredential],
   );
+
+  const reloadCredentials = credentials.reload;
+  const credentialCreated = useCallback(
+    (name: string) => {
+      setCredentialCreateOpen(false);
+      createdCredential.current = name;
+      reloadCredentials();
+    },
+    [reloadCredentials],
+  );
+
+  useEffect(() => {
+    const name = createdCredential.current;
+    if (name === null || !usable.some((credential) => credential.name === name)) return;
+    createdCredential.current = null;
+    selectCredential(name);
+  }, [usable, selectCredential]);
+
+  const openCredentialCreate = useCallback(() => setCredentialCreateOpen(true), []);
+  const closeCredentialCreate = useCallback(() => setCredentialCreateOpen(false), []);
 
   const selectModel = useCallback(
     (value: string | null) => {
@@ -193,6 +219,7 @@ export function useEnablementCreate(
     failure,
     submitting,
     unhealthyCredential: guard.credential,
+    credentialCreateOpen,
     nameInput,
     setName,
     selectCredential,
@@ -201,5 +228,8 @@ export function useEnablementCreate(
     submit: guardedSubmit,
     confirmUnhealthy: guard.confirm,
     cancelUnhealthy: guard.cancel,
+    openCredentialCreate,
+    closeCredentialCreate,
+    credentialCreated,
   };
 }

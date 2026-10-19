@@ -471,12 +471,44 @@ describe("BindingsPanel", () => {
     await chooseWorker("coder@1");
 
     expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
+    expect(screen.getByText("Save waits for the agents of the worker.")).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "Placement" })).toBeNull();
     finishEntry(CATALOG_ENTRIES["coder@1"]!);
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Save binding" })).not.toBeDisabled(),
     );
     expect(screen.getByRole("combobox", { name: "Placement" })).toHaveTextContent("server");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        "coder-main": {
+          kind: "worker",
+          config: { worker: "coder@1", instance_count: 1, placement: "server" },
+        },
+      }),
+    );
+  });
+
+  it("keeps Save off after a failed agent read until Retry loads the agents", async () => {
+    vi.mocked(workersApi.readWorkerCatalogEntry).mockRejectedValueOnce(
+      new ApiError("unavailable", "The catalog does not answer.", 502),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
+
+    expect(await screen.findByText("The catalog does not answer.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
+    expect(screen.getByText("Retry the agent list to save.")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Save binding" })).not.toBeDisabled(),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -808,6 +840,83 @@ describe("BindingsPanel", () => {
       "/agents/re%401",
     );
     expect(within(re).queryByRole("button", { name: "Enable re@1" })).toBeNull();
+  });
+
+  it("focuses the nested enable sheet and closes only it on Escape", async () => {
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "reviewer");
+    await chooseWorker("reviewer@1");
+    const re = await agentItem("re@1");
+    await userEvent.click(within(re).getByRole("button", { name: "Enable re@1" }));
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await waitFor(() => expect(within(form).getByLabelText("Agent provider name")).toHaveFocus());
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Enable re@1" })).toBeNull());
+    expect(screen.getByRole("button", { name: "Save binding" })).toBeTruthy();
+    expect(screen.getByLabelText("Name")).toHaveValue("reviewer");
+  });
+
+  it("creates an LLM credential in a nested sheet and selects it in the enable form", async () => {
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "llm credential verify",
+      failure_reason: null,
+    } as never);
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
+      items: [
+        {
+          platform: "openrouter",
+          secret_shape: "api_key",
+          login_modes: [],
+          metadata_fields: [],
+          verifiable: true,
+        },
+      ],
+    });
+    vi.mocked(credentialsApi.createCredential).mockImplementation(async () => {
+      vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+      return ROUTER_MAIN;
+    });
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["medium", "high"] },
+    ]);
+    mountFromOnboarding();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "reviewer");
+    await chooseWorker("reviewer@1");
+    const re = await agentItem("re@1");
+    await userEvent.click(within(re).getByRole("button", { name: "Enable re@1" }));
+    const enableForm = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(enableForm).getByLabelText("Agent provider name"), "router");
+    expect(within(enableForm).queryByRole("link", { name: "Add an LLM credential" })).toBeNull();
+    await userEvent.click(
+      await within(enableForm).findByRole("button", { name: "New LLM credential" }),
+    );
+
+    const createForm = await screen.findByRole("form", { name: "New credential" });
+    await userEvent.type(within(createForm).getByLabelText("Name"), "router-main");
+    await userEvent.type(within(createForm).getByLabelText("API Key"), "sk-or-secret");
+    await userEvent.click(within(createForm).getByRole("button", { name: "Create credential" }));
+
+    await waitFor(() => expect(screen.queryByRole("form", { name: "New credential" })).toBeNull());
+    await waitFor(() =>
+      expect(within(enableForm).getByRole("combobox", { name: "Model identifier" })).toHaveValue(
+        "qwen/qwen3-coder",
+      ),
+    );
+    expect(within(enableForm).getByRole("combobox", { name: "LLM credential" })).toHaveValue(
+      "router-main (openrouter)",
+    );
+    expect(within(enableForm).getByLabelText("Agent provider name")).toHaveValue("router");
+    expect(screen.queryByText("Onboarding view")).toBeNull();
+    expect(screen.getByLabelText("Name")).toHaveValue("reviewer");
   });
 
   it("enables an agent in a nested sheet and keeps the draft of the binding", async () => {

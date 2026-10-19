@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/api/errors";
 import type { Resource } from "@/hooks/use-resource";
 import { emptyDraft, withWorker, type WorkerDraft } from "@/lib/binding-draft";
 import type { BindingDraftState } from "./use-binding-draft";
@@ -22,8 +23,11 @@ function formOf(draft: WorkerDraft, creating: boolean): BindingDraftState {
   };
 }
 
-function agentsOf(data: WorkerAgents | null): Resource<WorkerAgents> {
-  return { data, error: null, loading: data === null, reload: () => undefined };
+function agentsOf(
+  data: WorkerAgents | null,
+  error: ApiError | null = null,
+): Resource<WorkerAgents> {
+  return { data, error, loading: data === null && error === null, reload: () => undefined };
 }
 
 describe("usePlacementDefault", () => {
@@ -31,8 +35,19 @@ describe("usePlacementDefault", () => {
     const form = formOf(PICKED, true);
     const { result } = renderHook(() => usePlacementDefault(form, agentsOf(null)));
 
-    expect(result.current.waiting).toBe(true);
+    expect(result.current).toEqual({
+      waiting: true,
+      reason: "Save waits for the agents of the worker.",
+    });
     expect(form.edit).not.toHaveBeenCalled();
+  });
+
+  it("keeps waiting and asks for a retry after a failed agent read", () => {
+    const form = formOf(PICKED, true);
+    const failure = new ApiError("unavailable", "The catalog does not answer.", 502);
+    const { result } = renderHook(() => usePlacementDefault(form, agentsOf(null, failure)));
+
+    expect(result.current).toEqual({ waiting: true, reason: "Retry the agent list to save." });
   });
 
   it("sets server for a new binding of a hosted worker after the agents load", () => {

@@ -7,6 +7,7 @@ import type { WorkerAgents } from "./use-worker-agents";
 
 export interface PlacementDefault {
   readonly waiting: boolean;
+  readonly reason: string | null;
 }
 
 export function usePlacementDefault(
@@ -23,5 +24,11 @@ export function usePlacementDefault(
     if (next !== draft) edit(next);
   }, [pickedWorker, draft, loaded, edit]);
 
-  return { waiting: pickedWorker && loaded === null };
+  const waiting = pickedWorker && loaded === null;
+  const reason = !waiting
+    ? null
+    : agents.error === null
+      ? "Save waits for the agents of the worker."
+      : "Retry the agent list to save.";
+  return { waiting, reason };
 }
