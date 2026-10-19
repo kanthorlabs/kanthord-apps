@@ -1,5 +1,7 @@
 import type { CredentialComponent } from "@/api/types";
 
+export const ENABLE_AGENTS_HASH = "#enable-agents";
+
 const SECTION_PATHS: Readonly<Record<CredentialComponent, string>> = {
   llm: "/llm",
   repository: "/repositories",

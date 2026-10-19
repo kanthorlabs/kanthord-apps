@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -20,6 +20,7 @@ import { asApiError, useResource } from "@/hooks/use-resource";
 import { useUnhealthyGuard } from "@/hooks/use-unhealthy-guard";
 import { providerNameOfCredential, providerOfCredential } from "@/lib/agent-provider-draft";
 import { enablementEffortOf, reasoningEffortOf } from "@/lib/enablement-draft";
+import { ENABLE_AGENTS_HASH } from "@/lib/credential-sections";
 import { returnToOf } from "@/lib/return-to";
 import {
   effortOptions,
@@ -180,7 +181,9 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
   const agentList = agents.data;
   const reloadAgents = agents.reload;
   const navigate = useNavigate();
-  const returnTo = returnToOf(useLocation().state);
+  const location = useLocation();
+  const returnTo = returnToOf(location.state);
+  const openOnArrival = useRef(location.hash === ENABLE_AGENTS_HASH);
   const provider = providerOfCredential([credential], credential.name);
   const pending = pendingAgents(agentList ?? []);
   const enablements = (agentList ?? []).flatMap((agent) =>
@@ -214,6 +217,12 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
       (cause: unknown) => setModelsFailure(asApiError(cause).message),
     );
   }, [provider, credential.name, checkCredential]);
+
+  useEffect(() => {
+    if (!openOnArrival.current) return;
+    openOnArrival.current = false;
+    start();
+  }, [start]);
 
   const close = useCallback(() => setOpen(false), []);
 
