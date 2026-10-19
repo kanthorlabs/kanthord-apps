@@ -2435,7 +2435,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
             ? "unhealthy"
             : "healthy",
           HEALTH_CAPABILITIES[credential.platform],
-          "unauthorized",
+          isLegacySsh(credential) ? "identity_unavailable" : "unauthorized",
         ),
       ),
     HEALTHCHECK_DELAY_MS,
