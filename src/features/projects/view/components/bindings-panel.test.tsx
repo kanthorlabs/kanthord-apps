@@ -1507,4 +1507,29 @@ describe("BindingsPanel", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Verify" }));
     expect(await within(form).findByText(hint)).toBeTruthy();
   });
+  it("names the unpinned host when the save refuses the binding", async () => {
+    vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "The SSH host holds no pinned host key.",
+        409,
+        "repository.host_key.unpinned",
+        { host: "github.com" },
+      ),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const branch = screen.getByLabelText("Base branch");
+    await userEvent.clear(branch);
+    await userEvent.type(branch, "develop");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(
+      await screen.findByText(
+        "The server holds no host key for github.com. Pin the host key, then try again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Base branch")).toHaveValue("develop");
+  });
 });

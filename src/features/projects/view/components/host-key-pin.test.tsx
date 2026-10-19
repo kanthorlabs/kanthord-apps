@@ -165,6 +165,63 @@ describe("HostKeyPin", () => {
     expect(screen.queryByText("The daemon did not answer.")).toBeNull();
   });
 
+  it("keeps the new host unpinned when a Confirm of the earlier host ends later", async () => {
+    const BITBUCKET_SCAN: HostKeyScan = { ...GITLAB_SCAN, host: "bitbucket.org" };
+    vi.mocked(credentialsApi.scanHostKey).mockImplementation(async (host) =>
+      host === "gitlab.com" ? GITLAB_SCAN : BITBUCKET_SCAN,
+    );
+    let pinned!: (key: HostKey) => void;
+    vi.mocked(credentialsApi.pinHostKey).mockReturnValue(
+      new Promise<HostKey>((resolve) => (pinned = resolve)),
+    );
+    const { rerender } = render(<Harness host="gitlab.com" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Confirm host key" }));
+
+    rerender(<Harness host="bitbucket.org" />);
+    expect(await screen.findByRole("button", { name: "Confirm host key" })).toBeEnabled();
+    await act(async () => pinned(pinnedOf(GITLAB_SCAN)));
+
+    expect(screen.getByText("Not pinned")).toBeTruthy();
+    expect(screen.getByText("Save blocked")).toBeTruthy();
+  });
+
+  it("pins the host after Read again on a changed key", async () => {
+    vi.mocked(credentialsApi.scanHostKey).mockResolvedValue(GITHUB_SCAN);
+    vi.mocked(credentialsApi.pinHostKey)
+      .mockRejectedValueOnce(
+        new ApiError("conflict", "Changed.", 409, "repository.host_key.changed", {
+          host: "github.com",
+          fingerprint: OTHER_FINGERPRINT,
+        }),
+      )
+      .mockResolvedValueOnce(pinnedOf(GITHUB_SCAN));
+    render(<Harness host="github.com" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Read again" }));
+
+    expect(await screen.findByText("Host key pinned from api.github.com")).toBeTruthy();
+    expect(screen.queryByText(OTHER_FINGERPRINT)).toBeNull();
+    expect(screen.getByText("Save ready")).toBeTruthy();
+  });
+
+  it("shows both fingerprints when the key changes during Confirm of a GitLab host", async () => {
+    vi.mocked(credentialsApi.scanHostKey).mockResolvedValue(GITLAB_SCAN);
+    vi.mocked(credentialsApi.pinHostKey).mockRejectedValue(
+      new ApiError("conflict", "Changed.", 409, "repository.host_key.changed", {
+        host: "gitlab.com",
+        fingerprint: OTHER_FINGERPRINT,
+      }),
+    );
+    render(<Harness host="gitlab.com" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Confirm host key" }));
+
+    expect(await screen.findByText("The host presented another key.")).toBeTruthy();
+    expect(screen.getByText(GITLAB_SCAN.fingerprint)).toBeTruthy();
+    expect(screen.getByText(OTHER_FINGERPRINT)).toBeTruthy();
+    expect(screen.getByText("Save blocked")).toBeTruthy();
+  });
+
   it("renders nothing and blocks nothing without a host", async () => {
     render(<Harness host={null} />);
 
