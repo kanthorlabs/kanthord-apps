@@ -19,11 +19,11 @@ function samplePlanFile(binding: string): MissionPlanFile {
     "bindings:",
     `  - ${binding}`,
     "verifications:",
-    "  - npm test",
+    `  - "head -n 1 HEALTH.md | grep -qx 'status: ok'"`,
   ].join("\n");
   return {
     filename: "sample-plan.md",
-    content: `---\n${front}\n---\n# Add a health endpoint\n\n## Requirement\n\nServe the status of the service at GET /health.\n\n## Criterion\n\nGET /health answers 200 with a JSON body that holds the status.\n`,
+    content: `---\n${front}\n---\n# Add a HEALTH.md file\n\n## Requirement\n\nAdd a file HEALTH.md at the root of the repository.\n\n## Criterion\n\nThe first line of HEALTH.md is \`status: ok\`.\n`,
   };
 }
 
