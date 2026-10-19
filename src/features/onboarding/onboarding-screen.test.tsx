@@ -76,8 +76,14 @@ const FULL_SET: BindingSet = {
 };
 
 function ReturnProbe() {
-  const state: unknown = useLocation().state;
-  return <p>Form state {JSON.stringify(state)}</p>;
+  const location = useLocation();
+  const state: unknown = location.state;
+  return (
+    <p>
+      Form state {JSON.stringify(state)}
+      {location.hash}
+    </p>
+  );
 }
 
 function mount() {
@@ -150,17 +156,17 @@ describe("OnboardingScreen", () => {
     expect(screen.getByText('Form state {"return_to":"/"}')).toBeTruthy();
   });
 
-  it("opens the SSH credential list without a return path", async () => {
+  it("opens the Create SSH key sheet with the return path of Onboarding", async () => {
     serveEmpty();
     mount();
 
     await userEvent.click(
       within(await screen.findByRole("listitem", { name: "SSH key" })).getByRole("button", {
-        name: "Open Git credentials",
+        name: "Create SSH key",
       }),
     );
 
-    expect(screen.getByText("Form state null")).toBeTruthy();
+    expect(screen.getByText('Form state {"return_to":"/"}#create-ssh-key')).toBeTruthy();
   });
 
   it("marks a step done", async () => {

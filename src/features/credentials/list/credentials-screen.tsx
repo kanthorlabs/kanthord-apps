@@ -1,5 +1,4 @@
 import { FileCogIcon, KeyRoundIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
-import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
@@ -26,6 +25,7 @@ import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
 import { useSshKeyRotate } from "../use-ssh-key-rotate";
 import { ALL_PLATFORMS, useCredentialList } from "./use-credential-list";
+import { useSshKeySheet } from "./use-ssh-key-sheet";
 
 const SECTION_DESCRIPTIONS: Readonly<Record<CredentialComponent, string>> = {
   llm: "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform.",
@@ -146,7 +146,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
     selectPlatform,
     setIncludeArchived,
   } = useCredentialList(component);
-  const [sshKeyOpen, setSshKeyOpen] = useState(false);
+  const sshKey = useSshKeySheet(pages.reload);
 
   return (
     <div className="flex flex-col gap-4">
@@ -172,7 +172,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
         </Field>
         <div className="flex gap-2 md:ml-auto">
           {component === "repository" && (
-            <Button variant="outline" onClick={() => setSshKeyOpen(true)}>
+            <Button variant="outline" onClick={sshKey.show}>
               <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />
               Create SSH key
             </Button>
@@ -186,15 +186,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
           </Button>
         </div>
       </div>
-      {sshKeyOpen && (
-        <SshKeySheet
-          onClose={() => setSshKeyOpen(false)}
-          onDone={() => {
-            setSshKeyOpen(false);
-            pages.reload();
-          }}
-        />
-      )}
+      {sshKey.open && <SshKeySheet onClose={sshKey.close} onDone={sshKey.done} />}
       <DataList
         label="Credentials"
         items={pages.items}

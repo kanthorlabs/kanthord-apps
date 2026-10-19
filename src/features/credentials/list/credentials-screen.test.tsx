@@ -539,6 +539,36 @@ describe("CredentialsScreen", () => {
     await waitFor(() => expect(credentialsApi.listCredentialPage).toHaveBeenCalledTimes(2));
   });
 
+  it("opens the SSH key sheet on arrival and returns to the router state path after Done", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    });
+    vi.mocked(credentialsApi.createSshKey).mockResolvedValue({
+      ...SSH_KEY_CREDENTIAL,
+      name: "deploy-atlas",
+    });
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: "/repositories", hash: "#create-ssh-key", state: { return_to: "/" } },
+        ]}
+      >
+        <Routes>
+          <Route path="/repositories" element={<CredentialsScreen component="repository" />} />
+          <Route path="/" element={<p>Onboarding</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const sheet = await screen.findByRole("dialog", { name: "Create SSH key" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "deploy-atlas");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create SSH key" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Done" }));
+
+    expect(await screen.findByText("Onboarding")).toBeTruthy();
+  });
+
   it("offers Rotate key and no secret rotate or metadata edit on an ssh row", async () => {
     vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(REPOSITORY_PLATFORMS);
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({

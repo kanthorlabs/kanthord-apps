@@ -1,7 +1,11 @@
 import type { AgentSummary, BindingSet, BindingSetKind, Credential, Project } from "@/api/types";
 
 import { isArchived } from "./credential-revisions";
-import { enableAgentsPath } from "./credential-sections";
+import {
+  CREATE_SSH_KEY_HASH,
+  credentialSectionPath,
+  enableAgentsPath,
+} from "./credential-sections";
 
 export type OnboardingStepKey =
   "llm_credential" | "agents" | "ssh_key" | "project" | "repository_binding" | "worker_bindings";
@@ -11,7 +15,6 @@ export type OnboardingStepState = "done" | "next" | "open";
 export interface OnboardingAction {
   readonly label: string;
   readonly path: string;
-  readonly returns: boolean;
 }
 
 export interface OnboardingStep {
@@ -47,7 +50,6 @@ interface StepDraft {
 const NEW_PROJECT: OnboardingAction = {
   label: "New project",
   path: "/projects/new",
-  returns: true,
 };
 
 function hasLiveCredential(credentials: readonly Credential[] | null, platform?: string): boolean {
@@ -78,13 +80,12 @@ function agentsAction(
   const first =
     disabled.find((agent) => agent.workerNames.some((worker) => boundWorkers.has(worker))) ??
     disabled[0];
-  if (first === undefined) return { label: "Open agents", path: "/agents", returns: true };
+  if (first === undefined) return { label: "Open agents", path: "/agents" };
   const sheetPath = enableAgentsPath(llmCredentials);
-  if (sheetPath !== null) return { label: "Enable agents", path: sheetPath, returns: true };
+  if (sheetPath !== null) return { label: "Enable agents", path: sheetPath };
   return {
     label: `Enable ${first.agentName}`,
     path: `/agents/${encodeURIComponent(first.agentName)}#enablement`,
-    returns: true,
   };
 }
 
@@ -113,7 +114,6 @@ function bindingStep(
         : {
             label: "Open bindings",
             path: `/projects/${encodeURIComponent(target.project.id)}?tab=bindings`,
-            returns: true,
           },
   };
 }
@@ -127,7 +127,7 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
       description: "Add the API key or the sign-in that the agents use to call a model.",
       done: hasLiveCredential(facts.llmCredentials),
       read: facts.llmCredentials !== null,
-      action: { label: "New LLM credential", path: "/llm/new", returns: true },
+      action: { label: "New LLM credential", path: "/llm/new" },
     },
     {
       key: "agents",
@@ -140,11 +140,13 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
     {
       key: "ssh_key",
       title: "SSH key",
-      description:
-        "Add the SSH key that clones and pushes the repository. Then open Overview to return here.",
+      description: "Create the SSH key that clones and pushes the repository.",
       done: hasLiveCredential(facts.repositoryCredentials, "ssh"),
       read: facts.repositoryCredentials !== null,
-      action: { label: "Open Git credentials", path: "/repositories", returns: false },
+      action: {
+        label: "Create SSH key",
+        path: `${credentialSectionPath("repository")}${CREATE_SSH_KEY_HASH}`,
+      },
     },
     {
       key: "project",

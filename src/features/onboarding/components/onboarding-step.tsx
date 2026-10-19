@@ -28,7 +28,7 @@ export function OnboardingStep({ step, position }: OnboardingStepProps) {
       <ItemActions className="w-full md:w-auto md:justify-end">
         <Button
           nativeButton={false}
-          render={<Link to={action.path} state={action.returns ? returnToState("/") : undefined} />}
+          render={<Link to={action.path} state={returnToState("/")} />}
           variant={step.state === "next" ? "default" : "outline"}
           size="sm"
         >
