@@ -180,6 +180,34 @@ describe("useProjectReadiness", () => {
     });
   });
 
+  it("does not count a draining or an unregistered instance as live", async () => {
+    serveFull();
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([
+      { ...INSTANCE, draining: true },
+      { ...INSTANCE, runtime_identity: "instance-2", registered: false },
+    ]);
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(readiness.items.find((item) => item.key === "live_instances")).toMatchObject({
+      state: "open",
+      names: ["general-main"],
+    });
+  });
+
+  it("names the missing worker binding in the instance and agent steps", async () => {
+    serveFull();
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({ version: 1, bindings: {} });
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(
+      readiness.items
+        .filter((item) => item.key === "live_instances" || item.key === "enabled_agents")
+        .map((item) => item.detail),
+    ).toEqual(["The project holds no worker binding.", "The project holds no worker binding."]);
+  });
+
   it("names the agent of a worker binding that is not enabled", async () => {
     serveFull();
     vi.mocked(workersApi.listAgents).mockResolvedValue([agent("swe@1", false)]);

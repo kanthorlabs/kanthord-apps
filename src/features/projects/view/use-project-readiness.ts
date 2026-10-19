@@ -59,6 +59,7 @@ interface WorkerEntry {
 }
 
 const NO_ITEMS: readonly ReadinessItem[] = [];
+const NO_WORKER_BINDING = "The project holds no worker binding.";
 const NO_FAULTS: readonly ReadFault[] = [];
 
 async function readReadiness(project: Project): Promise<ReadinessRead> {
@@ -112,7 +113,10 @@ function hasLiveInstance(entry: WorkerEntry, facts: ReadinessFacts): boolean {
   return (
     record !== undefined &&
     (facts.instances ?? []).some(
-      (instance) => instance.resource_identity === record.resource_identity,
+      (instance) =>
+        instance.registered &&
+        !instance.draining &&
+        instance.resource_identity === record.resource_identity,
     )
   );
 }
@@ -134,7 +138,7 @@ function bindingItems(project: Project, facts: ReadinessFacts): readonly Readine
       key: "worker_bindings",
       title: "Worker bindings",
       state: workers.length > 0 ? "done" : "open",
-      detail: workers.length > 0 ? "Bound:" : "The project holds no worker binding.",
+      detail: workers.length > 0 ? "Bound:" : NO_WORKER_BINDING,
       names: workers,
       link,
     },
@@ -142,9 +146,8 @@ function bindingItems(project: Project, facts: ReadinessFacts): readonly Readine
 }
 
 function instanceItem(project: Project, facts: ReadinessFacts): ReadinessItem {
-  const active = workerEntriesOf(facts.bindingSet).filter(
-    (entry) => entry.config.instance_count > 0,
-  );
+  const entries = workerEntriesOf(facts.bindingSet);
+  const active = entries.filter((entry) => entry.config.instance_count > 0);
   const lacking = active
     .filter((entry) => !hasLiveInstance(entry, facts))
     .map((entry) => entry.name);
@@ -154,11 +157,13 @@ function instanceItem(project: Project, facts: ReadinessFacts): ReadinessItem {
     title: "Live instances",
     state: read && active.length > 0 && lacking.length === 0 ? "done" : "open",
     detail:
-      active.length === 0
-        ? "No worker binding asks for an instance."
-        : lacking.length === 0
-          ? "Each worker binding runs a live instance."
-          : "No live instance:",
+      entries.length === 0
+        ? NO_WORKER_BINDING
+        : active.length === 0
+          ? "No worker binding asks for an instance."
+          : lacking.length === 0
+            ? "Each worker binding runs a live instance."
+            : "No live instance:",
     names: active.length === 0 ? [] : lacking,
     link: { label: "Open workers", path: `/workers?project=${encodeURIComponent(project.id)}` },
   };
@@ -178,11 +183,13 @@ function agentItem(facts: ReadinessFacts): ReadinessItem {
     title: "Enabled agents",
     state: facts.agents !== null && workers.size > 0 && disabled.length === 0 ? "done" : "open",
     detail:
-      needed.length === 0
-        ? "The worker bindings name no hosted agent."
-        : disabled.length === 0
-          ? "Enabled:"
-          : "Not enabled:",
+      workers.size === 0
+        ? NO_WORKER_BINDING
+        : needed.length === 0
+          ? "The worker bindings name no hosted agent."
+          : disabled.length === 0
+            ? "Enabled:"
+            : "Not enabled:",
     names: disabled.length === 0 ? needed.map((agent) => agent.agentName) : disabled,
     link:
       first === undefined
