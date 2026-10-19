@@ -1,7 +1,16 @@
+import { Link } from "react-router-dom";
+
 import { ProjectFilter } from "@/components/project-filter";
 import { RefreshStatus } from "@/components/refresh-status";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { AttentionSection } from "./components/attention-section";
@@ -32,7 +41,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
         <h2 className="text-lg font-semibold">Overview</h2>
         {onResume !== undefined && (
-          <Button variant="link" size="sm" onClick={onResume}>
+          <Button variant="link" size="sm" className="self-start" onClick={onResume}>
             Resume onboarding
           </Button>
         )}
@@ -57,6 +66,20 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       </div>
 
       {overview.status === "loading" && <SectionSkeletons />}
+
+      {overview.status === "empty" && (
+        <Empty>
+          <EmptyHeader>
+            <EmptyTitle>No projects</EmptyTitle>
+            <EmptyDescription>This instance holds no project.</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button nativeButton={false} render={<Link to="/projects/new" />} size="lg">
+              New project
+            </Button>
+          </EmptyContent>
+        </Empty>
+      )}
 
       {overview.status === "error" && overview.error !== null && (
         <Alert variant="destructive">

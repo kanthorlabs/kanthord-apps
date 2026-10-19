@@ -513,6 +513,20 @@ describe("OverviewScreen onboarding link", () => {
     expect(onResume).toHaveBeenCalledOnce();
   });
 
+  it("shows the no-project empty state beside Resume onboarding", async () => {
+    serve({ projects: [] });
+
+    renderScreen("/", vi.fn());
+
+    expect(await screen.findByText("No projects")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "New project" })).toHaveAttribute(
+      "href",
+      "/projects/new",
+    );
+    expect(screen.getByRole("button", { name: "Resume onboarding" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Needs you" })).toBeNull();
+  });
+
   it("offers no Resume onboarding when the setup is done", async () => {
     serve({});
 
