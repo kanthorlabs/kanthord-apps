@@ -965,7 +965,7 @@ describe("CredentialFormScreen", () => {
     expect(
       screen.getByText(
         textContent(
-          "In a container, Browser sign-in needs port 1455 published to the host, for example -p 127.0.0.1:1455:1455. Without the port, start the sign-in and paste the redirect URL or the code into Code or Redirect URL.",
+          "In a container, Browser sign-in needs port 1455 published to the host, for example -p 127.0.0.1:1455:1455. Without the port, start the sign-in, select The callback failed?, and paste the redirect URL or the code into Code or Redirect URL. Or choose Headless (device code).",
         ),
       ),
     ).toBeTruthy();
