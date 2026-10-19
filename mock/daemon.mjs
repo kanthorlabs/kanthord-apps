@@ -1025,43 +1025,19 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
         JSON.stringify(entry) !== JSON.stringify(bindingSet.bindings[name]),
     )
     .map(([, entry]) => entry.config);
-  if (changedRepositories.some((config) => platformHostOf(config) === null)) {
-    return projectEnvelope(
-      res,
-      400,
-      "project.bindings.repository.address_invalid",
-      "Repository address must name an SSH host of its platform.",
-    );
-  }
-  const unpinned = changedRepositories.find((config) => !hostKeyPins.has(platformHostOf(config)));
-  if (unpinned !== undefined) {
-    return projectEnvelope(
-      res,
-      409,
-      "repository.host_key.unpinned",
-      "The SSH host holds no pinned host key.",
-      { host: platformHostOf(unpinned) },
-    );
-  }
-  const legacy = changedRepositories.find(legacySshOf);
-  if (legacy !== undefined) {
-    return projectEnvelope(
-      res,
-      409,
-      "repository.credential.ssh_key_legacy",
-      "The SSH credential holds no generated key. Use Rotate SSH key.",
-      { credential: legacy.ssh_credential },
-    );
-  }
-  const unreachable = changedRepositories.find((config) => addressFailureOf(config) !== null);
-  if (unreachable !== undefined) {
-    return projectEnvelope(
-      res,
-      422,
-      "project.bindings.repository.ssh_unreachable",
-      "The repository SSH read failed.",
-      { failure_reason: addressFailureOf(unreachable) },
-    );
+  for (const config of changedRepositories) {
+    const refusal = repositoryRefusalOf(config);
+    if (refusal !== null) return projectEnvelope(res, ...refusal);
+    const failureReason = addressFailureOf(config);
+    if (failureReason !== null) {
+      return projectEnvelope(
+        res,
+        422,
+        "project.bindings.repository.ssh_unreachable",
+        "The repository SSH read failed.",
+        { failure_reason: failureReason },
+      );
+    }
   }
   bindingSet.bindings = b.bindings;
   bindingSet.version += 1;
