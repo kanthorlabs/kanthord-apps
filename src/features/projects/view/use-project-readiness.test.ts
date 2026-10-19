@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as credentialsApi from "@/api/resources/credentials";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
@@ -14,6 +15,7 @@ import type {
   WorkerInstanceRecord,
 } from "@/api/types";
 
+vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
@@ -110,6 +112,7 @@ function serveFull() {
     version: 2,
   });
   vi.mocked(missionApi.listMissionNodes).mockResolvedValue([NODE]);
+  vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
 }
 
 async function readinessOf(project: Project) {
@@ -219,6 +222,32 @@ describe("useProjectReadiness", () => {
       detail: "Not enabled:",
       names: ["swe@1"],
       link: { label: "Enable swe@1", path: "/agents/swe%401#enablement" },
+    });
+  });
+
+  it("opens the agents sheet of the first live agent-provider credential", async () => {
+    serveFull();
+    vi.mocked(workersApi.listAgents).mockResolvedValue([agent("swe@1", false)]);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([
+      {
+        name: "old-router",
+        platform: "openrouter",
+        revisions: [{ id: "c-1", revision: 1, metadata: null, created_at: 1, ended_at: 2 }],
+      },
+      { name: "gem", platform: "gemini", revisions: [] },
+      {
+        name: "router-main",
+        platform: "openrouter",
+        revisions: [{ id: "c-2", revision: 1, metadata: null, created_at: 1, ended_at: null }],
+      },
+    ]);
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(credentialsApi.listAllCredentials).toHaveBeenCalledWith("llm");
+    expect(readiness.items.find((item) => item.key === "enabled_agents")?.link).toEqual({
+      label: "Enable agents",
+      path: "/llm/router-main#enable-agents",
     });
   });
 

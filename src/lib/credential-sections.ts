@@ -1,4 +1,9 @@
-import type { CredentialComponent } from "@/api/types";
+import type { Credential, CredentialComponent } from "@/api/types";
+
+import { agentProviderCredentials } from "./agent-provider-draft";
+import { isArchived } from "./credential-revisions";
+
+export const ENABLE_AGENTS_HASH = "#enable-agents";
 
 const SECTION_PATHS: Readonly<Record<CredentialComponent, string>> = {
   llm: "/llm",
@@ -12,4 +17,13 @@ export function credentialSectionPath(component: CredentialComponent): string {
 
 export function credentialDetailPath(component: CredentialComponent, name: string): string {
   return `${SECTION_PATHS[component]}/${encodeURIComponent(name)}`;
+}
+
+export function enableAgentsPath(credentials: readonly Credential[] | null): string | null {
+  const [provider] = agentProviderCredentials(
+    (credentials ?? []).filter((credential) => !isArchived(credential)),
+  );
+  return provider === undefined
+    ? null
+    : `${credentialDetailPath("llm", provider.name)}${ENABLE_AGENTS_HASH}`;
 }

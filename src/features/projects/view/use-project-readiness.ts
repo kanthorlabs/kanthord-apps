@@ -1,11 +1,13 @@
 import { useMemo } from "react";
 
+import { listAllCredentials } from "@/api/resources/credentials";
 import { listMissionNodes, readMission } from "@/api/resources/mission";
 import { listWorkerBindings, readBindingSet } from "@/api/resources/projects";
 import { listAgents, listWorkerInstances } from "@/api/resources/workers";
 import type {
   AgentSummary,
   BindingSet,
+  Credential,
   MissionNodeRecord,
   Project,
   WorkerBindingConfig,
@@ -14,6 +16,7 @@ import type {
 } from "@/api/types";
 import { settle, type ReadFault } from "@/features/overview/read-overview-snapshot";
 import { useResource } from "@/hooks/use-resource";
+import { enableAgentsPath } from "@/lib/credential-sections";
 
 import { projectTabPath } from "./use-project-tab";
 
@@ -45,6 +48,7 @@ interface ReadinessFacts {
   readonly workerBindings: readonly WorkerBindingRecord[] | null;
   readonly instances: readonly WorkerInstanceRecord[] | null;
   readonly agents: readonly AgentSummary[] | null;
+  readonly llmCredentials: readonly Credential[] | null;
   readonly nodes: readonly MissionNodeRecord[] | null;
 }
 
@@ -63,13 +67,15 @@ const NO_WORKER_BINDING = "The project holds no worker binding.";
 const NO_FAULTS: readonly ReadFault[] = [];
 
 async function readReadiness(project: Project): Promise<ReadinessRead> {
-  const [bindingSet, workerBindings, instances, agents, mission] = await Promise.all([
-    settle(project, "binding set", () => readBindingSet(project.id), null),
-    settle(project, "worker bindings", () => listWorkerBindings(project.id), null),
-    settle(project, "worker instances", () => listWorkerInstances(project.id), null),
-    settle(project, "agents", listAgents, null),
-    settle(project, "mission", () => readMission(project.id), null),
-  ]);
+  const [bindingSet, workerBindings, instances, agents, llmCredentials, mission] =
+    await Promise.all([
+      settle(project, "binding set", () => readBindingSet(project.id), null),
+      settle(project, "worker bindings", () => listWorkerBindings(project.id), null),
+      settle(project, "worker instances", () => listWorkerInstances(project.id), null),
+      settle(project, "agents", listAgents, null),
+      settle(project, "LLM credentials", () => listAllCredentials("llm"), null),
+      settle(project, "mission", () => readMission(project.id), null),
+    ]);
   const missionId = mission.data?.id ?? null;
   const nodes =
     missionId === null
@@ -81,6 +87,7 @@ async function readReadiness(project: Project): Promise<ReadinessRead> {
       workerBindings: workerBindings.data,
       instances: instances.data,
       agents: agents.data,
+      llmCredentials: llmCredentials.data,
       nodes: nodes.data,
     },
     faults: [
@@ -88,6 +95,7 @@ async function readReadiness(project: Project): Promise<ReadinessRead> {
       workerBindings.fault,
       instances.fault,
       agents.fault,
+      llmCredentials.fault,
       mission.fault,
       nodes.fault,
     ].flatMap((fault) => (fault === null ? [] : [fault])),
@@ -178,6 +186,7 @@ function agentItem(facts: ReadinessFacts): ReadinessItem {
     .filter((agent) => agent.enablement?.state !== "enabled")
     .map((agent) => agent.agentName);
   const [first] = disabled;
+  const sheetPath = enableAgentsPath(facts.llmCredentials);
   return {
     key: "enabled_agents",
     title: "Enabled agents",
@@ -194,7 +203,9 @@ function agentItem(facts: ReadinessFacts): ReadinessItem {
     link:
       first === undefined
         ? { label: "Open agents", path: "/agents" }
-        : { label: `Enable ${first}`, path: `/agents/${encodeURIComponent(first)}#enablement` },
+        : sheetPath !== null
+          ? { label: "Enable agents", path: sheetPath }
+          : { label: `Enable ${first}`, path: `/agents/${encodeURIComponent(first)}#enablement` },
   };
 }
 

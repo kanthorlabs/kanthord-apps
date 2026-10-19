@@ -156,6 +156,8 @@ describe("AppShell", () => {
 
     expect(screen.getByText("Credentials")).toBeTruthy();
     expect(screen.getByRole("link", { name: "LLM" })).toHaveAttribute("href", "/llm");
+    expect(screen.getByRole("link", { name: "Git" })).toHaveAttribute("href", "/repositories");
+    expect(screen.queryByRole("link", { name: "Repositories" })).toBeNull();
   });
 
   it("signs out from the sidebar footer", async () => {

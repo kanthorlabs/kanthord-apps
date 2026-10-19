@@ -810,6 +810,38 @@ const planOf = (mission, body) =>
         };
       });
 
+const frontBindingsOf = (content) => {
+  const front = /^---\n([\s\S]*?)\n---/.exec(content);
+  const list = front ? /^bindings:\n((?:\s+- .+\n?)*)/m.exec(front[1]) : null;
+  return list ? [...list[1].matchAll(/^\s+- (.+)$/gm)].map((item) => item[1].trim()) : [];
+};
+
+const entryBindingsOf = (entry, body) =>
+  body.format === "json"
+    ? (entry.bindings ?? [])
+    : frontBindingsOf(body.files.find((file) => file.filename === entry.filename)?.content ?? "");
+
+const unknownBindingViolations = (plan, body) =>
+  plan
+    .filter((entry) => entry.node === undefined)
+    .flatMap((entry) => {
+      const unknown = entryBindingsOf(entry, body).find(
+        (name) => bindingSet.bindings[name] === undefined,
+      );
+      return unknown === undefined
+        ? []
+        : [
+            {
+              code: "mission.node.bindings_invalid",
+              message: "Invalid node bindings.",
+              filename: entry.filename ?? null,
+              node_id:
+                typeof entry.id === "string" && entry.id.startsWith("node_") ? entry.id : null,
+              details: { binding: unknown },
+            },
+          ];
+    });
+
 const previewOf = (mission, body) => {
   const plan = planOf(mission, body).map((entry) => {
     const known = mission.entries.find((current) => current.filename === entry.filename);
@@ -854,7 +886,7 @@ const previewOf = (mission, body) => {
             details: null,
           },
         ]
-      : [];
+      : unknownBindingViolations(plan, body);
   const previewDigest = createHash("sha256")
     .update(JSON.stringify({ plan, retirements, version: mission.version }))
     .digest("hex");

@@ -1,6 +1,7 @@
 import type { AgentSummary, BindingSet, BindingSetKind, Credential, Project } from "@/api/types";
 
 import { isArchived } from "./credential-revisions";
+import { enableAgentsPath } from "./credential-sections";
 
 export type OnboardingStepKey =
   "llm_credential" | "agents" | "ssh_key" | "project" | "repository_binding" | "worker_bindings";
@@ -71,12 +72,15 @@ function boundWorkersOf(target: ProjectBindingSet | undefined): ReadonlySet<stri
 function agentsAction(
   agents: readonly AgentSummary[] | null,
   boundWorkers: ReadonlySet<string>,
+  llmCredentials: readonly Credential[] | null,
 ): OnboardingAction {
   const disabled = (agents ?? []).filter((agent) => !isEnabled(agent));
   const first =
     disabled.find((agent) => agent.workerNames.some((worker) => boundWorkers.has(worker))) ??
     disabled[0];
   if (first === undefined) return { label: "Open agents", path: "/agents", returns: true };
+  const sheetPath = enableAgentsPath(llmCredentials);
+  if (sheetPath !== null) return { label: "Enable agents", path: sheetPath, returns: true };
   return {
     label: `Enable ${first.agentName}`,
     path: `/agents/${encodeURIComponent(first.agentName)}#enablement`,
@@ -131,7 +135,7 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
       description: "Enable an agent of the hosted workers with an LLM credential.",
       done: (facts.agents ?? []).some(isEnabled),
       read: facts.agents !== null,
-      action: agentsAction(facts.agents, boundWorkersOf(target)),
+      action: agentsAction(facts.agents, boundWorkersOf(target), facts.llmCredentials),
     },
     {
       key: "ssh_key",
@@ -140,7 +144,7 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
         "Add the SSH key that clones and pushes the repository. Then open Overview to return here.",
       done: hasLiveCredential(facts.repositoryCredentials, "ssh"),
       read: facts.repositoryCredentials !== null,
-      action: { label: "Open repositories", path: "/repositories", returns: false },
+      action: { label: "Open Git credentials", path: "/repositories", returns: false },
     },
     {
       key: "project",

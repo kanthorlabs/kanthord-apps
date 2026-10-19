@@ -19,6 +19,19 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
             kanthord auth jwt generate --project {binding.project_id} --binding {binding.name}{" "}
             --output &lt;file&gt;
           </code>
+          . In a container, run{" "}
+          <code className="font-mono wrap-anywhere">
+            podman exec &lt;container&gt; kanthord auth jwt generate --project {binding.project_id}{" "}
+            --binding {binding.name} --output /var/lib/kanthord/{binding.name}.cli.yaml
+          </code>
+          , then copy the file to the host with{" "}
+          <code className="font-mono wrap-anywhere">
+            podman cp &lt;container&gt;:/var/lib/kanthord/{binding.name}.cli.yaml .
+          </code>
+          . Then remove the file from the volume with{" "}
+          <code className="font-mono wrap-anywhere">
+            podman exec &lt;container&gt; rm /var/lib/kanthord/{binding.name}.cli.yaml
+          </code>
           .
         </li>
         <li>

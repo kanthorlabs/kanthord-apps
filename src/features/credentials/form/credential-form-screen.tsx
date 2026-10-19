@@ -65,6 +65,14 @@ function SignInFields({
         This platform takes its credential through a sign-in. Custody stores the credential under
         the name when the sign-in completes.
       </FieldDescription>
+      {modes.includes("browser") && form.login.browserAvailable && (
+        <FieldDescription>
+          In a container, Browser sign-in needs port 1455 published to the host, for example{" "}
+          <code>-p 127.0.0.1:1455:1455</code>. Without the port, start the sign-in, select The
+          callback failed?, and paste the redirect URL or the code into Code or Redirect URL. Or
+          choose Headless (device code).
+        </FieldDescription>
+      )}
       {modes.includes("browser") && !form.login.browserAvailable && (
         <FieldDescription>
           Browser sign-in is not available at this address. The provider returns the browser to
@@ -123,7 +131,7 @@ export function CreateForm({
           <p className="text-sm text-muted-foreground md:col-span-2">
             An ssh credential is not created here. Open{" "}
             <Link to={credentialSectionPath(component)} className="underline underline-offset-4">
-              Repositories
+              Git
             </Link>{" "}
             and use Import from ~/.ssh/config.
           </p>

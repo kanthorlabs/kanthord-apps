@@ -137,7 +137,25 @@ describe("onboardingStepsOf", () => {
 
     expect(steps.find((step) => step.key === "agents")).toMatchObject({
       state: "next",
-      action: { label: "Enable re@1", path: "/agents/re%401#enablement", returns: true },
+      action: {
+        label: "Enable agents",
+        path: "/llm/router-main#enable-agents",
+        returns: true,
+      },
+    });
+  });
+
+  it("opens the agent page when no live LLM credential can serve an agent", () => {
+    const steps = onboardingStepsOf({
+      ...FULL,
+      llmCredentials: [credential("old-router", "openrouter", true), credential("gem", "gemini")],
+      agents: [agent("re@1", "disabled"), agent("swe@1", null)],
+    });
+
+    expect(steps.find((step) => step.key === "agents")?.action).toEqual({
+      label: "Enable re@1",
+      path: "/agents/re%401#enablement",
+      returns: true,
     });
   });
 
@@ -207,6 +225,7 @@ describe("onboardingStepsOf", () => {
   it("prefers the disabled agent of a bound worker", () => {
     const steps = onboardingStepsOf({
       ...FULL,
+      llmCredentials: [credential("gem", "gemini")],
       agents: [{ ...agent("re@1", null), workerNames: ["reviewer@1"] }, agent("swe@1", null)],
     });
 
@@ -242,7 +261,7 @@ describe("onboardingStepsOf", () => {
 
   it("opens the SSH credential list without a return", () => {
     expect(onboardingStepsOf(EMPTY).find((step) => step.key === "ssh_key")?.action).toEqual({
-      label: "Open repositories",
+      label: "Open Git credentials",
       path: "/repositories",
       returns: false,
     });

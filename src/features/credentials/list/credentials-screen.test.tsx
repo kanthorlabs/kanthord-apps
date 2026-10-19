@@ -131,6 +131,32 @@ beforeEach(() => {
 });
 
 describe("CredentialsScreen", () => {
+  it.each([
+    [
+      "llm",
+      "/llm",
+      "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform.",
+    ],
+    [
+      "repository",
+      "/repositories",
+      "A Git credential holds the secret that reaches the repositories of a project, a GitHub token or an SSH key. A repository binding of a project uses it.",
+    ],
+    [
+      "storage",
+      "/storage",
+      "A storage credential holds the access key of an S3 bucket. A storage binding of a project uses it.",
+    ],
+  ] as const)("describes the %s credentials in one line", async (component, section, line) => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    });
+    mount(component, section);
+
+    expect(await screen.findByText(line)).toBeTruthy();
+  });
+
   it("lists each credential with its platform and newest live revision", async () => {
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [OPENROUTER, ROUTER],

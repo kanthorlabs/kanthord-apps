@@ -8,9 +8,11 @@ import {
   previewMissionImport,
   readMission,
 } from "@/api/resources/mission";
+import { readBindingSet } from "@/api/resources/projects";
 import type { MissionImportPreview, MissionImportSnapshot } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { counted } from "@/lib/counted";
+import { unknownBindingOf, violationTextOf, type ViolationText } from "@/lib/mission-violation";
 import {
   importInputOf,
   importSnapshotOf,
@@ -23,6 +25,12 @@ export interface ReviewedPreview {
   readonly snapshot: MissionImportSnapshot;
   readonly preview: MissionImportPreview;
   readonly names: ReadonlyMap<string, string>;
+  readonly violationLines: readonly ViolationLineText[];
+}
+
+export interface ViolationLineText {
+  readonly filename: string | null;
+  readonly text: ViolationText;
 }
 
 export interface MissionImportState {
@@ -116,7 +124,19 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
           previewMissionImport(snapshot),
           exportMissionJson(mission.id),
         ]);
-        return { snapshot, preview: next, names: nodeNames(current.entries) };
+        const bindingNames = next.violations.some(
+          (violation) => unknownBindingOf(violation) !== null,
+        )
+          ? await readBindingSet(projectId).then(
+              (bindingSet) => Object.keys(bindingSet.bindings),
+              () => null,
+            )
+          : null;
+        const violationLines = next.violations.map((violation) => ({
+          filename: violation.filename,
+          text: violationTextOf(violation, bindingNames),
+        }));
+        return { snapshot, preview: next, names: nodeNames(current.entries), violationLines };
       })
       .then(
         (next) => {

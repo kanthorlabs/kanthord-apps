@@ -19,6 +19,7 @@ import { counted } from "@/lib/counted";
 import type { SamplePlan } from "@/lib/mission-plan-sample";
 import type { MissionImportState } from "../use-mission-import";
 import { PlanFormatHelp } from "./plan-format-help";
+import { ViolationLine } from "./violation-line";
 
 interface ImportSheetProps {
   readonly open: boolean;
@@ -62,6 +63,7 @@ export function ImportSheet({ open, onOpenChange, state, sample }: ImportSheetPr
   const shown = state.reviewed?.preview;
   const nameOf = (nodeId: string) => state.reviewed?.names.get(nodeId) ?? nodeId;
   const retiring = shown?.retirements.length ?? 0;
+  const violationLines = state.reviewed?.violationLines ?? [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -117,15 +119,14 @@ export function ImportSheet({ open, onOpenChange, state, sample }: ImportSheetPr
           </FieldGroup>
           {shown !== undefined && (
             <div className="flex flex-col gap-4 border-t pt-4">
-              {shown.violations.length > 0 && (
+              {violationLines.length > 0 && (
                 <Alert variant="destructive">
                   <AlertTitle>The import cannot apply.</AlertTitle>
                   <AlertDescription>
                     <ul className="list-disc pl-4">
-                      {shown.violations.map((violation, index) => (
+                      {violationLines.map((line, index) => (
                         <li key={index}>
-                          {violation.filename !== null && `${violation.filename}: `}
-                          {violation.message}
+                          <ViolationLine filename={line.filename} text={line.text} />
                         </li>
                       ))}
                     </ul>

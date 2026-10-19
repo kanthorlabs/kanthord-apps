@@ -66,7 +66,12 @@ export function SignInForm({ form }: { form: SignInFormState }) {
                 onChange={(event) => form.setField("token", event.target.value)}
               />
               <FieldDescription id="login-token-description">
-                Generate a human token with <code>kanthord auth jwt generate</code>.
+                Generate a human token with <code>kanthord auth jwt generate &lt;user&gt;</code>. In
+                a container, run{" "}
+                <code>
+                  podman exec -it &lt;container&gt; kanthord auth jwt generate &lt;user&gt;
+                </code>
+                .
               </FieldDescription>
               <FieldError>{errors.token}</FieldError>
               <VerifyStatus state={form.verifyState} />

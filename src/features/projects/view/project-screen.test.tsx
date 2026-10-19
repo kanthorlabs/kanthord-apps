@@ -4,11 +4,13 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as credentialsApi from "@/api/resources/credentials";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
 import type { Project } from "@/api/types";
 
+vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/workers");
@@ -48,6 +50,12 @@ describe("ProjectScreen", () => {
     vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    });
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({ items: [] });
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
   });
 

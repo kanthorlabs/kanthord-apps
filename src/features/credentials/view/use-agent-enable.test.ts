@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -43,11 +43,11 @@ function enabled(agentName: string, revision: number): AgentEnablement {
 
 let location: { pathname: string } = { pathname: "" };
 
-function wrapperAt(state: unknown) {
+function wrapperAt(state: unknown, hash = "") {
   return function Wrapper({ children }: { children: ReactNode }) {
     return createElement(
       MemoryRouter,
-      { initialEntries: [{ pathname: "/llm/openai-main", state }] },
+      { initialEntries: [{ pathname: "/llm/openai-main", hash, state }] },
       createElement(
         Routes,
         null,
@@ -103,6 +103,39 @@ const UNHEALTHY: HealthEntry = {
 };
 
 describe("useAgentEnable", () => {
+  it("opens the sheet on arrival with the enable agents hash", async () => {
+    const { result } = renderHook(() => useAgentEnable(OPENAI, vi.fn()), {
+      wrapper: wrapperAt({ return_to: "/" }, "#enable-agents"),
+    });
+
+    await waitFor(() => expect(result.current.open).toBe(true));
+    await waitFor(() => expect(result.current.modelIdentifier).toBe("gpt-5"));
+  });
+
+  it("drops the hash after the open and keeps the return path", async () => {
+    const { result, rerender } = renderHook(
+      () => ({ enable: useAgentEnable(OPENAI, vi.fn()), location: useLocation() }),
+      { wrapper: wrapperAt({ return_to: "/" }, "#enable-agents") },
+    );
+
+    await waitFor(() => expect(result.current.enable.open).toBe(true));
+    await waitFor(() => expect(result.current.location.hash).toBe(""));
+    expect(result.current.location.state).toEqual({ return_to: "/" });
+    act(() => result.current.enable.close());
+    rerender();
+
+    expect(result.current.enable.open).toBe(false);
+  });
+
+  it("keeps the sheet closed on arrival with no hash", async () => {
+    const { result } = renderHook(() => useAgentEnable(OPENAI, vi.fn()), {
+      wrapper: wrapperAt(null),
+    });
+
+    await waitFor(() => expect(result.current.agentNames.length).toBeGreaterThan(0));
+    expect(result.current.open).toBe(false);
+  });
+
   it("prefills the first model and the medium effort", async () => {
     const { result } = await openSheet();
 

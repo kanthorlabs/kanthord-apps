@@ -24,6 +24,14 @@ import { useCredentialRotate } from "../use-credential-rotate";
 import { useMetadataEdit } from "../use-metadata-edit";
 import { ALL_PLATFORMS, useCredentialList } from "./use-credential-list";
 
+const SECTION_DESCRIPTIONS: Readonly<Record<CredentialComponent, string>> = {
+  llm: "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform.",
+  repository:
+    "A Git credential holds the secret that reaches the repositories of a project, a GitHub token or an SSH key. A repository binding of a project uses it.",
+  storage:
+    "A storage credential holds the access key of an S3 bucket. A storage binding of a project uses it.",
+};
+
 function platformFilterLabel(value: string): string {
   return value === ALL_PLATFORMS ? "All platforms" : value;
 }
@@ -126,6 +134,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{SECTION_DESCRIPTIONS[component]}</p>
       <div className="flex flex-wrap items-center gap-3">
         <div className="w-full md:w-64">
           <PlatformCombobox
