@@ -523,7 +523,13 @@ describe("CredentialFormScreen", () => {
     const dialog = await screen.findByRole("alertdialog", {
       name: "Create the credential with an unhealthy secret?",
     });
+    expect(within(dialog).getByText("router")).toBeTruthy();
     expect(within(dialog).getByText(/The provider refused the API key/)).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "Correct the secret and verify it again. Then create the credential.",
+      ),
+    ).toBeTruthy();
     await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
 
@@ -531,6 +537,110 @@ describe("CredentialFormScreen", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Create anyway" }));
     await screen.findByText("Credential view");
     expect(credentialsApi.createCredential).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks nothing before a repository create after an unhealthy check and shows no groups", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "rate-limit read",
+      failure_reason: "unauthorized",
+    });
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "ci-github",
+      platform: "github",
+    });
+    await mount("repository");
+
+    const input = screen.getByRole("combobox", { name: "Platform" });
+    await userEvent.clear(input);
+    await userEvent.type(input, "git");
+    expect(await screen.findByRole("option", { name: "github" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Checked before save" })).toBeNull();
+    await userEvent.click(screen.getByRole("option", { name: "github" }));
+
+    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
+    await userEvent.type(screen.getByLabelText("API Key"), "ghp-fake");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Unhealthy")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    await screen.findByText("Credential view");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(credentialsApi.createCredential).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks nothing before an LLM create after an unknown check", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "unknown",
+      capability: "model-list read",
+      failure_reason: "unclassified",
+    });
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "router",
+      platform: "openrouter",
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-live");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Unknown")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    await screen.findByText("Credential view");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("asks nothing when the key changes after an unhealthy check", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "model-list read",
+      failure_reason: "unauthorized",
+    });
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "router",
+      platform: "openrouter",
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-fake");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Unhealthy")).toBeTruthy();
+    await userEvent.type(screen.getByLabelText("API Key"), "2");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    await screen.findByText("Credential view");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("shows the name error and asks nothing for an invalid name after an unhealthy check", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "model-list read",
+      failure_reason: "unauthorized",
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "Router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-fake");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Unhealthy")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    expect(
+      await screen.findByText(
+        "Start with a lowercase letter. Use only lowercase letters, digits and hyphens.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(credentialsApi.createCredential).not.toHaveBeenCalled();
   });
 
   it("creates with no question after a healthy check", async () => {

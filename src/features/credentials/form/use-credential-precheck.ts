@@ -109,7 +109,7 @@ export function useCredentialPrecheck(
     checking: current?.status === "checking",
     badge: badgeOf(current),
     checked,
-    hint: checked === null ? null : healthEntryHint(checked.entry),
+    hint: checked === null ? null : healthEntryHint(checked.entry, component),
     error: current?.status === "failed" ? current.message : null,
     run,
   };

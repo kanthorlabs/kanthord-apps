@@ -247,7 +247,7 @@ describe("useAgentEnable", () => {
     act(() => result.current.submit());
 
     await waitFor(() => expect(result.current.unhealthyCredential).toBe("openai-main"));
-    expect(result.current.unhealthyHint).toBe(failureReasonHint("unauthorized"));
+    expect(result.current.unhealthyHint).toBe(failureReasonHint("unauthorized", "llm"));
     expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
     act(() => result.current.confirmUnhealthy());
     await waitFor(() => expect(workersApi.putAgentEnablement).toHaveBeenCalledTimes(2));

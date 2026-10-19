@@ -202,7 +202,7 @@ export function CreateForm({
         action={{ kind: "create" }}
         credential={form.unhealthyCredential}
         hint={form.unhealthyHint}
-        saferPath="Correct the secret and check it again, then create the credential."
+        saferPath="Correct the secret and verify it again. Then create the credential."
         onConfirm={form.confirmUnhealthy}
         onCancel={form.cancelUnhealthy}
       />

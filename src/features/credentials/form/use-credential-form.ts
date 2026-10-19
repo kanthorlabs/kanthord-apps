@@ -129,6 +129,7 @@ export function useCredentialForm(
     if (invalid === null) startLogin(name, platform);
   }, [name, platform, startLogin]);
 
+  const runGuard = guard.runChecked;
   const submitCreate = useCallback(() => {
     if (entry === null) return;
     const body = createBodyOf(name, entry, secret, metadata);
@@ -137,49 +138,40 @@ export function useCredentialForm(
       return;
     }
     setErrors(NO_ERRORS);
-    setSubmitError(null);
-    setSubmitting(true);
-    setSecret(EMPTY_SECRET);
     const { checked } = precheck;
-    createCredential(component, body.value).then(
-      (credential) => {
-        setSubmitting(false);
-        toast.success(`Created ${credential.name}.`);
-        if (onCreated !== undefined) {
-          onCreated(credential.name);
-        } else if (returnTo !== null) {
-          void navigate(returnTo);
-        } else {
-          const state: PriorCheckState | undefined =
-            checked === null ? undefined : { priorCheck: checked };
-          void navigate(credentialDetailPath(component, credential.name), { state });
-        }
-      },
-      (cause: unknown) => {
-        setSubmitting(false);
-        setSubmitError(credentialMessage(asApiError(cause)));
-      },
-    );
-  }, [component, name, entry, secret, metadata, precheck, navigate, onCreated, returnTo]);
+    const send = () => {
+      setSubmitError(null);
+      setSubmitting(true);
+      setSecret(EMPTY_SECRET);
+      createCredential(component, body.value).then(
+        (credential) => {
+          setSubmitting(false);
+          toast.success(`Created ${credential.name}.`);
+          if (onCreated !== undefined) {
+            onCreated(credential.name);
+          } else if (returnTo !== null) {
+            void navigate(returnTo);
+          } else {
+            const state: PriorCheckState | undefined =
+              checked === null ? undefined : { priorCheck: checked };
+            void navigate(credentialDetailPath(component, credential.name), { state });
+          }
+        },
+        (cause: unknown) => {
+          setSubmitting(false);
+          setSubmitError(credentialMessage(asApiError(cause)));
+        },
+      );
+    };
+    if (component === "llm") runGuard(name, checked?.entry ?? null, send);
+    else send();
+  }, [component, name, entry, secret, metadata, precheck, runGuard, navigate, onCreated, returnTo]);
 
-  const runGuard = guard.runChecked;
-  const checkedEntry = precheck.checked?.entry ?? null;
   const submit = useCallback(() => {
     if (submitting || login.starting) return;
     if (oauth) submitLogin();
-    else if (component === "llm") runGuard(name, checkedEntry, submitCreate);
     else submitCreate();
-  }, [
-    submitting,
-    login.starting,
-    oauth,
-    component,
-    name,
-    checkedEntry,
-    runGuard,
-    submitLogin,
-    submitCreate,
-  ]);
+  }, [submitting, login.starting, oauth, submitLogin, submitCreate]);
 
   const missing = missingForCredentialCreate(name, entry, secret, metadata);
   const checkReady =

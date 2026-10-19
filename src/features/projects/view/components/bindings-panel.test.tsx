@@ -1132,7 +1132,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
 
     expect(await screen.findByText("Address · Unhealthy")).toBeTruthy();
-    expect(screen.getByText(failureReasonHint("host_key_unknown"))).toBeTruthy();
+    expect(screen.getByText(failureReasonHint("host_key_unknown", "repository"))).toBeTruthy();
   });
 
   it("announces the hint of the failure reason in the status region of the row", async () => {
@@ -1155,7 +1155,7 @@ describe("BindingsPanel", () => {
 
     expect(await screen.findByText("Address · Unhealthy")).toBeTruthy();
     expect(screen.getByRole("status", { name: "Verify hint of kanthord-repo" })).toHaveTextContent(
-      failureReasonHint("key_refused"),
+      failureReasonHint("key_refused", "repository"),
     );
   });
 
@@ -1177,13 +1177,15 @@ describe("BindingsPanel", () => {
 
     const verify = await screen.findByRole("button", { name: "Verify kanthord-repo" });
     await userEvent.click(verify);
-    expect(await screen.findByText(failureReasonHint("host_key_unknown"))).toBeTruthy();
+    expect(
+      await screen.findByText(failureReasonHint("host_key_unknown", "repository")),
+    ).toBeTruthy();
 
     vi.mocked(projectsApi.verifyBinding).mockReturnValueOnce(new Promise(() => {}));
     await userEvent.click(verify);
 
     expect(await screen.findByText("Address · Checking")).toBeTruthy();
-    expect(screen.queryByText(failureReasonHint("host_key_unknown"))).toBeNull();
+    expect(screen.queryByText(failureReasonHint("host_key_unknown", "repository"))).toBeNull();
     expect(
       screen.getByRole("status", { name: "Verify hint of kanthord-repo" }),
     ).toBeEmptyDOMElement();
@@ -1195,7 +1197,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
 
     expect(await screen.findByText("Address · Healthy")).toBeTruthy();
-    expect(screen.queryByText(failureReasonHint("unclassified"))).toBeNull();
+    expect(screen.queryByText(failureReasonHint("unclassified", "repository"))).toBeNull();
   });
 
   it("shows the hint of the failure reason when the sheet Verify finds an unhealthy address", async () => {
@@ -1219,7 +1221,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Verify" }));
 
     expect(await within(form).findByText(/Address · Unhealthy/)).toBeTruthy();
-    expect(within(form).getByText(failureReasonHint("key_refused"))).toBeTruthy();
+    expect(within(form).getByText(failureReasonHint("key_refused", "repository"))).toBeTruthy();
   });
 
   it("shows the hint of the failure reason when Save refuses an unreachable repository", async () => {
@@ -1240,7 +1242,9 @@ describe("BindingsPanel", () => {
     await userEvent.type(branch, "develop");
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
-    expect(await screen.findByText(new RegExp(failureReasonHint("host_key_unknown")))).toBeTruthy();
+    expect(
+      await screen.findByText(new RegExp(failureReasonHint("host_key_unknown", "repository"))),
+    ).toBeTruthy();
     expect(screen.getByLabelText("Base branch")).toHaveValue("develop");
   });
 

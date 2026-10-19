@@ -118,7 +118,7 @@ describe("useBindingCheck", () => {
     const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
     await act(async () => result.current.run());
     expect(result.current.addressBadge?.label).toBe("Unhealthy");
-    expect(result.current.addressHint).toBe(failureReasonHint("host_key_unknown"));
+    expect(result.current.addressHint).toBe(failureReasonHint("host_key_unknown", "repository"));
   });
 
   it("gives no hint for a healthy address", async () => {

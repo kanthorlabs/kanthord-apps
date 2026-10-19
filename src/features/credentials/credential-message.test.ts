@@ -37,7 +37,9 @@ describe("credentialMessage", () => {
       credentialMessage(
         refusal("project.bindings.repository.ssh_unreachable", { failure_reason: "key_refused" }),
       ),
-    ).toBe(`The server cannot read the repository. ${failureReasonHint("key_refused")}`);
+    ).toBe(
+      `The server cannot read the repository. ${failureReasonHint("key_refused", "repository")}`,
+    );
   });
 
   it("states a way out for an unreachable repository without a failure reason", () => {

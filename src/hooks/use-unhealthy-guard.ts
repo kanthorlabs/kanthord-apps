@@ -82,7 +82,7 @@ export function useUnhealthyGuard(): UnhealthyGuard {
 
   return {
     credential: pending?.credential ?? null,
-    hint: pending === null ? null : healthEntryHint(pending.entry),
+    hint: pending === null ? null : healthEntryHint(pending.entry, "llm"),
     check,
     run,
     runChecked,

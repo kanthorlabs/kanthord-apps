@@ -123,7 +123,7 @@ export function useBindingCheck(
       checking = true;
     } else if (current.status === "ready") {
       addressBadge = toCheckBadge(current.address);
-      addressHint = healthEntryHint(current.address);
+      addressHint = healthEntryHint(current.address, "repository");
       sshCredentialBadge = toCheckBadge(current.sshCredential);
       credentialBadge = current.credential !== null ? toCheckBadge(current.credential) : null;
     } else {

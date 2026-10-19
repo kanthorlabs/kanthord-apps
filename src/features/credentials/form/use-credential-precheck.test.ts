@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as credentialsApi from "@/api/resources/credentials";
-import type { CredentialPlatformEntry } from "@/api/types";
+import type { CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import { EMPTY_METADATA, EMPTY_SECRET } from "@/lib/credential-draft";
 import { failureReasonHint } from "@/lib/failure-reason";
 
@@ -18,11 +18,13 @@ const OPENROUTER: CredentialPlatformEntry = {
   verifiable: true,
 };
 
+const GITHUB: CredentialPlatformEntry = { ...OPENROUTER, platform: "github" };
+
 const SECRET = { ...EMPTY_SECRET, key: "sk-fake" };
 
-function mount() {
+function mount(component: CredentialComponent = "llm", entry = OPENROUTER) {
   return renderHook(() =>
-    useCredentialPrecheck("llm", OPENROUTER, SECRET, EMPTY_METADATA, vi.fn(), vi.fn()),
+    useCredentialPrecheck(component, entry, SECRET, EMPTY_METADATA, vi.fn(), vi.fn()),
   );
 }
 
@@ -43,7 +45,22 @@ describe("useCredentialPrecheck", () => {
     act(() => result.current.run());
 
     await waitFor(() => expect(result.current.badge?.label).toBe("Unhealthy"));
-    expect(result.current.hint).toBe(failureReasonHint("unauthorized"));
+    expect(result.current.hint).toBe(failureReasonHint("unauthorized", "llm"));
+  });
+
+  it("gives the hint in the words of the repository component", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "rate-limit read",
+      failure_reason: "unauthorized",
+    });
+    const { result } = mount("repository", GITHUB);
+
+    act(() => result.current.run());
+
+    await waitFor(() => expect(result.current.badge?.label).toBe("Unhealthy"));
+    expect(result.current.hint).toBe(failureReasonHint("unauthorized", "repository"));
+    expect(result.current.hint).not.toBe(failureReasonHint("unauthorized", "llm"));
   });
 
   it("gives no hint for a healthy check", async () => {
