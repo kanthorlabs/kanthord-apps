@@ -75,7 +75,7 @@ async function readHost(host: string | null): Promise<HostRead | null> {
 }
 
 interface Confirmation {
-  readonly host: string;
+  readonly source: HostRead;
   readonly pinning: boolean;
   readonly error: string | null;
   readonly read: PinRead | null;
@@ -97,26 +97,26 @@ export function useHostKeyPin(host: string | null): HostKeyPinState {
   const pin = useResource(() => readHost(host), [host]);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [retriedRead, setRetriedRead] = useState<HostRead | null>(null);
-  const own = confirmation !== null && confirmation.host === host ? confirmation : null;
   const current = pin.data !== null && pin.data === retriedRead ? null : pin.data;
+  const own = confirmation !== null && confirmation.source === current ? confirmation : null;
   const view = viewOf(host, current, own);
 
   const scan = view.status === "unconfirmed" && !view.pinning ? view.scan : null;
   const confirm = useCallback(() => {
-    if (scan === null) return;
-    const started = scan.host;
-    setConfirmation({ host: started, pinning: true, error: null, read: null });
+    if (scan === null || current === null) return;
+    const source = current;
+    setConfirmation({ source, pinning: true, error: null, read: null });
     pinScanned(scan).then(
-      (next) => setConfirmation({ host: started, pinning: false, error: null, read: next }),
+      (next) => setConfirmation({ source, pinning: false, error: null, read: next }),
       (cause: unknown) =>
         setConfirmation({
-          host: started,
+          source,
           pinning: false,
           error: credentialMessage(asApiError(cause)),
           read: null,
         }),
     );
-  }, [scan]);
+  }, [scan, current]);
 
   const { reload, data } = pin;
   const retry = useCallback(() => {

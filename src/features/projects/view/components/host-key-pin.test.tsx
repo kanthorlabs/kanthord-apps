@@ -145,6 +145,26 @@ describe("HostKeyPin", () => {
     expect(await screen.findByRole("button", { name: "Confirm host key" })).toBeTruthy();
   });
 
+  it("drops the confirm error of an earlier host", async () => {
+    vi.mocked(credentialsApi.scanHostKey).mockImplementation(async (host) =>
+      host === "gitlab.com" ? GITLAB_SCAN : { ...GITLAB_SCAN, host },
+    );
+    vi.mocked(credentialsApi.pinHostKey).mockRejectedValue(
+      new ApiError("unavailable", "The daemon did not answer.", 503),
+    );
+    const { rerender } = render(<Harness host="gitlab.com" />);
+    await userEvent.click(await screen.findByRole("button", { name: "Confirm host key" }));
+    expect(await screen.findByText("The daemon did not answer.")).toBeTruthy();
+
+    rerender(<Harness host="bitbucket.org" />);
+    expect(await screen.findByText("Host key of bitbucket.org")).toBeTruthy();
+    rerender(<Harness host="gitlab.com" />);
+
+    expect(await screen.findByRole("button", { name: "Confirm host key" })).toBeTruthy();
+    await waitFor(() => expect(credentialsApi.scanHostKey).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText("The daemon did not answer.")).toBeNull();
+  });
+
   it("renders nothing and blocks nothing without a host", async () => {
     render(<Harness host={null} />);
 
