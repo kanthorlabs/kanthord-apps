@@ -222,4 +222,16 @@ describe("OnboardingScreen", () => {
     expect(within(stepOf("LLM credential")).getByText("Next")).toBeTruthy();
     expect(within(stepOf("Enabled agents")).getByText("Open")).toBeTruthy();
   });
+
+  it("names the Git credentials in a failed read", async () => {
+    serveEmpty();
+    vi.mocked(credentialsApi.listAllCredentials).mockImplementation((component) =>
+      component === "repository"
+        ? Promise.reject(new ApiError("unreachable", "The daemon did not answer.", 0))
+        : Promise.resolve([]),
+    );
+    mount();
+
+    expect(await screen.findByText(/Git credentials \(The daemon did not answer\.\)/)).toBeTruthy();
+  });
 });
