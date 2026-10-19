@@ -198,6 +198,12 @@ describe("WorkersScreen", () => {
         "kanthord auth jwt generate --project prj-test --binding reviewer-main --output <file>",
       ),
     ).toBeDefined();
+    expect(
+      screen.getByText(
+        "podman exec <container> kanthord auth jwt generate --project prj-test --binding reviewer-main --output <file>",
+      ),
+    ).toBeDefined();
+    expect(screen.getByText("podman cp <container>:<file> .")).toBeDefined();
     expect(screen.getByText(/Choose one absolute directory/)).toBeDefined();
     expect(screen.getByText("/srv/kanthord/w1")).toBeDefined();
     expect(screen.getByText("<dir>/config/kanthord/")).toBeDefined();
@@ -321,7 +327,7 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText("0 of 2 live")).toBeNull();
     resolveCatalog([CATALOG_TDD]);
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
-    expect(screen.getByText(/kanthord auth jwt generate/)).toBeDefined();
+    expect(screen.getAllByText(/kanthord auth jwt generate/)).toHaveLength(2);
   });
 
   it("shows the empty state when the project has no worker binding", async () => {

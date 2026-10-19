@@ -19,6 +19,15 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
             kanthord auth jwt generate --project {binding.project_id} --binding {binding.name}{" "}
             --output &lt;file&gt;
           </code>
+          . In a container, run{" "}
+          <code className="font-mono wrap-anywhere">
+            podman exec &lt;container&gt; kanthord auth jwt generate --project {binding.project_id}{" "}
+            --binding {binding.name} --output &lt;file&gt;
+          </code>
+          , then copy the file to the host with{" "}
+          <code className="font-mono wrap-anywhere">
+            podman cp &lt;container&gt;:&lt;file&gt; .
+          </code>
           .
         </li>
         <li>

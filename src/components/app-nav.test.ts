@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { NAV_ITEMS } from "./app-nav";
+import { NAV_ITEMS, ROUTE_LABELS } from "./app-nav";
 
 describe("NAV_ITEMS", () => {
   it("names Scheduler once in the Work group", () => {
@@ -8,5 +8,19 @@ describe("NAV_ITEMS", () => {
 
     expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({ label: "Scheduler", group: "Work" });
+  });
+
+  it("names the git credentials Git under Credentials at /repositories", () => {
+    const items = NAV_ITEMS.filter((item) => item.group === "Credentials");
+
+    expect(items.map((item) => [item.label, item.to])).toEqual([
+      ["LLM", "/llm"],
+      ["Git", "/repositories"],
+      ["Storage", "/storage"],
+    ]);
+  });
+
+  it("labels the /repositories breadcrumb Git", () => {
+    expect(ROUTE_LABELS.get("/repositories")).toBe("Git");
   });
 });

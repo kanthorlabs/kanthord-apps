@@ -140,7 +140,7 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
         "Add the SSH key that clones and pushes the repository. Then open Overview to return here.",
       done: hasLiveCredential(facts.repositoryCredentials, "ssh"),
       read: facts.repositoryCredentials !== null,
-      action: { label: "Open repositories", path: "/repositories", returns: false },
+      action: { label: "Open Git credentials", path: "/repositories", returns: false },
     },
     {
       key: "project",

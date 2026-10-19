@@ -9,6 +9,7 @@ import { ApiError } from "@/api/errors";
 import { readLiveness, verifyHumanToken } from "@/api/resources/gateway";
 import { SessionProvider, useSession } from "@/features/auth/session/session-context";
 import { LoginScreen } from "./login-screen";
+import { textContent } from "../../../../test/text-content";
 
 vi.mock("@/api/resources/gateway", () => ({
   readLiveness: vi.fn(),
@@ -160,6 +161,18 @@ describe("LoginScreen", () => {
         },
       ],
     });
+  });
+
+  it("states the host and the container form of the token command", () => {
+    mount();
+
+    expect(
+      within(form()).getByText(
+        textContent(
+          "Generate a human token with kanthord auth jwt generate <user>. In a container, run podman exec -it <container> kanthord auth jwt generate <user>.",
+        ),
+      ),
+    ).toBeInTheDocument();
   });
 
   it("takes the token as a hidden field with no autocomplete", () => {

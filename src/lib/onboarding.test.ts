@@ -242,7 +242,7 @@ describe("onboardingStepsOf", () => {
 
   it("opens the SSH credential list without a return", () => {
     expect(onboardingStepsOf(EMPTY).find((step) => step.key === "ssh_key")?.action).toEqual({
-      label: "Open repositories",
+      label: "Open Git credentials",
       path: "/repositories",
       returns: false,
     });

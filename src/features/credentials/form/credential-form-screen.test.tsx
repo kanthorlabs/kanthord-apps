@@ -268,10 +268,7 @@ describe("CredentialFormScreen", () => {
     await mount("repository");
 
     expect(screen.getByText(textContent(/An ssh credential is not created here/))).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Repositories" })).toHaveAttribute(
-      "href",
-      "/repositories",
-    );
+    expect(screen.getByRole("link", { name: "Git" })).toHaveAttribute("href", "/repositories");
     expect(screen.getByText(textContent(/use Import from ~\/\.ssh\/config\./))).toBeTruthy();
   });
 
@@ -959,6 +956,21 @@ describe("CredentialFormScreen", () => {
     expect(open.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
+  it("states the container port and the code fallback of a browser sign-in", async () => {
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "codex");
+    await choosePlatform("openai-codex");
+
+    expect(
+      screen.getByText(
+        textContent(
+          "In a container, Browser sign-in needs port 1455 published to the host, for example -p 127.0.0.1:1455:1455. Without the port, start the sign-in and paste the redirect URL or the code into Code or Redirect URL.",
+        ),
+      ),
+    ).toBeTruthy();
+  });
+
   it("starts a headless openai-codex sign-in without the open button", async () => {
     vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
     vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
@@ -1000,6 +1012,7 @@ describe("CredentialFormScreen", () => {
     const select = screen.getByRole("combobox", { name: "Sign-in Mode" });
     expect(select.textContent).toContain("Headless (device code)");
     expect(screen.getByText(/Browser sign-in is not available at this address\./)).toBeTruthy();
+    expect(screen.queryByText(/In a container, Browser sign-in needs port 1455/)).toBeNull();
     await userEvent.click(select);
     const browser = await screen.findByRole("option", { name: "Browser" });
     expect(browser.getAttribute("aria-disabled")).toBe("true");

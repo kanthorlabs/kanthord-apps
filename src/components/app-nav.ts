@@ -29,7 +29,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/agents", label: "Agents", icon: Bot, group: "Workforce" },
   { to: "/workbench", label: "Workbench", icon: MessagesSquare, group: "Workforce" },
   { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Credentials" },
-  { to: "/repositories", label: "Repositories", icon: FolderGit2, group: "Credentials" },
+  { to: "/repositories", label: "Git", icon: FolderGit2, group: "Credentials" },
   { to: "/storage", label: "Storage", icon: Database, group: "Credentials" },
   { to: "/settings/prompts", label: "Prompts", icon: ScrollText, group: "Settings" },
 ];

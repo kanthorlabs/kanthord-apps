@@ -156,7 +156,7 @@ describe("OnboardingScreen", () => {
 
     await userEvent.click(
       within(await screen.findByRole("listitem", { name: "SSH key" })).getByRole("button", {
-        name: "Open repositories",
+        name: "Open Git credentials",
       }),
     );
 
