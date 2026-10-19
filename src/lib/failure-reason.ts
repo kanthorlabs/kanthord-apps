@@ -7,7 +7,7 @@ type SharedFailureReason = Exclude<ResourceFailureReason, HttpFailureReason>;
 
 const SHARED_HINTS: Readonly<Record<SharedFailureReason, string>> = {
   host_key_unknown:
-    "The server holds no pinned host key for the repository host. Open the binding and use Confirm host key. Then verify again.",
+    "Open the binding. The sheet pins the host key, or shows Confirm host key. Then verify again.",
   key_refused:
     "The repository host refused the SSH key. Add the public key of the SSH credential to the repository as a deploy key with write access. Then verify again.",
   repository_not_found:

@@ -45,8 +45,10 @@ describe("failure reason hint", () => {
     expect(failureReasonHint("host_key_unknown", "repository")).toContain("host key");
   });
 
-  it("names Confirm host key of the binding sheet for an unknown host key", () => {
-    expect(failureReasonHint("host_key_unknown", "repository")).toContain("Confirm host key");
+  it("names the pin flow of the binding sheet for an unknown host key", () => {
+    expect(failureReasonHint("host_key_unknown", "repository")).toBe(
+      "Open the binding. The sheet pins the host key, or shows Confirm host key. Then verify again.",
+    );
   });
 
   it("gives the hint of a changed host key", () => {
