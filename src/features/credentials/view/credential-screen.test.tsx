@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
+import * as workersApi from "@/api/resources/workers";
 import type {
+  AgentSummary,
   CredentialComponent,
   CredentialPlatformEntry,
   CredentialPlatformList,
@@ -15,6 +17,7 @@ import type {
 } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
+vi.mock("@/api/resources/workers");
 vi.mock("sonner", async (importOriginal) => ({
   ...(await importOriginal<typeof Sonner>()),
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
@@ -128,9 +131,82 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(credentialsApi.readCredential).mockResolvedValue(ROUTER);
   vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
+  vi.mocked(workersApi.listAgents).mockResolvedValue([]);
 });
 
+const AGENTS: readonly AgentSummary[] = [
+  { agentName: "re@1", workerNames: ["reviewer@1"], enablement: null },
+  { agentName: "swe@1", workerNames: ["coder@1"], enablement: null },
+];
+
 describe("CredentialScreen", () => {
+  it("enables every agent that is not enabled with the credential in one sheet", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue(AGENTS);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen-plus", reasoning_efforts: ["off", "medium", "high"] },
+    ]);
+    vi.mocked(workersApi.putAgentEnablement).mockImplementation((agentName) =>
+      Promise.resolve({
+        agent_name: agentName,
+        state: "enabled",
+        agent_providers: [],
+        default_configuration: {
+          agent_provider: "router",
+          model_identifier: "qwen-plus",
+          reasoning_effort: "medium",
+        },
+        fallback_configurations: [],
+        revision: 1,
+      }),
+    );
+    mount();
+
+    const section = (await screen.findByRole("heading", { name: "Agents" })).closest(
+      "[data-slot='card']",
+    ) as HTMLElement;
+    expect(await within(section).findByText("Not enabled: re@1, swe@1")).toBeTruthy();
+    await userEvent.click(within(section).getByRole("button", { name: "Enable agents" }));
+    const sheet = await screen.findByRole("dialog", { name: "Enable agents with router" });
+    expect(within(sheet).getByRole("switch", { name: "re@1" })).toBeChecked();
+    expect(within(sheet).getByRole("switch", { name: "swe@1" })).toBeChecked();
+    await waitFor(() =>
+      expect(within(sheet).getByRole("combobox", { name: "Reasoning effort" })).toHaveTextContent(
+        "medium",
+      ),
+    );
+    await userEvent.click(within(sheet).getByRole("button", { name: "Enable agents" }));
+
+    await waitFor(() => expect(workersApi.putAgentEnablement).toHaveBeenCalledTimes(2));
+    expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("swe@1", {
+      agent_providers: [{ name: "router", provider: "openai-compatible", credential: "router" }],
+      default_configuration: {
+        agent_provider: "router",
+        model_identifier: "qwen-plus",
+        reasoning_effort: "medium",
+      },
+      fallback_configurations: [],
+    });
+    expect(toast.success).toHaveBeenCalledWith(
+      "Enabled re@1 at revision 1. Enabled swe@1 at revision 1.",
+    );
+  });
+
+  it("disables Enable agents and says why when every agent is enabled", async () => {
+    mount();
+
+    const section = (await screen.findByRole("heading", { name: "Agents" })).closest(
+      "[data-slot='card']",
+    ) as HTMLElement;
+
+    expect(
+      await within(section).findByText("Every agent of the hosted workers is enabled."),
+    ).toBeTruthy();
+    expect(within(section).getByRole("button", { name: "Enable agents" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
   it("lists every revision newest first with its state and metadata", async () => {
     mount();
 

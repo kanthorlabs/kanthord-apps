@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { useEnablementCreate } from "../use-enablement-create";
+import { UnhealthyCredentialDialog } from "./unhealthy-credential-dialog";
 
 interface EnablementFormProps {
   readonly agentName: string;
@@ -27,6 +28,9 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
       }}
     >
       <FieldGroup className="md:grid md:grid-cols-2">
+        <p className="text-sm text-muted-foreground md:col-span-2">
+          An agent provider joins an LLM credential and a model to an agent.
+        </p>
         {form.failure !== null && (
           <Alert variant="destructive" className="md:col-span-2">
             <AlertTitle>The agent was not enabled.</AlertTitle>
@@ -88,6 +92,12 @@ export function EnablementForm({ agentName, reload }: EnablementFormProps) {
           Enable agent
         </Button>
       </FieldGroup>
+      <UnhealthyCredentialDialog
+        agentName={agentName}
+        credential={form.unhealthyCredential}
+        onConfirm={form.confirmUnhealthy}
+        onCancel={form.cancelUnhealthy}
+      />
     </form>
   );
 }

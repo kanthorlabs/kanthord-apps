@@ -1,4 +1,4 @@
-import type { AgentEnablementPutBody, Credential, ReasoningEffort } from "@/api/types";
+import type { AgentEnablementPutBody, AgentModel, Credential, ReasoningEffort } from "@/api/types";
 import { providerOfCredential } from "./agent-provider-draft";
 import { REASONING_EFFORTS } from "./binding-draft";
 
@@ -27,6 +27,21 @@ const UNCHOSEN = "Choose a value.";
 
 export function reasoningEffortOf(value: string | null): ReasoningEffort | "" {
   return REASONING_EFFORTS.find((effort) => effort === value) ?? "";
+}
+
+const DEFAULT_EFFORT: ReasoningEffort = "medium";
+
+export function enablementEffortOf(
+  current: ReasoningEffort | "",
+  modelIdentifier: string,
+  models: readonly AgentModel[],
+): ReasoningEffort | "" {
+  const efforts = models.find(
+    (model) => model.model_identifier === modelIdentifier,
+  )?.reasoning_efforts;
+  if (efforts === undefined) return "";
+  if (current !== "" && efforts.includes(current)) return current;
+  return efforts.includes(DEFAULT_EFFORT) ? DEFAULT_EFFORT : "";
 }
 
 export function enablementBodyOf(

@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
-import { listAllCredentials } from "@/api/resources/credentials";
+import { listAllCredentials, verifyCredential } from "@/api/resources/credentials";
 import {
   listAgentEnablements,
   listCredentialModels,
   putAgentEnablement,
 } from "@/api/resources/workers";
-import type { AgentModel } from "@/api/types";
+import type { AgentModel, HealthEntry } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import {
   agentProviderCredentials,
@@ -20,12 +20,12 @@ import { credentialLabel } from "@/lib/credential-label";
 import {
   EMPTY_ENABLEMENT,
   enablementBodyOf,
+  enablementEffortOf,
   reasoningEffortOf,
   type EnablementDraft,
   type EnablementErrors,
 } from "@/lib/enablement-draft";
 import {
-  effortAfterModelChange,
   effortOptions,
   modelAfterProviderChange,
   modelOptions,
@@ -43,12 +43,15 @@ export interface EnablementCreateState {
   readonly credentialsMissing: boolean;
   readonly failure: string | null;
   readonly submitting: boolean;
+  readonly unhealthyCredential: string | null;
   readonly nameInput: RefObject<HTMLInputElement | null>;
   readonly setName: (name: string) => void;
   readonly selectCredential: (value: string | null) => void;
   readonly selectModel: (value: string | null) => void;
   readonly selectReasoningEffort: (value: string | null) => void;
   readonly submit: () => void;
+  readonly confirmUnhealthy: () => void;
+  readonly cancelUnhealthy: () => void;
 }
 
 export const ENABLEMENT_HASH = "#enablement";
@@ -60,6 +63,10 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const [errors, setErrors] = useState<EnablementErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [unhealthyCredential, setUnhealthyCredential] = useState<string | null>(null);
+  const health = useRef<HealthEntry | null>(null);
+  const pickedCredential = useRef("");
+  const unhealthyConfirmed = useRef(false);
   const credentials = useResource(() => listAllCredentials("llm"), []);
   const usable = agentProviderCredentials(credentials.data ?? []);
   const enablements = useResource(listAgentEnablements, []);
@@ -78,6 +85,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const selectCredential = useCallback(
     (value: string | null) => {
       const credential = value ?? "";
+      pickedCredential.current = credential;
       const knownName = providerNameOfCredential(enablements.data ?? [], credential);
       const previousPrefill = prefilledName.current;
       prefilledName.current = knownName;
@@ -89,6 +97,15 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
       }));
       setModels(null);
       setModelsFailure(null);
+      health.current = null;
+      if (credential !== "") {
+        verifyCredential("llm", credential).then(
+          (entry) => {
+            if (pickedCredential.current === credential) health.current = entry;
+          },
+          () => undefined,
+        );
+      }
       const provider = providerOfCredential(usable, credential);
       if (provider === null) return;
       listCredentialModels(provider, credential).then(
@@ -99,11 +116,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
             return {
               ...current,
               modelIdentifier,
-              reasoningEffort: effortAfterModelChange(
-                current.reasoningEffort,
-                modelIdentifier,
-                listed,
-              ),
+              reasoningEffort: enablementEffortOf(current.reasoningEffort, modelIdentifier, listed),
             };
           });
           setModels(listed);
@@ -120,7 +133,7 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
       setDraft((current) => ({
         ...current,
         modelIdentifier: value,
-        reasoningEffort: effortAfterModelChange(current.reasoningEffort, value, models ?? []),
+        reasoningEffort: enablementEffortOf(current.reasoningEffort, value, models ?? []),
       }));
     },
     [models],
@@ -139,6 +152,11 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
       setErrors(result.errors);
       return;
     }
+    if (health.current?.status === "unhealthy" && !unhealthyConfirmed.current) {
+      setUnhealthyCredential(draft.credential);
+      return;
+    }
+    unhealthyConfirmed.current = false;
     setErrors(NO_ERRORS);
     setFailure(null);
     setSubmitting(true);
@@ -155,6 +173,14 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     );
   }, [submitting, draft, usable, agentName, reload]);
 
+  const confirmUnhealthy = useCallback(() => {
+    unhealthyConfirmed.current = true;
+    setUnhealthyCredential(null);
+    submit();
+  }, [submit]);
+
+  const cancelUnhealthy = useCallback(() => setUnhealthyCredential(null), []);
+
   return {
     draft,
     errors,
@@ -170,11 +196,14 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
     credentialsMissing: credentials.data !== null && usable.length === 0,
     failure,
     submitting,
+    unhealthyCredential,
     nameInput,
     setName,
     selectCredential,
     selectModel,
     selectReasoningEffort,
     submit,
+    confirmUnhealthy,
+    cancelUnhealthy,
   };
 }

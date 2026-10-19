@@ -129,6 +129,10 @@ function mount(hash = "") {
 describe("AgentScreen", () => {
   beforeEach(() => {
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "model-list read",
+    });
     vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([]);
     vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
       Promise.resolve(settingsOf(target)),
@@ -597,6 +601,72 @@ describe("AgentScreen", () => {
 
     expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
     expect(within(form).getAllByText("Choose a value.").length).toBeGreaterThan(0);
+  });
+
+  it("defaults the reasoning effort to medium when the first model lists it", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "gpt-5", reasoning_efforts: ["minimal", "medium", "high"] },
+      { model_identifier: "glm-4.6", reasoning_efforts: ["minimal"] },
+    ]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await choose("LLM credential", "router-main (openrouter)");
+    const effort = within(form).getByRole("combobox", { name: "Reasoning effort" });
+    await waitFor(() => expect(effort).toHaveTextContent("medium"));
+    await choose("Model identifier", "glm-4.6");
+
+    await waitFor(() => expect(effort).toHaveTextContent("Choose"));
+  });
+
+  it("asks before it enables the agent with an unhealthy credential", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "model-list read",
+    });
+    vi.mocked(workersApi.putAgentEnablement)
+      .mockClear()
+      .mockResolvedValue({ ...ENABLEMENT, revision: 1 });
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["medium"] },
+    ]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
+    await choose("LLM credential", "router-main (openrouter)");
+    expect(credentialsApi.verifyCredential).toHaveBeenCalledWith("llm", "router-main");
+    await waitFor(() =>
+      expect(within(form).getByRole("combobox", { name: "Reasoning effort" })).toHaveTextContent(
+        "medium",
+      ),
+    );
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+    const guard = await screen.findByRole("alertdialog", {
+      name: "Enable re@1 with an unhealthy credential?",
+    });
+    await userEvent.click(within(guard).getByRole("button", { name: "Keep editing" }));
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
+
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Enable anyway" }));
+
+    await waitFor(() => expect(workersApi.putAgentEnablement).toHaveBeenCalledOnce());
+  });
+
+  it("explains that an agent provider joins a credential and a model to an agent", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+
+    expect(
+      within(form).getByText("An agent provider joins an LLM credential and a model to an agent."),
+    ).toBeTruthy();
   });
 
   it("disables an enabled agent at its revision", async () => {

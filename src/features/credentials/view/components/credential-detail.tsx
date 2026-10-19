@@ -1,10 +1,11 @@
-import { ArchiveIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { ArchiveIcon, BotIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isArchived } from "@/lib/credential-revisions";
 import { platformEntryOf } from "@/lib/credential-platforms";
 import { CheckStatusBadge } from "../../components/check-status-badge";
@@ -15,9 +16,11 @@ import type { CredentialCheck } from "../../use-credential-check";
 import { useCredentialPlatforms } from "../../use-credential-platforms";
 import { useCredentialRotate } from "../../use-credential-rotate";
 import { useMetadataEdit } from "../../use-metadata-edit";
+import { useAgentEnable, type AgentEnableState } from "../use-agent-enable";
 import { useCredentialArchive } from "../use-credential-archive";
 import { useDetailCheck } from "../use-detail-check";
 import { useRevisionRevoke } from "../use-revision-revoke";
+import { AgentEnableSheet } from "./agent-enable-sheet";
 import { ArchiveDialog } from "./archive-dialog";
 import { RevisionList } from "./revision-list";
 import { RevokeDialog } from "./revoke-dialog";
@@ -51,6 +54,85 @@ function HealthSection({ entry, check }: HealthSectionProps) {
           <dd className="min-w-0 break-words tabular-nums">{check.checkedAt}</dd>
         </dl>
       </CardContent>
+    </Card>
+  );
+}
+
+function EnableAgentsLabel() {
+  return (
+    <>
+      <BotIcon aria-hidden="true" data-icon="inline-start" />
+      Enable agents
+    </>
+  );
+}
+
+function EnableAgentsButton({ enable }: { enable: AgentEnableState }) {
+  const [open, setOpen] = useState(false);
+
+  if (enable.blocked === null) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={enable.agentNames.length === 0}
+        onClick={enable.start}
+      >
+        <EnableAgentsLabel />
+      </Button>
+    );
+  }
+
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="outline"
+            size="sm"
+            disabled
+            focusableWhenDisabled
+            className="data-disabled:opacity-50"
+          />
+        }
+        onPointerUp={() => setOpen(true)}
+      >
+        <EnableAgentsLabel />
+      </TooltipTrigger>
+      <TooltipContent>{enable.blocked}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+interface AgentsSectionProps {
+  readonly credential: Credential;
+  readonly reload: () => void;
+}
+
+function AgentsSection({ credential, reload }: AgentsSectionProps) {
+  const enable = useAgentEnable(credential, reload);
+  return (
+    <Card>
+      <CardHeader className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
+        <h3 className="font-semibold leading-none">Agents</h3>
+        <EnableAgentsButton enable={enable} />
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <p className="text-sm text-muted-foreground">
+          An agent provider joins an LLM credential and a model to an agent. Enable agents gives
+          each agent that is not enabled an agent provider for this credential.
+        </p>
+        {enable.agentNames.length > 0 && (
+          <p className="text-sm">Not enabled: {enable.agentNames.join(", ")}</p>
+        )}
+        {enable.blocked !== null && <p className="text-sm">{enable.blocked}</p>}
+        {enable.agentsError !== null && (
+          <p role="alert" className="text-sm text-destructive">
+            {enable.agentsError}
+          </p>
+        )}
+      </CardContent>
+      <AgentEnableSheet name={credential.name} enable={enable} />
     </Card>
   );
 }
@@ -109,6 +191,9 @@ export function CredentialDetail({
         </div>
       </section>
       {!archived && <HealthSection entry={entry} check={check} />}
+      {!archived && component === "llm" && (
+        <AgentsSection credential={credential} reload={reload} />
+      )}
       <section aria-labelledby="credential-revisions" className="flex flex-col gap-2">
         <h3 id="credential-revisions" className="font-semibold">
           Revisions
