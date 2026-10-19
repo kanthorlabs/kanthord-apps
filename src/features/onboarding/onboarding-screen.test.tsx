@@ -118,16 +118,6 @@ function serveFull() {
   vi.mocked(projectsApi.readBindingSet).mockResolvedValue(FULL_SET);
 }
 
-function pageTitle(): string | null {
-  return screen.getByRole("heading", { level: 1 }).textContent;
-}
-
-function currentCrumb(): string | null {
-  const trail = screen.getByRole("navigation", { name: "breadcrumb" });
-  return within(trail).getByText((_, element) => element?.getAttribute("aria-current") === "page")
-    .textContent;
-}
-
 function stepOf(title: string): HTMLElement {
   return screen.getByRole("listitem", { name: title });
 }
@@ -202,12 +192,16 @@ describe("OnboardingScreen", () => {
     mount();
 
     expect(await screen.findByRole("heading", { level: 1, name: "Onboarding" })).toBeTruthy();
-    expect(currentCrumb()).toBe("Onboarding");
+    expect(
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Onboarding"),
+    ).toHaveAttribute("aria-current", "page");
 
     await userEvent.click(screen.getByRole("button", { name: "Skip onboarding" }));
 
-    expect(pageTitle()).toBe("Overview");
-    expect(currentCrumb()).toBe("Overview");
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Overview"),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("titles the page and the breadcrumb Overview when every step is done", async () => {
@@ -215,8 +209,10 @@ describe("OnboardingScreen", () => {
     mount();
 
     await screen.findByText("Overview body");
-    expect(pageTitle()).toBe("Overview");
-    expect(currentCrumb()).toBe("Overview");
+    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Overview"),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   it("skips to Overview and resumes Onboarding from it", async () => {
@@ -231,6 +227,7 @@ describe("OnboardingScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Resume onboarding" }));
 
     expect(screen.getByRole("heading", { level: 2, name: "Onboarding" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Onboarding" })).toBeTruthy();
     expect(window.localStorage.getItem("kanthord.onboarding.skipped")).toBeNull();
   });
 
