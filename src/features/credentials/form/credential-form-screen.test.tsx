@@ -92,11 +92,12 @@ function CredentialView() {
   );
 }
 
-async function mount(component: CredentialComponent) {
+async function mount(component: CredentialComponent, state: unknown = null) {
   const section = SECTIONS[component];
   render(
-    <MemoryRouter initialEntries={[`${section}/new`]}>
+    <MemoryRouter initialEntries={[{ pathname: `${section}/new`, state }]}>
       <Routes>
+        <Route path="/" element={<p>Onboarding view</p>} />
         <Route path={`${section}/new`} element={<CredentialFormScreen component={component} />} />
         <Route path={`${section}/:credentialName`} element={<CredentialView />} />
       </Routes>
@@ -184,6 +185,37 @@ describe("CredentialFormScreen", () => {
       metadata: null,
       secret: { key: "sk-or" },
     });
+  });
+
+  it("returns to the path of the router state after the create", async () => {
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      platform: "openrouter",
+    });
+    await mount("llm", { return_to: "/" });
+
+    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-or");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    expect(await screen.findByText("Onboarding view")).toBeTruthy();
+  });
+
+  it("opens the new credential after the create without a return path", async () => {
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      platform: "openrouter",
+    });
+    await mount("llm", { return_to: "https://evil.example/" });
+
+    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-or");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    expect(await screen.findByText("Credential view")).toBeTruthy();
+    expect(screen.queryByText("Onboarding view")).toBeNull();
   });
 
   it("creates an s3 credential with the access key shape", async () => {
@@ -589,6 +621,23 @@ describe("CredentialFormScreen", () => {
 
     expect(await screen.findByText("Credential view", undefined, { timeout: 4000 })).toBeTruthy();
     expect(credentialsApi.readCredentialLoginStatus).toHaveBeenCalledWith(SESSION.session_id);
+  });
+
+  it("returns to the path of the router state when the sign-in completes", async () => {
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue(SESSION);
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: SESSION.session_id,
+      state: "completed",
+      last_message: null,
+      failure_reason: null,
+    });
+    await mount("llm", { return_to: "/" });
+
+    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await choosePlatform("github-copilot");
+    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+
+    expect(await screen.findByText("Onboarding view", undefined, { timeout: 4000 })).toBeTruthy();
   });
 
   it("supplies a pasted code and clears the field", async () => {

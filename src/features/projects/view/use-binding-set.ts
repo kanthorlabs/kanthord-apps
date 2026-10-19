@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { readBindingSet, writeBindingSet } from "@/api/resources/projects";
 import type { BindingSet, BindingSetEntry } from "@/api/types";
 import { credentialMessage } from "@/features/credentials/credential-message";
 import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
 import { nextBindings } from "@/lib/binding-change";
+import { returnToOf } from "@/lib/return-to";
 
 const VERSION_CONFLICT = "project.binding_set.version_conflict";
 
@@ -19,6 +21,8 @@ export interface BindingSetState {
 
 export function useBindingSet(projectId: string, onSetWritten: () => void): BindingSetState {
   const resource = useResource(() => readBindingSet(projectId), [projectId]);
+  const navigate = useNavigate();
+  const returnTo = returnToOf(useLocation().state);
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +44,7 @@ export function useBindingSet(projectId: string, onSetWritten: () => void): Bind
           reload();
           onSetWritten();
           onWritten();
+          if (returnTo !== null) void navigate(returnTo);
         },
         (cause: unknown) => {
           setSaving(false);
@@ -53,7 +58,7 @@ export function useBindingSet(projectId: string, onSetWritten: () => void): Bind
         },
       );
     },
-    [saving, data, projectId, reload, onSetWritten, clearFeedback],
+    [saving, data, projectId, reload, onSetWritten, clearFeedback, returnTo, navigate],
   );
 
   return { resource, saving, conflict, error, write, clearFeedback };

@@ -20,13 +20,22 @@ function SectionSkeletons() {
   );
 }
 
-export function OverviewScreen() {
+interface OverviewScreenProps {
+  readonly onResume?: () => void;
+}
+
+export function OverviewScreen({ onResume }: OverviewScreenProps) {
   const overview = useOverview();
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
         <h2 className="text-lg font-semibold">Overview</h2>
+        {onResume !== undefined && (
+          <Button variant="link" size="sm" onClick={onResume}>
+            Resume onboarding
+          </Button>
+        )}
         {overview.status === "ready" && (
           <>
             <div className="w-full md:w-64">

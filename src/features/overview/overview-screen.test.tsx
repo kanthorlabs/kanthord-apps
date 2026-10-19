@@ -126,7 +126,7 @@ import { newUlid } from "@/lib/ulid";
 import { textContent } from "../../../test/text-content";
 import { OverviewScreen } from "./overview-screen";
 
-const NOW = Date.now();
+let NOW = 0;
 const HOUR = 3_600_000;
 
 function project(id: string, name: string): Project {
@@ -479,10 +479,10 @@ function serve(world: World) {
   vi.mocked(discardNode).mockResolvedValue({} as MissionControlResult);
 }
 
-function renderScreen(entry = "/") {
+function renderScreen(entry = "/", onResume?: () => void) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
-      <OverviewScreen />
+      <OverviewScreen onResume={onResume} />
     </MemoryRouter>,
   );
 }
@@ -495,10 +495,32 @@ function itemOf(name: string): HTMLElement {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  NOW = Date.now();
 });
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("OverviewScreen onboarding link", () => {
+  it("offers Resume onboarding while a setup step is open", async () => {
+    serve({});
+    const onResume = vi.fn();
+
+    renderScreen("/", onResume);
+    await userEvent.click(await screen.findByRole("button", { name: "Resume onboarding" }));
+
+    expect(onResume).toHaveBeenCalledOnce();
+  });
+
+  it("offers no Resume onboarding when the setup is done", async () => {
+    serve({});
+
+    renderScreen();
+
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume onboarding" })).toBeNull();
+  });
 });
 
 describe("OverviewScreen inbox", () => {
@@ -1818,7 +1840,11 @@ describe("OverviewScreen dialog focus", () => {
 });
 
 describe("OverviewScreen waiting outside kanthord", () => {
-  const AGED = NOW - 25 * 60_000;
+  let AGED = 0;
+
+  beforeEach(() => {
+    AGED = NOW - 25 * 60_000;
+  });
 
   it("lists a pull request that waits for a human merge with its text and age", async () => {
     serve({

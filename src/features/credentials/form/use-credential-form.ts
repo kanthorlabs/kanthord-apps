@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { createCredential } from "@/api/resources/credentials";
@@ -26,6 +26,7 @@ import { platformEntryOf, platformIdsOf } from "@/lib/credential-platforms";
 import { credentialDetailPath } from "@/lib/credential-sections";
 import { missingHint } from "@/lib/missing-fields";
 import type { PriorCheckState } from "@/lib/prior-check";
+import { returnToOf } from "@/lib/return-to";
 import { credentialMessage } from "../credential-message";
 import { useCredentialPlatforms } from "../use-credential-platforms";
 import { useCredentialLogin, type CredentialLoginState } from "./use-credential-login";
@@ -66,6 +67,7 @@ export function useCredentialForm(
   onCancel?: () => void,
 ): CredentialFormState {
   const navigate = useNavigate();
+  const returnTo = returnToOf(useLocation().state);
   const [name, setNameValue] = useState("");
   const platforms = useCredentialPlatforms(component);
   const [selected, setPlatform] = useState<CredentialPlatform | null>(null);
@@ -130,6 +132,8 @@ export function useCredentialForm(
         toast.success(`Created ${credential.name}.`);
         if (onCreated !== undefined) {
           onCreated(credential.name);
+        } else if (returnTo !== null) {
+          void navigate(returnTo);
         } else {
           const state: PriorCheckState | undefined =
             checked === null ? undefined : { priorCheck: checked };
@@ -141,7 +145,7 @@ export function useCredentialForm(
         setSubmitError(credentialMessage(asApiError(cause)));
       },
     );
-  }, [component, name, entry, secret, metadata, precheck, navigate, onCreated]);
+  }, [component, name, entry, secret, metadata, precheck, navigate, onCreated, returnTo]);
 
   const submit = useCallback(() => {
     if (submitting || login.starting) return;
