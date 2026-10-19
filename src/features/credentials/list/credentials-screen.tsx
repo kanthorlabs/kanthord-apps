@@ -146,7 +146,7 @@ export function CredentialsScreen({ component }: { component: CredentialComponen
     selectPlatform,
     setIncludeArchived,
   } = useCredentialList(component);
-  const sshKey = useSshKeySheet(pages.reload);
+  const sshKey = useSshKeySheet(component, pages.reload);
 
   return (
     <div className="flex flex-col gap-4">

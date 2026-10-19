@@ -569,6 +569,23 @@ describe("CredentialsScreen", () => {
     expect(await screen.findByText("Onboarding")).toBeTruthy();
   });
 
+  it("opens no SSH key sheet on the LLM credentials with the create SSH key hash", async () => {
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+    });
+    render(
+      <MemoryRouter initialEntries={[{ pathname: "/llm", hash: "#create-ssh-key" }]}>
+        <Routes>
+          <Route path="/llm" element={<CredentialsScreen component="llm" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("No credentials. Create the first one with New credential.");
+    expect(screen.queryByRole("dialog", { name: "Create SSH key" })).toBeNull();
+  });
+
   it("offers Rotate key and no secret rotate or metadata edit on an ssh row", async () => {
     vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(REPOSITORY_PLATFORMS);
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({

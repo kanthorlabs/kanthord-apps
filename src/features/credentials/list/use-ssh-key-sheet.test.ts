@@ -21,9 +21,12 @@ function wrapperAt(state: unknown, hash = "") {
 }
 
 function renderSheet(reload: () => void, state: unknown, hash = "") {
-  return renderHook(() => ({ sheet: useSshKeySheet(reload), location: useLocation() }), {
-    wrapper: wrapperAt(state, hash),
-  });
+  return renderHook(
+    () => ({ sheet: useSshKeySheet("repository", reload), location: useLocation() }),
+    {
+      wrapper: wrapperAt(state, hash),
+    },
+  );
 }
 
 describe("useSshKeySheet", () => {
