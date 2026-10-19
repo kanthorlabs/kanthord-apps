@@ -118,7 +118,7 @@ export function useMetadataEdit(
   return {
     available:
       entry !== null &&
-      entry.secret_shape !== "none" &&
+      entry.secret_shape !== "ssh_key" &&
       entry.metadata_fields.length > 0 &&
       newest !== null,
     open,

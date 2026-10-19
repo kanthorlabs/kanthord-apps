@@ -10,7 +10,7 @@ interface SecretFieldsProps {
 }
 
 export function SecretFields({ shape, draft, errors, onEdit }: SecretFieldsProps) {
-  if (shape === "none") {
+  if (shape === "ssh_key") {
     return null;
   }
   if (shape === "api_key") {

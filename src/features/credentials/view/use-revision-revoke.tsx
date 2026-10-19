@@ -5,6 +5,7 @@ import { revokeCredentialRevision } from "@/api/resources/credentials";
 import type { Credential, CredentialComponent, CredentialRevision } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { isRevocable } from "@/lib/credential-revisions";
+import { sshKeyOf } from "@/lib/ssh-key";
 import { writeFailureOf } from "../write-failure";
 
 export interface RevisionRevokeState {
@@ -72,12 +73,20 @@ export function useRevisionRevoke(
   }, [revoking, target, component, credential, reload]);
 
   const revision = target?.revision ?? 0;
+  const sshKey = credential.platform === "ssh" ? sshKeyOf(target?.metadata ?? null) : null;
   return {
     target,
     consequence: (
       <>
         Revision {revision} ends at once. Every execution that pins it is refused at its next use of{" "}
         <RecordName>{credential.name}</RecordName>. A revoke cannot be undone.
+        {credential.platform === "ssh" && (
+          <>
+            {" "}
+            After the revoke, delete the deploy key of revision {revision} at GitHub
+            {sshKey === null ? "." : `. Its fingerprint is ${sshKey.fingerprint}.`}
+          </>
+        )}
       </>
     ),
     saferPath: `Keep revision ${revision}. Custody ends it on its own after the last execution that pins it lets it go.`,

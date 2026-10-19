@@ -182,7 +182,7 @@ describe("BindingsPanel", () => {
       items: [
         {
           platform: "ssh",
-          secret_shape: "none",
+          secret_shape: "ssh_key",
           login_modes: [],
           metadata_fields: ["host", "hostname", "identity_file"],
           verifiable: true,

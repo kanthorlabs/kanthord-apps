@@ -1,4 +1,4 @@
-import { BanIcon } from "lucide-react";
+import { BanIcon, CopyIcon } from "lucide-react";
 
 import type { Credential, CredentialRevision } from "@/api/types";
 import { DataListItem } from "@/components/data-list-item";
@@ -8,6 +8,8 @@ import { ItemGroup } from "@/components/ui/item";
 import { metadataFacts } from "@/lib/credential-facts";
 import { newestLiveRevision, revisionsNewestFirst } from "@/lib/credential-revisions";
 import { utcDateTime } from "@/lib/format";
+import { sshKeyOf } from "@/lib/ssh-key";
+import { usePublicKeyCopy } from "../../use-public-key-copy";
 
 interface RevisionListProps {
   readonly credential: Credential;
@@ -17,6 +19,40 @@ interface RevisionListProps {
 
 export function RevisionList({ credential, canRevoke, onRevoke }: RevisionListProps) {
   const newest = newestLiveRevision(credential);
+  const copy = usePublicKeyCopy();
+  const sshKeyOfRevision = (revision: CredentialRevision) =>
+    credential.platform === "ssh" ? sshKeyOf(revision.metadata) : null;
+
+  const metadataFields = (revision: CredentialRevision) => {
+    const sshKey = sshKeyOfRevision(revision);
+    if (sshKey === null) {
+      return metadataFacts(credential.platform, revision.metadata).map((fact) => ({
+        label: fact.label,
+        value: <span className="break-all">{fact.value}</span>,
+      }));
+    }
+    return [
+      {
+        label: "Fingerprint",
+        value: <span className="font-mono break-all">{sshKey.fingerprint}</span>,
+      },
+      {
+        label: "Public key",
+        value: <span className="font-mono break-all">{sshKey.public_key}</span>,
+      },
+    ];
+  };
+
+  const copyAction = (revision: CredentialRevision) => {
+    const sshKey = sshKeyOfRevision(revision);
+    if (sshKey === null || revision.revision !== newest?.revision) return undefined;
+    return (
+      <Button variant="outline" size="sm" onClick={() => copy(sshKey.public_key)}>
+        <CopyIcon aria-hidden="true" data-icon="inline-start" />
+        Copy public key
+      </Button>
+    );
+  };
 
   return (
     <ItemGroup aria-label="Revisions" className="gap-2">
@@ -42,10 +78,7 @@ export function RevisionList({ credential, canRevoke, onRevoke }: RevisionListPr
               label: "Ended",
               value: revision.ended_at === null ? "—" : utcDateTime(revision.ended_at),
             },
-            ...metadataFacts(credential.platform, revision.metadata).map((fact) => ({
-              label: fact.label,
-              value: <span className="break-all">{fact.value}</span>,
-            })),
+            ...metadataFields(revision),
           ]}
           actions={
             canRevoke(revision) ? (
@@ -53,7 +86,9 @@ export function RevisionList({ credential, canRevoke, onRevoke }: RevisionListPr
                 <BanIcon aria-hidden="true" data-icon="inline-start" />
                 Revoke revision {revision.revision}
               </Button>
-            ) : undefined
+            ) : (
+              copyAction(revision)
+            )
           }
         />
       ))}

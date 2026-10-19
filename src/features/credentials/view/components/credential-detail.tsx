@@ -11,11 +11,13 @@ import { platformEntryOf } from "@/lib/credential-platforms";
 import { CheckStatusBadge } from "../../components/check-status-badge";
 import { MetadataSheet } from "../../components/metadata-sheet";
 import { RotateSheet } from "../../components/rotate-sheet";
+import { SshKeyRotateDialog } from "../../components/ssh-key-rotate-dialog";
 import { VerifyButton } from "../../components/verify-button";
 import type { CredentialCheck } from "../../use-credential-check";
 import { useCredentialPlatforms } from "../../use-credential-platforms";
 import { useCredentialRotate } from "../../use-credential-rotate";
 import { useMetadataEdit } from "../../use-metadata-edit";
+import { useSshKeyRotate } from "../../use-ssh-key-rotate";
 import { useAgentEnable, type AgentEnableState } from "../use-agent-enable";
 import { useCredentialArchive } from "../use-credential-archive";
 import { useDetailCheck } from "../use-detail-check";
@@ -153,6 +155,7 @@ export function CredentialDetail({
   const entry = platformEntryOf(useCredentialPlatforms(component).data, credential.platform);
   const rotate = useCredentialRotate(component, credential, entry, reload);
   const metadata = useMetadataEdit(component, credential, entry, reload);
+  const sshRotate = useSshKeyRotate(credential, entry, reload);
   const revoke = useRevisionRevoke(component, credential, reload);
   const archive = useCredentialArchive(component, credential);
   const archived = isArchived(credential);
@@ -173,6 +176,12 @@ export function CredentialDetail({
               <Button variant="outline" size="sm" onClick={rotate.start}>
                 <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
                 Rotate secret
+              </Button>
+            )}
+            {!archived && sshRotate.available && (
+              <Button variant="outline" size="sm" onClick={sshRotate.start}>
+                <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
+                Rotate key
               </Button>
             )}
             {!archived && metadata.available && (
@@ -207,6 +216,7 @@ export function CredentialDetail({
       {children}
       {entry !== null && <RotateSheet name={credential.name} entry={entry} rotate={rotate} />}
       {entry !== null && <MetadataSheet name={credential.name} entry={entry} edit={metadata} />}
+      {sshRotate.available && <SshKeyRotateDialog name={credential.name} rotate={sshRotate} />}
       <RevokeDialog revoke={revoke} />
       <ArchiveDialog name={credential.name} archive={archive} />
     </div>

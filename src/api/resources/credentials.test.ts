@@ -9,15 +9,19 @@ import {
   browserLoginAvailable,
   checkCredential,
   createCredential,
-  discoverSshAliases,
+  createSshKey,
   listCredentialPage,
   listCredentialPlatforms,
   listAllCredentials,
   listCredentials,
+  listHostKeys,
+  pinHostKey,
   readCredential,
   readCredentialLoginStatus,
   revokeCredentialRevision,
   rotateCredential,
+  rotateSshKey,
+  scanHostKey,
   startCredentialLogin,
   submitCredentialLoginCode,
   updateCredentialMetadata,
@@ -292,34 +296,83 @@ describe("credential mutations", () => {
   });
 });
 
-describe("discoverSshAliases", () => {
-  it("reads the ssh discover endpoint and returns the alias list", async () => {
-    const answer = {
-      items: [
-        {
-          host: "github.com",
-          hostname: "github.com",
-          port: 22,
-          identity_file: "/home/user/.ssh/id_ed25519",
-          state: "ready",
-          reason: null,
-        },
-        {
-          host: "gitlab.com",
-          hostname: "gitlab.com",
-          port: 22,
-          identity_file: null,
-          state: "refused",
-          reason: "No IdentityFile",
-        },
-      ],
-    };
-    await serve(200, [answer]);
+const SSH_KEY = {
+  name: "atlas-ssh",
+  platform: "ssh",
+  revisions: [
+    {
+      id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAD",
+      revision: 1,
+      metadata: {
+        public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA kanthord-atlas-ssh",
+        fingerprint: "SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s",
+      },
+      created_at: 1,
+      ended_at: null,
+    },
+  ],
+};
 
-    expect(await discoverSshAliases()).toEqual(answer);
-    expect(seen[0]?.method).toBe("GET");
-    expect(seen[0]?.url).toBe("/api/repository/credential/ssh/discover");
+const HOST_KEY = {
+  host: "gitlab.com",
+  public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf",
+  fingerprint: "SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8",
+  source: "keyscan",
+};
+
+describe("ssh keys", () => {
+  it("creates an SSH key with the name only and a mutation key", async () => {
+    await serve(200, [SSH_KEY]);
+
+    expect(await createSshKey({ name: "atlas-ssh" })).toEqual(SSH_KEY);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/repository/credential/ssh/key");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ name: "atlas-ssh" });
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("rotates an SSH key with the expected revision and a mutation key", async () => {
+    await serve(200, [SSH_KEY]);
+
+    await rotateSshKey("atlas ssh", { expected_revision: 1 });
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/repository/credential/atlas%20ssh/ssh/key");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ expected_revision: 1 });
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
+describe("host keys", () => {
+  it("reads every page of the host key list", async () => {
+    const second = { ...HOST_KEY, host: "github.com", source: "github_meta", created_at: 2 };
+    await serve(200, [
+      { items: [{ ...HOST_KEY, created_at: 1 }], next_cursor: "c1" },
+      { items: [second], next_cursor: null },
+    ]);
+
+    expect(await listHostKeys()).toEqual([{ ...HOST_KEY, created_at: 1 }, second]);
+    expect(seen[0]?.url).toBe("/api/repository/host-key?limit=1000");
+    expect(seen[1]?.url).toBe("/api/repository/host-key?limit=1000&cursor=c1");
+  });
+
+  it("scans a host without a mutation key", async () => {
+    await serve(200, [HOST_KEY]);
+
+    expect(await scanHostKey("gitlab.com")).toEqual(HOST_KEY);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/repository/host-key/scan");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ host: "gitlab.com" });
     expect(seen[0]?.headers["idempotency-key"]).toBeUndefined();
+  });
+
+  it("pins the confirmed fingerprint of a host with a mutation key", async () => {
+    await serve(200, [{ ...HOST_KEY, created_at: 3 }]);
+
+    await pinHostKey("gitlab.com", { fingerprint: HOST_KEY.fingerprint });
+    expect(seen[0]?.method).toBe("PUT");
+    expect(seen[0]?.url).toBe("/api/repository/host-key/gitlab.com");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ fingerprint: HOST_KEY.fingerprint });
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 });
 

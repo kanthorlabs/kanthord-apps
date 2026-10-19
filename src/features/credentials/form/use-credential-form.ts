@@ -61,7 +61,7 @@ export interface CredentialFormState {
   readonly createReady: boolean;
   readonly missingHint: string | null;
   readonly onCancel: (() => void) | null;
-  readonly sshImportPointer: boolean;
+  readonly sshKeyPointer: boolean;
   readonly setName: (name: string) => void;
   readonly selectPlatform: (value: string | null) => void;
   readonly setSecret: (secret: SecretDraft) => void;
@@ -201,7 +201,7 @@ export function useCredentialForm(
     createReady: missing.length === 0,
     missingHint: missingHint(missing, purpose),
     onCancel: onCancel ?? null,
-    sshImportPointer: component === "repository" && onCancel === undefined,
+    sshKeyPointer: component === "repository" && onCancel === undefined,
     setName,
     selectPlatform,
     setSecret,

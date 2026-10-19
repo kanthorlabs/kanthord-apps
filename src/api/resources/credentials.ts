@@ -16,11 +16,16 @@ import type {
   CredentialPlatformList,
   CredentialRotateBody,
   HealthEntry,
+  HostKey,
+  HostKeyPinBody,
+  HostKeyScan,
   Page,
-  SshDiscoverResult,
+  SshKeyCreateBody,
+  SshKeyRotateBody,
 } from "../types";
 
 const LOGIN_PATH = "/api/llm/credential/login";
+const HOST_KEY_PATH = "/api/repository/host-key";
 
 function credentialRoot(component: CredentialComponent): string {
   return `/api/${component}/credential`;
@@ -174,6 +179,37 @@ export async function listCredentials(
   return readAllPages<Credential>(credentialRoot(component), { platform });
 }
 
-export async function discoverSshAliases(): Promise<SshDiscoverResult> {
-  return request<SshDiscoverResult>("/api/repository/credential/ssh/discover");
+export async function createSshKey(body: SshKeyCreateBody): Promise<Credential> {
+  return request<Credential>(`${credentialRoot("repository")}/ssh/key`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function rotateSshKey(
+  credentialName: string,
+  body: SshKeyRotateBody,
+): Promise<Credential> {
+  return request<Credential>(`${credentialPath("repository", credentialName)}/ssh/key`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
+}
+
+export async function listHostKeys(): Promise<readonly HostKey[]> {
+  return readAllPages<HostKey>(HOST_KEY_PATH);
+}
+
+export async function scanHostKey(host: string): Promise<HostKeyScan> {
+  return request<HostKeyScan>(`${HOST_KEY_PATH}/scan`, { method: "POST", body: { host } });
+}
+
+export async function pinHostKey(host: string, body: HostKeyPinBody): Promise<HostKey> {
+  return request<HostKey>(`${HOST_KEY_PATH}/${encodeURIComponent(host)}`, {
+    method: "PUT",
+    body,
+    headers: { "idempotency-key": newUlid() },
+  });
 }

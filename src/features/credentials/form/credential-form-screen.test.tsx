@@ -264,12 +264,12 @@ describe("CredentialFormScreen", () => {
     });
   });
 
-  it("points an ssh credential of the repository form at the import of the list", async () => {
+  it("points an ssh credential of the repository form at Create SSH key of the list", async () => {
     await mount("repository");
 
     expect(screen.getByText(textContent(/An ssh credential is not created here/))).toBeTruthy();
     expect(screen.getByRole("link", { name: "Git" })).toHaveAttribute("href", "/repositories");
-    expect(screen.getByText(textContent(/use Import from ~\/\.ssh\/config\./))).toBeTruthy();
+    expect(screen.getByText(textContent(/use Create SSH key\./))).toBeTruthy();
   });
 
   it("shows no ssh pointer in the LLM form", async () => {
