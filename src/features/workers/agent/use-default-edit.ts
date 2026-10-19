@@ -8,12 +8,14 @@ import {
   type ConfigurationDraftState,
 } from "@/hooks/use-configuration-draft";
 import { asApiError } from "@/hooks/use-resource";
+import { enablementEffortOf } from "@/lib/enablement-draft";
 import { configurationOf, type ConfigurationErrors } from "@/lib/workbench-configuration";
 
 export interface DefaultEditState extends ConfigurationDraftState {
   readonly errors: ConfigurationErrors;
   readonly failure: string | null;
   readonly submitting: boolean;
+  readonly missing: readonly string[];
   readonly submit: () => void;
 }
 
@@ -24,7 +26,7 @@ export function useDefaultEdit(
   enablement: AgentEnablement,
   onSaved: () => void,
 ): DefaultEditState {
-  const configuration = useConfigurationDraft(agentName, enablement);
+  const configuration = useConfigurationDraft(agentName, enablement, enablementEffortOf);
   const { draft, switching } = configuration;
   const [errors, setErrors] = useState<ConfigurationErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<string | null>(null);
@@ -63,6 +65,11 @@ export function useDefaultEdit(
     errors,
     failure: failure ?? configuration.switchFailure,
     submitting,
+    missing: [
+      ...(draft.agentProvider === "" ? ["Agent Provider"] : []),
+      ...(draft.modelIdentifier.trim() === "" ? ["Model Identifier"] : []),
+      ...(draft.reasoningEffort === "" ? ["Reasoning Effort"] : []),
+    ],
     submit,
   };
 }

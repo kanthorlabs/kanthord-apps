@@ -902,7 +902,7 @@ describe("AgentScreen", () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: two });
     vi.mocked(workersApi.listAgentProviderModels).mockImplementation(async (_agent, provider) =>
       provider === "codex"
-        ? [{ model_identifier: "gpt-5-codex", reasoning_efforts: ["low", "high"] }]
+        ? [{ model_identifier: "gpt-5-codex", reasoning_efforts: ["low", "medium", "high"] }]
         : [{ model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off"] }],
     );
     vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...two, revision: 3 });
@@ -924,9 +924,32 @@ describe("AgentScreen", () => {
       default_configuration: {
         agent_provider: "codex",
         model_identifier: "gpt-5-codex",
-        reasoning_effort: "low",
+        reasoning_effort: "medium",
       },
       fallback_configurations: two.fallback_configurations,
     });
+  });
+
+  it("leaves the effort of an edited default empty and required when the model lacks medium", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off"] },
+      { model_identifier: "glm-4.6", reasoning_efforts: ["low", "high"] },
+    ]);
+    vi.mocked(workersApi.putAgentEnablement).mockClear();
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit default" }));
+    const sheet = await screen.findByRole("dialog");
+    await waitFor(() => expect(workersApi.listAgentProviderModels).toHaveBeenCalled());
+    await choose("Model Identifier", "glm-4.6");
+
+    const effort = within(sheet).getByRole("combobox", { name: "Reasoning Effort" });
+    await waitFor(() => expect(effort).toHaveTextContent("Choose"));
+    expect(within(sheet).getByText("Fill Reasoning Effort to save the default.")).toBeTruthy();
+    const save = within(sheet).getByRole("button", { name: "Save default" });
+    expect(save).toBeDisabled();
+    await userEvent.click(save);
+    expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
   });
 });

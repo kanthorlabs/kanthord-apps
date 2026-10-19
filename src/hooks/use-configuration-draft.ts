@@ -1,13 +1,12 @@
 import { useCallback, useState } from "react";
 
 import { listAgentProviderModels } from "@/api/resources/workers";
-import type { AgentEnablement } from "@/api/types";
+import type { AgentEnablement, AgentModel, ReasoningEffort } from "@/api/types";
 import { useAgentProviderModels } from "@/hooks/use-agent-provider-models";
 import { asApiError } from "@/hooks/use-resource";
 import { reasoningEffortOf } from "@/lib/enablement-draft";
 import {
   draftOf,
-  effortAfterModelChange,
   effortOptions,
   modelAfterProviderChange,
   modelOptions,
@@ -26,9 +25,16 @@ export interface ConfigurationDraftState {
   readonly selectReasoningEffort: (value: string | null) => void;
 }
 
+export type EffortRule = (
+  current: ReasoningEffort | "",
+  modelIdentifier: string,
+  models: readonly AgentModel[],
+) => ReasoningEffort | "";
+
 export function useConfigurationDraft(
   agentName: string,
   enablement: AgentEnablement | null,
+  effortRule: EffortRule,
 ): ConfigurationDraftState {
   const [draft, setDraft] = useState<ConfigurationDraft>(() => draftOf(enablement));
   const [switching, setSwitching] = useState(false);
@@ -48,11 +54,7 @@ export function useConfigurationDraft(
             return {
               agentProvider: value,
               modelIdentifier,
-              reasoningEffort: effortAfterModelChange(
-                current.reasoningEffort,
-                modelIdentifier,
-                models,
-              ),
+              reasoningEffort: effortRule(current.reasoningEffort, modelIdentifier, models),
             };
           });
         },
@@ -62,7 +64,7 @@ export function useConfigurationDraft(
         },
       );
     },
-    [agentName, draft.agentProvider, switching],
+    [agentName, draft.agentProvider, switching, effortRule],
   );
 
   const selectModel = useCallback(
@@ -71,14 +73,10 @@ export function useConfigurationDraft(
       setDraft((current) => ({
         ...current,
         modelIdentifier: value,
-        reasoningEffort: effortAfterModelChange(
-          current.reasoningEffort,
-          value,
-          providerModels.models ?? [],
-        ),
+        reasoningEffort: effortRule(current.reasoningEffort, value, providerModels.models ?? []),
       }));
     },
-    [providerModels.models],
+    [providerModels.models, effortRule],
   );
 
   const selectReasoningEffort = useCallback((value: string | null) => {

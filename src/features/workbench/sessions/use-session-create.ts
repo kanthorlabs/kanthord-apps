@@ -7,7 +7,11 @@ import {
   type ConfigurationDraftState,
 } from "@/hooks/use-configuration-draft";
 import { asApiError } from "@/hooks/use-resource";
-import { configurationOf, type ConfigurationErrors } from "@/lib/workbench-configuration";
+import {
+  configurationOf,
+  effortAfterModelChange,
+  type ConfigurationErrors,
+} from "@/lib/workbench-configuration";
 
 export interface SessionCreateState extends ConfigurationDraftState {
   readonly errors: ConfigurationErrors;
@@ -23,7 +27,7 @@ export function useSessionCreate(
   enablement: AgentEnablement | null,
   onCreated: (session: WorkbenchSession) => void,
 ): SessionCreateState {
-  const configuration = useConfigurationDraft(agentName, enablement);
+  const configuration = useConfigurationDraft(agentName, enablement, effortAfterModelChange);
   const { draft, switching } = configuration;
   const [errors, setErrors] = useState<ConfigurationErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<string | null>(null);
