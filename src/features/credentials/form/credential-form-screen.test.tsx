@@ -202,6 +202,27 @@ describe("CredentialFormScreen", () => {
     expect(await screen.findByText("Onboarding view")).toBeTruthy();
   });
 
+  it("stays on the form when the create with a return path fails", async () => {
+    vi.mocked(credentialsApi.createCredential).mockRejectedValue(
+      new ApiError("conflict", "Credential name already exists.", 409, "credential.name.conflict", {
+        id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
+      }),
+    );
+    await mount("llm", { return_to: "/" });
+
+    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-or");
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    expect(
+      await screen.findByText(
+        "A credential with this name already exists. Choose another name. The holder is credential_01J9ZQ4XKM3B6V8N2R5T7W0YAC.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText("Onboarding view")).toBeNull();
+  });
+
   it("opens the new credential after the create without a return path", async () => {
     vi.mocked(credentialsApi.createCredential).mockResolvedValue({
       ...ROUTER,

@@ -67,6 +67,21 @@ describe("ProjectFormScreen", () => {
     expect(screen.queryByText("Project view")).toBeNull();
   });
 
+  it("stays on the form when the create with a return path fails", async () => {
+    vi.mocked(projectsApi.createProject).mockRejectedValue(
+      new ApiError("conflict", "Another project already uses the requested name.", 409),
+    );
+    mount("/projects/new", { return_to: "/" });
+
+    await userEvent.type(await screen.findByLabelText("Name"), "kanthord");
+    await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(
+      await screen.findByText("Another project already uses the requested name."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Onboarding view")).toBeNull();
+  });
+
   it("refuses a name outside the contract pattern before the call", async () => {
     mount("/projects/new");
 

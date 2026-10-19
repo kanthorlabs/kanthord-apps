@@ -3,6 +3,7 @@ import { createElement, type ReactNode } from "react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/api/errors";
 import * as projectsApi from "@/api/resources/projects";
 import type { BindingSetEntry } from "@/api/types";
 
@@ -47,6 +48,21 @@ describe("useBindingSet", () => {
 
     await waitFor(() => expect(result.current.location.pathname).toBe("/"));
     expect(onWritten).toHaveBeenCalledOnce();
+  });
+
+  it("stays on the project when the save with a return path fails", async () => {
+    vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    const { result } = mount({ return_to: "/" });
+    await waitFor(() => expect(result.current.bindings.resource.data).not.toBeNull());
+    const onWritten = vi.fn();
+
+    act(() => result.current.bindings.write("general-main", WORKER, onWritten));
+
+    await waitFor(() => expect(result.current.bindings.error).not.toBeNull());
+    expect(onWritten).not.toHaveBeenCalled();
+    expect(result.current.location.pathname).toBe(PATH);
   });
 
   it("stays on the project after the save without a return path", async () => {
