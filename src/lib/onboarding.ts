@@ -18,6 +18,7 @@ export interface OnboardingStep {
   readonly title: string;
   readonly description: string;
   readonly state: OnboardingStepState;
+  readonly read: boolean;
   readonly action: OnboardingAction;
 }
 
@@ -38,6 +39,7 @@ interface StepDraft {
   readonly title: string;
   readonly description: string;
   readonly done: boolean;
+  readonly read: boolean;
   readonly action: OnboardingAction;
 }
 
@@ -58,8 +60,22 @@ function isEnabled(agent: AgentSummary): boolean {
   return agent.enablement?.state === "enabled";
 }
 
-function agentsAction(agents: readonly AgentSummary[] | null): OnboardingAction {
-  const first = (agents ?? []).find((agent) => !isEnabled(agent));
+function boundWorkersOf(target: ProjectBindingSet | undefined): ReadonlySet<string> {
+  return new Set(
+    Object.values(target?.bindingSet?.bindings ?? {}).flatMap((binding) =>
+      binding.kind === "worker" ? [binding.config.worker] : [],
+    ),
+  );
+}
+
+function agentsAction(
+  agents: readonly AgentSummary[] | null,
+  boundWorkers: ReadonlySet<string>,
+): OnboardingAction {
+  const disabled = (agents ?? []).filter((agent) => !isEnabled(agent));
+  const first =
+    disabled.find((agent) => agent.workerNames.some((worker) => boundWorkers.has(worker))) ??
+    disabled[0];
   if (first === undefined) return { label: "Open agents", path: "/agents", returns: true };
   return {
     label: `Enable ${first.agentName}`,
@@ -72,14 +88,21 @@ function holdsBinding(entry: ProjectBindingSet, kind: BindingSetKind): boolean {
   return Object.values(entry.bindingSet?.bindings ?? {}).some((binding) => binding.kind === kind);
 }
 
+function targetProjectOf(
+  projects: readonly ProjectBindingSet[] | null,
+): ProjectBindingSet | undefined {
+  const entries = projects ?? [];
+  return entries.find((entry) => holdsBinding(entry, "repository")) ?? entries[0];
+}
+
 function bindingStep(
   projects: readonly ProjectBindingSet[] | null,
+  target: ProjectBindingSet | undefined,
   kind: BindingSetKind,
-): { readonly done: boolean; readonly action: OnboardingAction } {
-  const entries = projects ?? [];
-  const target = entries.find((entry) => !holdsBinding(entry, kind)) ?? entries[0];
+): Pick<StepDraft, "done" | "read" | "action"> {
   return {
-    done: entries.some((entry) => holdsBinding(entry, kind)),
+    done: target !== undefined && holdsBinding(target, kind),
+    read: projects !== null && (target === undefined || target.bindingSet !== null),
     action:
       target === undefined
         ? NEW_PROJECT
@@ -92,14 +115,14 @@ function bindingStep(
 }
 
 function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
-  const repository = bindingStep(facts.projects, "repository");
-  const worker = bindingStep(facts.projects, "worker");
+  const target = targetProjectOf(facts.projects);
   return [
     {
       key: "llm_credential",
       title: "LLM credential",
       description: "Add the API key or the sign-in that the agents use to call a model.",
       done: hasLiveCredential(facts.llmCredentials),
+      read: facts.llmCredentials !== null,
       action: { label: "New LLM credential", path: "/llm/new", returns: true },
     },
     {
@@ -107,7 +130,8 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
       title: "Enabled agents",
       description: "Enable an agent of the hosted workers with an LLM credential.",
       done: (facts.agents ?? []).some(isEnabled),
-      action: agentsAction(facts.agents),
+      read: facts.agents !== null,
+      action: agentsAction(facts.agents, boundWorkersOf(target)),
     },
     {
       key: "ssh_key",
@@ -115,6 +139,7 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
       description:
         "Add the SSH key that clones and pushes the repository. Then open Overview to return here.",
       done: hasLiveCredential(facts.repositoryCredentials, "ssh"),
+      read: facts.repositoryCredentials !== null,
       action: { label: "Open repositories", path: "/repositories", returns: false },
     },
     {
@@ -122,37 +147,39 @@ function draftsOf(facts: OnboardingFacts): readonly StepDraft[] {
       title: "Project",
       description: "Create the project that holds the mission and its bindings.",
       done: (facts.projects ?? []).length > 0,
+      read: facts.projects !== null,
       action: NEW_PROJECT,
     },
     {
       key: "repository_binding",
       title: "Repository binding",
       description: "Bind the repository that the agents work on to the project.",
-      ...repository,
+      ...bindingStep(facts.projects, target, "repository"),
     },
     {
       key: "worker_bindings",
       title: "Worker bindings",
       description: "Bind the workers that claim the nodes of the mission.",
-      ...worker,
+      ...bindingStep(facts.projects, target, "worker"),
     },
   ];
 }
 
 export function onboardingStepsOf(facts: OnboardingFacts): readonly OnboardingStep[] {
   const drafts = draftsOf(facts);
-  const next = drafts.findIndex((draft) => !draft.done);
+  const next = drafts.findIndex((draft) => draft.read && !draft.done);
   return drafts.map((draft, index) => ({
     key: draft.key,
     title: draft.title,
     description: draft.description,
     state: draft.done ? "done" : index === next ? "next" : "open",
+    read: draft.read,
     action: draft.action,
   }));
 }
 
 export function hasOpenStep(steps: readonly OnboardingStep[]): boolean {
-  return steps.some((step) => step.state !== "done");
+  return steps.some((step) => step.read && step.state !== "done");
 }
 
 export type StepBadgeVariant = "default" | "secondary" | "outline";

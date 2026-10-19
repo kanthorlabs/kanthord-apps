@@ -199,8 +199,19 @@ describe("OnboardingScreen", () => {
     expect(screen.queryByRole("button", { name: "Resume onboarding" })).toBeNull();
   });
 
-  it("names a failed read and keeps the other steps", async () => {
+  it("shows Overview on a set-up install when a read failed", async () => {
     serveFull();
+    vi.mocked(workersApi.listAgents).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount();
+
+    expect(await screen.findByText("Overview body")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Resume onboarding" })).toBeNull();
+  });
+
+  it("names a failed read and keeps the failed step open", async () => {
+    serveEmpty();
     vi.mocked(workersApi.listAgents).mockRejectedValue(
       new ApiError("unreachable", "The daemon did not answer.", 0),
     );
@@ -208,8 +219,7 @@ describe("OnboardingScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "Onboarding" })).toBeTruthy();
     expect(screen.getByText(/agents \(The daemon did not answer\.\)/)).toBeTruthy();
-    expect(within(stepOf("LLM credential")).getByText("Done")).toBeTruthy();
-    expect(within(stepOf("Enabled agents")).getByText("Next")).toBeTruthy();
-    expect(within(stepOf("Worker bindings")).getByText("Done")).toBeTruthy();
+    expect(within(stepOf("LLM credential")).getByText("Next")).toBeTruthy();
+    expect(within(stepOf("Enabled agents")).getByText("Open")).toBeTruthy();
   });
 });

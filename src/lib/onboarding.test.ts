@@ -141,20 +141,79 @@ describe("onboardingStepsOf", () => {
     });
   });
 
-  it("keeps a step open when its read failed", () => {
-    expect(
-      statesOf({ llmCredentials: null, agents: null, repositoryCredentials: null, projects: null }),
-    ).toEqual([
-      "llm_credential:next",
+  it("keeps a failed step open and out of the gate", () => {
+    const steps = onboardingStepsOf({
+      llmCredentials: null,
+      agents: null,
+      repositoryCredentials: null,
+      projects: null,
+    });
+
+    expect(steps.map((step) => `${step.key}:${step.state}`)).toEqual([
+      "llm_credential:open",
       "agents:open",
       "ssh_key:open",
       "project:open",
       "repository_binding:open",
       "worker_bindings:open",
     ]);
+    expect(hasOpenStep(steps)).toBe(false);
   });
 
-  it("opens the bindings of the first project that lacks the binding", () => {
+  it("marks the first read step next when an earlier read failed", () => {
+    const steps = onboardingStepsOf({ ...FULL, llmCredentials: null, repositoryCredentials: [] });
+
+    expect(steps.map((step) => `${step.key}:${step.state}`).slice(0, 3)).toEqual([
+      "llm_credential:open",
+      "agents:done",
+      "ssh_key:next",
+    ]);
+    expect(hasOpenStep(steps)).toBe(true);
+  });
+
+  it("closes the gate on a set-up install with a failed read", () => {
+    expect(hasOpenStep(onboardingStepsOf({ ...FULL, agents: null }))).toBe(false);
+  });
+
+  it("derives both binding steps from the project that holds a repository binding", () => {
+    const second = { ...PROJECT, id: "prj-2", name: "atlas" };
+    const steps = onboardingStepsOf({
+      ...FULL,
+      projects: [
+        {
+          project: second,
+          bindingSet: {
+            version: 1,
+            bindings: { "general-main": FULL_SET.bindings["general-main"]! },
+          },
+        },
+        {
+          project: PROJECT,
+          bindingSet: {
+            version: 1,
+            bindings: { "kanthord-repo": FULL_SET.bindings["kanthord-repo"]! },
+          },
+        },
+      ],
+    });
+
+    expect(steps.find((step) => step.key === "repository_binding")?.state).toBe("done");
+    expect(steps.find((step) => step.key === "worker_bindings")).toMatchObject({
+      state: "next",
+      action: { path: "/projects/prj-1?tab=bindings" },
+    });
+  });
+
+  it("prefers the disabled agent of a bound worker", () => {
+    const steps = onboardingStepsOf({
+      ...FULL,
+      agents: [{ ...agent("re@1", null), workerNames: ["reviewer@1"] }, agent("swe@1", null)],
+    });
+
+    expect(steps.find((step) => step.key === "agents")?.action.label).toBe("Enable swe@1");
+  });
+
+  it("opens the bindings of the first project while none holds a binding", () => {
     const second = { ...PROJECT, id: "prj-2", name: "atlas" };
     const steps = onboardingStepsOf({
       ...FULL,
