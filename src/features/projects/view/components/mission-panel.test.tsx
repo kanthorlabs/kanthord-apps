@@ -506,4 +506,72 @@ describe("MissionPanel", () => {
     expect(await screen.findByText("plan.md: A plan file breaks the import grammar.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Apply import" })).toBeDisabled();
   });
+
+  it("states that the project has no bindings for an unknown binding", async () => {
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      retirements: [],
+      violations: [
+        {
+          code: "mission.node.bindings_invalid",
+          message: "Invalid node bindings.",
+          filename: "sample.md",
+          node_id: null,
+          details: { binding: "your-repository-binding" },
+        },
+      ],
+    });
+    await previewImport();
+
+    expect(
+      await screen.findByText(
+        textContent(
+          "sample.md: No binding named your-repository-binding. The project has no bindings.",
+        ),
+      ),
+    ).toBeTruthy();
+  });
+
+  it("names the unknown binding of a violation and lists the current bindings", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      version: 1,
+      bindings: {
+        "acme-api": {
+          kind: "repository",
+          config: {
+            available: true,
+            platform: "github",
+            address: "git@github.com:acme/api.git",
+            strategy: { base_branch: "main" },
+            ssh_credential: "acme-ssh",
+          },
+        },
+      },
+    });
+    vi.mocked(missionApi.previewMissionImport).mockResolvedValue({
+      ...PREVIEW,
+      retirements: [],
+      violations: [
+        {
+          code: "mission.node.bindings_invalid",
+          message: "Invalid node bindings.",
+          filename: "sample.md",
+          node_id: null,
+          details: { binding: "your-repository-binding" },
+        },
+      ],
+    });
+    await previewImport();
+
+    expect(
+      await screen.findByText(
+        textContent(
+          "sample.md: No binding named your-repository-binding. Current bindings: acme-api.",
+        ),
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("your-repository-binding").tagName).toBe("STRONG");
+    expect(screen.getByText("acme-api").tagName).toBe("STRONG");
+    expect(screen.getByRole("button", { name: "Apply import" })).toBeDisabled();
+  });
 });
