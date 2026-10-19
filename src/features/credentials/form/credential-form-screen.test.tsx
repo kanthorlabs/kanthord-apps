@@ -298,15 +298,46 @@ describe("CredentialFormScreen", () => {
     );
   });
 
-  it("groups the LLM platforms into the checked before save group and the other group", async () => {
+  it("groups the LLM platforms into the checked, the sign-in and the other groups", async () => {
+    await mount("llm");
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Platform" }), "t");
+    const checked = await screen.findByRole("group", { name: "Checked before save" });
+    const signIn = screen.getByRole("group", { name: "Sign in with an account" });
+    const other = screen.getByRole("group", { name: "Not checked before save" });
+    expect(within(checked).getByRole("option", { name: "openrouter" })).toBeTruthy();
+    expect(within(signIn).getByRole("option", { name: "github-copilot" })).toBeTruthy();
+    expect(within(other).getByRole("option", { name: "mistral" })).toBeTruthy();
+    expect(within(checked).queryByRole("option", { name: "github-copilot" })).toBeNull();
+    expect(within(checked).queryByRole("option", { name: "mistral" })).toBeNull();
+  });
+
+  it("renders no group that holds no platform", async () => {
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({
+      items: [entry("openrouter", "api_key", [], []), entry("mistral", "api_key", [], [], false)],
+    });
     await mount("llm");
 
     await userEvent.type(screen.getByRole("combobox", { name: "Platform" }), "r");
-    const checked = await screen.findByRole("group", { name: "Checked before save" });
-    const other = screen.getByRole("group", { name: "Other" });
-    expect(within(checked).getByRole("option", { name: "openrouter" })).toBeTruthy();
-    expect(within(other).getByRole("option", { name: "mistral" })).toBeTruthy();
-    expect(within(checked).queryByRole("option", { name: "mistral" })).toBeNull();
+    expect(await screen.findByRole("group", { name: "Checked before save" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Not checked before save" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Sign in with an account" })).toBeNull();
+  });
+
+  it("keeps the storage platforms in a flat list", async () => {
+    await mount("storage");
+
+    const input = screen.getByRole("combobox", { name: "Platform" });
+    await userEvent.clear(input);
+    await userEvent.type(input, "s");
+    expect(await screen.findByRole("option", { name: "s3" })).toBeTruthy();
+    for (const name of [
+      "Checked before save",
+      "Sign in with an account",
+      "Not checked before save",
+    ]) {
+      expect(screen.queryByRole("group", { name })).toBeNull();
+    }
   });
 
   it("offers the platforms of the section filtered by the typed id", async () => {
@@ -317,9 +348,9 @@ describe("CredentialFormScreen", () => {
     await userEvent.type(input, "open");
     const options = await screen.findAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual([
-      "openai-codex",
       "openai-compatible",
       "openrouter",
+      "openai-codex",
     ]);
     expect(screen.queryByRole("option", { name: "github" })).toBeNull();
     expect(screen.queryByRole("option", { name: "s3" })).toBeNull();

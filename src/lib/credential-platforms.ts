@@ -20,16 +20,24 @@ export interface PlatformGroup {
   readonly items: readonly CredentialPlatform[];
 }
 
+function checkedBeforeSave(entry: CredentialPlatformEntry): boolean {
+  return entry.verifiable && entry.secret_shape !== "oauth";
+}
+
+function signsIn(entry: CredentialPlatformEntry): boolean {
+  return entry.secret_shape === "oauth";
+}
+
 export function platformGroupsOf(list: CredentialPlatformList | null): readonly PlatformGroup[] {
   const items = list?.items ?? [];
+  const idsOf = (keep: (entry: CredentialPlatformEntry) => boolean) =>
+    items.filter(keep).map((entry) => entry.platform);
   const groups: readonly PlatformGroup[] = [
+    { value: "Checked before save", items: idsOf(checkedBeforeSave) },
+    { value: "Sign in with an account", items: idsOf(signsIn) },
     {
-      value: "Checked before save",
-      items: items.filter((entry) => entry.verifiable).map((entry) => entry.platform),
-    },
-    {
-      value: "Other",
-      items: items.filter((entry) => !entry.verifiable).map((entry) => entry.platform),
+      value: "Not checked before save",
+      items: idsOf((entry) => !checkedBeforeSave(entry) && !signsIn(entry)),
     },
   ];
   return groups.filter((group) => group.items.length > 0);

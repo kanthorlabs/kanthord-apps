@@ -41,12 +41,30 @@ describe("platformIdsOf", () => {
 });
 
 describe("platformGroupsOf", () => {
-  it("puts the verifiable platforms first and keeps the answer order in each group", () => {
+  const copilot = {
+    ...ANTHROPIC,
+    platform: "github-copilot",
+    secret_shape: "oauth",
+    login_modes: ["device"],
+  } as const;
+
+  it("groups the checked, the sign-in and the other platforms in the answer order", () => {
     const openai = { ...ANTHROPIC, platform: "openai" };
     const mistral = { ...GATEWAY, platform: "mistral", metadata_fields: [] };
-    expect(platformGroupsOf({ items: [GATEWAY, ANTHROPIC, mistral, openai] })).toEqual([
+    expect(platformGroupsOf({ items: [GATEWAY, copilot, ANTHROPIC, mistral, openai] })).toEqual([
       { value: "Checked before save", items: ["anthropic", "openai"] },
-      { value: "Other", items: ["cloudflare-ai-gateway", "mistral"] },
+      { value: "Sign in with an account", items: ["github-copilot"] },
+      { value: "Not checked before save", items: ["cloudflare-ai-gateway", "mistral"] },
+    ]);
+  });
+
+  it("puts a verifiable oauth platform under the sign-in group only", () => {
+    const groups = platformGroupsOf({ items: [copilot, ANTHROPIC] });
+    expect(groups.find((group) => group.value === "Checked before save")?.items).not.toContain(
+      "github-copilot",
+    );
+    expect(groups.find((group) => group.value === "Sign in with an account")?.items).toEqual([
+      "github-copilot",
     ]);
   });
 
