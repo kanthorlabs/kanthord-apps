@@ -129,8 +129,14 @@ export function BindingItem({
             </Fragment>
           ))}
         </ItemDescription>
-        {showVerify && verifyState.addressHint !== null && (
-          <p className="text-sm break-words">{verifyState.addressHint}</p>
+        {showVerify && (
+          <p
+            role="status"
+            aria-label={`Verify hint of ${name}`}
+            className="text-sm break-words empty:hidden"
+          >
+            {verifyState.addressHint}
+          </p>
         )}
         {tags.length > 0 && (
           <ul aria-label={`Tags of ${name}`} className="flex flex-wrap gap-1">

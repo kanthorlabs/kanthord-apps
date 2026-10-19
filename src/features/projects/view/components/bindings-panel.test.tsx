@@ -840,6 +840,60 @@ describe("BindingsPanel", () => {
     expect(screen.getByText(failureReasonHint("host_key_unknown"))).toBeTruthy();
   });
 
+  it("announces the hint of the failure reason in the status region of the row", async () => {
+    vi.mocked(projectsApi.verifyBinding).mockResolvedValue({
+      address: {
+        status: "unhealthy",
+        capability: "network git read",
+        failure_reason: "key_refused",
+      },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
+      credential: null,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
+
+    expect(await screen.findByText("Address · Unhealthy")).toBeTruthy();
+    expect(screen.getByRole("status", { name: "Verify hint of kanthord-repo" })).toHaveTextContent(
+      failureReasonHint("key_refused"),
+    );
+  });
+
+  it("removes the hint of an earlier unhealthy answer while a new Verify runs", async () => {
+    vi.mocked(projectsApi.verifyBinding).mockResolvedValueOnce({
+      address: {
+        status: "unhealthy",
+        capability: "network git read",
+        failure_reason: "host_key_unknown",
+      },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
+      credential: null,
+    });
+    mount();
+
+    const verify = await screen.findByRole("button", { name: "Verify kanthord-repo" });
+    await userEvent.click(verify);
+    expect(await screen.findByText(failureReasonHint("host_key_unknown"))).toBeTruthy();
+
+    vi.mocked(projectsApi.verifyBinding).mockReturnValueOnce(new Promise(() => {}));
+    await userEvent.click(verify);
+
+    expect(await screen.findByText("Address · Checking")).toBeTruthy();
+    expect(screen.queryByText(failureReasonHint("host_key_unknown"))).toBeNull();
+    expect(
+      screen.getByRole("status", { name: "Verify hint of kanthord-repo" }),
+    ).toBeEmptyDOMElement();
+  });
+
   it("shows no hint when Verify finds a healthy address", async () => {
     mount();
 
