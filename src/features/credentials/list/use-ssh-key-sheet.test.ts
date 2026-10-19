@@ -51,6 +51,11 @@ describe("useSshKeySheet", () => {
     const { result } = renderSheet(vi.fn(), null);
 
     expect(result.current.sheet.open).toBe(false);
+  });
+
+  it("opens the sheet on show", () => {
+    const { result } = renderSheet(vi.fn(), null);
+
     act(() => result.current.sheet.show());
 
     expect(result.current.sheet.open).toBe(true);
