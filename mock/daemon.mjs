@@ -1865,6 +1865,35 @@ const remoteFailureOf = (address) => {
   return null;
 };
 
+const repositoryRefusalOf = (config) => {
+  const host = platformHostOf(config);
+  if (host === null) {
+    return [
+      400,
+      "project.bindings.repository.address_invalid",
+      "Repository address must name an SSH host of its platform.",
+      null,
+    ];
+  }
+  if (!hostKeyPins.has(host)) {
+    return [
+      409,
+      "repository.host_key.unpinned",
+      "The SSH host holds no pinned host key.",
+      { host },
+    ];
+  }
+  if (legacySshOf(config)) {
+    return [
+      409,
+      "repository.credential.ssh_key_legacy",
+      "The SSH credential holds no generated key. Use Rotate SSH key.",
+      { credential: config.ssh_credential },
+    ];
+  }
+  return null;
+};
+
 const addressFailureOf = (config) => {
   const host = platformHostOf(config);
   if (host === null) return "address_invalid";
@@ -1937,6 +1966,8 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/instruction_files$/, (m, 
     return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
   }
   const { config } = bindingSet.bindings[binding.name];
+  const refusal = repositoryRefusalOf(config);
+  if (refusal !== null) return projectEnvelope(res, ...refusal);
   const failureReason = addressFailureOf(config);
   if (failureReason !== null) {
     return projectEnvelope(

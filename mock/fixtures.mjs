@@ -331,6 +331,16 @@ export const BINDING_SET = {
         ssh_credential: "atlas-ssh",
       },
     },
+    "alias-repo": {
+      kind: "repository",
+      config: {
+        available: true,
+        platform: "github",
+        address: "git@github-work:kanthorlabs/kanthord.git",
+        strategy: { base_branch: "main" },
+        ssh_credential: "legacy-ssh",
+      },
+    },
     "general-main": {
       kind: "worker",
       config: {
@@ -466,6 +476,15 @@ export const GRAPH_BINDINGS = {
     resource_identity: "repository:github:kanthorlabs/hostkey-mirror",
     revision: 1,
     created_at: minutes(300),
+    removed_at: null,
+  },
+  alias: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BR4",
+    name: "alias-repo",
+    kind: "repository",
+    resource_identity: "repository:github:kanthorlabs/kanthord",
+    revision: 1,
+    created_at: minutes(200),
     removed_at: null,
   },
 };
