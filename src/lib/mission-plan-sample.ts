@@ -23,7 +23,7 @@ function samplePlanFile(binding: string): MissionPlanFile {
   ].join("\n");
   return {
     filename: "sample-plan.md",
-    content: `---\n${front}\n---\n# Add a HEALTH.md file\n\n## Requirement\n\nAdd a file HEALTH.md at the root of the repository.\n\n## Criterion\n\nThe first line of HEALTH.md is \`status: ok\`.\n`,
+    content: `---\n${front}\n---\n# Add a HEALTH.md file\n\n## Requirement\n\nAdd a file HEALTH.md at the root of the repository that reports the status of the project.\n\n## Criterion\n\nThe first line of HEALTH.md is exactly \`status: ok\`, with no trailing spaces.\n`,
   };
 }
 

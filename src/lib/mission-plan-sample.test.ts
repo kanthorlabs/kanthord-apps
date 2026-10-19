@@ -45,6 +45,7 @@ describe("samplePlanOf", () => {
     expect(content).toContain(
       `\nverifications:\n  - "head -n 1 HEALTH.md | grep -qx 'status: ok'"\n---\n`,
     );
+    expect(content).toMatch(/\nverifications:\n {2}- "[^"\n]+"\n---\n/);
     expect(content).not.toMatch(/npm|\/health/);
   });
 
