@@ -200,10 +200,12 @@ describe("WorkersScreen", () => {
     ).toBeDefined();
     expect(
       screen.getByText(
-        "podman exec <container> kanthord auth jwt generate --project prj-test --binding reviewer-main --output <file>",
+        "podman exec <container> kanthord auth jwt generate --project prj-test --binding reviewer-main --output /var/lib/kanthord/reviewer-main.cli.yaml",
       ),
     ).toBeDefined();
-    expect(screen.getByText("podman cp <container>:<file> .")).toBeDefined();
+    expect(
+      screen.getByText("podman cp <container>:/var/lib/kanthord/reviewer-main.cli.yaml ."),
+    ).toBeDefined();
     expect(screen.getByText(/Choose one absolute directory/)).toBeDefined();
     expect(screen.getByText("/srv/kanthord/w1")).toBeDefined();
     expect(screen.getByText("<dir>/config/kanthord/")).toBeDefined();
