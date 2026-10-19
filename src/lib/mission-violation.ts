@@ -10,7 +10,7 @@ export type ViolationText =
     }
   | { readonly kind: "message"; readonly message: string };
 
-function unknownBindingOf(violation: MissionImportViolation): string | null {
+export function unknownBindingOf(violation: MissionImportViolation): string | null {
   if (violation.code !== BINDINGS_INVALID) return null;
   const { details } = violation;
   if (typeof details !== "object" || details === null || !("binding" in details)) return null;
@@ -19,9 +19,10 @@ function unknownBindingOf(violation: MissionImportViolation): string | null {
 
 export function violationTextOf(
   violation: MissionImportViolation,
-  bindingNames: readonly string[],
+  bindingNames: readonly string[] | null,
 ): ViolationText {
   const binding = unknownBindingOf(violation);
-  if (binding === null) return { kind: "message", message: violation.message };
+  if (binding === null || bindingNames === null)
+    return { kind: "message", message: violation.message };
   return { kind: "unknown_binding", binding, current: [...bindingNames].sort() };
 }

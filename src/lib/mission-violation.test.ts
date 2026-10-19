@@ -43,4 +43,11 @@ describe("violationTextOf", () => {
       message: "The plan breaks the grammar.",
     });
   });
+
+  it("keeps the message when the binding names are unknown", () => {
+    expect(violationTextOf(UNKNOWN_BINDING, null)).toEqual({
+      kind: "message",
+      message: "Invalid node bindings.",
+    });
+  });
 });

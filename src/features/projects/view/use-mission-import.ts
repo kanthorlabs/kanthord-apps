@@ -12,7 +12,7 @@ import { readBindingSet } from "@/api/resources/projects";
 import type { MissionImportPreview, MissionImportSnapshot } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { counted } from "@/lib/counted";
-import { violationTextOf, type ViolationText } from "@/lib/mission-violation";
+import { unknownBindingOf, violationTextOf, type ViolationText } from "@/lib/mission-violation";
 import {
   importInputOf,
   importSnapshotOf,
@@ -120,12 +120,18 @@ export function useMissionImport(projectId: string, onApplied: () => void): Miss
     readMission(projectId)
       .then(async (mission) => {
         const snapshot = importSnapshotOf(input, mission.id, mission.version, reason);
-        const [next, current, bindingSet] = await Promise.all([
+        const [next, current] = await Promise.all([
           previewMissionImport(snapshot),
           exportMissionJson(mission.id),
-          readBindingSet(projectId),
         ]);
-        const bindingNames = Object.keys(bindingSet.bindings);
+        const bindingNames = next.violations.some(
+          (violation) => unknownBindingOf(violation) !== null,
+        )
+          ? await readBindingSet(projectId).then(
+              (bindingSet) => Object.keys(bindingSet.bindings),
+              () => null,
+            )
+          : null;
         const violationLines = next.violations.map((violation) => ({
           filename: violation.filename,
           text: violationTextOf(violation, bindingNames),
