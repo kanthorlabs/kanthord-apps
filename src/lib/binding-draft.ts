@@ -118,7 +118,9 @@ export function pinnableHostOf(draft: {
   readonly platform: RepositoryPlatform;
   readonly address: string;
 }): string | null {
-  const host = GIT_ADDRESS_HOST.exec(draft.address.trim())?.[1]?.toLowerCase();
+  const address = draft.address.trim();
+  if (!REPOSITORY_ADDRESS.test(address)) return null;
+  const host = GIT_ADDRESS_HOST.exec(address)?.[1]?.toLowerCase();
   return host !== undefined && SSH_HOST_SETS[draft.platform].includes(host) ? host : null;
 }
 

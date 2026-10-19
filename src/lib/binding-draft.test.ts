@@ -253,7 +253,11 @@ describe("entryOfDraft", () => {
   });
 
   it("names the host of the address to pin only when the host set holds it", () => {
-    expect(pinnableHostOf({ platform: "github", address: "git@github.com:" })).toBe("github.com");
+    expect(pinnableHostOf({ platform: "github", address: "git@github.com:" })).toBeNull();
+    expect(pinnableHostOf({ platform: "github", address: "git@github.com:o/r" })).toBeNull();
+    expect(pinnableHostOf({ platform: "github", address: "git@github.com:o/r.git" })).toBe(
+      "github.com",
+    );
     expect(pinnableHostOf({ platform: "github", address: "git@SSH.github.com:o/r.git" })).toBe(
       "ssh.github.com",
     );
