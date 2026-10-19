@@ -20,7 +20,7 @@ import { AgentsScreen } from "@/features/workers/agents/agents-screen";
 import { WorkersScreen } from "@/features/workers/catalogue/workers-screen";
 import { basePath } from "@/lib/base-path";
 import { AppShell } from "./app-shell";
-import { Toaster } from "./ui/sonner";
+import { AppToaster } from "./app-toaster";
 
 export function AppRouter() {
   const { session } = useSession();
@@ -75,7 +75,7 @@ export function AppRouter() {
           </Route>
         </Routes>
       </BrowserRouter>
-      <Toaster />
+      <AppToaster />
     </ProjectProvider>
   );
 }
