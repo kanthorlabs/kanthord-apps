@@ -211,11 +211,15 @@ describe("credential mutations", () => {
   });
 
   it("posts the typed secret to the pre-save check without a mutation key", async () => {
-    await serve(200, [{ status: "healthy", capability: "rate-limit read" }]);
+    await serve(200, [{ status: "healthy", capability: "rate-limit read", failure_reason: null }]);
     const body = { platform: "github", metadata: null, secret: { key: "ghp-1" } } as const;
 
     const health = await checkCredential("repository", body);
-    expect(health).toEqual({ status: "healthy", capability: "rate-limit read" });
+    expect(health).toEqual({
+      status: "healthy",
+      capability: "rate-limit read",
+      failure_reason: null,
+    });
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.url).toBe("/api/repository/credential/check");
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
@@ -223,10 +227,16 @@ describe("credential mutations", () => {
   });
 
   it("posts the verify of one record without a body or a mutation key", async () => {
-    await serve(200, [{ status: "unhealthy", capability: "rate-limit read" }]);
+    await serve(200, [
+      { status: "unhealthy", capability: "rate-limit read", failure_reason: "unclassified" },
+    ]);
 
     const health = await verifyCredential("repository", "ci github/1");
-    expect(health).toEqual({ status: "unhealthy", capability: "rate-limit read" });
+    expect(health).toEqual({
+      status: "unhealthy",
+      capability: "rate-limit read",
+      failure_reason: "unclassified",
+    });
     expect(seen[0]?.method).toBe("POST");
     expect(seen[0]?.url).toBe("/api/repository/credential/ci%20github%2F1/verify");
     expect(seen[0]?.body).toBe("");

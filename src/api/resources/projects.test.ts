@@ -159,8 +159,12 @@ describe("writeBindingSet", () => {
 describe("verifyBinding", () => {
   it("posts project.binding.verify and returns address and credential health entries", async () => {
     const result = {
-      address: { status: "healthy", capability: "network git read" },
-      credential: { status: "healthy", capability: "repository credential verify" },
+      address: { status: "healthy", capability: "network git read", failure_reason: null },
+      credential: {
+        status: "healthy",
+        capability: "repository credential verify",
+        failure_reason: null,
+      },
     };
     const base = await serve([result]);
     setConnection({ baseUrl: base, token: "jwt-1" });
@@ -198,8 +202,12 @@ describe("readInstructionFiles", () => {
 describe("checkBinding", () => {
   it("posts project.binding.check with the entry body and returns verify-shaped health entries", async () => {
     const result = {
-      address: { status: "healthy", capability: "network git read" },
-      ssh_credential: { status: "healthy", capability: "ssh credential verify" },
+      address: { status: "healthy", capability: "network git read", failure_reason: null },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
       credential: null,
     };
     const entry = {

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { ApiError } from "@/api/errors";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { failureReasonHintOf } from "@/lib/failure-reason";
 
 interface InstructionRefusalProps {
   readonly error: ApiError;
@@ -11,6 +12,7 @@ interface InstructionRefusalProps {
 }
 
 export function InstructionRefusal({ error, sshCredential, onRetry }: InstructionRefusalProps) {
+  const hint = failureReasonHintOf(error.details);
   return (
     <Alert variant="destructive">
       <AlertTitle>The instruction files were not read.</AlertTitle>
@@ -18,6 +20,7 @@ export function InstructionRefusal({ error, sshCredential, onRetry }: Instructio
         <span className="break-words">
           <code>{error.detail === "" ? error.code : error.detail}</code>: {error.message}
         </span>
+        {hint !== null && <span className="break-words">{hint}</span>}
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onRetry}>
             Retry

@@ -1,4 +1,4 @@
-import type { HealthEntry, ResourceStatus } from "@/api/types";
+import type { HealthEntry, ResourceFailureReason, ResourceStatus } from "@/api/types";
 
 export interface PriorCheck {
   readonly entry: HealthEntry;
@@ -19,8 +19,16 @@ export function priorCheckOf(state: unknown): PriorCheck | null {
   if (!isRecord(state) || !isRecord(state.priorCheck)) return null;
   const { entry, checkedAt } = state.priorCheck;
   if (typeof checkedAt !== "number" || !isRecord(entry)) return null;
-  const { status, capability } = entry;
+  const { status, capability, failure_reason: failureReason } = entry;
   if (typeof capability !== "string") return null;
   if (!STATUSES.some((known) => known === status)) return null;
-  return { entry: { status: status as ResourceStatus, capability }, checkedAt };
+  if (failureReason !== null && typeof failureReason !== "string") return null;
+  return {
+    entry: {
+      status: status as ResourceStatus,
+      capability,
+      failure_reason: failureReason as ResourceFailureReason | null,
+    },
+    checkedAt,
+  };
 }

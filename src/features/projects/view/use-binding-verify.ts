@@ -5,6 +5,7 @@ import { listBindings, verifyBinding } from "@/api/resources/projects";
 import type { HealthEntry } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
+import { healthEntryHint } from "@/lib/failure-reason";
 
 export interface BindingCheckBadge {
   readonly label: string;
@@ -14,6 +15,7 @@ export interface BindingCheckBadge {
 
 export interface BindingVerifyState {
   readonly addressBadge: BindingCheckBadge | null;
+  readonly addressHint: string | null;
   readonly sshCredentialBadge: BindingCheckBadge | null;
   readonly credentialBadge: BindingCheckBadge | null;
   readonly checking: boolean;
@@ -32,6 +34,7 @@ type PerBindingState =
 const CHECKING_BADGE: BindingCheckBadge = { label: "Checking", variant: "outline", busy: true };
 const IDLE: BindingVerifyState = {
   addressBadge: null,
+  addressHint: null,
   sshCredentialBadge: null,
   credentialBadge: null,
   checking: false,
@@ -46,6 +49,7 @@ function toVerifyState(inner: PerBindingState): BindingVerifyState {
   if (inner.status === "checking") {
     return {
       addressBadge: CHECKING_BADGE,
+      addressHint: null,
       sshCredentialBadge: CHECKING_BADGE,
       credentialBadge: CHECKING_BADGE,
       checking: true,
@@ -53,6 +57,7 @@ function toVerifyState(inner: PerBindingState): BindingVerifyState {
   }
   return {
     addressBadge: toCheckBadge(inner.address),
+    addressHint: healthEntryHint(inner.address),
     sshCredentialBadge: toCheckBadge(inner.sshCredential),
     credentialBadge: inner.credential !== null ? toCheckBadge(inner.credential) : null,
     checking: false,

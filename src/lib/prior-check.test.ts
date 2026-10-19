@@ -5,13 +5,26 @@ import { priorCheckOf } from "./prior-check";
 describe("priorCheckOf", () => {
   it("reads a check that the form passed through the navigation", () => {
     const state = {
-      priorCheck: { entry: { status: "healthy", capability: "model-list read" }, checkedAt: 7 },
+      priorCheck: {
+        entry: { status: "healthy", capability: "model-list read", failure_reason: null },
+        checkedAt: 7,
+      },
     };
 
     expect(priorCheckOf(state)).toEqual({
-      entry: { status: "healthy", capability: "model-list read" },
+      entry: { status: "healthy", capability: "model-list read", failure_reason: null },
       checkedAt: 7,
     });
+  });
+
+  it("keeps the failure reason of an unhealthy check", () => {
+    const entry = {
+      status: "unhealthy",
+      capability: "model-list read",
+      failure_reason: "unclassified",
+    };
+
+    expect(priorCheckOf({ priorCheck: { entry, checkedAt: 7 } })).toEqual({ entry, checkedAt: 7 });
   });
 
   it("returns null when the navigation carries no state", () => {
@@ -30,6 +43,14 @@ describe("priorCheckOf", () => {
     ).toBeNull();
     expect(
       priorCheckOf({ priorCheck: { entry: { status: "healthy", capability: 1 }, checkedAt: 7 } }),
+    ).toBeNull();
+    expect(
+      priorCheckOf({
+        priorCheck: {
+          entry: { status: "unhealthy", capability: "c", failure_reason: 1 },
+          checkedAt: 7,
+        },
+      }),
     ).toBeNull();
   });
 });

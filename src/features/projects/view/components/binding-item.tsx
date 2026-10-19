@@ -129,6 +129,9 @@ export function BindingItem({
             </Fragment>
           ))}
         </ItemDescription>
+        {showVerify && verifyState.addressHint !== null && (
+          <p className="text-sm break-words">{verifyState.addressHint}</p>
+        )}
         {tags.length > 0 && (
           <ul aria-label={`Tags of ${name}`} className="flex flex-wrap gap-1">
             {tags.map((tag) => (

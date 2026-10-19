@@ -386,6 +386,7 @@ describe("CredentialFormScreen", () => {
     vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
       status: "healthy",
       capability: "rate-limit read",
+      failure_reason: null,
     });
     await mount("repository");
 
@@ -405,6 +406,7 @@ describe("CredentialFormScreen", () => {
     vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
       status: "healthy",
       capability: "rate-limit read",
+      failure_reason: null,
     });
     vi.mocked(credentialsApi.createCredential).mockResolvedValue({
       ...ROUTER,
@@ -422,7 +424,7 @@ describe("CredentialFormScreen", () => {
     const state = await screen.findByText(/priorCheck/);
     expect(JSON.parse(state.textContent ?? "")).toEqual({
       priorCheck: {
-        entry: { status: "healthy", capability: "rate-limit read" },
+        entry: { status: "healthy", capability: "rate-limit read", failure_reason: null },
         checkedAt: expect.any(Number),
       },
     });
@@ -446,8 +448,16 @@ describe("CredentialFormScreen", () => {
 
   it("shows an unhealthy and an unknown badge", async () => {
     vi.mocked(credentialsApi.checkCredential)
-      .mockResolvedValueOnce({ status: "unhealthy", capability: "rate-limit read" })
-      .mockResolvedValueOnce({ status: "unknown", capability: "rate-limit read" });
+      .mockResolvedValueOnce({
+        status: "unhealthy",
+        capability: "rate-limit read",
+        failure_reason: "unclassified",
+      })
+      .mockResolvedValueOnce({
+        status: "unknown",
+        capability: "rate-limit read",
+        failure_reason: "unclassified",
+      });
     await mount("repository");
 
     await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
@@ -462,6 +472,7 @@ describe("CredentialFormScreen", () => {
     vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
       status: "healthy",
       capability: "model-list read",
+      failure_reason: null,
     });
     await mount("llm");
 
@@ -482,6 +493,7 @@ describe("CredentialFormScreen", () => {
     vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
       status: "healthy",
       capability: "rate-limit read",
+      failure_reason: null,
     });
     await mount("llm");
 

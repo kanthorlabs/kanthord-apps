@@ -90,8 +90,16 @@ beforeEach(() => {
   vi.mocked(credentialsApi.verifyCredential).mockResolvedValue(HEALTHY);
 });
 
-const HEALTHY: HealthEntry = { status: "healthy", capability: "model-list read" };
-const UNHEALTHY: HealthEntry = { status: "unhealthy", capability: "model-list read" };
+const HEALTHY: HealthEntry = {
+  status: "healthy",
+  capability: "model-list read",
+  failure_reason: null,
+};
+const UNHEALTHY: HealthEntry = {
+  status: "unhealthy",
+  capability: "model-list read",
+  failure_reason: "unclassified",
+};
 
 describe("useAgentEnable", () => {
   it("prefills the first model and the medium effort", async () => {

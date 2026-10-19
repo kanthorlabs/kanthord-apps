@@ -27,6 +27,7 @@ vi.mock("sonner", async (importOriginal) => ({
 
 import { toast } from "sonner";
 
+import { failureReasonHint } from "@/lib/failure-reason";
 import { BindingsPanel } from "./bindings-panel";
 import { textContent } from "../../../../../test/text-content";
 
@@ -212,13 +213,25 @@ describe("BindingsPanel", () => {
       changes: [],
     });
     vi.mocked(projectsApi.verifyBinding).mockResolvedValue({
-      address: { status: "healthy", capability: "network git read" },
-      ssh_credential: { status: "healthy", capability: "ssh credential verify" },
-      credential: { status: "healthy", capability: "repository credential verify" },
+      address: { status: "healthy", capability: "network git read", failure_reason: null },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
+      credential: {
+        status: "healthy",
+        capability: "repository credential verify",
+        failure_reason: null,
+      },
     });
     vi.mocked(projectsApi.checkBinding).mockResolvedValue({
-      address: { status: "healthy", capability: "network git read" },
-      ssh_credential: { status: "healthy", capability: "ssh credential verify" },
+      address: { status: "healthy", capability: "network git read", failure_reason: null },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
       credential: null,
     });
     vi.mocked(projectsApi.readInstructionFiles).mockResolvedValue({
@@ -803,6 +816,83 @@ describe("BindingsPanel", () => {
         expect.objectContaining({ description: "Binding not found." }),
       ),
     );
+  });
+
+  it("shows the hint of the failure reason when Verify finds an unhealthy address", async () => {
+    vi.mocked(projectsApi.verifyBinding).mockResolvedValue({
+      address: {
+        status: "unhealthy",
+        capability: "network git read",
+        failure_reason: "host_key_unknown",
+      },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
+      credential: null,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
+
+    expect(await screen.findByText("Address · Unhealthy")).toBeTruthy();
+    expect(screen.getByText(failureReasonHint("host_key_unknown"))).toBeTruthy();
+  });
+
+  it("shows no hint when Verify finds a healthy address", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
+
+    expect(await screen.findByText("Address · Healthy")).toBeTruthy();
+    expect(screen.queryByText(failureReasonHint("unclassified"))).toBeNull();
+  });
+
+  it("shows the hint of the failure reason when the sheet Verify finds an unhealthy address", async () => {
+    vi.mocked(projectsApi.checkBinding).mockResolvedValue({
+      address: {
+        status: "unhealthy",
+        capability: "network git read",
+        failure_reason: "key_refused",
+      },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
+      credential: null,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const form = await screen.findByRole("form", { name: "Edit kanthord-repo" });
+    await userEvent.click(within(form).getByRole("button", { name: "Verify" }));
+
+    expect(await within(form).findByText(/Address · Unhealthy/)).toBeTruthy();
+    expect(within(form).getByText(failureReasonHint("key_refused"))).toBeTruthy();
+  });
+
+  it("shows the hint of the failure reason when Save refuses an unreachable repository", async () => {
+    vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
+      new ApiError(
+        "refused",
+        "The repository SSH read failed.",
+        422,
+        "project.bindings.repository.ssh_unreachable",
+        { failure_reason: "host_key_unknown" },
+      ),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const branch = screen.getByLabelText("Base branch");
+    await userEvent.clear(branch);
+    await userEvent.type(branch, "develop");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(await screen.findByText(new RegExp(failureReasonHint("host_key_unknown")))).toBeTruthy();
+    expect(screen.getByLabelText("Base branch")).toHaveValue("develop");
   });
 
   it("opens New credential, creates, selects it, and saves the binding", async () => {

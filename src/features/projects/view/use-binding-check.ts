@@ -5,6 +5,7 @@ import type { BindingSetEntry, HealthEntry } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { credentialMessage } from "@/features/credentials/credential-message";
 import { healthLabel, healthVariant } from "@/lib/credential-health";
+import { healthEntryHint } from "@/lib/failure-reason";
 import type { BindingCheckBadge } from "./use-binding-verify";
 
 interface CheckInputs {
@@ -32,6 +33,7 @@ interface CheckState {
 
 export interface BindingCheckState {
   readonly addressBadge: BindingCheckBadge | null;
+  readonly addressHint: string | null;
   readonly sshCredentialBadge: BindingCheckBadge | null;
   readonly credentialBadge: BindingCheckBadge | null;
   readonly checking: boolean;
@@ -107,6 +109,7 @@ export function useBindingCheck(
   }, [projectId, draft, validate, current]);
 
   let addressBadge: BindingCheckBadge | null = null;
+  let addressHint: string | null = null;
   let sshCredentialBadge: BindingCheckBadge | null = null;
   let credentialBadge: BindingCheckBadge | null = null;
   let checking = false;
@@ -120,6 +123,7 @@ export function useBindingCheck(
       checking = true;
     } else if (current.status === "ready") {
       addressBadge = toCheckBadge(current.address);
+      addressHint = healthEntryHint(current.address);
       sshCredentialBadge = toCheckBadge(current.sshCredential);
       credentialBadge = current.credential !== null ? toCheckBadge(current.credential) : null;
     } else {
@@ -127,5 +131,5 @@ export function useBindingCheck(
     }
   }
 
-  return { addressBadge, sshCredentialBadge, credentialBadge, checking, error, run };
+  return { addressBadge, addressHint, sshCredentialBadge, credentialBadge, checking, error, run };
 }
