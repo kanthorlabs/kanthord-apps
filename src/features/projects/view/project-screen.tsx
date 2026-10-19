@@ -10,6 +10,7 @@ import { useCrumbLabel } from "@/components/crumb-labels";
 import { BindingsPanel } from "./components/bindings-panel";
 import { MissionPanel } from "./components/mission-panel";
 import { ProjectPauseButton } from "./components/project-pause-button";
+import { ReadinessPanel } from "./components/readiness-panel";
 import { useProjectDetail } from "./use-project-detail";
 import { useProjectTab, type ProjectTab } from "./use-project-tab";
 
@@ -88,6 +89,7 @@ export function ProjectScreen() {
           </div>
         </dl>
       </section>
+      <ReadinessPanel project={project} />
       <Tabs
         value={tab}
         onValueChange={(value) => selectTab(value as ProjectTab)}

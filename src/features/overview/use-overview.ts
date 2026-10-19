@@ -35,7 +35,7 @@ export interface ProjectProgress {
 }
 
 export interface OverviewState {
-  readonly status: "loading" | "ready" | "error";
+  readonly status: "loading" | "ready" | "empty" | "error";
   readonly error: ApiError | null;
   readonly projects: readonly Project[];
   readonly projectId: string | null;
@@ -196,7 +196,14 @@ export function useOverview(): OverviewState {
     refreshSetup();
   }, [refreshSnapshot, refreshSetup]);
 
-  const status = data !== null ? "ready" : snapshot.loading ? "loading" : "error";
+  const status =
+    data !== null
+      ? data.projects.length === 0
+        ? "empty"
+        : "ready"
+      : snapshot.loading
+        ? "loading"
+        : "error";
 
   return {
     status,

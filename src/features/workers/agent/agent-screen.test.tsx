@@ -116,10 +116,11 @@ async function choose(label: string, option: string) {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-function mount(hash = "") {
+function mount(hash = "", state: unknown = null) {
   return render(
-    <MemoryRouter initialEntries={[`/agents/re%401${hash}`]}>
+    <MemoryRouter initialEntries={[{ pathname: "/agents/re%401", hash, state }]}>
       <Routes>
+        <Route path="/" element={<p>Onboarding view</p>} />
         <Route path="/agents/:agentName" element={<AgentScreen />} />
       </Routes>
     </MemoryRouter>,
@@ -474,6 +475,83 @@ describe("AgentScreen", () => {
       fallback_configurations: [],
     });
     expect(workersApi.readAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns to the path of the router state after the enablement create", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...ENABLEMENT, revision: 1 });
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off"] },
+    ]);
+    mount("#enablement", { return_to: "/" });
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
+    await choose("LLM credential", "router-main (openrouter)");
+    await waitFor(() =>
+      expect(within(form).getByRole("combobox", { name: "Model identifier" })).toHaveValue(
+        "qwen/qwen3-coder",
+      ),
+    );
+    await choose("Reasoning effort", "off");
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+
+    expect(await screen.findByText("Onboarding view")).toBeTruthy();
+  });
+
+  it("stays on the agent after the enablement create without a return path", async () => {
+    vi.mocked(workersApi.readAgent).mockClear().mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.putAgentEnablement)
+      .mockClear()
+      .mockResolvedValue({ ...ENABLEMENT, revision: 1 });
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off"] },
+    ]);
+    mount();
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
+    await choose("LLM credential", "router-main (openrouter)");
+    await waitFor(() =>
+      expect(within(form).getByRole("combobox", { name: "Model identifier" })).toHaveValue(
+        "qwen/qwen3-coder",
+      ),
+    );
+    await choose("Reasoning effort", "off");
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+
+    await waitFor(() => expect(workersApi.readAgent).toHaveBeenCalledTimes(2));
+    expect(workersApi.putAgentEnablement).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Onboarding view")).toBeNull();
+    expect(screen.getByRole("heading", { name: "re@1" })).toBeTruthy();
+  });
+
+  it("stays on the agent when the enablement create with a return path fails", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN]);
+    vi.mocked(workersApi.putAgentEnablement).mockRejectedValue(
+      new ApiError("conflict", "The enablement changed.", 409),
+    );
+    vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
+      { model_identifier: "qwen/qwen3-coder", reasoning_efforts: ["off"] },
+    ]);
+    mount("#enablement", { return_to: "/" });
+
+    const form = await screen.findByRole("form", { name: "Enable re@1" });
+    await userEvent.type(within(form).getByLabelText("Agent provider name"), "router");
+    await choose("LLM credential", "router-main (openrouter)");
+    await waitFor(() =>
+      expect(within(form).getByRole("combobox", { name: "Model identifier" })).toHaveValue(
+        "qwen/qwen3-coder",
+      ),
+    );
+    await choose("Reasoning effort", "off");
+    await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+
+    expect(await screen.findByText("The enablement changed.")).toBeTruthy();
+    expect(screen.queryByText("Onboarding view")).toBeNull();
   });
 
   it("focuses the name of the enable form when the path holds the enablement hash", async () => {

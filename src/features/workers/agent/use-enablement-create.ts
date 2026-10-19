@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { listAllCredentials } from "@/api/resources/credentials";
@@ -17,6 +17,7 @@ import {
   providerOfCredential,
 } from "@/lib/agent-provider-draft";
 import { credentialLabel } from "@/lib/credential-label";
+import { returnToOf } from "@/lib/return-to";
 import {
   EMPTY_ENABLEMENT,
   enablementBodyOf,
@@ -65,7 +66,10 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
   const enablements = useResource(listAgentEnablements, []);
   const prefilledName = useRef<string | null>(null);
   const nameInput = useRef<HTMLInputElement>(null);
-  const focusName = useLocation().hash === ENABLEMENT_HASH;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const focusName = location.hash === ENABLEMENT_HASH;
+  const returnTo = returnToOf(location.state);
 
   useEffect(() => {
     if (focusName) nameInput.current?.focus();
@@ -147,13 +151,14 @@ export function useEnablementCreate(agentName: string, reload: () => void): Enab
         setSubmitting(false);
         toast.success(`Enabled ${answer.agent_name} at revision ${answer.revision}.`);
         reload();
+        if (returnTo !== null) void navigate(returnTo);
       },
       (cause: unknown) => {
         setSubmitting(false);
         setFailure(asApiError(cause).message);
       },
     );
-  }, [submitting, draft, usable, agentName, reload]);
+  }, [submitting, draft, usable, agentName, reload, returnTo, navigate]);
 
   return {
     draft,

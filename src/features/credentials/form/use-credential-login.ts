@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
@@ -18,6 +18,7 @@ import type {
 import { asApiError } from "@/hooks/use-resource";
 import { loginModeOf } from "@/lib/credential-draft";
 import { credentialDetailPath } from "@/lib/credential-sections";
+import { returnToOf } from "@/lib/return-to";
 import { credentialMessage } from "../credential-message";
 
 export const LOGIN_POLL_MS = 2000;
@@ -57,6 +58,7 @@ export function useCredentialLogin(
   onCreated?: (name: string) => void,
 ): CredentialLoginState {
   const navigate = useNavigate();
+  const returnTo = returnToOf(useLocation().state);
   const onCreatedRef = useRef(onCreated);
   const [selected, setSelected] = useState<CredentialLoginMode | null>(null);
   const [sessionMode, setSessionMode] = useState<CredentialLoginMode | null>(null);
@@ -91,14 +93,14 @@ export function useCredentialLogin(
           if (onCreatedRef.current !== undefined) {
             onCreatedRef.current(name);
           } else {
-            void navigate(credentialDetailPath(component, name));
+            void navigate(returnTo ?? credentialDetailPath(component, name));
           }
         },
         (cause: unknown) => setPollError(failureMessage(cause)),
       );
     }, LOGIN_POLL_MS);
     return () => clearTimeout(timer);
-  }, [waiting, session, status, component, name, navigate]);
+  }, [waiting, session, status, component, name, navigate, returnTo]);
 
   const selectMode = useCallback((value: string | null) => {
     const next = MODES.find((candidate) => candidate === value);

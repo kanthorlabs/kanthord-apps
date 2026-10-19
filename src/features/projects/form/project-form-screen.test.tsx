@@ -26,10 +26,11 @@ const KANTHORD: Project = {
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
 
-function mount(path: string) {
+function mount(path: string, state: unknown = null) {
   return render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[{ pathname: path, state }]}>
       <Routes>
+        <Route path="/" element={<p>Onboarding view</p>} />
         <Route path="/projects/new" element={<ProjectFormScreen />} />
         <Route path="/projects/:projectId/edit" element={<ProjectFormScreen />} />
         <Route path="/projects/:projectId" element={<p>Project view</p>} />
@@ -53,6 +54,32 @@ describe("ProjectFormScreen", () => {
     expect(await screen.findByText("Project view")).toBeTruthy();
     expect(projectsApi.createProject).toHaveBeenCalledWith("kanthord");
     expect(reloadProjects).toHaveBeenCalledOnce();
+  });
+
+  it("returns to the path of the router state after the create", async () => {
+    vi.mocked(projectsApi.createProject).mockResolvedValue(KANTHORD);
+    mount("/projects/new", { return_to: "/" });
+
+    await userEvent.type(await screen.findByLabelText("Name"), "kanthord");
+    await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(await screen.findByText("Onboarding view")).toBeTruthy();
+    expect(screen.queryByText("Project view")).toBeNull();
+  });
+
+  it("stays on the form when the create with a return path fails", async () => {
+    vi.mocked(projectsApi.createProject).mockRejectedValue(
+      new ApiError("conflict", "Another project already uses the requested name.", 409),
+    );
+    mount("/projects/new", { return_to: "/" });
+
+    await userEvent.type(await screen.findByLabelText("Name"), "kanthord");
+    await userEvent.click(screen.getByRole("button", { name: "Create project" }));
+
+    expect(
+      await screen.findByText("Another project already uses the requested name."),
+    ).toBeTruthy();
+    expect(screen.queryByText("Onboarding view")).toBeNull();
   });
 
   it("refuses a name outside the contract pattern before the call", async () => {

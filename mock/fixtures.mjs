@@ -114,6 +114,38 @@ export const WORKER_INSTANCES = [
     execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0AF2",
     registered: true,
   },
+  {
+    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A04",
+    project_id: PROJECT_ATLAS.id,
+    resource_identity: "worker:kanthord:reviewer-main",
+    worker_name: "reviewer@1",
+    host: "kanthord",
+    placement: "server",
+    activity: "idle",
+    draining: false,
+    registered: true,
+  },
+  {
+    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A05",
+    project_id: PROJECT_ATLAS.id,
+    resource_identity: "worker:kanthord:mac-main",
+    worker_name: "coder@1",
+    host: "kanthord",
+    placement: "worker",
+    activity: "idle",
+    draining: false,
+    registered: true,
+  },
+  {
+    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A06",
+    project_id: PROJECT_ATLAS.id,
+    resource_identity: "worker:kanthord:harness-main",
+    worker_name: "claude-code@1",
+    host: "external-harness",
+    activity: "idle",
+    draining: false,
+    registered: true,
+  },
 ];
 
 export const AGENT_DECLARATIONS = [
@@ -122,7 +154,20 @@ export const AGENT_DECLARATIONS = [
     worker_names: ["reviewer@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
-    enablement: null,
+    enablement: {
+      agent_name: "re@1",
+      state: "enabled",
+      agent_providers: [
+        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-router" },
+      ],
+      default_configuration: {
+        agent_provider: "atlas-llm",
+        model_identifier: "qwen3-coder",
+        reasoning_effort: "off",
+      },
+      fallback_configurations: [],
+      revision: 1,
+    },
     basePrompt: BASE_PROMPT,
     agentPrompt: `## Role
 

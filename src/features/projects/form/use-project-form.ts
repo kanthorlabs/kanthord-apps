@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import type { ApiError } from "@/api/errors";
 import { createProject, readProject, renameProject } from "@/api/resources/projects";
@@ -7,6 +7,7 @@ import type { Project } from "@/api/types";
 import { useProject } from "@/features/projects/project-context";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import { projectNameError } from "@/lib/project-name";
+import { returnToOf } from "@/lib/return-to";
 
 export type ProjectFormMode = "create" | "edit";
 
@@ -29,6 +30,7 @@ const NO_PROJECT = Promise.resolve(null);
 
 export function useProjectForm(projectId: string | null): ProjectFormState {
   const navigate = useNavigate();
+  const returnTo = returnToOf(useLocation().state);
   const { reload: reloadProjects } = useProject();
   const existing = useResource(
     () => (projectId === null ? NO_PROJECT : readProject(projectId)),
@@ -59,14 +61,14 @@ export function useProjectForm(projectId: string | null): ProjectFormState {
       (project) => {
         setSubmitting(false);
         reloadProjects();
-        void navigate(`/projects/${encodeURIComponent(project.id)}`);
+        void navigate(returnTo ?? `/projects/${encodeURIComponent(project.id)}`);
       },
       (cause: unknown) => {
         setSubmitting(false);
         setSubmitError(asApiError(cause));
       },
     );
-  }, [submitting, name, projectId, reloadProjects, navigate]);
+  }, [submitting, name, projectId, reloadProjects, navigate, returnTo]);
 
   return {
     mode: projectId === null ? "create" : "edit",

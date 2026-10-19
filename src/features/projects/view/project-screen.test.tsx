@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,10 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
+import * as workersApi from "@/api/resources/workers";
 import type { Project } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/mission");
+vi.mock("@/api/resources/workers");
 
 import { ProjectScreen } from "./project-screen";
 
@@ -42,6 +44,32 @@ describe("ProjectScreen", () => {
     });
     vi.mocked(projectsApi.listBindings).mockResolvedValue([]);
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({ version: 1, bindings: {} });
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
+    vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
+  });
+
+  it("shows the readiness of a new project with a link to each step", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    mount();
+
+    const panel = await screen.findByRole("region", { name: "Readiness" });
+    const repository = await within(panel).findByRole("listitem", { name: "Repository binding" });
+    expect(within(repository).getByText("Open")).toBeTruthy();
+    expect(within(repository).getByRole("button", { name: "Open bindings" })).toHaveAttribute(
+      "href",
+      `/projects/${KANTHORD.id}?tab=bindings`,
+    );
+    expect(
+      within(within(panel).getByRole("listitem", { name: "Project active" })).getByText("Done"),
+    ).toBeTruthy();
+    expect(
+      within(within(panel).getByRole("listitem", { name: "Plan import" })).getByRole("button", {
+        name: "Open mission",
+      }),
+    ).toHaveAttribute("href", `/projects/${KANTHORD.id}`);
   });
 
   it("shows the information of the project in the path", async () => {

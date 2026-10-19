@@ -17,6 +17,7 @@ const USERNAME = "kanthorlabs";
 const DEV_TOKEN = process.env.KANTHORD_DEV_TOKEN ?? "dev-human-token";
 const UNHEALTHY = process.env.KANTHORD_MOCK_UNHEALTHY === "1";
 const HOST_FILE_LOCKED = process.env.KANTHORD_MOCK_HOST_FILE_LOCKED === "1";
+const EMPTY = process.env.KANTHORD_MOCK_EMPTY === "1";
 
 const HEALTHY_SERVICES = {
   server: { gateway: 200, store: 200, log: 200 },
@@ -28,14 +29,18 @@ const HEALTHY_SERVICES = {
   project: { bindings: 200 },
   mission: { operations: 200 },
 };
-const projects = [
-  structuredClone(fx.PROJECT),
-  structuredClone(fx.PROJECT_ATLAS),
-  structuredClone(fx.PROJECT_ORBIT),
-];
-const bindingSet = structuredClone(fx.BINDING_SET);
-const agents = structuredClone(fx.AGENT_DECLARATIONS);
-const workbenchSessions = structuredClone(fx.WORKBENCH_SESSIONS);
+const projects = EMPTY
+  ? []
+  : [
+      structuredClone(fx.PROJECT),
+      structuredClone(fx.PROJECT_ATLAS),
+      structuredClone(fx.PROJECT_ORBIT),
+    ];
+const bindingSet = structuredClone(EMPTY ? { ...fx.BINDING_SET, bindings: {} } : fx.BINDING_SET);
+const agents = structuredClone(fx.AGENT_DECLARATIONS).map((agent) =>
+  EMPTY ? { ...agent, enablement: null } : agent,
+);
+const workbenchSessions = EMPTY ? [] : structuredClone(fx.WORKBENCH_SESSIONS);
 const projectStates = new Map([
   [
     fx.PROJECT.id,
@@ -1976,7 +1981,7 @@ const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const LOGIN_EXPIRY_MS = 15 * 60 * 1000;
 const LOGIN_DEVICE_COMPLETION_MS = 10000;
 const HEALTHCHECK_DELAY_MS = 1500;
-const credentials = structuredClone(fx.CREDENTIALS);
+const credentials = EMPTY ? [] : structuredClone(fx.CREDENTIALS);
 const pinnedRevisions = new Set(fx.PINNED_CREDENTIAL_REVISIONS);
 const loginSessions = new Map();
 const storedSecrets = new Map(

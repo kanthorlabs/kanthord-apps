@@ -5,7 +5,7 @@ import { useSession } from "@/features/auth/session/session-context";
 import { CredentialFormScreen } from "@/features/credentials/form/credential-form-screen";
 import { CredentialsScreen } from "@/features/credentials/list/credentials-screen";
 import { CredentialScreen } from "@/features/credentials/view/credential-screen";
-import { OverviewScreen } from "@/features/overview/overview-screen";
+import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { ProjectFormScreen } from "@/features/projects/form/project-form-screen";
 import { ProjectsScreen } from "@/features/projects/list/projects-screen";
 import { ProjectProvider } from "@/features/projects/project-context";
@@ -32,7 +32,7 @@ export function AppRouter() {
       <BrowserRouter basename={basePath()}>
         <Routes>
           <Route element={<AppShell />}>
-            <Route index element={<OverviewScreen />} />
+            <Route index element={<OnboardingScreen />} />
             <Route path="projects" element={<ProjectsScreen />} />
             <Route path="projects/new" element={<ProjectFormScreen />} />
             <Route path="projects/:projectId" element={<ProjectScreen />} />

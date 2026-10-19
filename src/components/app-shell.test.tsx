@@ -75,11 +75,19 @@ describe("AppShell", () => {
     expect(screen.getByText("Overview body")).toBeTruthy();
   });
 
-  it("explains an instance that holds no project", () => {
+  it("serves the start page to an instance that holds no project", () => {
     projectState.value = { ...projectState.value, projects: [], project: null };
     mount();
 
-    expect(screen.queryByText("Overview body")).toBeNull();
+    expect(screen.getByText("Overview body")).toBeTruthy();
+    expect(screen.queryByText("No projects")).toBeNull();
+  });
+
+  it("explains an instance that holds no project", () => {
+    projectState.value = { ...projectState.value, projects: [], project: null };
+    mount("/scheduler");
+
+    expect(screen.queryByText("Scheduler body")).toBeNull();
     expect(screen.getByText("No projects")).toBeTruthy();
     expect(screen.getByRole("button", { name: "New project" })).toHaveAttribute(
       "href",
@@ -129,9 +137,9 @@ describe("AppShell", () => {
       project: null,
       error: "The daemon did not answer.",
     };
-    mount();
+    mount("/scheduler");
 
-    expect(screen.queryByText("Overview body")).toBeNull();
+    expect(screen.queryByText("Scheduler body")).toBeNull();
     expect(screen.getByRole("alert")).toHaveTextContent("The daemon did not answer.");
   });
 

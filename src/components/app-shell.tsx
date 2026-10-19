@@ -31,9 +31,8 @@ import {
 const PROJECT_SCOPED_ROUTES = ["/scheduler", "/workers"];
 
 function waitsForProject(pathname: string): boolean {
-  return (
-    pathname === "/" ||
-    PROJECT_SCOPED_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+  return PROJECT_SCOPED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 }
 
