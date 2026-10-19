@@ -11,6 +11,16 @@ const HINTS: Readonly<Record<ResourceFailureReason, string>> = {
     "The server cannot reach the repository host. Check the host in the address and the network of the server.",
   address_invalid:
     "The address is not valid, or its host is not a host of the platform. Use the form git@<host>:<owner>/<repository>.git.",
+  unauthorized:
+    "The provider refused the API key or the access token. Correct the key, or sign in again for a new token. Then verify again.",
+  forbidden:
+    "The provider accepted the key but refused the access. Check the permissions of the key and the plan of the account.",
+  rate_limited:
+    "The provider limited the requests. Wait some minutes, or check the quota of the plan. Then verify again.",
+  unreachable:
+    "The server cannot reach the provider. Check the network of the server and the endpoint of the provider, for example the base URL.",
+  invalid_response:
+    "The provider sent an answer that the check cannot read. Check that the base URL points to the API of the provider.",
   unclassified:
     "The check failed for an unknown cause, or it exceeded its deadline. Verify again. If the failure stays, read the server log.",
 };

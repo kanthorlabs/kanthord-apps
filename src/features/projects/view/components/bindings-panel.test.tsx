@@ -915,6 +915,8 @@ describe("BindingsPanel", () => {
 
     const createForm = await screen.findByRole("form", { name: "New credential" });
     await userEvent.type(within(createForm).getByLabelText("Name"), "router-main");
+    await userEvent.type(within(createForm).getByRole("combobox", { name: "Platform" }), "openr");
+    await userEvent.click(await screen.findByRole("option", { name: "openrouter" }));
     await userEvent.type(within(createForm).getByLabelText("API Key"), "sk-or-secret");
     await userEvent.click(within(createForm).getByRole("button", { name: "Create credential" }));
 

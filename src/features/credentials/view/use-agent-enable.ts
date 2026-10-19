@@ -60,6 +60,7 @@ export interface AgentEnableState {
   readonly outcomes: readonly AgentEnableOutcome[];
   readonly submitting: boolean;
   readonly unhealthyCredential: string | null;
+  readonly unhealthyHint: string | null;
   readonly start: () => void;
   readonly close: () => void;
   readonly toggleAgent: (agentName: string, on: boolean) => void;
@@ -317,6 +318,7 @@ export function useAgentEnable(credential: Credential, reload: () => void): Agen
     outcomes,
     submitting,
     unhealthyCredential: guard.credential,
+    unhealthyHint: guard.hint,
     start,
     close,
     toggleAgent,

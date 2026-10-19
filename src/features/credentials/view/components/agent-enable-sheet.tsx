@@ -132,8 +132,9 @@ export function AgentEnableSheet({ name, enable }: AgentEnableSheetProps) {
             </FieldGroup>
           </div>
           <UnhealthyCredentialDialog
-            agentNames={enable.chosenNames}
+            action={{ kind: "enable", agentNames: enable.chosenNames }}
             credential={enable.unhealthyCredential}
+            hint={enable.unhealthyHint}
             saferPath="Close this sheet, rotate the secret with Rotate secret, then enable the agents."
             onConfirm={enable.confirmUnhealthy}
             onCancel={enable.cancelUnhealthy}

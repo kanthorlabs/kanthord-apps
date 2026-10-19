@@ -2,11 +2,14 @@ import { useCallback, useRef, useState } from "react";
 
 import { verifyCredential } from "@/api/resources/credentials";
 import type { HealthEntry } from "@/api/types";
+import { healthEntryHint } from "@/lib/failure-reason";
 
 export interface UnhealthyGuard {
   readonly credential: string | null;
+  readonly hint: string | null;
   readonly check: (credential: string) => void;
   readonly run: (credential: string, proceed: () => void) => void;
+  readonly runChecked: (credential: string, entry: HealthEntry | null, proceed: () => void) => void;
   readonly confirm: () => void;
   readonly cancel: () => void;
 }
@@ -19,6 +22,7 @@ interface Verdict {
 
 interface Pending {
   readonly credential: string;
+  readonly entry: HealthEntry;
   readonly proceed: () => void;
 }
 
@@ -42,24 +46,31 @@ export function useUnhealthyGuard(): UnhealthyGuard {
     verdict.current = next;
   }, []);
 
-  const run = useCallback((credential: string, proceed: () => void) => {
-    const current = verdict.current;
-    const decide = (entry: HealthEntry | null) => {
-      if (entry?.status === "unhealthy") setPending({ credential, proceed });
+  const runChecked = useCallback(
+    (credential: string, entry: HealthEntry | null, proceed: () => void) => {
+      if (entry?.status === "unhealthy") setPending({ credential, entry, proceed });
       else proceed();
-    };
-    if (current === null || current.credential !== credential) {
-      proceed();
-      return;
-    }
-    if (current.entry !== undefined) {
-      decide(current.entry);
-      return;
-    }
-    void current.answer.then((entry) => {
-      if (verdict.current === current) decide(entry);
-    });
-  }, []);
+    },
+    [],
+  );
+
+  const run = useCallback(
+    (credential: string, proceed: () => void) => {
+      const current = verdict.current;
+      if (current === null || current.credential !== credential) {
+        proceed();
+        return;
+      }
+      if (current.entry !== undefined) {
+        runChecked(credential, current.entry, proceed);
+        return;
+      }
+      void current.answer.then((entry) => {
+        if (verdict.current === current) runChecked(credential, entry, proceed);
+      });
+    },
+    [runChecked],
+  );
 
   const confirm = useCallback(() => {
     const target = pending;
@@ -69,5 +80,13 @@ export function useUnhealthyGuard(): UnhealthyGuard {
 
   const cancel = useCallback(() => setPending(null), []);
 
-  return { credential: pending?.credential ?? null, check, run, confirm, cancel };
+  return {
+    credential: pending?.credential ?? null,
+    hint: pending === null ? null : healthEntryHint(pending.entry),
+    check,
+    run,
+    runChecked,
+    confirm,
+    cancel,
+  };
 }

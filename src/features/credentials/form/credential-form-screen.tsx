@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UnhealthyCredentialDialog } from "@/components/unhealthy-credential-dialog";
 import type { CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import { credentialSectionPath } from "@/lib/credential-sections";
 import { CredentialField } from "../components/credential-field";
@@ -112,6 +113,7 @@ export function CreateForm({
           <PlatformCombobox
             id="credential-platform"
             items={form.platformIds}
+            groups={form.platformGroups}
             value={form.platform}
             onValueChange={form.selectPlatform}
           />
@@ -196,6 +198,14 @@ export function CreateForm({
           </div>
         </div>
       </FieldGroup>
+      <UnhealthyCredentialDialog
+        action={{ kind: "create" }}
+        credential={form.unhealthyCredential}
+        hint={form.unhealthyHint}
+        saferPath="Correct the secret and check it again, then create the credential."
+        onConfirm={form.confirmUnhealthy}
+        onCancel={form.cancelUnhealthy}
+      />
     </form>
   );
 }

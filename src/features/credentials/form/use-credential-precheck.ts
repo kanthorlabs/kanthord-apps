@@ -10,6 +10,7 @@ import {
   type SecretDraft,
 } from "@/lib/credential-draft";
 import { healthLabel, healthVariant } from "@/lib/credential-health";
+import { healthEntryHint } from "@/lib/failure-reason";
 import type { PriorCheck } from "@/lib/prior-check";
 import { credentialMessage } from "../credential-message";
 import type { CheckBadge } from "../use-credential-check";
@@ -36,6 +37,7 @@ export interface CredentialPrecheck {
   readonly checking: boolean;
   readonly badge: CheckBadge | null;
   readonly checked: PriorCheck | null;
+  readonly hint: string | null;
   readonly error: string | null;
   readonly run: () => void;
 }
@@ -99,12 +101,15 @@ export function useCredentialPrecheck(
     );
   }, [component, entry, available, current, secret, metadata, onInvalid, onValid]);
 
+  const checked = current?.status === "ready" ? current.checked : null;
+
   return {
     shown,
     available,
     checking: current?.status === "checking",
     badge: badgeOf(current),
-    checked: current?.status === "ready" ? current.checked : null,
+    checked,
+    hint: checked === null ? null : healthEntryHint(checked.entry),
     error: current?.status === "failed" ? current.message : null,
     run,
   };

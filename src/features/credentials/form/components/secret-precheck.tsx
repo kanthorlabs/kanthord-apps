@@ -1,4 +1,4 @@
-import { FieldError } from "@/components/ui/field";
+import { FieldDescription, FieldError } from "@/components/ui/field";
 import { CheckStatusBadge } from "../../components/check-status-badge";
 import { VerifyButton } from "../../components/verify-button";
 import type { CredentialPrecheck } from "../use-credential-precheck";
@@ -24,6 +24,7 @@ export function SecretPrecheck({ platform, precheck, ready }: SecretPrecheckProp
         />
         <CheckStatusBadge badge={precheck.badge} />
       </div>
+      {precheck.hint !== null && <FieldDescription>{precheck.hint}</FieldDescription>}
       <FieldError>{precheck.error}</FieldError>
     </div>
   );

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type * as Sonner from "sonner";
@@ -281,11 +281,38 @@ describe("CredentialFormScreen", () => {
     expect(screen.queryByText(/An ssh credential is not created here/)).toBeNull();
   });
 
-  it("offers the platforms of the section in a flat list filtered by the typed id", async () => {
+  it("opens the LLM form with no platform and keeps the repository default", async () => {
+    await mount("llm");
+
+    expect((screen.getByRole("combobox", { name: "Platform" }) as HTMLInputElement).value).toBe("");
+    expect(screen.queryByLabelText("API Key")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Start sign-in" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Create credential" }).hasAttribute("disabled")).toBe(
+      true,
+    );
+    cleanup();
+
+    await mount("repository");
+    expect((screen.getByRole("combobox", { name: "Platform" }) as HTMLInputElement).value).toBe(
+      "github",
+    );
+  });
+
+  it("groups the LLM platforms into the checked before save group and the other group", async () => {
+    await mount("llm");
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Platform" }), "r");
+    const checked = await screen.findByRole("group", { name: "Checked before save" });
+    const other = screen.getByRole("group", { name: "Other" });
+    expect(within(checked).getByRole("option", { name: "openrouter" })).toBeTruthy();
+    expect(within(other).getByRole("option", { name: "mistral" })).toBeTruthy();
+    expect(within(checked).queryByRole("option", { name: "mistral" })).toBeNull();
+  });
+
+  it("offers the platforms of the section filtered by the typed id", async () => {
     await mount("llm");
 
     const input = screen.getByRole("combobox", { name: "Platform" });
-    expect((input as HTMLInputElement).value).toBe("github-copilot");
     await userEvent.clear(input);
     await userEvent.type(input, "open");
     const options = await screen.findAllByRole("option");
@@ -466,6 +493,68 @@ describe("CredentialFormScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unknown")).toBeTruthy();
     expect(screen.queryByText("Unhealthy")).toBeNull();
+  });
+
+  it("shows the hint of the failure reason and asks before it creates with an unhealthy secret", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "model-list read",
+      failure_reason: "unauthorized",
+    });
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "router",
+      platform: "openrouter",
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-fake");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Unhealthy")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "The provider refused the API key or the access token. Correct the key, or sign in again for a new token. Then verify again.",
+      ),
+    ).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    const dialog = await screen.findByRole("alertdialog", {
+      name: "Create the credential with an unhealthy secret?",
+    });
+    expect(within(dialog).getByText(/The provider refused the API key/)).toBeTruthy();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    expect(credentialsApi.createCredential).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Create anyway" }));
+    await screen.findByText("Credential view");
+    expect(credentialsApi.createCredential).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates with no question after a healthy check", async () => {
+    vi.mocked(credentialsApi.checkCredential).mockResolvedValue({
+      status: "healthy",
+      capability: "model-list read",
+      failure_reason: null,
+    });
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER,
+      name: "router",
+      platform: "openrouter",
+    });
+    await mount("llm");
+
+    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await choosePlatform("openrouter");
+    await userEvent.type(screen.getByLabelText("API Key"), "sk-live");
+    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    expect(await screen.findByText("Healthy")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+
+    await screen.findByText("Credential view");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
   it("sends the typed metadata of the platform with the check", async () => {

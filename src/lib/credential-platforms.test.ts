@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CredentialPlatformList } from "@/api/types";
-import { platformEntryOf, platformIdsOf } from "./credential-platforms";
+import { platformEntryOf, platformGroupsOf, platformIdsOf } from "./credential-platforms";
 
 const ANTHROPIC = {
   platform: "anthropic",
@@ -37,5 +37,23 @@ describe("platformIdsOf", () => {
   it("lists the platform ids in the answer order", () => {
     expect(platformIdsOf(LIST)).toEqual(["anthropic", "cloudflare-ai-gateway"]);
     expect(platformIdsOf(null)).toEqual([]);
+  });
+});
+
+describe("platformGroupsOf", () => {
+  it("puts the verifiable platforms first and keeps the answer order in each group", () => {
+    const openai = { ...ANTHROPIC, platform: "openai" };
+    const mistral = { ...GATEWAY, platform: "mistral", metadata_fields: [] };
+    expect(platformGroupsOf({ items: [GATEWAY, ANTHROPIC, mistral, openai] })).toEqual([
+      { value: "Checked before save", items: ["anthropic", "openai"] },
+      { value: "Other", items: ["cloudflare-ai-gateway", "mistral"] },
+    ]);
+  });
+
+  it("omits an empty group", () => {
+    expect(platformGroupsOf({ items: [ANTHROPIC] })).toEqual([
+      { value: "Checked before save", items: ["anthropic"] },
+    ]);
+    expect(platformGroupsOf(null)).toEqual([]);
   });
 });

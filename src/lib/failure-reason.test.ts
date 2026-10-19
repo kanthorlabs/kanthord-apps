@@ -9,6 +9,11 @@ const REASONS: readonly ResourceFailureReason[] = [
   "repository_not_found",
   "host_unreachable",
   "address_invalid",
+  "unauthorized",
+  "forbidden",
+  "rate_limited",
+  "unreachable",
+  "invalid_response",
   "unclassified",
 ];
 
@@ -24,6 +29,19 @@ describe("failure reason hint", () => {
 
   it("names the host key for an unknown host key", () => {
     expect(failureReasonHint("host_key_unknown")).toContain("host key");
+  });
+
+  it("names the key or the token step for a refused secret", () => {
+    expect(failureReasonHint("unauthorized")).toMatch(/key|token/);
+  });
+
+  it("names the wait or the plan quota for a rate limit", () => {
+    expect(failureReasonHint("rate_limited")).toMatch(/[Ww]ait/);
+    expect(failureReasonHint("rate_limited")).toContain("quota");
+  });
+
+  it("names the network or the endpoint for an unreachable provider", () => {
+    expect(failureReasonHint("unreachable")).toMatch(/network|endpoint/);
   });
 
   it("falls back for a value that the client does not know and names the value", () => {

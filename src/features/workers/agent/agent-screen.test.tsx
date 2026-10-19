@@ -707,7 +707,7 @@ describe("AgentScreen", () => {
     vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
       status: "unhealthy",
       capability: "model-list read",
-      failure_reason: "unclassified",
+      failure_reason: "unauthorized",
     });
     vi.mocked(workersApi.putAgentEnablement)
       .mockClear()
@@ -730,6 +730,7 @@ describe("AgentScreen", () => {
     const guard = await screen.findByRole("alertdialog", {
       name: "Enable re@1 with an unhealthy credential?",
     });
+    expect(within(guard).getByText(/The provider refused the API key/)).toBeTruthy();
     await userEvent.click(within(guard).getByRole("button", { name: "Keep editing" }));
     expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
 
