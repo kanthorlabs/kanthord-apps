@@ -7,7 +7,7 @@ type SharedFailureReason = Exclude<ResourceFailureReason, HttpFailureReason>;
 
 const SHARED_HINTS: Readonly<Record<SharedFailureReason, string>> = {
   host_key_unknown:
-    "The server does not know the host key of the repository host. Confirm the host key on the server. Then verify again.",
+    "The server holds no pinned host key for the repository host. Open the binding and use Confirm host key. Then verify again.",
   key_refused:
     "The repository host refused the SSH key. Add the public key of the SSH credential to the repository as a deploy key with write access. Then verify again.",
   repository_not_found:
@@ -16,6 +16,10 @@ const SHARED_HINTS: Readonly<Record<SharedFailureReason, string>> = {
     "The server cannot reach the repository host. Check the host in the address and the network of the server.",
   address_invalid:
     "The address is not valid, or its host is not a host of the platform. Use the form git@<host>:<owner>/<repository>.git.",
+  host_key_changed:
+    "The host presented another key. Compare the fingerprint with the published one, then pin again.",
+  identity_unavailable:
+    "The server cannot load the SSH key. Rotate the key. If the fault stays, read the server log.",
   unclassified:
     "The check failed for an unknown cause, or it exceeded its deadline. Verify again. If the failure stays, read the server log.",
 };

@@ -1018,19 +1018,49 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       "A binding cannot change its placement.",
     );
   }
-  const unreachable = Object.entries(b.bindings).find(
-    ([name, entry]) =>
-      entry.kind === "repository" &&
-      JSON.stringify(entry) !== JSON.stringify(bindingSet.bindings[name]) &&
-      addressFailureOf(entry.config.address) !== null,
-  );
+  const changedRepositories = Object.entries(b.bindings)
+    .filter(
+      ([name, entry]) =>
+        entry.kind === "repository" &&
+        JSON.stringify(entry) !== JSON.stringify(bindingSet.bindings[name]),
+    )
+    .map(([, entry]) => entry.config);
+  if (changedRepositories.some((config) => platformHostOf(config) === null)) {
+    return projectEnvelope(
+      res,
+      400,
+      "project.bindings.repository.address_invalid",
+      "Repository address must name an SSH host of its platform.",
+    );
+  }
+  const unpinned = changedRepositories.find((config) => !hostKeyPins.has(platformHostOf(config)));
+  if (unpinned !== undefined) {
+    return projectEnvelope(
+      res,
+      409,
+      "repository.host_key.unpinned",
+      "The SSH host holds no pinned host key.",
+      { host: platformHostOf(unpinned) },
+    );
+  }
+  const legacy = changedRepositories.find(legacySshOf);
+  if (legacy !== undefined) {
+    return projectEnvelope(
+      res,
+      409,
+      "repository.credential.ssh_key_legacy",
+      "The SSH credential holds no generated key. Use Rotate SSH key.",
+      { credential: legacy.ssh_credential },
+    );
+  }
+  const unreachable = changedRepositories.find((config) => addressFailureOf(config) !== null);
   if (unreachable !== undefined) {
     return projectEnvelope(
       res,
       422,
       "project.bindings.repository.ssh_unreachable",
       "The repository SSH read failed.",
-      { failure_reason: addressFailureOf(unreachable[1].config.address) },
+      { failure_reason: addressFailureOf(unreachable) },
     );
   }
   bindingSet.bindings = b.bindings;
@@ -1812,10 +1842,35 @@ const healthEntry = (status, capability, failureReason = "unclassified") => ({
   failure_reason: status === "healthy" ? null : failureReason,
 });
 
-const addressFailureOf = (address) => {
+const SSH_HOST_SETS = {
+  github: ["github.com", "ssh.github.com"],
+  gitlab: ["gitlab.com", "altssh.gitlab.com"],
+  bitbucket: ["bitbucket.org", "altssh.bitbucket.org"],
+};
+
+const platformHostOf = (config) => {
+  const host = SSH_ADDRESS.exec(config.address)?.[1]?.toLowerCase();
+  return host !== undefined && SSH_HOST_SETS[config.platform]?.includes(host) ? host : null;
+};
+
+const legacySshOf = (config) => {
+  const credential = credentials.find((item) => item.name === config.ssh_credential);
+  return credential !== undefined && isLegacySsh(credential);
+};
+
+const remoteFailureOf = (address) => {
   if (address.includes("hostkey-")) return "host_key_unknown";
+  if (address.includes("denied-")) return "key_refused";
   if (address.includes("bad-")) return "unclassified";
   return null;
+};
+
+const addressFailureOf = (config) => {
+  const host = platformHostOf(config);
+  if (host === null) return "address_invalid";
+  if (!hostKeyPins.has(host)) return "host_key_unknown";
+  if (legacySshOf(config)) return "identity_unavailable";
+  return remoteFailureOf(config.address);
 };
 
 const credentialHealth = (name) => {
@@ -1823,19 +1878,20 @@ const credentialHealth = (name) => {
   if (credential === undefined || isArchived(credential)) {
     return healthEntry("unhealthy", HEALTH_CAPABILITIES[credential?.platform ?? "github"]);
   }
-  const rejected = secretIsRejected(storedSecrets.get(credential.name)) || isLegacySsh(credential);
+  const legacy = isLegacySsh(credential);
+  const rejected = secretIsRejected(storedSecrets.get(credential.name)) || legacy;
   return healthEntry(
     rejected ? "unhealthy" : "healthy",
     HEALTH_CAPABILITIES[credential.platform],
-    "unauthorized",
+    legacy ? "identity_unavailable" : "unauthorized",
   );
 };
 
 const bindingHealthOf = (config) => ({
   address: healthEntry(
-    addressFailureOf(config.address) === null ? "healthy" : "unhealthy",
+    addressFailureOf(config) === null ? "healthy" : "unhealthy",
     "network git read",
-    addressFailureOf(config.address),
+    addressFailureOf(config),
   ),
   ssh_credential: credentialHealth(config.ssh_credential),
   credential: config.credential === undefined ? null : credentialHealth(config.credential),
@@ -1881,7 +1937,7 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/instruction_files$/, (m, 
     return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
   }
   const { config } = bindingSet.bindings[binding.name];
-  const failureReason = addressFailureOf(config.address);
+  const failureReason = addressFailureOf(config);
   if (failureReason !== null) {
     return projectEnvelope(
       res,

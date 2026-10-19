@@ -133,9 +133,10 @@ export function BindingItem({
           <p
             role="status"
             aria-label={`Verify hint of ${name}`}
-            className="text-sm break-words empty:hidden"
+            className="flex flex-col text-sm break-words empty:hidden"
           >
-            {verifyState.addressHint}
+            {verifyState.addressHint !== null && <span>{verifyState.addressHint}</span>}
+            {verifyState.sshCredentialHint !== null && <span>{verifyState.sshCredentialHint}</span>}
           </p>
         )}
         {tags.length > 0 && (

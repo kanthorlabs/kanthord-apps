@@ -143,6 +143,19 @@ function mountFromOnboarding() {
   );
 }
 
+const GITHUB_SSH_KEY = {
+  public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGithubSsh kanthord-github-ssh",
+  fingerprint: "SHA256:SS5y+4FAdGZpIGkhURFS2VSlcK1tTrWmGk8Az16VdMs",
+};
+
+const GITHUB_HOST_KEY = {
+  host: "github.com",
+  public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl",
+  fingerprint: "SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU",
+  source: "github_meta" as const,
+  created_at: 1,
+};
+
 const ROUTER_MAIN: Credential = { name: "router-main", platform: "openrouter", revisions: [] };
 
 describe("BindingsPanel", () => {
@@ -158,12 +171,7 @@ describe("BindingsPanel", () => {
             {
               id: "rev_ssh",
               revision: 1,
-              metadata: {
-                host: "github.com",
-                hostname: "github.com",
-                port: 22,
-                identity_file: "/home/user/.ssh/id_ed25519",
-              },
+              metadata: GITHUB_SSH_KEY,
               created_at: 1,
               ended_at: null,
             },
@@ -184,7 +192,7 @@ describe("BindingsPanel", () => {
           platform: "ssh",
           secret_shape: "ssh_key",
           login_modes: [],
-          metadata_fields: ["host", "hostname", "identity_file"],
+          metadata_fields: [],
           verifiable: true,
         },
         {
@@ -196,6 +204,7 @@ describe("BindingsPanel", () => {
         },
       ],
     });
+    vi.mocked(credentialsApi.listHostKeys).mockResolvedValue([GITHUB_HOST_KEY]);
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
       { ...CATALOG_ITEM, name: "coder@1" },
@@ -1263,12 +1272,7 @@ describe("BindingsPanel", () => {
             {
               id: "rev_ssh",
               revision: 1,
-              metadata: {
-                host: "github.com",
-                hostname: "github.com",
-                port: 22,
-                identity_file: "/home/user/.ssh/id_ed25519",
-              },
+              metadata: GITHUB_SSH_KEY,
               created_at: 1,
               ended_at: null,
             },
@@ -1351,7 +1355,8 @@ describe("BindingsPanel", () => {
       within(form).getByText("Fill Name, Address and SSH credential to verify and save."),
     ).toBeTruthy();
 
-    await userEvent.type(within(form).getByLabelText("Address"), "git@github.com:o/r.git");
+    expect(within(form).getByLabelText("Address")).toHaveValue("git@github.com:");
+    await userEvent.type(within(form).getByLabelText("Address"), "o/r.git");
     expect(within(form).getByText("Fill Name and SSH credential to verify and save.")).toBeTruthy();
     expect((verify as HTMLButtonElement).disabled).toBe(true);
   });
@@ -1362,5 +1367,144 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
     const form = await screen.findByRole("form", { name: "Edit general-main" });
     expect(within(form).queryByRole("button", { name: "Verify" })).toBeNull();
+  });
+  it("shows the pinned host key of the address in the repository sheet", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const row = await screen.findByRole("group", { name: "Host key of github.com" });
+
+    expect(await within(row).findByText("Pinned")).toBeTruthy();
+    expect(within(row).getByText(GITHUB_HOST_KEY.fingerprint)).toBeTruthy();
+    expect(credentialsApi.scanHostKey).not.toHaveBeenCalled();
+  });
+
+  it("keeps Save off until the human confirms the host key of a GitLab address", async () => {
+    const scan = {
+      host: "gitlab.com",
+      public_key: "ssh-ed25519 AAAAgitlab",
+      fingerprint: "SHA256:eUXGGm1YGsMAS7vkcx6JOJdOGHPem5gQp4taiCfCLB8",
+      source: "keyscan" as const,
+    };
+    vi.mocked(credentialsApi.scanHostKey).mockResolvedValue(scan);
+    vi.mocked(credentialsApi.pinHostKey).mockResolvedValue({ ...scan, created_at: 2 });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const form = await screen.findByRole("form", { name: "Edit kanthord-repo" });
+    await userEvent.click(within(form).getByLabelText("Platform"));
+    await userEvent.click(await screen.findByRole("option", { name: "GitLab" }));
+    const address = within(form).getByLabelText("Address");
+    await userEvent.clear(address);
+    await userEvent.type(address, "git@gitlab.com:kanthorlabs/kanthord.git");
+
+    const confirm = await within(form).findByRole("button", { name: "Confirm host key" });
+    expect(within(form).getByRole("button", { name: "Save binding" })).toBeDisabled();
+    await userEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(within(form).getByRole("button", { name: "Save binding" })).toBeEnabled(),
+    );
+    expect(credentialsApi.pinHostKey).toHaveBeenCalledWith("gitlab.com", {
+      fingerprint: scan.fingerprint,
+    });
+  });
+
+  it("refuses an alias host in the address before the save", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const address = await screen.findByLabelText("Address");
+    await userEvent.clear(address);
+    await userEvent.type(address, "git@github-work:kanthorlabs/kanthord.git");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(
+      await screen.findByText("The host of a GitHub address must be github.com or ssh.github.com."),
+    ).toBeTruthy();
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+  });
+
+  it("creates an SSH key from New SSH credential and selects it", async () => {
+    const created: Credential = {
+      name: "deploy-atlas",
+      platform: "ssh",
+      revisions: [
+        {
+          id: "rev_new",
+          revision: 1,
+          metadata: {
+            public_key: "ssh-ed25519 AAAAdeploy kanthord-deploy-atlas",
+            fingerprint: "SHA256:ZGVwbG95LWF0bGFzLWZpbmdlcnByaW50LXZhbHVlLWhlcmU",
+          },
+          created_at: 2,
+          ended_at: null,
+        },
+      ],
+    };
+    vi.mocked(credentialsApi.createSshKey).mockResolvedValue(created);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(await screen.findByRole("button", { name: "New SSH credential" }));
+    const sheet = await screen.findByRole("form", { name: "Create SSH key" });
+    vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
+      items: [created],
+      next_cursor: null,
+    });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "deploy-atlas");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create SSH key" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Done" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "SSH credential" })).toHaveValue(
+        "deploy-atlas (v1)",
+      ),
+    );
+  });
+
+  it("shows the public key of the SSH credential when the host refuses the key", async () => {
+    vi.mocked(projectsApi.checkBinding).mockResolvedValue({
+      address: {
+        status: "unhealthy",
+        capability: "network git read",
+        failure_reason: "key_refused",
+      },
+      ssh_credential: { status: "healthy", capability: "ssh identity", failure_reason: null },
+      credential: null,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    const form = await screen.findByRole("form", { name: "Edit kanthord-repo" });
+    await userEvent.click(within(form).getByRole("button", { name: "Verify" }));
+
+    expect(await within(form).findByText(GITHUB_SSH_KEY.public_key)).toBeTruthy();
+    expect(within(form).getByRole("button", { name: "Copy public key" })).toBeTruthy();
+  });
+
+  it("shows the hint of an unavailable SSH identity on the row and in the sheet", async () => {
+    const unavailable = {
+      address: { status: "healthy" as const, capability: "network git read", failure_reason: null },
+      ssh_credential: {
+        status: "unhealthy" as const,
+        capability: "ssh identity",
+        failure_reason: "identity_unavailable" as const,
+      },
+      credential: null,
+    };
+    vi.mocked(projectsApi.verifyBinding).mockResolvedValue(unavailable);
+    vi.mocked(projectsApi.checkBinding).mockResolvedValue(unavailable);
+    const hint = failureReasonHint("identity_unavailable", "repository");
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Verify kanthord-repo" }));
+    const status = await screen.findByRole("status", { name: "Verify hint of kanthord-repo" });
+    expect(await within(status).findByText(hint)).toBeTruthy();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit kanthord-repo" }));
+    const form = await screen.findByRole("form", { name: "Edit kanthord-repo" });
+    await userEvent.click(within(form).getByRole("button", { name: "Verify" }));
+    expect(await within(form).findByText(hint)).toBeTruthy();
   });
 });

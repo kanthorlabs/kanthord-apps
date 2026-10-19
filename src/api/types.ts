@@ -1046,6 +1046,8 @@ export type ResourceFailureReason =
   | "rate_limited"
   | "unreachable"
   | "invalid_response"
+  | "host_key_changed"
+  | "identity_unavailable"
   | "unclassified";
 
 export interface HealthEntry {

@@ -39,7 +39,6 @@ export interface RepositoryDraft {
   readonly actionName: RepositoryActionName | "";
   readonly follows: RepositoryActionFollows;
   readonly sshCredential: string;
-  readonly sshCredentialHost: string;
   readonly credential: string;
   readonly projectPrompt: string;
   readonly workingLayer: WorkingLayerSwitches;
@@ -88,6 +87,53 @@ const ALL_SWITCHES_ON: WorkingLayerSwitches = {
   project_prompt: true,
 };
 const GIT_ADDRESS_HOST = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):/;
+const SSH_HOST_SETS: Readonly<Record<RepositoryPlatform, readonly [string, string]>> = {
+  github: ["github.com", "ssh.github.com"],
+  gitlab: ["gitlab.com", "altssh.gitlab.com"],
+  bitbucket: ["bitbucket.org", "altssh.bitbucket.org"],
+};
+const PLATFORM_LABELS: Readonly<Record<RepositoryPlatform, string>> = {
+  github: "GitHub",
+  gitlab: "GitLab",
+  bitbucket: "Bitbucket",
+};
+
+function addressPrefillOf(platform: RepositoryPlatform): string {
+  return platform === "github" ? `git@${SSH_HOST_SETS.github[0]}:` : "";
+}
+
+function hostSetText(platform: RepositoryPlatform): string {
+  return SSH_HOST_SETS[platform].join(" or ");
+}
+
+export function addressRuleOf(platform: RepositoryPlatform): string {
+  return `Use the form git@<host>:<owner>/<repository>.git. The host must be ${hostSetText(platform)}.`;
+}
+
+function addressMissing(draft: RepositoryDraft): boolean {
+  return blank(draft.address) || draft.address.trim() === addressPrefillOf(draft.platform);
+}
+
+export function pinnableHostOf(draft: {
+  readonly platform: RepositoryPlatform;
+  readonly address: string;
+}): string | null {
+  const host = GIT_ADDRESS_HOST.exec(draft.address.trim())?.[1]?.toLowerCase();
+  return host !== undefined && SSH_HOST_SETS[draft.platform].includes(host) ? host : null;
+}
+
+export function withPlatform(
+  draft: RepositoryDraft,
+  platform: RepositoryPlatform,
+): RepositoryDraft {
+  const actionName =
+    platform !== "github" && draft.actionName === "pull_request" ? "" : draft.actionName;
+  const address =
+    blank(draft.address) || draft.address.trim() === addressPrefillOf(draft.platform)
+      ? addressPrefillOf(platform)
+      : draft.address;
+  return { ...draft, platform, actionName, address };
+}
 
 export function emptyDraft(kind: BindingSetKind): BindingDraft {
   if (kind === "repository") {
@@ -96,12 +142,11 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       name: "",
       available: true,
       platform: "github",
-      address: "",
+      address: addressPrefillOf("github"),
       baseBranch: "main",
       actionName: "",
       follows: ASSESSMENT_PASSED,
       sshCredential: "",
-      sshCredentialHost: "",
       credential: "",
       projectPrompt: "",
       workingLayer: ALL_SWITCHES_ON,
@@ -206,7 +251,6 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       actionName: config.strategy.action?.name ?? "",
       follows: config.strategy.action?.follows ?? ASSESSMENT_PASSED,
       sshCredential: config.ssh_credential,
-      sshCredentialHost: "",
       credential: config.credential ?? "",
       projectPrompt: config.project_prompt ?? "",
       workingLayer: { ...ALL_SWITCHES_ON, ...config.working_layer },
@@ -286,25 +330,16 @@ function agentEntryOf(draft: AgentEntryDraft): WorkerAgentEntry {
   };
 }
 
-function addressHostOf(address: string): string | null {
-  const match = GIT_ADDRESS_HOST.exec(address);
-  return match?.[1] ?? null;
-}
-
 function repositoryEntryOf(
   draft: RepositoryDraft,
   errors: Record<string, string>,
 ): BindingSetEntry {
   const address = draft.address.trim();
   if (!REPOSITORY_ADDRESS.test(address)) {
+    errors["address"] = addressRuleOf(draft.platform);
+  } else if (pinnableHostOf(draft) === null) {
     errors["address"] =
-      "An SSH address git@<host>:<owner>/<repository>.git. The host must equal the host of the SSH credential.";
-  } else if (draft.sshCredentialHost !== "") {
-    const addressHost = addressHostOf(address);
-    if (addressHost !== null && addressHost !== draft.sshCredentialHost) {
-      errors["address"] =
-        `The address host must equal the SSH credential host ${draft.sshCredentialHost}.`;
-    }
+      `The host of a ${PLATFORM_LABELS[draft.platform]} address must be ${hostSetText(draft.platform)}.`;
   }
   if (blank(draft.baseBranch)) errors["baseBranch"] = REQUIRED;
   if (blank(draft.sshCredential)) errors["sshCredential"] = REQUIRED;
@@ -423,7 +458,7 @@ function labelsOf(fields: readonly (readonly [string, boolean])[]): readonly str
 
 export function missingForCheck(draft: RepositoryDraft): readonly string[] {
   return labelsOf([
-    ["Address", blank(draft.address)],
+    ["Address", addressMissing(draft)],
     ["SSH credential", blank(draft.sshCredential)],
     [
       "GitHub credential",
@@ -437,7 +472,7 @@ export function missingForSave(draft: BindingDraft): readonly string[] {
   if (draft.kind === "repository")
     return labelsOf([
       name,
-      ["Address", blank(draft.address)],
+      ["Address", addressMissing(draft)],
       ["SSH credential", blank(draft.sshCredential)],
       [
         "GitHub credential",

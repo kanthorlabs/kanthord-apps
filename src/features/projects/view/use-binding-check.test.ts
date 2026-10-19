@@ -121,6 +121,42 @@ describe("useBindingCheck", () => {
     expect(result.current.addressHint).toBe(failureReasonHint("host_key_unknown", "repository"));
   });
 
+  it("gives the hint of the failure reason of an unhealthy SSH credential", async () => {
+    checkMock.mockResolvedValue({
+      ...VERIFY_RESULT,
+      ssh_credential: {
+        status: "unhealthy",
+        capability: "ssh identity",
+        failure_reason: "identity_unavailable",
+      },
+    });
+
+    const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
+    await act(async () => result.current.run());
+    expect(result.current.sshCredentialBadge?.label).toBe("Unhealthy");
+    expect(result.current.sshCredentialHint).toBe(
+      failureReasonHint("identity_unavailable", "repository"),
+    );
+    expect(result.current.keyRefused).toBe(false);
+  });
+
+  it("marks a key that the repository host refuses", async () => {
+    checkMock.mockResolvedValue({
+      ...VERIFY_RESULT,
+      address: {
+        status: "unhealthy",
+        capability: "network git read",
+        failure_reason: "key_refused",
+      },
+    });
+
+    const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
+    expect(result.current.keyRefused).toBe(false);
+    await act(async () => result.current.run());
+    expect(result.current.keyRefused).toBe(true);
+    expect(result.current.sshCredentialHint).toBeNull();
+  });
+
   it("gives no hint for a healthy address", async () => {
     const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
     expect(result.current.addressHint).toBeNull();
@@ -140,15 +176,17 @@ describe("useBindingCheck", () => {
   it("maps a refusal to an error message", async () => {
     checkMock.mockRejectedValue(
       new ApiError(
-        "conflict",
-        "The address host does not match.",
+        "refused",
+        "Repository address must have the form git@<host>:<owner>/<repository>.git.",
         400,
-        "project.bindings.repository.ssh_host_mismatch",
+        "project.bindings.repository.address_invalid",
       ),
     );
     const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
     await act(async () => result.current.run());
-    expect(result.current.error).toBe("The address host does not match.");
+    expect(result.current.error).toBe(
+      "Repository address must have the form git@<host>:<owner>/<repository>.git.",
+    );
     expect(result.current.addressBadge).toBeNull();
   });
 
