@@ -46,6 +46,7 @@ export interface EnablementCreateState {
   readonly failure: string | null;
   readonly submitting: boolean;
   readonly unhealthyCredential: string | null;
+  readonly unhealthyHint: string | null;
   readonly credentialCreateOpen: boolean;
   readonly nameInput: RefObject<HTMLInputElement | null>;
   readonly setName: (name: string) => void;
@@ -219,6 +220,7 @@ export function useEnablementCreate(
     failure,
     submitting,
     unhealthyCredential: guard.credential,
+    unhealthyHint: guard.hint,
     credentialCreateOpen,
     nameInput,
     setName,

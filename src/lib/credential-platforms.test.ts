@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CredentialPlatformList } from "@/api/types";
-import { platformEntryOf, platformIdsOf } from "./credential-platforms";
+import { platformEntryOf, platformGroupsOf, platformIdsOf } from "./credential-platforms";
 
 const ANTHROPIC = {
   platform: "anthropic",
@@ -37,5 +37,41 @@ describe("platformIdsOf", () => {
   it("lists the platform ids in the answer order", () => {
     expect(platformIdsOf(LIST)).toEqual(["anthropic", "cloudflare-ai-gateway"]);
     expect(platformIdsOf(null)).toEqual([]);
+  });
+});
+
+describe("platformGroupsOf", () => {
+  const copilot = {
+    ...ANTHROPIC,
+    platform: "github-copilot",
+    secret_shape: "oauth",
+    login_modes: ["device"],
+  } as const;
+
+  it("groups the checked, the sign-in and the other platforms in the answer order", () => {
+    const openai = { ...ANTHROPIC, platform: "openai" };
+    const mistral = { ...GATEWAY, platform: "mistral", metadata_fields: [] };
+    expect(platformGroupsOf({ items: [GATEWAY, copilot, ANTHROPIC, mistral, openai] })).toEqual([
+      { value: "Checked before save", items: ["anthropic", "openai"] },
+      { value: "Sign in with an account", items: ["github-copilot"] },
+      { value: "Not checked before save", items: ["cloudflare-ai-gateway", "mistral"] },
+    ]);
+  });
+
+  it("puts a verifiable oauth platform under the sign-in group only", () => {
+    const groups = platformGroupsOf({ items: [copilot, ANTHROPIC] });
+    expect(groups.find((group) => group.value === "Checked before save")?.items).not.toContain(
+      "github-copilot",
+    );
+    expect(groups.find((group) => group.value === "Sign in with an account")?.items).toEqual([
+      "github-copilot",
+    ]);
+  });
+
+  it("omits an empty group", () => {
+    expect(platformGroupsOf({ items: [ANTHROPIC] })).toEqual([
+      { value: "Checked before save", items: ["anthropic"] },
+    ]);
+    expect(platformGroupsOf(null)).toEqual([]);
   });
 });

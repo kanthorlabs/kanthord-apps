@@ -11,6 +11,7 @@ import type {
   CredentialPlatformList,
 } from "@/api/types";
 import { asApiError, type Resource } from "@/hooks/use-resource";
+import { useUnhealthyGuard } from "@/hooks/use-unhealthy-guard";
 import {
   EMPTY_METADATA,
   EMPTY_SECRET,
@@ -22,7 +23,12 @@ import {
   type MetadataDraft,
   type SecretDraft,
 } from "@/lib/credential-draft";
-import { platformEntryOf, platformIdsOf } from "@/lib/credential-platforms";
+import {
+  platformEntryOf,
+  platformGroupsOf,
+  platformIdsOf,
+  type PlatformGroup,
+} from "@/lib/credential-platforms";
 import { credentialDetailPath } from "@/lib/credential-sections";
 import { missingHint } from "@/lib/missing-fields";
 import type { PriorCheckState } from "@/lib/prior-check";
@@ -36,6 +42,7 @@ export interface CredentialFormState {
   readonly name: string;
   readonly platforms: Resource<CredentialPlatformList>;
   readonly platformIds: readonly CredentialPlatform[];
+  readonly platformGroups: readonly PlatformGroup[] | null;
   readonly platform: CredentialPlatform;
   readonly entry: CredentialPlatformEntry | null;
   readonly oauth: boolean;
@@ -46,6 +53,10 @@ export interface CredentialFormState {
   readonly submitting: boolean;
   readonly login: CredentialLoginState;
   readonly precheck: CredentialPrecheck;
+  readonly unhealthyCredential: string | null;
+  readonly unhealthyHint: string | null;
+  readonly confirmUnhealthy: () => void;
+  readonly cancelUnhealthy: () => void;
   readonly checkReady: boolean;
   readonly createReady: boolean;
   readonly missingHint: string | null;
@@ -71,8 +82,11 @@ export function useCredentialForm(
   const [name, setNameValue] = useState("");
   const platforms = useCredentialPlatforms(component);
   const [selected, setPlatform] = useState<CredentialPlatform | null>(null);
-  const platform =
-    selected ?? platforms.data?.items.find((e) => e.platform !== "ssh")?.platform ?? "";
+  const defaultPlatform =
+    component === "llm"
+      ? ""
+      : (platforms.data?.items.find((e) => e.platform !== "ssh")?.platform ?? "");
+  const platform = selected ?? defaultPlatform;
   const entry = platformEntryOf(platforms.data, platform);
   const login = useCredentialLogin(component, entry?.login_modes ?? NO_LOGIN_MODES, onCreated);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
@@ -83,6 +97,7 @@ export function useCredentialForm(
   const oauth = entry?.secret_shape === "oauth";
   const { start: startLogin, clearStartError } = login;
   const clearErrors = useCallback(() => setErrors(NO_ERRORS), []);
+  const guard = useUnhealthyGuard();
   const precheck = useCredentialPrecheck(
     component,
     entry,
@@ -114,6 +129,7 @@ export function useCredentialForm(
     if (invalid === null) startLogin(name, platform);
   }, [name, platform, startLogin]);
 
+  const runGuard = guard.runChecked;
   const submitCreate = useCallback(() => {
     if (entry === null) return;
     const body = createBodyOf(name, entry, secret, metadata);
@@ -122,30 +138,34 @@ export function useCredentialForm(
       return;
     }
     setErrors(NO_ERRORS);
-    setSubmitError(null);
-    setSubmitting(true);
-    setSecret(EMPTY_SECRET);
     const { checked } = precheck;
-    createCredential(component, body.value).then(
-      (credential) => {
-        setSubmitting(false);
-        toast.success(`Created ${credential.name}.`);
-        if (onCreated !== undefined) {
-          onCreated(credential.name);
-        } else if (returnTo !== null) {
-          void navigate(returnTo);
-        } else {
-          const state: PriorCheckState | undefined =
-            checked === null ? undefined : { priorCheck: checked };
-          void navigate(credentialDetailPath(component, credential.name), { state });
-        }
-      },
-      (cause: unknown) => {
-        setSubmitting(false);
-        setSubmitError(credentialMessage(asApiError(cause)));
-      },
-    );
-  }, [component, name, entry, secret, metadata, precheck, navigate, onCreated, returnTo]);
+    const send = () => {
+      setSubmitError(null);
+      setSubmitting(true);
+      setSecret(EMPTY_SECRET);
+      createCredential(component, body.value).then(
+        (credential) => {
+          setSubmitting(false);
+          toast.success(`Created ${credential.name}.`);
+          if (onCreated !== undefined) {
+            onCreated(credential.name);
+          } else if (returnTo !== null) {
+            void navigate(returnTo);
+          } else {
+            const state: PriorCheckState | undefined =
+              checked === null ? undefined : { priorCheck: checked };
+            void navigate(credentialDetailPath(component, credential.name), { state });
+          }
+        },
+        (cause: unknown) => {
+          setSubmitting(false);
+          setSubmitError(credentialMessage(asApiError(cause)));
+        },
+      );
+    };
+    if (component === "llm") runGuard(name, checked?.entry ?? null, send);
+    else send();
+  }, [component, name, entry, secret, metadata, precheck, runGuard, navigate, onCreated, returnTo]);
 
   const submit = useCallback(() => {
     if (submitting || login.starting) return;
@@ -162,6 +182,7 @@ export function useCredentialForm(
     name,
     platforms,
     platformIds: platformIdsOf(platforms.data).filter((id) => id !== "ssh"),
+    platformGroups: component === "llm" ? platformGroupsOf(platforms.data) : null,
     platform,
     entry,
     oauth,
@@ -172,6 +193,10 @@ export function useCredentialForm(
     submitting: submitting || login.starting,
     login,
     precheck,
+    unhealthyCredential: guard.credential,
+    unhealthyHint: guard.hint,
+    confirmUnhealthy: guard.confirm,
+    cancelUnhealthy: guard.cancel,
     checkReady,
     createReady: missing.length === 0,
     missingHint: missingHint(missing, purpose),

@@ -1043,6 +1043,11 @@ export type ResourceFailureReason =
   | "repository_not_found"
   | "host_unreachable"
   | "address_invalid"
+  | "unauthorized"
+  | "forbidden"
+  | "rate_limited"
+  | "unreachable"
+  | "invalid_response"
   | "unclassified";
 
 export interface HealthEntry {

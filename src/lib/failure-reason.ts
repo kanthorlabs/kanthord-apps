@@ -1,6 +1,11 @@
-import type { HealthEntry, ResourceFailureReason } from "@/api/types";
+import type { CredentialComponent, HealthEntry, ResourceFailureReason } from "@/api/types";
 
-const HINTS: Readonly<Record<ResourceFailureReason, string>> = {
+type HttpFailureReason =
+  "unauthorized" | "forbidden" | "rate_limited" | "unreachable" | "invalid_response";
+
+type SharedFailureReason = Exclude<ResourceFailureReason, HttpFailureReason>;
+
+const SHARED_HINTS: Readonly<Record<SharedFailureReason, string>> = {
   host_key_unknown:
     "The server does not know the host key of the repository host. Confirm the host key on the server. Then verify again.",
   key_refused:
@@ -15,21 +20,53 @@ const HINTS: Readonly<Record<ResourceFailureReason, string>> = {
     "The check failed for an unknown cause, or it exceeded its deadline. Verify again. If the failure stays, read the server log.",
 };
 
-function isKnownReason(reason: string): reason is ResourceFailureReason {
-  return Object.hasOwn(HINTS, reason);
-}
+const LLM_HINTS: Readonly<Record<HttpFailureReason, string>> = {
+  unauthorized:
+    "The provider refused the API key or the access token. Correct the key, or sign in again for a new token. Then verify again.",
+  forbidden:
+    "The provider accepted the key or the token but refused the access. Check the permissions and the plan of the account.",
+  rate_limited:
+    "The provider limited the requests. Wait some minutes, or check the quota of the plan. Then verify again.",
+  unreachable:
+    "The server cannot reach the provider. Check the network of the server and the base URL of an openai-compatible credential. For an OAuth platform, sign in again.",
+  invalid_response:
+    "The provider sent an answer that the check does not expect, for example a server error. Verify again later. For an openai-compatible credential, check that the base URL points to the API of the provider.",
+};
 
-export function failureReasonHint(reason: string): string {
-  if (isKnownReason(reason)) return HINTS[reason];
+const REMOTE_HINTS: Readonly<Record<HttpFailureReason, string>> = {
+  unauthorized:
+    "The remote service refused the token or the access key. Correct the token or the key. Then verify again.",
+  forbidden:
+    "The remote service accepted the token or the key but refused the access. Check the permissions of the token or the key.",
+  rate_limited:
+    "The remote service limited the requests. Wait some minutes, or check the quota of the account. Then verify again.",
+  unreachable:
+    "The server cannot reach the remote service. Check the network of the server and the endpoint of a storage credential.",
+  invalid_response:
+    "The remote service sent an answer that the check does not expect, for example a server error. Verify again later. For a storage credential, check the endpoint and the bucket.",
+};
+
+const HTTP_HINTS: Readonly<
+  Record<CredentialComponent, Readonly<Record<HttpFailureReason, string>>>
+> = {
+  llm: LLM_HINTS,
+  repository: REMOTE_HINTS,
+  storage: REMOTE_HINTS,
+};
+
+export function failureReasonHint(reason: string, component: CredentialComponent): string {
+  const http = HTTP_HINTS[component];
+  if (Object.hasOwn(http, reason)) return http[reason as HttpFailureReason];
+  if (Object.hasOwn(SHARED_HINTS, reason)) return SHARED_HINTS[reason as SharedFailureReason];
   return `The check failed with the reason ${reason}. Verify again. If the failure stays, read the server log.`;
 }
 
 export function failureReasonHintOf(details: unknown): string | null {
   if (typeof details !== "object" || details === null) return null;
   const reason: unknown = (details as Readonly<Record<string, unknown>>)["failure_reason"];
-  return typeof reason === "string" ? failureReasonHint(reason) : null;
+  return typeof reason === "string" ? failureReasonHint(reason, "repository") : null;
 }
 
-export function healthEntryHint(entry: HealthEntry): string | null {
-  return entry.failure_reason === null ? null : failureReasonHint(entry.failure_reason);
+export function healthEntryHint(entry: HealthEntry, component: CredentialComponent): string | null {
+  return entry.failure_reason === null ? null : failureReasonHint(entry.failure_reason, component);
 }

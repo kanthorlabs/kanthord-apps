@@ -113,8 +113,9 @@ export function EnablementForm({ agentName, reload, onEnabled }: EnablementFormP
           </Button>
         </FieldGroup>
         <UnhealthyCredentialDialog
-          agentNames={[agentName]}
+          action={{ kind: "enable", agentNames: [agentName] }}
           credential={form.unhealthyCredential}
+          hint={form.unhealthyHint}
           saferPath={
             <>
               Rotate the secret on the{" "}

@@ -57,7 +57,7 @@ function toVerifyState(inner: PerBindingState): BindingVerifyState {
   }
   return {
     addressBadge: toCheckBadge(inner.address),
-    addressHint: healthEntryHint(inner.address),
+    addressHint: healthEntryHint(inner.address, "repository"),
     sshCredentialBadge: toCheckBadge(inner.sshCredential),
     credentialBadge: inner.credential !== null ? toCheckBadge(inner.credential) : null,
     checking: false,

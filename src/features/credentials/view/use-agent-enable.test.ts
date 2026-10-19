@@ -7,6 +7,7 @@ import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as workersApi from "@/api/resources/workers";
 import type { AgentEnablement, AgentSummary, Credential, HealthEntry } from "@/api/types";
+import { failureReasonHint } from "@/lib/failure-reason";
 
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/credentials");
@@ -98,7 +99,7 @@ const HEALTHY: HealthEntry = {
 const UNHEALTHY: HealthEntry = {
   status: "unhealthy",
   capability: "model-list read",
-  failure_reason: "unclassified",
+  failure_reason: "unauthorized",
 };
 
 describe("useAgentEnable", () => {
@@ -246,6 +247,7 @@ describe("useAgentEnable", () => {
     act(() => result.current.submit());
 
     await waitFor(() => expect(result.current.unhealthyCredential).toBe("openai-main"));
+    expect(result.current.unhealthyHint).toBe(failureReasonHint("unauthorized", "llm"));
     expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
     act(() => result.current.confirmUnhealthy());
     await waitFor(() => expect(workersApi.putAgentEnablement).toHaveBeenCalledTimes(2));

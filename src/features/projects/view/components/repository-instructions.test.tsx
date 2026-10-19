@@ -247,7 +247,7 @@ describe("RepositoryInstructions", () => {
     mount();
 
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(failureReasonHint("repository_not_found"));
+    expect(alert).toHaveTextContent(failureReasonHint("repository_not_found", "repository"));
   });
 
   it("makes no read for a new binding", async () => {

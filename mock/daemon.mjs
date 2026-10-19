@@ -1792,7 +1792,11 @@ const credentialHealth = (name) => {
     return healthEntry("unhealthy", HEALTH_CAPABILITIES[credential?.platform ?? "github"]);
   }
   const rejected = secretIsRejected(storedSecrets.get(credential.name));
-  return healthEntry(rejected ? "unhealthy" : "healthy", HEALTH_CAPABILITIES[credential.platform]);
+  return healthEntry(
+    rejected ? "unhealthy" : "healthy",
+    HEALTH_CAPABILITIES[credential.platform],
+    "unauthorized",
+  );
 };
 
 const bindingHealthOf = (config) => ({
@@ -2218,6 +2222,7 @@ on("POST", credentialRoute("\\/check"), (m, b, res) => {
     healthEntry(
       secretIsRejected(b.secret) ? "unhealthy" : "healthy",
       HEALTH_CAPABILITIES[b.platform],
+      "unauthorized",
     ),
   );
 });
@@ -2243,6 +2248,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/verify"), (m, _b, res) => {
         healthEntry(
           secretIsRejected(storedSecrets.get(credential.name)) ? "unhealthy" : "healthy",
           HEALTH_CAPABILITIES[credential.platform],
+          "unauthorized",
         ),
       ),
     HEALTHCHECK_DELAY_MS,
