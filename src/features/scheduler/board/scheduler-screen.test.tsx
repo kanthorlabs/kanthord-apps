@@ -24,7 +24,7 @@ vi.mock("@/api/resources/scheduler", () => ({
 }));
 
 vi.mock("@/api/resources/workers", () => ({
-  listWorkerInstances: vi.fn(),
+  listWorkerRegistrations: vi.fn(),
   listWorkerCatalog: vi.fn(),
 }));
 
@@ -35,7 +35,7 @@ import {
   listProjectExecutionPage,
   listQueueJobs,
 } from "@/api/resources/scheduler";
-import { listWorkerCatalog, listWorkerInstances } from "@/api/resources/workers";
+import { listWorkerCatalog, listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   ExecutionStop,
   MissionNodeRecord,
@@ -46,7 +46,7 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
 import { newUlid } from "@/lib/ulid";
@@ -126,7 +126,7 @@ function execution(
     claimant: {
       worker_binding_id: "binding_1",
       resource_identity: "worker:kanthord:general-main",
-      runtime_identity: "worker_instance_01",
+      runtime_identity: "worker_registration_01",
       name: "general-main #1",
     },
     attempt: 2,
@@ -174,13 +174,13 @@ const CATALOG: readonly WorkerCatalogItem[] = [
   },
 ];
 
-function instance(
+function registration(
   projectId: string,
   workerName: string,
   bindingName = workerName,
-): WorkerInstanceRecord {
+): WorkerRegistrationRecord {
   return {
-    runtime_identity: `worker_instance_${bindingName}`,
+    runtime_identity: `worker_registration_${bindingName}`,
     project_id: projectId,
     resource_identity: `worker:kanthord:${bindingName}`,
     worker_name: workerName,
@@ -220,7 +220,7 @@ interface World {
   readonly nodes?: Readonly<Record<string, readonly MissionNodeRecord[]>>;
   readonly jobs?: Readonly<Record<string, readonly SchedulerJob[]>>;
   readonly executions?: Readonly<Record<string, readonly SchedulerExecutionRecord[]>>;
-  readonly instances?: Readonly<Record<string, readonly WorkerInstanceRecord[]>>;
+  readonly registrations?: Readonly<Record<string, readonly WorkerRegistrationRecord[]>>;
   readonly bindings?: Readonly<Record<string, readonly WorkerBindingRecord[]>>;
 }
 
@@ -236,8 +236,8 @@ function serve(world: World) {
     async (missionId) => world.nodes?.[missionId.replace("mission_", "")] ?? [],
   );
   vi.mocked(listQueueJobs).mockImplementation(async (projectId) => world.jobs?.[projectId] ?? []);
-  vi.mocked(listWorkerInstances).mockImplementation(
-    async (projectId) => world.instances?.[projectId] ?? [],
+  vi.mocked(listWorkerRegistrations).mockImplementation(
+    async (projectId) => world.registrations?.[projectId] ?? [],
   );
   vi.mocked(listWorkerBindings).mockImplementation(
     async (projectId) => world.bindings?.[projectId] ?? catalogBindings(projectId),
@@ -339,7 +339,7 @@ describe("SchedulerScreen Now", () => {
     expect(
       within(item).getByText(
         textContent(
-          "binding general-main · instance general-main #1 · attempt 2 · pinned revision 3",
+          "binding general-main · registration general-main #1 · attempt 2 · pinned revision 3",
         ),
       ),
     ).toBeInTheDocument();
@@ -449,7 +449,9 @@ describe("SchedulerScreen Next", () => {
       jobs: {
         "prj-1": [job("prj-1", "n_a", 7, 3 * 60 * MINUTE), job("prj-1", "n_b", 0, 5 * MINUTE)],
       },
-      instances: { "prj-1": [instance("prj-1", "coder@1"), instance("prj-1", "reviewer@1")] },
+      registrations: {
+        "prj-1": [registration("prj-1", "coder@1"), registration("prj-1", "reviewer@1")],
+      },
     });
 
     renderScreen("/scheduler?project=prj-1");
@@ -471,7 +473,7 @@ describe("SchedulerScreen Next", () => {
     expect(within(second!).getByText("Evaluation claim")).toBeInTheDocument();
   });
 
-  it("marks a job whose state no live instance declares with No taker", async () => {
+  it("marks a job whose state no live registration declares with No taker", async () => {
     serve({
       nodes: {
         "prj-1": [
@@ -480,7 +482,7 @@ describe("SchedulerScreen Next", () => {
         ],
       },
       jobs: { "prj-1": [job("prj-1", "n_a", 0, MINUTE), job("prj-1", "n_b", 0, MINUTE)] },
-      instances: { "prj-1": [instance("prj-1", "coder@1")] },
+      registrations: { "prj-1": [registration("prj-1", "coder@1")] },
     });
 
     renderScreen("/scheduler?project=prj-1");
@@ -501,7 +503,7 @@ describe("SchedulerScreen Next", () => {
         ],
       },
       jobs: { "prj-1": [job("prj-1", "n_mac", 0, MINUTE), job("prj-1", "n_a", 0, MINUTE)] },
-      instances: { "prj-1": [instance("prj-1", "coder@1", "general-main")] },
+      registrations: { "prj-1": [registration("prj-1", "coder@1", "general-main")] },
       bindings: {
         "prj-1": [
           binding("prj-1", "general-main", "coder@1"),
@@ -655,7 +657,7 @@ describe("SchedulerScreen Done", () => {
     expect(within(item).queryByText(/^Deadline/)).toBeNull();
   });
 
-  it("shows the runtime identity of an unnamed instance as a plain breaking value", async () => {
+  it("shows the runtime identity of an unnamed registration as a plain breaking value", async () => {
     const { name: _, ...unnamed } = execution("prj-1", "x", "n_a").claimant;
     serve({
       nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] },
@@ -669,14 +671,14 @@ describe("SchedulerScreen Done", () => {
     const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
       "listitem",
     );
-    const identity = within(item).getByText("worker_instance_01");
+    const identity = within(item).getByText("worker_registration_01");
     expect(identity.tagName).toBe("SPAN");
     expect(identity).toHaveClass("break-all");
-    expect(within(item).queryByText("worker_instance_01", { selector: "strong" })).toBeNull();
+    expect(within(item).queryByText("worker_registration_01", { selector: "strong" })).toBeNull();
     expect(
       within(item).getByText(
         textContent(
-          "binding general-main · instance worker_instance_01 · attempt 2 · pinned revision 3",
+          "binding general-main · registration worker_registration_01 · attempt 2 · pinned revision 3",
         ),
       ),
     ).toBeInTheDocument();

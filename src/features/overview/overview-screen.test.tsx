@@ -20,7 +20,7 @@ vi.mock("@/api/resources/projects", () => ({
 
 vi.mock("@/api/resources/workers", () => ({
   listWorkerCatalog: vi.fn(),
-  listWorkerInstances: vi.fn(),
+  listWorkerRegistrations: vi.fn(),
 }));
 
 vi.mock("@/api/resources/credentials", () => ({
@@ -92,7 +92,7 @@ import {
   listQueueJobs,
 } from "@/api/resources/scheduler";
 import { listWorkbenchSessions } from "@/api/resources/workbench";
-import { listWorkerCatalog, listWorkerInstances } from "@/api/resources/workers";
+import { listWorkerCatalog, listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   ActionLanding,
   BindingAgentView,
@@ -117,7 +117,7 @@ import type {
   WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
   Intent,
 } from "@/api/types";
 import { closingEventText } from "@/lib/mission-labels";
@@ -245,7 +245,7 @@ function ended(
     claimant: {
       worker_binding_id: "binding_1",
       resource_identity: "worker:kanthord:general-main",
-      runtime_identity: "worker_instance_01",
+      runtime_identity: "worker_registration_01",
     },
     attempt: 2,
     pinned_revision: 1,
@@ -398,7 +398,7 @@ interface World {
   readonly actions?: Readonly<Record<string, readonly MissionExternalAction[]>>;
   readonly evidence?: Readonly<Record<string, readonly MissionEvidence[]>>;
   readonly pages?: Readonly<Record<string, readonly SchedulerExecutionRecord[]>>;
-  readonly instances?: Readonly<Record<string, readonly WorkerInstanceRecord[]>>;
+  readonly registrations?: Readonly<Record<string, readonly WorkerRegistrationRecord[]>>;
   readonly catalog?: readonly WorkerCatalogItem[];
   readonly bindings?: Readonly<Record<string, readonly WorkerBindingRecord[]>>;
   readonly agents?: Readonly<Record<string, readonly BindingAgentView[]>>;
@@ -455,8 +455,8 @@ function serve(world: World) {
     items: world.pages?.[projectId] ?? [],
     next_cursor: null,
   }));
-  vi.mocked(listWorkerInstances).mockImplementation(
-    async (projectId) => world.instances?.[projectId] ?? [],
+  vi.mocked(listWorkerRegistrations).mockImplementation(
+    async (projectId) => world.registrations?.[projectId] ?? [],
   );
   vi.mocked(listWorkerCatalog).mockResolvedValue(world.catalog ?? CATALOG);
   vi.mocked(listWorkerBindings).mockImplementation(
@@ -2295,7 +2295,7 @@ describe("OverviewScreen fixes", () => {
       expect(
         within(item).getByText(
           textContent(
-            "1 implement job in state Waiting waits. Binding reviewer-main (reviewer@1) matches it and has no live instance. Start its worker program.",
+            "1 implement job in state Waiting waits. Binding reviewer-main (reviewer@1) matches it and has no live registration. Start its worker program.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2356,15 +2356,15 @@ describe("OverviewScreen fixes", () => {
       expect(screen.queryByRole("link", { name: "Implement jobs in state Waiting" })).toBeNull();
     });
 
-    it("lists nothing when a live instance declares the state", async () => {
+    it("lists nothing when a live registration declares the state", async () => {
       serve({
         nodes: { "prj-1": [waiting] },
         jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
         bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "server")] },
-        instances: {
+        registrations: {
           "prj-1": [
             {
-              runtime_identity: "worker_instance_1",
+              runtime_identity: "worker_registration_1",
               project_id: "prj-1",
               resource_identity: "worker:kanthord:reviewer-main",
               worker_name: "reviewer@1",

@@ -57,7 +57,7 @@ export interface Project {
 /** Why a node is not running. The Scheduler rechecks each of these at the claim. */
 export type WorkerHost = "kanthord" | "external-harness";
 
-export type InstanceActivity = "idle" | "pulling" | "executing";
+export type RegistrationActivity = "idle" | "pulling" | "executing";
 
 export interface WorkerCatalogItem {
   readonly name: string;
@@ -86,22 +86,22 @@ export type WorkerCatalogEntry =
       readonly resource_budget: WorkerResourceBudget;
     });
 
-interface WorkerInstanceBase {
+interface WorkerRegistrationBase {
   readonly runtime_identity: string;
   readonly project_id: string;
   readonly resource_identity: string;
   readonly worker_name: string;
   readonly client_id?: string;
   readonly name?: string;
-  readonly activity: InstanceActivity;
+  readonly activity: RegistrationActivity;
   readonly draining: boolean;
   readonly execution_id?: string;
   readonly registered: boolean;
 }
 
-export type WorkerInstanceRecord =
-  | (WorkerInstanceBase & { readonly host: "kanthord"; readonly placement: WorkerPlacement })
-  | (WorkerInstanceBase & { readonly host: "external-harness" });
+export type WorkerRegistrationRecord =
+  | (WorkerRegistrationBase & { readonly host: "kanthord"; readonly placement: WorkerPlacement })
+  | (WorkerRegistrationBase & { readonly host: "external-harness" });
 
 export type AgentEnablementState = "enabled" | "disabled";
 

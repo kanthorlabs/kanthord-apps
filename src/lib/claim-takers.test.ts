@@ -6,7 +6,7 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
   WorkerPlacement,
 } from "@/api/types";
 
@@ -58,12 +58,12 @@ function job(nodeId: string): SchedulerJob {
   return { job_id: `job_${nodeId}`, project_id: "prj-1", node_id: nodeId, priority: 0 };
 }
 
-function instance(
+function registration(
   workerName: string,
   overrides: { readonly draining?: boolean; readonly registered?: boolean } = {},
-): WorkerInstanceRecord {
+): WorkerRegistrationRecord {
   return {
-    runtime_identity: `worker_instance_${workerName}`,
+    runtime_identity: `worker_registration_${workerName}`,
     project_id: "prj-1",
     resource_identity: `worker:kanthord:${workerName}`,
     worker_name: workerName,
@@ -102,8 +102,8 @@ function binding(
   };
 }
 
-function liveOf(...names: readonly string[]): WorkerInstanceRecord[] {
-  return names.map((name) => instance(name));
+function liveOf(...names: readonly string[]): WorkerRegistrationRecord[] {
+  return names.map((name) => registration(name));
 }
 
 function statesOf(groups: readonly UncoveredGroup[]): readonly NodeState[] {
@@ -131,12 +131,12 @@ describe("uncoveredJobsOf", () => {
   });
 
   it("answers no group when the live bindings cover every queued job", () => {
-    const instances = liveOf("coder@1", "reviewer@1");
+    const registrations = liveOf("coder@1", "reviewer@1");
 
-    expect(uncoveredJobsOf(JOBS, NODES, instances, [CODER, REVIEWER], CATALOG)).toEqual([]);
+    expect(uncoveredJobsOf(JOBS, NODES, registrations, [CODER, REVIEWER], CATALOG)).toEqual([]);
   });
 
-  it("answers every queued state when the project runs no instance", () => {
+  it("answers every queued state when the project runs no registration", () => {
     const uncovered = uncoveredJobsOf(JOBS, NODES, [], [CODER, REVIEWER], CATALOG);
 
     expect([...statesOf(uncovered)].sort()).toEqual(["Available", "External.Requested", "Waiting"]);
@@ -208,7 +208,7 @@ describe("uncoveredJobsOf", () => {
     expect(statesOf(uncovered)).toEqual(["Available"]);
   });
 
-  it("names the binding of an instance through its resource identity", () => {
+  it("names the binding of a registration through its resource identity", () => {
     const uncovered = uncoveredJobsOf([job("a")], NODES, liveOf("other"), [CODER], CATALOG);
 
     expect(statesOf(uncovered)).toEqual(["Available"]);
@@ -222,13 +222,13 @@ describe("uncoveredJobsOf", () => {
     expect(statesOf(uncovered)).toEqual(["Available"]);
   });
 
-  it("ignores a draining instance and an instance that left the registration", () => {
-    const instances = [
-      instance("coder@1", { draining: true }),
-      instance("coder@1", { registered: false }),
+  it("ignores a draining registration and an ended registration", () => {
+    const registrations = [
+      registration("coder@1", { draining: true }),
+      registration("coder@1", { registered: false }),
     ];
 
-    expect(statesOf(uncoveredJobsOf([job("a")], NODES, instances, [CODER], CATALOG))).toEqual([
+    expect(statesOf(uncoveredJobsOf([job("a")], NODES, registrations, [CODER], CATALOG))).toEqual([
       "Available",
     ]);
   });
@@ -292,7 +292,7 @@ describe("takerHintOf", () => {
     expect(hint).toMatchObject({ binding: "a-review" });
   });
 
-  it("a binding with the tag platform.macos and no instance is the hint", () => {
+  it("a binding with the tag platform.macos and no registration is the hint", () => {
     const facts = factsOf(node("a", "Available", ["platform.macos"]));
     const bindings = [
       binding("a-general", "coder@1"),

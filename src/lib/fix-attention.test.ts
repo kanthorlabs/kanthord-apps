@@ -12,7 +12,7 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
   WorkerPlacement,
 } from "@/api/types";
 
@@ -88,9 +88,13 @@ function job(nodeId: string, ageMs: number): SchedulerJob {
   };
 }
 
-function instance(binding: string, workerName: string, draining = false): WorkerInstanceRecord {
+function registration(
+  binding: string,
+  workerName: string,
+  draining = false,
+): WorkerRegistrationRecord {
   return {
-    runtime_identity: `worker_instance_${binding}`,
+    runtime_identity: `worker_registration_${binding}`,
     project_id: PROJECT.id,
     resource_identity: `worker:kanthord:${binding}`,
     worker_name: workerName,
@@ -173,7 +177,7 @@ function execution(
     claimant: {
       worker_binding_id: "binding_coder",
       resource_identity: "worker:kanthord:coder-main",
-      runtime_identity: "worker_instance_01",
+      runtime_identity: "worker_registration_01",
     },
     attempt: 1,
     pinned_revision: 1,
@@ -196,7 +200,7 @@ function snapshot(overrides: Partial<ProjectSnapshot> = {}): ProjectSnapshot {
     missionVersion: 1,
     nodes: [],
     jobs: [],
-    instances: [],
+    registrations: [],
     executions: [],
     bindings: [],
     ...overrides,
@@ -249,7 +253,7 @@ describe("fixItemsOf no_taker", () => {
   const waiting = node("w", "Waiting");
   const reviewer = bindingView("reviewer-main", "reviewer@1", "server");
 
-  it("lists a state that no live instance declares once the oldest job is older than 60 s", () => {
+  it("lists a state that no live registration declares once the oldest job is older than 60 s", () => {
     const items = fixItemsOf(
       [
         snapshot({
@@ -371,18 +375,18 @@ describe("fixItemsOf no_taker", () => {
     expect(item).toMatchObject({ hint: { kind: "none" } });
   });
 
-  it("lists nothing when a live instance declares the state, and lists it for a draining one", () => {
+  it("lists nothing when a live registration declares the state, and lists it for a draining one", () => {
     const base = { nodes: [waiting], jobs: [job("w", 5 * MINUTE)], bindings: [reviewer] };
 
     expect(
       fixItemsOf(
-        [snapshot({ ...base, instances: [instance("reviewer-main", "reviewer@1")] })],
+        [snapshot({ ...base, registrations: [registration("reviewer-main", "reviewer@1")] })],
         context(),
       ),
     ).toEqual([]);
     expect(
       fixItemsOf(
-        [snapshot({ ...base, instances: [instance("reviewer-main", "reviewer@1", true)] })],
+        [snapshot({ ...base, registrations: [registration("reviewer-main", "reviewer@1", true)] })],
         context(),
       ),
     ).toHaveLength(1);
@@ -395,7 +399,7 @@ describe("fixItemsOf no_taker", () => {
         snapshot({
           nodes: [mac],
           jobs: [job("m", 5 * MINUTE)],
-          instances: [instance("coder-main", "coder@1")],
+          registrations: [registration("coder-main", "coder@1")],
           bindings: [
             bindingView("coder-main", "coder@1", "server"),
             bindingView("coder-mac", "coder@1", "worker", [], ["platform.macos"]),
@@ -431,7 +435,7 @@ describe("fixItemsOf no_taker", () => {
     const base = { nodes: [waiting], jobs: [job("w", 5 * MINUTE)], bindings: [reviewer] };
 
     expect(fixItemsOf([snapshot({ ...base, jobs: null })], context())).toEqual([]);
-    expect(fixItemsOf([snapshot({ ...base, instances: null })], context())).toEqual([]);
+    expect(fixItemsOf([snapshot({ ...base, registrations: null })], context())).toEqual([]);
     expect(fixItemsOf([snapshot({ ...base, bindings: null })], context())).toEqual([]);
     expect(fixItemsOf([snapshot(base)], context({ catalog: null }))).toEqual([]);
   });

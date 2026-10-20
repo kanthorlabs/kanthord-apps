@@ -78,9 +78,9 @@ export const WORKER_CATALOG = [
 
 export const RELEASED_WORKERS = ["coder@1", "reviewer@1", "claude-code@1"];
 
-export const WORKER_INSTANCES = [
+export const WORKER_REGISTRATIONS = [
   {
-    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A01",
+    runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0A01",
     project_id: PROJECT.id,
     resource_identity: "worker:kanthord:general-main",
     worker_name: "coder@1",
@@ -92,7 +92,7 @@ export const WORKER_INSTANCES = [
     registered: true,
   },
   {
-    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A02",
+    runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0A02",
     project_id: PROJECT.id,
     resource_identity: "worker:kanthord:reviewer-main",
     worker_name: "reviewer@1",
@@ -103,7 +103,7 @@ export const WORKER_INSTANCES = [
     registered: true,
   },
   {
-    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A03",
+    runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0A03",
     project_id: PROJECT_ATLAS.id,
     resource_identity: "worker:kanthord:general-main",
     worker_name: "coder@1",
@@ -115,7 +115,7 @@ export const WORKER_INSTANCES = [
     registered: true,
   },
   {
-    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A04",
+    runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0A04",
     project_id: PROJECT_ATLAS.id,
     resource_identity: "worker:kanthord:reviewer-main",
     worker_name: "reviewer@1",
@@ -126,7 +126,7 @@ export const WORKER_INSTANCES = [
     registered: true,
   },
   {
-    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A05",
+    runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0A05",
     project_id: PROJECT_ATLAS.id,
     resource_identity: "worker:kanthord:mac-main",
     worker_name: "coder@1",
@@ -137,7 +137,7 @@ export const WORKER_INSTANCES = [
     registered: true,
   },
   {
-    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A07",
+    runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0A07",
     project_id: PROJECT.id,
     resource_identity: "worker:kanthord:sandbox-main",
     worker_name: "coder@1",
@@ -148,7 +148,7 @@ export const WORKER_INSTANCES = [
     registered: true,
   },
   {
-    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A06",
+    runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0A06",
     project_id: PROJECT_ATLAS.id,
     resource_identity: "worker:kanthord:harness-main",
     worker_name: "claude-code@1",
@@ -1149,7 +1149,7 @@ const executionRecord = (projectId, spec, index) => ({
   claimant: {
     worker_binding_id: spec.binding.id,
     resource_identity: spec.binding.resource_identity,
-    runtime_identity: `worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I${String(index).padStart(2, "0")}`,
+    runtime_identity: `worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0I${String(index).padStart(2, "0")}`,
     ...(spec.unnamed ? {} : { name: `${spec.binding.name} #${(index % 2) + 1}` }),
   },
   attempt: spec.attempt ?? 1,

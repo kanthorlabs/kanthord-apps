@@ -5,14 +5,14 @@ import {
   listProjectExecutionPage,
   listQueueJobs,
 } from "@/api/resources/scheduler";
-import { listWorkerInstances } from "@/api/resources/workers";
+import { listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   MissionNodeRecord,
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
   WorkerBindingRecord,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 
 const EXECUTION_PAGE_LIMIT = 100;
@@ -21,7 +21,7 @@ export interface ProjectBoard {
   readonly project: Project;
   readonly nodes: readonly MissionNodeRecord[];
   readonly jobs: readonly SchedulerJob[];
-  readonly instances: readonly WorkerInstanceRecord[];
+  readonly registrations: readonly WorkerRegistrationRecord[];
   readonly bindings: readonly WorkerBindingRecord[];
   readonly executions: readonly SchedulerExecutionRecord[];
 }
@@ -53,15 +53,15 @@ async function readMissingClaims(
 
 async function readProjectBoard(project: Project): Promise<ProjectBoard> {
   const mission = await readMission(project.id);
-  const [nodes, jobs, instances, bindings, page] = await Promise.all([
+  const [nodes, jobs, registrations, bindings, page] = await Promise.all([
     listMissionNodes(mission.id),
     listQueueJobs(project.id),
-    listWorkerInstances(project.id),
+    listWorkerRegistrations(project.id),
     listWorkerBindings(project.id),
     listProjectExecutionPage(project.id, null, EXECUTION_PAGE_LIMIT),
   ]);
   const missing = await readMissingClaims(project.id, nodes, page.items);
-  return { project, nodes, jobs, instances, bindings, executions: [...page.items, ...missing] };
+  return { project, nodes, jobs, registrations, bindings, executions: [...page.items, ...missing] };
 }
 
 export async function readSchedulerBoard(): Promise<BoardSnapshot> {

@@ -18,7 +18,7 @@ import type {
   Intent,
   SchedulerExecutionRecord,
   WorkerBindingRecord,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
 import { buildGraph } from "@/lib/mission-graph";
@@ -201,7 +201,7 @@ function execution(overrides: Partial<SchedulerExecutionRecord>): SchedulerExecu
     claimant: {
       worker_binding_id: "binding_worker_1",
       resource_identity: "worker:kanthord:general-main",
-      runtime_identity: "worker_instance_01",
+      runtime_identity: "worker_registration_01",
       name: "atlas",
     },
     attempt: 1,
@@ -220,9 +220,9 @@ function execution(overrides: Partial<SchedulerExecutionRecord>): SchedulerExecu
   };
 }
 
-function instance(overrides: Partial<WorkerInstanceRecord>): WorkerInstanceRecord {
+function registration(overrides: Partial<WorkerRegistrationRecord>): WorkerRegistrationRecord {
   return {
-    runtime_identity: "worker_instance_01",
+    runtime_identity: "worker_registration_01",
     project_id: "project_1",
     resource_identity: "worker:kanthord:general-main",
     worker_name: "general-main",
@@ -232,7 +232,7 @@ function instance(overrides: Partial<WorkerInstanceRecord>): WorkerInstanceRecor
     draining: false,
     registered: true,
     ...overrides,
-  } as WorkerInstanceRecord;
+  } as WorkerRegistrationRecord;
 }
 
 function workerBinding(): WorkerBindingRecord {
@@ -295,7 +295,7 @@ describe("NodeSheet", () => {
     vi.mocked(missionApi.readNodeRevision).mockResolvedValue(REVISION_1);
     vi.mocked(missionApi.listNodeRevisions).mockResolvedValue([REVISION_2, REVISION_1]);
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
     vi.mocked(missionApi.listNodeEvidence).mockResolvedValue([]);
     vi.mocked(missionApi.listNodeAssessments).mockResolvedValue([
@@ -580,21 +580,21 @@ describe("NodeSheet", () => {
       execution({ execution_id: "execution_0", claim_state: "lost", ended_at: null }),
       execution({}),
     ]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([registration({})]);
     renderSheet("node_running");
 
     const claimant = await screen.findByRole("region", { name: "Claimant" });
     expect(await within(claimant).findByText("executing")).toBeTruthy();
     expect(within(claimant).getByText("atlas")).toBeTruthy();
-    expect(within(claimant).getByText("worker_instance_01")).toBeTruthy();
+    expect(within(claimant).getByText("worker_registration_01")).toBeTruthy();
     expect(schedulerApi.listNodeExecutions).toHaveBeenCalledWith("project_1", "node_running", 1);
-    expect(workersApi.listWorkerInstances).toHaveBeenCalledWith("project_1");
+    expect(workersApi.listWorkerRegistrations).toHaveBeenCalledWith("project_1");
   });
 
   it("shows the claimant and the activity of an Evaluating node", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([
-      instance({ activity: "pulling" }),
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([
+      registration({ activity: "pulling" }),
     ]);
     renderSheet("node_evaluating");
 
@@ -609,48 +609,48 @@ describe("NodeSheet", () => {
         claimant: {
           worker_binding_id: "binding_worker_1",
           resource_identity: "worker:kanthord:general-main",
-          runtime_identity: "worker_instance_01",
+          runtime_identity: "worker_registration_01",
         },
       }),
     ]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([registration({})]);
     renderSheet("node_running");
 
     const claimant = await screen.findByRole("region", { name: "Claimant" });
     expect(await within(claimant).findByText("worker:kanthord:general-main")).toBeTruthy();
   });
 
-  it("states that the instance read loads", async () => {
+  it("states that the registration read loads", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
-    vi.mocked(workersApi.listWorkerInstances).mockReturnValue(new Promise(() => undefined));
+    vi.mocked(workersApi.listWorkerRegistrations).mockReturnValue(new Promise(() => undefined));
     renderSheet("node_running");
 
     const claimant = await screen.findByRole("region", { name: "Claimant" });
-    expect(await within(claimant).findByText("Reading the instance.")).toBeTruthy();
+    expect(await within(claimant).findByText("Reading the registration.")).toBeTruthy();
     expect(within(claimant).queryByText(/not registered/)).toBeNull();
   });
 
-  it("names a failed instance read and reads again on Retry", async () => {
+  it("names a failed registration read and reads again on Retry", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
-    vi.mocked(workersApi.listWorkerInstances)
-      .mockRejectedValueOnce(new ApiError("unavailable", "The instance read failed.", 503))
-      .mockResolvedValue([instance({})]);
+    vi.mocked(workersApi.listWorkerRegistrations)
+      .mockRejectedValueOnce(new ApiError("unavailable", "The registration read failed.", 503))
+      .mockResolvedValue([registration({})]);
     renderSheet("node_running");
 
     const claimant = await screen.findByRole("region", { name: "Claimant" });
     expect(
       await within(claimant).findByText(
-        "The instance could not be read: The instance read failed.",
+        "The registration could not be read: The registration read failed.",
       ),
     ).toBeTruthy();
     expect(within(claimant).queryByText(/not registered/)).toBeNull();
     await userEvent.click(within(claimant).getByRole("button", { name: "Retry" }));
 
     expect(await within(claimant).findByText("executing")).toBeTruthy();
-    expect(workersApi.listWorkerInstances).toHaveBeenCalledTimes(2);
+    expect(workersApi.listWorkerRegistrations).toHaveBeenCalledTimes(2);
   });
 
-  it("states that the claim of a deregistered instance holds until its deadline", async () => {
+  it("states that the claim of an ended registration holds until its deadline", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
     renderSheet("node_running");
 
@@ -659,15 +659,15 @@ describe("NodeSheet", () => {
     expect(
       within(claimant).getByText(
         textContent(
-          "The instance is not registered. The claim holds until its deadline, 1970-01-01 00:00 UTC. Pause frees it.",
+          "The registration ended. The claim holds until its deadline, 1970-01-01 00:00 UTC. Pause frees it.",
         ),
       ),
     ).toBeTruthy();
   });
 
-  it("reads the instance again after a control", async () => {
+  it("reads the registration again after a control", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([execution({})]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([registration({})]);
     vi.mocked(missionApi.pauseNode).mockResolvedValue({} as MissionControlResult);
     renderSheet("node_running");
 
@@ -677,7 +677,7 @@ describe("NodeSheet", () => {
     await userEvent.type(within(dialog).getByLabelText("Reason"), "Hold for review.");
     await userEvent.click(within(dialog).getByRole("button", { name: "Pause node" }));
 
-    await vi.waitFor(() => expect(workersApi.listWorkerInstances).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(workersApi.listWorkerRegistrations).toHaveBeenCalledTimes(2));
   });
 
   it("shows no stall text while the executions of an Executing node load", async () => {
@@ -687,7 +687,7 @@ describe("NodeSheet", () => {
         answer = resolve;
       }),
     );
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([registration({})]);
     renderSheet("node_running");
 
     await screen.findByRole("region", { name: "Controls" });
@@ -709,14 +709,14 @@ describe("NodeSheet", () => {
 
     const claimant = await screen.findByRole("region", { name: "Claimant" });
     expect(within(claimant).getByText("No running execution for attempt 1.")).toBeTruthy();
-    expect(workersApi.listWorkerInstances).not.toHaveBeenCalled();
+    expect(workersApi.listWorkerRegistrations).not.toHaveBeenCalled();
   });
 
   it("names a failed executions read of an Executing node, keeps the controls and reads again on Retry", async () => {
     vi.mocked(schedulerApi.listNodeExecutions)
       .mockRejectedValueOnce(new ApiError("unavailable", "The executions read failed.", 503))
       .mockResolvedValue([execution({})]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([instance({})]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([registration({})]);
     vi.mocked(missionApi.listNodeExternalActions).mockResolvedValue([]);
     renderSheet("node_running");
 

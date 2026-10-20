@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { listAllCredentials } from "@/api/resources/credentials";
 import { listMissionNodes, readMission } from "@/api/resources/mission";
 import { listWorkerBindings, readBindingSet } from "@/api/resources/projects";
-import { listAgents, listWorkerInstances } from "@/api/resources/workers";
+import { listAgents, listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   AgentSummary,
   BindingSet,
@@ -12,7 +12,7 @@ import type {
   Project,
   WorkerBindingConfig,
   WorkerBindingRecord,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 import { settle, type ReadFault } from "@/features/overview/read-overview-snapshot";
 import { useResource } from "@/hooks/use-resource";
@@ -46,7 +46,7 @@ export interface ProjectReadiness {
 interface ReadinessFacts {
   readonly bindingSet: BindingSet | null;
   readonly workerBindings: readonly WorkerBindingRecord[] | null;
-  readonly instances: readonly WorkerInstanceRecord[] | null;
+  readonly registrations: readonly WorkerRegistrationRecord[] | null;
   readonly agents: readonly AgentSummary[] | null;
   readonly llmCredentials: readonly Credential[] | null;
   readonly nodes: readonly MissionNodeRecord[] | null;
@@ -67,11 +67,11 @@ const NO_WORKER_BINDING = "The project holds no worker binding.";
 const NO_FAULTS: readonly ReadFault[] = [];
 
 async function readReadiness(project: Project): Promise<ReadinessRead> {
-  const [bindingSet, workerBindings, instances, agents, llmCredentials, mission] =
+  const [bindingSet, workerBindings, registrations, agents, llmCredentials, mission] =
     await Promise.all([
       settle(project, "binding set", () => readBindingSet(project.id), null),
       settle(project, "worker bindings", () => listWorkerBindings(project.id), null),
-      settle(project, "worker instances", () => listWorkerInstances(project.id), null),
+      settle(project, "worker registrations", () => listWorkerRegistrations(project.id), null),
       settle(project, "agents", listAgents, null),
       settle(project, "LLM credentials", () => listAllCredentials("llm"), null),
       settle(project, "mission", () => readMission(project.id), null),
@@ -85,7 +85,7 @@ async function readReadiness(project: Project): Promise<ReadinessRead> {
     facts: {
       bindingSet: bindingSet.data,
       workerBindings: workerBindings.data,
-      instances: instances.data,
+      registrations: registrations.data,
       agents: agents.data,
       llmCredentials: llmCredentials.data,
       nodes: nodes.data,
@@ -93,7 +93,7 @@ async function readReadiness(project: Project): Promise<ReadinessRead> {
     faults: [
       bindingSet.fault,
       workerBindings.fault,
-      instances.fault,
+      registrations.fault,
       agents.fault,
       llmCredentials.fault,
       mission.fault,
@@ -114,17 +114,17 @@ function repositoryNamesOf(bindingSet: BindingSet | null): readonly string[] {
   );
 }
 
-function hasLiveInstance(entry: WorkerEntry, facts: ReadinessFacts): boolean {
+function hasLiveRegistration(entry: WorkerEntry, facts: ReadinessFacts): boolean {
   const record = facts.workerBindings?.find(
     (binding) => binding.name === entry.name && binding.removed_at === null,
   );
   return (
     record !== undefined &&
-    (facts.instances ?? []).some(
-      (instance) =>
-        instance.registered &&
-        !instance.draining &&
-        instance.resource_identity === record.resource_identity,
+    (facts.registrations ?? []).some(
+      (registration) =>
+        registration.registered &&
+        !registration.draining &&
+        registration.resource_identity === record.resource_identity,
     )
   );
 }
@@ -153,16 +153,16 @@ function bindingItems(project: Project, facts: ReadinessFacts): readonly Readine
   ];
 }
 
-function instanceItem(project: Project, facts: ReadinessFacts): ReadinessItem {
+function registrationItem(project: Project, facts: ReadinessFacts): ReadinessItem {
   const entries = workerEntriesOf(facts.bindingSet);
   const active = entries.filter((entry) => entry.config.instance_count > 0);
   const lacking = active
-    .filter((entry) => !hasLiveInstance(entry, facts))
+    .filter((entry) => !hasLiveRegistration(entry, facts))
     .map((entry) => entry.name);
-  const read = facts.workerBindings !== null && facts.instances !== null;
+  const read = facts.workerBindings !== null && facts.registrations !== null;
   return {
-    key: "live_instances",
-    title: "Live instances",
+    key: "live_registrations",
+    title: "Live registrations",
     state: read && active.length > 0 && lacking.length === 0 ? "done" : "open",
     detail:
       entries.length === 0
@@ -170,8 +170,8 @@ function instanceItem(project: Project, facts: ReadinessFacts): ReadinessItem {
         : active.length === 0
           ? "No worker binding asks for an instance."
           : lacking.length === 0
-            ? "Each worker binding runs a live instance."
-            : "No live instance:",
+            ? "Each worker binding runs a live registration."
+            : "No live registration:",
     names: active.length === 0 ? [] : lacking,
     link: { label: "Open workers", path: `/workers?project=${encodeURIComponent(project.id)}` },
   };
@@ -241,7 +241,7 @@ function pauseItem(project: Project): ReadinessItem {
 function readinessItemsOf(project: Project, facts: ReadinessFacts): readonly ReadinessItem[] {
   return [
     ...bindingItems(project, facts),
-    instanceItem(project, facts),
+    registrationItem(project, facts),
     agentItem(facts),
     planItem(project, facts),
     pauseItem(project),

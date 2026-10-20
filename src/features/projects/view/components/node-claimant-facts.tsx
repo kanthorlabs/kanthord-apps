@@ -5,12 +5,12 @@ import type { ActivityRead, NodeClaimant } from "../use-node-claimant";
 import { FactList } from "./fact-list";
 
 function ActivityValue({ read }: { read: ActivityRead }) {
-  if (read.state === "loading") return "Reading the instance.";
+  if (read.state === "loading") return "Reading the registration.";
   if (read.state === "gone") return "not registered";
   if (read.state === "found") return read.activity;
   return (
     <span className="flex flex-wrap items-center gap-2">
-      <span>The instance could not be read: {read.message}</span>
+      <span>The registration could not be read: {read.message}</span>
       <Button variant="outline" size="sm" onClick={read.retry}>
         Retry
       </Button>
@@ -57,7 +57,7 @@ export function NodeClaimantFacts({ claimant }: { claimant: NodeClaimant }) {
           {claimant.activity.state === "gone" && (
             <Alert variant="destructive">
               <AlertDescription>
-                The instance is not registered. The claim holds until its deadline,{" "}
+                The registration ended. The claim holds until its deadline,{" "}
                 {utcDateTime(claimant.deadline)}. Pause frees it.
               </AlertDescription>
             </Alert>

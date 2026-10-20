@@ -4,7 +4,7 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
   Intent,
 } from "@/api/types";
 
@@ -38,13 +38,13 @@ function admits(
 }
 
 function liveBindingsOf(
-  instances: readonly WorkerInstanceRecord[],
+  registrations: readonly WorkerRegistrationRecord[],
   bindings: readonly WorkerBindingRecord[],
 ): readonly WorkerBindingRecord[] {
   const live = new Set(
-    instances
-      .filter((instance) => instance.registered && !instance.draining)
-      .map((instance) => instance.resource_identity),
+    registrations
+      .filter((registration) => registration.registered && !registration.draining)
+      .map((registration) => registration.resource_identity),
   );
   return bindings.filter((binding) => live.has(binding.resource_identity));
 }
@@ -61,11 +61,11 @@ function groupKeyOf(facts: NodeFacts): string {
 export function uncoveredJobsOf(
   jobs: readonly SchedulerJob[],
   nodes: readonly MissionNodeRecord[],
-  instances: readonly WorkerInstanceRecord[],
+  registrations: readonly WorkerRegistrationRecord[],
   bindings: readonly WorkerBindingRecord[],
   catalog: readonly WorkerCatalogItem[],
 ): readonly UncoveredGroup[] {
-  const live = liveBindingsOf(instances, bindings);
+  const live = liveBindingsOf(registrations, bindings);
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const groups = new Map<string, UncoveredGroup>();
   for (const job of jobs) {

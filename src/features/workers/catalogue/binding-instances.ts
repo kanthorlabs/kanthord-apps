@@ -1,7 +1,7 @@
 import type {
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
   WorkerPlacement,
 } from "@/api/types";
 
@@ -20,14 +20,14 @@ export interface BindingInstances {
 
 export function bindingInstances(
   bindings: readonly WorkerBindingRecord[],
-  instances: readonly WorkerInstanceRecord[],
+  registrations: readonly WorkerRegistrationRecord[],
   catalog: readonly WorkerCatalogItem[],
 ): readonly BindingInstances[] {
   return bindings.map((binding) => {
-    const live = instances.filter(
-      (instance) =>
-        instance.project_id === binding.project_id &&
-        instance.resource_identity === binding.resource_identity,
+    const live = registrations.filter(
+      (registration) =>
+        registration.project_id === binding.project_id &&
+        registration.resource_identity === binding.resource_identity,
     ).length;
     const expected = binding.config.instance_count;
     const missing = Math.max(expected - live, 0);

@@ -97,7 +97,7 @@ export function useOverview(): OverviewState {
                 missionVersion: read.mission.version,
                 nodes: read.nodes,
                 jobs: read.jobs,
-                instances: read.instances,
+                registrations: read.registrations,
                 executions: read.executions,
                 bindings:
                   setupData?.projects.find((entry) => entry.project.id === read.project.id)
