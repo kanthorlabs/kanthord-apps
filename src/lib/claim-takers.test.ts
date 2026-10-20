@@ -247,6 +247,16 @@ describe("takerHintOf", () => {
     });
   });
 
+  it("names the binding at the container placement as a server taker", () => {
+    expect(
+      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", "container")], CATALOG),
+    ).toEqual({
+      kind: "server",
+      binding: "reviewer-main",
+      worker: "reviewer@1",
+    });
+  });
+
   it("reads an absent placement as the worker placement", () => {
     expect(takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1")], CATALOG).kind).toBe(
       "worker",
