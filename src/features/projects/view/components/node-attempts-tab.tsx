@@ -9,7 +9,9 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
+import { lastStopOf, stopLabel } from "@/lib/execution-stop";
 import { useNodeAttempts } from "../use-node-attempts";
+import { useNodeExecutions } from "../use-node-executions";
 import { AttemptRecords } from "./attempt-records";
 import { ActorLabel } from "./actor-label";
 
@@ -18,6 +20,28 @@ interface NodeAttemptsTabProps {
   readonly model: GraphModel;
   readonly nodeId: string;
   readonly currentRevision: number;
+}
+
+interface AttemptStopLineProps {
+  readonly projectId: string;
+  readonly nodeId: string;
+  readonly attempt: number;
+}
+
+function AttemptStopLine({ projectId, nodeId, attempt }: AttemptStopLineProps) {
+  const executions = useNodeExecutions(projectId, nodeId, attempt, true);
+  const last = executions.data === null ? null : lastStopOf(executions.data);
+  if (last === null) return null;
+  return (
+    <>
+      <span className="break-words">
+        Last stop {utcDateTime(last.endedAt)}: {stopLabel(last.stop)}
+      </span>
+      {last.stop.detail !== undefined && (
+        <span className="break-words">Cause: {last.stop.detail}</span>
+      )}
+    </>
+  );
 }
 
 export function NodeAttemptsTab({
@@ -64,6 +88,7 @@ export function NodeAttemptsTab({
                   {utcDateTime(attempt.opened_at)}
                 </span>
                 {attempt.closed_at !== null && <span>Closed {utcDateTime(attempt.closed_at)}</span>}
+                <AttemptStopLine projectId={projectId} nodeId={nodeId} attempt={attempt.attempt} />
               </ItemDescription>
             </ItemContent>
             <CollapsibleTrigger

@@ -15,6 +15,7 @@ import { useNodeExecutions } from "../use-node-executions";
 import { useNodeExternalActions } from "../use-node-external-actions";
 import { useNodeProposals } from "../use-node-proposals";
 import { useNodeRecord } from "../use-node-record";
+import { useProjectCooling, type ChainCooling } from "../use-project-cooling";
 import { BindingList } from "./binding-list";
 import { FactList, type Fact } from "./fact-list";
 import { NodeClaimantFacts } from "./node-claimant-facts";
@@ -96,6 +97,23 @@ function BlockedNotice({ node }: { node: MissionNodeRecord }) {
   );
 }
 
+function CoolingNotice({ cooling }: { cooling: readonly ChainCooling[] }) {
+  if (cooling.length === 0) return null;
+  return (
+    <Alert>
+      <AlertTitle>Claims wait for a cooldown.</AlertTitle>
+      <AlertDescription className="flex flex-col gap-1">
+        {cooling.map((entry) => (
+          <span key={entry.key} className="break-words">
+            Agent {entry.agent} of {entry.binding}: every credential of its chain cools down until{" "}
+            {utcDateTime(entry.availableAt)}. No claim of this agent starts before then.
+          </span>
+        ))}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function NodeDetailsTab({
   projectId,
   model,
@@ -139,6 +157,7 @@ export function NodeDetailsTab({
   const bindingIds = record.data?.content.bindings ?? [];
   const bindings = useBindingRecords(projectId, bindingIds);
   const node = record.data;
+  const cooling = useProjectCooling(projectId, node?.state === "Available");
 
   if (record.loading) return <Skeleton className="h-48 w-full" />;
   if (record.error !== null || node === null) {
@@ -157,6 +176,7 @@ export function NodeDetailsTab({
   return (
     <div className="flex flex-col gap-5">
       <BlockedNotice node={node} />
+      <CoolingNotice cooling={cooling.data ?? []} />
       <NodeControls
         node={node}
         nodes={[...model.nodeById.values()]}

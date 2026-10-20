@@ -761,6 +761,24 @@ const finalPromptOf = (layers) => {
     .map((source) => `Instructions of ${source.label}:\n\n${source.text}`);
   return [...systemParts, PROMPT_FRAMING, ...messages].join("\n\n");
 };
+const coolingCredentialOf = (agentName) => {
+  const enablement = agents.find((agent) => agent.agent_name === agentName)?.enablement;
+  if (enablement === null || enablement === undefined || enablement.state !== "enabled") return [];
+  const head = enablement.agent_providers.find(
+    (provider) => provider.name === enablement.default_configuration.agent_provider,
+  );
+  return head === undefined ? [] : [head.credential];
+};
+
+on("GET", /^\/api\/agent\/cooldown$/, (_m, _b, res) => {
+  const credentials = new Set(Object.values(COOLING_AGENTS).flat().flatMap(coolingCredentialOf));
+  return json(res, 200, {
+    items: [...credentials]
+      .sort()
+      .map((credential) => ({ credential, strikes: 1, available_at: COOLING_UNTIL })),
+  });
+});
+
 on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
   const declaration = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
   if (declaration === undefined) {

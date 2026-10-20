@@ -30,6 +30,21 @@ export function stopLabel(stop: ExecutionStop): string {
   return stop.code === null ? reason : `${reason}: ${codeLabel(stop.code)}`;
 }
 
+export interface LastStop {
+  readonly stop: ExecutionStop;
+  readonly endedAt: number;
+}
+
+export function lastStopOf(executions: readonly SchedulerExecutionRecord[]): LastStop | null {
+  let last: LastStop | null = null;
+  for (const execution of executions) {
+    if (execution.stop === null || execution.ended_at === null) continue;
+    if (last === null || execution.ended_at > last.endedAt)
+      last = { stop: execution.stop, endedAt: execution.ended_at };
+  }
+  return last;
+}
+
 export function endTimeOf(execution: SchedulerExecutionRecord): number | null {
   if (execution.ended_at !== null) return execution.ended_at;
   return execution.claim_state === "lost" ? execution.expired_at : null;

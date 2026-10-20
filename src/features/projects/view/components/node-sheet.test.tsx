@@ -15,8 +15,11 @@ import type {
   ProjectBindingRecord,
   Intent,
   SchedulerExecutionRecord,
+  WorkerBindingRecord,
+  BindingAgentView,
   WorkerInstanceRecord,
 } from "@/api/types";
+import { utcDateTime } from "@/lib/format";
 import { buildGraph } from "@/lib/mission-graph";
 
 vi.mock("@/api/resources/mission");
@@ -115,7 +118,10 @@ const EVALUATING = node("node_evaluating", "implement", "Evaluating work", {
   attempt: 1,
 });
 
+const READY = node("node_ready", "implement", "Ready work", { state: "Available" });
+
 const NODES: readonly MissionNodeRecord[] = [
+  READY,
   HELD,
   RUNNING,
   EVALUATING,
@@ -421,6 +427,60 @@ describe("NodeSheet", () => {
 
     const executions = await screen.findByRole("list", { name: "Executions" });
     expect(within(executions).getByText("Provider failed: rate limited")).toBeTruthy();
+  });
+
+  it("shows the last stop and its cause on the attempt without the records", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
+      execution({
+        node_id: "node_audit",
+        claim_state: "finished",
+        ended_at: 2_000,
+        stop: {
+          reason: "provider_failed",
+          code: "unavailable",
+          detail: "OAuth auth derivation failed for anthropic: Cannot find module",
+        },
+      }),
+    ]);
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+    const attempts = await screen.findByRole("list", { name: "Attempts" });
+    expect(
+      await within(attempts).findByText(
+        `Last stop ${utcDateTime(2_000)}: Provider failed: unavailable`,
+      ),
+    ).toBeTruthy();
+    expect(
+      within(attempts).getByText(
+        "Cause: OAuth auth derivation failed for anthropic: Cannot find module",
+      ),
+    ).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Records of attempt 1" }));
+    const executions = await screen.findByRole("list", { name: "Executions" });
+    expect(
+      within(executions).getByText(
+        "Cause: OAuth auth derivation failed for anthropic: Cannot find module",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("states that an Available node waits for a cooldown of its agent chain", async () => {
+    const end = Date.now() + 240_000;
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      { id: "binding_worker_1", name: "general-main", removed_at: null } as WorkerBindingRecord,
+    ]);
+    vi.mocked(projectsApi.listBindingAgents).mockResolvedValue([
+      { agent: "swe@1", cooling: { code: "agent.configuration.chain_cooling", available_at: end } },
+      { agent: "re@1", cooling: null },
+    ] as unknown as BindingAgentView[]);
+    renderSheet("node_ready");
+
+    expect(
+      await screen.findByText(
+        `Agent swe@1 of general-main: every credential of its chain cools down until ${utcDateTime(end)}. No claim of this agent starts before then.`,
+      ),
+    ).toBeTruthy();
   });
 
   it("shows the claimant and the activity of an Executing node", async () => {

@@ -805,6 +805,12 @@ export interface WorkerBindingRecord extends ProjectBindingRecord {
   readonly config: WorkerBindingConfig;
 }
 
+export interface AgentCooldown {
+  readonly credential: string;
+  readonly strikes: number;
+  readonly available_at: number;
+}
+
 export interface AgentCooling {
   readonly code: string;
   readonly available_at: number;
@@ -852,6 +858,7 @@ export type ExecutionStopReason =
 export interface ExecutionStop {
   readonly reason: ExecutionStopReason;
   readonly code: string | null;
+  readonly detail?: string;
 }
 
 export interface AgentSelection {

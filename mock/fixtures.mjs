@@ -1174,7 +1174,11 @@ export const GRAPH_EXECUTIONS = [
     40,
     20,
     GRAPH_BINDINGS.reviewer,
-    { reason: "provider_failed", code: "bad_request" },
+    {
+      reason: "provider_failed",
+      code: "bad_request",
+      detail: "400 Bad Request: the model does not accept the tool_choice field",
+    },
   ],
 ].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop, unnamed], index) =>
   executionRecord(
@@ -1433,7 +1437,11 @@ export const ATLAS_EXECUTIONS = [
     startedAgo: 25,
     endedAgo: 5,
     binding: GRAPH_BINDINGS.worker,
-    stop: { reason: "provider_failed", code: "unauthorized" },
+    stop: {
+      reason: "provider_failed",
+      code: "unauthorized",
+      detail: "401 Unauthorized: invalid x-api-key",
+    },
   },
   {
     executionId: `execution_${ulidAt(minutes(43230), "AG2")}`,
