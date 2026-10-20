@@ -142,7 +142,7 @@ export function WorkerForm({
           <DraftField
             id="binding-placement"
             label="Placement"
-            value={draft.placement ?? "worker"}
+            value={draft.placement ?? ""}
             error={errors["placement"]}
             readOnly
             description="A worker binding keeps its placement. Remove the binding and add another to change it."

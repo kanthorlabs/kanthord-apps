@@ -29,7 +29,7 @@ export function bindingInstances(
     const native = catalog.some(
       (item) => item.name === binding.config.worker && item.host === "kanthord",
     );
-    const placement = native ? (binding.config.placement ?? "worker") : null;
+    const placement = native ? (binding.config.placement ?? null) : null;
     return {
       binding,
       expected,

@@ -357,7 +357,12 @@ export const BINDING_SET = {
     },
     "mac-main": {
       kind: "worker",
-      config: { worker: "coder@1", instance_count: 1, tags: ["platform.macos"] },
+      config: {
+        worker: "coder@1",
+        instance_count: 1,
+        placement: "worker",
+        tags: ["platform.macos"],
+      },
     },
     "idle-main": {
       kind: "worker",
