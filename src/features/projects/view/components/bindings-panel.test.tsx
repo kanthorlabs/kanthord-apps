@@ -52,7 +52,7 @@ const REPO: BindingSetEntry = {
 };
 const WORKER: BindingSetEntry = {
   kind: "worker",
-  config: { worker: "coder@1", instance_count: 2 },
+  config: { worker: "coder@1", instance_count: 2, placement: "worker" },
 };
 
 const SET: BindingSet = { version: 2, bindings: { "kanthord-repo": REPO, "general-main": WORKER } };
@@ -412,23 +412,6 @@ describe("BindingsPanel", () => {
     expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
       "kanthord-repo": REPO,
       "general-main": { kind: "worker", config: { ...server.config, instance_count: 3 } },
-    });
-  });
-
-  it("shows the effective placement worker for a binding that holds none", async () => {
-    mount();
-
-    expect(await screen.findByText(/placement worker · instance count 2/)).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Edit general-main" }));
-    expect(await screen.findByLabelText("Placement")).toHaveValue("worker");
-    const count = screen.getByLabelText("Instance count");
-    await userEvent.clear(count);
-    await userEvent.type(count, "3");
-    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
-
-    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
-      "kanthord-repo": REPO,
-      "general-main": { kind: "worker", config: { worker: "coder@1", instance_count: 3 } },
     });
   });
 

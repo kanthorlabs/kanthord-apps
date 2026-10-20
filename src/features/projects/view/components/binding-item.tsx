@@ -44,7 +44,7 @@ function factsOf(entry: BindingSetEntry, hostedWorker: boolean): readonly ReactN
     const { config } = entry;
     return [
       <RecordName>{config.worker}</RecordName>,
-      ...(hostedWorker ? [`placement ${config.placement ?? "worker"}`] : []),
+      ...(hostedWorker && config.placement !== undefined ? [`placement ${config.placement}`] : []),
       `instance count ${config.instance_count}`,
       config.resource_budget === undefined
         ? "worker default budget"

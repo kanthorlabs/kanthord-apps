@@ -1018,6 +1018,9 @@ on("POST", /^\/api\/mission\/([^/]+)\/import$/, (m, b, res) => {
 
 on("GET", /^\/api\/project\/([^/]+)\/binding-set$/, (_m, _b, res) => json(res, 200, bindingSet));
 
+const isHostedWorker = (name) =>
+  fx.WORKER_CATALOG.some((worker) => worker.name === name && worker.host === "kanthord");
+
 on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   if (b.version !== bindingSet.version) {
     return projectEnvelope(
@@ -1027,12 +1030,27 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       "The submitted binding-set version differs from the current version.",
     );
   }
+  const unplaced = Object.entries(b.bindings).find(
+    ([, entry]) =>
+      entry.kind === "worker" &&
+      isHostedWorker(entry.config.worker) &&
+      entry.config.placement === undefined,
+  );
+  if (unplaced !== undefined) {
+    return projectEnvelope(
+      res,
+      400,
+      "project.bindings.worker.placement_required",
+      "A hosted worker binding states its placement.",
+      { binding: unplaced[0] },
+    );
+  }
   const placementChanged = Object.entries(b.bindings).some(([name, entry]) => {
     const stored = bindingSet.bindings[name];
     return (
       stored?.kind === "worker" &&
       entry.kind === "worker" &&
-      (stored.config.placement ?? "worker") !== (entry.config.placement ?? "worker")
+      stored.config.placement !== entry.config.placement
     );
   });
   if (placementChanged) {

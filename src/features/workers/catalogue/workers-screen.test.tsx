@@ -181,7 +181,7 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 2 }),
+      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
     ]);
     render(<WorkersScreen />);
 
@@ -270,7 +270,7 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 0 }),
+      workerBinding("reviewer-main", { instance_count: 0, placement: "worker" }),
     ]);
     render(<WorkersScreen />);
 
@@ -306,7 +306,7 @@ describe("WorkersScreen", () => {
     );
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 2 }),
+      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
     ]);
     render(<WorkersScreen />);
 
@@ -324,7 +324,7 @@ describe("WorkersScreen", () => {
     );
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 2 }),
+      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
     ]);
     render(<WorkersScreen />);
 
