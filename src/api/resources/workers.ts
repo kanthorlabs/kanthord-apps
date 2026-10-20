@@ -3,6 +3,7 @@ import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   AgentProviderAddBody,
+  AgentCooldown,
   AgentDeclaration,
   AgentEnablement,
   AgentEnablementPutBody,
@@ -16,6 +17,10 @@ import type {
 
 function enablementPath(agentName: string): string {
   return `/api/agent/enablement/${encodeURIComponent(agentName)}`;
+}
+
+export async function listAgentCooldowns(): Promise<readonly AgentCooldown[]> {
+  return (await request<{ readonly items: readonly AgentCooldown[] }>("/api/agent/cooldown")).items;
 }
 
 export async function listWorkerCatalog(): Promise<readonly WorkerCatalogItem[]> {

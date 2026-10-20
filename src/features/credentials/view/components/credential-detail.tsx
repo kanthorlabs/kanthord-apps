@@ -5,9 +5,12 @@ import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isArchived } from "@/lib/credential-revisions";
+import { utcDateTime } from "@/lib/format";
 import { platformEntryOf } from "@/lib/credential-platforms";
+import { codeLabel } from "@/lib/execution-stop";
 import { CheckStatusBadge } from "../../components/check-status-badge";
 import { MetadataSheet } from "../../components/metadata-sheet";
 import { RotateSheet } from "../../components/rotate-sheet";
@@ -20,6 +23,7 @@ import { useMetadataEdit } from "../../use-metadata-edit";
 import { useSshKeyRotate } from "../../use-ssh-key-rotate";
 import { useAgentEnable, type AgentEnableState } from "../use-agent-enable";
 import { useCredentialArchive } from "../use-credential-archive";
+import { useCredentialCooldown } from "../use-credential-cooldown";
 import { useDetailCheck } from "../use-detail-check";
 import { useRevisionRevoke } from "../use-revision-revoke";
 import { AgentEnableSheet } from "./agent-enable-sheet";
@@ -139,6 +143,47 @@ function AgentsSection({ credential, reload }: AgentsSectionProps) {
   );
 }
 
+const COOLDOWN_CODES = `${codeLabel("rate_limited")}, ${codeLabel("unavailable")} or ${codeLabel("quota_exhausted")}`;
+
+function CooldownSection({ name }: { name: string }) {
+  const cooldown = useCredentialCooldown(name);
+  return (
+    <Card role="region" aria-labelledby="credential-cooldown">
+      <CardHeader>
+        <h3 id="credential-cooldown" className="font-semibold leading-none">
+          Cooldown
+        </h3>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-2">
+        <p className="text-sm text-muted-foreground">
+          A provider failure of {COOLDOWN_CODES} starts a cooldown. Each strike doubles it, up to
+          one day. A release without a provider failure clears it. A claim skips the agent chain
+          entries of a credential in a cooldown.
+        </p>
+        {cooldown.loading ? (
+          <Skeleton className="h-5 w-64" />
+        ) : cooldown.error !== null ? (
+          <p role="alert" className="text-sm text-destructive">
+            {cooldown.error.message}
+          </p>
+        ) : cooldown.data === null ? (
+          <p className="text-sm">No cooldown. Claims can use this credential.</p>
+        ) : !cooldown.data.live ? (
+          <p className="text-sm">
+            No live cooldown. Strike {cooldown.data.hold.strikes} stays until a release without a
+            provider failure.
+          </p>
+        ) : (
+          <p className="text-sm">
+            Strike {cooldown.data.hold.strikes}. Claims skip this credential until{" "}
+            {utcDateTime(cooldown.data.hold.available_at)}.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface CredentialDetailProps {
   readonly component: CredentialComponent;
   readonly credential: Credential;
@@ -203,6 +248,7 @@ export function CredentialDetail({
       {!archived && component === "llm" && (
         <AgentsSection credential={credential} reload={reload} />
       )}
+      {component === "llm" && <CooldownSection name={credential.name} />}
       <section aria-labelledby="credential-revisions" className="flex flex-col gap-2">
         <h3 id="credential-revisions" className="font-semibold">
           Revisions

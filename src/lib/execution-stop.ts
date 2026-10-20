@@ -35,6 +35,26 @@ export function endTimeOf(execution: SchedulerExecutionRecord): number | null {
   return execution.claim_state === "lost" ? execution.expired_at : null;
 }
 
+export interface LastEnd {
+  readonly execution: SchedulerExecutionRecord;
+  readonly endedAt: number;
+}
+
+export function lastEndOf(executions: readonly SchedulerExecutionRecord[]): LastEnd | null {
+  let last: LastEnd | null = null;
+  for (const execution of executions) {
+    const endedAt = endTimeOf(execution);
+    if (endedAt !== null && (last === null || endedAt > last.endedAt))
+      last = { execution, endedAt };
+  }
+  return last;
+}
+
+export function endLabel(execution: SchedulerExecutionRecord): string {
+  if (execution.stop !== null) return stopLabel(execution.stop);
+  return execution.claim_state === "lost" ? "lost" : "no stop";
+}
+
 export function stopSentence(stop: ExecutionStop): string {
   const reason = REASON_LABELS[stop.reason].toLowerCase();
   return stop.code === null ? reason : `${reason} (${codeLabel(stop.code)})`;
@@ -77,7 +97,8 @@ export function pauseCauseOf(executions: readonly SchedulerExecutionRecord[]): P
 export function pauseSentence(pause: PauseDerivation): string {
   const stop = pause.execution?.stop ?? null;
   if (pause.cause === "failure-limit") {
-    return `The last execution ended: ${stop === null ? "lost" : stopSentence(stop)}.`;
+    const ended = `The last execution ended: ${stop === null ? "lost" : stopSentence(stop)}.`;
+    return stop?.detail === undefined ? ended : `${ended} Cause: ${stop.detail}`;
   }
   if (pause.cause === "further-work-limit" && stop !== null) {
     return `The last execution ended at its budget${

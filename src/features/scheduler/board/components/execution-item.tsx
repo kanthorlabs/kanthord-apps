@@ -62,6 +62,11 @@ export function ExecutionItem({
           )}{" "}
           · attempt {execution.attempt} · pinned revision {execution.pinned_revision}
         </ItemDescription>
+        {execution.stop?.detail !== undefined && (
+          <ItemDescription className="line-clamp-none break-words">
+            Cause: {execution.stop.detail}
+          </ItemDescription>
+        )}
         <ItemDescription className="break-all">execution {execution.execution_id}</ItemDescription>
         {endedAt === null ? (
           <ItemDescription>

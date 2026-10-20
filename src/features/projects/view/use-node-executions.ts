@@ -9,6 +9,13 @@ interface ExecutionRead {
   readonly items: readonly SchedulerExecutionRecord[];
 }
 
+export function useNodeExecutionHistory(
+  projectId: string,
+  nodeId: string,
+): Resource<readonly SchedulerExecutionRecord[]> {
+  return useResource(() => listNodeExecutions(projectId, nodeId), [projectId, nodeId]);
+}
+
 export function useNodeExecutions(
   projectId: string,
   nodeId: string,

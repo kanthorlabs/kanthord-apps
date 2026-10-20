@@ -120,6 +120,9 @@ export function AttemptRecords({
                       )}
                     </ItemTitle>
                     <ItemDescription className="flex flex-col gap-0.5">
+                      {item.stop?.detail !== undefined && (
+                        <span className="break-words">Cause: {item.stop.detail}</span>
+                      )}
                       <span className="font-mono text-xs break-all">{item.execution_id}</span>
                       <span className="break-all">{item.claimant.resource_identity}</span>
                       <span>

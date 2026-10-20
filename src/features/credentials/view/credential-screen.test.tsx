@@ -25,6 +25,7 @@ vi.mock("sonner", async (importOriginal) => ({
 }));
 
 import { toast } from "sonner";
+import { utcDateTime } from "@/lib/format";
 import { CredentialScreen } from "./credential-screen";
 import { textContent } from "../../../../test/text-content";
 
@@ -137,6 +138,7 @@ beforeEach(() => {
   vi.mocked(credentialsApi.readCredential).mockResolvedValue(ROUTER);
   vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+  vi.mocked(workersApi.listAgentCooldowns).mockResolvedValue([]);
   vi.mocked(credentialsApi.verifyCredential).mockResolvedValue(HEALTHY);
 });
 
@@ -146,6 +148,63 @@ const AGENTS: readonly AgentSummary[] = [
 ];
 
 describe("CredentialScreen", () => {
+  it("shows the live cooldown of the credential with its strikes and its end", async () => {
+    const end = Date.now() + 120_000;
+    vi.mocked(workersApi.listAgentCooldowns).mockResolvedValue([
+      { credential: "other", strikes: 4, available_at: end },
+      { credential: "router", strikes: 2, available_at: end },
+    ]);
+    mount();
+
+    const section = await screen.findByRole("region", { name: "Cooldown" });
+    expect(
+      await within(section).findByText(
+        `Strike 2. Claims skip this credential until ${utcDateTime(end)}.`,
+      ),
+    ).toBeTruthy();
+  });
+
+  it("keeps the strikes of an ended cooldown", async () => {
+    vi.mocked(workersApi.listAgentCooldowns).mockResolvedValue([
+      { credential: "router", strikes: 5, available_at: Date.now() - 1_000 },
+    ]);
+    mount();
+
+    const section = await screen.findByRole("region", { name: "Cooldown" });
+    expect(
+      await within(section).findByText(
+        "No live cooldown. Strike 5 stays until a release without a provider failure.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("states no cooldown and the cooldown rule when the credential holds no strike", async () => {
+    vi.mocked(workersApi.listAgentCooldowns).mockResolvedValue([
+      { credential: "other", strikes: 1, available_at: Date.now() + 60_000 },
+    ]);
+    mount();
+
+    const section = await screen.findByRole("region", { name: "Cooldown" });
+    expect(
+      await within(section).findByText("No cooldown. Claims can use this credential."),
+    ).toBeTruthy();
+    expect(
+      within(section).getByText(
+        "A provider failure of rate limited, unavailable or quota exhausted starts a cooldown. Each strike doubles it, up to one day. A release without a provider failure clears it. A claim skips the agent chain entries of a credential in a cooldown.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("names a failed cooldown read", async () => {
+    vi.mocked(workersApi.listAgentCooldowns).mockRejectedValue(
+      new ApiError("unavailable", "The daemon is unavailable.", 503),
+    );
+    mount();
+
+    const section = await screen.findByRole("region", { name: "Cooldown" });
+    expect(await within(section).findByText("The daemon is unavailable.")).toBeTruthy();
+  });
+
   it("enables every agent that is not enabled with the credential in one sheet", async () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue(AGENTS);
     vi.mocked(workersApi.listCredentialModels).mockResolvedValue([
