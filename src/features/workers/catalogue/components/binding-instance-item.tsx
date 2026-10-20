@@ -4,54 +4,14 @@ import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/i
 import type { BindingInstances } from "../binding-instances";
 
 function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
-  const { binding, missing } = entry;
+  const { missing } = entry;
   return (
-    <div className="space-y-1 text-sm">
-      <p>
-        {missing} {missing === 1 ? "instance is" : "instances are"} missing. Repeat both steps once
-        for each missing instance. Each instance needs its own token file and its own{" "}
-        <code className="font-mono">cli.yaml</code>.
-      </p>
-      <ol className="list-decimal space-y-1 pl-5">
-        <li>
-          On the server host, run{" "}
-          <code className="font-mono wrap-anywhere">
-            kanthord auth jwt generate --project {binding.project_id} --binding {binding.name}{" "}
-            --output &lt;file&gt;
-          </code>
-          . In a container, run{" "}
-          <code className="font-mono wrap-anywhere">
-            podman exec &lt;container&gt; kanthord auth jwt generate --project {binding.project_id}{" "}
-            --binding {binding.name} --output /var/lib/kanthord/{binding.name}.cli.yaml
-          </code>
-          , then copy the file to the host with{" "}
-          <code className="font-mono wrap-anywhere">
-            podman cp &lt;container&gt;:/var/lib/kanthord/{binding.name}.cli.yaml .
-          </code>
-          . Then remove the file from the volume with{" "}
-          <code className="font-mono wrap-anywhere">
-            podman exec &lt;container&gt; rm /var/lib/kanthord/{binding.name}.cli.yaml
-          </code>
-          .
-        </li>
-        <li>
-          Choose one absolute directory <code className="font-mono">&lt;dir&gt;</code> for each
-          instance, for example <code className="font-mono">/srv/kanthord/w1</code>. Place the file
-          as <code className="font-mono">cli.yaml</code> with mode{" "}
-          <code className="font-mono">0600</code> in{" "}
-          <code className="font-mono wrap-anywhere">&lt;dir&gt;/config/kanthord/</code> on the
-          worker host. Run{" "}
-          <code className="font-mono wrap-anywhere">
-            env -u KANTHORD_TOKEN XDG_CONFIG_HOME=&lt;dir&gt;/config
-            XDG_STATE_HOME=&lt;dir&gt;/state kanthord serve worker --endpoint &lt;url&gt;
-          </code>
-          . A <code className="font-mono">KANTHORD_TOKEN</code> in the shell overrides the token of{" "}
-          <code className="font-mono">cli.yaml</code>. The worker reads{" "}
-          <code className="font-mono">client_secret</code> only from{" "}
-          <code className="font-mono">cli.yaml</code>.
-        </li>
-      </ol>
-    </div>
+    <p className="text-sm">
+      {missing} {missing === 1 ? "instance is" : "instances are"} missing. The worker placement
+      waits for the worker instance, which a later version adds. Until then, the server refuses the
+      registration of a worker at this placement and hands it no credential. Use the{" "}
+      <code className="font-mono">server</code> placement.
+    </p>
   );
 }
 
