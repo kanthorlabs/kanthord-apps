@@ -1,12 +1,16 @@
-import { listWorkerInstances } from "@/api/resources/workers";
-import type { InstanceActivity, SchedulerExecutionRecord, WorkerInstanceRecord } from "@/api/types";
+import { listWorkerRegistrations } from "@/api/resources/workers";
+import type {
+  RegistrationActivity,
+  SchedulerExecutionRecord,
+  WorkerRegistrationRecord,
+} from "@/api/types";
 import { useResource, type Resource } from "@/hooks/use-resource";
 
 export type ActivityRead =
   | { readonly state: "loading" }
   | { readonly state: "failed"; readonly message: string; readonly retry: () => void }
   | { readonly state: "gone" }
-  | { readonly state: "found"; readonly activity: InstanceActivity };
+  | { readonly state: "found"; readonly activity: RegistrationActivity };
 
 export type NodeClaimant =
   | { readonly kind: "failed"; readonly message: string; readonly retry: () => void }
@@ -23,37 +27,42 @@ export interface NodeClaimantRead {
   readonly reload: () => void;
 }
 
-interface InstanceRead {
+interface RegistrationRead {
   readonly runtimeIdentity: string | null;
-  readonly items: readonly WorkerInstanceRecord[];
+  readonly items: readonly WorkerRegistrationRecord[];
 }
 
 async function readInstances(
   projectId: string,
   runtimeIdentity: string | null,
-): Promise<InstanceRead> {
-  const items = runtimeIdentity === null ? [] : await listWorkerInstances(projectId);
+): Promise<RegistrationRead> {
+  const items = runtimeIdentity === null ? [] : await listWorkerRegistrations(projectId);
   return { runtimeIdentity, items };
 }
 
-function activityOf(instances: Resource<InstanceRead>, runtimeIdentity: string): ActivityRead {
+function activityOf(
+  registrations: Resource<RegistrationRead>,
+  runtimeIdentity: string,
+): ActivityRead {
   if (
-    instances.loading ||
-    (instances.data !== null && instances.data.runtimeIdentity !== runtimeIdentity)
+    registrations.loading ||
+    (registrations.data !== null && registrations.data.runtimeIdentity !== runtimeIdentity)
   ) {
     return { state: "loading" };
   }
-  if (instances.data === null) {
+  if (registrations.data === null) {
     return {
       state: "failed",
-      message: instances.error?.message ?? "",
-      retry: instances.reload,
+      message: registrations.error?.message ?? "",
+      retry: registrations.reload,
     };
   }
-  const instance = instances.data.items.find((item) => item.runtime_identity === runtimeIdentity);
-  return instance === undefined
+  const registration = registrations.data.items.find(
+    (item) => item.runtime_identity === runtimeIdentity,
+  );
+  return registration === undefined
     ? { state: "gone" }
-    : { state: "found", activity: instance.activity };
+    : { state: "found", activity: registration.activity };
 }
 
 export function useNodeClaimant(
@@ -64,11 +73,11 @@ export function useNodeClaimant(
 ): NodeClaimantRead {
   const running = executions.data?.find((execution) => execution.claim_state === "running");
   const runtimeIdentity = running?.claimant.runtime_identity ?? null;
-  const instances = useResource(
+  const registrations = useResource(
     () => readInstances(projectId, runtimeIdentity),
     [projectId, runtimeIdentity],
   );
-  const { reload } = instances;
+  const { reload } = registrations;
 
   if (!live || executions.loading) return { claimant: null, reload };
   if (executions.data === null) {
@@ -87,7 +96,7 @@ export function useNodeClaimant(
       kind: "claimed",
       claimant: running.claimant,
       deadline: running.expired_at,
-      activity: activityOf(instances, running.claimant.runtime_identity),
+      activity: activityOf(registrations, running.claimant.runtime_identity),
     },
     reload,
   };

@@ -54,7 +54,7 @@ function execution(
     claimant: {
       worker_binding_id: "binding_1",
       resource_identity: "worker:kanthord:general-main",
-      runtime_identity: "worker_instance_01",
+      runtime_identity: "worker_registration_01",
     },
     attempt: 2,
     pinned_revision: 1,
@@ -164,7 +164,7 @@ function snapshot(
     missionVersion,
     nodes,
     jobs: null,
-    instances: null,
+    registrations: null,
     executions: null,
     bindings: null,
   };

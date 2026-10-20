@@ -229,10 +229,10 @@ on("PATCH", /^\/api\/project\/([^/]+)$/, (m, b, res) => {
 on("GET", /^\/api\/worker\/catalog$/, (_m, _b, res) =>
   json(res, 200, page(fx.WORKER_CATALOG.filter((w) => fx.RELEASED_WORKERS.includes(w.name)))),
 );
-on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
+on("GET", /^\/api\/worker\/registration$/, (_m, _b, res, _t, url) => {
   const projectId = url.searchParams.get("project_id");
-  const items = fx.WORKER_INSTANCES.filter(
-    (instance) => projectId === null || instance.project_id === projectId,
+  const items = fx.WORKER_REGISTRATIONS.filter(
+    (registration) => projectId === null || registration.project_id === projectId,
   );
   return json(res, 200, page(items));
 });

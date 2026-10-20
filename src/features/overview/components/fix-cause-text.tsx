@@ -44,7 +44,7 @@ function TakerSituation({ hint }: { readonly hint: Exclude<TakerHint, { kind: "n
   if (hint.kind === "server") {
     return <>runs no instance. Raise its instance_count, or check the server log.</>;
   }
-  return <>has no live instance. Start its worker program.</>;
+  return <>has no live registration. Start its worker program.</>;
 }
 
 function CredentialNames({ names }: { readonly names: readonly string[] }) {

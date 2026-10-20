@@ -2,7 +2,7 @@ import { listMissionNodes, readMission } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
 import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
 import { listWorkbenchSessions } from "@/api/resources/workbench";
-import { listWorkerInstances } from "@/api/resources/workers";
+import { listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   Mission,
   MissionNodeRecord,
@@ -10,7 +10,7 @@ import type {
   SchedulerExecutionRecord,
   SchedulerJob,
   WorkbenchSessionListItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 
@@ -21,7 +21,7 @@ export interface ProjectRead {
   readonly mission: Mission | null;
   readonly nodes: readonly MissionNodeRecord[] | null;
   readonly jobs: readonly SchedulerJob[] | null;
-  readonly instances: readonly WorkerInstanceRecord[] | null;
+  readonly registrations: readonly WorkerRegistrationRecord[] | null;
   readonly executions: readonly SchedulerExecutionRecord[] | null;
 }
 
@@ -84,14 +84,14 @@ async function readProject(
     () => readMission(project.id),
     previous?.mission ?? null,
   );
-  const [nodes, jobs, instances, executions] = await Promise.all([
+  const [nodes, jobs, registrations, executions] = await Promise.all([
     readNodes(project, mission.data, previous),
     settle(project, "queue", () => listQueueJobs(project.id), previous?.jobs ?? null),
     settle(
       project,
-      "worker instances",
-      () => listWorkerInstances(project.id),
-      previous?.instances ?? null,
+      "worker registrations",
+      () => listWorkerRegistrations(project.id),
+      previous?.registrations ?? null,
     ),
     settle(
       project,
@@ -106,10 +106,10 @@ async function readProject(
       mission: mission.data,
       nodes: nodes.data,
       jobs: jobs.data,
-      instances: instances.data,
+      registrations: registrations.data,
       executions: executions.data,
     },
-    faults: [mission.fault, nodes.fault, jobs.fault, instances.fault, executions.fault].flatMap(
+    faults: [mission.fault, nodes.fault, jobs.fault, registrations.fault, executions.fault].flatMap(
       (fault) => (fault === null ? [] : [fault]),
     ),
   };

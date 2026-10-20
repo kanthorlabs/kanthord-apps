@@ -113,7 +113,13 @@ function uncoveredJobIdsOf(
   board: ProjectBoard,
   catalog: readonly WorkerCatalogItem[],
 ): ReadonlySet<string> {
-  const groups = uncoveredJobsOf(board.jobs, board.nodes, board.instances, board.bindings, catalog);
+  const groups = uncoveredJobsOf(
+    board.jobs,
+    board.nodes,
+    board.registrations,
+    board.bindings,
+    catalog,
+  );
   return new Set(groups.flatMap((group) => group.jobs.map((job) => job.job_id)));
 }
 

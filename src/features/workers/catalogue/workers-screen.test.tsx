@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
-import type { WorkerBindingRecord, WorkerCatalogItem, WorkerInstanceRecord } from "@/api/types";
+import type { WorkerBindingRecord, WorkerCatalogItem, WorkerRegistrationRecord } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
@@ -23,8 +23,8 @@ const CATALOG_TDD: WorkerCatalogItem = {
   declared_intents: ["implement"],
 };
 
-const INSTANCE_EXECUTING: WorkerInstanceRecord = {
-  runtime_identity: "worker_instance_01",
+const REGISTRATION_EXECUTING: WorkerRegistrationRecord = {
+  runtime_identity: "worker_registration_01",
   project_id: "prj-test",
   resource_identity: "worker:kanthord:tdd-main",
   worker_name: "tdd",
@@ -36,8 +36,8 @@ const INSTANCE_EXECUTING: WorkerInstanceRecord = {
   registered: true,
 };
 
-const INSTANCE_IDLE_WORKER: WorkerInstanceRecord = {
-  runtime_identity: "worker_instance_02",
+const REGISTRATION_IDLE_WORKER: WorkerRegistrationRecord = {
+  runtime_identity: "worker_registration_02",
   project_id: "prj-test",
   resource_identity: "worker:kanthord:reviewer-main",
   worker_name: "reviewer@1",
@@ -49,8 +49,8 @@ const INSTANCE_IDLE_WORKER: WorkerInstanceRecord = {
   registered: true,
 };
 
-const INSTANCE_EXTERNAL: WorkerInstanceRecord = {
-  runtime_identity: "worker_instance_03",
+const REGISTRATION_EXTERNAL: WorkerRegistrationRecord = {
+  runtime_identity: "worker_registration_03",
   project_id: "prj-test",
   resource_identity: "worker:kanthord:claude-code-main",
   worker_name: "claude-code@1",
@@ -85,7 +85,7 @@ describe("WorkersScreen", () => {
 
   it("lists the catalog workers with their node states and declared works", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     render(<WorkersScreen />);
 
     await waitFor(() => expect(screen.getByText("tdd")).toBeDefined());
@@ -93,25 +93,25 @@ describe("WorkersScreen", () => {
     expect(screen.getByText("Declared intents")).toBeDefined();
     expect(screen.getByText("implement")).toBeDefined();
     expect(screen.queryByText("examine")).toBeNull();
-    expect(screen.getByText("No instances.")).toBeDefined();
-    expect(workersApi.listWorkerInstances).toHaveBeenCalledWith("prj-test");
+    expect(screen.getByText("No registrations.")).toBeDefined();
+    expect(workersApi.listWorkerRegistrations).toHaveBeenCalledWith("prj-test");
   });
 
-  it("shows the activity, the drain mark and the execution of a live instance", async () => {
+  it("shows the activity, the drain mark and the execution of a live registration", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_EXECUTING]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_EXECUTING]);
     render(<WorkersScreen />);
 
-    await waitFor(() => expect(screen.getByText("worker_instance_01")).toBeDefined());
+    await waitFor(() => expect(screen.getByText("worker_registration_01")).toBeDefined());
     expect(screen.getByText("executing")).toBeDefined();
     expect(screen.getByText("draining")).toBeDefined();
     expect(screen.getByText(textContent("tdd · kanthord · server · execution_01"))).toBeDefined();
     expect(screen.getByText("No workers.")).toBeDefined();
   });
 
-  it("shows the worker placement and no drain mark for an idle worker instance", async () => {
+  it("shows the worker placement and no drain mark for an idle worker registration", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_IDLE_WORKER]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
     render(<WorkersScreen />);
 
     await waitFor(() => expect(screen.getByText("reviewer-1")).toBeDefined());
@@ -120,9 +120,9 @@ describe("WorkersScreen", () => {
     expect(screen.getByText(textContent("reviewer@1 · kanthord · worker"))).toBeDefined();
   });
 
-  it("shows no placement for an external-harness instance", async () => {
+  it("shows no placement for an external-harness registration", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_EXTERNAL]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_EXTERNAL]);
     render(<WorkersScreen />);
 
     await waitFor(() => expect(screen.getByText("harness-1")).toBeDefined());
@@ -135,7 +135,7 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog)
       .mockRejectedValueOnce(new ApiError("unavailable", "The daemon is unavailable.", 503))
       .mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     render(<WorkersScreen />);
 
     await waitFor(() => expect(screen.getAllByText("The daemon is unavailable.")).toHaveLength(2));
@@ -146,10 +146,10 @@ describe("WorkersScreen", () => {
 
   it("shows the revision, the expected and the live count of each worker binding", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([
-      INSTANCE_EXECUTING,
-      { ...INSTANCE_EXECUTING, runtime_identity: "worker_instance_04" },
-      INSTANCE_IDLE_WORKER,
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([
+      REGISTRATION_EXECUTING,
+      { ...REGISTRATION_EXECUTING, runtime_identity: "worker_registration_04" },
+      REGISTRATION_IDLE_WORKER,
     ]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
@@ -164,10 +164,10 @@ describe("WorkersScreen", () => {
     expect(projectsApi.listWorkerBindings).toHaveBeenCalledWith("prj-test");
   });
 
-  it("does not count an instance of another project with the same binding name", async () => {
+  it("does not count a registration of another project with the same binding name", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([
-      { ...INSTANCE_IDLE_WORKER, project_id: "prj-other" },
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([
+      { ...REGISTRATION_IDLE_WORKER, project_id: "prj-other" },
     ]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 1, placement: "worker" }),
@@ -179,7 +179,7 @@ describe("WorkersScreen", () => {
 
   it("shows the missing count and the wait for a worker placement binding with a gap", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
     ]);
@@ -198,7 +198,7 @@ describe("WorkersScreen", () => {
 
   it("states one missing instance in the singular", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_IDLE_WORKER]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
     ]);
@@ -210,7 +210,7 @@ describe("WorkersScreen", () => {
 
   it("shows the slot limit cause for a server placement binding with a gap", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
     ]);
@@ -229,7 +229,7 @@ describe("WorkersScreen", () => {
 
   it("shows the container log hint for a container placement binding with a gap", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("tdd-main", { instance_count: 2, placement: "container" }),
     ]);
@@ -249,7 +249,7 @@ describe("WorkersScreen", () => {
 
   it("shows no steps for a worker placement binding with all instances live", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_IDLE_WORKER]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 1, placement: "worker" }),
     ]);
@@ -262,7 +262,7 @@ describe("WorkersScreen", () => {
 
   it("shows a disabled mark for a binding with an instance count of 0", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 0, placement: "worker" }),
     ]);
@@ -282,7 +282,7 @@ describe("WorkersScreen", () => {
         declared_intents: ["implement"],
       },
     ]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("claude-code-main", { worker: "claude-code@1", instance_count: 1 }),
     ]);
@@ -298,7 +298,7 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockRejectedValue(
       new ApiError("unavailable", "The daemon is unavailable.", 503),
     );
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
     ]);
@@ -316,13 +316,13 @@ describe("WorkersScreen", () => {
         resolveCatalog = resolve;
       }),
     );
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
     ]);
     render(<WorkersScreen />);
 
-    await waitFor(() => expect(workersApi.listWorkerInstances).toHaveBeenCalled());
+    await waitFor(() => expect(workersApi.listWorkerRegistrations).toHaveBeenCalled());
     expect(screen.queryByText("0 of 2 live")).toBeNull();
     resolveCatalog([CATALOG_TDD]);
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
@@ -331,7 +331,7 @@ describe("WorkersScreen", () => {
 
   it("shows the empty state when the project has no worker binding", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     render(<WorkersScreen />);
 
     await waitFor(() => expect(screen.getByText("No worker bindings.")).toBeDefined());

@@ -84,13 +84,13 @@ function projectPausedOf(snapshot: ProjectSnapshot): readonly FixAttentionItem[]
 }
 
 function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readonly NoTakerItem[] {
-  const { project, jobs, instances, bindings } = snapshot;
+  const { project, jobs, registrations, bindings } = snapshot;
   const { catalog } = context;
   if (project.paused_at !== null) return [];
-  if (jobs === null || instances === null || bindings === null || catalog === null) return [];
+  if (jobs === null || registrations === null || bindings === null || catalog === null) return [];
   const items: NoTakerItem[] = [];
   const workerBindings = bindings.map((entry) => entry.binding);
-  const stuckGroups = uncoveredJobsOf(jobs, snapshot.nodes, instances, workerBindings, catalog);
+  const stuckGroups = uncoveredJobsOf(jobs, snapshot.nodes, registrations, workerBindings, catalog);
   for (const { facts, jobs: stuck } of stuckGroups) {
     const [oldest] = stuck
       .flatMap((job) => {

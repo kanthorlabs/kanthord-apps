@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { WorkerCatalogItem, WorkerInstanceRecord } from "@/api/types";
+import type { WorkerCatalogItem, WorkerRegistrationRecord } from "@/api/types";
 import { BindingInstanceItem } from "./components/binding-instance-item";
 import { useWorkers } from "./use-workers";
 
@@ -51,21 +51,24 @@ function CatalogItem({ item }: { item: WorkerCatalogItem }) {
   );
 }
 
-function InstanceItem({ instance }: { instance: WorkerInstanceRecord }) {
+function RegistrationItem({ registration }: { registration: WorkerRegistrationRecord }) {
   return (
     <Item variant="outline" size="sm" role="listitem">
       <ItemContent className="min-w-0">
         <ItemTitle className="flex-wrap">
-          <span className="font-mono break-all">{instance.name ?? instance.runtime_identity}</span>
-          <Badge variant={instance.activity === "idle" ? "secondary" : "default"}>
-            {instance.activity}
+          <span className="font-mono break-all">
+            {registration.name ?? registration.runtime_identity}
+          </span>
+          <Badge variant={registration.activity === "idle" ? "secondary" : "default"}>
+            {registration.activity}
           </Badge>
-          {instance.draining && <Badge variant="outline">draining</Badge>}
+          {registration.draining && <Badge variant="outline">draining</Badge>}
         </ItemTitle>
         <ItemDescription className="break-all">
-          <RecordName>{instance.worker_name}</RecordName> · <RecordName>{instance.host}</RecordName>
-          {instance.host === "kanthord" ? ` · ${instance.placement}` : ""}
-          {instance.execution_id !== undefined ? ` · ${instance.execution_id}` : ""}
+          <RecordName>{registration.worker_name}</RecordName> ·{" "}
+          <RecordName>{registration.host}</RecordName>
+          {registration.host === "kanthord" ? ` · ${registration.placement}` : ""}
+          {registration.execution_id !== undefined ? ` · ${registration.execution_id}` : ""}
         </ItemDescription>
       </ItemContent>
     </Item>
@@ -122,9 +125,9 @@ function EmptyList({ title }: { title: string }) {
 }
 
 export function WorkersScreen() {
-  const { catalog, instances, bindings, bindingEntries } = useWorkers();
+  const { catalog, registrations, bindings, bindingEntries } = useWorkers();
   const catalogItems = catalog.data ?? [];
-  const instanceItems = instances.data ?? [];
+  const registrationItems = registrations.data ?? [];
 
   return (
     <div className="space-y-8 px-4 lg:px-0">
@@ -151,11 +154,11 @@ export function WorkersScreen() {
       <Section
         id="bindings-heading"
         title="Worker bindings"
-        loading={bindings.loading || instances.loading || catalog.loading}
-        error={bindings.error ?? instances.error ?? catalog.error}
+        loading={bindings.loading || registrations.loading || catalog.loading}
+        error={bindings.error ?? registrations.error ?? catalog.error}
         reload={() => {
           bindings.reload();
-          instances.reload();
+          registrations.reload();
           catalog.reload();
         }}
       >
@@ -173,18 +176,18 @@ export function WorkersScreen() {
       <Separator />
 
       <Section
-        id="instances-heading"
-        title="Live instances"
-        loading={instances.loading}
-        error={instances.error}
-        reload={instances.reload}
+        id="registrations-heading"
+        title="Live registrations"
+        loading={registrations.loading}
+        error={registrations.error}
+        reload={registrations.reload}
       >
-        {instanceItems.length === 0 ? (
-          <EmptyList title="No instances." />
+        {registrationItems.length === 0 ? (
+          <EmptyList title="No registrations." />
         ) : (
           <ItemGroup className="gap-2">
-            {instanceItems.map((instance) => (
-              <InstanceItem key={instance.runtime_identity} instance={instance} />
+            {registrationItems.map((registration) => (
+              <RegistrationItem key={registration.runtime_identity} registration={registration} />
             ))}
           </ItemGroup>
         )}

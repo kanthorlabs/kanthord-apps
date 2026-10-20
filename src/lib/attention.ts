@@ -11,7 +11,7 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
   BindingAgentView,
   WorkbenchSessionListItem,
 } from "@/api/types";
@@ -65,7 +65,7 @@ export interface ProjectSnapshot {
   readonly missionVersion: number;
   readonly nodes: readonly MissionNodeRecord[];
   readonly jobs: readonly SchedulerJob[] | null;
-  readonly instances: readonly WorkerInstanceRecord[] | null;
+  readonly registrations: readonly WorkerRegistrationRecord[] | null;
   readonly executions: readonly SchedulerExecutionRecord[] | null;
   readonly bindings: readonly WorkerBindingView[] | null;
 }

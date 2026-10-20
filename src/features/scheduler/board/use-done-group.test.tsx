@@ -20,7 +20,7 @@ function record(id: string): SchedulerExecutionRecord {
     claimant: {
       worker_binding_id: "binding_1",
       resource_identity: "worker:kanthord:general-main",
-      runtime_identity: "worker_instance_01",
+      runtime_identity: "worker_registration_01",
       name: "general-main #1",
     },
     attempt: 1,

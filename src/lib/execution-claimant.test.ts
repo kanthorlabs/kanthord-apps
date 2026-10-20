@@ -5,7 +5,7 @@ import { bindingNameOf } from "./execution-claimant";
 const CLAIMANT = {
   worker_binding_id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BW1",
   resource_identity: "worker:kanthord:general-main",
-  runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I00",
+  runtime_identity: "worker_registration_01J9ZQ4XKM3B6V8N2R5T7W0I00",
 };
 
 describe("bindingNameOf", () => {

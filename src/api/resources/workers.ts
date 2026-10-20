@@ -13,7 +13,7 @@ import type {
   PlacementStatus,
   WorkerCatalogEntry,
   WorkerCatalogItem,
-  WorkerInstanceRecord,
+  WorkerRegistrationRecord,
 } from "../types";
 
 function enablementPath(agentName: string): string {
@@ -32,10 +32,12 @@ export async function readWorkerCatalogEntry(workerName: string): Promise<Worker
   return request<WorkerCatalogEntry>(`/api/worker/catalog/${encodeURIComponent(workerName)}`);
 }
 
-export async function listWorkerInstances(
+export async function listWorkerRegistrations(
   projectId: string,
-): Promise<readonly WorkerInstanceRecord[]> {
-  return readAllPages<WorkerInstanceRecord>("/api/worker/instance", { project_id: projectId });
+): Promise<readonly WorkerRegistrationRecord[]> {
+  return readAllPages<WorkerRegistrationRecord>("/api/worker/registration", {
+    project_id: projectId,
+  });
 }
 
 export async function listWorkerPlacements(): Promise<readonly PlacementStatus[]> {

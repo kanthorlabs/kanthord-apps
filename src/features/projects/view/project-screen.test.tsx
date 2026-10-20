@@ -48,7 +48,7 @@ describe("ProjectScreen", () => {
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({ version: 1, bindings: {} });
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
     vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
-    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(workersApi.listAgents).mockResolvedValue([]);
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
