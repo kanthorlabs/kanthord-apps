@@ -177,7 +177,7 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(screen.getByText("0 of 1 live")).toBeDefined());
   });
 
-  it("shows the missing count and both steps for a worker placement binding with a gap", async () => {
+  it("shows the missing count and the wait for a worker placement binding with a gap", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
@@ -189,37 +189,11 @@ describe("WorkersScreen", () => {
     expect(
       screen.getByText(
         textContent(
-          "2 instances are missing. Repeat both steps once for each missing instance. Each instance needs its own token file and its own cli.yaml.",
+          "2 instances are missing. The worker placement waits for the worker instance, which a later version adds. Until then, the server refuses the registration of a worker at this placement and hands it no credential. Use the server placement.",
         ),
       ),
     ).toBeDefined();
-    expect(
-      screen.getByText(
-        "kanthord auth jwt generate --project prj-test --binding reviewer-main --output <file>",
-      ),
-    ).toBeDefined();
-    expect(
-      screen.getByText(
-        "podman exec <container> kanthord auth jwt generate --project prj-test --binding reviewer-main --output /var/lib/kanthord/reviewer-main.cli.yaml",
-      ),
-    ).toBeDefined();
-    expect(
-      screen.getByText("podman cp <container>:/var/lib/kanthord/reviewer-main.cli.yaml ."),
-    ).toBeDefined();
-    expect(
-      screen.getByText("podman exec <container> rm /var/lib/kanthord/reviewer-main.cli.yaml"),
-    ).toBeDefined();
-    expect(screen.getByText(/Choose one absolute directory/)).toBeDefined();
-    expect(screen.getByText("/srv/kanthord/w1")).toBeDefined();
-    expect(screen.getByText("<dir>/config/kanthord/")).toBeDefined();
-    expect(screen.getByText("0600")).toBeDefined();
-    expect(
-      screen.getByText(
-        "env -u KANTHORD_TOKEN XDG_CONFIG_HOME=<dir>/config XDG_STATE_HOME=<dir>/state kanthord serve worker --endpoint <url>",
-      ),
-    ).toBeDefined();
-    expect(screen.getAllByText("KANTHORD_TOKEN").length).toBeGreaterThan(0);
-    expect(screen.getByText("client_secret")).toBeDefined();
+    expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
   });
 
   it("states one missing instance in the singular", async () => {
@@ -352,7 +326,7 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText("0 of 2 live")).toBeNull();
     resolveCatalog([CATALOG_TDD]);
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
-    expect(screen.getAllByText(/kanthord auth jwt generate/)).toHaveLength(2);
+    expect(screen.getByText(/^2 instances are missing\./)).toBeDefined();
   });
 
   it("shows the empty state when the project has no worker binding", async () => {
