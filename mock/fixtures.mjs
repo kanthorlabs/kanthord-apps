@@ -137,6 +137,17 @@ export const WORKER_INSTANCES = [
     registered: true,
   },
   {
+    runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A07",
+    project_id: PROJECT.id,
+    resource_identity: "worker:kanthord:sandbox-main",
+    worker_name: "coder@1",
+    host: "kanthord",
+    placement: "container",
+    activity: "idle",
+    draining: false,
+    registered: true,
+  },
+  {
     runtime_identity: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0A06",
     project_id: PROJECT_ATLAS.id,
     resource_identity: "worker:kanthord:harness-main",
@@ -368,6 +379,10 @@ export const BINDING_SET = {
       kind: "worker",
       config: { worker: "coder@1", instance_count: 0, placement: "server" },
     },
+    "sandbox-main": {
+      kind: "worker",
+      config: { worker: "coder@1", instance_count: 2, placement: "container" },
+    },
     "harness-main": {
       kind: "worker",
       config: { worker: "claude-code@1", instance_count: 1 },
@@ -463,6 +478,15 @@ export const GRAPH_BINDINGS = {
     resource_identity: "worker:kanthord:idle-main",
     revision: 1,
     created_at: minutes(500),
+    removed_at: null,
+  },
+  sandbox: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BW6",
+    name: "sandbox-main",
+    kind: "worker",
+    resource_identity: "worker:kanthord:sandbox-main",
+    revision: 1,
+    created_at: minutes(450),
     removed_at: null,
   },
   harness: {

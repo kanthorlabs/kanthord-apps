@@ -18,6 +18,9 @@ const DEV_TOKEN = process.env.KANTHORD_DEV_TOKEN ?? "dev-human-token";
 const UNHEALTHY = process.env.KANTHORD_MOCK_UNHEALTHY === "1";
 const HOST_FILE_LOCKED = process.env.KANTHORD_MOCK_HOST_FILE_LOCKED === "1";
 const EMPTY = process.env.KANTHORD_MOCK_EMPTY === "1";
+const STABLE_PLACEMENT_REASONS = ["server_in_container", "runtime_absent", "runtime_rootful"];
+const CONTAINER_REASON_ENV = process.env.KANTHORD_MOCK_CONTAINER ?? "server_in_container";
+let containerReason = CONTAINER_REASON_ENV === "available" ? null : CONTAINER_REASON_ENV;
 
 const HEALTHY_SERVICES = {
   server: { gateway: 200, store: 200, log: 200 },
@@ -232,6 +235,30 @@ on("GET", /^\/api\/worker\/instance$/, (_m, _b, res, _t, url) => {
     (instance) => projectId === null || instance.project_id === projectId,
   );
   return json(res, 200, page(items));
+});
+const placementStatusOf = (placement) => {
+  const unavailable = placement === "container" && containerReason !== null;
+  return {
+    placement,
+    available: !unavailable,
+    reason: unavailable ? containerReason : null,
+    detail:
+      unavailable && containerReason === "runtime_failed"
+        ? "Cannot connect to Podman. Is the Podman machine running?"
+        : null,
+    container_runtime:
+      placement === "container" &&
+      !["server_in_container", "runtime_absent"].includes(containerReason)
+        ? "podman"
+        : null,
+  };
+};
+on("GET", /^\/api\/worker\/placement$/, (_m, _b, res) =>
+  json(res, 200, { items: ["server", "container", "worker"].map(placementStatusOf) }),
+);
+on("PUT", /^\/api\/mock\/container$/, (_m, b, res) => {
+  containerReason = b?.reason ?? null;
+  return json(res, 200, placementStatusOf("container"));
 });
 const WORKER_METHODS = {
   "coder@1": "steps",
@@ -1059,6 +1086,21 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       409,
       "project.bindings.worker.placement_changed",
       "A binding cannot change its placement.",
+    );
+  }
+  const addedContainer = Object.entries(b.bindings).find(
+    ([name, entry]) =>
+      entry.kind === "worker" &&
+      entry.config.placement === "container" &&
+      bindingSet.bindings[name] === undefined,
+  );
+  if (addedContainer !== undefined && STABLE_PLACEMENT_REASONS.includes(containerReason)) {
+    return projectEnvelope(
+      res,
+      409,
+      "project.bindings.worker.placement_unavailable",
+      "The server cannot run the container placement.",
+      { binding: addedContainer[0], placement: "container", reason: containerReason },
     );
   }
   const changedRepositories = Object.entries(b.bindings)
