@@ -31,10 +31,10 @@ export async function listProjectExecutionPage(
 export async function listNodeExecutions(
   projectId: string,
   nodeId: string,
-  attempt: number,
+  attempt?: number,
 ): Promise<readonly SchedulerExecutionRecord[]> {
   return readAllPages<SchedulerExecutionRecord>(
     `/api/scheduler/project/${encodeURIComponent(projectId)}/execution`,
-    { node_id: nodeId, attempt: String(attempt) },
+    attempt === undefined ? { node_id: nodeId } : { node_id: nodeId, attempt: String(attempt) },
   );
 }

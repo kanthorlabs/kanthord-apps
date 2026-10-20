@@ -164,7 +164,7 @@ describe("CredentialScreen", () => {
     ).toBeTruthy();
   });
 
-  it("states no cooldown when the cooldown of the credential ended", async () => {
+  it("keeps the strikes of an ended cooldown", async () => {
     vi.mocked(workersApi.listAgentCooldowns).mockResolvedValue([
       { credential: "router", strikes: 5, available_at: Date.now() - 1_000 },
     ]);
@@ -172,7 +172,26 @@ describe("CredentialScreen", () => {
 
     const section = await screen.findByRole("region", { name: "Cooldown" });
     expect(
+      await within(section).findByText(
+        "No live cooldown. Strike 5 stays until a release without a provider failure.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("states no cooldown and the cooldown rule when the credential holds no strike", async () => {
+    vi.mocked(workersApi.listAgentCooldowns).mockResolvedValue([
+      { credential: "other", strikes: 1, available_at: Date.now() + 60_000 },
+    ]);
+    mount();
+
+    const section = await screen.findByRole("region", { name: "Cooldown" });
+    expect(
       await within(section).findByText("No cooldown. Claims can use this credential."),
+    ).toBeTruthy();
+    expect(
+      within(section).getByText(
+        "A provider failure of rate limited, unavailable or quota exhausted starts a cooldown. Each strike doubles it, up to one day. A release without a provider failure clears it. A claim skips the agent chain entries of a credential in a cooldown.",
+      ),
     ).toBeTruthy();
   });
 

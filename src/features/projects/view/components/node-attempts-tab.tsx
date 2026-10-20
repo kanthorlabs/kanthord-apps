@@ -9,9 +9,10 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
-import { lastStopOf, stopLabel } from "@/lib/execution-stop";
+import type { SchedulerExecutionRecord } from "@/api/types";
+import { endLabel, lastEndOf } from "@/lib/execution-stop";
 import { useNodeAttempts } from "../use-node-attempts";
-import { useNodeExecutions } from "../use-node-executions";
+import { useNodeExecutionHistory } from "../use-node-executions";
 import { AttemptRecords } from "./attempt-records";
 import { ActorLabel } from "./actor-label";
 
@@ -22,23 +23,21 @@ interface NodeAttemptsTabProps {
   readonly currentRevision: number;
 }
 
-interface AttemptStopLineProps {
-  readonly projectId: string;
-  readonly nodeId: string;
+interface AttemptEndLineProps {
+  readonly executions: readonly SchedulerExecutionRecord[] | null;
   readonly attempt: number;
 }
 
-function AttemptStopLine({ projectId, nodeId, attempt }: AttemptStopLineProps) {
-  const executions = useNodeExecutions(projectId, nodeId, attempt, true);
-  const last = executions.data === null ? null : lastStopOf(executions.data);
+function AttemptEndLine({ executions, attempt }: AttemptEndLineProps) {
+  const last = lastEndOf((executions ?? []).filter((item) => item.attempt === attempt));
   if (last === null) return null;
   return (
     <>
       <span className="break-words">
-        Last stop {utcDateTime(last.endedAt)}: {stopLabel(last.stop)}
+        Last execution ended {utcDateTime(last.endedAt)}: {endLabel(last.execution)}
       </span>
-      {last.stop.detail !== undefined && (
-        <span className="break-words">Cause: {last.stop.detail}</span>
+      {last.execution.stop?.detail !== undefined && (
+        <span className="break-words">Cause: {last.execution.stop.detail}</span>
       )}
     </>
   );
@@ -51,6 +50,7 @@ export function NodeAttemptsTab({
   currentRevision,
 }: NodeAttemptsTabProps) {
   const attempts = useNodeAttempts(nodeId);
+  const history = useNodeExecutionHistory(projectId, nodeId);
 
   if (attempts.loading) return <Skeleton className="h-32 w-full" />;
   if (attempts.data === null) {
@@ -88,7 +88,7 @@ export function NodeAttemptsTab({
                   {utcDateTime(attempt.opened_at)}
                 </span>
                 {attempt.closed_at !== null && <span>Closed {utcDateTime(attempt.closed_at)}</span>}
-                <AttemptStopLine projectId={projectId} nodeId={nodeId} attempt={attempt.attempt} />
+                <AttemptEndLine executions={history.data} attempt={attempt.attempt} />
               </ItemDescription>
             </ItemContent>
             <CollapsibleTrigger

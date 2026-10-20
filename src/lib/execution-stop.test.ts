@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import type { SchedulerExecutionRecord } from "@/api/types";
 
-import { endTimeOf, pauseCauseOf, pauseSentence, stopLabel, stopSentence } from "./execution-stop";
+import {
+  endLabel,
+  endTimeOf,
+  lastEndOf,
+  pauseCauseOf,
+  pauseSentence,
+  stopLabel,
+  stopSentence,
+} from "./execution-stop";
 
 function execution(
   id: string,
@@ -106,7 +114,36 @@ describe("stopSentence", () => {
   });
 });
 
+describe("lastEndOf", () => {
+  it("takes the execution that ended last, lost or clean, and names its end", () => {
+    const failed = execution("e1", {
+      ended_at: 2_000,
+      stop: { reason: "provider_failed", code: "rate_limited" },
+    });
+    const lost = execution("e2", { claim_state: "lost", ended_at: null, expired_at: 5_000 });
+    const clean = execution("e3", { ended_at: 4_000 });
+    const running = execution("e4", { claim_state: "running", ended_at: null, expired_at: 9_000 });
+
+    expect(lastEndOf([failed, lost, clean, running])).toEqual({ execution: lost, endedAt: 5_000 });
+    expect(lastEndOf([failed, clean])).toEqual({ execution: clean, endedAt: 4_000 });
+    expect(lastEndOf([running])).toBeNull();
+    expect(endLabel(failed)).toBe("Provider failed: rate limited");
+    expect(endLabel(lost)).toBe("lost");
+    expect(endLabel(clean)).toBe("no stop");
+  });
+});
+
 describe("pauseSentence", () => {
+  it("adds the cause text of the last stop at the Failure limit", () => {
+    const stopped = execution("e1", {
+      stop: { reason: "provider_failed", code: "unauthorized", detail: "401 invalid x-api-key" },
+    });
+
+    expect(pauseSentence(pauseCauseOf([stopped]))).toBe(
+      "The last execution ended: provider failed (unauthorized). Cause: 401 invalid x-api-key",
+    );
+  });
+
   it("names the stop of the last execution at the Failure limit", () => {
     const stopped = execution("e1", { stop: { reason: "provider_failed", code: "rate_limited" } });
 

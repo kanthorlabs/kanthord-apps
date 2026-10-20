@@ -761,6 +761,10 @@ const finalPromptOf = (layers) => {
     .map((source) => `Instructions of ${source.label}:\n\n${source.text}`);
   return [...systemParts, PROMPT_FRAMING, ...messages].join("\n\n");
 };
+const EXPIRED_HOLDS = [
+  { credential: "openai-main", strikes: 3, available_at: Date.now() - 10 * 60_000 },
+];
+
 const coolingCredentialOf = (agentName) => {
   const enablement = agents.find((agent) => agent.agent_name === agentName)?.enablement;
   if (enablement === null || enablement === undefined || enablement.state !== "enabled") return [];
@@ -772,10 +776,13 @@ const coolingCredentialOf = (agentName) => {
 
 on("GET", /^\/api\/agent\/cooldown$/, (_m, _b, res) => {
   const credentials = new Set(Object.values(COOLING_AGENTS).flat().flatMap(coolingCredentialOf));
+  const live = [...credentials].map((credential) => ({
+    credential,
+    strikes: 1,
+    available_at: COOLING_UNTIL,
+  }));
   return json(res, 200, {
-    items: [...credentials]
-      .sort()
-      .map((credential) => ({ credential, strikes: 1, available_at: COOLING_UNTIL })),
+    items: [...live, ...EXPIRED_HOLDS].sort((a, b) => a.credential.localeCompare(b.credential)),
   });
 });
 

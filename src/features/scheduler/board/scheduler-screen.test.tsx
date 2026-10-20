@@ -588,6 +588,27 @@ describe("SchedulerScreen Done", () => {
     expect(within(item).getByText("duration 20 min")).toBeInTheDocument();
   });
 
+  it("names the cause text of a stop", async () => {
+    const stop: ExecutionStop = {
+      reason: "provider_failed",
+      code: "unauthorized",
+      detail: "401 Unauthorized: invalid x-api-key",
+    };
+    serve({
+      nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] },
+      executions: { "prj-1": [ended("prj-1", "execution_done", "n_a", { stop })] },
+    });
+
+    renderScreen("/scheduler?project=prj-1");
+
+    const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
+      "listitem",
+    );
+    expect(
+      within(item).getByText("Cause: 401 Unauthorized: invalid x-api-key"),
+    ).toBeInTheDocument();
+  });
+
   it("names a lost execution without claiming that the runtime failed", async () => {
     serve({
       nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] },

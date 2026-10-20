@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -8,6 +8,8 @@ import * as projectsApi from "@/api/resources/projects";
 import * as schedulerApi from "@/api/resources/scheduler";
 import * as workersApi from "@/api/resources/workers";
 import type {
+  AgentCooling,
+  BindingAgentView,
   MissionAttempt,
   MissionControlResult,
   MissionNodeRecord,
@@ -16,7 +18,6 @@ import type {
   Intent,
   SchedulerExecutionRecord,
   WorkerBindingRecord,
-  BindingAgentView,
   WorkerInstanceRecord,
 } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
@@ -234,6 +235,37 @@ function instance(overrides: Partial<WorkerInstanceRecord>): WorkerInstanceRecor
   } as WorkerInstanceRecord;
 }
 
+function workerBinding(): WorkerBindingRecord {
+  return {
+    id: "binding_worker_1",
+    project_id: "project_1",
+    name: "general-main",
+    kind: "worker",
+    resource_identity: "worker:kanthord:general-main",
+    revision: 1,
+    config: { worker: "coder@1", instance_count: 1 },
+    created_at: 0,
+    removed_at: null,
+  };
+}
+
+function agentView(agent: string, cooling: AgentCooling | null): BindingAgentView {
+  return {
+    agent,
+    worker: "coder@1",
+    worker_binding_id: "binding_worker_1",
+    binding_set_version: 1,
+    defaults: null,
+    entry: null,
+    effective: null,
+    chain: [],
+    active_position: cooling === null ? 0 : null,
+    cooling,
+    valid: true,
+    issues: [],
+  };
+}
+
 function renderSheet(selectedId: string, onSelect = vi.fn()) {
   render(
     <NodeSheet
@@ -264,6 +296,7 @@ describe("NodeSheet", () => {
     vi.mocked(missionApi.listNodeRevisions).mockResolvedValue([REVISION_2, REVISION_1]);
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
     vi.mocked(missionApi.listNodeEvidence).mockResolvedValue([]);
     vi.mocked(missionApi.listNodeAssessments).mockResolvedValue([
       {
@@ -429,9 +462,10 @@ describe("NodeSheet", () => {
     expect(within(executions).getByText("Provider failed: rate limited")).toBeTruthy();
   });
 
-  it("shows the last stop and its cause on the attempt without the records", async () => {
+  it("shows the end of the last execution and its cause on the attempt from one read", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
       execution({
+        execution_id: "execution_1",
         node_id: "node_audit",
         claim_state: "finished",
         ended_at: 2_000,
@@ -441,6 +475,13 @@ describe("NodeSheet", () => {
           detail: "OAuth auth derivation failed for anthropic: Cannot find module",
         },
       }),
+      execution({
+        execution_id: "execution_2",
+        node_id: "node_audit",
+        attempt: 2,
+        claim_state: "finished",
+        ended_at: 3_000,
+      }),
     ]);
     renderSheet("node_audit");
 
@@ -448,7 +489,7 @@ describe("NodeSheet", () => {
     const attempts = await screen.findByRole("list", { name: "Attempts" });
     expect(
       await within(attempts).findByText(
-        `Last stop ${utcDateTime(2_000)}: Provider failed: unavailable`,
+        `Last execution ended ${utcDateTime(2_000)}: Provider failed: unavailable`,
       ),
     ).toBeTruthy();
     expect(
@@ -456,6 +497,9 @@ describe("NodeSheet", () => {
         "Cause: OAuth auth derivation failed for anthropic: Cannot find module",
       ),
     ).toBeTruthy();
+    expect(vi.mocked(schedulerApi.listNodeExecutions).mock.calls).toEqual([
+      ["project_1", "node_audit"],
+    ]);
     await userEvent.click(screen.getByRole("button", { name: "Records of attempt 1" }));
     const executions = await screen.findByRole("list", { name: "Executions" });
     expect(
@@ -465,22 +509,70 @@ describe("NodeSheet", () => {
     ).toBeTruthy();
   });
 
-  it("states that an Available node waits for a cooldown of its agent chain", async () => {
-    const end = Date.now() + 240_000;
-    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      { id: "binding_worker_1", name: "general-main", removed_at: null } as WorkerBindingRecord,
+  it("names a lost last execution of an attempt", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
+      execution({
+        execution_id: "execution_1",
+        node_id: "node_audit",
+        claim_state: "finished",
+        ended_at: 2_000,
+        stop: { reason: "provider_failed", code: "rate_limited" },
+      }),
+      execution({
+        execution_id: "execution_2",
+        node_id: "node_audit",
+        claim_state: "lost",
+        ended_at: null,
+        expired_at: 9_000,
+      }),
     ]);
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+    const attempts = await screen.findByRole("list", { name: "Attempts" });
+    expect(
+      await within(attempts).findByText(`Last execution ended ${utcDateTime(9_000)}: lost`),
+    ).toBeTruthy();
+  });
+
+  it("states that an agent chain of the project cools down on an Available node", async () => {
+    const end = Date.now() + 240_000;
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([workerBinding()]);
     vi.mocked(projectsApi.listBindingAgents).mockResolvedValue([
-      { agent: "swe@1", cooling: { code: "agent.configuration.chain_cooling", available_at: end } },
-      { agent: "re@1", cooling: null },
-    ] as unknown as BindingAgentView[]);
+      agentView("swe@1", { code: "agent.configuration.chain_cooling", available_at: end }),
+      agentView("qa@1", {
+        code: "agent.configuration.chain_cooling",
+        available_at: Date.now() - 1_000,
+      }),
+      agentView("re@1", null),
+    ]);
     renderSheet("node_ready");
 
+    expect(await screen.findByText("An agent chain of this project cools down.")).toBeTruthy();
     expect(
-      await screen.findByText(
-        `Agent swe@1 of general-main: every credential of its chain cools down until ${utcDateTime(end)}. No claim of this agent starts before then.`,
+      screen.getByText(
+        `Agent swe@1 of general-main: every credential of its chain cools down until ${utcDateTime(end)}. A claim that needs this agent waits until then.`,
       ),
     ).toBeTruthy();
+    expect(screen.queryByText(/Agent qa@1/)).toBeNull();
+    expect(screen.queryByText(/Agent re@1/)).toBeNull();
+  });
+
+  it("shows no cooldown hint on an Available node when no agent chain cools down", async () => {
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([workerBinding()]);
+    vi.mocked(projectsApi.listBindingAgents).mockResolvedValue([agentView("re@1", null)]);
+    renderSheet("node_ready");
+
+    expect(await screen.findByText("Ready work criterion")).toBeTruthy();
+    await waitFor(() => expect(projectsApi.listBindingAgents).toHaveBeenCalled());
+    expect(screen.queryByText("An agent chain of this project cools down.")).toBeNull();
+  });
+
+  it("reads no cooldown for a node that is not Available", async () => {
+    renderSheet("node_audit");
+
+    expect(await screen.findByText("Audit log criterion")).toBeTruthy();
+    expect(projectsApi.listWorkerBindings).not.toHaveBeenCalled();
   });
 
   it("shows the claimant and the activity of an Executing node", async () => {

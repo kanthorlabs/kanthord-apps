@@ -101,12 +101,12 @@ function CoolingNotice({ cooling }: { cooling: readonly ChainCooling[] }) {
   if (cooling.length === 0) return null;
   return (
     <Alert>
-      <AlertTitle>Claims wait for a cooldown.</AlertTitle>
+      <AlertTitle>An agent chain of this project cools down.</AlertTitle>
       <AlertDescription className="flex flex-col gap-1">
         {cooling.map((entry) => (
           <span key={entry.key} className="break-words">
             Agent {entry.agent} of {entry.binding}: every credential of its chain cools down until{" "}
-            {utcDateTime(entry.availableAt)}. No claim of this agent starts before then.
+            {utcDateTime(entry.availableAt)}. A claim that needs this agent waits until then.
           </span>
         ))}
       </AlertDescription>

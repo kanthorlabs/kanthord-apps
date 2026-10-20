@@ -3,13 +3,13 @@ import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   AgentProviderAddBody,
+  AgentCooldown,
   AgentDeclaration,
   AgentEnablement,
   AgentEnablementPutBody,
   AgentModel,
   AgentProviderKind,
   AgentSummary,
-  AgentCooldown,
   WorkerCatalogEntry,
   WorkerCatalogItem,
   WorkerInstanceRecord,

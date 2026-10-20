@@ -30,24 +30,29 @@ export function stopLabel(stop: ExecutionStop): string {
   return stop.code === null ? reason : `${reason}: ${codeLabel(stop.code)}`;
 }
 
-export interface LastStop {
-  readonly stop: ExecutionStop;
+export function endTimeOf(execution: SchedulerExecutionRecord): number | null {
+  if (execution.ended_at !== null) return execution.ended_at;
+  return execution.claim_state === "lost" ? execution.expired_at : null;
+}
+
+export interface LastEnd {
+  readonly execution: SchedulerExecutionRecord;
   readonly endedAt: number;
 }
 
-export function lastStopOf(executions: readonly SchedulerExecutionRecord[]): LastStop | null {
-  let last: LastStop | null = null;
+export function lastEndOf(executions: readonly SchedulerExecutionRecord[]): LastEnd | null {
+  let last: LastEnd | null = null;
   for (const execution of executions) {
-    if (execution.stop === null || execution.ended_at === null) continue;
-    if (last === null || execution.ended_at > last.endedAt)
-      last = { stop: execution.stop, endedAt: execution.ended_at };
+    const endedAt = endTimeOf(execution);
+    if (endedAt !== null && (last === null || endedAt > last.endedAt))
+      last = { execution, endedAt };
   }
   return last;
 }
 
-export function endTimeOf(execution: SchedulerExecutionRecord): number | null {
-  if (execution.ended_at !== null) return execution.ended_at;
-  return execution.claim_state === "lost" ? execution.expired_at : null;
+export function endLabel(execution: SchedulerExecutionRecord): string {
+  if (execution.stop !== null) return stopLabel(execution.stop);
+  return execution.claim_state === "lost" ? "lost" : "no stop";
 }
 
 export function stopSentence(stop: ExecutionStop): string {
@@ -92,7 +97,8 @@ export function pauseCauseOf(executions: readonly SchedulerExecutionRecord[]): P
 export function pauseSentence(pause: PauseDerivation): string {
   const stop = pause.execution?.stop ?? null;
   if (pause.cause === "failure-limit") {
-    return `The last execution ended: ${stop === null ? "lost" : stopSentence(stop)}.`;
+    const ended = `The last execution ended: ${stop === null ? "lost" : stopSentence(stop)}.`;
+    return stop?.detail === undefined ? ended : `${ended} Cause: ${stop.detail}`;
   }
   if (pause.cause === "further-work-limit" && stop !== null) {
     return `The last execution ended at its budget${
