@@ -93,7 +93,9 @@ export function takerHintOf(
   for (const binding of ordered) {
     if (!admits(binding, catalog, facts)) continue;
     const worker = catalog.find((item) => item.name === binding.config.worker);
-    const atServer = worker?.host === "kanthord" && binding.config.placement === "server";
+    const atServer =
+      worker?.host === "kanthord" &&
+      (binding.config.placement === "server" || binding.config.placement === "container");
     return {
       kind: atServer ? "server" : "worker",
       binding: binding.name,

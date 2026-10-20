@@ -16,11 +16,12 @@ import {
   type DraftErrors,
   type WorkerDraft,
 } from "@/lib/binding-draft";
+import type { PlacementChoices } from "@/lib/placement-status";
 import type { WorkerAgents } from "../use-worker-agents";
 import { DraftField } from "./draft-field";
 import { WorkerAgentItem } from "./worker-agent-item";
 
-const PLACEMENTS: readonly WorkerPlacement[] = ["worker", "server"];
+const PLACEMENTS: readonly WorkerPlacement[] = ["server", "container", "worker"];
 
 interface WorkerAgentListProps {
   readonly draft: WorkerDraft;
@@ -86,6 +87,7 @@ interface WorkerFormProps {
   readonly creating: boolean;
   readonly workers: readonly string[];
   readonly agents: Resource<WorkerAgents>;
+  readonly placements: PlacementChoices;
   readonly onEdit: (draft: WorkerDraft) => void;
   readonly onEnableAgent: (agentName: string) => void;
 }
@@ -96,6 +98,7 @@ export function WorkerForm({
   creating,
   workers,
   agents,
+  placements,
   onEdit,
   onEnableAgent,
 }: WorkerFormProps) {
@@ -133,7 +136,9 @@ export function WorkerForm({
             value={draft.placement ?? ""}
             options={PLACEMENTS}
             error={errors["placement"]}
-            description="server runs the instances inside kanthord. worker waits for a machine with a machine token. The binding keeps this choice."
+            description="server runs each instance as a thread of the server. container runs each instance in its own container on the server host. worker waits for a kanthord serve worker process with a machine token. The binding keeps this choice."
+            disabledOptions={placements.disabled}
+            note={placements.note}
             onChange={(next) =>
               onEdit({ ...draft, placement: PLACEMENTS.find((item) => item === next) ?? null })
             }

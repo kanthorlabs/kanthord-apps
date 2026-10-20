@@ -253,6 +253,26 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
   });
 
+  it("shows the container log hint for a container placement binding with a gap", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
+    vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("tdd-main", { instance_count: 2, placement: "container" }),
+    ]);
+    render(<WorkersScreen />);
+
+    await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
+    expect(screen.getByText(textContent("tdd · container"))).toBeDefined();
+    expect(
+      screen.getByText(
+        textContent(
+          "The server starts these instances, each in its own container. Read workers/<client_id>/stderr.log in the state directory of the server.",
+        ),
+      ),
+    ).toBeDefined();
+    expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
+  });
+
   it("shows no steps for a worker placement binding with all instances live", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerInstances).mockResolvedValue([INSTANCE_IDLE_WORKER]);

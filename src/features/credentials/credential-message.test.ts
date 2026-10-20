@@ -32,6 +32,23 @@ describe("credentialMessage", () => {
     );
   });
 
+  it("states the reason of a refused container placement", () => {
+    expect(
+      credentialMessage(
+        refusal("project.bindings.worker.placement_unavailable", {
+          binding: "sandbox-main",
+          placement: "container",
+          reason: "server_in_container",
+        }),
+      ),
+    ).toBe(
+      "The container placement is not available. This server runs in a container, so it cannot start a container for each instance. Keep server.",
+    );
+    expect(credentialMessage(refusal("project.bindings.worker.placement_unavailable"))).toBe(
+      "Daemon text.",
+    );
+  });
+
   it("states the fix hint of the failure reason of an unreachable repository", () => {
     expect(
       credentialMessage(

@@ -65,6 +65,16 @@ function ServerShortfallHint() {
   );
 }
 
+function ContainerShortfallHint() {
+  return (
+    <p className="text-sm">
+      The server starts these instances, each in its own container. Read{" "}
+      <code className="font-mono wrap-anywhere">workers/&lt;client_id&gt;/stderr.log</code> in the
+      state directory of the server.
+    </p>
+  );
+}
+
 export function BindingInstanceItem({ entry }: { entry: BindingInstances }) {
   return (
     <Item variant="outline" size="sm" role="listitem">
@@ -83,6 +93,7 @@ export function BindingInstanceItem({ entry }: { entry: BindingInstances }) {
         </ItemDescription>
         {entry.gap === "worker" && <WorkerPlacementHint entry={entry} />}
         {entry.gap === "server" && <ServerShortfallHint />}
+        {entry.gap === "container" && <ContainerShortfallHint />}
       </ItemContent>
     </Item>
   );

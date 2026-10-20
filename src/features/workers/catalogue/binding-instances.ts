@@ -1,6 +1,11 @@
-import type { WorkerBindingRecord, WorkerCatalogItem, WorkerInstanceRecord } from "@/api/types";
+import type {
+  WorkerBindingRecord,
+  WorkerCatalogItem,
+  WorkerInstanceRecord,
+  WorkerPlacement,
+} from "@/api/types";
 
-export type BindingGap = "none" | "server" | "worker";
+export type BindingGap = "none" | WorkerPlacement;
 
 export interface BindingInstances {
   readonly binding: WorkerBindingRecord;
@@ -9,7 +14,7 @@ export interface BindingInstances {
   readonly missing: number;
   readonly shortfall: boolean;
   readonly disabled: boolean;
-  readonly placement: "server" | "worker" | null;
+  readonly placement: WorkerPlacement | null;
   readonly gap: BindingGap;
 }
 

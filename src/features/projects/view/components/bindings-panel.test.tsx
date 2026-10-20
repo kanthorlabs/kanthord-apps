@@ -13,6 +13,7 @@ import type {
   BindingSet,
   BindingSetEntry,
   Credential,
+  PlacementStatus,
   ProjectBindingRecord,
   WorkerCatalogEntry,
 } from "@/api/types";
@@ -105,6 +106,27 @@ const CATALOG_ENTRIES: Readonly<Record<string, WorkerCatalogEntry>> = {
 };
 
 const onWritten = vi.fn();
+
+function placementList(container: Partial<PlacementStatus>): readonly PlacementStatus[] {
+  const open = { available: true, reason: null, detail: null, container_runtime: null } as const;
+  return [
+    { ...open, placement: "server" },
+    {
+      ...open,
+      placement: "container",
+      container_runtime: "podman",
+      ...container,
+    },
+    { ...open, placement: "worker" },
+  ];
+}
+
+const AVAILABLE_PLACEMENTS = placementList({});
+const IN_CONTAINER = placementList({
+  available: false,
+  reason: "server_in_container",
+  container_runtime: null,
+});
 
 async function chooseWorker(worker: string) {
   const input = screen.getByRole("combobox", { name: "Worker" });
@@ -206,6 +228,7 @@ describe("BindingsPanel", () => {
     });
     vi.mocked(credentialsApi.listHostKeys).mockResolvedValue([GITHUB_HOST_KEY]);
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(AVAILABLE_PLACEMENTS);
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
       { ...CATALOG_ITEM, name: "coder@1" },
       { ...CATALOG_ITEM, name: "reviewer@1" },
@@ -433,7 +456,7 @@ describe("BindingsPanel", () => {
 
     expect(
       await screen.findByText(
-        "server runs the instances inside kanthord. worker waits for a machine with a machine token. The binding keeps this choice.",
+        "server runs each instance as a thread of the server. container runs each instance in its own container on the server host. worker waits for a kanthord serve worker process with a machine token. The binding keeps this choice.",
       ),
     ).toBeTruthy();
   });
@@ -548,6 +571,141 @@ describe("BindingsPanel", () => {
         },
       }),
     );
+  });
+
+  it("turns container off with the reason when the server runs in a container", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(IN_CONTAINER);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+
+    expect(await screen.findByRole("option", { name: "container" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: "server" })).not.toHaveAttribute("aria-disabled");
+    expect(
+      screen.getByText(
+        "Off. This server runs in a container, so it cannot start a container for each instance. Keep server.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("names the other stable reasons of an unavailable container", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
+      placementList({ available: false, reason: "runtime_absent" }),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+
+    expect(
+      await screen.findByText(
+        "Off. Install Podman or Docker on the server host, then open this sheet again.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("keeps container on and shows the detail of a failed runtime", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
+      placementList({
+        available: false,
+        reason: "runtime_failed",
+        detail: "Cannot connect to Podman.",
+      }),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+
+    expect(
+      await screen.findByText(
+        "Cannot connect to Podman. Start the container runtime, then open this sheet again.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole("option", { name: "container" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("writes the placement container when the server can run containers", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "sandbox-main");
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+    await userEvent.click(await screen.findByRole("option", { name: "container" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+        "kanthord-repo": REPO,
+        "general-main": WORKER,
+        "sandbox-main": {
+          kind: "worker",
+          config: { worker: "coder@1", instance_count: 1, placement: "container" },
+        },
+      }),
+    );
+  });
+
+  it("shows the refusal of an added container binding and keeps the draft", async () => {
+    vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "Daemon text.",
+        409,
+        "project.bindings.worker.placement_unavailable",
+        { binding: "sandbox-main", placement: "container", reason: "runtime_rootful" },
+      ),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "sandbox-main");
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+    await userEvent.click(await screen.findByRole("option", { name: "container" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(
+      await screen.findByText(
+        "The container placement is not available. Docker runs as root on this host. Use rootless Podman or rootless Docker.",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Name")).toHaveValue("sandbox-main");
+  });
+
+  it("lets the human lower the count of a container binding while container is off", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(IN_CONTAINER);
+    const container: BindingSetEntry = {
+      kind: "worker",
+      config: { worker: "coder@1", instance_count: 2, placement: "container" },
+    };
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: { ...SET.bindings, "general-main": container },
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    expect(await screen.findByLabelText("Placement")).toHaveValue("container");
+    const count = screen.getByLabelText("Instance count");
+    await userEvent.clear(count);
+    await userEvent.type(count, "0");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Make unavailable" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": REPO,
+      "general-main": { kind: "worker", config: { ...container.config, instance_count: 0 } },
+    });
+    expect(workersApi.listWorkerPlacements).not.toHaveBeenCalled();
   });
 
   it("offers no placement for a worker of an external harness", async () => {
