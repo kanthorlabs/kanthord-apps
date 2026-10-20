@@ -1,5 +1,6 @@
 import type { ApiError } from "@/api/errors";
 import { failureReasonHintOf } from "@/lib/failure-reason";
+import { placementReasonText } from "@/lib/placement-status";
 
 export const REVISION_CONFLICT = "credential.revision.conflict";
 
@@ -84,6 +85,17 @@ function nodeUnmatchedMessage(details: unknown): string {
   return ids.length === 0 ? base : `${base} Nodes: ${ids.map(String).join(", ")}.`;
 }
 
+function placementUnavailableMessage(cause: ApiError): string {
+  const reason = isRecord(cause.details) ? cause.details["reason"] : undefined;
+  if (
+    reason !== "server_in_container" &&
+    reason !== "runtime_absent" &&
+    reason !== "runtime_rootful"
+  )
+    return cause.message;
+  return `The container placement is not available. ${placementReasonText(reason, null)}`;
+}
+
 function sshUnreachableMessage(details: unknown): string {
   const hint =
     failureReasonHintOf(details) ?? "Check the address and the SSH credential. Then try again.";
@@ -162,6 +174,9 @@ export function credentialMessage(cause: ApiError): string {
   if (cause.detail === "repository.host_key.unpinned") return unpinnedMessage(cause.details);
   if (cause.detail === "project.bindings.worker.node_unmatched") {
     return nodeUnmatchedMessage(cause.details);
+  }
+  if (cause.detail === "project.bindings.worker.placement_unavailable") {
+    return placementUnavailableMessage(cause);
   }
   if (cause.detail === "project.bindings.repository.ssh_unreachable") {
     return sshUnreachableMessage(cause.details);

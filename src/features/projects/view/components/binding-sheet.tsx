@@ -25,6 +25,7 @@ import { useBindingCredential } from "../use-binding-credential";
 import { useBindingCheck } from "../use-binding-check";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
 import { useHostKeyPin } from "../use-host-key-pin";
+import { usePlacementChoices } from "../use-placement-choices";
 import { usePlacementDefault } from "../use-placement-default";
 import { useRepositoryCredentials } from "../use-repository-credentials";
 import { useWorkerAgents } from "../use-worker-agents";
@@ -68,6 +69,7 @@ export function BindingSheet({
   const workerNames = useWorkerNames();
   const workerAgents = useWorkerAgents(draft.kind === "worker" ? draft.worker : "");
   const placementDefault = usePlacementDefault(form, workerAgents);
+  const placementChoices = usePlacementChoices(draft.kind === "worker" && form.creating);
   const [enablingAgent, setEnablingAgent] = useState<string | null>(null);
   const allCredentials = credentials.data ?? [];
   const sshCredentials = allCredentials.filter(
@@ -190,6 +192,7 @@ export function BindingSheet({
                     creating={form.creating}
                     workers={workerNames.data ?? []}
                     agents={workerAgents}
+                    placements={placementChoices}
                     onEdit={form.edit}
                     onEnableAgent={setEnablingAgent}
                   />

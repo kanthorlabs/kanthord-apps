@@ -10,6 +10,7 @@ import type {
   AgentModel,
   AgentProviderKind,
   AgentSummary,
+  PlacementStatus,
   WorkerCatalogEntry,
   WorkerCatalogItem,
   WorkerInstanceRecord,
@@ -35,6 +36,11 @@ export async function listWorkerInstances(
   projectId: string,
 ): Promise<readonly WorkerInstanceRecord[]> {
   return readAllPages<WorkerInstanceRecord>("/api/worker/instance", { project_id: projectId });
+}
+
+export async function listWorkerPlacements(): Promise<readonly PlacementStatus[]> {
+  return (await request<{ readonly items: readonly PlacementStatus[] }>("/api/worker/placement"))
+    .items;
 }
 
 export async function listAgentEnablements(): Promise<readonly AgentEnablement[]> {

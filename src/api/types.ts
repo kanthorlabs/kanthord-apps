@@ -389,7 +389,18 @@ export interface WorkerAgentEntry {
   readonly fallback_configurations?: readonly AgentDefaultConfiguration[];
 }
 
-export type WorkerPlacement = "server" | "worker";
+export type WorkerPlacement = "server" | "container" | "worker";
+
+export type PlacementReason =
+  "server_in_container" | "runtime_absent" | "runtime_failed" | "runtime_rootful";
+
+export interface PlacementStatus {
+  readonly placement: WorkerPlacement;
+  readonly available: boolean;
+  readonly reason: PlacementReason | null;
+  readonly detail: string | null;
+  readonly container_runtime: "podman" | "docker" | null;
+}
 
 export interface WorkerBindingConfig {
   readonly worker: string;

@@ -14,6 +14,8 @@ interface ChoiceFieldProps {
   readonly options: readonly string[];
   readonly error: string | undefined;
   readonly description?: string;
+  readonly disabledOptions?: readonly string[];
+  readonly note?: string | null;
   readonly onChange: (value: string | null) => void;
 }
 
@@ -24,6 +26,8 @@ export function ChoiceField({
   options,
   error,
   description,
+  disabledOptions = [],
+  note = null,
   onChange,
 }: ChoiceFieldProps) {
   const items = options.map((option) => ({ value: option, label: option }));
@@ -36,13 +40,18 @@ export function ChoiceField({
         </SelectTrigger>
         <SelectContent>
           {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
+            <SelectItem
+              key={item.value}
+              value={item.value}
+              disabled={disabledOptions.includes(item.value)}
+            >
               {item.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       {description !== undefined && <FieldDescription>{description}</FieldDescription>}
+      {note !== null && <FieldDescription>{note}</FieldDescription>}
       <FieldError>{error}</FieldError>
     </Field>
   );
