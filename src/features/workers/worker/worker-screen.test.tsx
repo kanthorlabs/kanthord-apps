@@ -1,7 +1,7 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as clientApi from "@/api/client";
@@ -262,5 +262,26 @@ describe("WorkerScreen", () => {
     mount();
     expect(await screen.findByRole("heading", { name: "Bindings" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Instances" })).not.toBeInTheDocument();
+  });
+});
+
+describe("WorkerScreen polling", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reads the instances again every 15 s and shows a new connection", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([{ ...MAC, connection: null }]);
+    mount();
+    const list = await screen.findByRole("list", { name: "Instances" });
+    expect(within(list).getAllByText("Not connected").length).toBeGreaterThan(0);
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([MAC]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(within(list).getByText("Connected · mac-studio.local")).toBeInTheDocument();
   });
 });

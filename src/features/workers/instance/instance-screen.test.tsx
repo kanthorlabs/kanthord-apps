@@ -1,8 +1,8 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { toast } from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as clientApi from "@/api/client";
@@ -770,5 +770,38 @@ describe("InstanceScreen", () => {
       ).not.toBeInTheDocument(),
     );
     expect(projectsApi.listProjects).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("InstanceScreen polling", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("reads the instance again every 15 s and shows a new credential report", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const copy = {
+      name: "atlas-router",
+      revision: 2,
+      platform: "openai-compatible",
+      sealed_current: true,
+    } as const;
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      credentials: [{ ...copy, health: NO_REPORT }],
+    });
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    expect(within(rowOf(credentials, "atlas-router")).getByText("Unknown")).toBeInTheDocument();
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      credentials: [{ ...copy, health: ROUTER_HEALTH }],
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(within(rowOf(credentials, "atlas-router")).getByText("Healthy")).toBeInTheDocument();
   });
 });

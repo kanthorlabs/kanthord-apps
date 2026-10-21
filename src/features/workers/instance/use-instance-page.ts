@@ -13,10 +13,13 @@ import type {
 } from "@/api/types";
 import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
 import { useInstanceExecutions, type InstanceExecution } from "@/hooks/use-instance-executions";
+import { usePolledResource } from "@/hooks/use-polled-resource";
 import { useResource, type Resource } from "@/hooks/use-resource";
 import { OPENAI_COMPATIBLE } from "@/lib/credential-draft";
 import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
 import { instanceCopyHint } from "@/lib/failure-reason";
+
+const INSTANCE_INTERVAL_MS = 15_000;
 
 export type InstanceBindingState = "serving" | "draining";
 
@@ -155,7 +158,10 @@ export function credentialRowsOf(
 }
 
 export function useInstancePage(instanceName: string): InstancePage {
-  const instance = useResource(() => readWorkerInstance(instanceName), [instanceName]);
+  const polled = usePolledResource(() => readWorkerInstance(instanceName), [instanceName], {
+    intervalMs: INSTANCE_INTERVAL_MS,
+  });
+  const instance: Resource<WorkerInstanceDetail> = { ...polled, reload: polled.refresh };
   const context = useResource(() => readContext(instance.data), [instance.data]);
   const executions = useInstanceExecutions(instance.data?.registrations ?? null);
   const platforms = useCredentialPlatforms("llm");
