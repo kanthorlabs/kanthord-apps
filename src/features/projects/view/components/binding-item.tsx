@@ -22,6 +22,21 @@ interface BindingItemProps {
   readonly onRemove: () => void;
 }
 
+function instancesFact(instances: readonly string[]): ReactNode {
+  if (instances.length === 0) return "no instances";
+  return (
+    <>
+      instances{" "}
+      {instances.map((instance, index) => (
+        <Fragment key={instance}>
+          {index > 0 && ", "}
+          <RecordName>{instance}</RecordName>
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 function factsOf(entry: BindingSetEntry, hostedWorker: boolean): readonly ReactNode[] {
   if (entry.kind === "repository") {
     const { config } = entry;
@@ -45,7 +60,9 @@ function factsOf(entry: BindingSetEntry, hostedWorker: boolean): readonly ReactN
     return [
       <RecordName>{config.worker}</RecordName>,
       ...(hostedWorker && config.placement !== undefined ? [`placement ${config.placement}`] : []),
-      `instance count ${config.instance_count}`,
+      config.placement === "worker"
+        ? instancesFact(config.worker_instances ?? [])
+        : `instance count ${config.instance_count ?? 0}`,
       config.resource_budget === undefined
         ? "worker default budget"
         : `budget ${counted(config.resource_budget.turns, "turn", "turns")}, ${config.resource_budget.wall_time_ms} ms`,

@@ -15,7 +15,14 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
 import { useAgentEnable } from "./use-agent-enable";
 
-const OPENAI: Credential = { name: "openai-main", platform: "openai-compatible", revisions: [] };
+const OPENAI: Credential = {
+  name: "openai-main",
+  platform: "openai-compatible",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
+  revisions: [],
+};
 
 const SWE_DISABLED: AgentEnablement = {
   agent_name: "swe@1",
@@ -359,7 +366,17 @@ describe("useAgentEnable", () => {
   it("blocks a credential of a platform that no agent provider serves", async () => {
     const { result } = renderHook(
       () =>
-        useAgentEnable({ name: "gw", platform: "cloudflare-ai-gateway", revisions: [] }, vi.fn()),
+        useAgentEnable(
+          {
+            name: "gw",
+            platform: "cloudflare-ai-gateway",
+            holder: "server",
+            sealed_to: null,
+            sealed_current: true,
+            revisions: [],
+          },
+          vi.fn(),
+        ),
       { wrapper: wrapperAt(null) },
     );
 

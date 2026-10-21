@@ -40,6 +40,10 @@ export async function listWorkerRegistrations(
   });
 }
 
+export async function listAllWorkerRegistrations(): Promise<readonly WorkerRegistrationRecord[]> {
+  return readAllPages<WorkerRegistrationRecord>("/api/worker/registration");
+}
+
 export async function listWorkerPlacements(): Promise<readonly PlacementStatus[]> {
   return (await request<{ readonly items: readonly PlacementStatus[] }>("/api/worker/placement"))
     .items;

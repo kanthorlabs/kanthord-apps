@@ -92,7 +92,14 @@ const ENABLEMENT: AgentEnablement = {
   revision: 2,
 };
 
-const ROUTER_MAIN: Credential = { name: "router-main", platform: "openrouter", revisions: [] };
+const ROUTER_MAIN: Credential = {
+  name: "router-main",
+  platform: "openrouter",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
+  revisions: [],
+};
 
 const SWITCHES: Readonly<Record<string, Readonly<Record<string, boolean>>>> = {
   system: { host_file: false, base: true, custom: true, layer: false },
@@ -624,8 +631,22 @@ describe("AgentScreen", () => {
   });
 
   it("replaces a prefilled name when the human picks another credential", async () => {
-    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
-    const bare: Credential = { name: "bare-main", platform: "openrouter", revisions: [] };
+    const codex: Credential = {
+      name: "codex-main",
+      platform: "openai-codex",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
+      revisions: [],
+    };
+    const bare: Credential = {
+      name: "bare-main",
+      platform: "openrouter",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
+      revisions: [],
+    };
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex, bare]);
     vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
@@ -814,7 +835,14 @@ describe("AgentScreen", () => {
     expect(workersApi.enableAgentEnablement).toHaveBeenCalledWith("re@1", 3);
   });
   it("adds an agent provider from a credential and derives its provider", async () => {
-    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    const codex: Credential = {
+      name: "codex-main",
+      platform: "openai-codex",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
+      revisions: [],
+    };
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex]);
     vi.mocked(workersApi.addAgentProvider).mockResolvedValue({
@@ -846,7 +874,14 @@ describe("AgentScreen", () => {
   });
 
   it("explains the name and prefills it from an agent provider of another agent", async () => {
-    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
+    const codex: Credential = {
+      name: "codex-main",
+      platform: "openai-codex",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
+      revisions: [],
+    };
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex]);
     vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
@@ -876,8 +911,22 @@ describe("AgentScreen", () => {
   });
 
   it("clears a prefilled name in the add sheet when the next credential has no known name", async () => {
-    const codex: Credential = { name: "codex-main", platform: "openai-codex", revisions: [] };
-    const bare: Credential = { name: "bare-main", platform: "openrouter", revisions: [] };
+    const codex: Credential = {
+      name: "codex-main",
+      platform: "openai-codex",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
+      revisions: [],
+    };
+    const bare: Credential = {
+      name: "bare-main",
+      platform: "openrouter",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
+      revisions: [],
+    };
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ROUTER_MAIN, codex, bare]);
     vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
@@ -906,6 +955,9 @@ describe("AgentScreen", () => {
     const claude: Credential = {
       name: "claude-main",
       platform: "anthropic-subscription",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       revisions: [],
     };
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });

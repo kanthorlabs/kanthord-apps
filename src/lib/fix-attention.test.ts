@@ -212,7 +212,14 @@ function context(overrides: Partial<AttentionContext> = {}): AttentionContext {
 }
 
 function credential(name: string, revisions: Credential["revisions"]): Credential {
-  return { name, platform: "openai-compatible", revisions };
+  return {
+    name,
+    platform: "openai-compatible",
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
+    revisions,
+  };
 }
 
 function revision(createdAt: number, endedAt: number | null = null) {

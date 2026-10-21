@@ -2177,6 +2177,9 @@ function llmCredential(name: string, createdAt: number): Credential {
   return {
     name,
     platform: "openai-compatible",
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
     revisions: [
       {
         id: `credential_${name}`,

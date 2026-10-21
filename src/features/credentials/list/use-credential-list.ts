@@ -13,6 +13,10 @@ import { useCredentialPlatforms } from "../use-credential-platforms";
 
 export const ALL_PLATFORMS = "all";
 
+function holderOf(component: CredentialComponent): string | null {
+  return component === "llm" ? "server" : null;
+}
+
 export interface CredentialList {
   readonly pages: CursorPages<Credential>;
   readonly platforms: CredentialPlatformList | null;
@@ -28,7 +32,8 @@ export function useCredentialList(component: CredentialComponent): CredentialLis
   const [platform, setPlatform] = useState<CredentialPlatform | null>(null);
   const [includeArchived, setIncludeArchived] = useState(false);
   const pages = useCursorPages(
-    (cursor) => listCredentialPage(component, platform, cursor, includeArchived),
+    (cursor) =>
+      listCredentialPage(component, platform, cursor, includeArchived, holderOf(component)),
     [component, platform, includeArchived],
   );
   const selectPlatform = useCallback(

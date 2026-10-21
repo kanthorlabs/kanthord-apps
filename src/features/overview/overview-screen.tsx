@@ -71,7 +71,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
         <Empty>
           <EmptyHeader>
             <EmptyTitle>No projects</EmptyTitle>
-            <EmptyDescription>This instance holds no project.</EmptyDescription>
+            <EmptyDescription>This server holds no project.</EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
             <Button nativeButton={false} render={<Link to="/projects/new" />} size="lg">

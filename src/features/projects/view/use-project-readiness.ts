@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { listAllCredentials } from "@/api/resources/credentials";
 import { listMissionNodes, readMission } from "@/api/resources/mission";
 import { listWorkerBindings, readBindingSet } from "@/api/resources/projects";
+import { listWorkerInstances } from "@/api/resources/worker-instances";
 import { listAgents, listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   AgentSummary,
@@ -12,11 +13,13 @@ import type {
   Project,
   WorkerBindingConfig,
   WorkerBindingRecord,
+  WorkerInstanceListItem,
   WorkerRegistrationRecord,
 } from "@/api/types";
 import { settle, type ReadFault } from "@/features/overview/read-overview-snapshot";
 import { useResource } from "@/hooks/use-resource";
 import { enableAgentsPath } from "@/lib/credential-sections";
+import { effectiveInstanceCount } from "@/lib/instance-count";
 
 import { projectTabPath } from "./use-project-tab";
 
@@ -33,6 +36,7 @@ export interface ReadinessItem {
   readonly state: ReadinessState;
   readonly detail: string;
   readonly names: readonly string[];
+  readonly after?: string;
   readonly link: ReadinessLink | null;
 }
 
@@ -47,6 +51,7 @@ interface ReadinessFacts {
   readonly bindingSet: BindingSet | null;
   readonly workerBindings: readonly WorkerBindingRecord[] | null;
   readonly registrations: readonly WorkerRegistrationRecord[] | null;
+  readonly instances: readonly WorkerInstanceListItem[] | null;
   readonly agents: readonly AgentSummary[] | null;
   readonly llmCredentials: readonly Credential[] | null;
   readonly nodes: readonly MissionNodeRecord[] | null;
@@ -67,13 +72,14 @@ const NO_WORKER_BINDING = "The project holds no worker binding.";
 const NO_FAULTS: readonly ReadFault[] = [];
 
 async function readReadiness(project: Project): Promise<ReadinessRead> {
-  const [bindingSet, workerBindings, registrations, agents, llmCredentials, mission] =
+  const [bindingSet, workerBindings, registrations, instances, agents, llmCredentials, mission] =
     await Promise.all([
       settle(project, "binding set", () => readBindingSet(project.id), null),
       settle(project, "worker bindings", () => listWorkerBindings(project.id), null),
       settle(project, "worker registrations", () => listWorkerRegistrations(project.id), null),
+      settle(project, "worker instances", () => listWorkerInstances(null), null),
       settle(project, "agents", listAgents, null),
-      settle(project, "LLM credentials", () => listAllCredentials("llm"), null),
+      settle(project, "LLM credentials", () => listAllCredentials("llm", "server"), null),
       settle(project, "mission", () => readMission(project.id), null),
     ]);
   const missionId = mission.data?.id ?? null;
@@ -86,6 +92,7 @@ async function readReadiness(project: Project): Promise<ReadinessRead> {
       bindingSet: bindingSet.data,
       workerBindings: workerBindings.data,
       registrations: registrations.data,
+      instances: instances.data,
       agents: agents.data,
       llmCredentials: llmCredentials.data,
       nodes: nodes.data,
@@ -94,6 +101,7 @@ async function readReadiness(project: Project): Promise<ReadinessRead> {
       bindingSet.fault,
       workerBindings.fault,
       registrations.fault,
+      instances.fault,
       agents.fault,
       llmCredentials.fault,
       mission.fault,
@@ -153,13 +161,68 @@ function bindingItems(project: Project, facts: ReadinessFacts): readonly Readine
   ];
 }
 
+function listedInstancesOf(entries: readonly WorkerEntry[]): readonly string[] {
+  return [
+    ...new Set(
+      entries.flatMap((entry) =>
+        entry.config.placement === "worker" ? (entry.config.worker_instances ?? []) : [],
+      ),
+    ),
+  ];
+}
+
+function disconnectedOf(
+  listed: readonly string[],
+  instances: readonly WorkerInstanceListItem[],
+): readonly string[] {
+  return listed.filter(
+    (name) => !instances.some((instance) => instance.name === name && instance.connection !== null),
+  );
+}
+
+type InstanceDetail = Pick<ReadinessItem, "detail" | "names" | "after">;
+
+function instanceDetailOf(
+  listed: readonly string[],
+  instances: readonly WorkerInstanceListItem[] | null,
+): InstanceDetail | null {
+  if (listed.length === 0) return null;
+  if (instances === null) return { detail: "The worker instances were not read.", names: [] };
+  const disconnected = disconnectedOf(listed, instances);
+  if (disconnected.length === 0) return null;
+  return disconnected.length === 1
+    ? {
+        detail: "Instance",
+        names: disconnected,
+        after: "is not connected. Start kanthord serve worker with its configuration.",
+      }
+    : {
+        detail: "Instances",
+        names: disconnected,
+        after: "are not connected. Start kanthord serve worker with the configuration of each.",
+      };
+}
+
 function registrationItem(project: Project, facts: ReadinessFacts): ReadinessItem {
   const entries = workerEntriesOf(facts.bindingSet);
-  const active = entries.filter((entry) => entry.config.instance_count > 0);
+  const active = entries.filter((entry) => effectiveInstanceCount(entry.config) > 0);
   const lacking = active
     .filter((entry) => !hasLiveRegistration(entry, facts))
     .map((entry) => entry.name);
   const read = facts.workerBindings !== null && facts.registrations !== null;
+  const instanceDetail = instanceDetailOf(listedInstancesOf(active), facts.instances);
+  const link = {
+    label: "Open workers",
+    path: `/workers?project=${encodeURIComponent(project.id)}`,
+  };
+  if (instanceDetail !== null)
+    return {
+      key: "live_registrations",
+      title: "Live registrations",
+      state: "open",
+      ...instanceDetail,
+      link,
+    };
   return {
     key: "live_registrations",
     title: "Live registrations",
@@ -173,7 +236,7 @@ function registrationItem(project: Project, facts: ReadinessFacts): ReadinessIte
             ? "Each worker binding runs a live registration."
             : "No live registration:",
     names: active.length === 0 ? [] : lacking,
-    link: { label: "Open workers", path: `/workers?project=${encodeURIComponent(project.id)}` },
+    link,
   };
 }
 

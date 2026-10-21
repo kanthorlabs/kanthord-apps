@@ -116,12 +116,13 @@ describe("AppShell", () => {
     expect(screen.getByText("Agent body")).toBeTruthy();
   });
 
-  it("holds a project-scoped screen until the instance holds a project", () => {
+  it("holds a project-scoped screen until the server holds a project", () => {
     projectState.value = { ...projectState.value, projects: [], project: null };
     mount("/scheduler");
 
     expect(screen.queryByText("Scheduler body")).toBeNull();
     expect(screen.getByText("No projects")).toBeTruthy();
+    expect(screen.getByText("This server holds no project.")).toBeTruthy();
   });
 
   it("names Scheduler in the sidebar", () => {

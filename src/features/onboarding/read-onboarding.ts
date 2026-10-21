@@ -26,7 +26,7 @@ async function readProjectBindingSets(): Promise<{
 
 export async function readOnboarding(): Promise<OnboardingRead> {
   const [llmCredentials, agents, repositoryCredentials, projects] = await Promise.all([
-    settle(null, "LLM credentials", () => listAllCredentials("llm"), null),
+    settle(null, "LLM credentials", () => listAllCredentials("llm", "server"), null),
     settle(null, "agents", listAgents, null),
     settle(null, "Git credentials", () => listAllCredentials("repository"), null),
     readProjectBindingSets(),

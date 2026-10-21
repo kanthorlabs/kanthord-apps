@@ -10,6 +10,9 @@ const FINGERPRINT = "SHA256:SS5y+4FAdGZpIGkhURFS2VSlcK1tTrWmGk8Az16VdMs";
 const ATLAS_SSH: Credential = {
   name: "atlas-ssh",
   platform: "ssh",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "rev_1",
@@ -28,7 +31,14 @@ const ATLAS_SSH: Credential = {
   ],
 };
 
-const GITHUB_MAIN: Credential = { name: "github-main", platform: "github", revisions: [] };
+const GITHUB_MAIN: Credential = {
+  name: "github-main",
+  platform: "github",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
+  revisions: [],
+};
 
 function mount(credentials: readonly Credential[], newLabel?: string) {
   render(

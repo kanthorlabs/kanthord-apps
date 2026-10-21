@@ -34,7 +34,7 @@ function ReadinessRow({ item }: { readonly item: ReadinessItem }) {
               <RecordName>{name}</RecordName>
             </Fragment>
           ))}
-          {item.names.length > 0 && "."}
+          {item.after === undefined ? item.names.length > 0 && "." : ` ${item.after}`}
         </ItemDescription>
       </ItemContent>
       {item.link !== null && (

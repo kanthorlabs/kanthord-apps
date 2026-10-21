@@ -68,7 +68,7 @@ describe("readOverviewSetup", () => {
     ]);
     expect(setup.faults).toEqual([]);
     expect(readLiveness).toHaveBeenCalledWith("http://daemon.test");
-    expect(listAllCredentials).toHaveBeenCalledWith("llm");
+    expect(listAllCredentials).toHaveBeenCalledWith("llm", "server");
     expect(listBindingAgents).toHaveBeenCalledWith("prj-1", "binding_1");
   });
 
@@ -113,7 +113,7 @@ describe("readOverviewSetup", () => {
 
     const setup = await readOverviewSetup(null);
 
-    expect(setup.livenessFailure).toBe("No instance is connected.");
+    expect(setup.livenessFailure).toBe("No server is connected.");
     expect(readLiveness).not.toHaveBeenCalled();
   });
 });

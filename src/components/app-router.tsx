@@ -18,6 +18,8 @@ import { PromptsScreen } from "@/features/settings/prompts/prompts-screen";
 import { AgentScreen } from "@/features/workers/agent/agent-screen";
 import { AgentsScreen } from "@/features/workers/agents/agents-screen";
 import { WorkersScreen } from "@/features/workers/catalogue/workers-screen";
+import { InstanceScreen } from "@/features/workers/instance/instance-screen";
+import { WorkerScreen } from "@/features/workers/worker/worker-screen";
 import { basePath } from "@/lib/base-path";
 import { AppShell } from "./app-shell";
 import { AppToaster } from "./app-toaster";
@@ -39,6 +41,15 @@ export function AppRouter() {
             <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
             <Route path="scheduler" element={<SchedulerScreen />} />
             <Route path="workers" element={<WorkersScreen />} />
+            <Route path="workers/:workerName" element={<WorkerScreen />} />
+            <Route
+              path="workers/:workerName/instances"
+              element={<Navigate to=".." relative="path" replace />}
+            />
+            <Route
+              path="workers/:workerName/instances/:instanceName"
+              element={<InstanceScreen />}
+            />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
             <Route path="settings" element={<Navigate to="/settings/prompts" replace />} />

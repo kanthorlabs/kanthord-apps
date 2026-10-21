@@ -35,6 +35,15 @@ describe("breadcrumbTrail", () => {
     });
   });
 
+  it("names the instances segment of a worker", () => {
+    expect(breadcrumbTrail("/workers/coder%401/instances/mac-studio", labelOf)).toEqual([
+      { path: "/workers", label: "workers" },
+      { path: "/workers/coder%401", label: "coder@1" },
+      { path: "/workers/coder%401/instances", label: "Instances" },
+      { path: "/workers/coder%401/instances/mac-studio", label: "mac-studio" },
+    ]);
+  });
+
   it("names the workbench of an agent", () => {
     expect(breadcrumbTrail("/agents/swe%401/workbench", labelOf)).toEqual([
       { path: "/agents", label: "agents" },

@@ -12,6 +12,17 @@ export interface WorkersData {
   readonly registrations: Resource<readonly WorkerRegistrationRecord[]>;
   readonly bindings: Resource<readonly WorkerBindingRecord[]>;
   readonly bindingEntries: readonly BindingInstances[];
+  readonly liveCounts: Readonly<Record<string, number>>;
+}
+
+function liveCountsOf(
+  registrations: readonly WorkerRegistrationRecord[],
+): Readonly<Record<string, number>> {
+  const counts: Record<string, number> = {};
+  for (const registration of registrations) {
+    counts[registration.worker_name] = (counts[registration.worker_name] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export function useWorkers(): WorkersData {
@@ -23,5 +34,6 @@ export function useWorkers(): WorkersData {
     () => bindingInstances(bindings.data ?? [], registrations.data ?? [], catalog.data ?? []),
     [bindings.data, registrations.data, catalog.data],
   );
-  return { catalog, registrations, bindings, bindingEntries };
+  const liveCounts = useMemo(() => liveCountsOf(registrations.data ?? []), [registrations.data]);
+  return { catalog, registrations, bindings, bindingEntries, liveCounts };
 }

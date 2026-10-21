@@ -98,6 +98,7 @@ export const WORKER_REGISTRATIONS = [
     worker_name: "reviewer@1",
     host: "kanthord",
     placement: "worker",
+    instance: "review-01",
     activity: "idle",
     draining: true,
     registered: true,
@@ -132,6 +133,7 @@ export const WORKER_REGISTRATIONS = [
     worker_name: "coder@1",
     host: "kanthord",
     placement: "worker",
+    instance: "mac-studio",
     activity: "idle",
     draining: false,
     registered: true,
@@ -364,13 +366,13 @@ export const BINDING_SET = {
     },
     "reviewer-main": {
       kind: "worker",
-      config: { worker: "reviewer@1", instance_count: 1, placement: "worker" },
+      config: { worker: "reviewer@1", worker_instances: ["review-01"], placement: "worker" },
     },
     "mac-main": {
       kind: "worker",
       config: {
         worker: "coder@1",
-        instance_count: 1,
+        worker_instances: ["mac-studio", "build-01"],
         placement: "worker",
         tags: ["platform.macos"],
       },
@@ -1783,6 +1785,115 @@ export const WORKBENCH_SESSIONS = [
           ],
         },
       },
+    ],
+  },
+];
+
+const INSTANCE_KEY = "Qm9ndXMtaW5zdGFuY2Uta2V5LWZvci10aGUtbW9jay";
+
+export const WORKER_INSTANCES = [
+  {
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I01",
+    name: "mac-studio",
+    worker: "coder@1",
+    revision: 1,
+    public_key: `${INSTANCE_KEY}01`,
+    fingerprint: "SHA256:4l0bK2qPn8YwVx3JmT7rUe6Hs1Dc9GfZaR5iLoQyWkE",
+    created_at: Date.UTC(2026, 9, 18, 9, 0),
+    ended_at: null,
+    connected: "mac-studio.local",
+  },
+  {
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I03",
+    name: "build-01",
+    worker: "coder@1",
+    revision: 2,
+    public_key: `${INSTANCE_KEY}03`,
+    fingerprint: "SHA256:Zk8vTn3QwYp2Lm6Rb9Xc1Hd5Fg7Js0Ua4Ei8Oo2Pq6",
+    created_at: Date.UTC(2026, 9, 19, 9, 0),
+    ended_at: null,
+    connected: null,
+  },
+  {
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I04",
+    name: "review-01",
+    worker: "reviewer@1",
+    revision: 1,
+    public_key: `${INSTANCE_KEY}04`,
+    fingerprint: "SHA256:Hq2Wm7Kc4Vb9Nz1Xs6Ty3Ru8Ip5Ol0Ka2Jd7Fg4Sh9",
+    created_at: Date.UTC(2026, 9, 19, 10, 0),
+    ended_at: null,
+    connected: "review-01",
+  },
+  {
+    id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I05",
+    name: "old-laptop",
+    worker: "coder@1",
+    revision: 1,
+    public_key: `${INSTANCE_KEY}05`,
+    fingerprint: "SHA256:Pl3Ok8Ij2Uh7Yg1Tf6Rd5Es0Wa9Qz4Xc8Vb3Nm7Lk2",
+    created_at: Date.UTC(2026, 9, 1, 9, 0),
+    ended_at: Date.UTC(2026, 9, 10, 9, 0),
+    connected: null,
+  },
+];
+
+export const INSTANCE_EXTRA_BINDINGS = {
+  "mac-studio": [{ project_id: PROJECT_ATLAS.id, binding: "mac-main" }],
+};
+
+export const INSTANCE_CREDENTIAL_COPIES = [
+  {
+    name: "atlas-router",
+    platform: "openai-compatible",
+    holder: "mac-studio",
+    sealed_to: "SHA256:4l0bK2qPn8YwVx3JmT7rUe6Hs1Dc9GfZaR5iLoQyWkE",
+    sealed_current: true,
+    revisions: [
+      credentialRevision(
+        "0081",
+        1,
+        { base_url: ROUTER_URL, models: [{ id: "qwen3-coder", max_tokens: 8192 }] },
+        Date.UTC(2026, 9, 18, 9, 30),
+      ),
+    ],
+  },
+  {
+    name: "claude-sub",
+    platform: "anthropic-subscription",
+    holder: "mac-studio",
+    sealed_to: "SHA256:4l0bK2qPn8YwVx3JmT7rUe6Hs1Dc9GfZaR5iLoQyWkE",
+    sealed_current: true,
+    revisions: [credentialRevision("0082", 1, null, Date.UTC(2026, 9, 18, 9, 40))],
+  },
+  {
+    name: "atlas-router",
+    platform: "openai-compatible",
+    holder: "build-01",
+    sealed_to: "SHA256:Old0Fingerprint0Of0Revision0One0Ab1Cd2Ef3Gh",
+    sealed_current: false,
+    revisions: [
+      credentialRevision(
+        "0083",
+        1,
+        { base_url: ROUTER_URL, models: [{ id: "qwen3-coder", max_tokens: 8192 }] },
+        Date.UTC(2026, 9, 19, 8, 0),
+      ),
+    ],
+  },
+  {
+    name: "atlas-router",
+    platform: "openai-compatible",
+    holder: "review-01",
+    sealed_to: "SHA256:Hq2Wm7Kc4Vb9Nz1Xs6Ty3Ru8Ip5Ol0Ka2Jd7Fg4Sh9",
+    sealed_current: true,
+    revisions: [
+      credentialRevision(
+        "0084",
+        1,
+        { base_url: ROUTER_URL, models: [{ id: "qwen3-coder", max_tokens: 8192 }] },
+        Date.UTC(2026, 9, 19, 10, 30),
+      ),
     ],
   },
 ];

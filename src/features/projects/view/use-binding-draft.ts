@@ -23,7 +23,7 @@ export interface BindingDraftState {
   readonly errors: DraftErrors;
   readonly creating: boolean;
   readonly edit: (next: BindingDraft) => void;
-  readonly validate: () => BindingSetEntry | null;
+  readonly validate: (liveInstances?: readonly string[] | null) => BindingSetEntry | null;
   readonly checkReady: boolean;
   readonly saveReady: boolean;
   readonly missingHint: string | null;
@@ -46,11 +46,14 @@ export function useBindingDraft(
     setErrors({});
   }, []);
 
-  const validate = useCallback(() => {
-    const result = entryOfDraft(draft, creating ? takenNames : []);
-    setErrors(result.ok ? {} : result.errors);
-    return result.ok ? result.entry : null;
-  }, [draft, creating, takenNames]);
+  const validate = useCallback(
+    (liveInstances: readonly string[] | null = null) => {
+      const result = entryOfDraft(draft, creating ? takenNames : [], liveInstances);
+      setErrors(result.ok ? {} : result.errors);
+      return result.ok ? result.entry : null;
+    },
+    [draft, creating, takenNames],
+  );
 
   const missing = missingForSave(draft);
   const checkReady = draft.kind === "repository" && missingForCheck(draft).length === 0;

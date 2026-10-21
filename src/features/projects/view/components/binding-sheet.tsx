@@ -25,10 +25,12 @@ import { useBindingCredential } from "../use-binding-credential";
 import { useBindingCheck } from "../use-binding-check";
 import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
 import { useHostKeyPin } from "../use-host-key-pin";
+import { useInstanceSharing } from "../use-instance-sharing";
 import { usePlacementChoices } from "../use-placement-choices";
 import { usePlacementDefault } from "../use-placement-default";
 import { useRepositoryCredentials } from "../use-repository-credentials";
 import { useWorkerAgents } from "../use-worker-agents";
+import { useWorkerInstanceChoices } from "../use-worker-instance-choices";
 import { useWorkerNames } from "../use-worker-names";
 import { DraftField } from "./draft-field";
 import { HostKeyPin } from "./host-key-pin";
@@ -70,6 +72,18 @@ export function BindingSheet({
   const workerAgents = useWorkerAgents(draft.kind === "worker" ? draft.worker : "");
   const placementDefault = usePlacementDefault(form, workerAgents);
   const placementChoices = usePlacementChoices(draft.kind === "worker" && form.creating);
+  const atWorkerPlacement = draft.kind === "worker" && draft.placement === "worker";
+  const instanceChoices = useWorkerInstanceChoices(
+    draft.kind === "worker" ? draft.worker : "",
+    atWorkerPlacement,
+  );
+  const instanceSharing = useInstanceSharing(
+    projectId,
+    atWorkerPlacement && draft.kind === "worker" ? draft.instances : [],
+  );
+  const liveInstances = atWorkerPlacement
+    ? (instanceChoices.data?.map((instance) => instance.name) ?? null)
+    : null;
   const [enablingAgent, setEnablingAgent] = useState<string | null>(null);
   const allCredentials = credentials.data ?? [];
   const sshCredentials = allCredentials.filter(
@@ -132,7 +146,7 @@ export function BindingSheet({
             className="flex min-h-0 flex-1 flex-col"
             onSubmit={(event) => {
               event.preventDefault();
-              const entry = form.validate();
+              const entry = form.validate(liveInstances);
               if (entry !== null) onSave(draft.name, entry);
             }}
           >
@@ -193,6 +207,8 @@ export function BindingSheet({
                     workers={workerNames.data ?? []}
                     agents={workerAgents}
                     placements={placementChoices}
+                    instances={instanceChoices}
+                    sharing={instanceSharing}
                     onEdit={form.edit}
                     onEnableAgent={setEnablingAgent}
                   />

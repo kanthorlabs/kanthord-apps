@@ -28,6 +28,9 @@ describe("newestSshKeyOf", () => {
     const credential: Credential = {
       name: "atlas-ssh",
       platform: "ssh",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       revisions: [revision(2, { ...KEY, fingerprint: "SHA256:new" }), revision(1, KEY)],
     };
     expect(newestSshKeyOf(credential)?.fingerprint).toBe("SHA256:new");

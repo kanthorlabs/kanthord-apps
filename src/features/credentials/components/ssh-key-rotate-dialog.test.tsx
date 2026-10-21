@@ -30,6 +30,9 @@ const NEW_KEY = {
 const ATLAS_SSH: Credential = {
   name: "atlas-ssh",
   platform: "ssh",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0002",

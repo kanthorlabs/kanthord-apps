@@ -35,13 +35,19 @@ function credentialPath(component: CredentialComponent, credentialName: string):
   return `${credentialRoot(component)}/${encodeURIComponent(credentialName)}`;
 }
 
+function holderSuffix(holder: string | null): string {
+  return holder === null ? "" : `?${new URLSearchParams({ holder })}`;
+}
+
 export async function listCredentialPage(
   component: CredentialComponent,
   platform: CredentialPlatform | null,
   cursor: string | null,
   includeArchived = false,
+  holder: string | null = null,
 ): Promise<Page<Credential>> {
   const query = new URLSearchParams();
+  if (holder !== null) query.set("holder", holder);
   if (platform !== null) query.set("platform", platform);
   if (includeArchived) query.set("include_archived", "true");
   if (cursor !== null) query.set("cursor", cursor);
@@ -58,8 +64,11 @@ export async function listCredentialPlatforms(
 export async function readCredential<C extends CredentialComponent>(
   component: C,
   credentialName: string,
+  holder: string | null = null,
 ): Promise<ComponentCredential[C]> {
-  return request<ComponentCredential[C]>(credentialPath(component, credentialName));
+  return request<ComponentCredential[C]>(
+    `${credentialPath(component, credentialName)}${holderSuffix(holder)}`,
+  );
 }
 
 export async function createCredential(
@@ -93,12 +102,12 @@ export async function rotateCredential(
   component: CredentialComponent,
   credentialName: string,
   body: CredentialRotateBody,
+  holder: string | null = null,
 ): Promise<Credential> {
-  return request<Credential>(`${credentialPath(component, credentialName)}/revision`, {
-    method: "POST",
-    body,
-    headers: { "idempotency-key": newUlid() },
-  });
+  return request<Credential>(
+    `${credentialPath(component, credentialName)}/revision${holderSuffix(holder)}`,
+    { method: "POST", body, headers: { "idempotency-key": newUlid() } },
+  );
 }
 
 export async function updateCredentialMetadata(
@@ -168,8 +177,9 @@ export async function readCredentialLoginStatus(sessionId: string): Promise<Cred
 
 export async function listAllCredentials(
   component: CredentialComponent,
+  holder: string | null = null,
 ): Promise<readonly Credential[]> {
-  return readAllPages<Credential>(credentialRoot(component));
+  return readAllPages<Credential>(credentialRoot(component), holder === null ? {} : { holder });
 }
 
 export async function listCredentials(

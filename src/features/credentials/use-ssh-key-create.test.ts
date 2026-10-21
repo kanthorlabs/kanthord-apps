@@ -22,6 +22,9 @@ const KEY = {
 const CREATED: Credential = {
   name: "deploy-atlas",
   platform: "ssh",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAC",

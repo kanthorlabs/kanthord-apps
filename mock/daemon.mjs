@@ -9,6 +9,7 @@ import { createHash, generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:http";
 
 import * as fx from "./fixtures.mjs";
+import { registerInstances } from "./instances.mjs";
 import { registerWorkbench } from "./workbench.mjs";
 
 const PORT = Number(process.env.KANTHORD_HTTP_PORT ?? 31415);
@@ -123,6 +124,20 @@ on("GET", /^\/api\/liveness$/, (_m, _b, res) => {
     },
     request_id: `req-${Math.random().toString(36).slice(2, 10)}`,
   });
+});
+
+const MOCK_SERVER_VERSION = "28.0.1";
+
+on("GET", /^\/api\/openapi\.yaml$/, (_m, _b, res) => {
+  res.writeHead(200, {
+    "content-type": "application/yaml",
+    "access-control-allow-origin": ORIGIN,
+    vary: "origin",
+    "cache-control": "no-store",
+  });
+  res.end(
+    `openapi: 3.1.0\ninfo:\n  title: kanthord\n  version: ${MOCK_SERVER_VERSION}\npaths: {}\n`,
+  );
 });
 
 on("GET", /^\/api\/auth\/verify$/, (_m, _b, res) =>
@@ -269,6 +284,13 @@ on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
   const agentNames = agents
     .filter((a) => a.worker_names.includes(item?.name))
     .map((a) => a.agent_name);
+  if (item?.host === "external-harness") {
+    return json(res, 200, {
+      ...item,
+      harness: item.name.split("@")[0],
+      resource_budget: { wall_time_ms: 3600000 },
+    });
+  }
   if (item === undefined || agentNames.length === 0) {
     return projectEnvelope(res, 404, "worker.catalog.not_found", "The worker is not supplied.");
   }
@@ -1048,6 +1070,67 @@ on("GET", /^\/api\/project\/([^/]+)\/binding-set$/, (_m, _b, res) => json(res, 2
 const isHostedWorker = (name) =>
   fx.WORKER_CATALOG.some((worker) => worker.name === name && worker.host === "kanthord");
 
+const INSTANCE_LIST_MAX = 64;
+
+const workerInstancesRefusal = (bindings) => {
+  for (const [binding, entry] of Object.entries(bindings)) {
+    if (entry.kind !== "worker") continue;
+    const config = entry.config;
+    if (config.placement !== "worker") {
+      if (config.worker_instances === undefined) continue;
+      return [
+        "project.bindings.worker.field_forbidden",
+        "Only a binding at the worker placement lists worker instances.",
+        { binding, field: "worker_instances" },
+      ];
+    }
+    if (config.instance_count !== undefined) {
+      return [
+        "project.bindings.worker.field_forbidden",
+        "The worker placement holds worker_instances in place of instance_count.",
+        { binding, field: "instance_count" },
+      ];
+    }
+    const names = config.worker_instances;
+    if (names === undefined) {
+      return [
+        "project.bindings.worker.instances_required",
+        "A binding at the worker placement lists its worker instances.",
+        { binding },
+      ];
+    }
+    if (
+      !Array.isArray(names) ||
+      names.length > INSTANCE_LIST_MAX ||
+      new Set(names).size !== names.length
+    ) {
+      return [
+        "project.bindings.worker.instances_invalid",
+        "Worker instances must be a list of at most 64 unique instance names.",
+        { binding, instance: null },
+      ];
+    }
+    for (const instance of names) {
+      const live = instanceRoutes.liveInstance(instance);
+      if (live === null) {
+        return [
+          "project.bindings.worker.instance_unknown",
+          "The binding lists an unknown or archived worker instance.",
+          { binding, instance },
+        ];
+      }
+      if (live.record.worker !== config.worker) {
+        return [
+          "project.bindings.worker.instance_worker_mismatch",
+          "The binding lists a worker instance of another worker.",
+          { binding, instance, worker: live.record.worker },
+        ];
+      }
+    }
+  }
+  return null;
+};
+
 on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   if (b.version !== bindingSet.version) {
     return projectEnvelope(
@@ -1072,6 +1155,8 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       { binding: unplaced[0] },
     );
   }
+  const instanceRefusal = workerInstancesRefusal(b.bindings);
+  if (instanceRefusal !== null) return projectEnvelope(res, 400, ...instanceRefusal);
   const placementChanged = Object.entries(b.bindings).some(([name, entry]) => {
     const stored = bindingSet.bindings[name];
     return (
@@ -1766,7 +1851,13 @@ on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res)
 const bindingConfigOf = (binding, projectId) => {
   const config = bindingSet.bindings[binding.name]?.config ?? {};
   const placement = fx.BINDING_PLACEMENTS[projectId]?.[binding.name];
-  return binding.kind === "worker" && placement !== undefined ? { ...config, placement } : config;
+  if (binding.kind !== "worker" || placement === undefined || placement === config.placement) {
+    return config;
+  }
+  const { worker_instances: instances, ...rest } = config;
+  return placement === "worker"
+    ? { ...rest, placement, worker_instances: instances ?? [] }
+    : { ...rest, placement, instance_count: rest.instance_count ?? instances?.length ?? 1 };
 };
 
 const bindingRecordOf = (binding, projectId) => ({
@@ -2184,7 +2275,20 @@ const BASE_URL = /^https?:\/\/[^?#]+[^?#/]$/;
 const LOGIN_EXPIRY_MS = 15 * 60 * 1000;
 const LOGIN_DEVICE_COMPLETION_MS = 10000;
 const HEALTHCHECK_DELAY_MS = 1500;
-const credentials = EMPTY ? [] : structuredClone(fx.CREDENTIALS);
+const SERVER_HOLDER = "server";
+const credentials = EMPTY
+  ? []
+  : [
+      ...structuredClone(fx.CREDENTIALS).map((credential) => ({
+        name: credential.name,
+        platform: credential.platform,
+        holder: SERVER_HOLDER,
+        sealed_to: null,
+        sealed_current: true,
+        revisions: credential.revisions,
+      })),
+      ...structuredClone(fx.INSTANCE_CREDENTIAL_COPIES),
+    ];
 const pinnedRevisions = new Set(fx.PINNED_CREDENTIAL_REVISIONS);
 const loginSessions = new Map();
 const storedSecrets = new Map(
@@ -2255,10 +2359,13 @@ const metadataIsValid = (platform, metadata) => {
   );
 };
 
-const findCredential = (res, component, encoded) => {
+const holderOf = (url) => url?.searchParams.get("holder") ?? SERVER_HOLDER;
+
+const findCredential = (res, component, encoded, holder = SERVER_HOLDER) => {
   const credential = credentials.find(
     (item) =>
       item.name === decodeURIComponent(encoded) &&
+      item.holder === holder &&
       componentEntry(component, item.platform) !== undefined,
   );
   if (credential === undefined) {
@@ -2464,11 +2571,13 @@ on("GET", credentialRoute("\\/platform"), (m, _b, res) =>
 
 on("GET", credentialRoute(""), (m, _b, res, _t, url) => {
   const platform = url.searchParams.get("platform");
+  const holder = url.searchParams.get("holder");
   const includeArchived = url.searchParams.get("include_archived") === "true";
   const limit = Number(url.searchParams.get("limit") ?? 100);
   const offset = Number(url.searchParams.get("cursor") ?? 0);
   const ordered = credentials
     .filter((credential) => componentEntry(m[1], credential.platform) !== undefined)
+    .filter((credential) => holder === null || credential.holder === holder)
     .filter((credential) => platform === null || credential.platform === platform)
     .filter((credential) => includeArchived || !isArchived(credential))
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -2556,36 +2665,73 @@ on("POST", credentialRoute(""), (m, b, res) => {
   ) {
     return refuseInvalidInput(res);
   }
-  const holder = credentials.find((item) => item.name === b.name);
-  if (holder !== undefined) {
+  const holders = Array.isArray(b.holders) ? b.holders : [SERVER_HOLDER];
+  if (holders.length === 0 || new Set(holders).size !== holders.length) {
+    return refuseInvalidInput(res);
+  }
+  if (m[1] !== "llm" && holders.some((holder) => holder !== SERVER_HOLDER)) {
+    return credentialEnvelope(res, 400, "credential.sealed.invalid", "Only an LLM copy is sealed.");
+  }
+  const unknownHolder = holders.find(
+    (holder) => holder !== SERVER_HOLDER && instanceRoutes.liveInstance(holder) === null,
+  );
+  if (unknownHolder !== undefined) {
+    return credentialEnvelope(
+      res,
+      400,
+      "llm.credential.instance_unknown",
+      "The holder names no live worker instance.",
+      { holder: unknownHolder },
+    );
+  }
+  const otherPlatform = credentials.find(
+    (item) => item.name === b.name && item.platform !== b.platform,
+  );
+  if (otherPlatform !== undefined) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.name.platform_conflict",
+      "The credential name holds another platform.",
+      { platform: otherPlatform.platform },
+    );
+  }
+  const taken = credentials.find((item) => item.name === b.name && holders.includes(item.holder));
+  if (taken !== undefined) {
     return credentialEnvelope(
       res,
       409,
       "credential.name.conflict",
       "Credential name already exists.",
       {
-        id: holder.revisions[0].id,
+        id: taken.revisions[0].id,
       },
     );
   }
   if (!secretIsValid(shape, b.secret)) return refuseInvalidInput(res);
   if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
-  const credential = {
-    name: b.name,
-    platform: b.platform,
-    revisions: [
-      {
-        id: nextCredentialId(),
-        revision: 1,
-        metadata: b.metadata,
-        created_at: Date.now(),
-        ended_at: null,
-      },
-    ],
-  };
-  credentials.push(credential);
-  storedSecrets.set(credential.name, b.secret);
-  return json(res, 200, credential);
+  const copies = holders.map((holder) => {
+    const instance = holder === SERVER_HOLDER ? null : instanceRoutes.liveInstance(holder);
+    return {
+      name: b.name,
+      platform: b.platform,
+      holder,
+      sealed_to: instance === null ? null : instance.record.fingerprint,
+      sealed_current: true,
+      revisions: [
+        {
+          id: nextCredentialId(),
+          revision: 1,
+          metadata: b.metadata,
+          created_at: Date.now(),
+          ended_at: null,
+        },
+      ],
+    };
+  });
+  credentials.push(...copies);
+  storedSecrets.set(b.name, b.secret);
+  return json(res, 200, copies[0]);
 });
 
 on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
@@ -2617,15 +2763,43 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
       "Unsupported login mode.",
     );
   }
-  const holder = credentials.find((item) => item.name === b.name);
-  if (holder !== undefined) {
+  const holder = b.holder ?? SERVER_HOLDER;
+  const instance = holder === SERVER_HOLDER ? null : instanceRoutes.liveInstance(holder);
+  if (holder !== SERVER_HOLDER && instance === null) {
+    return credentialEnvelope(
+      res,
+      400,
+      "llm.credential.instance_unknown",
+      "The holder names no live worker instance.",
+      { holder },
+    );
+  }
+  if (instance !== null && b.mode === "browser") {
+    return credentialEnvelope(
+      res,
+      400,
+      "credential.login.mode_unsupported",
+      "A worker instance signs in in copy_code or device mode only.",
+    );
+  }
+  if (instance !== null && instance.connection === null) {
+    return credentialEnvelope(
+      res,
+      409,
+      "credential.login.instance_unavailable",
+      "The worker instance holds no current connection.",
+      { holder },
+    );
+  }
+  const taken = credentials.find((item) => item.name === b.name && item.holder === holder);
+  if (taken !== undefined) {
     return credentialEnvelope(
       res,
       409,
       "credential.name.conflict",
       "Credential name already exists.",
       {
-        id: holder.revisions[0].id,
+        id: taken.revisions[0].id,
       },
     );
   }
@@ -2644,6 +2818,8 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
     session_id: sessionId,
     platform: b.platform,
     name: b.name,
+    holder,
+    sealedTo: instance === null ? null : instance.record.fingerprint,
     state: "pending",
     startedAt: now,
     expires_at: now + LOGIN_EXPIRY_MS,
@@ -2678,6 +2854,9 @@ const settleLogin = (session) => {
   credentials.push({
     name: session.name,
     platform: session.platform,
+    holder: session.holder,
+    sealed_to: session.sealedTo,
+    sealed_current: true,
     revisions: [
       { id: nextCredentialId(), revision: 1, metadata: null, created_at: now, ended_at: null },
     ],
@@ -2717,15 +2896,15 @@ on("GET", /^\/api\/llm\/credential\/login\/([^/]+)$/, (m, _b, res) => {
   });
 });
 
-on("GET", credentialRoute("\\/([^/]+)"), (m, _b, res) => {
-  const credential = findCredential(res, m[1], m[2]);
+on("GET", credentialRoute("\\/([^/]+)"), (m, _b, res, _t, url) => {
+  const credential = findCredential(res, m[1], m[2], holderOf(url));
   if (credential === undefined) return undefined;
   drainOlder(credential, Date.now());
   return json(res, 200, { ...credential, ...dependentsOf(m[1], credential) });
 });
 
-on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res) => {
-  const credential = findCredential(res, m[1], m[2]);
+on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res, _t, url) => {
+  const credential = findCredential(res, m[1], m[2], holderOf(url));
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
@@ -2736,6 +2915,11 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res) => {
   const metadata = b.metadata === undefined ? newestLive(credential).metadata : b.metadata;
   if (!metadataIsValid(credential.platform, metadata)) return refuseInvalidInput(res);
   storedSecrets.set(credential.name, b.secret);
+  if (credential.holder !== SERVER_HOLDER) {
+    credential.sealed_to =
+      instanceRoutes.liveInstance(credential.holder)?.record.fingerprint ?? null;
+    credential.sealed_current = credential.sealed_to !== null;
+  }
   return addRevision(credential, metadata, res);
 });
 
@@ -2803,6 +2987,17 @@ on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
     pinnedRevisions.delete(revision.id);
   }
   return json(res, 200, credential);
+});
+
+const instanceRoutes = registerInstances({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  bindingSet,
+  projects,
+  credentials,
+  agents,
 });
 
 registerWorkbench({

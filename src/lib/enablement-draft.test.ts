@@ -9,7 +9,14 @@ import {
 } from "./enablement-draft";
 
 const CREDENTIALS: readonly Credential[] = [
-  { name: "router-main", platform: "openrouter", revisions: [] },
+  {
+    name: "router-main",
+    platform: "openrouter",
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
+    revisions: [],
+  },
 ];
 
 describe("enablementBodyOf", () => {

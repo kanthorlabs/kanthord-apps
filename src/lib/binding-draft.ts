@@ -6,6 +6,7 @@ import type {
   RepositoryActionName,
   RepositoryPlatform,
   WorkerAgentEntry,
+  WorkerBindingConfig,
   WorkerPlacement,
   WorkingLayerKey,
   WorkingLayerSwitches,
@@ -50,6 +51,7 @@ export interface WorkerDraft {
   readonly worker: string;
   readonly placement: WorkerPlacement | null;
   readonly instanceCount: string;
+  readonly instances: readonly string[];
   readonly turns: string;
   readonly wallTimeMs: string;
   readonly entries: readonly AgentEntryDraft[];
@@ -161,6 +163,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       worker: "",
       placement: null,
       instanceCount: "1",
+      instances: [],
       turns: "",
       wallTimeMs: "",
       entries: [],
@@ -222,7 +225,7 @@ export function agentRowsOf(
 
 export function withWorker(draft: WorkerDraft, worker: string): WorkerDraft {
   const name = blank(draft.name) ? (worker.split("@")[0] ?? "") : draft.name;
-  return { ...draft, name, worker, placement: null, entries: [] };
+  return { ...draft, name, worker, placement: null, instances: [], entries: [] };
 }
 
 export function withPlacementDefault(draft: WorkerDraft, external: boolean): WorkerDraft {
@@ -265,7 +268,8 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       name,
       worker: config.worker,
       placement: config.placement ?? null,
-      instanceCount: String(config.instance_count),
+      instanceCount: String(config.instance_count ?? 1),
+      instances: config.worker_instances ?? [],
       turns: config.resource_budget === undefined ? "" : String(config.resource_budget.turns),
       wallTimeMs:
         config.resource_budget === undefined ? "" : String(config.resource_budget.wall_time_ms),
@@ -377,10 +381,46 @@ function repositoryEntryOf(
   };
 }
 
-function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): BindingSetEntry {
-  if (blank(draft.worker)) errors["worker"] = REQUIRED;
+export const WORKER_INSTANCES_MAX = 64;
+
+function instancesError(
+  draft: WorkerDraft,
+  liveInstances: readonly string[] | null,
+): string | null {
+  if (new Set(draft.instances).size !== draft.instances.length) return "List each instance once.";
+  if (draft.instances.length > WORKER_INSTANCES_MAX)
+    return `Choose at most ${WORKER_INSTANCES_MAX} instances.`;
+  const unknown =
+    liveInstances === null
+      ? undefined
+      : draft.instances.find((instance) => !liveInstances.includes(instance));
+  return unknown === undefined
+    ? null
+    : `${unknown} is not a live instance of ${draft.worker}. Remove it, or add it on the worker page.`;
+}
+
+function instanceFieldOf(
+  draft: WorkerDraft,
+  liveInstances: readonly string[] | null,
+  errors: Record<string, string>,
+): Pick<WorkerBindingConfig, "instance_count" | "worker_instances"> {
+  if (draft.placement === "worker") {
+    const invalid = instancesError(draft, liveInstances);
+    if (invalid !== null) errors["instances"] = invalid;
+    return { worker_instances: draft.instances };
+  }
   const instanceCount = wholeNumber(draft.instanceCount, 0);
   if (instanceCount === null) errors["instanceCount"] = "Enter a whole number, 0 or more.";
+  return { instance_count: instanceCount ?? 0 };
+}
+
+function workerEntryOf(
+  draft: WorkerDraft,
+  liveInstances: readonly string[] | null,
+  errors: Record<string, string>,
+): BindingSetEntry {
+  if (blank(draft.worker)) errors["worker"] = REQUIRED;
+  const instanceField = instanceFieldOf(draft, liveInstances, errors);
   const budgetGiven = !blank(draft.turns) || !blank(draft.wallTimeMs);
   const turns = wholeNumber(draft.turns, 1);
   const wallTimeMs = wholeNumber(draft.wallTimeMs, 1);
@@ -408,7 +448,7 @@ function workerEntryOf(draft: WorkerDraft, errors: Record<string, string>): Bind
     kind: "worker",
     config: {
       worker: draft.worker.trim(),
-      instance_count: instanceCount ?? 0,
+      ...instanceField,
       ...(draft.placement === null ? {} : { placement: draft.placement }),
       ...(budgetGiven && turns !== null && wallTimeMs !== null
         ? { resource_budget: { turns, wall_time_ms: wallTimeMs } }
@@ -441,7 +481,11 @@ function storageEntryOf(draft: StorageDraft, errors: Record<string, string>): Bi
   };
 }
 
-export function entryOfDraft(draft: BindingDraft, takenNames: readonly string[]): DraftResult {
+export function entryOfDraft(
+  draft: BindingDraft,
+  takenNames: readonly string[],
+  liveInstances: readonly string[] | null = null,
+): DraftResult {
   const errors: Record<string, string> = {};
   const invalidName = nameError(draft.name, takenNames);
   if (invalidName !== null) errors["name"] = invalidName;
@@ -449,7 +493,7 @@ export function entryOfDraft(draft: BindingDraft, takenNames: readonly string[])
     draft.kind === "repository"
       ? repositoryEntryOf(draft, errors)
       : draft.kind === "worker"
-        ? workerEntryOf(draft, errors)
+        ? workerEntryOf(draft, liveInstances, errors)
         : storageEntryOf(draft, errors);
   return Object.keys(errors).length === 0 ? { ok: true, entry } : { ok: false, errors };
 }
@@ -488,7 +532,7 @@ export function missingForSave(draft: BindingDraft): readonly string[] {
     return labelsOf([
       name,
       ["Worker", blank(draft.worker)],
-      ["Instance count", blank(draft.instanceCount)],
+      ["Instance count", draft.placement !== "worker" && blank(draft.instanceCount)],
       ["Tags", tagsInvalid(draft.tags)],
     ]);
   return labelsOf([

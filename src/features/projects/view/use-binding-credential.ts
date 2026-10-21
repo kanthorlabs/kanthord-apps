@@ -8,7 +8,14 @@ import {
 } from "@/features/credentials/use-credential-rotate";
 import { platformEntryOf } from "@/lib/credential-platforms";
 
-const EMPTY_CREDENTIAL: Credential = { name: "", platform: "", revisions: [] };
+const EMPTY_CREDENTIAL: Credential = {
+  name: "",
+  platform: "",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
+  revisions: [],
+};
 
 export interface BindingCredentialState {
   readonly createOpen: boolean;

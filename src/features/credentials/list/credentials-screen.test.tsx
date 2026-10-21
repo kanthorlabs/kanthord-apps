@@ -29,6 +29,9 @@ import { textContent } from "../../../../test/text-content";
 const OPENROUTER: Credential = {
   name: "ci-openrouter",
   platform: "openrouter",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAD",
@@ -49,6 +52,9 @@ const OPENROUTER: Credential = {
 const ROUTER: Credential = {
   name: "router",
   platform: "openai-compatible",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAE",
@@ -62,6 +68,9 @@ const ROUTER: Credential = {
 const BEDROCK: Credential = {
   name: "bedrock",
   platform: "amazon-bedrock",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAF",
@@ -98,6 +107,9 @@ const PLATFORMS: CredentialPlatformList = {
 const SSH_KEY_CREDENTIAL: Credential = {
   name: "atlas-ssh",
   platform: "ssh",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAS",
@@ -166,7 +178,7 @@ describe("CredentialsScreen", () => {
     [
       "llm",
       "/llm",
-      "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform.",
+      "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform. Instance credentials live on the worker pages.",
     ],
     [
       "repository",
@@ -201,7 +213,13 @@ describe("CredentialsScreen", () => {
     expect(within(items[0]!).getByText("openrouter")).toBeTruthy();
     expect(within(items[0]!).getByText("(v2)")).toBeTruthy();
     expect(within(items[0]!).getByText("2026-10-03 14:05 UTC")).toBeTruthy();
-    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("llm", null, null, false);
+    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith(
+      "llm",
+      null,
+      null,
+      false,
+      "server",
+    );
   });
 
   it("opens a credential from its row", async () => {
@@ -231,6 +249,7 @@ describe("CredentialsScreen", () => {
       "openai-compatible",
       null,
       false,
+      "server",
     );
 
     await filterBy("openrouter", "openrouter");
@@ -240,11 +259,18 @@ describe("CredentialsScreen", () => {
       "openrouter",
       null,
       false,
+      "server",
     );
 
     await filterBy("All", "All platforms");
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("llm", null, null, false);
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(
+      "llm",
+      null,
+      null,
+      false,
+      "server",
+    );
   });
 
   it("offers All platforms first and the platforms of the section in a flat list", async () => {
@@ -350,7 +376,13 @@ describe("CredentialsScreen", () => {
 
     await userEvent.click(screen.getByRole("switch", { name: "Include archived" }));
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith("llm", null, null, true);
+    expect(credentialsApi.listCredentialPage).toHaveBeenLastCalledWith(
+      "llm",
+      null,
+      null,
+      true,
+      "server",
+    );
     expect((await screen.findAllByText("Archived")).length).toBe(2);
     expect(screen.getAllByText(utcDateTime(Date.UTC(2026, 9, 2))).length).toBeGreaterThan(0);
     expect(screen.queryByText("Updated")).toBeTruthy();
@@ -494,7 +526,13 @@ describe("CredentialsScreen", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Open ci-github" }));
 
-    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith("repository", null, null, false);
+    expect(credentialsApi.listCredentialPage).toHaveBeenCalledWith(
+      "repository",
+      null,
+      null,
+      false,
+      null,
+    );
     await waitFor(() =>
       expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository"),
     );

@@ -36,7 +36,7 @@ export function SavedInstanceItem({
         notice={
           <p role="alert" className="text-sm break-words">
             Delete <RecordName>{instance.name}</RecordName>? This browser forgets its endpoint and
-            token. The instance itself does not change.
+            token. The server itself does not change.
           </p>
         }
         actions={
@@ -45,7 +45,7 @@ export function SavedInstanceItem({
               Keep
             </Button>
             <Button variant="destructive" size="lg" onClick={onConfirmDelete}>
-              Delete instance
+              Delete server
             </Button>
           </>
         }
