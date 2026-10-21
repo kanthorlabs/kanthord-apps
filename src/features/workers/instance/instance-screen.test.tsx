@@ -804,4 +804,31 @@ describe("InstanceScreen polling", () => {
 
     expect(within(rowOf(credentials, "atlas-router")).getByText("Healthy")).toBeInTheDocument();
   });
+
+  it("shows a failed poll above the last instance read and clears it on the next poll", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mount();
+    expect(await screen.findByRole("heading", { name: "mac-studio" })).toBeInTheDocument();
+    vi.mocked(instancesApi.readWorkerInstance).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(
+      screen.getByText("The instance was not read again. The page shows the last read."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("The daemon did not answer.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "mac-studio" })).toBeInTheDocument();
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(MAC);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(screen.queryByText("The daemon did not answer.")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "mac-studio" })).toBeInTheDocument();
+  });
 });

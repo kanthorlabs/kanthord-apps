@@ -284,4 +284,28 @@ describe("WorkerScreen polling", () => {
 
     expect(within(list).getByText("Connected · mac-studio.local")).toBeInTheDocument();
   });
+
+  it("shows a failed poll above the last instances and clears it on the next poll", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mount();
+    const list = await screen.findByRole("list", { name: "Instances" });
+    vi.mocked(instancesApi.listWorkerInstances).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(screen.getByText("The daemon did not answer.")).toBeInTheDocument();
+    expect(within(list).getByText("Connected · mac-studio.local")).toBeInTheDocument();
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([MAC]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(screen.queryByText("The daemon did not answer.")).not.toBeInTheDocument();
+    expect(within(list).getByText("Connected · mac-studio.local")).toBeInTheDocument();
+  });
 });

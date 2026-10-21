@@ -355,6 +355,21 @@ function ArchiveButton({ archive }: { archive: InstanceArchiveState }) {
   );
 }
 
+function ReadFailure({ page }: { page: InstancePage }) {
+  if (page.instance.error === null) return null;
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>The instance was not read again. The page shows the last read.</AlertTitle>
+      <AlertDescription>
+        <span>{page.instance.error.message}</span>
+        <Button type="button" size="sm" variant="outline" onClick={page.instance.reload}>
+          Retry
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 function ContextFailure({ page }: { page: InstancePage }) {
   if (page.contextError === null) return null;
   return (
@@ -389,6 +404,7 @@ function InstanceDetail({
 
   return (
     <div className="flex flex-col gap-6 px-4 lg:px-0">
+      <ReadFailure page={page} />
       <InstanceHeader instance={instance} />
       <ContextFailure page={page} />
       <InstanceReachNotice instance={instance.name} projects={page.servedProjects} />
