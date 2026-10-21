@@ -21,6 +21,7 @@ import { CopyModelsSheet } from "./components/copy-models-sheet";
 import { CredentialAddSheet } from "./components/credential-add-sheet";
 import { CredentialRotateSheet } from "./components/credential-rotate-sheet";
 import { ResetKeyDialog } from "./components/reset-key-dialog";
+import { SignInAgainSheet } from "./components/sign-in-again-sheet";
 import { useInstanceArchive, type InstanceArchiveState } from "./use-instance-archive";
 import { useInstanceCopyModels, type InstanceCopyModelsState } from "./use-instance-copy-models";
 import { useInstanceCredentialAdd } from "./use-instance-credential-add";
@@ -37,9 +38,10 @@ import {
   type InstanceRegistrationRow,
 } from "./use-instance-page";
 import { useInstanceReset } from "./use-instance-reset";
+import { useInstanceSignIn, type InstanceSignInState } from "./use-instance-sign-in";
 
-const SIGN_IN_AGAIN_BLOCK =
-  "The server keeps one sign-in for each credential name and instance. An archived copy keeps its name. To sign in again, add a credential with a new name to each instance of the binding. Then change the agent configuration to the new name.";
+const SIGN_IN_AGAIN_LIVE =
+  "The copy is live. The server refuses a new sign-in while the copy is sealed to the current key of the instance.";
 
 function SectionHeading({ id, title, action }: { id: string; title: string; action?: ReactNode }) {
   return (
@@ -249,18 +251,23 @@ function CopyAction({
   row,
   rotate,
   models,
+  signIn,
 }: {
   row: InstanceCredentialRow;
   rotate: InstanceCredentialRotateState;
   models: InstanceCopyModelsState;
+  signIn: InstanceSignInState;
 }) {
   if (row.shape === "oauth") {
+    const icon = <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />;
+    if (row.copy.sealed_current) {
+      return <DisabledAction label="Sign in again" reason={SIGN_IN_AGAIN_LIVE} icon={icon} />;
+    }
     return (
-      <DisabledAction
-        label="Sign in again"
-        reason={SIGN_IN_AGAIN_BLOCK}
-        icon={<KeyRoundIcon aria-hidden="true" data-icon="inline-start" />}
-      />
+      <Button variant="outline" size="sm" onClick={() => signIn.start(row)}>
+        {icon}
+        Sign in again
+      </Button>
     );
   }
   if (row.shape !== "api_key") return null;
@@ -286,12 +293,14 @@ function CredentialRows({
   archived,
   rotate,
   models,
+  signIn,
 }: {
   rows: readonly InstanceCredentialRow[];
   instanceName: string;
   archived: boolean;
   rotate: InstanceCredentialRotateState;
   models: InstanceCopyModelsState;
+  signIn: InstanceSignInState;
 }) {
   if (rows.length === 0) return <EmptyLine title="No credential copies." />;
   return (
@@ -322,7 +331,9 @@ function CredentialRows({
               )
             }
             actions={
-              archived ? undefined : <CopyAction row={row} rotate={rotate} models={models} />
+              archived ? undefined : (
+                <CopyAction row={row} rotate={rotate} models={models} signIn={signIn} />
+              )
             }
           />
         );
@@ -374,6 +385,7 @@ function InstanceDetail({
   const add = useInstanceCredentialAdd(instance.name, reload);
   const rotate = useInstanceCredentialRotate(instance.name, reload);
   const models = useInstanceCopyModels(instance.name);
+  const signIn = useInstanceSignIn(instance.name, reload);
 
   return (
     <div className="flex flex-col gap-6 px-4 lg:px-0">
@@ -412,6 +424,7 @@ function InstanceDetail({
           archived={archived}
           rotate={rotate}
           models={models}
+          signIn={signIn}
         />
       </section>
       {!archived && (
@@ -439,6 +452,7 @@ function InstanceDetail({
       <ArchiveInstanceDialog name={instance.name} archive={archive} projectNameOf={projectNameOf} />
       <CredentialAddSheet instanceName={instance.name} add={add} />
       <CredentialRotateSheet instanceName={instance.name} rotate={rotate} />
+      <SignInAgainSheet instanceName={instance.name} signIn={signIn} />
       {models.target !== null && (
         <CopyModelsSheet key={models.target.key} target={models.target} reload={reload} />
       )}

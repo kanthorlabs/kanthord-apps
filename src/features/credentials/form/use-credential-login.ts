@@ -57,6 +57,7 @@ export function useCredentialLogin(
   modes: readonly CredentialLoginMode[],
   onCreated?: (name: string) => void,
   holder: string | null = null,
+  announce = true,
 ): CredentialLoginState {
   const navigate = useNavigate();
   const returnTo = returnToOf(useLocation().state);
@@ -90,7 +91,7 @@ export function useCredentialLogin(
         (next) => {
           setStatus(next);
           if (next.state !== "completed") return;
-          toast.success(`Signed in. Custody stored ${name}.`);
+          if (announce) toast.success(`Signed in. Custody stored ${name}.`);
           if (onCreatedRef.current !== undefined) {
             onCreatedRef.current(name);
           } else {
@@ -101,7 +102,7 @@ export function useCredentialLogin(
       );
     }, LOGIN_POLL_MS);
     return () => clearTimeout(timer);
-  }, [waiting, session, status, component, name, navigate, returnTo]);
+  }, [waiting, session, status, component, name, navigate, returnTo, announce]);
 
   const selectMode = useCallback((value: string | null) => {
     const next = MODES.find((candidate) => candidate === value);

@@ -2835,7 +2835,8 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
     );
   }
   const taken = credentials.find((item) => item.name === b.name && item.holder === holder);
-  if (taken !== undefined) {
+  if (taken !== undefined && instance !== null && refuseArchived(res, taken)) return undefined;
+  if (taken !== undefined && (instance === null || taken.sealed_current)) {
     return credentialEnvelope(
       res,
       409,
@@ -2893,7 +2894,40 @@ const settleLogin = (session) => {
     session.codeReceived ||
     (session.device && now - session.startedAt >= LOGIN_DEVICE_COMPLETION_MS);
   if (!done) return;
+  const stale = credentials.find(
+    (item) => item.name === session.name && item.holder === session.holder,
+  );
+  const keyChanged =
+    session.holder !== SERVER_HOLDER &&
+    instanceRoutes.liveInstance(session.holder)?.record.fingerprint !== session.sealedTo;
+  const refusal = keyChanged
+    ? "credential.sealed.invalid"
+    : stale === undefined
+      ? null
+      : isArchived(stale)
+        ? "credential.credential.archived"
+        : stale.sealed_current
+          ? "credential.name.conflict"
+          : null;
+  if (refusal !== null) {
+    session.state = "failed";
+    session.failureReason = refusal;
+    return;
+  }
   session.state = "completed";
+  if (stale !== undefined) {
+    stale.sealed_to = session.sealedTo;
+    stale.sealed_current = true;
+    stale.revisions.unshift({
+      id: nextCredentialId(),
+      revision: stale.revisions[0].revision + 1,
+      metadata: newestLive(stale)?.metadata ?? null,
+      created_at: now,
+      ended_at: null,
+    });
+    drainOlder(stale, now);
+    return;
+  }
   credentials.push({
     name: session.name,
     platform: session.platform,
@@ -2935,7 +2969,7 @@ on("GET", /^\/api\/llm\/credential\/login\/([^/]+)$/, (m, _b, res) => {
     session_id: session.session_id,
     state: session.state,
     last_message: session.state === "pending" ? "Waiting for the platform interaction." : null,
-    failure_reason: null,
+    failure_reason: session.failureReason ?? null,
   });
 });
 

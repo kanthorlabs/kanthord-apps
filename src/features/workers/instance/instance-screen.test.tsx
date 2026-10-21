@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -242,14 +243,62 @@ describe("InstanceScreen", () => {
     );
   });
 
-  it("marks a copy sealed to an ended key and disables Sign in again with a reason", async () => {
+  it("marks a copy sealed to an ended key and disables Sign in again on a live copy", async () => {
     mount();
     const credentials = await screen.findByRole("list", { name: "Credentials" });
     expect(within(credentials).getByText("Re-enter: sealed to an ended key.")).toBeInTheDocument();
+    const signIn = await within(rowOf(credentials, "claude-sub")).findByRole("button", {
+      name: "Sign in again",
+    });
+    expect(signIn).toHaveAttribute("aria-disabled", "true");
+    await userEvent.hover(signIn);
     expect(
-      await within(credentials).findByRole("button", { name: "Sign in again" }),
-    ).toHaveAttribute("aria-disabled", "true");
+      await screen.findByText(
+        "The copy is live. The server refuses a new sign-in while the copy is sealed to the current key of the instance.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/a credential with a new name/)).not.toBeInTheDocument();
     expect(within(credentials).getAllByRole("button", { name: "Rotate" })).toHaveLength(2);
+  });
+
+  it("signs in again on a copy that is not live and adds the next revision on the instance", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      credentials: MAC.credentials.map((copy) =>
+        copy.name === "claude-sub" ? { ...copy, sealed_current: false } : copy,
+      ),
+    });
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue({
+      session_id: "login_session_2",
+      address: "https://claude.ai/oauth/authorize",
+      code: null,
+      expires_at: 99,
+    });
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: "login_session_2",
+      state: "pending",
+      last_message: null,
+      failure_reason: null,
+    });
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    const signIn = await within(rowOf(credentials, "claude-sub")).findByRole("button", {
+      name: "Sign in again",
+    });
+    expect(signIn).not.toHaveAttribute("aria-disabled");
+    await userEvent.click(signIn);
+    const sheet = await screen.findByRole("dialog", { name: "Sign in again to claude-sub" });
+    expect(sheet).toHaveTextContent("copy-code mode");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
+    await waitFor(() =>
+      expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
+        platform: "anthropic-subscription",
+        name: "claude-sub",
+        mode: "copy_code",
+        holder: "mac-studio",
+      }),
+    );
+    expect(await within(sheet).findByLabelText("Paste code")).toBeInTheDocument();
   });
 
   it("shows an unhealthy report with the hint, the instance and the report time", async () => {
@@ -468,6 +517,76 @@ describe("InstanceScreen", () => {
       }),
     );
     expect(await within(sheet).findByLabelText("Paste code")).toBeInTheDocument();
+  });
+
+  it("closes the Sign in again sheet and reads the instance again after the sign-in completes", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      credentials: MAC.credentials.map((copy) =>
+        copy.name === "claude-sub" ? { ...copy, sealed_current: false } : copy,
+      ),
+    });
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue({
+      session_id: "login_session_3",
+      address: "https://claude.ai/oauth/authorize",
+      code: null,
+      expires_at: 99,
+    });
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: "login_session_3",
+      state: "completed",
+      last_message: null,
+      failure_reason: null,
+    });
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    await userEvent.click(
+      await within(rowOf(credentials, "claude-sub")).findByRole("button", {
+        name: "Sign in again",
+      }),
+    );
+    const sheet = await screen.findByRole("dialog", { name: "Sign in again to claude-sub" });
+    const reads = vi.mocked(instancesApi.readWorkerInstance).mock.calls.length;
+    const success = vi.spyOn(toast, "success");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByRole("dialog", { name: "Sign in again to claude-sub" }),
+        ).not.toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    expect(vi.mocked(instancesApi.readWorkerInstance).mock.calls.length).toBeGreaterThan(reads);
+    expect(success.mock.calls).toEqual([["Stored a new revision of claude-sub for mac-studio."]]);
+  });
+
+  it("shows one success toast when the sign-in of Add credential completes", async () => {
+    const success = vi.spyOn(toast, "success");
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue({
+      session_id: "login_session_4",
+      address: "https://claude.ai/oauth/authorize",
+      code: null,
+      expires_at: 99,
+    });
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: "login_session_4",
+      state: "completed",
+      last_message: null,
+      failure_reason: null,
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "claude-sub-2");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Platform" }));
+    await userEvent.click(await screen.findByRole("option", { name: "anthropic-subscription" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
+    await waitFor(
+      () =>
+        expect(screen.queryByRole("dialog", { name: "Add credential" })).not.toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    expect(success.mock.calls).toEqual([["Stored claude-sub-2 for mac-studio."]]);
   });
 
   it("rotates a copy on this instance and on each selected other holder", async () => {

@@ -88,7 +88,7 @@ export function useInstanceCredentialAdd(
     [instanceName, reload],
   );
 
-  const login = useCredentialLogin("llm", modes, finish, instanceName);
+  const login = useCredentialLogin("llm", modes, finish, instanceName, false);
   const restartLogin = login.restart;
 
   const start = useCallback(() => {
