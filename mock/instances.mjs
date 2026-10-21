@@ -20,6 +20,25 @@ const fingerprintOf = (publicKey) =>
 const canonicalJson = (value) =>
   JSON.stringify(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))));
 
+const COPY_CAPABILITIES = {
+  "github-copilot": "copilot token read",
+  "openai-codex": "model call",
+  "anthropic-subscription": "model call",
+  anthropic: "model-list read",
+  "openai-compatible": "model-list read",
+  openrouter: "key read",
+  openai: "model-list read",
+  "opencode-go": "model call",
+};
+
+const unreportedHealth = (platform) => ({
+  status: "unknown",
+  capability: COPY_CAPABILITIES[platform] ?? "none",
+  failure_reason: "held_by_instance",
+  models: null,
+  reported_at: null,
+});
+
 const connectionOf = (name, now) =>
   name === null
     ? null
@@ -63,6 +82,22 @@ export function registerInstances({
   const registrationsOf = (name) =>
     fx.WORKER_REGISTRATIONS.filter((registration) => registration.instance === name);
 
+  const healthOf = (holder, copy) => {
+    const report = fx.INSTANCE_COPY_REPORTS.find(
+      (item) => item.holder === holder && item.name === copy.name,
+    );
+    if (!copy.sealed_current || report?.revision !== copy.revision) {
+      return unreportedHealth(copy.platform);
+    }
+    return {
+      status: report.status,
+      capability: report.capability,
+      failure_reason: report.failure_reason,
+      models: report.models,
+      reported_at: report.reported_at,
+    };
+  };
+
   const copiesOf = (name) =>
     credentials
       .filter((credential) => credential.holder === name)
@@ -72,7 +107,8 @@ export function registerInstances({
         revision: credential.revisions.find((revision) => revision.ended_at === null).revision,
         platform: credential.platform,
         sealed_current: credential.sealed_current,
-      }));
+      }))
+      .map((copy) => ({ ...copy, health: healthOf(name, copy) }));
 
   const listingConfigsOf = (instance) => [
     ...Object.values(bindingSet.bindings)

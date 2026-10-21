@@ -1867,6 +1867,14 @@ export const INSTANCE_CREDENTIAL_COPIES = [
     revisions: [credentialRevision("0082", 1, null, Date.UTC(2026, 9, 18, 9, 40))],
   },
   {
+    name: "atlas-anthropic",
+    platform: "anthropic",
+    holder: "mac-studio",
+    sealed_to: "SHA256:4l0bK2qPn8YwVx3JmT7rUe6Hs1Dc9GfZaR5iLoQyWkE",
+    sealed_current: true,
+    revisions: [credentialRevision("0085", 1, null, Date.UTC(2026, 9, 18, 9, 50))],
+  },
+  {
     name: "atlas-router",
     platform: "openai-compatible",
     holder: "build-01",
@@ -1895,5 +1903,32 @@ export const INSTANCE_CREDENTIAL_COPIES = [
         Date.UTC(2026, 9, 19, 10, 30),
       ),
     ],
+  },
+];
+
+export const INSTANCE_COPY_REPORTS = [
+  {
+    holder: "mac-studio",
+    name: "atlas-router",
+    revision: 1,
+    status: "healthy",
+    capability: "model-list read",
+    failure_reason: null,
+    models: [
+      { id: "qwen3-coder", owned_by: "atlas-router", created: 1760000000 },
+      { id: "qwen3-coder-plus", owned_by: "atlas-router", created: 1760500000 },
+      { id: "glm-4.6", owned_by: null, created: null },
+    ],
+    reported_at: Date.UTC(2026, 9, 21, 7, 55),
+  },
+  {
+    holder: "mac-studio",
+    name: "claude-sub",
+    revision: 1,
+    status: "unhealthy",
+    capability: "model call",
+    failure_reason: "unauthorized",
+    models: null,
+    reported_at: Date.UTC(2026, 9, 21, 7, 56),
   },
 ];

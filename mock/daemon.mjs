@@ -2923,8 +2923,8 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res, _t, url) => {
   return addRevision(credential, metadata, res);
 });
 
-on("PUT", credentialRoute("\\/([^/]+)\\/metadata"), (m, b, res) => {
-  const credential = findCredential(res, m[1], m[2]);
+on("PUT", credentialRoute("\\/([^/]+)\\/metadata"), (m, b, res, _t, url) => {
+  const credential = findCredential(res, m[1], m[2], holderOf(url));
   if (credential === undefined) return undefined;
   if (refuseArchived(res, credential)) return undefined;
   if (refuseStaleRevision(res, credential, b?.expected_revision)) return undefined;
