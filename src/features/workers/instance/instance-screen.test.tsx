@@ -11,8 +11,10 @@ import * as instancesApi from "@/api/resources/worker-instances";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
 import type {
+  CopyHealth,
   Credential,
   CredentialPlatformList,
+  LlmCredential,
   Project,
   WorkerInstanceDetail,
   WorkerInstanceListItem,
@@ -53,6 +55,27 @@ const PROJECTS: Project[] = [
   },
 ];
 
+const REPORTED_AT = Date.UTC(2026, 9, 21, 8, 0);
+
+const NO_REPORT: CopyHealth = {
+  status: "unknown",
+  capability: "model-list read",
+  failure_reason: "held_by_instance",
+  models: null,
+  reported_at: null,
+};
+
+const ROUTER_HEALTH: CopyHealth = {
+  status: "healthy",
+  capability: "model-list read",
+  failure_reason: null,
+  models: [
+    { id: "qwen3-coder", owned_by: "router", created: 1 },
+    { id: "glm-4.6", owned_by: null, created: null },
+  ],
+  reported_at: REPORTED_AT,
+};
+
 const MAC: WorkerInstanceDetail = {
   id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I01",
   name: "mac-studio",
@@ -69,9 +92,33 @@ const MAC: WorkerInstanceDetail = {
   ],
   registrations: [],
   credentials: [
-    { name: "atlas-router", revision: 1, platform: "openai-compatible", sealed_current: true },
-    { name: "claude-sub", revision: 1, platform: "anthropic-subscription", sealed_current: true },
-    { name: "old-key", revision: 3, platform: "anthropic", sealed_current: false },
+    {
+      name: "atlas-router",
+      revision: 1,
+      platform: "openai-compatible",
+      sealed_current: true,
+      health: ROUTER_HEALTH,
+    },
+    {
+      name: "claude-sub",
+      revision: 1,
+      platform: "anthropic-subscription",
+      sealed_current: true,
+      health: {
+        status: "unhealthy",
+        capability: "model call",
+        failure_reason: "unauthorized",
+        models: null,
+        reported_at: REPORTED_AT,
+      },
+    },
+    {
+      name: "old-key",
+      revision: 3,
+      platform: "anthropic",
+      sealed_current: false,
+      health: NO_REPORT,
+    },
   ],
 };
 
@@ -127,6 +174,32 @@ function copyOf(holder: string, revision: number): Credential {
   };
 }
 
+const ROUTER_COPY: LlmCredential = {
+  name: "atlas-router",
+  platform: "openai-compatible",
+  holder: "mac-studio",
+  sealed_to: FINGERPRINT,
+  sealed_current: true,
+  revisions: [
+    {
+      id: "r-router",
+      revision: 1,
+      metadata: { base_url: "https://router.example/v1", models: [{ id: "qwen3-coder" }] },
+      created_at: 1,
+      ended_at: null,
+    },
+  ],
+  agent_providers: [],
+};
+
+function rowOf(credentials: HTMLElement, name: string): HTMLElement {
+  const row = within(credentials)
+    .getAllByRole("listitem")
+    .find((item) => item.textContent?.includes(name));
+  expect(row).toBeDefined();
+  return row!;
+}
+
 function mount() {
   return render(
     <MemoryRouter initialEntries={["/workers/coder%401/instances/mac-studio"]}>
@@ -177,6 +250,97 @@ describe("InstanceScreen", () => {
       await within(credentials).findByRole("button", { name: "Sign in again" }),
     ).toHaveAttribute("aria-disabled", "true");
     expect(within(credentials).getAllByRole("button", { name: "Rotate" })).toHaveLength(2);
+  });
+
+  it("shows an unhealthy report with the hint, the instance and the report time", async () => {
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    const row = rowOf(credentials, "claude-sub");
+    expect(within(row).getByText("Unhealthy")).toBeInTheDocument();
+    expect(row).toHaveTextContent(
+      "The provider refused the API key or the access token. Rotate the copy with a correct key, or sign in again. The instance checks the copy again after the write. Reported by mac-studio at 2026-10-21 08:00 UTC.",
+    );
+  });
+
+  it("shows a healthy report with the instance and the report time", async () => {
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    const row = rowOf(credentials, "atlas-router");
+    expect(within(row).getByText("Healthy")).toBeInTheDocument();
+    expect(row).toHaveTextContent("Reported by mac-studio at 2026-10-21 08:00 UTC.");
+  });
+
+  it("shows Unknown with no report since the server start", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      credentials: [
+        {
+          name: "atlas-router",
+          revision: 2,
+          platform: "openai-compatible",
+          sealed_current: true,
+          health: NO_REPORT,
+        },
+      ],
+    });
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    const row = rowOf(credentials, "atlas-router");
+    expect(within(row).getByText("Unknown")).toBeInTheDocument();
+    expect(row).toHaveTextContent(
+      "No report from mac-studio for this revision since the server start.",
+    );
+    expect(row).not.toHaveTextContent("Reported by");
+  });
+
+  it("shows only the Re-enter notice for a copy sealed to an ended key", async () => {
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    const row = rowOf(credentials, "old-key");
+    expect(within(row).getByText("Re-enter")).toBeInTheDocument();
+    expect(within(row).queryByText("Unknown")).not.toBeInTheDocument();
+    expect(row).not.toHaveTextContent("No report");
+    expect(within(row).queryByRole("button", { name: "Edit models" })).not.toBeInTheDocument();
+  });
+
+  it("edits the models of an openai-compatible copy with the reported model ids", async () => {
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue(ROUTER_COPY);
+    vi.mocked(credentialsApi.updateCredentialMetadata).mockResolvedValue(ROUTER_COPY);
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    const row = rowOf(credentials, "atlas-router");
+    await userEvent.click(await within(row).findByRole("button", { name: "Edit models" }));
+    expect(credentialsApi.readCredential).toHaveBeenCalledWith("llm", "atlas-router", "mac-studio");
+    const sheet = await screen.findByRole("dialog", {
+      name: "Edit metadata of atlas-router on mac-studio",
+    });
+    const reported = within(sheet).getByRole("region", { name: "Reported models" });
+    expect(within(reported).queryByRole("button", { name: "Add qwen3-coder" })).toBeNull();
+    await userEvent.click(within(reported).getByRole("button", { name: "Add glm-4.6" }));
+    expect(within(sheet).queryByRole("region", { name: "Reported models" })).toBeNull();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
+    await waitFor(() =>
+      expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith(
+        "llm",
+        "atlas-router",
+        {
+          expected_revision: 1,
+          metadata: {
+            base_url: "https://router.example/v1",
+            models: [{ id: "qwen3-coder" }, { id: "glm-4.6" }],
+          },
+        },
+        "mac-studio",
+      ),
+    );
+  });
+
+  it("offers Edit models only on an openai-compatible copy", async () => {
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    expect(await within(credentials).findAllByRole("button", { name: "Edit models" })).toHaveLength(
+      1,
+    );
   });
 
   it("disables Archive while a binding lists the instance", async () => {

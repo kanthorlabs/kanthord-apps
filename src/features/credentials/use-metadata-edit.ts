@@ -31,23 +31,41 @@ export interface MetadataEditState {
   readonly addModel: () => void;
   readonly editModel: (index: number, model: ModelDraft) => void;
   readonly removeModel: (index: number) => void;
+  readonly suggestedModels: readonly string[];
+  readonly addSuggestedModel: (id: string) => void;
   readonly submit: () => void;
 }
 
+export interface MetadataEditOptions {
+  readonly holder: string;
+  readonly reportedModelIds: readonly string[];
+  readonly openAtStart: boolean;
+}
+
 const NO_ERRORS: DraftErrors = {};
+const NO_SUGGESTIONS: readonly string[] = [];
 
 export function useMetadataEdit(
   component: CredentialComponent,
   credential: Credential,
   entry: CredentialPlatformEntry | null,
   reload: () => void,
+  options: MetadataEditOptions | null = null,
 ): MetadataEditState {
-  const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState<MetadataDraft>(EMPTY_METADATA);
+  const newest = newestLiveRevision(credential);
+  const openAtStart = options?.openAtStart === true && entry !== null;
+  const [open, setOpen] = useState(openAtStart);
+  const [draft, setDraft] = useState<MetadataDraft>(() =>
+    openAtStart ? metadataDraftOf(entry, newest?.metadata ?? null) : EMPTY_METADATA,
+  );
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
   const [failure, setFailure] = useState<WriteFailure | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const newest = newestLiveRevision(credential);
+  const holder = options?.holder ?? null;
+  const reported = options?.reportedModelIds ?? NO_SUGGESTIONS;
+  const suggestedModels = reported.filter(
+    (id) => !draft.models.some((model) => model.id.trim() === id),
+  );
 
   const start = useCallback(() => {
     if (entry === null) return;
@@ -87,6 +105,12 @@ export function useMetadataEdit(
     [],
   );
 
+  const addSuggestedModel = useCallback(
+    (id: string) =>
+      setDraft((current) => ({ ...current, models: [...current.models, { ...EMPTY_MODEL, id }] })),
+    [],
+  );
+
   const submit = useCallback(() => {
     if (submitting || newest === null || entry === null) return;
     const metadata = editMetadataOf(entry, newest.metadata, draft);
@@ -97,10 +121,12 @@ export function useMetadataEdit(
     setErrors(NO_ERRORS);
     setFailure(null);
     setSubmitting(true);
-    updateCredentialMetadata(component, credential.name, {
-      expected_revision: newest.revision,
-      metadata: metadata.value,
-    }).then(
+    updateCredentialMetadata(
+      component,
+      credential.name,
+      { expected_revision: newest.revision, metadata: metadata.value },
+      holder,
+    ).then(
       (answer) => {
         setSubmitting(false);
         setOpen(false);
@@ -114,7 +140,7 @@ export function useMetadataEdit(
         setFailure(writeFailureOf(cause));
       },
     );
-  }, [submitting, newest, entry, component, credential, draft, reload]);
+  }, [submitting, newest, entry, component, credential, draft, reload, holder]);
 
   return {
     available:
@@ -136,6 +162,8 @@ export function useMetadataEdit(
     addModel,
     editModel,
     removeModel,
+    suggestedModels,
+    addSuggestedModel,
     submit,
   };
 }

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { CredentialComponent, ResourceFailureReason } from "@/api/types";
-import { failureReasonHint, failureReasonHintOf, healthEntryHint } from "./failure-reason";
+import {
+  failureReasonHint,
+  failureReasonHintOf,
+  healthEntryHint,
+  instanceCopyHint,
+} from "./failure-reason";
 
 const REASONS: readonly ResourceFailureReason[] = [
   "host_key_unknown",
@@ -16,6 +21,7 @@ const REASONS: readonly ResourceFailureReason[] = [
   "invalid_response",
   "host_key_changed",
   "identity_unavailable",
+  "held_by_instance",
   "unclassified",
 ];
 
@@ -35,6 +41,27 @@ describe("failure reason hint", () => {
       const hints = REASONS.map((reason) => failureReasonHint(reason, component));
       expect(new Set(hints).size).toBe(REASONS.length);
     }
+  });
+
+  it("names the worker instance for a copy that an instance holds", () => {
+    expect(failureReasonHint("held_by_instance", "llm")).toBe(
+      "A worker instance holds the copy. The server holds no secret to check.",
+    );
+  });
+
+  it("points an instance copy to the instance and never to a verify", () => {
+    expect(instanceCopyHint("unreachable")).toContain("network of the instance host");
+    expect(instanceCopyHint("unclassified")).toContain("log of the instance");
+    for (const reason of [
+      "unauthorized",
+      "forbidden",
+      "rate_limited",
+      "unreachable",
+      "invalid_response",
+      "unclassified",
+    ])
+      expect(instanceCopyHint(reason)).not.toMatch(/[Vv]erify/);
+    expect(instanceCopyHint("held_by_instance")).toBe(failureReasonHint("held_by_instance", "llm"));
   });
 
   it("names the deploy key step for a refused key", () => {

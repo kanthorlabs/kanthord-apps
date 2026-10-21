@@ -64,6 +64,29 @@ function ModelsEditor({ edit }: { edit: MetadataEditState }) {
           </ItemGroup>
         )}
       </section>
+      {edit.suggestedModels.length > 0 && (
+        <section aria-label="Reported models" className="flex flex-col gap-2">
+          <h3 className="text-sm font-medium">Reported models</h3>
+          <p className="text-sm text-muted-foreground">
+            The last check of the instance read these models. Add a model to approve it.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {edit.suggestedModels.map((id) => (
+              <Button
+                key={id}
+                variant="outline"
+                size="sm"
+                aria-label={`Add ${id}`}
+                className="max-w-full"
+                onClick={() => edit.addSuggestedModel(id)}
+              >
+                <PlusIcon aria-hidden="true" data-icon="inline-start" />
+                <span className="truncate">{id}</span>
+              </Button>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }

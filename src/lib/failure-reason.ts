@@ -20,6 +20,7 @@ const SHARED_HINTS: Readonly<Record<SharedFailureReason, string>> = {
     "The host presented another key. Compare the fingerprint with the published one, then pin again.",
   identity_unavailable:
     "The server cannot load the SSH key. Rotate the key. If the fault stays, read the server log.",
+  held_by_instance: "A worker instance holds the copy. The server holds no secret to check.",
   unclassified:
     "The check failed for an unknown cause, or it exceeded its deadline. Verify again. If the failure stays, read the server log.",
 };
@@ -63,6 +64,27 @@ export function failureReasonHint(reason: string, component: CredentialComponent
   if (Object.hasOwn(http, reason)) return http[reason as HttpFailureReason];
   if (Object.hasOwn(SHARED_HINTS, reason)) return SHARED_HINTS[reason as SharedFailureReason];
   return `The check failed with the reason ${reason}. Verify again. If the failure stays, read the server log.`;
+}
+
+const INSTANCE_COPY_HINTS: Readonly<Record<HttpFailureReason | "unclassified", string>> = {
+  unauthorized:
+    "The provider refused the API key or the access token. Rotate the copy with a correct key, or sign in again. The instance checks the copy again after the write.",
+  forbidden:
+    "The provider accepted the key or the token but refused the access. Check the permissions and the plan of the account.",
+  rate_limited:
+    "The provider limited the requests. Wait some minutes, or check the quota of the plan. The instance checks the copy again after the next copy write.",
+  unreachable:
+    "The instance cannot reach the provider. Check the network of the instance host and the base URL of an openai-compatible credential.",
+  invalid_response:
+    "The provider sent an answer that the check does not expect, for example a server error. For an openai-compatible credential, check that the base URL points to the API of the provider.",
+  unclassified:
+    "The check failed for an unknown cause, or it exceeded its deadline. Read the log of the instance.",
+};
+
+export function instanceCopyHint(reason: string): string {
+  if (Object.hasOwn(INSTANCE_COPY_HINTS, reason))
+    return INSTANCE_COPY_HINTS[reason as keyof typeof INSTANCE_COPY_HINTS];
+  return failureReasonHint(reason, "llm");
 }
 
 export function failureReasonHintOf(details: unknown): string | null {

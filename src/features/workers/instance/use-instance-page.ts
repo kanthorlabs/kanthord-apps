@@ -14,6 +14,9 @@ import type {
 import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
 import { useInstanceExecutions, type InstanceExecution } from "@/hooks/use-instance-executions";
 import { useResource, type Resource } from "@/hooks/use-resource";
+import { OPENAI_COMPATIBLE } from "@/lib/credential-draft";
+import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
+import { instanceCopyHint } from "@/lib/failure-reason";
 
 export type InstanceBindingState = "serving" | "draining";
 
@@ -29,9 +32,20 @@ export interface InstanceRegistrationRow {
   readonly execution: InstanceExecution | null;
 }
 
+export interface InstanceCopyHealthLine {
+  readonly label: string;
+  readonly variant: HealthBadgeVariant;
+  readonly hint: string | null;
+  readonly reportedAt: number | null;
+}
+
 export interface InstanceCredentialRow {
   readonly copy: InstanceCredentialCopy;
+  readonly entry: CredentialPlatformEntry | null;
   readonly shape: SecretShape | null;
+  readonly health: InstanceCopyHealthLine | null;
+  readonly reportedModelIds: readonly string[];
+  readonly modelsEditable: boolean;
 }
 
 export interface InstanceContext {
@@ -111,14 +125,33 @@ export function registrationRowsOf(
   }));
 }
 
+export function copyHealthLineOf(copy: InstanceCredentialCopy): InstanceCopyHealthLine {
+  const health = copy.health;
+  const reported = health.reported_at !== null;
+  return {
+    label: healthLabel(health),
+    variant: healthVariant(health),
+    hint:
+      reported && health.failure_reason !== null ? instanceCopyHint(health.failure_reason) : null,
+    reportedAt: health.reported_at,
+  };
+}
+
 export function credentialRowsOf(
   copies: readonly InstanceCredentialCopy[],
   platforms: readonly CredentialPlatformEntry[] | null,
 ): readonly InstanceCredentialRow[] {
-  return copies.map((copy) => ({
-    copy,
-    shape: platforms?.find((entry) => entry.platform === copy.platform)?.secret_shape ?? null,
-  }));
+  return copies.map((copy) => {
+    const entry = platforms?.find((item) => item.platform === copy.platform) ?? null;
+    return {
+      copy,
+      entry,
+      shape: entry?.secret_shape ?? null,
+      health: copy.sealed_current ? copyHealthLineOf(copy) : null,
+      reportedModelIds: copy.health.models?.map((model) => model.id) ?? [],
+      modelsEditable: entry !== null && copy.sealed_current && copy.platform === OPENAI_COMPATIBLE,
+    };
+  });
 }
 
 export function useInstancePage(instanceName: string): InstancePage {
