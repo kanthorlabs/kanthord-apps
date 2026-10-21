@@ -88,6 +88,7 @@ export function AddInstanceSheet({
               <InstanceConfiguration
                 name={result.record.name}
                 kind={result.kind}
+                runtime={result.runtime}
                 version={create.host.version}
                 versionError={create.host.versionError}
                 configuration={result.configuration}

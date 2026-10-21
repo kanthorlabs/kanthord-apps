@@ -6,18 +6,23 @@ import { listWorkerPlacements } from "@/api/resources/workers";
 import { useResource } from "@/hooks/use-resource";
 import {
   addressDefaultOf,
+  containerRuntimeOf,
+  DEFAULT_CONTAINER_RUNTIME,
   hostKindOf,
   instanceAddressError,
+  type ContainerRuntime,
   type HostKind,
 } from "@/lib/instance-host";
 
 export interface HostAddressState {
   readonly kind: HostKind | null;
+  readonly runtime: ContainerRuntime;
   readonly address: string;
   readonly hint: string | null;
   readonly version: string | null;
   readonly versionError: string | null;
   readonly selectKind: (value: string | null) => void;
+  readonly selectRuntime: (value: string | null) => void;
   readonly setAddress: (value: string) => void;
   readonly reset: () => void;
   readonly addressError: () => string | null;
@@ -25,6 +30,7 @@ export interface HostAddressState {
 
 export function useHostAddress(active: boolean): HostAddressState {
   const [kind, setKind] = useState<HostKind | null>(null);
+  const [runtime, setRuntime] = useState<ContainerRuntime>(DEFAULT_CONTAINER_RUNTIME);
   const [address, setAddressValue] = useState("");
   const [edited, setEdited] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
@@ -52,6 +58,11 @@ export function useHostAddress(active: boolean): HostAddressState {
     [edited, serverInContainer],
   );
 
+  const selectRuntime = useCallback((value: string | null) => {
+    const next = containerRuntimeOf(value);
+    if (next !== null) setRuntime(next);
+  }, []);
+
   const setAddress = useCallback((value: string) => {
     setEdited(true);
     setAddressValue(value);
@@ -59,6 +70,7 @@ export function useHostAddress(active: boolean): HostAddressState {
 
   const reset = useCallback(() => {
     setKind(null);
+    setRuntime(DEFAULT_CONTAINER_RUNTIME);
     setAddressValue("");
     setEdited(false);
     setHint(null);
@@ -68,11 +80,13 @@ export function useHostAddress(active: boolean): HostAddressState {
 
   return {
     kind,
+    runtime,
     address,
     hint,
     version: version.data ?? null,
     versionError: version.error?.message ?? null,
     selectKind,
+    selectRuntime,
     setAddress,
     reset,
     addressError,

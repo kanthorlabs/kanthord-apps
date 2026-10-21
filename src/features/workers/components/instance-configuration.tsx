@@ -4,13 +4,20 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { copyStepsOf, RELEASES, type HostKind } from "@/lib/instance-host";
+import {
+  copyStepsOf,
+  isContainerKind,
+  RELEASES,
+  type ContainerRuntime,
+  type HostKind,
+} from "@/lib/instance-host";
 
 const VERSION_PLACEHOLDER = "<version>";
 
 interface InstanceConfigurationProps {
   readonly name: string;
   readonly kind: HostKind;
+  readonly runtime: ContainerRuntime;
   readonly version: string | null;
   readonly versionError: string | null;
   readonly configuration: string;
@@ -40,11 +47,12 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 export function InstanceConfiguration({
   name,
   kind,
+  runtime,
   version,
   versionError,
   configuration,
 }: InstanceConfigurationProps) {
-  const steps = copyStepsOf(kind, name, version ?? VERSION_PLACEHOLDER);
+  const steps = copyStepsOf(kind, name, version ?? VERSION_PLACEHOLDER, runtime);
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {versionError !== null && (
@@ -83,6 +91,7 @@ export function InstanceConfiguration({
       <section aria-labelledby="instance-steps" className="flex min-w-0 flex-col gap-2">
         <h3 id="instance-steps" className="font-semibold">
           Run the instance: {kind}
+          {isContainerKind(kind) && ` with ${runtime}`}
         </h3>
         <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
           {steps.map((step) => (
