@@ -61,7 +61,7 @@ function CatalogItem({ item, live }: { item: WorkerCatalogItem; live: number | n
       <ItemContent className="min-w-0 gap-4">
         {live !== null && (
           <ItemDescription>
-            {counted(live, "live registration", "live registrations")}
+            {`${counted(live, "live registration", "live registrations")} in this project`}
           </ItemDescription>
         )}
         <BadgeList label="Declared node states" values={item.declared_node_states} />

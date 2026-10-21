@@ -127,8 +127,8 @@ describe("WorkersScreen", () => {
       "href",
       "/workers/tdd",
     );
-    expect(screen.getByText("2 live registrations")).toBeDefined();
-    expect(screen.getByText("1 live registration")).toBeDefined();
+    expect(screen.getByText("2 live registrations in this project")).toBeDefined();
+    expect(screen.getByText("1 live registration in this project")).toBeDefined();
   });
 
   it("shows the activity, the drain mark and the execution of a live registration", async () => {
