@@ -67,7 +67,7 @@ export function ChainSection({ chain, activePosition, cooling }: ChainSectionPro
                     <Badge variant="outline">{row.entry.level}</Badge>
                     {row.active && <Badge>active</Badge>}
                   </ItemTitle>
-                  <p className="text-sm break-all text-muted-foreground">
+                  <p className="text-sm break-words text-muted-foreground">
                     <RecordName>{row.entry.agent_provider}</RecordName> ·{" "}
                     <RecordName>{row.entry.provider}</RecordName> · credential{" "}
                     <RecordName>{row.entry.credential}</RecordName> · effort{" "}
