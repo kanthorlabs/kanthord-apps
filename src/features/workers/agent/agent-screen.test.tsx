@@ -8,6 +8,7 @@ import * as credentialsApi from "@/api/resources/credentials";
 import * as promptsApi from "@/api/resources/prompts";
 import * as workersApi from "@/api/resources/workers";
 import type {
+  AgentChainEntry,
   AgentDeclaration,
   AgentEnablement,
   Credential,
@@ -77,6 +78,9 @@ const RE: AgentDeclaration = {
     { name: "read", source: "builtin", input_schema: {} },
     { name: "grep", source: "builtin", input_schema: {} },
   ],
+  chain: [],
+  active_position: null,
+  cooling: null,
 };
 
 const ENABLEMENT: AgentEnablement = {
@@ -90,6 +94,28 @@ const ENABLEMENT: AgentEnablement = {
   },
   fallback_configurations: [],
   revision: 2,
+};
+
+const LIVE_END = Date.UTC(2099, 0, 1);
+const EXPIRED_END = Date.UTC(2020, 0, 1);
+
+const HEAD_ENTRY: AgentChainEntry = {
+  position: 0,
+  level: "enablement",
+  agent_provider: "router",
+  provider: "openrouter",
+  credential: "router-main",
+  model_identifier: "qwen/qwen3-coder",
+  reasoning_effort: "off",
+  cooldown: null,
+};
+
+const SPARE_ENTRY: AgentChainEntry = {
+  ...HEAD_ENTRY,
+  position: 1,
+  agent_provider: "spare",
+  credential: "spare-main",
+  model_identifier: "qwen/qwen3-max",
 };
 
 const ROUTER_MAIN: Credential = {
@@ -179,6 +205,99 @@ describe("AgentScreen", () => {
     expect(screen.getByText(/No enablement exists/)).toBeTruthy();
     const tools = within(screen.getByRole("list", { name: "Tools" })).getAllByRole("listitem");
     expect(tools.map((t) => t.textContent)).toEqual(["readbuiltin", "grepbuiltin"]);
+  });
+
+  it("shows the fallback chain with no cooldown and marks the head active", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      enablement: ENABLEMENT,
+      chain: [HEAD_ENTRY, SPARE_ENTRY],
+      active_position: 0,
+      cooling: null,
+    });
+    mount();
+
+    const chain = within(await screen.findByRole("list", { name: "Fallback chain" }));
+    const [head, spare] = chain.getAllByRole("listitem");
+    expect(head?.textContent).toContain("#0qwen/qwen3-coderenablementactive");
+    expect(head?.textContent).toContain("credential router-main");
+    expect(head?.textContent).toContain("No cooldown.");
+    expect(spare?.textContent).not.toContain("active");
+    expect(screen.queryByText("The chain of this agent cools down.")).toBeNull();
+  });
+
+  it("shows one cooling entry and keeps the next entry active", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      enablement: ENABLEMENT,
+      chain: [{ ...HEAD_ENTRY, cooldown: { strikes: 2, available_at: LIVE_END } }, SPARE_ENTRY],
+      active_position: 1,
+      cooling: null,
+    });
+    mount();
+
+    const chain = within(await screen.findByRole("list", { name: "Fallback chain" }));
+    const [head, spare] = chain.getAllByRole("listitem");
+    expect(head?.textContent).toContain(
+      "Strike 2. Claims skip this credential until 2099-01-01 00:00 UTC.",
+    );
+    expect(head?.textContent).not.toContain("active");
+    expect(spare?.textContent).toContain("active");
+    expect(screen.queryByText("The chain of this agent cools down.")).toBeNull();
+  });
+
+  it("shows an expired cooldown as no live cooldown", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      enablement: ENABLEMENT,
+      chain: [
+        { ...HEAD_ENTRY, cooldown: { strikes: 1, available_at: LIVE_END } },
+        { ...SPARE_ENTRY, cooldown: { strikes: 3, available_at: EXPIRED_END } },
+      ],
+      active_position: 1,
+      cooling: null,
+    });
+    mount();
+
+    const expired = within(await screen.findByRole("list", { name: "Fallback chain" }));
+    expect(expired.getAllByRole("listitem")[1]?.textContent).toContain(
+      "No live cooldown. Strike 3 ended at 2020-01-01 00:00 UTC.",
+    );
+  });
+
+  it("shows the cooling notice and no active entry when every entry cools down", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      enablement: ENABLEMENT,
+      chain: [
+        { ...HEAD_ENTRY, cooldown: { strikes: 1, available_at: LIVE_END } },
+        { ...SPARE_ENTRY, cooldown: { strikes: 1, available_at: LIVE_END } },
+      ],
+      active_position: null,
+      cooling: { code: "agent.configuration.chain_cooling", available_at: LIVE_END },
+    });
+    mount();
+
+    expect(await screen.findByText("The chain of this agent cools down.")).toBeTruthy();
+    expect(
+      screen.getByText(/Every credential of the chain cools down until 2099-01-01 00:00 UTC\./),
+    ).toBeTruthy();
+    const chain = within(screen.getByRole("list", { name: "Fallback chain" }));
+    expect(
+      chain
+        .getAllByRole("listitem")
+        .map((item) => item.textContent)
+        .join(""),
+    ).not.toContain("active");
+  });
+
+  it("shows no chain for an absent enablement", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    expect(
+      await screen.findByText("No chain. The enablement is absent, disabled or invalid."),
+    ).toBeTruthy();
   });
 
   it("collapses every prompt text and renders it as markdown on open", async () => {

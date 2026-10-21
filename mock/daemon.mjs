@@ -823,17 +823,59 @@ const coolingCredentialOf = (agentName) => {
   return head === undefined ? [] : [head.credential];
 };
 
-on("GET", /^\/api\/agent\/cooldown$/, (_m, _b, res) => {
+const serverHolds = () => {
   const credentials = new Set(Object.values(COOLING_AGENTS).flat().flatMap(coolingCredentialOf));
   const live = [...credentials].map((credential) => ({
     credential,
     strikes: 1,
     available_at: COOLING_UNTIL,
   }));
-  return json(res, 200, {
-    items: [...live, ...EXPIRED_HOLDS].sort((a, b) => a.credential.localeCompare(b.credential)),
-  });
-});
+  return [...live, ...EXPIRED_HOLDS];
+};
+
+on("GET", /^\/api\/agent\/cooldown$/, (_m, _b, res) =>
+  json(res, 200, {
+    items: serverHolds().sort((a, b) => a.credential.localeCompare(b.credential)),
+  }),
+);
+
+const enablementChainOf = (enablement) => {
+  if (enablement === null || enablement.state !== "enabled") {
+    return { chain: [], active_position: null, cooling: null };
+  }
+  const holds = serverHolds();
+  const chain = [enablement.default_configuration, ...enablement.fallback_configurations].map(
+    (config, position) => {
+      const provider = enablement.agent_providers.find(
+        (item) => item.name === config.agent_provider,
+      );
+      const hold = holds.find((item) => item.credential === provider.credential);
+      return {
+        position,
+        level: "enablement",
+        agent_provider: config.agent_provider,
+        provider: provider.provider,
+        credential: provider.credential,
+        model_identifier: config.model_identifier,
+        reasoning_effort: config.reasoning_effort,
+        cooldown:
+          hold === undefined ? null : { strikes: hold.strikes, available_at: hold.available_at },
+      };
+    },
+  );
+  const now = Date.now();
+  const active = chain.find(({ cooldown }) => cooldown === null || cooldown.available_at <= now);
+  return {
+    chain,
+    active_position: active?.position ?? null,
+    cooling: active
+      ? null
+      : {
+          code: "agent.configuration.chain_cooling",
+          available_at: Math.min(...chain.map(({ cooldown }) => cooldown.available_at)),
+        },
+  };
+};
 
 on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
   const declaration = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
@@ -859,6 +901,7 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
     enablement,
     prompt: url.searchParams.get("view") === "final" ? { final } : { layers, final },
     tools,
+    ...enablementChainOf(enablement),
   });
 });
 
