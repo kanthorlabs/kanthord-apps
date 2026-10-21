@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 import type { ApiError } from "@/api/errors";
 import { RecordName } from "@/components/record-name";
@@ -7,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import {
   Item,
+  ItemActions,
   ItemContent,
   ItemDescription,
   ItemGroup,
@@ -15,6 +17,8 @@ import {
 } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { counted } from "@/lib/counted";
+import { workerPagePath } from "@/lib/worker-paths";
 import type { WorkerCatalogItem, WorkerRegistrationRecord } from "@/api/types";
 import { BindingInstanceItem } from "./components/binding-instance-item";
 import { useWorkers } from "./use-workers";
@@ -34,7 +38,7 @@ function BadgeList({ label, values }: { label: string; values: readonly string[]
   );
 }
 
-function CatalogItem({ item }: { item: WorkerCatalogItem }) {
+function CatalogItem({ item, live }: { item: WorkerCatalogItem; live: number | null }) {
   return (
     <Item variant="outline" role="listitem">
       <ItemHeader>
@@ -42,8 +46,24 @@ function CatalogItem({ item }: { item: WorkerCatalogItem }) {
           <span className="font-mono">{item.name}</span>
           <Badge variant="secondary">{item.host}</Badge>
         </ItemTitle>
+        <ItemActions>
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            aria-label={`Open ${item.name}`}
+            render={<Link to={workerPagePath(item.name)} />}
+          >
+            Open
+          </Button>
+        </ItemActions>
       </ItemHeader>
       <ItemContent className="min-w-0 gap-4">
+        {live !== null && (
+          <ItemDescription>
+            {counted(live, "live registration", "live registrations")}
+          </ItemDescription>
+        )}
         <BadgeList label="Declared node states" values={item.declared_node_states} />
         <BadgeList label="Declared intents" values={item.declared_intents} />
       </ItemContent>
@@ -125,7 +145,8 @@ function EmptyList({ title }: { title: string }) {
 }
 
 export function WorkersScreen() {
-  const { catalog, registrations, bindings, bindingEntries } = useWorkers();
+  const { catalog, registrations, bindings, bindingEntries, liveCounts } = useWorkers();
+  const liveKnown = registrations.data !== null;
   const catalogItems = catalog.data ?? [];
   const registrationItems = registrations.data ?? [];
 
@@ -143,7 +164,11 @@ export function WorkersScreen() {
         ) : (
           <ItemGroup className="gap-4 lg:grid lg:grid-cols-2">
             {catalogItems.map((item) => (
-              <CatalogItem key={item.name} item={item} />
+              <CatalogItem
+                key={item.name}
+                item={item}
+                live={liveKnown ? (liveCounts[item.name] ?? 0) : null}
+              />
             ))}
           </ItemGroup>
         )}

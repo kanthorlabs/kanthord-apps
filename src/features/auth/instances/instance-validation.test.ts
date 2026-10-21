@@ -50,7 +50,7 @@ describe("validateSignIn", () => {
         LOCAL,
         STAGING,
       ]).errors,
-    ).toEqual({ name: "Another instance is already named STAGING." });
+    ).toEqual({ name: "Another server is already named STAGING." });
   });
 
   it("names every problem", () => {
@@ -79,6 +79,6 @@ describe("validateEdit", () => {
         [LOCAL, STAGING],
         "i-1",
       ).errors,
-    ).toEqual({ baseUrl: "The instance staging already uses this URL." });
+    ).toEqual({ baseUrl: "The server staging already uses this URL." });
   });
 });

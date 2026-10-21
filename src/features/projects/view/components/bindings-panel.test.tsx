@@ -8,18 +8,23 @@ import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
+import * as instancesApi from "@/api/resources/worker-instances";
 import * as workersApi from "@/api/resources/workers";
 import type {
   BindingSet,
   BindingSetEntry,
   Credential,
   PlacementStatus,
+  Project,
   ProjectBindingRecord,
   WorkerCatalogEntry,
+  WorkerInstanceDetail,
+  WorkerInstanceListItem,
 } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
+vi.mock("@/api/resources/worker-instances");
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/credentials");
 vi.mock("sonner", async (importOriginal) => ({
@@ -53,7 +58,7 @@ const REPO: BindingSetEntry = {
 };
 const WORKER: BindingSetEntry = {
   kind: "worker",
-  config: { worker: "coder@1", instance_count: 2, placement: "worker" },
+  config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
 };
 
 const SET: BindingSet = { version: 2, bindings: { "kanthord-repo": REPO, "general-main": WORKER } };
@@ -178,7 +183,57 @@ const GITHUB_HOST_KEY = {
   created_at: 1,
 };
 
-const ROUTER_MAIN: Credential = { name: "router-main", platform: "openrouter", revisions: [] };
+const ROUTER_MAIN: Credential = {
+  name: "router-main",
+  platform: "openrouter",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
+  revisions: [],
+};
+
+function instanceItem(name: string, connected: boolean): WorkerInstanceListItem {
+  return {
+    id: `worker_instance_${name}`,
+    name,
+    worker: "coder@1",
+    revision: 1,
+    public_key: "key",
+    fingerprint: "SHA256:key",
+    created_at: 1,
+    ended_at: null,
+    connection: connected ? { connection_name: name, connected_at: 1, last_heartbeat_at: 1 } : null,
+    binding_count: 0,
+    holder_mismatch: false,
+  };
+}
+
+function instanceDetail(name: string, projectIds: readonly string[]): WorkerInstanceDetail {
+  const { connection, ...record } = instanceItem(name, true);
+  return {
+    ...record,
+    connection,
+    bindings: projectIds.map((project_id) => ({ project_id, binding: "mac-main" })),
+    registrations: [],
+    credentials: [],
+  };
+}
+
+const CODER_INSTANCES = [instanceItem("mac-studio", true), instanceItem("build-01", false)];
+const INSTANCE_PROJECTS: Readonly<Record<string, readonly string[]>> = {
+  "mac-studio": ["project_1"],
+  "build-01": ["project_1", "project_2"],
+};
+const PROJECT_FIELDS = {
+  binding_set_version: 1,
+  created_at: 1,
+  paused_at: null,
+  workspace_directory: "/work",
+};
+const PROJECTS: readonly Project[] = [
+  { ...PROJECT_FIELDS, id: "project_1", name: "kanthord" },
+  { ...PROJECT_FIELDS, id: "project_2", name: "apps" },
+];
 
 describe("BindingsPanel", () => {
   beforeEach(() => {
@@ -189,6 +244,9 @@ describe("BindingsPanel", () => {
         {
           name: "github-ssh",
           platform: "ssh",
+          holder: "server",
+          sealed_to: null,
+          sealed_current: true,
           revisions: [
             {
               id: "rev_ssh",
@@ -202,9 +260,19 @@ describe("BindingsPanel", () => {
         {
           name: "github-main",
           platform: "github",
+          holder: "server",
+          sealed_to: null,
+          sealed_current: true,
           revisions: [{ id: "rev_1", revision: 1, metadata: null, created_at: 1, ended_at: null }],
         },
-        { name: "github-kanthorlabs", platform: "github", revisions: [] },
+        {
+          name: "github-kanthorlabs",
+          platform: "github",
+          holder: "server",
+          sealed_to: null,
+          sealed_current: true,
+          revisions: [],
+        },
       ],
       next_cursor: null,
     });
@@ -229,6 +297,11 @@ describe("BindingsPanel", () => {
     vi.mocked(credentialsApi.listHostKeys).mockResolvedValue([GITHUB_HOST_KEY]);
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
     vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(AVAILABLE_PLACEMENTS);
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue(CODER_INSTANCES);
+    vi.mocked(instancesApi.readWorkerInstance).mockImplementation(async (name) =>
+      instanceDetail(name, INSTANCE_PROJECTS[name] ?? []),
+    );
+    vi.mocked(projectsApi.listProjects).mockResolvedValue(PROJECTS);
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
       { ...CATALOG_ITEM, name: "coder@1" },
       { ...CATALOG_ITEM, name: "reviewer@1" },
@@ -400,9 +473,9 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
-    const count = screen.getByLabelText("Instance count");
-    await userEvent.clear(count);
-    await userEvent.type(count, "0");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "mac-studio · Connected", pressed: true }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("Making general-main unavailable");
@@ -442,6 +515,13 @@ describe("BindingsPanel", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
       { ...CATALOG_ITEM, host: "external-harness", name: "coder@1" },
     ]);
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: {
+        ...SET.bindings,
+        "general-main": { kind: "worker", config: { worker: "coder@1", instance_count: 2 } },
+      },
+    });
     mount();
 
     expect(await screen.findByText(/instance count 2/)).toBeTruthy();
@@ -456,7 +536,7 @@ describe("BindingsPanel", () => {
 
     expect(
       await screen.findByText(
-        "server runs each instance as a thread of the server. container runs each instance in its own container on the server host. worker waits for a kanthord serve worker process with a machine token. The binding keeps this choice.",
+        "server runs each instance as a thread of the server. container runs each instance in its own container on the server host. worker runs each listed worker instance, one kanthord serve worker process for each instance. The binding keeps this choice.",
       ),
     ).toBeTruthy();
   });
@@ -559,6 +639,14 @@ describe("BindingsPanel", () => {
     await chooseWorker("coder@1");
     await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
     await userEvent.click(await screen.findByRole("option", { name: "worker" }));
+
+    expect(screen.queryByLabelText("Instance count")).toBeNull();
+    expect(await screen.findByText("Instances")).toBeTruthy();
+    expect(instancesApi.listWorkerInstances).toHaveBeenCalledWith("coder@1");
+    await userEvent.click(
+      await screen.findByRole("button", { name: "mac-studio · Connected", pressed: false }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "build-01 · Not connected" }));
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -567,10 +655,117 @@ describe("BindingsPanel", () => {
         "general-main": WORKER,
         "coder-main": {
           kind: "worker",
-          config: { worker: "coder@1", instance_count: 1, placement: "worker" },
+          config: {
+            worker: "coder@1",
+            placement: "worker",
+            worker_instances: ["mac-studio", "build-01"],
+          },
         },
       }),
     );
+  });
+
+  it("names the listed instances of a worker binding in its row", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: {
+        ...SET.bindings,
+        "general-main": {
+          kind: "worker",
+          config: { ...WORKER.config, worker_instances: ["mac-studio", "build-01"] },
+        },
+      },
+    });
+    mount();
+
+    expect(
+      await screen.findByText(textContent(/placement worker · instances mac-studio, build-01 · /)),
+    ).toBeTruthy();
+    expect(screen.queryByText(/instance count/)).toBeNull();
+  });
+
+  it("links the worker page when the worker holds no live instance", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([]);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+    await userEvent.click(await screen.findByRole("option", { name: "worker" }));
+
+    expect(
+      await screen.findByText(textContent("No instances of coder@1. Add one on the worker page.")),
+    ).toBeTruthy();
+    expect(screen.getByRole("link", { name: "worker page" })).toHaveAttribute(
+      "href",
+      "/workers/coder%401",
+    );
+  });
+
+  it("loads the instances of a saved worker binding and names an instance of two projects", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+
+    expect(
+      await screen.findByRole("button", { name: "mac-studio · Connected", pressed: true }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "build-01 · Not connected" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.queryByText(/serves/)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "build-01 · Not connected" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "build-01 serves kanthord and apps. A tool of either project can read its key and its workspaces.",
+    );
+    expect(instancesApi.readWorkerInstance).toHaveBeenCalledWith("build-01");
+  });
+
+  it("shows a failed read of the projects of the chosen instances with Retry", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockRejectedValueOnce(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The projects of the chosen instances were not read. The daemon did not answer.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(screen.queryByText(/The projects of the chosen instances were not read/)).toBeNull(),
+    );
+  });
+
+  it("marks a saved instance that the live list does not hold as Not found", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: {
+        ...SET.bindings,
+        "general-main": {
+          kind: "worker",
+          config: { ...WORKER.config, worker_instances: ["mac-studio", "gone-01"] },
+        },
+      },
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+
+    const gone = await screen.findByRole("button", { name: "gone-01 · Not found" });
+    expect(gone).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+    expect(
+      await screen.findByText(
+        "gone-01 is not a live instance of coder@1. Remove it, or add it on the worker page.",
+      ),
+    ).toBeTruthy();
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+    await userEvent.click(gone);
+    expect(screen.queryByRole("button", { name: "gone-01 · Not found" })).toBeNull();
   });
 
   it("turns container off with the reason when the server runs in a container", async () => {
@@ -1402,6 +1597,9 @@ describe("BindingsPanel", () => {
     vi.mocked(credentialsApi.createCredential).mockResolvedValue({
       name: "github-new",
       platform: "github",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       revisions: [],
     });
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
@@ -1409,6 +1607,9 @@ describe("BindingsPanel", () => {
         {
           name: "github-ssh",
           platform: "ssh",
+          holder: "server",
+          sealed_to: null,
+          sealed_current: true,
           revisions: [
             {
               id: "rev_ssh",
@@ -1422,10 +1623,27 @@ describe("BindingsPanel", () => {
         {
           name: "github-main",
           platform: "github",
+          holder: "server",
+          sealed_to: null,
+          sealed_current: true,
           revisions: [{ id: "rev_1", revision: 1, metadata: null, created_at: 1, ended_at: null }],
         },
-        { name: "github-kanthorlabs", platform: "github", revisions: [] },
-        { name: "github-new", platform: "github", revisions: [] },
+        {
+          name: "github-kanthorlabs",
+          platform: "github",
+          holder: "server",
+          sealed_to: null,
+          sealed_current: true,
+          revisions: [],
+        },
+        {
+          name: "github-new",
+          platform: "github",
+          holder: "server",
+          sealed_to: null,
+          sealed_current: true,
+          revisions: [],
+        },
       ],
       next_cursor: null,
     });
@@ -1570,6 +1788,9 @@ describe("BindingsPanel", () => {
     const created: Credential = {
       name: "deploy-atlas",
       platform: "ssh",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       revisions: [
         {
           id: "rev_new",
@@ -1608,6 +1829,9 @@ describe("BindingsPanel", () => {
     const created: Credential = {
       name: "deploy-atlas",
       platform: "ssh",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       revisions: [
         {
           id: "rev_new",

@@ -13,7 +13,7 @@ export function SignInForm({ form }: { form: SignInFormState }) {
     <Card className="w-full min-w-0">
       <CardHeader>
         <CardTitle>kanthord</CardTitle>
-        <CardDescription>Sign in to a KanthorD instance with a human token.</CardDescription>
+        <CardDescription>Sign in to a KanthorD server with a human token.</CardDescription>
       </CardHeader>
       <CardContent>
         <form

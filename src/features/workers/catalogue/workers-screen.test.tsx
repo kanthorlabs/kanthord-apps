@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -44,6 +45,7 @@ const REGISTRATION_IDLE_WORKER: WorkerRegistrationRecord = {
   host: "kanthord",
   placement: "worker",
   name: "reviewer-1",
+  instance: "review-01",
   activity: "idle",
   draining: false,
   registered: true,
@@ -78,6 +80,14 @@ function workerBinding(
   };
 }
 
+function renderScreen() {
+  return render(
+    <MemoryRouter>
+      <WorkersScreen />
+    </MemoryRouter>,
+  );
+}
+
 describe("WorkersScreen", () => {
   beforeEach(() => {
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
@@ -86,7 +96,7 @@ describe("WorkersScreen", () => {
   it("lists the catalog workers with their node states and declared works", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("tdd")).toBeDefined());
     expect(screen.getByText("Waiting")).toBeDefined();
@@ -97,10 +107,34 @@ describe("WorkersScreen", () => {
     expect(workersApi.listWorkerRegistrations).toHaveBeenCalledWith("prj-test");
   });
 
+  it("links each catalog worker to its worker page and counts its live registrations", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
+      CATALOG_TDD,
+      { ...CATALOG_TDD, name: "reviewer@1" },
+    ]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([
+      REGISTRATION_EXECUTING,
+      { ...REGISTRATION_EXECUTING, runtime_identity: "worker_registration_04" },
+      REGISTRATION_IDLE_WORKER,
+    ]);
+    renderScreen();
+
+    expect(await screen.findByRole("button", { name: "Open reviewer@1" })).toHaveAttribute(
+      "href",
+      "/workers/reviewer%401",
+    );
+    expect(screen.getByRole("button", { name: "Open tdd" })).toHaveAttribute(
+      "href",
+      "/workers/tdd",
+    );
+    expect(screen.getByText("2 live registrations")).toBeDefined();
+    expect(screen.getByText("1 live registration")).toBeDefined();
+  });
+
   it("shows the activity, the drain mark and the execution of a live registration", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_EXECUTING]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("worker_registration_01")).toBeDefined());
     expect(screen.getByText("executing")).toBeDefined();
@@ -112,7 +146,7 @@ describe("WorkersScreen", () => {
   it("shows the worker placement and no drain mark for an idle worker registration", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("reviewer-1")).toBeDefined());
     expect(screen.getByText("idle")).toBeDefined();
@@ -123,7 +157,7 @@ describe("WorkersScreen", () => {
   it("shows no placement for an external-harness registration", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_EXTERNAL]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("harness-1")).toBeDefined());
     expect(screen.getByText("pulling")).toBeDefined();
@@ -136,7 +170,7 @@ describe("WorkersScreen", () => {
       .mockRejectedValueOnce(new ApiError("unavailable", "The daemon is unavailable.", 503))
       .mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getAllByText("The daemon is unavailable.")).toHaveLength(2));
     await userEvent.click(screen.getAllByRole("button", { name: "Retry" })[0]!);
@@ -153,9 +187,12 @@ describe("WorkersScreen", () => {
     ]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
-      workerBinding("reviewer-main", { instance_count: 3, placement: "worker" }),
+      workerBinding("reviewer-main", {
+        placement: "worker",
+        worker_instances: ["review-01", "review-02", "review-03"],
+      }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("tdd-main")).toBeDefined());
     expect(screen.getByText("2 of 2 live")).toBeDefined();
@@ -170,29 +207,36 @@ describe("WorkersScreen", () => {
       { ...REGISTRATION_IDLE_WORKER, project_id: "prj-other" },
     ]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 1, placement: "worker" }),
+      workerBinding("reviewer-main", { placement: "worker", worker_instances: ["review-01"] }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("0 of 1 live")).toBeDefined());
   });
 
-  it("shows the missing count and the wait for a worker placement binding with a gap", async () => {
+  it("names the listed instances that hold no live registration", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
+      workerBinding("reviewer-main", {
+        placement: "worker",
+        worker_instances: ["review-01", "review-02"],
+      }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
     expect(
       screen.getByText(
         textContent(
-          "2 instances are missing. The worker placement waits for the worker instance, which a later version adds. Until then, the server refuses the registration of a worker at this placement and hands it no credential. Use the server placement.",
+          "2 instances missing. Start kanthord serve worker --instance <name> on the host of each listed instance that is not registered: review-01, review-02. Open the worker page",
         ),
       ),
     ).toBeDefined();
+    expect(screen.getByRole("link", { name: "Open the worker page" })).toHaveAttribute(
+      "href",
+      "/workers/tdd",
+    );
     expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
   });
 
@@ -200,12 +244,17 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
+      workerBinding("reviewer-main", {
+        placement: "worker",
+        worker_instances: ["review-01", "review-02"],
+      }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("1 of 2 live")).toBeDefined());
-    expect(screen.getByText(/^1 instance is missing\./)).toBeDefined();
+    expect(screen.getByText(/^1 instance missing\./)).toHaveTextContent(
+      /not registered: review-02\. Open the worker page$/,
+    );
   });
 
   it("shows the slot limit cause for a server placement binding with a gap", async () => {
@@ -214,7 +263,7 @@ describe("WorkersScreen", () => {
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
     expect(
@@ -233,7 +282,7 @@ describe("WorkersScreen", () => {
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("tdd-main", { instance_count: 2, placement: "container" }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
     expect(screen.getByText(textContent("tdd · container"))).toBeDefined();
@@ -251,22 +300,22 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 1, placement: "worker" }),
+      workerBinding("reviewer-main", { placement: "worker", worker_instances: ["review-01"] }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("1 of 1 live")).toBeDefined());
     expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
     expect(screen.queryByText(/worker.server_slot_limit/)).toBeNull();
   });
 
-  it("shows a disabled mark for a binding with an instance count of 0", async () => {
+  it("shows a disabled mark for a binding at the worker placement with no instance", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 0, placement: "worker" }),
+      workerBinding("reviewer-main", { placement: "worker", worker_instances: [] }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("0 of 0 live")).toBeDefined());
     expect(screen.getByText("disabled")).toBeDefined();
@@ -286,7 +335,7 @@ describe("WorkersScreen", () => {
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("claude-code-main", { worker: "claude-code@1", instance_count: 1 }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("0 of 1 live")).toBeDefined());
     expect(screen.getAllByText("claude-code@1").length).toBeGreaterThan(0);
@@ -300,9 +349,12 @@ describe("WorkersScreen", () => {
     );
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
+      workerBinding("reviewer-main", {
+        placement: "worker",
+        worker_instances: ["review-01", "review-02"],
+      }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getAllByText("The daemon is unavailable.")).toHaveLength(2));
     expect(screen.queryByText("0 of 2 live")).toBeNull();
@@ -318,21 +370,24 @@ describe("WorkersScreen", () => {
     );
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { instance_count: 2, placement: "worker" }),
+      workerBinding("reviewer-main", {
+        placement: "worker",
+        worker_instances: ["review-01", "review-02"],
+      }),
     ]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(workersApi.listWorkerRegistrations).toHaveBeenCalled());
     expect(screen.queryByText("0 of 2 live")).toBeNull();
     resolveCatalog([CATALOG_TDD]);
     await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
-    expect(screen.getByText(/^2 instances are missing\./)).toBeDefined();
+    expect(screen.getByText(/^2 instances missing\./)).toBeDefined();
   });
 
   it("shows the empty state when the project has no worker binding", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
-    render(<WorkersScreen />);
+    renderScreen();
 
     await waitFor(() => expect(screen.getByText("No worker bindings.")).toBeDefined());
   });

@@ -93,6 +93,7 @@ interface WorkerRegistrationBase {
   readonly worker_name: string;
   readonly client_id?: string;
   readonly name?: string;
+  readonly instance?: string | null;
   readonly activity: RegistrationActivity;
   readonly draining: boolean;
   readonly execution_id?: string;
@@ -102,6 +103,58 @@ interface WorkerRegistrationBase {
 export type WorkerRegistrationRecord =
   | (WorkerRegistrationBase & { readonly host: "kanthord"; readonly placement: WorkerPlacement })
   | (WorkerRegistrationBase & { readonly host: "external-harness" });
+
+export interface InstanceConnection {
+  readonly connection_name: string;
+  readonly connected_at: number;
+  readonly last_heartbeat_at: number;
+}
+
+export interface WorkerInstance {
+  readonly id: string;
+  readonly name: string;
+  readonly worker: string;
+  readonly revision: number;
+  readonly public_key: string;
+  readonly fingerprint: string;
+  readonly created_at: number;
+  readonly ended_at: number | null;
+}
+
+export interface WorkerInstanceListItem extends WorkerInstance {
+  readonly connection: InstanceConnection | null;
+  readonly binding_count: number;
+  readonly holder_mismatch: boolean;
+}
+
+export interface InstanceBinding {
+  readonly project_id: string;
+  readonly binding: string;
+}
+
+export interface InstanceCredentialCopy {
+  readonly name: string;
+  readonly revision: number;
+  readonly platform: CredentialPlatform;
+  readonly sealed_current: boolean;
+}
+
+export interface WorkerInstanceDetail extends WorkerInstance {
+  readonly connection: InstanceConnection | null;
+  readonly bindings: readonly InstanceBinding[];
+  readonly registrations: readonly WorkerRegistrationRecord[];
+  readonly credentials: readonly InstanceCredentialCopy[];
+}
+
+export interface WorkerInstanceWriteAnswer extends WorkerInstance {
+  readonly instance_configuration?: string;
+}
+
+export interface WorkerInstanceCreateBody {
+  readonly name: string;
+  readonly worker: string;
+  readonly endpoint: string;
+}
 
 export type AgentEnablementState = "enabled" | "disabled";
 
@@ -404,7 +457,8 @@ export interface PlacementStatus {
 
 export interface WorkerBindingConfig {
   readonly worker: string;
-  readonly instance_count: number;
+  readonly instance_count?: number;
+  readonly worker_instances?: readonly string[];
   readonly placement?: WorkerPlacement;
   readonly resource_budget?: { readonly turns: number; readonly wall_time_ms: number };
   readonly entries?: readonly WorkerAgentEntry[];
@@ -937,6 +991,9 @@ export interface CredentialRevision {
 export interface Credential {
   readonly name: string;
   readonly platform: CredentialPlatform;
+  readonly holder: string;
+  readonly sealed_to: string | null;
+  readonly sealed_current: boolean;
   readonly revisions: readonly CredentialRevision[];
 }
 
@@ -1012,9 +1069,10 @@ export interface CredentialCreateBody {
   readonly platform: CredentialPlatform;
   readonly metadata: CredentialMetadata;
   readonly secret: ApiKeySecret | S3AccessKeySecret | Record<string, never>;
+  readonly holders?: readonly string[];
 }
 
-export type CredentialCheckBody = Omit<CredentialCreateBody, "name">;
+export type CredentialCheckBody = Omit<CredentialCreateBody, "name" | "holders">;
 
 export interface CredentialRotateBody {
   readonly expected_revision: number;
@@ -1033,6 +1091,7 @@ export interface CredentialLoginBody {
   readonly platform: CredentialPlatform;
   readonly name: string;
   readonly mode?: CredentialLoginMode;
+  readonly holder?: string;
 }
 
 export interface CredentialLoginSession {

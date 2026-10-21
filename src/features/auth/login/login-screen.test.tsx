@@ -77,7 +77,7 @@ function form() {
 }
 
 function row(name: string) {
-  return within(screen.getByRole("list", { name: "Saved instances" }))
+  return within(screen.getByRole("list", { name: "Saved servers" }))
     .getAllByRole("listitem")
     .find((item) => within(item).queryAllByText(name).length > 0) as HTMLElement;
 }
@@ -104,21 +104,23 @@ describe("LoginScreen", () => {
     mount();
 
     expect(form()).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Saved instances" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Saved servers" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Saved servers" })).toBeInTheDocument();
+    expect(screen.getByText("Sign in to a KanthorD server with a human token.")).toBeTruthy();
   });
 
-  it("hides the list and fills the localhost instance when nothing is saved", () => {
+  it("hides the list and fills the localhost server when nothing is saved", () => {
     mount();
 
-    expect(screen.queryByRole("list", { name: "Saved instances" })).toBeNull();
-    expect(screen.queryByText("Saved instances")).toBeNull();
+    expect(screen.queryByRole("list", { name: "Saved servers" })).toBeNull();
+    expect(screen.queryByText("Saved servers")).toBeNull();
     expect(within(form()).getByLabelText("Name")).toHaveValue("localhost");
     expect(within(form()).getByLabelText("Endpoint")).toHaveValue("http://localhost:31415");
     expect(within(form()).getByLabelText("JWT token")).toHaveValue("");
   });
 
-  it("starts with the default endpoint and an empty name when an instance is saved", () => {
+  it("starts with the default endpoint and an empty name when a server is saved", () => {
     seed(LOCAL);
     mount();
 
@@ -222,7 +224,7 @@ describe("LoginScreen", () => {
     expect(await within(form()).findByText("Failed")).toBeInTheDocument();
     expect(
       within(form()).getByText(
-        "The instance refused the token. Use a human token from kanthord auth jwt generate.",
+        "The server refused the token. Use a human token from kanthord auth jwt generate.",
       ),
     ).toBeInTheDocument();
     expect(within(form()).queryByText("Verified")).toBeNull();
@@ -377,7 +379,7 @@ describe("LoginScreen", () => {
 
     expect(
       await screen.findByText(
-        "The instance refused the token. Use a human token from kanthord auth jwt generate.",
+        "The server refused the token. Use a human token from kanthord auth jwt generate.",
       ),
     ).toBeInTheDocument();
     expect(window.localStorage.getItem("kanthord.instances")).toBeNull();
@@ -393,7 +395,7 @@ describe("LoginScreen", () => {
 
     expect(
       await screen.findByText(
-        `The instance did not answer. Its configured origins may not include this dashboard origin, ${window.location.origin}.`,
+        `The server did not answer. Its configured origins may not include this dashboard origin, ${window.location.origin}.`,
       ),
     ).toBeInTheDocument();
   });
@@ -418,7 +420,7 @@ describe("LoginScreen", () => {
 
     expect(
       await within(row("local")).findByText(
-        "The instance refused the token. Use a human token from kanthord auth jwt generate.",
+        "The server refused the token. Use a human token from kanthord auth jwt generate.",
       ),
     ).toBeInTheDocument();
   });
@@ -466,7 +468,7 @@ describe("LoginScreen", () => {
     mount();
 
     await userEvent.click(screen.getByRole("button", { name: "Delete local" }));
-    await userEvent.click(screen.getByRole("button", { name: "Delete instance" }));
+    await userEvent.click(screen.getByRole("button", { name: "Delete server" }));
 
     expect(stored()).toEqual({ instances: [STAGING] });
     expect(screen.queryByRole("button", { name: "Sign in to local" })).toBeNull();
@@ -500,7 +502,7 @@ describe("LoginScreen", () => {
     await userEvent.click(within(editor).getByRole("button", { name: "Save" }));
 
     expect(
-      within(editor).getByText("The instance staging already uses this URL."),
+      within(editor).getByText("The server staging already uses this URL."),
     ).toBeInTheDocument();
     expect(stored()).toEqual({ instances: [LOCAL, STAGING] });
   });

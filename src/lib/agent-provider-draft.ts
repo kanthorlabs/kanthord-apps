@@ -18,8 +18,10 @@ export const EMPTY_AGENT_PROVIDER: AgentProviderDraft = { name: "", credential: 
 export function agentProviderCredentials(
   credentials: readonly Credential[],
 ): readonly Credential[] {
-  return credentials.filter((credential) =>
-    AGENT_PROVIDER_KINDS.some((kind) => kind === credential.platform),
+  return credentials.filter(
+    (credential, index) =>
+      AGENT_PROVIDER_KINDS.some((kind) => kind === credential.platform) &&
+      credentials.findIndex((other) => other.name === credential.name) === index,
   );
 }
 

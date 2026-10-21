@@ -51,6 +51,23 @@ function failureOf(status: number, body: unknown): ApiError {
   );
 }
 
+export async function requestText(path: string): Promise<string> {
+  const target = current;
+  if (target === null) throw new ApiError("unreachable", "No server is connected.", 0);
+  const url = joinUrl(target.baseUrl, path);
+  const headers: Record<string, string> = {};
+  if (target.token !== null) headers["authorization"] = `Bearer ${target.token}`;
+  let response: Response;
+  try {
+    response = await fetch(url, { headers });
+  } catch {
+    throw new ApiError("unreachable", "The daemon did not answer.", 0, url);
+  }
+  const text = await response.text();
+  if (!response.ok) throw failureOf(response.status, null);
+  return text;
+}
+
 export async function request<T>(
   path: string,
   init: {
@@ -62,7 +79,7 @@ export async function request<T>(
   connection?: Connection,
 ): Promise<T> {
   const target = connection ?? current;
-  if (target === null) throw new ApiError("unreachable", "No instance is connected.", 0);
+  if (target === null) throw new ApiError("unreachable", "No server is connected.", 0);
 
   const url = joinUrl(target.baseUrl, path);
   const headers: Record<string, string> = { ...init.headers, accept: "application/json" };

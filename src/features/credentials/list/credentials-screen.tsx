@@ -28,7 +28,7 @@ import { ALL_PLATFORMS, useCredentialList } from "./use-credential-list";
 import { useSshKeySheet } from "./use-ssh-key-sheet";
 
 const SECTION_DESCRIPTIONS: Readonly<Record<CredentialComponent, string>> = {
-  llm: "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform.",
+  llm: "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform. Instance credentials live on the worker pages.",
   repository:
     "A Git credential holds the secret that reaches the repositories of a project, a GitHub token or an SSH key. A repository binding of a project uses it.",
   storage:

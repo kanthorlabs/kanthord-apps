@@ -38,6 +38,9 @@ const PROJECT: Project = {
 const ROUTER: Credential = {
   name: "router-main",
   platform: "openrouter",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [{ id: "c-1", revision: 1, metadata: null, created_at: 1, ended_at: null }],
 };
 

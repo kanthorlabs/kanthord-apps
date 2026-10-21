@@ -1,16 +1,26 @@
+import { Fragment } from "react";
+import { Link } from "react-router-dom";
+
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { workerPagePath } from "@/lib/worker-paths";
 import type { BindingInstances } from "../binding-instances";
 
 function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
-  const { missing } = entry;
+  const { missing, unregistered } = entry;
   return (
     <p className="text-sm">
-      {missing} {missing === 1 ? "instance is" : "instances are"} missing. The worker placement
-      waits for the worker instance, which a later version adds. Until then, the server refuses the
-      registration of a worker at this placement and hands it no credential. Use the{" "}
-      <code className="font-mono">server</code> placement.
+      {missing} {missing === 1 ? "instance" : "instances"} missing. Start{" "}
+      <code className="font-mono">kanthord serve worker --instance &lt;name&gt;</code> on the host
+      of each listed instance that is not registered:{" "}
+      {unregistered.map((instance, index) => (
+        <Fragment key={instance}>
+          {index > 0 && ", "}
+          <RecordName>{instance}</RecordName>
+        </Fragment>
+      ))}
+      . <Link to={workerPagePath(entry.binding.config.worker)}>Open the worker page</Link>
     </p>
   );
 }

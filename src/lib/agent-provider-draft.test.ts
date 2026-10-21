@@ -25,11 +25,21 @@ const ENABLEMENT: AgentEnablement = {
   revision: 3,
 };
 
-const CODEX: Credential = { name: "openai-codex-elsa", platform: "openai-codex", revisions: [] };
+const CODEX: Credential = {
+  name: "openai-codex-elsa",
+  platform: "openai-codex",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
+  revisions: [],
+};
 
 const SUBSCRIPTION: Credential = {
   name: "claude-elsa",
   platform: "anthropic-subscription",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [],
 };
 
@@ -89,6 +99,9 @@ describe("unusedProviderCredentials", () => {
     const used: Credential = {
       name: "github--copilot-elsa",
       platform: "github-copilot",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       revisions: [],
     };
     expect(unusedProviderCredentials([CODEX, SUBSCRIPTION, custom, used], ENABLEMENT)).toEqual([

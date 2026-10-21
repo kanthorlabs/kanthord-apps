@@ -18,16 +18,16 @@ export function LoginScreen() {
         <SignInForm form={form} />
         {saved.rows.length > 0 && (
           <div className="flex flex-col gap-3">
-            <h2 className="text-lg font-semibold">Saved instances</h2>
+            <h2 className="text-lg font-semibold">Saved servers</h2>
             <DataList
-              label="Saved instances"
+              label="Saved servers"
               items={saved.rows}
               getKey={(row) => row.instance.id}
               status="ready"
               error={null}
               pending={false}
               onRetry={() => undefined}
-              emptyText="No saved instances. A successful login saves its instance here."
+              emptyText="No saved servers. A successful login saves its server here."
               renderItem={(row) =>
                 row.mode === "edit" ? (
                   <SavedInstanceEditor

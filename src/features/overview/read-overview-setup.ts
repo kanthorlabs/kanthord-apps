@@ -37,7 +37,7 @@ export interface OverviewSetup {
 
 async function readLivenessReport(): Promise<LivenessReport> {
   const baseUrl = connectionBaseUrl();
-  if (baseUrl === null) throw new ApiError("unreachable", "No instance is connected.", 0);
+  if (baseUrl === null) throw new ApiError("unreachable", "No server is connected.", 0);
   return readLiveness(baseUrl);
 }
 
@@ -78,7 +78,12 @@ export async function readOverviewSetup(previous: OverviewSetup | null): Promise
   const projects = await listProjects();
   const [catalog, credentials, liveness, perProject] = await Promise.all([
     settle(null, "worker catalog", listWorkerCatalog, previous?.catalog ?? null),
-    settle(null, "LLM credentials", () => listAllCredentials("llm"), previous?.credentials ?? null),
+    settle(
+      null,
+      "LLM credentials",
+      () => listAllCredentials("llm", "server"),
+      previous?.credentials ?? null,
+    ),
     readLivenessReport().then(
       (report) => ({ report, failure: null }),
       (cause: unknown) => ({ report: null, failure: asApiError(cause).message }),

@@ -1,4 +1,4 @@
-import { request } from "../client";
+import { request, requestText } from "../client";
 import { ApiError, isApiError } from "../errors";
 import type { HumanIdentity, LivenessReport, ServiceMaps } from "../types";
 
@@ -26,4 +26,14 @@ export async function verifyHumanToken(baseUrl: string, token: string): Promise<
     throw new ApiError("unauthorized", "The token is not a human token.", 401);
   }
   return identity;
+}
+
+const INFO_VERSION = /^info:\r?\n(?:[ \t]+.*\r?\n)*?[ \t]+version:[ \t]*["']?([^"'\s]+)/m;
+
+export async function readServerVersion(): Promise<string> {
+  const version = INFO_VERSION.exec(await requestText("/api/openapi.yaml"))?.[1];
+  if (version === undefined) {
+    throw new ApiError("malformed", "The OpenAPI index holds no version.", 0, "/api/openapi.yaml");
+  }
+  return version;
 }

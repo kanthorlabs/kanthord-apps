@@ -5,6 +5,7 @@ import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
+import * as instancesApi from "@/api/resources/worker-instances";
 import * as workersApi from "@/api/resources/workers";
 import type {
   AgentSummary,
@@ -12,6 +13,7 @@ import type {
   MissionNodeRecord,
   Project,
   WorkerBindingRecord,
+  WorkerInstanceListItem,
   WorkerRegistrationRecord,
 } from "@/api/types";
 
@@ -19,6 +21,7 @@ vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
+vi.mock("@/api/resources/worker-instances");
 
 import { useProjectReadiness } from "./use-project-readiness";
 
@@ -113,6 +116,36 @@ function serveFull() {
   });
   vi.mocked(missionApi.listMissionNodes).mockResolvedValue([NODE]);
   vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+  vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([]);
+}
+
+function instance(name: string, connected: boolean): WorkerInstanceListItem {
+  return {
+    id: `worker_instance_${name}`,
+    name,
+    worker: "coder@1",
+    revision: 1,
+    public_key: "key",
+    fingerprint: "SHA256:key",
+    created_at: 1,
+    ended_at: null,
+    connection: connected ? { connection_name: name, connected_at: 1, last_heartbeat_at: 1 } : null,
+    binding_count: 1,
+    holder_mismatch: false,
+  };
+}
+
+function servePlaced(instances: readonly string[]) {
+  vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+    ...FULL_SET,
+    bindings: {
+      ...FULL_SET.bindings,
+      "general-main": {
+        kind: "worker",
+        config: { worker: "coder@1", placement: "worker", worker_instances: instances },
+      },
+    },
+  });
 }
 
 async function readinessOf(project: Project) {
@@ -232,19 +265,32 @@ describe("useProjectReadiness", () => {
       {
         name: "old-router",
         platform: "openrouter",
+        holder: "server",
+        sealed_to: null,
+        sealed_current: true,
         revisions: [{ id: "c-1", revision: 1, metadata: null, created_at: 1, ended_at: 2 }],
       },
-      { name: "gem", platform: "gemini", revisions: [] },
+      {
+        name: "gem",
+        platform: "gemini",
+        holder: "server",
+        sealed_to: null,
+        sealed_current: true,
+        revisions: [],
+      },
       {
         name: "router-main",
         platform: "openrouter",
+        holder: "server",
+        sealed_to: null,
+        sealed_current: true,
         revisions: [{ id: "c-2", revision: 1, metadata: null, created_at: 1, ended_at: null }],
       },
     ]);
 
     const readiness = await readinessOf(PROJECT);
 
-    expect(credentialsApi.listAllCredentials).toHaveBeenCalledWith("llm");
+    expect(credentialsApi.listAllCredentials).toHaveBeenCalledWith("llm", "server");
     expect(readiness.items.find((item) => item.key === "enabled_agents")?.link).toEqual({
       label: "Enable agents",
       path: "/llm/router-main#enable-agents",
@@ -275,5 +321,61 @@ describe("useProjectReadiness", () => {
       "plan_import:done",
       "project_active:done",
     ]);
+  });
+
+  it("names a listed instance that is not connected at the worker placement", async () => {
+    serveFull();
+    servePlaced(["mac-studio", "build-01"]);
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+      instance("mac-studio", true),
+      instance("build-01", false),
+    ]);
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(instancesApi.listWorkerInstances).toHaveBeenCalledWith(null);
+    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+      state: "open",
+      detail: "Instance",
+      names: ["build-01"],
+      after: "is not connected. Start kanthord serve worker with its configuration.",
+    });
+  });
+
+  it("counts a worker placement binding with connected instances by its registrations", async () => {
+    serveFull();
+    servePlaced(["mac-studio"]);
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([instance("mac-studio", true)]);
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+      state: "done",
+      detail: "Each worker binding runs a live registration.",
+    });
+  });
+
+  it("reports a failed instance read and states the absence in the registration step", async () => {
+    serveFull();
+    servePlaced(["mac-studio"]);
+    vi.mocked(instancesApi.listWorkerInstances).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(readiness.faults).toEqual([
+      {
+        projectId: PROJECT.id,
+        projectName: PROJECT.name,
+        source: "worker instances",
+        message: "The daemon did not answer.",
+      },
+    ]);
+    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+      state: "open",
+      detail: "The worker instances were not read.",
+      names: [],
+    });
   });
 });

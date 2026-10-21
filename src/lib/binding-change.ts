@@ -1,11 +1,14 @@
-import type { BindingSetEntry, MissionPlanEntry } from "@/api/types";
+import type { BindingSetEntry, MissionPlanEntry, WorkerBindingConfig } from "@/api/types";
+import { effectiveInstanceCount } from "./instance-count";
 
 export type BindingChangeKind = "create" | "revise" | "replace" | "disable" | "remove";
 
 const REPOSITORY_ADDRESS = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):([^/\s:]+)\/([^/\s:]+)\.git(?![\s\S])/;
 
 export function isAvailable(entry: BindingSetEntry): boolean {
-  return entry.kind === "worker" ? entry.config.instance_count > 0 : entry.config.available;
+  return entry.kind === "worker"
+    ? effectiveInstanceCount(entry.config) > 0
+    : entry.config.available;
 }
 
 export function resourceIdentityOf(name: string, entry: BindingSetEntry): string | null {
@@ -37,8 +40,14 @@ export function isGuarded(kind: BindingChangeKind): boolean {
   return kind === "replace" || kind === "disable" || kind === "remove";
 }
 
+function unavailableWorkerOf(config: WorkerBindingConfig): WorkerBindingConfig {
+  return config.placement === "worker"
+    ? { ...config, worker_instances: [] }
+    : { ...config, instance_count: 0 };
+}
+
 export function unavailableOf(entry: BindingSetEntry): BindingSetEntry {
-  if (entry.kind === "worker") return { ...entry, config: { ...entry.config, instance_count: 0 } };
+  if (entry.kind === "worker") return { ...entry, config: unavailableWorkerOf(entry.config) };
   if (entry.kind === "repository") {
     return { ...entry, config: { ...entry.config, available: false } };
   }

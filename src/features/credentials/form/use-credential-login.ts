@@ -56,6 +56,7 @@ export function useCredentialLogin(
   component: CredentialComponent,
   modes: readonly CredentialLoginMode[],
   onCreated?: (name: string) => void,
+  holder: string | null = null,
 ): CredentialLoginState {
   const navigate = useNavigate();
   const returnTo = returnToOf(useLocation().state);
@@ -116,6 +117,7 @@ export function useCredentialLogin(
         platform: nextPlatform,
         name: nextName,
         ...(mode === null ? {} : { mode }),
+        ...(holder === null ? {} : { holder }),
       }).then(
         (next) => {
           setStarting(false);
@@ -132,7 +134,7 @@ export function useCredentialLogin(
         },
       );
     },
-    [starting, mode],
+    [starting, mode, holder],
   );
 
   const clearStartError = useCallback(() => setStartError(null), []);

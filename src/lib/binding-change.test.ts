@@ -115,6 +115,25 @@ describe("isAvailable", () => {
   });
 });
 
+describe("unavailableOf at the worker placement", () => {
+  const placed: BindingSetEntry = {
+    kind: "worker",
+    config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
+  };
+
+  it("empties the instance list and sets no instance count", () => {
+    const unavailable = unavailableOf(placed);
+    expect(unavailable.kind === "worker" && unavailable.config).toEqual({
+      worker: "coder@1",
+      placement: "worker",
+      worker_instances: [],
+    });
+    expect(isAvailable(placed)).toBe(true);
+    expect(isAvailable(unavailable)).toBe(false);
+    expect(classifyChange("mac-main", placed, unavailable)).toBe("disable");
+  });
+});
+
 describe("nextBindings", () => {
   it("replaces or removes one binding and keeps the others", () => {
     const current = { repo: REPO, "general-main": WORKER };

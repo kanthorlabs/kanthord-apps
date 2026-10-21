@@ -40,7 +40,7 @@ export function normalizeBaseUrl(raw: string): string | null {
 function nameError(name: string, others: readonly Instance[]): string | undefined {
   const key = name.toLowerCase();
   if (others.some((instance) => instance.name.toLowerCase() === key)) {
-    return `Another instance is already named ${name}.`;
+    return `Another server is already named ${name}.`;
   }
   return undefined;
 }
@@ -48,7 +48,7 @@ function nameError(name: string, others: readonly Instance[]): string | undefine
 function baseUrlError(baseUrl: string | null, others: readonly Instance[]): string | undefined {
   if (baseUrl === null) return INVALID_BASE_URL;
   const twin = others.find((instance) => instance.baseUrl === baseUrl);
-  if (twin !== undefined) return `The instance ${twin.name} already uses this URL.`;
+  if (twin !== undefined) return `The server ${twin.name} already uses this URL.`;
   return undefined;
 }
 

@@ -396,6 +396,65 @@ describe("worker placement", () => {
   });
 });
 
+describe("worker instances", () => {
+  const PLACED: BindingSetEntry = {
+    kind: "worker",
+    config: {
+      worker: "coder@1",
+      placement: "worker",
+      worker_instances: ["mac-studio", "build-01"],
+    },
+  };
+  const LIVE = ["build-01", "mac-studio"];
+
+  it("loads the instance list of a saved binding and writes it with no instance count", () => {
+    const draft = draftOf("mac-main", PLACED);
+    expect(draft).toMatchObject({ instances: ["mac-studio", "build-01"] });
+    expect(entryOfDraft(draft, [], LIVE)).toEqual({ ok: true, entry: PLACED });
+  });
+
+  it("writes an empty list and no instance count for a new binding at the worker placement", () => {
+    const draft: WorkerDraft = {
+      ...withWorker(emptyDraft("worker") as WorkerDraft, "coder@1"),
+      placement: "worker",
+    };
+    expect(missingForSave(draft)).toEqual([]);
+    expect(entryOfDraft(draft, [], LIVE)).toEqual({
+      ok: true,
+      entry: {
+        kind: "worker",
+        config: { worker: "coder@1", placement: "worker", worker_instances: [] },
+      },
+    });
+  });
+
+  it("refuses a repeated instance, more than 64 instances and an instance of no live record", () => {
+    const draft = draftOf("mac-main", PLACED) as WorkerDraft;
+    expect(entryOfDraft({ ...draft, instances: ["build-01", "build-01"] }, [], LIVE)).toEqual({
+      ok: false,
+      errors: { instances: "List each instance once." },
+    });
+    const many = Array.from({ length: 65 }, (_, index) => `i-${index}`);
+    expect(entryOfDraft({ ...draft, instances: many }, [], many)).toEqual({
+      ok: false,
+      errors: { instances: "Choose at most 64 instances." },
+    });
+    expect(entryOfDraft({ ...draft, instances: ["review-01"] }, [], LIVE)).toEqual({
+      ok: false,
+      errors: {
+        instances:
+          "review-01 is not a live instance of coder@1. Remove it, or add it on the worker page.",
+      },
+    });
+  });
+
+  it("clears the instances when the worker changes", () => {
+    expect(withWorker(draftOf("mac-main", PLACED) as WorkerDraft, "reviewer@1").instances).toEqual(
+      [],
+    );
+  });
+});
+
 describe("withWorker", () => {
   const draft = emptyDraft("worker") as WorkerDraft;
 

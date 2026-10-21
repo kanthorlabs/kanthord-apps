@@ -26,6 +26,9 @@ import { textContent } from "../../../../test/text-content";
 const ROUTER: Credential = {
   name: "router",
   platform: "openai-compatible",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [
     {
       id: "credential_01J9ZQ4XKM3B6V8N2R5T7W0YAE",

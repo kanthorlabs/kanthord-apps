@@ -34,6 +34,9 @@ const BASE_URL = "https://openrouter.ai/api/v1";
 const ROUTER: LlmCredential = {
   name: "router",
   platform: "openai-compatible",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   agent_providers: [],
   revisions: [
     {
@@ -84,6 +87,9 @@ const PLATFORMS: CredentialPlatformList = {
 const GATEWAY: LlmCredential = {
   name: "gateway",
   platform: "cloudflare-ai-gateway",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   agent_providers: [],
   revisions: [
     {
@@ -637,6 +643,9 @@ describe("CredentialScreen", () => {
     vi.mocked(credentialsApi.readCredential).mockResolvedValue({
       name: "openrouter",
       platform: "openrouter",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       agent_providers: [],
       revisions: [{ ...ROUTER.revisions[0]!, metadata: null }],
     });
@@ -693,6 +702,9 @@ describe("CredentialScreen", () => {
     vi.mocked(credentialsApi.readCredential).mockResolvedValue({
       name: "router",
       platform: "s3",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
       bindings: [],
       revisions: [{ ...ROUTER.revisions[0]!, metadata: null }],
     });
@@ -733,6 +745,9 @@ describe("CredentialScreen of an ssh credential", () => {
   const SSH: RepositoryCredential = {
     name: "router",
     platform: "ssh",
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
     bindings: [],
     revisions: [
       {

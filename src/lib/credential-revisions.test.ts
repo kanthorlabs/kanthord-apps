@@ -22,6 +22,9 @@ function revision(number: number, endedAt: number | null) {
 const CREDENTIAL: Credential = {
   name: "ci-github",
   platform: "github",
+  holder: "server",
+  sealed_to: null,
+  sealed_current: true,
   revisions: [revision(3, null), revision(2, null), revision(1, 5)],
 };
 

@@ -17,6 +17,9 @@ function credential(name: string, platform: string, ended = false): Credential {
   return {
     name,
     platform,
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
     revisions: [
       { id: `${name}-1`, revision: 1, metadata: null, created_at: 1, ended_at: ended ? 2 : null },
     ],
