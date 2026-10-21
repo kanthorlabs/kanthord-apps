@@ -14,5 +14,11 @@ export function CopyModelsSheet({
     reportedModelIds: target.reportedModelIds,
     openAtStart: true,
   });
-  return <MetadataSheet name={target.credential.name} entry={target.entry} edit={edit} />;
+  return (
+    <MetadataSheet
+      name={`${target.credential.name} on ${target.credential.holder}`}
+      entry={target.entry}
+      edit={edit}
+    />
+  );
 }

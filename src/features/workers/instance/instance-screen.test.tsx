@@ -258,7 +258,7 @@ describe("InstanceScreen", () => {
     const row = rowOf(credentials, "claude-sub");
     expect(within(row).getByText("Unhealthy")).toBeInTheDocument();
     expect(row).toHaveTextContent(
-      "The provider refused the API key or the access token. Correct the key, or sign in again for a new token. Then verify again. Reported by mac-studio at 2026-10-21 08:00 UTC.",
+      "The provider refused the API key or the access token. Rotate the copy with a correct key, or sign in again. The instance checks the copy again after the write. Reported by mac-studio at 2026-10-21 08:00 UTC.",
     );
   });
 
@@ -311,7 +311,9 @@ describe("InstanceScreen", () => {
     const row = rowOf(credentials, "atlas-router");
     await userEvent.click(await within(row).findByRole("button", { name: "Edit models" }));
     expect(credentialsApi.readCredential).toHaveBeenCalledWith("llm", "atlas-router", "mac-studio");
-    const sheet = await screen.findByRole("dialog", { name: "Edit metadata of atlas-router" });
+    const sheet = await screen.findByRole("dialog", {
+      name: "Edit metadata of atlas-router on mac-studio",
+    });
     const reported = within(sheet).getByRole("region", { name: "Reported models" });
     expect(within(reported).queryByRole("button", { name: "Add qwen3-coder" })).toBeNull();
     await userEvent.click(within(reported).getByRole("button", { name: "Add glm-4.6" }));

@@ -111,7 +111,7 @@ describe("credentialRowsOf", () => {
         health: {
           label: "Unhealthy",
           variant: "destructive",
-          hint: "The provider limited the requests. Wait some minutes, or check the quota of the plan. Then verify again.",
+          hint: "The provider limited the requests. Wait some minutes, or check the quota of the plan. The instance checks the copy again after the next copy write.",
           reportedAt: 7,
         },
         reportedModelIds: ["qwen3-coder"],

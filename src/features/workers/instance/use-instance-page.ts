@@ -16,7 +16,7 @@ import { useInstanceExecutions, type InstanceExecution } from "@/hooks/use-insta
 import { useResource, type Resource } from "@/hooks/use-resource";
 import { OPENAI_COMPATIBLE } from "@/lib/credential-draft";
 import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
-import { failureReasonHint } from "@/lib/failure-reason";
+import { instanceCopyHint } from "@/lib/failure-reason";
 
 export type InstanceBindingState = "serving" | "draining";
 
@@ -132,9 +132,7 @@ export function copyHealthLineOf(copy: InstanceCredentialCopy): InstanceCopyHeal
     label: healthLabel(health),
     variant: healthVariant(health),
     hint:
-      reported && health.failure_reason !== null
-        ? failureReasonHint(health.failure_reason, "llm")
-        : null,
+      reported && health.failure_reason !== null ? instanceCopyHint(health.failure_reason) : null,
     reportedAt: health.reported_at,
   };
 }
