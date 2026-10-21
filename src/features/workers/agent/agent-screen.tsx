@@ -17,6 +17,7 @@ import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
+import { ChainSection } from "./components/chain-section";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
@@ -304,6 +305,11 @@ export function AgentScreen() {
         />
         <ToolsSection tools={agent.tools} />
       </div>
+      <ChainSection
+        chain={agent.chain}
+        activePosition={agent.active_position}
+        cooling={agent.cooling}
+      />
       <PromptLayers
         agentName={agent.agent_name}
         layers={agent.prompt.layers ?? []}
