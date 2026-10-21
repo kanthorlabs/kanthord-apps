@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -546,6 +547,7 @@ describe("InstanceScreen", () => {
     );
     const sheet = await screen.findByRole("dialog", { name: "Sign in again to claude-sub" });
     const reads = vi.mocked(instancesApi.readWorkerInstance).mock.calls.length;
+    const success = vi.spyOn(toast, "success");
     await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
     await waitFor(
       () =>
@@ -555,6 +557,36 @@ describe("InstanceScreen", () => {
       { timeout: 4000 },
     );
     expect(vi.mocked(instancesApi.readWorkerInstance).mock.calls.length).toBeGreaterThan(reads);
+    expect(success.mock.calls).toEqual([["Stored a new revision of claude-sub for mac-studio."]]);
+  });
+
+  it("shows one success toast when the sign-in of Add credential completes", async () => {
+    const success = vi.spyOn(toast, "success");
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue({
+      session_id: "login_session_4",
+      address: "https://claude.ai/oauth/authorize",
+      code: null,
+      expires_at: 99,
+    });
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: "login_session_4",
+      state: "completed",
+      last_message: null,
+      failure_reason: null,
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "claude-sub-2");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Platform" }));
+    await userEvent.click(await screen.findByRole("option", { name: "anthropic-subscription" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
+    await waitFor(
+      () =>
+        expect(screen.queryByRole("dialog", { name: "Add credential" })).not.toBeInTheDocument(),
+      { timeout: 4000 },
+    );
+    expect(success.mock.calls).toEqual([["Stored claude-sub-2 for mac-studio."]]);
   });
 
   it("rotates a copy on this instance and on each selected other holder", async () => {

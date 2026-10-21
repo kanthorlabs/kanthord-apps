@@ -30,7 +30,7 @@ export function useInstanceSignIn(instanceName: string, reload: () => void): Ins
     [instanceName, reload],
   );
 
-  const login = useCredentialLogin("llm", modes, finish, instanceName);
+  const login = useCredentialLogin("llm", modes, finish, instanceName, false);
   const restartLogin = login.restart;
   const clearStartError = login.clearStartError;
 
