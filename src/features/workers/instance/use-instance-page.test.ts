@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkerBindingRecord, WorkerInstanceDetail } from "@/api/types";
-import { bindingRowsOf } from "./use-instance-page";
+import type {
+  CredentialPlatformEntry,
+  InstanceCredentialCopy,
+  WorkerBindingRecord,
+  WorkerInstanceDetail,
+} from "@/api/types";
+import { bindingRowsOf, credentialRowsOf } from "./use-instance-page";
 
 const DETAIL: WorkerInstanceDetail = {
   id: "worker_instance_1",
@@ -71,5 +76,77 @@ describe("bindingRowsOf", () => {
       { projectId: "prj-a", projectName: "kanthord", binding: "mac-main", state: "serving" },
       { projectId: "prj-b", projectName: "atlas", binding: "old-main", state: "draining" },
     ]);
+  });
+});
+
+const ROUTER_ENTRY: CredentialPlatformEntry = {
+  platform: "openai-compatible",
+  secret_shape: "api_key",
+  login_modes: [],
+  metadata_fields: ["base_url"],
+  verifiable: true,
+};
+
+const ROUTER_COPY: InstanceCredentialCopy = {
+  name: "atlas-router",
+  revision: 2,
+  platform: "openai-compatible",
+  sealed_current: true,
+  health: {
+    status: "unhealthy",
+    capability: "model-list read",
+    failure_reason: "rate_limited",
+    models: [{ id: "qwen3-coder", owned_by: null, created: null }],
+    reported_at: 7,
+  },
+};
+
+describe("credentialRowsOf", () => {
+  it("derives the health line, the reported model ids and the models edit of a copy", () => {
+    expect(credentialRowsOf([ROUTER_COPY], [ROUTER_ENTRY])).toEqual([
+      {
+        copy: ROUTER_COPY,
+        entry: ROUTER_ENTRY,
+        shape: "api_key",
+        health: {
+          label: "Unhealthy",
+          variant: "destructive",
+          hint: "The provider limited the requests. Wait some minutes, or check the quota of the plan. Then verify again.",
+          reportedAt: 7,
+        },
+        reportedModelIds: ["qwen3-coder"],
+        modelsEditable: true,
+      },
+    ]);
+  });
+
+  it("gives an unreported copy no hint and a copy sealed to an ended key no health line", () => {
+    const unreported: InstanceCredentialCopy = {
+      ...ROUTER_COPY,
+      health: {
+        status: "unknown",
+        capability: "model-list read",
+        failure_reason: "held_by_instance",
+        models: null,
+        reported_at: null,
+      },
+    };
+    const [fresh, stale] = credentialRowsOf(
+      [unreported, { ...unreported, sealed_current: false }],
+      [ROUTER_ENTRY],
+    );
+    expect(fresh?.health).toEqual({
+      label: "Unknown",
+      variant: "outline",
+      hint: null,
+      reportedAt: null,
+    });
+    expect(fresh?.reportedModelIds).toEqual([]);
+    expect(stale?.health).toBeNull();
+    expect(stale?.modelsEditable).toBe(false);
+  });
+
+  it("offers no models edit while the platform list is not read", () => {
+    expect(credentialRowsOf([ROUTER_COPY], null)[0]?.modelsEditable).toBe(false);
   });
 });

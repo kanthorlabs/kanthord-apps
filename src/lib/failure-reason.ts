@@ -20,6 +20,7 @@ const SHARED_HINTS: Readonly<Record<SharedFailureReason, string>> = {
     "The host presented another key. Compare the fingerprint with the published one, then pin again.",
   identity_unavailable:
     "The server cannot load the SSH key. Rotate the key. If the fault stays, read the server log.",
+  held_by_instance: "A worker instance holds the copy. The server holds no secret to check.",
   unclassified:
     "The check failed for an unknown cause, or it exceeded its deadline. Verify again. If the failure stays, read the server log.",
 };

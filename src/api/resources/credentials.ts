@@ -114,12 +114,12 @@ export async function updateCredentialMetadata(
   component: CredentialComponent,
   credentialName: string,
   body: CredentialMetadataBody,
+  holder: string | null = null,
 ): Promise<Credential> {
-  return request<Credential>(`${credentialPath(component, credentialName)}/metadata`, {
-    method: "PUT",
-    body,
-    headers: { "idempotency-key": newUlid() },
-  });
+  return request<Credential>(
+    `${credentialPath(component, credentialName)}/metadata${holderSuffix(holder)}`,
+    { method: "PUT", body, headers: { "idempotency-key": newUlid() } },
+  );
 }
 
 export async function revokeCredentialRevision(

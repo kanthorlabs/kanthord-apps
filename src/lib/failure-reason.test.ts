@@ -16,6 +16,7 @@ const REASONS: readonly ResourceFailureReason[] = [
   "invalid_response",
   "host_key_changed",
   "identity_unavailable",
+  "held_by_instance",
   "unclassified",
 ];
 
@@ -35,6 +36,12 @@ describe("failure reason hint", () => {
       const hints = REASONS.map((reason) => failureReasonHint(reason, component));
       expect(new Set(hints).size).toBe(REASONS.length);
     }
+  });
+
+  it("names the worker instance for a copy that an instance holds", () => {
+    expect(failureReasonHint("held_by_instance", "llm")).toBe(
+      "A worker instance holds the copy. The server holds no secret to check.",
+    );
   });
 
   it("names the deploy key step for a refused key", () => {

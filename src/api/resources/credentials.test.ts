@@ -274,6 +274,19 @@ describe("credential mutations", () => {
     expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 
+  it("names the holder of an instance copy in the metadata update query", async () => {
+    await serve(200, [GITHUB]);
+    const metadata = { base_url: "https://router.example/v1", models: [{ id: "qwen3-coder" }] };
+
+    await updateCredentialMetadata(
+      "llm",
+      "atlas-router",
+      { expected_revision: 1, metadata },
+      "mac-studio",
+    );
+    expect(seen[0]?.url).toBe("/api/llm/credential/atlas-router/metadata?holder=mac-studio");
+  });
+
   it("posts the revoke without a body", async () => {
     await serve(200, [GITHUB]);
 

@@ -1,4 +1,4 @@
-import { ArchiveIcon, KeyRoundIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import { ArchiveIcon, KeyRoundIcon, ListPlusIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 
@@ -17,10 +17,12 @@ import { utcDateTime } from "@/lib/format";
 import { nodePath } from "@/lib/node-path";
 import { workerPagePath } from "@/lib/worker-paths";
 import { ArchiveInstanceDialog } from "./components/archive-instance-dialog";
+import { CopyModelsSheet } from "./components/copy-models-sheet";
 import { CredentialAddSheet } from "./components/credential-add-sheet";
 import { CredentialRotateSheet } from "./components/credential-rotate-sheet";
 import { ResetKeyDialog } from "./components/reset-key-dialog";
 import { useInstanceArchive, type InstanceArchiveState } from "./use-instance-archive";
+import { useInstanceCopyModels, type InstanceCopyModelsState } from "./use-instance-copy-models";
 import { useInstanceCredentialAdd } from "./use-instance-credential-add";
 import {
   useInstanceCredentialRotate,
@@ -29,6 +31,7 @@ import {
 import {
   useInstancePage,
   type InstanceBindingRow,
+  type InstanceCopyHealthLine,
   type InstanceCredentialRow,
   type InstancePage,
   type InstanceRegistrationRow,
@@ -219,12 +222,37 @@ function RegistrationRows({
   );
 }
 
+function CopyHealthLine({
+  health,
+  instanceName,
+}: {
+  health: InstanceCopyHealthLine;
+  instanceName: string;
+}) {
+  if (health.reportedAt === null) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No report from <RecordName>{instanceName}</RecordName> for this revision since the server
+        start.
+      </p>
+    );
+  }
+  return (
+    <p className="text-sm">
+      {health.hint !== null && `${health.hint} `}Reported by <RecordName>{instanceName}</RecordName>{" "}
+      at {utcDateTime(health.reportedAt)}.
+    </p>
+  );
+}
+
 function CopyAction({
   row,
   rotate,
+  models,
 }: {
   row: InstanceCredentialRow;
   rotate: InstanceCredentialRotateState;
+  models: InstanceCopyModelsState;
 }) {
   if (row.shape === "oauth") {
     return (
@@ -237,21 +265,33 @@ function CopyAction({
   }
   if (row.shape !== "api_key") return null;
   return (
-    <Button variant="outline" size="sm" onClick={() => rotate.start(row.copy)}>
-      <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
-      Rotate
-    </Button>
+    <>
+      {row.modelsEditable && (
+        <Button variant="outline" size="sm" onClick={() => models.start(row)}>
+          <ListPlusIcon aria-hidden="true" data-icon="inline-start" />
+          Edit models
+        </Button>
+      )}
+      <Button variant="outline" size="sm" onClick={() => rotate.start(row.copy)}>
+        <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
+        Rotate
+      </Button>
+    </>
   );
 }
 
 function CredentialRows({
   rows,
+  instanceName,
   archived,
   rotate,
+  models,
 }: {
   rows: readonly InstanceCredentialRow[];
+  instanceName: string;
   archived: boolean;
   rotate: InstanceCredentialRotateState;
+  models: InstanceCopyModelsState;
 }) {
   if (rows.length === 0) return <EmptyLine title="No credential copies." />;
   return (
@@ -267,13 +307,23 @@ function CredentialRows({
                 <span className="text-muted-foreground tabular-nums">(v{copy.revision})</span>
               </>
             }
-            status={copy.sealed_current ? undefined : <Badge variant="destructive">Re-enter</Badge>}
-            notice={
-              copy.sealed_current ? undefined : (
-                <p className="text-sm">Re-enter: sealed to an ended key.</p>
+            status={
+              row.health === null ? (
+                <Badge variant="destructive">Re-enter</Badge>
+              ) : (
+                <Badge variant={row.health.variant}>{row.health.label}</Badge>
               )
             }
-            actions={archived ? undefined : <CopyAction row={row} rotate={rotate} />}
+            notice={
+              row.health === null ? (
+                <p className="text-sm">Re-enter: sealed to an ended key.</p>
+              ) : (
+                <CopyHealthLine health={row.health} instanceName={instanceName} />
+              )
+            }
+            actions={
+              archived ? undefined : <CopyAction row={row} rotate={rotate} models={models} />
+            }
           />
         );
       })}
@@ -323,6 +373,7 @@ function InstanceDetail({
   const archive = useInstanceArchive(instance);
   const add = useInstanceCredentialAdd(instance.name, reload);
   const rotate = useInstanceCredentialRotate(instance.name, reload);
+  const models = useInstanceCopyModels(instance.name);
 
   return (
     <div className="flex flex-col gap-6 px-4 lg:px-0">
@@ -355,7 +406,13 @@ function InstanceDetail({
             )
           }
         />
-        <CredentialRows rows={page.credentialRows} archived={archived} rotate={rotate} />
+        <CredentialRows
+          rows={page.credentialRows}
+          instanceName={instance.name}
+          archived={archived}
+          rotate={rotate}
+          models={models}
+        />
       </section>
       {!archived && (
         <section
@@ -382,6 +439,9 @@ function InstanceDetail({
       <ArchiveInstanceDialog name={instance.name} archive={archive} projectNameOf={projectNameOf} />
       <CredentialAddSheet instanceName={instance.name} add={add} />
       <CredentialRotateSheet instanceName={instance.name} rotate={rotate} />
+      {models.target !== null && (
+        <CopyModelsSheet key={models.target.key} target={models.target} reload={reload} />
+      )}
     </div>
   );
 }

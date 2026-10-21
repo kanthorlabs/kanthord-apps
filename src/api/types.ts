@@ -132,11 +132,23 @@ export interface InstanceBinding {
   readonly binding: string;
 }
 
+export interface ReportedModel {
+  readonly id: string;
+  readonly owned_by: string | null;
+  readonly created: number | null;
+}
+
+export interface CopyHealth extends HealthEntry {
+  readonly models: readonly ReportedModel[] | null;
+  readonly reported_at: number | null;
+}
+
 export interface InstanceCredentialCopy {
   readonly name: string;
   readonly revision: number;
   readonly platform: CredentialPlatform;
   readonly sealed_current: boolean;
+  readonly health: CopyHealth;
 }
 
 export interface WorkerInstanceDetail extends WorkerInstance {
@@ -1125,6 +1137,7 @@ export type ResourceFailureReason =
   | "invalid_response"
   | "host_key_changed"
   | "identity_unavailable"
+  | "held_by_instance"
   | "unclassified";
 
 export interface HealthEntry {

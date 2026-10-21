@@ -530,16 +530,21 @@ describe("CredentialScreen", () => {
     await userEvent.click(within(levels[1]!).getByRole("button", { name: "high" }));
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
 
-    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("llm", "router", {
-      expected_revision: 3,
-      metadata: {
-        base_url: BASE_URL,
-        models: [
-          { id: "qwen-plus" },
-          { id: "qwen-max", max_tokens: 8192, reasoning_levels: ["high"] },
-        ],
+    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith(
+      "llm",
+      "router",
+      {
+        expected_revision: 3,
+        metadata: {
+          base_url: BASE_URL,
+          models: [
+            { id: "qwen-plus" },
+            { id: "qwen-max", max_tokens: 8192, reasoning_levels: ["high"] },
+          ],
+        },
       },
-    });
+      null,
+    );
   });
 
   it("explains a model that an agent still uses", async () => {
@@ -668,10 +673,15 @@ describe("CredentialScreen", () => {
     await userEvent.type(gateway, "gw-2");
     await userEvent.click(within(sheet).getByRole("button", { name: "Save metadata" }));
 
-    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith("llm", "gateway", {
-      expected_revision: 1,
-      metadata: { account_id: "acc-1", gateway_id: "gw-2" },
-    });
+    expect(credentialsApi.updateCredentialMetadata).toHaveBeenCalledWith(
+      "llm",
+      "gateway",
+      {
+        expected_revision: 1,
+        metadata: { account_id: "acc-1", gateway_id: "gw-2" },
+      },
+      null,
+    );
   });
 
   it("disables Verify for a platform that is not verifiable and says why on focus", async () => {
