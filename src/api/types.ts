@@ -288,7 +288,14 @@ export interface AgentDeclaration {
   readonly enablement: AgentEnablement | null;
   readonly prompt: AgentPrompt;
   readonly tools: readonly AgentTool[];
+  readonly chain: readonly AgentChainEntry[];
+  readonly active_position: number | null;
+  readonly cooling: AgentCooling | null;
 }
+
+export type AgentChainEntry = Omit<AgentSelection, "agent_name"> & {
+  readonly cooldown: { readonly strikes: number; readonly available_at: number } | null;
+};
 
 export interface Mission {
   readonly id: string;

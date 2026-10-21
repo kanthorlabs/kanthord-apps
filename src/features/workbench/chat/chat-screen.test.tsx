@@ -57,6 +57,20 @@ const AGENT: AgentDeclaration = {
   },
   prompt: { layers: [], final: "" },
   tools: [],
+  chain: [
+    {
+      position: 0,
+      level: "enablement",
+      agent_provider: "atlas-llm",
+      provider: "openai-compatible",
+      credential: "atlas-main",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+      cooldown: null,
+    },
+  ],
+  active_position: 0,
+  cooling: null,
 };
 
 function mount() {

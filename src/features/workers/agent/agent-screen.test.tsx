@@ -77,6 +77,9 @@ const RE: AgentDeclaration = {
     { name: "read", source: "builtin", input_schema: {} },
     { name: "grep", source: "builtin", input_schema: {} },
   ],
+  chain: [],
+  active_position: null,
+  cooling: null,
 };
 
 const ENABLEMENT: AgentEnablement = {
