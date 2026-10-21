@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { resetWorkerInstanceKey } from "@/api/resources/worker-instances";
 import type { WorkerInstanceDetail } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import type { HostKind } from "@/lib/instance-host";
+import type { ContainerRuntime, HostKind } from "@/lib/instance-host";
 import { useHostAddress, type HostAddressState } from "../use-host-address";
 
 export interface InstanceResetResult {
@@ -11,6 +11,7 @@ export interface InstanceResetResult {
   readonly revision: number;
   readonly configuration: string;
   readonly kind: HostKind;
+  readonly runtime: ContainerRuntime;
 }
 
 export interface InstanceResetState {
@@ -67,6 +68,7 @@ export function useInstanceReset(
     setErrors(next);
     if (host.kind === null || Object.keys(next).length > 0) return;
     const kind = host.kind;
+    const runtime = host.runtime;
     setResetting(true);
     setFailure(null);
     resetWorkerInstanceKey(instance.name, host.address.trim(), instance.revision).then(
@@ -84,6 +86,7 @@ export function useInstanceReset(
           revision: record.revision,
           configuration: record.instance_configuration,
           kind,
+          runtime,
         });
       },
       (cause: unknown) => {

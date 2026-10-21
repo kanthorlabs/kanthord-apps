@@ -9,6 +9,12 @@ export const HOST_KINDS = [
 
 export type HostKind = (typeof HOST_KINDS)[number];
 
+export const CONTAINER_RUNTIMES = ["Podman", "Docker"] as const;
+
+export type ContainerRuntime = (typeof CONTAINER_RUNTIMES)[number];
+
+export const DEFAULT_CONTAINER_RUNTIME: ContainerRuntime = "Podman";
+
 export const SAME_HOST_ADDRESS = "http://kanthord:31415";
 
 const INSTANCE_NAME = /^[a-z][a-z0-9-]*$/;
@@ -28,6 +34,14 @@ export interface AddressDefault {
 
 export function hostKindOf(value: string | null): HostKind | null {
   return HOST_KINDS.find((kind) => kind === value) ?? null;
+}
+
+export function isContainerKind(kind: HostKind | null): boolean {
+  return kind === "Container" || kind === "Container on this host";
+}
+
+export function containerRuntimeOf(value: string | null): ContainerRuntime | null {
+  return CONTAINER_RUNTIMES.find((runtime) => runtime === value) ?? null;
 }
 
 export function instanceNameError(name: string): string | null {
@@ -190,11 +204,64 @@ function sameHostSteps(name: string, version: string): readonly CopyStep[] {
   ];
 }
 
-export function copyStepsOf(kind: HostKind, name: string, version: string): readonly CopyStep[] {
+function dockerContainerSteps(version: string): readonly CopyStep[] {
+  return [
+    {
+      text: "Write the line KANTHORD_WORKER_CONFIG=<value> to an env file of mode 0600. Give the file to docker run with --env-file, then delete the file. docker inspect shows the value to every user that can run docker.",
+      command: null,
+    },
+    {
+      text: `Use the image docker.io/kanthorlabs/kanthord:${version} with the command serve worker.`,
+      command: null,
+    },
+    {
+      text: "Run the container with no health check, for example with docker run --no-healthcheck. The health check of the image reads a server, and a worker container serves no server.",
+      command: null,
+    },
+    {
+      text: "Run one replica. A second replica supersedes the first.",
+      command: null,
+    },
+    {
+      text: "Publish no port. The instance opens every connection to the server.",
+      command: null,
+    },
+  ];
+}
+
+function dockerSameHostSteps(name: string, version: string): readonly CopyStep[] {
+  return [
+    {
+      text: "Put both containers on one network:",
+      command: "docker network create kanthord-net\ndocker network connect kanthord-net kanthord",
+    },
+    {
+      text: "Write the instance configuration to an env file of mode 0600. cat reads it from standard input. Type KANTHORD_WORKER_CONFIG=, paste the value, press Enter, then press Ctrl-D:",
+      command: `(umask 077 && cat > ${name}.env)`,
+    },
+    {
+      text: "Start the instance. docker run reads the env file once. docker inspect shows the value to every user that can run docker. <git name> and <git email> set the identity of the commits that the agents make:",
+      command: `docker run -d --name kanthord-worker-${name} --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --no-healthcheck --env-file ${name}.env -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:${version} serve worker`,
+    },
+    {
+      text: "Delete the env file. The container keeps the value:",
+      command: `rm ${name}.env`,
+    },
+  ];
+}
+
+export function copyStepsOf(
+  kind: HostKind,
+  name: string,
+  version: string,
+  runtime: ContainerRuntime,
+): readonly CopyStep[] {
   if (kind === "Linux (systemd)") return linuxSteps(name, version);
   if (kind === "macOS (foreground)") return macSteps(name, version);
-  if (kind === "Container") return containerSteps(version);
-  return sameHostSteps(name, version);
+  if (kind === "Container") {
+    return runtime === "Docker" ? dockerContainerSteps(version) : containerSteps(version);
+  }
+  return runtime === "Docker" ? dockerSameHostSteps(name, version) : sameHostSteps(name, version);
 }
 
 export function shortFingerprint(fingerprint: string): string {

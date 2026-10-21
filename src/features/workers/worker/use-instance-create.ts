@@ -4,7 +4,7 @@ import { isApiError } from "@/api/errors";
 import { createWorkerInstance } from "@/api/resources/worker-instances";
 import type { WorkerInstanceWriteAnswer } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import { instanceNameError, type HostKind } from "@/lib/instance-host";
+import { instanceNameError, type ContainerRuntime, type HostKind } from "@/lib/instance-host";
 import { useHostAddress, type HostAddressState } from "../use-host-address";
 
 const NAME_CONFLICT = "worker.instance.name_conflict";
@@ -14,6 +14,7 @@ export interface InstanceCreateResult {
   readonly record: WorkerInstanceWriteAnswer;
   readonly configuration: string;
   readonly kind: HostKind;
+  readonly runtime: ContainerRuntime;
 }
 
 export interface InstanceCreateState {
@@ -92,6 +93,7 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
     setErrors(next);
     if (Object.keys(next).length > 0 || host.kind === null) return;
     const kind = host.kind;
+    const runtime = host.runtime;
     setSubmitting(true);
     setFailure(null);
     createWorkerInstance({ name, worker: workerName, endpoint: host.address.trim() }).then(
@@ -104,7 +106,7 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
           );
           return;
         }
-        setResult({ record, configuration: record.instance_configuration, kind });
+        setResult({ record, configuration: record.instance_configuration, kind, runtime });
       },
       (cause: unknown) => {
         setSubmitting(false);

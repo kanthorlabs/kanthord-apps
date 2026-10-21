@@ -692,6 +692,28 @@ describe("InstanceScreen", () => {
     expect(await within(dialog).findByText("eyJyZXRyeSI6dHJ1ZX0")).toBeInTheDocument();
   });
 
+  it("shows the Docker steps of the new configuration on a Docker choice", async () => {
+    vi.mocked(instancesApi.resetWorkerInstanceKey).mockResolvedValue({
+      ...MAC,
+      revision: 2,
+      instance_configuration: "eyJkb2NrZXIiOnRydWV9",
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Reset key" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Where does it run?" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Container" }));
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Container runtime" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Docker" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reset key" }));
+    expect(
+      await within(dialog).findByText("Run the instance: Container with Docker"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Give the file to docker run with --env-file/),
+    ).toBeInTheDocument();
+  });
+
   it("names the release page when the server version was not read", async () => {
     vi.mocked(gatewayApi.readServerVersion).mockRejectedValue(
       new ApiError("malformed", "The OpenAPI index holds no version.", 0),

@@ -168,6 +168,62 @@ describe("WorkerScreen", () => {
     );
   });
 
+  it("shows the Podman steps of a container by default", async () => {
+    vi.mocked(instancesApi.createWorkerInstance).mockResolvedValue({
+      ...MAC,
+      name: "box-01",
+      revision: 1,
+      instance_configuration: "eyJuYW1lIjoiYm94LTAxIn0",
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "box-01");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Container on this host" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+
+    expect(
+      await within(sheet).findByText("Run the instance: Container on this host with Podman"),
+    ).toBeInTheDocument();
+    expect(
+      within(sheet).getByText("podman secret create kanthord-worker-box-01 -"),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByText(/--env-file/)).not.toBeInTheDocument();
+  });
+
+  it("shows the Docker steps of a container on a Docker choice", async () => {
+    vi.mocked(instancesApi.createWorkerInstance).mockResolvedValue({
+      ...MAC,
+      name: "box-01",
+      revision: 1,
+      instance_configuration: "eyJuYW1lIjoiYm94LTAxIn0",
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "box-01");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Linux (systemd)" }));
+    expect(
+      within(sheet).queryByRole("combobox", { name: "Container runtime" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Container on this host" }));
+    const runtime = within(sheet).getByRole("combobox", { name: "Container runtime" });
+    expect(runtime).toHaveTextContent("Podman");
+    await userEvent.click(runtime);
+    await userEvent.click(await screen.findByRole("option", { name: "Docker" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+
+    expect(
+      await within(sheet).findByText("Run the instance: Container on this host with Docker"),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByText(/--env-file box-01\.env/)).toBeInTheDocument();
+    expect(within(sheet).getByText("rm box-01.env")).toBeInTheDocument();
+    expect(within(sheet).queryByText(/podman secret create/)).not.toBeInTheDocument();
+  });
+
   it("refuses a reserved name before the call and maps a taken name to the field", async () => {
     vi.mocked(instancesApi.createWorkerInstance).mockRejectedValue(
       new ApiError("conflict", "The name is taken.", 409, "worker.instance.name_conflict"),

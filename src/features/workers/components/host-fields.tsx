@@ -1,6 +1,6 @@
 import { ChoiceField } from "@/components/choice-field";
 import { TextField } from "@/components/text-field";
-import { HOST_KINDS } from "@/lib/instance-host";
+import { CONTAINER_RUNTIMES, HOST_KINDS, isContainerKind } from "@/lib/instance-host";
 import type { HostAddressState } from "../use-host-address";
 
 interface HostFieldsProps {
@@ -20,6 +20,17 @@ export function HostFields({ host, errors }: HostFieldsProps) {
         description="The sheet shows the steps of this host kind. The server stores no host kind."
         onChange={host.selectKind}
       />
+      {isContainerKind(host.kind) && (
+        <ChoiceField
+          id="instance-container-runtime"
+          label="Container runtime"
+          value={host.runtime}
+          options={CONTAINER_RUNTIMES}
+          error={undefined}
+          description="The sheet shows the commands of this runtime. Podman is the default."
+          onChange={host.selectRuntime}
+        />
+      )}
       {host.kind !== null && (
         <TextField
           id="instance-address"

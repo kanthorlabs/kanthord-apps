@@ -122,6 +122,7 @@ export function ResetKeyDialog({
             <InstanceConfiguration
               name={result.name}
               kind={result.kind}
+              runtime={result.runtime}
               version={reset.host.version}
               versionError={reset.host.versionError}
               configuration={result.configuration}
