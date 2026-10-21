@@ -159,6 +159,10 @@ function containerSteps(version: string): readonly CopyStep[] {
       command: null,
     },
     {
+      text: "Run the container with no health check, for example with podman run --no-healthcheck. The health check of the image reads a server, and a worker container serves no server.",
+      command: null,
+    },
+    {
       text: "Run one replica. A second replica supersedes the first.",
       command: null,
     },
@@ -181,7 +185,7 @@ function sameHostSteps(name: string, version: string): readonly CopyStep[] {
     },
     {
       text: "Start the instance. <git name> and <git email> set the identity of the commits that the agents make:",
-      command: `podman run -d --name kanthord-worker-${name} --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --secret kanthord-worker-${name},type=env,target=KANTHORD_WORKER_CONFIG -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:${version} serve worker`,
+      command: `podman run -d --name kanthord-worker-${name} --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --no-healthcheck --secret kanthord-worker-${name},type=env,target=KANTHORD_WORKER_CONFIG -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:${version} serve worker`,
     },
   ];
 }

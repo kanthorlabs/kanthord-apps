@@ -125,6 +125,17 @@ describe("copyStepsOf", () => {
     expect(sameHost[1]?.command).toBe("podman secret create kanthord-worker-box-01 -");
     expect(sameHost[2]?.command).toContain("docker.io/kanthorlabs/kanthord:28.0.1 serve worker");
   });
+
+  it("starts a worker container with no health check", () => {
+    expect(
+      copyStepsOf("Container", "box-01", "28.0.1").some((step) =>
+        step.text.includes("--no-healthcheck"),
+      ),
+    ).toBe(true);
+    expect(copyStepsOf("Container on this host", "box-01", "28.0.1")[2]?.command).toContain(
+      " --no-healthcheck ",
+    );
+  });
 });
 
 describe("hostKindOf", () => {
