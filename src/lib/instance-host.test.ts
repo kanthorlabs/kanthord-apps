@@ -107,6 +107,17 @@ describe("copyStepsOf", () => {
     expect(index).toBe(steps.length - 2);
   });
 
+  it.each(["Linux (systemd)", "macOS (foreground)"] as const)(
+    "explains the git placeholders of the %s block",
+    (kind) => {
+      const steps = copyStepsOf(kind, "lan-01", "28.0.1", "Podman");
+      const step = steps.find((item) => item.command?.includes("<git name>") === true);
+      expect(step?.text).toContain(
+        "<git name> and <git email> set the identity of the commits that the agents make.",
+      );
+    },
+  );
+
   it("starts a foreground instance by name on macOS", () => {
     expect(copyStepsOf("macOS (foreground)", "mac-01", "28.0.1", "Podman").at(-1)?.command).toBe(
       "kanthord serve worker --instance mac-01",
