@@ -118,7 +118,7 @@ function linuxSteps(name: string, version: string): readonly CopyStep[] {
       ].join("\n"),
     },
     {
-      text: "Write the settings of this instance. They set the author of the agent commits and turn off core dumps. The memory of the instance holds the plaintext of its LLM credentials.",
+      text: "Write the settings of this instance. They set the author of the agent commits and turn off core dumps. <git name> and <git email> set the identity of the commits that the agents make. The memory of the instance holds the plaintext of its LLM credentials.",
       command: [
         `mkdir -p ~/.config/systemd/user/kanthord-worker@${name}.service.d`,
         `cat > ~/.config/systemd/user/kanthord-worker@${name}.service.d/kanthord.conf <<'EOF'`,
@@ -151,7 +151,7 @@ function macSteps(name: string, version: string): readonly CopyStep[] {
       command: "kanthord worker join",
     },
     {
-      text: "Set the author of the agent commits for this terminal. Without the GIT_* variables, a commit has the author kanthord <kanthord@localhost>.",
+      text: "Set the author of the agent commits for this terminal. <git name> and <git email> set the identity of the commits that the agents make. Without the GIT_* variables, a commit has the author kanthord <kanthord@localhost>.",
       command:
         'export GIT_AUTHOR_NAME="<git name>" GIT_AUTHOR_EMAIL="<git email>" GIT_COMMITTER_NAME="<git name>" GIT_COMMITTER_EMAIL="<git email>"',
     },

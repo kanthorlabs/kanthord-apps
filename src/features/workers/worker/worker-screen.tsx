@@ -33,6 +33,7 @@ function Section({
   error,
   reload,
   action,
+  stale = false,
   children,
 }: {
   id: string;
@@ -41,6 +42,7 @@ function Section({
   error: ApiError | null;
   reload: () => void;
   action?: ReactNode;
+  stale?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -60,7 +62,7 @@ function Section({
           </Button>
         </div>
       )}
-      {!loading && error === null && children}
+      {!loading && (error === null || stale) && children}
     </section>
   );
 }
@@ -291,6 +293,7 @@ export function WorkerScreen() {
           loading={page.instances.loading}
           error={page.instances.error}
           reload={page.instances.reload}
+          stale={page.instances.data !== null}
           action={
             <Button
               variant="outline"

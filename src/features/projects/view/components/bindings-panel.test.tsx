@@ -788,6 +788,22 @@ describe("BindingsPanel", () => {
     ).toBeTruthy();
   });
 
+  it("hides the container reason when the placement is worker", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(IN_CONTAINER);
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
+    await userEvent.click(await screen.findByRole("option", { name: "worker" }));
+
+    expect(
+      screen.queryByText(
+        "Off. This server runs in a container, so it cannot start a container for each instance. Keep server.",
+      ),
+    ).toBeNull();
+  });
+
   it("names the other stable reasons of an unavailable container", async () => {
     vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
       placementList({ available: false, reason: "runtime_absent" }),

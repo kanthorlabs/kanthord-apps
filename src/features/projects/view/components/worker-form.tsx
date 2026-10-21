@@ -144,7 +144,7 @@ export function WorkerForm({
             error={errors["placement"]}
             description="server runs each instance as a thread of the server. container runs each instance in its own container on the server host. worker runs each listed worker instance, one kanthord serve worker process for each instance. The binding keeps this choice."
             disabledOptions={placements.disabled}
-            note={placements.note}
+            note={draft.placement === "worker" ? null : placements.note}
             onChange={(next) =>
               onEdit({ ...draft, placement: PLACEMENTS.find((item) => item === next) ?? null })
             }

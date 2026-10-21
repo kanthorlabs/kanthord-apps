@@ -9,7 +9,10 @@ import type {
 } from "@/api/types";
 import { useProjectId } from "@/features/projects/project-context";
 import { useInstanceExecutions, type InstanceExecution } from "@/hooks/use-instance-executions";
+import { usePolledResource } from "@/hooks/use-polled-resource";
 import { useResource, type Resource } from "@/hooks/use-resource";
+
+const INSTANCES_INTERVAL_MS = 15_000;
 
 export interface WorkerPage {
   readonly projectId: string;
@@ -24,7 +27,13 @@ export interface WorkerPage {
 export function useWorkerPage(workerName: string): WorkerPage {
   const projectId = useProjectId();
   const entry = useResource(() => readWorkerCatalogEntry(workerName), [workerName]);
-  const instances = useResource(() => listWorkerInstances(workerName), [workerName]);
+  const polled = usePolledResource(() => listWorkerInstances(workerName), [workerName], {
+    intervalMs: INSTANCES_INTERVAL_MS,
+  });
+  const instances: Resource<readonly WorkerInstanceListItem[]> = {
+    ...polled,
+    reload: polled.refresh,
+  };
   const registrations = useResource(() => listAllWorkerRegistrations(), [workerName]);
   const bindings = useResource(
     async () =>
