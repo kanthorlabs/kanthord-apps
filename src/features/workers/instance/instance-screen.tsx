@@ -376,7 +376,13 @@ function ArchiveButton({ archive }: { archive: InstanceArchiveState }) {
     return <DisabledAction label="Archive" reason={archive.blocked} icon={icon} />;
   }
   return (
-    <Button variant="destructive" size="sm" onClick={archive.request}>
+    <Button
+      variant="destructive"
+      size="sm"
+      aria-busy={archive.reading}
+      disabled={archive.reading}
+      onClick={archive.request}
+    >
       {icon}
       Archive
     </Button>
@@ -428,6 +434,7 @@ function InstanceDetail({
   const archive = useInstanceArchive(
     archiveSubjectOf(instance),
     () => void navigate(workerPagePath(instance.worker)),
+    reload,
   );
   const add = useInstanceCredentialAdd(instance.name, reload);
   const rotate = useInstanceCredentialRotate(instance.name, reload);

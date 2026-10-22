@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { isApiError } from "@/api/errors";
-import { archiveWorkerInstance } from "@/api/resources/worker-instances";
+import { archiveWorkerInstance, readWorkerInstance } from "@/api/resources/worker-instances";
 import type { InstanceBinding, WorkerInstanceDetail } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 
@@ -27,6 +27,7 @@ export interface InstanceArchiveState {
   readonly error: string | null;
   readonly refusal: ArchiveRefusal | null;
   readonly archiving: boolean;
+  readonly reading: boolean;
   readonly request: () => void;
   readonly cancel: () => void;
   readonly confirm: () => void;
@@ -86,19 +87,41 @@ export function archiveBlockOf(subject: ArchiveSubject): string | null {
 export function useInstanceArchive(
   subject: ArchiveSubject,
   onArchived: () => void,
+  onStale: () => void,
 ): InstanceArchiveState {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<ArchiveRefusal | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [reading, setReading] = useState(false);
+  const [revision, setRevision] = useState(subject.revision);
   const blocked = archiveBlockOf(subject);
 
   const request = useCallback(() => {
-    if (blocked !== null) return;
+    if (blocked !== null || reading) return;
     setError(null);
     setRefusal(null);
-    setOpen(true);
-  }, [blocked]);
+    setReading(true);
+    readWorkerInstance(subject.name).then(
+      (detail) => {
+        setReading(false);
+        const fresh = archiveSubjectOf(detail);
+        const freshBlock =
+          detail.ended_at !== null ? `${subject.name} is already archived.` : archiveBlockOf(fresh);
+        if (freshBlock !== null) {
+          toast.error(`${subject.name} was not archived.`, { description: freshBlock });
+          onStale();
+          return;
+        }
+        setRevision(fresh.revision);
+        setOpen(true);
+      },
+      (cause: unknown) => {
+        setReading(false);
+        toast.error(`${subject.name} was not read.`, { description: asApiError(cause).message });
+      },
+    );
+  }, [blocked, reading, subject.name, onStale]);
 
   const cancel = useCallback(() => {
     if (!archiving) setOpen(false);
@@ -108,7 +131,7 @@ export function useInstanceArchive(
     if (archiving) return;
     setArchiving(true);
     setError(null);
-    archiveWorkerInstance(subject.name, subject.revision).then(
+    archiveWorkerInstance(subject.name, revision).then(
       () => {
         setArchiving(false);
         setOpen(false);
@@ -123,7 +146,7 @@ export function useInstanceArchive(
         setError(asApiError(cause).message);
       },
     );
-  }, [archiving, subject.name, subject.revision, onArchived]);
+  }, [archiving, subject.name, revision, onArchived]);
 
   return {
     open,
@@ -132,6 +155,7 @@ export function useInstanceArchive(
     error,
     refusal,
     archiving,
+    reading,
     request,
     cancel,
     confirm,

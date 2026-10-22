@@ -11,7 +11,7 @@ interface InstanceRowActionsProps {
   readonly instance: WorkerInstanceListItem;
   readonly liveExecutions: readonly string[];
   readonly detach: InstanceDetachState;
-  readonly onArchived: () => void;
+  readonly onChanged: () => void;
   readonly projectNameOf: (projectId: string) => string;
 }
 
@@ -19,7 +19,7 @@ export function InstanceRowActions({
   instance,
   liveExecutions,
   detach,
-  onArchived,
+  onChanged,
   projectNameOf,
 }: InstanceRowActionsProps) {
   const archive = useInstanceArchive(
@@ -29,7 +29,8 @@ export function InstanceRowActions({
       bindingCount: instance.binding_count,
       liveExecutions,
     },
-    onArchived,
+    onChanged,
+    onChanged,
   );
   const detachIcon = <UnlinkIcon aria-hidden="true" data-icon="inline-start" />;
   const archiveIcon = <ArchiveIcon aria-hidden="true" data-icon="inline-start" />;
@@ -65,6 +66,8 @@ export function InstanceRowActions({
           variant="destructive"
           size="sm"
           aria-label={`Archive ${instance.name}`}
+          aria-busy={archive.reading}
+          disabled={archive.reading}
           onClick={archive.request}
         >
           {archiveIcon}

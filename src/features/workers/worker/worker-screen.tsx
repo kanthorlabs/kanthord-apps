@@ -339,7 +339,7 @@ export function WorkerScreen() {
                       instance={instance}
                       liveExecutions={page.liveExecutionsOf(instance.name)}
                       detach={detach}
-                      onArchived={reloadAll}
+                      onChanged={reloadAll}
                       projectNameOf={page.projectNameOf}
                     />
                   }
