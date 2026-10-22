@@ -1,4 +1,4 @@
-import { listWorkerBindings } from "@/api/resources/projects";
+import { listProjects, listWorkerBindings } from "@/api/resources/projects";
 import { listWorkerInstances } from "@/api/resources/worker-instances";
 import { listAllWorkerRegistrations, readWorkerCatalogEntry } from "@/api/resources/workers";
 import type {
@@ -22,6 +22,8 @@ export interface WorkerPage {
   readonly bindings: Resource<readonly WorkerBindingRecord[]>;
   readonly projectRegistrations: readonly WorkerRegistrationRecord[];
   readonly executionOf: (instanceName: string) => InstanceExecution | null;
+  readonly liveExecutionsOf: (instanceName: string) => readonly string[];
+  readonly projectNameOf: (projectId: string) => string;
 }
 
 export function useWorkerPage(workerName: string): WorkerPage {
@@ -35,6 +37,9 @@ export function useWorkerPage(workerName: string): WorkerPage {
     reload: polled.refresh,
   };
   const registrations = useResource(() => listAllWorkerRegistrations(), [workerName]);
+  const projects = useResource(() => listProjects(), []);
+  const projectNameOf = (id: string) =>
+    projects.data?.find((project) => project.id === id)?.name ?? id;
   const bindings = useResource(
     async () =>
       (await listWorkerBindings(projectId)).filter(
@@ -53,6 +58,12 @@ export function useWorkerPage(workerName: string): WorkerPage {
       .map((registration) => registration.runtime_identity);
     return executions.find((execution) => runtimes.includes(execution.runtimeIdentity)) ?? null;
   };
+  const liveExecutionsOf = (instanceName: string) =>
+    own.flatMap((registration) =>
+      registration.instance === instanceName && registration.execution_id !== undefined
+        ? [registration.execution_id]
+        : [],
+    );
   return {
     projectId,
     entry,
@@ -61,5 +72,7 @@ export function useWorkerPage(workerName: string): WorkerPage {
     bindings,
     projectRegistrations,
     executionOf,
+    liveExecutionsOf,
+    projectNameOf,
   };
 }

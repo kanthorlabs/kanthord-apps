@@ -164,6 +164,10 @@ function mount(hash = "", state: unknown = null) {
 describe("AgentScreen", () => {
   beforeEach(() => {
     vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+    vi.mocked(credentialsApi.readCredential).mockImplementation((_component, name) =>
+      Promise.resolve({ ...ROUTER_MAIN, name, agent_providers: [] }),
+    );
+    vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue({ items: [] });
     vi.mocked(credentialsApi.verifyCredential).mockResolvedValue({
       status: "healthy",
       capability: "model-list read",
@@ -567,8 +571,8 @@ describe("AgentScreen", () => {
       await screen.findByRole("list", { name: "Agent providers" }),
     ).getAllByRole("listitem");
     expect(providers.map((p) => p.textContent)).toEqual([
-      "routeropenrouter · credential router-mainRemove",
-      "codexopenai-codex · credential codex-mainRemove",
+      "routeropenrouter · credential router-mainVerifyRemove",
+      "codexopenai-codex · credential codex-mainVerifyRemove",
     ]);
   });
 

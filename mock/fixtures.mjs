@@ -1838,8 +1838,16 @@ export const WORKER_INSTANCES = [
   },
 ];
 
-export const INSTANCE_EXTRA_BINDINGS = {
-  "mac-studio": [{ project_id: PROJECT_ATLAS.id, binding: "mac-main" }],
+export const PROJECT_BINDING_SETS = {
+  [PROJECT_ATLAS.id]: {
+    version: 1,
+    bindings: {
+      "mac-main": {
+        kind: "worker",
+        config: { worker: "coder@1", worker_instances: ["mac-studio"], placement: "worker" },
+      },
+    },
+  },
 };
 
 export const INSTANCE_CREDENTIAL_COPIES = [

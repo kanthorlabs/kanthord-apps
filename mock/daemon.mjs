@@ -41,6 +41,24 @@ const projects = EMPTY
       structuredClone(fx.PROJECT_ORBIT),
     ];
 const bindingSet = structuredClone(EMPTY ? { ...fx.BINDING_SET, bindings: {} } : fx.BINDING_SET);
+const otherBindingSets = new Map(
+  projects
+    .slice(1)
+    .map((project) => [
+      project.id,
+      structuredClone(fx.PROJECT_BINDING_SETS[project.id] ?? { version: 1, bindings: {} }),
+    ]),
+);
+const bindingSetOf = (projectId) => {
+  if (projectId === projects[0]?.id) return bindingSet;
+  if (!otherBindingSets.has(projectId))
+    otherBindingSets.set(projectId, { version: 1, bindings: {} });
+  return otherBindingSets.get(projectId);
+};
+const bindingSets = () => [
+  ...(projects[0] === undefined ? [] : [[projects[0].id, bindingSet]]),
+  ...otherBindingSets.entries(),
+];
 const agents = structuredClone(fx.AGENT_DECLARATIONS).map((agent) =>
   EMPTY ? { ...agent, enablement: null } : agent,
 );
@@ -1108,7 +1126,9 @@ on("POST", /^\/api\/mission\/([^/]+)\/import$/, (m, b, res) => {
   });
 });
 
-on("GET", /^\/api\/project\/([^/]+)\/binding-set$/, (_m, _b, res) => json(res, 200, bindingSet));
+on("GET", /^\/api\/project\/([^/]+)\/binding-set$/, (m, _b, res) =>
+  json(res, 200, bindingSetOf(decodeURIComponent(m[1]))),
+);
 
 const isHostedWorker = (name) =>
   fx.WORKER_CATALOG.some((worker) => worker.name === name && worker.host === "kanthord");
@@ -1175,7 +1195,9 @@ const workerInstancesRefusal = (bindings) => {
 };
 
 on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
-  if (b.version !== bindingSet.version) {
+  const projectId = decodeURIComponent(m[1]);
+  const set = bindingSetOf(projectId);
+  if (b.version !== set.version) {
     return projectEnvelope(
       res,
       409,
@@ -1201,7 +1223,7 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   const instanceRefusal = workerInstancesRefusal(b.bindings);
   if (instanceRefusal !== null) return projectEnvelope(res, 400, ...instanceRefusal);
   const placementChanged = Object.entries(b.bindings).some(([name, entry]) => {
-    const stored = bindingSet.bindings[name];
+    const stored = set.bindings[name];
     return (
       stored?.kind === "worker" &&
       entry.kind === "worker" &&
@@ -1220,7 +1242,7 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
     ([name, entry]) =>
       entry.kind === "worker" &&
       entry.config.placement === "container" &&
-      bindingSet.bindings[name] === undefined,
+      set.bindings[name] === undefined,
   );
   if (addedContainer !== undefined && STABLE_PLACEMENT_REASONS.includes(containerReason)) {
     return projectEnvelope(
@@ -1234,8 +1256,7 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   const changedRepositories = Object.entries(b.bindings)
     .filter(
       ([name, entry]) =>
-        entry.kind === "repository" &&
-        JSON.stringify(entry) !== JSON.stringify(bindingSet.bindings[name]),
+        entry.kind === "repository" && JSON.stringify(entry) !== JSON.stringify(set.bindings[name]),
     )
     .map(([, entry]) => entry.config);
   for (const config of changedRepositories) {
@@ -1252,9 +1273,8 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       );
     }
   }
-  bindingSet.bindings = b.bindings;
-  bindingSet.version += 1;
-  const projectId = decodeURIComponent(m[1]);
+  set.bindings = b.bindings;
+  set.version += 1;
   const stored = Object.fromEntries(
     Object.entries(b.bindings).map(([name, entry]) => [
       name,
@@ -1273,7 +1293,7 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   );
   return json(res, 200, {
     project_id: projectId,
-    binding_set_version: bindingSet.version,
+    binding_set_version: set.version,
     bindings: stored,
     changes: [],
   });
@@ -3071,8 +3091,7 @@ const instanceRoutes = registerInstances({
   json,
   envelope: projectEnvelope,
   page,
-  bindingSet,
-  projects,
+  bindingSets,
   credentials,
   agents,
 });

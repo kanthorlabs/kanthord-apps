@@ -1,14 +1,16 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
 import type { WorkerBindingRecord, WorkerCatalogItem, WorkerRegistrationRecord } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
+vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/workers");
 vi.mock("@/features/projects/project-context", () => ({
   useProjectId: () => "prj-test",
@@ -254,6 +256,48 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(screen.getByText("1 of 2 live")).toBeDefined());
     expect(screen.getByText(/^1 instance missing\./)).toHaveTextContent(
       /not registered: review-02\. Open the worker page$/,
+    );
+  });
+
+  it("removes a worker binding through the binding guard at the version it read", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
+    ]);
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      version: 9,
+      bindings: {
+        "tdd-main": {
+          kind: "worker",
+          config: { worker: "tdd", instance_count: 2, placement: "server" },
+        },
+      },
+    });
+    vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
+      project_id: "prj-test",
+      binding_set_version: 10,
+      changes: [],
+    });
+    vi.mocked(missionApi.readMission).mockResolvedValue({
+      id: "mission-1",
+      project_id: "prj-test",
+      version: 1,
+    });
+    vi.mocked(missionApi.exportMissionJson).mockResolvedValue({
+      mission_id: "mission-1",
+      entries: [],
+    } as unknown as Awaited<ReturnType<typeof missionApi.exportMissionJson>>);
+    renderScreen();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Remove tdd-main" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Make unavailable instead" })).toBeDefined();
+    expect(await within(dialog).findByText("No current mission node names it.")).toBeDefined();
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove binding" }));
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith(expect.any(String), 9, {}),
     );
   });
 

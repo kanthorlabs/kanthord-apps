@@ -44,16 +44,7 @@ const connectionOf = (name, now) =>
     ? null
     : { connection_name: name, connected_at: now - 40 * 60_000, last_heartbeat_at: now - 9_000 };
 
-export function registerInstances({
-  on,
-  json,
-  envelope,
-  page,
-  bindingSet,
-  projects,
-  credentials,
-  agents,
-}) {
+export function registerInstances({ on, json, envelope, page, bindingSets, credentials, agents }) {
   const now = Date.now();
   const instances = structuredClone(fx.WORKER_INSTANCES).map(({ connected, ...record }) => ({
     record,
@@ -67,17 +58,17 @@ export function registerInstances({
 
   const live = (instance) => instance.record.ended_at === null;
 
-  const bindingsOf = (name) => [
-    ...Object.entries(bindingSet.bindings)
-      .filter(
-        ([, entry]) =>
-          entry.kind === "worker" &&
-          entry.config.placement === "worker" &&
-          (entry.config.worker_instances ?? []).includes(name),
-      )
-      .map(([binding]) => ({ project_id: projects[0]?.id ?? fx.PROJECT.id, binding })),
-    ...(fx.INSTANCE_EXTRA_BINDINGS[name] ?? []),
-  ];
+  const listsInstance = (entry, name) =>
+    entry.kind === "worker" &&
+    entry.config.placement === "worker" &&
+    (entry.config.worker_instances ?? []).includes(name);
+
+  const bindingsOf = (name) =>
+    bindingSets().flatMap(([projectId, set]) =>
+      Object.entries(set.bindings)
+        .filter(([, entry]) => listsInstance(entry, name))
+        .map(([binding]) => ({ project_id: projectId, binding })),
+    );
 
   const registrationsOf = (name) =>
     fx.WORKER_REGISTRATIONS.filter((registration) => registration.instance === name);
@@ -110,20 +101,12 @@ export function registerInstances({
       }))
       .map((copy) => ({ ...copy, health: healthOf(name, copy) }));
 
-  const listingConfigsOf = (instance) => [
-    ...Object.values(bindingSet.bindings)
-      .filter(
-        (entry) =>
-          entry.kind === "worker" &&
-          entry.config.placement === "worker" &&
-          (entry.config.worker_instances ?? []).includes(instance.record.name),
-      )
-      .map((entry) => entry.config),
-    ...(fx.INSTANCE_EXTRA_BINDINGS[instance.record.name] ?? []).map(() => ({
-      worker: instance.record.worker,
-      entries: [],
-    })),
-  ];
+  const listingConfigsOf = (instance) =>
+    bindingSets().flatMap(([, set]) =>
+      Object.values(set.bindings)
+        .filter((entry) => listsInstance(entry, instance.record.name))
+        .map((entry) => entry.config),
+    );
 
   const chainCredentialsOf = (agent, entry) => {
     const enablement = agent.enablement;

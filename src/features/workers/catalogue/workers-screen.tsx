@@ -192,7 +192,14 @@ export function WorkersScreen() {
         ) : (
           <ItemGroup className="gap-2">
             {bindingEntries.map((entry) => (
-              <BindingInstanceItem key={entry.binding.id} entry={entry} />
+              <BindingInstanceItem
+                key={entry.binding.id}
+                entry={entry}
+                onChanged={() => {
+                  bindings.reload();
+                  registrations.reload();
+                }}
+              />
             ))}
           </ItemGroup>
         )}

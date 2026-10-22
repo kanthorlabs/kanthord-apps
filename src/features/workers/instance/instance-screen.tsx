@@ -1,9 +1,17 @@
-import { ArchiveIcon, KeyRoundIcon, ListPlusIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import {
+  ArchiveIcon,
+  KeyRoundIcon,
+  ListPlusIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  UnlinkIcon,
+} from "lucide-react";
+import type { ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import type { WorkerInstanceDetail } from "@/api/types";
 import { DataListItem } from "@/components/data-list-item";
+import { DisabledAction } from "@/components/disabled-action";
 import { InstanceReachNotice } from "@/components/instance-reach-notice";
 import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -12,7 +20,6 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { utcDateTime } from "@/lib/format";
 import { nodePath } from "@/lib/node-path";
 import { workerPagePath } from "@/lib/worker-paths";
@@ -20,11 +27,17 @@ import { ArchiveInstanceDialog } from "./components/archive-instance-dialog";
 import { CopyModelsSheet } from "./components/copy-models-sheet";
 import { CredentialAddSheet } from "./components/credential-add-sheet";
 import { CredentialRotateSheet } from "./components/credential-rotate-sheet";
+import { DetachInstanceDialog } from "./components/detach-instance-dialog";
 import { ResetKeyDialog } from "./components/reset-key-dialog";
 import { SignInAgainSheet } from "./components/sign-in-again-sheet";
-import { useInstanceArchive, type InstanceArchiveState } from "./use-instance-archive";
+import {
+  archiveSubjectOf,
+  useInstanceArchive,
+  type InstanceArchiveState,
+} from "./use-instance-archive";
 import { useInstanceCopyModels, type InstanceCopyModelsState } from "./use-instance-copy-models";
 import { useInstanceCredentialAdd } from "./use-instance-credential-add";
+import { useInstanceDetach, type InstanceDetachState } from "./use-instance-detach";
 import {
   useInstanceCredentialRotate,
   type InstanceCredentialRotateState,
@@ -61,38 +74,6 @@ function EmptyLine({ title }: { title: string }) {
         <EmptyTitle>{title}</EmptyTitle>
       </EmptyHeader>
     </Empty>
-  );
-}
-
-function DisabledAction({
-  label,
-  reason,
-  icon,
-}: {
-  label: string;
-  reason: string;
-  icon: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <Tooltip open={open} onOpenChange={setOpen}>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-            focusableWhenDisabled
-            className="data-disabled:opacity-50"
-          />
-        }
-        onPointerUp={() => setOpen(true)}
-      >
-        {icon}
-        {label}
-      </TooltipTrigger>
-      <TooltipContent>{reason}</TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -134,7 +115,51 @@ function InstanceHeader({ instance }: { instance: WorkerInstanceDetail }) {
   );
 }
 
-function BindingRows({ rows }: { rows: readonly InstanceBindingRow[] }) {
+function DetachAction({
+  row,
+  instanceName,
+  detach,
+}: {
+  row: InstanceBindingRow;
+  instanceName: string;
+  detach: InstanceDetachState;
+}) {
+  const icon = <UnlinkIcon aria-hidden="true" data-icon="inline-start" />;
+  const label = `Detach ${instanceName} from ${row.binding} of ${row.projectName}`;
+  if (row.state === "draining") {
+    return (
+      <DisabledAction
+        label="Detach"
+        ariaLabel={label}
+        reason={`${row.binding} no longer lists ${instanceName}. Its registration drains.`}
+        icon={icon}
+      />
+    );
+  }
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={label}
+      onClick={() => detach.request(instanceName, row)}
+    >
+      {icon}
+      Detach
+    </Button>
+  );
+}
+
+function BindingRows({
+  rows,
+  instanceName,
+  archived,
+  detach,
+}: {
+  rows: readonly InstanceBindingRow[];
+  instanceName: string;
+  archived: boolean;
+  detach: InstanceDetachState;
+}) {
   if (rows.length === 0) return <EmptyLine title="No binding lists this instance." />;
   return (
     <ItemGroup aria-label="Bindings" className="gap-2">
@@ -149,13 +174,16 @@ function BindingRows({ rows }: { rows: readonly InstanceBindingRow[] }) {
             { label: "Project", value: <span className="break-all">{row.projectName}</span> },
           ]}
           actions={
-            <Button
-              variant="outline"
-              size="sm"
-              render={<Link to={`/projects/${encodeURIComponent(row.projectId)}?tab=bindings`} />}
-            >
-              Open binding
-            </Button>
+            <>
+              {!archived && <DetachAction row={row} instanceName={instanceName} detach={detach} />}
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link to={`/projects/${encodeURIComponent(row.projectId)}?tab=bindings`} />}
+              >
+                Open binding
+              </Button>
+            </>
           }
         />
       ))}
@@ -348,7 +376,13 @@ function ArchiveButton({ archive }: { archive: InstanceArchiveState }) {
     return <DisabledAction label="Archive" reason={archive.blocked} icon={icon} />;
   }
   return (
-    <Button variant="destructive" size="sm" onClick={archive.request}>
+    <Button
+      variant="destructive"
+      size="sm"
+      aria-busy={archive.reading}
+      disabled={archive.reading}
+      onClick={archive.request}
+    >
       {icon}
       Archive
     </Button>
@@ -396,11 +430,17 @@ function InstanceDetail({
   const projectNameOf = page.projectNameOf;
   const archived = instance.ended_at !== null;
   const reset = useInstanceReset(instance, reload);
-  const archive = useInstanceArchive(instance);
+  const navigate = useNavigate();
+  const archive = useInstanceArchive(
+    archiveSubjectOf(instance),
+    () => void navigate(workerPagePath(instance.worker)),
+    reload,
+  );
   const add = useInstanceCredentialAdd(instance.name, reload);
   const rotate = useInstanceCredentialRotate(instance.name, reload);
   const models = useInstanceCopyModels(instance.name);
   const signIn = useInstanceSignIn(instance.name, reload);
+  const detach = useInstanceDetach(reload);
 
   return (
     <div className="flex flex-col gap-6 px-4 lg:px-0">
@@ -410,7 +450,12 @@ function InstanceDetail({
       <InstanceReachNotice instance={instance.name} projects={page.servedProjects} />
       <section aria-labelledby="instance-bindings" className="flex flex-col gap-3">
         <SectionHeading id="instance-bindings" title="Bindings" />
-        <BindingRows rows={page.bindingRows} />
+        <BindingRows
+          rows={page.bindingRows}
+          instanceName={instance.name}
+          archived={archived}
+          detach={detach}
+        />
       </section>
       <section aria-labelledby="instance-registrations" className="flex flex-col gap-3">
         <SectionHeading id="instance-registrations" title="Registrations" />
@@ -466,6 +511,7 @@ function InstanceDetail({
       )}
       <ResetKeyDialog instance={instance} reset={reset} projectNameOf={projectNameOf} />
       <ArchiveInstanceDialog name={instance.name} archive={archive} projectNameOf={projectNameOf} />
+      <DetachInstanceDialog detach={detach} />
       <CredentialAddSheet instanceName={instance.name} add={add} />
       <CredentialRotateSheet instanceName={instance.name} rotate={rotate} />
       <SignInAgainSheet instanceName={instance.name} signIn={signIn} />

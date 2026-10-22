@@ -27,7 +27,7 @@ export function RepositoryScreen() {
 
   return (
     <CredentialDetail component="repository" credential={credential} reload={reload}>
-      <BindingList bindings={credential.bindings} />
+      <BindingList bindings={credential.bindings} onChanged={reload} />
     </CredentialDetail>
   );
 }

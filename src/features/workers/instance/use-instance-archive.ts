@@ -1,18 +1,23 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { isApiError } from "@/api/errors";
-import { archiveWorkerInstance } from "@/api/resources/worker-instances";
+import { archiveWorkerInstance, readWorkerInstance } from "@/api/resources/worker-instances";
 import type { InstanceBinding, WorkerInstanceDetail } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import { workerPagePath } from "@/lib/worker-paths";
 
 const IN_USE = "worker.instance.in_use";
 
 export interface ArchiveRefusal {
   readonly bindings: readonly InstanceBinding[];
   readonly executions: readonly string[];
+}
+
+export interface ArchiveSubject {
+  readonly name: string;
+  readonly revision: number;
+  readonly bindingCount: number;
+  readonly liveExecutions: readonly string[];
 }
 
 export interface InstanceArchiveState {
@@ -22,6 +27,7 @@ export interface InstanceArchiveState {
   readonly error: string | null;
   readonly refusal: ArchiveRefusal | null;
   readonly archiving: boolean;
+  readonly reading: boolean;
   readonly request: () => void;
   readonly cancel: () => void;
   readonly confirm: () => void;
@@ -59,30 +65,63 @@ export function liveExecutionsOf(instance: WorkerInstanceDetail): readonly strin
   );
 }
 
-export function archiveBlockOf(instance: WorkerInstanceDetail): string | null {
-  if (instance.bindings.length > 0) {
-    return `A binding lists ${instance.name}. Remove ${instance.name} from each listing binding first.`;
+export function archiveSubjectOf(instance: WorkerInstanceDetail): ArchiveSubject {
+  return {
+    name: instance.name,
+    revision: instance.revision,
+    bindingCount: instance.bindings.length,
+    liveExecutions: liveExecutionsOf(instance),
+  };
+}
+
+export function archiveBlockOf(subject: ArchiveSubject): string | null {
+  if (subject.bindingCount > 0) {
+    return `A binding lists ${subject.name}. Detach ${subject.name} from each listing binding first.`;
   }
-  if (liveExecutionsOf(instance).length > 0) {
-    return `A registration of ${instance.name} holds a live execution. Wait until the execution ends.`;
+  if (subject.liveExecutions.length > 0) {
+    return `A registration of ${subject.name} holds a live execution. Wait until the execution ends.`;
   }
   return null;
 }
 
-export function useInstanceArchive(instance: WorkerInstanceDetail): InstanceArchiveState {
-  const navigate = useNavigate();
+export function useInstanceArchive(
+  subject: ArchiveSubject,
+  onArchived: () => void,
+  onStale: () => void,
+): InstanceArchiveState {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<ArchiveRefusal | null>(null);
   const [archiving, setArchiving] = useState(false);
-  const blocked = archiveBlockOf(instance);
+  const [reading, setReading] = useState(false);
+  const [revision, setRevision] = useState(subject.revision);
+  const blocked = archiveBlockOf(subject);
 
   const request = useCallback(() => {
-    if (blocked !== null) return;
+    if (blocked !== null || reading) return;
     setError(null);
     setRefusal(null);
-    setOpen(true);
-  }, [blocked]);
+    setReading(true);
+    readWorkerInstance(subject.name).then(
+      (detail) => {
+        setReading(false);
+        const fresh = archiveSubjectOf(detail);
+        const freshBlock =
+          detail.ended_at !== null ? `${subject.name} is already archived.` : archiveBlockOf(fresh);
+        if (freshBlock !== null) {
+          toast.error(`${subject.name} was not archived.`, { description: freshBlock });
+          onStale();
+          return;
+        }
+        setRevision(fresh.revision);
+        setOpen(true);
+      },
+      (cause: unknown) => {
+        setReading(false);
+        toast.error(`${subject.name} was not read.`, { description: asApiError(cause).message });
+      },
+    );
+  }, [blocked, reading, subject.name, onStale]);
 
   const cancel = useCallback(() => {
     if (!archiving) setOpen(false);
@@ -92,14 +131,14 @@ export function useInstanceArchive(instance: WorkerInstanceDetail): InstanceArch
     if (archiving) return;
     setArchiving(true);
     setError(null);
-    archiveWorkerInstance(instance.name, instance.revision).then(
+    archiveWorkerInstance(subject.name, revision).then(
       () => {
         setArchiving(false);
         setOpen(false);
         toast.success(
-          `Archived ${instance.name}. Its registrations and its credential copies ended.`,
+          `Archived ${subject.name}. Its registrations and its credential copies ended.`,
         );
-        void navigate(workerPagePath(instance.worker));
+        onArchived();
       },
       (cause: unknown) => {
         setArchiving(false);
@@ -107,15 +146,16 @@ export function useInstanceArchive(instance: WorkerInstanceDetail): InstanceArch
         setError(asApiError(cause).message);
       },
     );
-  }, [archiving, instance.name, instance.revision, instance.worker, navigate]);
+  }, [archiving, subject.name, revision, onArchived]);
 
   return {
     open,
     blocked,
-    liveExecutions: liveExecutionsOf(instance),
+    liveExecutions: subject.liveExecutions,
     error,
     refusal,
     archiving,
+    reading,
     request,
     cancel,
     confirm,

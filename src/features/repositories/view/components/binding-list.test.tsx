@@ -22,7 +22,7 @@ const MIRROR: CredentialBinding = {
 function mount(bindings: readonly CredentialBinding[]) {
   return render(
     <MemoryRouter>
-      <BindingList bindings={bindings} />
+      <BindingList bindings={bindings} onChanged={() => undefined} />
     </MemoryRouter>,
   );
 }
@@ -50,6 +50,13 @@ describe("BindingList", () => {
       "href",
       "/projects/prj%20two?tab=bindings",
     );
+  });
+
+  it("offers Remove on each binding", () => {
+    mount([SOURCE, MIRROR]);
+
+    expect(screen.getByRole("button", { name: "Remove source" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove mirror" })).toBeTruthy();
   });
 
   it("states that no binding names the credential", () => {

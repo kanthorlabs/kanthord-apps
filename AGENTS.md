@@ -145,7 +145,7 @@ several sections, one feature takes the section as a prop from its route.
 - **A row opens the detail of its record.** The row holds no action that leads to the same route.
 - **A row shows the name as its title, its states as badges and its key facts as fields.**
 - **A row holds only the non-destructive actions of its record**, for example Verify, Rotate and Edit
-  metadata. A destructive action never sits on a row.
+  metadata. A destructive action never sits on a row of the list.
 - **An ended record is hidden by default.** A toggle includes it. Its row shows its end mark and its
   end time, holds no action and still opens the detail.
 
