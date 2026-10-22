@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { ApiError } from "@/api/errors";
 import type { Resource } from "@/hooks/use-resource";
 
 import { useInstancesDisclosure } from "./use-instances-disclosure";
@@ -28,6 +29,13 @@ describe("useInstancesDisclosure", () => {
 
   it("keeps the section open while the first read runs", () => {
     const { result } = renderHook(() => useInstancesDisclosure(resource(null)));
+
+    expect(result.current).toMatchObject({ collapsible: false, open: true });
+  });
+
+  it("keeps the section open when a later read fails", () => {
+    const failed = { ...resource([]), error: new ApiError("unreachable", "No answer.", 0) };
+    const { result } = renderHook(() => useInstancesDisclosure(failed));
 
     expect(result.current).toMatchObject({ collapsible: false, open: true });
   });
