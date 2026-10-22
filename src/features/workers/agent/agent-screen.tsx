@@ -22,6 +22,7 @@ import { DefaultConfigurationSheet } from "./components/default-configuration-sh
 import { EnablementForm } from "./components/enablement-form";
 import { EnablementSwitch } from "./components/enablement-switch";
 import { PromptItem } from "@/components/prompt-item";
+import { CredentialVerifyAction } from "@/features/credentials/components/credential-verify-action";
 import { PromptLayerSection } from "./components/prompt-layer-section";
 import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
@@ -110,7 +111,8 @@ function AgentProviderList({
                 <RecordName>{p.credential}</RecordName>
               </p>
             </ItemContent>
-            <ItemActions>
+            <ItemActions className="flex-wrap">
+              <CredentialVerifyAction component="llm" name={p.credential} />
               <RemoveProviderButton
                 providerName={p.name}
                 block={providerRemovalBlock(enablement, p.name)}
