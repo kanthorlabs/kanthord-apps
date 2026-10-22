@@ -1,6 +1,11 @@
+import { ChevronDownIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { RevealPanel } from "@/components/reveal";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { badgeVariantOf } from "@/lib/node-state";
@@ -61,17 +66,41 @@ export function NextSection({ queue, showProjects, now }: NextSectionProps) {
         </Empty>
       ) : (
         queue.map((group) => (
-          <div key={group.project.id} className="flex flex-col gap-2">
+          <Collapsible key={group.project.id} className="flex flex-col gap-2">
             {showProjects && <h4 className="text-sm font-medium">{group.project.name}</h4>}
             <ItemGroup
               aria-label={showProjects ? `Queue of ${group.project.name}` : "Queue"}
               className="gap-2"
             >
-              {group.jobs.map((view) => (
+              {group.first.map((view) => (
                 <JobItem key={view.job.job_id} view={view} now={now} />
               ))}
             </ItemGroup>
-          </div>
+            {group.more.length > 0 && (
+              <>
+                <RevealPanel>
+                  <ItemGroup
+                    aria-label={
+                      showProjects
+                        ? `More of the queue of ${group.project.name}`
+                        : "More of the queue"
+                    }
+                    className="gap-2"
+                  >
+                    {group.more.map((view) => (
+                      <JobItem key={view.job.job_id} view={view} now={now} />
+                    ))}
+                  </ItemGroup>
+                </RevealPanel>
+                <CollapsibleTrigger
+                  render={<Button variant="outline" size="sm" className="self-start" />}
+                >
+                  <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
+                  {group.more.length} more {group.more.length === 1 ? "job" : "jobs"}
+                </CollapsibleTrigger>
+              </>
+            )}
+          </Collapsible>
         ))
       )}
     </section>

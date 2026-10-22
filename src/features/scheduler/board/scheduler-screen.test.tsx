@@ -262,6 +262,10 @@ async function section(name: string): Promise<HTMLElement> {
   return screen.findByRole("region", { name });
 }
 
+function openDetails(item: HTMLElement) {
+  fireEvent.click(within(item).getByRole("button", { name: /^Details of the execution/ }));
+}
+
 function titles(list: HTMLElement): string[] {
   return within(list)
     .getAllByRole("listitem")
@@ -334,13 +338,14 @@ describe("SchedulerScreen Now", () => {
       "href",
       "/projects/prj-1?node=n_a",
     );
+    expect(within(item).getByText("(v3)")).toBeInTheDocument();
     expect(within(item).getByText("Steps")).toBeInTheDocument();
     expect(within(item).getByText(textContent("project kanthord"))).toBeInTheDocument();
+    expect(within(item).queryByText("execution execution_a")).toBeNull();
+    openDetails(item);
     expect(
-      within(item).getByText(
-        textContent(
-          "binding general-main · registration general-main #1 · attempt 2 · pinned revision 3",
-        ),
+      await within(item).findByText(
+        textContent("binding general-main · registration general-main #1 · attempt 2"),
       ),
     ).toBeInTheDocument();
     expect(within(item).getByText("execution execution_a")).toBeInTheDocument();
@@ -376,7 +381,8 @@ describe("SchedulerScreen Now", () => {
 
     const now = await screen.findByRole("list", { name: "Running executions" });
     expect(within(now).getAllByRole("listitem")).toHaveLength(1);
-    expect(within(now).getByText("execution execution_old")).toBeInTheDocument();
+    openDetails(within(now).getByRole("listitem"));
+    expect(await within(now).findByText("execution execution_old")).toBeInTheDocument();
     expect(listNodeExecutions).toHaveBeenCalledWith("prj-1", "n_a", 4);
   });
 
@@ -562,14 +568,13 @@ describe("SchedulerScreen Done", () => {
       },
     });
 
-    renderScreen();
+    renderScreen("/scheduler?view=history");
 
-    const done = await section("Done");
+    const done = await section("History");
     const first = await within(done).findByRole("list", { name: "Done executions of kanthord" });
-    expect(within(first).getAllByRole("listitem")).toHaveLength(1);
-    expect(within(first).getByText("execution execution_done_1")).toBeInTheDocument();
+    expect(titles(first)).toEqual(["Add recovery codes"]);
     const second = within(done).getByRole("list", { name: "Done executions of atlas" });
-    expect(within(second).getByText("execution execution_done_2")).toBeInTheDocument();
+    expect(titles(second)).toEqual(["Add cart totals"]);
   });
 
   it("names the end, the duration and the stop of an execution", async () => {
@@ -579,7 +584,7 @@ describe("SchedulerScreen Done", () => {
       executions: { "prj-1": [ended("prj-1", "execution_done", "n_a", { stop })] },
     });
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
 
     const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
       "listitem",
@@ -601,7 +606,7 @@ describe("SchedulerScreen Done", () => {
       executions: { "prj-1": [ended("prj-1", "execution_done", "n_a", { stop })] },
     });
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
 
     const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
       "listitem",
@@ -619,7 +624,7 @@ describe("SchedulerScreen Done", () => {
       },
     });
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
 
     const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
       "listitem",
@@ -646,7 +651,7 @@ describe("SchedulerScreen Done", () => {
       },
     });
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
 
     const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
       "listitem",
@@ -666,64 +671,77 @@ describe("SchedulerScreen Done", () => {
       },
     });
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
 
     const item = within(await screen.findByRole("list", { name: "Done executions" })).getByRole(
       "listitem",
     );
-    const identity = within(item).getByText("worker_registration_01");
+    openDetails(item);
+    const identity = await within(item).findByText("worker_registration_01");
     expect(identity.tagName).toBe("SPAN");
     expect(identity).toHaveClass("break-all");
     expect(within(item).queryByText("worker_registration_01", { selector: "strong" })).toBeNull();
     expect(
       within(item).getByText(
-        textContent(
-          "binding general-main · registration worker_registration_01 · attempt 2 · pinned revision 3",
-        ),
+        textContent("binding general-main · registration worker_registration_01 · attempt 2"),
       ),
     ).toBeInTheDocument();
   });
 
   it("pages through the ended executions of a project", async () => {
     const user = userEvent.setup();
-    serve({ nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] } });
+    serve({
+      nodes: {
+        "prj-1": [
+          node("n_a", "Add recovery codes", "Available"),
+          node("n_b", "Add cart totals", "Available"),
+        ],
+      },
+    });
     const pages: Readonly<Record<string, Page<SchedulerExecutionRecord>>> = {
       first: {
         items: [ended("prj-1", "execution_one", "n_a")],
         next_cursor: "c-1",
       },
-      "c-1": { items: [ended("prj-1", "execution_two", "n_a")], next_cursor: null },
+      "c-1": { items: [ended("prj-1", "execution_two", "n_b")], next_cursor: null },
     };
     vi.mocked(listProjectExecutionPage).mockImplementation(async (_projectId, cursor, limit) => {
       if (limit === 100) return { items: [], next_cursor: null };
       return pages[cursor ?? "first"] ?? { items: [], next_cursor: null };
     });
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
 
-    expect(await screen.findByText("execution execution_one")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Add recovery codes" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(await screen.findByText("execution execution_two")).toBeInTheDocument();
-    expect(screen.queryByText("execution execution_one")).toBeNull();
+    expect(await screen.findByRole("link", { name: "Add cart totals" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Add recovery codes" })).toBeNull();
     expect(listProjectExecutionPage).toHaveBeenCalledWith("prj-1", "c-1", 20);
 
     await user.click(screen.getByRole("button", { name: "Previous" }));
-    expect(await screen.findByText("execution execution_one")).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Add recovery codes" })).toBeInTheDocument();
   });
 
   it("reloads page 1 on the cycle and leaves page 2 alone", async () => {
     vi.useFakeTimers();
-    serve({ nodes: { "prj-1": [node("n_a", "Add recovery codes", "Available")] } });
+    serve({
+      nodes: {
+        "prj-1": [
+          node("n_a", "Add recovery codes", "Available"),
+          node("n_b", "Add cart totals", "Available"),
+        ],
+      },
+    });
     vi.mocked(listProjectExecutionPage).mockImplementation(async (_projectId, cursor, limit) => {
       if (limit === 100) return { items: [], next_cursor: null };
       return cursor === "c-1"
-        ? { items: [ended("prj-1", "execution_two", "n_a")], next_cursor: null }
+        ? { items: [ended("prj-1", "execution_two", "n_b")], next_cursor: null }
         : { items: [ended("prj-1", "execution_one", "n_a")], next_cursor: "c-1" };
     });
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
     await advance(0);
-    expect(screen.getByText("execution execution_one")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add recovery codes" })).toBeInTheDocument();
     expect(doneReadsAt(null)).toBe(1);
 
     await advance(15_000);
@@ -731,20 +749,98 @@ describe("SchedulerScreen Done", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await advance(0);
-    expect(screen.getByText("execution execution_two")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add cart totals" })).toBeInTheDocument();
 
     await advance(15_000);
     expect(doneReadsAt(null)).toBe(2);
     expect(doneReadsAt("c-1")).toBe(1);
-    expect(screen.getByText("execution execution_two")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Add cart totals" })).toBeInTheDocument();
   });
 
   it("names an empty group", async () => {
     serve({});
 
-    renderScreen("/scheduler?project=prj-1");
+    renderScreen("/scheduler?project=prj-1&view=history");
 
     expect(await screen.findByText("No execution ended yet.")).toBeInTheDocument();
+  });
+});
+
+describe("SchedulerScreen views", () => {
+  it("opens on Live with Now and Next and keeps History and Failed behind tabs", async () => {
+    serve({});
+
+    renderScreen();
+
+    expect(await screen.findByRole("tab", { name: "Live", selected: true })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Now" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Next" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "History" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Failed" })).toBeNull();
+
+    await userEvent.setup().click(screen.getByRole("tab", { name: "History" }));
+    expect(await section("History")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Now" })).toBeNull();
+  });
+
+  it("lists the failed executions newest first and counts them on the tab", async () => {
+    serve({
+      nodes: {
+        "prj-1": [node("n_a", "Add recovery codes", "Available")],
+        "prj-2": [node("n_b", "Add cart totals", "Available")],
+      },
+      executions: {
+        "prj-1": [
+          ended("prj-1", "execution_ok", "n_a"),
+          ended("prj-1", "execution_lost", "n_a", {
+            claim_state: "lost",
+            ended_at: NOW - 50 * MINUTE,
+          }),
+        ],
+        "prj-2": [
+          ended("prj-2", "execution_stop", "n_b", {
+            stop: { reason: "no_progress", code: null },
+            ended_at: NOW - 10 * MINUTE,
+          }),
+        ],
+      },
+    });
+
+    renderScreen();
+
+    const tab = await screen.findByRole("tab", { name: "Failed 2" });
+    await userEvent.setup().click(tab);
+    const list = await screen.findByRole("list", { name: "Failed executions" });
+    expect(titles(list)).toEqual(["Add cart totals", "Add recovery codes"]);
+    expect(within(list).getByText("No progress")).toBeInTheDocument();
+    expect(within(list).getByText("Lost")).toBeInTheDocument();
+  });
+
+  it("names an empty Failed view", async () => {
+    serve({});
+
+    renderScreen("/scheduler?view=failed");
+
+    expect(await screen.findByText("No execution failed.")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Failed" })).toBeInTheDocument();
+  });
+
+  it("shows the first five jobs of a queue and the rest on demand", async () => {
+    const names = ["A", "B", "C", "D", "E", "F", "G"];
+    serve({
+      nodes: { "prj-1": names.map((name) => node(`n_${name}`, `Node ${name}`, "Available", 0)) },
+      jobs: {
+        "prj-1": names.map((name, index) => job("prj-1", `n_${name}`, 0, (9 - index) * MINUTE)),
+      },
+    });
+
+    renderScreen("/scheduler?project=prj-1");
+
+    const queue = await screen.findByRole("list", { name: "Queue" });
+    expect(titles(queue)).toEqual(["Node A", "Node B", "Node C", "Node D", "Node E"]);
+    await userEvent.setup().click(screen.getByRole("button", { name: "2 more jobs" }));
+    const more = await screen.findByRole("list", { name: "More of the queue" });
+    expect(titles(more)).toEqual(["Node F", "Node G"]);
   });
 });
 
