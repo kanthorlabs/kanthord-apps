@@ -43,6 +43,8 @@ export interface ReadinessItem {
 export interface ProjectReadiness {
   readonly loading: boolean;
   readonly items: readonly ReadinessItem[];
+  readonly openItems: readonly ReadinessItem[];
+  readonly doneItems: readonly ReadinessItem[];
   readonly faults: readonly ReadFault[];
   readonly reload: () => void;
 }
@@ -320,5 +322,14 @@ export function useProjectReadiness(project: Project): ProjectReadiness {
     () => (data === null ? NO_ITEMS : readinessItemsOf(project, data.facts)),
     [project, data],
   );
-  return { loading: data === null && loading, items, faults: data?.faults ?? NO_FAULTS, reload };
+  const openItems = useMemo(() => items.filter((item) => item.state === "open"), [items]);
+  const doneItems = useMemo(() => items.filter((item) => item.state === "done"), [items]);
+  return {
+    loading: data === null && loading,
+    items,
+    openItems,
+    doneItems,
+    faults: data?.faults ?? NO_FAULTS,
+    reload,
+  };
 }

@@ -8,21 +8,32 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { utcDateTime } from "@/lib/format";
 import { useProjectList } from "./use-project-list";
+import { progressTextOf, useProjectStates, type ProjectState } from "./use-project-states";
 
-function ProjectItem({ project }: { project: Project }) {
+function ProjectItem({ project, state }: { project: Project; state: ProjectState }) {
   const navigate = useNavigate();
 
   return (
     <DataListItem
       title={project.name}
-      status={project.paused_at !== null ? <Badge variant="secondary">Paused</Badge> : undefined}
+      status={
+        <>
+          {project.paused_at !== null && <Badge variant="secondary">Paused</Badge>}
+          {state.status === "ready" && state.attention > 0 && (
+            <Badge variant="destructive">Needs you · {state.attention}</Badge>
+          )}
+          {state.status === "ready" && state.running > 0 && (
+            <Badge>Running · {state.running}</Badge>
+          )}
+        </>
+      }
       select={{
         label: `Open ${project.name}`,
         disabled: false,
         onSelect: () => navigate(`/projects/${encodeURIComponent(project.id)}`),
       }}
       fields={[
-        { label: "Identity", value: <span className="font-mono break-all">{project.id}</span> },
+        { label: "Progress", value: progressTextOf(state) },
         { label: "Created", value: utcDateTime(project.created_at) },
       ]}
     />
@@ -31,6 +42,7 @@ function ProjectItem({ project }: { project: Project }) {
 
 export function ProjectsScreen() {
   const pages = useProjectList();
+  const stateOf = useProjectStates(pages.items);
 
   return (
     <div className="flex flex-col gap-4">
@@ -44,7 +56,7 @@ export function ProjectsScreen() {
         label="Projects"
         items={pages.items}
         getKey={(project) => project.id}
-        renderItem={(project) => <ProjectItem project={project} />}
+        renderItem={(project) => <ProjectItem project={project} state={stateOf(project.id)} />}
         status={pages.status}
         error={pages.error?.message ?? null}
         pending={pages.pending}
