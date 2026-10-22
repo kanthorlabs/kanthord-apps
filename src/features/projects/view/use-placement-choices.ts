@@ -4,5 +4,7 @@ import { placementChoicesOf, type PlacementChoices } from "@/lib/placement-statu
 
 export function usePlacementChoices(active: boolean): PlacementChoices {
   const read = useResource(() => (active ? listWorkerPlacements() : Promise.resolve([])), [active]);
-  return placementChoicesOf(read.loading ? null : (read.data ?? []));
+  return placementChoicesOf(
+    read.loading ? "checking" : read.error !== null ? "failed" : (read.data ?? []),
+  );
 }

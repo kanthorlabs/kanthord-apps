@@ -1,15 +1,11 @@
 import type { Resource } from "@/hooks/use-resource";
-import type { WorkerInstanceListItem, WorkerPlacement } from "@/api/types";
-import { ChoiceField } from "@/components/choice-field";
+import type { WorkerInstanceListItem } from "@/api/types";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
-import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Textarea } from "@/components/ui/textarea";
 import {
   agentRowsOf,
-  tagsInvalid,
   withAgentEntry,
   withWorker,
   type AgentEntryDraft,
@@ -17,13 +13,14 @@ import {
   type WorkerDraft,
 } from "@/lib/binding-draft";
 import type { PlacementChoices } from "@/lib/placement-status";
+import { useAdvancedSettings } from "../use-advanced-settings";
 import type { InstanceSharing } from "../use-instance-sharing";
 import type { WorkerAgents } from "../use-worker-agents";
 import { DraftField } from "./draft-field";
 import { InstancesField } from "./instances-field";
+import { PlacementField } from "./placement-field";
+import { WorkerAdvancedSettings } from "./worker-advanced-settings";
 import { WorkerAgentItem } from "./worker-agent-item";
-
-const PLACEMENTS: readonly WorkerPlacement[] = ["server", "container", "worker"];
 
 interface WorkerAgentListProps {
   readonly draft: WorkerDraft;
@@ -109,6 +106,7 @@ export function WorkerForm({
   onEnableAgent,
 }: WorkerFormProps) {
   const hosted = draft.worker !== "" && agents.data !== null && !agents.data.external;
+  const advanced = useAdvancedSettings(draft, errors);
   return (
     <>
       {creating ? (
@@ -136,18 +134,10 @@ export function WorkerForm({
       )}
       {hosted &&
         (creating ? (
-          <ChoiceField
-            id="binding-placement"
-            label="Placement"
-            value={draft.placement ?? ""}
-            options={PLACEMENTS}
-            error={errors["placement"]}
-            description="server runs each instance as a thread of the server. container runs each instance in its own container on the server host. worker runs each listed worker instance, one kanthord serve worker process for each instance. The binding keeps this choice."
-            disabledOptions={placements.disabled}
-            note={draft.placement === "worker" ? null : placements.note}
-            onChange={(next) =>
-              onEdit({ ...draft, placement: PLACEMENTS.find((item) => item === next) ?? null })
-            }
+          <PlacementField
+            value={draft.placement}
+            choices={placements}
+            onChange={(placement) => onEdit({ ...draft, placement })}
           />
         ) : (
           <DraftField
@@ -179,38 +169,6 @@ export function WorkerForm({
           onChange={(instanceCount) => onEdit({ ...draft, instanceCount })}
         />
       )}
-      <DraftField
-        id="binding-turns"
-        label="Turn budget"
-        value={draft.turns}
-        error={errors["turns"]}
-        inputMode="numeric"
-        description="Optional. Give both budget values or neither."
-        onChange={(turns) => onEdit({ ...draft, turns })}
-      />
-      <DraftField
-        id="binding-wall-time"
-        label="Wall-time budget (ms)"
-        value={draft.wallTimeMs}
-        error={errors["wallTimeMs"]}
-        inputMode="numeric"
-        onChange={(wallTimeMs) => onEdit({ ...draft, wallTimeMs })}
-      />
-      <Field>
-        <FieldLabel htmlFor="binding-tags">Tags</FieldLabel>
-        <Textarea
-          id="binding-tags"
-          value={draft.tags}
-          aria-invalid={tagsInvalid(draft.tags)}
-          autoComplete="off"
-          spellCheck={false}
-          onChange={(event) => onEdit({ ...draft, tags: event.target.value })}
-        />
-        <FieldDescription>
-          One tag per line, for example platform.macos. Use lower-case dotted tags, each at most 64
-          bytes, each once. A node runs only on a binding whose tags include every tag of the node.
-        </FieldDescription>
-      </Field>
       <section aria-label="Agents" className="flex flex-col gap-2">
         <h4 className="text-sm font-medium">Agents</h4>
         <WorkerAgentList
@@ -221,6 +179,13 @@ export function WorkerForm({
           onEnableAgent={onEnableAgent}
         />
       </section>
+      <WorkerAdvancedSettings
+        draft={draft}
+        errors={errors}
+        settings={advanced}
+        offersWorkerPlacement={creating && hosted}
+        onEdit={onEdit}
+      />
     </>
   );
 }
