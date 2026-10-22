@@ -339,6 +339,13 @@ const enablementTarget = (res, name, expectedRevision) => {
   }
   return agent;
 };
+on("GET", /^\/api\/agent\/enablement\/([^/]+)$/, (m, _b, res) => {
+  const agent = agents.find((a) => a.agent_name === decodeURIComponent(m[1]));
+  if (agent?.enablement == null) {
+    return projectEnvelope(res, 404, "agent.enablement.not_found", "No enablement exists.");
+  }
+  return json(res, 200, agent.enablement);
+});
 on("PUT", /^\/api\/agent\/enablement\/([^/]+)$/, (m, b, res) => {
   const agent = enablementTarget(res, m[1], b?.expected_revision);
   if (agent === null) return undefined;

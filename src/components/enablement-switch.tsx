@@ -1,15 +1,17 @@
-import type { AgentEnablement } from "@/api/types";
+import type { AgentEnablementState } from "@/api/types";
+import { EnablementDisableDialog } from "@/components/enablement-disable-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { useEnablementSwitch } from "../use-enablement-switch";
+import { useEnablementSwitch } from "@/hooks/use-enablement-switch";
 
 interface EnablementSwitchProps {
-  readonly enablement: AgentEnablement;
+  readonly agentName: string;
+  readonly state: AgentEnablementState;
   readonly reload: () => void;
 }
 
-export function EnablementSwitch({ enablement, reload }: EnablementSwitchProps) {
-  const control = useEnablementSwitch(enablement, reload);
+export function EnablementSwitch({ agentName, state, reload }: EnablementSwitchProps) {
+  const control = useEnablementSwitch({ agentName, state }, reload);
 
   return (
     <div className="flex flex-col gap-2">
@@ -20,14 +22,18 @@ export function EnablementSwitch({ enablement, reload }: EnablementSwitchProps) 
         </Alert>
       )}
       <Button
+        type="button"
         variant="outline"
         size="sm"
         className="self-start"
+        aria-label={`${control.label} ${agentName}`}
+        aria-busy={control.pending}
         disabled={control.pending}
         onClick={control.run}
       >
         {control.label}
       </Button>
+      <EnablementDisableDialog agentName={agentName} control={control} />
     </div>
   );
 }

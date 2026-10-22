@@ -11,6 +11,7 @@ import {
   listAgents,
   listCredentialModels,
   putAgentEnablement,
+  readAgentEnablement,
   addAgentProvider,
   removeAgentProvider,
 } from "./workers";
@@ -211,6 +212,17 @@ describe("listCredentialModels", () => {
     expect(await listCredentialModels("openai-codex", "codex main")).toEqual(items);
     expect(seen.map((call) => [call.method, call.url])).toEqual([
       ["GET", "/api/agent/model?provider=openai-codex&credential=codex+main"],
+    ]);
+  });
+});
+
+describe("readAgentEnablement", () => {
+  it("gets the enablement of one agent", async () => {
+    await serve({ "GET /api/agent/enablement/swe%401": SWE_ENABLEMENT });
+
+    expect(await readAgentEnablement("swe@1")).toEqual(SWE_ENABLEMENT);
+    expect(seen.map((call) => [call.method, call.url])).toEqual([
+      ["GET", "/api/agent/enablement/swe%401"],
     ]);
   });
 });
