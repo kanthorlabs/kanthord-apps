@@ -586,6 +586,33 @@ describe("OverviewScreen inbox", () => {
     expect(summary.parentElement).toHaveAttribute("aria-live", "polite");
   });
 
+  it("narrows the inbox to one group on demand", async () => {
+    serve({
+      projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS],
+      nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [] },
+    });
+
+    renderScreen();
+
+    const filter = await screen.findByRole("group", { name: "Show the items of" });
+    expect(screen.getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fixes" })).toBeInTheDocument();
+    await userEvent.click(within(filter).getByRole("button", { name: "Fixes · 1" }));
+    expect(screen.queryByRole("heading", { name: "Decisions" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Fixes" })).toBeInTheDocument();
+    await userEvent.click(within(filter).getByRole("button", { name: "All · 2" }));
+    expect(screen.getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+  });
+
+  it("offers no group filter while one group holds items", async () => {
+    serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [] } });
+
+    renderScreen();
+
+    expect(await screen.findByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Show the items of" })).toBeNull();
+  });
+
   it("names the status line and links to the scheduler", async () => {
     serve({
       nodes: {
@@ -618,12 +645,15 @@ describe("OverviewScreen inbox", () => {
 
     renderScreen();
 
+    expect(await screen.findByText("2 projects · 4 nodes · 2 completed")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Node states of kanthord" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Node states" }));
     const kanthord = await screen.findByRole("list", { name: "Node states of kanthord" });
     expect(
       within(kanthord)
         .getAllByRole("listitem")
         .map((item) => item.textContent),
-    ).toEqual(["Pending1", "Completed2"]);
+    ).toEqual(["Pending 1", "Completed 2"]);
     expect(
       within(screen.getByRole("list", { name: "Node states of atlas" })).getByText("Executing"),
     ).toBeInTheDocument();

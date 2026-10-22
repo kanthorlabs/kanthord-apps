@@ -7,6 +7,7 @@ import {
   attentionSummary,
   claimedNodeCount,
   coolingFactsOf,
+  progressSummary,
   projectsWithoutSetup,
   statusLineText,
 } from "./overview-summary";
@@ -229,5 +230,23 @@ describe("projectsWithoutSetup", () => {
     expect(projectsWithoutSetup([snapshotOf(atlas)], [{ project: atlas }, { project: beta }])).toBe(
       0,
     );
+  });
+});
+
+describe("progressSummary", () => {
+  it("counts the projects, the nodes and the completed nodes", () => {
+    expect(
+      progressSummary([
+        [
+          { state: "Pending", count: 1 },
+          { state: "Completed", count: 2 },
+        ],
+        [{ state: "Executing", count: 1 }],
+      ]),
+    ).toBe("2 projects · 4 nodes · 2 completed");
+  });
+
+  it("names one project with no node", () => {
+    expect(progressSummary([[]])).toBe("1 project · 0 nodes · 0 completed");
   });
 });
