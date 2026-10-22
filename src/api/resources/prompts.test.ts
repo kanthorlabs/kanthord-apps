@@ -12,6 +12,8 @@ import {
   switchPromptSource,
 } from "./prompts";
 
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+
 interface Seen {
   readonly method: string;
   readonly url: string;
@@ -105,7 +107,7 @@ describe("prompt settings resources", () => {
       },
       { scope: "system", switch: "layer", enabled: false },
     ]);
-    expect(seen.every((call) => call.idempotencyKey !== undefined)).toBe(true);
+    for (const call of seen) expect(call.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 
   it("sets the system layer override of an agent", async () => {
@@ -132,6 +134,6 @@ describe("prompt settings resources", () => {
       expected_revision: 2,
       custom_text: "# Rules",
     });
-    expect(seen[0]?.idempotencyKey).toBeDefined();
+    expect(seen[0]?.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
