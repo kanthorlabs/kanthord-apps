@@ -13,6 +13,7 @@ import { ProjectScreen } from "@/features/projects/view/project-screen";
 import { RepositoryScreen } from "@/features/repositories/view/repository-screen";
 import { SchedulerScreen } from "@/features/scheduler/board/scheduler-screen";
 import { TracesScreen } from "@/features/traces/list/traces-screen";
+import { TraceScreen } from "@/features/traces/trace/trace-screen";
 import { ChatScreen } from "@/features/workbench/chat/chat-screen";
 import { SessionsScreen } from "@/features/workbench/sessions/sessions-screen";
 import { PromptsScreen } from "@/features/settings/prompts/prompts-screen";
@@ -42,6 +43,7 @@ export function AppRouter() {
             <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
             <Route path="scheduler" element={<SchedulerScreen />} />
             <Route path="traces" element={<TracesScreen />} />
+            <Route path="traces/:traceId" element={<TraceScreen />} />
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="workers/:workerName" element={<WorkerScreen />} />
             <Route
