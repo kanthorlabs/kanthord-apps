@@ -3085,6 +3085,8 @@ registerWorkbench({
   sessions: workbenchSessions,
 });
 
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+
 createServer((req, res) => {
   if (req.method === "OPTIONS") return json(res, 204, null);
 
@@ -3105,6 +3107,15 @@ createServer((req, res) => {
         401,
         "gateway.authentication.unauthorized",
         "The request carries no valid human token.",
+      );
+    }
+    const idempotencyKey = req.headers["idempotency-key"];
+    if (idempotencyKey !== undefined && !IDEMPOTENCY_KEY.test(idempotencyKey)) {
+      return projectEnvelope(
+        res,
+        400,
+        "gateway.idempotency.invalid_key",
+        "Idempotency-Key must be idempotency_key_ followed by a canonical ULID.",
       );
     }
     try {

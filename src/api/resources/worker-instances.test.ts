@@ -13,6 +13,8 @@ import {
   resetWorkerInstanceKey,
 } from "./worker-instances";
 
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+
 interface Seen {
   readonly method: string;
   readonly url: string;
@@ -92,7 +94,7 @@ describe("worker instance resources", () => {
       worker: "coder@1",
       endpoint: "http://h:31415",
     });
-    expect(seen[0]?.idempotencyKey).toMatch(/^[0-9A-Z]{26}$/);
+    expect(seen[0]?.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 
   it("resets the key with the endpoint and the expected revision", async () => {

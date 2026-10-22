@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { newUlid, ulidTime } from "./ulid";
 
-const IDEMPOTENCY_KEY = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+const CANONICAL_ULID = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 
 describe("newUlid", () => {
-  it("matches the Idempotency-Key pattern of the contract", () => {
-    expect(newUlid()).toMatch(IDEMPOTENCY_KEY);
+  it("matches the canonical ULID pattern", () => {
+    expect(newUlid()).toMatch(CANONICAL_ULID);
   });
 
   it("encodes the time in the first ten characters", () => {
