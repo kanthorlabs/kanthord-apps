@@ -111,7 +111,7 @@ function AgentProviderList({
                 <RecordName>{p.credential}</RecordName>
               </p>
             </ItemContent>
-            <ItemActions className="flex-wrap">
+            <ItemActions className="basis-full flex-wrap md:justify-end">
               <CredentialVerifyAction component="llm" name={p.credential} />
               <RemoveProviderButton
                 providerName={p.name}
