@@ -8,7 +8,7 @@ import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
 import { nextBindings } from "@/lib/binding-change";
 import { returnToOf } from "@/lib/return-to";
 
-const VERSION_CONFLICT = "project.binding_set.version_conflict";
+export const VERSION_CONFLICT = "project.binding_set.version_conflict";
 
 export interface BindingSetState {
   readonly resource: Resource<BindingSet>;

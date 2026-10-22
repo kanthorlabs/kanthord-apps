@@ -25,7 +25,7 @@ export interface BindingChangeGuardState {
   readonly close: () => void;
 }
 
-function consequenceOf(change: BindingChange): ReactNode {
+export function consequenceOf(change: BindingChange): ReactNode {
   const refusal = "refuses every use of it, including records that pin an earlier revision";
   const name = <RecordName>{change.name}</RecordName>;
   if (change.kind === "remove") {

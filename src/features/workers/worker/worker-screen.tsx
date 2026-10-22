@@ -1,5 +1,5 @@
 import { PlusIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import type { ApiError } from "@/api/errors";
@@ -22,7 +22,11 @@ import { durationText } from "@/lib/format";
 import { effectiveInstanceCount } from "@/lib/instance-count";
 import { shortFingerprint } from "@/lib/instance-host";
 import { instancePagePath, workerPagePath } from "@/lib/worker-paths";
+import { BindingRemoveAction } from "@/features/projects/view/components/binding-remove-action";
+import { DetachInstanceDialog } from "../instance/components/detach-instance-dialog";
+import { useInstanceDetach } from "../instance/use-instance-detach";
 import { AddInstanceSheet } from "./components/add-instance-sheet";
+import { InstanceRowActions } from "./components/instance-row-actions";
 import { useInstanceCreate } from "./use-instance-create";
 import { useWorkerPage } from "./use-worker-page";
 
@@ -130,10 +134,12 @@ function InstanceRow({
   instance,
   execution,
   onOpen,
+  actions,
 }: {
   instance: WorkerInstanceListItem;
   execution: InstanceExecution | null;
   onOpen: () => void;
+  actions: ReactNode;
 }) {
   const connection = instance.connection;
   return (
@@ -172,11 +178,12 @@ function InstanceRow({
           ),
         },
       ]}
+      actions={actions}
     />
   );
 }
 
-function BindingRow({ binding }: { binding: WorkerBindingRecord }) {
+function BindingRow({ binding, actions }: { binding: WorkerBindingRecord; actions: ReactNode }) {
   const config = binding.config;
   const listed = config.placement === "worker" ? (config.worker_instances ?? []) : null;
   return (
@@ -200,6 +207,7 @@ function BindingRow({ binding }: { binding: WorkerBindingRecord }) {
                 ),
             },
       ]}
+      actions={actions}
     />
   );
 }
@@ -250,6 +258,13 @@ export function WorkerScreen() {
   const navigate = useNavigate();
   const page = useWorkerPage(workerName);
   const create = useInstanceCreate(workerName, page.instances.reload);
+  const reloadInstances = page.instances.reload;
+  const reloadBindings = page.bindings.reload;
+  const reloadAll = useCallback(() => {
+    reloadInstances();
+    reloadBindings();
+  }, [reloadInstances, reloadBindings]);
+  const detach = useInstanceDetach(reloadAll);
   useCrumbLabel(workerPagePath(workerName), workerName);
   const entry = page.entry.data;
 
@@ -319,6 +334,14 @@ export function WorkerScreen() {
                   instance={instance}
                   execution={page.executionOf(instance.name)}
                   onOpen={() => void navigate(instancePagePath(workerName, instance.name))}
+                  actions={
+                    <InstanceRowActions
+                      instance={instance}
+                      liveExecutions={page.liveExecutionsOf(instance.name)}
+                      detach={detach}
+                      onArchived={reloadAll}
+                    />
+                  }
                 />
               ))}
             </ItemGroup>
@@ -340,7 +363,18 @@ export function WorkerScreen() {
         ) : (
           <ItemGroup aria-label="Bindings" className="gap-2">
             {bindings.map((binding) => (
-              <BindingRow key={binding.id} binding={binding} />
+              <BindingRow
+                key={binding.id}
+                binding={binding}
+                actions={
+                  <BindingRemoveAction
+                    projectId={binding.project_id}
+                    bindingName={binding.name}
+                    removed={binding.removed_at !== null}
+                    onChanged={reloadAll}
+                  />
+                }
+              />
             ))}
           </ItemGroup>
         )}
@@ -363,6 +397,7 @@ export function WorkerScreen() {
         )}
       </Section>
       {hosted && <AddInstanceSheet workerName={workerName} create={create} />}
+      <DetachInstanceDialog detach={detach} />
     </div>
   );
 }

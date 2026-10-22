@@ -6,9 +6,16 @@ import { DataListItem } from "@/components/data-list-item";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
+import { BindingRemoveAction } from "@/features/projects/view/components/binding-remove-action";
 import { projectTabPath } from "@/features/projects/view/use-project-tab";
 
-export function BindingList({ bindings }: { bindings: readonly CredentialBinding[] }) {
+export function BindingList({
+  bindings,
+  onChanged,
+}: {
+  bindings: readonly CredentialBinding[];
+  onChanged: () => void;
+}) {
   return (
     <section aria-labelledby="credential-bindings" className="flex flex-col gap-2">
       <h3 id="credential-bindings" className="font-semibold">
@@ -28,16 +35,24 @@ export function BindingList({ bindings }: { bindings: readonly CredentialBinding
               title={binding.name}
               fields={[{ label: "Project", value: binding.project_name }]}
               actions={
-                <Button
-                  nativeButton={false}
-                  render={<Link to={projectTabPath(binding.project_id, "bindings")} />}
-                  variant="outline"
-                  size="sm"
-                  aria-label={`Bindings of ${binding.project_name}`}
-                >
-                  <ExternalLinkIcon aria-hidden="true" data-icon="inline-start" />
-                  Open bindings
-                </Button>
+                <>
+                  <Button
+                    nativeButton={false}
+                    render={<Link to={projectTabPath(binding.project_id, "bindings")} />}
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Bindings of ${binding.project_name}`}
+                  >
+                    <ExternalLinkIcon aria-hidden="true" data-icon="inline-start" />
+                    Open bindings
+                  </Button>
+                  <BindingRemoveAction
+                    projectId={binding.project_id}
+                    bindingName={binding.name}
+                    removed={false}
+                    onChanged={onChanged}
+                  />
+                </>
               }
             />
           ))}

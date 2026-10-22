@@ -22,7 +22,7 @@ const MIRROR: CredentialBinding = {
 function mount(bindings: readonly CredentialBinding[]) {
   return render(
     <MemoryRouter>
-      <BindingList bindings={bindings} />
+      <BindingList bindings={bindings} onChanged={() => undefined} />
     </MemoryRouter>,
   );
 }

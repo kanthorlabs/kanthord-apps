@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
-import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { BindingRemoveAction } from "@/features/projects/view/components/binding-remove-action";
 import { workerPagePath } from "@/lib/worker-paths";
 import type { BindingInstances } from "../binding-instances";
 
@@ -45,7 +46,13 @@ function ContainerShortfallHint() {
   );
 }
 
-export function BindingInstanceItem({ entry }: { entry: BindingInstances }) {
+export function BindingInstanceItem({
+  entry,
+  onChanged,
+}: {
+  entry: BindingInstances;
+  onChanged: () => void;
+}) {
   return (
     <Item variant="outline" size="sm" role="listitem">
       <ItemContent className="min-w-0">
@@ -65,6 +72,14 @@ export function BindingInstanceItem({ entry }: { entry: BindingInstances }) {
         {entry.gap === "server" && <ServerShortfallHint />}
         {entry.gap === "container" && <ContainerShortfallHint />}
       </ItemContent>
+      <ItemActions className="basis-full md:basis-auto md:justify-end">
+        <BindingRemoveAction
+          projectId={entry.binding.project_id}
+          bindingName={entry.binding.name}
+          removed={entry.binding.removed_at !== null}
+          onChanged={onChanged}
+        />
+      </ItemActions>
     </Item>
   );
 }

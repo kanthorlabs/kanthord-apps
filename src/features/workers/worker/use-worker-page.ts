@@ -22,6 +22,7 @@ export interface WorkerPage {
   readonly bindings: Resource<readonly WorkerBindingRecord[]>;
   readonly projectRegistrations: readonly WorkerRegistrationRecord[];
   readonly executionOf: (instanceName: string) => InstanceExecution | null;
+  readonly liveExecutionsOf: (instanceName: string) => readonly string[];
 }
 
 export function useWorkerPage(workerName: string): WorkerPage {
@@ -53,6 +54,12 @@ export function useWorkerPage(workerName: string): WorkerPage {
       .map((registration) => registration.runtime_identity);
     return executions.find((execution) => runtimes.includes(execution.runtimeIdentity)) ?? null;
   };
+  const liveExecutionsOf = (instanceName: string) =>
+    own.flatMap((registration) =>
+      registration.instance === instanceName && registration.execution_id !== undefined
+        ? [registration.execution_id]
+        : [],
+    );
   return {
     projectId,
     entry,
@@ -61,5 +68,6 @@ export function useWorkerPage(workerName: string): WorkerPage {
     bindings,
     projectRegistrations,
     executionOf,
+    liveExecutionsOf,
   };
 }
