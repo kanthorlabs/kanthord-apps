@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { BindingSetEntry } from "@/api/types";
 import {
+  advancedNeedsAttention,
   agentRowsOf,
   draftOf,
   emptyDraft,
   entryOfDraft,
+  holdsAdvancedSettings,
   missingForCheck,
   missingForSave,
   pinnableHostOf,
@@ -13,6 +15,7 @@ import {
   withPlacementDefault,
   withPlatform,
   withWorker,
+  withWorkerPlacement,
   withWorkingLayerSwitch,
   type RepositoryDraft,
   type WorkerDraft,
@@ -626,5 +629,37 @@ describe("missingForCheck, missingForSave and missingHint", () => {
       "Region",
       "Storage credential",
     ]);
+  });
+});
+
+describe("advanced settings of a worker draft", () => {
+  const base = {
+    ...(emptyDraft("worker") as WorkerDraft),
+    worker: "coder@1",
+    placement: "server" as const,
+  };
+
+  it("switches between the worker placement and server and clears the instances", () => {
+    const atWorker = withWorkerPlacement({ ...base, instances: ["mac-studio"] }, true);
+    expect(atWorker.placement).toBe("worker");
+    expect(atWorker.instances).toEqual([]);
+    expect(withWorkerPlacement(atWorker, false).placement).toBe("server");
+  });
+
+  it("holds advanced settings only for the worker placement, a budget or a tag", () => {
+    expect(holdsAdvancedSettings(base)).toBe(false);
+    expect(holdsAdvancedSettings({ ...base, placement: "worker" })).toBe(true);
+    expect(holdsAdvancedSettings({ ...base, turns: "20" })).toBe(true);
+    expect(holdsAdvancedSettings({ ...base, wallTimeMs: "1000" })).toBe(true);
+    expect(holdsAdvancedSettings({ ...base, tags: "platform.macos" })).toBe(true);
+  });
+
+  it("needs attention for a budget error or an invalid tag", () => {
+    expect(advancedNeedsAttention(base, {})).toBe(false);
+    expect(advancedNeedsAttention(base, { turns: "Enter a whole number above 0." })).toBe(true);
+    expect(advancedNeedsAttention(base, { wallTimeMs: "Enter a whole number above 0." })).toBe(
+      true,
+    );
+    expect(advancedNeedsAttention({ ...base, tags: "Not A Tag" }, {})).toBe(true);
   });
 });

@@ -3,7 +3,14 @@ import type { PlacementReason, PlacementStatus, WorkerPlacement } from "@/api/ty
 export interface PlacementChoices {
   readonly disabled: readonly WorkerPlacement[];
   readonly note: string | null;
+  readonly runtime: string | null;
 }
+
+const RUNTIME_LABELS: Readonly<Record<NonNullable<PlacementStatus["container_runtime"]>, string>> =
+  {
+    podman: "Podman",
+    docker: "Docker",
+  };
 
 const STABLE_TEXTS: Readonly<Record<Exclude<PlacementReason, "runtime_failed">, string>> = {
   server_in_container:
@@ -25,12 +32,23 @@ export function placementReasonText(reason: PlacementReason, detail: string | nu
 }
 
 export function placementChoicesOf(statuses: readonly PlacementStatus[] | null): PlacementChoices {
-  if (statuses === null) return { disabled: ["container"], note: null };
+  if (statuses === null) return { disabled: ["container"], note: null, runtime: null };
   const container = statuses.find((status) => status.placement === "container");
+  const runtime =
+    container === undefined || container.container_runtime === null
+      ? null
+      : RUNTIME_LABELS[container.container_runtime];
   if (container === undefined || container.available || container.reason === null)
-    return { disabled: [], note: null };
+    return { disabled: [], note: null, runtime };
   const text = placementReasonText(container.reason, container.detail);
   return isStableReason(container.reason)
-    ? { disabled: ["container"], note: `Off. ${text}` }
-    : { disabled: [], note: text };
+    ? { disabled: ["container"], note: `Off. ${text}`, runtime }
+    : { disabled: [], note: text, runtime };
+}
+
+export function containerDescriptionOf(choices: PlacementChoices): string {
+  if (choices.disabled.includes("container") && choices.note !== null) return choices.note;
+  const runtime = choices.runtime === null ? "" : ` with ${choices.runtime}`;
+  const base = `Runs each instance in its own container on the server host${runtime}.`;
+  return choices.note === null ? base : `${base} ${choices.note}`;
 }
