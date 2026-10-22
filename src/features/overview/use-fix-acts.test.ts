@@ -1,13 +1,17 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resumeProject } from "@/api/resources/projects";
+import { readProject, resumeProject } from "@/api/resources/projects";
 import type { Project } from "@/api/types";
 import type { ProjectPausedItem } from "@/lib/fix-attention";
 
 import { useFixActs } from "./use-fix-acts";
 
-vi.mock("@/api/resources/projects", () => ({ pauseProject: vi.fn(), resumeProject: vi.fn() }));
+vi.mock("@/api/resources/projects", () => ({
+  pauseProject: vi.fn(),
+  readProject: vi.fn(),
+  resumeProject: vi.fn(),
+}));
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
@@ -32,6 +36,7 @@ const ITEM: ProjectPausedItem = {
 };
 
 beforeEach(() => {
+  vi.mocked(readProject).mockReset().mockResolvedValue(PROJECT);
   vi.mocked(resumeProject)
     .mockReset()
     .mockResolvedValue({ ...PROJECT, paused_at: null });
