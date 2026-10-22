@@ -8,6 +8,9 @@ import { ApiError } from "@/api/errors";
 vi.mock("@/api/resources/tracking", () => ({
   readTrace: vi.fn(),
   listTraceSpans: vi.fn(),
+  readTraceText: vi.fn(),
+  readSessionEntry: vi.fn(),
+  listSessionEntryPage: vi.fn(),
 }));
 
 vi.mock("@/api/resources/projects", () => ({
@@ -199,7 +202,16 @@ async function mountExpanded(entry?: string) {
   return view;
 }
 
+function matchLargeScreen(matches: boolean) {
+  vi.stubGlobal("matchMedia", () => ({
+    matches,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+}
+
 beforeEach(() => {
+  matchLargeScreen(true);
   vi.mocked(readTrace).mockResolvedValue(summary());
   vi.mocked(listTraceSpans).mockResolvedValue(spans());
   vi.mocked(listProjects).mockResolvedValue([project()]);
@@ -209,6 +221,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.useRealTimers();
   vi.resetAllMocks();
 });
@@ -450,6 +463,53 @@ describe("TraceScreen timeline", () => {
     expect(rowOf("bash")).toHaveAttribute("aria-selected", "true");
     expect(rowOf("Turn 1")).toBeInTheDocument();
     expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "true");
+  });
+});
+
+describe("TraceScreen span detail", () => {
+  it("asks for a selection while no span is selected", async () => {
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    const panel = screen.getByRole("complementary", { name: "Span detail" });
+    expect(within(panel).getByText("Select a span to see its detail.")).toBeInTheDocument();
+  });
+
+  it("shows the detail of a clicked span in the panel on a large screen", async () => {
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    fireEvent.click(rowOf("Task t1"));
+
+    const panel = screen.getByRole("complementary", { name: "Span detail" });
+    expect(within(panel).getByRole("heading", { name: "Task t1" })).toBeInTheDocument();
+    expect(within(panel).getByText("Duration")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows the detail of a clicked span in a sheet below the large screen", async () => {
+    matchLargeScreen(false);
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.click(rowOf("Task t1"));
+
+    const sheet = await screen.findByRole("dialog", { name: "Span detail" });
+    expect(within(sheet).getByRole("heading", { name: "Task t1" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+  });
+
+  it("clears the span of the query string when the sheet closes", async () => {
+    matchLargeScreen(false);
+    mount("/traces/trace-1?tab=timeline&span=task");
+
+    const sheet = await screen.findByRole("dialog", { name: "Span detail" });
+    expect(screen.getByText("at /traces/trace-1?tab=timeline&span=task")).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(screen.getByText("at /traces/trace-1?tab=timeline")).toBeInTheDocument();
   });
 });
 

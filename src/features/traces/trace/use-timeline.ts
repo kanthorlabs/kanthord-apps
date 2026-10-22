@@ -30,6 +30,7 @@ const HANDLED_KEYS: readonly string[] = [
 
 export interface Timeline {
   readonly rows: readonly SpanNode[];
+  readonly selected: TraceSpan | null;
   readonly usage: ReadonlyMap<string, SpanUsage>;
   readonly axis: TraceAxis | null;
   readonly filtered: boolean;
@@ -138,6 +139,7 @@ export function useTimeline(spans: readonly TraceSpan[], selection: Selection): 
 
   return {
     rows,
+    selected: spans.find((span) => span.span_id === selection.span) ?? null,
     usage,
     axis,
     filtered: keep !== null,
