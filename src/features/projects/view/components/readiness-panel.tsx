@@ -1,10 +1,13 @@
-import { Fragment } from "react";
+import { ChevronDownIcon } from "lucide-react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { Project } from "@/api/types";
 import { RecordName } from "@/components/record-name";
+import { RevealPanel } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Item,
   ItemActions,
@@ -53,26 +56,64 @@ function ReadinessRow({ item }: { readonly item: ReadinessItem }) {
   );
 }
 
+function ReadinessRows({
+  label,
+  items,
+}: {
+  readonly label: string;
+  readonly items: readonly ReadinessItem[];
+}) {
+  return (
+    <ItemGroup aria-label={label} className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+      {items.map((item) => (
+        <ReadinessRow key={item.key} item={item} />
+      ))}
+    </ItemGroup>
+  );
+}
+
 export function ReadinessPanel({ project }: { readonly project: Project }) {
   const readiness = useProjectReadiness(project);
+  const ready = readiness.openItems.length === 0;
+  const [open, setOpen] = useState(false);
   return (
-    <section aria-label="Readiness" className="flex flex-col gap-2">
-      <h3 className="font-semibold">Readiness</h3>
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      render={<section aria-label="Readiness" />}
+      className="flex flex-col gap-2"
+    >
+      <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold">Readiness</h3>
+          {!readiness.loading && (
+            <Badge variant={ready ? "secondary" : "destructive"}>
+              {ready ? "Ready" : `${readiness.openItems.length} open`}
+            </Badge>
+          )}
+        </div>
+        {!readiness.loading && readiness.doneItems.length > 0 && (
+          <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
+            <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
+            {open
+              ? "Hide done steps"
+              : `${readiness.doneItems.length} done ${readiness.doneItems.length === 1 ? "step" : "steps"}`}
+          </CollapsibleTrigger>
+        )}
+      </div>
       {readiness.faults.length > 0 && (
         <ReadFaultsAlert faults={readiness.faults} onRetry={readiness.reload} />
       )}
       {readiness.loading ? (
         <Skeleton className="h-16 w-full" />
       ) : (
-        <ItemGroup
-          aria-label="Readiness steps"
-          className="grid gap-2 md:grid-cols-2 xl:grid-cols-3"
-        >
-          {readiness.items.map((item) => (
-            <ReadinessRow key={item.key} item={item} />
-          ))}
-        </ItemGroup>
+        <>
+          {!ready && <ReadinessRows label="Open readiness steps" items={readiness.openItems} />}
+          <RevealPanel>
+            <ReadinessRows label="Done readiness steps" items={readiness.doneItems} />
+          </RevealPanel>
+        </>
       )}
-    </section>
+    </Collapsible>
   );
 }

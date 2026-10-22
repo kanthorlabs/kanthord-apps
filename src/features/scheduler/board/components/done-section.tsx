@@ -59,7 +59,7 @@ export function DoneSection({ done, showProjects, signal, now }: DoneSectionProp
   return (
     <section aria-labelledby="scheduler-done" className="flex flex-col gap-3">
       <h3 id="scheduler-done" className="text-base font-semibold">
-        Done
+        History
       </h3>
       {done.map((source) => (
         <DoneGroup

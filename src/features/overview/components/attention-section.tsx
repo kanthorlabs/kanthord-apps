@@ -1,14 +1,26 @@
-import type { AttentionDetails, AttentionGroup as Group, AttentionItem } from "@/lib/attention";
+import type {
+  AttentionDetails,
+  AttentionGroup as Group,
+  AttentionGroupId,
+  AttentionItem,
+} from "@/lib/attention";
 
 import type { AttentionFocus } from "../use-attention-focus";
 import type { ReadFault } from "../read-overview-snapshot";
 import { AllClear } from "./all-clear";
+import { AttentionFilter } from "./attention-filter";
 import { AttentionGroup } from "./attention-group";
 import { ReadFaultsAlert } from "./read-faults-alert";
 
 interface AttentionSectionProps {
   readonly summary: string;
   readonly groups: readonly { readonly group: Group; readonly items: readonly AttentionItem[] }[];
+  readonly shownGroups: readonly {
+    readonly group: Group;
+    readonly items: readonly AttentionItem[];
+  }[];
+  readonly groupId: AttentionGroupId | null;
+  readonly selectGroup: (groupId: AttentionGroupId | null) => void;
   readonly faults: readonly ReadFault[];
   readonly allClear: boolean;
   readonly details: AttentionDetails;
@@ -23,6 +35,9 @@ interface AttentionSectionProps {
 export function AttentionSection({
   summary,
   groups,
+  shownGroups,
+  groupId,
+  selectGroup,
   faults,
   allClear,
   details,
@@ -43,9 +58,12 @@ export function AttentionSection({
           <p className="text-sm text-muted-foreground">{summary}</p>
         </div>
       </div>
+      {groups.length > 1 && (
+        <AttentionFilter groups={groups} value={groupId} onChange={selectGroup} />
+      )}
       {faults.length > 0 && <ReadFaultsAlert faults={faults} onRetry={reload} />}
       {allClear && <AllClear titleRef={focus.allClearRef} />}
-      {groups.map(({ group, items }) => (
+      {shownGroups.map(({ group, items }) => (
         <AttentionGroup
           key={group.id}
           group={group}

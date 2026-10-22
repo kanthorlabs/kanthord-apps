@@ -66,18 +66,23 @@ describe("ProjectScreen", () => {
     const panel = await screen.findByRole("region", { name: "Readiness" });
     const repository = await within(panel).findByRole("listitem", { name: "Repository binding" });
     expect(within(repository).getByText("Open")).toBeTruthy();
+    expect(within(panel).queryByRole("listitem", { name: "Project active" })).toBeNull();
     expect(within(repository).getByRole("button", { name: "Open bindings" })).toHaveAttribute(
       "href",
       `/projects/${KANTHORD.id}?tab=bindings`,
     );
+    await userEvent.click(within(panel).getByRole("button", { name: /done step/ }));
     expect(
-      within(within(panel).getByRole("listitem", { name: "Project active" })).getByText("Done"),
+      within(await within(panel).findByRole("listitem", { name: "Project active" })).getByText(
+        "Done",
+      ),
     ).toBeTruthy();
     expect(
       within(within(panel).getByRole("listitem", { name: "Plan import" })).getByRole("button", {
         name: "Open mission",
       }),
     ).toHaveAttribute("href", `/projects/${KANTHORD.id}`);
+    expect(within(panel).getByRole("button", { name: "Hide done steps" })).toBeTruthy();
   });
 
   it("shows the information of the project in the path", async () => {
@@ -86,7 +91,9 @@ describe("ProjectScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "kanthord" })).toBeTruthy();
     expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
-    expect(screen.getByText(KANTHORD.id)).toBeTruthy();
+    expect(screen.queryByText(KANTHORD.id)).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(await screen.findByText(KANTHORD.id)).toBeTruthy();
     expect(screen.getByText("Workspace Directory")).toBeTruthy();
     expect(screen.getByText(KANTHORD.workspace_directory).className).toContain("font-mono");
     expect(screen.queryByText("Binding set version")).toBeNull();
@@ -114,7 +121,7 @@ describe("ProjectScreen", () => {
     mount();
 
     expect(await screen.findByText("Paused")).toBeTruthy();
-    expect(screen.getByText("2026-10-04 08:30 UTC")).toBeTruthy();
+    expect(screen.getByText("since 2026-10-04 08:30 UTC")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Pause" })).toBeNull();
   });
