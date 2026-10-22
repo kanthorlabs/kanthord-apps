@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { exportMissionJson, readMission } from "@/api/resources/mission";
@@ -61,7 +61,7 @@ function keyOf(scope: DetachScope): string {
   return `${scope.projectId}/${scope.binding}`;
 }
 
-export function detachedEntryOf(
+function detachedEntryOf(
   entry: BindingSetEntry | undefined,
   instance: string,
 ): BindingSetEntry | null {
@@ -228,16 +228,20 @@ export function useInstanceDetach(onChanged: () => void): InstanceDetachState {
   const [steps, setSteps] = useState<readonly DetachStep[]>([]);
   const [sets, setSets] = useState<ReadonlyMap<string, BindingSet>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  const attempt = useRef(0);
 
   const prepare = useCallback((name: string, selected: readonly DetachChoice[]) => {
+    const current = ++attempt.current;
     setPhase("reading");
     planOf(name, selected).then(
       (plan) => {
+        if (attempt.current !== current) return;
         setSteps(plan.steps);
         setSets(plan.sets);
         setPhase("confirm");
       },
       (cause: unknown) => {
+        if (attempt.current !== current) return;
         setSteps([]);
         setError(asApiError(cause).message);
         setPhase("confirm");
@@ -247,6 +251,7 @@ export function useInstanceDetach(onChanged: () => void): InstanceDetachState {
 
   const request = useCallback(
     (name: string, scope: DetachScope | null) => {
+      const current = ++attempt.current;
       setInstance(name);
       setChoices([]);
       setSelection(null);
@@ -255,6 +260,7 @@ export function useInstanceDetach(onChanged: () => void): InstanceDetachState {
       setPhase("reading");
       Promise.all([readWorkerInstance(name), listProjects()]).then(
         ([detail, projects]) => {
+          if (attempt.current !== current) return;
           const listed = detail.bindings
             .map((binding) => ({
               key: keyOf({ projectId: binding.project_id, binding: binding.binding }),
@@ -279,6 +285,7 @@ export function useInstanceDetach(onChanged: () => void): InstanceDetachState {
           setPhase("choose");
         },
         (cause: unknown) => {
+          if (attempt.current !== current) return;
           setError(asApiError(cause).message);
           setPhase("confirm");
         },
@@ -295,7 +302,9 @@ export function useInstanceDetach(onChanged: () => void): InstanceDetachState {
   }, [instance, selection, choices, prepare]);
 
   const cancel = useCallback(() => {
-    if (phase !== "writing") setPhase("closed");
+    if (phase === "writing") return;
+    attempt.current += 1;
+    setPhase("closed");
   }, [phase]);
 
   const writable = phase === "confirm" && steps.some((step) => step.after !== null);

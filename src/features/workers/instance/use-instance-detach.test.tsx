@@ -8,7 +8,7 @@ import { listProjects, readBindingSet, writeBindingSet } from "@/api/resources/p
 import { readWorkerInstance } from "@/api/resources/worker-instances";
 import type { BindingSet, Project, WorkerInstanceDetail } from "@/api/types";
 import { renderedText } from "../../../../test/text-content";
-import { DETACH_ALL, detachedEntryOf, useInstanceDetach } from "./use-instance-detach";
+import { DETACH_ALL, useInstanceDetach } from "./use-instance-detach";
 
 vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
@@ -98,20 +98,6 @@ beforeEach(() => {
       },
     ],
   } as unknown as Awaited<ReturnType<typeof exportMissionJson>>);
-});
-
-describe("detachedEntryOf", () => {
-  it("drops the instance from a worker placement listing", () => {
-    expect(detachedEntryOf(SET_A.bindings["mac-main"], "mac-studio")).toEqual({
-      kind: "worker",
-      config: { worker: "coder@1", placement: "worker", worker_instances: ["b-1"] },
-    });
-  });
-
-  it("answers null when the binding no longer lists the instance", () => {
-    expect(detachedEntryOf(SET_A.bindings["mac-main"], "other")).toBeNull();
-    expect(detachedEntryOf(undefined, "mac-studio")).toBeNull();
-  });
 });
 
 describe("useInstanceDetach", () => {
@@ -221,6 +207,24 @@ describe("useInstanceDetach", () => {
     await waitFor(() => expect(result.current.phase).toBe("confirm"));
     expect(result.current.steps.map((step) => step.kind)).toEqual(["gone"]);
     expect(result.current.writable).toBe(false);
+  });
+
+  it("stays closed when the read ends after a cancel", async () => {
+    let finish: (detail: WorkerInstanceDetail) => void = () => undefined;
+    vi.mocked(readWorkerInstance).mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const { result } = renderHook(() => useInstanceDetach(vi.fn()));
+    act(() => result.current.request("mac-studio", null));
+    expect(result.current.phase).toBe("reading");
+    act(() => result.current.cancel());
+    await act(async () => {
+      finish(MAC);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(result.current.phase).toBe("closed");
   });
 
   it("shows the read failure as the ApiError message", async () => {
