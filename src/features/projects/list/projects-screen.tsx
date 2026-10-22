@@ -4,13 +4,20 @@ import { Link, useNavigate } from "react-router-dom";
 import type { Project } from "@/api/types";
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
+import { ProjectPauseButton } from "@/components/project-pause-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { utcDateTime } from "@/lib/format";
 import { useProjectList } from "./use-project-list";
 import { progressTextOf, useProjectStates, type ProjectState } from "./use-project-states";
 
-function ProjectItem({ project, state }: { project: Project; state: ProjectState }) {
+interface ProjectItemProps {
+  readonly project: Project;
+  readonly state: ProjectState;
+  readonly onChanged: () => void;
+}
+
+function ProjectItem({ project, state, onChanged }: ProjectItemProps) {
   const navigate = useNavigate();
 
   return (
@@ -36,6 +43,7 @@ function ProjectItem({ project, state }: { project: Project; state: ProjectState
         { label: "Progress", value: progressTextOf(state) },
         { label: "Created", value: utcDateTime(project.created_at) },
       ]}
+      actions={<ProjectPauseButton project={project} onChanged={onChanged} />}
     />
   );
 }
@@ -56,7 +64,9 @@ export function ProjectsScreen() {
         label="Projects"
         items={pages.items}
         getKey={(project) => project.id}
-        renderItem={(project) => <ProjectItem project={project} state={stateOf(project.id)} />}
+        renderItem={(project) => (
+          <ProjectItem project={project} state={stateOf(project.id)} onChanged={pages.reload} />
+        )}
         status={pages.status}
         error={pages.error?.message ?? null}
         pending={pages.pending}

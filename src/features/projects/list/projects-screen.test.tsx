@@ -78,6 +78,54 @@ describe("ProjectsScreen", () => {
     expect(within(items[1]!).queryByText("Paused")).toBeNull();
   });
 
+  it("resumes a paused project from its row after it reads the project again", async () => {
+    const paused = { ...KANTHORD, paused_at: Date.UTC(2026, 9, 4, 8, 30) };
+    vi.mocked(projectsApi.listProjectPage)
+      .mockResolvedValueOnce({ items: [paused, BILLING], next_cursor: null })
+      .mockResolvedValue({ items: [KANTHORD, BILLING], next_cursor: null });
+    vi.mocked(projectsApi.readProject).mockResolvedValue(paused);
+    vi.mocked(projectsApi.resumeProject).mockResolvedValue(KANTHORD);
+    mount();
+
+    const list = await screen.findByRole("list", { name: "Projects" });
+    await userEvent.click(within(list).getByRole("button", { name: "Resume kanthord" }));
+
+    expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
+    expect(projectsApi.resumeProject).toHaveBeenCalledWith(KANTHORD.id);
+    expect(await within(list).findByRole("button", { name: "Pause kanthord" })).toBeTruthy();
+    expect(within(list).getByRole("button", { name: "Pause billing" })).toBeTruthy();
+  });
+
+  it("pauses an active project from its row", async () => {
+    vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
+      items: [KANTHORD],
+      next_cursor: null,
+    });
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    vi.mocked(projectsApi.pauseProject).mockResolvedValue({ ...KANTHORD, paused_at: 5 });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Pause kanthord" }));
+
+    expect(projectsApi.pauseProject).toHaveBeenCalledWith(KANTHORD.id);
+  });
+
+  it("writes nothing when another actor already resumed the project", async () => {
+    const paused = { ...KANTHORD, paused_at: Date.UTC(2026, 9, 4, 8, 30) };
+    vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
+      items: [paused],
+      next_cursor: null,
+    });
+    vi.mocked(projectsApi.readProject).mockClear().mockResolvedValue(KANTHORD);
+    vi.mocked(projectsApi.resumeProject).mockClear();
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Resume kanthord" }));
+
+    expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
+    expect(projectsApi.resumeProject).not.toHaveBeenCalled();
+  });
+
   it("opens a project from its row", async () => {
     vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
       items: [KANTHORD],

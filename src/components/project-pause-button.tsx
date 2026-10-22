@@ -13,11 +13,19 @@ export function ProjectPauseButton({
 }) {
   const { paused, busy, toggle } = useProjectPause(project, onChanged);
   const Icon = paused ? PlayIcon : PauseIcon;
+  const label = paused ? "Resume" : "Pause";
 
   return (
-    <Button variant="outline" size="sm" disabled={busy} onClick={toggle}>
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={`${label} ${project.name}`}
+      aria-busy={busy}
+      disabled={busy}
+      onClick={toggle}
+    >
       <Icon aria-hidden="true" data-icon="inline-start" />
-      {paused ? "Resume" : "Pause"}
+      {label}
     </Button>
   );
 }

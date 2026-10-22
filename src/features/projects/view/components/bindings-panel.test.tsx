@@ -1232,21 +1232,28 @@ describe("BindingsPanel", () => {
     expect(within(re).getByRole("button", { name: "Enable re@1" })).toBeTruthy();
   });
 
-  it("links a disabled agent to its agent page", async () => {
-    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([
-      {
-        agent_name: "re@1",
-        state: "disabled",
-        agent_providers: [],
-        default_configuration: {
-          agent_provider: "router",
-          model_identifier: "qwen/qwen3-coder",
-          reasoning_effort: "medium",
-        },
-        fallback_configurations: [],
-        revision: 2,
+  it("enables a disabled agent in place after it reads the enablement again", async () => {
+    const disabled = {
+      agent_name: "re@1",
+      state: "disabled" as const,
+      agent_providers: [],
+      default_configuration: {
+        agent_provider: "router",
+        model_identifier: "qwen/qwen3-coder",
+        reasoning_effort: "medium" as const,
       },
-    ]);
+      fallback_configurations: [],
+      revision: 2,
+    };
+    vi.mocked(workersApi.listAgentEnablements)
+      .mockResolvedValueOnce([disabled])
+      .mockResolvedValue([{ ...disabled, state: "enabled", revision: 3 }]);
+    vi.mocked(workersApi.readAgentEnablement).mockResolvedValue(disabled);
+    vi.mocked(workersApi.enableAgentEnablement).mockResolvedValue({
+      ...disabled,
+      state: "enabled",
+      revision: 3,
+    });
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
@@ -1254,11 +1261,46 @@ describe("BindingsPanel", () => {
     const re = await agentItem("re@1");
 
     expect(within(re).getByText("Disabled")).toBeTruthy();
-    expect(within(re).getByRole("link", { name: "agent page" })).toHaveAttribute(
-      "href",
-      "/agents/re%401",
-    );
-    expect(within(re).queryByRole("button", { name: "Enable re@1" })).toBeNull();
+    await userEvent.click(within(re).getByRole("button", { name: "Enable re@1" }));
+
+    expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("re@1");
+    await waitFor(() => expect(workersApi.enableAgentEnablement).toHaveBeenCalledWith("re@1", 2));
+    expect(screen.queryByRole("form", { name: "Enable re@1" })).toBeNull();
+    expect(await within(await agentItem("re@1")).findByText("Enabled")).toBeTruthy();
+  });
+
+  it("disables an enabled agent in place only after a confirmation", async () => {
+    const enabled = {
+      agent_name: "re@1",
+      state: "enabled" as const,
+      agent_providers: [],
+      default_configuration: {
+        agent_provider: "router",
+        model_identifier: "qwen/qwen3-coder",
+        reasoning_effort: "medium" as const,
+      },
+      fallback_configurations: [],
+      revision: 4,
+    };
+    vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([enabled]);
+    vi.mocked(workersApi.readAgentEnablement).mockResolvedValue(enabled);
+    vi.mocked(workersApi.disableAgentEnablement).mockResolvedValue({
+      ...enabled,
+      state: "disabled",
+      revision: 5,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("reviewer@1");
+    const re = await agentItem("re@1");
+    await userEvent.click(within(re).getByRole("button", { name: "Disable re@1" }));
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Disable re@1?" });
+    expect(workersApi.disableAgentEnablement).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Disable agent" }));
+
+    expect(workersApi.disableAgentEnablement).toHaveBeenCalledWith("re@1", 4);
   });
 
   it("focuses the nested enable sheet and closes only it on Escape", async () => {

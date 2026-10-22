@@ -53,6 +53,10 @@ export async function listAgentEnablements(): Promise<readonly AgentEnablement[]
   return readAllPages<AgentEnablement>("/api/agent/enablement");
 }
 
+export async function readAgentEnablement(agentName: string): Promise<AgentEnablement> {
+  return request<AgentEnablement>(enablementPath(agentName));
+}
+
 export async function listAgents(): Promise<readonly AgentSummary[]> {
   const [catalog, enablements] = await Promise.all([listWorkerCatalog(), listAgentEnablements()]);
   const entries = await Promise.all(

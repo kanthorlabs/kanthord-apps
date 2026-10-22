@@ -930,8 +930,9 @@ describe("AgentScreen", () => {
     ).toBeTruthy();
   });
 
-  it("disables an enabled agent at its revision", async () => {
+  it("disables an enabled agent after a confirmation at the revision that it reads again", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue({ ...RE, enablement: ENABLEMENT });
+    vi.mocked(workersApi.readAgentEnablement).mockResolvedValue(ENABLEMENT);
     vi.mocked(workersApi.disableAgentEnablement).mockResolvedValue({
       ...ENABLEMENT,
       state: "disabled",
@@ -939,8 +940,12 @@ describe("AgentScreen", () => {
     });
     mount();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Disable" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Disable re@1" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Disable re@1?" });
+    expect(workersApi.disableAgentEnablement).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Disable agent" }));
 
+    expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("re@1");
     expect(workersApi.disableAgentEnablement).toHaveBeenCalledWith("re@1", 2);
     expect(screen.queryByRole("form", { name: "Enable re@1" })).toBeNull();
   });
@@ -950,13 +955,20 @@ describe("AgentScreen", () => {
       ...RE,
       enablement: { ...ENABLEMENT, state: "disabled", revision: 3 },
     });
+    vi.mocked(workersApi.readAgentEnablement).mockResolvedValue({
+      ...ENABLEMENT,
+      state: "disabled",
+      revision: 3,
+    });
     vi.mocked(workersApi.enableAgentEnablement).mockResolvedValue({ ...ENABLEMENT, revision: 4 });
     mount();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Enable" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Enable re@1" }));
 
-    expect(workersApi.enableAgentEnablement).toHaveBeenCalledWith("re@1", 3);
+    await waitFor(() => expect(workersApi.enableAgentEnablement).toHaveBeenCalledWith("re@1", 3));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
   });
+
   it("adds an agent provider from a credential and derives its provider", async () => {
     const codex: Credential = {
       name: "codex-main",

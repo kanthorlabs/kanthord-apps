@@ -1,4 +1,4 @@
-import { PlusIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { useCallback, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -11,8 +11,10 @@ import type {
 } from "@/api/types";
 import { DataListItem } from "@/components/data-list-item";
 import { RecordName } from "@/components/record-name";
+import { RevealPanel } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -28,6 +30,7 @@ import { useInstanceDetach } from "../instance/use-instance-detach";
 import { AddInstanceSheet } from "./components/add-instance-sheet";
 import { InstanceRowActions } from "./components/instance-row-actions";
 import { useInstanceCreate } from "./use-instance-create";
+import { useInstancesDisclosure, type InstancesDisclosure } from "./use-instances-disclosure";
 import { useWorkerPage } from "./use-worker-page";
 
 function Section({
@@ -253,6 +256,32 @@ function RegistrationRow({ registration }: { registration: WorkerRegistrationRec
   );
 }
 
+function InstancesDisclosureFrame({
+  disclosure,
+  children,
+}: {
+  disclosure: InstancesDisclosure;
+  children: ReactNode;
+}) {
+  return (
+    <Collapsible open={disclosure.open} onOpenChange={disclosure.setOpen}>
+      {disclosure.collapsible && (
+        <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+          {disclosure.open ? (
+            <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
+          ) : (
+            <ChevronRightIcon aria-hidden="true" data-icon="inline-start" />
+          )}
+          Advanced: worker instances
+        </CollapsibleTrigger>
+      )}
+      <RevealPanel>
+        <div className={disclosure.collapsible ? "pt-3" : undefined}>{children}</div>
+      </RevealPanel>
+    </Collapsible>
+  );
+}
+
 export function WorkerScreen() {
   const { workerName = "" } = useParams<{ workerName: string }>();
   const navigate = useNavigate();
@@ -265,6 +294,7 @@ export function WorkerScreen() {
     reloadBindings();
   }, [reloadInstances, reloadBindings]);
   const detach = useInstanceDetach(reloadAll);
+  const disclosure = useInstancesDisclosure(page.instances);
   useCrumbLabel(workerPagePath(workerName), workerName);
   const entry = page.entry.data;
 
@@ -302,52 +332,54 @@ export function WorkerScreen() {
     <div className="flex flex-col gap-6 px-4 lg:px-0">
       <WorkerHeader entry={entry} />
       {hosted && (
-        <Section
-          id="worker-instances"
-          title="Instances"
-          loading={page.instances.loading}
-          error={page.instances.error}
-          reload={page.instances.reload}
-          stale={page.instances.data !== null}
-          action={
-            <Button
-              variant="outline"
-              size="sm"
-              className="self-start md:self-auto"
-              onClick={create.start}
-            >
-              <PlusIcon aria-hidden="true" data-icon="inline-start" />
-              Add instance
-            </Button>
-          }
-        >
-          {instances.length === 0 ? (
-            <EmptyList
-              title="No instances."
-              description="Add one to run this worker at the worker placement."
-            />
-          ) : (
-            <ItemGroup aria-label="Instances" className="gap-2">
-              {instances.map((instance) => (
-                <InstanceRow
-                  key={instance.id}
-                  instance={instance}
-                  execution={page.executionOf(instance.name)}
-                  onOpen={() => void navigate(instancePagePath(workerName, instance.name))}
-                  actions={
-                    <InstanceRowActions
-                      instance={instance}
-                      liveExecutions={page.liveExecutionsOf(instance.name)}
-                      detach={detach}
-                      onChanged={reloadAll}
-                      projectNameOf={page.projectNameOf}
-                    />
-                  }
-                />
-              ))}
-            </ItemGroup>
-          )}
-        </Section>
+        <InstancesDisclosureFrame disclosure={disclosure}>
+          <Section
+            id="worker-instances"
+            title="Instances"
+            loading={page.instances.loading}
+            error={page.instances.error}
+            reload={page.instances.reload}
+            stale={page.instances.data !== null}
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start md:self-auto"
+                onClick={create.start}
+              >
+                <PlusIcon aria-hidden="true" data-icon="inline-start" />
+                Add instance
+              </Button>
+            }
+          >
+            {instances.length === 0 ? (
+              <EmptyList
+                title="No instances."
+                description="Add one to run this worker at the worker placement."
+              />
+            ) : (
+              <ItemGroup aria-label="Instances" className="gap-2">
+                {instances.map((instance) => (
+                  <InstanceRow
+                    key={instance.id}
+                    instance={instance}
+                    execution={page.executionOf(instance.name)}
+                    onOpen={() => void navigate(instancePagePath(workerName, instance.name))}
+                    actions={
+                      <InstanceRowActions
+                        instance={instance}
+                        liveExecutions={page.liveExecutionsOf(instance.name)}
+                        detach={detach}
+                        onChanged={reloadAll}
+                        projectNameOf={page.projectNameOf}
+                      />
+                    }
+                  />
+                ))}
+              </ItemGroup>
+            )}
+          </Section>
+        </InstancesDisclosureFrame>
       )}
       <Section
         id="worker-bindings"

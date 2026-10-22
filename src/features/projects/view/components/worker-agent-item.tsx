@@ -1,5 +1,4 @@
-import { Link } from "react-router-dom";
-
+import { EnablementSwitch } from "@/components/enablement-switch";
 import { RecordName } from "@/components/record-name";
 import { Reveal } from "@/components/reveal";
 import { SearchChoiceField } from "@/components/search-choice-field";
@@ -96,6 +95,7 @@ interface WorkerAgentItemProps {
   readonly onCustom: (custom: boolean) => void;
   readonly onEdit: (entry: AgentEntryDraft) => void;
   readonly onEnable: () => void;
+  readonly onEnablementChanged: () => void;
 }
 
 export function WorkerAgentItem({
@@ -107,6 +107,7 @@ export function WorkerAgentItem({
   onCustom,
   onEdit,
   onEnable,
+  onEnablementChanged,
 }: WorkerAgentItemProps) {
   const id = `binding-agent-${agentName}`;
   const providers = [
@@ -164,15 +165,16 @@ export function WorkerAgentItem({
         )}
         {agent?.state === "disabled" && (
           <p className="text-sm text-destructive">
-            Enable this agent on its{" "}
-            <Link
-              to={`/agents/${encodeURIComponent(agentName)}`}
-              className="underline underline-offset-4"
-            >
-              agent page
-            </Link>{" "}
-            before you save. The server refuses a worker binding with an agent that is not enabled.
+            The server refuses a worker binding with an agent that is not enabled. Enable this agent
+            before you save.
           </p>
+        )}
+        {agent !== null && agent.state !== "absent" && (
+          <EnablementSwitch
+            agentName={agentName}
+            state={agent.state}
+            reload={onEnablementChanged}
+          />
         )}
         <Field orientation="horizontal">
           <Switch id={`${id}-custom`} checked={entry !== null} onCheckedChange={onCustom} />

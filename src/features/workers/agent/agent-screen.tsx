@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { AgentEnablement, AgentTool, PromptLayer } from "@/api/types";
+import { EnablementSwitch } from "@/components/enablement-switch";
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,6 @@ import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { ChainSection } from "./components/chain-section";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
 import { EnablementForm } from "./components/enablement-form";
-import { EnablementSwitch } from "./components/enablement-switch";
 import { PromptItem } from "@/components/prompt-item";
 import { CredentialVerifyAction } from "@/features/credentials/components/credential-verify-action";
 import { PromptLayerSection } from "./components/prompt-layer-section";
@@ -149,7 +149,11 @@ function EnablementSection({ agentName, enablement, reload }: EnablementSectionP
           </>
         ) : (
           <>
-            <EnablementSwitch enablement={enablement} reload={reload} />
+            <EnablementSwitch
+              agentName={enablement.agent_name}
+              state={enablement.state}
+              reload={reload}
+            />
             <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
               <dt className="text-muted-foreground">Revision</dt>
               <dd className="tabular-nums">{enablement.revision}</dd>

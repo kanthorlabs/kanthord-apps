@@ -9,6 +9,7 @@ vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
   listWorkerBindings: vi.fn(),
   pauseProject: vi.fn(),
+  readProject: vi.fn(),
   resumeProject: vi.fn(),
 }));
 
@@ -29,7 +30,12 @@ vi.mock("@/api/resources/workers", () => ({
 }));
 
 import { listMissionNodes, readMission } from "@/api/resources/mission";
-import { listProjects, listWorkerBindings, resumeProject } from "@/api/resources/projects";
+import {
+  listProjects,
+  listWorkerBindings,
+  readProject,
+  resumeProject,
+} from "@/api/resources/projects";
 import {
   listNodeExecutions,
   listProjectExecutionPage,
@@ -913,6 +919,7 @@ describe("SchedulerScreen paused project", () => {
   it("names a paused project and resumes it", async () => {
     const user = userEvent.setup();
     serve({ projects: [project("prj-1", "kanthord", NOW - MINUTE)] });
+    vi.mocked(readProject).mockResolvedValue(project("prj-1", "kanthord", NOW - MINUTE));
     vi.mocked(resumeProject).mockResolvedValue(project("prj-1", "kanthord"));
 
     renderScreen();
@@ -924,7 +931,8 @@ describe("SchedulerScreen paused project", () => {
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Resume project" }));
 
-    expect(resumeProject).toHaveBeenCalledWith("prj-1");
+    expect(readProject).toHaveBeenCalledWith("prj-1");
+    await waitFor(() => expect(resumeProject).toHaveBeenCalledWith("prj-1"));
   });
 });
 

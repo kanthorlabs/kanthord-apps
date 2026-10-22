@@ -74,6 +74,7 @@ function WorkerAgentList({ draft, errors, agents, onEdit, onEnableAgent }: Worke
           onCustom={(custom) => onEdit(withAgentEntry(draft, row.agent, custom))}
           onEdit={(entry) => row.index !== null && editEntry(row.index, entry)}
           onEnable={() => onEnableAgent(row.agent)}
+          onEnablementChanged={agents.reload}
         />
       ))}
     </ItemGroup>

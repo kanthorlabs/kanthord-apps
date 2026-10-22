@@ -14,6 +14,7 @@ vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
   listWorkerBindings: vi.fn(),
   listBindingAgents: vi.fn(),
+  readProject: vi.fn(),
   resumeProject: vi.fn(),
   pauseProject: vi.fn(),
 }));
@@ -84,6 +85,7 @@ import {
   listProjects,
   listWorkerBindings,
   pauseProject,
+  readProject,
   resumeProject,
 } from "@/api/resources/projects";
 import {
@@ -2279,6 +2281,7 @@ describe("OverviewScreen fixes", () => {
     const user = userEvent.setup();
     const paused = { ...KANTHORD, paused_at: NOW - 3 * HOUR };
     serve({ projects: [paused, ATLAS] });
+    vi.mocked(readProject).mockResolvedValue(paused);
     renderScreen();
 
     const item = await waitFor(() => itemOf("kanthord"));
@@ -2289,7 +2292,8 @@ describe("OverviewScreen fixes", () => {
     expect(within(item).getByText("3 hours ago")).toBeInTheDocument();
     await user.click(within(item).getByRole("button", { name: "Resume project" }));
 
-    expect(resumeProject).toHaveBeenCalledWith("prj-1");
+    expect(readProject).toHaveBeenCalledWith("prj-1");
+    await waitFor(() => expect(resumeProject).toHaveBeenCalledWith("prj-1"));
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith("Resumed kanthord.", {
         description: "Workers can claim its nodes.",
