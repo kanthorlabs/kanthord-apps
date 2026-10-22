@@ -14,7 +14,7 @@
     "dev:all": "node mock/daemon.mjs & vite",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint . --max-warnings 0",
+    "lint": "NODE_OPTIONS=--max-old-space-size=512 eslint . --max-warnings 0",
     "mock": "node mock/daemon.mjs",
     "prepare": "husky",
     "preview": "vite preview",
