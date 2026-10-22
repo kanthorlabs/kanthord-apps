@@ -96,7 +96,7 @@ describe("ProjectsScreen", () => {
     expect(within(list).getByRole("button", { name: "Pause billing" })).toBeTruthy();
   });
 
-  it("pauses an active project from its row", async () => {
+  it("pauses an active project from its row after the confirmation", async () => {
     vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
       items: [KANTHORD],
       next_cursor: null,
@@ -106,6 +106,7 @@ describe("ProjectsScreen", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Pause kanthord" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Pause project" }));
 
     expect(projectsApi.pauseProject).toHaveBeenCalledWith(KANTHORD.id);
   });

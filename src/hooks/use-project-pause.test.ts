@@ -52,15 +52,61 @@ describe("useProjectPause", () => {
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
-  it("pauses an active project without a toast", async () => {
-    const onChanged = vi.fn();
+  it("asks for a confirmation before a pause and reads nothing yet", async () => {
     vi.mocked(readProject).mockReset().mockResolvedValue(project(null));
-    const { result } = renderHook(() => useProjectPause(project(null), onChanged));
+    const { result } = renderHook(() => useProjectPause(project(null), vi.fn()));
 
     await act(async () => result.current.toggle());
 
+    expect(result.current.confirming).toBe(true);
+    expect(readProject).not.toHaveBeenCalled();
+    expect(pauseProject).not.toHaveBeenCalled();
+  });
+
+  it("writes nothing when the pause is cancelled", async () => {
+    vi.mocked(readProject).mockReset().mockResolvedValue(project(null));
+    const onChanged = vi.fn();
+    const { result } = renderHook(() => useProjectPause(project(null), onChanged));
+
+    await act(async () => result.current.toggle());
+    await act(async () => result.current.cancel());
+
+    expect(result.current.confirming).toBe(false);
+    expect(readProject).not.toHaveBeenCalled();
+    expect(pauseProject).not.toHaveBeenCalled();
+    expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("reads the project again on the confirmation, pauses it and names it in a toast", async () => {
+    vi.mocked(readProject).mockReset().mockResolvedValue(project(null));
+    const onChanged = vi.fn();
+    const { result } = renderHook(() => useProjectPause(project(null), onChanged));
+
+    await act(async () => result.current.toggle());
+    await act(async () => result.current.confirm());
+
+    expect(readProject).toHaveBeenCalledWith("prj-1");
     expect(pauseProject).toHaveBeenCalledWith("prj-1");
-    expect(toast.success).not.toHaveBeenCalled();
+    expect(toast.success).toHaveBeenCalledWith("Paused atlas.", {
+      description: "No worker claims a new node of it until a resume.",
+    });
+    expect(result.current.confirming).toBe(false);
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("writes nothing on the confirmation when another actor already paused the project", async () => {
+    vi.mocked(readProject).mockReset().mockResolvedValue(project(5));
+    const onChanged = vi.fn();
+    const { result } = renderHook(() => useProjectPause(project(null), onChanged));
+
+    await act(async () => result.current.toggle());
+    await act(async () => result.current.confirm());
+
+    expect(pauseProject).not.toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith("atlas did not change.", {
+      description: "atlas is already paused. The view now shows its current state.",
+    });
+    expect(result.current.confirming).toBe(false);
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
@@ -119,6 +165,7 @@ describe("useProjectPause", () => {
     const { result } = renderHook(() => useProjectPause(project(null), onChanged));
 
     await act(async () => result.current.toggle());
+    await act(async () => result.current.confirm());
 
     expect(pauseProject).not.toHaveBeenCalled();
     expect(toast.error).toHaveBeenCalledWith("atlas was not read.", {
