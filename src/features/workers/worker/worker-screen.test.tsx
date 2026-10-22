@@ -124,6 +124,53 @@ describe("WorkerScreen", () => {
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
   });
 
+  it("moves the focus to Keep when the choice step closes", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([{ ...MAC, binding_count: 2 }]);
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      bindings: [
+        { project_id: "prj-test", binding: "mac-main" },
+        { project_id: "prj-b", binding: "mac-b" },
+      ],
+      registrations: [],
+      credentials: [],
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Detach mac-studio" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(await within(dialog).findByRole("radio", { name: "All 2 bindings" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Keep mac-studio" })).toHaveFocus(),
+    );
+  });
+
+  it("keeps the focus on Archive when the read again finds a listing binding", async () => {
+    vi.mocked(instancesApi.listWorkerInstances)
+      .mockResolvedValueOnce([{ ...MAC, binding_count: 0 }])
+      .mockResolvedValue([MAC]);
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      bindings: [{ project_id: "prj-test", binding: "mac-main" }],
+      registrations: [],
+      credentials: [],
+    });
+    mount();
+    const archive = await screen.findByRole("button", { name: "Archive mac-studio" });
+    await userEvent.click(archive);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Archive mac-studio" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Archive mac-studio" })).toHaveFocus(),
+    );
+  });
+
   it("offers Remove on each binding row", async () => {
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       {

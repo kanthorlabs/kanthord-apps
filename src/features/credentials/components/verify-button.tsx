@@ -68,7 +68,9 @@ export function VerifyButton({
         <VerifyLabel />
       </TooltipTrigger>
       <TooltipContent>
-        Verification is not supported yet for <RecordName>{platform}</RecordName>.
+        <p>
+          Verification is not supported yet for <RecordName>{platform}</RecordName>.
+        </p>
       </TooltipContent>
     </Tooltip>
   );

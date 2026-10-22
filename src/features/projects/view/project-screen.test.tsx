@@ -126,7 +126,7 @@ describe("ProjectScreen", () => {
     expect(screen.queryByRole("button", { name: "Pause kanthord" })).toBeNull();
   });
 
-  it("pauses the project without a confirmation and reloads it", async () => {
+  it("pauses the project after the confirmation and reloads it", async () => {
     const paused = { ...KANTHORD, paused_at: Date.UTC(2026, 9, 4, 8, 30) };
     vi.mocked(projectsApi.readProject)
       .mockResolvedValueOnce(KANTHORD)
@@ -136,6 +136,9 @@ describe("ProjectScreen", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Pause kanthord" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Pause kanthord?" });
+    expect(projectsApi.pauseProject).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Pause project" }));
 
     expect(await screen.findByRole("button", { name: "Resume kanthord" })).toBeTruthy();
     expect(projectsApi.pauseProject).toHaveBeenCalledWith(KANTHORD.id);
@@ -166,6 +169,7 @@ describe("ProjectScreen", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Pause kanthord" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Pause project" }));
     const readsBeforeFailure = vi.mocked(projectsApi.readProject).mock.calls.length;
     const pausesBefore = vi.mocked(projectsApi.pauseProject).mock.calls.length;
 
