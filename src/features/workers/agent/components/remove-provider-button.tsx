@@ -44,10 +44,10 @@ export function RemoveProviderButton({ providerName, block, onRemove }: RemovePr
         {block === "last-provider" ? (
           "An enablement keeps at least one agent provider. Add another agent provider first."
         ) : (
-          <>
+          <p>
             The default configuration names <RecordName>{providerName}</RecordName>. Change the
             default configuration first.
-          </>
+          </p>
         )}
       </TooltipContent>
     </Tooltip>
