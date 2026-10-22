@@ -45,9 +45,9 @@ export function DataListItem({
               aria-label={select.label}
               disabled={select.disabled}
               onClick={select.onSelect}
-              className="-mx-2.5 max-w-full min-w-0 after:absolute after:inset-0 active:translate-none!"
+              className="-mx-2.5 h-auto min-h-9 max-w-full min-w-0 justify-start text-left whitespace-normal after:absolute after:inset-0 active:translate-none!"
             >
-              <span className="truncate">{title}</span>
+              <span className="min-w-0 break-words">{title}</span>
             </Button>
           )}
           {status}
