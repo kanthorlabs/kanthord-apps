@@ -839,7 +839,9 @@ describe("BindingsPanel", () => {
         "Cannot connect to Podman. Start the container runtime, then open this sheet again.",
       ),
     ).toBeTruthy();
-    expect(screen.getByRole("option", { name: "container" })).not.toHaveAttribute("aria-disabled");
+    expect(await screen.findByRole("option", { name: "container" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
   });
 
   it("writes the placement container when the server can run containers", async () => {
