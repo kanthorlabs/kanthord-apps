@@ -21,7 +21,7 @@ export function useProjectPause(project: Project, onChanged: () => void): Projec
   const paused = project.paused_at !== null;
 
   const write = useCallback(
-    function run() {
+    (retry: () => void) => {
       setBusy(true);
       (paused ? resumeProject : pauseProject)(project.id).then(
         () => {
@@ -37,7 +37,7 @@ export function useProjectPause(project: Project, onChanged: () => void): Projec
           setBusy(false);
           toast.error(paused ? "Resuming the project failed." : "Pausing the project failed.", {
             description: asApiError(cause).message,
-            action: { label: "Retry", onClick: run },
+            action: { label: "Retry", onClick: retry },
           });
         },
       );
@@ -52,7 +52,7 @@ export function useProjectPause(project: Project, onChanged: () => void): Projec
       readProject(project.id).then(
         (fresh) => {
           if ((fresh.paused_at !== null) === paused) {
-            write();
+            write(request);
             return;
           }
           setBusy(false);

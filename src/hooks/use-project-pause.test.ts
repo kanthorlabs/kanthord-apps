@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { toast } from "sonner";
+import { toast, type Action } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -77,6 +77,22 @@ describe("useProjectPause", () => {
       action: { label: "Retry", onClick: expect.any(Function) },
     });
     expect(onChanged).not.toHaveBeenCalled();
+  });
+
+  it("reads the project again before the Retry of a failed write", async () => {
+    vi.mocked(readProject).mockReset().mockResolvedValue(project(5));
+    vi.mocked(resumeProject)
+      .mockReset()
+      .mockRejectedValue(new ApiError("unreachable", "No answer.", 0));
+    const { result } = renderHook(() => useProjectPause(project(5), vi.fn()));
+
+    await act(async () => result.current.toggle());
+    const retry = vi.mocked(toast.error).mock.calls[0]![1]!.action as Action;
+    vi.mocked(readProject).mockResolvedValue(project(null));
+    await act(async () => retry.onClick({} as Parameters<Action["onClick"]>[0]));
+
+    expect(readProject).toHaveBeenCalledTimes(2);
+    expect(resumeProject).toHaveBeenCalledTimes(1);
   });
 
   it("writes nothing and reports the change when another actor already resumed the project", async () => {
