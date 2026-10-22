@@ -125,7 +125,7 @@ function DetachAction({
   detach: InstanceDetachState;
 }) {
   const icon = <UnlinkIcon aria-hidden="true" data-icon="inline-start" />;
-  const label = `Detach ${instanceName} from ${row.binding}`;
+  const label = `Detach ${instanceName} from ${row.binding} of ${row.projectName}`;
   if (row.state === "draining") {
     return (
       <DisabledAction
