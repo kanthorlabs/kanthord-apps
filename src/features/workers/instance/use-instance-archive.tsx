@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { toast } from "sonner";
 
 import { isApiError } from "@/api/errors";
 import { archiveWorkerInstance, readWorkerInstance } from "@/api/resources/worker-instances";
 import type { InstanceBinding, WorkerInstanceDetail } from "@/api/types";
+import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 
 const IN_USE = "worker.instance.in_use";
@@ -74,14 +75,40 @@ export function archiveSubjectOf(instance: WorkerInstanceDetail): ArchiveSubject
   };
 }
 
-export function archiveBlockOf(subject: ArchiveSubject): string | null {
-  if (subject.bindingCount > 0) {
-    return `A binding lists ${subject.name}. Detach ${subject.name} from each listing binding first.`;
-  }
-  if (subject.liveExecutions.length > 0) {
-    return `A registration of ${subject.name} holds a live execution. Wait until the execution ends.`;
-  }
+type ArchiveBlock = "listed" | "executing";
+
+function archiveBlockKindOf(subject: ArchiveSubject): ArchiveBlock | null {
+  if (subject.bindingCount > 0) return "listed";
+  if (subject.liveExecutions.length > 0) return "executing";
   return null;
+}
+
+export function archiveBlockOf(subject: ArchiveSubject): string | null {
+  switch (archiveBlockKindOf(subject)) {
+    case "listed":
+      return `A binding lists ${subject.name}. Detach ${subject.name} from each listing binding first.`;
+    case "executing":
+      return `A registration of ${subject.name} holds a live execution. Wait until the execution ends.`;
+    case null:
+      return null;
+  }
+}
+
+function staleNoticeOf(subject: ArchiveSubject, ended: boolean): ReactNode {
+  const name = <RecordName>{subject.name}</RecordName>;
+  if (ended) return <>{name} is already archived.</>;
+  switch (archiveBlockKindOf(subject)) {
+    case "listed":
+      return (
+        <>
+          A binding lists {name}. Detach {name} from each listing binding first.
+        </>
+      );
+    case "executing":
+      return <>A registration of {name} holds a live execution. Wait until the execution ends.</>;
+    case null:
+      return null;
+  }
 }
 
 export function useInstanceArchive(
@@ -114,8 +141,7 @@ export function useInstanceArchive(
       (detail) => {
         setReading(false);
         const fresh = archiveSubjectOf(detail);
-        const freshBlock =
-          detail.ended_at !== null ? `${subject.name} is already archived.` : archiveBlockOf(fresh);
+        const freshBlock = staleNoticeOf(fresh, detail.ended_at !== null);
         if (freshBlock !== null) {
           toast.error(`${subject.name} was not archived.`, { description: freshBlock });
           pendingFocus.current = true;

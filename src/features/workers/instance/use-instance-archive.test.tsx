@@ -1,6 +1,7 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ReactNode } from "react";
 import { toast } from "sonner";
 
 import { archiveWorkerInstance, readWorkerInstance } from "@/api/resources/worker-instances";
@@ -97,8 +98,14 @@ describe("useInstanceArchive", () => {
     await waitFor(() => expect(onStale).toHaveBeenCalled());
     expect(result.current.open).toBe(false);
     expect(toast.error).toHaveBeenCalledWith("mac-studio was not archived.", {
-      description: "A binding lists mac-studio. Detach mac-studio from each listing binding first.",
+      description: expect.anything(),
     });
+    const notice = vi.mocked(toast.error).mock.calls[0]![1]!.description as ReactNode;
+    const { container } = render(<p>{notice}</p>);
+    expect(container.textContent).toBe(
+      "A binding lists mac-studio. Detach mac-studio from each listing binding first.",
+    );
+    expect(screen.getAllByText("mac-studio", { selector: "strong" })).toHaveLength(2);
     expect(archiveWorkerInstance).not.toHaveBeenCalled();
   });
 });
