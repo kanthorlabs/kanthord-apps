@@ -18,6 +18,7 @@ import {
   type SpanDetailState,
   type ToolResult,
 } from "../use-span-detail";
+import { useTraceSelection } from "../use-trace-selection";
 
 const STATUS_BADGES: Readonly<
   Record<
@@ -213,12 +214,23 @@ interface SpanDetailProps {
 
 export function SpanDetail({ traceId, span, spans, onSelect }: SpanDetailProps) {
   const detail = useSpanDetail(traceId, span, spans);
+  const selection = useTraceSelection();
+  const link = detail.conversationLink;
   const badge = STATUS_BADGES[span.status];
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h3 className="min-w-0 text-base font-semibold break-all">{spanLabel(span)}</h3>
         <Badge variant={badge.variant}>{badge.label}</Badge>
+        {link !== null && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => selection.openInConversation(link.sessionId, link.entryId)}
+          >
+            Open in conversation
+          </Button>
+        )}
       </div>
       <NameValueList items={detail.facts} />
       {detail.attributes.length > 0 && (

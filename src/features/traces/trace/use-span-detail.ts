@@ -48,6 +48,11 @@ export interface SpanText {
   readonly state: Loadable<string>;
 }
 
+export interface ConversationLink {
+  readonly sessionId: string;
+  readonly entryId: string;
+}
+
 export interface SpanDetailState {
   readonly facts: readonly NamedValue[];
   readonly attributes: readonly NamedValue[];
@@ -57,6 +62,12 @@ export interface SpanDetailState {
   readonly modelReply: Loadable<ModelReply> | null;
   readonly toolArguments: Loadable<string> | null;
   readonly toolResult: Loadable<ToolResult> | null;
+  readonly conversationLink: ConversationLink | null;
+}
+
+interface StoredEntry {
+  readonly entryId: string;
+  readonly view: EntryView;
 }
 
 interface EntryRef {
@@ -80,10 +91,12 @@ function failed(message: string): Loadable<never> {
 
 async function readEntry(
   read: () => Promise<TraceSessionEntry | undefined>,
-): Promise<Loadable<EntryView>> {
+): Promise<Loadable<StoredEntry>> {
   try {
     const entry = await read();
-    return entry === undefined ? ABSENT : { status: "ready", value: entryView(entry) };
+    return entry === undefined
+      ? ABSENT
+      : { status: "ready", value: { entryId: entry.entry_id, view: entryView(entry) } };
   } catch (cause) {
     if (cause instanceof ApiError && cause.code === "not_found") return ABSENT;
     throw cause;
@@ -163,6 +176,20 @@ function resultOf(view: EntryView): Loadable<ToolResult> {
   return { status: "ready", value: { isError: view.isError, text: view.text } };
 }
 
+function linkOf(
+  span: TraceSpan,
+  replyRef: EntryRef | null,
+  resultRef: ResultRef | null,
+  result: Loadable<StoredEntry>,
+): ConversationLink | null {
+  const sessionId = conversationIdOf(span);
+  if (sessionId === null) return null;
+  if (!isTool(span)) return replyRef;
+  if (result.status === "ready") return { sessionId, entryId: result.value.entryId };
+  if (resultRef !== null && result.status === "loading") return null;
+  return replyRef;
+}
+
 function textNameOf(textId: string): string {
   return textId.slice(textId.lastIndexOf(NAME_SEPARATOR) + 1);
 }
@@ -231,6 +258,7 @@ export function useSpanDetail(
   const texts = useTexts(traceId, span.text_ids);
 
   const reply = settled(replyEntry);
+  const result = settled(resultEntry);
   const isTurnSpan = isTurn(span);
   const isToolSpan = isTool(span);
   return {
@@ -241,12 +269,13 @@ export function useSpanDetail(
     texts,
     modelReply:
       isTurnSpan && replyRef !== null && turn !== null
-        ? whenReady(reply, (view) => replyOf(view, turn, spans))
+        ? whenReady(reply, ({ view }) => replyOf(view, turn, spans))
         : null,
     toolArguments:
       isToolSpan && replyRef !== null
-        ? whenReady(reply, (view) => argumentsOf(view, toolCallIdOf(span)))
+        ? whenReady(reply, ({ view }) => argumentsOf(view, toolCallIdOf(span)))
         : null,
-    toolResult: resultRef === null ? null : whenReady(settled(resultEntry), resultOf),
+    toolResult: resultRef === null ? null : whenReady(result, ({ view }) => resultOf(view)),
+    conversationLink: linkOf(span, replyRef, resultRef, result),
   };
 }

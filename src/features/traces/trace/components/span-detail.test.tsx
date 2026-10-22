@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -123,8 +124,21 @@ const TOOL = span(
 
 const SPANS = [span("root", null, "scheduler.execution"), TURN, TOOL];
 
+function Location() {
+  return <output>{useLocation().search}</output>;
+}
+
+function writtenKeys(): URLSearchParams {
+  return new URLSearchParams(screen.getByRole("status").textContent ?? "");
+}
+
 function show(target: TraceSpan, spans: readonly TraceSpan[] = SPANS, onSelect = vi.fn()) {
-  render(<SpanDetail traceId="trace-1" span={target} spans={spans} onSelect={onSelect} />);
+  render(
+    <MemoryRouter>
+      <SpanDetail traceId="trace-1" span={target} spans={spans} onSelect={onSelect} />
+      <Location />
+    </MemoryRouter>,
+  );
   return onSelect;
 }
 
@@ -285,6 +299,54 @@ describe("SpanDetail", () => {
     show(TURN);
 
     expect(await screen.findByText("Daemon down.")).toBeInTheDocument();
+  });
+
+  it("opens the model reply entry of a turn in the conversation", async () => {
+    vi.mocked(readSessionEntry).mockResolvedValue(REPLY_ENTRY);
+    show(TURN);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open in conversation" }));
+
+    const keys = writtenKeys();
+    expect(keys.get("tab")).toBe("conversation");
+    expect(keys.get("session")).toBe("session");
+    expect(keys.get("entry")).toBe("entry-1");
+    expect(await screen.findByText("I will list the files.")).toBeInTheDocument();
+  });
+
+  it("opens the result entry of a tool in the conversation", async () => {
+    vi.mocked(readSessionEntry).mockResolvedValue(REPLY_ENTRY);
+    vi.mocked(listSessionEntryPage).mockResolvedValue({
+      items: [resultEntry(false)],
+      next_cursor: null,
+    });
+    show(TOOL);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
+
+    const keys = writtenKeys();
+    expect(keys.get("tab")).toBe("conversation");
+    expect(keys.get("session")).toBe("session");
+    expect(keys.get("entry")).toBe("entry-2");
+  });
+
+  it("opens the reply entry of the turn for a tool without a result entry", async () => {
+    vi.mocked(readSessionEntry).mockResolvedValue(REPLY_ENTRY);
+    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: [], next_cursor: null });
+    show(TOOL);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
+
+    const keys = writtenKeys();
+    expect(keys.get("session")).toBe("session");
+    expect(keys.get("entry")).toBe("entry-1");
+  });
+
+  it("offers no Open in conversation for a span outside a session", () => {
+    const bare = span("bare", "root", "worker.git");
+    show(bare, [bare]);
+
+    expect(screen.queryByRole("button", { name: "Open in conversation" })).not.toBeInTheDocument();
   });
 
   it("lists every attribute, event and link", () => {
