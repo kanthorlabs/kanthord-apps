@@ -127,18 +127,25 @@ describe("ProjectsScreen", () => {
     });
     vi.mocked(missionApi.listMissionNodes).mockImplementation(async (missionId) =>
       missionId === `mission_${KANTHORD.id}`
-        ? [node("Blocked"), node("Executing"), node("Completed"), node("Completed")]
+        ? [
+            node("Blocked"),
+            node("Paused"),
+            node("External.Failed"),
+            node("Executing"),
+            node("Completed"),
+            node("Completed"),
+          ]
         : [],
     );
     mount();
 
     const list = await screen.findByRole("list", { name: "Projects" });
     const [first, second] = within(list).getAllByRole("listitem");
-    expect(await within(first!).findByText("2 of 4 nodes completed")).toBeTruthy();
-    expect(within(first!).getByText("Needs you · 1")).toBeTruthy();
+    expect(await within(first!).findByText("2 of 6 nodes completed")).toBeTruthy();
+    expect(within(first!).getByText("Blocked or paused · 2")).toBeTruthy();
     expect(within(first!).getByText("Running · 1")).toBeTruthy();
     expect(within(second!).getByText("No nodes")).toBeTruthy();
-    expect(within(second!).queryByText(/Needs you/)).toBeNull();
+    expect(within(second!).queryByText(/Blocked or paused/)).toBeNull();
   });
 
   it("names a mission read that failed on its row", async () => {

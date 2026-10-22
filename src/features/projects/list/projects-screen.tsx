@@ -19,8 +19,8 @@ function ProjectItem({ project, state }: { project: Project; state: ProjectState
       status={
         <>
           {project.paused_at !== null && <Badge variant="secondary">Paused</Badge>}
-          {state.status === "ready" && state.attention > 0 && (
-            <Badge variant="destructive">Needs you · {state.attention}</Badge>
+          {state.status === "ready" && state.held > 0 && (
+            <Badge variant="destructive">Blocked or paused · {state.held}</Badge>
           )}
           {state.status === "ready" && state.running > 0 && (
             <Badge>Running · {state.running}</Badge>

@@ -3,7 +3,7 @@ import type { MissionNodeRecord, NodeState, Project } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import { tallyStates } from "@/lib/state-tally";
 
-const ATTENTION_STATES: readonly NodeState[] = ["Blocked", "Paused", "External.Failed"];
+const HELD_STATES: readonly NodeState[] = ["Blocked", "Paused"];
 const RUNNING_STATES: readonly NodeState[] = ["Executing", "Evaluating"];
 
 export type ProjectState =
@@ -14,7 +14,7 @@ export type ProjectState =
       readonly total: number;
       readonly completed: number;
       readonly running: number;
-      readonly attention: number;
+      readonly held: number;
     };
 
 const LOADING: ProjectState = { status: "loading" };
@@ -30,7 +30,7 @@ function stateOf(nodes: readonly MissionNodeRecord[]): ProjectState {
     total: tallies.reduce((total, tally) => total + tally.count, 0),
     completed: count(["Completed"]),
     running: count(RUNNING_STATES),
-    attention: count(ATTENTION_STATES),
+    held: count(HELD_STATES),
   };
 }
 
