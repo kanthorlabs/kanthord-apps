@@ -147,7 +147,8 @@ export function useOverview(): OverviewState {
     [snapshots],
   );
 
-  const focus = useAttentionFocus(items, snapshot.updatedAt);
+  const shownItems = useMemo(() => shownGroups.flatMap((entry) => entry.items), [shownGroups]);
+  const focus = useAttentionFocus(shownItems, snapshot.updatedAt);
   const { markActed } = focus;
 
   const faults = useMemo<readonly ReadFault[]>(() => {

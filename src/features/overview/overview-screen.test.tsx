@@ -1423,6 +1423,33 @@ describe("OverviewScreen focus handoff", () => {
     await waitFor(() => expect(screen.getByRole("link", { name: "First item" })).toHaveFocus());
   });
 
+  it("moves focus to the next shown item while a group filter narrows the inbox", async () => {
+    const user = userEvent.setup();
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+      ],
+      "prj-2": [],
+    };
+    serve({ projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS], nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const filter = await screen.findByRole("group", { name: "Show the items of" });
+    await user.click(within(filter).getByRole("button", { name: "Decisions · 2" }));
+    const second = await waitFor(() => itemOf("Second item"));
+    await user.click(within(second).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    await waitFor(() => expect(screen.getByRole("link", { name: "First item" })).toHaveFocus());
+  });
+
   it("moves focus to the All clear title when no item is left", async () => {
     const user = userEvent.setup();
     const nodes: Record<string, MissionNodeRecord[]> = {
