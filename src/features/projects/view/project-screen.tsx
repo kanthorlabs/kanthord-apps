@@ -1,8 +1,10 @@
-import { PencilIcon } from "lucide-react";
+import { ChevronDownIcon, PencilIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
+import { RevealPanel } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { utcDateTime } from "@/lib/format";
@@ -47,11 +49,19 @@ export function ProjectScreen() {
 
   return (
     <div className="flex flex-1 flex-col gap-3">
-      <section aria-label="Project" className="flex flex-col gap-1 border-b pb-3">
+      <Collapsible
+        render={<section aria-label="Project" />}
+        className="flex flex-col gap-1 border-b pb-3"
+      >
         <div className="flex flex-col items-start gap-2 md:flex-row md:justify-between">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h2 className="min-w-0 text-lg font-semibold break-words">{project.name}</h2>
             {project.paused_at !== null && <Badge variant="secondary">Paused</Badge>}
+            {project.paused_at !== null && (
+              <span className="text-xs text-muted-foreground">
+                since {utcDateTime(project.paused_at)}
+              </span>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <ProjectPauseButton project={project} onChanged={reload} />
@@ -64,31 +74,31 @@ export function ProjectScreen() {
               <PencilIcon aria-hidden="true" data-icon="inline-start" />
               Edit
             </Button>
+            <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
+              <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
+              Details
+            </CollapsibleTrigger>
           </div>
         </div>
-        <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-          <div className="flex min-w-0 gap-1">
-            <dt>Identity</dt>
-            <dd className="min-w-0 font-mono break-all text-foreground">{project.id}</dd>
-          </div>
-          <div className="flex gap-1">
-            <dt>Created</dt>
-            <dd className="text-foreground">{utcDateTime(project.created_at)}</dd>
-          </div>
-          {project.paused_at !== null && (
-            <div className="flex gap-1">
-              <dt>Paused at</dt>
-              <dd className="text-foreground">{utcDateTime(project.paused_at)}</dd>
+        <RevealPanel>
+          <dl className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted-foreground">
+            <div className="flex min-w-0 gap-1">
+              <dt>Identity</dt>
+              <dd className="min-w-0 font-mono break-all text-foreground">{project.id}</dd>
             </div>
-          )}
-          <div className="flex min-w-0 gap-1">
-            <dt>Workspace Directory</dt>
-            <dd className="min-w-0 font-mono break-all text-foreground">
-              {project.workspace_directory}
-            </dd>
-          </div>
-        </dl>
-      </section>
+            <div className="flex gap-1">
+              <dt>Created</dt>
+              <dd className="text-foreground">{utcDateTime(project.created_at)}</dd>
+            </div>
+            <div className="flex min-w-0 gap-1">
+              <dt>Workspace Directory</dt>
+              <dd className="min-w-0 font-mono break-all text-foreground">
+                {project.workspace_directory}
+              </dd>
+            </div>
+          </dl>
+        </RevealPanel>
+      </Collapsible>
       <ReadinessPanel project={project} />
       <Tabs
         value={tab}

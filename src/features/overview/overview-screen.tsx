@@ -96,16 +96,12 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       {overview.status === "ready" && (
         <>
           <SystemHealthAlert components={overview.unavailable} failure={overview.livenessFailure} />
-          <StatusLine
-            running={overview.running}
-            waiting={overview.waiting}
-            schedulerPath={overview.schedulerPath}
-            cooling={overview.cooling}
-            showProject={overview.showProjects}
-          />
           <AttentionSection
             summary={overview.summary}
             groups={overview.groups}
+            shownGroups={overview.shownGroups}
+            groupId={overview.groupId}
+            selectGroup={overview.selectGroup}
             faults={overview.faults}
             allClear={overview.allClear}
             details={overview.details}
@@ -116,7 +112,14 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
             setDialogOpen={overview.setDialogOpen}
             focus={overview.focus}
           />
-          <ProgressSection progress={overview.progress} />
+          <StatusLine
+            running={overview.running}
+            waiting={overview.waiting}
+            schedulerPath={overview.schedulerPath}
+            cooling={overview.cooling}
+            showProject={overview.showProjects}
+          />
+          <ProgressSection progress={overview.progress} summary={overview.progressSummary} />
         </>
       )}
     </div>

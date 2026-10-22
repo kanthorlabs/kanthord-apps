@@ -139,6 +139,12 @@ async function chooseWorker(worker: string) {
   await userEvent.click(await screen.findByRole("option", { name: worker }));
 }
 
+async function chooseWorkerPlacement() {
+  await screen.findByRole("radio", { name: /^Server/ });
+  await userEvent.click(screen.getByRole("button", { name: "Advanced settings" }));
+  await userEvent.click(await screen.findByRole("switch", { name: "Worker placement" }));
+}
+
 async function agentItem(agent: string) {
   const list = await screen.findByRole("list", { name: "Agents" });
   const item = within(list)
@@ -534,22 +540,26 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await chooseWorker("coder@1");
 
+    expect(await screen.findByText("The binding keeps this choice.")).toBeTruthy();
     expect(
-      await screen.findByText(
-        "server runs each instance as a thread of the server. container runs each instance in its own container on the server host. worker runs each listed worker instance, one kanthord serve worker process for each instance. The binding keeps this choice.",
-      ),
+      screen.getByText("Built in. Runs each instance as a thread of the server."),
     ).toBeTruthy();
+    expect(
+      screen.getByText("Runs each instance in its own container on the server host with Podman."),
+    ).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
+    expect(screen.queryByRole("switch", { name: "Worker placement" })).toBeNull();
   });
 
   it("writes the placement that the human chooses for a new worker binding", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    expect(screen.queryByRole("combobox", { name: "Placement" })).toBeNull();
+    expect(screen.queryByRole("radiogroup", { name: "Placement" })).toBeNull();
     await userEvent.type(screen.getByLabelText("Name"), "coder-main");
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
-    await userEvent.click(await screen.findByRole("option", { name: "server" }));
+    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
+    await userEvent.click(screen.getByRole("radio", { name: /^Server/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -580,12 +590,12 @@ describe("BindingsPanel", () => {
 
     expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
     expect(screen.getByText("Save waits for the agents of the worker.")).toBeTruthy();
-    expect(screen.queryByRole("combobox", { name: "Placement" })).toBeNull();
+    expect(screen.queryByRole("radiogroup", { name: "Placement" })).toBeNull();
     finishEntry(CATALOG_ENTRIES["coder@1"]!);
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Save binding" })).not.toBeDisabled(),
     );
-    expect(screen.getByRole("combobox", { name: "Placement" })).toHaveTextContent("server");
+    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -637,8 +647,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await userEvent.type(screen.getByLabelText("Name"), "coder-main");
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
-    await userEvent.click(await screen.findByRole("option", { name: "worker" }));
+    await chooseWorkerPlacement();
 
     expect(screen.queryByLabelText("Instance count")).toBeNull();
     expect(await screen.findByText("Instances")).toBeTruthy();
@@ -690,8 +699,7 @@ describe("BindingsPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
-    await userEvent.click(await screen.findByRole("option", { name: "worker" }));
+    await chooseWorkerPlacement();
 
     expect(
       await screen.findByText(textContent("No instances of coder@1. Add one on the worker page.")),
@@ -774,13 +782,13 @@ describe("BindingsPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
 
-    expect(await screen.findByRole("option", { name: "container" })).toHaveAttribute(
+    expect(await screen.findByRole("radio", { name: /^Container/ })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
-    expect(screen.getByRole("option", { name: "server" })).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("radio", { name: /^Server/ })).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
     expect(
       screen.getByText(
         "Off. This server runs in a container, so it cannot start a container for each instance. Keep server.",
@@ -788,20 +796,59 @@ describe("BindingsPanel", () => {
     ).toBeTruthy();
   });
 
-  it("hides the container reason when the placement is worker", async () => {
-    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(IN_CONTAINER);
+  it("turns container off with the reason when the placement list read fails", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
-    await userEvent.click(await screen.findByRole("option", { name: "worker" }));
 
+    expect(await screen.findByRole("radio", { name: /^Container/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
     expect(
-      screen.queryByText(
-        "Off. This server runs in a container, so it cannot start a container for each instance. Keep server.",
+      await screen.findByText("Off. The check of the server host failed. Open this sheet again."),
+    ).toBeTruthy();
+  });
+
+  it("turns server and container off while Advanced sets the worker placement", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+    await chooseWorkerPlacement();
+
+    expect(screen.getByRole("radio", { name: /^Server/ })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("radio", { name: /^Container/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(
+      screen.getByText(
+        "Advanced settings set the worker placement. Turn it off to choose server or container.",
       ),
-    ).toBeNull();
+    ).toBeTruthy();
+    await userEvent.click(screen.getByRole("switch", { name: "Worker placement" }));
+    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
+    expect(screen.getByLabelText("Instance count")).toHaveValue("1");
+  });
+
+  it("keeps the optional settings behind Advanced settings", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+    await screen.findByRole("radio", { name: /^Server/ });
+
+    expect(screen.queryByLabelText("Turn budget")).toBeNull();
+    expect(screen.queryByLabelText("Tags")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Advanced settings" }));
+    expect(await screen.findByLabelText("Turn budget")).toBeTruthy();
+    expect(screen.getByLabelText("Tags")).toBeTruthy();
   });
 
   it("names the other stable reasons of an unavailable container", async () => {
@@ -826,22 +873,20 @@ describe("BindingsPanel", () => {
         available: false,
         reason: "runtime_failed",
         detail: "Cannot connect to Podman.",
+        container_runtime: null,
       }),
     );
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
 
     expect(
       await screen.findByText(
-        "Cannot connect to Podman. Start the container runtime, then open this sheet again.",
+        "Runs each instance in its own container on the server host. Cannot connect to Podman. Fix the container runtime of the server user, then open this sheet again.",
       ),
     ).toBeTruthy();
-    expect(await screen.findByRole("option", { name: "container" })).not.toHaveAttribute(
-      "aria-disabled",
-    );
+    expect(screen.getByRole("radio", { name: /^Container/ })).not.toHaveAttribute("aria-disabled");
   });
 
   it("writes the placement container when the server can run containers", async () => {
@@ -850,8 +895,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await userEvent.type(screen.getByLabelText("Name"), "sandbox-main");
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
-    await userEvent.click(await screen.findByRole("option", { name: "container" }));
+    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -881,13 +925,12 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await userEvent.type(screen.getByLabelText("Name"), "sandbox-main");
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("combobox", { name: "Placement" }));
-    await userEvent.click(await screen.findByRole("option", { name: "container" }));
+    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     expect(
       await screen.findByText(
-        "The container placement is not available. Docker runs as root on this host. Use rootless Podman or rootless Docker.",
+        "The container placement is not available. The container runtime runs as root on this host. Use rootless Podman or rootless Docker.",
       ),
     ).toBeTruthy();
     expect(screen.getByLabelText("Name")).toHaveValue("sandbox-main");

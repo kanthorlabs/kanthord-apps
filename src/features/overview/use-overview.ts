@@ -9,6 +9,7 @@ import {
   externalReadStateOf,
   groupItems,
   type AttentionDetails,
+  type AttentionGroupId,
   type AttentionContext,
   type AttentionItem,
   type ProjectSnapshot,
@@ -18,6 +19,7 @@ import {
   attentionSummary,
   claimedNodeCount,
   coolingFactsOf,
+  progressSummary,
   projectsWithoutSetup,
   type CoolingFact,
 } from "@/lib/overview-summary";
@@ -49,9 +51,13 @@ export interface OverviewState {
   readonly livenessFailure: string | null;
   readonly summary: string;
   readonly groups: ReturnType<typeof groupItems>;
+  readonly shownGroups: ReturnType<typeof groupItems>;
+  readonly groupId: AttentionGroupId | null;
+  readonly selectGroup: (groupId: AttentionGroupId | null) => void;
   readonly faults: readonly ReadFault[];
   readonly allClear: boolean;
   readonly progress: readonly ProjectProgress[];
+  readonly progressSummary: string;
   readonly details: AttentionDetails;
   readonly retryDetail: (nodeId: string) => void;
   readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
@@ -71,6 +77,7 @@ function schedulerPathOf(projectId: string | null): string {
 export function useOverview(): OverviewState {
   const { projectId: requested, select } = useScopedProject();
   const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
+  const [requestedGroup, selectGroup] = useState<AttentionGroupId | null>(null);
   const hold = openDialogs.size > 0;
   const snapshot = useOverviewSnapshot(hold, requested);
   const setup = useOverviewSetup(hold);
@@ -125,7 +132,23 @@ export function useOverview(): OverviewState {
   );
   const externalReads = useMemo(() => externalReadStateOf(targets, details), [targets, details]);
 
-  const focus = useAttentionFocus(items, snapshot.updatedAt);
+  const groups = useMemo(() => groupItems(items), [items]);
+  const groupId = groups.some((entry) => entry.group.id === requestedGroup) ? requestedGroup : null;
+  const shownGroups = useMemo(
+    () => (groupId === null ? groups : groups.filter((entry) => entry.group.id === groupId)),
+    [groups, groupId],
+  );
+  const progress = useMemo(
+    () =>
+      snapshots.map((entry) => ({
+        project: entry.project,
+        tallies: tallyStates(entry.nodes),
+      })),
+    [snapshots],
+  );
+
+  const shownItems = useMemo(() => shownGroups.flatMap((entry) => entry.items), [shownGroups]);
+  const focus = useAttentionFocus(shownItems, snapshot.updatedAt);
   const { markActed } = focus;
 
   const faults = useMemo<readonly ReadFault[]>(() => {
@@ -219,7 +242,10 @@ export function useOverview(): OverviewState {
     unavailable,
     livenessFailure,
     summary: attentionSummary(items),
-    groups: groupItems(items),
+    groups,
+    shownGroups,
+    groupId,
+    selectGroup,
     faults,
     allClear:
       faults.length === 0 &&
@@ -228,10 +254,8 @@ export function useOverview(): OverviewState {
       projectsWithoutSetup(snapshots, setupData.projects) === 0 &&
       livenessFailure === null &&
       items.length === 0,
-    progress: snapshots.map((entry) => ({
-      project: entry.project,
-      tallies: tallyStates(entry.nodes),
-    })),
+    progress,
+    progressSummary: progressSummary(progress.map((entry) => entry.tallies)),
     details,
     retryDetail: refreshDetail,
     setDialogOpen,

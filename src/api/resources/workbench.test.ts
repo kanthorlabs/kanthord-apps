@@ -16,6 +16,8 @@ import {
   sendWorkbenchMessage,
 } from "./workbench";
 
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+
 interface Seen {
   readonly method: string;
   readonly url: string;
@@ -128,7 +130,7 @@ describe("createWorkbenchSession", () => {
       SESSION,
     );
     expect(JSON.parse(seen[0]!.body)).toEqual({ agent_name: "swe@1", ...CONFIGURATION });
-    expect(seen[0]!.idempotencyKey).toBeTruthy();
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 
@@ -146,7 +148,7 @@ describe("configureWorkbenchSession", () => {
 
     expect(await configureWorkbenchSession(SESSION_ID, CONFIGURATION)).toEqual(CONFIGURATION);
     expect(JSON.parse(seen[0]!.body)).toEqual(CONFIGURATION);
-    expect(seen[0]!.idempotencyKey).toBeTruthy();
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 
@@ -159,7 +161,7 @@ describe("sendWorkbenchMessage", () => {
     await sendWorkbenchMessage(SESSION_ID, "List the nodes");
 
     expect(JSON.parse(seen[0]!.body)).toEqual({ text: "List the nodes" });
-    expect(seen[0]!.idempotencyKey).toBeTruthy();
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 
   it("rejects an active run with the code of the owning service", async () => {
@@ -192,7 +194,7 @@ describe("abortWorkbenchRun", () => {
 
     expect((await abortWorkbenchRun(SESSION_ID)).run_active).toBe(false);
     expect(seen[0]!.body).toBe("");
-    expect(seen[0]!.idempotencyKey).toBeTruthy();
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 

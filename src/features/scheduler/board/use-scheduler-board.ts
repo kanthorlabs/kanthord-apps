@@ -13,6 +13,7 @@ import type {
 import { usePolledResource } from "@/hooks/use-polled-resource";
 import { useScopedProject } from "@/hooks/use-scoped-project";
 import { uncoveredJobsOf } from "@/lib/claim-takers";
+import { endTimeOf } from "@/lib/execution-stop";
 import { nodePath } from "@/lib/node-path";
 import { ulidTime } from "@/lib/ulid";
 
@@ -20,6 +21,7 @@ import { readSchedulerBoard, type ProjectBoard } from "./read-scheduler-board";
 
 const BOARD_INTERVAL_MS = 15_000;
 const CATALOG_INTERVAL_MS = 60_000;
+const QUEUE_PREVIEW_SIZE = 5;
 
 export type ClaimKind = "Steps" | "Evaluation";
 
@@ -45,6 +47,16 @@ export interface JobView {
 export interface QueueGroup {
   readonly project: Project;
   readonly jobs: readonly JobView[];
+  readonly first: readonly JobView[];
+  readonly more: readonly JobView[];
+}
+
+export interface FailedView {
+  readonly execution: SchedulerExecutionRecord;
+  readonly endedAt: number;
+  readonly nodeName: string;
+  readonly projectName: string | null;
+  readonly href: string;
 }
 
 export interface DoneSource {
@@ -68,6 +80,7 @@ export interface SchedulerBoardState {
   readonly pausedProjects: readonly Project[];
   readonly running: readonly RunningView[];
   readonly queue: readonly QueueGroup[];
+  readonly failed: readonly FailedView[];
   readonly done: readonly DoneSource[];
   readonly updatedAt: number | null;
   readonly refreshSignal: RefreshSignal;
@@ -109,6 +122,24 @@ function runningViewsOf(board: ProjectBoard, showProject: boolean): readonly Run
     }));
 }
 
+function failedViewsOf(board: ProjectBoard, showProject: boolean): readonly FailedView[] {
+  const names = nodeNamesOf(board.nodes);
+  return board.executions.flatMap((execution) => {
+    const endedAt = endTimeOf(execution);
+    const failed = execution.claim_state === "lost" || execution.stop !== null;
+    if (endedAt === null || !failed) return [];
+    return [
+      {
+        execution,
+        endedAt,
+        nodeName: names.get(execution.node_id) ?? execution.node_id,
+        projectName: showProject ? board.project.name : null,
+        href: nodePath(board.project.id, execution.node_id),
+      },
+    ];
+  });
+}
+
 function uncoveredJobIdsOf(
   board: ProjectBoard,
   catalog: readonly WorkerCatalogItem[],
@@ -126,21 +157,24 @@ function uncoveredJobIdsOf(
 function queueGroupOf(board: ProjectBoard, uncovered: ReadonlySet<string> | null): QueueGroup {
   const names = nodeNamesOf(board.nodes);
   const states = nodeStatesOf(board.nodes);
+  const jobs = board.jobs.map((job, index): JobView => {
+    const state = states.get(job.node_id) ?? null;
+    return {
+      job,
+      position: index + 1,
+      nodeName: names.get(job.node_id) ?? job.node_id,
+      state,
+      claim: claimKindOfState(state),
+      queuedAt: ulidTime(job.job_id),
+      noTaker: uncovered !== null && uncovered.has(job.job_id),
+      href: nodePath(board.project.id, job.node_id),
+    };
+  });
   return {
     project: board.project,
-    jobs: board.jobs.map((job, index) => {
-      const state = states.get(job.node_id) ?? null;
-      return {
-        job,
-        position: index + 1,
-        nodeName: names.get(job.node_id) ?? job.node_id,
-        state,
-        claim: claimKindOfState(state),
-        queuedAt: ulidTime(job.job_id),
-        noTaker: uncovered !== null && uncovered.has(job.job_id),
-        href: nodePath(board.project.id, job.node_id),
-      };
-    }),
+    jobs,
+    first: jobs.slice(0, QUEUE_PREVIEW_SIZE),
+    more: jobs.slice(QUEUE_PREVIEW_SIZE),
   };
 }
 
@@ -191,6 +225,14 @@ export function useSchedulerBoard(): SchedulerBoardState {
     [boards, catalogData],
   );
 
+  const failed = useMemo(
+    () =>
+      boards
+        .flatMap((entry) => failedViewsOf(entry, projectId === null))
+        .sort((left, right) => right.endedAt - left.endedAt),
+    [boards, projectId],
+  );
+
   const done = useMemo(
     () => boards.map((entry) => ({ project: entry.project, nodeNames: nodeNamesOf(entry.nodes) })),
     [boards],
@@ -214,6 +256,7 @@ export function useSchedulerBoard(): SchedulerBoardState {
     pausedProjects,
     running,
     queue,
+    failed,
     done,
     updatedAt,
     refreshSignal,

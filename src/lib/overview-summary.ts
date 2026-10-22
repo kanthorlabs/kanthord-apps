@@ -2,6 +2,7 @@ import type { MissionNodeRecord, Project } from "@/api/types";
 
 import { ATTENTION_GROUPS, type AttentionItem, type ProjectSnapshot } from "./attention";
 import { counted } from "./counted";
+import type { StateTally } from "./state-tally";
 
 export function attentionSummary(items: readonly AttentionItem[]): string {
   const parts = ATTENTION_GROUPS.flatMap((group) => {
@@ -59,4 +60,13 @@ export function projectsWithoutSetup(
   return snapshots.filter(
     (snapshot) => !setupProjects.some((entry) => entry.project.id === snapshot.project.id),
   ).length;
+}
+
+export function progressSummary(projects: readonly (readonly StateTally[])[]): string {
+  const tallies = projects.flat();
+  const nodes = tallies.reduce((total, tally) => total + tally.count, 0);
+  const completed = tallies
+    .filter((tally) => tally.state === "Completed")
+    .reduce((total, tally) => total + tally.count, 0);
+  return `${counted(projects.length, "project", "projects")} · ${counted(nodes, "node", "nodes")} · ${completed} completed`;
 }

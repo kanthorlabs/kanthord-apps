@@ -1,4 +1,4 @@
-import { newUlid } from "@/lib/ulid";
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import type {
   WorkbenchAbortAnswer,
@@ -18,7 +18,7 @@ function sessionPath(sessionId: string): string {
 }
 
 function idempotencyHeader(): Record<string, string> {
-  return { "idempotency-key": newUlid() };
+  return { "idempotency-key": newIdempotencyKey() };
 }
 
 function post<T>(path: string, body?: unknown): Promise<T> {

@@ -1,4 +1,4 @@
-import { newUlid } from "@/lib/ulid";
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
@@ -45,7 +45,7 @@ export async function createProject(name: string): Promise<Project> {
   return request<Project>("/api/project", {
     method: "POST",
     body: { name },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -53,21 +53,21 @@ export async function renameProject(projectId: string, name: string): Promise<Pr
   return request<Project>(`/api/project/${encodeURIComponent(projectId)}`, {
     method: "PATCH",
     body: { name },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
 export async function pauseProject(projectId: string): Promise<Project> {
   return request<Project>(`/api/project/${encodeURIComponent(projectId)}/pause`, {
     method: "POST",
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
 export async function resumeProject(projectId: string): Promise<Project> {
   return request<Project>(`/api/project/${encodeURIComponent(projectId)}/resume`, {
     method: "POST",
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -82,7 +82,11 @@ export async function writeBindingSet(
 ): Promise<BindingSetWriteResult> {
   return request<BindingSetWriteResult>(
     `/api/project/${encodeURIComponent(projectId)}/binding-set`,
-    { method: "PUT", body: { version, bindings }, headers: { "idempotency-key": newUlid() } },
+    {
+      method: "PUT",
+      body: { version, bindings },
+      headers: { "idempotency-key": newIdempotencyKey() },
+    },
   );
 }
 

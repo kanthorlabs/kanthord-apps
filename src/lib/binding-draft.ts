@@ -233,6 +233,25 @@ export function withPlacementDefault(draft: WorkerDraft, external: boolean): Wor
   return placement === draft.placement ? draft : { ...draft, placement };
 }
 
+export function withWorkerPlacement(draft: WorkerDraft, atWorker: boolean): WorkerDraft {
+  return { ...draft, placement: atWorker ? "worker" : "server", instances: [] };
+}
+
+export function holdsAdvancedSettings(draft: WorkerDraft): boolean {
+  return (
+    draft.placement === "worker" ||
+    !blank(draft.turns) ||
+    !blank(draft.wallTimeMs) ||
+    !blank(draft.tags)
+  );
+}
+
+export function advancedNeedsAttention(draft: WorkerDraft, errors: DraftErrors): boolean {
+  return (
+    errors["turns"] !== undefined || errors["wallTimeMs"] !== undefined || tagsInvalid(draft.tags)
+  );
+}
+
 export function withAgentEntry(draft: WorkerDraft, agent: string, custom: boolean): WorkerDraft {
   const others = draft.entries.filter((entry) => entry.agent !== agent);
   return {

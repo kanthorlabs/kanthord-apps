@@ -93,7 +93,7 @@ function placementUnavailableMessage(cause: ApiError): string {
     reason !== "runtime_rootful"
   )
     return cause.message;
-  return `The container placement is not available. ${placementReasonText(reason, null)}`;
+  return `The container placement is not available. ${placementReasonText(reason, null, null)}`;
 }
 
 function sshUnreachableMessage(details: unknown): string {

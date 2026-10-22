@@ -15,6 +15,8 @@ import {
   removeAgentProvider,
 } from "./workers";
 
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+
 interface Seen {
   readonly method: string;
   readonly url: string;
@@ -154,7 +156,7 @@ describe("putAgentEnablement", () => {
     expect(await putAgentEnablement("re@1", PUT_BODY)).toEqual(created);
     expect(seen).toHaveLength(1);
     expect(JSON.parse(seen[0]!.body)).toEqual(PUT_BODY);
-    expect(seen[0]!.idempotencyKey).toBeTruthy();
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 
@@ -171,7 +173,7 @@ describe("addAgentProvider", () => {
 
     expect(await addAgentProvider("re@1", body)).toEqual(revised);
     expect(JSON.parse(seen[0]!.body)).toEqual(body);
-    expect(seen[0]!.idempotencyKey).toBeTruthy();
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 
@@ -182,7 +184,7 @@ describe("removeAgentProvider", () => {
 
     expect(await removeAgentProvider("re@1", "codex", 4)).toEqual(revised);
     expect(JSON.parse(seen[0]!.body)).toEqual({ expected_revision: 4 });
-    expect(seen[0]!.idempotencyKey).toBeTruthy();
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 

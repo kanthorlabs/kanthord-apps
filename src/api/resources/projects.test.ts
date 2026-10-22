@@ -79,7 +79,7 @@ describe("listProjects", () => {
   });
 });
 
-const IDEMPOTENCY_KEY = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 
 describe("listProjectPage", () => {
   it("reads one page at the cursor", async () => {

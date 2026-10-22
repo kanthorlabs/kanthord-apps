@@ -71,7 +71,7 @@ afterEach(async () => {
   });
 });
 
-const IDEMPOTENCY_KEY = /^[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 
 const GITHUB = {
   name: "ci-github",

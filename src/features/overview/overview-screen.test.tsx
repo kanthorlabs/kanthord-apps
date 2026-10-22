@@ -586,6 +586,33 @@ describe("OverviewScreen inbox", () => {
     expect(summary.parentElement).toHaveAttribute("aria-live", "polite");
   });
 
+  it("narrows the inbox to one group on demand", async () => {
+    serve({
+      projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS],
+      nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [] },
+    });
+
+    renderScreen();
+
+    const filter = await screen.findByRole("group", { name: "Show the items of" });
+    expect(screen.getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fixes" })).toBeInTheDocument();
+    await userEvent.click(within(filter).getByRole("button", { name: "Fixes · 1" }));
+    expect(screen.queryByRole("heading", { name: "Decisions" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Fixes" })).toBeInTheDocument();
+    await userEvent.click(within(filter).getByRole("button", { name: "All · 2" }));
+    expect(screen.getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+  });
+
+  it("offers no group filter while one group holds items", async () => {
+    serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [] } });
+
+    renderScreen();
+
+    expect(await screen.findByRole("heading", { name: "Decisions" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Show the items of" })).toBeNull();
+  });
+
   it("names the status line and links to the scheduler", async () => {
     serve({
       nodes: {
@@ -618,12 +645,15 @@ describe("OverviewScreen inbox", () => {
 
     renderScreen();
 
+    expect(await screen.findByText("2 projects · 4 nodes · 2 completed")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Node states of kanthord" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Node states" }));
     const kanthord = await screen.findByRole("list", { name: "Node states of kanthord" });
     expect(
       within(kanthord)
         .getAllByRole("listitem")
         .map((item) => item.textContent),
-    ).toEqual(["Pending1", "Completed2"]);
+    ).toEqual(["Pending 1", "Completed 2"]);
     expect(
       within(screen.getByRole("list", { name: "Node states of atlas" })).getByText("Executing"),
     ).toBeInTheDocument();
@@ -1384,6 +1414,33 @@ describe("OverviewScreen focus handoff", () => {
     });
     renderScreen();
 
+    const second = await waitFor(() => itemOf("Second item"));
+    await user.click(within(second).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    await waitFor(() => expect(screen.getByRole("link", { name: "First item" })).toHaveFocus());
+  });
+
+  it("moves focus to the next shown item while a group filter narrows the inbox", async () => {
+    const user = userEvent.setup();
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+      ],
+      "prj-2": [],
+    };
+    serve({ projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS], nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const filter = await screen.findByRole("group", { name: "Show the items of" });
+    await user.click(within(filter).getByRole("button", { name: "Decisions · 2" }));
     const second = await waitFor(() => itemOf("Second item"));
     await user.click(within(second).getByRole("button", { name: "Discard" }));
     const dialog = await screen.findByRole("alertdialog");

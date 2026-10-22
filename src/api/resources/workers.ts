@@ -1,4 +1,4 @@
-import { newUlid } from "@/lib/ulid";
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
@@ -105,7 +105,7 @@ export async function putAgentEnablement(
   return request<AgentEnablement>(enablementPath(agentName), {
     method: "PUT",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -116,7 +116,7 @@ export async function addAgentProvider(
   return request<AgentEnablement>(`${enablementPath(agentName)}/provider`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -130,7 +130,7 @@ export async function removeAgentProvider(
     {
       method: "DELETE",
       body: { expected_revision: expectedRevision },
-      headers: { "idempotency-key": newUlid() },
+      headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
 }
@@ -142,7 +142,7 @@ export async function enableAgentEnablement(
   return request<AgentEnablement>(`${enablementPath(agentName)}/enable`, {
     method: "POST",
     body: { expected_revision: expectedRevision },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -153,6 +153,6 @@ export async function disableAgentEnablement(
   return request<AgentEnablement>(`${enablementPath(agentName)}/disable`, {
     method: "POST",
     body: { expected_revision: expectedRevision },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }

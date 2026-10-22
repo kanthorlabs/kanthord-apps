@@ -1,13 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
-import type { Project } from "@/api/types";
+import type { MissionNodeRecord, NodeState, Project } from "@/api/types";
 
 vi.mock("@/api/resources/projects");
+vi.mock("@/api/resources/mission");
 
 import { ProjectsScreen } from "./projects-screen";
 
@@ -34,6 +36,19 @@ function mount() {
   );
 }
 
+function node(state: NodeState): MissionNodeRecord {
+  return { id: `node_${state}`, state, retired_at: null } as MissionNodeRecord;
+}
+
+beforeEach(() => {
+  vi.mocked(missionApi.readMission).mockImplementation(async (projectId) => ({
+    id: `mission_${projectId}`,
+    project_id: projectId,
+    version: 1,
+  }));
+  vi.mocked(missionApi.listMissionNodes).mockResolvedValue([]);
+});
+
 describe("ProjectsScreen", () => {
   it("lists the projects of one page", async () => {
     vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
@@ -45,7 +60,7 @@ describe("ProjectsScreen", () => {
     const list = await screen.findByRole("list", { name: "Projects" });
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
-    expect(within(items[0]!).getByText(KANTHORD.id)).toBeTruthy();
+    expect(within(items[0]!).queryByText(KANTHORD.id)).toBeNull();
     expect(within(items[0]!).getByText("2026-10-03 14:05 UTC")).toBeTruthy();
   });
 
@@ -103,5 +118,46 @@ describe("ProjectsScreen", () => {
     mount();
 
     expect(await screen.findByText("The daemon did not answer.")).toBeTruthy();
+  });
+
+  it("shows the mission state of each project as badges and progress", async () => {
+    vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
+      items: [KANTHORD, BILLING],
+      next_cursor: null,
+    });
+    vi.mocked(missionApi.listMissionNodes).mockImplementation(async (missionId) =>
+      missionId === `mission_${KANTHORD.id}`
+        ? [
+            node("Blocked"),
+            node("Paused"),
+            node("External.Failed"),
+            node("Executing"),
+            node("Completed"),
+            node("Completed"),
+          ]
+        : [],
+    );
+    mount();
+
+    const list = await screen.findByRole("list", { name: "Projects" });
+    const [first, second] = within(list).getAllByRole("listitem");
+    expect(await within(first!).findByText("2 of 6 nodes completed")).toBeTruthy();
+    expect(within(first!).getByText("Blocked or paused · 2")).toBeTruthy();
+    expect(within(first!).getByText("Running · 1")).toBeTruthy();
+    expect(within(second!).getByText("No nodes")).toBeTruthy();
+    expect(within(second!).queryByText(/Blocked or paused/)).toBeNull();
+  });
+
+  it("names a mission read that failed on its row", async () => {
+    vi.mocked(projectsApi.listProjectPage).mockResolvedValue({
+      items: [KANTHORD],
+      next_cursor: null,
+    });
+    vi.mocked(missionApi.readMission).mockRejectedValue(
+      new ApiError("unavailable", "The daemon failed.", 503),
+    );
+    mount();
+
+    expect(await screen.findByText("Could not be read: The daemon failed.")).toBeTruthy();
   });
 });

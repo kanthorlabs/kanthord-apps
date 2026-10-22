@@ -1,4 +1,4 @@
-import { newUlid } from "@/lib/ulid";
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
@@ -62,7 +62,7 @@ export async function applyMissionImport(body: MissionImportApply): Promise<Miss
     {
       method: "POST",
       body,
-      headers: { "idempotency-key": newUlid() },
+      headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
 }
@@ -144,7 +144,7 @@ export async function approveProposal(
     {
       method: "POST",
       body,
-      headers: { "idempotency-key": newUlid() },
+      headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
 }
@@ -156,7 +156,7 @@ export async function unblockNode(
   return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/unblock`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -167,7 +167,7 @@ export async function discardNode(
   return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/discard`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -178,7 +178,7 @@ export async function pauseNode(
   return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/pause`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -189,7 +189,7 @@ export async function resumeNode(
   return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/resume`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -200,7 +200,7 @@ export async function overrideNode(
   return request<MissionControlResult>(`/api/mission/node/${encodeURIComponent(nodeId)}/override`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -214,7 +214,7 @@ export async function removeDependency(
     {
       method: "DELETE",
       body,
-      headers: { "idempotency-key": newUlid() },
+      headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
 }
@@ -226,6 +226,6 @@ export async function checkNode(
   return request<MissionNodeCheckAnswer>(`/api/mission/node/${encodeURIComponent(nodeId)}/check`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }

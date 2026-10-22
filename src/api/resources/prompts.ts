@@ -1,4 +1,4 @@
-import { newUlid } from "@/lib/ulid";
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import type { PromptSettings, PromptTarget, SystemLayerOverride } from "../types";
 
@@ -26,7 +26,7 @@ export async function switchPromptSource(
   return request<PromptSettings>(`${PROMPT_PATH}/switch`, {
     method: "POST",
     body: { ...target, ...revisionOf(expectedRevision), switch: name, enabled },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -43,7 +43,7 @@ export async function setSystemLayerOverride(
       ...revisionOf(expectedRevision),
       system_layer: systemLayer,
     },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -55,6 +55,6 @@ export async function putPromptText(
   return request<PromptSettings>(PROMPT_PATH, {
     method: "PUT",
     body: { ...target, ...revisionOf(expectedRevision), custom_text: customText },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
