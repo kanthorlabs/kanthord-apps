@@ -88,7 +88,7 @@ describe("useProjectPause", () => {
     expect(readProject).toHaveBeenCalledWith("prj-1");
     expect(pauseProject).toHaveBeenCalledWith("prj-1");
     expect(toast.success).toHaveBeenCalledWith("Paused atlas.", {
-      description: "No worker claims a new node of it until a resume.",
+      description: "No worker claims a node of it until a resume.",
     });
     expect(result.current.confirming).toBe(false);
     expect(onChanged).toHaveBeenCalledTimes(1);

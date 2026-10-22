@@ -36,7 +36,7 @@ export function useProjectPause(project: Project, onChanged: () => void): Projec
             });
           } else {
             toast.success(`Paused ${project.name}.`, {
-              description: "No worker claims a new node of it until a resume.",
+              description: "No worker claims a node of it until a resume.",
             });
           }
           onChanged();

@@ -18,9 +18,9 @@ export function ProjectPauseDialog({ name, pause }: { name: string; pause: Proje
         <AlertDialogHeader>
           <AlertDialogTitle>Pause {name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            No worker claims a new node of <RecordName>{name}</RecordName> until a resume. Each
-            running execution continues to its end. The pause changes no node state, no job and no
-            binding.
+            No worker claims a node of <RecordName>{name}</RecordName> until a resume. Each running
+            execution continues to its end. The pause changes no node state, no job, no binding and
+            no registration.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <p className="text-sm text-muted-foreground">

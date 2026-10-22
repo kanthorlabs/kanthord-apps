@@ -38,7 +38,7 @@ describe("ProjectPauseButton", () => {
 
     const dialog = await screen.findByRole("alertdialog", { name: "Pause atlas?" });
     expect(within(dialog).getByText(/until a resume/).textContent).toBe(
-      "No worker claims a new node of atlas until a resume. Each running execution continues to its end. The pause changes no node state, no job and no binding.",
+      "No worker claims a node of atlas until a resume. Each running execution continues to its end. The pause changes no node state, no job, no binding and no registration.",
     );
   });
 
