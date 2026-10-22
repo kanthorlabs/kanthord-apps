@@ -44,10 +44,17 @@ const CHECKING: PlacementChoices = {
   runtime: null,
 };
 
+const CHECK_FAILED: PlacementChoices = {
+  disabled: ["container"],
+  note: "Off. The check of the server host failed. Open this sheet again.",
+  runtime: null,
+};
+
 export function placementChoicesOf(
-  statuses: readonly PlacementStatus[] | "checking",
+  statuses: readonly PlacementStatus[] | "checking" | "failed",
 ): PlacementChoices {
   if (statuses === "checking") return CHECKING;
+  if (statuses === "failed") return CHECK_FAILED;
   const container = statuses.find((status) => status.placement === "container");
   const runtime =
     container === undefined || container.container_runtime === null

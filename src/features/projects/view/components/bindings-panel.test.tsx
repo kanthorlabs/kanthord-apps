@@ -796,6 +796,25 @@ describe("BindingsPanel", () => {
     ).toBeTruthy();
   });
 
+  it("turns container off with the reason when the placement list read fails", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await chooseWorker("coder@1");
+
+    expect(await screen.findByRole("radio", { name: /^Container/ })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
+    expect(
+      await screen.findByText("Off. The check of the server host failed. Open this sheet again."),
+    ).toBeTruthy();
+  });
+
   it("turns server and container off while Advanced sets the worker placement", async () => {
     mount();
 

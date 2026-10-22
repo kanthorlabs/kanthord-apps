@@ -104,7 +104,15 @@ describe("placementChoicesOf", () => {
     });
   });
 
-  it("turns nothing off when the list read failed", () => {
+  it("turns container off with the reason when the list read failed", () => {
+    expect(placementChoicesOf("failed")).toEqual({
+      disabled: ["container"],
+      note: "Off. The check of the server host failed. Open this sheet again.",
+      runtime: null,
+    });
+  });
+
+  it("turns nothing off when the list holds no container entry", () => {
     expect(placementChoicesOf([])).toEqual({ disabled: [], note: null, runtime: null });
   });
 });
