@@ -34,6 +34,7 @@ vi.mock("@/api/resources/scheduler");
 vi.mock("@/api/resources/mission");
 
 import { InstanceScreen } from "./instance-screen";
+import { textContent } from "../../../../test/text-content";
 
 const FINGERPRINT = "SHA256:4l0bK2qPn8YwVx3JmT7rUe6Hs1Dc9GfZaR5iLoQyWkE";
 
@@ -240,6 +241,47 @@ describe("InstanceScreen", () => {
     expect(within(bindings).getAllByRole("link", { name: "Open binding" })[0]).toHaveAttribute(
       "href",
       "/projects/prj-a?tab=bindings",
+    );
+  });
+
+  it("detaches the instance from the binding of one row after a confirmation", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      version: 6,
+      bindings: {
+        "mac-main": {
+          kind: "worker",
+          config: {
+            worker: "coder@1",
+            placement: "worker",
+            worker_instances: ["mac-studio", "build-01"],
+          },
+        },
+      },
+    });
+    vi.mocked(projectsApi.writeBindingSet).mockResolvedValue({
+      project_id: "prj-a",
+      binding_set_version: 7,
+      changes: [],
+    });
+    mount();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Detach mac-studio from mac-main of kanthord" }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      await within(dialog).findByText(
+        textContent(/^mac-main of kanthord stops listing mac-studio\./),
+      ),
+    ).toBeInTheDocument();
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Detach mac-studio" }));
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("prj-a", 6, {
+        "mac-main": {
+          kind: "worker",
+          config: { worker: "coder@1", placement: "worker", worker_instances: ["build-01"] },
+        },
+      }),
     );
   });
 

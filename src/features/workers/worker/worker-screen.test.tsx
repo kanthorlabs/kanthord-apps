@@ -93,6 +93,55 @@ describe("WorkerScreen", () => {
     expect(await screen.findByText("Instance page")).toBeInTheDocument();
   });
 
+  it("offers Detach and a disabled Archive on an instance that a binding lists", async () => {
+    mount();
+    expect(await screen.findByRole("button", { name: "Detach mac-studio" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Archive mac-studio" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("asks which binding to detach from when several bindings list the instance", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([{ ...MAC, binding_count: 2 }]);
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      bindings: [
+        { project_id: "prj-test", binding: "mac-main" },
+        { project_id: "prj-b", binding: "mac-b" },
+      ],
+      registrations: [],
+      credentials: [],
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Detach mac-studio" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(
+      await within(dialog).findByRole("radio", { name: "All 2 bindings" }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("radio", { name: "mac-main of prj-test" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+  });
+
+  it("offers Remove on each binding row", async () => {
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      {
+        id: "binding_1",
+        project_id: "prj-test",
+        name: "mac-main",
+        kind: "worker",
+        resource_identity: "worker:mac-main",
+        revision: 1,
+        config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
+        created_at: 1,
+        removed_at: null,
+      },
+    ]);
+    mount();
+    expect(await screen.findByRole("button", { name: "Remove mac-main" })).toBeEnabled();
+  });
+
   it("states the next step when the worker has no instance", async () => {
     vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([]);
     mount();

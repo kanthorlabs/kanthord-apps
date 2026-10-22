@@ -52,6 +52,13 @@ describe("BindingList", () => {
     );
   });
 
+  it("offers Remove on each binding", () => {
+    mount([SOURCE, MIRROR]);
+
+    expect(screen.getByRole("button", { name: "Remove source" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Remove mirror" })).toBeTruthy();
+  });
+
   it("states that no binding names the credential", () => {
     mount([]);
 
