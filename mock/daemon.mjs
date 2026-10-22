@@ -10,6 +10,7 @@ import { createServer } from "node:http";
 
 import * as fx from "./fixtures.mjs";
 import { registerInstances } from "./instances.mjs";
+import { registerTracking } from "./tracking.mjs";
 import { registerWorkbench } from "./workbench.mjs";
 
 const PORT = Number(process.env.KANTHORD_HTTP_PORT ?? 31415);
@@ -3109,6 +3110,14 @@ registerWorkbench({
   envelope: projectEnvelope,
   agents,
   sessions: workbenchSessions,
+});
+
+registerTracking({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  executions: () => [...projectStates.values()].flatMap((state) => state.executions),
 });
 
 const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;

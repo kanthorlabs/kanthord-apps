@@ -1261,3 +1261,121 @@ export interface WorkbenchApprovalAnswer {
   readonly tool_call_id: string;
   readonly approved: boolean;
 }
+
+export type TraceState = "open" | "ok" | "error";
+
+export type TraceSort = "started_at" | "duration_ms" | "total_tokens" | "cost_usd";
+
+export interface TraceSummary {
+  readonly trace_id: string;
+  readonly project_id: string | null;
+  readonly execution_id: string | null;
+  readonly node_id: string | null;
+  readonly attempt: number | null;
+  readonly root_span_id: string;
+  readonly created_at: number;
+  readonly state: TraceState;
+  readonly started_at: number | null;
+  readonly ended_at: number | null;
+  readonly duration_ms: number | null;
+  readonly stop_reason: string | null;
+  readonly worker_name: string | null;
+  readonly agent_names: readonly string[];
+  readonly models: readonly string[];
+  readonly input_tokens: number;
+  readonly output_tokens: number;
+  readonly cache_read_tokens: number;
+  readonly cache_creation_tokens: number;
+  readonly total_tokens: number;
+  readonly cost_usd: number;
+  readonly span_count: number;
+  readonly turn_count: number;
+  readonly tool_count: number;
+  readonly error_count: number;
+  readonly error_types: readonly string[];
+  readonly first_error_span_id: string | null;
+}
+
+export interface TraceFacets {
+  readonly worker_names: readonly string[];
+  readonly agent_names: readonly string[];
+  readonly models: readonly string[];
+  readonly error_types: readonly string[];
+}
+
+export type SpanStatus = "Unset" | "Ok" | "Error";
+
+export type SpanOrigin = "observed" | "asserted";
+
+export type SpanAttributeValue =
+  string | number | boolean | readonly string[] | readonly number[] | readonly boolean[];
+
+export interface TraceSpanEvent {
+  readonly name: string;
+  readonly time: number;
+  readonly attributes?: Readonly<Record<string, SpanAttributeValue>>;
+}
+
+export interface TraceSpanLink {
+  readonly trace_id: string;
+  readonly span_id: string;
+}
+
+export interface TraceSpan {
+  readonly trace_id: string;
+  readonly span_id: string;
+  readonly parent_span_id: string | null;
+  readonly producer: string;
+  readonly origin: SpanOrigin;
+  readonly operation: string;
+  readonly start_time: number | null;
+  readonly end_time: number | null;
+  readonly status: SpanStatus;
+  readonly attributes: Readonly<Record<string, SpanAttributeValue>>;
+  readonly events: readonly TraceSpanEvent[];
+  readonly links: readonly TraceSpanLink[];
+  readonly text_ids: readonly string[];
+  readonly created_at: number;
+}
+
+export interface TelemetryText {
+  readonly trace_id: string;
+  readonly text_id: string;
+  readonly content: string;
+  readonly created_at: number;
+}
+
+export interface TraceSessionEntry {
+  readonly trace_id: string;
+  readonly session_id: string;
+  readonly entry_id: string;
+  readonly parent_entry_id: string | null;
+  readonly sequence: number;
+  readonly entry_type: string;
+  readonly entry_time: number;
+  readonly tool_call_id: string | null;
+  readonly truncated: boolean;
+  readonly entry: Readonly<Record<string, unknown>>;
+  readonly created_at: number;
+}
+
+export interface TraceListQuery {
+  readonly project_id?: string;
+  readonly node_id?: string;
+  readonly execution_id?: string;
+  readonly worker_name?: string;
+  readonly agent_name?: string;
+  readonly model?: string;
+  readonly state?: TraceState;
+  readonly error_type?: string;
+  readonly q?: string;
+  readonly started_from?: number;
+  readonly started_to?: number;
+  readonly min_duration_ms?: number;
+  readonly max_duration_ms?: number;
+  readonly min_total_tokens?: number;
+  readonly max_total_tokens?: number;
+  readonly min_cost_usd?: number;
+  readonly max_cost_usd?: number;
+  readonly sort?: TraceSort;
+}
