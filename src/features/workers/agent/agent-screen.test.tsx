@@ -197,6 +197,16 @@ describe("AgentScreen", () => {
     );
   });
 
+  it("links the agent to its traces", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Traces" })).toHaveAttribute(
+      "href",
+      "/traces?agent_name=re%401",
+    );
+  });
+
   it("shows the prompts, the tools and the absent enablement", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();

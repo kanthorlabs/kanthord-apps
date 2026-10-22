@@ -1,11 +1,13 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import * as schedulerApi from "@/api/resources/scheduler";
+import * as trackingApi from "@/api/resources/tracking";
 import * as workersApi from "@/api/resources/workers";
 import type {
   AgentCooling,
@@ -17,6 +19,7 @@ import type {
   ProjectBindingRecord,
   Intent,
   SchedulerExecutionRecord,
+  TraceSummary,
   WorkerBindingRecord,
   WorkerRegistrationRecord,
 } from "@/api/types";
@@ -26,6 +29,7 @@ import { buildGraph } from "@/lib/mission-graph";
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/scheduler");
+vi.mock("@/api/resources/tracking");
 vi.mock("@/api/resources/workers");
 
 import { NodeSheet } from "./node-sheet";
@@ -268,14 +272,16 @@ function agentView(agent: string, cooling: AgentCooling | null): BindingAgentVie
 
 function renderSheet(selectedId: string, onSelect = vi.fn()) {
   render(
-    <NodeSheet
-      projectId="project_1"
-      model={MODEL}
-      selectedId={selectedId}
-      missionVersion={3}
-      onChanged={vi.fn()}
-      onSelect={onSelect}
-    />,
+    <MemoryRouter>
+      <NodeSheet
+        projectId="project_1"
+        model={MODEL}
+        selectedId={selectedId}
+        missionVersion={3}
+        onChanged={vi.fn()}
+        onSelect={onSelect}
+      />
+    </MemoryRouter>,
   );
   return onSelect;
 }
@@ -460,6 +466,46 @@ describe("NodeSheet", () => {
 
     const executions = await screen.findByRole("list", { name: "Executions" });
     expect(within(executions).getByText("Provider failed: rate limited")).toBeTruthy();
+  });
+
+  it("shows the trace summary of an execution and links to its trace", async () => {
+    vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
+      execution({ node_id: "node_audit", trace_id: "trace_live" }),
+      execution({ execution_id: "execution_2", node_id: "node_audit", trace_id: "trace_gone" }),
+      execution({ execution_id: "execution_3", node_id: "node_audit", trace_id: "trace_down" }),
+    ]);
+    vi.mocked(trackingApi.readTrace).mockImplementation(async (traceId) => {
+      if (traceId === "trace_gone") throw new ApiError("not_found", "No such trace.", 404);
+      if (traceId === "trace_down") throw new ApiError("unreachable", "No answer.", 0);
+      return {
+        turn_count: 12,
+        total_tokens: 48_200,
+        cost_usd: 0.4321,
+        error_count: 2,
+      } as TraceSummary;
+    });
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Records of attempt 1" }));
+
+    const executions = await screen.findByRole("list", { name: "Executions" });
+    const [live, gone, down] = within(executions).getAllByRole("listitem");
+    expect(
+      await within(live as HTMLElement).findByText(
+        "12 turns · 48.2k tokens · Est. cost $0.4321 · 2 errors",
+      ),
+    ).toBeTruthy();
+    expect(within(live as HTMLElement).getByRole("button", { name: "Trace" })).toHaveAttribute(
+      "href",
+      "/traces/trace_live",
+    );
+    expect(await within(gone as HTMLElement).findByText("Trace expired")).toBeTruthy();
+    expect(within(gone as HTMLElement).getByRole("button", { name: "Trace" })).toHaveAttribute(
+      "href",
+      "/traces/trace_gone",
+    );
+    expect(within(down as HTMLElement).queryByText(/turns|Trace expired/)).toBeNull();
   });
 
   it("shows the end of the last execution and its cause on the attempt from one read", async () => {

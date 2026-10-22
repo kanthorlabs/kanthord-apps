@@ -9,14 +9,18 @@ import * as clientApi from "@/api/client";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as gatewayApi from "@/api/resources/gateway";
 import * as instancesApi from "@/api/resources/worker-instances";
+import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
+import * as schedulerApi from "@/api/resources/scheduler";
 import * as workersApi from "@/api/resources/workers";
 import type {
   CopyHealth,
   Credential,
   CredentialPlatformList,
   LlmCredential,
+  MissionNodeRecord,
   Project,
+  SchedulerExecutionRecord,
   WorkerInstanceDetail,
   WorkerInstanceListItem,
 } from "@/api/types";
@@ -242,6 +246,48 @@ describe("InstanceScreen", () => {
       "href",
       "/projects/prj-a?tab=bindings",
     );
+  });
+
+  it("links a registration with an execution to its trace", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      registrations: [
+        {
+          runtime_identity: "worker_registration_01",
+          project_id: "prj-a",
+          resource_identity: "worker:kanthord:coder@1",
+          worker_name: "coder@1",
+          name: "coder #1",
+          instance: "mac-studio",
+          activity: "executing",
+          draining: false,
+          execution_id: "execution_a",
+          registered: true,
+          host: "kanthord",
+          placement: "worker",
+        },
+      ],
+    });
+    vi.mocked(schedulerApi.listProjectExecutions).mockResolvedValue([
+      {
+        execution_id: "execution_a",
+        project_id: "prj-a",
+        node_id: "n_a",
+        trace_id: "trace_a",
+      } as SchedulerExecutionRecord,
+    ]);
+    vi.mocked(missionApi.readMissionNode).mockResolvedValue({
+      id: "n_a",
+      filename: "add-recovery-codes.md",
+    } as MissionNodeRecord);
+    mount();
+
+    const registrations = await screen.findByRole("list", { name: "Registrations" });
+    expect(await within(registrations).findByRole("button", { name: "Trace" })).toHaveAttribute(
+      "href",
+      "/traces/trace_a",
+    );
+    expect(within(registrations).getByRole("link", { name: "Open execution" })).toBeVisible();
   });
 
   it("detaches the instance from the binding of one row after a confirmation", async () => {

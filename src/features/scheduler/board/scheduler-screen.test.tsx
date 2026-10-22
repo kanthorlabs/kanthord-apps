@@ -362,6 +362,21 @@ describe("SchedulerScreen Now", () => {
     expect(within(item).queryByText(/renew/i)).toBeNull();
   });
 
+  it("links an execution to its trace", async () => {
+    serve({
+      nodes: { "prj-1": [node("n_a", "Add recovery codes", "Executing")] },
+      executions: {
+        "prj-1": [execution("prj-1", "execution_a", "n_a", { trace_id: "trace_a" })],
+      },
+    });
+
+    renderScreen();
+
+    expect(
+      await screen.findByRole("button", { name: "Trace of the execution of Add recovery codes" }),
+    ).toHaveAttribute("href", "/traces/trace_a");
+  });
+
   it("names the evaluation of a node in Evaluating", async () => {
     serve({
       nodes: { "prj-1": [node("n_a", "Verify the receipt email", "Evaluating")] },
