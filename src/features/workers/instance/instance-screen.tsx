@@ -6,7 +6,7 @@ import {
   RefreshCwIcon,
   UnlinkIcon,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import type { WorkerInstanceDetail } from "@/api/types";
@@ -370,17 +370,25 @@ function CredentialRows({
   );
 }
 
-function ArchiveButton({ archive }: { archive: InstanceArchiveState }) {
+function ArchiveButton({
+  archive,
+  control,
+}: {
+  archive: InstanceArchiveState;
+  control: RefObject<HTMLButtonElement | null>;
+}) {
   const icon = <ArchiveIcon aria-hidden="true" data-icon="inline-start" />;
   if (archive.blocked !== null) {
-    return <DisabledAction label="Archive" reason={archive.blocked} icon={icon} />;
+    return <DisabledAction label="Archive" reason={archive.blocked} icon={icon} ref={control} />;
   }
   return (
     <Button
+      ref={control}
       variant="destructive"
       size="sm"
       aria-busy={archive.reading}
       disabled={archive.reading}
+      focusableWhenDisabled
       onClick={archive.request}
     >
       {icon}
@@ -431,10 +439,12 @@ function InstanceDetail({
   const archived = instance.ended_at !== null;
   const reset = useInstanceReset(instance, reload);
   const navigate = useNavigate();
+  const archiveControl = useRef<HTMLButtonElement>(null);
   const archive = useInstanceArchive(
     archiveSubjectOf(instance),
     () => void navigate(workerPagePath(instance.worker)),
     reload,
+    archiveControl,
   );
   const add = useInstanceCredentialAdd(instance.name, reload);
   const rotate = useInstanceCredentialRotate(instance.name, reload);
@@ -505,7 +515,7 @@ function InstanceDetail({
               <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />
               Reset key
             </Button>
-            <ArchiveButton archive={archive} />
+            <ArchiveButton archive={archive} control={archiveControl} />
           </div>
         </section>
       )}

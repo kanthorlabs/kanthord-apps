@@ -63,7 +63,7 @@ describe("archiveBlockOf", () => {
 describe("useInstanceArchive", () => {
   it("opens no dialog for a blocked instance", () => {
     const { result } = renderHook(() =>
-      useInstanceArchive({ ...FREE, bindingCount: 1 }, vi.fn(), vi.fn()),
+      useInstanceArchive({ ...FREE, bindingCount: 1 }, vi.fn(), vi.fn(), { current: null }),
     );
     act(() => result.current.request());
     expect(result.current.open).toBe(false);
@@ -72,7 +72,9 @@ describe("useInstanceArchive", () => {
   it("archives at the revision that it reads again and calls onArchived", async () => {
     vi.mocked(archiveWorkerInstance).mockResolvedValue({} as WorkerInstance);
     const onArchived = vi.fn();
-    const { result } = renderHook(() => useInstanceArchive(FREE, onArchived, vi.fn()));
+    const { result } = renderHook(() =>
+      useInstanceArchive(FREE, onArchived, vi.fn(), { current: null }),
+    );
     act(() => result.current.request());
     await waitFor(() => expect(result.current.open).toBe(true));
     expect(readWorkerInstance).toHaveBeenCalledWith("mac-studio");
@@ -88,7 +90,9 @@ describe("useInstanceArchive", () => {
       bindings: [{ project_id: "prj-a", binding: "mac-main" }],
     });
     const onStale = vi.fn();
-    const { result } = renderHook(() => useInstanceArchive(FREE, vi.fn(), onStale));
+    const { result } = renderHook(() =>
+      useInstanceArchive(FREE, vi.fn(), onStale, { current: null }),
+    );
     act(() => result.current.request());
     await waitFor(() => expect(onStale).toHaveBeenCalled());
     expect(result.current.open).toBe(false);

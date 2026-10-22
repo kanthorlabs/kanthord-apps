@@ -1,4 +1,5 @@
 import { ArchiveIcon, UnlinkIcon } from "lucide-react";
+import { useRef } from "react";
 
 import type { WorkerInstanceListItem } from "@/api/types";
 import { DisabledAction } from "@/components/disabled-action";
@@ -22,6 +23,7 @@ export function InstanceRowActions({
   onChanged,
   projectNameOf,
 }: InstanceRowActionsProps) {
+  const archiveControl = useRef<HTMLButtonElement>(null);
   const archive = useInstanceArchive(
     {
       name: instance.name,
@@ -31,6 +33,7 @@ export function InstanceRowActions({
     },
     onChanged,
     onChanged,
+    archiveControl,
   );
   const detachIcon = <UnlinkIcon aria-hidden="true" data-icon="inline-start" />;
   const archiveIcon = <ArchiveIcon aria-hidden="true" data-icon="inline-start" />;
@@ -60,14 +63,17 @@ export function InstanceRowActions({
           ariaLabel={`Archive ${instance.name}`}
           reason={archive.blocked}
           icon={archiveIcon}
+          ref={archiveControl}
         />
       ) : (
         <Button
+          ref={archiveControl}
           variant="destructive"
           size="sm"
           aria-label={`Archive ${instance.name}`}
           aria-busy={archive.reading}
           disabled={archive.reading}
+          focusableWhenDisabled
           onClick={archive.request}
         >
           {archiveIcon}

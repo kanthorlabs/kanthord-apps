@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type Ref } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,15 +8,17 @@ interface DisabledActionProps {
   readonly reason: ReactNode;
   readonly icon?: ReactNode;
   readonly ariaLabel?: string;
+  readonly ref?: Ref<HTMLButtonElement>;
 }
 
-export function DisabledAction({ label, reason, icon, ariaLabel }: DisabledActionProps) {
+export function DisabledAction({ label, reason, icon, ariaLabel, ref }: DisabledActionProps) {
   const [open, setOpen] = useState(false);
   return (
     <Tooltip open={open} onOpenChange={setOpen}>
       <TooltipTrigger
         render={
           <Button
+            ref={ref}
             variant="outline"
             size="sm"
             aria-label={ariaLabel}

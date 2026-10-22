@@ -146,6 +146,31 @@ describe("WorkerScreen", () => {
     );
   });
 
+  it("keeps the focus on Archive when the read again finds a listing binding", async () => {
+    vi.mocked(instancesApi.listWorkerInstances)
+      .mockResolvedValueOnce([{ ...MAC, binding_count: 0 }])
+      .mockResolvedValue([MAC]);
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      bindings: [{ project_id: "prj-test", binding: "mac-main" }],
+      registrations: [],
+      credentials: [],
+    });
+    mount();
+    const archive = await screen.findByRole("button", { name: "Archive mac-studio" });
+    await userEvent.click(archive);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Archive mac-studio" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Archive mac-studio" })).toHaveFocus(),
+    );
+  });
+
   it("offers Remove on each binding row", async () => {
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       {

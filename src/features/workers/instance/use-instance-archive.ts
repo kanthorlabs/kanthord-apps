@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 
 import { isApiError } from "@/api/errors";
@@ -88,6 +88,7 @@ export function useInstanceArchive(
   subject: ArchiveSubject,
   onArchived: () => void,
   onStale: () => void,
+  control: RefObject<HTMLButtonElement | null>,
 ): InstanceArchiveState {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +96,14 @@ export function useInstanceArchive(
   const [archiving, setArchiving] = useState(false);
   const [reading, setReading] = useState(false);
   const [revision, setRevision] = useState(subject.revision);
+  const pendingFocus = useRef(false);
   const blocked = archiveBlockOf(subject);
+
+  useEffect(() => {
+    if (blocked === null || !pendingFocus.current) return;
+    pendingFocus.current = false;
+    control.current?.focus();
+  }, [blocked, control]);
 
   const request = useCallback(() => {
     if (blocked !== null || reading) return;
@@ -110,6 +118,7 @@ export function useInstanceArchive(
           detail.ended_at !== null ? `${subject.name} is already archived.` : archiveBlockOf(fresh);
         if (freshBlock !== null) {
           toast.error(`${subject.name} was not archived.`, { description: freshBlock });
+          pendingFocus.current = true;
           onStale();
           return;
         }
