@@ -107,6 +107,14 @@ function WorkerHeader({ entry }: { entry: WorkerCatalogEntry }) {
       <div className="flex min-w-0 flex-wrap items-center gap-2">
         <h2 className="min-w-0 font-mono text-lg font-semibold break-all">{entry.name}</h2>
         <Badge variant="secondary">{entry.host}</Badge>
+        <Button
+          nativeButton={false}
+          render={<Link to={`/traces?worker_name=${encodeURIComponent(entry.name)}`} />}
+          variant="outline"
+          size="sm"
+        >
+          Traces
+        </Button>
       </div>
       <BadgeRow label="Declared node states" values={entry.declared_node_states} />
       <BadgeRow label="Declared intents" values={entry.declared_intents} />

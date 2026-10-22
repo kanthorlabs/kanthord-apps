@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 
-import type { MissionProposal } from "@/api/types";
+import type { MissionProposal, SchedulerExecutionRecord } from "@/api/types";
 import { useNodeCheck, type NodeCheckState } from "@/hooks/use-node-check";
 import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
 import { useNodeOverride, type NodeOverrideState } from "@/hooks/use-node-override";
@@ -30,6 +30,7 @@ export interface DecisionActs {
   readonly failed: boolean;
   readonly proposals: readonly MissionProposal[];
   readonly unresolved: string | null;
+  readonly lastTraceId: string | null;
 }
 
 interface DecisionContext {
@@ -47,6 +48,17 @@ interface ReadState {
 const NO_PROPOSALS: readonly MissionProposal[] = [];
 
 const READY: ReadState = { ready: true, waiting: null, failed: false };
+
+function lastTraceIdOf(item: DecisionAttentionItem, detail: AttentionDetail | null): string | null {
+  if (item.kind !== "paused" || detail?.kind !== "paused") return null;
+  if (detail.executions.status !== "ready") return null;
+  const newest = detail.executions.data.reduce<SchedulerExecutionRecord | null>(
+    (latest, execution) =>
+      latest === null || execution.created_at > latest.created_at ? execution : latest,
+    null,
+  );
+  return newest?.trace_id ?? null;
+}
 
 function proposalsStateOf(detail: AttentionDetail | null): ReadState {
   if (detail?.kind !== "blocked") {
@@ -170,6 +182,7 @@ export function useDecisionActs(
             item.kind === "paused",
             item.kind === "dependency_discarded" ? "Discard waits" : undefined,
           ),
+    lastTraceId: lastTraceIdOf(item, detail),
     ...readStateOf(item, detail),
   };
 }

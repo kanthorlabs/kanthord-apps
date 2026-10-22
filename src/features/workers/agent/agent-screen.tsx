@@ -295,6 +295,14 @@ export function AgentScreen() {
         >
           Workbench
         </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          nativeButton={false}
+          render={<Link to={`/traces?agent_name=${encodeURIComponent(agent.agent_name)}`} />}
+        >
+          Traces
+        </Button>
       </div>
       <div className="flex flex-wrap items-center gap-1 text-sm">
         <span className="text-muted-foreground">Overridable in a worker binding:</span>

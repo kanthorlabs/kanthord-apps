@@ -152,6 +152,16 @@ export function DecisionItem({
                 Approve proposal
               </Button>
             ))}
+          {acts.lastTraceId !== null && (
+            <Button
+              nativeButton={false}
+              render={<Link to={`/traces/${encodeURIComponent(acts.lastTraceId)}`} />}
+              variant="outline"
+              size="sm"
+            >
+              Last trace
+            </Button>
+          )}
           {item.kind === "paused" && acts.resume.available && (
             <Button variant="outline" size="sm" onClick={acts.resume.request}>
               Resume

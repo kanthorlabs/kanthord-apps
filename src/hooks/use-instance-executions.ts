@@ -7,6 +7,7 @@ import { useResource } from "./use-resource";
 export interface InstanceExecution {
   readonly runtimeIdentity: string;
   readonly executionId: string;
+  readonly traceId: string | null;
   readonly projectId: string;
   readonly projectName: string;
   readonly nodeId: string | null;
@@ -41,13 +42,15 @@ async function readExecutions(
   ).flatMap((items) => items ?? []);
   return Promise.all(
     executing.map(async (registration) => {
-      const nodeId =
-        executions.find((execution) => execution.execution_id === registration.execution_id)
-          ?.node_id ?? null;
+      const record = executions.find(
+        (execution) => execution.execution_id === registration.execution_id,
+      );
+      const nodeId = record?.node_id ?? null;
       const node = nodeId === null ? null : await settled(() => readMissionNode(nodeId));
       return {
         runtimeIdentity: registration.runtime_identity,
         executionId: registration.execution_id,
+        traceId: record?.trace_id ?? null,
         projectId: registration.project_id,
         projectName:
           projects.find((project) => project.id === registration.project_id)?.name ??

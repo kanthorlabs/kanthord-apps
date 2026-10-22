@@ -104,6 +104,16 @@ describe("ProjectScreen", () => {
     );
   });
 
+  it("links to the trace list filtered to the project", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Traces" })).toHaveAttribute(
+      "href",
+      `/traces?project_id=${KANTHORD.id}`,
+    );
+  });
+
   it("shows an active project with the Pause button and no Paused badge", async () => {
     vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
     mount();

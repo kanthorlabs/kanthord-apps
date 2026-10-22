@@ -86,6 +86,15 @@ export function ExecutionItem({
           )}
         </ItemContent>
         <ItemActions className="basis-full md:basis-auto md:justify-end">
+          <Button
+            nativeButton={false}
+            render={<Link to={`/traces/${encodeURIComponent(execution.trace_id)}`} />}
+            variant="outline"
+            size="sm"
+            aria-label={`Trace of the execution of ${nodeName}`}
+          >
+            Trace
+          </Button>
           <CollapsibleTrigger
             render={<Button variant="ghost" size="sm" />}
             aria-label={`Details of the execution of ${nodeName}`}

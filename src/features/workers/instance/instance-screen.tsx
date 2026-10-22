@@ -236,13 +236,25 @@ function RegistrationRows({
             ]}
             actions={
               execution?.nodeId == null ? undefined : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={<Link to={nodePath(execution.projectId, execution.nodeId)} />}
-                >
-                  Open execution
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    render={<Link to={nodePath(execution.projectId, execution.nodeId)} />}
+                  >
+                    Open execution
+                  </Button>
+                  {execution.traceId !== null && (
+                    <Button
+                      nativeButton={false}
+                      render={<Link to={`/traces/${encodeURIComponent(execution.traceId)}`} />}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Trace
+                    </Button>
+                  )}
+                </>
               )
             }
           />

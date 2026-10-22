@@ -1,10 +1,19 @@
 import { Fragment } from "react";
+import { Link } from "react-router-dom";
 
 import type { MissionAttempt } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Button } from "@/components/ui/button";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { stopLabel } from "@/lib/execution-stop";
 import { utcDateTime } from "@/lib/format";
@@ -19,6 +28,7 @@ import {
   verificationResultText,
 } from "@/lib/mission-labels";
 import { useAttemptRecords } from "../use-attempt-records";
+import { useTraceSummaries } from "../use-trace-summaries";
 import { BindingList } from "./binding-list";
 import { FactList } from "./fact-list";
 import { RecordSection } from "./record-section";
@@ -42,6 +52,7 @@ export function AttemptRecords({
   currentRevision,
 }: AttemptRecordsProps) {
   const records = useAttemptRecords(projectId, attempt);
+  const traceLines = useTraceSummaries(records.data?.executions.data ?? null);
 
   if (records.loading) return <Skeleton className="h-32 w-full" />;
   if (records.data === null) {
@@ -131,8 +142,21 @@ export function AttemptRecords({
                         {`, deadline ${utcDateTime(item.expired_at)}`}
                       </span>
                       <span className="font-mono text-xs break-all">trace {item.trace_id}</span>
+                      {traceLines.has(item.trace_id) && (
+                        <span>{traceLines.get(item.trace_id)}</span>
+                      )}
                     </ItemDescription>
                   </ItemContent>
+                  <ItemActions className="basis-full md:basis-auto md:justify-end">
+                    <Button
+                      nativeButton={false}
+                      render={<Link to={`/traces/${encodeURIComponent(item.trace_id)}`} />}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Trace
+                    </Button>
+                  </ItemActions>
                 </Item>
               ))}
             </ItemGroup>

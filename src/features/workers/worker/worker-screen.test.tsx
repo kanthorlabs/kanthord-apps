@@ -87,6 +87,14 @@ describe("WorkerScreen", () => {
     expect(instancesApi.listWorkerInstances).toHaveBeenCalledWith("coder@1");
   });
 
+  it("links the worker to its traces", async () => {
+    mount();
+    expect(await screen.findByRole("button", { name: "Traces" })).toHaveAttribute(
+      "href",
+      "/traces?worker_name=coder%401",
+    );
+  });
+
   it("opens the instance page from a row", async () => {
     mount();
     await userEvent.click(await screen.findByRole("button", { name: "Open mac-studio" }));

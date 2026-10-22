@@ -1027,6 +1027,37 @@ describe("OverviewScreen paused items", () => {
     expect(listNodeExternalActions).toHaveBeenCalledWith("n_p", 2);
   });
 
+  it("offers Last trace to the newest execution of a Paused node", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Compute the shipping rates")] },
+      executions: {
+        n_p: [
+          ended("e1", "n_p", { created_at: NOW - 5 * HOUR, trace_id: "trace_mid" }),
+          ended("e2", "n_p", { created_at: NOW - 3 * HOUR, trace_id: "trace_new" }),
+          ended("e0", "n_p", { created_at: NOW - 9 * HOUR, trace_id: "trace_old" }),
+        ],
+      },
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Compute the shipping rates"));
+    expect(await within(item).findByRole("button", { name: "Last trace" })).toHaveAttribute(
+      "href",
+      "/traces/trace_new",
+    );
+  });
+
+  it("offers no Last trace to a Paused node without an execution", async () => {
+    serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Draft the notes"));
+    expect(await within(item).findByRole("button", { name: "Resume" })).toBeInTheDocument();
+    expect(within(item).queryByRole("button", { name: "Last trace" })).toBeNull();
+  });
+
   it("names a lost execution as the Failure limit and takes the expiry as its end", async () => {
     serve({
       nodes: { "prj-1": [paused("n_p", "Compute the shipping rates")] },

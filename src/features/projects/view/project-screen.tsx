@@ -67,6 +67,14 @@ export function ProjectScreen() {
             <ProjectPauseButton project={project} onChanged={reload} />
             <Button
               nativeButton={false}
+              render={<Link to={`/traces?project_id=${encodeURIComponent(project.id)}`} />}
+              variant="outline"
+              size="sm"
+            >
+              Traces
+            </Button>
+            <Button
+              nativeButton={false}
               render={<Link to={`/projects/${encodeURIComponent(project.id)}/edit`} />}
               variant="outline"
               size="sm"
