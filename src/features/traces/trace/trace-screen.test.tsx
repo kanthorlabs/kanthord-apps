@@ -23,8 +23,14 @@ vi.mock("@/api/resources/mission", () => ({
 
 import { readMissionNode } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
-import { listTraceSpans, readTrace } from "@/api/resources/tracking";
-import type { MissionNodeRecord, Project, TraceSpan, TraceSummary } from "@/api/types";
+import { listSessionEntryPage, listTraceSpans, readTrace } from "@/api/resources/tracking";
+import type {
+  MissionNodeRecord,
+  Project,
+  TraceSessionEntry,
+  TraceSpan,
+  TraceSummary,
+} from "@/api/types";
 import { durationText, utcDateTime } from "@/lib/format";
 
 import { TraceScreen } from "./trace-screen";
@@ -560,5 +566,84 @@ describe("TraceScreen polling", () => {
     await advance(TRACE_POLL_MS * 3);
 
     expect(readTrace).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("TraceScreen conversation", () => {
+  function replyEntry(sequence: number): TraceSessionEntry {
+    return {
+      trace_id: "trace-1",
+      session_id: "session",
+      entry_id: `reply-${sequence}`,
+      parent_entry_id: null,
+      sequence,
+      entry_type: "message",
+      entry_time: START,
+      tool_call_id: null,
+      truncated: false,
+      entry: {
+        type: "message",
+        message: { role: "assistant", content: [{ type: "text", text: `Answer ${sequence}.` }] },
+      },
+      created_at: START,
+    };
+  }
+
+  function withReplyEntry(): readonly TraceSpan[] {
+    return spans().map((item) =>
+      item.span_id === "turn1"
+        ? { ...item, attributes: { ...item.attributes, "kanthord.session.entry_id": "reply-1" } }
+        : item,
+    );
+  }
+
+  it("reads no entry before the human opens the Conversation tab", async () => {
+    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: [], next_cursor: null });
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    expect(listSessionEntryPage).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("tab", { name: "Conversation" }));
+
+    expect(screen.getByText("at /traces/trace-1?tab=conversation")).toBeInTheDocument();
+    expect(listSessionEntryPage).toHaveBeenCalledWith("trace-1", "session", null, 100);
+  });
+
+  it("links an entry to its turn span and the turn span back to the entry", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(withReplyEntry());
+    vi.mocked(listSessionEntryPage).mockResolvedValue({
+      items: [replyEntry(1)],
+      next_cursor: null,
+    });
+    mount("/traces/trace-1?tab=conversation");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Show in timeline" }));
+
+    expect(screen.getByText("at /traces/trace-1?tab=timeline&span=turn1")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
+
+    expect(
+      screen.getByText(
+        "at /traces/trace-1?tab=conversation&span=turn1&session=session&entry=reply-1",
+      ),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("Answer 1.")).toBeInTheDocument();
+  });
+
+  it("adds the new entries of an open trace every 5 seconds without a repeat", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(readTrace).mockResolvedValue(summary({ state: "open" }));
+    vi.mocked(listSessionEntryPage)
+      .mockResolvedValueOnce({ items: [replyEntry(1)], next_cursor: null })
+      .mockResolvedValue({ items: [replyEntry(1), replyEntry(2)], next_cursor: null });
+    mount("/traces/trace-1?tab=conversation");
+    expect(await screen.findByText("Answer 1.")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+
+    expect(await screen.findByText("Answer 2.")).toBeInTheDocument();
+    expect(screen.getAllByText("Answer 1.")).toHaveLength(1);
   });
 });

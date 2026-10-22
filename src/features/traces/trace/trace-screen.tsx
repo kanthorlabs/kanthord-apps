@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { Conversation } from "./components/conversation";
 import { SpanDetail } from "./components/span-detail";
 import { SpanTree } from "./components/span-tree";
 import { TimelineToolbar } from "./components/timeline-toolbar";
@@ -103,7 +104,7 @@ function TimelineTab({ traceId, spans, traceState, selection }: TimelineTabProps
 export function TraceScreen() {
   const { traceId = "" } = useParams();
   const trace = useTrace(traceId);
-  const selection = useTraceSelection();
+  const selection = useTraceSelection(trace.spans);
   const { summary } = trace;
 
   if (trace.expired) return <ExpiredNotice />;
@@ -127,12 +128,21 @@ export function TraceScreen() {
       <Tabs value={selection.tab} onValueChange={(value) => selection.selectTab(String(value))}>
         <TabsList>
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="conversation">Conversation</TabsTrigger>
         </TabsList>
         <TabsContent value="timeline">
           <TimelineTab
             traceId={summary.trace_id}
             spans={trace.spans}
             traceState={summary.state}
+            selection={selection}
+          />
+        </TabsContent>
+        <TabsContent value="conversation">
+          <Conversation
+            traceId={summary.trace_id}
+            spans={trace.spans}
+            live={trace.live}
             selection={selection}
           />
         </TabsContent>
