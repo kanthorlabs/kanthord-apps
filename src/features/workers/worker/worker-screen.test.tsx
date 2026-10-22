@@ -69,6 +69,7 @@ beforeEach(() => {
   vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue([]);
   vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([MAC]);
   vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
+  vi.mocked(projectsApi.listProjects).mockResolvedValue([]);
   vi.mocked(gatewayApi.readServerVersion).mockResolvedValue("28.0.1");
   vi.mocked(clientApi.connectionBaseUrl).mockReturnValue("http://192.168.1.10:31415");
 });

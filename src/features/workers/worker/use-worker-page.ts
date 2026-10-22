@@ -1,4 +1,4 @@
-import { listWorkerBindings } from "@/api/resources/projects";
+import { listProjects, listWorkerBindings } from "@/api/resources/projects";
 import { listWorkerInstances } from "@/api/resources/worker-instances";
 import { listAllWorkerRegistrations, readWorkerCatalogEntry } from "@/api/resources/workers";
 import type {
@@ -23,6 +23,7 @@ export interface WorkerPage {
   readonly projectRegistrations: readonly WorkerRegistrationRecord[];
   readonly executionOf: (instanceName: string) => InstanceExecution | null;
   readonly liveExecutionsOf: (instanceName: string) => readonly string[];
+  readonly projectNameOf: (projectId: string) => string;
 }
 
 export function useWorkerPage(workerName: string): WorkerPage {
@@ -36,6 +37,9 @@ export function useWorkerPage(workerName: string): WorkerPage {
     reload: polled.refresh,
   };
   const registrations = useResource(() => listAllWorkerRegistrations(), [workerName]);
+  const projects = useResource(() => listProjects(), []);
+  const projectNameOf = (id: string) =>
+    projects.data?.find((project) => project.id === id)?.name ?? id;
   const bindings = useResource(
     async () =>
       (await listWorkerBindings(projectId)).filter(
@@ -69,5 +73,6 @@ export function useWorkerPage(workerName: string): WorkerPage {
     projectRegistrations,
     executionOf,
     liveExecutionsOf,
+    projectNameOf,
   };
 }

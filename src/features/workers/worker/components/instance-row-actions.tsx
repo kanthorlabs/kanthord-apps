@@ -12,15 +12,15 @@ interface InstanceRowActionsProps {
   readonly liveExecutions: readonly string[];
   readonly detach: InstanceDetachState;
   readonly onArchived: () => void;
+  readonly projectNameOf: (projectId: string) => string;
 }
-
-const sameId = (projectId: string) => projectId;
 
 export function InstanceRowActions({
   instance,
   liveExecutions,
   detach,
   onArchived,
+  projectNameOf,
 }: InstanceRowActionsProps) {
   const archive = useInstanceArchive(
     {
@@ -71,7 +71,7 @@ export function InstanceRowActions({
           Archive
         </Button>
       )}
-      <ArchiveInstanceDialog name={instance.name} archive={archive} projectNameOf={sameId} />
+      <ArchiveInstanceDialog name={instance.name} archive={archive} projectNameOf={projectNameOf} />
     </>
   );
 }
