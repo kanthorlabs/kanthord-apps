@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import type { AgentChainEntry } from "@/api/types";
 
@@ -18,15 +18,15 @@ function cooldownStateOf(entry: AgentChainEntry, now: number): ChainCooldownStat
 export function useAgentChain(
   chain: readonly AgentChainEntry[],
   activePosition: number | null,
+  readAt: number,
 ): readonly ChainRow[] {
-  const [now] = useState(Date.now);
   return useMemo(
     () =>
       chain.map((entry) => ({
         entry,
         active: entry.position === activePosition,
-        cooldown: cooldownStateOf(entry, now),
+        cooldown: cooldownStateOf(entry, readAt),
       })),
-    [chain, activePosition, now],
+    [chain, activePosition, readAt],
   );
 }

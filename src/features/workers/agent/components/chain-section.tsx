@@ -11,6 +11,7 @@ interface ChainSectionProps {
   readonly chain: readonly AgentChainEntry[];
   readonly activePosition: number | null;
   readonly cooling: AgentCooling | null;
+  readonly readAt: number;
 }
 
 function CooldownText({ row }: { row: ChainRow }) {
@@ -31,8 +32,8 @@ function CooldownText({ row }: { row: ChainRow }) {
   );
 }
 
-export function ChainSection({ chain, activePosition, cooling }: ChainSectionProps) {
-  const rows = useAgentChain(chain, activePosition);
+export function ChainSection({ chain, activePosition, cooling, readAt }: ChainSectionProps) {
+  const rows = useAgentChain(chain, activePosition, readAt);
   return (
     <Card role="region" aria-labelledby="agent-chain">
       <CardHeader>
