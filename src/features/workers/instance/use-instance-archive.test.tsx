@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { archiveWorkerInstance, readWorkerInstance } from "@/api/resources/worker-instances";
 import type { WorkerInstance, WorkerInstanceDetail } from "@/api/types";
-import { archiveBlockOf, useInstanceArchive, type ArchiveSubject } from "./use-instance-archive";
+import { useInstanceArchive, type ArchiveSubject } from "./use-instance-archive";
 
 vi.mock("@/api/resources/worker-instances", () => ({
   archiveWorkerInstance: vi.fn(),
@@ -43,21 +43,32 @@ beforeEach(() => {
   vi.mocked(readWorkerInstance).mockResolvedValue(DETAIL);
 });
 
-describe("archiveBlockOf", () => {
+function blockedOf(subject: ArchiveSubject): ReactNode {
+  const { result } = renderHook(() =>
+    useInstanceArchive(subject, vi.fn(), vi.fn(), { current: null }),
+  );
+  return result.current.blocked;
+}
+
+describe("the block reason of Archive", () => {
   it("names the detach while a binding lists the instance", () => {
-    expect(archiveBlockOf({ ...FREE, bindingCount: 2 })).toBe(
+    const { container } = render(<p>{blockedOf({ ...FREE, bindingCount: 2 })}</p>);
+    expect(container.textContent).toBe(
       "A binding lists mac-studio. Detach mac-studio from each listing binding first.",
     );
+    expect(screen.getAllByText("mac-studio", { selector: "strong" })).toHaveLength(2);
   });
 
   it("waits for a live execution", () => {
-    expect(archiveBlockOf({ ...FREE, liveExecutions: ["exec_1"] })).toBe(
+    const { container } = render(<p>{blockedOf({ ...FREE, liveExecutions: ["exec_1"] })}</p>);
+    expect(container.textContent).toBe(
       "A registration of mac-studio holds a live execution. Wait until the execution ends.",
     );
+    expect(screen.getByText("mac-studio", { selector: "strong" })).toBeInTheDocument();
   });
 
   it("answers null for a free instance", () => {
-    expect(archiveBlockOf(FREE)).toBeNull();
+    expect(blockedOf(FREE)).toBeNull();
   });
 });
 

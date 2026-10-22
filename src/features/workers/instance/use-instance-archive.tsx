@@ -23,7 +23,7 @@ export interface ArchiveSubject {
 
 export interface InstanceArchiveState {
   readonly open: boolean;
-  readonly blocked: string | null;
+  readonly blocked: ReactNode;
   readonly liveExecutions: readonly string[];
   readonly error: string | null;
   readonly refusal: ArchiveRefusal | null;
@@ -83,32 +83,29 @@ function archiveBlockKindOf(subject: ArchiveSubject): ArchiveBlock | null {
   return null;
 }
 
-export function archiveBlockOf(subject: ArchiveSubject): string | null {
-  switch (archiveBlockKindOf(subject)) {
+function blockNoticeOf(kind: ArchiveBlock, name: string): ReactNode {
+  const record = <RecordName>{name}</RecordName>;
+  switch (kind) {
     case "listed":
-      return `A binding lists ${subject.name}. Detach ${subject.name} from each listing binding first.`;
+      return (
+        <>
+          A binding lists {record}. Detach {record} from each listing binding first.
+        </>
+      );
     case "executing":
-      return `A registration of ${subject.name} holds a live execution. Wait until the execution ends.`;
-    case null:
-      return null;
+      return <>A registration of {record} holds a live execution. Wait until the execution ends.</>;
   }
 }
 
 function staleNoticeOf(subject: ArchiveSubject, ended: boolean): ReactNode {
-  const name = <RecordName>{subject.name}</RecordName>;
-  if (ended) return <>{name} is already archived.</>;
-  switch (archiveBlockKindOf(subject)) {
-    case "listed":
-      return (
-        <>
-          A binding lists {name}. Detach {name} from each listing binding first.
-        </>
-      );
-    case "executing":
-      return <>A registration of {name} holds a live execution. Wait until the execution ends.</>;
-    case null:
-      return null;
-  }
+  if (ended)
+    return (
+      <>
+        <RecordName>{subject.name}</RecordName> is already archived.
+      </>
+    );
+  const kind = archiveBlockKindOf(subject);
+  return kind === null ? null : blockNoticeOf(kind, subject.name);
 }
 
 export function useInstanceArchive(
@@ -124,16 +121,17 @@ export function useInstanceArchive(
   const [reading, setReading] = useState(false);
   const [revision, setRevision] = useState(subject.revision);
   const pendingFocus = useRef(false);
-  const blocked = archiveBlockOf(subject);
+  const blockKind = archiveBlockKindOf(subject);
+  const blocked = blockKind === null ? null : blockNoticeOf(blockKind, subject.name);
 
   useEffect(() => {
-    if (blocked === null || !pendingFocus.current) return;
+    if (blockKind === null || !pendingFocus.current) return;
     pendingFocus.current = false;
     control.current?.focus();
-  }, [blocked, control]);
+  }, [blockKind, control]);
 
   const request = useCallback(() => {
-    if (blocked !== null || reading) return;
+    if (blockKind !== null || reading) return;
     setError(null);
     setRefusal(null);
     setReading(true);
@@ -156,7 +154,7 @@ export function useInstanceArchive(
         toast.error(`${subject.name} was not read.`, { description: asApiError(cause).message });
       },
     );
-  }, [blocked, reading, subject.name, onStale]);
+  }, [blockKind, reading, subject.name, onStale]);
 
   const cancel = useCallback(() => {
     if (!archiving) setOpen(false);
