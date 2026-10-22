@@ -103,7 +103,9 @@ describe("mission plan resources", () => {
       preview_digest: "a".repeat(64),
       confirmed_retirements: ["node_1"],
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 });
 
@@ -155,7 +157,9 @@ describe("mission proposal resources", () => {
       expected_mission_version: 7,
       reason: "Fix it",
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 });
 
@@ -177,7 +181,9 @@ describe("mission node control resources", () => {
       expected_mission_version: 7,
       reason: "Retry it",
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 
   it("discards a node with the reason, the expected state and attempt and an idempotency key", async () => {
@@ -197,7 +203,9 @@ describe("mission node control resources", () => {
       expected_state: "Blocked",
       expected_attempt: 2,
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 
   it("pauses a node with the reason, the expected state and attempt and an idempotency key", async () => {
@@ -218,7 +226,9 @@ describe("mission node control resources", () => {
       expected_state: "Executing",
       expected_attempt: 2,
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 
   it("resumes a node with the target, the expected state and attempt and an idempotency key", async () => {
@@ -241,7 +251,9 @@ describe("mission node control resources", () => {
       expected_attempt: 2,
       target: "Waiting",
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 
   it("overrides a node with the result success and an idempotency key", async () => {
@@ -264,7 +276,9 @@ describe("mission node control resources", () => {
       expected_attempt: 2,
       result: "success",
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 
   it("checks a node with only the expected mission version and answers results and failures", async () => {
@@ -285,7 +299,9 @@ describe("mission node control resources", () => {
     expect(seen[0]?.req.method).toBe("POST");
     expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/check");
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ expected_mission_version: 7 });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
     expect(checked).toEqual(answer);
   });
 
@@ -304,6 +320,8 @@ describe("mission node control resources", () => {
       reason: "The dependency is gone",
       expected_mission_version: 7,
     });
-    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(/^[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { newUlid } from "@/lib/ulid";
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
@@ -31,7 +31,7 @@ export async function createWorkerInstance(
   return request<WorkerInstanceWriteAnswer>(INSTANCE_PATH, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -43,7 +43,7 @@ export async function resetWorkerInstanceKey(
   return request<WorkerInstanceWriteAnswer>(`${instancePath(instanceName)}/revision`, {
     method: "POST",
     body: { endpoint, expected_revision: expectedRevision },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -54,6 +54,6 @@ export async function archiveWorkerInstance(
   return request<WorkerInstance>(`${instancePath(instanceName)}/archive`, {
     method: "POST",
     body: { expected_revision: expectedRevision },
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }

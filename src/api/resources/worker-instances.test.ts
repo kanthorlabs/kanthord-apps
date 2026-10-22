@@ -92,7 +92,7 @@ describe("worker instance resources", () => {
       worker: "coder@1",
       endpoint: "http://h:31415",
     });
-    expect(seen[0]?.idempotencyKey).toMatch(/^[0-9A-Z]{26}$/);
+    expect(seen[0]?.idempotencyKey).toMatch(/^idempotency_key_[0-9A-Z]{26}$/);
   });
 
   it("resets the key with the endpoint and the expected revision", async () => {

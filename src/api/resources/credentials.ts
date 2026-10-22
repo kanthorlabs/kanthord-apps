@@ -1,5 +1,5 @@
 import { isLoopbackUrl } from "@/lib/loopback-url";
-import { newUlid } from "@/lib/ulid";
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { connectionBaseUrl, request } from "../client";
 import { readAllPages } from "../pages";
 import type {
@@ -78,7 +78,7 @@ export async function createCredential(
   return request<Credential>(credentialRoot(component), {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -106,7 +106,7 @@ export async function rotateCredential(
 ): Promise<Credential> {
   return request<Credential>(
     `${credentialPath(component, credentialName)}/revision${holderSuffix(holder)}`,
-    { method: "POST", body, headers: { "idempotency-key": newUlid() } },
+    { method: "POST", body, headers: { "idempotency-key": newIdempotencyKey() } },
   );
 }
 
@@ -118,7 +118,7 @@ export async function updateCredentialMetadata(
 ): Promise<Credential> {
   return request<Credential>(
     `${credentialPath(component, credentialName)}/metadata${holderSuffix(holder)}`,
-    { method: "PUT", body, headers: { "idempotency-key": newUlid() } },
+    { method: "PUT", body, headers: { "idempotency-key": newIdempotencyKey() } },
   );
 }
 
@@ -131,7 +131,7 @@ export async function revokeCredentialRevision(
     `${credentialPath(component, credentialName)}/revision/${revision}/revoke`,
     {
       method: "POST",
-      headers: { "idempotency-key": newUlid() },
+      headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
 }
@@ -142,7 +142,7 @@ export async function archiveCredential(
 ): Promise<Credential> {
   return request<Credential>(`${credentialPath(component, credentialName)}/archive`, {
     method: "POST",
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -157,7 +157,7 @@ export async function startCredentialLogin(
   return request<CredentialLoginSession>(LOGIN_PATH, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -167,7 +167,7 @@ export async function submitCredentialLoginCode(
 ): Promise<{ readonly session_id: string }> {
   return request<{ readonly session_id: string }>(
     `${LOGIN_PATH}/${encodeURIComponent(sessionId)}/code`,
-    { method: "POST", body: { value }, headers: { "idempotency-key": newUlid() } },
+    { method: "POST", body: { value }, headers: { "idempotency-key": newIdempotencyKey() } },
   );
 }
 
@@ -193,7 +193,7 @@ export async function createSshKey(body: SshKeyCreateBody): Promise<Credential> 
   return request<Credential>(`${credentialRoot("repository")}/ssh/key`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -204,7 +204,7 @@ export async function rotateSshKey(
   return request<Credential>(`${credentialPath("repository", credentialName)}/ssh/key`, {
     method: "POST",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
 
@@ -220,6 +220,6 @@ export async function pinHostKey(host: string, body: HostKeyPinBody): Promise<Ho
   return request<HostKey>(`${HOST_KEY_PATH}/${encodeURIComponent(host)}`, {
     method: "PUT",
     body,
-    headers: { "idempotency-key": newUlid() },
+    headers: { "idempotency-key": newIdempotencyKey() },
   });
 }
