@@ -23,7 +23,7 @@ vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/worker-instances");
 
-import { useProjectReadiness } from "./use-project-readiness";
+import { useProjectReadiness, type ReadinessItem } from "./use-project-readiness";
 
 const PROJECT: Project = {
   id: "prj-1",
@@ -154,6 +154,13 @@ async function readinessOf(project: Project) {
   return result.current;
 }
 
+function itemsOf(readiness: {
+  readonly openItems: readonly ReadinessItem[];
+  readonly doneItems: readonly ReadinessItem[];
+}): readonly ReadinessItem[] {
+  return [...readiness.openItems, ...readiness.doneItems];
+}
+
 function statesOf(items: readonly { key: string; state: string }[]): readonly string[] {
   return items.map((item) => `${item.key}:${item.state}`);
 }
@@ -168,7 +175,7 @@ describe("useProjectReadiness", () => {
 
     const readiness = await readinessOf(PROJECT);
 
-    expect(statesOf(readiness.items)).toEqual([
+    expect(statesOf(itemsOf(readiness))).toEqual([
       "repository_binding:done",
       "worker_bindings:done",
       "live_registrations:done",
@@ -177,7 +184,7 @@ describe("useProjectReadiness", () => {
       "project_active:done",
     ]);
     expect(readiness.faults).toEqual([]);
-    expect(readiness.items[0]?.link).toEqual({
+    expect(itemsOf(readiness)[0]?.link).toEqual({
       label: "Open bindings",
       path: "/projects/prj-1?tab=bindings",
     });
@@ -192,7 +199,7 @@ describe("useProjectReadiness", () => {
 
     const readiness = await readinessOf({ ...PROJECT, paused_at: 5 });
 
-    expect(statesOf(readiness.items)).toEqual([
+    expect(statesOf(itemsOf(readiness))).toEqual([
       "repository_binding:open",
       "worker_bindings:open",
       "live_registrations:open",
@@ -208,7 +215,7 @@ describe("useProjectReadiness", () => {
 
     const readiness = await readinessOf(PROJECT);
 
-    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+    expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
       state: "open",
       detail: "No live registration:",
       names: ["general-main"],
@@ -225,7 +232,7 @@ describe("useProjectReadiness", () => {
 
     const readiness = await readinessOf(PROJECT);
 
-    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+    expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
       state: "open",
       names: ["general-main"],
     });
@@ -238,7 +245,7 @@ describe("useProjectReadiness", () => {
     const readiness = await readinessOf(PROJECT);
 
     expect(
-      readiness.items
+      itemsOf(readiness)
         .filter((item) => item.key === "live_registrations" || item.key === "enabled_agents")
         .map((item) => item.detail),
     ).toEqual(["The project holds no worker binding.", "The project holds no worker binding."]);
@@ -250,7 +257,7 @@ describe("useProjectReadiness", () => {
 
     const readiness = await readinessOf(PROJECT);
 
-    expect(readiness.items.find((item) => item.key === "enabled_agents")).toMatchObject({
+    expect(itemsOf(readiness).find((item) => item.key === "enabled_agents")).toMatchObject({
       state: "open",
       detail: "Not enabled:",
       names: ["swe@1"],
@@ -291,7 +298,7 @@ describe("useProjectReadiness", () => {
     const readiness = await readinessOf(PROJECT);
 
     expect(credentialsApi.listAllCredentials).toHaveBeenCalledWith("llm", "server");
-    expect(readiness.items.find((item) => item.key === "enabled_agents")?.link).toEqual({
+    expect(itemsOf(readiness).find((item) => item.key === "enabled_agents")?.link).toEqual({
       label: "Enable agents",
       path: "/llm/router-main#enable-agents",
     });
@@ -313,10 +320,10 @@ describe("useProjectReadiness", () => {
         message: "The daemon did not answer.",
       },
     ]);
-    expect(statesOf(readiness.items)).toEqual([
+    expect(statesOf(itemsOf(readiness))).toEqual([
+      "live_registrations:open",
       "repository_binding:done",
       "worker_bindings:done",
-      "live_registrations:open",
       "enabled_agents:done",
       "plan_import:done",
       "project_active:done",
@@ -334,7 +341,7 @@ describe("useProjectReadiness", () => {
     const readiness = await readinessOf(PROJECT);
 
     expect(instancesApi.listWorkerInstances).toHaveBeenCalledWith(null);
-    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+    expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
       state: "open",
       detail: "Instance",
       names: ["build-01"],
@@ -349,7 +356,7 @@ describe("useProjectReadiness", () => {
 
     const readiness = await readinessOf(PROJECT);
 
-    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+    expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
       state: "done",
       detail: "Each worker binding runs a live registration.",
     });
@@ -372,7 +379,7 @@ describe("useProjectReadiness", () => {
         message: "The daemon did not answer.",
       },
     ]);
-    expect(readiness.items.find((item) => item.key === "live_registrations")).toMatchObject({
+    expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
       state: "open",
       detail: "The worker instances were not read.",
       names: [],

@@ -42,7 +42,6 @@ export interface ReadinessItem {
 
 export interface ProjectReadiness {
   readonly loading: boolean;
-  readonly items: readonly ReadinessItem[];
   readonly openItems: readonly ReadinessItem[];
   readonly doneItems: readonly ReadinessItem[];
   readonly faults: readonly ReadFault[];
@@ -326,7 +325,6 @@ export function useProjectReadiness(project: Project): ProjectReadiness {
   const doneItems = useMemo(() => items.filter((item) => item.state === "done"), [items]);
   return {
     loading: data === null && loading,
-    items,
     openItems,
     doneItems,
     faults: data?.faults ?? NO_FAULTS,
