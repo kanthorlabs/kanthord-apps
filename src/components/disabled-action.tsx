@@ -32,7 +32,9 @@ export function DisabledAction({ label, reason, icon, ariaLabel, ref }: Disabled
         {icon}
         {label}
       </TooltipTrigger>
-      <TooltipContent>{reason}</TooltipContent>
+      <TooltipContent>
+        <p>{reason}</p>
+      </TooltipContent>
     </Tooltip>
   );
 }
