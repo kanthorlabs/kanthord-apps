@@ -251,7 +251,7 @@ function PromptLayers({
 
 export function AgentScreen() {
   const { agentName = "" } = useParams<{ agentName: string }>();
-  const { data: agent, error, loading, reload } = useAgent(agentName);
+  const { data, error, loading, reload } = useAgent(agentName);
 
   if (loading) {
     return (
@@ -262,7 +262,7 @@ export function AgentScreen() {
     );
   }
 
-  if (error !== null || agent === null) {
+  if (error !== null || data === null) {
     return (
       <div className="flex flex-col gap-2">
         <p className="text-sm text-destructive">{error?.message}</p>
@@ -273,6 +273,7 @@ export function AgentScreen() {
     );
   }
 
+  const { agent, readAt } = data;
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -309,6 +310,7 @@ export function AgentScreen() {
         chain={agent.chain}
         activePosition={agent.active_position}
         cooling={agent.cooling}
+        readAt={readAt}
       />
       <PromptLayers
         agentName={agent.agent_name}
