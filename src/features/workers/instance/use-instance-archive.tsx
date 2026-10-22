@@ -132,6 +132,7 @@ export function useInstanceArchive(
 
   const request = useCallback(() => {
     if (blockKind !== null || reading) return;
+    pendingFocus.current = false;
     setError(null);
     setRefusal(null);
     setReading(true);
@@ -139,10 +140,11 @@ export function useInstanceArchive(
       (detail) => {
         setReading(false);
         const fresh = archiveSubjectOf(detail);
-        const freshBlock = staleNoticeOf(fresh, detail.ended_at !== null);
+        const ended = detail.ended_at !== null;
+        const freshBlock = staleNoticeOf(fresh, ended);
         if (freshBlock !== null) {
           toast.error(`${subject.name} was not archived.`, { description: freshBlock });
-          pendingFocus.current = true;
+          pendingFocus.current = !ended;
           onStale();
           return;
         }
