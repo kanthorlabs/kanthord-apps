@@ -52,12 +52,15 @@ describe("placementReasonText", () => {
 });
 
 describe("placementChoicesOf", () => {
-  it("turns container off while the list loads", () => {
-    expect(placementChoicesOf(null)).toEqual({
+  it("turns container off and names the check while the list loads", () => {
+    expect(placementChoicesOf("checking")).toEqual({
       disabled: ["container"],
-      note: null,
+      note: "Checking the server host…",
       runtime: null,
     });
+    expect(containerDescriptionOf(placementChoicesOf("checking"))).toBe(
+      "Checking the server host…",
+    );
   });
 
   it("turns nothing off when every placement is available", () => {

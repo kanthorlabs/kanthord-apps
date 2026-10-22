@@ -38,8 +38,16 @@ export function placementReasonText(
   return `${cause}. Fix the container runtime of the server user, then open this sheet again.`;
 }
 
-export function placementChoicesOf(statuses: readonly PlacementStatus[] | null): PlacementChoices {
-  if (statuses === null) return { disabled: ["container"], note: null, runtime: null };
+const CHECKING: PlacementChoices = {
+  disabled: ["container"],
+  note: "Checking the server host…",
+  runtime: null,
+};
+
+export function placementChoicesOf(
+  statuses: readonly PlacementStatus[] | "checking",
+): PlacementChoices {
+  if (statuses === "checking") return CHECKING;
   const container = statuses.find((status) => status.placement === "container");
   const runtime =
     container === undefined || container.container_runtime === null
