@@ -124,6 +124,28 @@ describe("WorkerScreen", () => {
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
   });
 
+  it("moves the focus to Keep when the choice step closes", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([{ ...MAC, binding_count: 2 }]);
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      bindings: [
+        { project_id: "prj-test", binding: "mac-main" },
+        { project_id: "prj-b", binding: "mac-b" },
+      ],
+      registrations: [],
+      credentials: [],
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Detach mac-studio" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(await within(dialog).findByRole("radio", { name: "All 2 bindings" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Keep mac-studio" })).toHaveFocus(),
+    );
+  });
+
   it("offers Remove on each binding row", async () => {
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       {

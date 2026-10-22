@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { RecordName } from "@/components/record-name";
 import {
   AlertDialog,
@@ -76,6 +78,12 @@ function ChooseBinding({ detach }: { detach: InstanceDetachState }) {
 export function DetachInstanceDialog({ detach }: { detach: InstanceDetachState }) {
   const name = detach.instance ?? "";
   const writing = detach.phase === "writing";
+  const keepRef = useRef<HTMLButtonElement>(null);
+  const choosing = detach.phase === "choose";
+  const opened = detach.phase !== "closed";
+  useEffect(() => {
+    if (opened && !choosing) keepRef.current?.focus();
+  }, [opened, choosing]);
   return (
     <AlertDialog open={detach.phase !== "closed"} onOpenChange={(open) => !open && detach.cancel()}>
       <AlertDialogContent className="max-h-[90dvh] overflow-y-auto">
@@ -121,7 +129,9 @@ export function DetachInstanceDialog({ detach }: { detach: InstanceDetachState }
           </p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={writing}>Keep {name}</AlertDialogCancel>
+          <AlertDialogCancel ref={keepRef} disabled={writing}>
+            Keep {name}
+          </AlertDialogCancel>
           {detach.phase === "choose" ? (
             <Button disabled={detach.selection === null} onClick={detach.proceed}>
               Continue
