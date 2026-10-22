@@ -1,4 +1,5 @@
 import { ChevronDownIcon } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { RevealPanel } from "@/components/reveal";
@@ -44,6 +45,55 @@ function JobItem({ view, now }: { readonly view: JobView; readonly now: number }
   );
 }
 
+function QueueGroupItems({
+  group,
+  showProjects,
+  now,
+}: {
+  readonly group: QueueGroup;
+  readonly showProjects: boolean;
+  readonly now: number;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="flex flex-col gap-2">
+      {showProjects && <h4 className="text-sm font-medium">{group.project.name}</h4>}
+      <ItemGroup
+        aria-label={showProjects ? `Queue of ${group.project.name}` : "Queue"}
+        className="gap-2"
+      >
+        {group.first.map((view) => (
+          <JobItem key={view.job.job_id} view={view} now={now} />
+        ))}
+      </ItemGroup>
+      {group.more.length > 0 && (
+        <>
+          <RevealPanel>
+            <ItemGroup
+              aria-label={
+                showProjects ? `More of the queue of ${group.project.name}` : "More of the queue"
+              }
+              className="gap-2"
+            >
+              {group.more.map((view) => (
+                <JobItem key={view.job.job_id} view={view} now={now} />
+              ))}
+            </ItemGroup>
+          </RevealPanel>
+          <CollapsibleTrigger
+            render={<Button variant="outline" size="sm" className="self-start" />}
+          >
+            <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
+            {open
+              ? "Show fewer jobs"
+              : `${group.more.length} more ${group.more.length === 1 ? "job" : "jobs"}`}
+          </CollapsibleTrigger>
+        </>
+      )}
+    </Collapsible>
+  );
+}
+
 export function NextSection({ queue, showProjects, now }: NextSectionProps) {
   return (
     <section aria-labelledby="scheduler-next" className="flex flex-col gap-3">
@@ -66,41 +116,12 @@ export function NextSection({ queue, showProjects, now }: NextSectionProps) {
         </Empty>
       ) : (
         queue.map((group) => (
-          <Collapsible key={group.project.id} className="flex flex-col gap-2">
-            {showProjects && <h4 className="text-sm font-medium">{group.project.name}</h4>}
-            <ItemGroup
-              aria-label={showProjects ? `Queue of ${group.project.name}` : "Queue"}
-              className="gap-2"
-            >
-              {group.first.map((view) => (
-                <JobItem key={view.job.job_id} view={view} now={now} />
-              ))}
-            </ItemGroup>
-            {group.more.length > 0 && (
-              <>
-                <RevealPanel>
-                  <ItemGroup
-                    aria-label={
-                      showProjects
-                        ? `More of the queue of ${group.project.name}`
-                        : "More of the queue"
-                    }
-                    className="gap-2"
-                  >
-                    {group.more.map((view) => (
-                      <JobItem key={view.job.job_id} view={view} now={now} />
-                    ))}
-                  </ItemGroup>
-                </RevealPanel>
-                <CollapsibleTrigger
-                  render={<Button variant="outline" size="sm" className="self-start" />}
-                >
-                  <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
-                  {group.more.length} more {group.more.length === 1 ? "job" : "jobs"}
-                </CollapsibleTrigger>
-              </>
-            )}
-          </Collapsible>
+          <QueueGroupItems
+            key={group.project.id}
+            group={group}
+            showProjects={showProjects}
+            now={now}
+          />
         ))
       )}
     </section>

@@ -838,9 +838,12 @@ describe("SchedulerScreen views", () => {
 
     const queue = await screen.findByRole("list", { name: "Queue" });
     expect(titles(queue)).toEqual(["Node A", "Node B", "Node C", "Node D", "Node E"]);
-    await userEvent.setup().click(screen.getByRole("button", { name: "2 more jobs" }));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "2 more jobs" }));
     const more = await screen.findByRole("list", { name: "More of the queue" });
     expect(titles(more)).toEqual(["Node F", "Node G"]);
+    await user.click(screen.getByRole("button", { name: "Show fewer jobs" }));
+    expect(await screen.findByRole("button", { name: "2 more jobs" })).toBeInTheDocument();
   });
 });
 

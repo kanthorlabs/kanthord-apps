@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "lucide-react";
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { Project } from "@/api/types";
@@ -75,8 +75,14 @@ function ReadinessRows({
 export function ReadinessPanel({ project }: { readonly project: Project }) {
   const readiness = useProjectReadiness(project);
   const ready = readiness.openItems.length === 0;
+  const [open, setOpen] = useState(false);
   return (
-    <Collapsible render={<section aria-label="Readiness" />} className="flex flex-col gap-2">
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      render={<section aria-label="Readiness" />}
+      className="flex flex-col gap-2"
+    >
       <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           <h3 className="font-semibold">Readiness</h3>
@@ -89,7 +95,9 @@ export function ReadinessPanel({ project }: { readonly project: Project }) {
         {!readiness.loading && readiness.doneItems.length > 0 && (
           <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
             <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
-            {readiness.doneItems.length} done {readiness.doneItems.length === 1 ? "step" : "steps"}
+            {open
+              ? "Hide done steps"
+              : `${readiness.doneItems.length} done ${readiness.doneItems.length === 1 ? "step" : "steps"}`}
           </CollapsibleTrigger>
         )}
       </div>

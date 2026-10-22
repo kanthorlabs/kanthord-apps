@@ -82,6 +82,7 @@ describe("ProjectScreen", () => {
         name: "Open mission",
       }),
     ).toHaveAttribute("href", `/projects/${KANTHORD.id}`);
+    expect(within(panel).getByRole("button", { name: "Hide done steps" })).toBeTruthy();
   });
 
   it("shows the information of the project in the path", async () => {
