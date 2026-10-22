@@ -142,13 +142,30 @@ describe("WorkerScreen", () => {
     expect(await screen.findByRole("button", { name: "Remove mac-main" })).toBeEnabled();
   });
 
-  it("states the next step when the worker has no instance", async () => {
+  it("collapses the instances of a worker with no instance behind an advanced disclosure", async () => {
     vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([]);
     mount();
+    const disclosure = await screen.findByRole("button", { name: "Advanced: worker instances" });
+    expect(disclosure).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("button", { name: "Add instance" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Instances" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Bindings" })).toBeInTheDocument();
+
+    await userEvent.click(disclosure);
+
+    expect(disclosure).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("No instances.")).toBeInTheDocument();
     expect(
       screen.getByText("Add one to run this worker at the worker placement."),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add instance" })).toBeInTheDocument();
+  });
+
+  it("keeps the instances expanded with no disclosure while an instance exists", async () => {
+    mount();
+    expect(await screen.findByRole("heading", { name: "Instances" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add instance" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Advanced: worker instances" })).toBeNull();
   });
 
   it("creates an instance and shows its configuration and the steps of the host kind once", async () => {
