@@ -35,7 +35,7 @@ export function placementReasonText(
     return `${runtime ?? "The container runtime"} runs as root on this host. Use rootless Podman or rootless Docker.`;
   if (isStableReason(reason)) return STABLE_TEXTS[reason];
   const cause = (detail ?? "The container runtime does not answer").replace(/\.+$/, "");
-  return `${cause}. Start the container runtime, then open this sheet again.`;
+  return `${cause}. Fix the container runtime of the server user, then open this sheet again.`;
 }
 
 export function placementChoicesOf(statuses: readonly PlacementStatus[] | null): PlacementChoices {

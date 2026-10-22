@@ -864,7 +864,7 @@ describe("BindingsPanel", () => {
 
     expect(
       await screen.findByText(
-        "Runs each instance in its own container on the server host. Cannot connect to Podman. Start the container runtime, then open this sheet again.",
+        "Runs each instance in its own container on the server host. Cannot connect to Podman. Fix the container runtime of the server user, then open this sheet again.",
       ),
     ).toBeTruthy();
     expect(screen.getByRole("radio", { name: /^Container/ })).not.toHaveAttribute("aria-disabled");

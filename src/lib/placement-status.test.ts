@@ -43,10 +43,10 @@ describe("placementReasonText", () => {
 
   it("puts the detail of a failed runtime before the action", () => {
     expect(placementReasonText("runtime_failed", "Cannot connect to Podman.", null)).toBe(
-      "Cannot connect to Podman. Start the container runtime, then open this sheet again.",
+      "Cannot connect to Podman. Fix the container runtime of the server user, then open this sheet again.",
     );
     expect(placementReasonText("runtime_failed", null, null)).toBe(
-      "The container runtime does not answer. Start the container runtime, then open this sheet again.",
+      "The container runtime does not answer. Fix the container runtime of the server user, then open this sheet again.",
     );
   });
 });
@@ -96,7 +96,7 @@ describe("placementChoicesOf", () => {
       ),
     ).toEqual({
       disabled: [],
-      note: "Stopped. Start the container runtime, then open this sheet again.",
+      note: "Stopped. Fix the container runtime of the server user, then open this sheet again.",
       runtime: null,
     });
   });
@@ -136,7 +136,7 @@ describe("containerDescriptionOf", () => {
         ),
       ),
     ).toBe(
-      "Runs each instance in its own container on the server host. Stopped. Start the container runtime, then open this sheet again.",
+      "Runs each instance in its own container on the server host. Stopped. Fix the container runtime of the server user, then open this sheet again.",
     );
   });
 });
