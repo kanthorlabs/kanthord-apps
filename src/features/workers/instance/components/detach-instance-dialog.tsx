@@ -58,7 +58,7 @@ function ChooseBinding({ detach }: { detach: InstanceDetachState }) {
           <Field key={choice.key} orientation="horizontal">
             <RadioGroupItem id={`detach-${choice.key}`} value={choice.key} />
             <FieldLabel htmlFor={`detach-${choice.key}`}>
-              <span className="min-w-0 break-all">
+              <span className="min-w-0 break-words">
                 {choice.binding} of {choice.projectName}
               </span>
             </FieldLabel>
