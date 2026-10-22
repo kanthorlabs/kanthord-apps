@@ -24,22 +24,28 @@ function containerStatus(change: Partial<PlacementStatus>): readonly PlacementSt
 
 describe("placementReasonText", () => {
   it("states one sentence for each stable reason", () => {
-    expect(placementReasonText("server_in_container", null)).toBe(
+    expect(placementReasonText("server_in_container", null, null)).toBe(
       "This server runs in a container, so it cannot start a container for each instance. Keep server.",
     );
-    expect(placementReasonText("runtime_absent", null)).toBe(
+    expect(placementReasonText("runtime_absent", null, null)).toBe(
       "Install Podman or Docker on the server host, then open this sheet again.",
     );
-    expect(placementReasonText("runtime_rootful", null)).toBe(
-      "Docker runs as root on this host. Use rootless Podman or rootless Docker.",
+  });
+
+  it("names the rootful runtime when the server knows it", () => {
+    expect(placementReasonText("runtime_rootful", null, "Podman")).toBe(
+      "Podman runs as root on this host. Use rootless Podman or rootless Docker.",
+    );
+    expect(placementReasonText("runtime_rootful", null, null)).toBe(
+      "The container runtime runs as root on this host. Use rootless Podman or rootless Docker.",
     );
   });
 
   it("puts the detail of a failed runtime before the action", () => {
-    expect(placementReasonText("runtime_failed", "Cannot connect to Podman.")).toBe(
+    expect(placementReasonText("runtime_failed", "Cannot connect to Podman.", null)).toBe(
       "Cannot connect to Podman. Start the container runtime, then open this sheet again.",
     );
-    expect(placementReasonText("runtime_failed", null)).toBe(
+    expect(placementReasonText("runtime_failed", null, null)).toBe(
       "The container runtime does not answer. Start the container runtime, then open this sheet again.",
     );
   });

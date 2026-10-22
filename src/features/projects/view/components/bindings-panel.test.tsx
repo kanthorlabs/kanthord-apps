@@ -911,7 +911,7 @@ describe("BindingsPanel", () => {
 
     expect(
       await screen.findByText(
-        "The container placement is not available. Docker runs as root on this host. Use rootless Podman or rootless Docker.",
+        "The container placement is not available. The container runtime runs as root on this host. Use rootless Podman or rootless Docker.",
       ),
     ).toBeTruthy();
     expect(screen.getByLabelText("Name")).toHaveValue("sandbox-main");

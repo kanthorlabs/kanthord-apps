@@ -12,11 +12,12 @@ const RUNTIME_LABELS: Readonly<Record<NonNullable<PlacementStatus["container_run
     docker: "Docker",
   };
 
-const STABLE_TEXTS: Readonly<Record<Exclude<PlacementReason, "runtime_failed">, string>> = {
+const STABLE_TEXTS: Readonly<
+  Record<Exclude<PlacementReason, "runtime_failed" | "runtime_rootful">, string>
+> = {
   server_in_container:
     "This server runs in a container, so it cannot start a container for each instance. Keep server.",
   runtime_absent: "Install Podman or Docker on the server host, then open this sheet again.",
-  runtime_rootful: "Docker runs as root on this host. Use rootless Podman or rootless Docker.",
 };
 
 function isStableReason(
@@ -25,7 +26,13 @@ function isStableReason(
   return reason !== "runtime_failed";
 }
 
-export function placementReasonText(reason: PlacementReason, detail: string | null): string {
+export function placementReasonText(
+  reason: PlacementReason,
+  detail: string | null,
+  runtime: string | null,
+): string {
+  if (reason === "runtime_rootful")
+    return `${runtime ?? "The container runtime"} runs as root on this host. Use rootless Podman or rootless Docker.`;
   if (isStableReason(reason)) return STABLE_TEXTS[reason];
   const cause = (detail ?? "The container runtime does not answer").replace(/\.+$/, "");
   return `${cause}. Start the container runtime, then open this sheet again.`;
@@ -40,7 +47,7 @@ export function placementChoicesOf(statuses: readonly PlacementStatus[] | null):
       : RUNTIME_LABELS[container.container_runtime];
   if (container === undefined || container.available || container.reason === null)
     return { disabled: [], note: null, runtime };
-  const text = placementReasonText(container.reason, container.detail);
+  const text = placementReasonText(container.reason, container.detail, runtime);
   return isStableReason(container.reason)
     ? { disabled: ["container"], note: `Off. ${text}`, runtime }
     : { disabled: [], note: text, runtime };
