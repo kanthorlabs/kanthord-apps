@@ -178,6 +178,10 @@ describe("TracesScreen", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Search traces" }), {
       target: { value: "bu" },
     });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(listTracePage).toHaveBeenCalledTimes(1);
     fireEvent.change(screen.getByRole("textbox", { name: "Search traces" }), {
       target: { value: "build" },
     });
