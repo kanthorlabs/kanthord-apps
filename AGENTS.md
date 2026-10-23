@@ -218,7 +218,7 @@ Run every one of these from the repository root.
 
 | Purpose        | Command             | Pass signal                        |
 | -------------- | ------------------- | ---------------------------------- |
-| Types          | `pnpm typecheck`    | exit 0, no `tsc` output            |
+| Types          | `pnpm typecheck`    | exit 0, no `tsrs` output           |
 | Tests          | `pnpm test`         | the verbatim vitest pass line      |
 | Lint           | `pnpm lint`         | exit 0 — 0 errors, warnings at cap |
 | Formatting     | `pnpm format:check` | `All matched files use Prettier …` |
