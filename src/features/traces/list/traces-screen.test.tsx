@@ -171,9 +171,9 @@ describe("TracesScreen", () => {
   });
 
   it("writes a typed search once, 300 ms after the last keystroke", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     mount();
     await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(1));
+    vi.useFakeTimers();
 
     fireEvent.change(screen.getByRole("textbox", { name: "Search traces" }), {
       target: { value: "bu" },
@@ -188,6 +188,7 @@ describe("TracesScreen", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
     });
+    vi.useRealTimers();
 
     await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(2));
     expect(vi.mocked(listTracePage).mock.calls[1]?.[0]).toMatchObject({ q: "build" });
