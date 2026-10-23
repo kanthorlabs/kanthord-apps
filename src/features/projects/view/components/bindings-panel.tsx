@@ -1,6 +1,6 @@
 import { PlusIcon } from "lucide-react";
 
-import type { BindingSetKind } from "@/api/types";
+import type { BindingSetKind, EnvironmentState } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
@@ -20,10 +20,11 @@ const SECTIONS: readonly { readonly kind: BindingSetKind; readonly label: string
 
 interface BindingsPanelProps {
   projectId: string;
+  environments: readonly EnvironmentState[] | null;
   onWritten: () => void;
 }
 
-export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
+export function BindingsPanel({ projectId, environments, onWritten }: BindingsPanelProps) {
   const editor = useBindingEditor(projectId, onWritten);
   const { bindings, guard, target } = editor;
   const { data, error, loading, reload } = bindings.resource;
@@ -103,6 +104,11 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
                       name={name}
                       entry={entry}
                       bindingId={bindingId}
+                      environment={
+                        entry.kind === "repository"
+                          ? (environments?.find((state) => state.binding_name === name) ?? null)
+                          : null
+                      }
                       hostedWorker={
                         entry.kind === "worker" &&
                         (hostedWorkers?.has(entry.config.worker) ?? false)

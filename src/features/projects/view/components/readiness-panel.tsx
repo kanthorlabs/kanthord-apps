@@ -2,7 +2,7 @@ import { ChevronDownIcon } from "lucide-react";
 import { Fragment, useState } from "react";
 import { Link } from "react-router-dom";
 
-import type { Project } from "@/api/types";
+import type { EnvironmentState, Project } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { RevealPanel } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
@@ -72,8 +72,13 @@ function ReadinessRows({
   );
 }
 
-export function ReadinessPanel({ project }: { readonly project: Project }) {
-  const readiness = useProjectReadiness(project);
+interface ReadinessPanelProps {
+  readonly project: Project;
+  readonly environments: readonly EnvironmentState[] | null;
+}
+
+export function ReadinessPanel({ project, environments }: ReadinessPanelProps) {
+  const readiness = useProjectReadiness(project, environments);
   const ready = readiness.openItems.length === 0;
   const [open, setOpen] = useState(false);
   return (

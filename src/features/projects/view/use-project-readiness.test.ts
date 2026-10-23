@@ -10,6 +10,7 @@ import * as workersApi from "@/api/resources/workers";
 import type {
   AgentSummary,
   BindingSet,
+  EnvironmentState,
   MissionNodeRecord,
   Project,
   WorkerBindingRecord,
@@ -148,8 +149,41 @@ function servePlaced(instances: readonly string[]) {
   });
 }
 
-async function readinessOf(project: Project) {
-  const { result } = renderHook(() => useProjectReadiness(project));
+function environmentState(
+  bindingName: string,
+  status: EnvironmentState["status"],
+  overrides: Partial<EnvironmentState> = {},
+): EnvironmentState {
+  return {
+    binding_id: `binding-${bindingName}`,
+    binding_name: bindingName,
+    resource_identity: `repository:${bindingName}`,
+    target: "image",
+    source: "stored",
+    status,
+    digest: null,
+    tag: null,
+    run_started_at: null,
+    step_started_at: null,
+    reason: null,
+    failure: null,
+    checks: [],
+    repairs: 0,
+    repairing: false,
+    ...overrides,
+  };
+}
+
+const READY_ENVIRONMENTS: readonly EnvironmentState[] = [
+  environmentState("engine", "ready"),
+  environmentState("web", "none"),
+];
+
+async function readinessOf(
+  project: Project,
+  environments: readonly EnvironmentState[] | null = READY_ENVIRONMENTS,
+) {
+  const { result } = renderHook(() => useProjectReadiness(project, environments));
   await waitFor(() => expect(result.current.loading).toBe(false));
   return result.current;
 }
@@ -180,6 +214,7 @@ describe("useProjectReadiness", () => {
       "worker_bindings:done",
       "live_registrations:done",
       "enabled_agents:done",
+      "environment:done",
       "plan_import:done",
       "project_active:done",
     ]);
@@ -206,6 +241,7 @@ describe("useProjectReadiness", () => {
       "enabled_agents:open",
       "plan_import:open",
       "project_active:open",
+      "environment:done",
     ]);
   });
 
@@ -325,6 +361,7 @@ describe("useProjectReadiness", () => {
       "repository_binding:done",
       "worker_bindings:done",
       "enabled_agents:done",
+      "environment:done",
       "plan_import:done",
       "project_active:done",
     ]);
@@ -383,6 +420,119 @@ describe("useProjectReadiness", () => {
       state: "open",
       detail: "The worker instances were not read.",
       names: [],
+    });
+  });
+
+  describe("the Environment item", () => {
+    const BINDINGS_LINK = { label: "Open bindings", path: "/projects/prj-1?tab=bindings" };
+
+    async function environmentItemOf(environments: readonly EnvironmentState[] | null) {
+      serveFull();
+      const readiness = await readinessOf(PROJECT, environments);
+      return itemsOf(readiness).find((item) => item.key === "environment");
+    }
+
+    it("sits between Enabled agents and Plan import", async () => {
+      serveFull();
+
+      const readiness = await readinessOf(PROJECT);
+
+      expect(itemsOf(readiness).map((item) => item.key)).toEqual([
+        "repository_binding",
+        "worker_bindings",
+        "live_registrations",
+        "enabled_agents",
+        "environment",
+        "plan_import",
+        "project_active",
+      ]);
+    });
+
+    it("is done when every state is none or ready", async () => {
+      expect(await environmentItemOf(READY_ENVIRONMENTS)).toMatchObject({
+        state: "done",
+        detail: "Each repository binding holds a ready environment or needs none.",
+        link: BINDINGS_LINK,
+      });
+    });
+
+    it("is done for an empty state list", async () => {
+      expect(await environmentItemOf([])).toMatchObject({ state: "done" });
+    });
+
+    it("names each binding that is not ready and links the first failed one", async () => {
+      const item = await environmentItemOf([
+        environmentState("engine", "failed", {
+          failure: {
+            class: "command_absent",
+            origin: "onboarding",
+            execution_id: null,
+            command: "pnpm",
+            exit_code: 127,
+            tail: "",
+            reproduce: "",
+            ended_at: 1,
+          },
+        }),
+        environmentState("web", "building"),
+      ]);
+
+      expect(item).toMatchObject({
+        state: "open",
+        detail: "engine: failed, command_absent; web: building.",
+        link: {
+          label: "Open bindings",
+          path: "/projects/prj-1?tab=bindings&environment=engine",
+        },
+      });
+    });
+
+    it("links the Bindings tab when no state failed", async () => {
+      expect(await environmentItemOf([environmentState("web", "building")])).toMatchObject({
+        state: "open",
+        detail: "web: building.",
+        link: BINDINGS_LINK,
+      });
+    });
+
+    it("is open and states an absence for null states", async () => {
+      expect(await environmentItemOf(null)).toMatchObject({
+        state: "open",
+        detail: "No environment state is known.",
+        link: BINDINGS_LINK,
+      });
+    });
+
+    it("keeps a ready environment done and names its red check", async () => {
+      const item = await environmentItemOf([
+        environmentState("engine", "ready", {
+          checks: [
+            { command: "pnpm lint", exit_code: 0 },
+            { command: "pnpm test", exit_code: 1 },
+          ],
+        }),
+      ]);
+
+      expect(item).toMatchObject({
+        state: "done",
+        detail: "engine: ready, red check pnpm test.",
+      });
+    });
+
+    it("names every red check of a ready environment", async () => {
+      const item = await environmentItemOf([
+        environmentState("engine", "ready", {
+          checks: [
+            { command: "pnpm test", exit_code: 1 },
+            { command: "pnpm lint", exit_code: 2 },
+          ],
+        }),
+      ]);
+
+      expect(item).toMatchObject({
+        state: "done",
+        detail: "engine: ready, red check pnpm test; engine: ready, red check pnpm lint.",
+      });
     });
   });
 });

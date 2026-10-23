@@ -113,7 +113,7 @@ export function ProjectScreen() {
           </dl>
         </RevealPanel>
       </Collapsible>
-      <ReadinessPanel project={project} />
+      <ReadinessPanel project={project} environments={states} />
       <Tabs
         value={tab}
         onValueChange={(value) => selectTab(value as ProjectTab)}
@@ -127,7 +127,7 @@ export function ProjectScreen() {
           <MissionPanel projectId={project.id} projectName={project.name} />
         </TabsContent>
         <TabsContent value="bindings">
-          <BindingsPanel projectId={project.id} onWritten={reload} />
+          <BindingsPanel projectId={project.id} environments={states} onWritten={reload} />
         </TabsContent>
       </Tabs>
     </div>

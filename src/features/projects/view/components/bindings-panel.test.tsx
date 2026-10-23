@@ -14,6 +14,7 @@ import type {
   BindingSet,
   BindingSetEntry,
   Credential,
+  EnvironmentState,
   PlacementStatus,
   Project,
   ProjectBindingRecord,
@@ -154,10 +155,30 @@ async function agentItem(agent: string) {
   return item!;
 }
 
-function mount() {
+function environmentOf(bindingName: string, status: EnvironmentState["status"]): EnvironmentState {
+  return {
+    binding_id: "binding_REPO1",
+    binding_name: bindingName,
+    resource_identity: "repository:github:kanthorlabs/kanthord",
+    target: "image",
+    source: "stored",
+    status,
+    digest: null,
+    tag: null,
+    run_started_at: null,
+    step_started_at: null,
+    reason: null,
+    failure: null,
+    checks: [],
+    repairs: 0,
+    repairing: false,
+  };
+}
+
+function mount(environments: readonly EnvironmentState[] | null = null) {
   return render(
     <MemoryRouter>
-      <BindingsPanel projectId="project_1" onWritten={onWritten} />
+      <BindingsPanel projectId="project_1" environments={environments} onWritten={onWritten} />
     </MemoryRouter>,
   );
 }
@@ -169,7 +190,9 @@ function mountFromOnboarding() {
         <Route path="/" element={<p>Onboarding view</p>} />
         <Route
           path="/projects/:projectId"
-          element={<BindingsPanel projectId="project_1" onWritten={onWritten} />}
+          element={
+            <BindingsPanel projectId="project_1" environments={null} onWritten={onWritten} />
+          }
         />
       </Routes>
     </MemoryRouter>,
@@ -1102,6 +1125,29 @@ describe("BindingsPanel", () => {
       "[role=listitem]",
     ) as HTMLElement;
     expect(row).toHaveTextContent("budget 1 turn, 1000 ms");
+  });
+
+  it.each(["failed", "building"] as const)(
+    "shows the badge Environment · %s in the row of a repository binding",
+    async (status) => {
+      mount([environmentOf("kanthord-repo", status), environmentOf("general-main", status)]);
+
+      const row = (await screen.findByRole("button", { name: "Edit kanthord-repo" })).closest(
+        "[role=listitem]",
+      ) as HTMLElement;
+      expect(within(row).getByText(`Environment · ${status}`)).toBeTruthy();
+      const worker = screen
+        .getByRole("button", { name: "Edit general-main" })
+        .closest("[role=listitem]") as HTMLElement;
+      expect(within(worker).queryByText(/^Environment/)).toBeNull();
+    },
+  );
+
+  it("shows no Environment badge for the status none or for an absent state", async () => {
+    mount([environmentOf("kanthord-repo", "none")]);
+
+    await screen.findByRole("button", { name: "Edit kanthord-repo" });
+    expect(screen.queryByText(/^Environment/)).toBeNull();
   });
 
   it("shows only the connection of a repository binding in its row", async () => {
