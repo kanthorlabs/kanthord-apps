@@ -9,6 +9,7 @@ import type {
   AgentSummary,
   BindingSet,
   Credential,
+  EnvironmentState,
   MissionNodeRecord,
   Project,
   WorkerBindingConfig,
@@ -273,6 +274,62 @@ function agentItem(facts: ReadinessFacts): ReadinessItem {
   };
 }
 
+function environmentPartOf(state: EnvironmentState): string {
+  return state.status === "failed" && state.failure !== null
+    ? `${state.binding_name}: failed, ${state.failure.class}`
+    : `${state.binding_name}: ${state.status}`;
+}
+
+function redCheckPartsOf(state: EnvironmentState): readonly string[] {
+  if (state.status !== "ready") return [];
+  return state.checks
+    .filter((check) => check.exit_code !== 0)
+    .map((check) => `${state.binding_name}: ready, red check ${check.command}`);
+}
+
+function environmentItem(
+  project: Project,
+  environments: readonly EnvironmentState[] | null,
+): ReadinessItem {
+  const bindingsPath = projectTabPath(project.id, "bindings");
+  const base = { key: "environment", title: "Environment", names: [] };
+  if (environments === null)
+    return {
+      ...base,
+      state: "open",
+      detail: "No environment state is known.",
+      link: { label: "Open bindings", path: bindingsPath },
+    };
+  const blocking = environments.filter(
+    (state) => state.status !== "none" && state.status !== "ready",
+  );
+  if (blocking.length === 0) {
+    const redChecks = environments.flatMap(redCheckPartsOf);
+    return {
+      ...base,
+      state: "done",
+      detail:
+        redChecks.length === 0
+          ? "Each repository binding holds a ready environment or needs none."
+          : `${redChecks.join("; ")}.`,
+      link: { label: "Open bindings", path: bindingsPath },
+    };
+  }
+  const failed = blocking.find((state) => state.status === "failed");
+  return {
+    ...base,
+    state: "open",
+    detail: `${blocking.map(environmentPartOf).join("; ")}.`,
+    link: {
+      label: "Open bindings",
+      path:
+        failed === undefined
+          ? bindingsPath
+          : `${bindingsPath}&environment=${encodeURIComponent(failed.binding_name)}`,
+    },
+  };
+}
+
 function planItem(project: Project, facts: ReadinessFacts): ReadinessItem {
   const count = facts.nodes?.length ?? 0;
   return {
@@ -302,24 +359,32 @@ function pauseItem(project: Project): ReadinessItem {
   };
 }
 
-function readinessItemsOf(project: Project, facts: ReadinessFacts): readonly ReadinessItem[] {
+function readinessItemsOf(
+  project: Project,
+  facts: ReadinessFacts,
+  environments: readonly EnvironmentState[] | null,
+): readonly ReadinessItem[] {
   return [
     ...bindingItems(project, facts),
     registrationItem(project, facts),
     agentItem(facts),
+    environmentItem(project, environments),
     planItem(project, facts),
     pauseItem(project),
   ];
 }
 
-export function useProjectReadiness(project: Project): ProjectReadiness {
+export function useProjectReadiness(
+  project: Project,
+  environments: readonly EnvironmentState[] | null,
+): ProjectReadiness {
   const { data, loading, reload } = useResource(
     () => readReadiness(project),
     [project.id, project.binding_set_version],
   );
   const items = useMemo(
-    () => (data === null ? NO_ITEMS : readinessItemsOf(project, data.facts)),
-    [project, data],
+    () => (data === null ? NO_ITEMS : readinessItemsOf(project, data.facts, environments)),
+    [project, data, environments],
   );
   const openItems = useMemo(() => items.filter((item) => item.state === "open"), [items]);
   const doneItems = useMemo(() => items.filter((item) => item.state === "done"), [items]);

@@ -1,19 +1,21 @@
 import { Loader2Icon, ShieldCheckIcon } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
-import type { BindingSetEntry } from "@/api/types";
+import type { BindingSetEntry, EnvironmentState } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { isAvailable } from "@/lib/binding-change";
 import { counted } from "@/lib/counted";
+import { environmentStatusVariant } from "@/lib/environment-bar";
 import type { BindingCheckBadge, BindingVerifyState } from "../use-binding-verify";
 
 interface BindingItemProps {
   readonly name: string;
   readonly entry: BindingSetEntry;
   readonly bindingId: string | null;
+  readonly environment: EnvironmentState | null;
   readonly hostedWorker: boolean;
   readonly revision: number | null;
   readonly verifyState: BindingVerifyState;
@@ -102,6 +104,7 @@ export function BindingItem({
   name,
   entry,
   bindingId,
+  environment,
   hostedWorker,
   revision,
   verifyState,
@@ -124,6 +127,11 @@ export function BindingItem({
           <Badge variant={available ? "secondary" : "destructive"}>
             {available ? "available" : "unavailable"}
           </Badge>
+          {environment !== null && environment.status !== "none" && (
+            <Badge variant={environmentStatusVariant(environment.status)}>
+              Environment · {environment.status}
+            </Badge>
+          )}
           {showVerify && (
             <span role="status" className="inline-flex gap-1">
               {verifyState.addressBadge !== null && (
