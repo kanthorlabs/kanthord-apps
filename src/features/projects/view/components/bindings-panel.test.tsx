@@ -2250,6 +2250,89 @@ describe("BindingsPanel", () => {
       expect(screen.getByLabelText("Location")).not.toHaveTextContent("environment");
     });
 
+    describe("edit environment", () => {
+      async function openEditor() {
+        mount([READY]);
+        await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+        await userEvent.click(await screen.findByRole("button", { name: "Edit environment" }));
+        return screen.findByRole("textbox", { name: "Environment" });
+      }
+
+      it("opens the sheet with the stored environment as indented JSON", async () => {
+        const field = await openEditor();
+
+        expect(field).toHaveValue(JSON.stringify({ image: "node:24" }, null, 2));
+        expect(screen.getByRole("heading", { name: "Edit environment" })).toBeTruthy();
+      });
+
+      it("refuses a text that is not one JSON object", async () => {
+        const field = await openEditor();
+
+        await userEvent.clear(field);
+        await userEvent.type(field, "[[]");
+        await userEvent.click(screen.getByRole("button", { name: "Save environment" }));
+
+        expect(
+          await screen.findByText(
+            "The environment is not a JSON object. Remove the comments and the trailing commas.",
+          ),
+        ).toBeTruthy();
+        expect(projectsApi.writeBindingEnvironment).not.toHaveBeenCalled();
+      });
+
+      it("shows a refusal of the server under the field", async () => {
+        vi.mocked(projectsApi.writeBindingEnvironment).mockRejectedValue(
+          new ApiError(
+            "refused",
+            "The environment key runArgs is refused: the key is not allowed.",
+            400,
+            "project.environment.key_refused",
+          ),
+        );
+        await openEditor();
+
+        await userEvent.click(screen.getByRole("button", { name: "Save environment" }));
+
+        expect(
+          await screen.findByText(
+            "The environment key runArgs is refused: the key is not allowed.",
+          ),
+        ).toBeTruthy();
+        expect(screen.getByRole("textbox", { name: "Environment" })).toBeTruthy();
+      });
+
+      it("saves the binding with the saved environment", async () => {
+        vi.mocked(projectsApi.writeBindingEnvironment).mockResolvedValue({
+          project_id: "project_1",
+          binding_set_version: 3,
+          changes: [],
+        });
+        const field = await openEditor();
+
+        await userEvent.clear(field);
+        await userEvent.click(field);
+        await userEvent.paste('{"image":"saved"}');
+        await userEvent.click(screen.getByRole("button", { name: "Save environment" }));
+        await waitFor(() =>
+          expect(projectsApi.writeBindingEnvironment).toHaveBeenCalledWith(
+            "project_1",
+            "binding_REPO1",
+            { image: "saved" },
+          ),
+        );
+        await waitFor(() =>
+          expect(screen.queryByRole("textbox", { name: "Environment" })).toBeNull(),
+        );
+        await userEvent.click(await screen.findByRole("button", { name: "Save binding" }));
+
+        await waitFor(() => expect(projectsApi.writeBindingSet).toHaveBeenCalled());
+        const bindings = vi.mocked(projectsApi.writeBindingSet).mock.calls[0]?.[2];
+        expect(bindings?.["kanthord-repo"]).toMatchObject({
+          config: { environment: { image: "saved" } },
+        });
+      });
+    });
+
     it("opens nothing for a name that is no repository entry", async () => {
       mount(null, "/projects/project_1?tab=bindings&environment=general-main");
 

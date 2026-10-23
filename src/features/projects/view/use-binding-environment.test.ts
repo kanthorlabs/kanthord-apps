@@ -3,13 +3,18 @@ import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
-import { readBindingEnvironment, rebuildEnvironment } from "@/api/resources/projects";
-import type { BindingEnvironment, EnvironmentState } from "@/api/types";
+import {
+  readBindingEnvironment,
+  rebuildEnvironment,
+  writeBindingEnvironment,
+} from "@/api/resources/projects";
+import type { BindingEnvironment, BindingSetWriteResult, EnvironmentState } from "@/api/types";
 import { useBindingEnvironment } from "./use-binding-environment";
 
 vi.mock("@/api/resources/projects", () => ({
   readBindingEnvironment: vi.fn(),
   rebuildEnvironment: vi.fn(),
+  writeBindingEnvironment: vi.fn(),
 }));
 vi.mock("@/hooks/use-clipboard", () => ({ useClipboard: vi.fn() }));
 vi.mock("sonner", () => ({
@@ -33,12 +38,21 @@ beforeEach(() => {
   vi.mocked(useClipboard).mockReturnValue(write);
   vi.mocked(readBindingEnvironment).mockResolvedValue(ENVIRONMENT);
   vi.mocked(rebuildEnvironment).mockResolvedValue({} as EnvironmentState);
+  vi.mocked(writeBindingEnvironment).mockResolvedValue({} as BindingSetWriteResult);
 });
 
-async function mounted(onChanged = vi.fn()) {
-  const hook = renderHook(() => useBindingEnvironment("prj-1", "binding_1", "engine", onChanged));
-  await waitFor(() => expect(hook.result.current.environment.data).toEqual(ENVIRONMENT));
-  return { hook, onChanged };
+const NOT_OBJECT =
+  "The environment is not a JSON object. Remove the comments and the trailing commas.";
+
+async function mounted(read: BindingEnvironment = ENVIRONMENT) {
+  vi.mocked(readBindingEnvironment).mockResolvedValue(read);
+  const onChanged = vi.fn();
+  const onWritten = vi.fn();
+  const hook = renderHook(() =>
+    useBindingEnvironment("prj-1", "binding_1", "engine", onChanged, onWritten),
+  );
+  await waitFor(() => expect(hook.result.current.environment.data).toEqual(read));
+  return { hook, onChanged, onWritten };
 }
 
 describe("useBindingEnvironment", () => {
@@ -108,6 +122,56 @@ describe("useBindingEnvironment", () => {
     act(() => hook.result.current.copyText("tail", "tail"));
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("The browser refused the clipboard."),
+    );
+  });
+
+  describe("edit", () => {
+    it("starts from the stored environment as indented JSON", async () => {
+      const { hook } = await mounted();
+      expect(hook.result.current.initialText).toBe(
+        JSON.stringify(ENVIRONMENT.environment, null, 2),
+      );
+    });
+
+    it("starts empty when the environment is not stored", async () => {
+      const { hook } = await mounted({ ...ENVIRONMENT, source: "detected" });
+      expect(hook.result.current.initialText).toBe("");
+    });
+
+    it.each(["[1, 2]", "null", "{"])("refuses %j without a request", async (text) => {
+      const { hook } = await mounted();
+      act(() => hook.result.current.openEdit());
+      act(() => hook.result.current.save(text));
+      expect(hook.result.current.saveError).toBe(NOT_OBJECT);
+      expect(hook.result.current.editing).toBe(true);
+      expect(writeBindingEnvironment).not.toHaveBeenCalled();
+    });
+
+    it("writes the document, reports it and closes the sheet", async () => {
+      const { hook, onChanged, onWritten } = await mounted();
+      act(() => hook.result.current.openEdit());
+      act(() => hook.result.current.save('{ "image": "x" }'));
+      await waitFor(() => expect(hook.result.current.editing).toBe(false));
+      expect(writeBindingEnvironment).toHaveBeenCalledWith("prj-1", "binding_1", { image: "x" });
+      expect(toast.success).toHaveBeenCalledWith("Saved the environment of engine.");
+      expect(onWritten).toHaveBeenCalledWith({ image: "x" });
+      expect(onChanged).toHaveBeenCalledTimes(1);
+      expect(hook.result.current.saving).toBe(false);
+    });
+
+    it.each(["project.environment.key_refused", "project.environment.invalid"])(
+      "shows the message of a %s refusal and keeps the sheet open",
+      async (detail) => {
+        vi.mocked(writeBindingEnvironment).mockRejectedValue(
+          new ApiError("refused", "The server refuses it.", 400, detail),
+        );
+        const { hook, onWritten } = await mounted();
+        act(() => hook.result.current.openEdit());
+        act(() => hook.result.current.save("{}"));
+        await waitFor(() => expect(hook.result.current.saveError).toBe("The server refuses it."));
+        expect(hook.result.current.editing).toBe(true);
+        expect(onWritten).not.toHaveBeenCalled();
+      },
     );
   });
 });

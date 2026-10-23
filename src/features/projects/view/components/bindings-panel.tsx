@@ -1,6 +1,7 @@
 import { PlusIcon } from "lucide-react";
+import { useState } from "react";
 
-import type { BindingSetKind, EnvironmentState } from "@/api/types";
+import type { BindingSetKind, EnvironmentDocument, EnvironmentState } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
@@ -40,8 +41,20 @@ export function BindingsPanel({
     .map(([name]) => name)
     .sort();
 
+  const [sheetEpoch, setSheetEpoch] = useState(0);
   const bindingVerify = useBindingVerify(projectId, data?.version ?? null);
   const hostedWorkers = useHostedWorkers().data;
+
+  const onEnvironmentWritten = (saved: EnvironmentDocument) => {
+    if (target === null || target.entry?.kind !== "repository") return;
+    editor.openTarget({
+      ...target,
+      entry: { kind: "repository", config: { ...target.entry.config, environment: saved } },
+      section: "environment",
+    });
+    setSheetEpoch((epoch) => epoch + 1);
+    reload();
+  };
 
   const environmentOf = (name: string, kind: BindingSetKind): EnvironmentState | null =>
     kind === "repository"
@@ -137,7 +150,7 @@ export function BindingsPanel({
       })}
       {target !== null && (
         <BindingSheet
-          key={`${target.kind}:${target.name ?? "new"}`}
+          key={`${target.kind}:${target.name ?? "new"}:${sheetEpoch}`}
           projectId={projectId}
           target={target}
           bindingId={target.name === null ? null : bindingVerify.bindingIdOf(target.name)}
@@ -149,6 +162,7 @@ export function BindingsPanel({
           errorMessage={bindings.error}
           onSave={editor.propose}
           onEnvironmentChanged={onEnvironmentChanged}
+          onEnvironmentWritten={onEnvironmentWritten}
           onClose={editor.closeTarget}
         />
       )}

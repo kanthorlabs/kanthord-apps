@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
 
-import type { EnvironmentState } from "@/api/types";
+import type { EnvironmentDocument, EnvironmentState } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { environmentStatusLabel, environmentStatusVariant } from "@/lib/environment-bar";
 import { useBindingEnvironment } from "../use-binding-environment";
+import { EnvironmentEditSheet } from "./environment-edit-sheet";
 import { FactList, type Fact } from "./fact-list";
 
 const DIGEST_LENGTH = 12;
@@ -17,7 +18,7 @@ interface EnvironmentSectionProps {
   readonly state: EnvironmentState | null;
   readonly focused: boolean;
   readonly onChanged: () => void;
-  readonly onEdit: () => void;
+  readonly onWritten: (environment: EnvironmentDocument) => void;
 }
 
 function factsOf(state: EnvironmentState): readonly Fact[] {
@@ -51,13 +52,14 @@ export function EnvironmentSection({
   state,
   focused,
   onChanged,
-  onEdit,
+  onWritten,
 }: EnvironmentSectionProps) {
-  const { environment, rebuilding, rebuild, copy, copyText } = useBindingEnvironment(
+  const { environment, rebuilding, rebuild, copy, copyText, ...edit } = useBindingEnvironment(
     projectId,
     bindingId,
     bindingName,
     onChanged,
+    onWritten,
   );
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -147,7 +149,12 @@ export function EnvironmentSection({
         >
           Run onboarding again
         </Button>
-        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onEdit}>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={edit.openEdit}
+        >
           Edit environment
         </Button>
         <Button
@@ -160,6 +167,15 @@ export function EnvironmentSection({
           Copy environment
         </Button>
       </div>
+      {edit.editing && !environment.loading && (
+        <EnvironmentEditSheet
+          initialText={edit.initialText}
+          saving={edit.saving}
+          saveError={edit.saveError}
+          onSave={edit.save}
+          onClose={edit.closeEdit}
+        />
+      )}
     </section>
   );
 }
