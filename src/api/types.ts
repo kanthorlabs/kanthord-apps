@@ -419,6 +419,62 @@ export type WorkingLayerSwitches = Readonly<Record<WorkingLayerKey, boolean>>;
 
 export type EnvironmentDocument = Readonly<Record<string, unknown>>;
 
+export type EnvironmentStatus = "none" | "pending" | "building" | "proving" | "ready" | "failed";
+
+export type EnvironmentTarget = "image" | "host" | "remote";
+
+export type EnvironmentSource = "stored" | "repository" | "detected" | "universal" | "none";
+
+export type EnvironmentFailureClass =
+  "build_failed" | "image_invalid" | "setup_failed" | "command_absent";
+
+export type EnvironmentFailureOrigin = "onboarding" | "execution";
+
+export interface EnvironmentCheck {
+  readonly command: string;
+  readonly exit_code: number;
+}
+
+export interface EnvironmentFailure {
+  readonly class: EnvironmentFailureClass;
+  readonly origin: EnvironmentFailureOrigin;
+  readonly execution_id: string | null;
+  readonly command: string;
+  readonly exit_code: number | null;
+  readonly tail: string;
+  readonly reproduce: string;
+  readonly ended_at: number;
+}
+
+export interface EnvironmentState {
+  readonly binding_id: string;
+  readonly binding_name: string;
+  readonly resource_identity: string;
+  readonly target: EnvironmentTarget;
+  readonly source: EnvironmentSource;
+  readonly status: EnvironmentStatus;
+  readonly digest: string | null;
+  readonly tag: string | null;
+  readonly run_started_at: number | null;
+  readonly step_started_at: number | null;
+  readonly reason: string | null;
+  readonly failure: EnvironmentFailure | null;
+  readonly checks: readonly EnvironmentCheck[];
+  readonly repairs: number;
+  readonly repairing: boolean;
+}
+
+export interface EnvironmentList {
+  readonly items: readonly EnvironmentState[];
+}
+
+export interface BindingEnvironment {
+  readonly source: EnvironmentSource;
+  readonly commit: string | null;
+  readonly environment: EnvironmentDocument | null;
+  readonly reason: string | null;
+}
+
 export interface RepositoryBindingConfig {
   readonly available: boolean;
   readonly platform: RepositoryPlatform;

@@ -3,10 +3,14 @@ import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   BindingAgentView,
+  BindingEnvironment,
   BindingSet,
   BindingSetEntry,
   BindingSetWriteResult,
   BindingVerifyResult,
+  EnvironmentDocument,
+  EnvironmentList,
+  EnvironmentState,
   InstructionFiles,
   Page,
   Project,
@@ -163,5 +167,48 @@ export async function checkBinding(
   return request<BindingVerifyResult>(
     `/api/project/${encodeURIComponent(projectId)}/binding/check`,
     { method: "POST", body: { kind: entry.kind, config: entry.config } },
+  );
+}
+
+export async function listProjectEnvironments(
+  projectId: string,
+): Promise<readonly EnvironmentState[]> {
+  const list = await request<EnvironmentList>(
+    `/api/project/${encodeURIComponent(projectId)}/environment`,
+  );
+  return list.items;
+}
+
+export async function rebuildEnvironment(
+  projectId: string,
+  bindingId: string,
+): Promise<EnvironmentState> {
+  return request<EnvironmentState>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/environment/rebuild`,
+    { method: "POST", headers: { "idempotency-key": newIdempotencyKey() } },
+  );
+}
+
+export async function readBindingEnvironment(
+  projectId: string,
+  bindingId: string,
+): Promise<BindingEnvironment> {
+  return request<BindingEnvironment>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/environment`,
+  );
+}
+
+export async function writeBindingEnvironment(
+  projectId: string,
+  bindingId: string,
+  environment: EnvironmentDocument,
+): Promise<BindingSetWriteResult> {
+  return request<BindingSetWriteResult>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/environment`,
+    {
+      method: "PUT",
+      body: { environment },
+      headers: { "idempotency-key": newIdempotencyKey() },
+    },
   );
 }

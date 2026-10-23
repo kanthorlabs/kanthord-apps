@@ -332,6 +332,7 @@ export const BINDING_SET = {
           claude_local_md: true,
           project_prompt: true,
         },
+        environment: { image: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm" },
       },
     },
     "mirror-repo": {
@@ -383,7 +384,12 @@ export const BINDING_SET = {
     },
     "sandbox-main": {
       kind: "worker",
-      config: { worker: "coder@1", instance_count: 2, placement: "container" },
+      config: {
+        worker: "coder@1",
+        instance_count: 2,
+        placement: "container",
+        environment: "kanthord-repo",
+      },
     },
     "harness-main": {
       kind: "worker",

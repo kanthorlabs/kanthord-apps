@@ -8,25 +8,35 @@ import {
   checkBinding,
   createProject,
   listBindingAgents,
+  listProjectEnvironments,
   listProjectPage,
   listProjects,
   listWorkerBindings,
   pauseProject,
+  readBindingEnvironment,
   readInstructionFiles,
+  rebuildEnvironment,
   renameProject,
   resumeProject,
   verifyBinding,
+  writeBindingEnvironment,
   writeBindingSet,
 } from "./projects";
 
 let server: Server | null = null;
 const seen: IncomingMessage[] = [];
+const bodies: string[] = [];
 
 async function serve(pages: readonly unknown[]): Promise<string> {
   const instance = createServer((req, res) => {
     seen.push(req);
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(pages[seen.length - 1]));
+    let raw = "";
+    req.on("data", (chunk) => (raw += chunk));
+    req.on("end", () => {
+      bodies.push(raw);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(pages[seen.length - 1]));
+    });
   });
   server = instance;
   await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
@@ -35,6 +45,7 @@ async function serve(pages: readonly unknown[]): Promise<string> {
 
 afterEach(async () => {
   seen.length = 0;
+  bodies.length = 0;
   setConnection(null);
   const instance = server;
   server = null;
@@ -262,6 +273,93 @@ describe("listBindingAgents", () => {
     expect(seen.map((req) => req.url)).toEqual([
       "/api/project/prj-1/binding/binding_w/agent?limit=1000",
       "/api/project/prj-1/binding/binding_w/agent?limit=1000&cursor=c-1",
+    ]);
+  });
+});
+
+describe("environment resources", () => {
+  const STATE = {
+    binding_id: "bnd-1",
+    binding_name: "kanthord-repo",
+    resource_identity: "repository:kanthord-repo",
+    target: "image",
+    source: "stored",
+    status: "ready",
+    digest: "a".repeat(64),
+    tag: `localhost/kanthord-env/kanthord-repo:${"a".repeat(64)}`,
+    run_started_at: null,
+    step_started_at: null,
+    reason: null,
+    failure: null,
+    checks: [],
+    repairs: 0,
+    repairing: false,
+  };
+
+  it("lists the environment states of a project", async () => {
+    const base = await serve([{ items: [STATE] }]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await listProjectEnvironments("prj-1")).toEqual([STATE]);
+    expect(seen[0]?.method).toBe("GET");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/environment");
+  });
+
+  it("posts the rebuild with an idempotency key and no body", async () => {
+    const base = await serve([STATE]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await rebuildEnvironment("prj-1", "bnd-1")).toEqual(STATE);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/binding/bnd-1/environment/rebuild");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+    expect(bodies[0]).toBe("");
+  });
+
+  it("reads the environment of a binding", async () => {
+    const result = {
+      source: "repository",
+      commit: "4f0184b",
+      environment: { image: "x" },
+      reason: null,
+    };
+    const base = await serve([result]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await readBindingEnvironment("prj-1", "bnd-1")).toEqual(result);
+    expect(seen[0]?.method).toBe("GET");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/binding/bnd-1/environment");
+  });
+
+  it("puts the environment document with an idempotency key", async () => {
+    const result = {
+      project_id: "prj-1",
+      binding_set_version: 3,
+      changes: [{ kind: "revised", binding_id: "bnd-1" }],
+    };
+    const base = await serve([result]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await writeBindingEnvironment("prj-1", "bnd-1", { image: "x" })).toEqual(result);
+    expect(seen[0]?.method).toBe("PUT");
+    expect(seen[0]?.url).toBe("/api/project/prj-1/binding/bnd-1/environment");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+    expect(JSON.parse(bodies[0] ?? "")).toEqual({ environment: { image: "x" } });
+  });
+
+  it("encodes a path segment with a slash", async () => {
+    const base = await serve([{ items: [] }, STATE, {}, {}]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    await listProjectEnvironments("a/b");
+    await rebuildEnvironment("a/b", "c/d");
+    await readBindingEnvironment("a/b", "c/d");
+    await writeBindingEnvironment("a/b", "c/d", {});
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/project/a%2Fb/environment",
+      "/api/project/a%2Fb/binding/c%2Fd/environment/rebuild",
+      "/api/project/a%2Fb/binding/c%2Fd/environment",
+      "/api/project/a%2Fb/binding/c%2Fd/environment",
     ]);
   });
 });
