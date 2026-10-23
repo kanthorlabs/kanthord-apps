@@ -40,11 +40,14 @@ export function FixItem({ item, showProject, now, reload, markActed, titleRef }:
         </div>
         <ItemDescription className="line-clamp-none">
           {spread !== null && `${spread} · `}
-          {spread === null && showProject && item.kind !== "project_paused" && (
-            <>
-              project <RecordName>{item.project.name}</RecordName> ·{" "}
-            </>
-          )}
+          {spread === null &&
+            showProject &&
+            item.kind !== "project_paused" &&
+            item.kind !== "environment_failed" && (
+              <>
+                project <RecordName>{item.project.name}</RecordName> ·{" "}
+              </>
+            )}
           {item.at === null ? "age unknown" : relativeAge(item.at, now)}
         </ItemDescription>
         <ItemDescription className="line-clamp-none">
