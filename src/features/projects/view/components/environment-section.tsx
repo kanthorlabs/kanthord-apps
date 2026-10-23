@@ -100,6 +100,25 @@ export function EnvironmentSection({
           </ul>
         </div>
       )}
+      {environment.error !== null && (
+        <Alert variant="destructive" className="min-w-0">
+          <AlertTitle>The stored environment was not read</AlertTitle>
+          <AlertDescription className="flex min-w-0 flex-col gap-2">
+            <p className="break-words">
+              {environment.error.message} Edit environment stays off until the read works.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto sm:self-start"
+              onClick={environment.reload}
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {failure !== null && (
         <Alert variant="destructive" className="min-w-0">
           <AlertTitle>{failure.class}</AlertTitle>
@@ -153,6 +172,7 @@ export function EnvironmentSection({
           type="button"
           variant="outline"
           className="w-full sm:w-auto"
+          disabled={environment.error !== null}
           onClick={edit.openEdit}
         >
           Edit environment
@@ -171,7 +191,7 @@ export function EnvironmentSection({
           Copy environment
         </Button>
       </div>
-      {edit.editing && !environment.loading && (
+      {edit.editing && !environment.loading && environment.error === null && (
         <EnvironmentEditSheet
           initialText={edit.initialText}
           saving={edit.saving}

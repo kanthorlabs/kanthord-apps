@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import {
@@ -80,7 +80,13 @@ export function useBindingEnvironment(
     [write],
   );
 
-  const { data, reload } = environment;
+  const { data, error, reload } = environment;
+
+  useEffect(() => {
+    if (error === null) return;
+    toast.error(error.message, { action: { label: "Retry", onClick: reload } });
+  }, [error, reload]);
+
   const copy = useCallback(() => {
     if (data === null || data.environment === null) return;
     copyText(JSON.stringify(data.environment, null, 2), `environment of ${bindingName}`);

@@ -2265,6 +2265,18 @@ describe("BindingsPanel", () => {
         expect(screen.getByRole("heading", { name: "Edit environment" })).toBeTruthy();
       });
 
+      it("keeps Edit environment off and shows the failure when the read fails", async () => {
+        vi.mocked(projectsApi.readBindingEnvironment).mockRejectedValue(
+          new ApiError("unavailable", "The daemon is down.", 503, "other"),
+        );
+        mount([READY]);
+        await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+
+        expect(await screen.findByText("The stored environment was not read")).toBeTruthy();
+        expect(screen.getByRole("button", { name: "Edit environment" })).toBeDisabled();
+        expect(screen.queryByRole("textbox", { name: "Environment" })).toBeNull();
+      });
+
       it("refuses a text that is not one JSON object", async () => {
         const field = await openEditor();
 

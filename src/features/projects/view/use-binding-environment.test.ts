@@ -62,6 +62,23 @@ describe("useBindingEnvironment", () => {
     expect(readBindingEnvironment).toHaveBeenCalledWith("prj-1", "binding_1");
   });
 
+  it("shows a failed read with a Retry action that reads again", async () => {
+    vi.mocked(readBindingEnvironment).mockRejectedValueOnce(
+      new ApiError("unavailable", "The daemon is down.", 503, "other"),
+    );
+    const hook = renderHook(() =>
+      useBindingEnvironment("prj-1", "binding_1", "engine", vi.fn(), vi.fn()),
+    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    const call = vi.mocked(toast.error).mock.calls[0];
+    expect(call?.[0]).toBe("The daemon is down.");
+    const action = call?.[1]?.action as unknown as { label: string; onClick: () => void };
+    expect(action.label).toBe("Retry");
+    act(() => action.onClick());
+    await waitFor(() => expect(hook.result.current.environment.data).toEqual(ENVIRONMENT));
+    expect(readBindingEnvironment).toHaveBeenCalledTimes(2);
+  });
+
   it("rebuilds, shows a toast and reports the change", async () => {
     const { hook, onChanged } = await mounted();
     act(() => hook.result.current.rebuild());
