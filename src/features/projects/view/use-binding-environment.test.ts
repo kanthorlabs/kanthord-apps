@@ -104,7 +104,7 @@ describe("useBindingEnvironment", () => {
     await waitFor(() =>
       expect(toast.success).toHaveBeenCalledWith("Copied the environment of engine."),
     );
-    expect(write).toHaveBeenCalledWith(JSON.stringify(ENVIRONMENT, null, 2));
+    expect(write).toHaveBeenCalledWith(JSON.stringify(ENVIRONMENT.environment, null, 2));
   });
 
   it("copies a text and names it", async () => {

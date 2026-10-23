@@ -82,8 +82,8 @@ export function useBindingEnvironment(
 
   const { data, reload } = environment;
   const copy = useCallback(() => {
-    if (data === null) return;
-    copyText(JSON.stringify(data, null, 2), `environment of ${bindingName}`);
+    if (data === null || data.environment === null) return;
+    copyText(JSON.stringify(data.environment, null, 2), `environment of ${bindingName}`);
   }, [data, bindingName, copyText]);
 
   const openEdit = useCallback(() => {

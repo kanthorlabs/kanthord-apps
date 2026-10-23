@@ -161,7 +161,11 @@ export function EnvironmentSection({
           type="button"
           variant="outline"
           className="w-full sm:w-auto"
-          disabled={environment.loading || environment.data === null}
+          disabled={
+            environment.loading ||
+            environment.data === null ||
+            environment.data.environment === null
+          }
           onClick={copy}
         >
           Copy environment
