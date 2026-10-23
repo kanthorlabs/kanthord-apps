@@ -8,6 +8,7 @@
 import { createHash, generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:http";
 
+import { registerEnvironments } from "./environments.mjs";
 import * as fx from "./fixtures.mjs";
 import { registerInstances } from "./instances.mjs";
 import { registerTracking } from "./tracking.mjs";
@@ -1143,6 +1144,40 @@ const isHostedWorker = (name) =>
 
 const INSTANCE_LIST_MAX = 64;
 
+const workerEnvironmentRefusal = (bindings) => {
+  const repositoryCount = Object.values(bindings).filter(
+    (entry) => entry.kind === "repository",
+  ).length;
+  for (const [binding, entry] of Object.entries(bindings)) {
+    if (entry.kind !== "worker") continue;
+    const environment = entry.config.environment;
+    if (entry.config.placement !== "container") {
+      if (environment === undefined) continue;
+      return [
+        "project.bindings.worker.field_forbidden",
+        "Only a binding at the container placement names an environment.",
+        { binding, field: "environment" },
+      ];
+    }
+    if (environment === undefined) {
+      if (repositoryCount < 2) continue;
+      return [
+        "project.bindings.worker.environment_required",
+        "A container worker binding names its environment when the project holds two repository bindings or more.",
+        { binding },
+      ];
+    }
+    if (bindings[environment]?.kind !== "repository") {
+      return [
+        "project.bindings.worker.environment_unknown",
+        "The environment names no repository binding of the set.",
+        { binding, environment },
+      ];
+    }
+  }
+  return null;
+};
+
 const workerInstancesRefusal = (bindings) => {
   for (const [binding, entry] of Object.entries(bindings)) {
     if (entry.kind !== "worker") continue;
@@ -1230,6 +1265,8 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   }
   const instanceRefusal = workerInstancesRefusal(b.bindings);
   if (instanceRefusal !== null) return projectEnvelope(res, 400, ...instanceRefusal);
+  const environmentRefusal = workerEnvironmentRefusal(b.bindings);
+  if (environmentRefusal !== null) return projectEnvelope(res, 400, ...environmentRefusal);
   const placementChanged = Object.entries(b.bindings).some(([name, entry]) => {
     const stored = set.bindings[name];
     return (
@@ -3118,6 +3155,15 @@ registerTracking({
   envelope: projectEnvelope,
   page,
   executions: () => [...projectStates.values()].flatMap((state) => state.executions),
+});
+
+registerEnvironments({
+  on,
+  json,
+  envelope: projectEnvelope,
+  projectOrRefuse,
+  bindingSetOf,
+  bindingIdOf: (name) => bindingRecordByName(name)?.id ?? name,
 });
 
 const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
