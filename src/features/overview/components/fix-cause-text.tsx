@@ -96,6 +96,14 @@ export function FixCauseText({ item }: FixCauseTextProps) {
       </>
     );
   }
+  if (item.kind === "environment_failed") {
+    return (
+      <>
+        <RecordName>{item.binding}</RecordName> of <RecordName>{item.project.name}</RecordName>{" "}
+        failed: {item.failureClass}. Workers claim no node of it.
+      </>
+    );
+  }
   if (item.kind === "no_taker") return <NoTakerSentence item={item} />;
   if (item.kind === "agent_invalid") return <AgentInvalidSentence item={item} />;
   if (item.kind === "credential_refused") {

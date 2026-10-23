@@ -14,6 +14,7 @@ vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
   listWorkerBindings: vi.fn(),
   listBindingAgents: vi.fn(),
+  listProjectEnvironments: vi.fn(),
   readProject: vi.fn(),
   resumeProject: vi.fn(),
   pauseProject: vi.fn(),
@@ -82,6 +83,7 @@ import { listAllCredentials } from "@/api/resources/credentials";
 import { readLiveness } from "@/api/resources/gateway";
 import {
   listBindingAgents,
+  listProjectEnvironments,
   listProjects,
   listWorkerBindings,
   pauseProject,
@@ -99,6 +101,7 @@ import type {
   ActionLanding,
   BindingAgentView,
   Credential,
+  EnvironmentState,
   LivenessReport,
   MissionAssessment,
   MissionAssessmentResult,
@@ -386,6 +389,35 @@ const APPROVED: MissionProposalApproveResult = {
   },
 };
 
+function failedEnvironment(): EnvironmentState {
+  return {
+    binding_id: "binding_1",
+    binding_name: "engine",
+    resource_identity: "repo",
+    target: "image",
+    source: "stored",
+    status: "failed",
+    digest: null,
+    tag: null,
+    run_started_at: null,
+    step_started_at: null,
+    reason: null,
+    failure: {
+      class: "command_absent",
+      origin: "onboarding",
+      execution_id: null,
+      command: "make",
+      exit_code: 127,
+      tail: "",
+      reproduce: "make",
+      ended_at: NOW - HOUR,
+    },
+    checks: [],
+    repairs: 0,
+    repairing: false,
+  };
+}
+
 function job(projectId: string, nodeId: string): SchedulerJob {
   return { job_id: `job_${nodeId}`, project_id: projectId, node_id: nodeId, priority: 0 };
 }
@@ -407,6 +439,7 @@ interface World {
   readonly credentials?: readonly Credential[];
   readonly liveness?: LivenessReport;
   readonly sessions?: readonly WorkbenchSessionListItem[];
+  readonly environments?: Readonly<Record<string, readonly EnvironmentState[]>>;
 }
 
 const HEALTHY: LivenessReport = {
@@ -459,6 +492,9 @@ function serve(world: World) {
   }));
   vi.mocked(listWorkerRegistrations).mockImplementation(
     async (projectId) => world.registrations?.[projectId] ?? [],
+  );
+  vi.mocked(listProjectEnvironments).mockImplementation(
+    async (projectId) => world.environments?.[projectId] ?? [],
   );
   vi.mocked(listWorkerCatalog).mockResolvedValue(world.catalog ?? CATALOG);
   vi.mocked(listWorkerBindings).mockImplementation(
@@ -2308,6 +2344,36 @@ function providerStop(
 }
 
 describe("OverviewScreen fixes", () => {
+  it("lists a failed environment and opens its project", async () => {
+    serve({ environments: { "prj-1": [failedEnvironment()] } });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("engine"));
+    expect(within(item).getByText("Environment failed")).toBeInTheDocument();
+    expect(
+      within(item).getByText(
+        textContent("engine of kanthord failed: command_absent. Workers claim no node of it."),
+      ),
+    ).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Open project" })).toHaveAttribute(
+      "href",
+      "/projects/prj-1",
+    );
+  });
+
+  it("shows a read fault for a rejected environment list and keeps the other items", async () => {
+    serve({ projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS] });
+    vi.mocked(listProjectEnvironments).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    renderScreen();
+
+    expect(
+      await screen.findByText(textContent(/Some records could not be read:.*environment list/)),
+    ).toBeInTheDocument();
+    expect(itemOf("kanthord")).toBeInTheDocument();
+  });
+
   it("lists a paused project and resumes it in place", async () => {
     const user = userEvent.setup();
     const paused = { ...KANTHORD, paused_at: NOW - 3 * HOUR };

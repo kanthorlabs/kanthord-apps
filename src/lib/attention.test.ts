@@ -167,6 +167,7 @@ function snapshot(
     registrations: null,
     executions: null,
     bindings: null,
+    environments: null,
   };
 }
 

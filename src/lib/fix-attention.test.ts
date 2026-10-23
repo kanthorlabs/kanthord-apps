@@ -4,6 +4,8 @@ import type {
   AgentSelection,
   BindingAgentView,
   Credential,
+  EnvironmentState,
+  EnvironmentStatus,
   ExecutionStop,
   MissionNodeRecord,
   NodeState,
@@ -203,6 +205,7 @@ function snapshot(overrides: Partial<ProjectSnapshot> = {}): ProjectSnapshot {
     registrations: [],
     executions: [],
     bindings: [],
+    environments: null,
     ...overrides,
   };
 }
@@ -881,5 +884,82 @@ describe("fixTargetOf", () => {
     expect(item).toBeDefined();
     if (item === undefined) return;
     expect(fixTargetOf(item)).toEqual({ path, label });
+  });
+});
+
+function environment(status: EnvironmentStatus, endedAt: number | null): EnvironmentState {
+  return {
+    binding_id: "binding_1",
+    binding_name: "engine",
+    resource_identity: "repo",
+    target: "image",
+    source: "stored",
+    status,
+    digest: null,
+    tag: null,
+    run_started_at: null,
+    step_started_at: null,
+    reason: null,
+    failure:
+      endedAt === null
+        ? null
+        : {
+            class: "command_absent",
+            origin: "onboarding",
+            execution_id: null,
+            command: "make",
+            exit_code: 127,
+            tail: "",
+            reproduce: "make",
+            ended_at: endedAt,
+          },
+    checks: [],
+    repairs: 0,
+    repairing: false,
+  };
+}
+
+describe("fixItemsOf environment_failed", () => {
+  it("lists a failed environment with its class and end time", () => {
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [environment("failed", 1000)] })],
+      context(),
+    );
+
+    expect(item).toMatchObject({
+      id: "environment_failed:prj-1:binding_1",
+      kind: "environment_failed",
+      group: "fixes",
+      cause: "Environment failed",
+      subject: "engine",
+      binding: "engine",
+      at: 1000,
+      failureClass: "command_absent",
+    });
+  });
+
+  it("lists nothing for a ready, building or none environment", () => {
+    const states = [
+      environment("ready", null),
+      environment("building", null),
+      environment("none", null),
+    ];
+
+    expect(fixItemsOf([snapshot({ environments: states })], context())).toEqual([]);
+  });
+
+  it("lists nothing when the environments are unread", () => {
+    expect(fixItemsOf([snapshot({ environments: null })], context())).toEqual([]);
+  });
+
+  it("targets the project page and has no spread text", () => {
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [environment("failed", 1000)] })],
+      context(),
+    );
+    if (item === undefined) throw new Error("No item.");
+
+    expect(fixTargetOf(item)).toEqual({ path: "/projects/prj-1", label: "Open project" });
+    expect(spreadTextOf(item)).toBeNull();
   });
 });
