@@ -1,14 +1,14 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
-import type { Project } from "@/api/types";
+import type { EnvironmentState, EnvironmentStatus, Project } from "@/api/types";
 
 vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/projects");
@@ -27,6 +27,46 @@ const KANTHORD: Project = {
     "/home/kanthord/.local/state/kanthord/projects/project_01J9ZQ4XKM3B6V8N2R5T7W0YAC",
 };
 
+function environment(
+  status: EnvironmentStatus,
+  overrides: Partial<EnvironmentState> = {},
+): EnvironmentState {
+  return {
+    binding_id: "binding_engine",
+    binding_name: "engine",
+    resource_identity: "resource_1",
+    target: "image",
+    source: "repository",
+    status,
+    digest: null,
+    tag: null,
+    run_started_at: Date.now() - 150_000,
+    step_started_at: Date.now() - 150_000,
+    reason: null,
+    failure: null,
+    checks: [],
+    repairs: 0,
+    repairing: false,
+    ...overrides,
+  };
+}
+
+function failedEnvironment(overrides: Partial<EnvironmentState> = {}): EnvironmentState {
+  return environment("failed", {
+    failure: {
+      class: "command_absent",
+      origin: "onboarding",
+      execution_id: null,
+      command: "pnpm",
+      exit_code: null,
+      tail: "",
+      reproduce: "",
+      ended_at: Date.now(),
+    },
+    ...overrides,
+  });
+}
+
 function mount(search = "") {
   return render(
     <MemoryRouter initialEntries={[`/projects/${KANTHORD.id}${search}`]}>
@@ -38,7 +78,12 @@ function mount(search = "") {
 }
 
 describe("ProjectScreen", () => {
+  afterEach(() => {
+    window.innerWidth = 1024;
+  });
+
   beforeEach(() => {
+    vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([]);
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission_1",
       project_id: KANTHORD.id,
@@ -92,7 +137,11 @@ describe("ProjectScreen", () => {
     expect(await screen.findByRole("heading", { name: "kanthord" })).toBeTruthy();
     expect(projectsApi.readProject).toHaveBeenCalledWith(KANTHORD.id);
     expect(screen.queryByText(KANTHORD.id)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Details" }));
+    await userEvent.click(
+      within(screen.getByRole("region", { name: "Project" })).getByRole("button", {
+        name: "Details",
+      }),
+    );
     expect(await screen.findByText(KANTHORD.id)).toBeTruthy();
     expect(screen.getByText("Workspace Directory")).toBeTruthy();
     expect(screen.getByText(KANTHORD.workspace_directory).className).toContain("font-mono");
@@ -238,5 +287,152 @@ describe("ProjectScreen", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Mission" }));
     expect(screen.getByRole("tab", { name: "Mission", selected: true })).toBeTruthy();
     expect(screen.getByRole("region", { name: "Mission graph" })).toBeTruthy();
+  });
+
+  describe("environment bar", () => {
+    beforeEach(() => {
+      vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    });
+
+    it("shows a building state with its badge, step line, progress and Details link", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([environment("building")]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      expect(within(bar).getByText("Building")).toBeTruthy();
+      expect(bar).toHaveTextContent("engine · Building the image · 2 min");
+      expect(within(bar).getByRole("progressbar")).toHaveAccessibleName("Environment step 2 of 3");
+      expect(within(bar).getByRole("button", { name: "Details" })).toHaveAttribute(
+        "href",
+        `/projects/${KANTHORD.id}?tab=bindings&environment=engine`,
+      );
+      expect(projectsApi.listProjectEnvironments).toHaveBeenCalledWith(KANTHORD.id);
+    });
+
+    it("announces the text of the bar as a polite live region", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([environment("building")]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      const live = within(bar).getByText("Building").closest("[aria-live]");
+      expect(live).toHaveAttribute("aria-live", "polite");
+      expect(live).toHaveTextContent("engine · Building the image");
+    });
+
+    it("encodes the binding name in the Details link", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
+        environment("building", { binding_name: "api & web" }),
+      ]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      expect(within(bar).getByRole("button", { name: "Details" })).toHaveAttribute(
+        "href",
+        `/projects/${KANTHORD.id}?tab=bindings&environment=api%20%26%20web`,
+      );
+    });
+
+    it("shows a failed state with its class and command and no progress", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([failedEnvironment()]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      expect(within(bar).getByText("Failed")).toBeTruthy();
+      expect(bar).toHaveTextContent("engine · Failed: command_absent · pnpm");
+      expect(within(bar).queryByRole("progressbar")).toBeNull();
+    });
+
+    it("shows the reason of a pending state", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
+        environment("pending", { reason: "The base branch main is absent." }),
+      ]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      expect(within(bar).getByText("Pending")).toBeTruthy();
+      expect(bar).toHaveTextContent("Waiting: The base branch main is absent.");
+    });
+
+    it("adds the count of the other states that are not ready", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
+        environment("building", { binding_id: "b1", binding_name: "one" }),
+        failedEnvironment({ binding_id: "b2", binding_name: "two" }),
+        environment("proving", { binding_id: "b3", binding_name: "three" }),
+        environment("ready", { binding_id: "b4", binding_name: "four" }),
+      ]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      expect(bar).toHaveTextContent("two · Failed: command_absent · pnpm");
+      expect(within(bar).getByText("and 2 more")).toBeTruthy();
+    });
+
+    it("keeps the bar when the tab changes to Bindings", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([environment("building")]);
+      mount();
+
+      await screen.findByRole("alert", { name: "Environment" });
+      await userEvent.click(screen.getByRole("tab", { name: "Bindings" }));
+
+      expect(screen.getByRole("tab", { name: "Bindings", selected: true })).toBeTruthy();
+      expect(screen.getByRole("alert", { name: "Environment" })).toHaveTextContent(
+        "engine · Building the image",
+      );
+    });
+
+    it("shows no bar when every state is ready at the first read", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
+        environment("ready"),
+        environment("none", { binding_id: "b2", binding_name: "other" }),
+      ]);
+      mount();
+
+      await screen.findByRole("heading", { name: "kanthord" });
+      await waitFor(() => expect(projectsApi.listProjectEnvironments).toHaveBeenCalled());
+      expect(screen.queryByRole("alert", { name: "Environment" })).toBeNull();
+    });
+
+    it("shows the queue wait of a run that has not started and no elapsed time", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
+        environment("building", { run_started_at: null, step_started_at: null }),
+      ]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      expect(bar).toHaveTextContent("engine · Waiting for another run");
+      expect(bar).not.toHaveTextContent(/\d+ (s|min)/);
+    });
+
+    it("keeps one row at 1280 px with the Details text", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([environment("building")]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      const details = within(bar).getByRole("button", { name: "Details" });
+      expect(details).toHaveTextContent("Details");
+      expect(within(bar).getByText(/· 2 min/).className).toContain("md:inline");
+      expect(within(bar).getByText(/· 2 min/).className).toContain("hidden");
+    });
+
+    it("shows Details as an icon button and keeps the step line in the badge row below md", async () => {
+      window.innerWidth = 390;
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([environment("building")]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      const details = await within(bar).findByRole("button", { name: "Details" });
+      expect(details.textContent).toBe("");
+      expect(details.className).toContain("size-9");
+      const badge = within(bar).getByText("Building");
+      const row = badge.parentElement;
+      expect(row?.className).toContain("flex");
+      expect(row?.className).toContain("min-w-0");
+      expect(row?.className).toContain("items-center");
+      const stepLine = within(bar).getByText(/Building the image/);
+      expect(stepLine.parentElement).toBe(row);
+      expect(stepLine.className).toContain("truncate");
+      expect(stepLine.className).toContain("min-w-0");
+      expect(within(bar).getByText(/· 2 min/).className).toContain("hidden");
+    });
   });
 });

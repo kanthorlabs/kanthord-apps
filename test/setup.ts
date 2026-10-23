@@ -20,3 +20,8 @@ window.matchMedia ??= () =>
     addEventListener: () => undefined,
     removeEventListener: () => undefined,
   }) as unknown as MediaQueryList;
+window.ResizeObserver ??= class {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
