@@ -1,4 +1,5 @@
 import { LogOut } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 
 import logoReversed from "@/assets/logo/logo-reversed.svg";
@@ -44,6 +45,20 @@ export function AppShell() {
   const { session, signOut } = useSession();
   const { project, loading, error } = useProject();
   const { pathname } = useLocation();
+  const headerRef = useRef<HTMLElement>(null);
+  const insetRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    const inset = insetRef.current;
+    if (header === null || inset === null) return;
+    const writeHeight = () =>
+      inset.style.setProperty("--app-header-height", `${header.offsetHeight}px`);
+    writeHeight();
+    const observer = new ResizeObserver(writeHeight);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <CrumbLabelsProvider>
@@ -97,8 +112,11 @@ export function AppShell() {
             </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset>
-          <header className="sticky top-0 z-10 flex min-h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4">
+        <SidebarInset ref={insetRef}>
+          <header
+            ref={headerRef}
+            className="sticky top-0 z-10 flex min-h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4"
+          >
             <SidebarTrigger />
             <Separator orientation="vertical" className="mr-1" />
             <AppBreadcrumb />

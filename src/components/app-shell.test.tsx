@@ -1,7 +1,7 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setConnection } from "@/api/client";
 import { SessionProvider } from "@/features/auth/session/session-context";
@@ -56,8 +56,42 @@ function mount(path = "/") {
   );
 }
 
+const headerHeight = vi.hoisted(() => ({ value: 56 }));
+
+const observers = vi.hoisted(() => ({
+  callbacks: [] as (() => void)[],
+  observed: [] as Element[],
+  disconnected: 0,
+}));
+
+class FakeResizeObserver {
+  constructor(callback: () => void) {
+    observers.callbacks.push(callback);
+  }
+
+  observe(element: Element) {
+    observers.observed.push(element);
+  }
+
+  unobserve() {}
+
+  disconnect() {
+    observers.disconnected += 1;
+  }
+}
+
 describe("AppShell", () => {
   beforeEach(() => {
+    observers.callbacks = [];
+    observers.observed = [];
+    observers.disconnected = 0;
+    headerHeight.value = 56;
+    vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.tagName === "HEADER" ? headerHeight.value : 0;
+    });
     vi.clearAllMocks();
     window.sessionStorage.setItem("kanthord.session", JSON.stringify(STORED));
     projectState.value = {
@@ -67,6 +101,38 @@ describe("AppShell", () => {
       error: null,
       reload: () => undefined,
     };
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("writes the height of the top bar into --app-header-height", () => {
+    mount();
+
+    const inset = screen.getByRole("main");
+    expect(observers.observed).toEqual([screen.getByRole("banner")]);
+    expect(inset.style.getPropertyValue("--app-header-height")).toBe("56px");
+  });
+
+  it("updates --app-header-height when the top bar reports a new height", () => {
+    mount();
+
+    headerHeight.value = 92;
+    act(() => {
+      observers.callbacks.forEach((callback) => callback());
+    });
+
+    expect(screen.getByRole("main").style.getPropertyValue("--app-header-height")).toBe("92px");
+  });
+
+  it("disconnects the observer on unmount", () => {
+    const { unmount } = mount();
+
+    unmount();
+
+    expect(observers.disconnected).toBe(1);
   });
 
   it("renders the screen when a project is selected", () => {

@@ -11,15 +11,20 @@ import { utcDateTime } from "@/lib/format";
 import { useCrumbLabel } from "@/components/crumb-labels";
 import { ProjectPauseButton } from "@/components/project-pause-button";
 import { BindingsPanel } from "./components/bindings-panel";
+import { EnvironmentBar } from "./components/environment-bar";
 import { MissionPanel } from "./components/mission-panel";
 import { ReadinessPanel } from "./components/readiness-panel";
+import { useEnvironmentBar } from "./use-environment-bar";
 import { useProjectDetail } from "./use-project-detail";
+import { useProjectEnvironments } from "./use-project-environments";
 import { useProjectTab, type ProjectTab } from "./use-project-tab";
 
 export function ProjectScreen() {
   const { projectId = "" } = useParams<{ projectId: string }>();
   const { data: project, error, loading, reload } = useProjectDetail(projectId);
   const { tab, selectTab } = useProjectTab();
+  const { states, now } = useProjectEnvironments(projectId);
+  const bar = useEnvironmentBar(states);
   useCrumbLabel(`/projects/${encodeURIComponent(projectId)}`, project?.name);
 
   if (loading) {
@@ -49,6 +54,7 @@ export function ProjectScreen() {
 
   return (
     <div className="flex flex-1 flex-col gap-3">
+      {bar !== null && <EnvironmentBar projectId={project.id} bar={bar} now={now} />}
       <Collapsible
         render={<section aria-label="Project" />}
         className="flex flex-col gap-1 border-b pb-3"
