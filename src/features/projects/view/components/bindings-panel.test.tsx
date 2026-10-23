@@ -1,8 +1,8 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type * as Sonner from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
@@ -112,6 +112,7 @@ const CATALOG_ENTRIES: Readonly<Record<string, WorkerCatalogEntry>> = {
 };
 
 const onWritten = vi.fn();
+const onEnvironmentChanged = vi.fn();
 
 function placementList(container: Partial<PlacementStatus>): readonly PlacementStatus[] {
   const open = { available: true, reason: null, detail: null, container_runtime: null } as const;
@@ -175,10 +176,23 @@ function environmentOf(bindingName: string, status: EnvironmentState["status"]):
   };
 }
 
-function mount(environments: readonly EnvironmentState[] | null = null) {
+function LocationProbe() {
+  return <output aria-label="Location">{useLocation().search}</output>;
+}
+
+function mount(
+  environments: readonly EnvironmentState[] | null = null,
+  entry: string = "/projects/project_1",
+) {
   return render(
-    <MemoryRouter>
-      <BindingsPanel projectId="project_1" environments={environments} onWritten={onWritten} />
+    <MemoryRouter initialEntries={[entry]}>
+      <BindingsPanel
+        projectId="project_1"
+        environments={environments}
+        onWritten={onWritten}
+        onEnvironmentChanged={onEnvironmentChanged}
+      />
+      <LocationProbe />
     </MemoryRouter>,
   );
 }
@@ -191,7 +205,12 @@ function mountFromOnboarding() {
         <Route
           path="/projects/:projectId"
           element={
-            <BindingsPanel projectId="project_1" environments={null} onWritten={onWritten} />
+            <BindingsPanel
+              projectId="project_1"
+              environments={null}
+              onWritten={onWritten}
+              onEnvironmentChanged={onEnvironmentChanged}
+            />
           }
         />
       </Routes>
@@ -268,6 +287,12 @@ describe("BindingsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue(SET);
+    vi.mocked(projectsApi.readBindingEnvironment).mockResolvedValue({
+      source: "stored",
+      commit: null,
+      environment: { image: "node:24" },
+      reason: null,
+    });
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [
         {
@@ -2111,5 +2136,126 @@ describe("BindingsPanel", () => {
       ),
     ).toBeTruthy();
     expect(screen.getByLabelText("Base branch")).toHaveValue("develop");
+  });
+
+  describe("environment section", () => {
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+
+    beforeEach(() => {
+      Element.prototype.scrollIntoView = scrollIntoView;
+    });
+
+    afterEach(() => {
+      Element.prototype.scrollIntoView = original;
+    });
+
+    const READY: EnvironmentState = {
+      ...environmentOf("kanthord-repo", "ready"),
+      digest: "sha256:0123456789abcdef0123",
+      checks: [{ command: "pnpm test", exit_code: 1 }],
+    };
+    const FAILED: EnvironmentState = {
+      ...environmentOf("kanthord-repo", "failed"),
+      failure: {
+        class: "command_absent",
+        origin: "onboarding",
+        execution_id: null,
+        command: "pnpm",
+        exit_code: 127,
+        tail: "pnpm: command not found",
+        reproduce: "docker run --rm node:24 pnpm test",
+        ended_at: 1,
+      },
+    };
+
+    it("shows the facts and the red baseline of a ready state", async () => {
+      mount([READY]);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+      const region = await screen.findByRole("region", { name: "Environment" });
+
+      expect(within(region).getByText("Source")).toBeTruthy();
+      expect(within(region).getByText("Target")).toBeTruthy();
+      expect(within(region).getByText("Digest")).toBeTruthy();
+      expect(within(region).getByText("sha256:01234")).toBeTruthy();
+      expect(within(region).getByText("Red baseline")).toBeTruthy();
+      expect(within(region).getByText("pnpm test · exit 1")).toBeTruthy();
+      expect(within(region).queryByText("command_absent")).toBeNull();
+    });
+
+    it("shows the failure with two copy buttons", async () => {
+      mount([FAILED]);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+      const region = await screen.findByRole("region", { name: "Environment" });
+
+      expect(within(region).getByText("command_absent")).toBeTruthy();
+      expect(within(region).getByText("pnpm")).toBeTruthy();
+      expect(within(region).getByText("exit 127")).toBeTruthy();
+      expect(within(region).getByText("pnpm: command not found")).toBeTruthy();
+      expect(within(region).getByText("docker run --rm node:24 pnpm test")).toBeTruthy();
+      expect(within(region).getByRole("button", { name: "Copy tail" })).toBeTruthy();
+      expect(within(region).getByRole("button", { name: "Copy reproduce command" })).toBeTruthy();
+    });
+
+    it("runs the onboarding again and reports the change", async () => {
+      vi.mocked(projectsApi.rebuildEnvironment).mockResolvedValue(READY);
+      mount([READY]);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Run onboarding again" }));
+
+      await waitFor(() => expect(onEnvironmentChanged).toHaveBeenCalledTimes(1));
+      expect(projectsApi.rebuildEnvironment).toHaveBeenCalledWith("project_1", "binding_REPO1");
+      expect(toast.success).toHaveBeenCalledWith("Onboarding of kanthord-repo started.");
+    });
+
+    it("holds no section in the sheet of a new repository binding", async () => {
+      mount([READY]);
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Add repositories binding" }),
+      );
+      await screen.findByRole("form", { name: "Add repository binding" });
+
+      expect(screen.queryByRole("region", { name: "Environment" })).toBeNull();
+    });
+
+    it("holds no section in the sheet of a worker binding", async () => {
+      mount([READY]);
+
+      await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+      await screen.findByRole("form", { name: "Edit general-main" });
+
+      expect(screen.queryByRole("region", { name: "Environment" })).toBeNull();
+    });
+
+    it("opens the sheet at the section from the path parameter and removes it on close", async () => {
+      vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+        version: 2,
+        bindings: { engine: REPO },
+      });
+      vi.mocked(projectsApi.listBindings).mockResolvedValue([{ ...BINDING_REPO, name: "engine" }]);
+      mount(null, "/projects/project_1?tab=bindings&environment=engine");
+
+      const form = await screen.findByRole("form", { name: "Edit engine" });
+      await within(form).findByRole("region", { name: "Environment" });
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+
+      await userEvent.click(within(form).getByRole("button", { name: "Cancel" }));
+
+      await waitFor(() => expect(screen.queryByRole("form", { name: "Edit engine" })).toBeNull());
+      expect(screen.getByLabelText("Location")).toHaveTextContent("?tab=bindings");
+      expect(screen.getByLabelText("Location")).not.toHaveTextContent("environment");
+    });
+
+    it("opens nothing for a name that is no repository entry", async () => {
+      mount(null, "/projects/project_1?tab=bindings&environment=general-main");
+
+      await screen.findByRole("button", { name: "Edit general-main" });
+
+      expect(screen.queryByRole("form")).toBeNull();
+    });
   });
 });

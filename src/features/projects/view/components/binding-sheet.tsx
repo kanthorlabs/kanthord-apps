@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { BindingSetEntry } from "@/api/types";
+import type { BindingSetEntry, EnvironmentState } from "@/api/types";
 import { CredentialCreateSheet } from "@/features/credentials/components/credential-create-sheet";
 import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
 import { SshKeyFacts } from "@/features/credentials/components/ssh-key-facts";
@@ -33,6 +33,7 @@ import { useWorkerAgents } from "../use-worker-agents";
 import { useWorkerInstanceChoices } from "../use-worker-instance-choices";
 import { useWorkerNames } from "../use-worker-names";
 import { DraftField } from "./draft-field";
+import { EnvironmentSection } from "./environment-section";
 import { HostKeyPin } from "./host-key-pin";
 import { RepositoryForm } from "./repository-form";
 import { StorageForm } from "./storage-form";
@@ -44,12 +45,14 @@ interface BindingSheetProps {
   readonly projectId: string;
   readonly target: BindingTarget;
   readonly bindingId: string | null;
+  readonly environment: EnvironmentState | null;
   readonly takenNames: readonly string[];
   readonly repositoryNames: readonly string[];
   readonly saving: boolean;
   readonly conflict: boolean;
   readonly errorMessage: string | null;
   readonly onSave: (name: string, entry: BindingSetEntry) => void;
+  readonly onEnvironmentChanged: () => void;
   readonly onClose: () => void;
 }
 
@@ -57,12 +60,14 @@ export function BindingSheet({
   projectId,
   target,
   bindingId,
+  environment,
   takenNames,
   repositoryNames,
   saving,
   conflict,
   errorMessage,
   onSave,
+  onEnvironmentChanged,
   onClose,
 }: BindingSheetProps) {
   const form = useBindingDraft(target, takenNames, repositoryNames);
@@ -199,6 +204,17 @@ export function BindingSheet({
                     onNewApiCredential={bindingCredential.openCreate}
                     onRotateApiCredential={bindingCredential.rotate.start}
                     rotateApiCredentialAvailable={bindingCredential.rotate.available}
+                  />
+                )}
+                {draft.kind === "repository" && !form.creating && bindingId !== null && (
+                  <EnvironmentSection
+                    projectId={projectId}
+                    bindingId={bindingId}
+                    bindingName={draft.name}
+                    state={environment}
+                    focused={target.section === "environment"}
+                    onChanged={onEnvironmentChanged}
+                    onEdit={() => undefined}
                   />
                 )}
                 {draft.kind === "worker" && (
