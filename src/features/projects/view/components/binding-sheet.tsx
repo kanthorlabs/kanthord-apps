@@ -45,6 +45,7 @@ interface BindingSheetProps {
   readonly target: BindingTarget;
   readonly bindingId: string | null;
   readonly takenNames: readonly string[];
+  readonly repositoryNames: readonly string[];
   readonly saving: boolean;
   readonly conflict: boolean;
   readonly errorMessage: string | null;
@@ -57,13 +58,14 @@ export function BindingSheet({
   target,
   bindingId,
   takenNames,
+  repositoryNames,
   saving,
   conflict,
   errorMessage,
   onSave,
   onClose,
 }: BindingSheetProps) {
-  const form = useBindingDraft(target, takenNames);
+  const form = useBindingDraft(target, takenNames, repositoryNames);
   const { draft, errors } = form;
   const kindLabel = KIND_LABELS[target.kind];
 
@@ -204,6 +206,7 @@ export function BindingSheet({
                     draft={draft}
                     errors={errors}
                     creating={form.creating}
+                    repositoryNames={repositoryNames}
                     workers={workerNames.data ?? []}
                     agents={workerAgents}
                     placements={placementChoices}

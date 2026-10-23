@@ -4,6 +4,7 @@ import type {
   BindingSetKind,
   RepositoryActionFollows,
   RepositoryActionName,
+  RepositoryBindingConfig,
   RepositoryPlatform,
   WorkerAgentEntry,
   WorkerBindingConfig,
@@ -43,6 +44,7 @@ export interface RepositoryDraft {
   readonly credential: string;
   readonly projectPrompt: string;
   readonly workingLayer: WorkingLayerSwitches;
+  readonly kept: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">;
 }
 
 export interface WorkerDraft {
@@ -56,6 +58,7 @@ export interface WorkerDraft {
   readonly wallTimeMs: string;
   readonly entries: readonly AgentEntryDraft[];
   readonly tags: string;
+  readonly environment: string;
 }
 
 export interface StorageDraft {
@@ -154,6 +157,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       credential: "",
       projectPrompt: "",
       workingLayer: ALL_SWITCHES_ON,
+      kept: {},
     };
   }
   if (kind === "worker") {
@@ -168,6 +172,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       wallTimeMs: "",
       entries: [],
       tags: "",
+      environment: "",
     };
   }
   return {
@@ -233,6 +238,16 @@ export function withPlacementDefault(draft: WorkerDraft, external: boolean): Wor
   return placement === draft.placement ? draft : { ...draft, placement };
 }
 
+export function withEnvironmentDefault(
+  draft: WorkerDraft,
+  repositoryNames: readonly string[],
+): WorkerDraft {
+  const [only] = repositoryNames;
+  if (draft.placement !== "container" || !blank(draft.environment)) return draft;
+  if (only === undefined || repositoryNames.length !== 1) return draft;
+  return { ...draft, environment: only };
+}
+
 export function withWorkerPlacement(draft: WorkerDraft, atWorker: boolean): WorkerDraft {
   return { ...draft, placement: atWorker ? "worker" : "server", instances: [] };
 }
@@ -278,6 +293,12 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       credential: config.credential ?? "",
       projectPrompt: config.project_prompt ?? "",
       workingLayer: { ...ALL_SWITCHES_ON, ...config.working_layer },
+      kept: {
+        ...(config.environment === undefined ? {} : { environment: config.environment }),
+        ...(config.environment_secrets === undefined
+          ? {}
+          : { environment_secrets: config.environment_secrets }),
+      },
     };
   }
   if (entry.kind === "worker") {
@@ -294,6 +315,7 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
         config.resource_budget === undefined ? "" : String(config.resource_budget.wall_time_ms),
       entries: (config.entries ?? []).map(agentDraftOf),
       tags: (config.tags ?? []).join("\n"),
+      environment: config.environment ?? "",
     };
   }
   return { kind: "storage", name, ...entry.config };
@@ -396,6 +418,7 @@ function repositoryEntryOf(
       ...(credential !== undefined && credential !== "" ? { credential } : {}),
       ...(projectPrompt === undefined ? {} : { project_prompt: projectPrompt }),
       working_layer: draft.workingLayer,
+      ...draft.kept,
     },
   };
 }
@@ -474,6 +497,9 @@ function workerEntryOf(
         : {}),
       ...(draft.entries.length === 0 ? {} : { entries: draft.entries.map(agentEntryOf) }),
       ...(tagsOf(draft.tags).length === 0 ? {} : { tags: tagsOf(draft.tags) }),
+      ...(draft.placement === "container" && !blank(draft.environment)
+        ? { environment: draft.environment }
+        : {}),
     },
   };
 }
@@ -532,7 +558,10 @@ export function missingForCheck(draft: RepositoryDraft): readonly string[] {
   ]);
 }
 
-export function missingForSave(draft: BindingDraft): readonly string[] {
+export function missingForSave(
+  draft: BindingDraft,
+  repositoryNames: readonly string[] = [],
+): readonly string[] {
   const name: readonly [string, boolean] = ["Name", blank(draft.name)];
   if (draft.kind === "repository")
     return labelsOf([
@@ -553,6 +582,10 @@ export function missingForSave(draft: BindingDraft): readonly string[] {
       ["Worker", blank(draft.worker)],
       ["Instance count", draft.placement !== "worker" && blank(draft.instanceCount)],
       ["Tags", tagsInvalid(draft.tags)],
+      [
+        "Environment",
+        draft.placement === "container" && repositoryNames.length >= 2 && blank(draft.environment),
+      ],
     ]);
   return labelsOf([
     name,

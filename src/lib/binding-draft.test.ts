@@ -12,6 +12,7 @@ import {
   missingForSave,
   pinnableHostOf,
   withAgentEntry,
+  withEnvironmentDefault,
   withPlacementDefault,
   withPlatform,
   withWorker,
@@ -661,5 +662,76 @@ describe("advanced settings of a worker draft", () => {
       true,
     );
     expect(advancedNeedsAttention({ ...base, tags: "Not A Tag" }, {})).toBe(true);
+  });
+});
+
+describe("environment keys", () => {
+  const ENVIRONMENT = {
+    image: "mcr.microsoft.com/devcontainers/base:bookworm",
+    customizations: { kanthord: { checks: ["pnpm test"] } },
+  };
+  const SECRETS = { NPM_AUTH: "registry-auth" };
+  const containerWorker = (config: object): BindingSetEntry => ({
+    kind: "worker",
+    config: { worker: "coder@1", instance_count: 1, placement: "container", ...config },
+  });
+
+  it("keeps environment and environment_secrets of a repository through an address change", () => {
+    if (REPO.kind !== "repository") throw new Error("fixture");
+    const entry: BindingSetEntry = {
+      kind: "repository",
+      config: { ...REPO.config, environment: ENVIRONMENT, environment_secrets: SECRETS },
+    };
+    const draft = draftOf("repo", entry);
+    if (draft.kind !== "repository") throw new Error("fixture");
+    const result = entryOfDraft({ ...draft, address: "git@github.com:kanthorlabs/other.git" }, []);
+    expect(result.ok).toBe(true);
+    if (!result.ok || result.entry.kind !== "repository") throw new Error("fixture");
+    expect(result.entry.config.address).toBe("git@github.com:kanthorlabs/other.git");
+    expect(result.entry.config.environment).toEqual(ENVIRONMENT);
+    expect(result.entry.config.environment_secrets).toEqual(SECRETS);
+  });
+
+  it("writes neither key for a repository that reads neither", () => {
+    const result = entryOfDraft(draftOf("repo", REPO), []);
+    if (!result.ok || result.entry.kind !== "repository") throw new Error("fixture");
+    expect("environment" in result.entry.config).toBe(false);
+    expect("environment_secrets" in result.entry.config).toBe(false);
+  });
+
+  it("round-trips the environment of a container worker", () => {
+    const entry = containerWorker({ environment: "engine" });
+    expect(entryOfDraft(draftOf("coder-main", entry), [])).toEqual({ ok: true, entry });
+  });
+
+  it("writes no environment at the server or worker placement", () => {
+    const base = draftOf("coder-main", containerWorker({ environment: "engine" })) as WorkerDraft;
+    for (const placement of ["server", "worker"] as const) {
+      const result = entryOfDraft({ ...base, placement, instances: [] }, []);
+      if (!result.ok || result.entry.kind !== "worker") throw new Error("fixture");
+      expect("environment" in result.entry.config).toBe(false);
+    }
+  });
+
+  it("names Environment for a container draft with two repositories and no choice", () => {
+    const draft = {
+      ...(draftOf("coder-main", containerWorker({})) as WorkerDraft),
+      environment: " ",
+    };
+    expect(missingForSave(draft, ["engine", "web"])).toContain("Environment");
+    expect(missingForSave(draft, ["engine"])).not.toContain("Environment");
+    expect(missingForSave(draft, [])).not.toContain("Environment");
+    expect(missingForSave({ ...draft, environment: "web" }, ["engine", "web"])).not.toContain(
+      "Environment",
+    );
+  });
+
+  it("presets the only repository for a container draft with no environment", () => {
+    const draft = draftOf("coder-main", containerWorker({})) as WorkerDraft;
+    expect(withEnvironmentDefault(draft, ["engine"]).environment).toBe("engine");
+    expect(withEnvironmentDefault(draft, ["engine", "web"])).toBe(draft);
+    expect(withEnvironmentDefault(draft, [])).toBe(draft);
+    const atServer = { ...draft, placement: "server" as const };
+    expect(withEnvironmentDefault(atServer, ["engine"])).toBe(atServer);
   });
 });

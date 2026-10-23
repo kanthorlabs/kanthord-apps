@@ -1,5 +1,6 @@
 import type { Resource } from "@/hooks/use-resource";
 import type { WorkerInstanceListItem } from "@/api/types";
+import { ChoiceField } from "@/components/choice-field";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
@@ -21,6 +22,13 @@ import { InstancesField } from "./instances-field";
 import { PlacementField } from "./placement-field";
 import { WorkerAdvancedSettings } from "./worker-advanced-settings";
 import { WorkerAgentItem } from "./worker-agent-item";
+
+function environmentDescriptionOf(repositoryNames: readonly string[]): string {
+  if (repositoryNames.length === 0)
+    return "Add a repository binding first. The slots then run its image.";
+  if (repositoryNames.length === 1) return "The slots run the image of this repository binding.";
+  return "Required. The slots run the image of this repository binding, and the binding claims only its nodes.";
+}
 
 interface WorkerAgentListProps {
   readonly draft: WorkerDraft;
@@ -85,6 +93,7 @@ interface WorkerFormProps {
   readonly draft: WorkerDraft;
   readonly errors: DraftErrors;
   readonly creating: boolean;
+  readonly repositoryNames: readonly string[];
   readonly workers: readonly string[];
   readonly agents: Resource<WorkerAgents>;
   readonly placements: PlacementChoices;
@@ -98,6 +107,7 @@ export function WorkerForm({
   draft,
   errors,
   creating,
+  repositoryNames,
   workers,
   agents,
   placements,
@@ -151,6 +161,17 @@ export function WorkerForm({
             onChange={() => undefined}
           />
         ))}
+      {draft.placement === "container" && (
+        <ChoiceField
+          id="binding-environment"
+          label="Environment"
+          value={draft.environment}
+          options={repositoryNames}
+          error={errors["environment"]}
+          description={environmentDescriptionOf(repositoryNames)}
+          onChange={(environment) => onEdit({ ...draft, environment: environment ?? "" })}
+        />
+      )}
       {draft.placement === "worker" ? (
         <InstancesField
           draft={draft}
