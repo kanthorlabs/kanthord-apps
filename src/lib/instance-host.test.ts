@@ -149,6 +149,16 @@ describe("copyStepsOf", () => {
       copyStepsOf("Container on this host", "box-01", "28.0.1", "Podman")[2]?.command,
     ).toContain(" --no-healthcheck ");
   });
+
+  it.each(["Podman", "Docker"] as const)(
+    "starts a %s worker container with a memory limit",
+    (runtime) => {
+      const sameHost = copyStepsOf("Container on this host", "box-01", "28.0.1", runtime);
+      expect(sameHost.some((step) => step.command?.includes(" --memory=4g ") === true)).toBe(true);
+      const stateless = copyStepsOf("Container", "box-01", "28.0.1", runtime);
+      expect(stateless.some((step) => step.text.includes("run --memory=4g"))).toBe(true);
+    },
+  );
 });
 
 describe("copyStepsOf with Docker", () => {
@@ -157,7 +167,7 @@ describe("copyStepsOf with Docker", () => {
     expect(steps.map((step) => step.command)).toEqual([
       "docker network create kanthord-net\ndocker network connect kanthord-net kanthord",
       "(umask 077 && cat > box-01.env)",
-      'docker run -d --name kanthord-worker-box-01 --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --no-healthcheck --env-file box-01.env -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:28.0.1 serve worker',
+      'docker run -d --name kanthord-worker-box-01 --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --memory=4g --no-healthcheck --env-file box-01.env -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:28.0.1 serve worker',
       "rm box-01.env",
     ]);
     expect(steps[1]?.text).toContain(
