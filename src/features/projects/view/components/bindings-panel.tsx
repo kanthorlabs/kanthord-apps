@@ -28,6 +28,10 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
   const { bindings, guard, target } = editor;
   const { data, error, loading, reload } = bindings.resource;
   const current = data?.bindings ?? {};
+  const repositoryNames = Object.entries(current)
+    .filter(([, entry]) => entry.kind === "repository")
+    .map(([name]) => name)
+    .sort();
 
   const bindingVerify = useBindingVerify(projectId, data?.version ?? null);
   const hostedWorkers = useHostedWorkers().data;
@@ -125,6 +129,7 @@ export function BindingsPanel({ projectId, onWritten }: BindingsPanelProps) {
           target={target}
           bindingId={target.name === null ? null : bindingVerify.bindingIdOf(target.name)}
           takenNames={Object.keys(current)}
+          repositoryNames={repositoryNames}
           saving={bindings.saving}
           conflict={bindings.conflict}
           errorMessage={bindings.error}

@@ -776,6 +776,28 @@ describe("BindingsPanel", () => {
     expect(screen.queryByRole("button", { name: "gone-01 · Not found" })).toBeNull();
   });
 
+  it("requires the Environment choice of a container worker binding with two repositories", async () => {
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      ...SET,
+      bindings: { engine: REPO, web: REPO, "general-main": WORKER },
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
+
+    const environment = await screen.findByRole("combobox", { name: "Environment" });
+    expect(screen.getByText(/^Fill .*Environment/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
+    await userEvent.click(environment);
+    expect(await screen.findByRole("option", { name: "engine" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "web" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("option", { name: "web" }));
+    expect(screen.getByRole("button", { name: "Save binding" })).toBeEnabled();
+  });
+
   it("turns container off with the reason when the server runs in a container", async () => {
     vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(IN_CONTAINER);
     mount();
@@ -904,7 +926,12 @@ describe("BindingsPanel", () => {
         "general-main": WORKER,
         "sandbox-main": {
           kind: "worker",
-          config: { worker: "coder@1", instance_count: 1, placement: "container" },
+          config: {
+            worker: "coder@1",
+            instance_count: 1,
+            placement: "container",
+            environment: "kanthord-repo",
+          },
         },
       }),
     );

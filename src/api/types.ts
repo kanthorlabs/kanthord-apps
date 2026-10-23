@@ -417,6 +417,8 @@ export type WorkingLayerKey = (typeof WORKING_LAYER_KEYS)[number];
 
 export type WorkingLayerSwitches = Readonly<Record<WorkingLayerKey, boolean>>;
 
+export type EnvironmentDocument = Readonly<Record<string, unknown>>;
+
 export interface RepositoryBindingConfig {
   readonly available: boolean;
   readonly platform: RepositoryPlatform;
@@ -432,6 +434,8 @@ export interface RepositoryBindingConfig {
   readonly credential?: string;
   readonly project_prompt?: string;
   readonly working_layer?: WorkingLayerSwitches;
+  readonly environment?: EnvironmentDocument;
+  readonly environment_secrets?: Readonly<Record<string, string>>;
 }
 
 export type InstructionFileSource =
@@ -482,6 +486,7 @@ export interface WorkerBindingConfig {
   readonly resource_budget?: { readonly turns: number; readonly wall_time_ms: number };
   readonly entries?: readonly WorkerAgentEntry[];
   readonly tags?: readonly string[];
+  readonly environment?: string;
 }
 
 export interface StorageBindingConfig {
