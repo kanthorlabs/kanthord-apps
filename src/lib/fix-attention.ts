@@ -1,4 +1,11 @@
-import type { Credential, NodeState, Project, SchedulerExecutionRecord, Intent } from "@/api/types";
+import type {
+  Credential,
+  EnvironmentFailureClass,
+  NodeState,
+  Project,
+  SchedulerExecutionRecord,
+  Intent,
+} from "@/api/types";
 
 import type { AttentionContext, ItemBase, ProjectSnapshot } from "./attention";
 import { takerHintOf, uncoveredJobsOf, type TakerHint } from "./claim-takers";
@@ -15,6 +22,12 @@ interface FixBase extends ItemBase {
 
 export interface ProjectPausedItem extends FixBase {
   readonly kind: "project_paused";
+}
+
+export interface EnvironmentFailedItem extends FixBase {
+  readonly kind: "environment_failed";
+  readonly binding: string;
+  readonly failureClass: EnvironmentFailureClass;
 }
 
 export interface NoTakerItem extends FixBase {
@@ -57,7 +70,12 @@ export interface RequestRejectedItem extends SpreadBase {
 }
 
 export type FixAttentionItem =
-  ProjectPausedItem | NoTakerItem | AgentInvalidItem | CredentialRefusedItem | RequestRejectedItem;
+  | ProjectPausedItem
+  | EnvironmentFailedItem
+  | NoTakerItem
+  | AgentInvalidItem
+  | CredentialRefusedItem
+  | RequestRejectedItem;
 
 interface Refusal {
   readonly project: Project;
@@ -81,6 +99,26 @@ function projectPausedOf(snapshot: ProjectSnapshot): readonly FixAttentionItem[]
       cause: "Project paused",
     },
   ];
+}
+
+function environmentFailedOf(snapshot: ProjectSnapshot): readonly EnvironmentFailedItem[] {
+  const { project } = snapshot;
+  return (snapshot.environments ?? []).flatMap((state): readonly EnvironmentFailedItem[] => {
+    if (state.status !== "failed" || state.failure === null) return [];
+    return [
+      {
+        id: `environment_failed:${project.id}:${state.binding_id}`,
+        kind: "environment_failed",
+        group: "fixes",
+        project,
+        at: state.failure.ended_at,
+        subject: state.binding_name,
+        cause: "Environment failed",
+        binding: state.binding_name,
+        failureClass: state.failure.class,
+      },
+    ];
+  });
 }
 
 function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readonly NoTakerItem[] {
@@ -314,6 +352,7 @@ export function fixItemsOf(
 ): readonly FixAttentionItem[] {
   return [
     ...snapshots.flatMap(projectPausedOf),
+    ...snapshots.flatMap(environmentFailedOf),
     ...snapshots.flatMap((snapshot) => noTakerOf(snapshot, context)),
     ...agentInvalidOf(snapshots),
     ...credentialRefusedOf(snapshots, context),
@@ -328,7 +367,9 @@ export interface FixTarget {
 
 export function fixTargetOf(item: FixAttentionItem): FixTarget {
   const project = `/projects/${encodeURIComponent(item.project.id)}`;
-  if (item.kind === "project_paused") return { path: project, label: "Open project" };
+  if (item.kind === "project_paused" || item.kind === "environment_failed") {
+    return { path: project, label: "Open project" };
+  }
   if (item.kind === "no_taker") return { path: `${project}?tab=bindings`, label: "Open bindings" };
   if (item.kind === "credential_refused") {
     return { path: `/llm/${encodeURIComponent(item.credential)}`, label: "Open credential" };
@@ -341,7 +382,13 @@ function plural(count: number, noun: string): string {
 }
 
 export function spreadTextOf(item: FixAttentionItem): string | null {
-  if (item.kind === "project_paused" || item.kind === "no_taker") return null;
+  if (
+    item.kind === "project_paused" ||
+    item.kind === "environment_failed" ||
+    item.kind === "no_taker"
+  ) {
+    return null;
+  }
   if (item.count === 1 && item.projectCount === 1) return null;
   const noun = item.kind === "agent_invalid" ? "binding" : "node";
   return `${plural(item.count, noun)} in ${plural(item.projectCount, "project")}`;

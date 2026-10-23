@@ -6,6 +6,7 @@ import type {
   MissionNodeRecord,
   MissionProposal,
   Credential,
+  EnvironmentState,
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
@@ -68,6 +69,7 @@ export interface ProjectSnapshot {
   readonly registrations: readonly WorkerRegistrationRecord[] | null;
   readonly executions: readonly SchedulerExecutionRecord[] | null;
   readonly bindings: readonly WorkerBindingView[] | null;
+  readonly environments: readonly EnvironmentState[] | null;
 }
 
 export interface AttentionContext {

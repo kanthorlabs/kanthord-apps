@@ -1,9 +1,10 @@
 import { listMissionNodes, readMission } from "@/api/resources/mission";
-import { listProjects } from "@/api/resources/projects";
+import { listProjectEnvironments, listProjects } from "@/api/resources/projects";
 import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
 import { listWorkbenchSessions } from "@/api/resources/workbench";
 import { listWorkerRegistrations } from "@/api/resources/workers";
 import type {
+  EnvironmentState,
   Mission,
   MissionNodeRecord,
   Project,
@@ -23,6 +24,7 @@ export interface ProjectRead {
   readonly jobs: readonly SchedulerJob[] | null;
   readonly registrations: readonly WorkerRegistrationRecord[] | null;
   readonly executions: readonly SchedulerExecutionRecord[] | null;
+  readonly environments: readonly EnvironmentState[] | null;
 }
 
 export interface ReadFault {
@@ -84,7 +86,7 @@ async function readProject(
     () => readMission(project.id),
     previous?.mission ?? null,
   );
-  const [nodes, jobs, registrations, executions] = await Promise.all([
+  const [nodes, jobs, registrations, executions, environments] = await Promise.all([
     readNodes(project, mission.data, previous),
     settle(project, "queue", () => listQueueJobs(project.id), previous?.jobs ?? null),
     settle(
@@ -99,6 +101,12 @@ async function readProject(
       async () => (await listProjectExecutionPage(project.id, null, EXECUTION_PAGE_LIMIT)).items,
       previous?.executions ?? null,
     ),
+    settle(
+      project,
+      "environment list",
+      () => listProjectEnvironments(project.id),
+      previous?.environments ?? null,
+    ),
   ]);
   return {
     read: {
@@ -108,10 +116,16 @@ async function readProject(
       jobs: jobs.data,
       registrations: registrations.data,
       executions: executions.data,
+      environments: environments.data,
     },
-    faults: [mission.fault, nodes.fault, jobs.fault, registrations.fault, executions.fault].flatMap(
-      (fault) => (fault === null ? [] : [fault]),
-    ),
+    faults: [
+      mission.fault,
+      nodes.fault,
+      jobs.fault,
+      registrations.fault,
+      executions.fault,
+      environments.fault,
+    ].flatMap((fault) => (fault === null ? [] : [fault])),
   };
 }
 

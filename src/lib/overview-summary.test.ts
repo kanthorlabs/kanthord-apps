@@ -83,6 +83,7 @@ describe("attentionSummary", () => {
           registrations: null,
           executions: null,
           bindings: null,
+          environments: null,
         },
       ],
       new Map(),
@@ -103,6 +104,7 @@ describe("attentionSummary", () => {
           registrations: null,
           executions: null,
           bindings: null,
+          environments: null,
         },
       ],
       new Map(),
@@ -172,6 +174,7 @@ describe("coolingFactsOf", () => {
             ],
           },
         ],
+        environments: null,
       },
     ]);
 
@@ -191,6 +194,7 @@ describe("coolingFactsOf", () => {
           registrations: null,
           executions: null,
           bindings: null,
+          environments: null,
         },
       ]),
     ).toEqual([]);
@@ -217,6 +221,7 @@ describe("projectsWithoutSetup", () => {
       registrations: [],
       executions: [],
       bindings: null,
+      environments: null,
     };
   }
 
