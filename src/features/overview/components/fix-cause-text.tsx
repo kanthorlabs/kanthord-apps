@@ -108,7 +108,8 @@ export function FixCauseText({ item }: FixCauseTextProps) {
     return (
       <>
         <RecordName>{item.binding}</RecordName> of <RecordName>{item.project.name}</RecordName>{" "}
-        waits: {item.reason} Workers claim no node of it. The server reads it again each minute.
+        waits{item.reason === "" ? "." : `: ${item.reason}`} Workers claim no node of it. The server
+        reads it again each minute.
       </>
     );
   }

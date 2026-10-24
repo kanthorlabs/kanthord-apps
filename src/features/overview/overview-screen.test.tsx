@@ -2403,6 +2403,32 @@ describe("OverviewScreen fixes", () => {
     );
   });
 
+  it("shows no reason sentence for a waiting environment with an empty reason", async () => {
+    serve({
+      environments: {
+        "prj-1": [
+          {
+            ...failedEnvironment(),
+            status: "pending",
+            failure: null,
+            reason: "",
+            reason_started_at: NOW - HOUR,
+          },
+        ],
+      },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("engine"));
+    expect(
+      within(item).getByText(
+        textContent(
+          "engine of kanthord waits. Workers claim no node of it. The server reads it again each minute.",
+        ),
+      ),
+    ).toBeInTheDocument();
+  });
+
   it("shows a read fault for a rejected environment list and keeps the other items", async () => {
     serve({ projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS] });
     vi.mocked(listProjectEnvironments).mockRejectedValue(

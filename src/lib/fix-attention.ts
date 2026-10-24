@@ -131,7 +131,9 @@ function environmentFailedOf(snapshot: ProjectSnapshot): readonly EnvironmentFai
 const SENTENCE_END = /[.!?]$/;
 
 function sentenceOf(text: string): string {
-  return SENTENCE_END.test(text) ? text : `${text}.`;
+  const trimmed = text.trimEnd();
+  if (trimmed === "" || SENTENCE_END.test(trimmed)) return trimmed;
+  return `${trimmed}.`;
 }
 
 function environmentPendingOf(

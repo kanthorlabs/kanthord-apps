@@ -1011,6 +1011,24 @@ describe("fixItemsOf environment_pending", () => {
     expect(item).toMatchObject({ reason: "connect ECONNREFUSED 127.0.0.1:22." });
   });
 
+  it("trims a trailing newline before it adds the period", () => {
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [waiting("podman exited\n", NOW - 60 * MINUTE)] })],
+      context(),
+    );
+
+    expect(item).toMatchObject({ reason: "podman exited." });
+  });
+
+  it("keeps an empty reason empty", () => {
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [waiting(" \n", NOW - 60 * MINUTE)] })],
+      context(),
+    );
+
+    expect(item).toMatchObject({ reason: "" });
+  });
+
   it("lists nothing for a pending environment within the limit or with no reason", () => {
     const states = [
       waiting(SSH_REASON, NOW - PENDING_LIMIT),
