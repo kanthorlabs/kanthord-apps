@@ -2345,6 +2345,85 @@ describe("BindingsPanel", () => {
       });
     });
 
+    describe("source", () => {
+      const DRAFT = { image: "node:22", features: {} };
+      const DETECTED_TEXT =
+        "Drafted by KanthorD from the version files, the lockfiles and the CI workflows. Store it to keep and edit it.";
+      const UNIVERSAL_TEXT =
+        "The universal environment of KanthorD. Detection found no stack. Store it to keep and edit it.";
+
+      async function openRegion(source: "detected" | "universal" | "stored" | "repository") {
+        vi.mocked(projectsApi.readBindingEnvironment).mockResolvedValue({
+          source,
+          commit: null,
+          environment: DRAFT,
+          reason: null,
+        });
+        mount([READY]);
+        await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+        return screen.findByRole("region", { name: "Environment" });
+      }
+
+      it("shows the text, the hidden document and Store as environment for a detected answer", async () => {
+        const region = await openRegion("detected");
+
+        expect(await within(region).findByText(DETECTED_TEXT)).toBeTruthy();
+        const toggle = within(region).getByRole("button", { name: "Show document" });
+        expect(toggle).toHaveAttribute("aria-expanded", "false");
+        await userEvent.click(toggle);
+        expect(toggle).toHaveAttribute("aria-expanded", "true");
+        const document = await within(region).findByText(
+          (_, element) =>
+            element?.tagName === "PRE" && element.textContent === JSON.stringify(DRAFT, null, 2),
+        );
+        expect(document.closest("textarea")).toBeNull();
+        expect(within(region).getByRole("button", { name: "Store as environment" })).toBeTruthy();
+      });
+
+      it("opens Edit environment with the document and saves it", async () => {
+        vi.mocked(projectsApi.writeBindingEnvironment).mockResolvedValue({
+          project_id: "project_1",
+          binding_set_version: 3,
+          changes: [],
+        });
+        const region = await openRegion("detected");
+        await within(region).findByText(DETECTED_TEXT);
+
+        await userEvent.click(within(region).getByRole("button", { name: "Store as environment" }));
+
+        expect(await screen.findByRole("textbox", { name: "Environment" })).toHaveValue(
+          JSON.stringify(DRAFT, null, 2),
+        );
+        await userEvent.click(screen.getByRole("button", { name: "Save environment" }));
+        await waitFor(() =>
+          expect(projectsApi.writeBindingEnvironment).toHaveBeenCalledWith(
+            "project_1",
+            "binding_REPO1",
+            DRAFT,
+          ),
+        );
+      });
+
+      it("shows the same two buttons for a universal answer", async () => {
+        const region = await openRegion("universal");
+
+        expect(await within(region).findByText(UNIVERSAL_TEXT)).toBeTruthy();
+        expect(within(region).getByRole("button", { name: "Show document" })).toBeTruthy();
+        expect(within(region).getByRole("button", { name: "Store as environment" })).toBeTruthy();
+      });
+
+      it.each(["stored", "repository"] as const)(
+        "shows no Store as environment for a %s answer",
+        async (source) => {
+          const region = await openRegion(source);
+
+          await within(region).findByText(/^(Stored on the binding|Read from)/);
+          expect(within(region).queryByRole("button", { name: "Store as environment" })).toBeNull();
+          expect(within(region).queryByRole("button", { name: "Show document" })).toBeNull();
+        },
+      );
+    });
+
     it("opens nothing for a name that is no repository entry", async () => {
       mount(null, "/projects/project_1?tab=bindings&environment=general-main");
 

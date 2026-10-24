@@ -155,6 +155,24 @@ describe("useBindingEnvironment", () => {
       expect(hook.result.current.initialText).toBe("");
     });
 
+    it("opens the sheet with a detected environment as indented JSON", async () => {
+      const { hook } = await mounted({ ...ENVIRONMENT, source: "detected" });
+      act(() => hook.result.current.openStore());
+      expect(hook.result.current.editing).toBe(true);
+      expect(hook.result.current.initialText).toBe(
+        JSON.stringify(ENVIRONMENT.environment, null, 2),
+      );
+    });
+
+    it("starts at an empty text when openEdit follows a closed store", async () => {
+      const { hook } = await mounted({ ...ENVIRONMENT, source: "detected" });
+      act(() => hook.result.current.openStore());
+      act(() => hook.result.current.closeEdit());
+      act(() => hook.result.current.openEdit());
+      expect(hook.result.current.editing).toBe(true);
+      expect(hook.result.current.initialText).toBe("");
+    });
+
     it.each(["[1, 2]", "null", "{"])("refuses %j without a request", async (text) => {
       const { hook } = await mounted();
       act(() => hook.result.current.openEdit());
