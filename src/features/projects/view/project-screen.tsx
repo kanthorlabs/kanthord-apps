@@ -23,7 +23,7 @@ export function ProjectScreen() {
   const { projectId = "" } = useParams<{ projectId: string }>();
   const { data: project, error, loading, reload } = useProjectDetail(projectId);
   const { tab, selectTab } = useProjectTab();
-  const { states, now } = useProjectEnvironments(projectId);
+  const { states, now, refresh } = useProjectEnvironments(projectId);
   const bar = useEnvironmentBar(states);
   useCrumbLabel(`/projects/${encodeURIComponent(projectId)}`, project?.name);
 
@@ -127,7 +127,12 @@ export function ProjectScreen() {
           <MissionPanel projectId={project.id} projectName={project.name} />
         </TabsContent>
         <TabsContent value="bindings">
-          <BindingsPanel projectId={project.id} environments={states} onWritten={reload} />
+          <BindingsPanel
+            projectId={project.id}
+            environments={states}
+            onWritten={reload}
+            onEnvironmentChanged={refresh}
+          />
         </TabsContent>
       </Tabs>
     </div>

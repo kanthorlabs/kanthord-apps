@@ -1,6 +1,7 @@
 import { PlusIcon } from "lucide-react";
+import { useState } from "react";
 
-import type { BindingSetKind, EnvironmentState } from "@/api/types";
+import type { BindingSetKind, EnvironmentDocument, EnvironmentState } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
@@ -22,9 +23,15 @@ interface BindingsPanelProps {
   projectId: string;
   environments: readonly EnvironmentState[] | null;
   onWritten: () => void;
+  onEnvironmentChanged: () => void;
 }
 
-export function BindingsPanel({ projectId, environments, onWritten }: BindingsPanelProps) {
+export function BindingsPanel({
+  projectId,
+  environments,
+  onWritten,
+  onEnvironmentChanged,
+}: BindingsPanelProps) {
   const editor = useBindingEditor(projectId, onWritten);
   const { bindings, guard, target } = editor;
   const { data, error, loading, reload } = bindings.resource;
@@ -34,8 +41,25 @@ export function BindingsPanel({ projectId, environments, onWritten }: BindingsPa
     .map(([name]) => name)
     .sort();
 
+  const [sheetEpoch, setSheetEpoch] = useState(0);
   const bindingVerify = useBindingVerify(projectId, data?.version ?? null);
   const hostedWorkers = useHostedWorkers().data;
+
+  const onEnvironmentWritten = (saved: EnvironmentDocument) => {
+    if (target === null || target.entry?.kind !== "repository") return;
+    editor.openTarget({
+      ...target,
+      entry: { kind: "repository", config: { ...target.entry.config, environment: saved } },
+      section: "environment",
+    });
+    setSheetEpoch((epoch) => epoch + 1);
+    reload();
+  };
+
+  const environmentOf = (name: string, kind: BindingSetKind): EnvironmentState | null =>
+    kind === "repository"
+      ? (environments?.find((state) => state.binding_name === name) ?? null)
+      : null;
 
   if (loading && data === null) {
     return (
@@ -104,11 +128,7 @@ export function BindingsPanel({ projectId, environments, onWritten }: BindingsPa
                       name={name}
                       entry={entry}
                       bindingId={bindingId}
-                      environment={
-                        entry.kind === "repository"
-                          ? (environments?.find((state) => state.binding_name === name) ?? null)
-                          : null
-                      }
+                      environment={environmentOf(name, entry.kind)}
                       hostedWorker={
                         entry.kind === "worker" &&
                         (hostedWorkers?.has(entry.config.worker) ?? false)
@@ -130,16 +150,19 @@ export function BindingsPanel({ projectId, environments, onWritten }: BindingsPa
       })}
       {target !== null && (
         <BindingSheet
-          key={`${target.kind}:${target.name ?? "new"}`}
+          key={`${target.kind}:${target.name ?? "new"}:${sheetEpoch}`}
           projectId={projectId}
           target={target}
           bindingId={target.name === null ? null : bindingVerify.bindingIdOf(target.name)}
+          environment={target.name === null ? null : environmentOf(target.name, target.kind)}
           takenNames={Object.keys(current)}
           repositoryNames={repositoryNames}
           saving={bindings.saving}
           conflict={bindings.conflict}
           errorMessage={bindings.error}
           onSave={editor.propose}
+          onEnvironmentChanged={onEnvironmentChanged}
+          onEnvironmentWritten={onEnvironmentWritten}
           onClose={editor.closeTarget}
         />
       )}

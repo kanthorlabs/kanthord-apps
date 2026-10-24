@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import type { BindingSetEntry } from "@/api/types";
 import { classifyChange, isGuarded, unavailableOf } from "@/lib/binding-change";
@@ -17,22 +18,41 @@ export interface BindingEditorState {
   readonly takeSaferPath: () => void;
 }
 
+const ENVIRONMENT_PARAM = "environment";
+
 export function useBindingEditor(projectId: string, onSetWritten: () => void): BindingEditorState {
   const bindings = useBindingSet(projectId, onSetWritten);
   const guard = useBindingChangeGuard(projectId);
-  const [target, setTarget] = useState<BindingTarget | null>(null);
+  const [chosen, setChosen] = useState<BindingTarget | null>(null);
+  const [params, setParams] = useSearchParams();
   const { write, clearFeedback } = bindings;
   const current = bindings.resource.data?.bindings;
+  const environmentName = params.get(ENVIRONMENT_PARAM);
+
+  const linked = useMemo<BindingTarget | null>(() => {
+    const entry = environmentName === null ? undefined : current?.[environmentName];
+    if (environmentName === null || entry?.kind !== "repository") return null;
+    return { kind: "repository", name: environmentName, entry, section: "environment" };
+  }, [environmentName, current]);
+  const target = chosen ?? linked;
 
   const closeTarget = useCallback(() => {
-    setTarget(null);
+    setChosen(null);
     clearFeedback();
-  }, [clearFeedback]);
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.delete(ENVIRONMENT_PARAM);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [clearFeedback, setParams]);
 
   const openTarget = useCallback(
     (next: BindingTarget) => {
       clearFeedback();
-      setTarget(next);
+      setChosen(next);
     },
     [clearFeedback],
   );

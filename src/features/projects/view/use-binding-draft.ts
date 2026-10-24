@@ -17,6 +17,7 @@ export interface BindingTarget {
   readonly kind: BindingSetKind;
   readonly name: string | null;
   readonly entry: BindingSetEntry | null;
+  readonly section?: "environment";
 }
 
 export interface BindingDraftState {
