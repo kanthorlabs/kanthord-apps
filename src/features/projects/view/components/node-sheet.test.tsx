@@ -634,7 +634,7 @@ describe("NodeSheet", () => {
 
     expect(
       await screen.findByText(
-        "The attempt runs revision 2. Revision 3 applies at the next attempt.",
+        "The open attempt runs revision 2. Revision 3 applies at the next attempt.",
       ),
     ).toBeTruthy();
   });
@@ -643,6 +643,13 @@ describe("NodeSheet", () => {
     renderSheet("node_running");
 
     expect(await screen.findByText("Running work requirement")).toBeTruthy();
+    expect(screen.queryByText(/applies at the next attempt/)).toBeNull();
+  });
+
+  it("shows no revision note when no attempt is open", async () => {
+    renderSheet("node_audit");
+
+    expect(await screen.findByText("The node is blocked after attempt 1.")).toBeTruthy();
     expect(screen.queryByText(/applies at the next attempt/)).toBeNull();
   });
 

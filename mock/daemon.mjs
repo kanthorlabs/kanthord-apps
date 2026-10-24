@@ -1400,6 +1400,15 @@ const importFirstRevision = () => ({
   created_at: Date.now() - 9_000 * 60_000,
 });
 
+const revisionPins = (node, revision) => {
+  const recorded = (fx.GRAPH_ATTEMPTS[node.id] ?? [])
+    .filter((attempt) => attempt.node_revision === revision)
+    .map((attempt) => attempt.attempt);
+  const current = revision === node.visible_revision ? node.pinned_by_attempts : [];
+  const open = pinnedRevisionOf(node) === revision ? [node.attempt] : [];
+  return [...new Set([...recorded, ...current, ...open])].sort((a, b) => a - b);
+};
+
 const graphRevisions = (node) => {
   const { write, reason, created_at } = createdFirstRevisions.get(node.id) ?? importFirstRevision();
   const first = {
@@ -1412,15 +1421,15 @@ const graphRevisions = (node) => {
     content: fx.GRAPH_ORIGINAL_CONTENT[node.id] ?? node.content,
     tasks: node.tasks,
     change: { write, previous_revision: null, changed_fields: [] },
-    pinned_by_attempts: node.pinned_by_attempts,
+    pinned_by_attempts: revisionPins(node, 1),
   };
   const later = (fx.GRAPH_EXTRA_REVISIONS[node.id] ?? []).map(({ contentAt, ...revision }) => ({
     node_id: node.id,
     filename: node.filename,
     content: contentAt(node),
     tasks: node.tasks,
-    pinned_by_attempts: [],
     ...revision,
+    pinned_by_attempts: revisionPins(node, revision.revision),
   }));
   return [first, ...later].reverse();
 };
@@ -1582,6 +1591,7 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
   state.edges.push(...addedEdges);
   proposer.state = "Pending";
   proposer.attempt += 1;
+  proposer.pinned_by_attempts = [...proposer.pinned_by_attempts, proposer.attempt];
   proposer.pinned_revision = proposer.visible_revision;
   mission.version += 1;
   proposal.approved_at = now;

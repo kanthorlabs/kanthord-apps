@@ -619,13 +619,19 @@ export const GRAPH_NODES = [
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  graphNode("YB2", "recovery-codes.md", content("Add recovery codes", [REPO]), {
-    state: "Executing",
-    attempt: 1,
-    pinned_by_attempts: [1],
-    visible_revision: 2,
-    pinned_revision: 1,
-  }),
+  graphNode(
+    "YB2",
+    "recovery-codes.md",
+    content("Add recovery codes", [REPO], {
+      requirement: "Generate ten single-use recovery codes for each account.",
+    }),
+    {
+      state: "Executing",
+      attempt: 1,
+      visible_revision: 2,
+      pinned_revision: 1,
+    },
+  ),
   graphNode(
     "YA2",
     "reset-email.md",
@@ -643,7 +649,7 @@ export const GRAPH_NODES = [
     content("Audit log for account changes", [REPO], {
       criterion: "Every account change writes one audit entry with the actor and the time.",
     }),
-    { state: "Blocked", attempt: 1, pinned_by_attempts: [1], visible_revision: 2 },
+    { state: "Blocked", attempt: 1, visible_revision: 2 },
   ),
   graphNode("YC2", "stripe-webhook.md", content("Stripe webhook", [REPO]), {
     state: "External.Requested",
@@ -1530,6 +1536,9 @@ export const GRAPH_EXTRA_REVISIONS = {
 export const GRAPH_ORIGINAL_CONTENT = {
   [ids.audit]: content("Audit log for account changes", [REPO_OLD]),
   [ids.signup]: content("Sign-up form", [REPO_OLD]),
+  [ids.codes]: content("Add recovery codes", [REPO], {
+    requirement: "Generate eight single-use recovery codes for each account.",
+  }),
 };
 
 export const GRAPH_HUMAN = human;

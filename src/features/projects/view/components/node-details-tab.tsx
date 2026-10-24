@@ -102,8 +102,8 @@ function PinnedRevisionNotice({ node }: { node: MissionNodeRecord }) {
   return (
     <Alert>
       <AlertDescription>
-        The attempt runs revision {node.pinned_revision}. Revision {node.visible_revision} applies
-        at the next attempt.
+        The open attempt runs revision {node.pinned_revision}. Revision {node.visible_revision}{" "}
+        applies at the next attempt.
       </AlertDescription>
     </Alert>
   );
