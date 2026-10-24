@@ -47,6 +47,7 @@ function node(intent: Intent, state: NodeState): MissionNodeRecord {
     },
     retired_at: null,
     pinned_by_attempts: [],
+    pinned_revision: null,
     state,
     attempt: 2,
     priority: 0,

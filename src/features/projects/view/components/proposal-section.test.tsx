@@ -46,6 +46,7 @@ function node(
     },
     retired_at: null,
     pinned_by_attempts: [],
+    pinned_revision: null,
     state: "Completed",
     attempt: 1,
     priority: 0,

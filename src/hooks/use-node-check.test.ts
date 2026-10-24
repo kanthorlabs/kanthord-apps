@@ -41,6 +41,7 @@ function nodeIn(state: NodeState): MissionNodeRecord {
     },
     retired_at: null,
     pinned_by_attempts: [],
+    pinned_revision: null,
     state,
     attempt: 1,
     priority: 0,

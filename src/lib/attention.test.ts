@@ -118,6 +118,7 @@ function node(
     },
     retired_at: null,
     pinned_by_attempts: [],
+    pinned_revision: null,
     intent: "implement",
     tags: [],
     tasks: [],

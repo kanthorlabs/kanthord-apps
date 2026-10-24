@@ -569,6 +569,7 @@ const graphNode = (suffix, filename, nodeContent, runtime, tasks = []) => ({
   pinned_by_attempts: runtime.pinned_by_attempts ?? [],
   state: runtime.state,
   attempt: runtime.attempt,
+  pinned_revision: runtime.pinned_revision ?? runtime.visible_revision ?? 1,
   priority: runtime.priority ?? 0,
 });
 
@@ -618,11 +619,19 @@ export const GRAPH_NODES = [
     attempt: 1,
     pinned_by_attempts: [1],
   }),
-  graphNode("YB2", "recovery-codes.md", content("Add recovery codes", [REPO]), {
-    state: "Executing",
-    attempt: 1,
-    pinned_by_attempts: [1],
-  }),
+  graphNode(
+    "YB2",
+    "recovery-codes.md",
+    content("Add recovery codes", [REPO], {
+      requirement: "Generate ten single-use recovery codes for each account.",
+    }),
+    {
+      state: "Executing",
+      attempt: 1,
+      visible_revision: 2,
+      pinned_revision: 1,
+    },
+  ),
   graphNode(
     "YA2",
     "reset-email.md",
@@ -640,7 +649,7 @@ export const GRAPH_NODES = [
     content("Audit log for account changes", [REPO], {
       criterion: "Every account change writes one audit entry with the actor and the time.",
     }),
-    { state: "Blocked", attempt: 1, pinned_by_attempts: [1], visible_revision: 2 },
+    { state: "Blocked", attempt: 1, visible_revision: 2 },
   ),
   graphNode("YC2", "stripe-webhook.md", content("Stripe webhook", [REPO]), {
     state: "External.Requested",
@@ -1508,11 +1517,28 @@ export const GRAPH_EXTRA_REVISIONS = {
       contentAt: (node) => node.content,
     },
   ],
+  [ids.codes]: [
+    {
+      revision: 2,
+      reason: "Require ten recovery codes instead of eight.",
+      actor: human,
+      created_at: minutes(20),
+      change: {
+        write: "node.update",
+        previous_revision: 1,
+        changed_fields: ["requirement"],
+      },
+      contentAt: (node) => node.content,
+    },
+  ],
 };
 
 export const GRAPH_ORIGINAL_CONTENT = {
   [ids.audit]: content("Audit log for account changes", [REPO_OLD]),
   [ids.signup]: content("Sign-up form", [REPO_OLD]),
+  [ids.codes]: content("Add recovery codes", [REPO], {
+    requirement: "Generate eight single-use recovery codes for each account.",
+  }),
 };
 
 export const GRAPH_HUMAN = human;
