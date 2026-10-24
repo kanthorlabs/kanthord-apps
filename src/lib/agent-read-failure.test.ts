@@ -17,6 +17,24 @@ describe("agentReadFailure", () => {
     );
   });
 
+  it("adds the parser message for a template syntax error", () => {
+    const error = new ApiError(
+      "conflict",
+      "Prompt template work is invalid: Parse error on line 3",
+      409,
+      "agent.prompt.template_invalid",
+      {
+        template: "work",
+        file: "prompts/work.md",
+        path: "/data/agents/prompts/work.md",
+        reason: "syntax",
+      },
+    );
+    expect(agentReadFailure(error)).toBe(
+      "The prompt file prompts/work.md is invalid: it holds a template syntax error. Prompt template work is invalid: Parse error on line 3 Path: /data/agents/prompts/work.md. Fix or remove the file on the server host, then retry.",
+    );
+  });
+
   it("keeps the message of any other failure", () => {
     const error = new ApiError("not_found", "No such agent.", 404, "agent.catalog.not_found");
     expect(agentReadFailure(error)).toBe("No such agent.");

@@ -5,18 +5,18 @@ import { PromptItem } from "@/components/prompt-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { withBindingPrompt, type RepositoryDraft } from "@/lib/binding-draft";
-import { useProjectPromptDialog } from "../use-project-prompt-dialog";
-import { ProjectPromptDialog } from "./project-prompt-dialog";
+import { useBindingPromptDialog } from "../use-binding-prompt-dialog";
+import { BindingPromptDialog } from "./binding-prompt-dialog";
 
-interface ProjectPromptRowProps {
+interface BindingPromptRowProps {
   readonly agent: BindingPromptAgent;
   readonly draft: RepositoryDraft;
   readonly onEdit: (draft: RepositoryDraft) => void;
 }
 
-export function ProjectPromptRow({ agent, draft, onEdit }: ProjectPromptRowProps) {
+export function BindingPromptRow({ agent, draft, onEdit }: BindingPromptRowProps) {
   const text = draft.prompts[agent];
-  const dialog = useProjectPromptDialog(agent, text, (next) =>
+  const dialog = useBindingPromptDialog(agent, text, (next) =>
     onEdit(withBindingPrompt(draft, agent, next)),
   );
   const filled = text.trim() !== "";
@@ -41,7 +41,7 @@ export function ProjectPromptRow({ agent, draft, onEdit }: ProjectPromptRowProps
           </Button>
         }
       />
-      <ProjectPromptDialog dialog={dialog} />
+      <BindingPromptDialog dialog={dialog} />
     </>
   );
 }

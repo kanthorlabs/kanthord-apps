@@ -284,7 +284,14 @@ export function AgentScreen() {
         readAt={readAt}
       />
       {agent.prompt.parts !== undefined && <AgentPromptCard parts={agent.prompt.parts} />}
-      <PromptSection title="Final prompt" text={agent.prompt.final} />
+      <PromptSection
+        title={
+          agent.prompt.parts?.some((part) => part.part === "workbench")
+            ? "Workbench final prompt"
+            : "Worker final prompt"
+        }
+        text={agent.prompt.final}
+      />
     </div>
   );
 }

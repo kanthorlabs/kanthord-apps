@@ -89,6 +89,23 @@ describe("draftOf and entryOfDraft", () => {
     ).not.toHaveProperty("prompts");
   });
 
+  it("sends a prompt text unchanged, with its outer whitespace", () => {
+    const draft = emptyDraft("repository");
+    if (draft.kind !== "repository") throw new Error("fixture");
+    const result = entryOfDraft(
+      {
+        ...withBindingPrompt(draft, "swe@1", "  Use pnpm.\n"),
+        name: "repo",
+        sshCredential: "github-ssh",
+        address: REPO_ADDRESS,
+      },
+      [],
+    );
+    expect(result.ok && result.entry.kind === "repository" && result.entry.config.prompts).toEqual({
+      "swe@1": "  Use pnpm.\n",
+    });
+  });
+
   it("sets one binding prompt and keeps the others", () => {
     const draft = emptyDraft("repository");
     if (draft.kind !== "repository") throw new Error("fixture");

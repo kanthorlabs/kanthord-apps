@@ -148,8 +148,8 @@ function promptDraftsOf(
 function promptsOf(draft: RepositoryDraft): BindingPrompts {
   return Object.fromEntries(
     BINDING_PROMPT_AGENTS.flatMap((agent) => {
-      const text = optional(draft.prompts[agent]);
-      return text === undefined ? [] : [[agent, text]];
+      const text = draft.prompts[agent];
+      return blank(text) ? [] : [[agent, text]];
     }),
   );
 }

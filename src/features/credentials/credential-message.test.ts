@@ -32,6 +32,20 @@ describe("credentialMessage", () => {
     );
   });
 
+  it("names the agent and the reason of an invalid Binding prompt", () => {
+    expect(
+      credentialMessage(
+        refusal("project.bindings.repository.prompt_invalid", {
+          agent_name: "re@1",
+          reason: "control_character",
+        }),
+      ),
+    ).toBe("The Binding prompt of re@1 is invalid: the text holds a control character.");
+    expect(credentialMessage(refusal("project.bindings.repository.prompt_invalid"))).toBe(
+      "Daemon text.",
+    );
+  });
+
   it("states the reason of a refused container placement", () => {
     expect(
       credentialMessage(

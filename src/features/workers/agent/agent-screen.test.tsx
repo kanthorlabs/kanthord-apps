@@ -268,12 +268,43 @@ describe("AgentScreen", () => {
 
     const parts = within(await screen.findByRole("list", { name: "Agent prompt" }));
     expect(parts.getAllByRole("listitem")).toHaveLength(2);
-    expect(parts.getByText("Shipped (override: /data/agents/base.md)")).toBeTruthy();
-    expect(parts.getByText("Overridden by /data/agents/re@1.md")).toBeTruthy();
+    expect(parts.getByText("Shipped")).toBeTruthy();
+    expect(parts.getByText("/data/agents/base.md")).toBeTruthy();
+    expect(parts.getByText(/No override file at/)).toBeTruthy();
+    expect(parts.getByText("Overridden")).toBeTruthy();
+    expect(parts.getByText("/data/agents/re@1.md")).toBeTruthy();
+    expect(parts.getByText(/Override file/)).toBeTruthy();
     expect(parts.getByText("standard")).toBeTruthy();
     expect(parts.getByText("role")).toBeTruthy();
     expect(parts.getByText("a".repeat(64))).toBeTruthy();
     expect(parts.getByText("b".repeat(64))).toBeTruthy();
+  });
+
+  it("titles the final prompt after the worker unless the Workbench part is present", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValueOnce(RE);
+    const first = mount();
+    expect(await screen.findByRole("heading", { name: "Worker final prompt" })).toBeTruthy();
+    first.unmount();
+
+    vi.mocked(workersApi.readAgent).mockResolvedValueOnce({
+      ...RE,
+      prompt: {
+        ...RE.prompt,
+        parts: [
+          ...(RE.prompt.parts ?? []),
+          {
+            part: "workbench",
+            name: "workbench.md",
+            origin: "binary",
+            path: null,
+            digest: "c".repeat(64),
+            text: "Work with a human.",
+          },
+        ],
+      },
+    });
+    mount();
+    expect(await screen.findByRole("heading", { name: "Workbench final prompt" })).toBeTruthy();
   });
 
   it("shows no switch and no editor for the Agent prompt", async () => {

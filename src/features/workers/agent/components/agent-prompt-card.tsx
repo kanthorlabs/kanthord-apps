@@ -2,21 +2,24 @@ import type { PromptPart } from "@/api/types";
 import { PromptItem } from "@/components/prompt-item";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
-import { promptPartOrigin } from "@/lib/prompt-part";
+import { promptPartOrigin, promptPartPathNote } from "@/lib/prompt-part";
 
 interface AgentPromptCardProps {
   readonly parts: readonly PromptPart[];
 }
 
 function PartFacts({ part }: { readonly part: PromptPart }) {
+  const note = promptPartPathNote(part);
   return (
     <>
-      <Badge
-        variant={part.origin === "file" ? "default" : "secondary"}
-        className="h-auto max-w-full text-left break-all whitespace-normal"
-      >
+      <Badge variant={part.origin === "file" ? "default" : "secondary"}>
         {promptPartOrigin(part)}
       </Badge>
+      {note !== null && (
+        <span>
+          {note.lead} <span className="font-mono break-all">{note.path}</span>.
+        </span>
+      )}
       <span>
         Digest <span className="font-mono break-all">{part.digest}</span>
       </span>

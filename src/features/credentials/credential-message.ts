@@ -96,6 +96,19 @@ function placementUnavailableMessage(cause: ApiError): string {
   return `The container placement is not available. ${placementReasonText(reason, null, null)}`;
 }
 
+const BINDING_PROMPT_REASONS: Readonly<Record<string, string>> = {
+  too_large: "the text is larger than 32768 bytes",
+  control_character: "the text holds a control character",
+};
+
+function bindingPromptInvalidMessage(cause: ApiError): string {
+  const details = cause.details;
+  const agent = isRecord(details) ? details["agent_name"] : undefined;
+  const reason = isRecord(details) ? details["reason"] : undefined;
+  if (typeof agent !== "string" || typeof reason !== "string") return cause.message;
+  return `The Binding prompt of ${agent} is invalid: ${BINDING_PROMPT_REASONS[reason] ?? reason}.`;
+}
+
 function sshUnreachableMessage(details: unknown): string {
   const hint =
     failureReasonHintOf(details) ?? "Check the address and the SSH credential. Then try again.";
@@ -180,6 +193,9 @@ export function credentialMessage(cause: ApiError): string {
   }
   if (cause.detail === "project.bindings.repository.ssh_unreachable") {
     return sshUnreachableMessage(cause.details);
+  }
+  if (cause.detail === "project.bindings.repository.prompt_invalid") {
+    return bindingPromptInvalidMessage(cause);
   }
   return MESSAGES[cause.detail] ?? cause.message;
 }

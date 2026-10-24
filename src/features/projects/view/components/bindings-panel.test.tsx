@@ -1180,6 +1180,7 @@ describe("BindingsPanel", () => {
 
     expect(prompts).toHaveTextContent("creates a new binding revision");
     expect(prompts).toHaveTextContent("until mission node rebind");
+    expect(prompts).toHaveTextContent("clears environment_from_agent");
     expect(prompts).toHaveTextContent("relaxes the standard of the Agent prompt goes into both");
   });
 

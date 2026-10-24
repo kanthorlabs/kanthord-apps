@@ -10,13 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { FieldDescription, FieldError } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import type { ProjectPromptDialogState } from "../use-project-prompt-dialog";
+import type { BindingPromptDialogState } from "../use-binding-prompt-dialog";
 
-interface ProjectPromptDialogProps {
-  readonly dialog: ProjectPromptDialogState;
+interface BindingPromptDialogProps {
+  readonly dialog: BindingPromptDialogState;
 }
 
-export function ProjectPromptDialog({ dialog }: ProjectPromptDialogProps) {
+export function BindingPromptDialog({ dialog }: BindingPromptDialogProps) {
   return (
     <Dialog open={dialog.open} onOpenChange={(next) => !next && dialog.cancel()}>
       <DialogContent>
