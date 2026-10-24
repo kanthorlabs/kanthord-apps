@@ -43,6 +43,7 @@ function environment(
     run_started_at: Date.now() - 150_000,
     step_started_at: Date.now() - 150_000,
     reason: null,
+    reason_started_at: null,
     failure: null,
     checks: [],
     repairs: 0,

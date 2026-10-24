@@ -21,6 +21,7 @@ function state(status: EnvironmentStatus): EnvironmentState {
     run_started_at: 1_000,
     step_started_at: 1_000,
     reason: null,
+    reason_started_at: null,
     failure: null,
     checks: [],
     repairs: 0,

@@ -43,7 +43,8 @@ export function FixItem({ item, showProject, now, reload, markActed, titleRef }:
           {spread === null &&
             showProject &&
             item.kind !== "project_paused" &&
-            item.kind !== "environment_failed" && (
+            item.kind !== "environment_failed" &&
+            item.kind !== "environment_pending" && (
               <>
                 project <RecordName>{item.project.name}</RecordName> ·{" "}
               </>
