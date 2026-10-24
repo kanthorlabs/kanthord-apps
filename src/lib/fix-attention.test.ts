@@ -902,6 +902,7 @@ function environment(status: EnvironmentStatus, endedAt: number | null): Environ
     run_started_at: null,
     step_started_at: null,
     reason: null,
+    reason_started_at: null,
     failure:
       endedAt === null
         ? null
@@ -957,6 +958,90 @@ describe("fixItemsOf environment_failed", () => {
   it("targets the project page and has no spread text", () => {
     const [item] = fixItemsOf(
       [snapshot({ environments: [environment("failed", 1000)] })],
+      context(),
+    );
+    if (item === undefined) throw new Error("No item.");
+
+    expect(fixTargetOf(item)).toEqual({ path: "/projects/prj-1", label: "Open project" });
+    expect(spreadTextOf(item)).toBeNull();
+  });
+});
+
+const SSH_REASON = "Repository SSH read failed. The failure reason is key_refused.";
+const PENDING_LIMIT = 10 * MINUTE;
+
+function waiting(reason: string | null, startedAt: number | null): EnvironmentState {
+  return {
+    ...environment("pending", null),
+    reason,
+    reason_started_at: startedAt,
+  };
+}
+
+describe("fixItemsOf environment_pending", () => {
+  it("lists a pending environment whose reason is older than the limit, with its reason", () => {
+    const startedAt = NOW - PENDING_LIMIT - 1;
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [waiting(SSH_REASON, startedAt)] })],
+      context(),
+    );
+
+    expect(item).toMatchObject({
+      id: "environment_pending:prj-1:binding_1",
+      kind: "environment_pending",
+      group: "fixes",
+      cause: "Environment waiting",
+      subject: "engine",
+      binding: "engine",
+      at: startedAt,
+      reason: SSH_REASON,
+    });
+  });
+
+  it("ends a reason with no final period with a period", () => {
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          environments: [waiting("connect ECONNREFUSED 127.0.0.1:22", NOW - 60 * MINUTE)],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ reason: "connect ECONNREFUSED 127.0.0.1:22." });
+  });
+
+  it("trims a trailing newline before it adds the period", () => {
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [waiting("podman exited\n", NOW - 60 * MINUTE)] })],
+      context(),
+    );
+
+    expect(item).toMatchObject({ reason: "podman exited." });
+  });
+
+  it("keeps an empty reason empty", () => {
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [waiting(" \n", NOW - 60 * MINUTE)] })],
+      context(),
+    );
+
+    expect(item).toMatchObject({ reason: "" });
+  });
+
+  it("lists nothing for a pending environment within the limit or with no reason", () => {
+    const states = [
+      waiting(SSH_REASON, NOW - PENDING_LIMIT),
+      waiting(null, null),
+      { ...environment("ready", null), reason: SSH_REASON, reason_started_at: NOW - 60 * MINUTE },
+    ];
+
+    expect(fixItemsOf([snapshot({ environments: states })], context())).toEqual([]);
+  });
+
+  it("targets the project page and has no spread text", () => {
+    const [item] = fixItemsOf(
+      [snapshot({ environments: [waiting(SSH_REASON, NOW - 60 * MINUTE)] })],
       context(),
     );
     if (item === undefined) throw new Error("No item.");

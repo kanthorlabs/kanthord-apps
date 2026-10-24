@@ -13,6 +13,7 @@ import { endTimeOf } from "./execution-stop";
 import { isTerminal } from "./node-state";
 
 const NO_TAKER_GRACE_MS = 60_000;
+const PENDING_FIX_AFTER_MS = 600_000;
 
 interface FixBase extends ItemBase {
   readonly group: "fixes";
@@ -27,6 +28,12 @@ export interface EnvironmentFailedItem extends FixBase {
   readonly kind: "environment_failed";
   readonly binding: string;
   readonly failureClass: EnvironmentFailureClass;
+}
+
+export interface EnvironmentPendingItem extends FixBase {
+  readonly kind: "environment_pending";
+  readonly binding: string;
+  readonly reason: string;
 }
 
 export interface NoTakerItem extends FixBase {
@@ -71,6 +78,7 @@ export interface RequestRejectedItem extends SpreadBase {
 export type FixAttentionItem =
   | ProjectPausedItem
   | EnvironmentFailedItem
+  | EnvironmentPendingItem
   | NoTakerItem
   | AgentInvalidItem
   | CredentialRefusedItem
@@ -115,6 +123,39 @@ function environmentFailedOf(snapshot: ProjectSnapshot): readonly EnvironmentFai
         cause: "Environment failed",
         binding: state.binding_name,
         failureClass: state.failure.class,
+      },
+    ];
+  });
+}
+
+const SENTENCE_END = /[.!?]$/;
+
+function sentenceOf(text: string): string {
+  const trimmed = text.trimEnd();
+  if (trimmed === "" || SENTENCE_END.test(trimmed)) return trimmed;
+  return `${trimmed}.`;
+}
+
+function environmentPendingOf(
+  snapshot: ProjectSnapshot,
+  context: AttentionContext,
+): readonly EnvironmentPendingItem[] {
+  const { project } = snapshot;
+  return (snapshot.environments ?? []).flatMap((state): readonly EnvironmentPendingItem[] => {
+    const { reason, reason_started_at: startedAt } = state;
+    if (state.status !== "pending" || reason === null || startedAt === null) return [];
+    if (context.now - startedAt <= PENDING_FIX_AFTER_MS) return [];
+    return [
+      {
+        id: `environment_pending:${project.id}:${state.binding_id}`,
+        kind: "environment_pending",
+        group: "fixes",
+        project,
+        at: startedAt,
+        subject: state.binding_name,
+        cause: "Environment waiting",
+        binding: state.binding_name,
+        reason: sentenceOf(reason),
       },
     ];
   });
@@ -347,6 +388,7 @@ export function fixItemsOf(
   return [
     ...snapshots.flatMap(projectPausedOf),
     ...snapshots.flatMap(environmentFailedOf),
+    ...snapshots.flatMap((snapshot) => environmentPendingOf(snapshot, context)),
     ...snapshots.flatMap((snapshot) => noTakerOf(snapshot, context)),
     ...agentInvalidOf(snapshots),
     ...credentialRefusedOf(snapshots, context),
@@ -361,7 +403,11 @@ export interface FixTarget {
 
 export function fixTargetOf(item: FixAttentionItem): FixTarget {
   const project = `/projects/${encodeURIComponent(item.project.id)}`;
-  if (item.kind === "project_paused" || item.kind === "environment_failed") {
+  if (
+    item.kind === "project_paused" ||
+    item.kind === "environment_failed" ||
+    item.kind === "environment_pending"
+  ) {
     return { path: project, label: "Open project" };
   }
   if (item.kind === "no_taker") return { path: `${project}?tab=bindings`, label: "Open bindings" };
@@ -379,6 +425,7 @@ export function spreadTextOf(item: FixAttentionItem): string | null {
   if (
     item.kind === "project_paused" ||
     item.kind === "environment_failed" ||
+    item.kind === "environment_pending" ||
     item.kind === "no_taker"
   ) {
     return null;

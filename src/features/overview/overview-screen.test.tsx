@@ -405,6 +405,7 @@ function failedEnvironment(): EnvironmentState {
     run_started_at: null,
     step_started_at: null,
     reason: null,
+    reason_started_at: null,
     failure: {
       class: "command_absent",
       origin: "onboarding",
@@ -2369,6 +2370,63 @@ describe("OverviewScreen fixes", () => {
       "href",
       "/projects/prj-1",
     );
+  });
+
+  it("lists an environment that waits longer than 10 minutes with its reason", async () => {
+    serve({
+      environments: {
+        "prj-1": [
+          {
+            ...failedEnvironment(),
+            status: "pending",
+            failure: null,
+            reason: "Repository SSH read failed. The failure reason is key_refused.",
+            reason_started_at: NOW - HOUR,
+          },
+        ],
+      },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("engine"));
+    expect(within(item).getByText("Environment waiting")).toBeInTheDocument();
+    expect(
+      within(item).getByText(
+        textContent(
+          "engine of kanthord waits: Repository SSH read failed. The failure reason is key_refused. Workers claim no node of it. The server reads it again each minute.",
+        ),
+      ),
+    ).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Open project" })).toHaveAttribute(
+      "href",
+      "/projects/prj-1",
+    );
+  });
+
+  it("shows no reason sentence for a waiting environment with an empty reason", async () => {
+    serve({
+      environments: {
+        "prj-1": [
+          {
+            ...failedEnvironment(),
+            status: "pending",
+            failure: null,
+            reason: "",
+            reason_started_at: NOW - HOUR,
+          },
+        ],
+      },
+    });
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("engine"));
+    expect(
+      within(item).getByText(
+        textContent(
+          "engine of kanthord waits. Workers claim no node of it. The server reads it again each minute.",
+        ),
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows a read fault for a rejected environment list and keeps the other items", async () => {

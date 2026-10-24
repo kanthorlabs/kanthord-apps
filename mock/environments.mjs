@@ -7,6 +7,8 @@ const ACTIVE_STATUSES = ["pending", "building", "proving"];
 const READS_PER_STEP = 3;
 const READS_PER_REPAIR = 6;
 const COMMIT = "4f0184b";
+const WAITING_REASON = "Repository SSH read failed. The failure reason is key_refused.";
+const WAITING_SINCE_MS = 15 * 60_000;
 const FIXTURE_DOCUMENT = {
   image: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
   updateContentCommand: "pnpm install --frozen-lockfile",
@@ -49,6 +51,17 @@ const initialRecordOf = (name, leading) => {
       failure: failureOf(name),
       repairing: true,
       repairs: 1,
+      reads: 0,
+    };
+  }
+  if (leading && SCENARIO === "waiting") {
+    return {
+      status: "pending",
+      run_started_at: null,
+      step_started_at: null,
+      reason: WAITING_REASON,
+      reason_started_at: STARTED_AT - WAITING_SINCE_MS,
+      failure: null,
       reads: 0,
     };
   }
@@ -130,7 +143,8 @@ export function registerEnvironments({
       tag: built ? tagOf(name) : null,
       run_started_at: record.run_started_at,
       step_started_at: record.step_started_at,
-      reason: null,
+      reason: record.reason ?? null,
+      reason_started_at: record.reason_started_at ?? null,
       failure: record.failure,
       checks: record.status === "ready" && index === 1 ? RED_BASELINE : [],
       repairs: record.repairs ?? 0,
@@ -159,7 +173,7 @@ export function registerEnvironments({
         if (record.repairing) {
           record.reads += 1;
           if (record.reads >= READS_PER_REPAIR) finishRepair(record);
-        } else if (isActive(record)) {
+        } else if (isActive(record) && record.reason == null) {
           record.reads += 1;
           if (record.reads % READS_PER_STEP === 0) advance(record);
         }

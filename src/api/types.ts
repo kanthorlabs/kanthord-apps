@@ -458,6 +458,7 @@ export interface EnvironmentState {
   readonly run_started_at: number | null;
   readonly step_started_at: number | null;
   readonly reason: string | null;
+  readonly reason_started_at: number | null;
   readonly failure: EnvironmentFailure | null;
   readonly checks: readonly EnvironmentCheck[];
   readonly repairs: number;

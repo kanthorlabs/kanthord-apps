@@ -104,6 +104,15 @@ export function FixCauseText({ item }: FixCauseTextProps) {
       </>
     );
   }
+  if (item.kind === "environment_pending") {
+    return (
+      <>
+        <RecordName>{item.binding}</RecordName> of <RecordName>{item.project.name}</RecordName>{" "}
+        waits{item.reason === "" ? "." : `: ${item.reason}`} Workers claim no node of it. The server
+        reads it again each minute.
+      </>
+    );
+  }
   if (item.kind === "no_taker") return <NoTakerSentence item={item} />;
   if (item.kind === "agent_invalid") return <AgentInvalidSentence item={item} />;
   if (item.kind === "credential_refused") {
