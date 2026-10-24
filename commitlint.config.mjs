@@ -20,11 +20,7 @@ export default {
   rules: {
     "header-shape": [2, "always"],
     "header-max-length": [2, "always", 100],
-    "type-enum": [
-      2,
-      "always",
-      ["feat", "fix", "chore", "refactor", "test", "docs", "style", "perf", "ci", "build"],
-    ],
+    "type-enum": [2, "always", ["feat", "fix", "chore", "refactor", "test", "docs", "style"]],
     "type-case": [2, "always", "lower-case"],
     "subject-empty": [2, "never"],
     "subject-full-stop": [2, "never", "."],
