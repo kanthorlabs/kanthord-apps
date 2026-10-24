@@ -22,6 +22,8 @@ export interface BindingEnvironmentState {
   readonly reload: () => void;
   readonly editing: boolean;
   readonly openEdit: () => void;
+  readonly openStore: () => void;
+  readonly documentText: string | null;
   readonly closeEdit: () => void;
   readonly initialText: string;
   readonly saving: boolean;
@@ -43,6 +45,7 @@ export function useBindingEnvironment(
   const write = useClipboard();
   const [rebuilding, setRebuilding] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [storing, setStoring] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -94,6 +97,13 @@ export function useBindingEnvironment(
 
   const openEdit = useCallback(() => {
     setSaveError(null);
+    setStoring(false);
+    setEditing(true);
+  }, []);
+
+  const openStore = useCallback(() => {
+    setSaveError(null);
+    setStoring(true);
     setEditing(true);
   }, []);
 
@@ -129,10 +139,10 @@ export function useBindingEnvironment(
     [projectId, bindingId, bindingName, reload, onWritten, onChanged],
   );
 
-  const initialText =
-    data !== null && data.source === "stored" && data.environment !== null
-      ? JSON.stringify(data.environment, null, 2)
-      : "";
+  const documentText =
+    data !== null && data.environment !== null ? JSON.stringify(data.environment, null, 2) : null;
+  const shownStored = data !== null && data.source === "stored";
+  const initialText = documentText !== null && (shownStored || storing) ? documentText : "";
 
   return {
     environment,
@@ -143,6 +153,8 @@ export function useBindingEnvironment(
     reload,
     editing,
     openEdit,
+    openStore,
+    documentText,
     closeEdit,
     initialText,
     saving,

@@ -4,6 +4,7 @@ import type { EnvironmentState, EnvironmentStatus } from "@/api/types";
 import {
   elapsedText,
   environmentPollMs,
+  environmentSourceText,
   environmentStatusLabel,
   environmentStatusVariant,
   moreCountOf,
@@ -11,6 +12,7 @@ import {
   stepElapsedOf,
   stepLineOf,
   stepProgressOf,
+  storableSource,
 } from "./environment-bar";
 
 function state(overrides: Partial<EnvironmentState> = {}): EnvironmentState {
@@ -248,5 +250,31 @@ describe("environment status presentation", () => {
     expect(environmentStatusVariant("building")).toBe("secondary");
     expect(environmentStatusVariant("pending")).toBe("secondary");
     expect(environmentStatusVariant("proving")).toBe("secondary");
+  });
+});
+
+describe("environmentSourceText", () => {
+  it("explains each source", () => {
+    expect(environmentSourceText("stored")).toBe("Stored on the binding.");
+    expect(environmentSourceText("repository")).toBe(
+      "Read from .devcontainer/devcontainer.json at the base-branch head.",
+    );
+    expect(environmentSourceText("detected")).toBe(
+      "Drafted by KanthorD from the version files, the lockfiles and the CI workflows. Store it to keep and edit it.",
+    );
+    expect(environmentSourceText("universal")).toBe(
+      "The universal environment of KanthorD. Detection found no stack. Store it to keep and edit it.",
+    );
+    expect(environmentSourceText("none")).toBe("No source applies to the target.");
+  });
+});
+
+describe("storableSource", () => {
+  it("is true for detected and universal only", () => {
+    expect(storableSource("detected")).toBe(true);
+    expect(storableSource("universal")).toBe(true);
+    expect(storableSource("stored")).toBe(false);
+    expect(storableSource("repository")).toBe(false);
+    expect(storableSource("none")).toBe(false);
   });
 });

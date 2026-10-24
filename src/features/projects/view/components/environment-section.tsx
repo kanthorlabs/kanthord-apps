@@ -1,10 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import type { EnvironmentDocument, EnvironmentState } from "@/api/types";
+import type { EnvironmentDocument, EnvironmentSource, EnvironmentState } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { environmentStatusLabel, environmentStatusVariant } from "@/lib/environment-bar";
+import { Reveal } from "@/components/reveal";
+import {
+  environmentSourceText,
+  environmentStatusLabel,
+  environmentStatusVariant,
+  storableSource,
+} from "@/lib/environment-bar";
 import { useBindingEnvironment } from "../use-binding-environment";
 import { EnvironmentEditSheet } from "./environment-edit-sheet";
 import { FactList, type Fact } from "./fact-list";
@@ -21,9 +27,23 @@ interface EnvironmentSectionProps {
   readonly onWritten: (environment: EnvironmentDocument) => void;
 }
 
-function factsOf(state: EnvironmentState): readonly Fact[] {
+function factsOf(
+  state: EnvironmentState,
+  source: EnvironmentSource,
+  commit: string | null,
+): readonly Fact[] {
   return [
-    { label: "Source", value: state.source },
+    {
+      label: "Source",
+      value: (
+        <>
+          {environmentSourceText(source)}
+          {commit !== null && (
+            <span className="font-mono"> at {commit.slice(0, DIGEST_LENGTH)}</span>
+          )}
+        </>
+      ),
+    },
     { label: "Target", value: state.target },
     {
       label: "Status",
@@ -61,6 +81,8 @@ export function EnvironmentSection({
     onChanged,
     onWritten,
   );
+  const [documentOpen, setDocumentOpen] = useState(false);
+  const read = environment.loading ? null : environment.data;
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const failure = state?.failure ?? null;
@@ -86,7 +108,35 @@ export function EnvironmentSection({
       {state === null ? (
         <p className="text-sm text-muted-foreground">The environment state is not read yet.</p>
       ) : (
-        <FactList facts={factsOf(state)} />
+        <FactList facts={factsOf(state, read?.source ?? state.source, read?.commit ?? null)} />
+      )}
+      {read !== null && storableSource(read.source) && edit.documentText !== null && (
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              aria-expanded={documentOpen}
+              onClick={() => setDocumentOpen((open) => !open)}
+            >
+              Show document
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={edit.openStore}
+            >
+              Store as environment
+            </Button>
+          </div>
+          <Reveal open={documentOpen}>
+            <pre className="max-h-64 overflow-auto font-mono text-xs break-words whitespace-pre-wrap">
+              {edit.documentText}
+            </pre>
+          </Reveal>
+        </div>
       )}
       {state !== null && state.checks.length > 0 && (
         <div className="flex flex-col gap-1">

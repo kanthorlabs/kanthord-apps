@@ -1,4 +1,4 @@
-import type { EnvironmentState, EnvironmentStatus } from "@/api/types";
+import type { EnvironmentSource, EnvironmentState, EnvironmentStatus } from "@/api/types";
 
 export const ACTIVE_ENVIRONMENT_STATUSES: readonly EnvironmentStatus[] = [
   "pending",
@@ -45,6 +45,16 @@ const HOST_STEPS: Readonly<Partial<Record<EnvironmentStatus, number>>> = {
   pending: 1,
   proving: 2,
   ready: 2,
+};
+
+const SOURCE_TEXTS: Readonly<Record<EnvironmentSource, string>> = {
+  stored: "Stored on the binding.",
+  repository: "Read from .devcontainer/devcontainer.json at the base-branch head.",
+  detected:
+    "Drafted by KanthorD from the version files, the lockfiles and the CI workflows. Store it to keep and edit it.",
+  universal:
+    "The universal environment of KanthorD. Detection found no stack. Store it to keep and edit it.",
+  none: "No source applies to the target.",
 };
 
 function isActive(state: EnvironmentState): boolean {
@@ -121,4 +131,12 @@ export function elapsedText(startedAt: number | null, now: number): string | nul
 export function stepElapsedOf(state: EnvironmentState, now: number): string | null {
   if (state.run_started_at === null || !isActive(state)) return null;
   return elapsedText(state.step_started_at, now);
+}
+
+export function environmentSourceText(source: EnvironmentSource): string {
+  return SOURCE_TEXTS[source];
+}
+
+export function storableSource(source: EnvironmentSource): boolean {
+  return source === "detected" || source === "universal";
 }
