@@ -265,15 +265,6 @@ on("GET", /^\/api\/worker\/catalog$/, (_m, _b, res) =>
   json(res, 200, page(fx.WORKER_CATALOG.filter((w) => fx.RELEASED_WORKERS.includes(w.name)))),
 );
 on("GET", /^\/api\/worker\/registration$/, (_m, _b, res, _t, url) => {
-  if (PROMPT_INVALID !== "") {
-    return projectEnvelope(
-      res,
-      409,
-      "agent.prompt.template_invalid",
-      `Prompt file ${PROMPT_INVALID} is invalid: too_large`,
-      { file: PROMPT_INVALID, path: `${AGENT_DIRECTORY}/${PROMPT_INVALID}`, reason: "too_large" },
-    );
-  }
   const projectId = url.searchParams.get("project_id");
   const items = fx.WORKER_REGISTRATIONS.filter(
     (registration) => projectId === null || registration.project_id === projectId,
@@ -703,6 +694,15 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
     return projectEnvelope(res, 404, "agent.catalog.not_found", "Agent not found.", {
       agent_name: decodeURIComponent(m[1]),
     });
+  }
+  if (PROMPT_INVALID !== "") {
+    return projectEnvelope(
+      res,
+      409,
+      "agent.prompt.template_invalid",
+      `Prompt file ${PROMPT_INVALID} is invalid: too_large`,
+      { file: PROMPT_INVALID, path: `${AGENT_DIRECTORY}/${PROMPT_INVALID}`, reason: "too_large" },
+    );
   }
   const projectId = url.searchParams.get("project_id");
   const bindingId = url.searchParams.get("binding_id");

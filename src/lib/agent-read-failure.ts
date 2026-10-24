@@ -21,6 +21,13 @@ function stringField(details: unknown, key: string): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function parserMessage(message: string, template: string | null): string {
+  const lead = template === null ? "" : `Prompt template ${template} is invalid: `;
+  const text = message.startsWith(lead) ? message.slice(lead.length) : message;
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  return trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
+}
+
 export function agentReadFailure(error: ApiError): string {
   if (error.detail !== TEMPLATE_INVALID) return error.message;
   const file = stringField(error.details, "file");
@@ -28,6 +35,9 @@ export function agentReadFailure(error: ApiError): string {
   if (file === null || reason === null) return error.message;
   const path = stringField(error.details, "path");
   const where = path === null ? "" : ` Path: ${path}.`;
-  const parser = MESSAGE_REASONS.includes(reason) ? ` ${error.message}` : "";
+  const template = stringField(error.details, "template");
+  const parser = MESSAGE_REASONS.includes(reason)
+    ? ` ${parserMessage(error.message, template)}`
+    : "";
   return `The prompt file ${file} is invalid: ${REASON_TEXTS[reason] ?? reason}.${parser}${where} Fix or remove the file on the server host, then retry.`;
 }
