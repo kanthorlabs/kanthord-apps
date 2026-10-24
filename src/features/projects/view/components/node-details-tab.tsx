@@ -97,6 +97,18 @@ function BlockedNotice({ node }: { node: MissionNodeRecord }) {
   );
 }
 
+function PinnedRevisionNotice({ node }: { node: MissionNodeRecord }) {
+  if (node.pinned_revision === null || node.pinned_revision === node.visible_revision) return null;
+  return (
+    <Alert>
+      <AlertDescription>
+        The attempt runs revision {node.pinned_revision}. Revision {node.visible_revision} applies
+        at the next attempt.
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 function CoolingNotice({ cooling }: { cooling: readonly ChainCooling[] }) {
   if (cooling.length === 0) return null;
   return (
@@ -177,6 +189,7 @@ export function NodeDetailsTab({
     <div className="flex flex-col gap-5">
       <BlockedNotice node={node} />
       <CoolingNotice cooling={cooling.data ?? []} />
+      <PinnedRevisionNotice node={node} />
       <NodeControls
         node={node}
         nodes={[...model.nodeById.values()]}

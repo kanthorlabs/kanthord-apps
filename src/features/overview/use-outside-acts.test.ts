@@ -31,6 +31,7 @@ const NODE: MissionNodeRecord = {
   },
   retired_at: null,
   pinned_by_attempts: [],
+  pinned_revision: null,
   state: "External.Requested",
   attempt: 1,
   priority: 0,

@@ -29,6 +29,7 @@ function node(
     },
     retired_at: null,
     pinned_by_attempts: [],
+    pinned_revision: null,
     state,
     attempt: 0,
     priority,

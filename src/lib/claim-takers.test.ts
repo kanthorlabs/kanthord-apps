@@ -44,6 +44,7 @@ function node(id: string, state: NodeState, tags: readonly string[] = []): Missi
     },
     retired_at: null,
     pinned_by_attempts: [],
+    pinned_revision: null,
     intent: "implement",
     tags,
     tasks: [],

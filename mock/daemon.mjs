@@ -1372,8 +1372,17 @@ const dependsOnOf = (state, nodeId) =>
     .map((edge) => edge.depends_on_id)
     .sort();
 
+const CLOSED_ATTEMPT_STATES = ["Blocked", "Completed", "Discarded"];
+
+const pinnedRevisionOf = (node) =>
+  node.attempt === 0 || CLOSED_ATTEMPT_STATES.includes(node.state) ? null : node.pinned_revision;
+
 const graphNodeRead = (state, node) => {
-  const runnable = { ...node, depends_on: dependsOnOf(state, node.id) };
+  const runnable = {
+    ...node,
+    pinned_revision: pinnedRevisionOf(node),
+    depends_on: dependsOnOf(state, node.id),
+  };
   if (node.state !== "Blocked") return runnable;
   const outcome = state.outcomes.filter((item) => item.node_id === node.id).at(-1);
   return outcome === undefined
@@ -1560,6 +1569,7 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
     pinned_by_attempts: [],
     state: "Available",
     attempt: 0,
+    pinned_revision: null,
     priority: 0,
   };
   const addedEdges = [{ dependent_id: proposer.id, depends_on_id: created.id }];
@@ -1572,6 +1582,7 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
   state.edges.push(...addedEdges);
   proposer.state = "Pending";
   proposer.attempt += 1;
+  proposer.pinned_revision = proposer.visible_revision;
   mission.version += 1;
   proposal.approved_at = now;
   proposal.created_node_id = created.id;
@@ -1672,6 +1683,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
   if (node.attempt > 0) {
     node.attempt += 1;
     node.pinned_by_attempts = [...node.pinned_by_attempts, node.attempt];
+    node.pinned_revision = node.visible_revision;
   }
   node.state = "Available";
   return json(res, 200, {

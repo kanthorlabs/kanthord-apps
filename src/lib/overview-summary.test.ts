@@ -29,6 +29,7 @@ function node(id: string, state: NodeState, retiredAt: number | null = null): Mi
     },
     retired_at: retiredAt,
     pinned_by_attempts: [],
+    pinned_revision: null,
     intent: "implement",
     tags: [],
     tasks: [],

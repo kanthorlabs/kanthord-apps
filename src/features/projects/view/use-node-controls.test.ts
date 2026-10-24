@@ -37,6 +37,7 @@ function node(state: NodeState, attempt = 2): MissionNodeRecord {
     },
     retired_at: null,
     pinned_by_attempts: [],
+    pinned_revision: null,
     state,
     attempt,
     priority: 0,

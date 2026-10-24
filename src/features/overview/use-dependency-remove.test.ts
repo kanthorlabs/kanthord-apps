@@ -34,6 +34,7 @@ const NODE: MissionNodeRecord = {
   },
   retired_at: null,
   pinned_by_attempts: [],
+  pinned_revision: null,
   state: "Pending",
   attempt: 0,
   priority: 0,

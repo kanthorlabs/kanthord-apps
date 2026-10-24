@@ -62,6 +62,7 @@ function node(
     pinned_by_attempts: [],
     state: "Pending",
     attempt: 0,
+    pinned_revision: null,
     priority: 0,
     depends_on: [],
     ...extra,
@@ -116,11 +117,13 @@ const HELD = node("node_held", "implement", "Held work", { state: "Paused", atte
 const RUNNING = node("node_running", "implement", "Running work", {
   state: "Executing",
   attempt: 1,
+  pinned_revision: 1,
 });
 
 const EVALUATING = node("node_evaluating", "implement", "Evaluating work", {
   state: "Evaluating",
   attempt: 1,
+  pinned_revision: 1,
 });
 
 const READY = node("node_ready", "implement", "Ready work", { state: "Available" });
@@ -619,6 +622,28 @@ describe("NodeSheet", () => {
 
     expect(await screen.findByText("Audit log criterion")).toBeTruthy();
     expect(projectsApi.listWorkerBindings).not.toHaveBeenCalled();
+  });
+
+  it("states that the open attempt runs an earlier revision than the current one", async () => {
+    vi.mocked(missionApi.readMissionNode).mockResolvedValue({
+      ...RUNNING,
+      visible_revision: 3,
+      pinned_revision: 2,
+    });
+    renderSheet("node_running");
+
+    expect(
+      await screen.findByText(
+        "The attempt runs revision 2. Revision 3 applies at the next attempt.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("shows no revision note when the open attempt runs the current revision", async () => {
+    renderSheet("node_running");
+
+    expect(await screen.findByText("Running work requirement")).toBeTruthy();
+    expect(screen.queryByText(/applies at the next attempt/)).toBeNull();
   });
 
   it("shows the claimant and the activity of an Executing node", async () => {

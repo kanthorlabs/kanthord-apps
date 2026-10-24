@@ -569,6 +569,7 @@ const graphNode = (suffix, filename, nodeContent, runtime, tasks = []) => ({
   pinned_by_attempts: runtime.pinned_by_attempts ?? [],
   state: runtime.state,
   attempt: runtime.attempt,
+  pinned_revision: runtime.pinned_revision ?? runtime.visible_revision ?? 1,
   priority: runtime.priority ?? 0,
 });
 
@@ -622,6 +623,8 @@ export const GRAPH_NODES = [
     state: "Executing",
     attempt: 1,
     pinned_by_attempts: [1],
+    visible_revision: 2,
+    pinned_revision: 1,
   }),
   graphNode(
     "YA2",
@@ -1504,6 +1507,20 @@ export const GRAPH_EXTRA_REVISIONS = {
         write: "node.update",
         previous_revision: 1,
         changed_fields: ["criterion", "bindings"],
+      },
+      contentAt: (node) => node.content,
+    },
+  ],
+  [ids.codes]: [
+    {
+      revision: 2,
+      reason: "Require ten recovery codes instead of eight.",
+      actor: human,
+      created_at: minutes(20),
+      change: {
+        write: "node.update",
+        previous_revision: 1,
+        changed_fields: ["requirement"],
       },
       contentAt: (node) => node.content,
     },

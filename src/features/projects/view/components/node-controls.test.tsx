@@ -41,6 +41,7 @@ const TEAM: MissionNodeRecord = {
   },
   retired_at: null,
   pinned_by_attempts: [2],
+  pinned_revision: null,
   state: "Blocked",
   attempt: 2,
   priority: 0,

@@ -775,6 +775,7 @@ export interface MissionNodeRecord {
   readonly tasks: readonly MissionTaskContent[];
   readonly state: NodeState;
   readonly attempt: number;
+  readonly pinned_revision: number | null;
   readonly priority: number;
   readonly depends_on: readonly string[];
   readonly visible_revision: number;

@@ -34,6 +34,7 @@ const IMPLEMENT: MissionNodeRecord = {
   },
   retired_at: null,
   pinned_by_attempts: [],
+  pinned_revision: null,
   state: "Executing",
   attempt: 3,
   priority: 0,
