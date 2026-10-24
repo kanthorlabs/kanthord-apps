@@ -12,7 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import type { BindingSetEntry, EnvironmentDocument, EnvironmentState } from "@/api/types";
+import type { BindingSetEntry, EnvironmentState, RepositoryBindingConfig } from "@/api/types";
 import { CredentialCreateSheet } from "@/features/credentials/components/credential-create-sheet";
 import { RotateSheet } from "@/features/credentials/components/rotate-sheet";
 import { SshKeyFacts } from "@/features/credentials/components/ssh-key-facts";
@@ -53,7 +53,9 @@ interface BindingSheetProps {
   readonly errorMessage: string | null;
   readonly onSave: (name: string, entry: BindingSetEntry) => void;
   readonly onEnvironmentChanged: () => void;
-  readonly onEnvironmentWritten: (environment: EnvironmentDocument) => void;
+  readonly onEnvironmentWritten: (
+    patch: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">,
+  ) => void;
   readonly onClose: () => void;
 }
 
@@ -214,6 +216,11 @@ export function BindingSheet({
                     bindingId={bindingId}
                     bindingName={draft.name}
                     state={environment}
+                    secrets={
+                      target.entry?.kind === "repository"
+                        ? (target.entry.config.environment_secrets ?? {})
+                        : {}
+                    }
                     focused={target.section === "environment"}
                     onChanged={onEnvironmentChanged}
                     onWritten={onEnvironmentWritten}

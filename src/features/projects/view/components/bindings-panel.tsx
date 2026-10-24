@@ -1,7 +1,7 @@
 import { PlusIcon } from "lucide-react";
 import { useState } from "react";
 
-import type { BindingSetKind, EnvironmentDocument, EnvironmentState } from "@/api/types";
+import type { BindingSetKind, EnvironmentState, RepositoryBindingConfig } from "@/api/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
@@ -45,11 +45,13 @@ export function BindingsPanel({
   const bindingVerify = useBindingVerify(projectId, data?.version ?? null);
   const hostedWorkers = useHostedWorkers().data;
 
-  const onEnvironmentWritten = (saved: EnvironmentDocument) => {
+  const onEnvironmentWritten = (
+    patch: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">,
+  ) => {
     if (target === null || target.entry?.kind !== "repository") return;
     editor.openTarget({
       ...target,
-      entry: { kind: "repository", config: { ...target.entry.config, environment: saved } },
+      entry: { kind: "repository", config: { ...target.entry.config, ...patch } },
       section: "environment",
     });
     setSheetEpoch((epoch) => epoch + 1);

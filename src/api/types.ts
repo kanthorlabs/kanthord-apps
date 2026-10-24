@@ -1152,6 +1152,18 @@ export interface CredentialCreateBody {
   readonly holders?: readonly string[];
 }
 
+export interface EnvironmentSecretCreateBody {
+  readonly name: string;
+  readonly platform: "environment_secret";
+  readonly metadata: null;
+  readonly secret: ApiKeySecret;
+}
+
+export interface EnvironmentSecretRotateBody {
+  readonly expected_revision: number;
+  readonly secret: ApiKeySecret;
+}
+
 export type CredentialCheckBody = Omit<CredentialCreateBody, "name" | "holders">;
 
 export interface CredentialRotateBody {

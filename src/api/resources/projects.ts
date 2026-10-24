@@ -8,8 +8,11 @@ import type {
   BindingSetEntry,
   BindingSetWriteResult,
   BindingVerifyResult,
+  Credential,
   EnvironmentDocument,
   EnvironmentList,
+  EnvironmentSecretCreateBody,
+  EnvironmentSecretRotateBody,
   EnvironmentState,
   InstructionFiles,
   Page,
@@ -20,6 +23,7 @@ import type {
 
 const PROJECT_PAGE_LIMIT = 1000;
 const BINDING_PAGE_LIMIT = 1000;
+const ENVIRONMENT_SECRET_ROOT = "/api/project/credential";
 
 export async function listProjects(): Promise<readonly Project[]> {
   const projects: Project[] = [];
@@ -211,4 +215,29 @@ export async function writeBindingEnvironment(
       headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
+}
+
+export async function readEnvironmentSecret(name: string): Promise<Credential> {
+  return request<Credential>(`${ENVIRONMENT_SECRET_ROOT}/${encodeURIComponent(name)}`);
+}
+
+export async function createEnvironmentSecret(
+  body: EnvironmentSecretCreateBody,
+): Promise<Credential> {
+  return request<Credential>(ENVIRONMENT_SECRET_ROOT, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
+}
+
+export async function rotateEnvironmentSecret(
+  name: string,
+  body: EnvironmentSecretRotateBody,
+): Promise<Credential> {
+  return request<Credential>(`${ENVIRONMENT_SECRET_ROOT}/${encodeURIComponent(name)}/revision`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
 }
