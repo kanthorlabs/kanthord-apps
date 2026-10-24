@@ -22,6 +22,7 @@ const REASONS: readonly ResourceFailureReason[] = [
   "host_key_changed",
   "identity_unavailable",
   "held_by_instance",
+  "deadline_exceeded",
   "unclassified",
 ];
 
@@ -62,6 +63,12 @@ describe("failure reason hint", () => {
     ])
       expect(instanceCopyHint(reason)).not.toMatch(/[Vv]erify/);
     expect(instanceCopyHint("held_by_instance")).toBe(failureReasonHint("held_by_instance", "llm"));
+  });
+
+  it("names the deadline for a git read that exceeds it", () => {
+    expect(failureReasonHint("deadline_exceeded", "repository")).toBe(
+      "The repository host did not answer before the deadline. Verify again. If the failure stays, check the network of the server.",
+    );
   });
 
   it("names the deploy key step for a refused key", () => {

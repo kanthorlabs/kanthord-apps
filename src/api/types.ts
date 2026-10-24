@@ -1218,6 +1218,7 @@ export type ResourceFailureReason =
   | "host_key_changed"
   | "identity_unavailable"
   | "held_by_instance"
+  | "deadline_exceeded"
   | "unclassified";
 
 export interface HealthEntry {
