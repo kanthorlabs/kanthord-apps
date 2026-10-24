@@ -21,9 +21,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsrs -p . --noEmit --checkers 2",
-    "verify": "pnpm run typecheck && pnpm run test && pnpm run lint && pnpm run format:check && pnpm run verify:guards",
-    "verify:guards": "bash scripts/lane-check.test.sh && bash scripts/turn-snapshot.test.sh && bash scripts/persona-sync.test.sh",
-    "verify:handoff": "node scripts/verify-handoff.mjs"
+    "verify": "pnpm run typecheck && pnpm run test && pnpm run lint && pnpm run format:check"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

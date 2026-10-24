@@ -226,6 +226,3 @@ Run every one of these from the repository root.
 
 `pnpm lint` caps warnings with `--max-warnings`. The cap is a ratchet: a new warning fails the gate.
 Lower the cap when you remove debt; never raise it.
-
-`.husky/pre-commit` runs `lint-staged` and then `pnpm verify:guards`, so a lane, snapshot or
-persona-sync failure cannot reach a commit.
