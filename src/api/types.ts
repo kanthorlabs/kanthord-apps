@@ -989,6 +989,7 @@ export interface SchedulerJob {
   readonly project_id: string;
   readonly node_id: string;
   readonly priority: number;
+  readonly queued_at: number;
 }
 
 export type ExecutionStopReason =

@@ -22,15 +22,3 @@ export function newUlid(now: number = Date.now()): string {
   const random = crypto.getRandomValues(new Uint8Array(RANDOM_LENGTH));
   return encodeTime(now) + encodeRandom(random);
 }
-
-export function ulidTime(id: string): number | null {
-  const body = id.slice(id.lastIndexOf("_") + 1);
-  if (body.length !== TIME_LENGTH + RANDOM_LENGTH) return null;
-  let time = 0;
-  for (const char of body.slice(0, TIME_LENGTH)) {
-    const digit = ALPHABET.indexOf(char);
-    if (digit < 0) return null;
-    time = time * 32 + digit;
-  }
-  return time;
-}

@@ -133,6 +133,7 @@ import { OverviewScreen } from "./overview-screen";
 
 let NOW = 0;
 const HOUR = 3_600_000;
+const FIRST_JOB_AGE_MS = 24 * HOUR;
 
 function project(id: string, name: string): Project {
   return {
@@ -421,7 +422,13 @@ function failedEnvironment(): EnvironmentState {
 }
 
 function job(projectId: string, nodeId: string): SchedulerJob {
-  return { job_id: `job_${nodeId}`, project_id: projectId, node_id: nodeId, priority: 0 };
+  return {
+    job_id: `job_${nodeId}`,
+    project_id: projectId,
+    node_id: nodeId,
+    priority: 0,
+    queued_at: NOW,
+  };
 }
 
 interface World {
@@ -2254,10 +2261,11 @@ describe("OverviewScreen waiting outside kanthord", () => {
 
 function agedJob(projectId: string, nodeId: string, ageMs: number): SchedulerJob {
   return {
-    job_id: `job_${newUlid(NOW - ageMs)}`,
+    job_id: `job_${newUlid(NOW - FIRST_JOB_AGE_MS)}`,
     project_id: projectId,
     node_id: nodeId,
     priority: 0,
+    queued_at: NOW - ageMs,
   };
 }
 

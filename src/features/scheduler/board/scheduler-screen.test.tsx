@@ -62,6 +62,7 @@ import { SchedulerScreen } from "./scheduler-screen";
 
 const NOW = Date.now();
 const MINUTE = 60_000;
+const FIRST_JOB_AGE_MS = 86_400_000;
 
 function project(id: string, name: string, pausedAt: number | null = null): Project {
   return {
@@ -113,10 +114,11 @@ function node(
 
 function job(projectId: string, nodeId: string, priority: number, agoMs: number): SchedulerJob {
   return {
-    job_id: `job_${newUlid(NOW - agoMs)}`,
+    job_id: `job_${newUlid(NOW - FIRST_JOB_AGE_MS)}`,
     project_id: projectId,
     node_id: nodeId,
     priority,
+    queued_at: NOW - agoMs,
   };
 }
 

@@ -15,7 +15,6 @@ import { useScopedProject } from "@/hooks/use-scoped-project";
 import { uncoveredJobsOf } from "@/lib/claim-takers";
 import { endTimeOf } from "@/lib/execution-stop";
 import { nodePath } from "@/lib/node-path";
-import { ulidTime } from "@/lib/ulid";
 
 import { readSchedulerBoard, type ProjectBoard } from "./read-scheduler-board";
 
@@ -39,7 +38,7 @@ export interface JobView {
   readonly nodeName: string;
   readonly state: NodeState | null;
   readonly claim: ClaimKind | null;
-  readonly queuedAt: number | null;
+  readonly queuedAt: number;
   readonly noTaker: boolean;
   readonly href: string;
 }
@@ -165,7 +164,7 @@ function queueGroupOf(board: ProjectBoard, uncovered: ReadonlySet<string> | null
       nodeName: names.get(job.node_id) ?? job.node_id,
       state,
       claim: claimKindOfState(state),
-      queuedAt: ulidTime(job.job_id),
+      queuedAt: job.queued_at,
       noTaker: uncovered !== null && uncovered.has(job.job_id),
       href: nodePath(board.project.id, job.node_id),
     };

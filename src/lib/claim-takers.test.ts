@@ -56,7 +56,13 @@ function node(id: string, state: NodeState, tags: readonly string[] = []): Missi
 }
 
 function job(nodeId: string): SchedulerJob {
-  return { job_id: `job_${nodeId}`, project_id: "prj-1", node_id: nodeId, priority: 0 };
+  return {
+    job_id: `job_${nodeId}`,
+    project_id: "prj-1",
+    node_id: nodeId,
+    priority: 0,
+    queued_at: 0,
+  };
 }
 
 function registration(
