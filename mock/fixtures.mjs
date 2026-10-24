@@ -43,12 +43,6 @@ const TOOL_INPUT = { type: "object" };
 export const WORKBENCH_PROMPT = `You work in a workbench session with a human.
 Answer in the language of the human and keep each answer short.`;
 
-export const PROMPT_SWITCHES = {
-  system: ["host_file", "base", "custom", "layer"],
-  agent: ["agent_file", "shipped", "custom"],
-  workbench: ["agents_md", "agents_local_md", "claude_md", "claude_local_md", "shipped", "custom"],
-};
-
 const AGENT_CONFIGURATION_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -182,6 +176,7 @@ export const AGENT_DECLARATIONS = [
       revision: 1,
     },
     basePrompt: BASE_PROMPT,
+    roleOverridden: true,
     agentPrompt: `## Role
 
 Your role is \`re@1\`, the reviewer.
@@ -325,13 +320,6 @@ export const BINDING_SET = {
         },
         ssh_credential: "atlas-ssh",
         credential: "atlas-github",
-        working_layer: {
-          agents_md: true,
-          agents_local_md: true,
-          claude_md: true,
-          claude_local_md: true,
-          project_prompt: true,
-        },
         environment: { image: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm" },
       },
     },
