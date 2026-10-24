@@ -21,6 +21,8 @@ const SHARED_HINTS: Readonly<Record<SharedFailureReason, string>> = {
   identity_unavailable:
     "The server cannot load the SSH key. Rotate the key. If the fault stays, read the server log.",
   held_by_instance: "A worker instance holds the copy. The server holds no secret to check.",
+  deadline_exceeded:
+    "The repository host did not answer before the deadline. Verify again. If the failure stays, check the network of the server.",
   unclassified:
     "The check failed for an unknown cause, or it exceeded its deadline. Verify again. If the failure stays, read the server log.",
 };
