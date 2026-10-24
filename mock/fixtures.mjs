@@ -158,6 +158,7 @@ export const WORKER_REGISTRATIONS = [
 export const AGENT_DECLARATIONS = [
   {
     agent_name: "re@1",
+    workbench: true,
     worker_names: ["reviewer@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
@@ -191,6 +192,7 @@ Change no file of the repository.`,
   },
   {
     agent_name: "swe@1",
+    workbench: true,
     worker_names: ["coder@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
