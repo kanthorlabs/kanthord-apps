@@ -69,8 +69,14 @@ describe("failure reason hint", () => {
   it("names the deadline for a check of every component that exceeds it", () => {
     for (const component of COMPONENTS)
       expect(failureReasonHint("deadline_exceeded", component)).toBe(
-        "The remote host or service did not answer before the check deadline. Verify again. If the failure stays, check the network of the server.",
+        "The remote host or service did not answer before the deadline. Verify again. If the failure stays, check the network of the server.",
       );
+  });
+
+  it("names no check in the deadline hint of a read refusal", () => {
+    expect(failureReasonHintOf({ failure_reason: "deadline_exceeded" })).not.toMatch(
+      /check deadline/,
+    );
   });
 
   it("names the deadline only in the deadline_exceeded hint", () => {
