@@ -16,7 +16,7 @@ const RE: AgentDeclaration = {
   configuration_schema: { type: "object" },
   overridable_fields: [],
   enablement: null,
-  prompt: { layers: [], final: "" },
+  prompt: { parts: [], final: "" },
   tools: [],
   chain: [
     {

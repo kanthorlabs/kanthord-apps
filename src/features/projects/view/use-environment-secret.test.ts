@@ -48,13 +48,6 @@ const REPOSITORY: RepositoryBindingConfig = {
   strategy: { base_branch: "main" },
   ssh_credential: "github-ssh",
   credential: "github-main",
-  working_layer: {
-    agents_md: true,
-    agents_local_md: true,
-    claude_md: true,
-    claude_local_md: true,
-    project_prompt: true,
-  },
 };
 
 const OTHER = {

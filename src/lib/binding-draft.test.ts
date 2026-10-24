@@ -12,24 +12,16 @@ import {
   missingForSave,
   pinnableHostOf,
   withAgentEntry,
+  withBindingPrompt,
   withEnvironmentDefault,
   withPlacementDefault,
   withPlatform,
   withWorker,
   withWorkerPlacement,
-  withWorkingLayerSwitch,
   type RepositoryDraft,
   type WorkerDraft,
 } from "./binding-draft";
 import { missingHint } from "./missing-fields";
-
-const SWITCHES_ON = {
-  agents_md: true,
-  agents_local_md: true,
-  claude_md: true,
-  claude_local_md: true,
-  project_prompt: true,
-};
 
 const REPO: BindingSetEntry = {
   kind: "repository",
@@ -43,9 +35,9 @@ const REPO: BindingSetEntry = {
     },
     ssh_credential: "github-ssh",
     credential: "github-main",
-    working_layer: SWITCHES_ON,
   },
 };
+const REPO_ADDRESS = "git@github.com:kanthorlabs/kanthord.git";
 const WORKER: BindingSetEntry = {
   kind: "worker",
   config: {
@@ -68,44 +60,41 @@ const STORAGE: BindingSetEntry = {
 };
 
 describe("draftOf and entryOfDraft", () => {
-  it("keeps a false working layer switch from the read to the write", () => {
+  it("keeps the binding prompts of the read in the write", () => {
     if (REPO.kind !== "repository") throw new Error("fixture");
     const entry: BindingSetEntry = {
       kind: "repository",
-      config: {
-        ...REPO.config,
-        working_layer: { ...SWITCHES_ON, claude_md: false, project_prompt: false },
-      },
+      config: { ...REPO.config, prompts: { "swe@1": "Use pnpm.", "env@1": "Pin the node image." } },
     };
     const draft = draftOf("repo", entry);
-    expect(draft.kind === "repository" && draft.workingLayer.claude_md).toBe(false);
+    expect(draft.kind === "repository" && draft.prompts).toEqual({
+      "swe@1": "Use pnpm.",
+      "re@1": "",
+      "env@1": "Pin the node image.",
+    });
     expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry });
   });
 
-  it("turns every switch on when the read carries no working layer", () => {
-    if (REPO.kind !== "repository") throw new Error("fixture");
-    const { working_layer: _omitted, ...config } = REPO.config;
-    const result = entryOfDraft(draftOf("repo", { kind: "repository", config }), []);
-    expect(result).toEqual({ ok: true, entry: REPO });
-  });
-
-  it("flips one working layer switch and keeps the others", () => {
+  it("writes no prompts key when every binding prompt is blank", () => {
     const draft = emptyDraft("repository");
     if (draft.kind !== "repository") throw new Error("fixture");
-    const next = withWorkingLayerSwitch(draft, "claude_md", false);
-    expect(next.workingLayer).toEqual({ ...SWITCHES_ON, claude_md: false });
-    expect(draft.workingLayer.claude_md).toBe(true);
+    const blanked = withBindingPrompt(draft, "re@1", "  \n");
+    expect(blanked.prompts["re@1"]).toBe("  \n");
+    const result = entryOfDraft(
+      { ...blanked, name: "repo", sshCredential: "github-ssh", address: REPO_ADDRESS },
+      [],
+    );
+    expect(
+      result.ok && result.entry.kind === "repository" && result.entry.config,
+    ).not.toHaveProperty("prompts");
   });
 
-  it("starts a new repository draft with every switch on", () => {
+  it("sets one binding prompt and keeps the others", () => {
     const draft = emptyDraft("repository");
-    expect(draft.kind === "repository" && Object.values(draft.workingLayer)).toEqual([
-      true,
-      true,
-      true,
-      true,
-      true,
-    ]);
+    if (draft.kind !== "repository") throw new Error("fixture");
+    const next = withBindingPrompt(draft, "swe@1", "Use pnpm.");
+    expect(next.prompts).toEqual({ "swe@1": "Use pnpm.", "re@1": "", "env@1": "" });
+    expect(draft.prompts["swe@1"]).toBe("");
   });
 
   it("round-trips every binding kind unchanged", () => {

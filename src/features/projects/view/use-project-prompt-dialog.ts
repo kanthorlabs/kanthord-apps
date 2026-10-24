@@ -1,12 +1,14 @@
 import { useCallback, useState } from "react";
 
-import { byteUsage, PROMPT_TEXT_MAX_BYTES, utf8Bytes } from "@/lib/prompt-text";
+import type { BindingPromptAgent } from "@/api/types";
+import { byteUsage, promptTextProblem } from "@/lib/prompt-text";
 
 export interface ProjectPromptDialogState {
+  readonly agent: BindingPromptAgent;
   readonly open: boolean;
   readonly draft: string;
   readonly usage: string;
-  readonly tooLarge: boolean;
+  readonly problem: string | null;
   readonly start: () => void;
   readonly setDraft: (text: string) => void;
   readonly apply: () => void;
@@ -14,12 +16,13 @@ export interface ProjectPromptDialogState {
 }
 
 export function useProjectPromptDialog(
+  agent: BindingPromptAgent,
   current: string,
   write: (text: string) => void,
 ): ProjectPromptDialogState {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(current);
-  const tooLarge = utf8Bytes(draft) > PROMPT_TEXT_MAX_BYTES;
+  const problem = promptTextProblem(draft);
 
   const start = useCallback(() => {
     setDraft(current);
@@ -27,12 +30,12 @@ export function useProjectPromptDialog(
   }, [current]);
 
   const apply = useCallback(() => {
-    if (tooLarge) return;
+    if (problem !== null) return;
     write(draft);
     setOpen(false);
-  }, [write, draft, tooLarge]);
+  }, [write, draft, problem]);
 
   const cancel = useCallback(() => setOpen(false), []);
 
-  return { open, draft, usage: byteUsage(draft), tooLarge, start, setDraft, apply, cancel };
+  return { agent, open, draft, usage: byteUsage(draft), problem, start, setDraft, apply, cancel };
 }

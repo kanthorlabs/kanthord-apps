@@ -1,11 +1,6 @@
 import type { ReactNode } from "react";
 
-import type {
-  Credential,
-  RepositoryActionName,
-  RepositoryBindingConfig,
-  RepositoryPlatform,
-} from "@/api/types";
+import type { Credential, RepositoryActionName, RepositoryPlatform } from "@/api/types";
 import { Field, FieldDescription, FieldLabel, FieldLegend, FieldSet } from "@/components/ui/field";
 import {
   Select,
@@ -21,9 +16,9 @@ import {
   type RepositoryDraft,
 } from "@/lib/binding-draft";
 import { AvailabilityField } from "./availability-field";
+import { BindingPromptsFieldset } from "./binding-prompts-fieldset";
 import { CredentialCombobox } from "./credential-combobox";
 import { DraftField } from "./draft-field";
-import { RepositoryInstructions } from "./repository-instructions";
 
 const NO_ACTION = "none";
 
@@ -48,9 +43,6 @@ const PLATFORMS: readonly { readonly value: RepositoryPlatform; readonly label: 
 ];
 
 interface RepositoryFormProps {
-  readonly projectId: string;
-  readonly bindingId: string | null;
-  readonly saved: RepositoryBindingConfig | null;
   readonly draft: RepositoryDraft;
   readonly errors: DraftErrors;
   readonly sshCredentials: readonly Credential[];
@@ -64,9 +56,6 @@ interface RepositoryFormProps {
 }
 
 export function RepositoryForm({
-  projectId,
-  bindingId,
-  saved,
   draft,
   errors,
   sshCredentials,
@@ -186,13 +175,7 @@ export function RepositoryForm({
           <FieldDescription>The action follows a passing assessment.</FieldDescription>
         </Field>
       </FieldSet>
-      <RepositoryInstructions
-        projectId={projectId}
-        bindingId={bindingId}
-        saved={saved}
-        draft={draft}
-        onEdit={onEdit}
-      />
+      <BindingPromptsFieldset draft={draft} onEdit={onEdit} />
     </>
   );
 }

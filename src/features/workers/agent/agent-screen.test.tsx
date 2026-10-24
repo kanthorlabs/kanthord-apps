@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
-import * as promptsApi from "@/api/resources/prompts";
 import * as workersApi from "@/api/resources/workers";
 import type {
   AgentChainEntry,
@@ -13,13 +12,10 @@ import type {
   AgentEnablement,
   Credential,
   HealthEntry,
-  PromptSettings,
-  PromptTarget,
 } from "@/api/types";
 
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/credentials");
-vi.mock("@/api/resources/prompts");
 
 import { AgentScreen } from "./agent-screen";
 import { textContent } from "../../../../test/text-content";
@@ -30,49 +26,26 @@ const RE: AgentDeclaration = {
   overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
   enablement: null,
   prompt: {
-    layers: [
+    parts: [
       {
-        layer: "system",
-        enabled: true,
-        sources: [
-          {
-            source: "host_file",
-            origin: "file",
-            path: "~/.claude/CLAUDE.md",
-            enabled: false,
-            state: "off",
-            digest: null,
-            text: null,
-          },
-          {
-            source: "base",
-            origin: "binary",
-            path: null,
-            enabled: true,
-            state: "present",
-            digest: "a".repeat(64),
-            text: "You are a senior software engineer.",
-          },
-        ],
+        part: "standard",
+        name: "base.md",
+        origin: "binary",
+        path: "/data/agents/base.md",
+        digest: "a".repeat(64),
+        text: "You are a senior software engineer.",
       },
       {
-        layer: "agent",
-        enabled: true,
-        sources: [
-          {
-            source: "shipped",
-            origin: "binary",
-            path: null,
-            enabled: true,
-            state: "present",
-            digest: "b".repeat(64),
-            text: "Your role is `re@1`, the reviewer.",
-          },
-        ],
+        part: "role",
+        name: "re@1.md",
+        origin: "file",
+        path: "/data/agents/re@1.md",
+        digest: "b".repeat(64),
+        text: "Your role is `re@1`, the reviewer.",
       },
     ],
     final:
-      "Framing of the final prompt.\n\nInstructions of file AGENTS.md:\n\nThe final reviewer text.",
+      "Framing of the final prompt.\n\nInstructions of repository kanthord:\n\nThe final reviewer text.",
   },
   tools: [
     { name: "read", source: "builtin", input_schema: {} },
@@ -127,24 +100,6 @@ const ROUTER_MAIN: Credential = {
   revisions: [],
 };
 
-const SWITCHES: Readonly<Record<string, Readonly<Record<string, boolean>>>> = {
-  system: { host_file: false, base: true, custom: true, layer: false },
-  agent: { agent_file: false, shipped: true, custom: false },
-  workbench: { agents_md: true, shipped: true, custom: true },
-};
-
-function settingsOf(target: PromptTarget): PromptSettings {
-  return {
-    scope: target.scope,
-    agent_name: target.agent_name ?? "",
-    switches: SWITCHES[target.scope] ?? {},
-    locked_switches: [],
-    custom_text: "",
-    system_layer: target.scope === "agent" ? "inherit" : null,
-    revision: 3,
-  };
-}
-
 async function choose(label: string, option: string) {
   await userEvent.click(screen.getByRole("combobox", { name: label }));
   await userEvent.click(await screen.findByRole("option", { name: option }));
@@ -174,9 +129,6 @@ describe("AgentScreen", () => {
       failure_reason: null,
     });
     vi.mocked(workersApi.listAgentEnablements).mockResolvedValue([]);
-    vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
-      Promise.resolve(settingsOf(target)),
-    );
   });
 
   it("reads the agent named in the path", async () => {
@@ -207,15 +159,11 @@ describe("AgentScreen", () => {
     );
   });
 
-  it("shows the prompts, the tools and the absent enablement", async () => {
+  it("shows the tools and the absent enablement", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
-    await userEvent.click(await screen.findByRole("switch", { name: "Show inactive sources" }));
-    const system = within(await screen.findByRole("list", { name: "System layer" }));
-    expect(await system.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
-    expect(system.getByText("off")).toBeTruthy();
-    expect(screen.getByText("not enabled")).toBeTruthy();
+    expect(await screen.findByText("not enabled")).toBeTruthy();
     expect(screen.getByText(/No enablement exists/)).toBeTruthy();
     const tools = within(screen.getByRole("list", { name: "Tools" })).getAllByRole("listitem");
     expect(tools.map((t) => t.textContent)).toEqual(["readbuiltin", "grepbuiltin"]);
@@ -314,246 +262,87 @@ describe("AgentScreen", () => {
     ).toBeTruthy();
   });
 
+  it("lists each part of the Agent prompt with its origin and digest", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    const parts = within(await screen.findByRole("list", { name: "Agent prompt" }));
+    expect(parts.getAllByRole("listitem")).toHaveLength(2);
+    expect(parts.getByText("Shipped (override: /data/agents/base.md)")).toBeTruthy();
+    expect(parts.getByText("Overridden by /data/agents/re@1.md")).toBeTruthy();
+    expect(parts.getByText("standard")).toBeTruthy();
+    expect(parts.getByText("role")).toBeTruthy();
+    expect(parts.getByText("a".repeat(64))).toBeTruthy();
+    expect(parts.getByText("b".repeat(64))).toBeTruthy();
+  });
+
+  it("shows no switch and no editor for the Agent prompt", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
+    mount();
+
+    await screen.findByRole("list", { name: "Agent prompt" });
+    expect(screen.queryByRole("switch", { name: /inactive sources/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
+  });
+
   it("collapses every prompt text and renders it as markdown on open", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
-    await screen.findByRole("list", { name: "Agent layer" });
+    await screen.findByRole("list", { name: "Agent prompt" });
     expect(screen.queryByText(/the reviewer/)).toBeNull();
     expect(screen.queryByText("Framing of the final prompt.")).toBeNull();
 
-    const shipped = screen.getByRole("button", { name: "Shipped agent prompt" });
-    expect(shipped).toHaveAttribute("aria-expanded", "false");
-    await userEvent.click(shipped);
-    expect(shipped).toHaveAttribute("aria-expanded", "true");
+    const role = screen.getByRole("button", { name: "re@1.md" });
+    expect(role).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(role);
+    expect(role).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("re@1", { selector: "code" })).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Shipped base prompt" }));
+    await userEvent.click(screen.getByRole("button", { name: "base.md" }));
     expect(await screen.findByText("You are a senior software engineer.")).toBeTruthy();
-    await userEvent.click(
-      screen.getByRole("button", { name: "System prompt and working messages" }),
-    );
+    await userEvent.click(screen.getByRole("button", { name: "System prompt" }));
     expect(await screen.findByText("Framing of the final prompt.")).toBeTruthy();
     expect(screen.getByText("The final reviewer text.")).toBeTruthy();
   });
 
-  it("shows a source without text as an inactive row with no toggle and no copy", async () => {
-    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
-    mount();
-
-    await userEvent.click(await screen.findByRole("switch", { name: "Show inactive sources" }));
-    const system = within(await screen.findByRole("list", { name: "System layer" }));
-    expect(await system.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
-    expect(system.queryByRole("button", { name: "~/.claude/CLAUDE.md" })).toBeNull();
-    expect(
-      system.queryByRole("button", { name: "Copy markdown of ~/.claude/CLAUDE.md" }),
-    ).toBeNull();
-  });
-
-  it("copies the raw markdown of a source", async () => {
+  it("copies the raw markdown of a part", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     mount();
 
-    await userEvent.click(
-      await screen.findByRole("button", { name: "Copy markdown of Shipped agent prompt" }),
-    );
+    await userEvent.click(await screen.findByRole("button", { name: "Copy markdown of re@1.md" }));
 
     expect(writeText).toHaveBeenCalledWith("Your role is `re@1`, the reviewer.");
   });
 
-  it("sets the system layer override of the agent at its revision", async () => {
-    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
-    vi.mocked(promptsApi.setSystemLayerOverride).mockResolvedValue({
-      ...settingsOf({ scope: "agent", agent_name: "re@1" }),
-      system_layer: "on",
-    });
-    mount();
-
-    const control = await screen.findByRole("group", { name: "System layer of re@1" });
-    await waitFor(() =>
-      expect(screen.getByText(/Follows the server switch, which is off\./)).toBeTruthy(),
-    );
-    await userEvent.click(within(control).getByRole("button", { name: "On" }));
-
-    expect(promptsApi.setSystemLayerOverride).toHaveBeenCalledWith("re@1", 3, "on");
-  });
-
-  it("switches an agent layer source and locks the last source that is on", async () => {
-    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
-    vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
-      settingsOf({ scope: "agent", agent_name: "re@1" }),
-    );
-    mount();
-
-    const shipped = await screen.findByRole("switch", { name: "Shipped agent prompt switch" });
-    await waitFor(() => expect(shipped).toHaveAttribute("aria-disabled", "true"));
-    expect(screen.queryByRole("switch", { name: "Shipped base prompt switch" })).toBeNull();
-  });
-
-  it("hides an inactive source until the human shows it", async () => {
-    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
-    mount();
-
-    const show = await screen.findByRole("switch", { name: "Show inactive sources" });
-    expect(show).not.toBeChecked();
-    expect(screen.queryByText("~/.claude/CLAUDE.md")).toBeNull();
-    expect(screen.getByText("Shipped base prompt")).toBeTruthy();
-
-    await userEvent.click(show);
-
-    expect(await screen.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "1 inactive source hidden" })).toBeNull();
-
-    await userEvent.click(show);
-
-    await waitFor(() => expect(screen.queryByText("~/.claude/CLAUDE.md")).toBeNull());
-  });
-
-  it("shows only the hidden sources of its own layer from a footer", async () => {
+  it("shows no Agent prompt card when the answer holds no parts", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue({
       ...RE,
-      prompt: {
-        ...RE.prompt,
-        layers: [
-          ...(RE.prompt.layers ?? []),
-          {
-            layer: "working",
-            enabled: true,
-            sources: [
-              {
-                source: "agents_md",
-                origin: "file",
-                path: "~/workbench/AGENTS.md",
-                enabled: true,
-                state: "absent",
-                digest: null,
-                text: null,
-              },
-            ],
-          },
-        ],
-      },
+      prompt: { final: RE.prompt.final },
     });
     mount();
 
-    const [systemFooter] = await screen.findAllByRole("button", {
-      name: "1 inactive source hidden",
-    });
-    await userEvent.click(systemFooter!);
-
-    expect(await screen.findByText("~/.claude/CLAUDE.md")).toBeTruthy();
-    expect(screen.queryByText("~/workbench/AGENTS.md")).toBeNull();
-    expect(screen.getAllByRole("button", { name: "1 inactive source hidden" })).toHaveLength(1);
-    expect(screen.getByRole("switch", { name: "Show inactive sources" })).not.toBeChecked();
+    await screen.findByRole("button", { name: "System prompt" });
+    expect(screen.queryByRole("list", { name: "Agent prompt" })).toBeNull();
   });
 
-  it("keeps the preference of the viewer", async () => {
-    window.localStorage.setItem("kanthord.agent.show-inactive-sources", "true");
-    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
-    mount();
-
-    expect(await screen.findByRole("switch", { name: "Show inactive sources" })).toBeChecked();
-    expect(screen.getByText("~/.claude/CLAUDE.md")).toBeTruthy();
-  });
-
-  it("keeps a row that the human turns off until the next page load", async () => {
-    const shippedOff = {
-      ...RE,
-      prompt: {
-        ...RE.prompt,
-        layers: (RE.prompt.layers ?? []).map((layer) =>
-          layer.layer === "agent"
-            ? {
-                ...layer,
-                sources: layer.sources.map((source) => ({
-                  ...source,
-                  enabled: false,
-                  state: "off" as const,
-                  text: null,
-                })),
-              }
-            : layer,
-        ),
-      },
-    };
-    vi.mocked(workersApi.readAgent).mockResolvedValueOnce(RE).mockResolvedValue(shippedOff);
-    vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
-      Promise.resolve({
-        ...settingsOf(target),
-        switches: { agent_file: true, shipped: true, custom: true },
-      }),
-    );
-    vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
-      settingsOf({ scope: "agent", agent_name: "re@1" }),
+  it("names the file and the reason when an override file is invalid", async () => {
+    vi.mocked(workersApi.readAgent).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "Prompt file re@1.md is invalid: control_character",
+        409,
+        "agent.prompt.template_invalid",
+        { file: "re@1.md", path: "/data/agents/re@1.md", reason: "control_character" },
+      ),
     );
     mount();
 
-    const shipped = await screen.findByRole("switch", { name: "Shipped agent prompt switch" });
-    await waitFor(() => expect(shipped).not.toHaveAttribute("aria-disabled", "true"));
-    await userEvent.click(shipped);
-
-    const agentLayer = within(screen.getByRole("list", { name: "Agent layer" }));
-    expect(await agentLayer.findByText("off")).toBeTruthy();
-    expect(agentLayer.getByText("Shipped agent prompt")).toBeTruthy();
-  });
-
-  it("disables the switch of a file source that does not exist", async () => {
-    vi.mocked(workersApi.readAgent).mockResolvedValue({
-      ...RE,
-      prompt: {
-        ...RE.prompt,
-        layers: [
-          ...(RE.prompt.layers ?? []),
-          {
-            layer: "working",
-            enabled: true,
-            sources: [
-              {
-                source: "agents_md",
-                origin: "file",
-                path: "~/workbench/AGENTS.md",
-                enabled: true,
-                state: "absent",
-                digest: null,
-                text: null,
-              },
-            ],
-          },
-        ],
-      },
-    });
-    mount();
-
-    await userEvent.click(await screen.findByRole("switch", { name: "Show inactive sources" }));
-    const missing = await screen.findByRole("switch", { name: "~/workbench/AGENTS.md switch" });
-    await waitFor(() => expect(missing).toHaveAttribute("aria-disabled", "true"));
-    expect(screen.getByText(textContent("~/workbench/AGENTS.md does not exist."))).toBeTruthy();
-  });
-
-  it("turns an agent layer source off at the revision of its scope", async () => {
-    vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
-    vi.mocked(promptsApi.readPromptSettings).mockImplementation((target) =>
-      Promise.resolve({
-        ...settingsOf(target),
-        switches: { agent_file: true, shipped: true, custom: true },
-      }),
-    );
-    vi.mocked(promptsApi.switchPromptSource).mockResolvedValue(
-      settingsOf({ scope: "agent", agent_name: "re@1" }),
-    );
-    mount();
-
-    const shipped = await screen.findByRole("switch", { name: "Shipped agent prompt switch" });
-    await waitFor(() => expect(shipped).not.toHaveAttribute("aria-disabled", "true"));
-    await userEvent.click(shipped);
-
-    expect(promptsApi.switchPromptSource).toHaveBeenCalledWith(
-      { scope: "agent", agent_name: "re@1" },
-      3,
-      "shipped",
-      false,
-    );
+    expect(
+      await screen.findByText(/The prompt file re@1\.md is invalid: it holds a control character/),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
   it("lists every agent provider of the enablement with its credential", async () => {

@@ -55,7 +55,7 @@ const AGENT: AgentDeclaration = {
     fallback_configurations: [],
     revision: 2,
   },
-  prompt: { layers: [], final: "" },
+  prompt: { parts: [], final: "" },
   tools: [],
   chain: [
     {

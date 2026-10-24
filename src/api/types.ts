@@ -236,48 +236,19 @@ export interface AgentTool {
 
 export type PromptOrigin = "binary" | "file" | "database";
 
-export type PromptSourceState = "present" | "absent" | "invalid" | "off" | "deferred";
+export type PromptPartKind = "standard" | "role" | "workbench" | "binding";
 
-export type PromptLayerKind = "system" | "agent" | "working";
-
-export interface PromptSource {
-  readonly source: string;
+export interface PromptPart {
+  readonly part: PromptPartKind;
+  readonly name: string;
   readonly origin: PromptOrigin;
   readonly path: string | null;
-  readonly enabled: boolean;
-  readonly state: PromptSourceState;
-  readonly digest: string | null;
-  readonly text: string | null;
-}
-
-export interface PromptLayer {
-  readonly layer: PromptLayerKind;
-  readonly enabled: boolean;
-  readonly sources: readonly PromptSource[];
-}
-
-export type PromptScope = "system" | "agent" | "workbench";
-
-export const SYSTEM_LAYER_OVERRIDES = ["inherit", "on", "off"] as const;
-export type SystemLayerOverride = (typeof SYSTEM_LAYER_OVERRIDES)[number];
-
-export interface PromptSettings {
-  readonly scope: PromptScope;
-  readonly agent_name: string;
-  readonly switches: Readonly<Record<string, boolean>>;
-  readonly locked_switches: readonly string[];
-  readonly custom_text: string;
-  readonly system_layer: SystemLayerOverride | null;
-  readonly revision: number;
-}
-
-export interface PromptTarget {
-  readonly scope: PromptScope;
-  readonly agent_name?: string;
+  readonly digest: string;
+  readonly text: string;
 }
 
 export interface AgentPrompt {
-  readonly layers?: readonly PromptLayer[];
+  readonly parts?: readonly PromptPart[];
   readonly final: string;
 }
 
@@ -405,17 +376,11 @@ export type RepositoryActionFollows =
 
 export type RepositoryPlatform = "github" | "gitlab" | "bitbucket";
 
-export const WORKING_LAYER_KEYS = [
-  "agents_md",
-  "agents_local_md",
-  "claude_md",
-  "claude_local_md",
-  "project_prompt",
-] as const;
+export const BINDING_PROMPT_AGENTS = ["swe@1", "re@1", "env@1"] as const;
 
-export type WorkingLayerKey = (typeof WORKING_LAYER_KEYS)[number];
+export type BindingPromptAgent = (typeof BINDING_PROMPT_AGENTS)[number];
 
-export type WorkingLayerSwitches = Readonly<Record<WorkingLayerKey, boolean>>;
+export type BindingPrompts = Readonly<Partial<Record<BindingPromptAgent, string>>>;
 
 export type EnvironmentDocument = Readonly<Record<string, unknown>>;
 
@@ -489,29 +454,9 @@ export interface RepositoryBindingConfig {
   };
   readonly ssh_credential: string;
   readonly credential?: string;
-  readonly project_prompt?: string;
-  readonly working_layer?: WorkingLayerSwitches;
+  readonly prompts?: BindingPrompts;
   readonly environment?: EnvironmentDocument;
   readonly environment_secrets?: Readonly<Record<string, string>>;
-}
-
-export type InstructionFileSource =
-  "agents_md" | "agents_local_md" | "claude_md" | "claude_local_md";
-
-export type InstructionFileState = "present" | "absent" | "invalid";
-
-export interface InstructionFile {
-  readonly source: InstructionFileSource;
-  readonly path: string;
-  readonly state: InstructionFileState;
-  readonly reason: string | null;
-  readonly text: string | null;
-}
-
-export interface InstructionFiles {
-  readonly commit: string;
-  readonly read_at: number;
-  readonly files: readonly InstructionFile[];
 }
 
 export interface WorkerAgentEntry {

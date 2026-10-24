@@ -1,38 +1,40 @@
 import { PencilIcon } from "lucide-react";
 
+import type { BindingPromptAgent } from "@/api/types";
+import { PromptItem } from "@/components/prompt-item";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { RepositoryDraft } from "@/lib/binding-draft";
+import { withBindingPrompt, type RepositoryDraft } from "@/lib/binding-draft";
 import { useProjectPromptDialog } from "../use-project-prompt-dialog";
-import { InstructionRow } from "./instruction-row";
 import { ProjectPromptDialog } from "./project-prompt-dialog";
 
-const TITLE = "Project prompt";
-
 interface ProjectPromptRowProps {
+  readonly agent: BindingPromptAgent;
   readonly draft: RepositoryDraft;
   readonly onEdit: (draft: RepositoryDraft) => void;
-  readonly onToggle: (enabled: boolean) => void;
 }
 
-export function ProjectPromptRow({ draft, onEdit, onToggle }: ProjectPromptRowProps) {
-  const dialog = useProjectPromptDialog(draft.projectPrompt, (projectPrompt) =>
-    onEdit({ ...draft, projectPrompt }),
+export function ProjectPromptRow({ agent, draft, onEdit }: ProjectPromptRowProps) {
+  const text = draft.prompts[agent];
+  const dialog = useProjectPromptDialog(agent, text, (next) =>
+    onEdit(withBindingPrompt(draft, agent, next)),
   );
-  const filled = draft.projectPrompt.trim() !== "";
+  const filled = text.trim() !== "";
   return (
     <>
-      <InstructionRow
-        title={TITLE}
-        text={filled ? draft.projectPrompt : null}
-        state={filled ? "present" : "absent"}
-        enabled={draft.workingLayer.project_prompt}
-        onToggle={onToggle}
+      <PromptItem
+        title={agent}
+        path
+        text={filled ? text : null}
+        badges={
+          <Badge variant={filled ? "default" : "secondary"}>{filled ? "set" : "empty"}</Badge>
+        }
         control={
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label={`Edit ${TITLE}`}
+            aria-label={`Edit Binding prompt of ${agent}`}
             onClick={dialog.start}
           >
             <PencilIcon aria-hidden="true" />

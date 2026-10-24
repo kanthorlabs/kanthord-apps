@@ -61,7 +61,6 @@ const PART_TOOL_CALL = "toolCall";
 
 const CUSTOM_PINNED_CONTEXT = "kanthord.pinned_context";
 const PINNED_PART_SYSTEM_PROMPT = "system_prompt";
-const PINNED_PART_LAYER = "layer";
 const SYSTEM_PROMPT_NAME = "System prompt";
 
 const TEXT_SEPARATOR = "\n";
@@ -172,10 +171,7 @@ function messageView(message: unknown): EntryView | null {
 }
 
 function pinnedName(data: Json): string | null {
-  if (data.part === PINNED_PART_SYSTEM_PROMPT) return SYSTEM_PROMPT_NAME;
-  if (data.part !== PINNED_PART_LAYER) return null;
-  const index = data.index;
-  return typeof index === "number" || typeof index === "string" ? `Layer ${index}` : "Layer";
+  return data.part === PINNED_PART_SYSTEM_PROMPT ? SYSTEM_PROMPT_NAME : null;
 }
 
 function pinnedView(data: unknown): EntryView | null {

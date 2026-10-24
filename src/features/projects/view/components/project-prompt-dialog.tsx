@@ -1,3 +1,4 @@
+import { RecordName } from "@/components/record-name";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,24 +21,27 @@ export function ProjectPromptDialog({ dialog }: ProjectPromptDialogProps) {
     <Dialog open={dialog.open} onOpenChange={(next) => !next && dialog.cancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit Project prompt</DialogTitle>
+          <DialogTitle>Edit Binding prompt of {dialog.agent}</DialogTitle>
           <DialogDescription>
-            Markdown that agents of this repository read after its instruction files. Apply changes
-            the binding draft only. Save the binding to store the text.
+            Markdown that joins the Agent prompt of <RecordName>{dialog.agent}</RecordName> for this
+            repository. Apply changes the binding draft only. Save the binding to store the text.
           </DialogDescription>
         </DialogHeader>
         <Textarea
-          aria-label="Project prompt markdown"
-          aria-invalid={dialog.tooLarge}
-          aria-describedby="project-prompt-usage"
+          aria-label={`Binding prompt markdown of ${dialog.agent}`}
+          aria-invalid={dialog.problem !== null}
+          aria-describedby={`binding-prompt-usage-${dialog.agent}`}
           className="max-h-[50dvh] min-h-60"
-          placeholder="Write markdown. An empty text removes the project prompt."
+          placeholder="Write markdown. An empty text removes the Binding prompt."
           value={dialog.draft}
           onChange={(event) => dialog.setDraft(event.target.value)}
         />
-        <div id="project-prompt-usage" className="flex flex-wrap justify-between gap-2">
-          {dialog.tooLarge ? (
-            <FieldError>The text is above the limit.</FieldError>
+        <div
+          id={`binding-prompt-usage-${dialog.agent}`}
+          className="flex flex-wrap justify-between gap-2"
+        >
+          {dialog.problem !== null ? (
+            <FieldError>{dialog.problem}</FieldError>
           ) : (
             <FieldDescription>Markdown.</FieldDescription>
           )}
@@ -47,7 +51,7 @@ export function ProjectPromptDialog({ dialog }: ProjectPromptDialogProps) {
           <Button type="button" variant="outline" onClick={dialog.cancel}>
             Cancel
           </Button>
-          <Button type="button" disabled={dialog.tooLarge} onClick={dialog.apply}>
+          <Button type="button" disabled={dialog.problem !== null} onClick={dialog.apply}>
             Apply
           </Button>
         </DialogFooter>

@@ -28,13 +28,6 @@ describe("breadcrumbTrail", () => {
     expect(breadcrumbTrail("/agents/swe%401", labelOf).at(-1)?.label).toBe("swe@1");
   });
 
-  it("names the settings section", () => {
-    expect(breadcrumbTrail("/settings/prompts", labelOf)[0]).toEqual({
-      path: "/settings",
-      label: "Settings",
-    });
-  });
-
   it("names the instances segment of a worker", () => {
     expect(breadcrumbTrail("/workers/coder%401/instances/mac-studio", labelOf)).toEqual([
       { path: "/workers", label: "workers" },
