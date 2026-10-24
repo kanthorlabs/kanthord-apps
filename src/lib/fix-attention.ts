@@ -128,6 +128,12 @@ function environmentFailedOf(snapshot: ProjectSnapshot): readonly EnvironmentFai
   });
 }
 
+const SENTENCE_END = /[.!?]$/;
+
+function sentenceOf(text: string): string {
+  return SENTENCE_END.test(text) ? text : `${text}.`;
+}
+
 function environmentPendingOf(
   snapshot: ProjectSnapshot,
   context: AttentionContext,
@@ -147,7 +153,7 @@ function environmentPendingOf(
         subject: state.binding_name,
         cause: "Environment waiting",
         binding: state.binding_name,
-        reason,
+        reason: sentenceOf(reason),
       },
     ];
   });

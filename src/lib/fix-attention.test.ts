@@ -967,7 +967,7 @@ describe("fixItemsOf environment_failed", () => {
   });
 });
 
-const SSH_REASON = "Repository SSH read failed. The failure reason is auth_failed.";
+const SSH_REASON = "Repository SSH read failed. The failure reason is key_refused.";
 const PENDING_LIMIT = 10 * MINUTE;
 
 function waiting(reason: string | null, startedAt: number | null): EnvironmentState {
@@ -996,6 +996,19 @@ describe("fixItemsOf environment_pending", () => {
       at: startedAt,
       reason: SSH_REASON,
     });
+  });
+
+  it("ends a reason with no final period with a period", () => {
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          environments: [waiting("connect ECONNREFUSED 127.0.0.1:22", NOW - 60 * MINUTE)],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ reason: "connect ECONNREFUSED 127.0.0.1:22." });
   });
 
   it("lists nothing for a pending environment within the limit or with no reason", () => {

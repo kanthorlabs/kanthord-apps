@@ -7,7 +7,7 @@ const ACTIVE_STATUSES = ["pending", "building", "proving"];
 const READS_PER_STEP = 3;
 const READS_PER_REPAIR = 6;
 const COMMIT = "4f0184b";
-const WAITING_REASON = "Repository SSH read failed. The failure reason is auth_failed.";
+const WAITING_REASON = "Repository SSH read failed. The failure reason is key_refused.";
 const WAITING_SINCE_MS = 15 * 60_000;
 const FIXTURE_DOCUMENT = {
   image: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",

@@ -2380,7 +2380,7 @@ describe("OverviewScreen fixes", () => {
             ...failedEnvironment(),
             status: "pending",
             failure: null,
-            reason: "Repository SSH read failed. The failure reason is auth_failed.",
+            reason: "Repository SSH read failed. The failure reason is key_refused.",
             reason_started_at: NOW - HOUR,
           },
         ],
@@ -2393,7 +2393,7 @@ describe("OverviewScreen fixes", () => {
     expect(
       within(item).getByText(
         textContent(
-          "engine of kanthord waits: Repository SSH read failed. The failure reason is auth_failed. Workers claim no node of it. The server reads it again each minute.",
+          "engine of kanthord waits: Repository SSH read failed. The failure reason is key_refused. Workers claim no node of it. The server reads it again each minute.",
         ),
       ),
     ).toBeInTheDocument();
