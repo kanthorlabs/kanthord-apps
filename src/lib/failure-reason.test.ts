@@ -59,15 +59,40 @@ describe("failure reason hint", () => {
       "rate_limited",
       "unreachable",
       "invalid_response",
+      "deadline_exceeded",
       "unclassified",
     ])
       expect(instanceCopyHint(reason)).not.toMatch(/[Vv]erify/);
     expect(instanceCopyHint("held_by_instance")).toBe(failureReasonHint("held_by_instance", "llm"));
   });
 
-  it("names the deadline for a git read that exceeds it", () => {
-    expect(failureReasonHint("deadline_exceeded", "repository")).toBe(
-      "The repository host did not answer before the deadline. Verify again. If the failure stays, check the network of the server.",
+  it("names the deadline for a check of every component that exceeds it", () => {
+    for (const component of COMPONENTS)
+      expect(failureReasonHint("deadline_exceeded", component)).toBe(
+        "The remote host or service did not answer before the check deadline. Verify again. If the failure stays, check the network of the server.",
+      );
+  });
+
+  it("names the deadline only in the deadline_exceeded hint", () => {
+    for (const component of COMPONENTS)
+      for (const reason of REASONS.filter((value) => value !== "deadline_exceeded"))
+        expect(failureReasonHint(reason, component)).not.toMatch(/deadline/);
+    for (const reason of [...HTTP_REASONS, "unclassified"])
+      expect(instanceCopyHint(reason)).not.toMatch(/deadline/);
+  });
+
+  it("gives the unclassified hint with no deadline cause", () => {
+    expect(failureReasonHint("unclassified", "repository")).toBe(
+      "The check failed for an unknown cause. Verify again. If the failure stays, read the server log.",
+    );
+    expect(instanceCopyHint("unclassified")).toBe(
+      "The check failed for an unknown cause. Read the log of the instance.",
+    );
+  });
+
+  it("points an instance copy past its deadline to the instance host", () => {
+    expect(instanceCopyHint("deadline_exceeded")).toBe(
+      "The provider did not answer before the check deadline. Check the network of the instance host. The instance checks the copy again after the next copy write.",
     );
   });
 
