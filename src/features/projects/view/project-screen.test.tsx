@@ -342,6 +342,18 @@ describe("ProjectScreen", () => {
       expect(within(bar).queryByRole("progressbar")).toBeNull();
     });
 
+    it("shows the repair line of a failed state that env@1 repairs", async () => {
+      vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
+        failedEnvironment({ repairing: true, repairs: 1 }),
+      ]);
+      mount();
+
+      const bar = await screen.findByRole("alert", { name: "Environment" });
+      expect(within(bar).getByText("Failed")).toBeTruthy();
+      expect(bar).toHaveTextContent("engine · Repairing with env@1 · repair 1 of 3");
+      expect(within(bar).queryByRole("progressbar")).toBeNull();
+    });
+
     it("shows the reason of a pending state", async () => {
       vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
         environment("pending", { reason: "The base branch main is absent." }),

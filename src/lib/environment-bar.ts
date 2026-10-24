@@ -7,6 +7,7 @@ export const ACTIVE_ENVIRONMENT_STATUSES: readonly EnvironmentStatus[] = [
 ];
 export const ENVIRONMENT_ACTIVE_POLL_MS = 5000;
 export const ENVIRONMENT_IDLE_POLL_MS = 30000;
+export const ENVIRONMENT_REPAIR_LIMIT = 3;
 
 const SECOND_MS = 1000;
 const MINUTE_MS = 60 * SECOND_MS;
@@ -102,7 +103,18 @@ export function environmentStatusVariant(
   return "secondary";
 }
 
+export function repairText(repairs: number): string | null {
+  return repairs > 0 ? `repair ${repairs} of ${ENVIRONMENT_REPAIR_LIMIT}` : null;
+}
+
+export function needsRepairHint(state: EnvironmentState, envEnabled: boolean | null): boolean {
+  return state.status === "failed" && !state.repairing && envEnabled === false;
+}
+
 export function stepLineOf(state: EnvironmentState): string {
+  if (state.repairing) {
+    return `Repairing with env@1 · repair ${state.repairs} of ${ENVIRONMENT_REPAIR_LIMIT}`;
+  }
   if (state.status === "failed") {
     return state.failure === null
       ? STEP_LINES.failed

@@ -287,6 +287,9 @@ describe("BindingsPanel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue(SET);
+    vi.mocked(workersApi.readAgentEnablement).mockRejectedValue(
+      new ApiError("unavailable", "The daemon is not reachable.", 0),
+    );
     vi.mocked(projectsApi.readBindingEnvironment).mockResolvedValue({
       source: "stored",
       commit: null,
@@ -2197,6 +2200,73 @@ describe("BindingsPanel", () => {
       expect(within(region).getByText("docker run --rm node:24 pnpm test")).toBeTruthy();
       expect(within(region).getByRole("button", { name: "Copy tail" })).toBeTruthy();
       expect(within(region).getByRole("button", { name: "Copy reproduce command" })).toBeTruthy();
+    });
+
+    describe("repair", () => {
+      const ENV_ENABLEMENT = {
+        agent_name: "env@1",
+        state: "enabled" as const,
+        agent_providers: [],
+        default_configuration: {
+          agent_provider: "router",
+          model_identifier: "qwen/qwen3-coder",
+          reasoning_effort: "medium" as const,
+        },
+        fallback_configurations: [],
+        revision: 1,
+      };
+
+      async function openSection(state: EnvironmentState) {
+        mount([state]);
+        await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+        return screen.findByRole("region", { name: "Environment" });
+      }
+
+      it("shows the repair line and a spinner while env@1 repairs", async () => {
+        const region = await openSection({ ...FAILED, repairing: true, repairs: 1 });
+
+        expect(within(region).getByText("Repairing with env@1 · repair 1 of 3")).toBeTruthy();
+        expect(within(region).getByRole("status", { name: "Loading" })).toBeTruthy();
+      });
+
+      it("shows the fact Repairs of a failed state", async () => {
+        const region = await openSection({ ...FAILED, repairs: 2 });
+
+        expect(within(region).getByText("Repairs")).toBeTruthy();
+        expect(within(region).getByText("2 of 3")).toBeTruthy();
+        expect(within(region).queryByRole("status", { name: "Loading" })).toBeNull();
+      });
+
+      it("shows no fact Repairs for a state with no repair", async () => {
+        const region = await openSection(FAILED);
+
+        expect(within(region).queryByText("Repairs")).toBeNull();
+      });
+
+      it("shows the hint and the link when env@1 has no enablement", async () => {
+        vi.mocked(workersApi.readAgentEnablement).mockRejectedValue(
+          new ApiError("not_found", "No such enablement.", 404, "agent.enablement.not_found"),
+        );
+        const region = await openSection(FAILED);
+
+        expect(
+          await within(region).findByText("Enable env@1 to let KanthorD repair it."),
+        ).toBeTruthy();
+        expect(within(region).getByRole("button", { name: "Enable env@1" })).toHaveAttribute(
+          "href",
+          "/agents/env@1#enablement",
+        );
+        expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("env@1");
+      });
+
+      it("shows no hint when env@1 is enabled", async () => {
+        vi.mocked(workersApi.readAgentEnablement).mockResolvedValue(ENV_ENABLEMENT);
+        const region = await openSection(FAILED);
+
+        await waitFor(() => expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("env@1"));
+        expect(within(region).queryByText("Enable env@1 to let KanthorD repair it.")).toBeNull();
+        expect(within(region).queryByRole("button", { name: "Enable env@1" })).toBeNull();
+      });
     });
 
     it("runs the onboarding again and reports the change", async () => {
