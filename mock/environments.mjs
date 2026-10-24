@@ -75,6 +75,8 @@ export function registerEnvironments({
   bindingIdOf,
 }) {
   const recordsByProject = new Map();
+  const secretRecords = new Map();
+  let secretSequence = 0;
 
   const repositoryNamesOf = (projectId) =>
     Object.entries(bindingSetOf(projectId).bindings)
@@ -206,4 +208,94 @@ export function registerEnvironments({
       changes: [{ kind: "revised", binding_id: bindingIdOf(binding.name) }],
     });
   });
+
+  const secretRevisionOf = (revision) => {
+    secretSequence += 1;
+    return {
+      id: `credential_revision_ENVSECRET${String(secretSequence).padStart(4, "0")}`,
+      revision,
+      metadata: null,
+      created_at: Date.now(),
+      ended_at: null,
+    };
+  };
+
+  const secretOrRefuse = (res, encodedName) => {
+    const record = secretRecords.get(decodeURIComponent(encodedName));
+    if (record === undefined) {
+      envelope(res, 404, "credential.credential.not_found", "Credential not found.");
+    }
+    return record;
+  };
+
+  const isSecretBody = (secret) =>
+    isPlainObject(secret) && typeof secret.key === "string" && secret.key !== "";
+
+  const refuseInvalidSecret = (res) =>
+    envelope(res, 400, "credential.input.invalid", "Invalid input.");
+
+  on("GET", /^\/api\/project\/credential\/([^/]+)$/, (m, _b, res) => {
+    const record = secretOrRefuse(res, m[1]);
+    if (record === undefined) return undefined;
+    return json(res, 200, record);
+  });
+
+  on("POST", /^\/api\/project\/credential$/, (_m, b, res) => {
+    if (
+      typeof b?.name !== "string" ||
+      b.name === "" ||
+      b.platform !== "environment_secret" ||
+      b.metadata !== null ||
+      !isSecretBody(b.secret)
+    ) {
+      return refuseInvalidSecret(res);
+    }
+    if (secretRecords.has(b.name)) {
+      return envelope(res, 409, "credential.credential.exists", "The credential exists.");
+    }
+    const record = {
+      name: b.name,
+      platform: "environment_secret",
+      holder: "server",
+      sealed_to: null,
+      sealed_current: true,
+      revisions: [secretRevisionOf(1)],
+    };
+    secretRecords.set(b.name, record);
+    return json(res, 200, record);
+  });
+
+  on("POST", /^\/api\/project\/credential\/([^/]+)\/revision$/, (m, b, res) => {
+    const record = secretOrRefuse(res, m[1]);
+    if (record === undefined) return undefined;
+    if (!isSecretBody(b?.secret) || !Number.isInteger(b?.expected_revision)) {
+      return refuseInvalidSecret(res);
+    }
+    const newest = record.revisions[0];
+    if (newest.revision !== b.expected_revision) {
+      return envelope(
+        res,
+        409,
+        "credential.revision.conflict",
+        "The expected revision is not the newest live revision.",
+      );
+    }
+    newest.ended_at = Date.now();
+    record.revisions.unshift(secretRevisionOf(newest.revision + 1));
+    return json(res, 200, record);
+  });
+
+  return {
+    absentSecretOf: (bindings) => {
+      for (const [binding, entry] of Object.entries(bindings)) {
+        if (entry.kind !== "repository") continue;
+        for (const [variable, credential] of Object.entries(
+          entry.config.environment_secrets ?? {},
+        )) {
+          if (!secretRecords.has(credential)) return { binding, variable, credential };
+        }
+      }
+      return null;
+    },
+  };
 }

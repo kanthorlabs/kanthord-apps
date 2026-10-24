@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { EnvironmentDocument, EnvironmentSource, EnvironmentState } from "@/api/types";
+import type { EnvironmentSource, EnvironmentState, RepositoryBindingConfig } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,9 @@ import {
   storableSource,
 } from "@/lib/environment-bar";
 import { useBindingEnvironment } from "../use-binding-environment";
+import { useEnvironmentSecret } from "../use-environment-secret";
 import { EnvironmentEditSheet } from "./environment-edit-sheet";
+import { EnvironmentSecretSheet } from "./environment-secret-sheet";
 import { FactList, type Fact } from "./fact-list";
 
 const DIGEST_LENGTH = 12;
@@ -22,9 +24,12 @@ interface EnvironmentSectionProps {
   readonly bindingId: string;
   readonly bindingName: string;
   readonly state: EnvironmentState | null;
+  readonly secrets: Readonly<Record<string, string>>;
   readonly focused: boolean;
   readonly onChanged: () => void;
-  readonly onWritten: (environment: EnvironmentDocument) => void;
+  readonly onWritten: (
+    patch: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">,
+  ) => void;
 }
 
 function factsOf(
@@ -70,6 +75,7 @@ export function EnvironmentSection({
   bindingId,
   bindingName,
   state,
+  secrets,
   focused,
   onChanged,
   onWritten,
@@ -79,8 +85,12 @@ export function EnvironmentSection({
     bindingId,
     bindingName,
     onChanged,
-    onWritten,
+    (environment) => onWritten({ environment }),
   );
+  const secret = useEnvironmentSecret(projectId, bindingName, secrets, (environment_secrets) =>
+    onWritten({ environment_secrets }),
+  );
+  const secretEntries = Object.entries(secrets).sort(([left], [right]) => (left < right ? -1 : 1));
   const [documentOpen, setDocumentOpen] = useState(false);
   const read = environment.loading ? null : environment.data;
   const sectionRef = useRef<HTMLElement>(null);
@@ -150,6 +160,46 @@ export function EnvironmentSection({
           </ul>
         </div>
       )}
+      <div className="flex flex-col gap-1">
+        <h5 className="text-sm font-medium">Secrets</h5>
+        {secretEntries.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No secret variable.</p>
+        ) : (
+          <ul className="flex flex-col gap-2 text-sm">
+            {secretEntries.map(([variable, credential]) => (
+              <li
+                key={variable}
+                className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between"
+              >
+                <span className="min-w-0 font-mono break-words">
+                  {variable} → {credential}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Edit secret ${variable}`}
+                    onClick={() => secret.open(variable)}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Remove secret ${variable}`}
+                    disabled={secret.sending}
+                    onClick={() => secret.remove(variable)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {environment.error !== null && (
         <Alert variant="destructive" className="min-w-0">
           <AlertTitle>The stored environment was not read</AlertTitle>
@@ -240,7 +290,26 @@ export function EnvironmentSection({
         >
           Copy environment
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={() => secret.open()}
+        >
+          Set secret
+        </Button>
       </div>
+      {secret.editing && (
+        <EnvironmentSecretSheet
+          draft={secret.draft}
+          errors={secret.errors}
+          sending={secret.sending}
+          sendError={secret.sendError}
+          onEdit={secret.edit}
+          onSend={secret.send}
+          onClose={secret.close}
+        />
+      )}
       {edit.editing && !environment.loading && environment.error === null && (
         <EnvironmentEditSheet
           initialText={edit.initialText}

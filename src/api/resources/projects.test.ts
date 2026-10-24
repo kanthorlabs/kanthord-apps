@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setConnection } from "../client";
 import {
   checkBinding,
+  createEnvironmentSecret,
   createProject,
   listBindingAgents,
   listProjectEnvironments,
@@ -14,10 +15,12 @@ import {
   listWorkerBindings,
   pauseProject,
   readBindingEnvironment,
+  readEnvironmentSecret,
   readInstructionFiles,
   rebuildEnvironment,
   renameProject,
   resumeProject,
+  rotateEnvironmentSecret,
   verifyBinding,
   writeBindingEnvironment,
   writeBindingSet,
@@ -360,6 +363,67 @@ describe("environment resources", () => {
       "/api/project/a%2Fb/binding/c%2Fd/environment/rebuild",
       "/api/project/a%2Fb/binding/c%2Fd/environment",
       "/api/project/a%2Fb/binding/c%2Fd/environment",
+    ]);
+  });
+});
+
+describe("environment secret credentials", () => {
+  const CREDENTIAL = {
+    name: "registry-auth",
+    platform: "environment_secret",
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
+    revisions: [{ id: "rev-1", revision: 1, metadata: null, created_at: 1, ended_at: null }],
+  };
+
+  it("reads the credential by name", async () => {
+    const base = await serve([CREDENTIAL]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await readEnvironmentSecret("registry-auth")).toEqual(CREDENTIAL);
+    expect(seen[0]?.method).toBe("GET");
+    expect(seen[0]?.url).toBe("/api/project/credential/registry-auth");
+  });
+
+  it("creates the credential with null metadata and an idempotency key", async () => {
+    const base = await serve([CREDENTIAL]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    const body = {
+      name: "registry-auth",
+      platform: "environment_secret",
+      metadata: null,
+      secret: { key: "token-1" },
+    } as const;
+    expect(await createEnvironmentSecret(body)).toEqual(CREDENTIAL);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project/credential");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+    expect(JSON.parse(bodies[0] ?? "")).toEqual(body);
+  });
+
+  it("rotates the credential with an idempotency key", async () => {
+    const base = await serve([CREDENTIAL]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    const body = { expected_revision: 1, secret: { key: "token-2" } };
+    expect(await rotateEnvironmentSecret("registry-auth", body)).toEqual(CREDENTIAL);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/project/credential/registry-auth/revision");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+    expect(JSON.parse(bodies[0] ?? "")).toEqual(body);
+  });
+
+  it("encodes the name", async () => {
+    const base = await serve([CREDENTIAL, CREDENTIAL]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    await readEnvironmentSecret("a/b");
+    await rotateEnvironmentSecret("a/b", { expected_revision: 1, secret: { key: "k" } });
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/project/credential/a%2Fb",
+      "/api/project/credential/a%2Fb/revision",
     ]);
   });
 });

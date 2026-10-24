@@ -1267,6 +1267,16 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   if (instanceRefusal !== null) return projectEnvelope(res, 400, ...instanceRefusal);
   const environmentRefusal = workerEnvironmentRefusal(b.bindings);
   if (environmentRefusal !== null) return projectEnvelope(res, 400, ...environmentRefusal);
+  const absentSecret = environments.absentSecretOf(b.bindings);
+  if (absentSecret !== null) {
+    return projectEnvelope(
+      res,
+      400,
+      "project.bindings.repository.environment_secret_invalid",
+      "A secret variable names a credential that is absent, archived or of another platform.",
+      absentSecret,
+    );
+  }
   const placementChanged = Object.entries(b.bindings).some(([name, entry]) => {
     const stored = set.bindings[name];
     return (
@@ -3157,7 +3167,7 @@ registerTracking({
   executions: () => [...projectStates.values()].flatMap((state) => state.executions),
 });
 
-registerEnvironments({
+const environments = registerEnvironments({
   on,
   json,
   envelope: projectEnvelope,

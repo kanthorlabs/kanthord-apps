@@ -2250,6 +2250,174 @@ describe("BindingsPanel", () => {
       expect(screen.getByLabelText("Location")).not.toHaveTextContent("environment");
     });
 
+    describe("secrets", () => {
+      const REGISTRY_CREDENTIAL: Credential = {
+        name: "registry-auth",
+        platform: "environment_secret",
+        holder: "server",
+        sealed_to: null,
+        sealed_current: true,
+        revisions: [{ id: "rev_1", revision: 1, metadata: null, created_at: 1, ended_at: null }],
+      };
+
+      async function openSection(secrets?: Readonly<Record<string, string>>) {
+        if (REPO.kind !== "repository") throw new Error("REPO is a repository binding");
+        const entry: BindingSetEntry = {
+          kind: "repository",
+          config:
+            secrets === undefined ? REPO.config : { ...REPO.config, environment_secrets: secrets },
+        };
+        vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+          version: 2,
+          bindings: { engine: entry },
+        });
+        vi.mocked(projectsApi.listBindings).mockResolvedValue([
+          { ...BINDING_REPO, name: "engine", config: entry.config },
+        ]);
+        mount([environmentOf("engine", "ready")]);
+        await userEvent.click(await screen.findByRole("button", { name: "Edit engine" }));
+        return screen.findByRole("region", { name: "Environment" });
+      }
+
+      it("lists each variable with its credential name", async () => {
+        const region = await openSection({
+          REGISTRY_AUTH: "registry-auth",
+          NPM_TOKEN: "npm-token",
+        });
+
+        expect(within(region).getByRole("heading", { name: "Secrets" })).toBeTruthy();
+        const lines = within(region)
+          .getAllByRole("listitem")
+          .map((item) => item.textContent)
+          .filter((text) => text?.includes("→"));
+        expect(lines).toEqual([
+          expect.stringContaining("NPM_TOKEN → npm-token"),
+          expect.stringContaining("REGISTRY_AUTH → registry-auth"),
+        ]);
+        expect(
+          within(region).getByRole("button", { name: "Edit secret REGISTRY_AUTH" }),
+        ).toBeTruthy();
+        expect(
+          within(region).getByRole("button", { name: "Remove secret REGISTRY_AUTH" }),
+        ).toBeTruthy();
+      });
+
+      it("shows No secret variable. for a binding with none", async () => {
+        const region = await openSection();
+
+        expect(within(region).getByText("No secret variable.")).toBeTruthy();
+        expect(within(region).queryByText(/→/)).toBeNull();
+      });
+
+      it("opens the Set secret sheet with the three fields", async () => {
+        const region = await openSection();
+
+        await userEvent.click(within(region).getByRole("button", { name: "Set secret" }));
+        const sheet = await screen.findByRole("dialog", { name: "Set secret" });
+
+        expect(within(sheet).getByLabelText("Variable")).toBeTruthy();
+        expect(within(sheet).getByLabelText("Credential")).toBeTruthy();
+        const value = within(sheet).getByLabelText("Secret value");
+        expect(value).toHaveAttribute("type", "password");
+        expect(value).toHaveAttribute("autocomplete", "off");
+      });
+
+      it("opens Edit secret with the variable and credential prefilled", async () => {
+        const region = await openSection({ REGISTRY_AUTH: "registry-auth" });
+
+        await userEvent.click(
+          within(region).getByRole("button", { name: "Edit secret REGISTRY_AUTH" }),
+        );
+        const sheet = await screen.findByRole("dialog", { name: "Set secret" });
+
+        expect(within(sheet).getByLabelText("Variable")).toHaveValue("REGISTRY_AUTH");
+        expect(within(sheet).getByLabelText("Credential")).toHaveValue("registry-auth");
+        expect(within(sheet).getByLabelText("Secret value")).toHaveValue("");
+      });
+
+      it("saves the secret and shows no text that holds the typed value", async () => {
+        vi.mocked(projectsApi.readEnvironmentSecret).mockRejectedValue(
+          new ApiError(
+            "not_found",
+            "Credential not found.",
+            404,
+            "credential.credential.not_found",
+          ),
+        );
+        vi.mocked(projectsApi.createEnvironmentSecret).mockResolvedValue(REGISTRY_CREDENTIAL);
+        const region = await openSection();
+
+        await userEvent.click(within(region).getByRole("button", { name: "Set secret" }));
+        const sheet = await screen.findByRole("dialog", { name: "Set secret" });
+        await userEvent.type(within(sheet).getByLabelText("Variable"), "REGISTRY_AUTH");
+        await userEvent.type(within(sheet).getByLabelText("Credential"), "registry-auth");
+        await userEvent.type(within(sheet).getByLabelText("Secret value"), "hunter2-token");
+        await userEvent.click(within(sheet).getByRole("button", { name: "Set secret" }));
+
+        await waitFor(() => expect(projectsApi.writeBindingSet).toHaveBeenCalled());
+        expect(projectsApi.createEnvironmentSecret).toHaveBeenCalledWith({
+          name: "registry-auth",
+          platform: "environment_secret",
+          metadata: null,
+          secret: { key: "hunter2-token" },
+        });
+        const bindings = vi.mocked(projectsApi.writeBindingSet).mock.calls[0]?.[2];
+        expect(bindings?.["engine"]).toMatchObject({
+          config: { environment_secrets: { REGISTRY_AUTH: "registry-auth" } },
+        });
+        await waitFor(() =>
+          expect(screen.queryByRole("dialog", { name: "Set secret" })).toBeNull(),
+        );
+        expect(await screen.findByText("REGISTRY_AUTH → registry-auth")).toBeTruthy();
+        expect(document.body.textContent).not.toContain("hunter2-token");
+        expect(screen.queryAllByDisplayValue("hunter2-token")).toHaveLength(0);
+      });
+
+      it("shows a refusal in the sheet and clears the typed value", async () => {
+        vi.mocked(projectsApi.readEnvironmentSecret).mockResolvedValue(REGISTRY_CREDENTIAL);
+        vi.mocked(projectsApi.rotateEnvironmentSecret).mockResolvedValue(REGISTRY_CREDENTIAL);
+        vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
+          new ApiError(
+            "malformed",
+            "The credential registry-auth is absent.",
+            400,
+            "project.bindings.repository.environment_secret_invalid",
+          ),
+        );
+        const region = await openSection();
+
+        await userEvent.click(within(region).getByRole("button", { name: "Set secret" }));
+        const sheet = await screen.findByRole("dialog", { name: "Set secret" });
+        await userEvent.type(within(sheet).getByLabelText("Variable"), "REGISTRY_AUTH");
+        await userEvent.type(within(sheet).getByLabelText("Credential"), "registry-auth");
+        await userEvent.type(within(sheet).getByLabelText("Secret value"), "hunter2-token");
+        await userEvent.click(within(sheet).getByRole("button", { name: "Set secret" }));
+
+        expect(
+          await within(sheet).findByText("The credential registry-auth is absent."),
+        ).toBeTruthy();
+        expect(within(sheet).getByLabelText("Secret value")).toHaveValue("");
+        expect(projectsApi.rotateEnvironmentSecret).toHaveBeenCalledWith("registry-auth", {
+          expected_revision: 1,
+          secret: { key: "hunter2-token" },
+        });
+      });
+
+      it("removes a variable without a credential call", async () => {
+        const region = await openSection({ REGISTRY_AUTH: "registry-auth" });
+
+        await userEvent.click(
+          within(region).getByRole("button", { name: "Remove secret REGISTRY_AUTH" }),
+        );
+
+        await waitFor(() => expect(projectsApi.writeBindingSet).toHaveBeenCalled());
+        const bindings = vi.mocked(projectsApi.writeBindingSet).mock.calls[0]?.[2];
+        expect(bindings?.["engine"]).toMatchObject({ config: { environment_secrets: {} } });
+        expect(projectsApi.readEnvironmentSecret).not.toHaveBeenCalled();
+        expect(await screen.findByText("No secret variable.")).toBeTruthy();
+      });
+    });
+
     describe("edit environment", () => {
       async function openEditor() {
         mount([READY]);
