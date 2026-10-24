@@ -1249,6 +1249,7 @@ const jobOf = (projectId, nodeId, priority, agoMinutes, tail) => ({
   project_id: projectId,
   node_id: nodeId,
   priority,
+  queued_at: minutes(agoMinutes),
 });
 
 export const GRAPH_QUEUE = [

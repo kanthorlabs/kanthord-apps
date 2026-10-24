@@ -36,8 +36,7 @@ function JobItem({ view, now }: { readonly view: JobView; readonly now: number }
           {view.noTaker && <Badge variant="destructive">No taker</Badge>}
         </ItemTitle>
         <ItemDescription>
-          priority {view.job.priority}
-          {view.queuedAt !== null && ` · queued ${relativeAge(view.queuedAt, now)}`}
+          priority {view.job.priority} · queued {relativeAge(view.queuedAt, now)}
         </ItemDescription>
         <ItemDescription className="break-all">job {view.job.job_id}</ItemDescription>
       </ItemContent>

@@ -24,6 +24,7 @@ import { newUlid } from "./ulid";
 
 const NOW = 1_000_000_000_000;
 const MINUTE = 60_000;
+const FIRST_JOB_AGE_MS = 86_400_000;
 
 const CATALOG: readonly WorkerCatalogItem[] = [
   {
@@ -83,10 +84,11 @@ function node(
 
 function job(nodeId: string, ageMs: number): SchedulerJob {
   return {
-    job_id: `job_${newUlid(NOW - ageMs)}`,
+    job_id: `job_${newUlid(NOW - FIRST_JOB_AGE_MS)}`,
     project_id: PROJECT.id,
     node_id: nodeId,
     priority: 0,
+    queued_at: NOW - ageMs,
   };
 }
 

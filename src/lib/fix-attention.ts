@@ -11,7 +11,6 @@ import type { AttentionContext, ItemBase, ProjectSnapshot } from "./attention";
 import { takerHintOf, uncoveredJobsOf, type TakerHint } from "./claim-takers";
 import { endTimeOf } from "./execution-stop";
 import { isTerminal } from "./node-state";
-import { ulidTime } from "./ulid";
 
 const NO_TAKER_GRACE_MS = 60_000;
 
@@ -130,12 +129,7 @@ function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readon
   const workerBindings = bindings.map((entry) => entry.binding);
   const stuckGroups = uncoveredJobsOf(jobs, snapshot.nodes, registrations, workerBindings, catalog);
   for (const { facts, jobs: stuck } of stuckGroups) {
-    const [oldest] = stuck
-      .flatMap((job) => {
-        const time = ulidTime(job.job_id);
-        return time === null ? [] : [time];
-      })
-      .sort((left, right) => left - right);
+    const [oldest] = stuck.map((job) => job.queued_at).sort((left, right) => left - right);
     if (oldest === undefined) continue;
     if (context.now - oldest <= NO_TAKER_GRACE_MS) continue;
     const { state, intent, tags } = facts;
