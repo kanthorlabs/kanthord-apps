@@ -8,6 +8,8 @@ import {
   environmentStatusLabel,
   environmentStatusVariant,
   moreCountOf,
+  needsRepairHint,
+  repairText,
   shownEnvironmentOf,
   stepElapsedOf,
   stepLineOf,
@@ -153,6 +155,36 @@ describe("stepLineOf", () => {
       expect(stepLineOf(state({ status, run_started_at: null }))).toBe("Waiting for another run");
     },
   );
+});
+
+describe("repair", () => {
+  it.each(["failed", "building", "proving"] satisfies EnvironmentStatus[])(
+    "answers the repair line of a repairing %s state",
+    (status) => {
+      expect(stepLineOf(state({ status, repairing: true, repairs: 2 }))).toBe(
+        "Repairing with env@1 · repair 2 of 3",
+      );
+    },
+  );
+
+  it("keeps the failure line of a failed state that does not repair", () => {
+    expect(stepLineOf(failedState({ repairing: false, repairs: 2 }))).toBe(
+      "Failed: command_absent · pnpm",
+    );
+  });
+
+  it("answers the repair text of a state with repairs", () => {
+    expect(repairText(2)).toBe("repair 2 of 3");
+    expect(repairText(0)).toBeNull();
+  });
+
+  it("asks for the hint of a failed state with no repair and no enabled env@1", () => {
+    expect(needsRepairHint(failedState(), false)).toBe(true);
+    expect(needsRepairHint(failedState(), true)).toBe(false);
+    expect(needsRepairHint(failedState(), null)).toBe(false);
+    expect(needsRepairHint(failedState({ repairing: true }), false)).toBe(false);
+    expect(needsRepairHint(state({ status: "building" }), false)).toBe(false);
+  });
 });
 
 describe("stepProgressOf", () => {

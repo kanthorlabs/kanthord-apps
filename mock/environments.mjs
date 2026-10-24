@@ -5,6 +5,7 @@ const STARTED_AT = Date.now();
 const STEPS = ["building", "proving", "ready"];
 const ACTIVE_STATUSES = ["pending", "building", "proving"];
 const READS_PER_STEP = 3;
+const READS_PER_REPAIR = 6;
 const COMMIT = "4f0184b";
 const FIXTURE_DOCUMENT = {
   image: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm",
@@ -40,6 +41,17 @@ const initialRecordOf = (name, leading) => {
       reads: 0,
     };
   }
+  if (leading && SCENARIO === "repairing") {
+    return {
+      status: "failed",
+      run_started_at: null,
+      step_started_at: null,
+      failure: failureOf(name),
+      repairing: true,
+      repairs: 1,
+      reads: 0,
+    };
+  }
   if (leading && SCENARIO === "failed") {
     return {
       status: "failed",
@@ -50,6 +62,15 @@ const initialRecordOf = (name, leading) => {
     };
   }
   return { status: "ready", run_started_at: null, step_started_at: null, failure: null, reads: 0 };
+};
+
+const finishRepair = (record) => {
+  record.status = "building";
+  record.run_started_at = Date.now();
+  record.step_started_at = record.run_started_at;
+  record.failure = null;
+  record.repairing = false;
+  record.reads = 0;
 };
 
 const advance = (record) => {
@@ -112,8 +133,8 @@ export function registerEnvironments({
       reason: null,
       failure: record.failure,
       checks: record.status === "ready" && index === 1 ? RED_BASELINE : [],
-      repairs: 0,
-      repairing: false,
+      repairs: record.repairs ?? 0,
+      repairing: record.repairing ?? false,
     };
   };
 
@@ -135,7 +156,10 @@ export function registerEnvironments({
       .filter(([name]) => repositoryNamesOf(project.id).includes(name))
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([name, record], index) => {
-        if (isActive(record)) {
+        if (record.repairing) {
+          record.reads += 1;
+          if (record.reads >= READS_PER_REPAIR) finishRepair(record);
+        } else if (isActive(record)) {
           record.reads += 1;
           if (record.reads % READS_PER_STEP === 0) advance(record);
         }

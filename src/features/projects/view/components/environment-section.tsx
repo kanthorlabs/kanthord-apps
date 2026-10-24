@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 
 import type { EnvironmentSource, EnvironmentState, RepositoryBindingConfig } from "@/api/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/reveal";
+import { Spinner } from "@/components/ui/spinner";
 import {
+  ENVIRONMENT_REPAIR_LIMIT,
   environmentSourceText,
   environmentStatusLabel,
   environmentStatusVariant,
+  needsRepairHint,
+  stepLineOf,
   storableSource,
 } from "@/lib/environment-bar";
 import { useBindingEnvironment } from "../use-binding-environment";
+import { useEnvAgentEnabled } from "../use-env-agent-enabled";
 import { useEnvironmentSecret } from "../use-environment-secret";
 import { EnvironmentEditSheet } from "./environment-edit-sheet";
 import { EnvironmentSecretSheet } from "./environment-secret-sheet";
@@ -67,6 +73,9 @@ function factsOf(
           },
         ]),
     ...(state.reason === null ? [] : [{ label: "Reason", value: state.reason }]),
+    ...(state.repairs > 0
+      ? [{ label: "Repairs", value: `${state.repairs} of ${ENVIRONMENT_REPAIR_LIMIT}` }]
+      : []),
   ];
 }
 
@@ -96,6 +105,7 @@ export function EnvironmentSection({
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const failure = state?.failure ?? null;
+  const envEnabled = useEnvAgentEnabled();
 
   useEffect(() => {
     if (!focused) return;
@@ -218,6 +228,26 @@ export function EnvironmentSection({
             </Button>
           </AlertDescription>
         </Alert>
+      )}
+      {state !== null && state.repairing && (
+        <div className="flex items-center gap-2 text-sm">
+          <Spinner className="shrink-0" />
+          <p className="min-w-0 break-words">{stepLineOf(state)}</p>
+        </div>
+      )}
+      {state !== null && needsRepairHint(state, envEnabled) && (
+        <div className="flex flex-col items-start gap-2 text-sm sm:flex-row sm:items-center">
+          <p className="min-w-0 break-words">Enable env@1 to let KanthorD repair it.</p>
+          <Button
+            nativeButton={false}
+            render={<Link to="/agents/env@1#enablement" />}
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+          >
+            Enable env@1
+          </Button>
+        </div>
       )}
       {failure !== null && (
         <Alert variant="destructive" className="min-w-0">
