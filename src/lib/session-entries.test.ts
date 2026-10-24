@@ -151,22 +151,6 @@ describe("entryView", () => {
     });
   });
 
-  it("reads a pinned layer as system", () => {
-    const view = entryView(
-      entry("custom", {
-        type: "custom",
-        customType: "kanthord.pinned_context",
-        data: { part: "layer", index: 2, text: "layer text" },
-      }),
-    );
-    expect(view).toEqual({
-      kind: "system",
-      source: "pinned",
-      text: "",
-      sections: [{ name: "Layer 2", text: "layer text" }],
-    });
-  });
-
   it("maps compaction, model change and thinking level change", () => {
     expect(entryView(entry("compaction", { type: "compaction" }))).toEqual({ kind: "compaction" });
     expect(entryView(entry("model_change", { type: "model_change", modelId: "m2" }))).toEqual({

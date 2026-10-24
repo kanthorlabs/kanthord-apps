@@ -1,5 +1,7 @@
 import type {
   AgentDefaultConfiguration,
+  BindingPromptAgent,
+  BindingPrompts,
   BindingSetEntry,
   BindingSetKind,
   RepositoryActionFollows,
@@ -9,9 +11,8 @@ import type {
   WorkerAgentEntry,
   WorkerBindingConfig,
   WorkerPlacement,
-  WorkingLayerKey,
-  WorkingLayerSwitches,
 } from "@/api/types";
+import { BINDING_PROMPT_AGENTS } from "@/api/types";
 
 export const REASONING_EFFORTS = [
   "off",
@@ -42,8 +43,7 @@ export interface RepositoryDraft {
   readonly follows: RepositoryActionFollows;
   readonly sshCredential: string;
   readonly credential: string;
-  readonly projectPrompt: string;
-  readonly workingLayer: WorkingLayerSwitches;
+  readonly prompts: Readonly<Record<BindingPromptAgent, string>>;
   readonly kept: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">;
 }
 
@@ -84,13 +84,6 @@ const BINDING_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 const REPOSITORY_ADDRESS = /^git@[A-Za-z0-9][A-Za-z0-9.-]*:[^/\s:]+\/[^/\s:]+\.git(?![\s\S])/;
 const ASSESSMENT_PASSED: RepositoryActionFollows = { type: "assessment_passed" };
 const REQUIRED = "Enter a value.";
-const ALL_SWITCHES_ON: WorkingLayerSwitches = {
-  agents_md: true,
-  agents_local_md: true,
-  claude_md: true,
-  claude_local_md: true,
-  project_prompt: true,
-};
 const GIT_ADDRESS_HOST = /^git@([A-Za-z0-9][A-Za-z0-9.-]*):/;
 const SSH_HOST_SETS: Readonly<Record<RepositoryPlatform, readonly [string, string]>> = {
   github: ["github.com", "ssh.github.com"],
@@ -142,6 +135,25 @@ export function withPlatform(
   return { ...draft, platform, actionName, address };
 }
 
+function promptDraftsOf(
+  prompts: BindingPrompts | undefined,
+): Readonly<Record<BindingPromptAgent, string>> {
+  return {
+    "swe@1": prompts?.["swe@1"] ?? "",
+    "re@1": prompts?.["re@1"] ?? "",
+    "env@1": prompts?.["env@1"] ?? "",
+  };
+}
+
+function promptsOf(draft: RepositoryDraft): BindingPrompts {
+  return Object.fromEntries(
+    BINDING_PROMPT_AGENTS.flatMap((agent) => {
+      const text = draft.prompts[agent];
+      return blank(text) ? [] : [[agent, text]];
+    }),
+  );
+}
+
 export function emptyDraft(kind: BindingSetKind): BindingDraft {
   if (kind === "repository") {
     return {
@@ -155,8 +167,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       follows: ASSESSMENT_PASSED,
       sshCredential: "",
       credential: "",
-      projectPrompt: "",
-      workingLayer: ALL_SWITCHES_ON,
+      prompts: promptDraftsOf(undefined),
       kept: {},
     };
   }
@@ -187,12 +198,12 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
   };
 }
 
-export function withWorkingLayerSwitch(
+export function withBindingPrompt(
   draft: RepositoryDraft,
-  key: WorkingLayerKey,
-  enabled: boolean,
+  agent: BindingPromptAgent,
+  text: string,
 ): RepositoryDraft {
-  return { ...draft, workingLayer: { ...draft.workingLayer, [key]: enabled } };
+  return { ...draft, prompts: { ...draft.prompts, [agent]: text } };
 }
 
 function agentDraftOf(entry: WorkerAgentEntry): AgentEntryDraft {
@@ -291,8 +302,7 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       follows: config.strategy.action?.follows ?? ASSESSMENT_PASSED,
       sshCredential: config.ssh_credential,
       credential: config.credential ?? "",
-      projectPrompt: config.project_prompt ?? "",
-      workingLayer: { ...ALL_SWITCHES_ON, ...config.working_layer },
+      prompts: promptDraftsOf(config.prompts),
       kept: {
         ...(config.environment === undefined ? {} : { environment: config.environment }),
         ...(config.environment_secrets === undefined
@@ -401,7 +411,7 @@ function repositoryEntryOf(
   ) {
     errors["credential"] = "Open a pull request requires a credential.";
   }
-  const projectPrompt = optional(draft.projectPrompt);
+  const prompts = promptsOf(draft);
   return {
     kind: "repository",
     config: {
@@ -416,8 +426,7 @@ function repositoryEntryOf(
       },
       ssh_credential: draft.sshCredential.trim(),
       ...(credential !== undefined && credential !== "" ? { credential } : {}),
-      ...(projectPrompt === undefined ? {} : { project_prompt: projectPrompt }),
-      working_layer: draft.workingLayer,
+      ...(Object.keys(prompts).length === 0 ? {} : { prompts }),
       ...draft.kept,
     },
   };

@@ -7,7 +7,6 @@ const SEGMENT_LABELS: Readonly<Record<string, string>> = {
   new: "New",
   edit: "Edit",
   workbench: "Workbench",
-  settings: "Settings",
   instances: "Instances",
 };
 

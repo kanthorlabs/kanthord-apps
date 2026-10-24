@@ -2,20 +2,19 @@ import { PencilIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import type { AgentEnablement, AgentTool, PromptLayer } from "@/api/types";
+import type { AgentEnablement, AgentTool } from "@/api/types";
 import { EnablementSwitch } from "@/components/enablement-switch";
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { usePromptSettings } from "@/hooks/use-prompt-settings";
+import { agentReadFailure } from "@/lib/agent-read-failure";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
+import { AgentPromptCard } from "./components/agent-prompt-card";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
 import { ChainSection } from "./components/chain-section";
@@ -23,12 +22,10 @@ import { DefaultConfigurationSheet } from "./components/default-configuration-sh
 import { EnablementForm } from "./components/enablement-form";
 import { PromptItem } from "@/components/prompt-item";
 import { CredentialVerifyAction } from "@/features/credentials/components/credential-verify-action";
-import { PromptLayerSection } from "./components/prompt-layer-section";
 import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
 import { useAgentProviderAdd } from "./use-agent-provider-add";
 import { useAgentProviderRemove } from "./use-agent-provider-remove";
-import { useInactiveSources } from "./use-inactive-sources";
 
 interface EnablementSectionProps {
   readonly agentName: string;
@@ -208,50 +205,10 @@ function PromptSection({ title, text }: { title: string; text: string }) {
       </CardHeader>
       <CardContent>
         <div role="list" aria-label={title}>
-          <PromptItem title="System prompt and working messages" text={text} />
+          <PromptItem title="System prompt" text={text} />
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function PromptLayers({
-  agentName,
-  layers,
-  reload,
-}: {
-  readonly agentName: string;
-  readonly layers: readonly PromptLayer[];
-  readonly reload: () => void;
-}) {
-  const server = usePromptSettings({ scope: "system" }, reload);
-  const agent = usePromptSettings({ scope: "agent", agent_name: agentName }, reload);
-  const working = usePromptSettings({ scope: "workbench", agent_name: agentName }, reload);
-  const scopes = { system: agent, agent, working } as const;
-  const visibility = useInactiveSources(layers);
-  return (
-    <>
-      {visibility.available && (
-        <Field orientation="horizontal" className="w-auto md:justify-self-end">
-          <Switch
-            id="prompt-show-inactive"
-            checked={visibility.show}
-            onCheckedChange={visibility.setShow}
-          />
-          <FieldLabel htmlFor="prompt-show-inactive">Show inactive sources</FieldLabel>
-        </Field>
-      )}
-      {layers.map((layer) => (
-        <PromptLayerSection
-          key={layer.layer}
-          agentName={agentName}
-          layer={layer}
-          server={server}
-          scope={scopes[layer.layer]}
-          visibility={visibility}
-        />
-      ))}
-    </>
   );
 }
 
@@ -271,7 +228,7 @@ export function AgentScreen() {
   if (error !== null || data === null) {
     return (
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-destructive">{error?.message}</p>
+        <p className="text-sm text-destructive">{error === null ? "" : agentReadFailure(error)}</p>
         <Button variant="outline" size="sm" onClick={reload}>
           Retry
         </Button>
@@ -326,12 +283,15 @@ export function AgentScreen() {
         cooling={agent.cooling}
         readAt={readAt}
       />
-      <PromptLayers
-        agentName={agent.agent_name}
-        layers={agent.prompt.layers ?? []}
-        reload={reload}
+      {agent.prompt.parts !== undefined && <AgentPromptCard parts={agent.prompt.parts} />}
+      <PromptSection
+        title={
+          agent.prompt.parts?.some((part) => part.part === "workbench")
+            ? "Workbench final prompt"
+            : "Worker final prompt"
+        }
+        text={agent.prompt.final}
       />
-      <PromptSection title="Final prompt" text={agent.prompt.final} />
     </div>
   );
 }

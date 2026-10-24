@@ -15,6 +15,7 @@ interface PromptItemProps {
   readonly text: string | null;
   readonly badges?: ReactNode;
   readonly control?: ReactNode;
+  readonly facts?: ReactNode;
   readonly dimmed?: boolean;
 }
 
@@ -45,6 +46,7 @@ export function PromptItem({
   text,
   badges,
   control,
+  facts,
   dimmed = false,
 }: PromptItemProps) {
   const titleClass = cn("min-w-0 flex-1 truncate text-sm", path && "font-mono");
@@ -84,6 +86,11 @@ export function PromptItem({
         <CopyMarkdownButton title={title} text={text} />
         {control}
       </div>
+      {facts !== undefined && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 pb-2 text-xs text-muted-foreground">
+          {facts}
+        </div>
+      )}
       <RevealPanel>
         <div className="max-h-[32rem] overflow-y-auto border-t px-4 py-3">
           <MarkdownText text={text} />

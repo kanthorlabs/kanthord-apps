@@ -38,10 +38,10 @@ describe("systemLabel and systemSize", () => {
       kind: "system",
       source: "pinned",
       text: "",
-      sections: [{ name: "Layer 2", text: "abc" }],
+      sections: [{ name: "System prompt", text: "abc" }],
     } as const;
 
-    expect(systemLabel(view)).toBe("Layer 2");
+    expect(systemLabel(view)).toBe("System prompt");
     expect(systemSize(view)).toBe("3 characters");
   });
 

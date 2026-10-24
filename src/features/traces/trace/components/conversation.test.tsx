@@ -69,8 +69,8 @@ function message(role: string, fields: Record<string, unknown>): Record<string, 
   return { type: "message", message: { role, ...fields } };
 }
 
-function pinned(part: string, text: string, index?: number): Record<string, unknown> {
-  return { type: "custom", customType: "kanthord.pinned_context", data: { part, text, index } };
+function pinned(part: string, text: string): Record<string, unknown> {
+  return { type: "custom", customType: "kanthord.pinned_context", data: { part, text } };
 }
 
 const SESSION_1 = span("session-1", "agent.session", { "kanthord.agent.name": "coder" });
@@ -87,7 +87,6 @@ const TURN = span("turn-1", "agent.turn", {
 
 const ENTRIES: readonly TraceSessionEntry[] = [
   entry("pin-prompt", 1, pinned("system_prompt", "You are a coder.")),
-  entry("pin-layer", 2, pinned("layer", "Follow the repository rules.", 2)),
   entry(
     "pi-system",
     3,
@@ -179,8 +178,8 @@ describe("Conversation", () => {
       .getAllByRole("listitem")
       .filter((block) => block.parentElement === entries);
     expect(blocks).toHaveLength(ENTRIES.length);
-    expect(blocks[3]).toHaveTextContent("List the files.");
-    expect(blocks[4]).toHaveTextContent("I will list the files.");
+    expect(blocks[2]).toHaveTextContent("List the files.");
+    expect(blocks[3]).toHaveTextContent("I will list the files.");
   });
 
   it("shows the pinned context and the pi system message collapsed behind Show prompt", async () => {
@@ -193,11 +192,6 @@ describe("Conversation", () => {
     expect(screen.queryByText("You are a coder.")).not.toBeInTheDocument();
     await userEvent.click(within(prompt).getByRole("button", { name: "Show prompt" }));
     expect(await screen.findByText("You are a coder.")).toBeInTheDocument();
-
-    const layer = blockOf("Layer 2");
-    expect(layer).toHaveTextContent("28 characters");
-    await userEvent.click(within(layer).getByRole("button", { name: "Show prompt" }));
-    expect(await screen.findByText("Follow the repository rules.")).toBeInTheDocument();
 
     const update = blockOf("System prompt update");
     expect(update).toHaveTextContent("15 characters");
@@ -339,10 +333,10 @@ describe("Conversation", () => {
 
   it("keeps the entries and offers Retry after a failed read", async () => {
     vi.mocked(listSessionEntryPage)
-      .mockResolvedValueOnce({ items: [ENTRIES[3] as TraceSessionEntry], next_cursor: "c1" })
+      .mockResolvedValueOnce({ items: [ENTRIES[2] as TraceSessionEntry], next_cursor: "c1" })
       .mockRejectedValueOnce(new ApiError("unavailable", "Daemon down.", 503))
-      .mockResolvedValueOnce({ items: [ENTRIES[3] as TraceSessionEntry], next_cursor: "c1" })
-      .mockResolvedValueOnce({ items: [ENTRIES[7] as TraceSessionEntry], next_cursor: null });
+      .mockResolvedValueOnce({ items: [ENTRIES[2] as TraceSessionEntry], next_cursor: "c1" })
+      .mockResolvedValueOnce({ items: [ENTRIES[6] as TraceSessionEntry], next_cursor: null });
     show([SESSION_1]);
 
     expect(await screen.findByText("Daemon down.")).toBeInTheDocument();

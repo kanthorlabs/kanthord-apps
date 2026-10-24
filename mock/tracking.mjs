@@ -21,7 +21,6 @@ const TOOLS = [
   ["run_command", { command: "pnpm run typecheck" }, "tsc --noEmit finished without output."],
 ];
 const SYSTEM_PROMPT = "You are a software engineer. Work on one task and report the result.";
-const LAYER_PROMPT = "The repository follows the architecture rules of AGENTS.md.";
 const VERIFICATION_COMMAND = "pnpm run verify";
 const VERIFICATION_OUTPUT = "Test Files  12 passed (12)\n     Tests  94 passed (94)";
 const TRUNCATED_TEXT = "The command printed a long log. The daemon keeps only the first part of it";
@@ -105,17 +104,9 @@ const buildEntries = (record, traceId, selection) => {
       customType: "kanthord.pinned_context",
       data: { part: "system_prompt", text: SYSTEM_PROMPT },
     }),
-    plain({
-      type: "custom",
-      customType: "kanthord.pinned_context",
-      data: { part: "layer", index: 1, text: LAYER_PROMPT },
-    }),
     message({
       role: "system",
-      sections: [
-        { title: "System prompt", text: SYSTEM_PROMPT },
-        { title: "Layer 1", text: LAYER_PROMPT },
-      ],
+      sections: [{ title: "System prompt", text: SYSTEM_PROMPT }],
     }),
     message({
       role: "user",

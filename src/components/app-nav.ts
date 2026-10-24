@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   ListOrdered,
   MessagesSquare,
-  ScrollText,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -20,7 +19,7 @@ export interface NavItem {
   readonly group: (typeof NAV_GROUPS)[number];
 }
 
-export const NAV_GROUPS = ["Work", "Workforce", "Credentials", "Settings"] as const;
+export const NAV_GROUPS = ["Work", "Workforce", "Credentials"] as const;
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard, group: "Work" },
@@ -33,7 +32,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Credentials" },
   { to: "/repositories", label: "Git", icon: FolderGit2, group: "Credentials" },
   { to: "/storage", label: "Storage", icon: Database, group: "Credentials" },
-  { to: "/settings/prompts", label: "Prompts", icon: ScrollText, group: "Settings" },
 ];
 
 export const ROUTE_LABELS: ReadonlyMap<string, string> = new Map([

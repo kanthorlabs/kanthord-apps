@@ -43,12 +43,6 @@ const TOOL_INPUT = { type: "object" };
 export const WORKBENCH_PROMPT = `You work in a workbench session with a human.
 Answer in the language of the human and keep each answer short.`;
 
-export const PROMPT_SWITCHES = {
-  system: ["host_file", "base", "custom", "layer"],
-  agent: ["agent_file", "shipped", "custom"],
-  workbench: ["agents_md", "agents_local_md", "claude_md", "claude_local_md", "shipped", "custom"],
-};
-
 const AGENT_CONFIGURATION_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -164,6 +158,7 @@ export const WORKER_REGISTRATIONS = [
 export const AGENT_DECLARATIONS = [
   {
     agent_name: "re@1",
+    workbench: true,
     worker_names: ["reviewer@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
@@ -182,6 +177,7 @@ export const AGENT_DECLARATIONS = [
       revision: 1,
     },
     basePrompt: BASE_PROMPT,
+    roleOverridden: true,
     agentPrompt: `## Role
 
 Your role is \`re@1\`, the reviewer.
@@ -196,6 +192,7 @@ Change no file of the repository.`,
   },
   {
     agent_name: "swe@1",
+    workbench: true,
     worker_names: ["coder@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
@@ -325,13 +322,6 @@ export const BINDING_SET = {
         },
         ssh_credential: "atlas-ssh",
         credential: "atlas-github",
-        working_layer: {
-          agents_md: true,
-          agents_local_md: true,
-          claude_md: true,
-          claude_local_md: true,
-          project_prompt: true,
-        },
         environment: { image: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm" },
       },
     },

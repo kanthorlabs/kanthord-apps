@@ -195,9 +195,6 @@ export function BindingSheet({
                 />
                 {draft.kind === "repository" && (
                   <RepositoryForm
-                    projectId={projectId}
-                    bindingId={bindingId}
-                    saved={target.entry?.kind === "repository" ? target.entry.config : null}
                     draft={draft}
                     errors={errors}
                     sshCredentials={sshCredentials}
