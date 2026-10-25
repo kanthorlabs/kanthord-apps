@@ -22,6 +22,7 @@ export type EntryView =
       readonly inputTokens: number | null;
       readonly outputTokens: number | null;
       readonly costUsd: number | null;
+      readonly errorMessage: string | null;
     }
   | {
       readonly kind: "tool_result";
@@ -101,6 +102,7 @@ function assistantView(message: Json): EntryView | null {
   const usage = isRecord(message.usage) ? message.usage : null;
   const input = numberOf(usage?.input);
   const cost = isRecord(usage?.cost) ? numberOf(usage.cost.total) : null;
+  const errorMessage = stringOf(message.errorMessage);
   return {
     kind: "assistant",
     text,
@@ -119,6 +121,7 @@ function assistantView(message: Json): EntryView | null {
         : input + (numberOf(usage?.cacheRead) ?? 0) + (numberOf(usage?.cacheWrite) ?? 0),
     outputTokens: numberOf(usage?.output),
     costUsd: cost,
+    errorMessage: errorMessage === "" ? null : errorMessage,
   };
 }
 

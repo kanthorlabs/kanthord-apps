@@ -1,35 +1,27 @@
-import { ChevronDownIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
-import type { SpanStatus, TraceSpan } from "@/api/types";
+import type { TraceSpan } from "@/api/types";
 import { MarkdownText } from "@/components/markdown-text";
-import { RevealPanel } from "@/components/reveal";
+import { TouchTarget } from "@/components/touch-target";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type { NamedValue } from "@/lib/span-detail";
-import { spanLabel } from "@/lib/span-labels";
+import type { SpanBlock } from "@/lib/span-blocks";
 
 import {
   useSpanDetail,
   type Loadable,
   type ModelReply,
   type SpanDetailState,
+  type SpanText,
   type ToolResult,
 } from "../use-span-detail";
 import { useTraceSelection } from "../use-trace-selection";
-
-const STATUS_BADGES: Readonly<
-  Record<
-    SpanStatus,
-    { readonly label: string; readonly variant: "secondary" | "outline" | "destructive" }
-  >
-> = {
-  Unset: { label: "Unset", variant: "secondary" },
-  Ok: { label: "OK", variant: "outline" },
-  Error: { label: "Error", variant: "destructive" },
-};
+import { IdentityValue } from "./identity-value";
+import { SpanDisclosure } from "./span-disclosure";
+import { SpanFooter } from "./span-footer";
+import { TurnTokensChart } from "./turn-tokens-chart";
 
 function NameValueList({ items }: { readonly items: readonly NamedValue[] }) {
   return (
@@ -37,7 +29,13 @@ function NameValueList({ items }: { readonly items: readonly NamedValue[] }) {
       {items.map((item) => (
         <div key={item.name} className="flex max-w-full min-w-0 items-baseline gap-1.5">
           <dt className="min-w-0 text-muted-foreground break-all">{item.name}</dt>
-          <dd className="min-w-0 break-words">{item.value}</dd>
+          <dd className="min-w-0 break-words">
+            {item.identity === true ? (
+              <IdentityValue label={item.name} value={item.value} />
+            ) : (
+              item.value
+            )}
+          </dd>
         </div>
       ))}
     </dl>
@@ -83,10 +81,10 @@ function Loaded<T>({ state, children }: LoadedProps<T>) {
   }
 }
 
-function EventsSection({ events }: Pick<SpanDetailState, "events">) {
+function EventsDisclosure({ events }: Pick<SpanDetailState, "events">) {
   if (events.length === 0) return null;
   return (
-    <Section title="Events">
+    <SpanDisclosure title="Events">
       <ul className="flex flex-col gap-2">
         {events.map((event, index) => (
           <li key={`${index}-${event.name}`} className="flex min-w-0 flex-col gap-1">
@@ -98,7 +96,7 @@ function EventsSection({ events }: Pick<SpanDetailState, "events">) {
           </li>
         ))}
       </ul>
-    </Section>
+    </SpanDisclosure>
   );
 }
 
@@ -111,8 +109,8 @@ function LinksSection({ links }: Pick<SpanDetailState, "links">) {
           <li key={`${link.trace_id}/${link.span_id}`}>
             <NameValueList
               items={[
-                { name: "Trace", value: link.trace_id },
-                { name: "Span", value: link.span_id },
+                { name: "Trace", value: link.trace_id, identity: true },
+                { name: "Span", value: link.span_id, identity: true },
               ]}
             />
           </li>
@@ -122,15 +120,48 @@ function LinksSection({ links }: Pick<SpanDetailState, "links">) {
   );
 }
 
-function TextsSection({ texts }: Pick<SpanDetailState, "texts">) {
+function TextEntry({ text }: { readonly text: SpanText }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="text-sm text-muted-foreground">{text.name}</span>
+      <Loaded state={text.state}>{(content) => <TextBlock>{content}</TextBlock>}</Loaded>
+    </div>
+  );
+}
+
+function TextsDisclosure({ texts }: Pick<SpanDetailState, "texts">) {
   if (texts.length === 0) return null;
   return (
-    <Section title="Texts">
+    <SpanDisclosure title="Texts">
       {texts.map((text) => (
-        <div key={text.name} className="flex min-w-0 flex-col gap-1">
-          <span className="text-sm text-muted-foreground">{text.name}</span>
-          <Loaded state={text.state}>{(content) => <TextBlock>{content}</TextBlock>}</Loaded>
-        </div>
+        <TextEntry key={text.name} text={text} />
+      ))}
+    </SpanDisclosure>
+  );
+}
+
+function BlockSection({ block }: { readonly block: SpanBlock<SpanText> }) {
+  return (
+    <Section title={block.title}>
+      {block.items.map((item) =>
+        item.kind === "text" ? (
+          <TextEntry key={item.text.name} text={item.text} />
+        ) : (
+          <NameValueList key={item.facts[0]?.name} items={item.facts} />
+        ),
+      )}
+    </Section>
+  );
+}
+
+function WhySection({ lines }: { readonly lines: readonly string[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <Section title="Why this span">
+      {lines.map((line) => (
+        <p key={line} className="min-w-0 text-sm break-words">
+          {line}
+        </p>
       ))}
     </Section>
   );
@@ -144,24 +175,14 @@ interface ReplyProps {
 function ReplyBody({ reply, onSelect }: ReplyProps) {
   return (
     <div className="flex min-w-0 flex-col gap-3">
-      {reply.text !== "" && <MarkdownText text={reply.text} />}
-      {reply.thinking.length > 0 && (
-        <Collapsible className="flex flex-col gap-2">
-          <CollapsibleTrigger
-            render={<Button variant="outline" size="sm" className="self-start" />}
-          >
-            <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
-            Show thinking
-          </CollapsibleTrigger>
-          <RevealPanel>
-            <div className="flex flex-col gap-2">
-              {reply.thinking.map((thought, index) => (
-                <TextBlock key={`${index}-${thought}`}>{thought}</TextBlock>
-              ))}
-            </div>
-          </RevealPanel>
-        </Collapsible>
+      {reply.error !== null && (
+        <Alert variant="destructive">
+          <AlertDescription className="min-w-0">
+            <p className="min-w-0 break-words whitespace-pre-wrap">{reply.error}</p>
+          </AlertDescription>
+        </Alert>
       )}
+      {reply.error === null && reply.text !== "" && <MarkdownText text={reply.text} />}
       {reply.toolCalls.length > 0 && (
         <ul aria-label="Tool calls" className="flex flex-col gap-2">
           {reply.toolCalls.map((call) => (
@@ -176,8 +197,19 @@ function ReplyBody({ reply, onSelect }: ReplyProps) {
           ))}
         </ul>
       )}
+      {reply.thinking.length > 0 && (
+        <SpanDisclosure title="Show thinking">
+          {reply.thinking.map((thought, index) => (
+            <TextBlock key={`${index}-${thought}`}>{thought}</TextBlock>
+          ))}
+        </SpanDisclosure>
+      )}
     </div>
   );
+}
+
+function replyTitleOf(state: Loadable<ModelReply>): string {
+  return state.status === "ready" && state.value.error !== null ? "Provider error" : "Model reply";
 }
 
 function ToolSpanButton({
@@ -188,9 +220,11 @@ function ToolSpanButton({
   readonly onSelect: (spanId: string) => void;
 }) {
   return (
-    <Button variant="outline" size="sm" onClick={() => onSelect(span.span_id)}>
-      Open tool span
-    </Button>
+    <TouchTarget>
+      <Button variant="outline" size="sm" onClick={() => onSelect(span.span_id)}>
+        Open tool span
+      </Button>
+    </TouchTarget>
   );
 }
 
@@ -215,42 +249,14 @@ interface SpanDetailProps {
 export function SpanDetail({ traceId, span, spans, onSelect }: SpanDetailProps) {
   const detail = useSpanDetail(traceId, span, spans);
   const selection = useTraceSelection();
-  const link = detail.conversationLink;
-  const badge = STATUS_BADGES[span.status];
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <h3 className="min-w-0 text-base font-semibold break-all">{spanLabel(span)}</h3>
-        <Badge variant={badge.variant}>{badge.label}</Badge>
-        {link !== null && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => selection.openInConversation(link.sessionId, link.entryId)}
-          >
-            Open in conversation
-          </Button>
-        )}
-      </div>
-      <NameValueList items={detail.facts} />
-      {detail.attributes.length > 0 && (
-        <Section title="Attributes">
-          <NameValueList items={detail.attributes} />
-        </Section>
-      )}
-      <EventsSection events={detail.events} />
-      <LinksSection links={detail.links} />
-      <TextsSection texts={detail.texts} />
+      <WhySection lines={detail.why} />
       {detail.modelReply !== null && (
-        <Section title="Model reply">
+        <Section title={replyTitleOf(detail.modelReply)}>
           <Loaded state={detail.modelReply}>
             {(reply) => <ReplyBody reply={reply} onSelect={onSelect} />}
           </Loaded>
-        </Section>
-      )}
-      {detail.toolArguments !== null && (
-        <Section title="Arguments">
-          <Loaded state={detail.toolArguments}>{(json) => <TextBlock>{json}</TextBlock>}</Loaded>
         </Section>
       )}
       {detail.toolResult !== null && (
@@ -258,6 +264,36 @@ export function SpanDetail({ traceId, span, spans, onSelect }: SpanDetailProps) 
           <Loaded state={detail.toolResult}>{(result) => <ResultBody result={result} />}</Loaded>
         </Section>
       )}
+      {detail.toolArguments !== null && (
+        <Section title="Arguments">
+          <Loaded state={detail.toolArguments}>{(json) => <TextBlock>{json}</TextBlock>}</Loaded>
+        </Section>
+      )}
+      {detail.blocks.map((block) => (
+        <BlockSection key={block.title} block={block} />
+      ))}
+      {detail.tokenRows.length > 0 && (
+        <Section title="Input tokens per turn">
+          <TurnTokensChart rows={detail.tokenRows} />
+        </Section>
+      )}
+      <Section title="Facts">
+        <NameValueList items={detail.facts} />
+      </Section>
+      <LinksSection links={detail.links} />
+      {detail.attributes.length > 0 && (
+        <SpanDisclosure title="All attributes">
+          <NameValueList items={detail.attributes} />
+        </SpanDisclosure>
+      )}
+      <EventsDisclosure events={detail.events} />
+      <TextsDisclosure texts={detail.texts} />
+      <SpanFooter
+        errors={detail.errors}
+        conversationLink={detail.conversationLink}
+        onSelect={onSelect}
+        onOpenConversation={(link) => selection.openInConversation(link.sessionId, link.entryId)}
+      />
     </div>
   );
 }
