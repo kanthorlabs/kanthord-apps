@@ -27,6 +27,7 @@ export interface TimeBreakdownLine {
 }
 
 export interface TimeBreakdown {
+  readonly totalMs: number;
   readonly lines: readonly TimeBreakdownLine[];
   readonly queueWaitMs: number | null;
 }
@@ -115,6 +116,7 @@ export function timeBreakdown(
     spans.find((span) => span.span_id === summary.root_span_id)?.attributes ??
     summary.root_attributes;
   return {
+    totalMs,
     lines: Object.values(TimeLine).map((line) => ({
       line,
       ms: msByLine[line],
