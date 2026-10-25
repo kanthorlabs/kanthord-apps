@@ -43,7 +43,7 @@ export function traceFactsOf(trace: TraceListItem): readonly TraceFact[] {
     {
       label: "Errors (incl. recovered)",
       value: String(trace.error_count),
-      compact: countText(trace.error_count, "error"),
+      compact: `${trace.error_count} err`,
     },
   );
   return facts;

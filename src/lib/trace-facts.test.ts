@@ -30,7 +30,7 @@ describe("traceFactsOf", () => {
       { label: "Est. cost", value: "$0.2500", compact: "$0.2500" },
       { label: "Started", value: "2026-05-02 10:30 UTC", compact: "05-02 10:30" },
       { label: "Turns", value: "4", compact: "4 turns" },
-      { label: "Errors (incl. recovered)", value: "1", compact: "1 error" },
+      { label: "Errors (incl. recovered)", value: "1", compact: "1 err" },
     ]);
   });
 
