@@ -7,6 +7,7 @@ import type { ApiError } from "@/api/errors";
 import type { TraceSpan, TraceSummary } from "@/api/types";
 import { usePolledResource } from "@/hooks/use-polled-resource";
 import { useResource } from "@/hooks/use-resource";
+import { traceTitleOf } from "@/lib/trace-title";
 
 export const TRACE_POLL_MS = 5000;
 
@@ -23,6 +24,7 @@ export interface TraceView {
   readonly togglePaused: () => void;
   readonly nodeName: string | null;
   readonly projectName: string | null;
+  readonly title: string | null;
 }
 
 async function readTraceData(traceId: string) {
@@ -78,5 +80,6 @@ export function useTrace(traceId: string): TraceView {
     togglePaused: () => setPaused((value) => !value),
     nodeName: nodeName.data,
     projectName: projectName.data,
+    title: summary === null ? null : traceTitleOf(summary, nodeName.data),
   };
 }

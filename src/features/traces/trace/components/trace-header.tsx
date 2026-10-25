@@ -54,12 +54,9 @@ function factsOf(summary: TraceSummary, projectName: string | null): readonly Fa
   return facts;
 }
 
-function titleOf(summary: TraceSummary, nodeName: string | null): string {
-  return nodeName ?? summary.execution_id ?? summary.trace_id;
-}
-
 interface TraceHeaderProps {
   readonly summary: TraceSummary;
+  readonly title: string;
   readonly nodeName: string | null;
   readonly projectName: string | null;
   readonly live: boolean;
@@ -70,6 +67,7 @@ interface TraceHeaderProps {
 
 export function TraceHeader({
   summary,
+  title,
   nodeName,
   projectName,
   live,
@@ -78,7 +76,6 @@ export function TraceHeader({
   onJumpToError,
 }: TraceHeaderProps) {
   const badge = STATE_BADGES[summary.state];
-  const title = titleOf(summary, nodeName);
   const firstError = summary.first_error_span_id;
   return (
     <section aria-label="Trace" className="flex flex-col gap-3 border-b pb-3">
