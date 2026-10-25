@@ -150,6 +150,36 @@ function spans(): readonly TraceSpan[] {
   ];
 }
 
+function failedSpans(): readonly TraceSpan[] {
+  return spans().map((candidate) => {
+    switch (candidate.span_id) {
+      case "root":
+        return {
+          ...candidate,
+          status: "Error",
+          attributes: {
+            "kanthord.stop.reason": "provider_failed",
+            "kanthord.stop.code": "rate_limited",
+            "kanthord.stop.detail": "429 Too Many Requests",
+          },
+        };
+      case "task":
+        return { ...candidate, status: "Error" };
+      case "turn2":
+        return {
+          ...candidate,
+          status: "Error",
+          end_time: START + 50_000,
+          attributes: { ...candidate.attributes, "error.type": "rate_limited" },
+        };
+      case "tool2":
+        return { ...candidate, status: "Ok" };
+      default:
+        return candidate;
+    }
+  });
+}
+
 function project(): Project {
   return {
     id: "prj-1",
@@ -303,5 +333,83 @@ describe("TraceScreen span detail", () => {
       expect(screen.queryByRole("button", { name: "Back to steps" })).not.toBeInTheDocument(),
     );
     expect(screen.getByText("at /traces/trace-1")).toBeInTheDocument();
+  });
+
+  it("shows the level header with the label, the status line and the bar of the span", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1?tab=steps&span=turn2");
+
+    const panel = await screen.findByRole("complementary", { name: "Span detail" });
+    expect(within(panel).getByRole("heading", { name: "Turn 2" })).toBeInTheDocument();
+    expect(
+      within(panel).getByText("Error · rate_limited · 49 s · Est. cost $0.0100"),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("img", { name: "Span against the trace extent" }),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByRole("button", { name: "Back to steps" })).not.toBeInTheDocument();
+  });
+
+  it("shows a duration under one second in ms", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(
+      spans().map((candidate) =>
+        candidate.span_id === "turn1" ? { ...candidate, end_time: START + 4 + 250 } : candidate,
+      ),
+    );
+    mount("/traces/trace-1?tab=steps&span=turn1");
+
+    expect(await screen.findByText("OK · 250 ms · Est. cost $0.0500")).toBeInTheDocument();
+  });
+
+  it("holds the level header and the sticky footer in the stacked level", async () => {
+    matchLargeScreen(false);
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1?tab=steps&span=turn2");
+
+    const level = await screen.findByRole("region", { name: "Span detail" });
+    expect(within(level).getByRole("button", { name: "Back to steps" })).toBeInTheDocument();
+    expect(within(level).getByRole("heading", { name: "Turn 2" })).toBeInTheDocument();
+    expect(within(level).getByRole("button", { name: "Previous error" })).toBeInTheDocument();
+    expect(within(level).getByRole("button", { name: "Next error" })).toBeInTheDocument();
+    expect(await within(level).findByText("429 Too Many Requests")).toBeInTheDocument();
+  });
+
+  it("offers Conversation only for a span with a session entry", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1?tab=steps&span=task");
+
+    const panel = await screen.findByRole("complementary", { name: "Span detail" });
+    expect(within(panel).queryByRole("button", { name: "Conversation" })).not.toBeInTheDocument();
+  });
+
+  it("steps through the errors with Next error and Previous error", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1?tab=steps&span=turn2");
+    const previous = await screen.findByRole("button", { name: "Previous error" });
+    expect(previous).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next error" }));
+    expect(await screen.findByRole("heading", { name: "Task t1" })).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=steps&span=task")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next error" }));
+    expect(await screen.findByRole("heading", { name: "Execution" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next error" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous error" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Previous error" }));
+    expect(await screen.findByRole("heading", { name: "Turn 2" })).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=steps&span=turn2")).toBeInTheDocument();
+  });
+
+  it("steps through the errors in the stacked level", async () => {
+    matchLargeScreen(false);
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1?tab=steps&span=turn2");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Next error" }));
+
+    expect(await screen.findByRole("heading", { name: "Task t1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous error" })).toBeEnabled();
   });
 });

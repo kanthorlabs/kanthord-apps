@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ApiError } from "@/api/errors";
 import { listSessionEntryPage, readSessionEntry, readTraceText } from "@/api/resources/tracking";
 import type { TraceSessionEntry, TraceSpan, TraceSpanLink } from "@/api/types";
 import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
+import { errorNeighbours, errorTrailOf, type ErrorNeighbours } from "@/lib/error-trail";
 import { entryView, toolCallIn, type EntryView } from "@/lib/session-entries";
+import { spanBlocks, type SpanBlock } from "@/lib/span-blocks";
 import {
   attributesOf,
   conversationIdOf,
@@ -19,6 +21,8 @@ import {
   type SpanEventView,
 } from "@/lib/span-detail";
 import { traceAxis } from "@/lib/trace-waterfall";
+import { turnTokenRows, type TurnTokenRow } from "@/lib/turn-token-rows";
+import { whySpanLines } from "@/lib/why-span";
 
 export type Loadable<T> =
   | { readonly status: "loading" }
@@ -36,6 +40,7 @@ export interface ModelReply {
   readonly text: string;
   readonly thinking: readonly string[];
   readonly toolCalls: readonly ReplyToolCall[];
+  readonly error: string | null;
 }
 
 export interface ToolResult {
@@ -54,11 +59,15 @@ export interface ConversationLink {
 }
 
 export interface SpanDetailState {
+  readonly why: readonly string[];
   readonly facts: readonly NamedValue[];
   readonly attributes: readonly NamedValue[];
   readonly events: readonly SpanEventView[];
   readonly links: readonly TraceSpanLink[];
   readonly texts: readonly SpanText[];
+  readonly blocks: readonly SpanBlock<SpanText>[];
+  readonly tokenRows: readonly TurnTokenRow[];
+  readonly errors: ErrorNeighbours;
   readonly modelReply: Loadable<ModelReply> | null;
   readonly toolArguments: Loadable<string> | null;
   readonly toolResult: Loadable<ToolResult> | null;
@@ -149,11 +158,13 @@ function replyOf(
   view: EntryView,
   turn: TraceSpan,
   spans: readonly TraceSpan[],
+  stopError: string | null,
 ): Loadable<ModelReply> {
   if (view.kind !== "assistant") return failed("The entry holds no model reply.");
   return {
     status: "ready",
     value: {
+      error: stopError ?? view.errorMessage,
       text: view.text,
       thinking: view.thinking,
       toolCalls: view.toolCalls.map((call) => ({
@@ -162,6 +173,20 @@ function replyOf(
         toolSpan: toolSpanOf(spans, turn, call.id),
       })),
     },
+  };
+}
+
+function turnReplyOf(
+  reply: Loadable<StoredEntry>,
+  turn: TraceSpan,
+  spans: readonly TraceSpan[],
+  stopError: string | null,
+): Loadable<ModelReply> {
+  const loaded = whenReady(reply, ({ view }) => replyOf(view, turn, spans, stopError));
+  if (stopError === null || loaded.status === "ready") return loaded;
+  return {
+    status: "ready",
+    value: { error: stopError, text: "", thinking: [], toolCalls: [] },
   };
 }
 
@@ -256,20 +281,31 @@ export function useSpanDetail(
     [traceId, resultRef?.sessionId, resultRef?.toolCallId],
   );
   const texts = useTexts(traceId, span.text_ids);
+  const trail = useMemo(() => errorTrailOf(spans), [spans]);
+  const stopError =
+    trail.providerFailure?.spanId === span.span_id ? trail.providerFailure.detail : null;
 
   const reply = settled(replyEntry);
   const result = settled(resultEntry);
   const isTurnSpan = isTurn(span);
   const isToolSpan = isTool(span);
   return {
-    facts: [...spanFacts(span, traceAxis(spans)), ...(isTurnSpan ? turnFacts(span) : [])],
+    why: whySpanLines(span, spans, trail.roles),
+    facts: [
+      { name: "Span id", value: span.span_id, identity: true },
+      ...spanFacts(span, traceAxis(spans)),
+      ...(isTurnSpan ? turnFacts(span) : []),
+    ],
     attributes: attributesOf(span.attributes),
     events: eventsOf(span),
     links: span.links,
     texts,
+    blocks: spanBlocks(span, texts),
+    tokenRows: turnTokenRows(span, spans),
+    errors: errorNeighbours(trail.steps, span.span_id),
     modelReply:
-      isTurnSpan && replyRef !== null && turn !== null
-        ? whenReady(reply, ({ view }) => replyOf(view, turn, spans))
+      isTurnSpan && turn !== null && (replyRef !== null || stopError !== null)
+        ? turnReplyOf(reply, turn, spans, stopError)
         : null,
     toolArguments:
       isToolSpan && replyRef !== null

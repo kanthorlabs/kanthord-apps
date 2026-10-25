@@ -1,13 +1,10 @@
-import { ArrowLeftIcon } from "lucide-react";
-
 import type { TraceSpan, TraceState } from "@/api/types";
-import { TouchTarget } from "@/components/touch-target";
-import { Button } from "@/components/ui/button";
 
 import { useLargeScreen } from "../use-large-screen";
 import { useTimeline } from "../use-timeline";
 import type { TraceSelection } from "../use-trace-selection";
 import { SpanDetail } from "./span-detail";
+import { SpanLevelHeader } from "./span-level-header";
 import { SpanTree } from "./span-tree";
 import { TimelineToolbar } from "./timeline-toolbar";
 
@@ -24,13 +21,21 @@ export function StepsTab({ traceId, spans, traceState, selection }: StepsTabProp
   const { selected } = timeline;
   const detail =
     selected === null ? null : (
-      <SpanDetail
-        key={selected.span_id}
-        traceId={traceId}
-        span={selected}
-        spans={spans}
-        onSelect={selection.selectSpan}
-      />
+      <div key={selected.span_id} className="flex min-w-0 flex-col gap-4">
+        <SpanLevelHeader
+          span={selected}
+          usage={timeline.usage.get(selected.span_id)}
+          axis={timeline.axis}
+          traceState={traceState}
+          onBack={large ? null : () => selection.selectSpan(null)}
+        />
+        <SpanDetail
+          traceId={traceId}
+          span={selected}
+          spans={spans}
+          onSelect={selection.selectSpan}
+        />
+      </div>
     );
   const stacked = !large && detail !== null;
   return (
@@ -60,17 +65,6 @@ export function StepsTab({ traceId, spans, traceState, selection }: StepsTabProp
       )}
       {stacked && (
         <section aria-label="Span detail" className="flex min-w-0 flex-col gap-3">
-          <TouchTarget>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="self-start"
-              onClick={() => selection.selectSpan(null)}
-            >
-              <ArrowLeftIcon aria-hidden="true" data-icon="inline-start" />
-              Back to steps
-            </Button>
-          </TouchTarget>
           {detail}
         </section>
       )}
