@@ -9,6 +9,7 @@ import { useResource, type Resource } from "@/hooks/use-resource";
 import { TRACE_QUERY_KEYS, traceQueryOf, withParam } from "@/lib/trace-query";
 
 import { readNodeNames } from "./read-node-names";
+import { readRootLabels } from "./read-root-labels";
 
 export const TRACE_PAGE_LIMIT = 50;
 
@@ -47,6 +48,10 @@ function secondsOf(milliseconds: string | null): string {
   return Number.isFinite(value) ? String(value / MS_PER_SECOND) : "";
 }
 
+function unnamedOf(traces: readonly TraceSummary[]): readonly TraceSummary[] {
+  return traces.filter((trace) => trace.node_id === null && trace.execution_id === null);
+}
+
 function nodeIdsOf(traces: readonly TraceSummary[]): readonly string[] {
   return traces.flatMap((trace) => (trace.node_id === null ? [] : [trace.node_id]));
 }
@@ -67,6 +72,11 @@ export function useTraceList(): TraceList {
   const facets = useResource(() => readTraceFacets(projectId), [projectId]);
   const nodeIds = nodeIdsOf(pages.items);
   const names = useResource(() => readNodeNames(nodeIds), [nodeIds.join(",")]);
+  const unnamed = unnamedOf(pages.items);
+  const rootLabels = useResource(
+    () => readRootLabels(unnamed),
+    [unnamed.map((trace) => trace.trace_id).join(",")],
+  );
 
   const write = useCallback(
     (key: TraceQueryKey, value: string | null) => {
@@ -109,8 +119,9 @@ export function useTraceList(): TraceList {
     (trace: TraceSummary) =>
       (trace.node_id === null ? undefined : names.data?.get(trace.node_id)) ??
       trace.execution_id ??
+      rootLabels.data?.get(trace.trace_id) ??
       trace.trace_id,
-    [names.data],
+    [names.data, rootLabels.data],
   );
 
   const filtered = TRACE_QUERY_KEYS.some((key) => key !== "range" && params.has(key));
