@@ -78,6 +78,10 @@ describe("timeBreakdown", () => {
     expect(msOf(breakdown, TimeLine.ToolLatency)).toBe(10_000);
   });
 
+  it("answers the duration of a closed trace as the total", () => {
+    expect(timeBreakdown(summaryOf({ duration_ms: 20_000 }), [], NOW).totalMs).toBe(20_000);
+  });
+
   it("counts two parallel tool calls once", () => {
     const spans = [span("a", "agent.tool", 1000, 3000), span("b", "agent.tool", 2000, 4000)];
     const breakdown = timeBreakdown(summaryOf(), spans, NOW);
