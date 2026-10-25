@@ -49,4 +49,19 @@ describe("AppBreadcrumb", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Agents" })).toBeTruthy();
   });
+
+  it("wraps every crumb at word boundaries", async () => {
+    mount("/projects/project_1/edit", true);
+
+    const trail = screen.getByRole("navigation", { name: "breadcrumb" });
+    const crumbs = [
+      await within(trail).findByRole("link", { name: "kanthord" }),
+      within(trail).getByRole("link", { name: "Projects" }),
+      within(trail).getByText("Edit"),
+    ];
+    for (const crumb of crumbs) {
+      expect(crumb).toHaveClass("break-words");
+      expect(crumb).not.toHaveClass("break-all");
+    }
+  });
 });
