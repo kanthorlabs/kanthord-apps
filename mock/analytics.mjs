@@ -128,7 +128,7 @@ const buildSpans = (now) =>
 
 const rangeError = (message) => ({
   status: 400,
-  code: "tracking.analytics.range_invalid",
+  code: "tracking.filter.range_invalid",
   message,
 });
 

@@ -26,7 +26,7 @@ import { AnalyticsScreen } from "./analytics-screen";
 const DAY_START = Date.UTC(2026, 4, 4);
 const DAY_MS = 86_400_000;
 const POLL_MS = 60_000;
-const RANGE_INVALID = "tracking.analytics.range_invalid";
+const RANGE_INVALID = "tracking.filter.range_invalid";
 
 function item(overrides: Partial<AnalyticsCostItem> = {}): AnalyticsCostItem {
   return {
