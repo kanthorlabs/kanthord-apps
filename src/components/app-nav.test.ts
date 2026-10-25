@@ -18,6 +18,14 @@ describe("NAV_ITEMS", () => {
     expect(work.indexOf("/traces")).toBe(work.indexOf("/scheduler") + 1);
   });
 
+  it("names Timeline once in the Work group after Traces", () => {
+    const work = NAV_ITEMS.filter((item) => item.group === "Work").map((item) => item.to);
+
+    expect(NAV_ITEMS.filter((item) => item.to === "/timeline")).toHaveLength(1);
+    expect(NAV_ITEMS.find((item) => item.to === "/timeline")).toMatchObject({ label: "Timeline" });
+    expect(work.indexOf("/timeline")).toBe(work.indexOf("/traces") + 1);
+  });
+
   it("names the git credentials Git under Credentials at /repositories", () => {
     const items = NAV_ITEMS.filter((item) => item.group === "Credentials");
 

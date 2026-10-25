@@ -164,6 +164,16 @@ describe("ProjectScreen", () => {
     );
   });
 
+  it("links to the timeline of the project", async () => {
+    vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Timeline" })).toHaveAttribute(
+      "href",
+      `/timeline?project_id=${KANTHORD.id}`,
+    );
+  });
+
   it("shows an active project with the Pause button and no Paused badge", async () => {
     vi.mocked(projectsApi.readProject).mockResolvedValue(KANTHORD);
     mount();

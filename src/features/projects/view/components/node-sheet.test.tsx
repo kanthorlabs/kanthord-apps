@@ -390,6 +390,16 @@ describe("NodeSheet", () => {
     expect(await within(sheet).findByText("platform.macos")).toBeTruthy();
   });
 
+  it("links Timeline to the timeline of the node", async () => {
+    renderSheet("node_audit");
+
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("button", { name: "Timeline" })).toHaveAttribute(
+      "href",
+      "/timeline?node_id=node_audit",
+    );
+  });
+
   it("shows None for empty tags", async () => {
     renderSheet("node_held");
 

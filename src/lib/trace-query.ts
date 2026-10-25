@@ -46,7 +46,7 @@ const TRACE_SORTS: readonly TraceSort[] = ["started_at", "duration_ms", "total_t
 
 type MutableQuery = { -readonly [K in keyof TraceListQuery]: TraceListQuery[K] };
 
-function isTimeRange(value: string | null): value is TimeRange {
+export function isTimeRange(value: string | null): value is TimeRange {
   return value !== null && (TIME_RANGES as readonly string[]).includes(value);
 }
 
@@ -54,6 +54,10 @@ function minimumOf(value: string): number | null {
   if (value.trim() === "") return null;
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+export function rangeStartOf(range: TimeRange, now: number): number | null {
+  return range === "all" ? null : now - TIME_RANGE_MS[range];
 }
 
 export function traceQueryOf(params: URLSearchParams, now: number): TraceListQuery {
