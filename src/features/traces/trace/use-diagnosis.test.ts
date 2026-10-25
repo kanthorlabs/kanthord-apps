@@ -1,15 +1,23 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/api/resources/mission", () => ({
+  listNodeAttempts: vi.fn(),
+  readNodeRevision: vi.fn(),
+}));
+
 vi.mock("@/api/resources/tracking", () => ({
   listTraceSpans: vi.fn(),
   readTrace: vi.fn(),
   readTraceText: vi.fn(),
 }));
 
+import { listNodeAttempts, readNodeRevision } from "@/api/resources/mission";
 import { readTraceText } from "@/api/resources/tracking";
 import type {
   EffectiveCause,
+  MissionAttempt,
+  MissionRevision,
   SpanAttributeValue,
   SpanStatus,
   TraceSpan,
@@ -196,6 +204,26 @@ describe("useDiagnosis", () => {
     expect(result.current.errorSteps).toEqual(["turn-5", "task", "root"]);
     expect(result.current.rework).toBeNull();
     expect(result.current.now).toBeNull();
+  });
+
+  it("names the node in the sentence for a task of a node with no task files", async () => {
+    vi.mocked(listNodeAttempts).mockResolvedValue([
+      { attempt: 1, node_revision: 2 } as MissionAttempt,
+    ]);
+    vi.mocked(readNodeRevision).mockResolvedValue({
+      node_id: "t2",
+      content: { name: "Ship the page" },
+      tasks: [],
+    } as unknown as MissionRevision);
+    const { result } = renderHook(() =>
+      useDiagnosis(summary(), providerSpans(), nodeTraces(), 6000),
+    );
+
+    await waitFor(() =>
+      expect(result.current.sentence).toBe(
+        "Turn 5 of Ship the page failed: rate_limited. The execution stopped: provider_failed / rate_limited.",
+      ),
+    );
   });
 
   it("states the revocation of a revoked execution", () => {

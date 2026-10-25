@@ -2,7 +2,7 @@ import type { CauseCategory, EffectiveCause, SpanAttributeValue, TraceSpan } fro
 
 import { promptPartsOf } from "./agent-prompt-parts";
 import { utcDateTime } from "./format";
-import { revocationLabel, spanLabel } from "./span-labels";
+import { namedSpanLabel, revocationLabel, spanLabel } from "./span-labels";
 
 export const EVIDENCE_LIMIT = 4;
 
@@ -16,6 +16,7 @@ export interface EvidenceContext {
   readonly byId: ReadonlyMap<string, TraceSpan>;
   readonly root: TraceSpan;
   readonly causal: TraceSpan;
+  readonly taskNames: ReadonlyMap<string, string>;
 }
 
 type Builder = (context: EvidenceContext) => readonly EvidenceLine[];
@@ -91,14 +92,14 @@ function rationaleLines({ spans }: EvidenceContext): readonly EvidenceLine[] {
     .map((span) => line(span, `Rationale of ${spanLabel(span)}`));
 }
 
-function taskTurnLines({ spans, byId }: EvidenceContext): readonly EvidenceLine[] {
+function taskTurnLines({ spans, byId, taskNames }: EvidenceContext): readonly EvidenceLine[] {
   const counts = new Map<TraceSpan, number>();
   for (const turn of turnsOf(spans)) {
     const task = taskSpanOf(byId, turn);
     if (task !== null) counts.set(task, (counts.get(task) ?? 0) + 1);
   }
   return [...counts].map(([task, count]) =>
-    line(task, `${spanLabel(task)}: ${countText(count, "turn")}`),
+    line(task, `${namedSpanLabel(task, taskNames)}: ${countText(count, "turn")}`),
   );
 }
 
@@ -113,7 +114,7 @@ function revisionTurnLines({ spans }: EvidenceContext): readonly EvidenceLine[] 
 }
 
 function promptEvidence(context: EvidenceContext): readonly EvidenceLine[] {
-  const { spans, byId, causal } = context;
+  const { spans, byId, causal, taskNames } = context;
   const layers = spans
     .filter((span) => span.operation === OPERATION_PROMPT)
     .flatMap((span) => {
@@ -123,7 +124,8 @@ function promptEvidence(context: EvidenceContext): readonly EvidenceLine[] {
         : [line(span, `Prompt layers: ${parts.map((p) => `${p.part}:${p.name}`).join(", ")}`)];
     });
   const task = taskSpanOf(byId, causal);
-  const work = task === null ? [] : [line(task, `Work prompt of ${spanLabel(task)}`)];
+  const work =
+    task === null ? [] : [line(task, `Work prompt of ${namedSpanLabel(task, taskNames)}`)];
   return [...layers, ...work, ...replyLines(context)];
 }
 
@@ -141,7 +143,7 @@ function workerActionEvidence(context: EvidenceContext): readonly EvidenceLine[]
 }
 
 function providerEvidence(context: EvidenceContext): readonly EvidenceLine[] {
-  const { causal } = context;
+  const { causal, taskNames } = context;
   const errorType = attributeText(causal, ATTRIBUTE_ERROR_TYPE);
   const provider = attributeText(causal, ATTRIBUTE_PROVIDER);
   const model =
@@ -154,7 +156,9 @@ function providerEvidence(context: EvidenceContext): readonly EvidenceLine[] {
   return [
     ...(errorType === null
       ? []
-      : [line(causal, `${spanLabel(causal)} ${ATTRIBUTE_ERROR_TYPE} ${errorType}`)]),
+      : [
+          line(causal, `${namedSpanLabel(causal, taskNames)} ${ATTRIBUTE_ERROR_TYPE} ${errorType}`),
+        ]),
     ...stopDetailLines(context),
     ...(facts.length === 0 ? [] : [line(causal, facts.join(", "))]),
   ];

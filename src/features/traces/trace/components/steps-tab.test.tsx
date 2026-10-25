@@ -16,12 +16,21 @@ vi.mock("@/api/resources/projects", () => ({
 
 vi.mock("@/api/resources/mission", () => ({
   readMissionNode: vi.fn(),
+  listNodeAttempts: vi.fn(),
+  readNodeRevision: vi.fn(),
 }));
 
-import { readMissionNode } from "@/api/resources/mission";
+import { listNodeAttempts, readMissionNode, readNodeRevision } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
 import { listTraceSpans, readTrace } from "@/api/resources/tracking";
-import type { MissionNodeRecord, Project, TraceSpan, TraceSummary } from "@/api/types";
+import type {
+  MissionAttempt,
+  MissionNodeRecord,
+  MissionRevision,
+  Project,
+  TraceSpan,
+  TraceSummary,
+} from "@/api/types";
 
 import { TraceScreen } from "../trace-screen";
 
@@ -249,6 +258,22 @@ afterEach(() => {
 });
 
 describe("TraceScreen span detail", () => {
+  it("shows the node name for the task row of a node with no task files", async () => {
+    vi.mocked(listNodeAttempts).mockResolvedValue([
+      { attempt: 2, node_revision: 3 } as MissionAttempt,
+    ]);
+    vi.mocked(readNodeRevision).mockResolvedValue({
+      node_id: "t1",
+      content: { name: "Build the page" },
+      tasks: [],
+    } as unknown as MissionRevision);
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    expect(await screen.findByRole("treeitem", { name: /Build the page/ })).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: /Task t1/ })).not.toBeInTheDocument();
+  });
+
   it("asks for a selection while no span is selected", async () => {
     mount();
     await screen.findByRole("tree", { name: "Spans" });

@@ -142,6 +142,13 @@ export function spanLabel(span: TraceSpan): string {
   return operationLabel(span.operation, span.attributes);
 }
 
+export function namedSpanLabel(span: TraceSpan, taskNames: ReadonlyMap<string, string>): string {
+  if (span.operation !== OPERATION_TASK) return spanLabel(span);
+  const taskId = span.attributes[ATTRIBUTE_TASK_ID];
+  const name = typeof taskId === "string" ? taskNames.get(taskId) : undefined;
+  return name ?? spanLabel(span);
+}
+
 function transitionDetail(span: TraceSpan): string | null {
   const rule = valueText(span.attributes[ATTRIBUTE_TRANSITION_RULE]);
   if (rule === null || !Object.hasOwn(RULE_DETAILS, rule)) return null;

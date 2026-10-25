@@ -2,7 +2,7 @@ import type { EffectiveCause, TraceSpan } from "@/api/types";
 
 import { errorRolesOf, errorSteps, ErrorRole, pickCausalSpan } from "./causal-span";
 import { evidenceOf, taskSpanOf, type EvidenceLine } from "./diagnosis-evidence";
-import { revocationLabel, spanLabel } from "./span-labels";
+import { namedSpanLabel, revocationLabel } from "./span-labels";
 import { causeLabelSpanIdOf, spanCauseOf } from "./trace-cause";
 
 export interface StopFacts {
@@ -52,12 +52,16 @@ function stopFactsOf(root: TraceSpan | undefined): StopFacts {
   };
 }
 
-function failureOf(causal: TraceSpan, byId: ReadonlyMap<string, TraceSpan>): string {
+function failureOf(
+  causal: TraceSpan,
+  byId: ReadonlyMap<string, TraceSpan>,
+  taskNames: ReadonlyMap<string, string>,
+): string {
   const task = taskSpanOf(byId, causal);
   const place =
     task === null || task === causal
-      ? spanLabel(causal)
-      : `${spanLabel(causal)} of ${spanLabel(task)}`;
+      ? namedSpanLabel(causal, taskNames)
+      : `${namedSpanLabel(causal, taskNames)} of ${namedSpanLabel(task, taskNames)}`;
   const reason =
     textOf(causal, ATTRIBUTE_ERROR_TYPE) ?? textOf(causal, ATTRIBUTE_EVALUATION_RESULT);
   return reason === null ? `${place} failed.` : `${place} failed: ${reason}.`;
@@ -73,14 +77,19 @@ function sentenceOf(
   causal: TraceSpan,
   byId: ReadonlyMap<string, TraceSpan>,
   stop: StopFacts,
+  taskNames: ReadonlyMap<string, string>,
 ): string {
   if (stop.revocation !== null) return `${stop.revocation}.`;
-  const failure = failureOf(causal, byId);
+  const failure = failureOf(causal, byId, taskNames);
   const stopped = stopSentenceOf(stop);
   return stopped === null ? failure : `${failure} ${stopped}`;
 }
 
-export function diagnoseSpans(spans: readonly TraceSpan[], rootSpanId: string): SpanDiagnosis {
+export function diagnoseSpans(
+  spans: readonly TraceSpan[],
+  rootSpanId: string,
+  taskNames: ReadonlyMap<string, string>,
+): SpanDiagnosis {
   const root = spans.find((span) => span.span_id === rootSpanId);
   const found = spanCauseOf(spans, rootSpanId);
   const cause = found?.cause ?? null;
@@ -93,7 +102,7 @@ export function diagnoseSpans(spans: readonly TraceSpan[], rootSpanId: string): 
   const evidence =
     cause === null || causalSpan === null || root === undefined
       ? []
-      : evidenceOf(cause, { spans, byId, root, causal: causalSpan });
+      : evidenceOf(cause, { spans, byId, root, causal: causalSpan, taskNames });
   return {
     cause,
     labeledBy,
@@ -105,7 +114,7 @@ export function diagnoseSpans(spans: readonly TraceSpan[], rootSpanId: string): 
     errorSteps: causalSpan === null ? NO_STEPS : errorSteps(spans, roles),
     stop,
     recoveredCount: [...roles.values()].filter((role) => role === ErrorRole.Recovered).length,
-    sentence: causalSpan === null ? null : sentenceOf(causalSpan, byId, stop),
+    sentence: causalSpan === null ? null : sentenceOf(causalSpan, byId, stop, taskNames),
     evidence,
   };
 }
