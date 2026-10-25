@@ -499,6 +499,43 @@ describe("TimelineScreen", () => {
     expect(listTimelinePage).toHaveBeenCalledTimes(2);
   });
 
+  it("loads the next page after a poll read when Load more is pressed during the poll read", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const first = {
+      items: [span("root_a", { end_time: null, duration_ms: null })],
+      next_cursor: "cursor_1",
+    };
+    let finishPoll: (page: typeof first) => void = () => undefined;
+    vi.mocked(listTimelinePage)
+      .mockResolvedValueOnce(first)
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finishPoll = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({
+        items: [span("root_b", { trace_id: "trace_b", attempt: 2, start_time: START + 600_000 })],
+        next_cursor: null,
+      });
+    const user = userEvent.setup();
+    mount();
+    const more = await screen.findByRole("button", { name: "Load more" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS);
+    });
+    expect(listTimelinePage).toHaveBeenCalledTimes(2);
+
+    await user.click(more);
+    await act(async () => {
+      finishPoll(first);
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText("Execution attempt 2")).toBeInTheDocument();
+    expect(listTimelinePage).toHaveBeenLastCalledWith({ node_id: "node_1" }, "cursor_1", 200);
+  });
+
   it("reads once when no root span is open", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     vi.mocked(listTimelinePage).mockResolvedValue({
