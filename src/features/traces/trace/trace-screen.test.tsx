@@ -544,7 +544,7 @@ describe("TraceScreen conversation", () => {
     });
     mount("/traces/trace-1?tab=conversation");
 
-    await userEvent.click(await screen.findByRole("button", { name: "Show in span tree" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Show in steps" }));
 
     expect(screen.getByText("at /traces/trace-1?tab=steps&span=turn1")).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
