@@ -1159,6 +1159,7 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
     binding_set_version: set.version,
     bindings: stored,
     changes: [],
+    stale_pins: [],
   });
 });
 
