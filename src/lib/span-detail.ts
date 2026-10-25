@@ -7,6 +7,7 @@ import type { TraceAxis } from "./trace-waterfall";
 export interface NamedValue {
   readonly name: string;
   readonly value: string;
+  readonly identity?: boolean;
 }
 
 export interface SpanEventView {
