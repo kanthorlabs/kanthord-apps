@@ -278,6 +278,8 @@ const buildTrace = (record, now) => {
     error_count: errorSpans.length,
     error_types: [...new Set(errorSpans.map((span) => span.attributes["error.type"]))],
     first_error_span_id: errorSpans.find((span) => span.parent_span_id !== null)?.span_id ?? null,
+    root_operation: spans[0].operation,
+    root_attributes: spans[0].attributes,
   };
   return { summary, spans, texts, entries };
 };

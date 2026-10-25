@@ -18,6 +18,10 @@ const OPERATION_TURN = "agent.turn";
 const OPERATION_TOOL = "agent.tool";
 const OPERATION_PROGRESS = "agent.progress";
 const OPERATION_TRANSITION = "scheduler.transition";
+const OPERATION_ENVIRONMENT = "project.environment";
+const OPERATION_ENVIRONMENT_BUILD = "environment.build";
+const OPERATION_ENVIRONMENT_SETUP = "environment.setup";
+const OPERATION_ENVIRONMENT_PROOF = "environment.proof";
 
 const ATTRIBUTE_PHASE = "kanthord.phase";
 const ATTRIBUTE_TASK_ID = "kanthord.task.id";
@@ -34,6 +38,7 @@ const ATTRIBUTE_TRANSITION_LIMIT = "kanthord.transition.limit";
 const ATTRIBUTE_EXECUTION_KIND = "kanthord.execution.kind";
 const ATTRIBUTE_EXECUTION_END = "kanthord.execution.end";
 const ATTRIBUTE_REVOKE_CAUSE = "kanthord.revoke.cause";
+const ATTRIBUTE_BINDING_NAME = "project.binding.name";
 
 const ACT_LABELS: Readonly<Record<ActOperation, string>> = {
   "mission.node.pause": "Paused",
@@ -65,14 +70,16 @@ function valueText(value: SpanAttributeValue | undefined): string | null {
   return String(value);
 }
 
-function withValue(title: string, span: TraceSpan, attribute: string): string {
-  const value = valueText(span.attributes[attribute]);
+type SpanAttributes = TraceSpan["attributes"];
+
+function withValue(title: string, attributes: SpanAttributes, attribute: string): string {
+  const value = valueText(attributes[attribute]);
   return value === null ? title : `${title} ${value}`;
 }
 
-function transitionLabel(span: TraceSpan): string {
-  const from = valueText(span.attributes[ATTRIBUTE_STATE_FROM]);
-  const to = valueText(span.attributes[ATTRIBUTE_STATE_TO]);
+function transitionLabel(attributes: SpanAttributes): string {
+  const from = valueText(attributes[ATTRIBUTE_STATE_FROM]);
+  const to = valueText(attributes[ATTRIBUTE_STATE_TO]);
   if (from === null || to === null) return "Transition";
   return `Transition ${from} -> ${to}`;
 }
@@ -81,36 +88,48 @@ function isAct(operation: string): operation is ActOperation {
   return Object.hasOwn(ACT_LABELS, operation);
 }
 
-export function spanLabel(span: TraceSpan): string {
-  if (isAct(span.operation)) return ACT_LABELS[span.operation];
-  switch (span.operation) {
+export function operationLabel(operation: string, attributes: SpanAttributes): string {
+  if (isAct(operation)) return ACT_LABELS[operation];
+  switch (operation) {
     case OPERATION_TRANSITION:
-      return transitionLabel(span);
+      return transitionLabel(attributes);
     case OPERATION_EXECUTION:
       return "Execution";
     case OPERATION_PHASE:
-      return withValue("Phase", span, ATTRIBUTE_PHASE);
+      return withValue("Phase", attributes, ATTRIBUTE_PHASE);
     case OPERATION_TASK:
-      return withValue("Task", span, ATTRIBUTE_TASK_ID);
+      return withValue("Task", attributes, ATTRIBUTE_TASK_ID);
     case OPERATION_VERIFICATION:
-      return withValue("Verification", span, ATTRIBUTE_VERIFICATION_INDEX);
+      return withValue("Verification", attributes, ATTRIBUTE_VERIFICATION_INDEX);
     case OPERATION_JUDGEMENT:
       return "Judgement";
     case OPERATION_EVALUATION:
       return "Evaluation";
     case OPERATION_GIT:
-      return withValue("Git", span, ATTRIBUTE_GIT_STEP);
+      return withValue("Git", attributes, ATTRIBUTE_GIT_STEP);
     case OPERATION_SESSION:
-      return withValue("Session", span, ATTRIBUTE_AGENT_NAME);
+      return withValue("Session", attributes, ATTRIBUTE_AGENT_NAME);
     case OPERATION_TURN:
-      return withValue("Turn", span, ATTRIBUTE_TURN_INDEX);
+      return withValue("Turn", attributes, ATTRIBUTE_TURN_INDEX);
     case OPERATION_TOOL:
-      return valueText(span.attributes[ATTRIBUTE_TOOL_NAME]) ?? span.operation;
+      return valueText(attributes[ATTRIBUTE_TOOL_NAME]) ?? operation;
     case OPERATION_PROGRESS:
       return "Progress";
+    case OPERATION_ENVIRONMENT:
+      return withValue("Environment", attributes, ATTRIBUTE_BINDING_NAME);
+    case OPERATION_ENVIRONMENT_BUILD:
+      return "Build";
+    case OPERATION_ENVIRONMENT_SETUP:
+      return "Setup";
+    case OPERATION_ENVIRONMENT_PROOF:
+      return "Proof";
     default:
-      return span.operation;
+      return operation;
   }
+}
+
+export function spanLabel(span: TraceSpan): string {
+  return operationLabel(span.operation, span.attributes);
 }
 
 function transitionDetail(span: TraceSpan): string | null {

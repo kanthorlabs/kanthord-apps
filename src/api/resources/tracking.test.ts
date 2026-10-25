@@ -242,7 +242,7 @@ describe("readAnalyticsCost", () => {
       {
         status: 400,
         body: {
-          error: { code: "tracking.analytics.range_invalid", message: "Range.", details: null },
+          error: { code: "tracking.filter.range_invalid", message: "Range.", details: null },
           request_id: "req-1",
         },
       },

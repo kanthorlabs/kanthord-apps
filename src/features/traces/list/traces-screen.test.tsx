@@ -58,6 +58,8 @@ function trace(id: string, overrides: Partial<TraceSummary> = {}): TraceSummary 
     error_count: 0,
     error_types: [],
     first_error_span_id: null,
+    root_operation: null,
+    root_attributes: null,
     ...overrides,
   };
 }
@@ -141,6 +143,30 @@ describe("TracesScreen", () => {
     }
     expect(screen.getByText("exec-trc-2")).toBeInTheDocument();
     expect(screen.getByText("Error")).toBeInTheDocument();
+  });
+
+  it("titles a trace with no node and no execution with its root label on the first render", async () => {
+    vi.mocked(listTracePage).mockResolvedValue({
+      items: [
+        trace("trc-env", {
+          execution_id: null,
+          attempt: null,
+          state: "error",
+          root_operation: "project.environment",
+          root_attributes: { "project.binding.name": "main" },
+        }),
+        trace("trc-1", { root_operation: "scheduler.execution", root_attributes: {} }),
+        trace("trc-2", { execution_id: null, attempt: null }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    const list = await screen.findByRole("list", { name: "Traces" });
+    expect(within(list).getByText("Environment main")).toBeInTheDocument();
+    expect(within(list).queryByText("trc-env")).toBeNull();
+    expect(within(list).getByText("exec-trc-1")).toBeInTheDocument();
+    expect(within(list).getByText("trc-2")).toBeInTheDocument();
   });
 
   it("shows running for an open trace and omits an absent worker", async () => {

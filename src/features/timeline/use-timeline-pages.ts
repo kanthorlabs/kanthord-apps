@@ -68,16 +68,30 @@ export function useTimelinePages(query: TimelineQuery | null): TimelinePages {
   const stateRef = useRef(state);
   const ticket = useRef(0);
   const busy = useRef(false);
+  const queued = useRef(false);
 
   useEffect(() => {
     queryRef.current = query;
     stateRef.current = state;
   });
 
-  const run = useCallback((load: Load) => {
+  useEffect(
+    () => () => {
+      queued.current = false;
+    },
+    [],
+  );
+
+  const run = useCallback(function run(load: Load) {
     const current = queryRef.current;
     const { pages, key: origin } = stateRef.current;
     if (current === null) return;
+    if (load === "first") queued.current = false;
+    if (load === "more" && busy.current && pages.length > 0) {
+      queued.current = true;
+      setStored((latest) => ({ ...scopedTo(latest, origin), pending: true }));
+      return;
+    }
     if (load !== "first" && (busy.current || pages.length === 0)) return;
     ticket.current += 1;
     const mine = ticket.current;
@@ -89,7 +103,16 @@ export function useTimelinePages(query: TimelineQuery | null): TimelinePages {
       (next) => {
         if (mine !== ticket.current) return;
         busy.current = false;
-        setStored({ key: origin, pages: next, error: null, pending: false, failed: null });
+        const settled: State = {
+          key: origin,
+          pages: next,
+          error: null,
+          pending: false,
+          failed: null,
+        };
+        stateRef.current = settled;
+        setStored(settled);
+        runQueued();
       },
       (cause: unknown) => {
         if (mine !== ticket.current) return;
@@ -100,8 +123,16 @@ export function useTimelinePages(query: TimelineQuery | null): TimelinePages {
           pending: false,
           failed: load,
         }));
+        runQueued();
       },
     );
+
+    function runQueued() {
+      if (!queued.current) return;
+      queued.current = false;
+      if ((stateRef.current.pages.at(-1)?.page.next_cursor ?? null) === null) return;
+      run("more");
+    }
   }, []);
 
   const active = query !== null;

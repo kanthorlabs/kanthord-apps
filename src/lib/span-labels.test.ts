@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SpanAttributeValue, TraceSpan } from "@/api/types";
 
-import { spanDetail, spanGroup, spanLabel } from "./span-labels";
+import { operationLabel, spanDetail, spanGroup, spanLabel } from "./span-labels";
 
 function span(operation: string, attributes: Record<string, SpanAttributeValue> = {}): TraceSpan {
   return {
@@ -36,6 +36,10 @@ describe("spanLabel", () => {
     ["agent.turn", { "kanthord.turn.index": 3 }, "Turn 3"],
     ["agent.tool", { "gen_ai.tool.name": "bash" }, "bash"],
     ["agent.progress", {}, "Progress"],
+    ["project.environment", { "project.binding.name": "main" }, "Environment main"],
+    ["environment.build", {}, "Build"],
+    ["environment.setup", {}, "Setup"],
+    ["environment.proof", {}, "Proof"],
     ["custom.operation", {}, "custom.operation"],
   ] satisfies [string, Record<string, SpanAttributeValue>, string][])(
     "labels %s",
@@ -67,6 +71,13 @@ describe("spanLabel", () => {
     ["mission.evidence.delete", "Evidence deleted"],
   ])("labels the act %s as %s", (operation, label) => {
     expect(spanLabel(span(operation))).toBe(label);
+  });
+
+  it("labels an operation with its attributes and no span", () => {
+    expect(operationLabel("project.environment", { "project.binding.name": "main" })).toBe(
+      "Environment main",
+    );
+    expect(operationLabel("project.environment", {})).toBe("Environment");
   });
 
   it("leaves the label without its value when the attribute is absent", () => {

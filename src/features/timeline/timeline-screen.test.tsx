@@ -345,6 +345,64 @@ describe("TimelineScreen", () => {
     expect(within(row).getByText(durationText(5_000))).toBeInTheDocument();
   });
 
+  it("shows the labels of an environment run and an Error badge on a failed span", async () => {
+    const environment = {
+      trace_id: "trace_env",
+      producer: "project",
+      node_id: null,
+      execution_id: null,
+      attempt: null,
+      worker_name: null,
+    };
+    vi.mocked(listTimelinePage).mockResolvedValue({
+      items: [
+        span("env_root", {
+          ...environment,
+          operation: "project.environment",
+          status: "Error",
+          attributes: { "project.binding.name": "main" },
+        }),
+        span("env_build", {
+          ...environment,
+          depth: 2,
+          parent_span_id: "env_root",
+          operation: "environment.build",
+          attributes: {},
+        }),
+        span("env_setup", {
+          ...environment,
+          depth: 2,
+          parent_span_id: "env_root",
+          operation: "environment.setup",
+          attributes: {},
+          start_time: START + 1_000,
+        }),
+        span("env_proof", {
+          ...environment,
+          depth: 2,
+          parent_span_id: "env_root",
+          operation: "environment.proof",
+          status: "Error",
+          attributes: {},
+          start_time: START + 2_000,
+        }),
+      ],
+      next_cursor: null,
+    });
+    mount("/timeline?project_id=project_1");
+
+    await screen.findByText("Environment main");
+    const texts = rowTexts();
+    expect(texts).toHaveLength(4);
+    expect(texts[0]).toContain("Environment main");
+    expect(texts[0]).toContain("Error");
+    expect(texts[1]).toContain("Build");
+    expect(texts[1]).not.toContain("Error");
+    expect(texts[2]).toContain("Setup");
+    expect(texts[3]).toContain("Proof");
+    expect(texts[3]).toContain("Error");
+  });
+
   it("defaults the node scope to All time and sends no from", async () => {
     mount("/timeline?node_id=node_1");
 
@@ -439,6 +497,100 @@ describe("TimelineScreen", () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     expect(listTimelinePage).toHaveBeenCalledTimes(2);
+  });
+
+  describe("Load more during a poll read", () => {
+    const OPEN_PAGE = {
+      items: [span("root_a", { end_time: null, duration_ms: null })],
+      next_cursor: "cursor_1" as string | null,
+    };
+    const NEXT_PAGE = {
+      items: [span("root_b", { trace_id: "trace_b", attempt: 2, start_time: START + 600_000 })],
+      next_cursor: null,
+    };
+
+    function cursorCalls(cursor: string): number {
+      return vi.mocked(listTimelinePage).mock.calls.filter(([, call]) => call === cursor).length;
+    }
+
+    async function pressDuringPoll() {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      const poll: {
+        resolve: (page: typeof OPEN_PAGE) => void;
+        reject: (cause: unknown) => void;
+      } = { resolve: () => undefined, reject: () => undefined };
+      vi.mocked(listTimelinePage)
+        .mockResolvedValueOnce(OPEN_PAGE)
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve, reject) => {
+              poll.resolve = resolve;
+              poll.reject = reject;
+            }),
+        )
+        .mockResolvedValueOnce(NEXT_PAGE);
+      const user = userEvent.setup();
+      const view = mount();
+      const more = await screen.findByRole("button", { name: "Load more" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS);
+      });
+      expect(listTimelinePage).toHaveBeenCalledTimes(2);
+      await user.click(more);
+      return { poll, more, view };
+    }
+
+    it("disables Load more while the press waits and loads the next page after the poll read", async () => {
+      const { poll, more } = await pressDuringPoll();
+      expect(more).toBeDisabled();
+
+      await act(async () => {
+        poll.resolve(OPEN_PAGE);
+        await Promise.resolve();
+      });
+
+      expect(await screen.findByText("Execution attempt 2")).toBeInTheDocument();
+      expect(listTimelinePage).toHaveBeenCalledTimes(3);
+      expect(cursorCalls("cursor_1")).toBe(1);
+      expect(listTimelinePage).toHaveBeenLastCalledWith({ node_id: "node_1" }, "cursor_1", 200);
+    });
+
+    it("loads the next page once after a poll read that fails", async () => {
+      const { poll } = await pressDuringPoll();
+
+      await act(async () => {
+        poll.reject(new ApiError("unavailable", "The daemon is down.", 503));
+        await Promise.resolve();
+      });
+
+      expect(await screen.findByText("Execution attempt 2")).toBeInTheDocument();
+      expect(listTimelinePage).toHaveBeenCalledTimes(3);
+      expect(cursorCalls("cursor_1")).toBe(1);
+    });
+
+    it("reads nothing more when the poll read answers no next page", async () => {
+      const { poll } = await pressDuringPoll();
+
+      await act(async () => {
+        poll.resolve({ ...OPEN_PAGE, next_cursor: null });
+        await Promise.resolve();
+      });
+
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Load more" })).toBeNull());
+      expect(listTimelinePage).toHaveBeenCalledTimes(2);
+    });
+
+    it("reads nothing more after an unmount", async () => {
+      const { poll, view } = await pressDuringPoll();
+      view.unmount();
+
+      await act(async () => {
+        poll.resolve(OPEN_PAGE);
+        await Promise.resolve();
+      });
+
+      expect(listTimelinePage).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("reads once when no root span is open", async () => {
