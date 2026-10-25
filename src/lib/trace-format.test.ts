@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { costText, tokenText } from "./trace-format";
+import type { TraceSummary } from "@/api/types";
+
+import { cacheShareText, costText, tokenText } from "./trace-format";
 
 describe("tokenText", () => {
   it("shows the integer below 1000", () => {
@@ -33,5 +35,23 @@ describe("costText", () => {
   it("shows two decimals from 1 dollar", () => {
     expect(costText(1)).toBe("$1.00");
     expect(costText(4.5612)).toBe("$4.56");
+  });
+});
+
+describe("cacheShareText", () => {
+  function tokens(input: number, read: number, creation: number): TraceSummary {
+    return {
+      input_tokens: input,
+      cache_read_tokens: read,
+      cache_creation_tokens: creation,
+    } as TraceSummary;
+  }
+
+  it("shows the cache read share of all input tokens", () => {
+    expect(cacheShareText(tokens(200, 700, 100))).toBe("70%");
+  });
+
+  it("shows 0% when no input token exists", () => {
+    expect(cacheShareText(tokens(0, 0, 0))).toBe("0%");
   });
 });
