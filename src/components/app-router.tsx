@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+import { AnalyticsScreen } from "@/features/analytics/analytics-screen";
 import { LoginScreen } from "@/features/auth/login/login-screen";
 import { useSession } from "@/features/auth/session/session-context";
 import { CredentialFormScreen } from "@/features/credentials/form/credential-form-screen";
@@ -45,6 +46,7 @@ export function AppRouter() {
             <Route path="traces" element={<TracesScreen />} />
             <Route path="traces/:traceId" element={<TraceScreen />} />
             <Route path="timeline" element={<TimelineScreen />} />
+            <Route path="analytics" element={<AnalyticsScreen />} />
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="workers/:workerName" element={<WorkerScreen />} />
             <Route

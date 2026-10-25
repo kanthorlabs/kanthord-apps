@@ -35,6 +35,10 @@ vi.mock("@/features/timeline/timeline-screen", () => ({
   TimelineScreen: () => <p>Timeline body</p>,
 }));
 
+vi.mock("@/features/analytics/analytics-screen", () => ({
+  AnalyticsScreen: () => <p>Analytics body</p>,
+}));
+
 import { AppRouter } from "./app-router";
 
 describe("AppRouter", () => {
@@ -52,5 +56,13 @@ describe("AppRouter", () => {
     render(<AppRouter />);
 
     expect(screen.getByText("Timeline body")).toBeInTheDocument();
+  });
+
+  it("serves the analytics page at its own route", () => {
+    window.history.pushState({}, "", "/analytics");
+
+    render(<AppRouter />);
+
+    expect(screen.getByText("Analytics body")).toBeInTheDocument();
   });
 });
