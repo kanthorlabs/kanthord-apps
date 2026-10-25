@@ -19,8 +19,14 @@ function mountSelection(entries: readonly string[]) {
 }
 
 describe("useTraceSelection", () => {
-  it("opens the steps tab by default", () => {
+  it("opens the summary tab by default", () => {
     const { result } = mountSelection(["/traces/t1"]);
+
+    expect(result.current.selection.tab).toBe("summary");
+  });
+
+  it("keeps the steps tab", () => {
+    const { result } = mountSelection(["/traces/t1?tab=steps"]);
 
     expect(result.current.selection.tab).toBe("steps");
   });
@@ -31,10 +37,10 @@ describe("useTraceSelection", () => {
     expect(result.current.selection.tab).toBe("steps");
   });
 
-  it("reads an unknown tab value as steps", () => {
+  it("reads an unknown tab value as summary", () => {
     const { result } = mountSelection(["/traces/t1?tab=timeline"]);
 
-    expect(result.current.selection.tab).toBe("steps");
+    expect(result.current.selection.tab).toBe("summary");
   });
 
   it("keeps the conversation tab", () => {
@@ -44,14 +50,27 @@ describe("useTraceSelection", () => {
   });
 
   it("pushes a history entry when selectSpan opens the first span", () => {
-    const { result } = mountSelection(["/home", "/traces/t1"]);
+    const { result } = mountSelection(["/home", "/traces/t1?tab=steps"]);
 
     act(() => result.current.selection.selectSpan("a"));
     expect(result.current.location.search).toBe("?tab=steps&span=a");
 
     act(() => result.current.navigate(-1));
     expect(result.current.location.pathname).toBe("/traces/t1");
+    expect(result.current.location.search).toBe("?tab=steps");
+  });
+
+  it("pushes one history entry when a span opens from the summary tab", () => {
+    const { result } = mountSelection(["/home", "/traces/t1"]);
+
+    act(() => result.current.selection.selectSpan("a"));
+    expect(result.current.location.search).toBe("?tab=summary&span=a");
+
+    act(() => result.current.navigate(-1));
+    expect(result.current.location.pathname).toBe("/traces/t1");
     expect(result.current.location.search).toBe("");
+    expect(result.current.selection.tab).toBe("summary");
+    expect(result.current.selection.span).toBeNull();
   });
 
   it("pushes a history entry when showInTimeline opens the first span", () => {

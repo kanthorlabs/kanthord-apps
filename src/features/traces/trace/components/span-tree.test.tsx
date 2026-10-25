@@ -176,7 +176,7 @@ function Probe() {
   return <p>{`at ${location.pathname}${location.search}`}</p>;
 }
 
-function mount(entry = "/traces/trace-1") {
+function mount(entry = "/traces/trace-1?tab=steps") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>

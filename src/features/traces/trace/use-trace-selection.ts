@@ -4,10 +4,11 @@ import type { TraceSpan } from "@/api/types";
 import { sessionSpansOf } from "@/lib/conversation-spans";
 import { withParam } from "@/lib/trace-query";
 
-const DEFAULT_TAB = "steps";
+const DEFAULT_TAB = "summary";
+const STEPS_TAB = "steps";
 const CONVERSATION_TAB = "conversation";
-const TABS: readonly string[] = [DEFAULT_TAB, CONVERSATION_TAB];
-const TAB_ALIASES: Readonly<Record<string, string>> = { span_tree: DEFAULT_TAB };
+const TABS: readonly string[] = [DEFAULT_TAB, STEPS_TAB, CONVERSATION_TAB];
+const TAB_ALIASES: Readonly<Record<string, string>> = { span_tree: STEPS_TAB };
 const NO_SPANS: readonly TraceSpan[] = [];
 
 export interface TraceSelection {
@@ -57,7 +58,7 @@ export function useTraceSelection(spans: readonly TraceSpan[] = NO_SPANS): Trace
     selectSpan: (spanId) => write({ tab, span: spanId }),
     selectEntry: (entryId) => write({ entry: entryId }),
     selectSession: (sessionId) => write({ session: sessionId, entry: null }),
-    showInTimeline: (spanId) => write({ tab: DEFAULT_TAB, span: spanId }),
+    showInTimeline: (spanId) => write({ tab: STEPS_TAB, span: spanId }),
     openInConversation: (sessionId, entryId) =>
       write({ tab: CONVERSATION_TAB, session: sessionId, entry: entryId }),
   };

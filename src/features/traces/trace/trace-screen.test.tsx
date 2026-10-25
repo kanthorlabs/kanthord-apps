@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -13,6 +13,7 @@ vi.mock("@/api/resources/tracking", () => ({
   readTraceText: vi.fn(),
   readSessionEntry: vi.fn(),
   listSessionEntryPage: vi.fn(),
+  listTracePage: vi.fn(),
 }));
 
 vi.mock("@/api/resources/projects", () => ({
@@ -21,11 +22,18 @@ vi.mock("@/api/resources/projects", () => ({
 
 vi.mock("@/api/resources/mission", () => ({
   readMissionNode: vi.fn(),
+  listNodeAttempts: vi.fn(),
+  readNodeRevision: vi.fn(),
 }));
 
-import { readMissionNode } from "@/api/resources/mission";
+import { listNodeAttempts, readMissionNode } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
-import { listSessionEntryPage, listTraceSpans, readTrace } from "@/api/resources/tracking";
+import {
+  listSessionEntryPage,
+  listTracePage,
+  listTraceSpans,
+  readTrace,
+} from "@/api/resources/tracking";
 import type {
   MissionNodeRecord,
   Project,
@@ -174,12 +182,50 @@ function project(): Project {
   };
 }
 
-function Probe() {
-  const location = useLocation();
-  return <p>{`at ${location.pathname}${location.search}`}</p>;
+function failedSummary(): TraceSummary {
+  return summary({ state: "error", error_count: 1, first_error_span_id: "turn-5" });
 }
 
-function mount(entry = "/traces/trace-1") {
+function failedSpans(): readonly TraceSpan[] {
+  return [
+    span(
+      "root",
+      null,
+      "scheduler.execution",
+      {
+        "kanthord.cause.category": "llm_provider",
+        "kanthord.cause.subcategory": "rate_limited",
+        "kanthord.cause.assigner": "rule",
+        "kanthord.stop.reason": "provider_failed",
+        "kanthord.stop.code": "rate_limited",
+        "kanthord.stop.detail": "429 Too Many Requests",
+      },
+      { status: "Error" },
+    ),
+    span(
+      "turn-5",
+      "root",
+      "agent.turn",
+      { "kanthord.turn.index": 5, "error.type": "rate_limited" },
+      { start_time: START + 1, status: "Error" },
+    ),
+  ];
+}
+
+function Probe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      <p>{`at ${location.pathname}${location.search}`}</p>
+      <button type="button" onClick={() => navigate(-1)}>
+        System back
+      </button>
+    </>
+  );
+}
+
+function mount(entry = "/traces/trace-1?tab=steps") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
@@ -221,6 +267,8 @@ beforeEach(() => {
   vi.mocked(readTrace).mockResolvedValue(summary());
   vi.mocked(listTraceSpans).mockResolvedValue(spans());
   vi.mocked(listProjects).mockResolvedValue([project()]);
+  vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
+  vi.mocked(listNodeAttempts).mockResolvedValue([]);
   vi.mocked(readMissionNode).mockResolvedValue({
     content: { name: "Build the page" },
   } as MissionNodeRecord);
@@ -502,15 +550,12 @@ describe("TraceScreen conversation", () => {
     );
   }
 
-  it("lists the tabs Steps and Conversation and writes tab=steps when the human returns", async () => {
+  it("writes tab=steps when the human returns to Steps", async () => {
     vi.mocked(listSessionEntryPage).mockResolvedValue({ items: [], next_cursor: null });
     mount();
     await screen.findByRole("tree", { name: "Spans" });
 
-    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
-    expect(tabs.map((tab) => tab.textContent)).toEqual(["Steps", "Conversation"]);
     expect(screen.getByRole("tab", { name: "Steps" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("tab", { name: "Span tree" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: "Conversation" }));
     await userEvent.click(screen.getByRole("tab", { name: "Steps" }));
 
@@ -572,5 +617,114 @@ describe("TraceScreen conversation", () => {
 
     expect(await screen.findByText("Answer 2.")).toBeInTheDocument();
     expect(screen.getAllByText("Answer 1.")).toHaveLength(1);
+  });
+});
+
+describe("TraceScreen summary", () => {
+  it("opens on Summary and lists the tabs Summary, Steps and Conversation", async () => {
+    mount("/traces/trace-1");
+
+    expect(await screen.findByRole("region", { name: "Attempts of this node" })).toBeVisible();
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Summary", "Steps", "Conversation"]);
+    expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "Span tree" })).not.toBeInTheDocument();
+  });
+
+  it("opens on Summary for an unknown tab value", async () => {
+    mount("/traces/trace-1?tab=timeline");
+
+    expect(await screen.findByRole("region", { name: "Attempts of this node" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Summary" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("opens Steps for the old value tab=span_tree", async () => {
+    mount("/traces/trace-1?tab=span_tree");
+
+    await screen.findByRole("tree", { name: "Spans" });
+    expect(screen.getByRole("tab", { name: "Steps" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("shows What went wrong before Attempts of this node for a failed trace", async () => {
+    vi.mocked(readTrace).mockResolvedValue(failedSummary());
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1");
+
+    const wrong = await screen.findByRole("region", { name: "What went wrong" });
+    const attempts = screen.getByRole("region", { name: "Attempts of this node" });
+    expect(wrong.compareDocumentPosition(attempts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Now" })).not.toBeInTheDocument();
+  });
+
+  it("shows the blocks in order on the compact width", async () => {
+    matchLargeScreen(false);
+    vi.mocked(readTrace).mockResolvedValue(failedSummary());
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1");
+
+    await screen.findByRole("region", { name: "What went wrong" });
+    const [wrong, attempts, time] = [
+      "What went wrong",
+      "Attempts of this node",
+      "Where time went",
+    ].map((name) => screen.getByRole("region", { name }));
+    expect(
+      wrong!.compareDocumentPosition(attempts!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      attempts!.compareDocumentPosition(time!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(screen.queryByRole("tree", { name: "Spans" })).not.toBeInTheDocument();
+  });
+
+  it("shows the steps tree under the diagnosis on the large width", async () => {
+    vi.mocked(readTrace).mockResolvedValue(failedSummary());
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1");
+
+    const wrong = await screen.findByRole("region", { name: "What went wrong" });
+    const tree = await screen.findByRole("tree", { name: "Spans" });
+    const attempts = screen.getByRole("region", { name: "Attempts of this node" });
+    expect(wrong.compareDocumentPosition(tree) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tree.compareDocumentPosition(attempts) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "Span detail" })).toBeInTheDocument();
+  });
+
+  it("shows the Now block for an open trace", async () => {
+    vi.mocked(readTrace).mockResolvedValue(
+      summary({ state: "open", duration_ms: null, ended_at: null, stop_reason: null }),
+    );
+    mount("/traces/trace-1");
+
+    expect(await screen.findByRole("region", { name: "Now" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "What went wrong" })).not.toBeInTheDocument();
+  });
+
+  it("selects the causal span with Open causal span", async () => {
+    vi.mocked(readTrace).mockResolvedValue(failedSummary());
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open causal span" }));
+
+    expect(screen.getByText("at /traces/trace-1?tab=summary&span=turn-5")).toBeInTheDocument();
+  });
+
+  it("opens the span level on the compact width and closes it with the system back control", async () => {
+    matchLargeScreen(false);
+    vi.mocked(readTrace).mockResolvedValue(failedSummary());
+    vi.mocked(listTraceSpans).mockResolvedValue(failedSpans());
+    mount("/traces/trace-1");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open causal span" }));
+
+    expect(await screen.findByRole("button", { name: "Back to steps" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "What went wrong" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "System back" }));
+
+    expect(await screen.findByRole("region", { name: "What went wrong" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to steps" })).not.toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1")).toBeInTheDocument();
   });
 });
