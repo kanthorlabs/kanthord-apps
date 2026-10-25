@@ -19,7 +19,7 @@ import type {
   ProjectBindingRecord,
   Intent,
   SchedulerExecutionRecord,
-  TraceSummary,
+  TraceListItem,
   WorkerBindingRecord,
   WorkerRegistrationRecord,
 } from "@/api/types";
@@ -481,21 +481,23 @@ describe("NodeSheet", () => {
     expect(within(executions).getByText("Provider failed: rate limited")).toBeTruthy();
   });
 
-  it("shows the trace summary of an execution and links to its trace", async () => {
+  it("shows the trace summary and the cause chip of an execution and links to its trace", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
       execution({ node_id: "node_audit", trace_id: "trace_live" }),
       execution({ execution_id: "execution_2", node_id: "node_audit", trace_id: "trace_gone" }),
-      execution({ execution_id: "execution_3", node_id: "node_audit", trace_id: "trace_down" }),
     ]);
-    vi.mocked(trackingApi.readTrace).mockImplementation(async (traceId) => {
-      if (traceId === "trace_gone") throw new ApiError("not_found", "No such trace.", 404);
-      if (traceId === "trace_down") throw new ApiError("unreachable", "No answer.", 0);
-      return {
-        turn_count: 12,
-        total_tokens: 48_200,
-        cost_usd: 0.4321,
-        error_count: 2,
-      } as TraceSummary;
+    vi.mocked(trackingApi.listTracePage).mockResolvedValue({
+      items: [
+        {
+          trace_id: "trace_live",
+          turn_count: 12,
+          total_tokens: 48_200,
+          cost_usd: 0.4321,
+          error_count: 2,
+          cause: { category: "llm_provider", assigner: "rule", subcategory: "rate_limited" },
+        } as TraceListItem,
+      ],
+      next_cursor: null,
     });
     renderSheet("node_audit");
 
@@ -503,7 +505,7 @@ describe("NodeSheet", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Records of attempt 1" }));
 
     const executions = await screen.findByRole("list", { name: "Executions" });
-    const [live, gone, down] = within(executions).getAllByRole("listitem");
+    const [live, gone] = within(executions).getAllByRole("listitem");
     expect(
       await within(live as HTMLElement).findByText(
         "12 turns · 48.2k tokens · Est. cost $0.4321 · 2 errors",
@@ -513,12 +515,14 @@ describe("NodeSheet", () => {
       "href",
       "/traces/trace_live",
     );
+    expect(within(live as HTMLElement).getByText("LLM provider - rate limited")).toBeTruthy();
+    expect(trackingApi.listTracePage).toHaveBeenCalledTimes(1);
+    expect(trackingApi.listTracePage).toHaveBeenCalledWith({ node_id: "node_audit" }, null, 100);
     expect(await within(gone as HTMLElement).findByText("Trace expired")).toBeTruthy();
     expect(within(gone as HTMLElement).getByRole("button", { name: "Trace" })).toHaveAttribute(
       "href",
       "/traces/trace_gone",
     );
-    expect(within(down as HTMLElement).queryByText(/turns|Trace expired/)).toBeNull();
   });
 
   it("shows the end of the last execution and its cause on the attempt from one read", async () => {

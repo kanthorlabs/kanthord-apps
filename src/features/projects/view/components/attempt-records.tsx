@@ -15,8 +15,10 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TouchTarget } from "@/components/touch-target";
 import { stopLabel } from "@/lib/execution-stop";
 import { utcDateTime } from "@/lib/format";
+import { causeChipText } from "@/lib/trace-cause";
 import { nameOf, type GraphModel } from "@/lib/mission-graph";
 import {
   actorText,
@@ -52,7 +54,7 @@ export function AttemptRecords({
   currentRevision,
 }: AttemptRecordsProps) {
   const records = useAttemptRecords(projectId, attempt);
-  const traceLines = useTraceSummaries(records.data?.executions.data ?? null);
+  const traceSummaries = useTraceSummaries(attempt.node_id, records.data?.executions.data ?? null);
 
   if (records.loading) return <Skeleton className="h-32 w-full" />;
   if (records.data === null) {
@@ -116,49 +118,59 @@ export function AttemptRecords({
             <Empty text="No execution claimed this attempt." />
           ) : (
             <ItemGroup aria-label="Executions">
-              {items.map((item) => (
-                <Item key={item.execution_id} variant="outline" size="sm" role="listitem">
-                  <ItemContent className="min-w-0">
-                    <ItemTitle className="w-full flex-wrap">
-                      <span className="break-all">
-                        {item.claimant.name ?? item.claimant.runtime_identity}
-                      </span>
-                      <Badge variant={claimStateVariant(item.claim_state)}>
-                        {item.claim_state}
-                      </Badge>
-                      {item.stop !== null && (
-                        <Badge variant="outline">{stopLabel(item.stop)}</Badge>
-                      )}
-                    </ItemTitle>
-                    <ItemDescription className="flex flex-col gap-0.5">
-                      {item.stop?.detail !== undefined && (
-                        <span className="break-words">Cause: {item.stop.detail}</span>
-                      )}
-                      <span className="font-mono text-xs break-all">{item.execution_id}</span>
-                      <span className="break-all">{item.claimant.resource_identity}</span>
-                      <span>
-                        Claimed {utcDateTime(item.created_at)}
-                        {item.ended_at === null ? "" : `, ended ${utcDateTime(item.ended_at)}`}
-                        {`, deadline ${utcDateTime(item.expired_at)}`}
-                      </span>
-                      <span className="font-mono text-xs break-all">trace {item.trace_id}</span>
-                      {traceLines.has(item.trace_id) && (
-                        <span>{traceLines.get(item.trace_id)}</span>
-                      )}
-                    </ItemDescription>
-                  </ItemContent>
-                  <ItemActions className="basis-full md:basis-auto md:justify-end">
-                    <Button
-                      nativeButton={false}
-                      render={<Link to={`/traces/${encodeURIComponent(item.trace_id)}`} />}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Trace
-                    </Button>
-                  </ItemActions>
-                </Item>
-              ))}
+              {items.map((item) => {
+                const summary = traceSummaries.get(item.trace_id);
+                return (
+                  <Item key={item.execution_id} variant="outline" size="sm" role="listitem">
+                    <ItemContent className="min-w-0">
+                      <ItemTitle className="w-full flex-wrap">
+                        <span className="break-all">
+                          {item.claimant.name ?? item.claimant.runtime_identity}
+                        </span>
+                        <Badge variant={claimStateVariant(item.claim_state)}>
+                          {item.claim_state}
+                        </Badge>
+                        {item.stop !== null && (
+                          <Badge variant="outline">{stopLabel(item.stop)}</Badge>
+                        )}
+                      </ItemTitle>
+                      <ItemDescription className="flex flex-col gap-0.5">
+                        {item.stop?.detail !== undefined && (
+                          <span className="break-words">Cause: {item.stop.detail}</span>
+                        )}
+                        <span className="font-mono text-xs break-all">{item.execution_id}</span>
+                        <span className="break-all">{item.claimant.resource_identity}</span>
+                        <span>
+                          Claimed {utcDateTime(item.created_at)}
+                          {item.ended_at === null ? "" : `, ended ${utcDateTime(item.ended_at)}`}
+                          {`, deadline ${utcDateTime(item.expired_at)}`}
+                        </span>
+                        <span className="font-mono text-xs break-all">trace {item.trace_id}</span>
+                        {summary !== undefined && (
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <span>{summary.line}</span>
+                            {summary.cause !== null && (
+                              <Badge variant="outline">{causeChipText(summary.cause)}</Badge>
+                            )}
+                          </span>
+                        )}
+                      </ItemDescription>
+                    </ItemContent>
+                    <ItemActions className="basis-full md:basis-auto md:justify-end">
+                      <TouchTarget>
+                        <Button
+                          nativeButton={false}
+                          render={<Link to={`/traces/${encodeURIComponent(item.trace_id)}`} />}
+                          variant="outline"
+                          size="sm"
+                        >
+                          Trace
+                        </Button>
+                      </TouchTarget>
+                    </ItemActions>
+                  </Item>
+                );
+              })}
             </ItemGroup>
           )
         }
