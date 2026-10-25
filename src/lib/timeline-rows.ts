@@ -1,5 +1,7 @@
 import { ACT_OPERATIONS, type TimelineItem, type TraceState } from "@/api/types";
 
+import { revocationLabel } from "./span-labels";
+
 const ATTRIBUTE_EXECUTION_KIND = "kanthord.execution.kind";
 const ATTRIBUTE_EXECUTION_END = "kanthord.execution.end";
 const EXECUTION_FINISHED = "finished";
@@ -81,7 +83,8 @@ export function executionKindOf(item: TimelineItem): string | null {
 
 export function executionStopReasonOf(item: TimelineItem): string | null {
   const end = attributeText(item, ATTRIBUTE_EXECUTION_END);
-  return end === EXECUTION_FINISHED ? null : end;
+  if (end === null || end === EXECUTION_FINISHED) return null;
+  return revocationLabel(item) ?? end;
 }
 
 export function reasonTextIdOf(item: TimelineItem): string | null {

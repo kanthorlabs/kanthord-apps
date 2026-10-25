@@ -120,6 +120,14 @@ describe("execution facts", () => {
     expect(executionStopReasonOf(item("a"))).toBeNull();
   });
 
+  it("reads the revocation label as the stop reason of a revoked execution with a cause", () => {
+    const revoked = item("a", {
+      attributes: { "kanthord.execution.end": "revoked", "kanthord.revoke.cause": "assessment" },
+    });
+
+    expect(executionStopReasonOf(revoked)).toBe("Revoked by a review");
+  });
+
   it("reports no stop reason for a finished execution", () => {
     const finished = item("a", { attributes: { "kanthord.execution.end": "finished" } });
 

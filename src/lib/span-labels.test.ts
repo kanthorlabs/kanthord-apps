@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SpanAttributeValue, TraceSpan } from "@/api/types";
 
-import { operationLabel, spanDetail, spanGroup, spanLabel } from "./span-labels";
+import { operationLabel, revocationLabel, spanDetail, spanGroup, spanLabel } from "./span-labels";
 
 function span(operation: string, attributes: Record<string, SpanAttributeValue> = {}): TraceSpan {
   return {
@@ -165,5 +165,35 @@ describe("spanDetail", () => {
   it("shows no detail for another span", () => {
     expect(spanDetail(span("agent.turn"))).toBeNull();
     expect(spanDetail(span("scheduler.execution"))).toBeNull();
+  });
+});
+
+describe("revocationLabel", () => {
+  it.each([
+    ["assessment", "Revoked by a review"],
+    ["human", "Revoked by a human"],
+  ])("names the revoke cause %s of a revoked execution", (cause, label) => {
+    expect(
+      revocationLabel(
+        span("scheduler.execution", {
+          "kanthord.execution.end": "revoked",
+          "kanthord.revoke.cause": cause,
+        }),
+      ),
+    ).toBe(label);
+  });
+
+  it("answers null without a known cause or for an execution that was not revoked", () => {
+    expect(
+      revocationLabel(span("scheduler.execution", { "kanthord.execution.end": "revoked" })),
+    ).toBeNull();
+    expect(
+      revocationLabel(
+        span("scheduler.execution", {
+          "kanthord.execution.end": "lost",
+          "kanthord.revoke.cause": "human",
+        }),
+      ),
+    ).toBeNull();
   });
 });
