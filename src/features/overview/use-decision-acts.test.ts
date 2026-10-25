@@ -1,8 +1,12 @@
-import { renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/api/errors";
+import { listTracePage } from "@/api/resources/tracking";
 import type {
   MissionExternalAction,
+  SchedulerExecutionRecord,
+  TraceListItem,
   MissionProposal,
   MissionNodeRecord,
   NodeState,
@@ -12,6 +16,7 @@ import type {
 import { detailKeyOf, type AttentionDetail, type DecisionAttentionItem } from "@/lib/attention";
 
 vi.mock("@/api/resources/mission");
+vi.mock("@/api/resources/tracking");
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
@@ -98,6 +103,48 @@ function actsOf(item: DecisionAttentionItem, detail: AttentionDetail | null) {
   ).result.current;
 }
 
+const listMock = vi.mocked(listTracePage);
+
+function pausedItemOf(target: MissionNodeRecord): DecisionAttentionItem {
+  return {
+    id: "paused:node_1",
+    kind: "paused",
+    group: "decisions",
+    project: PROJECT,
+    subject: target.content.name,
+    missionVersion: 7,
+    node: target,
+    nodes: [target],
+    at: null,
+    pause: null,
+    cause: null,
+  };
+}
+
+function pausedDetailOf(
+  target: MissionNodeRecord,
+  executions: readonly SchedulerExecutionRecord[],
+): AttentionDetail {
+  return {
+    kind: "paused",
+    key: detailKeyOf(target),
+    executions: { status: "ready", data: executions },
+    actions: { status: "ready", data: [] },
+  };
+}
+
+function executionOf(id: string, createdAt: number): SchedulerExecutionRecord {
+  return {
+    execution_id: id,
+    trace_id: `trace_${id}`,
+    created_at: createdAt,
+  } as SchedulerExecutionRecord;
+}
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
+
 describe("useDecisionActs", () => {
   it("exposes the open proposals of a Blocked examine node", () => {
     const target = node("examine", "Blocked");
@@ -156,5 +203,52 @@ describe("useDecisionActs", () => {
     );
     expect(acts.discard.available).toBe(false);
     expect(actsOf(item, null).unresolved).toBeNull();
+  });
+
+  it("answers the cause of the last trace of a Paused node", async () => {
+    const target = node("implement", "Paused");
+    listMock.mockResolvedValue({
+      items: [
+        {
+          cause: { category: "llm_provider", assigner: "rule", subcategory: "rate_limited" },
+        } as TraceListItem,
+      ],
+      next_cursor: null,
+    });
+
+    const { result } = renderHook(() =>
+      useDecisionActs(
+        pausedItemOf(target),
+        pausedDetailOf(target, [executionOf("old", 1), executionOf("new", 2)]),
+        { reload: vi.fn(), markActed: vi.fn(), setDialogOpen: vi.fn() },
+      ),
+    );
+
+    await waitFor(() =>
+      expect(result.current.lastTraceCause).toEqual({
+        category: "llm_provider",
+        assigner: "rule",
+        subcategory: "rate_limited",
+      }),
+    );
+    expect(listMock).toHaveBeenCalledWith({ execution_id: "new" }, null, 1);
+    expect(result.current.lastTraceId).toBe("trace_new");
+  });
+
+  it("keeps the last trace and answers no cause when the read fails", async () => {
+    const target = node("implement", "Paused");
+    listMock.mockRejectedValue(new ApiError("unreachable", "No answer.", 0));
+
+    const { result } = renderHook(() =>
+      useDecisionActs(pausedItemOf(target), pausedDetailOf(target, [executionOf("e1", 1)]), {
+        reload: vi.fn(),
+        markActed: vi.fn(),
+        setDialogOpen: vi.fn(),
+      }),
+    );
+
+    await waitFor(() => expect(listMock).toHaveBeenCalledTimes(1));
+    expect(result.current.lastTraceCause).toBeNull();
+    expect(result.current.lastTraceId).toBe("trace_e1");
   });
 });
