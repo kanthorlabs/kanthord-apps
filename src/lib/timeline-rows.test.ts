@@ -129,6 +129,15 @@ describe("spanDurationText", () => {
     ).toBe("No start recorded");
   });
 
+  it("shows No start recorded for a span with no start and no end under a root span with an end", () => {
+    expect(
+      spanDurationText(
+        child("a", START, { start_time: null, end_time: null, duration_ms: null }),
+        true,
+      ),
+    ).toBe("No start recorded");
+  });
+
   it("shows No end recorded for a span with no end under a root span with an end", () => {
     expect(spanDurationText(child("a", START, { end_time: null, duration_ms: null }), true)).toBe(
       "No end recorded",
