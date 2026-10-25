@@ -4,9 +4,10 @@ import type { TraceSpan } from "@/api/types";
 import { sessionSpansOf } from "@/lib/conversation-spans";
 import { withParam } from "@/lib/trace-query";
 
-const DEFAULT_TAB = "span_tree";
+const DEFAULT_TAB = "steps";
 const CONVERSATION_TAB = "conversation";
 const TABS: readonly string[] = [DEFAULT_TAB, CONVERSATION_TAB];
+const TAB_ALIASES: Readonly<Record<string, string>> = { span_tree: DEFAULT_TAB };
 const NO_SPANS: readonly TraceSpan[] = [];
 
 export interface TraceSelection {
@@ -25,23 +26,27 @@ export interface TraceSelection {
 export function useTraceSelection(spans: readonly TraceSpan[] = NO_SPANS): TraceSelection {
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
-  const tab = requested !== null && TABS.includes(requested) ? requested : DEFAULT_TAB;
+  const named = requested === null ? null : (TAB_ALIASES[requested] ?? requested);
+  const tab = named !== null && TABS.includes(named) ? named : DEFAULT_TAB;
   const sessions = sessionSpansOf(spans);
   const requestedSession = params.get("session");
   const session =
     sessions.find((candidate) => candidate.span_id === requestedSession)?.span_id ??
     sessions[0]?.span_id ??
     null;
+  const spanOpen = params.get("span") !== null;
 
-  const write = (changes: Readonly<Record<string, string | null>>) =>
+  const write = (changes: Readonly<Record<string, string | null>>) => {
+    const opensSpan = !spanOpen && (changes.span ?? null) !== null;
     setParams(
       (current) =>
         Object.entries(changes).reduce(
           (next, [key, value]) => withParam(next, key, value),
           current,
         ),
-      { replace: true },
+      { replace: !opensSpan },
     );
+  };
 
   return {
     tab,
