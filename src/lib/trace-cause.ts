@@ -55,6 +55,10 @@ export function rowCauseLineOf(item: TraceListItem, now: number): string | null 
   return item.cause === null ? null : causeLine(item.cause);
 }
 
+export function causeChipText(cause: EffectiveCause): string {
+  return causeLine({ ...cause, suspects: cause.suspects?.slice(0, 1) });
+}
+
 export function causeLabelSpanIdOf(rootSpanId: string): string {
   return `${rootSpanId}${CAUSE_LABEL_SUFFIX}`;
 }

@@ -7,6 +7,7 @@ import {
   CAUSE_LABEL_SUFFIX,
   causeLabelReasonTextIdOf,
   causeLabelSpanIdOf,
+  causeChipText,
   causeLine,
   isRepeat,
   rowCauseLineOf,
@@ -87,6 +88,24 @@ describe("causeLine", () => {
     expect(causeLine({ category: "unattributed", assigner: "rule", suspects: [] })).toBe(
       "Unattributed",
     );
+  });
+});
+
+describe("causeChipText", () => {
+  it("joins the category label and the subcategory text", () => {
+    expect(
+      causeChipText({ category: "llm_provider", assigner: "rule", subcategory: "rate_limited" }),
+    ).toBe("LLM provider - rate limited");
+  });
+
+  it("keeps the first suspect of an unattributed cause", () => {
+    expect(
+      causeChipText({
+        category: "unattributed",
+        assigner: "rule",
+        suspects: ["plan", "worker_action"],
+      }),
+    ).toBe("Unattributed - suspects Plan");
   });
 });
 

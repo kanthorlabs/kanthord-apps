@@ -123,6 +123,24 @@ const ENTRIES: readonly TraceSessionEntry[] = [
   entry("tag", 8, { type: "label" }),
 ];
 
+const TASK = span("task-1", "worker.task");
+const TASK_TURN = span(
+  "turn-1",
+  "agent.turn",
+  { "gen_ai.conversation.id": "session-1", "kanthord.session.entry_id": "reply" },
+  { parent_span_id: "task-1" },
+);
+const FAILED_TURN = { ...TASK_TURN, status: "Error" } satisfies TraceSpan;
+const FAILED_TOOL = span(
+  "tool-1",
+  "agent.tool",
+  { "gen_ai.tool.call.id": "call-1" },
+  { parent_span_id: "task-1", status: "Error" },
+);
+const ENTRIES_WITH_CALL: readonly TraceSessionEntry[] = ENTRIES.map((item) =>
+  item.entry_id === "result" ? { ...item, tool_call_id: "call-1" } : item,
+);
+
 function Harness({ spans, live = false }: { spans: readonly TraceSpan[]; live?: boolean }) {
   const selection = useTraceSelection(spans);
   const location = useLocation();
@@ -297,25 +315,86 @@ describe("Conversation", () => {
     expect(screen.getByRole("status")).toHaveTextContent("session=session-2");
   });
 
-  it("selects the turn span on the Span tree tab with Show in span tree", async () => {
+  it("labels the system prompt and each work prompt and collapses them", async () => {
+    mockEntries(ENTRIES);
+    show([TASK, SESSION_1, TASK_TURN]);
+    await screen.findByText("Work prompt task-1");
+
+    const system = blockOf("System prompt");
+    expect(within(system).getByRole("button", { name: "Show prompt" })).toBeInTheDocument();
+    expect(screen.queryByText("You are a coder.")).not.toBeInTheDocument();
+    const work = blockOf("Work prompt task-1");
+    expect(screen.queryByText("List the files.")).not.toBeInTheDocument();
+    await userEvent.click(within(work).getByRole("button", { name: "Show prompt" }));
+    expect(await screen.findByText("List the files.")).toBeInTheDocument();
+    expect(screen.queryByText("User", { selector: "[data-slot=item-title]" })).toBeNull();
+  });
+
+  it("selects the turn span on the Steps tab with Show in steps", async () => {
     mockEntries(ENTRIES);
     show([SESSION_1, TURN]);
     await screen.findByText("List the files.");
 
-    expect(screen.getAllByRole("button", { name: "Show in span tree" })).toHaveLength(1);
-    await userEvent.click(screen.getByRole("button", { name: "Show in span tree" }));
+    expect(screen.getAllByRole("button", { name: "Show in steps" })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: "Show in steps" }));
 
     const search = new URLSearchParams(screen.getByRole("status").textContent ?? "");
     expect(search.get("tab")).toBe("steps");
     expect(search.get("span")).toBe("turn-1");
   });
 
-  it("offers no Show in span tree without a turn span", async () => {
+  it("offers no Show in steps without a turn span", async () => {
     mockEntries(ENTRIES);
     show([SESSION_1]);
     await screen.findByText("List the files.");
 
-    expect(screen.queryByRole("button", { name: "Show in span tree" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show in steps" })).not.toBeInTheDocument();
+  });
+
+  it("jumps to the reply entry of a causal turn", async () => {
+    mockEntries(ENTRIES);
+    show([TASK, SESSION_1, FAILED_TURN]);
+    await screen.findByText("I will list the files.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Jump to the causal entry" }));
+
+    const search = new URLSearchParams(screen.getByRole("status").textContent ?? "");
+    expect(search.get("entry")).toBe("reply");
+    const marked = screen.getAllByRole("listitem").filter((block) => block.ariaCurrent === "true");
+    expect(marked).toHaveLength(1);
+    expect(marked[0]).toHaveTextContent("I will list the files.");
+  });
+
+  it("jumps to the result entry of a causal tool", async () => {
+    mockEntries(ENTRIES_WITH_CALL);
+    show([TASK, SESSION_1, FAILED_TOOL]);
+    await screen.findByText("I will list the files.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Jump to the causal entry" }));
+
+    const search = new URLSearchParams(screen.getByRole("status").textContent ?? "");
+    expect(search.get("entry")).toBe("result");
+  });
+
+  it("hides the jump when the causal span has no entry", async () => {
+    mockEntries(ENTRIES);
+    show([TASK, SESSION_1, FAILED_TOOL]);
+    await screen.findByText("I will list the files.");
+
+    expect(
+      screen.queryByRole("button", { name: "Jump to the causal entry" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a long token inside blocks with min-w-0", async () => {
+    const token = "x".repeat(400);
+    mockEntries([entry("ask", 1, message("user", { content: token }))]);
+    show([SESSION_1]);
+
+    const text = await screen.findByText(token);
+    expect(text).toHaveClass("min-w-0", "break-words");
+    expect(text.parentElement).toHaveClass("min-w-0");
+    expect(blockOf("User")).toHaveClass("min-w-0");
   });
 
   it("marks and scrolls to the entry of the entry query key", async () => {

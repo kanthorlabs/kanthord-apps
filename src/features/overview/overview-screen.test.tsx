@@ -57,12 +57,17 @@ vi.mock("@/api/resources/workbench", () => ({
   listWorkbenchSessions: vi.fn(),
 }));
 
+vi.mock("@/api/resources/tracking", () => ({
+  listTracePage: vi.fn(),
+}));
+
 vi.mock("@/api/resources/scheduler", () => ({
   listQueueJobs: vi.fn(),
   listNodeExecutions: vi.fn(),
   listProjectExecutionPage: vi.fn(),
 }));
 
+import { listTracePage } from "@/api/resources/tracking";
 import {
   approveProposal,
   checkNode,
@@ -119,6 +124,7 @@ import type {
   RepositoryActionName,
   SchedulerExecutionRecord,
   SchedulerJob,
+  TraceListItem,
   WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
@@ -1092,6 +1098,30 @@ describe("OverviewScreen paused items", () => {
       "href",
       "/traces/trace_new",
     );
+  });
+
+  it("shows the cause of the last trace beside Last trace", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Compute the shipping rates")] },
+      executions: {
+        n_p: [ended("e1", "n_p", { created_at: NOW - 3 * HOUR, trace_id: "trace_new" })],
+      },
+    });
+    vi.mocked(listTracePage).mockResolvedValue({
+      items: [
+        {
+          cause: { category: "llm_provider", assigner: "rule", subcategory: "rate_limited" },
+        } as TraceListItem,
+      ],
+      next_cursor: null,
+    });
+
+    renderScreen();
+
+    const item = await waitFor(() => itemOf("Compute the shipping rates"));
+    expect(await within(item).findByText("LLM provider - rate limited")).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Last trace" })).toBeInTheDocument();
+    expect(listTracePage).toHaveBeenCalledWith({ execution_id: "e1" }, null, 1);
   });
 
   it("offers no Last trace to a Paused node without an execution", async () => {

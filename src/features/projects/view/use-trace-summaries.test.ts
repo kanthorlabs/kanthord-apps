@@ -2,27 +2,29 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
-import { readTrace } from "@/api/resources/tracking";
-import type { SchedulerExecutionRecord, TraceSummary } from "@/api/types";
+import { listTracePage } from "@/api/resources/tracking";
+import type { EffectiveCause, SchedulerExecutionRecord, TraceListItem } from "@/api/types";
 import { useTraceSummaries } from "./use-trace-summaries";
 
 vi.mock("@/api/resources/tracking", () => ({
-  readTrace: vi.fn(),
+  listTracePage: vi.fn(),
 }));
 
-const readMock = vi.mocked(readTrace);
+const listMock = vi.mocked(listTracePage);
 
 function executionOf(traceId: string): SchedulerExecutionRecord {
   return { execution_id: `execution_${traceId}`, trace_id: traceId } as SchedulerExecutionRecord;
 }
 
-function summaryOf(turns: number): TraceSummary {
+function traceOf(traceId: string, turns: number, cause: EffectiveCause | null): TraceListItem {
   return {
+    trace_id: traceId,
     turn_count: turns,
     total_tokens: 1_500,
     cost_usd: 2,
     error_count: 0,
-  } as TraceSummary;
+    cause,
+  } as TraceListItem;
 }
 
 beforeEach(() => {
@@ -30,50 +32,62 @@ beforeEach(() => {
 });
 
 describe("useTraceSummaries", () => {
-  it("reads each trace once and words its line", async () => {
-    readMock.mockImplementation(async (traceId) => summaryOf(traceId === "trace_a" ? 3 : 4));
-
-    const { result } = renderHook(() =>
-      useTraceSummaries([executionOf("trace_a"), executionOf("trace_b"), executionOf("trace_a")]),
-    );
-
-    await waitFor(() => expect(result.current.size).toBe(2));
-    expect(readMock).toHaveBeenCalledTimes(2);
-    expect(result.current.get("trace_a")).toBe(
-      "3 turns · 1.5k tokens · Est. cost $2.00 · 0 errors",
-    );
-    expect(result.current.get("trace_b")).toBe(
-      "4 turns · 1.5k tokens · Est. cost $2.00 · 0 errors",
-    );
-  });
-
-  it("keeps the other rows when a read fails", async () => {
-    readMock.mockImplementation(async (traceId) => {
-      if (traceId === "trace_gone") throw new ApiError("not_found", "No such trace.", 404);
-      if (traceId === "trace_down") throw new ApiError("unreachable", "No answer.", 0);
-      return summaryOf(1);
+  it("reads the traces of the node once and answers the line and the cause of each", async () => {
+    const rateLimited: EffectiveCause = {
+      category: "llm_provider",
+      assigner: "rule",
+      subcategory: "rate_limited",
+    };
+    listMock.mockResolvedValue({
+      items: [traceOf("trace_a", 3, rateLimited), traceOf("trace_b", 4, null)],
+      next_cursor: null,
     });
 
     const { result } = renderHook(() =>
-      useTraceSummaries([
-        executionOf("trace_ok"),
-        executionOf("trace_gone"),
-        executionOf("trace_down"),
+      useTraceSummaries("node_1", [
+        executionOf("trace_a"),
+        executionOf("trace_b"),
+        executionOf("trace_a"),
       ]),
     );
 
     await waitFor(() => expect(result.current.size).toBe(2));
-    expect(result.current.get("trace_ok")).toBe(
-      "1 turns · 1.5k tokens · Est. cost $2.00 · 0 errors",
+    expect(listMock).toHaveBeenCalledTimes(1);
+    expect(listMock).toHaveBeenCalledWith({ node_id: "node_1" }, null, 100);
+    expect(result.current.get("trace_a")).toEqual({
+      line: "3 turns · 1.5k tokens · Est. cost $2.00 · 0 errors",
+      cause: rateLimited,
+    });
+    expect(result.current.get("trace_b")).toEqual({
+      line: "4 turns · 1.5k tokens · Est. cost $2.00 · 0 errors",
+      cause: null,
+    });
+  });
+
+  it("words a trace that the list does not answer as expired", async () => {
+    listMock.mockResolvedValue({ items: [traceOf("trace_ok", 1, null)], next_cursor: null });
+
+    const { result } = renderHook(() =>
+      useTraceSummaries("node_1", [executionOf("trace_ok"), executionOf("trace_gone")]),
     );
-    expect(result.current.get("trace_gone")).toBe("Trace expired");
-    expect(result.current.has("trace_down")).toBe(false);
+
+    await waitFor(() => expect(result.current.size).toBe(2));
+    expect(result.current.get("trace_gone")).toEqual({ line: "Trace expired", cause: null });
+  });
+
+  it("answers nothing when the list read fails", async () => {
+    listMock.mockRejectedValue(new ApiError("unreachable", "No answer.", 0));
+
+    const { result } = renderHook(() => useTraceSummaries("node_1", [executionOf("trace_a")]));
+
+    await waitFor(() => expect(listMock).toHaveBeenCalledTimes(1));
+    expect(result.current.size).toBe(0);
   });
 
   it("reads nothing before the executions are known", () => {
-    const { result } = renderHook(() => useTraceSummaries(null));
+    const { result } = renderHook(() => useTraceSummaries("node_1", null));
 
     expect(result.current.size).toBe(0);
-    expect(readMock).not.toHaveBeenCalled();
+    expect(listMock).not.toHaveBeenCalled();
   });
 });

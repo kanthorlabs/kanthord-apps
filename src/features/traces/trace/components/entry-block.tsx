@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { TraceSessionEntry, TraceSpan } from "@/api/types";
 import { MarkdownText } from "@/components/markdown-text";
 import { RevealPanel } from "@/components/reveal";
+import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -25,10 +26,12 @@ function TextBlock({ children }: { readonly children: string }) {
 function Disclosure({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return (
     <Collapsible className="flex min-w-0 flex-col gap-2">
-      <CollapsibleTrigger render={<Button variant="outline" size="sm" className="self-start" />}>
-        <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
-        {label}
-      </CollapsibleTrigger>
+      <TouchTarget>
+        <CollapsibleTrigger render={<Button variant="outline" size="sm" className="self-start" />}>
+          <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
+          {label}
+        </CollapsibleTrigger>
+      </TouchTarget>
       <RevealPanel>{children}</RevealPanel>
     </Collapsible>
   );
@@ -67,7 +70,11 @@ function AssistantBody({ view }: { readonly view: Of<"assistant"> }) {
   const usage = usageLine(view);
   return (
     <>
-      {view.text !== "" && <MarkdownText text={view.text} />}
+      {view.text !== "" && (
+        <div className="min-w-0 break-words">
+          <MarkdownText text={view.text} />
+        </div>
+      )}
       {view.thinking.length > 0 && (
         <Disclosure label="Show thinking">
           <div className="flex flex-col gap-2">
@@ -119,6 +126,14 @@ function SystemBody({ view }: { readonly view: Of<"system"> }) {
   );
 }
 
+function PromptBody({ text }: { readonly text: string }) {
+  return (
+    <Disclosure label="Show prompt">
+      <TextBlock>{text}</TextBlock>
+    </Disclosure>
+  );
+}
+
 function titleOf(view: EntryView): ReactNode {
   switch (view.kind) {
     case "user":
@@ -141,10 +156,11 @@ function titleOf(view: EntryView): ReactNode {
   }
 }
 
-function bodyOf(view: EntryView): ReactNode {
+function bodyOf(view: EntryView, labelled: boolean): ReactNode {
   switch (view.kind) {
     case "user":
-      return <p className="break-words whitespace-pre-wrap">{view.text}</p>;
+      if (labelled) return <PromptBody text={view.text} />;
+      return <p className="min-w-0 break-words whitespace-pre-wrap">{view.text}</p>;
     case "assistant":
       return <AssistantBody view={view} />;
     case "tool_result":
@@ -152,7 +168,7 @@ function bodyOf(view: EntryView): ReactNode {
     case "system":
       return <SystemBody view={view} />;
     default:
-      return <p className="break-words">{noteLine(view)}</p>;
+      return <p className="min-w-0 break-words">{noteLine(view)}</p>;
   }
 }
 
@@ -160,13 +176,20 @@ interface EntryBlockProps {
   readonly entry: TraceSessionEntry;
   readonly current: boolean;
   readonly turn: TraceSpan | null;
+  readonly promptLabel: string | null;
   readonly onShowInTimeline: (spanId: string) => void;
 }
 
-export function EntryBlock({ entry, current, turn, onShowInTimeline }: EntryBlockProps) {
+export function EntryBlock({
+  entry,
+  current,
+  turn,
+  promptLabel,
+  onShowInTimeline,
+}: EntryBlockProps) {
   const ref = useRef<HTMLDivElement>(null);
   const view = entryView(entry);
-  const title = titleOf(view);
+  const title = promptLabel ?? titleOf(view);
 
   useEffect(() => {
     if (current) ref.current?.scrollIntoView({ block: "center" });
@@ -182,21 +205,23 @@ export function EntryBlock({ entry, current, turn, onShowInTimeline }: EntryBloc
     >
       <ItemContent className="min-w-0">
         {(title !== null || entry.truncated) && (
-          <ItemTitle className="w-full flex-wrap">
+          <ItemTitle className="w-full min-w-0 flex-wrap break-words">
             {title}
             {entry.truncated && <CutBadge />}
           </ItemTitle>
         )}
-        {bodyOf(view)}
+        {bodyOf(view, promptLabel !== null)}
         {view.kind === "assistant" && turn !== null && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="self-start"
-            onClick={() => onShowInTimeline(turn.span_id)}
-          >
-            Show in span tree
-          </Button>
+          <TouchTarget>
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start"
+              onClick={() => onShowInTimeline(turn.span_id)}
+            >
+              Show in steps
+            </Button>
+          </TouchTarget>
         )}
       </ItemContent>
     </Item>
