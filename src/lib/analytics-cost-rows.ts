@@ -26,7 +26,10 @@ function dateText(ms: number): string {
   return new Date(ms).toISOString().slice(0, DATE_LENGTH);
 }
 
-function bucketTextOf(bucket: AnalyticsSelectableBucket, start: number | null): string | null {
+export function bucketTextOf(
+  bucket: AnalyticsSelectableBucket,
+  start: number | null,
+): string | null {
   if (start === null) return null;
   if (bucket === "hour") return utcDateTime(start);
   if (bucket === "week") return `Week of ${dateText(start)}`;
