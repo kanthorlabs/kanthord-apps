@@ -132,6 +132,24 @@ describe("useNodeRevision", () => {
     expect(result.current.taskNames.size).toBe(3);
   });
 
+  it("maps the node id to the node name for a revision with no task", async () => {
+    const taskless = { ...REVISION, tasks: [] } as unknown as MissionRevision;
+    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
+    vi.mocked(readNodeRevision).mockResolvedValue(taskless);
+    const { result } = renderHook(() => useNodeRevision(SUMMARY));
+    await waitFor(() => expect(result.current.revision).toBe(taskless));
+    expect([...result.current.taskNames]).toEqual([["node_1", "Ship it"]]);
+  });
+
+  it("maps only the task ids for a revision with tasks", async () => {
+    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
+    vi.mocked(readNodeRevision).mockResolvedValue(REVISION);
+    const { result } = renderHook(() => useNodeRevision(SUMMARY));
+    await waitFor(() => expect(result.current.revision).toBe(REVISION));
+    expect(result.current.taskNames.has("node_1")).toBe(false);
+    expect([...result.current.taskNames.keys()]).toEqual(["task_a", "task_b", "task_c"]);
+  });
+
   it("reads nothing for a trace with no attempt", () => {
     const { result } = renderHook(() => useNodeRevision({ ...SUMMARY, attempt: null }));
     expect(listNodeAttempts).not.toHaveBeenCalled();

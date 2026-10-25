@@ -9,6 +9,7 @@ import { causeLabelReasonTextIdOf } from "@/lib/trace-cause";
 import { nowFactsOf, type NowFacts } from "@/lib/trace-now";
 
 import type { NodeAttempt, NodeTraces } from "./use-node-traces";
+import { useNodeRevision } from "./use-node-revision";
 import { TRACE_POLL_MS } from "./use-trace";
 
 export interface ReworkCause {
@@ -50,7 +51,11 @@ export function useDiagnosis(
   now: number,
 ): Diagnosis {
   const { trace_id: traceId, root_span_id: rootSpanId, state } = summary;
-  const diagnosis = useMemo(() => diagnoseSpans(spans, rootSpanId), [spans, rootSpanId]);
+  const { taskNames } = useNodeRevision(summary);
+  const diagnosis = useMemo(
+    () => diagnoseSpans(spans, rootSpanId, taskNames),
+    [spans, rootSpanId, taskNames],
+  );
   const reason = useResource(
     async () =>
       diagnosis.labeledBy === null

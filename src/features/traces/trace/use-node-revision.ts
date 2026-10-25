@@ -26,6 +26,9 @@ async function readTraceRevision(
 
 function taskNamesOf(revision: MissionRevision | null): ReadonlyMap<string, string> {
   if (revision === null) return NO_TASK_NAMES;
+  if (revision.tasks.length === 0) {
+    return new Map([[revision.node_id, revision.content.name]]);
+  }
   return new Map(revision.tasks.map((task) => [task.id, task.content.name]));
 }
 
