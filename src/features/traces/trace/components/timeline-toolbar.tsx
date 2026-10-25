@@ -1,62 +1,92 @@
+import { useState } from "react";
+
+import { Reveal } from "@/components/reveal";
+import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { StepPill } from "@/lib/step-tree";
 
-import { TIMELINE_GROUPS, type Timeline } from "../use-timeline";
+import type { Timeline } from "../use-timeline";
 
-const GROUP_LABELS: Readonly<Record<(typeof TIMELINE_GROUPS)[number], string>> = {
-  all: "All",
-  agent: "Agent",
-  tools: "Tools",
-  checks: "Checks",
-  git: "Git",
-};
+const OTHER_PILLS: readonly { readonly pill: StepPill; readonly label: string }[] = [
+  { pill: StepPill.Slow, label: "Slow" },
+  { pill: StepPill.Agent, label: "Agent" },
+  { pill: StepPill.Checks, label: "Checks" },
+  { pill: StepPill.Git, label: "Git" },
+];
 
 interface TimelineToolbarProps {
   readonly timeline: Timeline;
 }
 
 export function TimelineToolbar({ timeline }: TimelineToolbarProps) {
+  const [moreOpen, setMoreOpen] = useState(false);
+  const pills = [{ pill: StepPill.Errors, label: `Errors ${timeline.errorCount}` }, ...OTHER_PILLS];
   return (
-    <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-      <div className="w-full md:w-64">
-        <Input
-          aria-label="Search spans"
-          placeholder="Search spans"
-          value={timeline.search}
-          onChange={(event) => timeline.setSearch(event.target.value)}
-        />
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="-m-1 min-w-0 overflow-x-auto p-1">
+        <ToggleGroup
+          variant="outline"
+          aria-label="Step filters"
+          value={timeline.pill === null ? [] : [timeline.pill]}
+          onValueChange={(values) =>
+            timeline.setPill(pills.find((entry) => entry.pill === values[0])?.pill ?? null)
+          }
+        >
+          {pills.map((entry) => (
+            <TouchTarget key={entry.pill}>
+              <ToggleGroupItem value={entry.pill}>{entry.label}</ToggleGroupItem>
+            </TouchTarget>
+          ))}
+        </ToggleGroup>
       </div>
-      <Toggle
-        variant="outline"
-        className="w-full md:w-auto"
-        pressed={timeline.errorsOnly}
-        onPressedChange={timeline.setErrorsOnly}
-      >
-        Errors only
-      </Toggle>
-      <ToggleGroup
-        variant="outline"
-        spacing={0}
-        className="flex-wrap"
-        value={[timeline.group]}
-        onValueChange={(values) =>
-          timeline.setGroup(TIMELINE_GROUPS.find((group) => group === values[0]) ?? "all")
-        }
-      >
-        {TIMELINE_GROUPS.map((group) => (
-          <ToggleGroupItem key={group} value={group}>
-            {GROUP_LABELS[group]}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-      <Button variant="outline" className="w-full md:w-auto" onClick={timeline.expandAll}>
-        Expand all
-      </Button>
-      <Button variant="outline" className="w-full md:w-auto" onClick={timeline.collapseAll}>
-        Collapse all
-      </Button>
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="min-w-0 flex-1 md:max-w-64">
+          <TouchTarget>
+            <Input
+              aria-label="Search spans"
+              placeholder="Search spans"
+              value={timeline.search}
+              onChange={(event) => timeline.setSearch(event.target.value)}
+            />
+          </TouchTarget>
+        </div>
+        <TouchTarget>
+          <Button
+            variant="outline"
+            aria-expanded={moreOpen}
+            onClick={() => setMoreOpen((open) => !open)}
+          >
+            More
+          </Button>
+        </TouchTarget>
+      </div>
+      <Reveal open={moreOpen}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <TouchTarget>
+            <Button variant="outline" onClick={timeline.expandAll}>
+              Expand all
+            </Button>
+          </TouchTarget>
+          <TouchTarget>
+            <Button variant="outline" onClick={timeline.collapseAll}>
+              Collapse all
+            </Button>
+          </TouchTarget>
+          <TouchTarget>
+            <Toggle
+              variant="outline"
+              disabled={timeline.pill !== StepPill.Errors}
+              pressed={timeline.allErrors}
+              onPressedChange={timeline.setAllErrors}
+            >
+              All errors
+            </Toggle>
+          </TouchTarget>
+        </div>
+      </Reveal>
     </div>
   );
 }

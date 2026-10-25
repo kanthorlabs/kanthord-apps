@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -17,12 +17,21 @@ vi.mock("@/api/resources/projects", () => ({
 
 vi.mock("@/api/resources/mission", () => ({
   readMissionNode: vi.fn(),
+  listNodeAttempts: vi.fn(),
+  readNodeRevision: vi.fn(),
 }));
 
-import { readMissionNode } from "@/api/resources/mission";
+import { listNodeAttempts, readMissionNode, readNodeRevision } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
 import { listTraceSpans, readTrace } from "@/api/resources/tracking";
-import type { MissionNodeRecord, Project, TraceSpan, TraceSummary } from "@/api/types";
+import type {
+  MissionNodeRecord,
+  MissionRevision,
+  MissionAttempt,
+  Project,
+  TraceSpan,
+  TraceSummary,
+} from "@/api/types";
 
 import { TraceScreen } from "../trace-screen";
 
@@ -193,10 +202,21 @@ function labelsOfRows(): readonly (string | null)[] {
     .map((item) => item.querySelector("span.font-medium")?.textContent ?? null);
 }
 
+function openMore() {
+  fireEvent.click(screen.getByRole("button", { name: "More" }));
+}
+
 async function mountExpanded(entry?: string) {
   const view = mount(entry);
   await screen.findByRole("tree", { name: "Spans" });
-  fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
+  openMore();
+  fireEvent.click(await screen.findByRole("button", { name: "Expand all" }));
+  return view;
+}
+
+async function mountOpened() {
+  const view = await mountExpanded();
+  fireEvent.click(screen.getByRole("button", { name: "Expand Turns 1-2" }));
   return view;
 }
 
@@ -213,6 +233,7 @@ beforeEach(() => {
   vi.mocked(readTrace).mockResolvedValue(summary());
   vi.mocked(listTraceSpans).mockResolvedValue(spans());
   vi.mocked(listProjects).mockResolvedValue([project()]);
+  vi.mocked(listNodeAttempts).mockResolvedValue([]);
   vi.mocked(readMissionNode).mockResolvedValue({
     content: { name: "Build the page" },
   } as MissionNodeRecord);
@@ -232,7 +253,7 @@ describe("TraceScreen timeline", () => {
     expect(labelsOfRows()).toEqual(["Execution", "Phase execute", "Task t1", "Git commit"]);
   });
 
-  it("shows the task with its session and turns, and a tool under its turn", async () => {
+  it("folds the turns into one collapsed group row", async () => {
     await mountExpanded();
 
     expect(labelsOfRows()).toEqual([
@@ -240,29 +261,105 @@ describe("TraceScreen timeline", () => {
       "Phase execute",
       "Task t1",
       "Session coder",
+      "Turns 1-2",
+      "Git commit",
+    ]);
+    const group = rowOf("Turns 1-2");
+    expect(group).toHaveAttribute("aria-expanded", "false");
+    expect(within(group).getByText("2 turns")).toBeInTheDocument();
+    expect(within(group).getByText("1 tool error")).toBeInTheDocument();
+    expect(within(group).getByText("2 min")).toBeInTheDocument();
+  });
+
+  it("opens a group to show its turns and a tool under its turn", async () => {
+    await mountOpened();
+
+    expect(labelsOfRows()).toEqual([
+      "Execution",
+      "Phase execute",
+      "Task t1",
+      "Session coder",
+      "Turns 1-2",
       "Turn 1",
       "bash",
       "Turn 2",
       "read",
       "Git commit",
     ]);
-    expect(rowOf("bash")).toHaveAttribute("aria-level", "5");
+    expect(rowOf("bash")).toHaveAttribute("aria-level", "6");
     expect(rowOf("Phase execute")).toHaveAttribute("aria-expanded", "true");
+    expect(rowOf("Turns 1-2")).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("shows tokens and cost on a turn and the sums on the task and the session", async () => {
-    await mountExpanded();
+  it("shows the duration and no tokens or cost on a row", async () => {
+    await mountOpened();
 
-    expect(
-      within(rowOf("Turn 1")).getByText("1.5k tokens · Est. cost $0.0500"),
-    ).toBeInTheDocument();
-    expect(within(rowOf("Turn 2")).getByText("300 tokens · Est. cost $0.0100")).toBeInTheDocument();
-    expect(
-      within(rowOf("Task t1")).getByText("1.8k tokens · Est. cost $0.0600"),
-    ).toBeInTheDocument();
-    expect(
-      within(rowOf("Session coder")).getByText("1.8k tokens · Est. cost $0.0600"),
-    ).toBeInTheDocument();
+    expect(within(rowOf("Turn 1")).getByText("1 min")).toBeInTheDocument();
+    const tree = screen.getByRole("tree", { name: "Spans" });
+    expect(within(tree).queryByText(/tokens/)).not.toBeInTheDocument();
+    expect(within(tree).queryByText(/Est\. cost/)).not.toBeInTheDocument();
+  });
+
+  it("shows the name of the task of a worker.task row", async () => {
+    vi.mocked(listNodeAttempts).mockResolvedValue([
+      { attempt: 2, node_revision: 3 } as MissionAttempt,
+    ]);
+    vi.mocked(readNodeRevision).mockResolvedValue({
+      tasks: [{ id: "t1", content: { name: "Build the page" } }],
+    } as unknown as MissionRevision);
+    mount();
+
+    await waitFor(() =>
+      expect(labelsOfRows()).toEqual([
+        "Execution",
+        "Phase execute",
+        "Build the page",
+        "Git commit",
+      ]),
+    );
+  });
+
+  it("marks the causal span with Cause and keeps its Error status", async () => {
+    await mountOpened();
+
+    expect(within(rowOf("read")).getByText("Cause")).toBeInTheDocument();
+    expect(within(rowOf("read")).getByText("Error")).toBeInTheDocument();
+    expect(within(rowOf("bash")).queryByText("Cause")).not.toBeInTheDocument();
+  });
+
+  it("shows a muted recovered text on a recovered error", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(
+      spans().map((item) =>
+        item.span_id === "tool1" ? { ...item, status: "Error", end_time: START + 100 } : item,
+      ),
+    );
+    await mountOpened();
+
+    expect(within(rowOf("bash")).getByText("recovered")).toBeInTheDocument();
+    expect(within(rowOf("bash")).queryByText("Error")).not.toBeInTheDocument();
+    expect(within(rowOf("read")).getByText("Error")).toBeInTheDocument();
+  });
+
+  it("shows the depth as a number below the last indent level", async () => {
+    const chain = [
+      span("root", null, "scheduler.execution"),
+      ...[1, 2, 3, 4, 5, 6].map((level) =>
+        span(
+          `phase_${level}`,
+          level === 1 ? "root" : `phase_${level - 1}`,
+          "worker.phase",
+          { "kanthord.phase": "execute" },
+          { start_time: START + level },
+        ),
+      ),
+    ];
+    vi.mocked(listTraceSpans).mockResolvedValue(chain);
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    expect(screen.getByLabelText("Depth 6")).toHaveTextContent("6");
+    expect(screen.getByLabelText("Depth 5")).toHaveTextContent("5");
+    expect(screen.queryByLabelText("Depth 4")).not.toBeInTheDocument();
   });
 
   it("shows No end recorded in an ok trace", async () => {
@@ -291,13 +388,36 @@ describe("TraceScreen timeline", () => {
     expect(screen.queryByText("No end recorded")).not.toBeInTheDocument();
   });
 
-  it("keeps the error span and its ancestors with Errors only", async () => {
+  it("keeps the causal span and its ancestors with the Errors pill", async () => {
     await mountExpanded();
 
-    fireEvent.click(screen.getByRole("button", { name: "Errors only" }));
+    fireEvent.click(screen.getByRole("button", { name: "Errors 1" }));
 
     expect(labelsOfRows()).toEqual(["Execution", "Phase execute", "Task t1", "Turn 2", "read"]);
     expect(within(rowOf("read")).getByText("Error")).toBeInTheDocument();
+  });
+
+  it("adds the recovered errors with All errors", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(
+      spans().map((item) =>
+        item.span_id === "tool1" ? { ...item, status: "Error", end_time: START + 100 } : item,
+      ),
+    );
+    await mountExpanded();
+
+    fireEvent.click(screen.getByRole("button", { name: "Errors 1" }));
+    expect(labelsOfRows()).not.toContain("bash");
+    fireEvent.click(screen.getByRole("button", { name: "All errors" }));
+
+    expect(labelsOfRows()).toEqual([
+      "Execution",
+      "Phase execute",
+      "Task t1",
+      "Turn 1",
+      "bash",
+      "Turn 2",
+      "read",
+    ]);
   });
 
   it("keeps the matching tool span and its ancestors for the search bash", async () => {
@@ -321,15 +441,18 @@ describe("TraceScreen timeline", () => {
     expect(screen.queryByRole("tree")).not.toBeInTheDocument();
   });
 
-  it("filters by group", async () => {
+  it("filters by the Git pill and by the Agent pill", async () => {
     await mountExpanded();
 
-    fireEvent.click(screen.getByRole("button", { name: "Tools" }));
+    fireEvent.click(screen.getByRole("button", { name: "Git" }));
+    expect(labelsOfRows()).toEqual(["Execution", "Git commit"]);
 
+    fireEvent.click(screen.getByRole("button", { name: "Agent" }));
     expect(labelsOfRows()).toEqual([
       "Execution",
       "Phase execute",
       "Task t1",
+      "Session coder",
       "Turn 1",
       "bash",
       "Turn 2",
@@ -360,11 +483,11 @@ describe("TraceScreen timeline", () => {
 
     await user.keyboard("{ArrowRight}");
     expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("treeitem", { name: /Turn 1/ })).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: /Session coder/ })).toBeInTheDocument();
 
     await user.keyboard("{ArrowLeft}");
     expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("treeitem", { name: /Turn 1/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: /Session coder/ })).not.toBeInTheDocument();
 
     await user.keyboard("{ArrowLeft}");
     expect(rowOf("Phase execute")).toHaveAttribute("aria-selected", "true");
@@ -392,6 +515,7 @@ describe("TraceScreen timeline", () => {
     await screen.findByRole("tree", { name: "Spans" });
     expect(rowOf("bash")).toHaveAttribute("aria-selected", "true");
     expect(rowOf("Turn 1")).toBeInTheDocument();
+    expect(rowOf("Turns 1-2")).toHaveAttribute("aria-expanded", "true");
     expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "true");
   });
 });

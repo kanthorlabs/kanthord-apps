@@ -3,6 +3,7 @@ import type { KeyboardEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { TraceSpan } from "@/api/types";
+import { StepPill, type StepRow } from "@/lib/step-tree";
 
 import { useTimeline } from "./use-timeline";
 
@@ -48,18 +49,80 @@ const SPANS: readonly TraceSpan[] = [
   span("commit", "root", "worker.git", { "kanthord.git.step": "commit" }, { start_time: 1006 }),
 ];
 
+const NO_TASK_NAMES: ReadonlyMap<string, string> = new Map();
+
 function setup(selected: string | null = null) {
   const selectSpan = vi.fn();
   const hook = renderHook(
     (props: { readonly span: string | null }) =>
-      useTimeline(SPANS, { span: props.span, selectSpan }),
+      useTimeline(SPANS, { span: props.span, selectSpan }, NO_TASK_NAMES),
     { initialProps: { span: selected } },
   );
   return { ...hook, selectSpan };
 }
 
-function idsOf(rows: readonly { readonly span: TraceSpan }[]): readonly string[] {
-  return rows.map((row) => row.span.span_id);
+function idsOf(rows: readonly StepRow[]): readonly string[] {
+  return rows.map((row) => ("span" in row ? row.span.span_id : row.key));
+}
+
+function labelsOf(rows: readonly StepRow[]): readonly string[] {
+  return rows.map((row) => ("span" in row ? row.label : row.key));
+}
+
+const TURN_COUNT = 8;
+const FAILING_TURN = 3;
+
+function turnSpans(): readonly TraceSpan[] {
+  const turns = Array.from({ length: TURN_COUNT }, (_, index) =>
+    span(
+      `turn_${index + 1}`,
+      "session",
+      "agent.turn",
+      { "kanthord.turn.index": index + 1 },
+      { start_time: 1010 + index, end_time: 1011 + index },
+    ),
+  );
+  return [
+    span("root", null, "scheduler.execution"),
+    span("session", "root", "agent.session", {}, { start_time: 1001 }),
+    ...turns,
+    span(
+      "tool",
+      `turn_${FAILING_TURN}`,
+      "agent.tool",
+      { "gen_ai.tool.name": "bash" },
+      { start_time: 1012, end_time: 1013, status: "Error" },
+    ),
+  ];
+}
+
+function setupTurns(selected: string | null = null) {
+  const turns = turnSpans();
+  return renderHook(() =>
+    useTimeline(turns, { span: selected, selectSpan: vi.fn() }, NO_TASK_NAMES),
+  );
+}
+
+function recoveredSpans(): readonly TraceSpan[] {
+  return [
+    span("root", null, "scheduler.execution"),
+    span("task", "root", "worker.task", {}, { start_time: 1001 }),
+    span(
+      "recovered",
+      "task",
+      "agent.tool",
+      { "gen_ai.tool.name": "read" },
+      { start_time: 1002, end_time: 1500, status: "Error" },
+    ),
+    span("fine", "task", "agent.tool", { "gen_ai.tool.name": "grep" }, { start_time: 1600 }),
+    span(
+      "fatal",
+      "task",
+      "agent.tool",
+      { "gen_ai.tool.name": "bash" },
+      { start_time: 1700, end_time: 1900, status: "Error" },
+    ),
+  ];
 }
 
 function press(key: string) {
@@ -81,29 +144,110 @@ describe("useTimeline filters", () => {
       span("session", "root", "agent.session", {}, { start_time: 1001 }),
       span("child", "session", "agent.turn", {}, { start_time: 1002 }),
     ];
-    const { result } = renderHook(() => useTimeline(sessions, { span: null, selectSpan: vi.fn() }));
+    const { result } = renderHook(() =>
+      useTimeline(sessions, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+    );
 
     expect(idsOf(result.current.rows)).toEqual(["root", "session", "child"]);
   });
 
-  it("combines the search, Errors only and the group with AND", () => {
+  it("keeps the causal span, its consequences and their ancestors with the Errors pill", () => {
     const { result } = setup();
+
+    act(() => result.current.setPill(StepPill.Errors));
+
+    expect(idsOf(result.current.rows)).toEqual(["root", "phase", "task", "turn", "bash"]);
+    expect(result.current.filtered).toBe(true);
+  });
+
+  it("keeps the spans of a group pill with their ancestors", () => {
+    const { result } = setup();
+
+    act(() => result.current.setPill(StepPill.Git));
+    expect(idsOf(result.current.rows)).toEqual(["root", "commit"]);
+
+    act(() => result.current.setPill(StepPill.Agent));
+    expect(idsOf(result.current.rows)).toEqual(["root", "phase", "task", "turn", "bash", "read"]);
+
+    act(() => result.current.setPill(null));
+    expect(result.current.filtered).toBe(false);
+  });
+
+  it("keeps the spans that hold a tenth of the trace time with the Slow pill", () => {
+    const slow = [
+      span("root", null, "scheduler.execution", {}, { start_time: 0, end_time: 1000 }),
+      span("quick", "root", "worker.git", {}, { start_time: 0, end_time: 10 }),
+      span("long", "root", "worker.git", {}, { start_time: 10, end_time: 900 }),
+    ];
+    const { result } = renderHook(() =>
+      useTimeline(slow, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+    );
+
+    act(() => result.current.setPill(StepPill.Slow));
+
+    expect(idsOf(result.current.rows)).toEqual(["root", "long"]);
+  });
+
+  it("combines the search and a pill with AND", () => {
+    const { result } = setup();
+
+    act(() => result.current.setSearch("read"));
+    act(() => result.current.setPill(StepPill.Errors));
+    expect(idsOf(result.current.rows)).toEqual([]);
 
     act(() => result.current.setSearch("b"));
     expect(idsOf(result.current.rows)).toEqual(["root", "phase", "task", "turn", "bash"]);
 
-    act(() => result.current.setSearch("read"));
-    act(() => result.current.setErrorsOnly(true));
+    act(() => result.current.setPill(StepPill.Git));
     expect(idsOf(result.current.rows)).toEqual([]);
+  });
 
-    act(() => result.current.setSearch(""));
-    expect(idsOf(result.current.rows)).toEqual(["root", "phase", "task", "turn", "bash"]);
+  it("adds the recovered spans with All errors", () => {
+    const recovered = recoveredSpans();
+    const { result } = renderHook(() =>
+      useTimeline(recovered, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+    );
 
-    act(() => result.current.setGroup("git"));
-    expect(idsOf(result.current.rows)).toEqual([]);
+    act(() => result.current.setPill(StepPill.Errors));
+    expect(idsOf(result.current.rows)).toEqual(["root", "task", "fatal"]);
+    expect(result.current.errorCount).toBe(1);
 
-    act(() => result.current.setErrorsOnly(false));
-    expect(idsOf(result.current.rows)).toEqual(["root", "commit"]);
+    act(() => result.current.setAllErrors(true));
+    expect(idsOf(result.current.rows)).toEqual(["root", "task", "recovered", "fatal"]);
+  });
+
+  it("names the causal span and the role of each error", () => {
+    const recovered = recoveredSpans();
+    const { result } = renderHook(() =>
+      useTimeline(recovered, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+    );
+
+    expect(result.current.causalSpanId).toBe("fatal");
+    expect(result.current.roleOf("fatal")).toBe("causal");
+    expect(result.current.roleOf("recovered")).toBe("recovered");
+    expect(result.current.roleOf("fine")).toBeUndefined();
+  });
+
+  it("names no causal span in a trace without an error", () => {
+    const clean = [span("root", null, "scheduler.execution"), span("git", "root", "worker.git")];
+    const { result } = renderHook(() =>
+      useTimeline(clean, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+    );
+
+    expect(result.current.causalSpanId).toBeNull();
+    expect(result.current.errorCount).toBe(0);
+  });
+
+  it("shows the name of a task in taskNames and the task id otherwise", () => {
+    const named = renderHook(() =>
+      useTimeline(SPANS, { span: null, selectSpan: vi.fn() }, new Map([["t1", "Build the page"]])),
+    );
+    const unnamed = renderHook(() =>
+      useTimeline(SPANS, { span: null, selectSpan: vi.fn() }, new Map([["t2", "Other"]])),
+    );
+
+    expect(labelsOf(named.result.current.rows)).toContain("Build the page");
+    expect(labelsOf(unnamed.result.current.rows)).toContain("Task t1");
   });
 
   it("keeps no filter when every filter is inactive", () => {
@@ -144,6 +288,45 @@ describe("useTimeline filters", () => {
       "read",
       "commit",
     ]);
+  });
+});
+
+describe("useTimeline turn groups", () => {
+  it("folds eight turns into one collapsed group", () => {
+    const { result } = setupTurns();
+
+    expect(idsOf(result.current.rows)).toEqual(["root", "session", "turns:turn_1"]);
+    expect(result.current.rows[2]).toMatchObject({
+      first: 1,
+      last: TURN_COUNT,
+      turnCount: TURN_COUNT,
+      toolErrorCount: 1,
+    });
+  });
+
+  it("opens and closes a group with toggle", () => {
+    const { result } = setupTurns();
+
+    act(() => result.current.toggle("turns:turn_1"));
+    expect(idsOf(result.current.rows)).toHaveLength(2 + 1 + TURN_COUNT);
+    expect(result.current.isExpanded(result.current.rows[2] as StepRow)).toBe(true);
+
+    act(() => result.current.toggle("turns:turn_1"));
+    expect(idsOf(result.current.rows)).toEqual(["root", "session", "turns:turn_1"]);
+  });
+
+  it("opens the group of a selected span", () => {
+    const { result } = setupTurns("tool");
+
+    expect(idsOf(result.current.rows)).toContain("tool");
+  });
+
+  it("searches inside a collapsed group", () => {
+    const { result } = setupTurns();
+
+    act(() => result.current.setSearch("bash"));
+
+    expect(idsOf(result.current.rows)).toEqual(["root", "session", "turn_3", "tool"]);
   });
 });
 

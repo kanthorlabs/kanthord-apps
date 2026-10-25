@@ -88,6 +88,7 @@ export function TraceScreen() {
         <TabsContent value="steps">
           <StepsTab
             traceId={summary.trace_id}
+            summary={summary}
             spans={trace.spans}
             traceState={summary.state}
             selection={selection}
