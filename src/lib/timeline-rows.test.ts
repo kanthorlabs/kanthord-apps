@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { TimelineItem } from "@/api/types";
 
+import { durationText } from "./format";
+
 import {
   executionKindOf,
   executionStateOf,
@@ -9,6 +11,7 @@ import {
   hasOpenRoot,
   itemKindOf,
   reasonTextIdOf,
+  spanDurationText,
   timelineRows,
 } from "./timeline-rows";
 
@@ -85,10 +88,45 @@ describe("timelineRows", () => {
     expect(rows.map((row) => row.key)).toEqual(["root_a", "first", "second", "root_b"]);
   });
 
+  it("marks a child row by the end of its root span", () => {
+    const rows = timelineRows([
+      item("root_a"),
+      child("under_ended", START + 1_000),
+      item("root_b", { trace_id: "trace_b", end_time: null }),
+      child("under_open", START + 2_000, { trace_id: "trace_b" }),
+      child("orphan", START + 3_000, { trace_id: "trace_c" }),
+    ]);
+
+    const rootEnded = Object.fromEntries(
+      rows.flatMap((row) => (row.kind === "child" ? [[row.key, row.rootEnded]] : [])),
+    );
+    expect(rootEnded).toEqual({ under_ended: true, under_open: false, orphan: false });
+  });
+
   it("keeps one row for a span that two reads return", () => {
     const rows = timelineRows([item("root_a"), item("root_a", { end_time: null })]);
 
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("spanDurationText", () => {
+  it("shows the duration of a span with an end", () => {
+    expect(spanDurationText(child("a", START, { duration_ms: 1_000 }), true)).toBe(
+      durationText(1_000),
+    );
+  });
+
+  it("shows running for a span with no end under an open root span", () => {
+    expect(spanDurationText(child("a", START, { end_time: null, duration_ms: null }), false)).toBe(
+      "running",
+    );
+  });
+
+  it("shows No end recorded for a span with no end under a root span with an end", () => {
+    expect(spanDurationText(child("a", START, { end_time: null, duration_ms: null }), true)).toBe(
+      "No end recorded",
+    );
   });
 });
 

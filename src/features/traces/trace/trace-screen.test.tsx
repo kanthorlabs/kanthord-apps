@@ -395,6 +395,15 @@ describe("TraceScreen timeline", () => {
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
   });
 
+  it("shows No end recorded in an error trace", async () => {
+    vi.mocked(readTrace).mockResolvedValue(summary({ state: "error" }));
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    expect(within(rowOf("Git commit")).getByText("No end recorded")).toBeInTheDocument();
+    expect(screen.queryByText("Running")).not.toBeInTheDocument();
+  });
+
   it("shows Running in an open trace", async () => {
     vi.mocked(readTrace).mockResolvedValue(summary({ state: "open" }));
     mount();
