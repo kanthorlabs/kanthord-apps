@@ -497,7 +497,7 @@ describe("AnalyticsScreen", () => {
         "Time of read_file 2026-05-04: p50 1 s, p90 1 min, p99 1 h, max 1 h 30 min",
       );
       expect(bars[1]).toHaveAccessibleName(
-        "Time of edit_file 2026-05-04: p50 0 s, p90 2 s, p99 3 s, max 4 s",
+        "Time of edit_file 2026-05-04: p50 500 ms, p90 2 s, p99 3 s, max 4 s",
       );
       expect(bars[0]).toHaveAttribute("aria-valuenow", "5400000");
       expect(bars[1]).toHaveAttribute("aria-valuemax", "5400000");

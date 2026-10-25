@@ -87,6 +87,21 @@ describe("timeRowsOf", () => {
     expect(rows[0]?.barLabel).toContain("Time of read_file 2026-05-04:");
   });
 
+  it.each(["queue_wait", "review_wait"] as const)(
+    "shows a wait of %s under one second in milliseconds",
+    (measure) => {
+      const [row] = timeRowsOf(
+        [item({ p50: 2, p90: 2.5, p99: 4, max: 4 })],
+        measure,
+        "day",
+        "none",
+        new Map(),
+      );
+
+      expect(row?.barLabel).toContain("p50 2 ms, p90 2.5 ms, p99 4 ms, max 4 ms");
+    },
+  );
+
   it("keeps the scale above zero when every max is zero", () => {
     const [row] = timeRowsOf(
       [item({ p50: 0, p90: 0, p99: 0, max: 0 })],
