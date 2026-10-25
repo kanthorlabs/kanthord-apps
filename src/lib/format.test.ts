@@ -26,6 +26,11 @@ describe("durationText", () => {
     expect(durationText(1_000)).toBe("1 s");
   });
 
+  it("moves a value that rounds up to the next unit", () => {
+    expect(durationText(59_999.96)).toBe("1 min");
+    expect(durationText(3_599_999.96)).toBe("1 h");
+  });
+
   it("answers zero milliseconds for a negative span", () => {
     expect(durationText(-5)).toBe("0 ms");
   });
