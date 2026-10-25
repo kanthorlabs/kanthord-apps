@@ -36,6 +36,7 @@ describe("useBindingSet", () => {
       project_id: PROJECT_ID,
       binding_set_version: 2,
       changes: [{ kind: "created", binding_id: "binding-1" }],
+      stale_pins: [],
     });
   });
 

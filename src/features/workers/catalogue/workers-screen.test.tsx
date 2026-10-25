@@ -278,6 +278,7 @@ describe("WorkersScreen", () => {
       project_id: "prj-test",
       binding_set_version: 10,
       changes: [],
+      stale_pins: [],
     });
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission-1",

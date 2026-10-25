@@ -82,6 +82,7 @@ beforeEach(() => {
     project_id: "prj-a",
     binding_set_version: 5,
     changes: [],
+    stale_pins: [],
   });
   vi.mocked(readMission).mockResolvedValue({ id: "mission-b", project_id: "prj-b", version: 1 });
   vi.mocked(exportMissionJson).mockResolvedValue({
@@ -173,7 +174,12 @@ describe("useInstanceDetach", () => {
   it("reports both facts when one project write succeeds and the other conflicts", async () => {
     vi.mocked(writeBindingSet).mockImplementation((id) =>
       id === "prj-a"
-        ? Promise.resolve({ project_id: "prj-a", binding_set_version: 5, changes: [] })
+        ? Promise.resolve({
+            project_id: "prj-a",
+            binding_set_version: 5,
+            changes: [],
+            stale_pins: [],
+          })
         : Promise.reject(
             new ApiError(
               "conflict",

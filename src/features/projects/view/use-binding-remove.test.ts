@@ -45,6 +45,7 @@ beforeEach(() => {
     project_id: "prj-a",
     binding_set_version: 4,
     changes: [],
+    stale_pins: [],
   });
   vi.mocked(readMission).mockResolvedValue({ id: "m", project_id: "prj-a", version: 1 });
   vi.mocked(exportMissionJson).mockResolvedValue({

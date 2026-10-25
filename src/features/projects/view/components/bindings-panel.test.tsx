@@ -384,6 +384,7 @@ describe("BindingsPanel", () => {
       project_id: "project_1",
       binding_set_version: 3,
       changes: [],
+      stale_pins: [],
     });
     vi.mocked(projectsApi.verifyBinding).mockResolvedValue({
       address: { status: "healthy", capability: "network git read", failure_reason: null },
@@ -2575,6 +2576,7 @@ describe("BindingsPanel", () => {
           project_id: "project_1",
           binding_set_version: 3,
           changes: [],
+          stale_pins: [],
         });
         const field = await openEditor();
 
@@ -2642,6 +2644,7 @@ describe("BindingsPanel", () => {
           project_id: "project_1",
           binding_set_version: 3,
           changes: [],
+          stale_pins: [],
         });
         const region = await openRegion("detected");
         await within(region).findByText(DETECTED_TEXT);

@@ -244,6 +244,7 @@ export function registerEnvironments({
       project_id: project.id,
       binding_set_version: set.version,
       changes: [{ kind: "revised", binding_id: bindingIdOf(binding.name) }],
+      stale_pins: [],
     });
   });
 

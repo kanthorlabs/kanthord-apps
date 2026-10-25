@@ -308,6 +308,7 @@ describe("InstanceScreen", () => {
       project_id: "prj-a",
       binding_set_version: 7,
       changes: [],
+      stale_pins: [],
     });
     mount();
     await userEvent.click(

@@ -158,7 +158,13 @@ describe("pauseProject and resumeProject", () => {
 describe("writeBindingSet", () => {
   it("puts the whole set at the expected version with an idempotency key", async () => {
     const base = await serve([
-      { project_id: "prj-1", binding_set_version: 3, bindings: {}, changes: [] },
+      {
+        project_id: "prj-1",
+        binding_set_version: 3,
+        bindings: {},
+        changes: [],
+        stale_pins: [],
+      },
     ]);
     setConnection({ baseUrl: base, token: "jwt-1" });
 
@@ -315,6 +321,7 @@ describe("environment resources", () => {
       project_id: "prj-1",
       binding_set_version: 3,
       changes: [{ kind: "revised", binding_id: "bnd-1" }],
+      stale_pins: [],
     };
     const base = await serve([result]);
     setConnection({ baseUrl: base, token: "jwt-1" });

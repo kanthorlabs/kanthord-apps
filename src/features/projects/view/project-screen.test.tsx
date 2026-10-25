@@ -264,6 +264,7 @@ describe("ProjectScreen", () => {
       project_id: KANTHORD.id,
       binding_set_version: 4,
       changes: [],
+      stale_pins: [],
     });
     mount("?tab=bindings");
 

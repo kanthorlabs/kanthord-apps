@@ -510,6 +510,13 @@ export interface BindingSet {
   readonly bindings: Readonly<Record<string, BindingSetEntry>>;
 }
 
+export interface StalePin {
+  readonly node_id: string;
+  readonly binding_name: string;
+  readonly pinned_revision: number;
+  readonly current_revision: number;
+}
+
 export interface BindingSetWriteResult {
   readonly project_id: string;
   readonly binding_set_version: number;
@@ -517,6 +524,7 @@ export interface BindingSetWriteResult {
     readonly kind: "created" | "revised" | "removed" | "unchanged";
     readonly binding_id: string;
   }[];
+  readonly stale_pins: readonly StalePin[];
 }
 
 export type MissionActor =
