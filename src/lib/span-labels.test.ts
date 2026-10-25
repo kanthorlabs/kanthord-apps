@@ -36,6 +36,10 @@ describe("spanLabel", () => {
     ["agent.turn", { "kanthord.turn.index": 3 }, "Turn 3"],
     ["agent.tool", { "gen_ai.tool.name": "bash" }, "bash"],
     ["agent.progress", {}, "Progress"],
+    ["project.environment", { "project.binding.name": "main" }, "Environment main"],
+    ["environment.build", {}, "Build"],
+    ["environment.setup", {}, "Setup"],
+    ["environment.proof", {}, "Proof"],
     ["custom.operation", {}, "custom.operation"],
   ] satisfies [string, Record<string, SpanAttributeValue>, string][])(
     "labels %s",

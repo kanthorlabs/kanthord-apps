@@ -345,6 +345,64 @@ describe("TimelineScreen", () => {
     expect(within(row).getByText(durationText(5_000))).toBeInTheDocument();
   });
 
+  it("shows the labels of an environment run and an Error badge on a failed span", async () => {
+    const environment = {
+      trace_id: "trace_env",
+      producer: "project",
+      node_id: null,
+      execution_id: null,
+      attempt: null,
+      worker_name: null,
+    };
+    vi.mocked(listTimelinePage).mockResolvedValue({
+      items: [
+        span("env_root", {
+          ...environment,
+          operation: "project.environment",
+          status: "Error",
+          attributes: { "project.binding.name": "main" },
+        }),
+        span("env_build", {
+          ...environment,
+          depth: 2,
+          parent_span_id: "env_root",
+          operation: "environment.build",
+          attributes: {},
+        }),
+        span("env_setup", {
+          ...environment,
+          depth: 2,
+          parent_span_id: "env_root",
+          operation: "environment.setup",
+          attributes: {},
+          start_time: START + 1_000,
+        }),
+        span("env_proof", {
+          ...environment,
+          depth: 2,
+          parent_span_id: "env_root",
+          operation: "environment.proof",
+          status: "Error",
+          attributes: {},
+          start_time: START + 2_000,
+        }),
+      ],
+      next_cursor: null,
+    });
+    mount("/timeline?project_id=project_1");
+
+    await screen.findByText("Environment main");
+    const texts = rowTexts();
+    expect(texts).toHaveLength(4);
+    expect(texts[0]).toContain("Environment main");
+    expect(texts[0]).toContain("Error");
+    expect(texts[1]).toContain("Build");
+    expect(texts[1]).not.toContain("Error");
+    expect(texts[2]).toContain("Setup");
+    expect(texts[3]).toContain("Proof");
+    expect(texts[3]).toContain("Error");
+  });
+
   it("defaults the node scope to All time and sends no from", async () => {
     mount("/timeline?node_id=node_1");
 

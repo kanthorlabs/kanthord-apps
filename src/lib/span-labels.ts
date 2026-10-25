@@ -18,6 +18,10 @@ const OPERATION_TURN = "agent.turn";
 const OPERATION_TOOL = "agent.tool";
 const OPERATION_PROGRESS = "agent.progress";
 const OPERATION_TRANSITION = "scheduler.transition";
+const OPERATION_ENVIRONMENT = "project.environment";
+const OPERATION_ENVIRONMENT_BUILD = "environment.build";
+const OPERATION_ENVIRONMENT_SETUP = "environment.setup";
+const OPERATION_ENVIRONMENT_PROOF = "environment.proof";
 
 const ATTRIBUTE_PHASE = "kanthord.phase";
 const ATTRIBUTE_TASK_ID = "kanthord.task.id";
@@ -34,6 +38,7 @@ const ATTRIBUTE_TRANSITION_LIMIT = "kanthord.transition.limit";
 const ATTRIBUTE_EXECUTION_KIND = "kanthord.execution.kind";
 const ATTRIBUTE_EXECUTION_END = "kanthord.execution.end";
 const ATTRIBUTE_REVOKE_CAUSE = "kanthord.revoke.cause";
+const ATTRIBUTE_BINDING_NAME = "project.binding.name";
 
 const ACT_LABELS: Readonly<Record<ActOperation, string>> = {
   "mission.node.pause": "Paused",
@@ -108,6 +113,14 @@ export function spanLabel(span: TraceSpan): string {
       return valueText(span.attributes[ATTRIBUTE_TOOL_NAME]) ?? span.operation;
     case OPERATION_PROGRESS:
       return "Progress";
+    case OPERATION_ENVIRONMENT:
+      return withValue("Environment", span, ATTRIBUTE_BINDING_NAME);
+    case OPERATION_ENVIRONMENT_BUILD:
+      return "Build";
+    case OPERATION_ENVIRONMENT_SETUP:
+      return "Setup";
+    case OPERATION_ENVIRONMENT_PROOF:
+      return "Proof";
     default:
       return span.operation;
   }
