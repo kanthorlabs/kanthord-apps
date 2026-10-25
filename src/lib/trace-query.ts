@@ -1,4 +1,9 @@
-import type { TraceListQuery, TraceSort, TraceState } from "@/api/types";
+import {
+  CAUSE_CATEGORIES,
+  type TraceListQuery,
+  type TraceSort,
+  type TraceState,
+} from "@/api/types";
 
 const TIME_RANGES = ["1h", "24h", "7d", "30d", "all"] as const;
 
@@ -26,6 +31,7 @@ const TIME_RANGE_MS: Readonly<Record<Exclude<TimeRange, "all">, number>> = {
 
 export const TRACE_QUERY_KEYS = [
   "project_id",
+  "node_id",
   "state",
   "range",
   "q",
@@ -33,13 +39,24 @@ export const TRACE_QUERY_KEYS = [
   "agent_name",
   "model",
   "error_type",
+  "cause_category",
   "min_duration_ms",
   "min_total_tokens",
   "min_cost_usd",
   "sort",
 ] as const;
 
-const TEXT_KEYS = ["project_id", "q", "worker_name", "agent_name", "model", "error_type"] as const;
+export type TraceQueryKey = (typeof TRACE_QUERY_KEYS)[number];
+
+const TEXT_KEYS = [
+  "project_id",
+  "node_id",
+  "q",
+  "worker_name",
+  "agent_name",
+  "model",
+  "error_type",
+] as const;
 const MINIMUM_KEYS = ["min_duration_ms", "min_total_tokens", "min_cost_usd"] as const;
 const TRACE_STATES: readonly TraceState[] = ["open", "ok", "error"];
 const TRACE_SORTS: readonly TraceSort[] = ["started_at", "duration_ms", "total_tokens", "cost_usd"];
@@ -73,6 +90,10 @@ export function traceQueryOf(params: URLSearchParams, now: number): TraceListQue
   }
   const state = TRACE_STATES.find((candidate) => candidate === params.get("state"));
   if (state) query.state = state;
+  const causeCategory = CAUSE_CATEGORIES.find(
+    (candidate) => candidate === params.get("cause_category"),
+  );
+  if (causeCategory) query.cause_category = causeCategory;
   const sort = TRACE_SORTS.find((candidate) => candidate === params.get("sort"));
   if (sort) query.sort = sort;
   const rangeParam = params.get("range");

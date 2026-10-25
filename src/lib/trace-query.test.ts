@@ -30,6 +30,7 @@ describe("trace query constants", () => {
   it("lists the query keys", () => {
     expect(TRACE_QUERY_KEYS).toEqual([
       "project_id",
+      "node_id",
       "state",
       "range",
       "q",
@@ -37,6 +38,7 @@ describe("trace query constants", () => {
       "agent_name",
       "model",
       "error_type",
+      "cause_category",
       "min_duration_ms",
       "min_total_tokens",
       "min_cost_usd",
@@ -112,6 +114,18 @@ describe("traceQueryOf", () => {
     expect(traceQueryOf(new URLSearchParams("state=open&range=all"), NOW).state).toBe("open");
     expect(traceQueryOf(new URLSearchParams("state=ok&range=all"), NOW).state).toBe("ok");
     expect(traceQueryOf(new URLSearchParams("state=done&range=all"), NOW)).toEqual({});
+  });
+
+  it("maps node_id and a known cause category", () => {
+    const params = new URLSearchParams("node_id=node_1&cause_category=llm_provider&range=all");
+    expect(traceQueryOf(params, NOW)).toEqual({
+      node_id: "node_1",
+      cause_category: "llm_provider",
+    });
+  });
+
+  it("maps an unknown cause category to nothing", () => {
+    expect(traceQueryOf(new URLSearchParams("cause_category=gremlins&range=all"), NOW)).toEqual({});
   });
 
   it("keeps a valid sort and drops an invalid one", () => {

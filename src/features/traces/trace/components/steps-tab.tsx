@@ -1,6 +1,6 @@
 import type { TraceSpan, TraceState, TraceSummary } from "@/api/types";
+import { useLargeScreen } from "@/hooks/use-large-screen";
 
-import { useLargeScreen } from "../use-large-screen";
 import { useNodeRevision } from "../use-node-revision";
 import { useTimeline } from "../use-timeline";
 import type { TraceSelection } from "../use-trace-selection";

@@ -11,6 +11,8 @@ import { AttemptsBlock } from "./attempts-block";
 function execution(overrides: Partial<NodeExecution>): NodeExecution {
   return {
     traceId: "t1",
+    kind: "steps",
+    cause: null,
     kindLabel: "Steps",
     stateLabel: "Error",
     causeText: "Plan - decomposition",

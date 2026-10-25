@@ -5,12 +5,12 @@ import type { TraceSpan, TraceState } from "@/api/types";
 import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useLargeScreen } from "@/hooks/use-large-screen";
 import { ErrorRole } from "@/lib/causal-span";
 import { durationText } from "@/lib/format";
 import { INDENT_PX, MAX_INDENT_LEVEL, type SpanStepRow, type TurnGroupRow } from "@/lib/step-tree";
 import { waterfallBar, type TraceAxis } from "@/lib/trace-waterfall";
 
-import { useLargeScreen } from "../use-large-screen";
 import { isSpanRow, type Timeline } from "../use-timeline";
 
 function durationOf(span: TraceSpan, traceState: TraceState): string {
