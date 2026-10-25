@@ -130,6 +130,7 @@ function SpanRow({ row, timeline, traceState, large, selected, tabbable, onSelec
     <div
       ref={element}
       role="treeitem"
+      aria-label={row.label}
       aria-level={row.depth + 1}
       aria-selected={selected}
       aria-expanded={row.hasChildren ? expanded : undefined}
@@ -171,6 +172,7 @@ function GroupRow({ row, timeline }: GroupRowProps) {
   return (
     <div
       role="treeitem"
+      aria-label={label}
       aria-level={row.depth + 1}
       aria-selected={false}
       aria-expanded={expanded}

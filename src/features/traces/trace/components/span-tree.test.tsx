@@ -197,9 +197,7 @@ function rowOf(label: string): HTMLElement {
 }
 
 function labelsOfRows(): readonly (string | null)[] {
-  return screen
-    .getAllByRole("treeitem")
-    .map((item) => item.querySelector("span.font-medium")?.textContent ?? null);
+  return screen.getAllByRole("treeitem").map((item) => item.getAttribute("aria-label"));
 }
 
 function openMore() {
