@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
 
-import type { TraceState, TraceSummary } from "@/api/types";
+import type { TraceListItem, TraceState } from "@/api/types";
 import { DataListItem, type DataListField } from "@/components/data-list-item";
 import { Badge } from "@/components/ui/badge";
 import { durationText, utcDateTime } from "@/lib/format";
-import { costText, tokenText } from "@/lib/trace-format";
+import { rowCauseLineOf } from "@/lib/trace-cause";
+import { costText } from "@/lib/trace-format";
 
 const STATE_BADGES: Readonly<
   Record<
@@ -17,58 +18,46 @@ const STATE_BADGES: Readonly<
   error: { label: "Error", variant: "destructive" },
 };
 
-function pathOf(trace: TraceSummary): string {
-  const base = `/traces/${encodeURIComponent(trace.trace_id)}`;
-  if (trace.first_error_span_id === null) return base;
-  return `${base}?tab=span_tree&span=${encodeURIComponent(trace.first_error_span_id)}`;
-}
-
-function fieldsOf(trace: TraceSummary): readonly DataListField[] {
+function fieldsOf(trace: TraceListItem): readonly DataListField[] {
   const fields: DataListField[] = [];
   if (trace.worker_name !== null) fields.push({ label: "Worker", value: trace.worker_name });
-  if (trace.agent_names.length > 0) {
-    fields.push({ label: "Agent", value: trace.agent_names.join(", ") });
-  }
-  if (trace.models.length > 0) fields.push({ label: "Model", value: trace.models.join(", ") });
-  if (trace.started_at !== null) {
-    fields.push({ label: "Started", value: utcDateTime(trace.started_at) });
-  }
+  if (trace.attempt !== null) fields.push({ label: "Attempt", value: trace.attempt });
   fields.push(
     {
       label: "Duration",
       value: trace.duration_ms === null ? "running" : durationText(trace.duration_ms),
     },
-    { label: "Tokens", value: tokenText(trace.total_tokens) },
     { label: "Est. cost", value: costText(trace.cost_usd) },
+  );
+  if (trace.started_at !== null) {
+    fields.push({ label: "Started", value: utcDateTime(trace.started_at) });
+  }
+  fields.push(
     { label: "Turns", value: trace.turn_count },
-    { label: "Tools", value: trace.tool_count },
-    { label: "Errors", value: trace.error_count },
+    { label: "Errors (incl. recovered)", value: trace.error_count },
   );
   return fields;
 }
 
 interface TraceRowProps {
-  readonly trace: TraceSummary;
+  readonly trace: TraceListItem;
   readonly title: string;
+  readonly now: number;
 }
 
-export function TraceRow({ trace, title }: TraceRowProps) {
+export function TraceRow({ trace, title, now }: TraceRowProps) {
   const navigate = useNavigate();
   const badge = STATE_BADGES[trace.state];
   return (
     <DataListItem
       title={title}
-      status={
-        <>
-          <Badge variant={badge.variant}>{badge.label}</Badge>
-          {trace.stop_reason !== null && <Badge variant="outline">{trace.stop_reason}</Badge>}
-        </>
-      }
+      status={<Badge variant={badge.variant}>{badge.label}</Badge>}
+      description={rowCauseLineOf(trace, now) ?? undefined}
       fields={fieldsOf(trace)}
       select={{
         label: `Open trace ${title}`,
         disabled: false,
-        onSelect: () => navigate(pathOf(trace)),
+        onSelect: () => navigate(`/traces/${encodeURIComponent(trace.trace_id)}`),
       }}
     />
   );

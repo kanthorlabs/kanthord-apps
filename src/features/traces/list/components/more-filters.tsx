@@ -1,8 +1,11 @@
 import type { TraceFacets } from "@/api/types";
+import { TouchTarget } from "@/components/touch-target";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { CAUSE_CATEGORY_LABELS } from "@/lib/trace-cause";
+import type { SheetKey } from "@/lib/trace-filter-draft";
 
-import type { TraceQueryKey, TraceSetter } from "../use-trace-list";
+import type { TraceSetter } from "../use-trace-list";
 import { FilterSelect, type FilterOption } from "./filter-select";
 
 const SORT_OPTIONS: readonly FilterOption[] = [
@@ -16,10 +19,17 @@ function optionsOf(values: readonly string[]): readonly FilterOption[] {
   return values.map((value) => ({ value, label: value }));
 }
 
+function causeOptionsOf(facets: TraceFacets | null): readonly FilterOption[] {
+  return (facets?.cause_categories ?? []).map((category) => ({
+    value: category,
+    label: CAUSE_CATEGORY_LABELS[category],
+  }));
+}
+
 interface MoreFiltersProps {
   readonly facets: TraceFacets | null;
   readonly params: URLSearchParams;
-  readonly setters: Readonly<Record<TraceQueryKey, TraceSetter>>;
+  readonly setters: Readonly<Record<SheetKey, TraceSetter>>;
   readonly durationSeconds: string;
   readonly onDurationSeconds: (text: string) => void;
 }
@@ -61,32 +71,45 @@ export function MoreFilters({
         value={params.get("error_type")}
         onChange={setters.error_type}
       />
+      <FilterSelect
+        label="Cause category"
+        allLabel="All cause categories"
+        options={causeOptionsOf(facets)}
+        value={params.get("cause_category")}
+        onChange={setters.cause_category}
+      />
       <Field>
         <FieldLabel htmlFor="trace-min-duration">Min duration (s)</FieldLabel>
-        <Input
-          id="trace-min-duration"
-          inputMode="decimal"
-          value={durationSeconds}
-          onChange={(event) => onDurationSeconds(event.target.value)}
-        />
+        <TouchTarget>
+          <Input
+            id="trace-min-duration"
+            inputMode="decimal"
+            value={durationSeconds}
+            onChange={(event) => onDurationSeconds(event.target.value)}
+          />
+        </TouchTarget>
       </Field>
       <Field>
         <FieldLabel htmlFor="trace-min-tokens">Min tokens</FieldLabel>
-        <Input
-          id="trace-min-tokens"
-          inputMode="numeric"
-          value={params.get("min_total_tokens") ?? ""}
-          onChange={(event) => setters.min_total_tokens(event.target.value)}
-        />
+        <TouchTarget>
+          <Input
+            id="trace-min-tokens"
+            inputMode="numeric"
+            value={params.get("min_total_tokens") ?? ""}
+            onChange={(event) => setters.min_total_tokens(event.target.value)}
+          />
+        </TouchTarget>
       </Field>
       <Field>
         <FieldLabel htmlFor="trace-min-cost">Min est. cost ($)</FieldLabel>
-        <Input
-          id="trace-min-cost"
-          inputMode="decimal"
-          value={params.get("min_cost_usd") ?? ""}
-          onChange={(event) => setters.min_cost_usd(event.target.value)}
-        />
+        <TouchTarget>
+          <Input
+            id="trace-min-cost"
+            inputMode="decimal"
+            value={params.get("min_cost_usd") ?? ""}
+            onChange={(event) => setters.min_cost_usd(event.target.value)}
+          />
+        </TouchTarget>
       </Field>
       <FilterSelect
         label="Sort"

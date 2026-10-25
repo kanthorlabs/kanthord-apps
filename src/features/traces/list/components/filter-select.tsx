@@ -1,3 +1,4 @@
+import { TouchTarget } from "@/components/touch-target";
 import {
   Select,
   SelectContent,
@@ -29,9 +30,11 @@ export function FilterSelect({ label, allLabel, options, value, onChange }: Filt
       value={value ?? ALL_VALUE}
       onValueChange={(next) => onChange(next === null || next === ALL_VALUE ? null : next)}
     >
-      <SelectTrigger aria-label={label} className="w-full">
-        <SelectValue />
-      </SelectTrigger>
+      <TouchTarget>
+        <SelectTrigger aria-label={label} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+      </TouchTarget>
       <SelectContent>
         {items.map((item) => (
           <SelectItem key={item.value} value={item.value}>

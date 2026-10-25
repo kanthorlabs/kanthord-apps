@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { EffectiveCause, SpanAttributeValue, TraceSpan } from "@/api/types";
+import type { EffectiveCause, SpanAttributeValue, TraceListItem, TraceSpan } from "@/api/types";
 
 import {
   CAUSE_CATEGORY_LABELS,
@@ -9,6 +9,7 @@ import {
   causeLabelSpanIdOf,
   causeLine,
   isRepeat,
+  rowCauseLineOf,
   spanCauseOf,
   subcategoryText,
 } from "./trace-cause";
@@ -205,5 +206,38 @@ describe("isRepeat", () => {
     const unattributed: EffectiveCause = { category: "unattributed", assigner: "rule" };
 
     expect(isRepeat(unattributed, unattributed)).toBe(true);
+  });
+});
+
+describe("rowCauseLineOf", () => {
+  const NOW = 1_000_000;
+  const row = (overrides: Partial<TraceListItem>): TraceListItem =>
+    ({
+      state: "error",
+      started_at: NOW - 90_000,
+      duration_ms: null,
+      cause: null,
+      ...overrides,
+    }) as TraceListItem;
+
+  it("answers the cause line of a row with a cause", () => {
+    const cause: EffectiveCause = {
+      category: "llm_provider",
+      assigner: "rule",
+      subcategory: "rate_limited",
+    };
+    expect(rowCauseLineOf(row({ cause }), NOW)).toBe("LLM provider - rate limited");
+  });
+
+  it("answers the elapsed time of an open row", () => {
+    expect(rowCauseLineOf(row({ state: "open" }), NOW)).toBe("Open - 1 min");
+  });
+
+  it("answers Open for an open row that has not started", () => {
+    expect(rowCauseLineOf(row({ state: "open", started_at: null }), NOW)).toBe("Open");
+  });
+
+  it("answers nothing for a row with no cause", () => {
+    expect(rowCauseLineOf(row({ state: "ok" }), NOW)).toBeNull();
   });
 });
