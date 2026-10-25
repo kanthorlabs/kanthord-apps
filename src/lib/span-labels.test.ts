@@ -32,6 +32,9 @@ describe("spanLabel", () => {
     ["worker.judgement", {}, "Judgement"],
     ["worker.evaluation", {}, "Evaluation"],
     ["worker.git", { "kanthord.git.step": "commit" }, "Git commit"],
+    ["worker.gate", { "kanthord.gate.mode": "auto" }, "Gate auto"],
+    ["agent.prompt", { "kanthord.agent.name": "coder" }, "Prompt coder"],
+    ["tracking.cause_label", {}, "Cause label"],
     ["agent.session", { "kanthord.agent.name": "coder" }, "Session coder"],
     ["agent.turn", { "kanthord.turn.index": 3 }, "Turn 3"],
     ["agent.tool", { "gen_ai.tool.name": "bash" }, "bash"],
@@ -83,6 +86,8 @@ describe("spanLabel", () => {
   it("leaves the label without its value when the attribute is absent", () => {
     expect(spanLabel(span("worker.phase"))).toBe("Phase");
     expect(spanLabel(span("agent.turn"))).toBe("Turn");
+    expect(spanLabel(span("worker.gate"))).toBe("Gate");
+    expect(spanLabel(span("agent.prompt"))).toBe("Prompt");
   });
 });
 
@@ -96,6 +101,7 @@ describe("spanGroup", () => {
     ["worker.judgement", "checks"],
     ["worker.evaluation", "checks"],
     ["worker.git", "git"],
+    ["worker.gate", "git"],
     ["worker.task", "other"],
     ["scheduler.execution", "other"],
   ] as const)("groups %s as %s", (operation, group) => {
