@@ -4,6 +4,8 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import { AppBreadcrumb } from "@/components/app-breadcrumb";
+import { CrumbLabelsProvider } from "@/components/crumb-labels";
 
 vi.mock("@/api/resources/tracking", () => ({
   readTrace: vi.fn(),
@@ -189,6 +191,23 @@ function mount(entry = "/traces/trace-1") {
   );
 }
 
+function mountWithBreadcrumb() {
+  return render(
+    <MemoryRouter initialEntries={["/traces/trace-1"]}>
+      <CrumbLabelsProvider>
+        <AppBreadcrumb />
+        <Routes>
+          <Route path="/traces/:traceId" element={<TraceScreen />} />
+        </Routes>
+      </CrumbLabelsProvider>
+    </MemoryRouter>,
+  );
+}
+
+function currentCrumb(name: string): HTMLElement {
+  return within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText(name);
+}
+
 function rowOf(label: string): HTMLElement {
   const row = screen
     .getAllByRole("treeitem")
@@ -268,6 +287,33 @@ describe("TraceScreen header", () => {
 
     expect(await screen.findByRole("heading", { name: "exec-1" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "exec-1" })).not.toBeInTheDocument();
+  });
+
+  it("titles a trace with no node and no execution by its root label in the header and the breadcrumb", async () => {
+    vi.mocked(readTrace).mockResolvedValue(
+      summary({
+        node_id: null,
+        execution_id: null,
+        root_operation: "project.environment",
+        root_attributes: { "project.binding.name": "web" },
+      }),
+    );
+    mountWithBreadcrumb();
+
+    expect(
+      await screen.findByRole("heading", { level: 2, name: "Environment web" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Environment web" })).toBeInTheDocument();
+    expect(currentCrumb("Environment web")).toHaveAttribute("aria-current", "page");
+  });
+
+  it("titles the breadcrumb of a node trace by the node name", async () => {
+    mountWithBreadcrumb();
+
+    await screen.findByRole("link", { name: "Build the page" });
+    await waitFor(() =>
+      expect(currentCrumb("Build the page")).toHaveAttribute("aria-current", "page"),
+    );
   });
 
   it("shows the Live badge and the pause toggle of an open trace", async () => {

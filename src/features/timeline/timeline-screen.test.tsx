@@ -244,6 +244,28 @@ describe("TimelineScreen", () => {
     expect(within(revoked as HTMLElement).getByText("revoked")).toBeInTheDocument();
   });
 
+  it.each([
+    ["human", "Revoked by a human"],
+    ["assessment", "Revoked by a review"],
+  ])("shows the revocation by the cause %s on a revoked execution", async (cause, label) => {
+    vi.mocked(listTimelinePage).mockResolvedValue({
+      items: [
+        span("root_a", {
+          status: "Error",
+          attributes: { "kanthord.execution.end": "revoked", "kanthord.revoke.cause": cause },
+        }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    const row = (await screen.findByText("Execution attempt 1")).closest(
+      "[role=listitem]",
+    ) as HTMLElement;
+    expect(within(row).getByText(label)).toBeInTheDocument();
+    expect(within(row).queryByText("revoked")).not.toBeInTheDocument();
+  });
+
   it("shows the node name of an execution in the project scope", async () => {
     vi.mocked(listTimelinePage).mockResolvedValue({
       items: [span("root_a")],

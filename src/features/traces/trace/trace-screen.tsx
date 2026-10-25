@@ -2,6 +2,7 @@ import { Link, useParams } from "react-router-dom";
 
 import type { ApiError } from "@/api/errors";
 import type { TraceSpan, TraceState } from "@/api/types";
+import { useCrumbLabel } from "@/components/crumb-labels";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -106,6 +107,7 @@ export function TraceScreen() {
   const trace = useTrace(traceId);
   const selection = useTraceSelection(trace.spans);
   const { summary } = trace;
+  useCrumbLabel(`/traces/${encodeURIComponent(traceId)}`, trace.title ?? undefined);
 
   if (trace.expired) return <ExpiredNotice />;
   if (summary === null) {
@@ -118,6 +120,7 @@ export function TraceScreen() {
       {trace.error !== null && <ReadFailure error={trace.error} onRetry={trace.retry} />}
       <TraceHeader
         summary={summary}
+        title={trace.title ?? summary.trace_id}
         nodeName={trace.nodeName}
         projectName={trace.projectName}
         live={trace.live}
@@ -125,7 +128,11 @@ export function TraceScreen() {
         onTogglePaused={trace.togglePaused}
         onJumpToError={selection.selectSpan}
       />
-      <Tabs value={selection.tab} onValueChange={(value) => selection.selectTab(String(value))}>
+      <Tabs
+        value={selection.tab}
+        onValueChange={(value) => selection.selectTab(String(value))}
+        className="flex min-w-0 flex-col gap-3"
+      >
         <TabsList>
           <TabsTrigger value="span_tree">Span tree</TabsTrigger>
           <TabsTrigger value="conversation">Conversation</TabsTrigger>

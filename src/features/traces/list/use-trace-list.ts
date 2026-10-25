@@ -6,8 +6,8 @@ import { listTracePage, readTraceFacets } from "@/api/resources/tracking";
 import type { Project, TraceFacets, TraceSummary } from "@/api/types";
 import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
 import { useResource, type Resource } from "@/hooks/use-resource";
-import { operationLabel } from "@/lib/span-labels";
 import { TRACE_QUERY_KEYS, traceQueryOf, withParam } from "@/lib/trace-query";
+import { traceTitleOf } from "@/lib/trace-title";
 
 import { readNodeNames } from "./read-node-names";
 
@@ -46,11 +46,6 @@ function secondsOf(milliseconds: string | null): string {
   if (milliseconds === null) return "";
   const value = Number(milliseconds);
   return Number.isFinite(value) ? String(value / MS_PER_SECOND) : "";
-}
-
-function rootLabelOf(trace: TraceSummary): string | null {
-  if (trace.root_operation === null) return null;
-  return operationLabel(trace.root_operation, trace.root_attributes ?? {});
 }
 
 function nodeIdsOf(traces: readonly TraceSummary[]): readonly string[] {
@@ -113,10 +108,10 @@ export function useTraceList(): TraceList {
 
   const titleOf = useCallback(
     (trace: TraceSummary) =>
-      (trace.node_id === null ? undefined : names.data?.get(trace.node_id)) ??
-      trace.execution_id ??
-      rootLabelOf(trace) ??
-      trace.trace_id,
+      traceTitleOf(
+        trace,
+        (trace.node_id === null ? undefined : names.data?.get(trace.node_id)) ?? null,
+      ),
     [names.data],
   );
 

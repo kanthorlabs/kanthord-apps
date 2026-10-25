@@ -141,15 +141,17 @@ function transitionDetail(span: TraceSpan): string | null {
   return count === null || limit === null ? detail : `${detail}: ${count} of ${limit}`;
 }
 
-function executionDetail(span: TraceSpan): string | null {
-  const kind = valueText(span.attributes[ATTRIBUTE_EXECUTION_KIND]);
+export function revocationLabel(span: TraceSpan): string | null {
   const cause = valueText(span.attributes[ATTRIBUTE_REVOKE_CAUSE]);
   const revoked = valueText(span.attributes[ATTRIBUTE_EXECUTION_END]) === "revoked";
-  const revocation =
-    revoked && cause !== null && Object.hasOwn(REVOCATION_DETAILS, cause)
-      ? REVOCATION_DETAILS[cause as RevokeCause]
-      : null;
-  const parts = [kind, revocation].filter((part) => part !== null);
+  return revoked && cause !== null && Object.hasOwn(REVOCATION_DETAILS, cause)
+    ? REVOCATION_DETAILS[cause as RevokeCause]
+    : null;
+}
+
+function executionDetail(span: TraceSpan): string | null {
+  const kind = valueText(span.attributes[ATTRIBUTE_EXECUTION_KIND]);
+  const parts = [kind, revocationLabel(span)].filter((part) => part !== null);
   return parts.length === 0 ? null : parts.join(" - ");
 }
 
