@@ -25,7 +25,7 @@ export interface DataListProps<T> {
   readonly status: DataListStatus;
   readonly error: string | null;
   readonly pending: boolean;
-  readonly onRetry: () => void;
+  readonly onRetry?: () => void;
   readonly emptyText: string;
   readonly pager?: DataListPager;
 }
@@ -54,9 +54,11 @@ export function DataList<T>({
       {status === "error" && (
         <div className="flex flex-col items-start gap-2">
           <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" size="sm" disabled={pending} onClick={onRetry}>
-            Retry
-          </Button>
+          {onRetry !== undefined && (
+            <Button variant="outline" size="sm" disabled={pending} onClick={onRetry}>
+              Retry
+            </Button>
+          )}
         </div>
       )}
 
@@ -64,11 +66,13 @@ export function DataList<T>({
         <Alert variant="destructive">
           <AlertTitle>The page could not be read.</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
-          <AlertAction>
-            <Button variant="outline" size="sm" disabled={pending} onClick={onRetry}>
-              Retry
-            </Button>
-          </AlertAction>
+          {onRetry !== undefined && (
+            <AlertAction>
+              <Button variant="outline" size="sm" disabled={pending} onClick={onRetry}>
+                Retry
+              </Button>
+            </AlertAction>
+          )}
         </Alert>
       )}
 

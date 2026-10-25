@@ -26,6 +26,7 @@ import { AnalyticsScreen } from "./analytics-screen";
 const DAY_START = Date.UTC(2026, 4, 4);
 const DAY_MS = 86_400_000;
 const POLL_MS = 60_000;
+const RANGE_INVALID = "tracking.analytics.range_invalid";
 
 function item(overrides: Partial<AnalyticsCostItem> = {}): AnalyticsCostItem {
   return {
@@ -349,6 +350,17 @@ describe("AnalyticsScreen", () => {
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
+  it("shows a range error with no Retry", async () => {
+    vi.mocked(readAnalyticsCost).mockRejectedValue(
+      new ApiError("malformed", "The range is longer than 31 days.", 400, RANGE_INVALID),
+    );
+    mount();
+
+    const cost = await screen.findByRole("region", { name: "Cost" });
+    expect(await within(cost).findByText("The range is longer than 31 days.")).toBeInTheDocument();
+    expect(within(cost).queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
   it("reads again on Refresh", async () => {
     answer(page([item()]));
     const user = userEvent.setup();
@@ -551,6 +563,19 @@ describe("AnalyticsScreen", () => {
 
       expect(await screen.findByText("All")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    });
+
+    it("shows a range error with no Retry", async () => {
+      vi.mocked(readAnalyticsDuration).mockRejectedValue(
+        new ApiError("malformed", "The range is longer than 31 days.", 400, RANGE_INVALID),
+      );
+      mount();
+
+      const time = await screen.findByRole("region", { name: "Time" });
+      expect(
+        await within(time).findByText("The range is longer than 31 days."),
+      ).toBeInTheDocument();
+      expect(within(time).queryByRole("button", { name: "Retry" })).toBeNull();
     });
   });
 });

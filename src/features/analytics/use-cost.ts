@@ -15,6 +15,7 @@ import {
 import { withParam } from "@/lib/trace-query";
 
 import { readNodeNames } from "../traces/list/read-node-names";
+import { rangeRetryOf } from "./range-retry";
 
 interface CostRead {
   readonly group: CostGroupName;
@@ -28,7 +29,7 @@ export interface CostView {
   readonly selectGroup: (group: string | null) => void;
   readonly status: "loading" | "ready" | "error";
   readonly error: string | null;
-  readonly retry: () => void;
+  readonly retry: (() => void) | undefined;
   readonly rows: readonly CostRow[];
   readonly totals: readonly CostField[] | null;
   readonly truncated: boolean;
@@ -101,7 +102,7 @@ export function useCost(
     selectGroup,
     status: failed ? "error" : read === null ? "loading" : "ready",
     error: cost.error?.message ?? null,
-    retry: cost.reload,
+    retry: rangeRetryOf(cost.error, cost.reload),
     rows,
     totals: read === null || read.totals === null ? null : costFieldsOf(read.totals),
     truncated: read?.grouped.truncated ?? false,

@@ -16,6 +16,7 @@ import {
 import { withParam } from "@/lib/trace-query";
 
 import { readNodeNames } from "../traces/list/read-node-names";
+import { rangeRetryOf } from "./range-retry";
 
 interface TimeRead {
   readonly measure: AnalyticsMeasure;
@@ -31,7 +32,7 @@ export interface TimeView {
   readonly selectGroup: (group: string | null) => void;
   readonly status: "loading" | "ready" | "error";
   readonly error: string | null;
-  readonly retry: () => void;
+  readonly retry: (() => void) | undefined;
   readonly rows: readonly TimeRow[];
   readonly truncated: boolean;
 }
@@ -111,7 +112,7 @@ export function useTime(
     selectGroup,
     status: failed ? "error" : read === null ? "loading" : "ready",
     error: time.error?.message ?? null,
-    retry: time.reload,
+    retry: rangeRetryOf(time.error, time.reload),
     rows,
     truncated: read?.page.truncated ?? false,
   };
