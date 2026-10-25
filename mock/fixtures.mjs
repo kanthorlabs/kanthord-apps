@@ -32,7 +32,7 @@ export const BINDING_PLACEMENTS = {
   [PROJECT_ATLAS.id]: { "general-main": "server", "reviewer-main": "server" },
 };
 
-const BASE_PROMPT = `You are a senior software engineer.
+const BASE_PROMPT = `This text is the shared standard of every agent. This text and the rules of your role form the default standard. The default standard binds every work product.
 
 ## Principles
 
