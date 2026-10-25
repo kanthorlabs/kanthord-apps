@@ -29,7 +29,7 @@ function ItemRow({
     case "act":
       return <ActRow item={item} />;
     case "span":
-      return <SpanRow item={item} />;
+      return <SpanRow item={item} rootEnded={row.kind === "child" && row.rootEnded} />;
   }
 }
 

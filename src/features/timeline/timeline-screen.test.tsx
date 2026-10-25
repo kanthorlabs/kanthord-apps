@@ -367,6 +367,36 @@ describe("TimelineScreen", () => {
     expect(within(row).getByText(durationText(5_000))).toBeInTheDocument();
   });
 
+  it("shows No end recorded and no duration for a span with no end under an ended root", async () => {
+    vi.mocked(listTimelinePage).mockResolvedValue({
+      items: [
+        span("root_a", { status: "Error" }),
+        phase("phase_a", "tasks", 1_000, { end_time: null, duration_ms: null }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    const row = (await screen.findByText("Phase tasks")).closest("[role=listitem]") as HTMLElement;
+    expect(within(row).getByText("No end recorded")).toBeInTheDocument();
+    expect(screen.queryByText("running")).toBeNull();
+  });
+
+  it("shows running for a span with no end under an open root", async () => {
+    vi.mocked(listTimelinePage).mockResolvedValue({
+      items: [
+        span("root_a", { end_time: null, duration_ms: null }),
+        phase("phase_a", "tasks", 1_000, { end_time: null, duration_ms: null }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    const row = (await screen.findByText("Phase tasks")).closest("[role=listitem]") as HTMLElement;
+    expect(within(row).getByText("running")).toBeInTheDocument();
+    expect(screen.queryByText("No end recorded")).toBeNull();
+  });
+
   it("shows the labels of an environment run and an Error badge on a failed span", async () => {
     const environment = {
       trace_id: "trace_env",
@@ -623,6 +653,54 @@ describe("TimelineScreen", () => {
     });
     mount();
     await screen.findByText("Execution attempt 1");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3 * POLL_MS);
+    });
+
+    expect(listTimelinePage).toHaveBeenCalledTimes(1);
+  });
+
+  it("stops reading and shows No end recorded once the open root span gets an end", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const openPhase = phase("phase_a", "tasks", 1_000, { end_time: null, duration_ms: null });
+    vi.mocked(listTimelinePage)
+      .mockResolvedValueOnce({
+        items: [span("root_a", { end_time: null, duration_ms: null }), openPhase],
+        next_cursor: null,
+      })
+      .mockResolvedValue({
+        items: [span("root_a", { status: "Error" }), openPhase],
+        next_cursor: null,
+      });
+    mount();
+    await screen.findByText("Phase tasks");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(POLL_MS);
+    });
+    const row = screen.getByText("Phase tasks").closest("[role=listitem]") as HTMLElement;
+    expect(within(row).getByText("No end recorded")).toBeInTheDocument();
+    expect(screen.queryByText("running")).toBeNull();
+    expect(listTimelinePage).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3 * POLL_MS);
+    });
+    expect(listTimelinePage).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads once when every root span has an end and a child span has no end", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    vi.mocked(listTimelinePage).mockResolvedValue({
+      items: [
+        span("root_a", { status: "Error" }),
+        phase("phase_a", "tasks", 1_000, { end_time: null, duration_ms: null }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+    await screen.findByText("Phase tasks");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3 * POLL_MS);

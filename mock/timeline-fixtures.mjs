@@ -38,6 +38,18 @@ const EXECUTION_SPECS = [
     rootStored: false,
     transition: { from: "Executing", to: "Paused", rule: "failure_limit", count: 3, limit: 3 },
   },
+  {
+    seed: "d09",
+    kind: "steps",
+    startAgo: 20,
+    endAgo: 15,
+    end: "revoked",
+    cause: "human",
+    rootStored: true,
+    rootError: true,
+    childEnded: false,
+    transition: { from: "Executing", to: "Paused", rule: "none" },
+  },
 ];
 
 const ACT_SPECS = [
@@ -149,7 +161,8 @@ const executionTrace = (spec, now) => {
   const root = add("scheduler.execution", null, start, end, rootAttributes);
   const windowMs = end - start;
   if (spec.kind === "steps") {
-    add("worker.phase", root, start + windowMs * 0.1, end - windowMs * 0.1, {
+    const phaseEnd = spec.childEnded === false ? null : end - windowMs * 0.1;
+    add("worker.phase", root, start + windowMs * 0.1, phaseEnd, {
       "kanthord.phase": "tasks",
     });
   } else {
@@ -167,19 +180,21 @@ const executionTrace = (spec, now) => {
           "kanthord.transition.limit": transition.limit,
         }),
   });
+  if (spec.rootError === true) spans[0].status = "Error";
   const stored = spec.rootStored ? spans : spans.filter((span) => span.span_id !== root);
+  const summary = summaryOf({
+    traceId,
+    rootSpanId,
+    executionId: `execution_01J9ZQ4XKM3B6V8N2R5T7W0${spec.seed.toUpperCase()}`,
+    attempt: 1,
+    start,
+    end,
+    workerName,
+    spanCount: stored.length,
+    root: stored.find((span) => span.span_id === rootSpanId),
+  });
   return {
-    summary: summaryOf({
-      traceId,
-      rootSpanId,
-      executionId: `execution_01J9ZQ4XKM3B6V8N2R5T7W0${spec.seed.toUpperCase()}`,
-      attempt: 1,
-      start,
-      end,
-      workerName,
-      spanCount: stored.length,
-      root: stored.find((span) => span.span_id === rootSpanId),
-    }),
+    summary: spec.rootError === true ? { ...summary, state: "error", error_count: 1 } : summary,
     spans: stored,
     texts: [],
     entries: [],
