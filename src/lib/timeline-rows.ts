@@ -8,6 +8,7 @@ const ATTRIBUTE_EXECUTION_END = "kanthord.execution.end";
 const EXECUTION_FINISHED = "finished";
 const RUNNING_TEXT = "running";
 const NO_END_TEXT = "No end recorded";
+const NO_START_TEXT = "No start recorded";
 const OPERATION_EXECUTION = "scheduler.execution";
 const OPERATION_TRANSITION = "scheduler.transition";
 const REASON_TEXT_NAME = "reason";
@@ -82,6 +83,7 @@ export function hasOpenRoot(items: readonly TimelineItem[]): boolean {
 }
 
 export function spanDurationText(item: TimelineItem, rootEnded: boolean): string {
+  if (item.start_time === null) return NO_START_TEXT;
   if (item.duration_ms !== null) return durationText(item.duration_ms);
   return item.end_time === null && rootEnded ? NO_END_TEXT : RUNNING_TEXT;
 }
