@@ -208,27 +208,6 @@ function currentCrumb(name: string): HTMLElement {
   return within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText(name);
 }
 
-function rowOf(label: string): HTMLElement {
-  const row = screen
-    .getAllByRole("treeitem")
-    .find((item) => within(item).queryByText(label) !== null);
-  if (row === undefined) throw new Error(`No row ${label}`);
-  return row;
-}
-
-function labelsOfRows(): readonly (string | null)[] {
-  return screen
-    .getAllByRole("treeitem")
-    .map((item) => item.querySelector("span.font-medium")?.textContent ?? null);
-}
-
-async function mountExpanded(entry?: string) {
-  const view = mount(entry);
-  await screen.findByRole("tree", { name: "Spans" });
-  fireEvent.click(screen.getByRole("button", { name: "Expand all" }));
-  return view;
-}
-
 function matchLargeScreen(matches: boolean) {
   vi.stubGlobal("matchMedia", () => ({
     matches,
@@ -254,31 +233,61 @@ afterEach(() => {
 });
 
 describe("TraceScreen header", () => {
-  it("shows the title, the badges and the facts", async () => {
+  it("shows the Traces link, the title, the state badge and one line of facts", async () => {
     mount();
 
     const title = await screen.findByRole("link", { name: "Build the page" });
     expect(title).toHaveAttribute("href", "/projects/prj-1?node=node-1");
-    expect(screen.getByText("OK")).toBeInTheDocument();
-    expect(screen.getByText("completed")).toBeInTheDocument();
-    await screen.findByText("kanthord");
     const header = screen.getByRole("region", { name: "Trace" });
+    expect(within(header).getByRole("button", { name: "Traces" })).toHaveAttribute(
+      "href",
+      "/traces",
+    );
+    expect(within(header).getByText("OK")).toBeInTheDocument();
     for (const [label, value] of [
-      ["Project", "kanthord"],
-      ["Execution", "exec-1"],
-      ["Attempt", "2"],
-      ["Worker", "general"],
-      ["Started", utcDateTime(START)],
       ["Duration", durationText(90_000)],
-      ["Input tokens", "1.2k"],
-      ["Output tokens", "600"],
-      ["Cached tokens", "500"],
+      ["Tokens", "1.8k"],
       ["Est. cost", "$0.0600"],
+      ["Attempt", "2"],
     ] as const) {
       expect(within(header).getByText(label).nextElementSibling).toHaveTextContent(value);
     }
     expect(screen.queryByText("Live")).not.toBeInTheDocument();
+    expect(screen.queryByText("Worker")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Jump to first error" })).not.toBeInTheDocument();
+  });
+
+  it("shows every other fact behind Details", async () => {
+    mount();
+    await screen.findByText("Duration");
+    const header = screen.getByRole("region", { name: "Trace" });
+    const details = within(header).getByRole("button", { name: "Details" });
+    expect(details).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(details);
+
+    expect(details).toHaveAttribute("aria-expanded", "true");
+    await within(header).findByText("kanthord");
+    for (const [label, value] of [
+      ["Project", "kanthord"],
+      ["Execution", "exec-1"],
+      ["Worker", "general"],
+      ["Started", utcDateTime(START)],
+      ["Stop reason", "completed"],
+      ["Input tokens", "1.2k"],
+      ["Output tokens", "600"],
+      ["Cached tokens", "500"],
+    ] as const) {
+      expect(within(header).getByText(label).nextElementSibling).toHaveTextContent(value);
+    }
+  });
+
+  it("goes back to the trace list with the Traces link", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Traces" }));
+
+    expect(screen.getByText("Traces list")).toBeInTheDocument();
   });
 
   it("falls back to the execution identity when the node name is absent", async () => {
@@ -346,236 +355,6 @@ describe("TraceScreen header", () => {
   });
 });
 
-describe("TraceScreen timeline", () => {
-  it("expands the root and the phases on the first render", async () => {
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    expect(labelsOfRows()).toEqual(["Execution", "Phase execute", "Task t1", "Git commit"]);
-  });
-
-  it("shows the task with its session and turns, and a tool under its turn", async () => {
-    await mountExpanded();
-
-    expect(labelsOfRows()).toEqual([
-      "Execution",
-      "Phase execute",
-      "Task t1",
-      "Session coder",
-      "Turn 1",
-      "bash",
-      "Turn 2",
-      "read",
-      "Git commit",
-    ]);
-    expect(rowOf("bash")).toHaveAttribute("aria-level", "5");
-    expect(rowOf("Phase execute")).toHaveAttribute("aria-expanded", "true");
-  });
-
-  it("shows tokens and cost on a turn and the sums on the task and the session", async () => {
-    await mountExpanded();
-
-    expect(
-      within(rowOf("Turn 1")).getByText("1.5k tokens · Est. cost $0.0500"),
-    ).toBeInTheDocument();
-    expect(within(rowOf("Turn 2")).getByText("300 tokens · Est. cost $0.0100")).toBeInTheDocument();
-    expect(
-      within(rowOf("Task t1")).getByText("1.8k tokens · Est. cost $0.0600"),
-    ).toBeInTheDocument();
-    expect(
-      within(rowOf("Session coder")).getByText("1.8k tokens · Est. cost $0.0600"),
-    ).toBeInTheDocument();
-  });
-
-  it("shows No end recorded in an ok trace", async () => {
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    expect(within(rowOf("Git commit")).getByText("No end recorded")).toBeInTheDocument();
-    expect(screen.queryByText("Running")).not.toBeInTheDocument();
-  });
-
-  it("shows No end recorded in an error trace", async () => {
-    vi.mocked(readTrace).mockResolvedValue(summary({ state: "error" }));
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    expect(within(rowOf("Git commit")).getByText("No end recorded")).toBeInTheDocument();
-    expect(screen.queryByText("Running")).not.toBeInTheDocument();
-  });
-
-  it("shows Running in an open trace", async () => {
-    vi.mocked(readTrace).mockResolvedValue(summary({ state: "open" }));
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    expect(within(rowOf("Git commit")).getByText("Running")).toBeInTheDocument();
-    expect(screen.queryByText("No end recorded")).not.toBeInTheDocument();
-  });
-
-  it("keeps the error span and its ancestors with Errors only", async () => {
-    await mountExpanded();
-
-    fireEvent.click(screen.getByRole("button", { name: "Errors only" }));
-
-    expect(labelsOfRows()).toEqual(["Execution", "Phase execute", "Task t1", "Turn 2", "read"]);
-    expect(within(rowOf("read")).getByText("Error")).toBeInTheDocument();
-  });
-
-  it("keeps the matching tool span and its ancestors for the search bash", async () => {
-    await mountExpanded();
-
-    fireEvent.change(screen.getByRole("textbox", { name: "Search spans" }), {
-      target: { value: "bash" },
-    });
-
-    expect(labelsOfRows()).toEqual(["Execution", "Phase execute", "Task t1", "Turn 1", "bash"]);
-  });
-
-  it("shows a message when no span matches", async () => {
-    await mountExpanded();
-
-    fireEvent.change(screen.getByRole("textbox", { name: "Search spans" }), {
-      target: { value: "nothing like this" },
-    });
-
-    expect(screen.getByText("No spans match these filters.")).toBeInTheDocument();
-    expect(screen.queryByRole("tree")).not.toBeInTheDocument();
-  });
-
-  it("filters by group", async () => {
-    await mountExpanded();
-
-    fireEvent.click(screen.getByRole("button", { name: "Tools" }));
-
-    expect(labelsOfRows()).toEqual([
-      "Execution",
-      "Phase execute",
-      "Task t1",
-      "Turn 1",
-      "bash",
-      "Turn 2",
-      "read",
-    ]);
-  });
-
-  it("collapses every row with Collapse all", async () => {
-    await mountExpanded();
-
-    fireEvent.click(screen.getByRole("button", { name: "Collapse all" }));
-
-    expect(labelsOfRows()).toEqual(["Execution"]);
-  });
-
-  it("moves, expands and collapses with the keyboard", async () => {
-    const user = userEvent.setup();
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    await user.click(rowOf("Execution"));
-    expect(rowOf("Execution")).toHaveAttribute("aria-selected", "true");
-    await user.keyboard("{ArrowDown}");
-    expect(rowOf("Phase execute")).toHaveAttribute("aria-selected", "true");
-    await user.keyboard("{ArrowDown}");
-    expect(rowOf("Task t1")).toHaveAttribute("aria-selected", "true");
-    expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "false");
-
-    await user.keyboard("{ArrowRight}");
-    expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("treeitem", { name: /Turn 1/ })).toBeInTheDocument();
-
-    await user.keyboard("{ArrowLeft}");
-    expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("treeitem", { name: /Turn 1/ })).not.toBeInTheDocument();
-
-    await user.keyboard("{ArrowLeft}");
-    expect(rowOf("Phase execute")).toHaveAttribute("aria-selected", "true");
-
-    await user.keyboard("{ArrowUp}");
-    expect(rowOf("Execution")).toHaveAttribute("aria-selected", "true");
-    expect(rowOf("Execution")).toHaveFocus();
-  });
-
-  it("selects the first row with Enter when no row is selected", async () => {
-    const user = userEvent.setup();
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    rowOf("Execution").focus();
-    await user.keyboard("{Enter}");
-
-    expect(rowOf("Execution")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText(/at \/traces\/trace-1\?tab=span_tree&span=root/)).toBeInTheDocument();
-  });
-
-  it("selects the first error span with Jump to first error", async () => {
-    vi.mocked(readTrace).mockResolvedValue(
-      summary({ state: "error", error_count: 1, first_error_span_id: "tool2" }),
-    );
-    mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Jump to first error" }));
-
-    expect(rowOf("read")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("at /traces/trace-1?tab=span_tree&span=tool2")).toBeInTheDocument();
-  });
-
-  it("selects the span of the query string and expands its ancestors", async () => {
-    mount("/traces/trace-1?tab=span_tree&span=tool1");
-
-    await screen.findByRole("tree", { name: "Spans" });
-    expect(rowOf("bash")).toHaveAttribute("aria-selected", "true");
-    expect(rowOf("Turn 1")).toBeInTheDocument();
-    expect(rowOf("Task t1")).toHaveAttribute("aria-expanded", "true");
-  });
-});
-
-describe("TraceScreen span detail", () => {
-  it("asks for a selection while no span is selected", async () => {
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    const panel = screen.getByRole("complementary", { name: "Span detail" });
-    expect(within(panel).getByText("Select a span to see its detail.")).toBeInTheDocument();
-  });
-
-  it("shows the detail of a clicked span in the panel on a large screen", async () => {
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-
-    fireEvent.click(rowOf("Task t1"));
-
-    const panel = screen.getByRole("complementary", { name: "Span detail" });
-    expect(within(panel).getByRole("heading", { name: "Task t1" })).toBeInTheDocument();
-    expect(within(panel).getByText("Duration")).toBeInTheDocument();
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  });
-
-  it("shows the detail of a clicked span in a sheet below the large screen", async () => {
-    matchLargeScreen(false);
-    mount();
-    await screen.findByRole("tree", { name: "Spans" });
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-
-    fireEvent.click(rowOf("Task t1"));
-
-    const sheet = await screen.findByRole("dialog", { name: "Span detail" });
-    expect(within(sheet).getByRole("heading", { name: "Task t1" })).toBeInTheDocument();
-    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
-  });
-
-  it("clears the span of the query string when the sheet closes", async () => {
-    matchLargeScreen(false);
-    mount("/traces/trace-1?tab=span_tree&span=task");
-
-    const sheet = await screen.findByRole("dialog", { name: "Span detail" });
-    expect(screen.getByText("at /traces/trace-1?tab=span_tree&span=task")).toBeInTheDocument();
-    fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByText("at /traces/trace-1?tab=span_tree")).toBeInTheDocument();
-  });
-});
-
 describe("TraceScreen polling", () => {
   function advance(ms: number) {
     return act(async () => {
@@ -613,6 +392,67 @@ describe("TraceScreen polling", () => {
 
     await advance(TRACE_POLL_MS * 3);
     expect(readTrace).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads the spans once while the summary stays the same", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(readTrace).mockResolvedValue(summary({ state: "open" }));
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    await advance(TRACE_POLL_MS * 3);
+
+    expect(readTrace).toHaveBeenCalledTimes(4);
+    expect(listTraceSpans).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["span_count", { span_count: 9 }],
+    ["error_count", { error_count: 1 }],
+    ["total_tokens", { total_tokens: 2000 }],
+    ["ended_at", { ended_at: START + 120_000 }],
+  ] as const)("reads the spans again when %s changes", async (_name, change) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(readTrace)
+      .mockResolvedValueOnce(summary({ state: "open" }))
+      .mockResolvedValue(summary({ state: "open", ...change }));
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+    expect(listTraceSpans).toHaveBeenCalledTimes(1);
+
+    await advance(TRACE_POLL_MS);
+    expect(listTraceSpans).toHaveBeenCalledTimes(2);
+
+    await advance(TRACE_POLL_MS);
+    expect(listTraceSpans).toHaveBeenCalledTimes(2);
+  });
+
+  it("holds the poll while the page is hidden and resumes when it shows again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    let visibility: DocumentVisibilityState = "visible";
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => visibility,
+    });
+    vi.mocked(readTrace).mockResolvedValue(summary({ state: "open" }));
+    try {
+      mount();
+      await screen.findByRole("tree", { name: "Spans" });
+      expect(readTrace).toHaveBeenCalledTimes(1);
+
+      visibility = "hidden";
+      document.dispatchEvent(new Event("visibilitychange"));
+      await advance(TRACE_POLL_MS * 3);
+      expect(readTrace).toHaveBeenCalledTimes(1);
+
+      visibility = "visible";
+      await act(async () => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      expect(readTrace).toHaveBeenCalledTimes(2);
+    } finally {
+      Reflect.deleteProperty(document, "visibilityState");
+    }
   });
 
   it("does not read an ok trace again", async () => {
@@ -654,17 +494,26 @@ describe("TraceScreen conversation", () => {
     );
   }
 
-  it("names the first tab Span tree and writes tab=span_tree when the human returns to it", async () => {
+  it("lists the tabs Steps and Conversation and writes tab=steps when the human returns", async () => {
     vi.mocked(listSessionEntryPage).mockResolvedValue({ items: [], next_cursor: null });
     mount();
     await screen.findByRole("tree", { name: "Spans" });
 
-    expect(screen.getByRole("tab", { name: "Span tree" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("tab", { name: "Timeline" })).not.toBeInTheDocument();
+    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual(["Steps", "Conversation"]);
+    expect(screen.getByRole("tab", { name: "Steps" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "Span tree" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("tab", { name: "Conversation" }));
-    await userEvent.click(screen.getByRole("tab", { name: "Span tree" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Steps" }));
 
-    expect(screen.getByText("at /traces/trace-1?tab=span_tree")).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=steps")).toBeInTheDocument();
+  });
+
+  it("opens the Steps tab for the old value tab=span_tree", async () => {
+    mount("/traces/trace-1?tab=span_tree");
+    await screen.findByRole("tree", { name: "Spans" });
+
+    expect(screen.getByRole("tab", { name: "Steps" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("reads no entry before the human opens the Conversation tab", async () => {
@@ -689,7 +538,7 @@ describe("TraceScreen conversation", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Show in span tree" }));
 
-    expect(screen.getByText("at /traces/trace-1?tab=span_tree&span=turn1")).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=steps&span=turn1")).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
 
     expect(
