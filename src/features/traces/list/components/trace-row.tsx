@@ -20,7 +20,7 @@ const STATE_BADGES: Readonly<
 function pathOf(trace: TraceSummary): string {
   const base = `/traces/${encodeURIComponent(trace.trace_id)}`;
   if (trace.first_error_span_id === null) return base;
-  return `${base}?tab=timeline&span=${encodeURIComponent(trace.first_error_span_id)}`;
+  return `${base}?tab=span_tree&span=${encodeURIComponent(trace.first_error_span_id)}`;
 }
 
 function fieldsOf(trace: TraceSummary): readonly DataListField[] {

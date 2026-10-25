@@ -1,5 +1,10 @@
+import { buildTimelineTraces } from "./timeline-fixtures.mjs";
+
 const WINDOW_FLOOR_MS = 60_000;
 const ENTRY_STEP_MS = 1000;
+const TIMELINE_SCOPES = ["execution_id", "node_id", "project_id"];
+const TIMELINE_DEFAULT_LIMIT = 500;
+const TIMELINE_MAX_LIMIT = 1000;
 const SORT_KEYS = ["started_at", "duration_ms", "total_tokens", "cost_usd"];
 const PHASES = [
   ["prepare", 0, 0.08],
@@ -289,10 +294,18 @@ const matchesQuery = (summary, text) => {
   ].some((field) => field?.toLowerCase().includes(needle));
 };
 
+const overlaps = (summary, from, to) => {
+  const start = summary.started_at ?? summary.created_at;
+  const startsInTime = to === null || start <= Number(to);
+  const endsInTime = from === null || summary.ended_at === null || summary.ended_at >= Number(from);
+  return startsInTime && endsInTime;
+};
+
 const matchesFilters = (summary, params) => {
   const exact = (name, field) => params.get(name) === null || params.get(name) === field;
   const member = (name, fields) => params.get(name) === null || fields.includes(params.get(name));
-  const from = params.get("started_from");
+  const from = params.get("from");
+  const to = params.get("to");
   const text = params.get("q");
   return (
     exact("project_id", summary.project_id) &&
@@ -303,7 +316,7 @@ const matchesFilters = (summary, params) => {
     member("agent_name", summary.agent_names) &&
     member("model", summary.models) &&
     member("error_type", summary.error_types) &&
-    (from === null || (summary.started_at !== null && summary.started_at >= Number(from))) &&
+    overlaps(summary, from, to) &&
     (text === null || matchesQuery(summary, text))
   );
 };
@@ -313,11 +326,70 @@ const sortOf = (params) => {
   return SORT_KEYS.includes(requested) ? requested : "started_at";
 };
 
+const integerOf = (value) => (/^-?\d+$/.test(value) ? Number(value) : null);
+
+const timelineQueryOf = (params) => {
+  const scopes = TIMELINE_SCOPES.filter((name) => params.get(name) !== null);
+  if (scopes.length !== 1) {
+    return { error: "The query holds exactly one of execution_id, node_id and project_id." };
+  }
+  const depth = params.get("depth") === null ? 2 : integerOf(params.get("depth"));
+  if (depth !== 1 && depth !== 2) return { error: "The depth is 1 or 2." };
+  const limit =
+    params.get("limit") === null ? TIMELINE_DEFAULT_LIMIT : integerOf(params.get("limit"));
+  if (limit === null || limit < 1 || limit > TIMELINE_MAX_LIMIT) {
+    return { error: `The limit is 1 to ${TIMELINE_MAX_LIMIT}.` };
+  }
+  const offset = params.get("cursor") === null ? 0 : integerOf(params.get("cursor"));
+  if (offset === null || offset < 0) return { error: "The cursor is unknown." };
+  const range = ["from", "to"].filter(
+    (name) => params.get(name) !== null && integerOf(params.get(name)) === null,
+  );
+  if (range.length > 0) return { error: "The range is in Unix milliseconds." };
+  return { depth, limit, offset };
+};
+
+const byWindow = (a, b) =>
+  (a.summary.started_at ?? a.summary.created_at) - (b.summary.started_at ?? b.summary.created_at) ||
+  a.summary.trace_id.localeCompare(b.summary.trace_id);
+
+const bySpanTime = (a, b) =>
+  (a.start_time ?? a.end_time ?? 0) - (b.start_time ?? b.end_time ?? 0) ||
+  a.span_id.localeCompare(b.span_id);
+
+const slotsOf = (trace, depth) => {
+  const rootId = trace.summary.root_span_id;
+  const wanted = trace.spans.filter(
+    (span) => span.span_id === rootId || (depth === 2 && span.parent_span_id === rootId),
+  );
+  const root = wanted.find((span) => span.span_id === rootId);
+  const stored = wanted.sort(bySpanTime);
+  return [...(root === undefined ? [null] : []), ...stored].map((span) => ({
+    summary: trace.summary,
+    span,
+  }));
+};
+
+const timelineItemOf = ({ summary, span }) => ({
+  ...span,
+  depth: span.span_id === summary.root_span_id ? 1 : 2,
+  duration_ms:
+    span.start_time !== null && span.end_time !== null ? span.end_time - span.start_time : null,
+  project_id: summary.project_id,
+  node_id: summary.node_id,
+  execution_id: summary.execution_id,
+  attempt: summary.attempt,
+  worker_name: span.span_id === summary.root_span_id ? summary.worker_name : null,
+});
+
 const uniqueSorted = (lists) => [...new Set(lists.flat())].sort();
 
 export function registerTracking({ on, json, envelope, page, executions }) {
   const now = Date.now();
-  const traces = () => executions().map((record) => buildTrace(record, now));
+  const traces = () => [
+    ...executions().map((record) => buildTrace(record, now)),
+    ...buildTimelineTraces(now),
+  ];
 
   const find = (res, traceId) => {
     const trace = traces().find((item) => item.summary.trace_id === traceId);
@@ -334,6 +406,25 @@ export function registerTracking({ on, json, envelope, page, executions }) {
       .filter((summary) => matchesFilters(summary, url.searchParams))
       .sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1) || b.trace_id.localeCompare(a.trace_id));
     return json(res, 200, page(items, url));
+  });
+
+  on("GET", /^\/api\/tracking\/timeline$/, (_m, _b, res, _t, url) => {
+    const query = timelineQueryOf(url.searchParams);
+    if (query.error !== undefined) {
+      return envelope(res, 400, "gateway.request.validation_failed", query.error);
+    }
+    const slots = traces()
+      .filter((trace) => matchesFilters(trace.summary, url.searchParams))
+      .sort(byWindow)
+      .flatMap((trace) => slotsOf(trace, query.depth));
+    const next = query.offset + query.limit;
+    return json(res, 200, {
+      items: slots
+        .slice(query.offset, next)
+        .filter((slot) => slot.span !== null)
+        .map(timelineItemOf),
+      next_cursor: next < slots.length ? String(next) : null,
+    });
   });
 
   on("GET", /^\/api\/tracking\/facet$/, (_m, _b, res, _t, url) => {

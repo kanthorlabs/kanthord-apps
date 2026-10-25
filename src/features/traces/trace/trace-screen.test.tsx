@@ -448,7 +448,7 @@ describe("TraceScreen timeline", () => {
     await user.keyboard("{Enter}");
 
     expect(rowOf("Execution")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText(/at \/traces\/trace-1\?tab=timeline&span=root/)).toBeInTheDocument();
+    expect(screen.getByText(/at \/traces\/trace-1\?tab=span_tree&span=root/)).toBeInTheDocument();
   });
 
   it("selects the first error span with Jump to first error", async () => {
@@ -459,11 +459,11 @@ describe("TraceScreen timeline", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Jump to first error" }));
 
     expect(rowOf("read")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("at /traces/trace-1?tab=timeline&span=tool2")).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=span_tree&span=tool2")).toBeInTheDocument();
   });
 
   it("selects the span of the query string and expands its ancestors", async () => {
-    mount("/traces/trace-1?tab=timeline&span=tool1");
+    mount("/traces/trace-1?tab=span_tree&span=tool1");
 
     await screen.findByRole("tree", { name: "Spans" });
     expect(rowOf("bash")).toHaveAttribute("aria-selected", "true");
@@ -508,14 +508,14 @@ describe("TraceScreen span detail", () => {
 
   it("clears the span of the query string when the sheet closes", async () => {
     matchLargeScreen(false);
-    mount("/traces/trace-1?tab=timeline&span=task");
+    mount("/traces/trace-1?tab=span_tree&span=task");
 
     const sheet = await screen.findByRole("dialog", { name: "Span detail" });
-    expect(screen.getByText("at /traces/trace-1?tab=timeline&span=task")).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=span_tree&span=task")).toBeInTheDocument();
     fireEvent.click(within(sheet).getByRole("button", { name: "Close" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(screen.getByText("at /traces/trace-1?tab=timeline")).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=span_tree")).toBeInTheDocument();
   });
 });
 
@@ -597,6 +597,19 @@ describe("TraceScreen conversation", () => {
     );
   }
 
+  it("names the first tab Span tree and writes tab=span_tree when the human returns to it", async () => {
+    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: [], next_cursor: null });
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    expect(screen.getByRole("tab", { name: "Span tree" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("tab", { name: "Timeline" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Conversation" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Span tree" }));
+
+    expect(screen.getByText("at /traces/trace-1?tab=span_tree")).toBeInTheDocument();
+  });
+
   it("reads no entry before the human opens the Conversation tab", async () => {
     vi.mocked(listSessionEntryPage).mockResolvedValue({ items: [], next_cursor: null });
     mount();
@@ -617,9 +630,9 @@ describe("TraceScreen conversation", () => {
     });
     mount("/traces/trace-1?tab=conversation");
 
-    await userEvent.click(await screen.findByRole("button", { name: "Show in timeline" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Show in span tree" }));
 
-    expect(screen.getByText("at /traces/trace-1?tab=timeline&span=turn1")).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=span_tree&span=turn1")).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
 
     expect(

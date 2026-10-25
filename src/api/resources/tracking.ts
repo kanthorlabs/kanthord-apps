@@ -3,6 +3,8 @@ import { readAllPages } from "../pages";
 import type {
   Page,
   TelemetryText,
+  TimelineItem,
+  TimelineQuery,
   TraceFacets,
   TraceListQuery,
   TraceSessionEntry,
@@ -11,6 +13,10 @@ import type {
 } from "../types";
 
 const TRACE_PATH = "/api/tracking/trace";
+const TIMELINE_PATH = "/api/tracking/timeline";
+const TIMELINE_SCOPES = ["execution_id", "node_id", "project_id"] as const;
+const TIMELINE_RANGE = ["from", "to"] as const;
+const DEFAULT_TIMELINE_DEPTH = 2;
 
 function tracePath(traceId: string): string {
   return `${TRACE_PATH}/${encodeURIComponent(traceId)}`;
@@ -32,6 +38,26 @@ export async function listTracePage(
   params.set("limit", String(limit));
   if (cursor !== null) params.set("cursor", cursor);
   return request<Page<TraceSummary>>(`${TRACE_PATH}?${params}`);
+}
+
+export async function listTimelinePage(
+  query: TimelineQuery,
+  cursor: string | null,
+  limit: number,
+): Promise<Page<TimelineItem>> {
+  const params = new URLSearchParams();
+  for (const name of TIMELINE_SCOPES) {
+    const value = query[name];
+    if (value !== undefined) params.set(name, value);
+  }
+  params.set("depth", String(query.depth ?? DEFAULT_TIMELINE_DEPTH));
+  for (const name of TIMELINE_RANGE) {
+    const value = query[name];
+    if (value !== undefined) params.set(name, String(value));
+  }
+  params.set("limit", String(limit));
+  if (cursor !== null) params.set("cursor", cursor);
+  return request<Page<TimelineItem>>(`${TIMELINE_PATH}?${params}`);
 }
 
 export async function readTrace(traceId: string): Promise<TraceSummary> {

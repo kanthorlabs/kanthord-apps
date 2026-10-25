@@ -195,7 +195,7 @@ export function EntryBlock({ entry, current, turn, onShowInTimeline }: EntryBloc
             className="self-start"
             onClick={() => onShowInTimeline(turn.span_id)}
           >
-            Show in timeline
+            Show in span tree
           </Button>
         )}
       </ItemContent>

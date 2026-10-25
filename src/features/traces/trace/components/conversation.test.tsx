@@ -297,25 +297,25 @@ describe("Conversation", () => {
     expect(screen.getByRole("status")).toHaveTextContent("session=session-2");
   });
 
-  it("selects the turn span on the Timeline tab with Show in timeline", async () => {
+  it("selects the turn span on the Span tree tab with Show in span tree", async () => {
     mockEntries(ENTRIES);
     show([SESSION_1, TURN]);
     await screen.findByText("List the files.");
 
-    expect(screen.getAllByRole("button", { name: "Show in timeline" })).toHaveLength(1);
-    await userEvent.click(screen.getByRole("button", { name: "Show in timeline" }));
+    expect(screen.getAllByRole("button", { name: "Show in span tree" })).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: "Show in span tree" }));
 
     const search = new URLSearchParams(screen.getByRole("status").textContent ?? "");
-    expect(search.get("tab")).toBe("timeline");
+    expect(search.get("tab")).toBe("span_tree");
     expect(search.get("span")).toBe("turn-1");
   });
 
-  it("offers no Show in timeline without a turn span", async () => {
+  it("offers no Show in span tree without a turn span", async () => {
     mockEntries(ENTRIES);
     show([SESSION_1]);
     await screen.findByText("List the files.");
 
-    expect(screen.queryByRole("button", { name: "Show in timeline" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show in span tree" })).not.toBeInTheDocument();
   });
 
   it("marks and scrolls to the entry of the entry query key", async () => {

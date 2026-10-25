@@ -163,11 +163,21 @@ describe("TracesScreen", () => {
     await waitFor(() => expect(listTracePage).toHaveBeenCalled());
     const [query, cursor, limit] = vi.mocked(listTracePage).mock.calls[0] ?? [];
     expect(query).toMatchObject({ project_id: "prj-1", state: "error" });
-    expect(query?.started_from).toBeGreaterThanOrEqual(before - SEVEN_DAYS_MS);
-    expect(query?.started_from).toBeLessThanOrEqual(Date.now() - SEVEN_DAYS_MS);
+    expect(query?.from).toBeGreaterThanOrEqual(before - SEVEN_DAYS_MS);
+    expect(query?.from).toBeLessThanOrEqual(Date.now() - SEVEN_DAYS_MS);
+    expect(query).not.toHaveProperty("started_from");
     expect(cursor).toBeNull();
     expect(limit).toBe(50);
     expect(readTraceFacets).toHaveBeenCalledWith("prj-1");
+  });
+
+  it("sends no from for All time and never started_from", async () => {
+    mount("/traces?range=all");
+
+    await waitFor(() => expect(listTracePage).toHaveBeenCalled());
+    const query = vi.mocked(listTracePage).mock.calls[0]?.[0];
+    expect(query).not.toHaveProperty("from");
+    expect(query).not.toHaveProperty("started_from");
   });
 
   it("writes a typed search once, 300 ms after the last keystroke", async () => {
@@ -251,7 +261,7 @@ describe("TracesScreen", () => {
     expect(vi.mocked(listTracePage).mock.calls[0]?.[0]).toMatchObject({ sort: "cost_usd" });
   });
 
-  it("opens the timeline at the first error span of an error trace", async () => {
+  it("opens the span tree at the first error span of an error trace", async () => {
     const user = userEvent.setup();
     vi.mocked(listTracePage).mockResolvedValue({
       items: [trace("trc-2", { state: "error", first_error_span_id: "spn-9" })],
@@ -261,7 +271,9 @@ describe("TracesScreen", () => {
 
     await user.click(await screen.findByRole("button", { name: "Open trace exec-trc-2" }));
 
-    expect(await screen.findByText("at /traces/trc-2?tab=timeline&span=spn-9")).toBeInTheDocument();
+    expect(
+      await screen.findByText("at /traces/trc-2?tab=span_tree&span=spn-9"),
+    ).toBeInTheDocument();
   });
 
   it("opens the trace page of a trace without an error", async () => {
