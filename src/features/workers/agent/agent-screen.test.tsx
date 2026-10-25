@@ -33,7 +33,7 @@ const RE: AgentDeclaration = {
         origin: "binary",
         path: "/data/agents/base.md",
         digest: "a".repeat(64),
-        text: "You are a senior software engineer.",
+        text: "This text is the shared standard of every agent.",
       },
       {
         part: "role",
@@ -330,7 +330,9 @@ describe("AgentScreen", () => {
     expect(role).toHaveAttribute("aria-expanded", "true");
     expect(await screen.findByText("re@1", { selector: "code" })).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "base.md" }));
-    expect(await screen.findByText("You are a senior software engineer.")).toBeTruthy();
+    expect(
+      await screen.findByText("This text is the shared standard of every agent."),
+    ).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "System prompt" }));
     expect(await screen.findByText("Framing of the final prompt.")).toBeTruthy();
     expect(screen.getByText("The final reviewer text.")).toBeTruthy();
