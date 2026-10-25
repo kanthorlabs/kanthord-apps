@@ -1,6 +1,6 @@
 import type { AnalyticsCostItem } from "@/api/types";
 
-import type { AnalyticsSelectableBucket } from "./analytics-query";
+import type { AnalyticsSelectableBucket, CostGroupName } from "./analytics-query";
 import { utcDateTime } from "./format";
 import { costText, tokenText } from "./trace-format";
 
@@ -17,6 +17,7 @@ export interface CostRow {
   readonly cost: number;
   readonly costText: string;
   readonly maxCost: number;
+  readonly tracesPath: string | null;
 }
 
 const UNKNOWN_KEY = "Unknown";
@@ -41,6 +42,13 @@ export function costKeyLabel(key: string | null, names: ReadonlyMap<string, stri
   return names.get(key) ?? key;
 }
 
+export function tracesPathOf(group: string, key: string | null): string | null {
+  if (key === null) return null;
+  if (group === "node_id" || group === "model")
+    return `/traces?${group}=${encodeURIComponent(key)}`;
+  return null;
+}
+
 export function costFieldsOf(item: AnalyticsCostItem): readonly CostField[] {
   return [
     { label: "Turns", value: String(item.turn_count) },
@@ -57,6 +65,7 @@ export function costFieldsOf(item: AnalyticsCostItem): readonly CostField[] {
 export function costRowsOf(
   items: readonly AnalyticsCostItem[],
   bucket: AnalyticsSelectableBucket,
+  group: CostGroupName,
   names: ReadonlyMap<string, string>,
 ): readonly CostRow[] {
   const largest = Math.max(0, ...items.map((item) => item.cost_usd));
@@ -69,5 +78,6 @@ export function costRowsOf(
     cost: item.cost_usd,
     costText: costText(item.cost_usd),
     maxCost,
+    tracesPath: tracesPathOf(group, item.key),
   }));
 }
