@@ -1463,3 +1463,89 @@ export type TimelineQuery = TimelineScope & {
   readonly from?: number;
   readonly to?: number;
 };
+
+export const ANALYTICS_BUCKETS = ["none", "hour", "day", "week"] as const;
+
+export type AnalyticsBucket = (typeof ANALYTICS_BUCKETS)[number];
+
+export const ANALYTICS_COST_GROUPS = [
+  "none",
+  "model",
+  "agent_name",
+  "provider_name",
+  "worker_name",
+  "node_id",
+  "project_id",
+] as const;
+
+export type AnalyticsCostGroup = (typeof ANALYTICS_COST_GROUPS)[number];
+
+export const ANALYTICS_DURATION_GROUPS = [
+  "none",
+  "operation",
+  "tool_name",
+  "agent_name",
+  "model",
+  "worker_name",
+  "node_id",
+  "project_id",
+] as const;
+
+export type AnalyticsDurationGroup = (typeof ANALYTICS_DURATION_GROUPS)[number];
+
+export const ANALYTICS_MEASURES = [
+  "span_duration",
+  "tool_latency",
+  "verification_time",
+  "queue_wait",
+  "review_wait",
+  "revision_turns",
+] as const;
+
+export type AnalyticsMeasure = (typeof ANALYTICS_MEASURES)[number];
+
+export interface AnalyticsRange {
+  readonly from?: number;
+  readonly to?: number;
+  readonly project_id?: string;
+  readonly node_id?: string;
+  readonly bucket?: AnalyticsBucket;
+}
+
+export interface AnalyticsCostQuery extends AnalyticsRange {
+  readonly group_by?: AnalyticsCostGroup;
+}
+
+export interface AnalyticsDurationQuery extends AnalyticsRange {
+  readonly measure: AnalyticsMeasure;
+  readonly operation?: string;
+  readonly group_by?: AnalyticsDurationGroup;
+}
+
+export interface AnalyticsCostItem {
+  readonly key: string | null;
+  readonly bucket_start: number | null;
+  readonly turn_count: number;
+  readonly input_tokens: number;
+  readonly output_tokens: number;
+  readonly cache_read_tokens: number;
+  readonly cache_creation_tokens: number;
+  readonly total_tokens: number;
+  readonly cost_usd: number;
+}
+
+export interface AnalyticsDurationItem {
+  readonly key: string | null;
+  readonly bucket_start: number | null;
+  readonly count: number;
+  readonly p50: number;
+  readonly p90: number;
+  readonly p99: number;
+  readonly mean: number;
+  readonly max: number;
+}
+
+export interface AnalyticsPage<T> {
+  readonly items: readonly T[];
+  readonly truncated: boolean;
+}
