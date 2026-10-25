@@ -8,6 +8,7 @@ import { ApiError } from "../errors";
 import {
   listSessionEntryPage,
   listTracePage,
+  listTimelinePage,
   listTraceSpans,
   readSessionEntry,
   readTrace,
@@ -70,6 +71,54 @@ describe("listTracePage", () => {
       "/api/tracking/trace?min_cost_usd=0&sort=cost_usd&limit=20",
     ]);
     expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
+  });
+});
+
+describe("listTimelinePage", () => {
+  it("requests a node scope with depth 2, the limit and no cursor", async () => {
+    await connect([{ body: { items: [], next_cursor: null } }]);
+
+    expect(await listTimelinePage({ node_id: "node-1" }, null, 4)).toEqual({
+      items: [],
+      next_cursor: null,
+    });
+    expect(seen[0]?.url).toBe("/api/tracking/timeline?node_id=node-1&depth=2&limit=4");
+    expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
+  });
+
+  it("appends the encoded cursor after the limit", async () => {
+    await connect([{ body: { items: [], next_cursor: "8" } }]);
+
+    expect(await listTimelinePage({ node_id: "node-1" }, "a/b", 4)).toEqual({
+      items: [],
+      next_cursor: "8",
+    });
+    expect(seen[0]?.url).toBe("/api/tracking/timeline?node_id=node-1&depth=2&limit=4&cursor=a%2Fb");
+  });
+
+  it("sets the parameters of a project scope and of an execution scope", async () => {
+    await connect([
+      { body: { items: [], next_cursor: null } },
+      { body: { items: [], next_cursor: null } },
+    ]);
+
+    await listTimelinePage({ project_id: "prj-1" }, null, 500);
+    await listTimelinePage({ execution_id: "exec-1" }, null, 500);
+
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/tracking/timeline?project_id=prj-1&depth=2&limit=500",
+      "/api/tracking/timeline?execution_id=exec-1&depth=2&limit=500",
+    ]);
+  });
+
+  it("sets depth 1 and the range as from and to", async () => {
+    await connect([{ body: { items: [], next_cursor: null } }]);
+
+    await listTimelinePage({ node_id: "node-1", depth: 1, from: 1000, to: 2000 }, null, 10);
+
+    expect(seen[0]?.url).toBe(
+      "/api/tracking/timeline?node_id=node-1&depth=1&from=1000&to=2000&limit=10",
+    );
   });
 });
 

@@ -127,10 +127,10 @@ export function TraceScreen() {
       />
       <Tabs value={selection.tab} onValueChange={(value) => selection.selectTab(String(value))}>
         <TabsList>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="span_tree">Span tree</TabsTrigger>
           <TabsTrigger value="conversation">Conversation</TabsTrigger>
         </TabsList>
-        <TabsContent value="timeline">
+        <TabsContent value="span_tree">
           <TimelineTab
             traceId={summary.trace_id}
             spans={trace.spans}

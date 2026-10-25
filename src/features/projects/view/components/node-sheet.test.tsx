@@ -375,7 +375,7 @@ describe("NodeSheet", () => {
     renderSheet("node_held");
 
     const controls = await screen.findByRole("region", { name: "Controls" });
-    expect(within(controls).getByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(await within(controls).findByRole("button", { name: "Resume" })).toBeTruthy();
     expect(within(controls).getByRole("button", { name: "Override" })).toBeTruthy();
     expect(within(controls).getByRole("button", { name: "Discard" })).toBeTruthy();
     expect(schedulerApi.listNodeExecutions).not.toHaveBeenCalled();

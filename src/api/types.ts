@@ -1391,8 +1391,8 @@ export interface TraceListQuery {
   readonly state?: TraceState;
   readonly error_type?: string;
   readonly q?: string;
-  readonly started_from?: number;
-  readonly started_to?: number;
+  readonly from?: number;
+  readonly to?: number;
   readonly min_duration_ms?: number;
   readonly max_duration_ms?: number;
   readonly min_total_tokens?: number;
@@ -1401,3 +1401,65 @@ export interface TraceListQuery {
   readonly max_cost_usd?: number;
   readonly sort?: TraceSort;
 }
+
+export const ACT_OPERATIONS = [
+  "mission.node.pause",
+  "mission.node.resume",
+  "mission.node.ready",
+  "mission.node.block",
+  "mission.node.unblock",
+  "mission.node.discard",
+  "mission.node.override",
+  "mission.proposal.approve",
+  "mission.evidence.delete",
+] as const;
+
+export type ActOperation = (typeof ACT_OPERATIONS)[number];
+
+export const TRANSITION_RULES = [
+  "none",
+  "failure_limit",
+  "further_work_limit",
+  "rework_limit",
+] as const;
+
+export type TransitionRule = (typeof TRANSITION_RULES)[number];
+
+export const REVOKE_CAUSES = ["assessment", "human"] as const;
+
+export type RevokeCause = (typeof REVOKE_CAUSES)[number];
+
+export type TimelineDepth = 1 | 2;
+
+export interface TimelineItem extends TraceSpan {
+  readonly depth: TimelineDepth;
+  readonly duration_ms: number | null;
+  readonly project_id: string;
+  readonly node_id: string | null;
+  readonly execution_id: string | null;
+  readonly attempt: number | null;
+  readonly worker_name: string | null;
+}
+
+export type TimelineScope =
+  | {
+      readonly execution_id: string;
+      readonly node_id?: never;
+      readonly project_id?: never;
+    }
+  | {
+      readonly node_id: string;
+      readonly execution_id?: never;
+      readonly project_id?: never;
+    }
+  | {
+      readonly project_id: string;
+      readonly execution_id?: never;
+      readonly node_id?: never;
+    };
+
+export type TimelineQuery = TimelineScope & {
+  readonly depth?: TimelineDepth;
+  readonly from?: number;
+  readonly to?: number;
+};

@@ -61,7 +61,7 @@ describe("traceQueryOf", () => {
   });
 
   it("uses the default range when range is absent", () => {
-    expect(traceQueryOf(new URLSearchParams(), NOW)).toEqual({ started_from: NOW - 7 * DAY });
+    expect(traceQueryOf(new URLSearchParams(), NOW)).toEqual({ from: NOW - 7 * DAY });
   });
 
   it.each([
@@ -69,18 +69,21 @@ describe("traceQueryOf", () => {
     ["24h", DAY],
     ["7d", 7 * DAY],
     ["30d", 30 * DAY],
-  ])("maps range %s to started_from", (range, ms) => {
-    expect(traceQueryOf(new URLSearchParams({ range }), NOW).started_from).toBe(NOW - ms);
+  ])("maps range %s to from", (range, ms) => {
+    expect(traceQueryOf(new URLSearchParams({ range }), NOW).from).toBe(NOW - ms);
   });
 
-  it("sets no started_from for all", () => {
+  it("sets no from for all", () => {
     expect(traceQueryOf(new URLSearchParams({ range: "all" }), NOW)).toEqual({});
   });
 
+  it("sets no to and no started_from", () => {
+    const query = traceQueryOf(new URLSearchParams({ range: "1h" }), NOW);
+    expect(query).toEqual({ from: NOW - HOUR });
+  });
+
   it("falls back to the default range for an unknown range", () => {
-    expect(traceQueryOf(new URLSearchParams({ range: "1y" }), NOW).started_from).toBe(
-      NOW - 7 * DAY,
-    );
+    expect(traceQueryOf(new URLSearchParams({ range: "1y" }), NOW).from).toBe(NOW - 7 * DAY);
   });
 
   it("drops an empty key", () => {

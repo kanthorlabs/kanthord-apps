@@ -73,7 +73,7 @@ export function traceQueryOf(params: URLSearchParams, now: number): TraceListQue
   if (sort) query.sort = sort;
   const rangeParam = params.get("range");
   const range = isTimeRange(rangeParam) ? rangeParam : DEFAULT_TIME_RANGE;
-  if (range !== "all") query.started_from = now - TIME_RANGE_MS[range];
+  if (range !== "all") query.from = now - TIME_RANGE_MS[range];
   return query;
 }
 

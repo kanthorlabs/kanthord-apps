@@ -4,7 +4,7 @@ import type { TraceSpan } from "@/api/types";
 import { sessionSpansOf } from "@/lib/conversation-spans";
 import { withParam } from "@/lib/trace-query";
 
-const DEFAULT_TAB = "timeline";
+const DEFAULT_TAB = "span_tree";
 const CONVERSATION_TAB = "conversation";
 const TABS: readonly string[] = [DEFAULT_TAB, CONVERSATION_TAB];
 const NO_SPANS: readonly TraceSpan[] = [];
