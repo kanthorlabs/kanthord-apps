@@ -75,6 +75,13 @@ export function useTimelinePages(query: TimelineQuery | null): TimelinePages {
     stateRef.current = state;
   });
 
+  useEffect(
+    () => () => {
+      queued.current = false;
+    },
+    [],
+  );
+
   const run = useCallback(function run(load: Load) {
     const current = queryRef.current;
     const { pages, key: origin } = stateRef.current;
@@ -123,6 +130,7 @@ export function useTimelinePages(query: TimelineQuery | null): TimelinePages {
     function runQueued() {
       if (!queued.current) return;
       queued.current = false;
+      if ((stateRef.current.pages.at(-1)?.page.next_cursor ?? null) === null) return;
       run("more");
     }
   }, []);

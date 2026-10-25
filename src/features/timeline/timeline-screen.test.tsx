@@ -499,41 +499,98 @@ describe("TimelineScreen", () => {
     expect(listTimelinePage).toHaveBeenCalledTimes(2);
   });
 
-  it("loads the next page after a poll read when Load more is pressed during the poll read", async () => {
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    const first = {
+  describe("Load more during a poll read", () => {
+    const OPEN_PAGE = {
       items: [span("root_a", { end_time: null, duration_ms: null })],
-      next_cursor: "cursor_1",
+      next_cursor: "cursor_1" as string | null,
     };
-    let finishPoll: (page: typeof first) => void = () => undefined;
-    vi.mocked(listTimelinePage)
-      .mockResolvedValueOnce(first)
-      .mockImplementationOnce(
-        () =>
-          new Promise((resolve) => {
-            finishPoll = resolve;
-          }),
-      )
-      .mockResolvedValueOnce({
-        items: [span("root_b", { trace_id: "trace_b", attempt: 2, start_time: START + 600_000 })],
-        next_cursor: null,
+    const NEXT_PAGE = {
+      items: [span("root_b", { trace_id: "trace_b", attempt: 2, start_time: START + 600_000 })],
+      next_cursor: null,
+    };
+
+    function cursorCalls(cursor: string): number {
+      return vi.mocked(listTimelinePage).mock.calls.filter(([, call]) => call === cursor).length;
+    }
+
+    async function pressDuringPoll() {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+      const poll: {
+        resolve: (page: typeof OPEN_PAGE) => void;
+        reject: (cause: unknown) => void;
+      } = { resolve: () => undefined, reject: () => undefined };
+      vi.mocked(listTimelinePage)
+        .mockResolvedValueOnce(OPEN_PAGE)
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve, reject) => {
+              poll.resolve = resolve;
+              poll.reject = reject;
+            }),
+        )
+        .mockResolvedValueOnce(NEXT_PAGE);
+      const user = userEvent.setup();
+      const view = mount();
+      const more = await screen.findByRole("button", { name: "Load more" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(POLL_MS);
       });
-    const user = userEvent.setup();
-    mount();
-    const more = await screen.findByRole("button", { name: "Load more" });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(POLL_MS);
-    });
-    expect(listTimelinePage).toHaveBeenCalledTimes(2);
+      expect(listTimelinePage).toHaveBeenCalledTimes(2);
+      await user.click(more);
+      return { poll, more, view };
+    }
 
-    await user.click(more);
-    await act(async () => {
-      finishPoll(first);
-      await Promise.resolve();
+    it("disables Load more while the press waits and loads the next page after the poll read", async () => {
+      const { poll, more } = await pressDuringPoll();
+      expect(more).toBeDisabled();
+
+      await act(async () => {
+        poll.resolve(OPEN_PAGE);
+        await Promise.resolve();
+      });
+
+      expect(await screen.findByText("Execution attempt 2")).toBeInTheDocument();
+      expect(listTimelinePage).toHaveBeenCalledTimes(3);
+      expect(cursorCalls("cursor_1")).toBe(1);
+      expect(listTimelinePage).toHaveBeenLastCalledWith({ node_id: "node_1" }, "cursor_1", 200);
     });
 
-    expect(await screen.findByText("Execution attempt 2")).toBeInTheDocument();
-    expect(listTimelinePage).toHaveBeenLastCalledWith({ node_id: "node_1" }, "cursor_1", 200);
+    it("loads the next page once after a poll read that fails", async () => {
+      const { poll } = await pressDuringPoll();
+
+      await act(async () => {
+        poll.reject(new ApiError("unavailable", "The daemon is down.", 503));
+        await Promise.resolve();
+      });
+
+      expect(await screen.findByText("Execution attempt 2")).toBeInTheDocument();
+      expect(listTimelinePage).toHaveBeenCalledTimes(3);
+      expect(cursorCalls("cursor_1")).toBe(1);
+    });
+
+    it("reads nothing more when the poll read answers no next page", async () => {
+      const { poll } = await pressDuringPoll();
+
+      await act(async () => {
+        poll.resolve({ ...OPEN_PAGE, next_cursor: null });
+        await Promise.resolve();
+      });
+
+      await waitFor(() => expect(screen.queryByRole("button", { name: "Load more" })).toBeNull());
+      expect(listTimelinePage).toHaveBeenCalledTimes(2);
+    });
+
+    it("reads nothing more after an unmount", async () => {
+      const { poll, view } = await pressDuringPoll();
+      view.unmount();
+
+      await act(async () => {
+        poll.resolve(OPEN_PAGE);
+        await Promise.resolve();
+      });
+
+      expect(listTimelinePage).toHaveBeenCalledTimes(2);
+    });
   });
 
   it("reads once when no root span is open", async () => {
