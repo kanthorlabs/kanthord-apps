@@ -1,18 +1,17 @@
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import type { TraceSpan, TraceState } from "@/api/types";
+import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useLargeScreen } from "@/hooks/use-large-screen";
+import { ErrorRole } from "@/lib/causal-span";
 import { durationText } from "@/lib/format";
-import { spanLabel } from "@/lib/span-labels";
-import { costText, tokenText } from "@/lib/trace-format";
-import type { SpanNode } from "@/lib/trace-tree";
+import { INDENT_PX, MAX_INDENT_LEVEL, type SpanStepRow, type TurnGroupRow } from "@/lib/step-tree";
 import { waterfallBar, type TraceAxis } from "@/lib/trace-waterfall";
 
-import type { Timeline } from "../use-timeline";
-
-const INDENT_PX = 16;
+import { isSpanRow, type Timeline } from "../use-timeline";
 
 function durationOf(span: TraceSpan, traceState: TraceState): string {
   if (span.start_time === null) return "No start recorded";
@@ -29,7 +28,7 @@ interface WaterfallProps {
 function Waterfall({ span, axis, traceState }: WaterfallProps) {
   const bar = waterfallBar(span, axis, traceState);
   return (
-    <div className="w-full md:w-1/2" aria-hidden="true">
+    <div className="w-32 shrink-0" aria-hidden="true">
       <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
           className={`absolute inset-y-0 rounded-full ${span.status === "Error" ? "bg-destructive" : "bg-primary"}`}
@@ -40,76 +39,164 @@ function Waterfall({ span, axis, traceState }: WaterfallProps) {
   );
 }
 
+interface ChevronProps {
+  readonly expanded: boolean;
+  readonly label: string;
+  readonly tabbable: boolean;
+  readonly onToggle: () => void;
+}
+
+function Chevron({ expanded, label, tabbable, onToggle }: ChevronProps) {
+  return (
+    <TouchTarget>
+      <Button
+        variant="ghost"
+        size="icon-xs"
+        className="min-w-11 lg:min-w-0"
+        tabIndex={tabbable ? 0 : -1}
+        aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+      >
+        {expanded ? (
+          <ChevronDownIcon aria-hidden="true" />
+        ) : (
+          <ChevronRightIcon aria-hidden="true" />
+        )}
+      </Button>
+    </TouchTarget>
+  );
+}
+
+function Lead({ depth, children }: { readonly depth: number; readonly children: ReactNode }) {
+  return (
+    <div
+      className="flex min-w-0 flex-1 items-center gap-1"
+      style={{ paddingLeft: Math.min(depth, MAX_INDENT_LEVEL) * INDENT_PX }}
+    >
+      {depth > MAX_INDENT_LEVEL && (
+        <span className="shrink-0 text-xs text-muted-foreground" aria-label={`Depth ${depth}`}>
+          {depth}
+        </span>
+      )}
+      {children}
+    </div>
+  );
+}
+
+const ROW_CLASS =
+  "flex min-h-11 min-w-0 items-center gap-2 rounded-md border border-transparent px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-selected:border-primary aria-selected:bg-muted lg:min-h-0 lg:py-1.5";
+
+interface StatusProps {
+  readonly span: TraceSpan;
+  readonly role: ErrorRole | undefined;
+}
+
+function Status({ span, role }: StatusProps) {
+  if (role === ErrorRole.Recovered) return <span className="text-muted-foreground">recovered</span>;
+  return (
+    <>
+      {role === ErrorRole.Causal && <Badge variant="outline">Cause</Badge>}
+      {span.status === "Error" && <Badge variant="destructive">Error</Badge>}
+    </>
+  );
+}
+
 interface SpanRowProps {
-  readonly node: SpanNode;
+  readonly row: SpanStepRow;
   readonly timeline: Timeline;
   readonly traceState: TraceState;
+  readonly large: boolean;
   readonly selected: boolean;
   readonly tabbable: boolean;
   readonly onSelect: (spanId: string) => void;
 }
 
-function SpanRow({ node, timeline, traceState, selected, tabbable, onSelect }: SpanRowProps) {
-  const { span } = node;
+function SpanRow({ row, timeline, traceState, large, selected, tabbable, onSelect }: SpanRowProps) {
+  const { span } = row;
   const element = useRef<HTMLDivElement>(null);
-  const label = spanLabel(span);
-  const hasChildren = node.children.length > 0;
-  const expanded = timeline.isExpanded(node);
-  const usage = timeline.usage.get(span.span_id);
+  const expanded = timeline.isExpanded(row);
 
   useEffect(() => {
-    const row = element.current;
-    if (!selected || row === null) return;
-    row.scrollIntoView({ block: "nearest" });
-    if (row.closest('[role="tree"]')?.contains(document.activeElement)) row.focus();
+    const item = element.current;
+    if (!selected || item === null) return;
+    item.scrollIntoView({ block: "nearest" });
+    if (item.closest('[role="tree"]')?.contains(document.activeElement)) item.focus();
   }, [selected]);
 
   return (
     <div
       ref={element}
       role="treeitem"
-      aria-level={node.depth + 1}
+      aria-label={row.label}
+      aria-level={row.depth + 1}
       aria-selected={selected}
-      aria-expanded={hasChildren ? expanded : undefined}
+      aria-expanded={row.hasChildren ? expanded : undefined}
       tabIndex={tabbable ? 0 : -1}
       onClick={() => onSelect(span.span_id)}
       onKeyDown={timeline.onKey}
-      className="flex min-w-0 flex-col gap-1 rounded-md border border-transparent px-2 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-selected:border-primary aria-selected:bg-muted md:flex-row md:items-center md:gap-3"
+      className={ROW_CLASS}
     >
-      <div
-        className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:w-1/2"
-        style={{ paddingLeft: node.depth * INDENT_PX }}
-      >
-        {hasChildren ? (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            tabIndex={-1}
-            aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
-            onClick={() => timeline.toggle(span.span_id)}
-          >
-            {expanded ? (
-              <ChevronDownIcon aria-hidden="true" />
-            ) : (
-              <ChevronRightIcon aria-hidden="true" />
-            )}
-          </Button>
+      <Lead depth={row.depth}>
+        {row.hasChildren ? (
+          <Chevron
+            expanded={expanded}
+            label={row.label}
+            tabbable={false}
+            onToggle={() => timeline.toggle(span.span_id)}
+          />
         ) : (
-          <span className="size-6 shrink-0" aria-hidden="true" />
+          <span className="w-11 shrink-0 lg:w-6" aria-hidden="true" />
         )}
-        <span className="font-medium break-all">{label}</span>
-        <span className="text-muted-foreground">{durationOf(span, traceState)}</span>
-        {usage !== undefined && (
-          <span className="text-muted-foreground">
-            {`${tokenText(usage.tokens)} tokens · Est. cost ${costText(usage.costUsd)}`}
-          </span>
-        )}
-        {span.status === "Error" && <Badge variant="destructive">Error</Badge>}
-        {node.parentMissing && <span className="text-muted-foreground">parent not stored</span>}
-      </div>
-      {timeline.axis !== null && (
+        <span className="min-w-0 flex-1 truncate font-medium">{row.label}</span>
+      </Lead>
+      <span className="shrink-0 text-muted-foreground">{durationOf(span, traceState)}</span>
+      <Status span={span} role={timeline.roleOf(span.span_id)} />
+      {large && timeline.axis !== null && (
         <Waterfall span={span} axis={timeline.axis} traceState={traceState} />
       )}
+    </div>
+  );
+}
+
+interface GroupRowProps {
+  readonly row: TurnGroupRow;
+  readonly timeline: Timeline;
+}
+
+function GroupRow({ row, timeline }: GroupRowProps) {
+  const expanded = timeline.isExpanded(row);
+  const label = `Turns ${row.first}-${row.last}`;
+  return (
+    <div
+      role="treeitem"
+      aria-label={label}
+      aria-level={row.depth + 1}
+      aria-selected={false}
+      aria-expanded={expanded}
+      tabIndex={-1}
+      onClick={() => timeline.toggle(row.key)}
+      onKeyDown={timeline.onKey}
+      className={ROW_CLASS}
+    >
+      <Lead depth={row.depth}>
+        <Chevron
+          expanded={expanded}
+          label={label}
+          tabbable
+          onToggle={() => timeline.toggle(row.key)}
+        />
+        <span className="min-w-0 flex-1 truncate font-medium">{label}</span>
+      </Lead>
+      <span className="shrink-0 text-muted-foreground">{`${row.turnCount} turns`}</span>
+      <span className="shrink-0 text-muted-foreground">{durationText(row.durationMs)}</span>
+      <span
+        className={`shrink-0 ${row.toolErrorCount > 0 ? "text-destructive" : "text-muted-foreground"}`}
+      >
+        {`${row.toolErrorCount} tool ${row.toolErrorCount === 1 ? "error" : "errors"}`}
+      </span>
     </div>
   );
 }
@@ -122,7 +209,9 @@ interface SpanTreeProps {
 }
 
 export function SpanTree({ timeline, traceState, selectedSpanId, onSelect }: SpanTreeProps) {
-  const selectedVisible = timeline.rows.some((row) => row.span.span_id === selectedSpanId);
+  const large = useLargeScreen();
+  const spanRows = timeline.rows.filter(isSpanRow);
+  const selectedVisible = spanRows.some((row) => row.span.span_id === selectedSpanId);
   return (
     <div
       role="tree"
@@ -131,16 +220,18 @@ export function SpanTree({ timeline, traceState, selectedSpanId, onSelect }: Spa
       onKeyDown={timeline.onKey}
       className="flex min-w-0 flex-col gap-1"
     >
-      {timeline.rows.map((node, index) => {
-        const selected = node.span.span_id === selectedSpanId;
+      {timeline.rows.map((row) => {
+        if (!isSpanRow(row)) return <GroupRow key={row.key} row={row} timeline={timeline} />;
+        const selected = row.span.span_id === selectedSpanId;
         return (
           <SpanRow
-            key={node.span.span_id}
-            node={node}
+            key={row.span.span_id}
+            row={row}
             timeline={timeline}
             traceState={traceState}
+            large={large}
             selected={selected}
-            tabbable={selected || (!selectedVisible && index === 0)}
+            tabbable={selected || (!selectedVisible && row === spanRows[0])}
             onSelect={onSelect}
           />
         );

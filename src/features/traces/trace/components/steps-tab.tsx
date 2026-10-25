@@ -1,6 +1,7 @@
-import type { TraceSpan, TraceState } from "@/api/types";
+import type { TraceSpan, TraceState, TraceSummary } from "@/api/types";
 import { useLargeScreen } from "@/hooks/use-large-screen";
 
+import { useNodeRevision } from "../use-node-revision";
 import { useTimeline } from "../use-timeline";
 import type { TraceSelection } from "../use-trace-selection";
 import { SpanDetail } from "./span-detail";
@@ -10,13 +11,15 @@ import { TimelineToolbar } from "./timeline-toolbar";
 
 interface StepsTabProps {
   readonly traceId: string;
+  readonly summary: TraceSummary;
   readonly spans: readonly TraceSpan[];
   readonly traceState: TraceState;
   readonly selection: TraceSelection;
 }
 
-export function StepsTab({ traceId, spans, traceState, selection }: StepsTabProps) {
-  const timeline = useTimeline(spans, selection);
+export function StepsTab({ traceId, summary, spans, traceState, selection }: StepsTabProps) {
+  const { taskNames } = useNodeRevision(summary);
+  const timeline = useTimeline(spans, selection, taskNames);
   const large = useLargeScreen();
   const { selected } = timeline;
   const detail =
