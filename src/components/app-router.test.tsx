@@ -31,6 +31,10 @@ vi.mock("@/features/scheduler/board/scheduler-screen", () => ({
   SchedulerScreen: () => <p>Scheduler body</p>,
 }));
 
+vi.mock("@/features/timeline/timeline-screen", () => ({
+  TimelineScreen: () => <p>Timeline body</p>,
+}));
+
 import { AppRouter } from "./app-router";
 
 describe("AppRouter", () => {
@@ -40,5 +44,13 @@ describe("AppRouter", () => {
     render(<AppRouter />);
 
     expect(screen.getByText("Scheduler body")).toBeInTheDocument();
+  });
+
+  it("serves the timeline at its own route", () => {
+    window.history.pushState({}, "", "/timeline?node_id=node_1");
+
+    render(<AppRouter />);
+
+    expect(screen.getByText("Timeline body")).toBeInTheDocument();
   });
 });

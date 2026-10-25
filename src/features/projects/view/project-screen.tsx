@@ -81,6 +81,14 @@ export function ProjectScreen() {
             </Button>
             <Button
               nativeButton={false}
+              render={<Link to={`/timeline?project_id=${encodeURIComponent(project.id)}`} />}
+              variant="outline"
+              size="sm"
+            >
+              Timeline
+            </Button>
+            <Button
+              nativeButton={false}
               render={<Link to={`/projects/${encodeURIComponent(project.id)}/edit`} />}
               variant="outline"
               size="sm"

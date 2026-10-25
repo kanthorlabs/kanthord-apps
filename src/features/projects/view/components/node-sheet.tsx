@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -52,6 +54,18 @@ export function NodeSheet({
               ? `The mission graph holds no node ${selectedId ?? ""}.`
               : `${node.intent} · ${node.filename}`}
           </SheetDescription>
+          {node !== undefined && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                nativeButton={false}
+                render={<Link to={`/timeline?node_id=${encodeURIComponent(node.id)}`} />}
+                variant="outline"
+                size="sm"
+              >
+                Timeline
+              </Button>
+            </div>
+          )}
         </SheetHeader>
         {node !== undefined && (
           <Tabs
