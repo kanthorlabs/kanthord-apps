@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from "react";
 
-import type { MissionProposal, SchedulerExecutionRecord } from "@/api/types";
+import type { EffectiveCause, MissionProposal, SchedulerExecutionRecord } from "@/api/types";
 import { useNodeCheck, type NodeCheckState } from "@/hooks/use-node-check";
 import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
 import { useNodeOverride, type NodeOverrideState } from "@/hooks/use-node-override";
@@ -16,6 +16,7 @@ import {
 } from "@/lib/external-requests";
 
 import { useDependencyRemove, type DependencyRemoveState } from "./use-dependency-remove";
+import { useLastTraceCause } from "./use-last-trace-cause";
 
 export interface DecisionActs {
   readonly unblock: NodeUnblockState;
@@ -31,6 +32,7 @@ export interface DecisionActs {
   readonly proposals: readonly MissionProposal[];
   readonly unresolved: string | null;
   readonly lastTraceId: string | null;
+  readonly lastTraceCause: EffectiveCause | null;
 }
 
 interface DecisionContext {
@@ -49,7 +51,10 @@ const NO_PROPOSALS: readonly MissionProposal[] = [];
 
 const READY: ReadState = { ready: true, waiting: null, failed: false };
 
-function lastTraceIdOf(item: DecisionAttentionItem, detail: AttentionDetail | null): string | null {
+function newestExecutionOf(
+  item: DecisionAttentionItem,
+  detail: AttentionDetail | null,
+): SchedulerExecutionRecord | null {
   if (item.kind !== "paused" || detail?.kind !== "paused") return null;
   if (detail.executions.status !== "ready") return null;
   const newest = detail.executions.data.reduce<SchedulerExecutionRecord | null>(
@@ -57,7 +62,7 @@ function lastTraceIdOf(item: DecisionAttentionItem, detail: AttentionDetail | nu
       latest === null || execution.created_at > latest.created_at ? execution : latest,
     null,
   );
-  return newest?.trace_id ?? null;
+  return newest;
 }
 
 function proposalsStateOf(detail: AttentionDetail | null): ReadState {
@@ -150,6 +155,8 @@ export function useDecisionActs(
   const itemId = item.id;
   const checkActed = useCallback(() => markActed(itemId), [markActed, itemId]);
   const check = useNodeCheck(node, missionVersion, actions, checkActed, reload);
+  const newestExecution = newestExecutionOf(item, detail);
+  const lastTraceCause = useLastTraceCause(newestExecution?.execution_id ?? null);
   const open =
     unblock.open ||
     approve.target !== null ||
@@ -182,7 +189,8 @@ export function useDecisionActs(
             item.kind === "paused",
             item.kind === "dependency_discarded" ? "Discard waits" : undefined,
           ),
-    lastTraceId: lastTraceIdOf(item, detail),
+    lastTraceId: newestExecution?.trace_id ?? null,
+    lastTraceCause,
     ...readStateOf(item, detail),
   };
 }

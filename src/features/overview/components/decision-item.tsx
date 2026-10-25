@@ -8,6 +8,7 @@ import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 import { ProposalApproveDialog } from "@/components/proposal-approve-dialog";
 import { RecordName } from "@/components/record-name";
 import { Reveal } from "@/components/reveal";
+import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
@@ -15,6 +16,7 @@ import type { AttentionDetail, DecisionAttentionItem } from "@/lib/attention";
 import { nodePath } from "@/lib/node-path";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
+import { causeLine } from "@/lib/trace-cause";
 
 import { useDecisionActs } from "../use-decision-acts";
 import { AssessmentPanel } from "./assessment-panel";
@@ -153,14 +155,23 @@ export function DecisionItem({
               </Button>
             ))}
           {acts.lastTraceId !== null && (
-            <Button
-              nativeButton={false}
-              render={<Link to={`/traces/${encodeURIComponent(acts.lastTraceId)}`} />}
-              variant="outline"
-              size="sm"
-            >
-              Last trace
-            </Button>
+            <>
+              <TouchTarget>
+                <Button
+                  nativeButton={false}
+                  render={<Link to={`/traces/${encodeURIComponent(acts.lastTraceId)}`} />}
+                  variant="outline"
+                  size="sm"
+                >
+                  Last trace
+                </Button>
+              </TouchTarget>
+              {acts.lastTraceCause !== null && (
+                <span className="text-sm text-muted-foreground">
+                  {causeLine(acts.lastTraceCause)}
+                </span>
+              )}
+            </>
           )}
           {item.kind === "paused" && acts.resume.available && (
             <Button variant="outline" size="sm" onClick={acts.resume.request}>
