@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-export const STICKY_OFFSET_PROPERTY = "--trace-sticky-height";
+const STICKY_OFFSET_PROPERTY = "--trace-sticky-height";
 
 export function useStickyOffset(): (element: HTMLElement | null) => void | (() => void) {
   return useCallback((element) => {
