@@ -1,6 +1,6 @@
 import type { AnalyticsDurationItem, AnalyticsMeasure } from "@/api/types";
 
-import { bucketTextOf, costKeyLabel, type CostField } from "./analytics-cost-rows";
+import { bucketTextOf, costKeyLabel, tracesPathOf, type CostField } from "./analytics-cost-rows";
 import type { AnalyticsSelectableBucket, TimeGroupName } from "./analytics-query";
 import { durationText } from "./format";
 
@@ -18,6 +18,7 @@ export interface TimeRow {
   readonly scale: number;
   readonly marks: readonly TimeMark[];
   readonly barLabel: string;
+  readonly tracesPath: string | null;
 }
 
 const ALL_TITLE = "All";
@@ -75,6 +76,7 @@ export function timeRowsOf(
         percent: (value / scale) * FULL_PERCENT,
       })),
       barLabel: `Time of ${title}${bucketText === null ? "" : ` ${bucketText}`}: ${texts.join(", ")}`,
+      tracesPath: tracesPathOf(group, item.key),
     };
   });
 }

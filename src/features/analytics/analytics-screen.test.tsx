@@ -304,6 +304,17 @@ describe("AnalyticsScreen", () => {
     expect(screen.getByText("Unknown")).toBeInTheDocument();
   });
 
+  it("links a cost row grouped by model to the filtered trace list", async () => {
+    answer(page([item({ key: "gpt-5" })]));
+    mount();
+
+    const list = await screen.findByRole("list", { name: "Cost" });
+    expect(await within(list).findByRole("button", { name: "Traces" })).toHaveAttribute(
+      "href",
+      "/traces?model=gpt-5",
+    );
+  });
+
   it("shows the project name in a project group row", async () => {
     answer(page([item({ key: "prj_2" })]));
     mount("/analytics?group_by=project_id");
@@ -509,6 +520,18 @@ describe("AnalyticsScreen", () => {
 
       expect(await screen.findByText("Audit log")).toBeInTheDocument();
       expect(screen.getByText("Unknown")).toBeInTheDocument();
+    });
+
+    it("links a time row grouped by node to the filtered trace list", async () => {
+      answerDuration(durationPage([duration({ key: "node_1" }), duration({ key: null })]));
+      mount("/analytics?time_group_by=node_id");
+
+      const list = await screen.findByRole("list", { name: "Time" });
+      expect(await within(list).findByRole("button", { name: "Traces" })).toHaveAttribute(
+        "href",
+        "/traces?node_id=node_1",
+      );
+      expect(within(list).getAllByRole("button", { name: "Traces" })).toHaveLength(1);
     });
 
     it("shows the project name in a project group row", async () => {

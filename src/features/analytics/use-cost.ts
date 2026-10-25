@@ -86,7 +86,7 @@ export function useCost(
   );
 
   const rows = useMemo(
-    () => (read === null ? [] : costRowsOf(read.grouped.items, read.bucket, names)),
+    () => (read === null ? [] : costRowsOf(read.grouped.items, read.bucket, read.group, names)),
     [read, names],
   );
 
