@@ -1,3 +1,4 @@
+import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
@@ -6,11 +7,14 @@ import type {
   AnalyticsDurationItem,
   AnalyticsDurationQuery,
   AnalyticsPage,
+  CauseLabel,
+  CauseLabelBody,
   Page,
   TelemetryText,
   TimelineItem,
   TimelineQuery,
   TraceFacets,
+  TraceListItem,
   TraceListQuery,
   TraceSessionEntry,
   TraceSpan,
@@ -36,14 +40,14 @@ export async function listTracePage(
   query: TraceListQuery,
   cursor: string | null,
   limit: number,
-): Promise<Page<TraceSummary>> {
+): Promise<Page<TraceListItem>> {
   const params = new URLSearchParams();
   for (const [name, value] of Object.entries(query)) {
     if (value !== undefined) params.set(name, String(value));
   }
   params.set("limit", String(limit));
   if (cursor !== null) params.set("cursor", cursor);
-  return request<Page<TraceSummary>>(`${TRACE_PATH}?${params}`);
+  return request<Page<TraceListItem>>(`${TRACE_PATH}?${params}`);
 }
 
 export async function listTimelinePage(
@@ -97,6 +101,14 @@ export async function readTrace(traceId: string): Promise<TraceSummary> {
 export async function readTraceFacets(projectId: string | null): Promise<TraceFacets> {
   const query = projectId === null ? "" : `?project_id=${encodeURIComponent(projectId)}`;
   return request<TraceFacets>(`/api/tracking/facet${query}`);
+}
+
+export async function labelTraceCause(traceId: string, body: CauseLabelBody): Promise<CauseLabel> {
+  return request<CauseLabel>(`${tracePath(traceId)}/cause/label`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
 }
 
 export async function listTraceSpans(traceId: string): Promise<readonly TraceSpan[]> {

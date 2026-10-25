@@ -1328,11 +1328,99 @@ export interface TraceSummary {
   readonly root_attributes: Readonly<Record<string, SpanAttributeValue>> | null;
 }
 
+export const CAUSE_CATEGORIES = [
+  "prompt",
+  "plan",
+  "worker_action",
+  "llm_provider",
+  "model",
+  "environment",
+  "infrastructure",
+  "human",
+  "unattributed",
+] as const;
+
+export type CauseCategory = (typeof CAUSE_CATEGORIES)[number];
+
+const SUBCATEGORY_SETS = {
+  prompt: ["context_missing", "instruction_conflict", "rule_absent"],
+  plan: [
+    "criterion_unstated",
+    "dependency",
+    "verification_context",
+    "verification_insufficient",
+    "decomposition",
+    "oversized",
+  ],
+  worker_action: ["gate_commit", "merge_base", "release_gate", "review_flow", "step_failed"],
+  llm_provider: ["rate_limited", "quota_exhausted", "unavailable"],
+  model: [
+    "work_defect",
+    "standard_violation",
+    "verification_failed",
+    "no_progress",
+    "reply_invalid",
+    "protocol_violation",
+    "output_truncated",
+    "budget_exhausted",
+    "judgement_wrong",
+  ],
+  environment: [
+    "setup_failed",
+    "command_absent",
+    "flaky_verification",
+    "verification_hang",
+    "repository_hook",
+  ],
+  infrastructure: ["verification_killed", "network", "execution_lost"],
+  human: ["intervention", "configuration"],
+  unattributed: [],
+} as const satisfies Readonly<Record<CauseCategory, readonly string[]>>;
+
+export type CauseSubcategory = {
+  [Category in CauseCategory]: (typeof SUBCATEGORY_SETS)[Category][number];
+}[CauseCategory];
+
+export const CAUSE_SUBCATEGORIES: Readonly<Record<CauseCategory, readonly CauseSubcategory[]>> =
+  SUBCATEGORY_SETS;
+
+export const CAUSE_ASSIGNERS = ["rule", "reviewer", "human"] as const;
+
+export type CauseAssigner = (typeof CAUSE_ASSIGNERS)[number];
+
+export interface EffectiveCause {
+  readonly category: CauseCategory;
+  readonly assigner: CauseAssigner;
+  readonly subcategory?: CauseSubcategory;
+  readonly suspects?: readonly CauseCategory[];
+}
+
+export interface TraceListItem extends TraceSummary {
+  readonly cause: EffectiveCause | null;
+}
+
 export interface TraceFacets {
   readonly worker_names: readonly string[];
   readonly agent_names: readonly string[];
   readonly models: readonly string[];
   readonly error_types: readonly string[];
+  readonly cause_categories: readonly CauseCategory[];
+}
+
+export type LabelCategory = Exclude<CauseCategory, "unattributed">;
+
+export interface CauseLabelBody {
+  readonly category: LabelCategory;
+  readonly subcategory: CauseSubcategory;
+  readonly reason: string;
+}
+
+export interface CauseLabel {
+  readonly trace_id: string;
+  readonly span_id: string;
+  readonly cause: EffectiveCause;
+  readonly reason: string;
+  readonly created_at: number;
 }
 
 export type SpanStatus = "Unset" | "Ok" | "Error";
@@ -1400,6 +1488,7 @@ export interface TraceListQuery {
   readonly model?: string;
   readonly state?: TraceState;
   readonly error_type?: string;
+  readonly cause_category?: CauseCategory;
   readonly q?: string;
   readonly from?: number;
   readonly to?: number;
