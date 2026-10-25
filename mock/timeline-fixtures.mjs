@@ -68,6 +68,8 @@ const ACT_SPECS = [
   },
 ];
 
+const ENVIRONMENT_SPEC = { seed: "d08", startAgo: 30, endAgo: 25, bindingName: "main" };
+
 const padded = (seed, length) => `${seed}${"0".repeat(length - seed.length)}`;
 
 const summaryOf = (fields) => ({
@@ -220,7 +222,53 @@ const actTrace = (spec, now) => {
   };
 };
 
+const environmentTrace = (spec, now) => {
+  const traceId = padded(spec.seed, 32);
+  const rootSpanId = padded(spec.seed, 16);
+  const start = now - spec.startAgo * MINUTE_MS;
+  const end = now - spec.endAgo * MINUTE_MS;
+  const third = (end - start) / 3;
+  const { spans, add } = spanBuilder(traceId, rootSpanId);
+  const root = add("project.environment", null, start, end, {
+    "project.id": PROJECT_ID,
+    "project.binding.name": spec.bindingName,
+    "environment.target": "server",
+    "error.type": "proof_failed",
+  });
+  add("environment.build", root, start, start + third, {});
+  add("environment.setup", root, start + third, start + 2 * third, {});
+  const proof = add("environment.proof", root, start + 2 * third, end, {
+    "error.type": "proof_failed",
+  });
+  for (const span of spans) {
+    if (span.span_id === root || span.span_id === proof) span.status = "Error";
+  }
+  return {
+    summary: {
+      ...summaryOf({
+        traceId,
+        rootSpanId,
+        executionId: null,
+        attempt: null,
+        start,
+        end,
+        workerName: null,
+        spanCount: spans.length,
+      }),
+      node_id: null,
+      state: "error",
+      error_count: 2,
+      error_types: ["proof_failed"],
+      first_error_span_id: proof,
+    },
+    spans,
+    texts: [],
+    entries: [],
+  };
+};
+
 export const buildTimelineTraces = (now) => [
   ...EXECUTION_SPECS.map((spec) => executionTrace(spec, now)),
   ...ACT_SPECS.map((spec) => actTrace(spec, now)),
+  environmentTrace(ENVIRONMENT_SPEC, now),
 ];
