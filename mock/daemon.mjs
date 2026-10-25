@@ -2986,6 +2986,7 @@ registerTracking({
   envelope: projectEnvelope,
   page,
   executions: () => [...projectStates.values()].flatMap((state) => state.executions),
+  username: USERNAME,
 });
 
 const environments = registerEnvironments({

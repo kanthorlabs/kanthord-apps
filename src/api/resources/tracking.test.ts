@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setConnection } from "../client";
 import { ApiError } from "../errors";
 import {
+  labelTraceCause,
   listSessionEntryPage,
   listTracePage,
   listTimelinePage,
@@ -20,13 +21,22 @@ import {
 
 let server: Server | null = null;
 const seen: IncomingMessage[] = [];
+const bodies: string[] = [];
+const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 
 async function serve(answers: readonly { status?: number; body: unknown }[]): Promise<string> {
   const instance = createServer((req, res) => {
     const answer = answers[seen.length] ?? { body: null };
     seen.push(req);
-    res.writeHead(answer.status ?? 200, { "content-type": "application/json" });
-    res.end(JSON.stringify(answer.body));
+    let received = "";
+    req.on("data", (chunk: Buffer) => {
+      received += chunk.toString();
+    });
+    req.on("end", () => {
+      bodies.push(received);
+      res.writeHead(answer.status ?? 200, { "content-type": "application/json" });
+      res.end(JSON.stringify(answer.body));
+    });
   });
   server = instance;
   await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
@@ -44,6 +54,7 @@ const notFound = (code: string) => ({
 
 afterEach(async () => {
   seen.length = 0;
+  bodies.length = 0;
   setConnection(null);
   const instance = server;
   server = null;
@@ -73,6 +84,59 @@ describe("listTracePage", () => {
       "/api/tracking/trace?min_cost_usd=0&sort=cost_usd&limit=20",
     ]);
     expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
+  });
+});
+
+describe("listTracePage cause filter", () => {
+  it("sends cause_category with the other query fields", async () => {
+    await connect([{ body: { items: [], next_cursor: null } }]);
+
+    await listTracePage({ cause_category: "llm_provider", q: "provider_failed" }, null, 20);
+
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/tracking/trace?cause_category=llm_provider&q=provider_failed&limit=20",
+    ]);
+  });
+});
+
+describe("labelTraceCause", () => {
+  const label = {
+    trace_id: "a/b",
+    span_id: "root.cause_label",
+    cause: { category: "model", assigner: "human", subcategory: "work_defect" },
+    reason: "The reply ignores the criterion.",
+    created_at: 1,
+  };
+  const body = {
+    category: "model",
+    subcategory: "work_defect",
+    reason: "The reply ignores the criterion.",
+  } as const;
+
+  it("posts the label to the encoded trace with an idempotency key", async () => {
+    await connect([{ body: label }]);
+
+    expect(await labelTraceCause("a/b", body)).toEqual(label);
+    expect(seen[0]?.method).toBe("POST");
+    expect(seen[0]?.url).toBe("/api/tracking/trace/a%2Fb/cause/label");
+    expect(seen[0]?.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+    expect(JSON.parse(bodies[0] ?? "")).toEqual(body);
+  });
+
+  it("rejects an open trace with an ApiError", async () => {
+    await connect([
+      {
+        status: 409,
+        body: {
+          error: { code: "tracking.cause.trace_open", message: "Open.", details: null },
+          request_id: "req-1",
+        },
+      },
+    ]);
+
+    const failure = await labelTraceCause("t-1", body).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ApiError);
+    expect(failure).toMatchObject({ status: 409 });
   });
 });
 
@@ -143,7 +207,13 @@ describe("readTrace", () => {
 
 describe("readTraceFacets", () => {
   it("reads the facets of one project and of all projects", async () => {
-    const facets = { worker_names: [], agent_names: [], models: [], error_types: [] };
+    const facets = {
+      worker_names: [],
+      agent_names: [],
+      models: [],
+      error_types: [],
+      cause_categories: ["llm_provider"],
+    };
     await connect([{ body: facets }, { body: facets }]);
 
     expect(await readTraceFacets("prj 1")).toEqual(facets);

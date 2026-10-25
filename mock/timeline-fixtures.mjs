@@ -1,3 +1,4 @@
+import { causeAttributes } from "./cause.mjs";
 import * as fx from "./fixtures.mjs";
 
 const MINUTE_MS = 60_000;
@@ -47,8 +48,21 @@ const EXECUTION_SPECS = [
     cause: "human",
     rootStored: true,
     rootError: true,
+    rootCause: { category: "human", assigner: "rule", subcategory: "intervention" },
     childEnded: false,
     transition: { from: "Executing", to: "Paused", rule: "none" },
+  },
+  {
+    seed: "d10",
+    kind: "evaluation",
+    startAgo: 12,
+    endAgo: 8,
+    end: "finished",
+    rootStored: true,
+    rootError: true,
+    rootCause: { category: "model", assigner: "reviewer", subcategory: "work_defect" },
+    evaluation: { result: "criterion-not-met", stage: "judgement", unmetGrounds: ["stated"] },
+    transition: { from: "Waiting", to: "Available", rule: "none" },
   },
 ];
 
@@ -80,7 +94,13 @@ const ACT_SPECS = [
   },
 ];
 
-const ENVIRONMENT_SPEC = { seed: "d08", startAgo: 30, endAgo: 25, bindingName: "main" };
+const ENVIRONMENT_SPEC = {
+  seed: "d08",
+  startAgo: 30,
+  endAgo: 25,
+  bindingName: "main",
+  cause: { category: "environment", assigner: "rule", subcategory: "setup_failed" },
+};
 
 const padded = (seed, length) => `${seed}${"0".repeat(length - seed.length)}`;
 
@@ -156,6 +176,7 @@ const executionTrace = (spec, now) => {
     "kanthord.queue.wait_ms": 1200,
     "kanthord.execution.end": spec.end,
     ...(spec.cause === undefined ? {} : { "kanthord.revoke.cause": spec.cause }),
+    ...(spec.rootCause === undefined ? {} : causeAttributes(spec.rootCause)),
     "kanthord.worker.name": workerName,
   };
   const root = add("scheduler.execution", null, start, end, rootAttributes);
@@ -166,7 +187,20 @@ const executionTrace = (spec, now) => {
       "kanthord.phase": "tasks",
     });
   } else {
-    add("worker.evaluation", root, start + windowMs * 0.1, end - windowMs * 0.1, {});
+    const { evaluation } = spec;
+    add(
+      "worker.evaluation",
+      root,
+      start + windowMs * 0.1,
+      end - windowMs * 0.1,
+      evaluation === undefined
+        ? {}
+        : {
+            "kanthord.evaluation.result": evaluation.result,
+            "kanthord.evaluation.stage": evaluation.stage,
+            "kanthord.evaluation.unmet_grounds": evaluation.unmetGrounds,
+          },
+    );
   }
   const { transition } = spec;
   add("scheduler.transition", root, end, end, {
@@ -253,6 +287,7 @@ const environmentTrace = (spec, now) => {
     "project.binding.name": spec.bindingName,
     "environment.target": "server",
     "error.type": "proof_failed",
+    ...causeAttributes(spec.cause),
   });
   add("environment.build", root, start, start + third, {});
   add("environment.setup", root, start + third, start + 2 * third, {});

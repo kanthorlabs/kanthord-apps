@@ -1,4 +1,12 @@
+import { createHash } from "node:crypto";
+
 import { buildAnalytics } from "./analytics.mjs";
+import {
+  CAUSE_SUBCATEGORIES,
+  LABEL_CATEGORIES,
+  causeAttributes,
+  causeOfAttributes,
+} from "./cause.mjs";
 import { buildTimelineTraces } from "./timeline-fixtures.mjs";
 
 const WINDOW_FLOOR_MS = 60_000;
@@ -22,6 +30,16 @@ const TOOL_WINDOWS = [
   [0.2, 0.3],
   [0.42, 0.52],
 ];
+const GATE_WINDOW = [0.002, 0.01];
+const LABEL_OPERATION = "tracking.cause_label";
+const LABEL_REASON_MAX = 4096;
+const PROMPT_PARTS = [
+  ["standard", "base"],
+  ["role", null],
+  ["binding", "apps"],
+  ["framing", "default"],
+];
+const GATE_VIOLATION = "worker.turn.branch_changed";
 const TOOLS = [
   ["read_file", { path: "src/index.ts" }, "export const answer = 42;"],
   ["run_command", { command: "pnpm run typecheck" }, "tsc --noEmit finished without output."],
@@ -39,11 +57,34 @@ const hex8 = (text) => {
   return hash.toString(16).padStart(8, "0");
 };
 
+const sha256 = (text) => createHash("sha256").update(text).digest("hex");
+
 const stateOfRecord = (record) => {
   if (record.claim_state === "running") return "open";
   if (record.stop !== null || record.claim_state === "lost") return "error";
   return "ok";
 };
+
+const causeOfRecord = (record, state) => {
+  if (state !== "error") return null;
+  const { stop } = record;
+  if (stop === null) {
+    return { category: "infrastructure", assigner: "rule", subcategory: "execution_lost" };
+  }
+  if (stop.reason === "provider_failed" && stop.code === "rate_limited") {
+    return { category: "llm_provider", assigner: "rule", subcategory: "rate_limited" };
+  }
+  if (stop.reason === "budget_end") {
+    return { category: "unattributed", assigner: "rule", suspects: ["plan", "model"] };
+  }
+  const suspects =
+    stop.reason === "provider_failed"
+      ? ["worker_action", "prompt", "llm_provider"]
+      : ["worker_action", "infrastructure"];
+  return { category: "unattributed", assigner: "rule", suspects };
+};
+
+const violatesGate = (record) => record.stop?.code === "bad_request";
 
 const usageOf = (index) => {
   const input = 1800 + 600 * index;
@@ -168,13 +209,29 @@ const buildTrace = (record, now) => {
     return spanId;
   };
 
-  const root = add("scheduler.execution", null, 0, state === "open" ? null : 1);
+  const cause = causeOfRecord(record, state);
+  const root = add(
+    "scheduler.execution",
+    null,
+    0,
+    state === "open" ? null : 1,
+    cause === null ? {} : causeAttributes(cause),
+  );
   const phases = Object.fromEntries(
     PHASES.map(([name, from, to]) => [
       name,
       add("worker.phase", root, from, to, { "kanthord.phase": name }),
     ]),
   );
+  const promptParts = PROMPT_PARTS.map(([part, name]) => {
+    const partName = name ?? selection.agent_name;
+    return `${part}:${partName}:${sha256(`${part}:${partName}`)}`;
+  });
+  add("agent.prompt", phases.prepare, 0.01, 0.02, {
+    "kanthord.agent.name": selection.agent_name,
+    "kanthord.prompt.parts": promptParts,
+    "kanthord.prompt.templates_digest": sha256(promptParts.join("\n")),
+  });
   const task = add("worker.task", phases.tasks, 0.12, 0.92);
   const session = add("agent.session", task, 0.13, state === "open" ? null : 0.89, {
     "gen_ai.agent.name": selection.agent_name,
@@ -200,10 +257,46 @@ const buildTrace = (record, now) => {
         "kanthord.usage.cost_usd": usage.cost,
         "gen_ai.response.model": selection.model_identifier,
         "kanthord.session.entry_id": entryIdOf(6 + 2 * index),
+        "kanthord.prompt.template": index === 0 ? "work" : "task-revision",
         ...(failed ? { "error.type": "rate_limited" } : {}),
       },
       failed ? { status: "Error" } : {},
     );
+  });
+  const texts = [];
+  const textOf = (name, content, at) => {
+    const text = {
+      trace_id: traceId,
+      text_id: `text_${hex8(`${traceId}:${name}`)}`,
+      content,
+      created_at: at,
+    };
+    texts.push(text);
+    return text.text_id;
+  };
+  TURN_WINDOWS.forEach(([, to], index) => {
+    const [gateFrom, gateTo] = GATE_WINDOW;
+    const violated = violatesGate(record) && index === TURN_WINDOWS.length - 1;
+    const attributes = {
+      "kanthord.gate.mode": "write",
+      "kanthord.gate.changed": index < TURN_WINDOWS.length - 1,
+      ...(violated
+        ? { "kanthord.gate.violation": GATE_VIOLATION, "error.type": GATE_VIOLATION }
+        : {}),
+    };
+    const extra = violated
+      ? {
+          status: "Error",
+          text_ids: [
+            textOf(
+              "gate:error",
+              `${GATE_VIOLATION}: The turn moved the checkout from ${record.node_branch} to main.`,
+              at(to + gateTo),
+            ),
+          ],
+        }
+      : {};
+    add("worker.gate", task, to + gateFrom, to + gateTo, attributes, extra);
   });
   TOOL_WINDOWS.forEach(([from, to], index) => {
     add("agent.tool", turns[index], from, to, {
@@ -212,13 +305,10 @@ const buildTrace = (record, now) => {
       "gen_ai.tool.call.id": `call_${hex8(`${traceId}:call:${index}`)}`,
     });
   });
-  const texts = [VERIFICATION_COMMAND, VERIFICATION_OUTPUT].map((content, index) => ({
-    trace_id: traceId,
-    text_id: `text_${hex8(`${traceId}:text:${index}`)}`,
-    content,
-    created_at: at(0.92),
-  }));
-  add("worker.verification", task, 0.89, 0.92, {}, { text_ids: texts.map((text) => text.text_id) });
+  const verificationTextIds = [VERIFICATION_COMMAND, VERIFICATION_OUTPUT].map((content, index) =>
+    textOf(`text:${index}`, content, at(0.92)),
+  );
+  add("worker.verification", task, 0.89, 0.92, {}, { text_ids: verificationTextIds });
   add("worker.git", phases.finish, 0.93, 0.99, { "kanthord.git.step": "commit" });
 
   const sessionStart = at(0.13);
@@ -294,6 +384,7 @@ const matchesQuery = (summary, text) => {
     summary.worker_name,
     ...summary.agent_names,
     ...summary.models,
+    summary.stop_reason,
   ].some((field) => field?.toLowerCase().includes(needle));
 };
 
@@ -385,15 +476,77 @@ const timelineItemOf = ({ summary, span }) => ({
   worker_name: span.span_id === summary.root_span_id ? summary.worker_name : null,
 });
 
+const matchesCause = (cause, category) =>
+  category === null || (cause !== null && cause.category === category);
+
+const effectiveCause = ({ summary, spans }) => {
+  const label = spans.find((span) => span.operation === LABEL_OPERATION);
+  if (label !== undefined) return causeOfAttributes(label.attributes, "human");
+  const root = spans.find((span) => span.span_id === summary.root_span_id);
+  return root === undefined ? null : causeOfAttributes(root.attributes);
+};
+
+const isLabelBody = (body) =>
+  body !== null &&
+  typeof body === "object" &&
+  LABEL_CATEGORIES.includes(body.category) &&
+  typeof body.subcategory === "string" &&
+  typeof body.reason === "string" &&
+  body.reason.length >= 1 &&
+  body.reason.length <= LABEL_REASON_MAX;
+
+const labelSpanOf = (summary, label) => ({
+  trace_id: summary.trace_id,
+  span_id: `${summary.root_span_id}.cause_label`,
+  parent_span_id: summary.root_span_id,
+  producer: "tracking",
+  origin: "asserted",
+  operation: LABEL_OPERATION,
+  start_time: label.created_at,
+  end_time: label.created_at,
+  status: "Ok",
+  attributes: {
+    "kanthord.cause.category": label.category,
+    "kanthord.cause.subcategory": label.subcategory,
+    "kanthord.human.username": label.username,
+  },
+  events: [],
+  links: [],
+  text_ids: [`${summary.root_span_id}.cause_label:reason`],
+  created_at: label.created_at,
+});
+
 const uniqueSorted = (lists) => [...new Set(lists.flat())].sort();
 
-export function registerTracking({ on, json, envelope, page, executions }) {
+export function registerTracking({ on, json, envelope, page, executions, username }) {
   const now = Date.now();
   const analytics = buildAnalytics(now);
-  const traces = () => [
-    ...executions().map((record) => buildTrace(record, now)),
-    ...buildTimelineTraces(now),
-  ];
+  const labels = new Map();
+
+  const withLabel = (trace) => {
+    const label = labels.get(trace.summary.trace_id);
+    if (label === undefined) return trace;
+    const span = labelSpanOf(trace.summary, label);
+    return {
+      ...trace,
+      summary: { ...trace.summary, span_count: trace.spans.length + 1 },
+      spans: [...trace.spans, span],
+      texts: [
+        ...trace.texts,
+        {
+          trace_id: span.trace_id,
+          text_id: span.text_ids[0],
+          content: label.reason,
+          created_at: label.created_at,
+        },
+      ],
+    };
+  };
+
+  const traces = () =>
+    [...executions().map((record) => buildTrace(record, now)), ...buildTimelineTraces(now)].map(
+      withLabel,
+    );
 
   const find = (res, traceId) => {
     const trace = traces().find((item) => item.summary.trace_id === traceId);
@@ -406,8 +559,12 @@ export function registerTracking({ on, json, envelope, page, executions }) {
   on("GET", /^\/api\/tracking\/trace$/, (_m, _b, res, _t, url) => {
     const key = sortOf(url.searchParams);
     const items = traces()
-      .map((trace) => trace.summary)
-      .filter((summary) => matchesFilters(summary, url.searchParams))
+      .filter(
+        (trace) =>
+          matchesFilters(trace.summary, url.searchParams) &&
+          matchesCause(effectiveCause(trace), url.searchParams.get("cause_category")),
+      )
+      .map((trace) => ({ ...trace.summary, cause: effectiveCause(trace) }))
       .sort((a, b) => (b[key] ?? -1) - (a[key] ?? -1) || b.trace_id.localeCompare(a.trace_id));
     return json(res, 200, page(items, url));
   });
@@ -446,20 +603,62 @@ export function registerTracking({ on, json, envelope, page, executions }) {
 
   on("GET", /^\/api\/tracking\/facet$/, (_m, _b, res, _t, url) => {
     const projectId = url.searchParams.get("project_id");
-    const summaries = traces()
-      .map((trace) => trace.summary)
-      .filter((summary) => projectId === null || summary.project_id === projectId);
+    const scoped = traces().filter(
+      (trace) => projectId === null || trace.summary.project_id === projectId,
+    );
+    const summaries = scoped.map((trace) => trace.summary);
     return json(res, 200, {
       worker_names: uniqueSorted(summaries.map((summary) => summary.worker_name ?? [])),
       agent_names: uniqueSorted(summaries.map((summary) => summary.agent_names)),
       models: uniqueSorted(summaries.map((summary) => summary.models)),
       error_types: uniqueSorted(summaries.map((summary) => summary.error_types)),
+      cause_categories: uniqueSorted(scoped.map((trace) => effectiveCause(trace)?.category ?? [])),
     });
   });
 
   on("GET", /^\/api\/tracking\/trace\/([^/]+)$/, (m, _b, res) => {
     const trace = find(res, decodeURIComponent(m[1]));
     if (trace !== undefined) json(res, 200, trace.summary);
+  });
+
+  on("POST", /^\/api\/tracking\/trace\/([^/]+)\/cause\/label$/, (m, body, res) => {
+    if (!isLabelBody(body)) {
+      return envelope(
+        res,
+        400,
+        "gateway.request.validation_failed",
+        "The body needs a label category, a subcategory and a reason of 1 to 4096 characters.",
+      );
+    }
+    const trace = find(res, decodeURIComponent(m[1]));
+    if (trace === undefined) return;
+    if (trace.summary.state === "open") {
+      return envelope(res, 409, "tracking.cause.trace_open", "The trace is still open.");
+    }
+    if (!CAUSE_SUBCATEGORIES[body.category].includes(body.subcategory)) {
+      return envelope(
+        res,
+        400,
+        "tracking.cause.subcategory_mismatch",
+        "The subcategory is outside the set of its category.",
+      );
+    }
+    const label = {
+      category: body.category,
+      subcategory: body.subcategory,
+      reason: body.reason,
+      username,
+      created_at: Date.now(),
+    };
+    labels.set(trace.summary.trace_id, label);
+    const span = labelSpanOf(trace.summary, label);
+    json(res, 200, {
+      trace_id: span.trace_id,
+      span_id: span.span_id,
+      cause: causeOfAttributes(span.attributes, "human"),
+      reason: label.reason,
+      created_at: label.created_at,
+    });
   });
 
   on("GET", /^\/api\/tracking\/trace\/([^/]+)\/span$/, (m, _b, res, _t, url) => {
