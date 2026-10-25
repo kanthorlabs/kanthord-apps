@@ -114,4 +114,15 @@ describe("timeRowsOf", () => {
     expect(row?.scale).toBe(1);
     expect(row?.marks.map((mark) => mark.percent)).toEqual([0, 0, 0]);
   });
+
+  it("links a node_id or model row to the filtered trace list and no other row", () => {
+    const path = (group: "node_id" | "model" | "tool_name" | "none", key: string | null) =>
+      timeRowsOf([item({ key })], "span_duration", "day", group, new Map())[0]?.tracesPath;
+
+    expect(path("node_id", "node_1")).toBe("/traces?node_id=node_1");
+    expect(path("model", "a/b")).toBe("/traces?model=a%2Fb");
+    expect(path("node_id", null)).toBeNull();
+    expect(path("tool_name", "read_file")).toBeNull();
+    expect(path("none", null)).toBeNull();
+  });
 });
