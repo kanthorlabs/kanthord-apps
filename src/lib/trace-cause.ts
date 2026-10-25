@@ -44,6 +44,10 @@ export function causeLine(cause: EffectiveCause): string {
   return `${label} - suspects ${suspects.map((suspect) => CAUSE_CATEGORY_LABELS[suspect]).join(", ")}`;
 }
 
+export function causeChipText(cause: EffectiveCause): string {
+  return causeLine({ ...cause, suspects: cause.suspects?.slice(0, 1) });
+}
+
 export function causeLabelSpanIdOf(rootSpanId: string): string {
   return `${rootSpanId}${CAUSE_LABEL_SUFFIX}`;
 }
