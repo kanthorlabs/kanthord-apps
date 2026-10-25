@@ -100,6 +100,8 @@ const summaryOf = (fields) => ({
   error_count: 0,
   error_types: [],
   first_error_span_id: null,
+  root_operation: fields.root?.operation ?? null,
+  root_attributes: fields.root?.attributes ?? null,
 });
 
 const spanBuilder = (traceId, rootSpanId) => {
@@ -176,6 +178,7 @@ const executionTrace = (spec, now) => {
       end,
       workerName,
       spanCount: stored.length,
+      root: stored.find((span) => span.span_id === rootSpanId),
     }),
     spans: stored,
     texts: [],
@@ -215,6 +218,7 @@ const actTrace = (spec, now) => {
       end: at,
       workerName: null,
       spanCount: 1,
+      root: spans[0],
     }),
     spans,
     texts,
@@ -254,6 +258,7 @@ const environmentTrace = (spec, now) => {
         end,
         workerName: null,
         spanCount: spans.length,
+        root: spans[0],
       }),
       node_id: null,
       state: "error",

@@ -1316,6 +1316,8 @@ export interface TraceSummary {
   readonly error_count: number;
   readonly error_types: readonly string[];
   readonly first_error_span_id: string | null;
+  readonly root_operation: string | null;
+  readonly root_attributes: Readonly<Record<string, SpanAttributeValue>> | null;
 }
 
 export interface TraceFacets {

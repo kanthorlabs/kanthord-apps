@@ -67,6 +67,8 @@ function summary(overrides: Partial<TraceSummary> = {}): TraceSummary {
     error_count: 0,
     error_types: [],
     first_error_span_id: null,
+    root_operation: "scheduler.execution",
+    root_attributes: {},
     ...overrides,
   };
 }
