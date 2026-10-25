@@ -13,6 +13,9 @@ const OPERATION_VERIFICATION = "worker.verification";
 const OPERATION_JUDGEMENT = "worker.judgement";
 const OPERATION_EVALUATION = "worker.evaluation";
 const OPERATION_GIT = "worker.git";
+const OPERATION_GATE = "worker.gate";
+const OPERATION_PROMPT = "agent.prompt";
+const OPERATION_CAUSE_LABEL = "tracking.cause_label";
 const OPERATION_SESSION = "agent.session";
 const OPERATION_TURN = "agent.turn";
 const OPERATION_TOOL = "agent.tool";
@@ -27,6 +30,7 @@ const ATTRIBUTE_PHASE = "kanthord.phase";
 const ATTRIBUTE_TASK_ID = "kanthord.task.id";
 const ATTRIBUTE_VERIFICATION_INDEX = "kanthord.verification.index";
 const ATTRIBUTE_GIT_STEP = "kanthord.git.step";
+const ATTRIBUTE_GATE_MODE = "kanthord.gate.mode";
 const ATTRIBUTE_AGENT_NAME = "kanthord.agent.name";
 const ATTRIBUTE_TURN_INDEX = "kanthord.turn.index";
 const ATTRIBUTE_TOOL_NAME = "gen_ai.tool.name";
@@ -107,6 +111,12 @@ export function operationLabel(operation: string, attributes: SpanAttributes): s
       return "Evaluation";
     case OPERATION_GIT:
       return withValue("Git", attributes, ATTRIBUTE_GIT_STEP);
+    case OPERATION_GATE:
+      return withValue("Gate", attributes, ATTRIBUTE_GATE_MODE);
+    case OPERATION_PROMPT:
+      return withValue("Prompt", attributes, ATTRIBUTE_AGENT_NAME);
+    case OPERATION_CAUSE_LABEL:
+      return "Cause label";
     case OPERATION_SESSION:
       return withValue("Session", attributes, ATTRIBUTE_AGENT_NAME);
     case OPERATION_TURN:
@@ -179,6 +189,7 @@ export function spanGroup(span: TraceSpan): SpanGroup {
     case OPERATION_EVALUATION:
       return "checks";
     case OPERATION_GIT:
+    case OPERATION_GATE:
       return "git";
     default:
       return "other";
