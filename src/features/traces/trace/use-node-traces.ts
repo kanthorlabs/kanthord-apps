@@ -41,6 +41,8 @@ const RUNNING_TEXT = "running";
 
 export interface NodeExecution {
   readonly traceId: string;
+  readonly kind: ExecutionKind | null;
+  readonly cause: EffectiveCause | null;
   readonly kindLabel: string;
   readonly stateLabel: string;
   readonly causeText: string | null;
@@ -124,6 +126,8 @@ function executionOf(
   const advice = execution.cause === null ? null : repeatAdvice(execution.cause);
   return {
     traceId: execution.traceId,
+    kind: execution.kind,
+    cause: execution.cause,
     kindLabel: execution.kind === null ? UNKNOWN_KIND_LABEL : KIND_LABELS[execution.kind],
     stateLabel: STATE_LABELS[execution.state],
     causeText: execution.cause === null ? null : causeLine(execution.cause),
