@@ -128,7 +128,11 @@ export function TraceScreen() {
         onTogglePaused={trace.togglePaused}
         onJumpToError={selection.selectSpan}
       />
-      <Tabs value={selection.tab} onValueChange={(value) => selection.selectTab(String(value))}>
+      <Tabs
+        value={selection.tab}
+        onValueChange={(value) => selection.selectTab(String(value))}
+        className="flex min-w-0 flex-col gap-3"
+      >
         <TabsList>
           <TabsTrigger value="span_tree">Span tree</TabsTrigger>
           <TabsTrigger value="conversation">Conversation</TabsTrigger>
