@@ -21,7 +21,7 @@ vi.mock("@/api/resources/mission", () => ({
 import { readMissionNode } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
 import { listTracePage, readTraceFacets } from "@/api/resources/tracking";
-import type { MissionNodeRecord, Project, TraceSummary } from "@/api/types";
+import type { MissionNodeRecord, Project, TraceListItem } from "@/api/types";
 import { durationText, utcDateTime } from "@/lib/format";
 
 import { TracesScreen } from "./traces-screen";
@@ -29,7 +29,7 @@ import { TracesScreen } from "./traces-screen";
 const STARTED_AT = Date.UTC(2026, 4, 2, 10, 30);
 const SEVEN_DAYS_MS = 7 * 24 * 3_600_000;
 
-function trace(id: string, overrides: Partial<TraceSummary> = {}): TraceSummary {
+function trace(id: string, overrides: Partial<TraceListItem> = {}): TraceListItem {
   return {
     trace_id: id,
     project_id: "prj-1",
@@ -60,6 +60,7 @@ function trace(id: string, overrides: Partial<TraceSummary> = {}): TraceSummary 
     first_error_span_id: null,
     root_operation: null,
     root_attributes: null,
+    cause: null,
     ...overrides,
   };
 }
@@ -98,6 +99,7 @@ beforeEach(() => {
     agent_names: ["coder"],
     models: ["claude-a"],
     error_types: ["Timeout"],
+    cause_categories: [],
   });
   vi.mocked(listProjects).mockResolvedValue([project("prj-1", "kanthord")]);
   vi.mocked(readMissionNode).mockRejectedValue(new ApiError("not_found", "No node.", 404));
