@@ -119,7 +119,7 @@ export function TraceHeader({
         </Button>
       </TouchTarget>
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <h2 className="min-w-0 text-lg font-semibold break-all">
+        <h2 className="min-w-0 text-lg font-semibold break-words">
           {summary.project_id !== null && summary.node_id !== null && nodeName !== null ? (
             <Link
               className="underline-offset-4 hover:underline"
