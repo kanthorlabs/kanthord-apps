@@ -1,10 +1,13 @@
 import { ACT_OPERATIONS, type TimelineItem, type TraceState } from "@/api/types";
 
+import { durationText } from "./format";
 import { revocationLabel } from "./span-labels";
 
 const ATTRIBUTE_EXECUTION_KIND = "kanthord.execution.kind";
 const ATTRIBUTE_EXECUTION_END = "kanthord.execution.end";
 const EXECUTION_FINISHED = "finished";
+const RUNNING_TEXT = "running";
+const NO_END_TEXT = "No end recorded";
 const OPERATION_EXECUTION = "scheduler.execution";
 const OPERATION_TRANSITION = "scheduler.transition";
 const REASON_TEXT_NAME = "reason";
@@ -12,7 +15,12 @@ const TEXT_NAME_SEPARATOR = ":";
 
 export type TimelineRow =
   | { readonly kind: "root"; readonly key: string; readonly item: TimelineItem }
-  | { readonly kind: "child"; readonly key: string; readonly item: TimelineItem }
+  | {
+      readonly kind: "child";
+      readonly key: string;
+      readonly item: TimelineItem;
+      readonly rootEnded: boolean;
+    }
   | { readonly kind: "missing_root"; readonly key: string; readonly traceId: string };
 
 export type TimelineItemKind = "execution" | "transition" | "act" | "span";
@@ -44,9 +52,15 @@ function rowsOf(group: Group): readonly TimelineRow[] {
     group.root === null
       ? { kind: "missing_root", key: `${group.traceId}:root`, traceId: group.traceId }
       : { kind: "root", key: group.root.span_id, item: group.root };
+  const rootEnded = group.root !== null && group.root.end_time !== null;
   return [
     head,
-    ...group.children.map((item): TimelineRow => ({ kind: "child", key: item.span_id, item })),
+    ...group.children.map((item): TimelineRow => ({
+      kind: "child",
+      key: item.span_id,
+      item,
+      rootEnded,
+    })),
   ];
 }
 
@@ -65,6 +79,11 @@ export function timelineRows(items: readonly TimelineItem[]): readonly TimelineR
 
 export function hasOpenRoot(items: readonly TimelineItem[]): boolean {
   return items.some((item) => item.depth === 1 && item.end_time === null);
+}
+
+export function spanDurationText(item: TimelineItem, rootEnded: boolean): string {
+  if (item.duration_ms !== null) return durationText(item.duration_ms);
+  return item.end_time === null && rootEnded ? NO_END_TEXT : RUNNING_TEXT;
 }
 
 export function executionStateOf(item: TimelineItem): TraceState {

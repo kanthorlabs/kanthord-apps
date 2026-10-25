@@ -1,14 +1,15 @@
 import type { TimelineItem } from "@/api/types";
 import { DataListItem } from "@/components/data-list-item";
 import { Badge } from "@/components/ui/badge";
-import { durationText } from "@/lib/format";
 import { spanLabel } from "@/lib/span-labels";
+import { spanDurationText } from "@/lib/timeline-rows";
 
 interface SpanRowProps {
   readonly item: TimelineItem;
+  readonly rootEnded: boolean;
 }
 
-export function SpanRow({ item }: SpanRowProps) {
+export function SpanRow({ item, rootEnded }: SpanRowProps) {
   return (
     <DataListItem
       title={spanLabel(item)}
@@ -16,7 +17,7 @@ export function SpanRow({ item }: SpanRowProps) {
       fields={[
         {
           label: "Duration",
-          value: item.duration_ms === null ? "running" : durationText(item.duration_ms),
+          value: spanDurationText(item, rootEnded),
         },
       ]}
     />
