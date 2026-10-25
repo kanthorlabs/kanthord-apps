@@ -6,10 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { readMissionNode } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
-import { readAnalyticsCost } from "@/api/resources/tracking";
+import { readAnalyticsCost, readAnalyticsDuration } from "@/api/resources/tracking";
 import type {
   AnalyticsCostItem,
   AnalyticsCostQuery,
+  AnalyticsDurationItem,
+  AnalyticsDurationQuery,
   AnalyticsPage,
   MissionNodeRecord,
   Project,
@@ -62,6 +64,42 @@ function answer(grouped: AnalyticsPage<AnalyticsCostItem>, totals = page([TOTALS
   vi.mocked(readAnalyticsCost).mockImplementation(async (query: AnalyticsCostQuery) =>
     query.group_by === "none" ? totals : grouped,
   );
+}
+
+function duration(overrides: Partial<AnalyticsDurationItem> = {}): AnalyticsDurationItem {
+  return {
+    key: null,
+    bucket_start: DAY_START,
+    count: 12,
+    p50: 1500,
+    p90: 90_000,
+    p99: 3_600_000,
+    mean: 2000,
+    max: 5_400_000,
+    ...overrides,
+  };
+}
+
+function durationPage(
+  items: readonly AnalyticsDurationItem[],
+  truncated = false,
+): AnalyticsPage<AnalyticsDurationItem> {
+  return { items, truncated };
+}
+
+function answerDuration(result: AnalyticsPage<AnalyticsDurationItem>) {
+  vi.mocked(readAnalyticsDuration).mockResolvedValue(result);
+}
+
+function durationCalls(): readonly AnalyticsDurationQuery[] {
+  return vi.mocked(readAnalyticsDuration).mock.calls.map(([query]) => query);
+}
+
+function timeRowTexts(): readonly string[] {
+  const list = screen.getByRole("list", { name: "Time" });
+  return within(list)
+    .getAllByRole("listitem")
+    .map((row) => row.textContent ?? "");
 }
 
 function project(id: string, name: string): Project {
@@ -119,6 +157,7 @@ function rowTexts(): readonly string[] {
 
 beforeEach(() => {
   answer(page([]));
+  answerDuration(durationPage([]));
   vi.mocked(listProjects).mockResolvedValue([project("prj_1", "alpha"), project("prj_2", "zeta")]);
   vi.mocked(readMissionNode).mockResolvedValue({
     content: { name: "Audit log" },
@@ -290,7 +329,8 @@ describe("AnalyticsScreen", () => {
     answer(page([]), page([]));
     mount();
 
-    expect(await screen.findByText("No spans in this range.")).toBeInTheDocument();
+    const region = await screen.findByRole("region", { name: "Cost" });
+    expect(await within(region).findByText("No spans in this range.")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Cost totals" })).toBeNull();
   });
 
@@ -334,5 +374,183 @@ describe("AnalyticsScreen", () => {
     });
 
     expect(readAnalyticsCost).toHaveBeenCalledTimes(reads);
+  });
+
+  describe("Time section", () => {
+    it("reads span_duration with no group at the page load and shows the count and the percentiles", async () => {
+      answerDuration(durationPage([duration()]));
+      mount();
+
+      await screen.findByText("All");
+      const [query] = durationCalls();
+      expect(query).toMatchObject({ measure: "span_duration", group_by: "none", bucket: "day" });
+      expect((query?.to ?? 0) - (query?.from ?? 0)).toBe(7 * DAY_MS);
+      expect(query).not.toHaveProperty("project_id");
+      const [row] = timeRowTexts();
+      expect(row).toContain("2026-05-04");
+      expect(row).toContain("Count12");
+      expect(row).toContain("p501 s");
+      expect(row).toContain("p901 min");
+      expect(row).toContain("p991 h");
+      expect(row).toContain("Max1 h 30 min");
+      expect(screen.getByRole("combobox", { name: "Measure" })).toHaveTextContent("Span duration");
+      expect(screen.getByRole("combobox", { name: "Time group by" })).toHaveTextContent("None");
+    });
+
+    it("offers the measures and the groups of the section", async () => {
+      const user = userEvent.setup();
+      mount();
+
+      await user.click(await screen.findByRole("combobox", { name: "Measure" }));
+      expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual([
+        "Span duration",
+        "Tool latency",
+        "Verification time",
+        "Queue wait",
+        "Review wait",
+        "Revision turns",
+      ]);
+      await user.keyboard("{Escape}");
+      await user.click(screen.getByRole("combobox", { name: "Time group by" }));
+      expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual([
+        "None",
+        "Operation",
+        "Tool",
+        "Agent",
+        "Model",
+        "Worker",
+        "Node",
+        "Project",
+      ]);
+    });
+
+    it("reads Tool latency by Tool and writes the query string", async () => {
+      answerDuration(durationPage([duration({ key: "read_file" })]));
+      const user = userEvent.setup();
+      mount();
+      await screen.findByText("All");
+
+      await choose(user, "Measure", "Tool latency");
+      await choose(user, "Time group by", "Tool");
+
+      await waitFor(() =>
+        expect(durationCalls().at(-1)).toMatchObject({
+          measure: "tool_latency",
+          group_by: "tool_name",
+        }),
+      );
+      expect(
+        screen.getByText("at ?time_measure=tool_latency&time_group_by=tool_name"),
+      ).toBeInTheDocument();
+      expect(await screen.findByText("read_file")).toBeInTheDocument();
+    });
+
+    it("reads the measure and the group from the query string", async () => {
+      mount("/analytics?time_measure=queue_wait&time_group_by=worker_name");
+
+      await waitFor(() => expect(durationCalls()).toHaveLength(1));
+      expect(durationCalls()[0]).toMatchObject({
+        measure: "queue_wait",
+        group_by: "worker_name",
+      });
+    });
+
+    it("shows Revision turns as counts with no unit of time", async () => {
+      answerDuration(durationPage([duration({ p50: 1, p90: 2, p99: 4, max: 7 })]));
+      mount("/analytics?time_measure=revision_turns");
+
+      await screen.findByText("All");
+      const [row] = timeRowTexts();
+      expect(row).toContain("p501");
+      expect(row).toContain("p902");
+      expect(row).toContain("p994");
+      expect(row).toContain("Max7");
+      expect(row).not.toMatch(/\d (s|min|h)\b/);
+    });
+
+    it("gives each bar an accessible name that repeats p50, p90, p99 and max of its row", async () => {
+      answerDuration(
+        durationPage([
+          duration({ key: "read_file" }),
+          duration({ key: "edit_file", p50: 500, p90: 2000, p99: 3000, max: 4000 }),
+        ]),
+      );
+      mount("/analytics?time_group_by=tool_name");
+
+      await screen.findByText("edit_file");
+
+      const bars = screen.getAllByRole("progressbar");
+      expect(bars).toHaveLength(2);
+      expect(bars[0]).toHaveAccessibleName(
+        "Time of read_file 2026-05-04: p50 1 s, p90 1 min, p99 1 h, max 1 h 30 min",
+      );
+      expect(bars[1]).toHaveAccessibleName(
+        "Time of edit_file 2026-05-04: p50 0 s, p90 2 s, p99 3 s, max 4 s",
+      );
+      expect(bars[0]).toHaveAttribute("aria-valuenow", "5400000");
+      expect(bars[1]).toHaveAttribute("aria-valuemax", "5400000");
+    });
+
+    it("shows the node name, the project name and Unknown for a null key", async () => {
+      answerDuration(durationPage([duration({ key: "node_1" }), duration({ key: null })]));
+      mount("/analytics?time_group_by=node_id");
+
+      expect(await screen.findByText("Audit log")).toBeInTheDocument();
+      expect(screen.getByText("Unknown")).toBeInTheDocument();
+    });
+
+    it("shows the project name in a project group row", async () => {
+      answerDuration(durationPage([duration({ key: "prj_2" })]));
+      mount("/analytics?time_group_by=project_id");
+
+      expect(await screen.findByText("zeta")).toBeInTheDocument();
+    });
+
+    it("reads both sections again on a change of the toolbar and on Refresh", async () => {
+      const user = userEvent.setup();
+      mount();
+      await waitFor(() => expect(durationCalls()).toHaveLength(1));
+
+      await choose(user, "Project", "alpha");
+      await waitFor(() => expect(durationCalls().at(-1)).toMatchObject({ project_id: "prj_1" }));
+      expect(groupedCalls().at(-1)).toMatchObject({ project_id: "prj_1" });
+      await choose(user, "Bucket", "Week");
+      await waitFor(() => expect(durationCalls().at(-1)).toMatchObject({ bucket: "week" }));
+      const before = durationCalls().length;
+      await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+      await waitFor(() => expect(durationCalls()).toHaveLength(before + 1));
+    });
+
+    it("shows the truncated message", async () => {
+      answerDuration(durationPage([duration()], true));
+      mount();
+
+      expect(
+        await screen.findByText("The range holds more groups. Narrow the range or the filter."),
+      ).toBeInTheDocument();
+    });
+
+    it("shows the empty text", async () => {
+      mount();
+
+      const region = await screen.findByRole("region", { name: "Time" });
+      expect(await within(region).findByText("No spans in this range.")).toBeInTheDocument();
+    });
+
+    it("shows the error with Retry and reads again on Retry", async () => {
+      vi.mocked(readAnalyticsDuration).mockRejectedValueOnce(
+        new ApiError("malformed", "The measure is closed.", 400),
+      );
+      answerDuration(durationPage([duration()]));
+      const user = userEvent.setup();
+      mount();
+
+      expect(await screen.findByText("The measure is closed.")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Retry" }));
+
+      expect(await screen.findByText("All")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    });
   });
 });

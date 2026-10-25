@@ -1,4 +1,11 @@
-import type { AnalyticsBucket, AnalyticsCostGroup, AnalyticsCostQuery } from "@/api/types";
+import type {
+  AnalyticsBucket,
+  AnalyticsCostGroup,
+  AnalyticsCostQuery,
+  AnalyticsDurationGroup,
+  AnalyticsDurationQuery,
+  AnalyticsMeasure,
+} from "@/api/types";
 
 import { rangeStartOf, TIME_RANGE_LABELS } from "./trace-query";
 
@@ -20,6 +27,8 @@ export interface CostQueries {
   readonly grouped: AnalyticsCostQuery;
   readonly totals: AnalyticsCostQuery;
 }
+
+export type TimeGroupName = AnalyticsDurationGroup;
 
 interface Option<T extends string> {
   readonly value: T;
@@ -45,6 +54,29 @@ const COST_GROUP_LABELS: Readonly<Record<CostGroupName, string>> = {
   project_id: "Project",
 };
 
+const DEFAULT_TIME_MEASURE: AnalyticsMeasure = "span_duration";
+const DEFAULT_TIME_GROUP: TimeGroupName = "none";
+
+const TIME_MEASURE_LABELS: Readonly<Record<AnalyticsMeasure, string>> = {
+  span_duration: "Span duration",
+  tool_latency: "Tool latency",
+  verification_time: "Verification time",
+  queue_wait: "Queue wait",
+  review_wait: "Review wait",
+  revision_turns: "Revision turns",
+};
+
+const TIME_GROUP_LABELS: Readonly<Record<TimeGroupName, string>> = {
+  none: "None",
+  operation: "Operation",
+  tool_name: "Tool",
+  agent_name: "Agent",
+  model: "Model",
+  worker_name: "Worker",
+  node_id: "Node",
+  project_id: "Project",
+};
+
 function optionsOf<T extends string>(labels: Readonly<Record<T, string>>): readonly Option<T>[] {
   return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value] }));
 }
@@ -56,6 +88,10 @@ export const ANALYTICS_RANGE_OPTIONS: readonly Option<AnalyticsTimeRange>[] = AN
 export const ANALYTICS_BUCKET_OPTIONS = optionsOf(BUCKET_LABELS);
 
 export const COST_GROUP_OPTIONS = optionsOf(COST_GROUP_LABELS);
+
+export const TIME_MEASURE_OPTIONS = optionsOf(TIME_MEASURE_LABELS);
+
+export const TIME_GROUP_OPTIONS = optionsOf(TIME_GROUP_LABELS);
 
 function choiceOf<T extends string>(
   options: readonly Option<T>[],
@@ -90,5 +126,29 @@ export function costQueriesOf(
   return {
     grouped: { ...scope, bucket: filters.bucket, group_by: group },
     totals: { ...scope, bucket: "none", group_by: "none" },
+  };
+}
+
+export function timeMeasureOf(params: URLSearchParams): AnalyticsMeasure {
+  return choiceOf(TIME_MEASURE_OPTIONS, params.get("time_measure"), DEFAULT_TIME_MEASURE);
+}
+
+export function timeGroupOf(params: URLSearchParams): TimeGroupName {
+  return choiceOf(TIME_GROUP_OPTIONS, params.get("time_group_by"), DEFAULT_TIME_GROUP);
+}
+
+export function timeQueryOf(
+  filters: AnalyticsFilters,
+  measure: AnalyticsMeasure,
+  group: TimeGroupName,
+  now: number,
+): AnalyticsDurationQuery {
+  return {
+    from: rangeStartOf(filters.range, now) ?? now,
+    to: now,
+    ...(filters.projectId === null ? {} : { project_id: filters.projectId }),
+    bucket: filters.bucket,
+    measure,
+    group_by: group,
   };
 }

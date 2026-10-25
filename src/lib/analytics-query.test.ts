@@ -7,6 +7,11 @@ import {
   COST_GROUP_OPTIONS,
   ANALYTICS_BUCKET_OPTIONS,
   ANALYTICS_RANGE_OPTIONS,
+  TIME_GROUP_OPTIONS,
+  TIME_MEASURE_OPTIONS,
+  timeGroupOf,
+  timeMeasureOf,
+  timeQueryOf,
 } from "./analytics-query";
 
 const NOW = 10_000_000_000;
@@ -92,5 +97,65 @@ describe("options", () => {
       ["node_id", "Node"],
       ["project_id", "Project"],
     ]);
+  });
+});
+
+describe("time options", () => {
+  it("offers the measures and the groups of the Time section", () => {
+    expect(TIME_MEASURE_OPTIONS.map((option) => option.label)).toEqual([
+      "Span duration",
+      "Tool latency",
+      "Verification time",
+      "Queue wait",
+      "Review wait",
+      "Revision turns",
+    ]);
+    expect(TIME_GROUP_OPTIONS.map((option) => option.value)).toEqual([
+      "none",
+      "operation",
+      "tool_name",
+      "agent_name",
+      "model",
+      "worker_name",
+      "node_id",
+      "project_id",
+    ]);
+  });
+});
+
+describe("timeMeasureOf and timeGroupOf", () => {
+  it("default to span_duration and none and ignore an unknown value", () => {
+    expect(timeMeasureOf(new URLSearchParams("time_measure=cost"))).toBe("span_duration");
+    expect(timeGroupOf(new URLSearchParams("time_group_by=model2"))).toBe("none");
+    expect(timeMeasureOf(new URLSearchParams())).toBe("span_duration");
+    expect(timeGroupOf(new URLSearchParams())).toBe("none");
+  });
+
+  it("read a known value", () => {
+    expect(timeMeasureOf(new URLSearchParams("time_measure=queue_wait"))).toBe("queue_wait");
+    expect(timeGroupOf(new URLSearchParams("time_group_by=tool_name"))).toBe("tool_name");
+  });
+});
+
+describe("timeQueryOf", () => {
+  it("reads the measure by the group, the bucket and the range", () => {
+    const filters = { projectId: null, range: "7d", bucket: "day" } as const;
+
+    expect(timeQueryOf(filters, "tool_latency", "tool_name", NOW)).toEqual({
+      from: NOW - 7 * DAY,
+      to: NOW,
+      bucket: "day",
+      measure: "tool_latency",
+      group_by: "tool_name",
+    });
+  });
+
+  it("scopes the read to a project", () => {
+    const filters = { projectId: "prj-1", range: "24h", bucket: "hour" } as const;
+
+    expect(timeQueryOf(filters, "span_duration", "none", NOW)).toMatchObject({
+      project_id: "prj-1",
+      from: NOW - DAY,
+    });
   });
 });
