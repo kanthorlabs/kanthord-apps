@@ -72,7 +72,20 @@ describe("entryView", () => {
       inputTokens: 160,
       outputTokens: 20,
       costUsd: 0.02,
+      errorMessage: null,
     });
+  });
+
+  it("reads the errorMessage of an assistant message", () => {
+    const view = entryView(
+      message({ role: "assistant", content: [], errorMessage: "429 Too Many Requests" }),
+    );
+    expect(view).toMatchObject({ kind: "assistant", errorMessage: "429 Too Many Requests" });
+  });
+
+  it("gives null for an empty errorMessage", () => {
+    const view = entryView(message({ role: "assistant", content: [], errorMessage: "" }));
+    expect(view).toMatchObject({ kind: "assistant", errorMessage: null });
   });
 
   it("gives null for the usage numbers of an assistant message without usage", () => {
@@ -86,6 +99,7 @@ describe("entryView", () => {
       inputTokens: null,
       outputTokens: null,
       costUsd: null,
+      errorMessage: null,
     });
   });
 

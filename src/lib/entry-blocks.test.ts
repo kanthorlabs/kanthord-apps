@@ -15,6 +15,7 @@ function assistant(overrides: Partial<Assistant> = {}): Assistant {
     inputTokens: null,
     outputTokens: null,
     costUsd: null,
+    errorMessage: null,
     ...overrides,
   };
 }

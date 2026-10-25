@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -147,22 +147,22 @@ function factOf(label: string): Element | null {
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.resetAllMocks();
 });
 
 describe("SpanDetail", () => {
-  it("shows the label, the status and the time facts", () => {
+  it("shows the identity and the time facts", () => {
     show(TURN);
 
-    expect(screen.getByRole("heading", { name: "Turn 1" })).toBeInTheDocument();
-    expect(screen.getByText("OK")).toBeInTheDocument();
+    expect(factOf("Span id")).toHaveTextContent("turn-1");
     expect(factOf("Start")).toHaveTextContent(utcDateTime(START + 60_000));
     expect(factOf("End")).toHaveTextContent(utcDateTime(START + 180_000));
     expect(factOf("Duration")).toHaveTextContent("2 min");
     expect(factOf("Offset")).toHaveTextContent("1 min");
   });
 
-  it("shows the command and the output texts of a verification", async () => {
+  it("shows the output, the exit facts and then the command of a verification", async () => {
     vi.mocked(readTraceText).mockImplementation(async (traceId, textId) => ({
       trace_id: traceId,
       text_id: textId,
@@ -173,18 +173,108 @@ describe("SpanDetail", () => {
       "verify-1",
       "root",
       "worker.verification",
-      { "kanthord.verification.index": 1 },
+      {
+        "kanthord.verification.index": 1,
+        "process.exit.code": 127,
+        "kanthord.verification.timed_out": false,
+      },
       { text_ids: ["verify-1:command", "verify-1:output"] },
     );
     show(verification, [verification]);
 
-    const texts = screen.getByRole("region", { name: "Texts" });
-    expect(await within(texts).findByText("pnpm test")).toBeInTheDocument();
-    expect(within(texts).getByText("command")).toBeInTheDocument();
-    expect(within(texts).getByText("output")).toBeInTheDocument();
-    expect(await within(texts).findByText("3 passed 0 failed")).toBeInTheDocument();
+    const result = screen.getByRole("region", { name: "Result" });
+    const command = screen.getByRole("region", { name: "Command" });
+    const output = await within(result).findByText("3 passed 0 failed");
+    expect(within(result).getByText("process.exit.code").nextElementSibling).toHaveTextContent(
+      "127",
+    );
+    expect(
+      within(result).getByText("kanthord.verification.timed_out").nextElementSibling,
+    ).toHaveTextContent("false");
+    const exitCode = within(result).getByText("process.exit.code");
+    const commandText = await within(command).findByText("pnpm test");
+    expect(output.compareDocumentPosition(exitCode)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(result.compareDocumentPosition(command)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(commandText).toBeInTheDocument();
     expect(readTraceText).toHaveBeenCalledWith("trace-1", "verify-1:command");
     expect(readTraceText).toHaveBeenCalledWith("trace-1", "verify-1:output");
+  });
+
+  it("shows the error text and the violation of a gate before its step facts", async () => {
+    vi.mocked(readTraceText).mockResolvedValue({
+      trace_id: "trace-1",
+      text_id: "gate-1:error",
+      content: "Changed files outside the allowed paths.",
+      created_at: START,
+    });
+    const gate = span(
+      "gate-1",
+      "root",
+      "worker.gate",
+      {
+        "kanthord.gate.mode": "strict",
+        "kanthord.gate.violation": "outside_scope",
+        "kanthord.gate.changed": ["a.ts", "b.ts"],
+      },
+      { status: "Error", text_ids: ["gate-1:error"] },
+    );
+    show(gate, [gate]);
+
+    const failure = screen.getByRole("region", { name: "Failure" });
+    expect(await within(failure).findByText(/Changed files outside/)).toBeInTheDocument();
+    expect(
+      within(failure).getByText("kanthord.gate.violation").nextElementSibling,
+    ).toHaveTextContent("outside_scope");
+    const step = screen.getByRole("region", { name: "Step" });
+    expect(within(step).getByText("kanthord.gate.mode").nextElementSibling).toHaveTextContent(
+      "strict",
+    );
+    expect(within(step).getByText("kanthord.gate.changed").nextElementSibling).toHaveTextContent(
+      "a.ts, b.ts",
+    );
+    expect(failure.compareDocumentPosition(step)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it("shows the revocation label beside the end of a revoked execution", () => {
+    const execution = span("exec", null, "scheduler.execution", {
+      "kanthord.execution.end": "revoked",
+      "kanthord.revoke.cause": "human",
+      "kanthord.queue.wait_ms": 40,
+    });
+    show(execution, [execution]);
+
+    const stop = screen.getByRole("region", { name: "Cause and stop" });
+    expect(within(stop).getByText("kanthord.execution.end").nextElementSibling).toHaveTextContent(
+      "revoked - Revoked by a human",
+    );
+    const queue = screen.getByRole("region", { name: "Queue" });
+    expect(within(queue).getByText("kanthord.queue.wait_ms").nextElementSibling).toHaveTextContent(
+      "40",
+    );
+  });
+
+  it("keeps the texts in a collapsed Texts block", async () => {
+    vi.mocked(readTraceText).mockResolvedValue({
+      trace_id: "trace-1",
+      text_id: "verify-1:output",
+      content: "done",
+      created_at: START,
+    });
+    const verification = span(
+      "verify-1",
+      "root",
+      "worker.verification",
+      {},
+      { text_ids: ["verify-1:output"] },
+    );
+    show(verification, [verification]);
+
+    expect(screen.queryByRole("region", { name: "Texts" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Texts" }));
+
+    const texts = await screen.findByRole("region", { name: "Texts" });
+    expect(await within(texts).findByText("done")).toBeInTheDocument();
+    expect(within(texts).getByText("output")).toBeInTheDocument();
   });
 
   it("shows a failed text read in its block and the other text beside it", async () => {
@@ -305,7 +395,7 @@ describe("SpanDetail", () => {
     vi.mocked(readSessionEntry).mockResolvedValue(REPLY_ENTRY);
     show(TURN);
 
-    fireEvent.click(screen.getByRole("button", { name: "Open in conversation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Conversation" }));
 
     const keys = writtenKeys();
     expect(keys.get("tab")).toBe("conversation");
@@ -322,7 +412,7 @@ describe("SpanDetail", () => {
     });
     show(TOOL);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Conversation" }));
 
     const keys = writtenKeys();
     expect(keys.get("tab")).toBe("conversation");
@@ -335,18 +425,18 @@ describe("SpanDetail", () => {
     vi.mocked(listSessionEntryPage).mockResolvedValue({ items: [], next_cursor: null });
     show(TOOL);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Open in conversation" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Conversation" }));
 
     const keys = writtenKeys();
     expect(keys.get("session")).toBe("session");
     expect(keys.get("entry")).toBe("entry-1");
   });
 
-  it("offers no Open in conversation for a span outside a session", () => {
+  it("offers no Conversation for a span outside a session", () => {
     const bare = span("bare", "root", "worker.git");
     show(bare, [bare]);
 
-    expect(screen.queryByRole("button", { name: "Open in conversation" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Conversation" })).not.toBeInTheDocument();
   });
 
   it("lists every attribute, event and link", () => {
@@ -368,7 +458,11 @@ describe("SpanDetail", () => {
     );
     show(busy, [busy]);
 
-    const attributes = screen.getByRole("region", { name: "Attributes" });
+    expect(screen.queryByRole("region", { name: "All attributes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Events" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "All attributes" }));
+    fireEvent.click(screen.getByRole("button", { name: "Events" }));
+    const attributes = screen.getByRole("region", { name: "All attributes" });
     for (const [name, value] of [
       ["kanthord.git.step", "commit"],
       ["count", "3"],
@@ -392,8 +486,218 @@ describe("SpanDetail", () => {
     const bare = span("bare", "root", "worker.git");
     show(bare, [bare]);
 
-    for (const name of ["Attributes", "Events", "Links", "Texts"]) {
+    for (const name of ["All attributes", "Events", "Links", "Texts"]) {
       expect(screen.queryByRole("region", { name })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
+  });
+});
+
+const PROVIDER_DETAIL = "429 Too Many Requests: slow down";
+
+const FAILED_ROOT = span(
+  "root",
+  null,
+  "scheduler.execution",
+  {
+    "kanthord.stop.reason": "provider_failed",
+    "kanthord.stop.code": "rate_limited",
+    "kanthord.stop.detail": PROVIDER_DETAIL,
+  },
+  { status: "Error", end_time: START + 100_000 },
+);
+
+const FAILED_TASK = span(
+  "task",
+  "root",
+  "worker.task",
+  { "kanthord.task.id": "t2" },
+  { status: "Error", end_time: START + 100_000 },
+);
+
+function turnOf(id: string, index: number, tokens: number, overrides: Partial<TraceSpan> = {}) {
+  return span(
+    id,
+    "task",
+    "agent.turn",
+    {
+      "kanthord.turn.index": index,
+      "gen_ai.conversation.id": "session",
+      "gen_ai.usage.input_tokens": tokens,
+    },
+    { end_time: START + index * 1000, ...overrides },
+  );
+}
+
+const CAUSAL_TURN = turnOf("turn-5", 5, 3000, {
+  status: "Error",
+  attributes: {
+    "kanthord.turn.index": 5,
+    "gen_ai.conversation.id": "session",
+    "gen_ai.usage.input_tokens": 3000,
+    "error.type": "rate_limited",
+  },
+  end_time: START + 90_000,
+});
+
+const RECOVERED_TOOL = span(
+  "tool-recovered",
+  "turn-1b",
+  "agent.tool",
+  { "error.type": "tool_error" },
+  { status: "Error", end_time: START + 500 },
+);
+
+const FAILED_SPANS = [
+  FAILED_ROOT,
+  FAILED_TASK,
+  turnOf("turn-1b", 1, 1000),
+  turnOf("turn-3", 3, 2000),
+  CAUSAL_TURN,
+  RECOVERED_TOOL,
+];
+
+describe("SpanDetail provider error", () => {
+  it("shows the root stop detail as the error of the causal turn", async () => {
+    vi.mocked(readSessionEntry).mockRejectedValue(new ApiError("not_found", "No entry.", 404));
+    show(CAUSAL_TURN, FAILED_SPANS);
+
+    const error = await screen.findByRole("region", { name: "Provider error" });
+    expect(within(error).getByText(PROVIDER_DETAIL)).toBeInTheDocument();
+    expect(screen.queryByText("The entry holds no model reply.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Model reply" })).not.toBeInTheDocument();
+  });
+
+  it("shows the whole stop detail without a cut", async () => {
+    const detail = `${"x".repeat(400)} end of error`;
+    const root = span(
+      "root",
+      null,
+      "scheduler.execution",
+      { ...FAILED_ROOT.attributes, "kanthord.stop.detail": detail },
+      { status: "Error", end_time: START + 100_000 },
+    );
+    vi.mocked(readSessionEntry).mockRejectedValue(new ApiError("not_found", "No entry.", 404));
+    show(CAUSAL_TURN, [root, FAILED_TASK, CAUSAL_TURN]);
+
+    expect(await screen.findByText(detail)).toBeInTheDocument();
+  });
+
+  it("shows the errorMessage of the reply entry for a turn that is not causal", async () => {
+    vi.mocked(readSessionEntry).mockResolvedValue(
+      entry("entry-1", {
+        type: "message",
+        message: { role: "assistant", content: [], errorMessage: "529 Overloaded" },
+      }),
+    );
+    show(TURN);
+
+    const error = await screen.findByRole("region", { name: "Provider error" });
+    expect(within(error).getByText("529 Overloaded")).toBeInTheDocument();
+  });
+
+  it("shows the model reply of a turn without an error", async () => {
+    vi.mocked(readSessionEntry).mockResolvedValue(REPLY_ENTRY);
+    show(TURN);
+
+    expect(await screen.findByRole("region", { name: "Model reply" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Provider error" })).not.toBeInTheDocument();
+  });
+
+  it("keeps The entry holds no model reply. for another entry without an error", async () => {
+    vi.mocked(readSessionEntry).mockResolvedValue(
+      entry("entry-1", { type: "message", message: { role: "user", content: "hi" } }),
+    );
+    show(TURN);
+
+    expect(await screen.findByText("The entry holds no model reply.")).toBeInTheDocument();
+  });
+});
+
+describe("SpanDetail why this span", () => {
+  it.each([
+    [CAUSAL_TURN, "Causal span of this trace.", "Parent Task t2 ended Error."],
+    [FAILED_TASK, "Consequence of the stop.", "Parent Execution ended Error."],
+    [RECOVERED_TOOL, "Recovered error.", "Parent Turn 1 ended OK."],
+  ])("states the role and the parent of %#", (target, role, parent) => {
+    vi.mocked(readSessionEntry).mockRejectedValue(new ApiError("not_found", "No entry.", 404));
+    show(target, FAILED_SPANS);
+
+    const why = screen.getByRole("region", { name: "Why this span" });
+    expect(within(why).getByText(role)).toBeInTheDocument();
+    expect(within(why).getByText(parent)).toBeInTheDocument();
+  });
+
+  it("states only the parent for a span without an error role", () => {
+    const turn = turnOf("turn-1b", 1, 1000);
+    show(turn, FAILED_SPANS);
+
+    const why = screen.getByRole("region", { name: "Why this span" });
+    expect(within(why).getByText("Parent Task t2 ended Error.")).toBeInTheDocument();
+    expect(within(why).queryByText(/span of this trace|Consequence|Recovered/)).toBeNull();
+  });
+});
+
+describe("SpanDetail input tokens chart", () => {
+  it("charts the input tokens of each turn of the session and marks the selected turn", () => {
+    show(CAUSAL_TURN, FAILED_SPANS);
+
+    const chart = screen.getByRole("list", { name: "Input tokens per turn" });
+    const rows = within(chart).getAllByRole("listitem");
+    expect(rows.map((row) => row.textContent)).toEqual(["11.0k", "32.0k", "53.0kThis turn"]);
+    expect(rows.filter((row) => row.getAttribute("aria-current") === "true")).toEqual([rows[2]]);
+    expect(within(rows[2] as HTMLElement).getByText("This turn")).toBeInTheDocument();
+  });
+
+  it("charts the turns for a session span and marks no turn", () => {
+    const session = span("session", "task", "agent.session", { "kanthord.agent.name": "coder" });
+    show(session, [...FAILED_SPANS, session]);
+
+    const rows = within(screen.getByRole("list", { name: "Input tokens per turn" })).getAllByRole(
+      "listitem",
+    );
+    expect(rows).toHaveLength(3);
+    expect(screen.queryByText("This turn")).not.toBeInTheDocument();
+  });
+
+  it("shows no chart for a span that is no turn and no session", () => {
+    show(FAILED_TASK, FAILED_SPANS);
+
+    expect(screen.queryByRole("list", { name: "Input tokens per turn" })).not.toBeInTheDocument();
+  });
+});
+
+describe("SpanDetail identity", () => {
+  it("shows a long identity whole and copies it", async () => {
+    const identity = `span-${"0123456789abcdef".repeat(8)}`;
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
+    const long = span(identity, "root", "worker.git");
+    show(long, [long]);
+
+    expect(factOf("Span id")).toHaveTextContent(identity);
+    fireEvent.click(screen.getByRole("button", { name: "Copy Span id" }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(identity));
+  });
+});
+
+describe("SpanDetail footer", () => {
+  it("steps to the previous and the next error", () => {
+    vi.mocked(readSessionEntry).mockRejectedValue(new ApiError("not_found", "No entry.", 404));
+    const onSelect = show(FAILED_TASK, FAILED_SPANS);
+
+    fireEvent.click(screen.getByRole("button", { name: "Previous error" }));
+    expect(onSelect).toHaveBeenLastCalledWith("turn-5");
+    fireEvent.click(screen.getByRole("button", { name: "Next error" }));
+    expect(onSelect).toHaveBeenLastCalledWith("root");
+  });
+
+  it("disables the control at the end of the errors", () => {
+    vi.mocked(readSessionEntry).mockRejectedValue(new ApiError("not_found", "No entry.", 404));
+    show(CAUSAL_TURN, FAILED_SPANS);
+
+    expect(screen.getByRole("button", { name: "Previous error" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next error" })).toBeEnabled();
   });
 });
