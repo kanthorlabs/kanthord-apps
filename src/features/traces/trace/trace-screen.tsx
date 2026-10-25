@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Conversation } from "./components/conversation";
 import { StepsTab } from "./components/steps-tab";
 import { TraceHeader } from "./components/trace-header";
+import { useStickyOffset } from "./use-sticky-offset";
 import { useTrace } from "./use-trace";
 import { useTraceSelection } from "./use-trace-selection";
 
@@ -29,9 +30,11 @@ function ReadFailure({ error, onRetry }: { error: ApiError; onRetry: () => void 
   return (
     <Alert variant="destructive" className="flex flex-wrap items-center gap-2">
       <AlertDescription>{error.message}</AlertDescription>
-      <Button variant="outline" size="sm" onClick={onRetry}>
-        Retry
-      </Button>
+      <TouchTarget>
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          Retry
+        </Button>
+      </TouchTarget>
     </Alert>
   );
 }
@@ -41,6 +44,7 @@ export function TraceScreen() {
   const trace = useTrace(traceId);
   const selection = useTraceSelection(trace.spans);
   const { summary } = trace;
+  const stickyRef = useStickyOffset();
   useCrumbLabel(`/traces/${encodeURIComponent(traceId)}`, trace.title ?? undefined);
 
   if (trace.expired) return <ExpiredNotice />;
@@ -57,7 +61,10 @@ export function TraceScreen() {
         onValueChange={(value) => selection.selectTab(String(value))}
         className="flex min-w-0 flex-col gap-3"
       >
-        <div className="sticky top-[var(--app-header-height,3.5rem)] z-10 flex min-w-0 flex-col gap-3 bg-background">
+        <div
+          ref={stickyRef}
+          className="sticky top-[var(--app-header-height,3.5rem)] z-10 flex min-w-0 flex-col gap-3 bg-background"
+        >
           <TraceHeader
             summary={summary}
             title={trace.title ?? summary.trace_id}

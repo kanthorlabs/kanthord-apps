@@ -353,6 +353,14 @@ describe("TraceScreen header", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("tree", { name: "Spans" })).toBeInTheDocument();
   });
+
+  it("gives Retry the compact touch target", async () => {
+    vi.mocked(readTrace).mockRejectedValueOnce(new ApiError("unavailable", "Daemon down.", 503));
+    mount();
+
+    const retry = await screen.findByRole("button", { name: "Retry" });
+    expect(retry.parentElement).toHaveClass("[&>*]:min-h-11");
+  });
 });
 
 describe("TraceScreen polling", () => {
