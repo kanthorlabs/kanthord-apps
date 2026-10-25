@@ -306,7 +306,7 @@ describe("Conversation", () => {
     await userEvent.click(screen.getByRole("button", { name: "Show in span tree" }));
 
     const search = new URLSearchParams(screen.getByRole("status").textContent ?? "");
-    expect(search.get("tab")).toBe("span_tree");
+    expect(search.get("tab")).toBe("steps");
     expect(search.get("span")).toBe("turn-1");
   });
 

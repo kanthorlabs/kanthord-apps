@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { readMissionNode } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
@@ -27,8 +27,30 @@ export interface TraceView {
   readonly title: string | null;
 }
 
-async function readTraceData(traceId: string) {
-  const [summary, spans] = await Promise.all([readTrace(traceId), listTraceSpans(traceId)]);
+interface SpanCache {
+  readonly traceId: string;
+  readonly signature: string;
+  readonly spans: readonly TraceSpan[];
+}
+
+function signatureOf(summary: TraceSummary): string {
+  return JSON.stringify([
+    summary.span_count,
+    summary.error_count,
+    summary.total_tokens,
+    summary.ended_at,
+  ]);
+}
+
+async function readTraceData(traceId: string, cache: { current: SpanCache | null }) {
+  const summary = await readTrace(traceId);
+  const signature = signatureOf(summary);
+  const cached = cache.current;
+  if (cached !== null && cached.traceId === traceId && cached.signature === signature) {
+    return { summary, spans: cached.spans };
+  }
+  const spans = await listTraceSpans(traceId);
+  cache.current = { traceId, signature, spans };
   return { summary, spans };
 }
 
@@ -54,9 +76,10 @@ async function readProjectName(projectId: string | null): Promise<string | null>
 export function useTrace(traceId: string): TraceView {
   const [endedTraceId, setEndedTraceId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
+  const spanCache = useRef<SpanCache | null>(null);
   const polled = usePolledResource(
     async () => {
-      const data = await readTraceData(traceId);
+      const data = await readTraceData(traceId, spanCache);
       setEndedTraceId(data.summary.state === "open" ? null : traceId);
       return data;
     },
