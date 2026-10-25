@@ -204,7 +204,7 @@ function Probe() {
   );
 }
 
-function mount(entry = "/traces/trace-1") {
+function mount(entry = "/traces/trace-1?tab=steps") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
@@ -332,7 +332,7 @@ describe("TraceScreen span detail", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Back to steps" })).not.toBeInTheDocument(),
     );
-    expect(screen.getByText("at /traces/trace-1")).toBeInTheDocument();
+    expect(screen.getByText("at /traces/trace-1?tab=steps")).toBeInTheDocument();
   });
 
   it("shows the level header with the label, the status line and the bar of the span", async () => {

@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { Conversation } from "./components/conversation";
 import { StepsTab } from "./components/steps-tab";
+import { SummaryTab } from "./components/summary-tab";
 import { TraceHeader } from "./components/trace-header";
 import { useStickyOffset } from "./use-sticky-offset";
 import { useTrace } from "./use-trace";
@@ -77,6 +78,9 @@ export function TraceScreen() {
           <TouchTarget>
             <TabsList>
               <TouchTarget>
+                <TabsTrigger value="summary">Summary</TabsTrigger>
+              </TouchTarget>
+              <TouchTarget>
                 <TabsTrigger value="steps">Steps</TabsTrigger>
               </TouchTarget>
               <TouchTarget>
@@ -85,6 +89,14 @@ export function TraceScreen() {
             </TabsList>
           </TouchTarget>
         </div>
+        <TabsContent value="summary">
+          <SummaryTab
+            summary={summary}
+            spans={trace.spans}
+            selection={selection}
+            onLabeled={trace.retry}
+          />
+        </TabsContent>
         <TabsContent value="steps">
           <StepsTab
             traceId={summary.trace_id}
