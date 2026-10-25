@@ -7,8 +7,11 @@ import {
   type CauseSubcategory,
   type EffectiveCause,
   type SpanAttributeValue,
+  type TraceListItem,
   type TraceSpan,
 } from "@/api/types";
+
+import { durationText } from "./format";
 
 export const CAUSE_LABEL_SUFFIX = ".cause_label";
 
@@ -42,6 +45,14 @@ export function causeLine(cause: EffectiveCause): string {
   const suspects = cause.suspects ?? [];
   if (suspects.length === 0) return label;
   return `${label} - suspects ${suspects.map((suspect) => CAUSE_CATEGORY_LABELS[suspect]).join(", ")}`;
+}
+
+export function rowCauseLineOf(item: TraceListItem, now: number): string | null {
+  if (item.state === "open") {
+    if (item.started_at === null) return "Open";
+    return `Open - ${durationText(item.duration_ms ?? Math.max(0, now - item.started_at))}`;
+  }
+  return item.cause === null ? null : causeLine(item.cause);
 }
 
 export function causeChipText(cause: EffectiveCause): string {

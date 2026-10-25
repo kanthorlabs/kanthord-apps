@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import { durationText, utcDateTime } from "./format";
+import { durationText, utcDateTime, utcShortDateTime } from "./format";
 
 describe("utcDateTime", () => {
   it("renders a millisecond time as a UTC minute", () => {
     expect(utcDateTime(Date.UTC(2026, 9, 3, 14, 5, 59))).toBe("2026-10-03 14:05 UTC");
+  });
+});
+
+describe("utcShortDateTime", () => {
+  it("renders a millisecond time as a UTC month, day and minute", () => {
+    expect(utcShortDateTime(Date.UTC(2026, 9, 3, 14, 5, 59))).toBe("10-03 14:05");
   });
 });
 

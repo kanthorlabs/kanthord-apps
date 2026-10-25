@@ -24,10 +24,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { useLargeScreen } from "@/hooks/use-large-screen";
 import { CAUSE_CATEGORY_LABELS, subcategoryText } from "@/lib/trace-cause";
 
 import { useCauseLabel } from "../use-cause-label";
-import { useLargeScreen } from "../use-large-screen";
 
 interface LabelCauseSheetProps {
   readonly traceId: string;

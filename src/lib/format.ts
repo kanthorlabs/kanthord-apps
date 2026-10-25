@@ -2,6 +2,10 @@ export function utcDateTime(ms: number): string {
   return `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
+export function utcShortDateTime(ms: number): string {
+  return new Date(ms).toISOString().slice(5, 16).replace("T", " ");
+}
+
 const SECOND_MS = 1_000;
 const MINUTE_MS = 60 * SECOND_MS;
 const HOUR_MS = 60 * MINUTE_MS;

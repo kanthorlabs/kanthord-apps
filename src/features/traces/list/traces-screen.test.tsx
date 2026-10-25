@@ -92,20 +92,30 @@ function mount(entry = "/traces") {
   );
 }
 
+function matchLargeScreen(matches: boolean) {
+  vi.stubGlobal("matchMedia", () => ({
+    matches,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+  }));
+}
+
 beforeEach(() => {
+  matchLargeScreen(true);
   vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
   vi.mocked(readTraceFacets).mockResolvedValue({
     worker_names: ["general"],
     agent_names: ["coder"],
     models: ["claude-a"],
     error_types: ["Timeout"],
-    cause_categories: [],
+    cause_categories: ["llm_provider", "unattributed"],
   });
   vi.mocked(listProjects).mockResolvedValue([project("prj-1", "kanthord")]);
   vi.mocked(readMissionNode).mockRejectedValue(new ApiError("not_found", "No node.", 404));
 });
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   vi.useRealTimers();
   vi.resetAllMocks();
 });
@@ -114,7 +124,7 @@ describe("TracesScreen", () => {
   it("shows the title, the state badges and the fields of a row", async () => {
     vi.mocked(listTracePage).mockResolvedValue({
       items: [
-        trace("trc-1", { node_id: "node-1", stop_reason: "max_turns" }),
+        trace("trc-1", { node_id: "node-1" }),
         trace("trc-2", { state: "error", error_count: 2, first_error_span_id: "spn-9" }),
       ],
       next_cursor: null,
@@ -128,18 +138,14 @@ describe("TracesScreen", () => {
     const first = await within(list).findByText("Build the page");
     const row = first.closest("[role=listitem]") as HTMLElement;
     expect(within(row).getByText("OK")).toBeInTheDocument();
-    expect(within(row).getByText("max_turns")).toBeInTheDocument();
     for (const [label, value] of [
       ["Worker", "general"],
-      ["Agent", "coder, reviewer"],
-      ["Model", "claude-a, claude-b"],
-      ["Started", utcDateTime(STARTED_AT)],
+      ["Attempt", "1"],
       ["Duration", durationText(90_000)],
-      ["Tokens", "1.5k"],
       ["Est. cost", "$0.2500"],
+      ["Started", utcDateTime(STARTED_AT)],
       ["Turns", "4"],
-      ["Tools", "7"],
-      ["Errors", "0"],
+      ["Errors (incl. recovered)", "0"],
     ] as const) {
       expect(within(row).getByText(label).nextElementSibling).toHaveTextContent(value);
     }
@@ -289,7 +295,7 @@ describe("TracesScreen", () => {
     expect(vi.mocked(listTracePage).mock.calls[0]?.[0]).toMatchObject({ sort: "cost_usd" });
   });
 
-  it("opens the span tree at the first error span of an error trace", async () => {
+  it("opens the trace page with no span for an error trace", async () => {
     const user = userEvent.setup();
     vi.mocked(listTracePage).mockResolvedValue({
       items: [trace("trc-2", { state: "error", first_error_span_id: "spn-9" })],
@@ -299,9 +305,133 @@ describe("TracesScreen", () => {
 
     await user.click(await screen.findByRole("button", { name: "Open trace exec-trc-2" }));
 
-    expect(
-      await screen.findByText("at /traces/trc-2?tab=span_tree&span=spn-9"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("at /traces/trc-2")).toBeInTheDocument();
+  });
+
+  it("shows the cause line of an llm_provider cause and of an unattributed cause", async () => {
+    vi.mocked(listTracePage).mockResolvedValue({
+      items: [
+        trace("trc-1", {
+          state: "error",
+          cause: { category: "llm_provider", assigner: "rule", subcategory: "rate_limited" },
+        }),
+        trace("trc-2", {
+          state: "error",
+          cause: {
+            category: "unattributed",
+            assigner: "rule",
+            suspects: ["prompt", "model"],
+          },
+        }),
+        trace("trc-3"),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    const list = await screen.findByRole("list", { name: "Traces" });
+    expect(await within(list).findByText("LLM provider - rate limited")).toBeInTheDocument();
+    expect(within(list).getByText("Unattributed - suspects Prompt, Model")).toBeInTheDocument();
+    const quiet = within(list).getByText("exec-trc-3").closest("[role=listitem]") as HTMLElement;
+    expect(within(quiet).queryByText(/ - /)).toBeNull();
+  });
+
+  it("shows the elapsed time on an open row", async () => {
+    vi.mocked(listTracePage).mockResolvedValue({
+      items: [
+        trace("trc-1", { state: "open", duration_ms: null, started_at: Date.now() - 120_000 }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    expect(await screen.findByText("Open - 2 min")).toBeInTheDocument();
+  });
+
+  it("sets state=error with the Failed pill and clears it with All", async () => {
+    const user = userEvent.setup();
+    mount();
+
+    await user.click(await screen.findByRole("button", { name: "Failed" }));
+    await waitFor(() =>
+      expect(vi.mocked(listTracePage).mock.calls.at(-1)?.[0]).toMatchObject({ state: "error" }),
+    );
+    await user.click(screen.getByRole("button", { name: "All" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(listTracePage).mock.calls.at(-1)?.[0]).not.toHaveProperty("state"),
+    );
+  });
+
+  it("sets state=open with the Open pill", async () => {
+    const user = userEvent.setup();
+    mount();
+
+    await user.click(await screen.findByRole("button", { name: "Open" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(listTracePage).mock.calls.at(-1)?.[0]).toMatchObject({ state: "open" }),
+    );
+  });
+
+  it("lists the cause categories of the facets with their labels", async () => {
+    const user = userEvent.setup();
+    mount();
+
+    await user.click(screen.getByRole("button", { name: "More filters" }));
+    await user.click(await screen.findByRole("combobox", { name: "Cause category" }));
+
+    expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual([
+      "All cause categories",
+      "LLM provider",
+      "Unattributed",
+    ]);
+  });
+
+  it("sets the cause category inline", async () => {
+    const user = userEvent.setup();
+    mount();
+
+    await user.click(screen.getByRole("button", { name: "More filters" }));
+    await user.click(await screen.findByRole("combobox", { name: "Cause category" }));
+    await user.click(await screen.findByRole("option", { name: "LLM provider" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(listTracePage).mock.calls.at(-1)?.[0]).toMatchObject({
+        cause_category: "llm_provider",
+      }),
+    );
+  });
+
+  it("applies the cause category of the filter sheet only on Apply", async () => {
+    matchLargeScreen(false);
+    const user = userEvent.setup();
+    mount();
+    await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    await user.click(await screen.findByRole("combobox", { name: "Cause category" }));
+    await user.click(await screen.findByRole("option", { name: "Unattributed" }));
+    await user.type(screen.getByLabelText("Min tokens"), "100");
+
+    expect(listTracePage).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(listTracePage).mock.calls[1]?.[0]).toMatchObject({
+      cause_category: "unattributed",
+      min_total_tokens: 100,
+    });
+    expect(screen.queryByRole("button", { name: "Apply" })).toBeNull();
+  });
+
+  it("keeps the inline filters out of compact width", async () => {
+    matchLargeScreen(false);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "Filters" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More filters" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Failed" })).toBeInTheDocument();
   });
 
   it("opens the trace page of a trace without an error", async () => {

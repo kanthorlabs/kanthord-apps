@@ -3,10 +3,11 @@ import { useSearchParams } from "react-router-dom";
 
 import { listProjects } from "@/api/resources/projects";
 import { listTracePage, readTraceFacets } from "@/api/resources/tracking";
-import type { Project, TraceFacets, TraceSummary } from "@/api/types";
+import type { Project, TraceFacets, TraceListItem } from "@/api/types";
 import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
 import { useResource, type Resource } from "@/hooks/use-resource";
-import { TRACE_QUERY_KEYS, traceQueryOf, withParam } from "@/lib/trace-query";
+import { secondsOf, millisecondsOf, sheetChangesOf } from "@/lib/trace-filter-draft";
+import { TRACE_QUERY_KEYS, traceQueryOf, withParam, type TraceQueryKey } from "@/lib/trace-query";
 import { traceTitleOf } from "@/lib/trace-title";
 
 import { readNodeNames } from "./read-node-names";
@@ -14,41 +15,30 @@ import { readNodeNames } from "./read-node-names";
 export const TRACE_PAGE_LIMIT = 50;
 
 const SEARCH_DELAY_MS = 300;
-const MS_PER_SECOND = 1000;
-
-export type TraceQueryKey = (typeof TRACE_QUERY_KEYS)[number];
+const ALL_PILL = "all";
 
 export type TraceSetter = (value: string | null) => void;
 
 export interface TraceList {
-  readonly pages: CursorPages<TraceSummary>;
+  readonly pages: CursorPages<TraceListItem>;
   readonly projects: Resource<readonly Project[]>;
   readonly facets: Resource<TraceFacets>;
   readonly params: URLSearchParams;
   readonly projectId: string | null;
   readonly filtered: boolean;
   readonly setters: Readonly<Record<TraceQueryKey, TraceSetter>>;
+  readonly now: number;
+  readonly statePill: string;
+  readonly choosePill: (pill: string) => void;
+  readonly apply: (draft: URLSearchParams, draftDurationSeconds: string) => void;
   readonly search: string;
   readonly changeSearch: (text: string) => void;
   readonly durationSeconds: string;
   readonly changeDurationSeconds: (text: string) => void;
-  readonly titleOf: (trace: TraceSummary) => string;
+  readonly titleOf: (trace: TraceListItem) => string;
 }
 
-function millisecondsOf(seconds: string): string | null {
-  if (seconds.trim() === "") return null;
-  const value = Number(seconds);
-  if (!Number.isFinite(value) || value < 0) return null;
-  return String(Math.round(value * MS_PER_SECOND));
-}
-
-function secondsOf(milliseconds: string | null): string {
-  if (milliseconds === null) return "";
-  const value = Number(milliseconds);
-  return Number.isFinite(value) ? String(value / MS_PER_SECOND) : "";
-}
-
-function nodeIdsOf(traces: readonly TraceSummary[]): readonly string[] {
+function nodeIdsOf(traces: readonly TraceListItem[]): readonly string[] {
   return traces.flatMap((trace) => (trace.node_id === null ? [] : [trace.node_id]));
 }
 
@@ -73,6 +63,26 @@ export function useTraceList(): TraceList {
     (key: TraceQueryKey, value: string | null) => {
       startTransition(() => setNow(Date.now()));
       setParams((current) => withParam(current, key, value), { replace: true });
+    },
+    [setParams],
+  );
+  const choosePill = useCallback(
+    (pill: string) => write("state", pill === ALL_PILL ? null : pill),
+    [write],
+  );
+  const apply = useCallback(
+    (draft: URLSearchParams, draftDurationSeconds: string) => {
+      const changes = sheetChangesOf(draft, draftDurationSeconds);
+      startTransition(() => setNow(Date.now()));
+      setDurationSeconds(draftDurationSeconds);
+      setParams(
+        (current) =>
+          Object.entries(changes).reduce(
+            (next, [key, value]) => withParam(next, key, value),
+            current,
+          ),
+        { replace: true },
+      );
     },
     [setParams],
   );
@@ -107,7 +117,7 @@ export function useTraceList(): TraceList {
   }, []);
 
   const titleOf = useCallback(
-    (trace: TraceSummary) =>
+    (trace: TraceListItem) =>
       traceTitleOf(
         trace,
         (trace.node_id === null ? undefined : names.data?.get(trace.node_id)) ?? null,
@@ -125,6 +135,10 @@ export function useTraceList(): TraceList {
     projectId,
     filtered,
     setters,
+    now,
+    statePill: params.get("state") ?? ALL_PILL,
+    choosePill,
+    apply,
     search,
     changeSearch,
     durationSeconds,

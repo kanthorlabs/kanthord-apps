@@ -1,6 +1,6 @@
 import type { TraceSpan, TraceState } from "@/api/types";
+import { useLargeScreen } from "@/hooks/use-large-screen";
 
-import { useLargeScreen } from "../use-large-screen";
 import { useTimeline } from "../use-timeline";
 import type { TraceSelection } from "../use-trace-selection";
 import { SpanDetail } from "./span-detail";
