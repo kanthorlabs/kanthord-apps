@@ -1,3 +1,4 @@
+import { buildAnalytics } from "./analytics.mjs";
 import { buildTimelineTraces } from "./timeline-fixtures.mjs";
 
 const WINDOW_FLOOR_MS = 60_000;
@@ -386,6 +387,7 @@ const uniqueSorted = (lists) => [...new Set(lists.flat())].sort();
 
 export function registerTracking({ on, json, envelope, page, executions }) {
   const now = Date.now();
+  const analytics = buildAnalytics(now);
   const traces = () => [
     ...executions().map((record) => buildTrace(record, now)),
     ...buildTimelineTraces(now),
@@ -426,6 +428,19 @@ export function registerTracking({ on, json, envelope, page, executions }) {
       next_cursor: next < slots.length ? String(next) : null,
     });
   });
+
+  const answerAnalytics = (res, answer) =>
+    answer.error === undefined
+      ? json(res, 200, answer)
+      : envelope(res, answer.error.status, answer.error.code, answer.error.message);
+
+  on("GET", /^\/api\/tracking\/analytics\/cost$/, (_m, _b, res, _t, url) =>
+    answerAnalytics(res, analytics.readCost(url.searchParams, Date.now())),
+  );
+
+  on("GET", /^\/api\/tracking\/analytics\/duration$/, (_m, _b, res, _t, url) =>
+    answerAnalytics(res, analytics.readDuration(url.searchParams, Date.now())),
+  );
 
   on("GET", /^\/api\/tracking\/facet$/, (_m, _b, res, _t, url) => {
     const projectId = url.searchParams.get("project_id");

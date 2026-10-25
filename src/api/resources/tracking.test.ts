@@ -10,6 +10,8 @@ import {
   listTracePage,
   listTimelinePage,
   listTraceSpans,
+  readAnalyticsCost,
+  readAnalyticsDuration,
   readSessionEntry,
   readTrace,
   readTraceFacets,
@@ -208,6 +210,67 @@ describe("readSessionEntry", () => {
     expect(seen.map((req) => req.url)).toEqual([
       "/api/tracking/trace/t-1/session/s-1/entry/e%2F1",
       "/api/tracking/trace/t-1/session/s-1/entry/e-2",
+    ]);
+  });
+});
+
+describe("readAnalyticsCost", () => {
+  it("requests the cost path with every set field and no other parameter", async () => {
+    const answer = { items: [], truncated: false };
+    await connect([{ body: answer }, { body: answer }]);
+
+    expect(await readAnalyticsCost({})).toEqual(answer);
+    expect(
+      await readAnalyticsCost({
+        from: 1000,
+        to: 2000,
+        project_id: "prj-1",
+        node_id: undefined,
+        bucket: "hour",
+        group_by: "agent_name",
+      }),
+    ).toEqual(answer);
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/tracking/analytics/cost",
+      "/api/tracking/analytics/cost?from=1000&to=2000&project_id=prj-1&bucket=hour&group_by=agent_name",
+    ]);
+    expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
+  });
+
+  it("rejects a range that is not valid with an ApiError", async () => {
+    await connect([
+      {
+        status: 400,
+        body: {
+          error: { code: "tracking.analytics.range_invalid", message: "Range.", details: null },
+          request_id: "req-1",
+        },
+      },
+    ]);
+
+    await expect(readAnalyticsCost({ from: 2000, to: 1000 })).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe("readAnalyticsDuration", () => {
+  it("requests the duration path with the measure and every set field", async () => {
+    const answer = { items: [], truncated: true };
+    await connect([{ body: answer }, { body: answer }]);
+
+    expect(await readAnalyticsDuration({ measure: "queue_wait" })).toEqual(answer);
+    expect(
+      await readAnalyticsDuration({
+        group_by: "tool_name",
+        operation: "agent.tool",
+        measure: "span_duration",
+        node_id: "node-1",
+        bucket: "none",
+        from: 1000,
+      }),
+    ).toEqual(answer);
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/tracking/analytics/duration?measure=queue_wait",
+      "/api/tracking/analytics/duration?measure=span_duration&group_by=tool_name&operation=agent.tool&node_id=node-1&bucket=none&from=1000",
     ]);
   });
 });

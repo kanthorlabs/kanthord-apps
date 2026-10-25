@@ -1,6 +1,11 @@
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
+  AnalyticsCostItem,
+  AnalyticsCostQuery,
+  AnalyticsDurationItem,
+  AnalyticsDurationQuery,
+  AnalyticsPage,
   Page,
   TelemetryText,
   TimelineItem,
@@ -16,6 +21,7 @@ const TRACE_PATH = "/api/tracking/trace";
 const TIMELINE_PATH = "/api/tracking/timeline";
 const TIMELINE_SCOPES = ["execution_id", "node_id", "project_id"] as const;
 const TIMELINE_RANGE = ["from", "to"] as const;
+const ANALYTICS_PATH = "/api/tracking/analytics";
 const DEFAULT_TIMELINE_DEPTH = 2;
 
 function tracePath(traceId: string): string {
@@ -58,6 +64,30 @@ export async function listTimelinePage(
   params.set("limit", String(limit));
   if (cursor !== null) params.set("cursor", cursor);
   return request<Page<TimelineItem>>(`${TIMELINE_PATH}?${params}`);
+}
+
+function analyticsUrl(path: string, query: object): string {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(query)) {
+    if (value !== undefined) params.set(name, String(value));
+  }
+  const text = params.toString();
+  return text === "" ? path : `${path}?${text}`;
+}
+
+export async function readAnalyticsCost(
+  query: AnalyticsCostQuery,
+): Promise<AnalyticsPage<AnalyticsCostItem>> {
+  return request<AnalyticsPage<AnalyticsCostItem>>(analyticsUrl(`${ANALYTICS_PATH}/cost`, query));
+}
+
+export async function readAnalyticsDuration(
+  query: AnalyticsDurationQuery,
+): Promise<AnalyticsPage<AnalyticsDurationItem>> {
+  const { measure, ...rest } = query;
+  return request<AnalyticsPage<AnalyticsDurationItem>>(
+    analyticsUrl(`${ANALYTICS_PATH}/duration`, { measure, ...rest }),
+  );
 }
 
 export async function readTrace(traceId: string): Promise<TraceSummary> {
