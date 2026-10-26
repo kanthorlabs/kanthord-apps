@@ -33,6 +33,17 @@ const failureOf = (name) => ({
   ended_at: STARTED_AT,
 });
 
+const executionFailureOf = (name) => ({
+  class: "affected_invalid",
+  origin: "execution",
+  execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0E01",
+  command: "pnpm test",
+  exit_code: 1,
+  tail: "The affected test run selected no test file.",
+  reproduce: `podman run --rm -it ${tagOf(name)} bash -c 'pnpm test'`,
+  ended_at: STARTED_AT,
+});
+
 const initialRecordOf = (name, leading) => {
   if (leading && SCENARIO === "building") {
     return {
@@ -71,6 +82,15 @@ const initialRecordOf = (name, leading) => {
       run_started_at: null,
       step_started_at: null,
       failure: failureOf(name),
+      reads: 0,
+    };
+  }
+  if (leading && SCENARIO === "execution_failed") {
+    return {
+      status: "failed",
+      run_started_at: null,
+      step_started_at: null,
+      failure: executionFailureOf(name),
       reads: 0,
     };
   }

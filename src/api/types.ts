@@ -391,7 +391,12 @@ export type EnvironmentTarget = "image" | "host" | "remote";
 export type EnvironmentSource = "stored" | "repository" | "detected" | "universal" | "none";
 
 export type EnvironmentFailureClass =
-  "build_failed" | "image_invalid" | "setup_failed" | "command_absent";
+  | "build_failed"
+  | "image_invalid"
+  | "setup_failed"
+  | "command_absent"
+  | "affected_invalid"
+  | "affected_timeout";
 
 export type EnvironmentFailureOrigin = "onboarding" | "execution";
 
@@ -1368,6 +1373,8 @@ const SUBCATEGORY_SETS = {
   environment: [
     "setup_failed",
     "command_absent",
+    "affected_invalid",
+    "affected_timeout",
     "flaky_verification",
     "verification_hang",
     "repository_hook",
