@@ -42,6 +42,21 @@ describe("useToolP90", () => {
     expect((query?.to ?? 0) - (query?.from ?? 0)).toBe(7 * DAY_MS);
   });
 
+  it("asks for bucket none so that the engine does not answer one item for each day", async () => {
+    vi.mocked(readAnalyticsDuration).mockImplementation(async (query) => ({
+      items:
+        query.bucket === "none"
+          ? [item("bash", null, 4000)]
+          : [item("bash", 1_000, 100), item("bash", 1_000 + DAY_MS, 200)],
+      truncated: false,
+    }));
+
+    const { result } = renderHook(() => useToolP90("project-1", "bash"));
+
+    await waitFor(() => expect(result.current).toBe(4000));
+    expect(vi.mocked(readAnalyticsDuration).mock.calls[0]?.[0]).toMatchObject({ bucket: "none" });
+  });
+
   it("does not read again when the component renders again", async () => {
     vi.mocked(readAnalyticsDuration).mockResolvedValue({
       items: [item("bash", null, 4000)],
