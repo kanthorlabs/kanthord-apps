@@ -15,6 +15,7 @@ import { readTraceText } from "@/api/resources/tracking";
 import type { SpanAttributeValue, SpanStatus, TraceSpan, TraceSummary } from "@/api/types";
 
 import type { NodeExecution, NodeTraces } from "../use-node-traces";
+import type { TraceNode } from "../use-trace-node";
 import { DiagnosisBlock } from "./diagnosis-block";
 
 function span(
@@ -106,6 +107,17 @@ function execution(overrides: Partial<NodeExecution>): NodeExecution {
   };
 }
 
+const TRACE_NODE: TraceNode = {
+  items: [],
+  attempts: [],
+  revision: null,
+  revisionError: null,
+  taskNames: new Map(),
+  loading: false,
+  error: null,
+  retry: vi.fn(),
+};
+
 function renderBlock(spans: readonly TraceSpan[], node: NodeTraces = nodeTraces()) {
   const onSelectSpan = vi.fn();
   const onLabeled = vi.fn();
@@ -115,6 +127,7 @@ function renderBlock(spans: readonly TraceSpan[], node: NodeTraces = nodeTraces(
         summary={SUMMARY}
         spans={spans}
         nodeTraces={node}
+        traceNode={TRACE_NODE}
         now={6000}
         selectedSpanId={null}
         onSelectSpan={onSelectSpan}

@@ -26,7 +26,7 @@ vi.mock("@/api/resources/mission", () => ({
   readNodeRevision: vi.fn(),
 }));
 
-import { listNodeAttempts, readMissionNode } from "@/api/resources/mission";
+import { listNodeAttempts, readMissionNode, readNodeRevision } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
 import {
   listSessionEntryPage,
@@ -35,7 +35,9 @@ import {
   readTrace,
 } from "@/api/resources/tracking";
 import type {
+  MissionAttempt,
   MissionNodeRecord,
+  MissionRevision,
   Project,
   TraceSessionEntry,
   TraceSpan,
@@ -43,6 +45,7 @@ import type {
 } from "@/api/types";
 import { durationText, utcDateTime } from "@/lib/format";
 import { PRICE_NOTE } from "@/lib/trace-format";
+import { ProjectProvider } from "@/features/projects/project-context";
 
 import { TraceScreen } from "./trace-screen";
 import { TRACE_POLL_MS } from "./use-trace";
@@ -229,10 +232,12 @@ function Probe() {
 function mount(entry = "/traces/trace-1?tab=steps") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/traces" element={<p>Traces list</p>} />
-        <Route path="/traces/:traceId" element={<TraceScreen />} />
-      </Routes>
+      <ProjectProvider>
+        <Routes>
+          <Route path="/traces" element={<p>Traces list</p>} />
+          <Route path="/traces/:traceId" element={<TraceScreen />} />
+        </Routes>
+      </ProjectProvider>
       <Probe />
     </MemoryRouter>,
   );
@@ -243,9 +248,11 @@ function mountWithBreadcrumb() {
     <MemoryRouter initialEntries={["/traces/trace-1"]}>
       <CrumbLabelsProvider>
         <AppBreadcrumb />
-        <Routes>
-          <Route path="/traces/:traceId" element={<TraceScreen />} />
-        </Routes>
+        <ProjectProvider>
+          <Routes>
+            <Route path="/traces/:traceId" element={<TraceScreen />} />
+          </Routes>
+        </ProjectProvider>
       </CrumbLabelsProvider>
     </MemoryRouter>,
   );
@@ -626,6 +633,38 @@ describe("TraceScreen conversation", () => {
 });
 
 describe("TraceScreen summary", () => {
+  it("reads each resource once for one load", async () => {
+    vi.mocked(listNodeAttempts).mockResolvedValue([
+      { attempt: 2, node_revision: 3 } as MissionAttempt,
+    ]);
+    vi.mocked(readNodeRevision).mockResolvedValue({
+      node_id: "node-1",
+      revision: 3,
+      content: {
+        name: "Build the page",
+        requirement: "Build it",
+        criterion: "It builds",
+        verifications: [],
+      },
+      tasks: [{ id: "t1", content: { name: "Write code" } }],
+    } as unknown as MissionRevision);
+    mount("/traces/trace-1");
+
+    expect(await screen.findByText("The plan Build the page (v3)")).toBeInTheDocument();
+    await screen.findByRole("tree", { name: "Spans" });
+    await userEvent.click(screen.getByRole("tab", { name: "Steps" }));
+    expect(await screen.findByRole("tree", { name: "Spans" })).toBeInTheDocument();
+
+    expect(listTraceSpans).toHaveBeenCalledTimes(1);
+    expect(listTraceSpans).toHaveBeenCalledWith("trace-1");
+    expect(listTracePage).toHaveBeenCalledTimes(1);
+    expect(listTracePage).toHaveBeenCalledWith({ node_id: "node-1" }, null, 100);
+    expect(listNodeAttempts).toHaveBeenCalledTimes(1);
+    expect(readNodeRevision).toHaveBeenCalledTimes(1);
+    expect(readNodeRevision).toHaveBeenCalledWith("node-1", 3);
+    expect(listProjects).toHaveBeenCalledTimes(1);
+  });
+
   it("opens on Summary and lists the tabs Summary, Steps and Conversation", async () => {
     mount("/traces/trace-1");
 

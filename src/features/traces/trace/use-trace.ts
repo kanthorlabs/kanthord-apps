@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
 
 import { readMissionNode } from "@/api/resources/mission";
-import { listProjects } from "@/api/resources/projects";
 import { listTraceSpans, readTrace } from "@/api/resources/tracking";
 import type { ApiError } from "@/api/errors";
 import type { TraceSpan, TraceSummary } from "@/api/types";
+import { useProject } from "@/features/projects/project-context";
 import { usePolledResource } from "@/hooks/use-polled-resource";
 import { useResource } from "@/hooks/use-resource";
 import { traceTitleOf } from "@/lib/trace-title";
@@ -63,16 +63,6 @@ async function readNodeName(nodeId: string | null): Promise<string | null> {
   }
 }
 
-async function readProjectName(projectId: string | null): Promise<string | null> {
-  if (projectId === null) return null;
-  try {
-    const projects = await listProjects();
-    return projects.find((project) => project.id === projectId)?.name ?? null;
-  } catch {
-    return null;
-  }
-}
-
 export function useTrace(traceId: string): TraceView {
   const [endedTraceId, setEndedTraceId] = useState<string | null>(null);
   const [paused, setPaused] = useState(false);
@@ -90,7 +80,8 @@ export function useTrace(traceId: string): TraceView {
   const nodeId = summary?.node_id ?? null;
   const projectId = summary?.project_id ?? null;
   const nodeName = useResource(() => readNodeName(nodeId), [nodeId]);
-  const projectName = useResource(() => readProjectName(projectId), [projectId]);
+  const { projects } = useProject();
+  const projectName = projects.find((project) => project.id === projectId)?.name ?? null;
 
   return {
     summary,
@@ -102,7 +93,7 @@ export function useTrace(traceId: string): TraceView {
     paused,
     togglePaused: () => setPaused((value) => !value),
     nodeName: nodeName.data,
-    projectName: projectName.data,
+    projectName,
     title: summary === null ? null : traceTitleOf(summary, nodeName.data),
   };
 }

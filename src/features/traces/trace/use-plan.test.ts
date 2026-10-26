@@ -1,35 +1,11 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/api/resources/mission", () => ({
-  listNodeAttempts: vi.fn(),
-  readNodeRevision: vi.fn(),
-}));
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/api/errors";
-import { listNodeAttempts, readNodeRevision } from "@/api/resources/mission";
-import type {
-  MissionAttempt,
-  MissionRevision,
-  SpanAttributeValue,
-  TraceSpan,
-  TraceSummary,
-} from "@/api/types";
+import type { MissionRevision, SpanAttributeValue, TraceSpan } from "@/api/types";
 
-import { useNodeRevision } from "./use-node-revision";
 import { usePlan } from "./use-plan";
-
-const SUMMARY = {
-  trace_id: "trace-1",
-  project_id: "project_1",
-  node_id: "node_1",
-  attempt: 2,
-} as TraceSummary;
-
-const ATTEMPTS = [
-  { node_id: "node_1", attempt: 1, node_revision: 1 },
-  { node_id: "node_1", attempt: 2, node_revision: 3 },
-] as MissionAttempt[];
+import type { TraceNode } from "./use-trace-node";
 
 const REVISION = {
   node_id: "node_1",
@@ -46,6 +22,20 @@ const REVISION = {
     { id: "task_c", filename: "c.md", content: { name: "Publish" } },
   ],
 } as unknown as MissionRevision;
+
+function traceNode(overrides: Partial<TraceNode> = {}): TraceNode {
+  return {
+    items: [],
+    attempts: [],
+    revision: REVISION,
+    revisionError: null,
+    taskNames: new Map(),
+    loading: false,
+    error: null,
+    retry: () => undefined,
+    ...overrides,
+  };
+}
 
 function taskSpan(
   id: string,
@@ -71,17 +61,9 @@ function taskSpan(
   };
 }
 
-afterEach(() => {
-  vi.resetAllMocks();
-});
-
 describe("usePlan", () => {
-  it("reads the revision of the trace attempt", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
-    vi.mocked(readNodeRevision).mockResolvedValue(REVISION);
-    const { result } = renderHook(() => usePlan(SUMMARY, []));
-    await waitFor(() => expect(result.current.plan).not.toBeNull());
-    expect(readNodeRevision).toHaveBeenCalledWith("node_1", 3);
+  it("plans the revision of the trace node", () => {
+    const { result } = renderHook(() => usePlan(traceNode(), []));
     expect(result.current.plan).toMatchObject({
       name: "Ship it",
       revision: 3,
@@ -89,17 +71,15 @@ describe("usePlan", () => {
       criterion: "The thing works",
       verifications: ["pnpm test"],
     });
+    expect(result.current.error).toBeNull();
   });
 
-  it("derives the task states from the spans", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
-    vi.mocked(readNodeRevision).mockResolvedValue(REVISION);
+  it("derives the task states from the spans", () => {
     const spans = [
       taskSpan("s1", "task_a", { "kanthord.task.result": "complete" }),
       taskSpan("s2", "task_b", {}, "Error"),
     ];
-    const { result } = renderHook(() => usePlan(SUMMARY, spans));
-    await waitFor(() => expect(result.current.plan).not.toBeNull());
+    const { result } = renderHook(() => usePlan(traceNode(), spans));
     expect(result.current.plan?.tasks).toEqual([
       { id: "task_a", name: "Write code", state: "done" },
       { id: "task_b", name: "Run tests", state: "failed" },
@@ -107,53 +87,15 @@ describe("usePlan", () => {
     ]);
   });
 
-  it("reads nothing for a trace with no node", () => {
-    const { result } = renderHook(() => usePlan({ ...SUMMARY, node_id: null }, []));
-    expect(listNodeAttempts).not.toHaveBeenCalled();
+  it("answers no plan for a trace node with no revision", () => {
+    const { result } = renderHook(() => usePlan(traceNode({ revision: null }), []));
     expect(result.current.plan).toBeNull();
   });
 
-  it("answers the error of a failed read", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
-    vi.mocked(readNodeRevision).mockRejectedValue(new ApiError("not_found", "Gone.", 404));
-    const { result } = renderHook(() => usePlan(SUMMARY, []));
-    await waitFor(() => expect(result.current.error?.message).toBe("Gone."));
+  it("answers the revision error of the trace node", () => {
+    const revisionError = new ApiError("not_found", "Gone.", 404);
+    const { result } = renderHook(() => usePlan(traceNode({ revision: null, revisionError }), []));
+    expect(result.current.error?.message).toBe("Gone.");
     expect(result.current.plan).toBeNull();
-  });
-});
-
-describe("useNodeRevision", () => {
-  it("maps each task id to its name", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
-    vi.mocked(readNodeRevision).mockResolvedValue(REVISION);
-    const { result } = renderHook(() => useNodeRevision(SUMMARY));
-    await waitFor(() => expect(result.current.revision).toBe(REVISION));
-    expect(result.current.taskNames.get("task_b")).toBe("Run tests");
-    expect(result.current.taskNames.size).toBe(3);
-  });
-
-  it("maps the node id to the node name for a revision with no task", async () => {
-    const taskless = { ...REVISION, tasks: [] } as unknown as MissionRevision;
-    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
-    vi.mocked(readNodeRevision).mockResolvedValue(taskless);
-    const { result } = renderHook(() => useNodeRevision(SUMMARY));
-    await waitFor(() => expect(result.current.revision).toBe(taskless));
-    expect([...result.current.taskNames]).toEqual([["node_1", "Ship it"]]);
-  });
-
-  it("maps only the task ids for a revision with tasks", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue(ATTEMPTS);
-    vi.mocked(readNodeRevision).mockResolvedValue(REVISION);
-    const { result } = renderHook(() => useNodeRevision(SUMMARY));
-    await waitFor(() => expect(result.current.revision).toBe(REVISION));
-    expect(result.current.taskNames.has("node_1")).toBe(false);
-    expect([...result.current.taskNames.keys()]).toEqual(["task_a", "task_b", "task_c"]);
-  });
-
-  it("reads nothing for a trace with no attempt", () => {
-    const { result } = renderHook(() => useNodeRevision({ ...SUMMARY, attempt: null }));
-    expect(listNodeAttempts).not.toHaveBeenCalled();
-    expect(result.current.revision).toBeNull();
-    expect(result.current.taskNames.size).toBe(0);
   });
 });

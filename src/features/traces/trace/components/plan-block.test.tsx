@@ -1,16 +1,11 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-vi.mock("@/api/resources/mission", () => ({
-  listNodeAttempts: vi.fn(),
-  readNodeRevision: vi.fn(),
-}));
+import type { MissionRevision, TraceSummary } from "@/api/types";
 
-import { listNodeAttempts, readNodeRevision } from "@/api/resources/mission";
-import type { MissionAttempt, MissionRevision, TraceSummary } from "@/api/types";
-
+import type { TraceNode } from "../use-trace-node";
 import { PlanBlock } from "./plan-block";
 
 const SUMMARY = {
@@ -32,22 +27,25 @@ const REVISION = {
   tasks: [{ id: "task_a", filename: "a.md", content: { name: "Write code" } }],
 } as unknown as MissionRevision;
 
-afterEach(() => {
-  vi.resetAllMocks();
-});
+const TRACE_NODE: TraceNode = {
+  items: [],
+  attempts: [],
+  revision: REVISION,
+  revisionError: null,
+  taskNames: new Map(),
+  loading: false,
+  error: null,
+  retry: () => undefined,
+};
 
 describe("PlanBlock", () => {
-  it("shows the node at its revision with the task states and the node link", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue([
-      { node_id: "node_1", attempt: 1, node_revision: 2 } as MissionAttempt,
-    ]);
-    vi.mocked(readNodeRevision).mockResolvedValue(REVISION);
+  it("shows the node at its revision with the task states and the node link", () => {
     render(
       <MemoryRouter>
-        <PlanBlock summary={SUMMARY} spans={[]} />
+        <PlanBlock summary={SUMMARY} spans={[]} traceNode={TRACE_NODE} />
       </MemoryRouter>,
     );
-    expect(await screen.findByText("The plan Ship it (v2)")).toBeInTheDocument();
+    expect(screen.getByText("The plan Ship it (v2)")).toBeInTheDocument();
     expect(screen.getByText("Write code open")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open node" })).toHaveAttribute(
       "href",
@@ -56,22 +54,16 @@ describe("PlanBlock", () => {
   });
 
   it("reveals the whole requirement on More", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue([
-      { node_id: "node_1", attempt: 1, node_revision: 2 } as MissionAttempt,
-    ]);
-    vi.mocked(readNodeRevision).mockResolvedValue(REVISION);
     render(
       <MemoryRouter>
-        <PlanBlock summary={SUMMARY} spans={[]} />
+        <PlanBlock summary={SUMMARY} spans={[]} traceNode={TRACE_NODE} />
       </MemoryRouter>,
     );
-    const more = await screen.findByRole("button", { name: "More requirement" });
+    const more = screen.getByRole("button", { name: "More requirement" });
     await userEvent.click(more);
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Less requirement" })).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      ),
+    expect(screen.getByRole("button", { name: "Less requirement" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
     );
   });
 });

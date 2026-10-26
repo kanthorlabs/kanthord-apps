@@ -12,12 +12,14 @@ import { errorStepIndexOf } from "@/lib/trace-diagnosis";
 
 import { useDiagnosis, type Diagnosis } from "../use-diagnosis";
 import type { NodeTraces } from "../use-node-traces";
+import type { TraceNode } from "../use-trace-node";
 import { LabelCauseSheet } from "./label-cause-sheet";
 
 interface DiagnosisBlockProps {
   readonly summary: TraceSummary;
   readonly spans: readonly TraceSpan[];
   readonly nodeTraces: NodeTraces;
+  readonly traceNode: TraceNode;
   readonly now: number;
   readonly selectedSpanId: string | null;
   readonly onSelectSpan: (spanId: string) => void;
@@ -146,8 +148,8 @@ function Failure({
 }
 
 export function DiagnosisBlock(props: DiagnosisBlockProps) {
-  const { summary, spans, nodeTraces, now } = props;
-  const diagnosis = useDiagnosis(summary, spans, nodeTraces, now);
+  const { summary, spans, nodeTraces, traceNode, now } = props;
+  const diagnosis = useDiagnosis(summary, spans, nodeTraces, now, traceNode.taskNames);
   const { cause, causalSpan, rework, recoveredCount } = diagnosis;
   return (
     <section aria-label="What went wrong" className="flex min-w-0 flex-col gap-3">

@@ -1,23 +1,15 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/api/resources/mission", () => ({
-  listNodeAttempts: vi.fn(),
-  readNodeRevision: vi.fn(),
-}));
-
 vi.mock("@/api/resources/tracking", () => ({
   listTraceSpans: vi.fn(),
   readTrace: vi.fn(),
   readTraceText: vi.fn(),
 }));
 
-import { listNodeAttempts, readNodeRevision } from "@/api/resources/mission";
 import { readTraceText } from "@/api/resources/tracking";
 import type {
   EffectiveCause,
-  MissionAttempt,
-  MissionRevision,
   SpanAttributeValue,
   SpanStatus,
   TraceSpan,
@@ -30,6 +22,7 @@ import type { NodeAttempt, NodeExecution, NodeTraces } from "./use-node-traces";
 import { TRACE_POLL_MS } from "./use-trace";
 
 const MINUTE_MS = 60_000;
+const NO_TASK_NAMES: ReadonlyMap<string, string> = new Map();
 
 function span(
   spanId: string,
@@ -183,7 +176,7 @@ afterEach(() => {
 describe("useDiagnosis", () => {
   it("answers an llm_provider cause with its sentence and evidence", () => {
     const { result } = renderHook(() =>
-      useDiagnosis(summary(), providerSpans(), nodeTraces(), 6000),
+      useDiagnosis(summary(), providerSpans(), nodeTraces(), 6000, NO_TASK_NAMES),
     );
 
     expect(result.current.cause?.category).toBe("llm_provider");
@@ -206,23 +199,19 @@ describe("useDiagnosis", () => {
     expect(result.current.now).toBeNull();
   });
 
-  it("names the node in the sentence for a task of a node with no task files", async () => {
-    vi.mocked(listNodeAttempts).mockResolvedValue([
-      { attempt: 1, node_revision: 2 } as MissionAttempt,
-    ]);
-    vi.mocked(readNodeRevision).mockResolvedValue({
-      node_id: "t2",
-      content: { name: "Ship the page" },
-      tasks: [],
-    } as unknown as MissionRevision);
+  it("names the node in the sentence for a task of a node with no task files", () => {
     const { result } = renderHook(() =>
-      useDiagnosis(summary(), providerSpans(), nodeTraces(), 6000),
+      useDiagnosis(
+        summary(),
+        providerSpans(),
+        nodeTraces(),
+        6000,
+        new Map([["t2", "Ship the page"]]),
+      ),
     );
 
-    await waitFor(() =>
-      expect(result.current.sentence).toBe(
-        "Turn 5 of Ship the page failed: rate_limited. The execution stopped: provider_failed / rate_limited.",
-      ),
+    expect(result.current.sentence).toBe(
+      "Turn 5 of Ship the page failed: rate_limited. The execution stopped: provider_failed / rate_limited.",
     );
   });
 
@@ -239,7 +228,9 @@ describe("useDiagnosis", () => {
         "Unset",
       ),
     ];
-    const { result } = renderHook(() => useDiagnosis(summary(), spans, nodeTraces(), 6000));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary(), spans, nodeTraces(), 6000, NO_TASK_NAMES),
+    );
 
     expect(result.current.sentence).toBe("Revoked by a human.");
     expect(result.current.evidence).toEqual([{ text: "Revoked by a human", spanId: "root" }]);
@@ -268,7 +259,9 @@ describe("useDiagnosis", () => {
         attributes: { "kanthord.prompt.template": "task-revision" },
       }),
     ];
-    const { result } = renderHook(() => useDiagnosis(summary(), spans, nodeTraces(), 6000));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary(), spans, nodeTraces(), 6000, NO_TASK_NAMES),
+    );
 
     expect(result.current.cause?.suspects).toEqual(["plan", "model"]);
     expect(result.current.evidence).toEqual([
@@ -292,7 +285,9 @@ describe("useDiagnosis", () => {
         span(`turn-${id}`, "agent.turn", { parent_span_id: `task-${id}` }),
       ]),
     ];
-    const { result } = renderHook(() => useDiagnosis(summary(), spans, nodeTraces(), 6000));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary(), spans, nodeTraces(), 6000, NO_TASK_NAMES),
+    );
 
     expect(result.current.evidence).toHaveLength(4);
   });
@@ -315,7 +310,9 @@ describe("useDiagnosis", () => {
         created_at: 3000,
       }),
     ];
-    const { result } = renderHook(() => useDiagnosis(summary(), spans, nodeTraces(), 6000));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary(), spans, nodeTraces(), 6000, NO_TASK_NAMES),
+    );
 
     await waitFor(() =>
       expect(result.current.reason).toBe("The work prompt lacked the node context"),
@@ -326,7 +323,7 @@ describe("useDiagnosis", () => {
   });
 
   it("reads no reason for a cause that no human labeled", () => {
-    renderHook(() => useDiagnosis(summary(), providerSpans(), nodeTraces(), 6000));
+    renderHook(() => useDiagnosis(summary(), providerSpans(), nodeTraces(), 6000, NO_TASK_NAMES));
 
     expect(readTraceText).not.toHaveBeenCalled();
   });
@@ -347,7 +344,9 @@ describe("useDiagnosis", () => {
         path: "/traces/trace-2?tab=summary",
       }),
     ]);
-    const { result } = renderHook(() => useDiagnosis(summary("ok"), spans, executions, 6000));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary("ok"), spans, executions, 6000, NO_TASK_NAMES),
+    );
 
     expect(result.current.cause).toBeNull();
     expect(result.current.rework).toEqual({
@@ -363,7 +362,7 @@ describe("useDiagnosis", () => {
       execution({ traceId: "trace-2", kind: "evaluation" }),
     ]);
     const { result } = renderHook(() =>
-      useDiagnosis(summary("ok"), [root({}, "Ok")], executions, 6000),
+      useDiagnosis(summary("ok"), [root({}, "Ok")], executions, 6000, NO_TASK_NAMES),
     );
 
     expect(result.current.rework).toBeNull();
@@ -372,7 +371,7 @@ describe("useDiagnosis", () => {
   it("answers no rework cause for a steps trace with no next evaluation", () => {
     const executions = nodeTraces([execution({ traceId: "trace-1", current: true })]);
     const { result } = renderHook(() =>
-      useDiagnosis(summary("ok"), [root({}, "Ok")], executions, 6000),
+      useDiagnosis(summary("ok"), [root({}, "Ok")], executions, 6000, NO_TASK_NAMES),
     );
 
     expect(result.current.cause).toBeNull();
@@ -385,7 +384,9 @@ describe("useDiagnosis", () => {
       span("tool", "agent.tool", { status: "Error", end_time: 3000 }),
       span("turn", "agent.turn", { start_time: 3000, end_time: 4000 }),
     ];
-    const { result } = renderHook(() => useDiagnosis(summary("ok"), spans, nodeTraces(), 6000));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary("ok"), spans, nodeTraces(), 6000, NO_TASK_NAMES),
+    );
 
     expect(result.current.cause).toBeNull();
     expect(result.current.causalSpan).toBeNull();
@@ -397,7 +398,7 @@ describe("useDiagnosis", () => {
   it("keeps the pick while the span list keeps its identity", () => {
     const spans = providerSpans();
     const { result, rerender } = renderHook(
-      ({ now }) => useDiagnosis(summary(), spans, nodeTraces(), now),
+      ({ now }) => useDiagnosis(summary(), spans, nodeTraces(), now, NO_TASK_NAMES),
       { initialProps: { now: 6000 } },
     );
     const first = result.current.evidence;
@@ -424,7 +425,9 @@ describe("useDiagnosis", () => {
       }),
     ];
     const now = 2000 + 8 * MINUTE_MS;
-    const { result } = renderHook(() => useDiagnosis(summary("open"), spans, nodeTraces(), now));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary("open"), spans, nodeTraces(), now, NO_TASK_NAMES),
+    );
 
     expect(result.current.now).toEqual({
       running: spans[2],
@@ -444,7 +447,9 @@ describe("useDiagnosis", () => {
       }),
     ];
     const now = 1000 + 6 * TRACE_POLL_MS;
-    const { result } = renderHook(() => useDiagnosis(summary("open"), spans, nodeTraces(), now));
+    const { result } = renderHook(() =>
+      useDiagnosis(summary("open"), spans, nodeTraces(), now, NO_TASK_NAMES),
+    );
 
     expect(result.current.now?.gapWarning).toBeNull();
   });
