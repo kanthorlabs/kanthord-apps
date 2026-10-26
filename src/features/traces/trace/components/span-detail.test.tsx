@@ -162,6 +162,23 @@ describe("SpanDetail", () => {
     expect(factOf("Offset")).toHaveTextContent("1 min");
   });
 
+  it("shows the affected facts and the failed test ids of an affected span", () => {
+    const affected = span("verify-2", "root", "worker.verification", {
+      "kanthord.verification.kind": "affected",
+      "kanthord.affected.verdict": "failed",
+      "kanthord.affected.selection": "related",
+      "kanthord.affected.failed_count": 1,
+      "kanthord.affected.failed": ["src/a.test.ts > adds"],
+    });
+    show(affected, [affected]);
+
+    const block = screen.getByRole("region", { name: "Affected tests" });
+    expect(within(block).getByText("src/a.test.ts > adds")).toBeInTheDocument();
+    expect(
+      within(block).getByText("kanthord.affected.verdict").nextElementSibling,
+    ).toHaveTextContent("failed");
+  });
+
   it("shows the output, the exit facts and then the command of a verification", async () => {
     vi.mocked(readTraceText).mockImplementation(async (traceId, textId) => ({
       trace_id: traceId,
