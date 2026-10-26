@@ -103,6 +103,13 @@ describe("NowBlock", () => {
     expect(screen.getByText("No new record for 5 min")).toBeInTheDocument();
   });
 
+  it("shows the silence in the same unit as the last record", () => {
+    render(<NowBlock traceId="trace-1" projectId="project-1" spans={[running(0)]} now={33_000} />);
+
+    expect(screen.getByText("No new record for 33 s")).toBeInTheDocument();
+    expect(screen.getByText("Last record 33 s ago.")).toBeInTheDocument();
+  });
+
   it("says that no span runs when every span ended", () => {
     render(<NowBlock traceId="trace-1" projectId="project-1" spans={[]} now={0} />);
 
