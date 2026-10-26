@@ -1,6 +1,6 @@
 import { useMemo, useState, type KeyboardEvent } from "react";
 
-import type { TraceSpan } from "@/api/types";
+import type { TraceSpan, TraceState } from "@/api/types";
 import { errorRolesOf, errorSteps, pickCausalSpan, type ErrorRole } from "@/lib/causal-span";
 import { usageBySpan, type SpanUsage } from "@/lib/span-usage";
 import {
@@ -9,15 +9,18 @@ import {
   type SpanStepRow,
   type StepPill,
   type StepRow,
+  turnGroups,
   type TurnGroupRow,
 } from "@/lib/step-tree";
 import { traceAxis, type TraceAxis } from "@/lib/trace-waterfall";
-import { ancestorIds, buildSpanTree, spanMatches } from "@/lib/trace-tree";
+import { ancestorIds, buildSpanTree, spanMatches, type SpanNode } from "@/lib/trace-tree";
 
 import type { TraceSelection } from "./use-trace-selection";
 
 const OPERATION_TASK = "worker.task";
+const OPERATION_TURN = "agent.turn";
 const ATTRIBUTE_TASK_ID = "kanthord.task.id";
+const TRACE_STATE_OPEN: TraceState = "open";
 
 const INITIAL_OPERATIONS: readonly string[] = ["worker.phase", "agent.session"];
 
@@ -109,12 +112,66 @@ function openPathTo(
   return open;
 }
 
-function initialExpanded(spans: readonly TraceSpan[], selected: string | null): Set<string> {
+function deepestRunning(spans: readonly TraceSpan[]): string | null {
+  let best: { readonly span: TraceSpan; readonly depth: number } | null = null;
+  for (const span of spans) {
+    if (span.start_time === null || span.end_time !== null) continue;
+    const depth = ancestorIds(spans, span.span_id).length;
+    const bestStart = best?.span.start_time ?? null;
+    const wins =
+      best === null ||
+      depth > best.depth ||
+      (depth === best.depth && bestStart !== null && span.start_time > bestStart);
+    if (wins) best = { span, depth };
+  }
+  return best?.span.span_id ?? null;
+}
+
+function initialExpanded(
+  spans: readonly TraceSpan[],
+  selected: string | null,
+  traceState: TraceState,
+): Set<string> {
   const expanded = new Set(buildSpanTree(spans).map((root) => root.span.span_id));
   for (const span of spans) {
     if (INITIAL_OPERATIONS.includes(span.operation)) expanded.add(span.span_id);
   }
-  return selected === null ? expanded : openPathTo(spans, expanded, selected);
+  if (selected !== null) return openPathTo(spans, expanded, selected);
+  if (traceState !== TRACE_STATE_OPEN) return expanded;
+  const running = deepestRunning(spans);
+  return running === null ? expanded : openPathTo(spans, expanded, running);
+}
+
+function flatten(nodes: readonly SpanNode[]): readonly TraceSpan[] {
+  return nodes.flatMap((node) => [node.span, ...flatten(node.children)]);
+}
+
+function carriedExpansion(
+  previous: readonly SpanNode[],
+  next: readonly SpanNode[],
+  expanded: ReadonlySet<string>,
+): Set<string> {
+  const previousGroups = turnGroups(previous);
+  const grouped = new Set(previousGroups.flatMap((group) => group.spanIds));
+  const collected = new Set([
+    ...previousGroups.filter((group) => expanded.has(group.key)).flatMap((group) => group.spanIds),
+    ...flatten(previous)
+      .filter(
+        (span) =>
+          span.operation === OPERATION_TURN &&
+          expanded.has(span.span_id) &&
+          !grouped.has(span.span_id),
+      )
+      .map((span) => span.span_id),
+  ]);
+  const knownKeys = new Set(previousGroups.map((group) => group.key));
+  const carried = new Set(expanded);
+  for (const group of turnGroups(next)) {
+    if (!knownKeys.has(group.key) && group.spanIds.some((id) => collected.has(id))) {
+      carried.add(group.key);
+    }
+  }
+  return carried;
 }
 
 function keepOf(
@@ -142,17 +199,32 @@ export function useTimeline(
   spans: readonly TraceSpan[],
   selection: Selection,
   taskNames: ReadonlyMap<string, string>,
+  traceState: TraceState,
 ): Timeline {
-  const [expanded, setExpanded] = useState(() => initialExpanded(spans, selection.span));
+  const [expanded, setExpanded] = useState(() =>
+    initialExpanded(spans, selection.span, traceState),
+  );
   const [seenSpan, setSeenSpan] = useState(selection.span);
+  const [seenSpans, setSeenSpans] = useState(spans);
   const [search, setSearch] = useState("");
   const [pill, setPill] = useState<StepPill | null>(null);
   const [allErrors, setAllErrors] = useState(false);
 
+  let nextExpanded = expanded;
+  let expandedChanged = false;
+  if (seenSpans !== spans) {
+    setSeenSpans(spans);
+    nextExpanded = carriedExpansion(buildSpanTree(seenSpans), buildSpanTree(spans), nextExpanded);
+    expandedChanged = true;
+  }
   if (seenSpan !== selection.span) {
     setSeenSpan(selection.span);
-    if (selection.span !== null) setExpanded(openPathTo(spans, expanded, selection.span));
+    if (selection.span !== null) {
+      nextExpanded = openPathTo(spans, nextExpanded, selection.span);
+      expandedChanged = true;
+    }
   }
+  if (expandedChanged) setExpanded(nextExpanded);
 
   const roots = useMemo(() => buildSpanTree(spans), [spans]);
   const usage = useMemo(() => usageBySpan(spans), [spans]);

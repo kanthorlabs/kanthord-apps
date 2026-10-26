@@ -18,7 +18,7 @@ interface StepsTabProps {
 }
 
 export function StepsTab({ traceId, traceNode, spans, traceState, selection }: StepsTabProps) {
-  const timeline = useTimeline(spans, selection, traceNode.taskNames);
+  const timeline = useTimeline(spans, selection, traceNode.taskNames, traceState);
   const large = useLargeScreen();
   const { selected } = timeline;
   const detail =

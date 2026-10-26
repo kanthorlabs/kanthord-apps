@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { KeyboardEvent } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { TraceSpan } from "@/api/types";
+import type { TraceSpan, TraceState } from "@/api/types";
 import { StepPill, type StepRow } from "@/lib/step-tree";
 
 import { useTimeline } from "./use-timeline";
@@ -55,7 +55,7 @@ function setup(selected: string | null = null) {
   const selectSpan = vi.fn();
   const hook = renderHook(
     (props: { readonly span: string | null }) =>
-      useTimeline(SPANS, { span: props.span, selectSpan }, NO_TASK_NAMES),
+      useTimeline(SPANS, { span: props.span, selectSpan }, NO_TASK_NAMES, "ok"),
     { initialProps: { span: selected } },
   );
   return { ...hook, selectSpan };
@@ -99,7 +99,7 @@ function turnSpans(): readonly TraceSpan[] {
 function setupTurns(selected: string | null = null) {
   const turns = turnSpans();
   return renderHook(() =>
-    useTimeline(turns, { span: selected, selectSpan: vi.fn() }, NO_TASK_NAMES),
+    useTimeline(turns, { span: selected, selectSpan: vi.fn() }, NO_TASK_NAMES, "ok"),
   );
 }
 
@@ -145,7 +145,7 @@ describe("useTimeline filters", () => {
       span("child", "session", "agent.turn", {}, { start_time: 1002 }),
     ];
     const { result } = renderHook(() =>
-      useTimeline(sessions, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+      useTimeline(sessions, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES, "ok"),
     );
 
     expect(idsOf(result.current.rows)).toEqual(["root", "session", "child"]);
@@ -180,7 +180,7 @@ describe("useTimeline filters", () => {
       span("long", "root", "worker.git", {}, { start_time: 10, end_time: 900 }),
     ];
     const { result } = renderHook(() =>
-      useTimeline(slow, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+      useTimeline(slow, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES, "ok"),
     );
 
     act(() => result.current.setPill(StepPill.Slow));
@@ -205,7 +205,7 @@ describe("useTimeline filters", () => {
   it("adds the recovered spans with All errors", () => {
     const recovered = recoveredSpans();
     const { result } = renderHook(() =>
-      useTimeline(recovered, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+      useTimeline(recovered, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES, "ok"),
     );
 
     act(() => result.current.setPill(StepPill.Errors));
@@ -219,7 +219,7 @@ describe("useTimeline filters", () => {
   it("names the causal span and the role of each error", () => {
     const recovered = recoveredSpans();
     const { result } = renderHook(() =>
-      useTimeline(recovered, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+      useTimeline(recovered, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES, "ok"),
     );
 
     expect(result.current.causalSpanId).toBe("fatal");
@@ -231,7 +231,7 @@ describe("useTimeline filters", () => {
   it("names no causal span in a trace without an error", () => {
     const clean = [span("root", null, "scheduler.execution"), span("git", "root", "worker.git")];
     const { result } = renderHook(() =>
-      useTimeline(clean, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES),
+      useTimeline(clean, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES, "ok"),
     );
 
     expect(result.current.causalSpanId).toBeNull();
@@ -240,10 +240,15 @@ describe("useTimeline filters", () => {
 
   it("shows the name of a task in taskNames and the task id otherwise", () => {
     const named = renderHook(() =>
-      useTimeline(SPANS, { span: null, selectSpan: vi.fn() }, new Map([["t1", "Build the page"]])),
+      useTimeline(
+        SPANS,
+        { span: null, selectSpan: vi.fn() },
+        new Map([["t1", "Build the page"]]),
+        "ok",
+      ),
     );
     const unnamed = renderHook(() =>
-      useTimeline(SPANS, { span: null, selectSpan: vi.fn() }, new Map([["t2", "Other"]])),
+      useTimeline(SPANS, { span: null, selectSpan: vi.fn() }, new Map([["t2", "Other"]]), "ok"),
     );
 
     expect(labelsOf(named.result.current.rows)).toContain("Build the page");
@@ -327,6 +332,144 @@ describe("useTimeline turn groups", () => {
     act(() => result.current.setSearch("bash"));
 
     expect(idsOf(result.current.rows)).toEqual(["root", "session", "turn_3", "tool"]);
+  });
+});
+
+function liveTurns(count: number, failing: number | null = null): readonly TraceSpan[] {
+  const turns = Array.from({ length: count }, (_, index) =>
+    span(
+      `turn_${index + 1}`,
+      "session",
+      "agent.turn",
+      { "kanthord.turn.index": index + 1 },
+      {
+        start_time: 1010 + index,
+        end_time: 1011 + index,
+        status: index + 1 === failing ? "Error" : "Ok",
+      },
+    ),
+  );
+  return [
+    span("root", null, "scheduler.execution"),
+    span("session", "root", "agent.session", {}, { start_time: 1001 }),
+    ...turns,
+    span(
+      "tool_1",
+      "turn_1",
+      "agent.tool",
+      { "gen_ai.tool.name": "bash" },
+      { start_time: 1012, end_time: 1013 },
+    ),
+  ];
+}
+
+function setupLive(initial: readonly TraceSpan[]) {
+  return renderHook(
+    (props: { readonly spans: readonly TraceSpan[] }) =>
+      useTimeline(props.spans, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES, "open"),
+    { initialProps: { spans: initial } },
+  );
+}
+
+describe("useTimeline live updates", () => {
+  it("keeps a group open when a new turn joins its run", () => {
+    const { result, rerender } = setupLive(liveTurns(3));
+    act(() => result.current.toggle("turns:turn_1"));
+
+    rerender({ spans: liveTurns(4) });
+
+    expect(idsOf(result.current.rows)).toContain("turn_4");
+  });
+
+  it("keeps a lone expanded turn visible when a second turn arrives", () => {
+    const { result, rerender } = setupLive(liveTurns(1));
+    act(() => result.current.toggle("turn_1"));
+    expect(idsOf(result.current.rows)).toContain("tool_1");
+
+    rerender({ spans: liveTurns(2) });
+
+    expect(idsOf(result.current.rows)).toEqual([
+      "root",
+      "session",
+      "turns:turn_1",
+      "turn_1",
+      "tool_1",
+      "turn_2",
+    ]);
+  });
+
+  it("opens the new group when a turn ends with Error inside an open group", () => {
+    const { result, rerender } = setupLive(liveTurns(5));
+    act(() => result.current.toggle("turns:turn_1"));
+
+    rerender({ spans: liveTurns(5, 3) });
+
+    expect(idsOf(result.current.rows)).toEqual([
+      "root",
+      "session",
+      "turns:turn_1",
+      "turn_1",
+      "turn_2",
+      "turn_3",
+      "turns:turn_4",
+      "turn_4",
+      "turn_5",
+    ]);
+  });
+
+  it("keeps a group that the reader collapsed collapsed", () => {
+    const { result, rerender } = setupLive(liveTurns(3));
+    act(() => result.current.toggle("turns:turn_1"));
+    act(() => result.current.toggle("turns:turn_1"));
+
+    rerender({ spans: liveTurns(4) });
+
+    expect(idsOf(result.current.rows)).toEqual(["root", "session", "turns:turn_1"]);
+  });
+
+  it("keeps a group that the reader never opened collapsed", () => {
+    const { result, rerender } = setupLive(liveTurns(3));
+
+    rerender({ spans: liveTurns(4) });
+
+    expect(idsOf(result.current.rows)).toEqual(["root", "session", "turns:turn_1"]);
+  });
+});
+
+function runningToolSpans(): readonly TraceSpan[] {
+  return [
+    span("root", null, "scheduler.execution"),
+    span("task", "root", "worker.task", {}, { start_time: 1001 }),
+    span("turn_1", "task", "agent.turn", {}, { start_time: 1002, end_time: 1003 }),
+    span("turn_2", "task", "agent.turn", {}, { start_time: 1004, end_time: null }),
+    span("tool_2", "turn_2", "agent.tool", {}, { start_time: 1005, end_time: null }),
+  ];
+}
+
+function setupFirstRender(spans: readonly TraceSpan[], state: TraceState) {
+  return renderHook(() =>
+    useTimeline(spans, { span: null, selectSpan: vi.fn() }, NO_TASK_NAMES, state),
+  );
+}
+
+describe("useTimeline first render", () => {
+  it("opens the path to the deepest running span of an open trace", () => {
+    const { result } = setupFirstRender(runningToolSpans(), "open");
+
+    expect(idsOf(result.current.rows)).toEqual([
+      "root",
+      "task",
+      "turns:turn_1",
+      "turn_1",
+      "turn_2",
+      "tool_2",
+    ]);
+  });
+
+  it("keeps the initial rows of an ok trace with a span that has no end", () => {
+    const { result } = setupFirstRender(runningToolSpans(), "ok");
+
+    expect(idsOf(result.current.rows)).toEqual(["root", "task"]);
   });
 });
 

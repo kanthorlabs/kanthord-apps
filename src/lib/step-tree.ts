@@ -158,6 +158,23 @@ function groupRow(run: TurnRun, depth: number): TurnGroupRow {
   };
 }
 
+function collectGroups(nodes: readonly SpanNode[], depth: number, groups: TurnGroupRow[]): void {
+  for (const entry of fold(nodes, false)) {
+    if (!("turns" in entry)) {
+      collectGroups(entry.children, depth + 1, groups);
+      continue;
+    }
+    groups.push(groupRow(entry, depth));
+    for (const turn of entry.turns) collectGroups(turn.node.children, depth + 2, groups);
+  }
+}
+
+export function turnGroups(nodes: readonly SpanNode[]): readonly TurnGroupRow[] {
+  const groups: TurnGroupRow[] = [];
+  collectGroups(nodes, 0, groups);
+  return groups;
+}
+
 function appendNode(node: SpanNode, depth: number, walk: Walk, rows: StepRow[]): void {
   const { span } = node;
   rows.push({
