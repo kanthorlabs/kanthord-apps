@@ -274,6 +274,28 @@ describe("TraceScreen timeline", () => {
     expect(within(group).getByText("2 min")).toBeInTheDocument();
   });
 
+  it("shows the running tool of an open trace with no click", async () => {
+    vi.mocked(readTrace).mockResolvedValue(summary({ state: "open", ended_at: null }));
+    vi.mocked(listTraceSpans).mockResolvedValue(
+      spans().map((item) => (item.span_id === "tool2" ? { ...item, end_time: null } : item)),
+    );
+    mount();
+    await screen.findByRole("tree", { name: "Spans" });
+
+    expect(labelsOfRows()).toEqual([
+      "Execution",
+      "Phase execute",
+      "Task t1",
+      "Session coder",
+      "Turns 1-2",
+      "Turn 1",
+      "Turn 2",
+      "read",
+      "Git commit",
+    ]);
+    expect(within(rowOf("read")).getByText("Running")).toBeInTheDocument();
+  });
+
   it("opens a group to show its turns and a tool under its turn", async () => {
     await mountOpened();
 
