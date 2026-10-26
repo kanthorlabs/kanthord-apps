@@ -29,6 +29,17 @@ describe("spanLabel", () => {
     ["worker.phase", { "kanthord.phase": "build" }, "Phase build"],
     ["worker.task", { "kanthord.task.id": "node_7" }, "Task node_7"],
     ["worker.verification", { "kanthord.verification.index": 2 }, "Verification 2"],
+    [
+      "worker.verification",
+      { "kanthord.verification.kind": "listed", "kanthord.verification.index": 2 },
+      "Verification 2",
+    ],
+    ["worker.verification", { "kanthord.verification.kind": "affected" }, "Affected tests"],
+    [
+      "worker.verification",
+      { "kanthord.verification.kind": "affected_base" },
+      "Affected tests on base",
+    ],
     ["worker.judgement", {}, "Judgement"],
     ["worker.evaluation", {}, "Evaluation"],
     ["worker.git", { "kanthord.git.step": "commit" }, "Git commit"],

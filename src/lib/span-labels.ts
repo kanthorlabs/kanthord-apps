@@ -29,6 +29,9 @@ const OPERATION_ENVIRONMENT_PROOF = "environment.proof";
 const ATTRIBUTE_PHASE = "kanthord.phase";
 const ATTRIBUTE_TASK_ID = "kanthord.task.id";
 const ATTRIBUTE_VERIFICATION_INDEX = "kanthord.verification.index";
+const ATTRIBUTE_VERIFICATION_KIND = "kanthord.verification.kind";
+const VERIFICATION_KIND_AFFECTED = "affected";
+const VERIFICATION_KIND_AFFECTED_BASE = "affected_base";
 const ATTRIBUTE_GIT_STEP = "kanthord.git.step";
 const ATTRIBUTE_GATE_MODE = "kanthord.gate.mode";
 const ATTRIBUTE_AGENT_NAME = "kanthord.agent.name";
@@ -88,6 +91,17 @@ function transitionLabel(attributes: SpanAttributes): string {
   return `Transition ${from} -> ${to}`;
 }
 
+function verificationLabel(attributes: SpanAttributes): string {
+  switch (valueText(attributes[ATTRIBUTE_VERIFICATION_KIND])) {
+    case VERIFICATION_KIND_AFFECTED:
+      return "Affected tests";
+    case VERIFICATION_KIND_AFFECTED_BASE:
+      return "Affected tests on base";
+    default:
+      return withValue("Verification", attributes, ATTRIBUTE_VERIFICATION_INDEX);
+  }
+}
+
 function isAct(operation: string): operation is ActOperation {
   return Object.hasOwn(ACT_LABELS, operation);
 }
@@ -104,7 +118,7 @@ export function operationLabel(operation: string, attributes: SpanAttributes): s
     case OPERATION_TASK:
       return withValue("Task", attributes, ATTRIBUTE_TASK_ID);
     case OPERATION_VERIFICATION:
-      return withValue("Verification", attributes, ATTRIBUTE_VERIFICATION_INDEX);
+      return verificationLabel(attributes);
     case OPERATION_JUDGEMENT:
       return "Judgement";
     case OPERATION_EVALUATION:

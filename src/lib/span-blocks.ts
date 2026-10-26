@@ -24,6 +24,7 @@ interface BlockLayout {
 
 const ATTRIBUTE_EXECUTION_END = "kanthord.execution.end";
 const REVOCATION_SEPARATOR = " - ";
+const AFFECTED_PREFIX = "kanthord.affected.";
 
 const attribute = (name: string): Part => ({ kind: "attribute", name });
 const prefix = (value: string): Part => ({ kind: "prefix", prefix: value });
@@ -52,6 +53,21 @@ const LAYOUTS: Readonly<Record<string, readonly BlockLayout[]>> = {
         text("output"),
         attribute("process.exit.code"),
         attribute("kanthord.verification.timed_out"),
+        attribute("kanthord.verification.kind"),
+      ],
+    },
+    {
+      title: "Affected tests",
+      parts: [
+        attribute(`${AFFECTED_PREFIX}verdict`),
+        attribute(`${AFFECTED_PREFIX}selection`),
+        attribute(`${AFFECTED_PREFIX}reason`),
+        attribute(`${AFFECTED_PREFIX}changed_count`),
+        attribute(`${AFFECTED_PREFIX}test_count`),
+        attribute(`${AFFECTED_PREFIX}failed_count`),
+        attribute(`${AFFECTED_PREFIX}flaky_count`),
+        attribute(`${AFFECTED_PREFIX}excluded_e2e_count`),
+        attribute(`${AFFECTED_PREFIX}failed`),
       ],
     },
     { title: "Command", parts: [text("command")] },
@@ -68,8 +84,19 @@ const LAYOUTS: Readonly<Record<string, readonly BlockLayout[]>> = {
       parts: [
         attribute("kanthord.evaluation.result"),
         attribute("kanthord.evaluation.stage"),
+        attribute("kanthord.evaluation.affected"),
         attribute("kanthord.evaluation.unmet_grounds"),
         text("rationale"),
+      ],
+    },
+  ],
+  "worker.release_gate": [
+    {
+      title: "Release gate",
+      parts: [
+        attribute("kanthord.release_gate.result"),
+        attribute("kanthord.release_gate.unit_id"),
+        attribute("kanthord.release_gate.affected"),
       ],
     },
   ],

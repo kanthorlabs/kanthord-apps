@@ -50,6 +50,83 @@ describe("spanBlocks", () => {
     ]);
   });
 
+  it("shows the facts of an affected span in the Affected tests block", () => {
+    const affected = span("worker.verification", {
+      "kanthord.verification.kind": "affected",
+      "kanthord.affected.verdict": "failed",
+      "kanthord.affected.selection": "all",
+      "kanthord.affected.reason": "config changed",
+      "kanthord.affected.changed_count": 3,
+      "kanthord.affected.test_count": 12,
+      "kanthord.affected.failed_count": 1,
+      "kanthord.affected.flaky_count": 0,
+      "kanthord.affected.excluded_e2e_count": 2,
+      "kanthord.affected.tests": ["a.test.ts", "b.test.ts"],
+      "kanthord.affected.failed": ["a.test.ts > adds"],
+    });
+
+    expect(shape(affected)).toEqual([
+      { title: "Result", items: ["output", ["kanthord.verification.kind"]] },
+      {
+        title: "Affected tests",
+        items: [
+          [
+            "kanthord.affected.verdict",
+            "kanthord.affected.selection",
+            "kanthord.affected.reason",
+            "kanthord.affected.changed_count",
+            "kanthord.affected.test_count",
+            "kanthord.affected.failed_count",
+            "kanthord.affected.flaky_count",
+            "kanthord.affected.excluded_e2e_count",
+            "kanthord.affected.failed",
+          ],
+        ],
+      },
+      { title: "Command", items: ["command"] },
+    ]);
+  });
+
+  it("shows the kind and no affected fact for a listed span", () => {
+    const listed = span("worker.verification", { "kanthord.verification.kind": "listed" });
+
+    expect(shape(listed).map((block) => block.title)).toEqual(["Result", "Command"]);
+    expect(shape(listed)[0]?.items).toEqual(["output", ["kanthord.verification.kind"]]);
+  });
+
+  it("shows the affected verdict of an evaluation after the stage", () => {
+    const evaluation = span("worker.evaluation", {
+      "kanthord.evaluation.affected": "passed",
+      "kanthord.evaluation.stage": "review",
+    });
+
+    expect(shape(evaluation)[0]?.items[0]).toEqual([
+      "kanthord.evaluation.stage",
+      "kanthord.evaluation.affected",
+    ]);
+  });
+
+  it("shows the affected verdict of a release gate", () => {
+    const gate = span("worker.release_gate", {
+      "kanthord.release_gate.affected": "base_red",
+      "kanthord.release_gate.result": "failed",
+      "kanthord.release_gate.unit_id": "unit_1",
+    });
+
+    expect(shape(gate)).toEqual([
+      {
+        title: "Release gate",
+        items: [
+          [
+            "kanthord.release_gate.result",
+            "kanthord.release_gate.unit_id",
+            "kanthord.release_gate.affected",
+          ],
+        ],
+      },
+    ]);
+  });
+
   it("orders a gate as error, violation, then step facts", () => {
     const gate = span("worker.gate", {
       "kanthord.gate.changed": ["a.ts", "b.ts"],
