@@ -1,7 +1,14 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { TraceSpan } from "@/api/types";
+import { ApiError } from "@/api/errors";
+
+vi.mock("@/api/resources/tracking", () => ({
+  readSessionEntry: vi.fn(),
+}));
+
+import { readSessionEntry } from "@/api/resources/tracking";
+import type { TraceSessionEntry, TraceSpan } from "@/api/types";
 
 import { NowBlock } from "./now-block";
 
@@ -26,9 +33,50 @@ function running(createdAt: number): TraceSpan {
   };
 }
 
+function runningTool(attributes: TraceSpan["attributes"]): TraceSpan {
+  return {
+    ...running(0),
+    span_id: "tool",
+    parent_span_id: "turn",
+    operation: "agent.tool",
+    attributes: {
+      "gen_ai.conversation.id": "session",
+      "gen_ai.tool.call.id": "call-1",
+      "gen_ai.tool.name": "bash",
+      ...attributes,
+    },
+  };
+}
+
+function assistantEntry(command: string): TraceSessionEntry {
+  return {
+    trace_id: "trace-1",
+    session_id: "session",
+    entry_id: "tool-entry",
+    parent_entry_id: null,
+    sequence: 1,
+    entry_type: "message",
+    entry_time: 0,
+    tool_call_id: null,
+    truncated: false,
+    entry: {
+      type: "message",
+      message: {
+        role: "assistant",
+        content: [{ type: "toolCall", id: "call-1", name: "bash", arguments: { command } }],
+      },
+    },
+    created_at: 0,
+  };
+}
+
+afterEach(() => {
+  vi.resetAllMocks();
+});
+
 describe("NowBlock", () => {
   it("shows the running span and its age", () => {
-    render(<NowBlock spans={[running(2 * MINUTE_MS)]} now={2 * MINUTE_MS} />);
+    render(<NowBlock traceId="trace-1" spans={[running(2 * MINUTE_MS)]} now={2 * MINUTE_MS} />);
 
     expect(screen.getByRole("heading", { name: "Now" })).toBeInTheDocument();
     expect(screen.getByText("Turn 3 is running for 2 min.")).toBeInTheDocument();
@@ -36,14 +84,44 @@ describe("NowBlock", () => {
   });
 
   it("warns when no record arrives for a long time", () => {
-    render(<NowBlock spans={[running(0)]} now={5 * MINUTE_MS} />);
+    render(<NowBlock traceId="trace-1" spans={[running(0)]} now={5 * MINUTE_MS} />);
 
     expect(screen.getByText("No new record for 5 min")).toBeInTheDocument();
   });
 
   it("says that no span runs when every span ended", () => {
-    render(<NowBlock spans={[]} now={0} />);
+    render(<NowBlock traceId="trace-1" spans={[]} now={0} />);
 
     expect(screen.getByText("No span is running.")).toBeInTheDocument();
+  });
+
+  it("shows the first line of the command of a running tool", async () => {
+    vi.mocked(readSessionEntry).mockResolvedValue(assistantEntry("pnpm test\necho done"));
+    const spans = [running(0), runningTool({ "kanthord.session.entry_id": "tool-entry" })];
+
+    render(<NowBlock traceId="trace-1" spans={spans} now={MINUTE_MS} />);
+
+    expect(await screen.findByText("Command")).toBeInTheDocument();
+    expect(screen.getByText("pnpm test")).toBeInTheDocument();
+    expect(readSessionEntry).toHaveBeenCalledWith("trace-1", "session", "tool-entry");
+  });
+
+  it("shows no command for a running turn", () => {
+    render(<NowBlock traceId="trace-1" spans={[running(0)]} now={MINUTE_MS} />);
+
+    expect(screen.getByText("Turn 3 is running for 1 min.")).toBeInTheDocument();
+    expect(screen.queryByText("Command")).not.toBeInTheDocument();
+    expect(readSessionEntry).not.toHaveBeenCalled();
+  });
+
+  it("shows the running sentence and no command when the read fails", async () => {
+    vi.mocked(readSessionEntry).mockRejectedValue(new ApiError("unavailable", "boom", 503));
+    const spans = [running(0), runningTool({ "kanthord.session.entry_id": "tool-entry" })];
+
+    render(<NowBlock traceId="trace-1" spans={spans} now={MINUTE_MS} />);
+
+    await vi.waitFor(() => expect(readSessionEntry).toHaveBeenCalled());
+    expect(screen.getByText(/is running for 1 min\./)).toBeInTheDocument();
+    expect(screen.queryByText("Command")).not.toBeInTheDocument();
   });
 });

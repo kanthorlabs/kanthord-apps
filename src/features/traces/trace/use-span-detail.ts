@@ -130,7 +130,7 @@ function turnOf(span: TraceSpan, spans: readonly TraceSpan[]): TraceSpan | null 
 function replyRefOf(span: TraceSpan, spans: readonly TraceSpan[]): EntryRef | null {
   const turn = turnOf(span, spans);
   const sessionId = conversationIdOf(span);
-  const entryId = turn === null ? null : replyEntryIdOf(turn);
+  const entryId = replyEntryIdOf(span) ?? (turn === null ? null : replyEntryIdOf(turn));
   return sessionId === null || entryId === null ? null : { sessionId, entryId };
 }
 
