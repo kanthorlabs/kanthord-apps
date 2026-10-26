@@ -15,10 +15,13 @@ const ENDED_TEXTS: Readonly<Record<SpanStatus, string>> = {
   Error: "Error",
 };
 
+const OPEN_PARENT_TEXT = "is open";
+
 function parentLine(span: TraceSpan, spans: readonly TraceSpan[]): readonly string[] {
   if (span.parent_span_id === null) return [];
   const parent = spans.find((candidate) => candidate.span_id === span.parent_span_id);
   if (parent === undefined) return ["Parent span not stored."];
+  if (parent.end_time === null) return [`Parent ${spanLabel(parent)} ${OPEN_PARENT_TEXT}.`];
   return [`Parent ${spanLabel(parent)} ended ${ENDED_TEXTS[parent.status]}.`];
 }
 
