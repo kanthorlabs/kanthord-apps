@@ -3,7 +3,6 @@ import type { TraceSpan } from "@/api/types";
 import { durationText } from "./format";
 import { spanLabel } from "./span-labels";
 
-const MINUTE_MS = 60_000;
 const GAP_POLLS = 6;
 
 export interface NowFacts {
@@ -54,10 +53,7 @@ export function nowFactsOf(spans: readonly TraceSpan[], now: number, pollMs: num
         ? null
         : durationText(now - running.start_time),
     sinceLatestRecord: latest === null ? null : durationText(gap),
-    gapWarning:
-      gap > GAP_POLLS * pollMs
-        ? `No new record for ${Math.max(1, Math.floor(gap / MINUTE_MS))} min`
-        : null,
+    gapWarning: gap > GAP_POLLS * pollMs ? `No new record for ${durationText(gap)}` : null,
   };
 }
 
