@@ -1,1 +1,12 @@
-{ "version": 1, "command": "pnpm --silent run test:affected", "time_limit_s": 600 }
+{
+  "version": 1,
+  "command": "pnpm --silent run test:affected",
+  "time_limit_s": 600,
+  "gate_files": [
+    ".kanthord/affected-tests.json",
+    "package.json",
+    "scripts/affected-tests.mjs",
+    "vite.config.ts",
+    "test/setup.ts"
+  ]
+}
