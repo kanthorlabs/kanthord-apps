@@ -91,7 +91,7 @@ describe("NowBlock", () => {
     );
 
     expect(screen.getByRole("heading", { name: "Now" })).toBeInTheDocument();
-    expect(screen.getByText("Turn 3 is running for 2 min.")).toBeInTheDocument();
+    expect(screen.getByText("Turn 3 is running for 2 m.")).toBeInTheDocument();
     expect(screen.queryByText(/No new record/)).not.toBeInTheDocument();
   });
 
@@ -100,7 +100,7 @@ describe("NowBlock", () => {
       <NowBlock traceId="trace-1" projectId="project-1" spans={[running(0)]} now={5 * MINUTE_MS} />,
     );
 
-    expect(screen.getByText("No new record for 5 min")).toBeInTheDocument();
+    expect(screen.getByText("No new record for 5 m")).toBeInTheDocument();
   });
 
   it("shows the silence in the same unit as the last record", () => {
@@ -132,7 +132,7 @@ describe("NowBlock", () => {
       <NowBlock traceId="trace-1" projectId="project-1" spans={[running(0)]} now={MINUTE_MS} />,
     );
 
-    expect(screen.getByText("Turn 3 is running for 1 min.")).toBeInTheDocument();
+    expect(screen.getByText("Turn 3 is running for 1 m.")).toBeInTheDocument();
     expect(screen.queryByText("Command")).not.toBeInTheDocument();
     expect(readSessionEntry).not.toHaveBeenCalled();
   });
@@ -144,7 +144,7 @@ describe("NowBlock", () => {
     render(<NowBlock traceId="trace-1" projectId="project-1" spans={spans} now={MINUTE_MS} />);
 
     await vi.waitFor(() => expect(readSessionEntry).toHaveBeenCalled());
-    expect(screen.getByText(/is running for 1 min\./)).toBeInTheDocument();
+    expect(screen.getByText(/is running for 1 m\./)).toBeInTheDocument();
     expect(screen.queryByText("Command")).not.toBeInTheDocument();
   });
 

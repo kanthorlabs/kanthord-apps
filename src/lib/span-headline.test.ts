@@ -37,7 +37,7 @@ describe("spanHeadline", () => {
     });
 
     expect(spanHeadline(failed, { tokens: 10, costUsd: 0.015 }, "error")).toBe(
-      "Error · rate_limited · 6 min · API price $0.0150",
+      "Error · rate_limited · 6 m · API price $0.0150",
     );
   });
 

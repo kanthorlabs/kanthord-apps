@@ -266,7 +266,7 @@ describe("TraceScreen timeline", () => {
     expect(group).toHaveAttribute("aria-expanded", "false");
     expect(within(group).getByText("2 turns")).toBeInTheDocument();
     expect(within(group).getByText("1 tool error")).toBeInTheDocument();
-    expect(within(group).getByText("2 min")).toBeInTheDocument();
+    expect(within(group).getByText("2 m")).toBeInTheDocument();
   });
 
   it("opens a group to show its turns and a tool under its turn", async () => {
@@ -292,7 +292,7 @@ describe("TraceScreen timeline", () => {
   it("shows the duration and no tokens or cost on a row", async () => {
     await mountOpened();
 
-    expect(within(rowOf("Turn 1")).getByText("1 min")).toBeInTheDocument();
+    expect(within(rowOf("Turn 1")).getByText("1 m")).toBeInTheDocument();
     const tree = screen.getByRole("tree", { name: "Spans" });
     expect(within(tree).queryByText(/tokens/)).not.toBeInTheDocument();
     expect(within(tree).queryByText(/Est\. cost/)).not.toBeInTheDocument();

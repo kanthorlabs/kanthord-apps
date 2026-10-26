@@ -429,9 +429,9 @@ describe("useDiagnosis", () => {
     expect(result.current.now).toEqual({
       running: spans[2],
       runningLabel: "Turn 2",
-      age: "8 min",
-      sinceLatestRecord: "8 min",
-      gapWarning: "No new record for 8 min",
+      age: "8 m",
+      sinceLatestRecord: "8 m",
+      gapWarning: "No new record for 8 m",
     });
   });
 

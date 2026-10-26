@@ -616,7 +616,7 @@ describe("SchedulerScreen Done", () => {
     expect(within(item).getByText("Finished")).toBeInTheDocument();
     expect(within(item).getByText("Provider failed: rate limited")).toBeInTheDocument();
     expect(within(item).getByText("Ended 1 hour ago")).toBeInTheDocument();
-    expect(within(item).getByText("duration 20 min")).toBeInTheDocument();
+    expect(within(item).getByText("duration 20 m")).toBeInTheDocument();
   });
 
   it("names the cause text of a stop", async () => {
@@ -681,7 +681,7 @@ describe("SchedulerScreen Done", () => {
       "listitem",
     );
     expect(within(item).getByText("Ended 30 minutes ago")).toBeInTheDocument();
-    expect(within(item).getByText("duration 50 min")).toBeInTheDocument();
+    expect(within(item).getByText("duration 50 m")).toBeInTheDocument();
     expect(within(item).queryByText(/^Started/)).toBeNull();
     expect(within(item).queryByText(/^Deadline/)).toBeNull();
   });

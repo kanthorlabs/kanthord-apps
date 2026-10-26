@@ -158,8 +158,8 @@ describe("SpanDetail", () => {
     expect(factOf("Span id")).toHaveTextContent("turn-1");
     expect(factOf("Start")).toHaveTextContent(utcDateTime(START + 60_000));
     expect(factOf("End")).toHaveTextContent(utcDateTime(START + 180_000));
-    expect(factOf("Duration")).toHaveTextContent("2 min");
-    expect(factOf("Offset")).toHaveTextContent("1 min");
+    expect(factOf("Duration")).toHaveTextContent("2 m");
+    expect(factOf("Offset")).toHaveTextContent("1 m");
   });
 
   it("shows the affected facts and the failed test ids of an affected span", () => {

@@ -36,7 +36,7 @@ describe("nowFactsOf", () => {
 describe("slowToolText", () => {
   it("answers the text when the age exceeds the p90", () => {
     expect(slowToolText(61_000, 60_000)).toBe(
-      "Longer than 90% of the runs of this tool in 7 days (p90 1 min).",
+      "Longer than 90% of the runs of this tool in 7 days (p90 1 m).",
     );
   });
 

@@ -418,9 +418,9 @@ describe("AnalyticsScreen", () => {
       expect(row).toContain("2026-05-04");
       expect(row).toContain("Count12");
       expect(row).toContain("p501 s");
-      expect(row).toContain("p901 min");
+      expect(row).toContain("p901 m");
       expect(row).toContain("p991 h");
-      expect(row).toContain("Max1 h 30 min");
+      expect(row).toContain("Max1 h 30 m");
       expect(screen.getByRole("combobox", { name: "Measure" })).toHaveTextContent("Span duration");
       expect(screen.getByRole("combobox", { name: "Time group by" })).toHaveTextContent("None");
     });
@@ -510,7 +510,7 @@ describe("AnalyticsScreen", () => {
       const bars = screen.getAllByRole("progressbar");
       expect(bars).toHaveLength(2);
       expect(bars[0]).toHaveAccessibleName(
-        "Time of read_file 2026-05-04: p50 1 s, p90 1 min, p99 1 h, max 1 h 30 min",
+        "Time of read_file 2026-05-04: p50 1 s, p90 1 m, p99 1 h, max 1 h 30 m",
       );
       expect(bars[1]).toHaveAccessibleName(
         "Time of edit_file 2026-05-04: p50 500 ms, p90 2 s, p99 3 s, max 4 s",

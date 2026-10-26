@@ -345,7 +345,7 @@ describe("TracesScreen", () => {
     });
     mount();
 
-    expect(await screen.findByText("Open - 2 min")).toBeInTheDocument();
+    expect(await screen.findByText("Open - 2 m")).toBeInTheDocument();
   });
 
   it("sets state=error with the Failed pill and clears it with All", async () => {

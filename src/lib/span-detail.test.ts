@@ -41,8 +41,8 @@ describe("spanFacts", () => {
     expect(spanFacts(span(), { start: START, end: START + 180_000 })).toEqual([
       { name: "Start", value: utcDateTime(START + 60_000) },
       { name: "End", value: utcDateTime(START + 180_000) },
-      { name: "Duration", value: "2 min" },
-      { name: "Offset", value: "1 min" },
+      { name: "Duration", value: "2 m" },
+      { name: "Offset", value: "1 m" },
     ]);
   });
 

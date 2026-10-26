@@ -249,7 +249,7 @@ describe("rowCauseLineOf", () => {
   });
 
   it("answers the elapsed time of an open row", () => {
-    expect(rowCauseLineOf(row({ state: "open" }), NOW)).toBe("Open - 1 min");
+    expect(rowCauseLineOf(row({ state: "open" }), NOW)).toBe("Open - 1 m");
   });
 
   it("answers Open for an open row that has not started", () => {
