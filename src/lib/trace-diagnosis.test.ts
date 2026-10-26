@@ -62,7 +62,7 @@ describe("diagnoseSpans", () => {
       new Map([[NODE_ID, NODE_NAME]]),
     );
 
-    expect(diagnosis.sentence).toBe(`Verification 0 of ${NODE_NAME} failed.`);
+    expect(diagnosis.sentence).toBe(`Verification 1 of ${NODE_NAME} failed.`);
   });
 
   it("names the task by its task name when the map holds the task id", () => {
@@ -72,13 +72,13 @@ describe("diagnoseSpans", () => {
       new Map([[NODE_ID, "Write code"]]),
     );
 
-    expect(diagnosis.sentence).toBe("Verification 0 of Write code failed.");
+    expect(diagnosis.sentence).toBe("Verification 1 of Write code failed.");
   });
 
   it("keeps the task id when the map holds no entry for it", () => {
     const diagnosis = diagnoseSpans(failedVerificationSpans(), "root", NO_TASK_NAMES);
 
-    expect(diagnosis.sentence).toBe(`Verification 0 of Task ${NODE_ID} failed.`);
+    expect(diagnosis.sentence).toBe(`Verification 1 of Task ${NODE_ID} failed.`);
   });
 
   it("names the node in the evidence lines of a task", () => {

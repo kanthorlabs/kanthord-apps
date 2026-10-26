@@ -28,12 +28,14 @@ describe("spanLabel", () => {
     ["scheduler.execution", {}, "Execution"],
     ["worker.phase", { "kanthord.phase": "build" }, "Phase build"],
     ["worker.task", { "kanthord.task.id": "node_7" }, "Task node_7"],
-    ["worker.verification", { "kanthord.verification.index": 2 }, "Verification 2"],
+    ["worker.verification", { "kanthord.verification.index": 0 }, "Verification 1"],
+    ["worker.verification", { "kanthord.verification.index": 2 }, "Verification 3"],
     [
       "worker.verification",
       { "kanthord.verification.kind": "listed", "kanthord.verification.index": 2 },
-      "Verification 2",
+      "Verification 3",
     ],
+    ["worker.verification", {}, "Verification"],
     ["worker.verification", { "kanthord.verification.kind": "affected" }, "Affected tests"],
     [
       "worker.verification",

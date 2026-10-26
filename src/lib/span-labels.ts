@@ -30,6 +30,7 @@ const ATTRIBUTE_PHASE = "kanthord.phase";
 const ATTRIBUTE_TASK_ID = "kanthord.task.id";
 const ATTRIBUTE_VERIFICATION_INDEX = "kanthord.verification.index";
 const ATTRIBUTE_VERIFICATION_KIND = "kanthord.verification.kind";
+const VERIFICATION_NUMBER_OFFSET = 1;
 const VERIFICATION_KIND_AFFECTED = "affected";
 const VERIFICATION_KIND_AFFECTED_BASE = "affected_base";
 const ATTRIBUTE_GIT_STEP = "kanthord.git.step";
@@ -91,6 +92,14 @@ function transitionLabel(attributes: SpanAttributes): string {
   return `Transition ${from} -> ${to}`;
 }
 
+function listedVerificationLabel(attributes: SpanAttributes): string {
+  const index = attributes[ATTRIBUTE_VERIFICATION_INDEX];
+  if (typeof index !== "number") {
+    return withValue("Verification", attributes, ATTRIBUTE_VERIFICATION_INDEX);
+  }
+  return `Verification ${index + VERIFICATION_NUMBER_OFFSET}`;
+}
+
 function verificationLabel(attributes: SpanAttributes): string {
   switch (valueText(attributes[ATTRIBUTE_VERIFICATION_KIND])) {
     case VERIFICATION_KIND_AFFECTED:
@@ -98,7 +107,7 @@ function verificationLabel(attributes: SpanAttributes): string {
     case VERIFICATION_KIND_AFFECTED_BASE:
       return "Affected tests on base";
     default:
-      return withValue("Verification", attributes, ATTRIBUTE_VERIFICATION_INDEX);
+      return listedVerificationLabel(attributes);
   }
 }
 
