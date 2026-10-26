@@ -3,17 +3,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { nowFactsOf } from "@/lib/trace-now";
 
 import { useRunningCommand } from "../use-running-command";
+import { useSlowTool } from "../use-slow-tool";
 import { TRACE_POLL_MS } from "../use-trace";
 
 interface NowBlockProps {
   readonly traceId: string;
+  readonly projectId: string | null;
   readonly spans: readonly TraceSpan[];
   readonly now: number;
 }
 
-export function NowBlock({ traceId, spans, now }: NowBlockProps) {
+export function NowBlock({ traceId, projectId, spans, now }: NowBlockProps) {
   const facts = nowFactsOf(spans, now, TRACE_POLL_MS);
   const command = useRunningCommand(traceId, facts.running);
+  const slowText = useSlowTool(projectId, facts.running, now);
   return (
     <section aria-label="Now" className="flex min-w-0 flex-col gap-3">
       <h3 className="text-base font-semibold">Now</h3>
@@ -30,6 +33,11 @@ export function NowBlock({ traceId, spans, now }: NowBlockProps) {
           <span className="text-sm text-muted-foreground">Command</span>
           <code className="min-w-0 font-mono text-sm break-all whitespace-pre-wrap">{command}</code>
         </div>
+      )}
+      {slowText !== null && (
+        <Alert>
+          <AlertDescription>{slowText}</AlertDescription>
+        </Alert>
       )}
       {facts.sinceLatestRecord !== null && (
         <p className="text-sm text-muted-foreground">Last record {facts.sinceLatestRecord} ago.</p>

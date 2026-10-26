@@ -60,3 +60,8 @@ export function nowFactsOf(spans: readonly TraceSpan[], now: number, pollMs: num
         : null,
   };
 }
+
+export function slowToolText(ageMs: number, p90Ms: number | null): string | null {
+  if (p90Ms === null || ageMs <= p90Ms) return null;
+  return `Longer than 90% of the runs of this tool in 7 days (p90 ${durationText(p90Ms)}).`;
+}

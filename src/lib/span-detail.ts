@@ -22,6 +22,7 @@ const OPERATION_TOOL = "agent.tool";
 const ATTRIBUTE_CONVERSATION_ID = "gen_ai.conversation.id";
 const ATTRIBUTE_ENTRY_ID = "kanthord.session.entry_id";
 const ATTRIBUTE_TOOL_CALL_ID = "gen_ai.tool.call.id";
+const ATTRIBUTE_TOOL_NAME = "gen_ai.tool.name";
 const ATTRIBUTE_REQUEST_MODEL = "gen_ai.request.model";
 const ATTRIBUTE_RESPONSE_MODEL = "gen_ai.response.model";
 const ATTRIBUTE_INPUT_TOKENS = "gen_ai.usage.input_tokens";
@@ -62,6 +63,10 @@ export function replyEntryIdOf(turn: TraceSpan): string | null {
 
 export function toolCallIdOf(tool: TraceSpan): string | null {
   return stringAttribute(tool, ATTRIBUTE_TOOL_CALL_ID);
+}
+
+export function toolNameOf(tool: TraceSpan): string | null {
+  return stringAttribute(tool, ATTRIBUTE_TOOL_NAME);
 }
 
 export function attributeText(value: SpanAttributeValue): string {
