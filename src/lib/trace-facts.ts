@@ -1,7 +1,7 @@
 import type { TraceListItem } from "@/api/types";
 
 import { durationText, utcDateTime, utcShortDateTime } from "./format";
-import { costText } from "./trace-format";
+import { costText, PRICE_LABEL } from "./trace-format";
 
 export interface TraceFact {
   readonly label: string;
@@ -25,7 +25,7 @@ export function traceFactsOf(trace: TraceListItem): readonly TraceFact[] {
   }
   facts.push(
     same("Duration", trace.duration_ms === null ? "running" : durationText(trace.duration_ms)),
-    same("Est. cost", costText(trace.cost_usd)),
+    same(PRICE_LABEL, costText(trace.cost_usd)),
   );
   if (trace.started_at !== null) {
     facts.push({

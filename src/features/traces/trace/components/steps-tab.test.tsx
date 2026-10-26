@@ -367,7 +367,7 @@ describe("TraceScreen span detail", () => {
     const panel = await screen.findByRole("complementary", { name: "Span detail" });
     expect(within(panel).getByRole("heading", { name: "Turn 2" })).toBeInTheDocument();
     expect(
-      within(panel).getByText("Error · rate_limited · 49 s · Est. cost $0.0100"),
+      within(panel).getByText("Error · rate_limited · 49 s · API price $0.0100"),
     ).toBeInTheDocument();
     expect(
       within(panel).getByRole("img", { name: "Span against the trace extent" }),
@@ -383,7 +383,7 @@ describe("TraceScreen span detail", () => {
     );
     mount("/traces/trace-1?tab=steps&span=turn1");
 
-    expect(await screen.findByText("OK · 250 ms · Est. cost $0.0500")).toBeInTheDocument();
+    expect(await screen.findByText("OK · 250 ms · API price $0.0500")).toBeInTheDocument();
   });
 
   it("holds the level header and the sticky footer in the stacked level", async () => {

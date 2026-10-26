@@ -1,7 +1,7 @@
 import type { SpanAttributeValue, TraceSpan } from "@/api/types";
 
 import { durationText, utcDateTime } from "./format";
-import { costText, tokenText } from "./trace-format";
+import { cacheFacts, costText, percentText, PRICE_LABEL, tokenText } from "./trace-format";
 import type { TraceAxis } from "./trace-waterfall";
 
 export interface NamedValue {
@@ -100,10 +100,13 @@ export function spanFacts(span: TraceSpan, axis: TraceAxis | null): readonly Nam
   ];
 }
 
-function cachedTokens(span: TraceSpan): number | null {
-  const read = numberAttribute(span, ATTRIBUTE_CACHE_READ_TOKENS);
-  const creation = numberAttribute(span, ATTRIBUTE_CACHE_CREATION_TOKENS);
-  return read === null && creation === null ? null : (read ?? 0) + (creation ?? 0);
+function cacheHitText(
+  input: number | null,
+  read: number | null,
+  write: number | null,
+): string | null {
+  if (input === null || read === null) return null;
+  return percentText(cacheFacts(input, read, write ?? 0).hitRatio);
 }
 
 function finishReason(span: TraceSpan): string | null {
@@ -112,16 +115,21 @@ function finishReason(span: TraceSpan): string | null {
 }
 
 export function turnFacts(turn: TraceSpan): readonly NamedValue[] {
+  const input = numberAttribute(turn, ATTRIBUTE_INPUT_TOKENS);
+  const read = numberAttribute(turn, ATTRIBUTE_CACHE_READ_TOKENS);
+  const write = numberAttribute(turn, ATTRIBUTE_CACHE_CREATION_TOKENS);
   return [
     ...fact(
       "Model",
       stringAttribute(turn, ATTRIBUTE_RESPONSE_MODEL) ??
         stringAttribute(turn, ATTRIBUTE_REQUEST_MODEL),
     ),
-    ...fact("Input tokens", formatted(numberAttribute(turn, ATTRIBUTE_INPUT_TOKENS), tokenText)),
+    ...fact("Input tokens", formatted(input, tokenText)),
     ...fact("Output tokens", formatted(numberAttribute(turn, ATTRIBUTE_OUTPUT_TOKENS), tokenText)),
-    ...fact("Cached tokens", formatted(cachedTokens(turn), tokenText)),
-    ...fact("Est. cost", formatted(numberAttribute(turn, ATTRIBUTE_COST_USD), costText)),
+    ...fact("Cache read", formatted(read, tokenText)),
+    ...fact("Cache write", formatted(write, tokenText)),
+    ...fact("Cache hit", cacheHitText(input, read, write)),
+    ...fact(PRICE_LABEL, formatted(numberAttribute(turn, ATTRIBUTE_COST_USD), costText)),
     ...fact("Finish reason", finishReason(turn)),
     ...fact(
       "Model duration",

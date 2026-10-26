@@ -1,5 +1,5 @@
 import type { EntryView } from "./session-entries";
-import { costText, tokenText } from "./trace-format";
+import { costText, PRICE_LABEL, tokenText } from "./trace-format";
 
 type AssistantView = Extract<EntryView, { kind: "assistant" }>;
 type SystemView = Extract<EntryView, { kind: "system" }>;
@@ -12,7 +12,7 @@ export function usageLine(view: AssistantView): string | null {
   const parts = [
     view.inputTokens === null ? null : `${tokenText(view.inputTokens)} in`,
     view.outputTokens === null ? null : `${tokenText(view.outputTokens)} out`,
-    view.costUsd === null ? null : `Est. cost ${costText(view.costUsd)}`,
+    view.costUsd === null ? null : `${PRICE_LABEL} ${costText(view.costUsd)}`,
   ].filter((part) => part !== null);
   return parts.length === 0 ? null : parts.join(USAGE_SEPARATOR);
 }

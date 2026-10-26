@@ -35,14 +35,26 @@ describe("costKeyLabel", () => {
 });
 
 describe("costFieldsOf", () => {
-  it("shows the turns, the tokens and Est. cost", () => {
+  it("shows the turns, the tokens, the cache and the API price", () => {
     expect(costFieldsOf(item())).toEqual([
       { label: "Turns", value: "3" },
       { label: "Input", value: "1.5k" },
       { label: "Output", value: "250" },
-      { label: "Cached", value: "1.1k" },
-      { label: "Est. cost", value: "$0.0125" },
+      { label: "Cache read", value: "700" },
+      { label: "Cache write", value: "350" },
+      { label: "Cache hit", value: "47%" },
+      { label: "API price", value: "$0.0125" },
     ]);
+  });
+});
+
+describe("costFieldsOf with a large cache write", () => {
+  it("keeps the cache hit at read over input", () => {
+    const fields = costFieldsOf(
+      item({ input_tokens: 1000, cache_read_tokens: 100, cache_creation_tokens: 800 }),
+    );
+
+    expect(fields).toContainEqual({ label: "Cache hit", value: "10%" });
   });
 });
 

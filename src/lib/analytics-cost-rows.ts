@@ -2,7 +2,7 @@ import type { AnalyticsCostItem } from "@/api/types";
 
 import type { AnalyticsSelectableBucket, CostGroupName } from "./analytics-query";
 import { utcDateTime } from "./format";
-import { costText, tokenText } from "./trace-format";
+import { cacheFacts, costText, percentText, PRICE_LABEL, tokenText } from "./trace-format";
 
 export interface CostField {
   readonly label: string;
@@ -50,15 +50,15 @@ export function tracesPathOf(group: string, key: string | null): string | null {
 }
 
 export function costFieldsOf(item: AnalyticsCostItem): readonly CostField[] {
+  const cache = cacheFacts(item.input_tokens, item.cache_read_tokens, item.cache_creation_tokens);
   return [
     { label: "Turns", value: String(item.turn_count) },
     { label: "Input", value: tokenText(item.input_tokens) },
     { label: "Output", value: tokenText(item.output_tokens) },
-    {
-      label: "Cached",
-      value: tokenText(item.cache_read_tokens + item.cache_creation_tokens),
-    },
-    { label: "Est. cost", value: costText(item.cost_usd) },
+    { label: "Cache read", value: tokenText(cache.read) },
+    { label: "Cache write", value: tokenText(cache.write) },
+    { label: "Cache hit", value: percentText(cache.hitRatio) },
+    { label: PRICE_LABEL, value: costText(item.cost_usd) },
   ];
 }
 

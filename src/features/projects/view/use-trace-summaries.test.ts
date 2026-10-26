@@ -55,11 +55,11 @@ describe("useTraceSummaries", () => {
     expect(listMock).toHaveBeenCalledTimes(1);
     expect(listMock).toHaveBeenCalledWith({ node_id: "node_1" }, null, 100);
     expect(result.current.get("trace_a")).toEqual({
-      line: "3 turns · 1.5k tokens · Est. cost $2.00 · 0 errors",
+      line: "3 turns · 1.5k tokens · API price $2.00 · 0 errors",
       cause: rateLimited,
     });
     expect(result.current.get("trace_b")).toEqual({
-      line: "4 turns · 1.5k tokens · Est. cost $2.00 · 0 errors",
+      line: "4 turns · 1.5k tokens · API price $2.00 · 0 errors",
       cause: null,
     });
   });

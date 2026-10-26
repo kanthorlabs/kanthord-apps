@@ -2,7 +2,7 @@ import type { SpanStatus, TraceSpan, TraceState } from "@/api/types";
 
 import { durationText } from "./format";
 import type { SpanUsage } from "./span-usage";
-import { costText } from "./trace-format";
+import { costText, PRICE_LABEL } from "./trace-format";
 
 const STATUS_TEXTS: Readonly<Record<SpanStatus, string>> = {
   Unset: "Unset",
@@ -29,6 +29,6 @@ export function spanHeadline(
     STATUS_TEXTS[span.status],
     ...(typeof errorType === "string" ? [errorType] : []),
     durationOf(span, traceState),
-    ...(usage === undefined ? [] : [`Est. cost ${costText(usage.costUsd)}`]),
+    ...(usage === undefined ? [] : [`${PRICE_LABEL} ${costText(usage.costUsd)}`]),
   ].join(SEPARATOR);
 }

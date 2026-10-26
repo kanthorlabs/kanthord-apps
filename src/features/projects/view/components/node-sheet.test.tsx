@@ -508,7 +508,7 @@ describe("NodeSheet", () => {
     const [live, gone] = within(executions).getAllByRole("listitem");
     expect(
       await within(live as HTMLElement).findByText(
-        "12 turns · 48.2k tokens · Est. cost $0.4321 · 2 errors",
+        "12 turns · 48.2k tokens · API price $0.4321 · 2 errors",
       ),
     ).toBeTruthy();
     expect(within(live as HTMLElement).getByRole("button", { name: "Trace" })).toHaveAttribute(

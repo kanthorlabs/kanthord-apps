@@ -27,7 +27,7 @@ describe("traceFactsOf", () => {
       { label: "Worker", value: "general", compact: "general" },
       { label: "Attempt", value: "2", compact: "#2" },
       { label: "Duration", value: "1 min", compact: "1 min" },
-      { label: "Est. cost", value: "$0.2500", compact: "$0.2500" },
+      { label: "API price", value: "$0.2500", compact: "$0.2500" },
       { label: "Started", value: "2026-05-02 10:30 UTC", compact: "05-02 10:30" },
       { label: "Turns", value: "4", compact: "4 turns" },
       { label: "Errors (incl. recovered)", value: "1", compact: "1 err" },
@@ -40,7 +40,7 @@ describe("traceFactsOf", () => {
     ).map((fact) => [fact.label, fact.value]);
     expect(labels).toEqual([
       ["Duration", "running"],
-      ["Est. cost", "$0.2500"],
+      ["API price", "$0.2500"],
       ["Turns", "4"],
       ["Errors (incl. recovered)", "1"],
     ]);

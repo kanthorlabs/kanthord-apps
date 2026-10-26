@@ -21,6 +21,8 @@ vi.mock("@/api/resources/tracking");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/mission");
 
+import { PRICE_NOTE } from "@/lib/trace-format";
+
 import { AnalyticsScreen } from "./analytics-screen";
 
 const DAY_START = Date.UTC(2026, 4, 4);
@@ -190,11 +192,14 @@ describe("AnalyticsScreen", () => {
     expect(texts).toHaveLength(3);
     expect(texts[0]).toContain("claude-sonnet-4-5");
     expect(texts[0]).toContain("2026-05-04");
+    expect(screen.getAllByText(PRICE_NOTE)).toHaveLength(1);
     expect(texts[0]).toContain("Turns3");
     expect(texts[0]).toContain("Input1.5k");
     expect(texts[0]).toContain("Output250");
-    expect(texts[0]).toContain("Cached1.1k");
-    expect(texts[0]).toContain("Est. cost$0.0125");
+    expect(texts[0]).toContain("Cache read700");
+    expect(texts[0]).toContain("Cache write350");
+    expect(texts[0]).toContain("Cache hit47%");
+    expect(texts[0]).toContain("API price$0.0125");
     expect(texts[2]).toContain("2026-05-05");
   });
 
@@ -209,7 +214,7 @@ describe("AnalyticsScreen", () => {
     const totals = screen.getByRole("list", { name: "Cost totals" });
     expect(totals).toHaveTextContent("Turns9");
     expect(totals).toHaveTextContent("Input4.0M");
-    expect(totals).toHaveTextContent("Est. cost$12.50");
+    expect(totals).toHaveTextContent("API price$12.50");
   });
 
   it("shows the totals also when the grouped read is truncated", async () => {
@@ -219,7 +224,7 @@ describe("AnalyticsScreen", () => {
     expect(
       await screen.findByText("The range holds more groups. Narrow the range or the filter."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Cost totals" })).toHaveTextContent("Est. cost$12.50");
+    expect(screen.getByRole("list", { name: "Cost totals" })).toHaveTextContent("API price$12.50");
   });
 
   it("shows no truncated message for a complete read", async () => {

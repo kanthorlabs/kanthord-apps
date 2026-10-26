@@ -55,11 +55,12 @@ describe("spanFacts", () => {
 });
 
 describe("turnFacts", () => {
-  it("prefers the response model and sums the cached tokens", () => {
+  it("prefers the response model and shows the cache read, the cache write and the hit", () => {
     const turn = span({
       attributes: {
         "gen_ai.request.model": "a",
         "gen_ai.response.model": "b",
+        "gen_ai.usage.input_tokens": 1000,
         "gen_ai.usage.cache_read.input_tokens": 300,
         "gen_ai.usage.cache_creation.input_tokens": 200,
         "gen_ai.response.finish_reasons": ["stop", "length"],
@@ -69,16 +70,31 @@ describe("turnFacts", () => {
 
     expect(turnFacts(turn)).toEqual([
       { name: "Model", value: "b" },
-      { name: "Cached tokens", value: "500" },
-      { name: "Est. cost", value: "$0" },
+      { name: "Input tokens", value: "1.0k" },
+      { name: "Cache read", value: "300" },
+      { name: "Cache write", value: "200" },
+      { name: "Cache hit", value: "30%" },
+      { name: "API price", value: "$0" },
       { name: "Finish reason", value: "stop, length" },
     ]);
   });
 
-  it("counts one cache attribute alone and omits all absent facts", () => {
+  it("keeps the hit at read over input when the cache write is large", () => {
+    const turn = span({
+      attributes: {
+        "gen_ai.usage.input_tokens": 1000,
+        "gen_ai.usage.cache_read.input_tokens": 100,
+        "gen_ai.usage.cache_creation.input_tokens": 800,
+      },
+    });
+
+    expect(turnFacts(turn)).toContainEqual({ name: "Cache hit", value: "10%" });
+  });
+
+  it("shows one cache attribute alone and omits all absent facts", () => {
     expect(
       turnFacts(span({ attributes: { "gen_ai.usage.cache_creation.input_tokens": 7 } })),
-    ).toEqual([{ name: "Cached tokens", value: "7" }]);
+    ).toEqual([{ name: "Cache write", value: "7" }]);
     expect(turnFacts(span())).toEqual([]);
   });
 });

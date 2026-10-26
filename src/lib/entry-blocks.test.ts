@@ -23,7 +23,7 @@ function assistant(overrides: Partial<Assistant> = {}): Assistant {
 describe("usageLine", () => {
   it("joins the input, the output and the cost", () => {
     expect(usageLine(assistant({ inputTokens: 1200, outputTokens: 600, costUsd: 0.06 }))).toBe(
-      "1.2k in · 600 out · Est. cost $0.0600",
+      "1.2k in · 600 out · API price $0.0600",
     );
   });
 

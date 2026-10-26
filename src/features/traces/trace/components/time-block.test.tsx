@@ -11,7 +11,7 @@ const SUMMARY = {
   started_at: 0,
   duration_ms: 10_000,
   root_attributes: { "kanthord.queue.wait_ms": 4000 },
-  input_tokens: 200,
+  input_tokens: 1000,
   cache_read_tokens: 700,
   cache_creation_tokens: 100,
   turn_count: 3,
@@ -45,7 +45,15 @@ describe("TimeBlock", () => {
     expect(screen.getByRole("progressbar", { name: "Git" })).toHaveAttribute("aria-valuenow", "5");
     expect(screen.getByText("500 ms")).toBeInTheDocument();
     expect(
-      screen.getByText("3 turns, 5 tools, 70% of the input tokens cached"),
+      screen.getByText("3 turns, 5 tools, 70% of the input tokens came from the cache"),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the cache share at read over input when the cache write is large", () => {
+    const summary = { ...SUMMARY, cache_read_tokens: 100, cache_creation_tokens: 800 };
+    render(<TimeBlock summary={summary} spans={SPANS} />);
+    expect(
+      screen.getByText("3 turns, 5 tools, 10% of the input tokens came from the cache"),
     ).toBeInTheDocument();
   });
 

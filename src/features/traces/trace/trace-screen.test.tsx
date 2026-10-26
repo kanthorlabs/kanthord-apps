@@ -42,6 +42,7 @@ import type {
   TraceSummary,
 } from "@/api/types";
 import { durationText, utcDateTime } from "@/lib/format";
+import { PRICE_NOTE } from "@/lib/trace-format";
 
 import { TraceScreen } from "./trace-screen";
 import { TRACE_POLL_MS } from "./use-trace";
@@ -295,7 +296,7 @@ describe("TraceScreen header", () => {
     for (const [label, value] of [
       ["Duration", durationText(90_000)],
       ["Tokens", "1.8k"],
-      ["Est. cost", "$0.0600"],
+      ["API price", "$0.0600"],
       ["Attempt", "2"],
     ] as const) {
       expect(within(header).getByText(label).nextElementSibling).toHaveTextContent(value);
@@ -324,10 +325,14 @@ describe("TraceScreen header", () => {
       ["Stop reason", "completed"],
       ["Input tokens", "1.2k"],
       ["Output tokens", "600"],
-      ["Cached tokens", "500"],
+      ["Uncached input", "700"],
+      ["Cache read", "300"],
+      ["Cache write", "200"],
+      ["Cache hit", "25%"],
     ] as const) {
       expect(within(header).getByText(label).nextElementSibling).toHaveTextContent(value);
     }
+    expect(within(header).getByText(PRICE_NOTE)).toBeInTheDocument();
   });
 
   it("goes back to the trace list with the Traces link", async () => {

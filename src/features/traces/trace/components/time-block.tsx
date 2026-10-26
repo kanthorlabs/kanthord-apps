@@ -30,7 +30,7 @@ export function TimeBlock({ summary, spans }: TimeBlockProps) {
       </div>
       <p className="text-sm text-muted-foreground">
         {summary.turn_count} turns, {summary.tool_count} tools, {cacheShareText(summary)} of the
-        input tokens cached
+        input tokens came from the cache
       </p>
     </section>
   );
