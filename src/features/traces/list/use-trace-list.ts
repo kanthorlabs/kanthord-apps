@@ -8,9 +8,9 @@ import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
 import { useResource, type Resource } from "@/hooks/use-resource";
 import { secondsOf, millisecondsOf, sheetChangesOf } from "@/lib/trace-filter-draft";
 import { TRACE_QUERY_KEYS, traceQueryOf, withParam, type TraceQueryKey } from "@/lib/trace-query";
-import { traceTitleOf } from "@/lib/trace-title";
+import { nodeNameOf, traceTitleOf } from "@/lib/trace-title";
 
-import { readNodeNames } from "./read-node-names";
+import { useNodeNames } from "./use-node-names";
 
 export const TRACE_PAGE_LIMIT = 50;
 
@@ -39,7 +39,9 @@ export interface TraceList {
 }
 
 function nodeIdsOf(traces: readonly TraceListItem[]): readonly string[] {
-  return traces.flatMap((trace) => (trace.node_id === null ? [] : [trace.node_id]));
+  return traces.flatMap((trace) =>
+    trace.node_id === null || nodeNameOf(trace.root_attributes) !== null ? [] : [trace.node_id],
+  );
 }
 
 export function useTraceList(): TraceList {
@@ -56,8 +58,7 @@ export function useTraceList(): TraceList {
   const pages = useCursorPages((cursor) => listTracePage(query, cursor, TRACE_PAGE_LIMIT), [query]);
   const projects = useResource(() => listProjects(), []);
   const facets = useResource(() => readTraceFacets(projectId), [projectId]);
-  const nodeIds = nodeIdsOf(pages.items);
-  const names = useResource(() => readNodeNames(nodeIds), [nodeIds.join(",")]);
+  const names = useNodeNames(nodeIdsOf(pages.items));
 
   const write = useCallback(
     (key: TraceQueryKey, value: string | null) => {
@@ -120,9 +121,11 @@ export function useTraceList(): TraceList {
     (trace: TraceListItem) =>
       traceTitleOf(
         trace,
-        (trace.node_id === null ? undefined : names.data?.get(trace.node_id)) ?? null,
+        nodeNameOf(trace.root_attributes) ??
+          (trace.node_id === null ? undefined : names.get(trace.node_id)) ??
+          null,
       ),
-    [names.data],
+    [names],
   );
 
   const filtered = TRACE_QUERY_KEYS.some((key) => key !== "range" && params.has(key));

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { TraceSummary } from "@/api/types";
 
-import { traceTitleOf } from "./trace-title";
+import { nodeNameOf, traceTitleOf } from "./trace-title";
 
 type TitleFields = Pick<
   TraceSummary,
@@ -47,5 +47,24 @@ describe("traceTitleOf", () => {
 
   it("titles a trace with no root span by the trace identity", () => {
     expect(traceTitleOf(trace(), null)).toBe("trace-1");
+  });
+});
+
+describe("nodeNameOf", () => {
+  it("answers the string value of the node name attribute", () => {
+    expect(nodeNameOf({ "kanthord.node.name": "Build the page" })).toBe("Build the page");
+  });
+
+  it("answers null without the attribute", () => {
+    expect(nodeNameOf({ "kanthord.phase": "execute" })).toBeNull();
+  });
+
+  it("answers null for a value that is not a string", () => {
+    expect(nodeNameOf({ "kanthord.node.name": 7 })).toBeNull();
+  });
+
+  it("answers null for no attributes", () => {
+    expect(nodeNameOf(null)).toBeNull();
+    expect(nodeNameOf(undefined)).toBeNull();
   });
 });
