@@ -142,7 +142,7 @@ describe("TracesScreen", () => {
       ["Worker", "general"],
       ["Attempt", "1"],
       ["Duration", durationText(90_000)],
-      ["Est. cost", "$0.2500"],
+      ["API price", "$0.2500"],
       ["Started", utcDateTime(STARTED_AT)],
       ["Turns", "4"],
       ["Errors (incl. recovered)", "0"],

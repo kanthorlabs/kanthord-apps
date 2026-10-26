@@ -303,8 +303,10 @@ describe("SpanDetail", () => {
       ["Model", "claude-b"],
       ["Input tokens", "1.2k"],
       ["Output tokens", "600"],
-      ["Cached tokens", "500"],
-      ["Est. cost", "$0.0600"],
+      ["Cache read", "300"],
+      ["Cache write", "200"],
+      ["Cache hit", "25%"],
+      ["API price", "$0.0600"],
       ["Finish reason", "stop, length"],
       ["Model duration", "2 s"],
     ] as const) {
@@ -329,7 +331,7 @@ describe("SpanDetail", () => {
 
     expect(factOf("Model")).toHaveTextContent("claude-a");
     expect(screen.queryByText("Input tokens")).not.toBeInTheDocument();
-    expect(screen.queryByText("Cached tokens")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cache read")).not.toBeInTheDocument();
     expect(screen.queryByText("Finish reason")).not.toBeInTheDocument();
   });
 

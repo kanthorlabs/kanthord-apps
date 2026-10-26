@@ -10,7 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Toggle } from "@/components/ui/toggle";
 import { durationText, utcDateTime } from "@/lib/format";
 import { nodePath } from "@/lib/node-path";
-import { costText, tokenText } from "@/lib/trace-format";
+import {
+  cacheFacts,
+  cacheShareText,
+  costText,
+  PRICE_LABEL,
+  PRICE_NOTE,
+  tokenText,
+} from "@/lib/trace-format";
 
 const STATE_BADGES: Readonly<
   Record<
@@ -36,7 +43,7 @@ function summaryFactsOf(summary: TraceSummary): readonly Fact[] {
       value: summary.duration_ms === null ? "running" : durationText(summary.duration_ms),
     },
     { label: "Tokens", value: tokenText(summary.total_tokens) },
-    { label: "Est. cost", value: costText(summary.cost_usd) },
+    { label: PRICE_LABEL, value: costText(summary.cost_usd) },
   ];
   if (summary.attempt !== null) facts.push({ label: "Attempt", value: summary.attempt });
   return facts;
@@ -57,13 +64,18 @@ function detailFactsOf(summary: TraceSummary, projectName: string | null): reado
   if (summary.stop_reason !== null) {
     facts.push({ label: "Stop reason", value: summary.stop_reason });
   }
+  const cache = cacheFacts(
+    summary.input_tokens,
+    summary.cache_read_tokens,
+    summary.cache_creation_tokens,
+  );
   facts.push(
     { label: "Input tokens", value: tokenText(summary.input_tokens) },
+    { label: "Uncached input", value: tokenText(cache.uncached) },
+    { label: "Cache read", value: tokenText(cache.read) },
+    { label: "Cache write", value: tokenText(cache.write) },
+    { label: "Cache hit", value: cacheShareText(summary) },
     { label: "Output tokens", value: tokenText(summary.output_tokens) },
-    {
-      label: "Cached tokens",
-      value: tokenText(summary.cache_read_tokens + summary.cache_creation_tokens),
-    },
   );
   return facts;
 }
@@ -154,7 +166,10 @@ export function TraceHeader({
         )}
       </div>
       <Reveal open={detailsOpen}>
-        <FactList facts={detailFactsOf(summary, projectName)} />
+        <div className="flex min-w-0 flex-col gap-2">
+          <FactList facts={detailFactsOf(summary, projectName)} />
+          <p className="text-sm text-muted-foreground">{PRICE_NOTE}</p>
+        </div>
       </Reveal>
     </section>
   );

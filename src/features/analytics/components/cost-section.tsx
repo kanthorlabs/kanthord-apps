@@ -3,6 +3,7 @@ import { DataListItem } from "@/components/data-list-item";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ItemGroup } from "@/components/ui/item";
 import { COST_GROUP_OPTIONS } from "@/lib/analytics-query";
+import { PRICE_NOTE } from "@/lib/trace-format";
 
 import { FilterSelect } from "../../traces/list/components/filter-select";
 import type { AnalyticsView } from "../use-analytics";
@@ -17,6 +18,7 @@ export function CostSection({ filters, projects, refreshCount }: CostSectionProp
   return (
     <div className="flex flex-col gap-4">
       <h3 className="text-base font-semibold">Cost</h3>
+      <p className="text-sm text-muted-foreground">{PRICE_NOTE}</p>
       <div className="w-full md:w-48">
         <FilterSelect
           label="Group by"

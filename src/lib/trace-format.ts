@@ -18,8 +18,27 @@ export function costText(usd: number): string {
 
 const PERCENT = 100;
 
+export const PRICE_LABEL = "API price";
+export const PRICE_NOTE =
+  "API price is the list price of these tokens at the provider. A subscription does not pay this amount.";
+
+export interface CacheFacts {
+  readonly uncached: number;
+  readonly read: number;
+  readonly write: number;
+  readonly hitRatio: number;
+}
+
+export function cacheFacts(input: number, read: number, write: number): CacheFacts {
+  const hitRatio = input === 0 ? 0 : Math.min(1, Math.max(0, read / input));
+  return { uncached: Math.max(0, input - read - write), read, write, hitRatio };
+}
+
+export function percentText(ratio: number): string {
+  return `${Math.round(ratio * PERCENT)}%`;
+}
+
 export function cacheShareText(summary: TraceSummary): string {
-  const total = summary.input_tokens + summary.cache_read_tokens + summary.cache_creation_tokens;
-  if (total === 0) return "0%";
-  return `${Math.round((summary.cache_read_tokens / total) * PERCENT)}%`;
+  const { input_tokens: input, cache_read_tokens: read, cache_creation_tokens: write } = summary;
+  return percentText(cacheFacts(input, read, write).hitRatio);
 }

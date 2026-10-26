@@ -1,7 +1,7 @@
 import { listTracePage } from "@/api/resources/tracking";
 import type { EffectiveCause, SchedulerExecutionRecord, TraceListItem } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
-import { costText, tokenText } from "@/lib/trace-format";
+import { costText, PRICE_LABEL, tokenText } from "@/lib/trace-format";
 
 export interface TraceSummaryLine {
   readonly line: string;
@@ -15,7 +15,7 @@ const EXPIRED_TEXT = "Trace expired";
 const TRACE_LIMIT = 100;
 
 function lineOf(summary: TraceListItem): string {
-  return `${summary.turn_count} turns · ${tokenText(summary.total_tokens)} tokens · Est. cost ${costText(summary.cost_usd)} · ${summary.error_count} errors`;
+  return `${summary.turn_count} turns · ${tokenText(summary.total_tokens)} tokens · ${PRICE_LABEL} ${costText(summary.cost_usd)} · ${summary.error_count} errors`;
 }
 
 async function readSummaries(nodeId: string, traceIds: readonly string[]): Promise<TraceSummaries> {

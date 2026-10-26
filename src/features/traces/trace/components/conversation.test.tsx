@@ -229,7 +229,7 @@ describe("Conversation", () => {
 
     const reply = blockOf("Model");
     expect(within(reply).getByText("I will list the files.")).toBeInTheDocument();
-    expect(within(reply).getByText("1.2k in · 600 out · Est. cost $0.0600")).toBeInTheDocument();
+    expect(within(reply).getByText("1.2k in · 600 out · API price $0.0600")).toBeInTheDocument();
     expect(within(reply).getByText("bash")).toBeInTheDocument();
     expect(within(reply).getByText("read")).toBeInTheDocument();
     expect(within(reply).queryByText("Plan the listing.")).not.toBeInTheDocument();
