@@ -8,6 +8,7 @@ import { parseArgs } from "node:util";
 const MAX_LIST_ENTRIES = 10000;
 const MAX_TEXT_BYTES = 1024;
 const MAX_REASON_BYTES = 256;
+const RERUN_FILE_LIMIT = 8;
 const RUN_REPORTERS = ["--reporter=default", "--reporter=json"];
 
 const GLOBAL_INPUTS = new Set([
@@ -156,12 +157,12 @@ function failedIds(output) {
   return ids;
 }
 
-function rerunFailedFiles(failed, outputDirectory) {
+export function rerunFailedFiles(failed, rerunFile) {
   const files = [...new Set([...failed.values()].map((id) => id.file))];
+  if (files.length > RERUN_FILE_LIMIT) return { failed: [...failed.values()], flaky: [] };
   const stillFailed = new Set();
   files.forEach((file, index) => {
-    const rerun = failedIds(runVitest(["run", file], outputDirectory, `rerun-${index}`));
-    for (const key of rerun.keys()) stillFailed.add(key);
+    for (const key of rerunFile(file, index).keys()) stillFailed.add(key);
   });
   const flaky = [];
   const confirmed = [];
@@ -210,7 +211,9 @@ function selectAndRun(classification, outputDirectory) {
     selection === "related" ? ["related", "--run", "--passWithNoTests", ...paths] : ["run"];
   const output = runVitest(args, outputDirectory, "main");
   const tests = output.testResults.map((result) => relativeName(result.name));
-  const { failed, flaky } = rerunFailedFiles(failedIds(output), outputDirectory);
+  const { failed, flaky } = rerunFailedFiles(failedIds(output), (file, index) =>
+    failedIds(runVitest(["run", file], outputDirectory, `rerun-${index}`)),
+  );
   return { selection, reason, tests, failed, flaky };
 }
 

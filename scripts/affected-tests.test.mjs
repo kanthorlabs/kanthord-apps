@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classify } from "./affected-tests.mjs";
+import { classify, rerunFailedFiles } from "./affected-tests.mjs";
 
 const modified = (path) => ({ path, status: "modified" });
 
@@ -108,5 +108,43 @@ describe("classify", () => {
 
   it("selects none for no change", () => {
     expect(classify([])).toEqual({ selection: "none", reason: null, paths: [] });
+  });
+});
+
+describe("rerunFailedFiles", () => {
+  const failedIn = (count) =>
+    new Map(
+      Array.from({ length: count }, (_, index) => {
+        const id = { file: `src/f${index + 1}.test.ts`, name: "fails" };
+        return [`${id.file}\0${id.name}`, id];
+      }),
+    );
+
+  it("runs no rerun for more than 8 files", () => {
+    const failed = failedIn(9);
+    const calls = [];
+
+    const result = rerunFailedFiles(failed, (file, index) => {
+      calls.push({ file, index });
+      return new Map();
+    });
+
+    expect(calls).toEqual([]);
+    expect(result.failed).toEqual([...failed.values()]);
+    expect(result.flaky).toEqual([]);
+  });
+
+  it("reruns each file for 8 files", () => {
+    const failed = failedIn(8);
+    const calls = [];
+
+    const result = rerunFailedFiles(failed, (file, index) => {
+      calls.push({ file, index });
+      return new Map();
+    });
+
+    expect(calls).toHaveLength(8);
+    expect(result.failed).toEqual([]);
+    expect(result.flaky).toEqual([...failed.values()]);
   });
 });
