@@ -37,7 +37,12 @@ export function SummaryTab({ summary, spans, selection, onLabeled }: SummaryTabP
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {open ? (
-        <NowBlock traceId={summary.trace_id} spans={spans} now={now} />
+        <NowBlock
+          traceId={summary.trace_id}
+          projectId={summary.project_id}
+          spans={spans}
+          now={now}
+        />
       ) : (
         <DiagnosisBlock
           summary={summary}
