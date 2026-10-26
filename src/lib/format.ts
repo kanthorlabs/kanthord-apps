@@ -15,8 +15,8 @@ export function durationText(ms: number): string {
   const milliseconds = Math.round(Math.max(0, ms) * MILLISECOND_STEPS) / MILLISECOND_STEPS;
   if (milliseconds < SECOND_MS) return `${milliseconds} ms`;
   if (milliseconds < MINUTE_MS) return `${Math.floor(milliseconds / SECOND_MS)} s`;
-  if (milliseconds < HOUR_MS) return `${Math.floor(milliseconds / MINUTE_MS)} min`;
+  if (milliseconds < HOUR_MS) return `${Math.floor(milliseconds / MINUTE_MS)} m`;
   const hours = Math.floor(milliseconds / HOUR_MS);
   const minutes = Math.floor((milliseconds % HOUR_MS) / MINUTE_MS);
-  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
+  return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} m`;
 }

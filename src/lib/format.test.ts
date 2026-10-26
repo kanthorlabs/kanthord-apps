@@ -17,9 +17,9 @@ describe("utcShortDateTime", () => {
 describe("durationText", () => {
   it("counts seconds, minutes and hours", () => {
     expect(durationText(45_000)).toBe("45 s");
-    expect(durationText(20 * 60_000)).toBe("20 min");
+    expect(durationText(20 * 60_000)).toBe("20 m");
     expect(durationText(3_600_000)).toBe("1 h");
-    expect(durationText(3_600_000 + 5 * 60_000)).toBe("1 h 5 min");
+    expect(durationText(3_600_000 + 5 * 60_000)).toBe("1 h 5 m");
   });
 
   it("counts milliseconds under one second", () => {
@@ -33,7 +33,7 @@ describe("durationText", () => {
   });
 
   it("moves a value that rounds up to the next unit", () => {
-    expect(durationText(59_999.96)).toBe("1 min");
+    expect(durationText(59_999.96)).toBe("1 m");
     expect(durationText(3_599_999.96)).toBe("1 h");
   });
 
