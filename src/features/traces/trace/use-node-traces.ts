@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 
 import type { ApiError } from "@/api/errors";
-import { listNodeAttempts } from "@/api/resources/mission";
-import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
+import { listTraceSpans } from "@/api/resources/tracking";
 import type {
   EffectiveCause,
   MissionAttempt,
@@ -22,10 +21,7 @@ import {
 } from "@/lib/trace-attempts";
 import { causeLine, isRepeat } from "@/lib/trace-cause";
 
-export const NODE_TRACE_LIMIT = 100;
-
-const NO_ITEMS: readonly TraceListItem[] = [];
-const NO_ATTEMPTS: readonly MissionAttempt[] = [];
+import type { TraceNode } from "./use-trace-node";
 
 const KIND_LABELS: Readonly<Record<ExecutionKind, string>> = {
   steps: "Steps",
@@ -71,32 +67,9 @@ export interface NodeTraces {
   readonly retry: () => void;
 }
 
-interface NodeRead {
-  readonly items: readonly TraceListItem[];
-  readonly attempts: readonly MissionAttempt[];
-}
-
-interface SpanRead {
-  readonly previous: readonly TraceSpan[];
-  readonly current: readonly TraceSpan[];
-}
-
-async function readNode(nodeId: string | null): Promise<NodeRead> {
-  if (nodeId === null) return { items: NO_ITEMS, attempts: NO_ATTEMPTS };
-  const [page, attempts] = await Promise.all([
-    listTracePage({ node_id: nodeId }, null, NODE_TRACE_LIMIT),
-    listNodeAttempts(nodeId),
-  ]);
-  return { items: page.items, attempts };
-}
-
-async function readSpans(previousId: string | null, currentId: string): Promise<SpanRead | null> {
+async function readPreviousSpans(previousId: string | null): Promise<readonly TraceSpan[] | null> {
   if (previousId === null) return null;
-  const [previous, current] = await Promise.all([
-    listTraceSpans(previousId),
-    listTraceSpans(currentId),
-  ]);
-  return { previous, current };
+  return listTraceSpans(previousId);
 }
 
 function previousTraceIdOf(items: readonly TraceListItem[], summary: TraceSummary): string | null {
@@ -157,14 +130,16 @@ function groupsOf(
   }));
 }
 
-export function useNodeTraces(summary: TraceSummary): NodeTraces {
-  const { node_id: nodeId, trace_id: traceId } = summary;
-  const node = useResource(() => readNode(nodeId), [nodeId]);
-  const items = node.data?.items ?? NO_ITEMS;
+export function useNodeTraces(
+  summary: TraceSummary,
+  spans: readonly TraceSpan[],
+  traceNode: TraceNode,
+): NodeTraces {
+  const { trace_id: traceId } = summary;
+  const { items, attempts } = traceNode;
   const previousId = previousTraceIdOf(items, summary);
-  const spans = useResource(() => readSpans(previousId, traceId), [previousId, traceId]);
-  const changed = spans.data !== null && promptChanged(spans.data.previous, spans.data.current);
-  const attempts = node.data?.attempts ?? NO_ATTEMPTS;
+  const previous = useResource(() => readPreviousSpans(previousId), [previousId]);
+  const changed = previous.data !== null && promptChanged(previous.data, spans);
 
   const groups = useMemo(
     () => groupsOf(items, attempts, traceId, changed),
@@ -179,11 +154,11 @@ export function useNodeTraces(summary: TraceSummary): NodeTraces {
     groups,
     repeatedAttempts: repeated.filter((executions) => executions.length > 0).length,
     repeatedExecutions: repeated.reduce((total, executions) => total + executions.length, 0),
-    loading: node.loading,
-    error: node.error ?? spans.error,
+    loading: traceNode.loading,
+    error: traceNode.error ?? previous.error,
     retry: () => {
-      node.reload();
-      spans.reload();
+      traceNode.retry();
+      previous.reload();
     },
   };
 }

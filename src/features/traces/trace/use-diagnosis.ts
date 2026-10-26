@@ -9,7 +9,6 @@ import { causeLabelReasonTextIdOf } from "@/lib/trace-cause";
 import { nowFactsOf, type NowFacts } from "@/lib/trace-now";
 
 import type { NodeAttempt, NodeTraces } from "./use-node-traces";
-import { useNodeRevision } from "./use-node-revision";
 import { TRACE_POLL_MS } from "./use-trace";
 
 export interface ReworkCause {
@@ -49,9 +48,9 @@ export function useDiagnosis(
   spans: readonly TraceSpan[],
   nodeTraces: NodeTraces,
   now: number,
+  taskNames: ReadonlyMap<string, string>,
 ): Diagnosis {
   const { trace_id: traceId, root_span_id: rootSpanId, state } = summary;
-  const { taskNames } = useNodeRevision(summary);
   const diagnosis = useMemo(
     () => diagnoseSpans(spans, rootSpanId, taskNames),
     [spans, rootSpanId, taskNames],

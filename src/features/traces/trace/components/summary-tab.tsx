@@ -3,6 +3,7 @@ import { useLargeScreen } from "@/hooks/use-large-screen";
 
 import { useNodeTraces } from "../use-node-traces";
 import { useNow } from "../use-now";
+import type { TraceNode } from "../use-trace-node";
 import type { TraceSelection } from "../use-trace-selection";
 import { AttemptsBlock } from "./attempts-block";
 import { DiagnosisBlock } from "./diagnosis-block";
@@ -15,19 +16,20 @@ import { TimeBlock } from "./time-block";
 interface SummaryTabProps {
   readonly summary: TraceSummary;
   readonly spans: readonly TraceSpan[];
+  readonly traceNode: TraceNode;
   readonly selection: TraceSelection;
   readonly onLabeled: () => void;
 }
 
-export function SummaryTab({ summary, spans, selection, onLabeled }: SummaryTabProps) {
-  const nodeTraces = useNodeTraces(summary);
+export function SummaryTab({ summary, spans, traceNode, selection, onLabeled }: SummaryTabProps) {
+  const nodeTraces = useNodeTraces(summary, spans, traceNode);
   const open = summary.state === "open";
   const now = useNow(open);
   const large = useLargeScreen();
   const steps = (
     <StepsTab
       traceId={summary.trace_id}
-      summary={summary}
+      traceNode={traceNode}
       spans={spans}
       traceState={summary.state}
       selection={selection}
@@ -48,6 +50,7 @@ export function SummaryTab({ summary, spans, selection, onLabeled }: SummaryTabP
           summary={summary}
           spans={spans}
           nodeTraces={nodeTraces}
+          traceNode={traceNode}
           now={now}
           selectedSpanId={selection.span}
           onSelectSpan={selection.selectSpan}
@@ -58,7 +61,7 @@ export function SummaryTab({ summary, spans, selection, onLabeled }: SummaryTabP
       <AttemptsBlock node={nodeTraces} />
       <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         <TimeBlock summary={summary} spans={spans} />
-        <PlanBlock summary={summary} spans={spans} />
+        <PlanBlock summary={summary} spans={spans} traceNode={traceNode} />
         <PromptBlock traceId={summary.trace_id} spans={spans} selection={selection} />
       </div>
     </div>

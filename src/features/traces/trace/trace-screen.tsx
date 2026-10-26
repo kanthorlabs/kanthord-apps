@@ -14,6 +14,7 @@ import { SummaryTab } from "./components/summary-tab";
 import { TraceHeader } from "./components/trace-header";
 import { useStickyOffset } from "./use-sticky-offset";
 import { useTrace } from "./use-trace";
+import { useTraceNode } from "./use-trace-node";
 import { useTraceSelection } from "./use-trace-selection";
 
 function ExpiredNotice() {
@@ -45,6 +46,7 @@ export function TraceScreen() {
   const trace = useTrace(traceId);
   const selection = useTraceSelection(trace.spans);
   const { summary } = trace;
+  const traceNode = useTraceNode(summary);
   const stickyRef = useStickyOffset();
   useCrumbLabel(`/traces/${encodeURIComponent(traceId)}`, trace.title ?? undefined);
 
@@ -93,6 +95,7 @@ export function TraceScreen() {
           <SummaryTab
             summary={summary}
             spans={trace.spans}
+            traceNode={traceNode}
             selection={selection}
             onLabeled={trace.retry}
           />
@@ -100,7 +103,7 @@ export function TraceScreen() {
         <TabsContent value="steps">
           <StepsTab
             traceId={summary.trace_id}
-            summary={summary}
+            traceNode={traceNode}
             spans={trace.spans}
             traceState={summary.state}
             selection={selection}

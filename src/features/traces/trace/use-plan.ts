@@ -1,7 +1,7 @@
 import type { ApiError } from "@/api/errors";
-import type { MissionRevision, TraceSpan, TraceSummary } from "@/api/types";
+import type { MissionRevision, TraceSpan } from "@/api/types";
 
-import { useNodeRevision } from "./use-node-revision";
+import type { TraceNode } from "./use-trace-node";
 
 export type TaskState = "done" | "failed" | "open";
 
@@ -56,7 +56,7 @@ function planOf(revision: MissionRevision, spans: readonly TraceSpan[]): Plan {
   };
 }
 
-export function usePlan(summary: TraceSummary, spans: readonly TraceSpan[]): PlanView {
-  const { revision, error } = useNodeRevision(summary);
+export function usePlan(traceNode: TraceNode, spans: readonly TraceSpan[]): PlanView {
+  const { revision, revisionError: error } = traceNode;
   return { plan: revision === null ? null : planOf(revision, spans), error };
 }

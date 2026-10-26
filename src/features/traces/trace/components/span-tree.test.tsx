@@ -9,6 +9,7 @@ vi.mock("@/api/resources/tracking", () => ({
   readTraceText: vi.fn(),
   readSessionEntry: vi.fn(),
   listSessionEntryPage: vi.fn(),
+  listTracePage: vi.fn(),
 }));
 
 vi.mock("@/api/resources/projects", () => ({
@@ -23,7 +24,7 @@ vi.mock("@/api/resources/mission", () => ({
 
 import { listNodeAttempts, readMissionNode, readNodeRevision } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
-import { listTraceSpans, readTrace } from "@/api/resources/tracking";
+import { listTracePage, listTraceSpans, readTrace } from "@/api/resources/tracking";
 import type {
   MissionNodeRecord,
   MissionRevision,
@@ -32,6 +33,7 @@ import type {
   TraceSpan,
   TraceSummary,
 } from "@/api/types";
+import { ProjectProvider } from "@/features/projects/project-context";
 
 import { TraceScreen } from "../trace-screen";
 
@@ -179,10 +181,12 @@ function Probe() {
 function mount(entry = "/traces/trace-1?tab=steps") {
   return render(
     <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/traces" element={<p>Traces list</p>} />
-        <Route path="/traces/:traceId" element={<TraceScreen />} />
-      </Routes>
+      <ProjectProvider>
+        <Routes>
+          <Route path="/traces" element={<p>Traces list</p>} />
+          <Route path="/traces/:traceId" element={<TraceScreen />} />
+        </Routes>
+      </ProjectProvider>
       <Probe />
     </MemoryRouter>,
   );
@@ -231,6 +235,7 @@ beforeEach(() => {
   vi.mocked(readTrace).mockResolvedValue(summary());
   vi.mocked(listTraceSpans).mockResolvedValue(spans());
   vi.mocked(listProjects).mockResolvedValue([project()]);
+  vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
   vi.mocked(listNodeAttempts).mockResolvedValue([]);
   vi.mocked(readMissionNode).mockResolvedValue({
     content: { name: "Build the page" },

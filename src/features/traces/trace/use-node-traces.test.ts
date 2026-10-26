@@ -2,16 +2,11 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/api/resources/tracking", () => ({
-  listTracePage: vi.fn(),
   listTraceSpans: vi.fn(),
-}));
-vi.mock("@/api/resources/mission", () => ({
-  listNodeAttempts: vi.fn(),
 }));
 
 import { ApiError } from "@/api/errors";
-import { listNodeAttempts } from "@/api/resources/mission";
-import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
+import { listTraceSpans } from "@/api/resources/tracking";
 import type {
   EffectiveCause,
   MissionAttempt,
@@ -21,6 +16,7 @@ import type {
 } from "@/api/types";
 
 import { useNodeTraces } from "./use-node-traces";
+import type { TraceNode } from "./use-trace-node";
 
 const PLAN_CAUSE: EffectiveCause = {
   category: "plan",
@@ -109,34 +105,39 @@ const FIRST = item("t1", 1, 10, "error", PLAN_CAUSE);
 const SECOND = item("t2", 1, 20, "error", PLAN_CAUSE);
 const THIRD = item("t3", 2, 30, "error", { ...PLAN_CAUSE, subcategory: "oversized" });
 
-function readsNode(items: readonly TraceListItem[]) {
-  vi.mocked(listTracePage).mockResolvedValue({ items, next_cursor: null });
-  vi.mocked(listNodeAttempts).mockResolvedValue([attempt(1, 1), attempt(2, 2)]);
+function traceNode(
+  items: readonly TraceListItem[],
+  attempts: readonly MissionAttempt[] = [attempt(1, 1), attempt(2, 2)],
+  overrides: Partial<TraceNode> = {},
+): TraceNode {
+  return {
+    items,
+    attempts,
+    revision: null,
+    revisionError: null,
+    taskNames: new Map(),
+    loading: false,
+    error: null,
+    retry: vi.fn(),
+    ...overrides,
+  };
 }
+
+const NO_SPANS: readonly TraceSpan[] = [];
 
 afterEach(() => {
   vi.resetAllMocks();
 });
 
 describe("useNodeTraces", () => {
-  it("reads the traces and the attempts of the node", async () => {
-    readsNode([FIRST, SECOND, THIRD]);
+  it("groups two attempts and marks the repeat in the first one", () => {
     vi.mocked(listTraceSpans).mockResolvedValue([]);
+    const node = traceNode([FIRST, SECOND, THIRD]);
 
-    const { result } = renderHook(() => useNodeTraces(THIRD));
+    const { result } = renderHook(() => useNodeTraces(THIRD, NO_SPANS, node));
 
-    await waitFor(() => expect(result.current.items).toHaveLength(3));
-    expect(listTracePage).toHaveBeenCalledWith({ node_id: "node-1" }, null, 100);
-    expect(listNodeAttempts).toHaveBeenCalledWith("node-1");
-  });
-
-  it("groups two attempts and marks the repeat in the first one", async () => {
-    readsNode([FIRST, SECOND, THIRD]);
-    vi.mocked(listTraceSpans).mockResolvedValue([]);
-
-    const { result } = renderHook(() => useNodeTraces(THIRD));
-
-    await waitFor(() => expect(result.current.groups).toHaveLength(2));
+    expect(result.current.items).toBe(node.items);
+    expect(result.current.groups).toHaveLength(2);
     const [latest, earliest] = result.current.groups;
     expect(latest?.attempt).toBe(2);
     expect(latest?.executions.map((execution) => execution.isRepeat)).toEqual([false]);
@@ -145,24 +146,22 @@ describe("useNodeTraces", () => {
     expect(result.current.repeatedExecutions).toBe(1);
   });
 
-  it("marks the plan change of the second attempt", async () => {
-    readsNode([FIRST, SECOND, THIRD]);
+  it("marks the plan change of the second attempt", () => {
     vi.mocked(listTraceSpans).mockResolvedValue([]);
+    const node = traceNode([FIRST, SECOND, THIRD]);
 
-    const { result } = renderHook(() => useNodeTraces(THIRD));
+    const { result } = renderHook(() => useNodeTraces(THIRD, NO_SPANS, node));
 
-    await waitFor(() => expect(result.current.groups).toHaveLength(2));
     expect(result.current.groups.map((group) => group.planChanged)).toEqual([true, false]);
     expect(result.current.groups.map((group) => group.nodeRevision)).toEqual([2, 1]);
   });
 
   it("marks the changed prompt on the current execution only", async () => {
-    readsNode([FIRST, SECOND, THIRD]);
-    vi.mocked(listTraceSpans).mockImplementation(async (traceId) => [
-      promptSpan(traceId === "t3" ? "new" : "old"),
-    ]);
+    vi.mocked(listTraceSpans).mockResolvedValue([promptSpan("old")]);
+    const node = traceNode([FIRST, SECOND, THIRD]);
+    const spans = [promptSpan("new")];
 
-    const { result } = renderHook(() => useNodeTraces(THIRD));
+    const { result } = renderHook(() => useNodeTraces(THIRD, spans, node));
 
     await waitFor(() => {
       const executions = result.current.groups.flatMap((group) => group.executions);
@@ -173,38 +172,34 @@ describe("useNodeTraces", () => {
       .filter((execution) => execution.promptChanged);
     expect(marked.map((execution) => execution.traceId)).toEqual(["t3"]);
     expect(listTraceSpans).toHaveBeenCalledWith("t2");
-    expect(listTraceSpans).toHaveBeenCalledTimes(2);
+    expect(listTraceSpans).toHaveBeenCalledTimes(1);
   });
 
-  it("reads nothing for a trace with no node", async () => {
-    const { result } = renderHook(() => useNodeTraces({ ...FIRST, node_id: null, attempt: null }));
+  it("reads no span for a trace with no node", async () => {
+    const node = traceNode([], []);
+
+    const { result } = renderHook(() =>
+      useNodeTraces({ ...FIRST, node_id: null, attempt: null }, NO_SPANS, node),
+    );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.items).toEqual([]);
     expect(result.current.groups).toEqual([]);
-    expect(listTracePage).not.toHaveBeenCalled();
-    expect(listNodeAttempts).not.toHaveBeenCalled();
     expect(listTraceSpans).not.toHaveBeenCalled();
   });
 
-  it("answers the ApiError of a failed read and retries it", async () => {
+  it("answers the loading and the error of the trace node and retries it", () => {
     const failure = new ApiError("unavailable", "The daemon is down.", 503);
-    vi.mocked(listTracePage).mockRejectedValueOnce(failure);
-    vi.mocked(listNodeAttempts).mockResolvedValue([attempt(1, 1), attempt(2, 2)]);
-    vi.mocked(listTraceSpans).mockResolvedValue([]);
+    const node = traceNode([], [], { loading: true, error: failure });
 
-    const { result } = renderHook(() => useNodeTraces(THIRD));
+    const { result } = renderHook(() => useNodeTraces(THIRD, NO_SPANS, node));
 
-    await waitFor(() => expect(result.current.error).toBe(failure));
+    expect(result.current.loading).toBe(true);
+    expect(result.current.error).toBe(failure);
     expect(result.current.groups).toEqual([]);
 
-    vi.mocked(listTracePage).mockResolvedValue({
-      items: [FIRST, SECOND, THIRD],
-      next_cursor: null,
-    });
     result.current.retry();
 
-    await waitFor(() => expect(result.current.groups).toHaveLength(2));
-    expect(result.current.error).toBeNull();
+    expect(node.retry).toHaveBeenCalledTimes(1);
   });
 });

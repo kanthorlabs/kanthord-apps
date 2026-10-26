@@ -9,6 +9,7 @@ import { nodePath } from "@/lib/node-path";
 import type { TraceSpan, TraceSummary } from "@/api/types";
 
 import { usePlan } from "../use-plan";
+import type { TraceNode } from "../use-trace-node";
 
 interface ClampedTextProps {
   readonly label: string;
@@ -44,10 +45,11 @@ function ClampedText({ label, text }: ClampedTextProps) {
 interface PlanBlockProps {
   readonly summary: TraceSummary;
   readonly spans: readonly TraceSpan[];
+  readonly traceNode: TraceNode;
 }
 
-export function PlanBlock({ summary, spans }: PlanBlockProps) {
-  const { plan, error } = usePlan(summary, spans);
+export function PlanBlock({ summary, spans, traceNode }: PlanBlockProps) {
+  const { plan, error } = usePlan(traceNode, spans);
   const { project_id: projectId, node_id: nodeId } = summary;
   if (error !== null) {
     return (
