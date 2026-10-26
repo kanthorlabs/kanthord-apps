@@ -51,6 +51,14 @@ describe("whySpanLines", () => {
     expect(whySpanLines(child, [child], new Map())).toEqual(["Parent span not stored."]);
   });
 
+  it("states an open parent as open", () => {
+    const openParent = { ...span("t2", null, "Unset"), end_time: null };
+
+    expect(whySpanLines(child, [openParent, child], new Map())).toEqual([
+      "Parent Task t2 is open.",
+    ]);
+  });
+
   it("states no parent for a root span", () => {
     expect(whySpanLines(span("root", null), [], new Map())).toEqual([]);
   });
