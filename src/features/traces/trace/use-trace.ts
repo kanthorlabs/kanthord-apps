@@ -7,7 +7,7 @@ import type { TraceSpan, TraceSummary } from "@/api/types";
 import { useProject } from "@/features/projects/project-context";
 import { usePolledResource } from "@/hooks/use-polled-resource";
 import { useResource } from "@/hooks/use-resource";
-import { traceTitleOf } from "@/lib/trace-title";
+import { nodeNameOf, traceTitleOf } from "@/lib/trace-title";
 
 export const TRACE_POLL_MS = 5000;
 
@@ -79,21 +79,29 @@ export function useTrace(traceId: string): TraceView {
   const summary = polled.data?.summary ?? null;
   const nodeId = summary?.node_id ?? null;
   const projectId = summary?.project_id ?? null;
-  const nodeName = useResource(() => readNodeName(nodeId), [nodeId]);
+  const spans = polled.data?.spans ?? NO_SPANS;
+  const rootName = nodeNameOf(
+    spans.find((span) => span.span_id === summary?.root_span_id)?.attributes,
+  );
+  const readName = useResource(
+    () => (rootName === null ? readNodeName(nodeId) : Promise.resolve(null)),
+    [nodeId, rootName],
+  );
+  const nodeName = rootName ?? readName.data;
   const { projects } = useProject();
   const projectName = projects.find((project) => project.id === projectId)?.name ?? null;
 
   return {
     summary,
-    spans: polled.data?.spans ?? NO_SPANS,
+    spans,
     error: polled.error,
     expired: polled.error?.code === "not_found",
     retry: polled.refresh,
     live: summary?.state === "open" && !paused,
     paused,
     togglePaused: () => setPaused((value) => !value),
-    nodeName: nodeName.data,
+    nodeName,
     projectName,
-    title: summary === null ? null : traceTitleOf(summary, nodeName.data),
+    title: summary === null ? null : traceTitleOf(summary, nodeName),
   };
 }

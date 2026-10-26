@@ -350,6 +350,27 @@ describe("TraceScreen header", () => {
     expect(screen.getByText("Traces list")).toBeInTheDocument();
   });
 
+  it("titles the trace by the node name of the root span and reads no node", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue(
+      spans().map((item) =>
+        item.span_id === "root"
+          ? { ...item, attributes: { "kanthord.node.name": "Name of the root" } }
+          : item,
+      ),
+    );
+    mount();
+
+    expect(await screen.findByRole("link", { name: "Name of the root" })).toBeInTheDocument();
+    expect(readMissionNode).not.toHaveBeenCalled();
+  });
+
+  it("reads the node once when the root span has no node name", async () => {
+    mount();
+
+    expect(await screen.findByRole("link", { name: "Build the page" })).toBeInTheDocument();
+    expect(readMissionNode).toHaveBeenCalledTimes(1);
+  });
+
   it("falls back to the execution identity when the node name is absent", async () => {
     vi.mocked(readMissionNode).mockRejectedValue(new ApiError("not_found", "No node.", 404));
     mount();

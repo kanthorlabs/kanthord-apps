@@ -177,6 +177,77 @@ describe("TracesScreen", () => {
     expect(within(list).getByText("trc-2")).toBeInTheDocument();
   });
 
+  it("shows the node name of the root span and reads no node", async () => {
+    vi.mocked(listTracePage).mockResolvedValue({
+      items: [
+        trace("trc-1", {
+          node_id: "node-1",
+          root_attributes: { "kanthord.node.name": "Build the page" },
+        }),
+        trace("trc-2", {
+          node_id: "node-2",
+          root_attributes: { "kanthord.node.name": "Fix the bug" },
+        }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    expect(await screen.findByText("Build the page")).toBeInTheDocument();
+    expect(screen.getByText("Fix the bug")).toBeInTheDocument();
+    expect(readMissionNode).not.toHaveBeenCalled();
+  });
+
+  it("reads each node of items without the node name once", async () => {
+    vi.mocked(listTracePage).mockResolvedValue({
+      items: [
+        trace("trc-1", { node_id: "node-1" }),
+        trace("trc-2", { node_id: "node-1" }),
+        trace("trc-3", { node_id: "node-2" }),
+      ],
+      next_cursor: null,
+    });
+    mount();
+
+    await waitFor(() => expect(readMissionNode).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(readMissionNode).mock.calls.map(([id]) => id)).toEqual(["node-1", "node-2"]);
+  });
+
+  it("reads only the nodes that no earlier page read after Next and none after Previous", async () => {
+    const user = userEvent.setup();
+    vi.mocked(listTracePage).mockImplementation((_query, cursor) =>
+      Promise.resolve(
+        cursor === null
+          ? {
+              items: [trace("trc-1", { node_id: "node-1" }), trace("trc-2", { node_id: "node-2" })],
+              next_cursor: "cursor-2",
+            }
+          : {
+              items: [trace("trc-3", { node_id: "node-2" }), trace("trc-4", { node_id: "node-3" })],
+              next_cursor: null,
+            },
+      ),
+    );
+    vi.mocked(readMissionNode).mockImplementation((id: string) =>
+      Promise.resolve({ content: { name: `Name of ${id}` } } as MissionNodeRecord),
+    );
+    mount();
+    await screen.findByText("Name of node-2");
+    expect(vi.mocked(readMissionNode).mock.calls.map(([id]) => id)).toEqual(["node-1", "node-2"]);
+
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await screen.findByText("Name of node-3");
+    expect(vi.mocked(readMissionNode).mock.calls.map(([id]) => id)).toEqual([
+      "node-1",
+      "node-2",
+      "node-3",
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    await waitFor(() => expect(screen.getByText("Name of node-1")).toBeInTheDocument());
+    expect(readMissionNode).toHaveBeenCalledTimes(3);
+  });
+
   it("shows running for an open trace and omits an absent worker", async () => {
     vi.mocked(listTracePage).mockResolvedValue({
       items: [trace("trc-1", { state: "open", duration_ms: null, worker_name: null })],
