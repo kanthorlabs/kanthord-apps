@@ -119,6 +119,19 @@ describe("useCauseLabel", () => {
     expect(result.current.errors.subcategory).toBeDefined();
   });
 
+  it.each(["affected_invalid", "affected_timeout"] as const)(
+    "accepts the environment subcategory %s",
+    (subcategory) => {
+      const { result } = setup();
+
+      act(() => result.current.setCategory("environment"));
+      act(() => result.current.setSubcategory(subcategory));
+
+      expect(result.current.draft.subcategory).toBe(subcategory);
+      expect(result.current.errors.subcategory).toBeUndefined();
+    },
+  );
+
   it("answers an error for a subcategory of another category", () => {
     const { result } = setup();
 

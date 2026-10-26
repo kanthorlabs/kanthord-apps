@@ -44,7 +44,7 @@ with `KANTHORD_DEV_TOKEN`, `KANTHORD_HTTP_PORT` and `KANTHORD_HTTP_ALLOWED_ORIGI
 `KANTHORD_MOCK_UNHEALTHY=1` to make `/api/liveness` answer 503. Set `KANTHORD_MOCK_CONTAINER` to
 `available`, `runtime_absent`, `runtime_failed` or `runtime_rootful` to change the `container`
 placement (default `server_in_container`). `PUT /api/mock/container` with `{"reason": null}` or a
-reason switches it while the mock runs. Set `KANTHORD_MOCK_ENVIRONMENT` to `building`, `waiting`, `failed` or `repairing` to change the
+reason switches it while the mock runs. Set `KANTHORD_MOCK_ENVIRONMENT` to `building`, `waiting`, `failed`, `execution_failed` or `repairing` to change the
 environment states (default `ready`). Set `KANTHORD_MOCK_PROMPT_INVALID` to a file name, for example
 `swe@1.md`, to make `GET /api/agent/:agent_name` answer 409 `agent.prompt.template_invalid` for that
 file.

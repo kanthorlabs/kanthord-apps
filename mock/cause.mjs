@@ -24,6 +24,8 @@ export const CAUSE_SUBCATEGORIES = {
   environment: [
     "setup_failed",
     "command_absent",
+    "affected_invalid",
+    "affected_timeout",
     "flaky_verification",
     "verification_hang",
     "repository_hook",
