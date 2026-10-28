@@ -23,7 +23,7 @@ import { AgentsScreen } from "@/features/workers/agents/agents-screen";
 import { WorkersScreen } from "@/features/workers/catalogue/workers-screen";
 import { InstanceScreen } from "@/features/workers/instance/instance-screen";
 import { WorkerScreen } from "@/features/workers/worker/worker-screen";
-import { basePath } from "@/lib/base-path";
+import { basePath } from "@/components/base-path";
 import { AppShell } from "./app-shell";
 import { AppToaster } from "./app-toaster";
 

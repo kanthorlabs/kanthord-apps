@@ -48,6 +48,16 @@ const allow = (...types) => types.map((type) => ({ to: element(type) }));
 
 const testFiles = ["**/*.test.{ts,tsx}", "test/**/*.ts"];
 const fetchMessage = "Only src/api talks to a server. See the Architecture section of AGENTS.md.";
+const libBrowserGlobals = [
+  "window",
+  "document",
+  "navigator",
+  "location",
+  "localStorage",
+  "sessionStorage",
+  "history",
+];
+const libBrowserMessage = "src/lib holds no I/O. Read the browser in a hook or a component.";
 const shadcnSyntaxRules = [
   {
     selector: "JSXOpeningElement[name.name=/^(button|input|select|textarea|table)$/]",
@@ -205,6 +215,17 @@ export default tseslint.config(
           property: "fetch",
           message: fetchMessage,
         })),
+      ],
+    },
+  },
+  {
+    files: ["src/lib/**/*.ts"],
+    ignores: testFiles,
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        { name: "fetch", message: fetchMessage },
+        ...libBrowserGlobals.map((name) => ({ name, message: libBrowserMessage })),
       ],
     },
   },

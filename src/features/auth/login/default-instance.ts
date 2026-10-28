@@ -1,5 +1,5 @@
 import type { InstanceDraft } from "@/features/auth/instances/instance-validation";
-import { basePath } from "@/lib/base-path";
+import { basePath } from "@/components/base-path";
 
 const DEVELOPMENT_DAEMON_PORT = "31415";
 const IPV4_ADDRESS = /^\d{1,3}(\.\d{1,3}){3}$/;
