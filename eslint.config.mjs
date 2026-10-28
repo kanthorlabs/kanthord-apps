@@ -53,6 +53,26 @@ const allow = (...types) => types.map((type) => ({ to: element(type) }));
 
 const testFiles = ["**/*.test.{ts,tsx}", "test/**/*.ts"];
 const fetchMessage = "Only src/api talks to a server. See the Architecture section of AGENTS.md.";
+const shadcnSyntaxRules = [
+  {
+    selector: "JSXOpeningElement[name.name=/^(button|input|select|textarea|table)$/]",
+    message: "Use the shadcn primitive. See the Design section of AGENTS.md.",
+  },
+];
+const testKnowledgeMessage =
+  "No test knowledge in application code. See the Architecture section of AGENTS.md.";
+const testKnowledgeRules = [
+  {
+    selector: "MemberExpression[object.name='process'][property.name='env']",
+    message: testKnowledgeMessage,
+  },
+  {
+    selector:
+      "MemberExpression[object.object.type='MetaProperty'][object.property.name='env'][property.name=/^MODE$|TEST/]",
+    message: testKnowledgeMessage,
+  },
+  { selector: "Identifier[name=/^isTest/]", message: testKnowledgeMessage },
+];
 const reactPackages = "{react,react-dom,react-*,@base-ui/*,lucide-react,next-themes,sonner}";
 
 export default tseslint.config(
@@ -195,16 +215,17 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/features/**/*.tsx", "src/components/*.tsx"],
-    ignores: ["**/*.test.tsx"],
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/components/ui/**", ...testFiles],
     rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector: "JSXOpeningElement[name.name=/^(button|input|select|textarea|table)$/]",
-          message: "Use the shadcn primitive. See the Design section of AGENTS.md.",
-        },
-      ],
+      "no-restricted-syntax": ["error", ...testKnowledgeRules],
+    },
+  },
+  {
+    files: ["src/**/*.tsx"],
+    ignores: ["src/components/ui/**", ...testFiles],
+    rules: {
+      "no-restricted-syntax": ["error", ...shadcnSyntaxRules, ...testKnowledgeRules],
       "no-restricted-imports": [
         "error",
         {
