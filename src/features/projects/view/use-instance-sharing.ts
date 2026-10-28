@@ -1,6 +1,6 @@
 import { listProjects } from "@/api/resources/projects";
 import { readWorkerInstance } from "@/api/resources/worker-instances";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 export interface InstanceSharing {
   readonly instance: string;

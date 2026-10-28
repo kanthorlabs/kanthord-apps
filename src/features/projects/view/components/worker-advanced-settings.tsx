@@ -13,9 +13,9 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  type DraftErrors,
   tagsInvalid,
   withWorkerPlacement,
-  type DraftErrors,
   type WorkerDraft,
 } from "@/lib/binding-draft";
 import type { AdvancedSettings } from "../use-advanced-settings";

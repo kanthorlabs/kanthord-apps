@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { listProjects } from "@/api/resources/projects";
 import type { Project } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
-import { analyticsFiltersOf, type AnalyticsFilters } from "@/lib/analytics-query";
+import { type AnalyticsFilters, analyticsFiltersOf } from "@/lib/analytics-query";
 import { withParam } from "@/lib/trace-query";
 
 export interface AnalyticsView {

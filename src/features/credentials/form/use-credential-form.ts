@@ -13,21 +13,21 @@ import type {
 import { asApiError, type Resource } from "@/hooks/use-resource";
 import { useUnhealthyGuard } from "@/hooks/use-unhealthy-guard";
 import {
-  EMPTY_METADATA,
-  EMPTY_SECRET,
   createBodyOf,
   credentialNameError,
+  type DraftErrors,
+  EMPTY_METADATA,
+  EMPTY_SECRET,
+  type MetadataDraft,
   missingForCredentialCheck,
   missingForCredentialCreate,
-  type DraftErrors,
-  type MetadataDraft,
   type SecretDraft,
 } from "@/lib/credential-draft";
 import {
   platformEntryOf,
+  type PlatformGroup,
   platformGroupsOf,
   platformIdsOf,
-  type PlatformGroup,
 } from "@/lib/credential-platforms";
 import { credentialDetailPath } from "@/lib/credential-sections";
 import { missingHint } from "@/lib/missing-fields";
@@ -35,8 +35,8 @@ import type { PriorCheckState } from "@/lib/prior-check";
 import { returnToOf } from "@/lib/return-to";
 import { credentialMessage } from "../credential-message";
 import { useCredentialPlatforms } from "../use-credential-platforms";
-import { useCredentialLogin, type CredentialLoginState } from "./use-credential-login";
-import { useCredentialPrecheck, type CredentialPrecheck } from "./use-credential-precheck";
+import { type CredentialLoginState, useCredentialLogin } from "./use-credential-login";
+import { type CredentialPrecheck, useCredentialPrecheck } from "./use-credential-precheck";
 
 export interface CredentialFormState {
   readonly name: string;

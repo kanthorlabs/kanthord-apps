@@ -1,6 +1,6 @@
 import type { TraceSpan } from "@/api/types";
 
-import { errorRolesOf, errorSteps, pickCausalSpan, type ErrorRole } from "./causal-span";
+import { type ErrorRole, errorRolesOf, errorSteps, pickCausalSpan } from "./causal-span";
 import { attributeText, isTurn } from "./span-detail";
 
 const ATTRIBUTE_STOP_REASON = "kanthord.stop.reason";

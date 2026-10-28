@@ -1,4 +1,4 @@
-import { jsonTokens, type JsonTokenKind } from "@/lib/json-tokens";
+import { type JsonTokenKind, jsonTokens } from "@/lib/json-tokens";
 
 const TOKEN_CLASS: Readonly<Record<JsonTokenKind, string | undefined>> = {
   key: "text-syntax-key",

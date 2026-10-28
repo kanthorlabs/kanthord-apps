@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/select";
 import {
   addressRuleOf,
-  withPlatform,
   type DraftErrors,
   type RepositoryDraft,
+  withPlatform,
 } from "@/lib/binding-draft";
 import { AvailabilityField } from "./availability-field";
 import { BindingPromptsFieldset } from "./binding-prompts-fieldset";

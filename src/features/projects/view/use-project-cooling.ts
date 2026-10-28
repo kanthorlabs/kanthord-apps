@@ -1,5 +1,5 @@
 import { listBindingAgents, listWorkerBindings } from "@/api/resources/projects";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 export interface ChainCooling {
   readonly key: string;

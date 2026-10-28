@@ -1,8 +1,8 @@
 import type {
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerRegistrationRecord,
   WorkerPlacement,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 import { effectiveInstanceCount } from "@/lib/instance-count";
 

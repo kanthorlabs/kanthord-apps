@@ -2,7 +2,7 @@ import { readCredential } from "@/api/resources/credentials";
 import type { CredentialComponent } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
 import { isArchived } from "@/lib/credential-revisions";
-import { useCredentialCheck, type CredentialCheck } from "./use-credential-check";
+import { type CredentialCheck, useCredentialCheck } from "./use-credential-check";
 import { useCredentialPlatforms } from "./use-credential-platforms";
 
 export interface CredentialVerifyAction {

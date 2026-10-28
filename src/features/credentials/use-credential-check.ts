@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 
 import type { CredentialComponent } from "@/api/types";
-import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
+import { type HealthBadgeVariant, healthLabel, healthVariant } from "@/lib/credential-health";
 import { utcDateTime } from "@/lib/format";
 import type { PriorCheck } from "@/lib/prior-check";
 import { type CredentialHealthState, useCredentialHealth } from "./use-credential-health";

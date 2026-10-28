@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { listBindings, verifyBinding } from "@/api/resources/projects";
 import type { HealthEntry } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
-import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
+import { type HealthBadgeVariant, healthLabel, healthVariant } from "@/lib/credential-health";
 import { healthEntryHint } from "@/lib/failure-reason";
 
 export interface BindingCheckBadge {

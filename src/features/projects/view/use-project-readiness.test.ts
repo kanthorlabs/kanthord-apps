@@ -24,7 +24,7 @@ vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/worker-instances");
 
-import { useProjectReadiness, type ReadinessItem } from "./use-project-readiness";
+import { type ReadinessItem, useProjectReadiness } from "./use-project-readiness";
 
 const PROJECT: Project = {
   id: "prj-1",

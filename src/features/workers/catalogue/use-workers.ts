@@ -4,7 +4,7 @@ import { listWorkerBindings } from "@/api/resources/projects";
 import { listWorkerCatalog, listWorkerRegistrations } from "@/api/resources/workers";
 import type { WorkerBindingRecord, WorkerCatalogItem, WorkerRegistrationRecord } from "@/api/types";
 import { useProjectId } from "@/features/projects/project-context";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 import { bindingInstances, type BindingInstances } from "./binding-instances";
 
 export interface WorkersData {

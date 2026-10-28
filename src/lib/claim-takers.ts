@@ -1,11 +1,11 @@
 import type {
+  Intent,
   MissionNodeRecord,
   NodeState,
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerRegistrationRecord,
-  Intent,
 } from "@/api/types";
 
 export interface NodeFacts {

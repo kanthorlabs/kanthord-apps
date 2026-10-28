@@ -6,8 +6,8 @@ import {
   missingAgentProviderFields,
   nameAfterCredentialPick,
   providerNameOfCredential,
-  unusedProviderCredentials,
   providerRemovalBlock,
+  unusedProviderCredentials,
 } from "./agent-provider-draft";
 
 const ENABLEMENT: AgentEnablement = {

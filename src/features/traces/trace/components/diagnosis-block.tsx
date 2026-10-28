@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { causeLine } from "@/lib/trace-cause";
 import { errorStepIndexOf } from "@/lib/trace-diagnosis";
 
-import { useDiagnosis, type Diagnosis } from "../use-diagnosis";
+import { type Diagnosis, useDiagnosis } from "../use-diagnosis";
 import type { NodeTraces } from "../use-node-traces";
 import type { TraceNode } from "../use-trace-node";
 import { LabelCauseSheet } from "./label-cause-sheet";

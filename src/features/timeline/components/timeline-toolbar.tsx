@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { nodePath } from "@/lib/node-path";
 import { TIME_RANGE_LABELS, type TimeRange } from "@/lib/trace-query";
 
-import { FilterSelect, type FilterOption } from "../../traces/list/components/filter-select";
+import { type FilterOption, FilterSelect } from "../../traces/list/components/filter-select";
 import type { TimelineScopeView } from "../use-timeline";
 
 const RANGE_OPTIONS: readonly FilterOption[] = Object.entries(TIME_RANGE_LABELS).map(

@@ -8,14 +8,14 @@ import { useResource } from "@/hooks/use-resource";
 import {
   timelineQueryOf,
   timelineRangeOf,
-  timelineScopeOf,
   type TimelineScope,
+  timelineScopeOf,
 } from "@/lib/timeline-query";
-import { timelineRows, type TimelineRow } from "@/lib/timeline-rows";
-import { withParam, type TimeRange } from "@/lib/trace-query";
+import { type TimelineRow, timelineRows } from "@/lib/timeline-rows";
+import { type TimeRange, withParam } from "@/lib/trace-query";
 
 import { readNodeNames } from "../traces/list/read-node-names";
-import { useTimelinePages, type TimelinePages } from "./use-timeline-pages";
+import { type TimelinePages, useTimelinePages } from "./use-timeline-pages";
 
 export type TimelineScopeView =
   | {

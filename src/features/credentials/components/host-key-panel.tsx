@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { utcDateTime } from "@/lib/format";
 import { publishedFingerprintsUrl } from "@/lib/published-fingerprints";
-import { useHostKeys, type HostKeyConfirmation } from "../use-host-keys";
+import { type HostKeyConfirmation, useHostKeys } from "../use-host-keys";
 
 const SOURCE_LABELS: Readonly<Record<HostKeySource, string>> = {
   github_meta: "api.github.com",

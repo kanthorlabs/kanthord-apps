@@ -6,7 +6,7 @@ import {
   RefreshCwIcon,
   UnlinkIcon,
 } from "lucide-react";
-import { useRef, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import type { WorkerInstanceDetail } from "@/api/types";
@@ -32,26 +32,26 @@ import { ResetKeyDialog } from "./components/reset-key-dialog";
 import { SignInAgainSheet } from "./components/sign-in-again-sheet";
 import {
   archiveSubjectOf,
-  useInstanceArchive,
   type InstanceArchiveState,
+  useInstanceArchive,
 } from "./use-instance-archive";
-import { useInstanceCopyModels, type InstanceCopyModelsState } from "./use-instance-copy-models";
+import { type InstanceCopyModelsState, useInstanceCopyModels } from "./use-instance-copy-models";
 import { useInstanceCredentialAdd } from "./use-instance-credential-add";
-import { useInstanceDetach, type InstanceDetachState } from "./use-instance-detach";
+import { type InstanceDetachState, useInstanceDetach } from "./use-instance-detach";
 import {
-  useInstanceCredentialRotate,
   type InstanceCredentialRotateState,
+  useInstanceCredentialRotate,
 } from "./use-instance-credential-rotate";
 import {
-  useInstancePage,
   type InstanceBindingRow,
   type InstanceCopyHealthLine,
   type InstanceCredentialRow,
   type InstancePage,
   type InstanceRegistrationRow,
+  useInstancePage,
 } from "./use-instance-page";
 import { useInstanceReset } from "./use-instance-reset";
-import { useInstanceSignIn, type InstanceSignInState } from "./use-instance-sign-in";
+import { type InstanceSignInState, useInstanceSignIn } from "./use-instance-sign-in";
 
 const SIGN_IN_AGAIN_LIVE =
   "The copy is live. The server refuses a new sign-in while the copy is sealed to the current key of the instance.";

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { listProjectExecutionPage } from "@/api/resources/scheduler";
 import type { SchedulerExecutionRecord } from "@/api/types";
-import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
+import { type CursorPages, useCursorPages } from "@/hooks/use-cursor-pages";
 import { nodePath } from "@/lib/node-path";
 
 import type { DoneSource, RefreshSignal } from "./use-scheduler-board";

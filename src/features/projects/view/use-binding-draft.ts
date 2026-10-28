@@ -2,14 +2,14 @@ import { useCallback, useState } from "react";
 
 import type { BindingSetEntry, BindingSetKind } from "@/api/types";
 import {
+  type BindingDraft,
+  type DraftErrors,
   draftOf,
   emptyDraft,
   entryOfDraft,
   missingForCheck,
   missingForSave,
   withEnvironmentDefault,
-  type BindingDraft,
-  type DraftErrors,
 } from "@/lib/binding-draft";
 import { missingHint } from "@/lib/missing-fields";
 

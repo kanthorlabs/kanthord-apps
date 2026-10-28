@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  analyticsFiltersOf,
-  costGroupOf,
-  costQueriesOf,
-  COST_GROUP_OPTIONS,
   ANALYTICS_BUCKET_OPTIONS,
   ANALYTICS_RANGE_OPTIONS,
+  analyticsFiltersOf,
+  COST_GROUP_OPTIONS,
+  costGroupOf,
+  costQueriesOf,
   TIME_GROUP_OPTIONS,
   TIME_MEASURE_OPTIONS,
   timeGroupOf,

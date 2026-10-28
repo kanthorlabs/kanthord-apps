@@ -8,7 +8,7 @@ import {
 } from "@/api/resources/projects";
 import type { BindingEnvironment, EnvironmentDocument } from "@/api/types";
 import { useClipboard } from "@/hooks/use-clipboard";
-import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
+import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { ENVIRONMENT_NOT_OBJECT, parseEnvironmentDocument } from "@/lib/environment-document";
 
 export const ENVIRONMENT_RUN_ACTIVE = "project.environment.run_active";

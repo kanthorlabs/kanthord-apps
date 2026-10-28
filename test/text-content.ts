@@ -1,4 +1,4 @@
-import { render, type MatcherFunction } from "@testing-library/react";
+import { type MatcherFunction, render } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 export function textContent(text: string | RegExp): MatcherFunction {

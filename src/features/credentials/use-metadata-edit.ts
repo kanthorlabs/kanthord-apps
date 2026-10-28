@@ -4,17 +4,17 @@ import { toast } from "sonner";
 import { updateCredentialMetadata } from "@/api/resources/credentials";
 import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import {
+  type DraftErrors,
+  editMetadataOf,
   EMPTY_METADATA,
   EMPTY_MODEL,
-  editMetadataOf,
-  metadataDraftOf,
-  type DraftErrors,
   type MetadataDraft,
+  metadataDraftOf,
   type ModelDraft,
 } from "@/lib/credential-draft";
 import { newestLiveRevision } from "@/lib/credential-revisions";
 import { SSH_PLATFORM } from "@/lib/ssh-key";
-import { writeFailureOf, type WriteFailure } from "./write-failure";
+import { type WriteFailure, writeFailureOf } from "./write-failure";
 
 export interface MetadataEditState {
   readonly available: boolean;

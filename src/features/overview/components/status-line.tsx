@@ -4,7 +4,7 @@ import { RecordName } from "@/components/record-name";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription } from "@/components/ui/item";
 import { utcDateTime } from "@/lib/format";
-import { statusLineText, type CoolingFact } from "@/lib/overview-summary";
+import { type CoolingFact, statusLineText } from "@/lib/overview-summary";
 
 interface StatusLineProps {
   readonly running: number;

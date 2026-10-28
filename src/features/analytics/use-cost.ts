@@ -4,13 +4,13 @@ import { useSearchParams } from "react-router-dom";
 import { readAnalyticsCost } from "@/api/resources/tracking";
 import type { AnalyticsCostItem, AnalyticsPage, Project } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
-import { costFieldsOf, costRowsOf, type CostField, type CostRow } from "@/lib/analytics-cost-rows";
+import { type CostField, costFieldsOf, type CostRow, costRowsOf } from "@/lib/analytics-cost-rows";
 import {
-  costGroupOf,
-  costQueriesOf,
   type AnalyticsFilters,
   type AnalyticsSelectableBucket,
   type CostGroupName,
+  costGroupOf,
+  costQueriesOf,
 } from "@/lib/analytics-query";
 import { withParam } from "@/lib/trace-query";
 

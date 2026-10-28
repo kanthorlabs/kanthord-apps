@@ -1,5 +1,5 @@
 import type { TimelineItem, TraceState } from "@/api/types";
-import { DataListItem, type DataListField } from "@/components/data-list-item";
+import { type DataListField, DataListItem } from "@/components/data-list-item";
 import { Badge } from "@/components/ui/badge";
 import { durationText, utcDateTime } from "@/lib/format";
 import { spanLabel } from "@/lib/span-labels";

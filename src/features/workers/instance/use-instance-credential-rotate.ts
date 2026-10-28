@@ -3,12 +3,12 @@ import { toast } from "sonner";
 
 import { listAllCredentials, rotateCredential } from "@/api/resources/credentials";
 import type { Credential, InstanceCredentialCopy } from "@/api/types";
-import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
+import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import {
-  EMPTY_SECRET,
-  secretOfDraft,
   type DraftErrors,
+  EMPTY_SECRET,
   type SecretDraft,
+  secretOfDraft,
 } from "@/lib/credential-draft";
 import { credentialMessage } from "@/features/credentials/credential-message";
 

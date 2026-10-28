@@ -1,7 +1,7 @@
 import type { EffectiveCause, TraceSpan } from "@/api/types";
 
-import { errorRolesOf, errorSteps, ErrorRole, pickCausalSpan } from "./causal-span";
-import { evidenceOf, taskSpanOf, type EvidenceLine } from "./diagnosis-evidence";
+import { ErrorRole, errorRolesOf, errorSteps, pickCausalSpan } from "./causal-span";
+import { type EvidenceLine, evidenceOf, taskSpanOf } from "./diagnosis-evidence";
 import { namedSpanLabel, revocationLabel } from "./span-labels";
 import { causeLabelSpanIdOf, spanCauseOf } from "./trace-cause";
 

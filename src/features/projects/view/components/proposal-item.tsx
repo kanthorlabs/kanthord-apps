@@ -9,7 +9,7 @@ import type { MissionProposal } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
 import type { ProposalApproveState } from "@/hooks/use-proposal-approve";
-import { FactList, type Fact } from "./fact-list";
+import { type Fact, FactList } from "./fact-list";
 import { NodeLink } from "./node-link";
 
 interface ProposalItemProps {

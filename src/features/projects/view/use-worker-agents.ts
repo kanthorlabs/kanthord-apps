@@ -1,6 +1,6 @@
 import { listAgentEnablements, readWorkerCatalogEntry } from "@/api/resources/workers";
 import type { AgentDefaultConfiguration, AgentProvider } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 export type WorkerAgentState = "enabled" | "disabled" | "absent";
 

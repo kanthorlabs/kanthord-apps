@@ -2,8 +2,8 @@ import { useState } from "react";
 
 import {
   advancedNeedsAttention,
-  holdsAdvancedSettings,
   type DraftErrors,
+  holdsAdvancedSettings,
   type WorkerDraft,
 } from "@/lib/binding-draft";
 

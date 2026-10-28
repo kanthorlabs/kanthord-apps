@@ -1,6 +1,6 @@
 import { DEFAULT_TIME_RANGE, TIME_RANGE_LABELS } from "@/lib/trace-query";
 
-import { FilterSelect, type FilterOption } from "./filter-select";
+import { type FilterOption, FilterSelect } from "./filter-select";
 
 const RANGE_OPTIONS: readonly FilterOption[] = Object.entries(TIME_RANGE_LABELS).map(
   ([value, label]) => ({ value, label }),

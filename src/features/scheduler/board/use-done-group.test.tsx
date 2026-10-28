@@ -9,7 +9,7 @@ vi.mock("@/api/resources/scheduler", () => ({
 
 import { listProjectExecutionPage } from "@/api/resources/scheduler";
 
-import { useDoneGroup, type DoneView } from "./use-done-group";
+import { type DoneView, useDoneGroup } from "./use-done-group";
 import type { DoneSource, RefreshSignal } from "./use-scheduler-board";
 
 function record(id: string): SchedulerExecutionRecord {

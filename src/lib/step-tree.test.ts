@@ -5,11 +5,11 @@ import type { SpanAttributeValue, SpanStatus, TraceSpan } from "@/api/types";
 import {
   INDENT_PX,
   MAX_INDENT_LEVEL,
-  StepPill,
   pillFilter,
   selfTimeMs,
-  stepRows,
+  StepPill,
   type StepRow,
+  stepRows,
 } from "./step-tree";
 import { buildSpanTree } from "./trace-tree";
 

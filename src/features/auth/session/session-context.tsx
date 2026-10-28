@@ -1,9 +1,9 @@
-import { createContext, use, useCallback, useMemo, useState, type ReactNode } from "react";
+import { createContext, type ReactNode, use, useCallback, useMemo, useState } from "react";
 
 import { setConnection } from "@/api/client";
 import { verifyHumanToken } from "@/api/resources/gateway";
 import type { HumanIdentity } from "@/api/types";
-import { isInstance, type Instance } from "@/features/auth/instances/instance-storage";
+import { type Instance, isInstance } from "@/features/auth/instances/instance-storage";
 
 const STORAGE_KEY = "kanthord.session";
 

@@ -1,7 +1,7 @@
 import { listAllCredentials } from "@/api/resources/credentials";
 import { listProjects, readBindingSet } from "@/api/resources/projects";
 import { listAgents } from "@/api/resources/workers";
-import { settle, type ReadFault } from "@/features/overview/read-overview-snapshot";
+import { type ReadFault, settle } from "@/features/overview/read-overview-snapshot";
 import type { OnboardingFacts, ProjectBindingSet } from "@/lib/onboarding";
 
 export interface OnboardingRead {

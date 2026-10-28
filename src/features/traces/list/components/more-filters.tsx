@@ -6,7 +6,7 @@ import { CAUSE_CATEGORY_LABELS } from "@/lib/trace-cause";
 import type { SheetKey } from "@/lib/trace-filter-draft";
 
 import type { TraceSetter } from "../use-trace-list";
-import { FilterSelect, type FilterOption } from "./filter-select";
+import { type FilterOption, FilterSelect } from "./filter-select";
 
 const SORT_OPTIONS: readonly FilterOption[] = [
   { value: "started_at", label: "Newest" },

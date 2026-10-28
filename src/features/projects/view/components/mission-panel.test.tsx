@@ -8,11 +8,11 @@ import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import type {
+  Intent,
   MissionImportPreview,
   MissionJsonExport,
   MissionNodeRecord,
   MissionTaskContent,
-  Intent,
 } from "@/api/types";
 
 vi.mock("@/api/resources/mission");

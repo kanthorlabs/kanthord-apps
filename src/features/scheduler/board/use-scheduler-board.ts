@@ -16,7 +16,7 @@ import { uncoveredJobsOf } from "@/lib/claim-takers";
 import { endTimeOf } from "@/lib/execution-stop";
 import { nodePath } from "@/lib/node-path";
 
-import { readSchedulerBoard, type ProjectBoard } from "./read-scheduler-board";
+import { type ProjectBoard, readSchedulerBoard } from "./read-scheduler-board";
 
 const BOARD_INTERVAL_MS = 15_000;
 const CATALOG_INTERVAL_MS = 60_000;

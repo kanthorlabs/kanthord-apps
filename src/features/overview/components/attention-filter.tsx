@@ -1,5 +1,5 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import type { AttentionGroup as Group, AttentionGroupId, AttentionItem } from "@/lib/attention";
+import type { AttentionGroupId, AttentionItem, AttentionGroup as Group } from "@/lib/attention";
 
 const ALL = "all";
 

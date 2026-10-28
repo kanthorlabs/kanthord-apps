@@ -17,7 +17,7 @@ import { ReadinessPanel } from "./components/readiness-panel";
 import { useEnvironmentBar } from "./use-environment-bar";
 import { useProjectDetail } from "./use-project-detail";
 import { useProjectEnvironments } from "./use-project-environments";
-import { useProjectTab, type ProjectTab } from "./use-project-tab";
+import { type ProjectTab, useProjectTab } from "./use-project-tab";
 
 export function ProjectScreen() {
   const { projectId = "" } = useParams<{ projectId: string }>();

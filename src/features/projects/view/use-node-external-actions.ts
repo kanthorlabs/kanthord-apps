@@ -1,6 +1,6 @@
 import { listNodeExternalActions } from "@/api/resources/mission";
 import type { MissionExternalAction } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 const NO_ACTIONS: readonly MissionExternalAction[] = [];
 

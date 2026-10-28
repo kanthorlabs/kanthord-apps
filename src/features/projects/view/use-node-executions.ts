@@ -1,6 +1,6 @@
 import { listNodeExecutions } from "@/api/resources/scheduler";
 import type { SchedulerExecutionRecord } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 const NO_EXECUTIONS: readonly SchedulerExecutionRecord[] = [];
 

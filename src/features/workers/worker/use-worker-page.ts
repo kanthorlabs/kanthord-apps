@@ -8,9 +8,9 @@ import type {
   WorkerRegistrationRecord,
 } from "@/api/types";
 import { useProjectId } from "@/features/projects/project-context";
-import { useInstanceExecutions, type InstanceExecution } from "@/hooks/use-instance-executions";
+import { type InstanceExecution, useInstanceExecutions } from "@/hooks/use-instance-executions";
 import { usePolledResource } from "@/hooks/use-polled-resource";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 const INSTANCES_INTERVAL_MS = 15_000;
 

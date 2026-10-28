@@ -5,10 +5,10 @@ import type { MissionExternalAction, MissionNodeRecord, NodeState } from "@/api/
 import {
   choosesTarget,
   defaultTargetOf,
+  type ResumeContext,
   resumeEndOf,
   resumeNotesOf,
   waitingNeedsOf,
-  type ResumeContext,
 } from "./resume-target";
 
 function node(

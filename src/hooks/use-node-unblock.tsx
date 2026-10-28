@@ -1,8 +1,8 @@
-import { Fragment, useCallback, useState, type ReactNode } from "react";
+import { Fragment, type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { unblockNode } from "@/api/resources/mission";
-import type { MissionProposal, MissionNodeRecord } from "@/api/types";
+import type { MissionNodeRecord, MissionProposal } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
 import { openProposalsOf } from "@/lib/attention";

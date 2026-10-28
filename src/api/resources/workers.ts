@@ -2,12 +2,12 @@ import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
-  AgentProviderAddBody,
   AgentCooldown,
   AgentDeclaration,
   AgentEnablement,
   AgentEnablementPutBody,
   AgentModel,
+  AgentProviderAddBody,
   AgentProviderKind,
   AgentSummary,
   PlacementStatus,

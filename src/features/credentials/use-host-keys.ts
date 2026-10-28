@@ -3,7 +3,7 @@ import { toast } from "sonner";
 
 import { listHostKeys, pinHostKey, scanHostKey } from "@/api/resources/credentials";
 import type { HostKey, HostKeyScan } from "@/api/types";
-import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
+import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { credentialMessage } from "./credential-message";
 
 export interface HostKeyConfirmation {

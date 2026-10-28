@@ -4,16 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { listTracePage } from "@/api/resources/tracking";
 import type {
+  Intent,
   MissionExternalAction,
-  SchedulerExecutionRecord,
-  TraceListItem,
-  MissionProposal,
   MissionNodeRecord,
+  MissionProposal,
   NodeState,
   Project,
-  Intent,
+  SchedulerExecutionRecord,
+  TraceListItem,
 } from "@/api/types";
-import { detailKeyOf, type AttentionDetail, type DecisionAttentionItem } from "@/lib/attention";
+import { type AttentionDetail, type DecisionAttentionItem, detailKeyOf } from "@/lib/attention";
 
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/tracking");

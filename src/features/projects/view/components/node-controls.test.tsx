@@ -7,8 +7,8 @@ import * as missionApi from "@/api/resources/mission";
 import type {
   MissionControlResult,
   MissionExternalAction,
-  MissionProposal,
   MissionNodeRecord,
+  MissionProposal,
   NodeState,
   SchedulerExecutionRecord,
 } from "@/api/types";

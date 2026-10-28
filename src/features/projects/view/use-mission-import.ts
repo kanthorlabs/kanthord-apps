@@ -12,12 +12,12 @@ import { readBindingSet } from "@/api/resources/projects";
 import type { MissionImportPreview, MissionImportSnapshot } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { counted } from "@/lib/counted";
-import { unknownBindingOf, violationTextOf, type ViolationText } from "@/lib/mission-violation";
+import { unknownBindingOf, type ViolationText, violationTextOf } from "@/lib/mission-violation";
 import {
+  type ImportInput,
   importInputOf,
   importSnapshotOf,
   nodeNames,
-  type ImportInput,
   type PickedFile,
 } from "@/lib/mission-plan";
 

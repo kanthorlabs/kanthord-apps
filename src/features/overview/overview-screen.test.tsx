@@ -107,6 +107,7 @@ import type {
   BindingAgentView,
   Credential,
   EnvironmentState,
+  Intent,
   LivenessReport,
   MissionAssessment,
   MissionAssessmentResult,
@@ -129,7 +130,6 @@ import type {
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerRegistrationRecord,
-  Intent,
 } from "@/api/types";
 import { closingEventText } from "@/lib/mission-labels";
 import { newUlid } from "@/lib/ulid";

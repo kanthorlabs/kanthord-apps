@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { nameOf, type GraphModel } from "@/lib/mission-graph";
+import { type GraphModel, nameOf } from "@/lib/mission-graph";
 import { badgeVariantOf } from "@/lib/node-state";
 
 interface NodeLinkProps {

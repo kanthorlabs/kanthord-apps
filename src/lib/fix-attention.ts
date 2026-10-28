@@ -1,14 +1,14 @@
 import type {
   Credential,
   EnvironmentFailureClass,
+  Intent,
   NodeState,
   Project,
   SchedulerExecutionRecord,
-  Intent,
 } from "@/api/types";
 
 import type { AttentionContext, ItemBase, ProjectSnapshot } from "./attention";
-import { takerHintOf, uncoveredJobsOf, type TakerHint } from "./claim-takers";
+import { type TakerHint, takerHintOf, uncoveredJobsOf } from "./claim-takers";
 import { endTimeOf } from "./execution-stop";
 import { isTerminal } from "./node-state";
 

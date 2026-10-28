@@ -21,7 +21,7 @@ import { PlatformCombobox } from "../components/platform-combobox";
 import { SecretFields } from "../components/secret-fields";
 import { LoginSession } from "./components/login-session";
 import { SecretPrecheck } from "./components/secret-precheck";
-import { useCredentialForm, type CredentialFormState } from "./use-credential-form";
+import { type CredentialFormState, useCredentialForm } from "./use-credential-form";
 
 const MODE_LABELS = {
   browser: "Browser",

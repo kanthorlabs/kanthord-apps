@@ -4,14 +4,14 @@ import { useSearchParams } from "react-router-dom";
 import { readAnalyticsDuration } from "@/api/resources/tracking";
 import type { AnalyticsDurationItem, AnalyticsMeasure, AnalyticsPage, Project } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
-import { timeRowsOf, type TimeRow } from "@/lib/analytics-time-rows";
+import { type TimeRow, timeRowsOf } from "@/lib/analytics-time-rows";
 import {
-  timeGroupOf,
-  timeMeasureOf,
-  timeQueryOf,
   type AnalyticsFilters,
   type AnalyticsSelectableBucket,
   type TimeGroupName,
+  timeGroupOf,
+  timeMeasureOf,
+  timeQueryOf,
 } from "@/lib/analytics-query";
 import { withParam } from "@/lib/trace-query";
 

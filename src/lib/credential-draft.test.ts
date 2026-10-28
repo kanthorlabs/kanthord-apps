@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { CredentialPlatformEntry } from "@/api/types";
 import {
-  EMPTY_METADATA,
-  EMPTY_MODEL,
-  EMPTY_SECRET,
   checkBodyOf,
   createBodyOf,
   credentialNameError,
   editMetadataOf,
+  EMPTY_METADATA,
+  EMPTY_MODEL,
+  EMPTY_SECRET,
   loginModeOf,
   metadataDraftOf,
   rotateMetadataOf,

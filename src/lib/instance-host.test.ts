@@ -5,9 +5,9 @@ import {
   containerRuntimeOf,
   copyStepsOf,
   hostKindOf,
-  isContainerKind,
   instanceAddressError,
   instanceNameError,
+  isContainerKind,
   SAME_HOST_ADDRESS,
   shortFingerprint,
 } from "./instance-host";

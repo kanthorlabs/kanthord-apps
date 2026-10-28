@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
-import { usePolledResource, type PolledResource } from "@/hooks/use-polled-resource";
+import { type PolledResource, usePolledResource } from "@/hooks/use-polled-resource";
 
-import { readOverviewSnapshot, type OverviewSnapshot } from "./read-overview-snapshot";
+import { type OverviewSnapshot, readOverviewSnapshot } from "./read-overview-snapshot";
 
 const SNAPSHOT_INTERVAL_MS = 15_000;
 

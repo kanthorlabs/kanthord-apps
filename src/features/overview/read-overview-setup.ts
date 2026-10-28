@@ -14,7 +14,7 @@ import type {
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 
-import { settle, type ReadFault } from "./read-overview-snapshot";
+import { type ReadFault, settle } from "./read-overview-snapshot";
 
 export interface BindingRead {
   readonly binding: WorkerBindingRecord;

@@ -1,13 +1,13 @@
 import type { ELK } from "elkjs/lib/elk-api";
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useMemo, useState } from "react";
 
 import {
+  type GraphLayout,
+  type LaneGrid,
   laneGrid,
   layoutRequest,
   placedNodeIds,
   readLayout,
-  type GraphLayout,
-  type LaneGrid,
 } from "@/lib/graph-layout";
 import type { GraphModel } from "@/lib/mission-graph";
 

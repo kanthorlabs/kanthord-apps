@@ -4,10 +4,10 @@ import { useSearchParams } from "react-router-dom";
 import { listProjects } from "@/api/resources/projects";
 import { listTracePage, readTraceFacets } from "@/api/resources/tracking";
 import type { Project, TraceFacets, TraceListItem } from "@/api/types";
-import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
-import { useResource, type Resource } from "@/hooks/use-resource";
-import { secondsOf, millisecondsOf, sheetChangesOf } from "@/lib/trace-filter-draft";
-import { TRACE_QUERY_KEYS, traceQueryOf, withParam, type TraceQueryKey } from "@/lib/trace-query";
+import { type CursorPages, useCursorPages } from "@/hooks/use-cursor-pages";
+import { type Resource, useResource } from "@/hooks/use-resource";
+import { millisecondsOf, secondsOf, sheetChangesOf } from "@/lib/trace-filter-draft";
+import { TRACE_QUERY_KEYS, type TraceQueryKey, traceQueryOf, withParam } from "@/lib/trace-query";
 import { nodeNameOf, traceTitleOf } from "@/lib/trace-title";
 
 import { useNodeNames } from "./use-node-names";

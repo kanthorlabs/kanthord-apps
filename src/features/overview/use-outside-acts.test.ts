@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkNode } from "@/api/resources/mission";
 import type { MissionExternalAction, MissionNodeRecord } from "@/api/types";
-import { detailKeyOf, type AttentionDetail, type OutsideAttentionItem } from "@/lib/attention";
+import { type AttentionDetail, detailKeyOf, type OutsideAttentionItem } from "@/lib/attention";
 
 import { useOutsideActs } from "./use-outside-acts";
 

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { unblockNode } from "@/api/resources/mission";
-import type { MissionControlResult, MissionProposal, MissionNodeRecord } from "@/api/types";
+import type { MissionControlResult, MissionNodeRecord, MissionProposal } from "@/api/types";
 import { useNodeUnblock } from "./use-node-unblock";
 import { renderedText } from "../../test/text-content";
 

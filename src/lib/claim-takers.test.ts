@@ -6,11 +6,11 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerRegistrationRecord,
   WorkerPlacement,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 
-import { factsOf, takerHintOf, uncoveredJobsOf, type UncoveredGroup } from "./claim-takers";
+import { factsOf, takerHintOf, type UncoveredGroup, uncoveredJobsOf } from "./claim-takers";
 
 const CATALOG: readonly WorkerCatalogItem[] = [
   {

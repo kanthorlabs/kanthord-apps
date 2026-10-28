@@ -1,6 +1,6 @@
 import type { ElkExtendedEdge, ElkNode, ElkPoint } from "elkjs/lib/elk-api";
 
-import { edgeGroupOf, type EdgeGroup } from "./edge-group";
+import { type EdgeGroup, edgeGroupOf } from "./edge-group";
 import type { DependencyLink, GraphModel } from "./mission-graph";
 
 export interface Box {

@@ -4,7 +4,7 @@ import { resetWorkerInstanceKey } from "@/api/resources/worker-instances";
 import type { WorkerInstanceDetail } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import type { ContainerRuntime, HostKind } from "@/lib/instance-host";
-import { useHostAddress, type HostAddressState } from "../use-host-address";
+import { type HostAddressState, useHostAddress } from "../use-host-address";
 
 export interface InstanceResetResult {
   readonly name: string;

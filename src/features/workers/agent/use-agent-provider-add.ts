@@ -8,14 +8,14 @@ import { asApiError, useResource } from "@/hooks/use-resource";
 import { credentialLabel } from "@/lib/credential-label";
 import {
   agentProviderBodyOf,
+  type AgentProviderDraft,
+  type AgentProviderErrors,
   EMPTY_AGENT_PROVIDER,
   missingAgentProviderFields,
   nameAfterCredentialPick,
   providerNameOfCredential,
-  unusedProviderCredentials,
   providerOfCredential,
-  type AgentProviderDraft,
-  type AgentProviderErrors,
+  unusedProviderCredentials,
 } from "@/lib/agent-provider-draft";
 
 export interface AgentProviderAddState {

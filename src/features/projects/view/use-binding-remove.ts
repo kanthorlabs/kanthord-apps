@@ -6,7 +6,7 @@ import type { BindingSet, BindingSetEntry } from "@/api/types";
 import { credentialMessage } from "@/features/credentials/credential-message";
 import { asApiError } from "@/hooks/use-resource";
 import { classifyChange, nextBindings, unavailableOf } from "@/lib/binding-change";
-import { useBindingChangeGuard, type BindingChangeGuardState } from "./use-binding-change-guard";
+import { type BindingChangeGuardState, useBindingChangeGuard } from "./use-binding-change-guard";
 import { VERSION_CONFLICT } from "./use-binding-set";
 
 export interface BindingRemoveState {

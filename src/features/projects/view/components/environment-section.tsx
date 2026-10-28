@@ -21,7 +21,7 @@ import { useEnvAgentEnabled } from "../use-env-agent-enabled";
 import { useEnvironmentSecret } from "../use-environment-secret";
 import { EnvironmentEditSheet } from "./environment-edit-sheet";
 import { EnvironmentSecretSheet } from "./environment-secret-sheet";
-import { FactList, type Fact } from "./fact-list";
+import { type Fact, FactList } from "./fact-list";
 
 const DIGEST_LENGTH = 12;
 

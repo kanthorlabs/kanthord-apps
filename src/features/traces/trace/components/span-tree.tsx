@@ -1,5 +1,5 @@
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 
 import type { TraceSpan, TraceState } from "@/api/types";
 import { TouchTarget } from "@/components/touch-target";
@@ -9,7 +9,7 @@ import { useLargeScreen } from "@/hooks/use-large-screen";
 import { ErrorRole } from "@/lib/causal-span";
 import { durationText } from "@/lib/format";
 import { INDENT_PX, MAX_INDENT_LEVEL, type SpanStepRow, type TurnGroupRow } from "@/lib/step-tree";
-import { waterfallBar, type TraceAxis } from "@/lib/trace-waterfall";
+import { type TraceAxis, waterfallBar } from "@/lib/trace-waterfall";
 
 import { isSpanRow, type Timeline } from "../use-timeline";
 

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { utcDateTime } from "@/lib/format";
 import { useProjectList } from "./use-project-list";
-import { progressTextOf, useProjectStates, type ProjectState } from "./use-project-states";
+import { progressTextOf, type ProjectState, useProjectStates } from "./use-project-states";
 
 interface ProjectItemProps {
   readonly project: Project;

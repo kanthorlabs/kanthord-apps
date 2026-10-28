@@ -4,7 +4,7 @@ import type { BindingPromptAgent } from "@/api/types";
 import { PromptItem } from "@/components/prompt-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { withBindingPrompt, type RepositoryDraft } from "@/lib/binding-draft";
+import { type RepositoryDraft, withBindingPrompt } from "@/lib/binding-draft";
 import { useBindingPromptDialog } from "../use-binding-prompt-dialog";
 import { BindingPromptDialog } from "./binding-prompt-dialog";
 

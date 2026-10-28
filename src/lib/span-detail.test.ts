@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { TraceSpan } from "@/api/types";
 
 import {
-  attributeText,
   attributesOf,
+  attributeText,
   conversationIdOf,
   eventsOf,
   replyEntryIdOf,

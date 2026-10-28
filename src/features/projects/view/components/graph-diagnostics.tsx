@@ -3,7 +3,7 @@ import { Fragment } from "react";
 import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { diagnosticKey, nameOf, type GraphDiagnostic, type GraphModel } from "@/lib/mission-graph";
+import { diagnosticKey, type GraphDiagnostic, type GraphModel, nameOf } from "@/lib/mission-graph";
 
 interface GraphDiagnosticsProps {
   readonly model: GraphModel;

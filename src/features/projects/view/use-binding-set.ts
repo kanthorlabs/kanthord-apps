@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { readBindingSet, writeBindingSet } from "@/api/resources/projects";
 import type { BindingSet, BindingSetEntry } from "@/api/types";
 import { credentialMessage } from "@/features/credentials/credential-message";
-import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
+import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { nextBindings } from "@/lib/binding-change";
 import { returnToOf } from "@/lib/return-to";
 

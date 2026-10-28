@@ -1,6 +1,6 @@
 import { listMissionDependencies, listMissionNodes, readMission } from "@/api/resources/mission";
 import type { Mission } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 import { buildGraph, type GraphModel } from "@/lib/mission-graph";
 
 export interface MissionGraphRead {

@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import type { ReadFault } from "@/features/overview/read-overview-snapshot";
 import { useResource } from "@/hooks/use-resource";
-import { hasOpenStep, onboardingStepsOf, type OnboardingStep } from "@/lib/onboarding";
+import { hasOpenStep, type OnboardingStep, onboardingStepsOf } from "@/lib/onboarding";
 
 import { readOnboarding } from "./read-onboarding";
 import { useOnboardingSkip } from "./use-onboarding-skip";

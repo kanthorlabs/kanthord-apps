@@ -4,12 +4,12 @@ import { toast } from "sonner";
 import { putAgentEnablement } from "@/api/resources/workers";
 import type { AgentEnablement } from "@/api/types";
 import {
-  useConfigurationDraft,
   type ConfigurationDraftState,
+  useConfigurationDraft,
 } from "@/hooks/use-configuration-draft";
 import { asApiError } from "@/hooks/use-resource";
 import { enablementEffortOf } from "@/lib/enablement-draft";
-import { configurationOf, type ConfigurationErrors } from "@/lib/workbench-configuration";
+import { type ConfigurationErrors, configurationOf } from "@/lib/workbench-configuration";
 
 export interface DefaultEditState extends ConfigurationDraftState {
   readonly errors: ConfigurationErrors;

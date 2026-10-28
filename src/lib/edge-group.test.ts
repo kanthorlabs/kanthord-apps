@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { MissionEdge, MissionNodeRecord, NodeState, Intent } from "@/api/types";
+import type { Intent, MissionEdge, MissionNodeRecord, NodeState } from "@/api/types";
 
 import { edgeGroupOf } from "./edge-group";
 import { buildGraph } from "./mission-graph";

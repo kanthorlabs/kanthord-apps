@@ -8,9 +8,9 @@ import { listNodeExecutions } from "@/api/resources/scheduler";
 import type { MissionAssessment, MissionProposal } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import {
-  detailKeyOf,
   type AttentionDetail,
   type BlockedDetail,
+  detailKeyOf,
   type DetailRead,
   type DetailTarget,
   type ExternalDetail,
