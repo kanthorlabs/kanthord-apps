@@ -1,8 +1,50 @@
+import { readFileSync } from "node:fs";
+import { relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import js from "@eslint/js";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+
+const configDirectory = fileURLToPath(new URL(".", import.meta.url));
+const allowedComments = JSON.parse(
+  readFileSync(new URL("./.kanthord/comments.json", import.meta.url), "utf8"),
+);
+
+const repositoryPath = (filename) => relative(configDirectory, filename).split(sep).join("/");
+const isTripleSlashReference = (comment) =>
+  comment.type === "Line" && comment.value.startsWith("/ <reference ");
+const isAllowedComment = (path, text) =>
+  allowedComments.some((entry) => entry.path === path && entry.text === text);
+
+const noComments = {
+  meta: {
+    type: "problem",
+    schema: [],
+    messages: {
+      comment: "Remove the comment. Only a human adds a comment, through .kanthord/comments.json.",
+    },
+  },
+  create: (context) => ({
+    Program: () => {
+      const path = repositoryPath(context.filename);
+      for (const comment of context.sourceCode.getAllComments()) {
+        if (comment.type === "Shebang" || isTripleSlashReference(comment)) continue;
+        if (isAllowedComment(path, context.sourceCode.getText(comment))) continue;
+        context.report({ loc: comment.loc, messageId: "comment" });
+      }
+    },
+  }),
+};
+
+const kanthordPlugin = { rules: { "no-comments": noComments } };
+
+const inlineConfigPattern = /^\/[/*]\s*(eslint|global|exported)\b/;
+const pathsWithAllowedInlineConfig = allowedComments
+  .filter((entry) => inlineConfigPattern.test(entry.text))
+  .map((entry) => entry.path);
 
 export default tseslint.config(
   {
@@ -10,6 +52,17 @@ export default tseslint.config(
   },
   js.configs.recommended,
   tseslint.configs.recommended,
+  {
+    ignores: ["src/components/ui/**"],
+    plugins: { kanthord: kanthordPlugin },
+    rules: {
+      "kanthord/no-comments": "error",
+    },
+  },
+  {
+    ignores: ["src/components/ui/**", ...pathsWithAllowedInlineConfig],
+    linterOptions: { noInlineConfig: true },
+  },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {

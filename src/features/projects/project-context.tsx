@@ -42,7 +42,6 @@ export function useProject(): ProjectValue {
   return value;
 }
 
-/** The screens read one project at a time. */
 export function useProjectId(): string {
   const { project } = useProject();
   return project?.id ?? "";

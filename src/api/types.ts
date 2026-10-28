@@ -54,7 +54,6 @@ export interface Project {
   readonly workspace_directory: string;
 }
 
-/** Why a node is not running. The Scheduler rechecks each of these at the claim. */
 export type WorkerHost = "kanthord" | "external-harness";
 
 export type RegistrationActivity = "idle" | "pulling" | "executing";
