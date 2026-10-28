@@ -1,4 +1,4 @@
-import type { ApiError } from "@/api/errors";
+import type { ApiError } from "./errors";
 
 const TEMPLATE_INVALID = "agent.prompt.template_invalid";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ApiError } from "@/api/errors";
+import { ApiError } from "./errors";
 import { agentReadFailure } from "./agent-read-failure";
 
 describe("agentReadFailure", () => {
