@@ -7,7 +7,7 @@ import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
-import { causeLine } from "@/lib/trace-cause";
+import { causeLine, reviewOutcomeText } from "@/lib/trace-cause";
 import { errorStepIndexOf } from "@/lib/trace-diagnosis";
 
 import { type Diagnosis, useDiagnosis } from "../use-diagnosis";
@@ -159,7 +159,7 @@ export function DiagnosisBlock(props: DiagnosisBlockProps) {
       )}
       {cause === null && rework !== null && (
         <>
-          <p className="font-medium">Reworked by review</p>
+          <p className="font-medium">{reviewOutcomeText(rework.cause)}</p>
           <p>{causeLine(rework.cause)}</p>
           <TouchTarget>
             <Button
