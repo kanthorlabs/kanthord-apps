@@ -110,6 +110,7 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
       "no-console": ["error", { allow: ["warn", "error"] }],
+      "sort-imports": ["error", { ignoreDeclarationSort: true, ignoreCase: true }],
     },
   },
   {
