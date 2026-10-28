@@ -48,6 +48,25 @@ const allow = (...types) => types.map((type) => ({ to: element(type) }));
 
 const testFiles = ["**/*.test.{ts,tsx}", "test/**/*.ts"];
 const fetchMessage = "Only src/api talks to a server. See the Architecture section of AGENTS.md.";
+const networkGlobals = ["fetch", "XMLHttpRequest", "WebSocket", "EventSource"];
+const libBrowserGlobals = [
+  "window",
+  "document",
+  "navigator",
+  "location",
+  "localStorage",
+  "sessionStorage",
+  "history",
+  "self",
+  "globalThis",
+  "indexedDB",
+  "caches",
+  "matchMedia",
+  "addEventListener",
+  "open",
+  "postMessage",
+];
+const libBrowserMessage = "src/lib holds no I/O. Read the browser in a hook or a component.";
 const shadcnSyntaxRules = [
   {
     selector: "JSXOpeningElement[name.name=/^(button|input|select|textarea|table)$/]",
@@ -197,7 +216,10 @@ export default tseslint.config(
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/api/**"],
     rules: {
-      "no-restricted-globals": ["error", { name: "fetch", message: fetchMessage }],
+      "no-restricted-globals": [
+        "error",
+        ...networkGlobals.map((name) => ({ name, message: fetchMessage })),
+      ],
       "no-restricted-properties": [
         "error",
         ...["window", "globalThis", "self"].map((object) => ({
@@ -205,6 +227,17 @@ export default tseslint.config(
           property: "fetch",
           message: fetchMessage,
         })),
+      ],
+    },
+  },
+  {
+    files: ["src/lib/**/*.{ts,tsx}"],
+    ignores: testFiles,
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        ...networkGlobals.map((name) => ({ name, message: fetchMessage })),
+        ...libBrowserGlobals.map((name) => ({ name, message: libBrowserMessage })),
       ],
     },
   },
