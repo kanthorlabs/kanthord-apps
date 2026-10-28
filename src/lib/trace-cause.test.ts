@@ -150,6 +150,20 @@ describe("spanCauseOf", () => {
     });
   });
 
+  it("reads a requirement conflict cause of the plan", () => {
+    const root = rootWith({
+      "kanthord.cause.category": "plan",
+      "kanthord.cause.assigner": "rule",
+      "kanthord.cause.subcategory": "requirement_conflict",
+    });
+
+    expect(spanCauseOf([root], ROOT)?.cause).toEqual({
+      category: "plan",
+      assigner: "rule",
+      subcategory: "requirement_conflict",
+    });
+  });
+
   it("prefers the label over the root cause", () => {
     const label = labelWith({
       "kanthord.cause.category": "model",

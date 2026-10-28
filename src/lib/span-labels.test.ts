@@ -151,6 +151,12 @@ describe("spanDetail", () => {
     ).toBe(detail);
   });
 
+  it("shows only the label of a rule with no count and no limit", () => {
+    expect(spanDetail(transition({ "kanthord.transition.rule": "plan_defect" }))).toBe(
+      "Blocked by a plan defect",
+    );
+  });
+
   it.each(["steps", "evaluation"])("shows the kind %s of an execution", (kind) => {
     expect(spanDetail(span("scheduler.execution", { "kanthord.execution.kind": kind }))).toBe(kind);
   });
