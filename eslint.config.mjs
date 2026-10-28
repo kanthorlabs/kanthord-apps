@@ -201,6 +201,31 @@ export default tseslint.config(
     },
   },
   {
+    rules: {
+      "no-else-return": "error",
+      "object-shorthand": "error",
+      "no-lonely-if": "error",
+      "prefer-object-spread": "error",
+      "no-throw-literal": "error",
+      "no-useless-rename": "error",
+      "@typescript-eslint/consistent-indexed-object-style": "error",
+    },
+  },
+  {
+    ignores: ["src/components/ui/**"],
+    rules: {
+      eqeqeq: ["error", "always", { null: "ignore" }],
+      "no-param-reassign": "error",
+      "@typescript-eslint/no-import-type-side-effects": "error",
+    },
+  },
+  {
+    ignores: testFiles,
+    rules: {
+      "@typescript-eslint/no-non-null-assertion": "error",
+    },
+  },
+  {
     files: ["src/hooks/use-mobile.ts"],
     rules: {
       "react-hooks/set-state-in-effect": "off",
