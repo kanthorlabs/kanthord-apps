@@ -42,11 +42,6 @@ const noComments = {
 
 const kanthordPlugin = { rules: { "no-comments": noComments } };
 
-const inlineConfigPattern = /^\/[/*]\s*(eslint|global|exported)\b/;
-const pathsWithAllowedInlineConfig = allowedComments
-  .filter((entry) => inlineConfigPattern.test(entry.text))
-  .map((entry) => entry.path);
-
 const element = (types, extra = {}) => ({ element: { types, ...extra } });
 const file = (categories) => ({ file: { categories } });
 const allow = (...types) => types.map((type) => ({ to: element(type) }));
@@ -71,6 +66,16 @@ const testKnowledgeRules = [
       "MemberExpression[object.object.type='MetaProperty'][object.property.name='env'][property.name=/^MODE$|TEST/]",
     message: testKnowledgeMessage,
   },
+  {
+    selector:
+      "MemberExpression[object.type='MemberExpression'][object.object.type='MetaProperty'][object.property.name='env'][property.value=/^MODE$|TEST/]",
+    message: testKnowledgeMessage,
+  },
+  {
+    selector:
+      "VariableDeclarator[init.object.type='MetaProperty'][init.property.name='env'] > ObjectPattern > Property[key.name=/^MODE$|TEST/]",
+    message: testKnowledgeMessage,
+  },
   { selector: "Identifier[name=/^isTest/]", message: testKnowledgeMessage },
 ];
 const reactPackages = "{react,react-dom,react-*,@base-ui/*,lucide-react,next-themes,sonner}";
@@ -89,7 +94,7 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["src/components/ui/**", ...pathsWithAllowedInlineConfig],
+    ignores: ["src/components/ui/**"],
     linterOptions: { noInlineConfig: true },
   },
   {
@@ -117,6 +122,7 @@ export default tseslint.config(
     files: ["src/**/*.{ts,tsx}", "test/**/*.ts"],
     plugins: { boundaries },
     settings: {
+      "boundaries/root-path": configDirectory,
       "import/resolver": {
         "./eslint-alias-resolver.mjs": {},
         node: { extensions: [".ts", ".tsx"] },
@@ -181,6 +187,7 @@ export default tseslint.config(
                 { to: { module: { source: reactPackages } } },
               ],
             },
+            { disallow: [{ to: { module: { source: "@/**" } } }] },
           ],
         },
       ],
