@@ -3,6 +3,7 @@ import { relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import js from "@eslint/js";
+import boundaries from "eslint-plugin-boundaries";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
@@ -46,6 +47,14 @@ const pathsWithAllowedInlineConfig = allowedComments
   .filter((entry) => inlineConfigPattern.test(entry.text))
   .map((entry) => entry.path);
 
+const element = (types, extra = {}) => ({ element: { types, ...extra } });
+const file = (categories) => ({ file: { categories } });
+const allow = (...types) => types.map((type) => ({ to: element(type) }));
+
+const testFiles = ["**/*.test.{ts,tsx}", "test/**/*.ts"];
+const fetchMessage = "Only src/api talks to a server. See the Architecture section of AGENTS.md.";
+const reactPackages = "{react,react-dom,react-*,@base-ui/*,lucide-react,next-themes,sonner}";
+
 export default tseslint.config(
   {
     ignores: ["**/node_modules/**", "**/dist/**"],
@@ -81,6 +90,94 @@ export default tseslint.config(
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
       "no-console": ["error", { allow: ["warn", "error"] }],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}", "test/**/*.ts"],
+    plugins: { boundaries },
+    settings: {
+      "import/resolver": {
+        "./eslint-alias-resolver.mjs": {},
+        node: { extensions: [".ts", ".tsx"] },
+      },
+      "boundaries/elements": [
+        { type: "api", pattern: "src/api" },
+        { type: "lib", pattern: "src/lib" },
+        { type: "features", pattern: "src/features" },
+        { type: "ui", pattern: "src/components/ui" },
+        { type: "components", pattern: "src/components" },
+        { type: "hooks", pattern: "src/hooks" },
+        { type: "assets", pattern: "src/assets" },
+        { type: "test-support", pattern: "test" },
+      ],
+      "boundaries/files": [
+        { category: "root", pattern: "src/{App.tsx,main.tsx,vite-env.d.ts,index.css}" },
+        { category: "test", pattern: testFiles },
+        {
+          category: "feature-entry",
+          pattern: "src/{App,components/app-router,components/app-shell}{,.test}.tsx",
+        },
+      ],
+    },
+    rules: {
+      "boundaries/no-unknown-files": "error",
+      "boundaries/no-unknown-dependencies": "error",
+      "boundaries/dependencies": [
+        "error",
+        {
+          default: "disallow",
+          checkInternals: true,
+          checkAllOrigins: true,
+          policies: [
+            { allow: [{ dependency: { relationship: { to: "internal" } } }] },
+            { allow: [{ to: { module: { origin: "{external,core}" } } }] },
+            { from: element("api"), allow: allow("lib") },
+            {
+              from: element("lib"),
+              allow: [
+                { to: element("lib") },
+                { to: element("api", { fileInternalPath: "types.ts" }) },
+              ],
+            },
+            {
+              from: element({ anyOf: ["features", "components", "hooks", "ui"] }),
+              allow: allow("api", "lib", "components", "hooks", "ui", "assets"),
+            },
+            {
+              from: file("root"),
+              allow: [
+                ...allow("api", "lib", "components", "hooks", "ui", "assets"),
+                { to: file("root") },
+              ],
+            },
+            { from: element("features"), allow: allow("features") },
+            { from: file("feature-entry"), allow: allow("features") },
+            { from: file("test"), allow: allow("test-support") },
+            {
+              from: element("lib"),
+              disallow: [
+                { to: { module: { origin: "core" } } },
+                { to: { module: { source: reactPackages } } },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/api/**"],
+    rules: {
+      "no-restricted-globals": ["error", { name: "fetch", message: fetchMessage }],
+      "no-restricted-properties": [
+        "error",
+        ...["window", "globalThis", "self"].map((object) => ({
+          object,
+          property: "fetch",
+          message: fetchMessage,
+        })),
+      ],
     },
   },
   {
