@@ -19,7 +19,7 @@ import { TouchTarget } from "@/components/touch-target";
 import { stopLabel } from "@/lib/execution-stop";
 import { utcDateTime } from "@/lib/format";
 import { causeChipText } from "@/lib/trace-cause";
-import { nameOf, type GraphModel } from "@/lib/mission-graph";
+import { type GraphModel, nameOf } from "@/lib/mission-graph";
 import {
   actorText,
   assetText,

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { useNodeCheck, type NodeCheckState } from "@/hooks/use-node-check";
+import { type NodeCheckState, useNodeCheck } from "@/hooks/use-node-check";
 import type { AttentionDetail, OutsideAttentionItem } from "@/lib/attention";
 
 export interface OutsideActs {

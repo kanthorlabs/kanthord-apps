@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { agentReadFailure } from "@/lib/agent-read-failure";
+import { agentReadFailure } from "@/api/agent-read-failure";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";

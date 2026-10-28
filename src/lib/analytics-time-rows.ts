@@ -1,6 +1,6 @@
 import type { AnalyticsDurationItem, AnalyticsMeasure } from "@/api/types";
 
-import { bucketTextOf, costKeyLabel, tracesPathOf, type CostField } from "./analytics-cost-rows";
+import { bucketTextOf, type CostField, costKeyLabel, tracesPathOf } from "./analytics-cost-rows";
 import type { AnalyticsSelectableBucket, TimeGroupName } from "./analytics-query";
 import { durationText } from "./format";
 

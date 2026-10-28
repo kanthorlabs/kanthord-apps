@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { stepStateLabel, stepStateVariant, type OnboardingStep as Step } from "@/lib/onboarding";
+import { type OnboardingStep as Step, stepStateLabel, stepStateVariant } from "@/lib/onboarding";
 import { returnToState } from "@/lib/return-to";
 
 interface OnboardingStepProps {

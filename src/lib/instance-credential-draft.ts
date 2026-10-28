@@ -1,10 +1,10 @@
 import type { CredentialCreateBody, CredentialPlatformEntry } from "@/api/types";
 import {
   createBodyOf,
-  editMetadataOf,
-  OPENAI_COMPATIBLE,
   type DraftResult,
+  editMetadataOf,
   type MetadataDraft,
+  OPENAI_COMPATIBLE,
   type SecretDraft,
 } from "./credential-draft";
 

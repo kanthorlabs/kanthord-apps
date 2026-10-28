@@ -4,7 +4,7 @@ import type {
   SchedulerExecutionRecord,
   WorkerRegistrationRecord,
 } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 export type ActivityRead =
   | { readonly state: "loading" }

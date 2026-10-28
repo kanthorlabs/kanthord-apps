@@ -1,0 +1,14 @@
+[
+  {
+    "path": "mock/daemon.mjs",
+    "text": "/**\n * A development stand-in for the kanthord daemon.\n *\n * It serves the contract that src/api derives from the design set, so the\n * dashboard runs before the daemon exists. It is not part of the application\n * and no module under src/ reaches it.\n */"
+  },
+  {
+    "path": "src/api/types.ts",
+    "text": "/**\n * The daemon contract.\n *\n * Derived from the kanthord design set: overview.md, architecture.md,\n * project-service.md, mission-service.md, scheduler-service.md and\n * worker-service.md, together with their vocabulary siblings.\n */"
+  },
+  {
+    "path": "src/hooks/use-resource.ts",
+    "text": "/**\n * Reads one api resource. ApiError is the only error type that crosses the\n * boundary, so a screen renders `error.message` without mapping a status.\n */"
+  }
+]

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { utcDateTime } from "@/lib/format";
-import { useAgentChain, type ChainRow } from "../use-agent-chain";
+import { type ChainRow, useAgentChain } from "../use-agent-chain";
 
 interface ChainSectionProps {
   readonly chain: readonly AgentChainEntry[];

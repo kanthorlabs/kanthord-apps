@@ -17,7 +17,7 @@ import type {
   WorkerInstanceListItem,
   WorkerRegistrationRecord,
 } from "@/api/types";
-import { settle, type ReadFault } from "@/features/overview/read-overview-snapshot";
+import { type ReadFault, settle } from "@/features/overview/read-overview-snapshot";
 import { useResource } from "@/hooks/use-resource";
 import { enableAgentsPath } from "@/lib/credential-sections";
 import { effectiveInstanceCount } from "@/lib/instance-count";

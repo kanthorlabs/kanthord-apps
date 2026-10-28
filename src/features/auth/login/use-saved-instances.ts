@@ -2,8 +2,8 @@ import { useCallback, useState } from "react";
 
 import type { SavedInstance } from "@/features/auth/instances/instance-storage";
 import {
-  useInstanceEdit,
   type InstanceEditState,
+  useInstanceEdit,
 } from "@/features/auth/instances/use-instance-edit";
 import { useInstanceRemoval } from "@/features/auth/instances/use-instance-removal";
 import { signInMessage } from "@/features/auth/instances/sign-in-message";

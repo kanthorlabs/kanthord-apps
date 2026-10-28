@@ -1,5 +1,5 @@
 import { ChevronDownIcon } from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { TraceSessionEntry, TraceSpan } from "@/api/types";
 import { MarkdownText } from "@/components/markdown-text";
@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { noteLine, systemLabel, systemSize, usageLine } from "@/lib/entry-blocks";
-import { entryView, type EntryToolCall, type EntryView } from "@/lib/session-entries";
+import { type EntryToolCall, type EntryView, entryView } from "@/lib/session-entries";
 
 const CUT_HINT = "The worker cut this entry to fit the entry bound of 60 KiB.";
 

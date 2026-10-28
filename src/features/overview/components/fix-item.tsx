@@ -4,7 +4,7 @@ import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
-import { fixTargetOf, spreadTextOf, type FixAttentionItem } from "@/lib/fix-attention";
+import { type FixAttentionItem, fixTargetOf, spreadTextOf } from "@/lib/fix-attention";
 import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
 

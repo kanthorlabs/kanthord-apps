@@ -3,25 +3,25 @@ import { useEffect, useMemo, useState } from "react";
 import { ApiError } from "@/api/errors";
 import { listSessionEntryPage, readSessionEntry, readTraceText } from "@/api/resources/tracking";
 import type { TraceSessionEntry, TraceSpan, TraceSpanLink } from "@/api/types";
-import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
-import { errorNeighbours, errorTrailOf, type ErrorNeighbours } from "@/lib/error-trail";
-import { entryView, toolCallIn, type EntryView } from "@/lib/session-entries";
-import { spanBlocks, type SpanBlock } from "@/lib/span-blocks";
+import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
+import { type ErrorNeighbours, errorNeighbours, errorTrailOf } from "@/lib/error-trail";
+import { type EntryView, entryView, toolCallIn } from "@/lib/session-entries";
+import { type SpanBlock, spanBlocks } from "@/lib/span-blocks";
 import {
   attributesOf,
   conversationIdOf,
   eventsOf,
   isTool,
   isTurn,
+  type NamedValue,
   replyEntryIdOf,
+  type SpanEventView,
   spanFacts,
   toolCallIdOf,
   turnFacts,
-  type NamedValue,
-  type SpanEventView,
 } from "@/lib/span-detail";
 import { traceAxis } from "@/lib/trace-waterfall";
-import { turnTokenRows, type TurnTokenRow } from "@/lib/turn-token-rows";
+import { type TurnTokenRow, turnTokenRows } from "@/lib/turn-token-rows";
 import { whySpanLines } from "@/lib/why-span";
 
 export type Loadable<T> =

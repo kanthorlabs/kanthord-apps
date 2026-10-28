@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { toast, type Action } from "sonner";
+import { type Action, toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";

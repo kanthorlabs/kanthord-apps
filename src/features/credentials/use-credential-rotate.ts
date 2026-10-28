@@ -9,18 +9,18 @@ import type {
   CredentialRotateBody,
 } from "@/api/types";
 import {
+  type DraftErrors,
   EMPTY_METADATA,
   EMPTY_SECRET,
+  type MetadataDraft,
   metadataDraftOf,
   rotateMetadataOf,
-  secretOfDraft,
-  type DraftErrors,
-  type MetadataDraft,
   type SecretDraft,
+  secretOfDraft,
 } from "@/lib/credential-draft";
 import { newestLiveRevision } from "@/lib/credential-revisions";
 import { SSH_PLATFORM } from "@/lib/ssh-key";
-import { writeFailureOf, type WriteFailure } from "./write-failure";
+import { type WriteFailure, writeFailureOf } from "./write-failure";
 
 export interface CredentialRotateState {
   readonly available: boolean;

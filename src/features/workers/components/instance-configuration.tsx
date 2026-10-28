@@ -5,11 +5,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useClipboard } from "@/hooks/use-clipboard";
 import {
+  type ContainerRuntime,
   copyStepsOf,
+  type HostKind,
   isContainerKind,
   RELEASES,
-  type ContainerRuntime,
-  type HostKind,
 } from "@/lib/instance-host";
 
 const VERSION_PLACEHOLDER = "<version>";

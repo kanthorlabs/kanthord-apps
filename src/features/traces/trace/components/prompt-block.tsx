@@ -11,10 +11,10 @@ import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
-  useAgentPrompt,
   type AgentPrompt,
   type AgentPromptState,
   type PromptText,
+  useAgentPrompt,
 } from "../use-agent-prompt";
 import type { TraceSelection } from "../use-trace-selection";
 

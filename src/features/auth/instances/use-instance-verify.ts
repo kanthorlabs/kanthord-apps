@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { isApiError, type ApiError } from "@/api/errors";
+import { type ApiError, isApiError } from "@/api/errors";
 import { readLiveness, verifyHumanToken } from "@/api/resources/gateway";
 import type { ServiceMaps } from "@/api/types";
 import { utcDateTime } from "@/lib/format";

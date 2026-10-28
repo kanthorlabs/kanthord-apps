@@ -1,6 +1,6 @@
 import { listNodeProposals } from "@/api/resources/mission";
 import type { MissionProposal } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 const NO_PROPOSALS: readonly MissionProposal[] = [];
 

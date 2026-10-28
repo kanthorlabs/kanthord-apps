@@ -12,11 +12,11 @@ import type {
   WorkerRegistrationRecord,
 } from "@/api/types";
 import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
-import { useInstanceExecutions, type InstanceExecution } from "@/hooks/use-instance-executions";
+import { type InstanceExecution, useInstanceExecutions } from "@/hooks/use-instance-executions";
 import { usePolledResource } from "@/hooks/use-polled-resource";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 import { OPENAI_COMPATIBLE } from "@/lib/credential-draft";
-import { healthLabel, healthVariant, type HealthBadgeVariant } from "@/lib/credential-health";
+import { type HealthBadgeVariant, healthLabel, healthVariant } from "@/lib/credential-health";
 import { instanceCopyHint } from "@/lib/failure-reason";
 
 const INSTANCE_INTERVAL_MS = 15_000;

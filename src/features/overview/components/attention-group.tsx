@@ -1,5 +1,5 @@
 import { ItemGroup } from "@/components/ui/item";
-import type { AttentionDetails, AttentionGroup as Group, AttentionItem } from "@/lib/attention";
+import type { AttentionDetails, AttentionItem, AttentionGroup as Group } from "@/lib/attention";
 import { detailOf } from "@/lib/attention";
 
 import { ApprovalItem } from "./approval-item";

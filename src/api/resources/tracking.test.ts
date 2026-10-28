@@ -8,8 +8,8 @@ import { ApiError } from "../errors";
 import {
   labelTraceCause,
   listSessionEntryPage,
-  listTracePage,
   listTimelinePage,
+  listTracePage,
   listTraceSpans,
   readAnalyticsCost,
   readAnalyticsDuration,

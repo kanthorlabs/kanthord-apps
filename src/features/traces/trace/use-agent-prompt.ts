@@ -6,10 +6,10 @@ import type { TraceSessionEntry, TraceSpan } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
 import {
   pinnedContextEntryIds,
+  type PromptPartRef,
   promptPartsOf,
   taskTemplates,
   workPromptEntryIds,
-  type PromptPartRef,
 } from "@/lib/agent-prompt-parts";
 import { sessionSpansOf } from "@/lib/conversation-spans";
 import { entryView } from "@/lib/session-entries";

@@ -1,8 +1,8 @@
 import type {
   AttentionDetails,
-  AttentionGroup as Group,
   AttentionGroupId,
   AttentionItem,
+  AttentionGroup as Group,
 } from "@/lib/attention";
 
 import type { AttentionFocus } from "../use-attention-focus";

@@ -1,7 +1,7 @@
 import { readWorkbenchSession } from "@/api/resources/workbench";
 import { readAgent } from "@/api/resources/workers";
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 export interface WorkbenchSessionView {
   readonly session: WorkbenchSession;

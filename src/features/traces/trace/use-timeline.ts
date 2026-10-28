@@ -1,16 +1,16 @@
-import { useMemo, useState, type KeyboardEvent } from "react";
+import { type KeyboardEvent, useMemo, useState } from "react";
 
 import type { TraceSpan, TraceState } from "@/api/types";
-import { errorRolesOf, errorSteps, pickCausalSpan, type ErrorRole } from "@/lib/causal-span";
-import { usageBySpan, type SpanUsage } from "@/lib/span-usage";
+import { type ErrorRole, errorRolesOf, errorSteps, pickCausalSpan } from "@/lib/causal-span";
+import { type SpanUsage, usageBySpan } from "@/lib/span-usage";
 import {
   pillFilter,
-  stepRows,
   type SpanStepRow,
   type StepPill,
   type StepRow,
-  turnGroups,
+  stepRows,
   type TurnGroupRow,
+  turnGroups,
 } from "@/lib/step-tree";
 import { traceAxis, type TraceAxis } from "@/lib/trace-waterfall";
 import { ancestorIds, buildSpanTree, spanMatches, type SpanNode } from "@/lib/trace-tree";

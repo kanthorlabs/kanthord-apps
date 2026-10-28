@@ -1,5 +1,5 @@
 import { ArchiveIcon, BotIcon, FileCogIcon, RefreshCwIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import type { Credential, CredentialComponent, CredentialPlatformEntry } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ import { useCredentialPlatforms } from "../../use-credential-platforms";
 import { useCredentialRotate } from "../../use-credential-rotate";
 import { useMetadataEdit } from "../../use-metadata-edit";
 import { useSshKeyRotate } from "../../use-ssh-key-rotate";
-import { useAgentEnable, type AgentEnableState } from "../use-agent-enable";
+import { type AgentEnableState, useAgentEnable } from "../use-agent-enable";
 import { useCredentialArchive } from "../use-credential-archive";
 import { useCredentialCooldown } from "../use-credential-cooldown";
 import { useDetailCheck } from "../use-detail-check";

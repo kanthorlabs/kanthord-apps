@@ -19,7 +19,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { ReadFaultsAlert } from "@/features/overview/components/read-faults-alert";
 import { stepStateLabel, stepStateVariant } from "@/lib/onboarding";
-import { useProjectReadiness, type ReadinessItem } from "../use-project-readiness";
+import { type ReadinessItem, useProjectReadiness } from "../use-project-readiness";
 
 function ReadinessRow({ item }: { readonly item: ReadinessItem }) {
   return (

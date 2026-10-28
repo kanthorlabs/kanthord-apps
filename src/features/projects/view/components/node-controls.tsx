@@ -5,7 +5,7 @@ import { NodePauseDialog } from "@/components/node-pause-dialog";
 import { NodeResumeDialog } from "@/components/node-resume-dialog";
 import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 
-import { useNodeControls, type NodeControlsInput } from "../use-node-controls";
+import { type NodeControlsInput, useNodeControls } from "../use-node-controls";
 
 export function NodeControls(input: NodeControlsInput) {
   const { pause, unblock, resume, override, discard, guardLine, retry, visible } =

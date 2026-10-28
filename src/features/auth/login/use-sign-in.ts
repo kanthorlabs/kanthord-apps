@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 
 import {
+  type InstanceDraft,
+  type InstanceErrors,
   INVALID_BASE_URL,
   normalizeBaseUrl,
   validateSignIn,
-  type InstanceDraft,
-  type InstanceErrors,
 } from "@/features/auth/instances/instance-validation";
 import type { InstancesState } from "@/features/auth/instances/use-instances";
 import { signInMessage } from "@/features/auth/instances/sign-in-message";

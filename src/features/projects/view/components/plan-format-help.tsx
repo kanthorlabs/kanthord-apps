@@ -1,7 +1,7 @@
 import { DownloadIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { PLAN_FILES_DOC_URL, samplePlanHref, type SamplePlan } from "@/lib/mission-plan-sample";
+import { PLAN_FILES_DOC_URL, type SamplePlan, samplePlanHref } from "@/lib/mission-plan-sample";
 
 interface PlanFormatHelpProps {
   readonly sample: SamplePlan;

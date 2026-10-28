@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { setConnection } from "../client";
 import {
+  addAgentProvider,
   disableAgentEnablement,
   enableAgentEnablement,
   listAgentProviderModels,
@@ -12,7 +13,6 @@ import {
   listCredentialModels,
   putAgentEnablement,
   readAgentEnablement,
-  addAgentProvider,
   removeAgentProvider,
 } from "./workers";
 

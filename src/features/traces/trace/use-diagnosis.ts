@@ -6,7 +6,7 @@ import type { EffectiveCause, TraceSpan, TraceSummary } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
 import { diagnoseSpans, type SpanDiagnosis } from "@/lib/trace-diagnosis";
 import { causeLabelReasonTextIdOf } from "@/lib/trace-cause";
-import { nowFactsOf, type NowFacts } from "@/lib/trace-now";
+import { type NowFacts, nowFactsOf } from "@/lib/trace-now";
 
 import type { NodeAttempt, NodeTraces } from "./use-node-traces";
 import { TRACE_POLL_MS } from "./use-trace";

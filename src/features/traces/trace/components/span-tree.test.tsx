@@ -26,9 +26,9 @@ import { listNodeAttempts, readMissionNode, readNodeRevision } from "@/api/resou
 import { listProjects } from "@/api/resources/projects";
 import { listTracePage, listTraceSpans, readTrace } from "@/api/resources/tracking";
 import type {
+  MissionAttempt,
   MissionNodeRecord,
   MissionRevision,
-  MissionAttempt,
   Project,
   TraceSpan,
   TraceSummary,

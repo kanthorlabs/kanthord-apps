@@ -1,6 +1,6 @@
 import { listAgentCooldowns } from "@/api/resources/workers";
 import type { AgentCooldown } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 export interface CredentialCooldown {
   readonly hold: AgentCooldown;

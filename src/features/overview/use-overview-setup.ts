@@ -1,8 +1,8 @@
 import { useRef } from "react";
 
-import { usePolledResource, type PolledResource } from "@/hooks/use-polled-resource";
+import { type PolledResource, usePolledResource } from "@/hooks/use-polled-resource";
 
-import { readOverviewSetup, type OverviewSetup } from "./read-overview-setup";
+import { type OverviewSetup, readOverviewSetup } from "./read-overview-setup";
 
 const SETUP_INTERVAL_MS = 60_000;
 

@@ -7,7 +7,7 @@ import type {
   CredentialPlatform,
   CredentialPlatformList,
 } from "@/api/types";
-import { useCursorPages, type CursorPages } from "@/hooks/use-cursor-pages";
+import { type CursorPages, useCursorPages } from "@/hooks/use-cursor-pages";
 import { platformEntryOf, platformIdsOf } from "@/lib/credential-platforms";
 import { useCredentialPlatforms } from "../use-credential-platforms";
 

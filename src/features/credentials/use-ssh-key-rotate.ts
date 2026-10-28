@@ -7,7 +7,7 @@ import { asApiError } from "@/hooks/use-resource";
 import { newestLiveRevision } from "@/lib/credential-revisions";
 import { newestSshKeyOf, SSH_PLATFORM } from "@/lib/ssh-key";
 import { credentialMessage } from "./credential-message";
-import { writeFailureOf, type WriteFailure } from "./write-failure";
+import { type WriteFailure, writeFailureOf } from "./write-failure";
 
 export type SshKeyBindings =
   | { readonly status: "loading" }

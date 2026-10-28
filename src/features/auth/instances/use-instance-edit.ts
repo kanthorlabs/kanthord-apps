@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
 import type { SavedInstance } from "./instance-storage";
-import { validateEdit, type InstanceDraft, type InstanceErrors } from "./instance-validation";
+import { type InstanceDraft, type InstanceErrors, validateEdit } from "./instance-validation";
 import type { InstancesState } from "./use-instances";
 
 export interface InstanceEditState {

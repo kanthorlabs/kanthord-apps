@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import { loadInstances, saveInstances, type SavedInstance } from "./instance-storage";
+import { loadInstances, type SavedInstance, saveInstances } from "./instance-storage";
 
 export interface InstancesState {
   readonly instances: readonly SavedInstance[];

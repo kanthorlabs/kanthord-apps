@@ -11,6 +11,7 @@ import {
   missingForCheck,
   missingForSave,
   pinnableHostOf,
+  type RepositoryDraft,
   withAgentEntry,
   withBindingPrompt,
   withEnvironmentDefault,
@@ -18,7 +19,6 @@ import {
   withPlatform,
   withWorker,
   withWorkerPlacement,
-  type RepositoryDraft,
   type WorkerDraft,
 } from "./binding-draft";
 import { missingHint } from "./missing-fields";

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
-  detailKeyOf,
-  refreshedDetailOf,
   type AttentionDetails,
+  detailKeyOf,
   type DetailTarget,
+  refreshedDetailOf,
 } from "@/lib/attention";
 
 import { readAttentionDetail } from "./read-attention-detail";

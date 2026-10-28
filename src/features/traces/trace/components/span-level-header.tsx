@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { spanHeadline } from "@/lib/span-headline";
 import { spanLabel } from "@/lib/span-labels";
 import type { SpanUsage } from "@/lib/span-usage";
-import { waterfallBar, type TraceAxis } from "@/lib/trace-waterfall";
+import { type TraceAxis, waterfallBar } from "@/lib/trace-waterfall";
 
 interface SpanLevelHeaderProps {
   readonly span: TraceSpan;

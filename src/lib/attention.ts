@@ -1,26 +1,26 @@
 import type {
+  BindingAgentView,
+  Credential,
+  EnvironmentState,
   MissionAssessment,
   MissionBlockedContext,
   MissionEvidence,
   MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
-  Credential,
-  EnvironmentState,
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
+  WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
   WorkerRegistrationRecord,
-  BindingAgentView,
-  WorkbenchSessionListItem,
 } from "@/api/types";
 
 import { approvalItemsOf, type ToolApprovalItem } from "./approval-attention";
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
-import { fixItemsOf, type FixAttentionItem } from "./fix-attention";
+import { type FixAttentionItem, fixItemsOf } from "./fix-attention";
 
 export type AttentionGroupId = "decisions" | "fixes" | "outside";
 

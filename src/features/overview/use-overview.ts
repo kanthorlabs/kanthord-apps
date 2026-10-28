@@ -4,30 +4,30 @@ import type { ApiError } from "@/api/errors";
 import type { Project } from "@/api/types";
 import { useScopedProject } from "@/hooks/use-scoped-project";
 import {
+  type AttentionContext,
+  type AttentionDetails,
+  type AttentionGroupId,
+  type AttentionItem,
   deriveAttention,
   detailTargetsOf,
   externalReadStateOf,
   groupItems,
-  type AttentionDetails,
-  type AttentionGroupId,
-  type AttentionContext,
-  type AttentionItem,
   type ProjectSnapshot,
 } from "@/lib/attention";
 import { unavailableComponentsOf } from "@/lib/liveness-alert";
 import {
   attentionSummary,
   claimedNodeCount,
+  type CoolingFact,
   coolingFactsOf,
   progressSummary,
   projectsWithoutSetup,
-  type CoolingFact,
 } from "@/lib/overview-summary";
-import { tallyStates, type StateTally } from "@/lib/state-tally";
+import { type StateTally, tallyStates } from "@/lib/state-tally";
 
 import type { ReadFault } from "./read-overview-snapshot";
 import { useAttentionDetails } from "./use-attention-details";
-import { useAttentionFocus, type AttentionFocus } from "./use-attention-focus";
+import { type AttentionFocus, useAttentionFocus } from "./use-attention-focus";
 import { useOverviewSetup } from "./use-overview-setup";
 import { useOverviewSnapshot } from "./use-overview-snapshot";
 

@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useAgentProviderModels } from "@/hooks/use-agent-provider-models";
-import { REASONING_EFFORTS, type AgentEntryDraft, type DraftErrors } from "@/lib/binding-draft";
+import { type AgentEntryDraft, type DraftErrors, REASONING_EFFORTS } from "@/lib/binding-draft";
 import type { WorkerAgent } from "../use-worker-agents";
 import { DraftField } from "./draft-field";
 

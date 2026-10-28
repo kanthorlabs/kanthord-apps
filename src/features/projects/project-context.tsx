@@ -1,4 +1,4 @@
-import { createContext, use, useMemo, useState, type ReactNode } from "react";
+import { createContext, type ReactNode, use, useMemo, useState } from "react";
 
 import { listProjects } from "@/api/resources/projects";
 import type { Project } from "@/api/types";
@@ -42,7 +42,6 @@ export function useProject(): ProjectValue {
   return value;
 }
 
-/** The screens read one project at a time. */
 export function useProjectId(): string {
   const { project } = useProject();
   return project?.id ?? "";

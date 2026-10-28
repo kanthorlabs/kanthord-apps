@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLargeScreen } from "@/hooks/use-large-screen";
 
-import { FilterSelect, type FilterOption } from "./components/filter-select";
+import { type FilterOption, FilterSelect } from "./components/filter-select";
 import { FilterSheet } from "./components/filter-sheet";
 import { MoreFilters } from "./components/more-filters";
 import { RangeFilter } from "./components/range-filter";

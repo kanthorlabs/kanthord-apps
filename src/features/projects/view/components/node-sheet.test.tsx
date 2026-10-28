@@ -12,12 +12,12 @@ import * as workersApi from "@/api/resources/workers";
 import type {
   AgentCooling,
   BindingAgentView,
+  Intent,
   MissionAttempt,
   MissionControlResult,
   MissionNodeRecord,
   MissionRevision,
   ProjectBindingRecord,
-  Intent,
   SchedulerExecutionRecord,
   TraceListItem,
   WorkerBindingRecord,

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { useProjectPause, type ProjectPause } from "@/hooks/use-project-pause";
+import { type ProjectPause, useProjectPause } from "@/hooks/use-project-pause";
 import type { ProjectPausedItem } from "@/lib/fix-attention";
 
 interface FixContext {

@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  type AgentEntryDraft,
   agentRowsOf,
+  type DraftErrors,
   withAgentEntry,
   withWorker,
-  type AgentEntryDraft,
-  type DraftErrors,
   type WorkerDraft,
 } from "@/lib/binding-draft";
 import type { PlacementChoices } from "@/lib/placement-status";

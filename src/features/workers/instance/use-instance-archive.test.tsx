@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { archiveWorkerInstance, readWorkerInstance } from "@/api/resources/worker-instances";
 import type { WorkerInstance, WorkerInstanceDetail } from "@/api/types";
-import { useInstanceArchive, type ArchiveSubject } from "./use-instance-archive";
+import { type ArchiveSubject, useInstanceArchive } from "./use-instance-archive";
 
 vi.mock("@/api/resources/worker-instances", () => ({
   archiveWorkerInstance: vi.fn(),

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { approveProposal } from "@/api/resources/mission";
-import type { MissionProposal, MissionProposalApproveResult, MissionNodeRecord } from "@/api/types";
+import type { MissionNodeRecord, MissionProposal, MissionProposalApproveResult } from "@/api/types";
 import { useProposalApprove } from "./use-proposal-approve";
 
 vi.mock("@/api/resources/mission", () => ({ approveProposal: vi.fn() }));

@@ -1,15 +1,15 @@
 import Elk from "elkjs/lib/elk.bundled.js";
 import { describe, expect, it } from "vitest";
 
-import type { MissionEdge, MissionNodeRecord, Intent } from "@/api/types";
+import type { Intent, MissionEdge, MissionNodeRecord } from "@/api/types";
 
 import {
+  type Box,
   laneGrid,
   layoutRequest,
   placedNodeIds,
   readLayout,
   roundedPath,
-  type Box,
 } from "./graph-layout";
 import { buildGraph } from "./mission-graph";
 

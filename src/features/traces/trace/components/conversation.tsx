@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { useConversation, type ConversationView } from "../use-conversation";
-import { useSessionEntries, type SessionEntries } from "../use-session-entries";
+import { type ConversationView, useConversation } from "../use-conversation";
+import { type SessionEntries, useSessionEntries } from "../use-session-entries";
 import type { TraceSelection } from "../use-trace-selection";
 import { EntryBlock } from "./entry-block";
 

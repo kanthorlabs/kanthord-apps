@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Credential, CredentialPlatformEntry } from "@/api/types";
 import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
 import {
-  useCredentialRotate,
   type CredentialRotateState,
+  useCredentialRotate,
 } from "@/features/credentials/use-credential-rotate";
 import { platformEntryOf } from "@/lib/credential-platforms";
 

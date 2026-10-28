@@ -14,10 +14,10 @@ import { useResource } from "@/hooks/use-resource";
 import { promptChanged } from "@/lib/agent-prompt-parts";
 import { durationText } from "@/lib/format";
 import {
-  attemptGroups,
-  repeatAdvice,
   type AttemptExecution,
+  attemptGroups,
   type ExecutionKind,
+  repeatAdvice,
 } from "@/lib/trace-attempts";
 import { causeLine, isRepeat } from "@/lib/trace-cause";
 

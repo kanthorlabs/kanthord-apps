@@ -1,13 +1,13 @@
 import { useCallback, useEffect } from "react";
 
 import type { EffectiveCause, MissionProposal, SchedulerExecutionRecord } from "@/api/types";
-import { useNodeCheck, type NodeCheckState } from "@/hooks/use-node-check";
-import { useNodeDiscard, type NodeDiscardState } from "@/hooks/use-node-discard";
-import { useNodeOverride, type NodeOverrideState } from "@/hooks/use-node-override";
-import { useNodeResume, type NodeResumeState } from "@/hooks/use-node-resume";
-import { useNodeUnblock, type NodeUnblockState } from "@/hooks/use-node-unblock";
-import { useProposalApprove, type ProposalApproveState } from "@/hooks/use-proposal-approve";
-import { openProposalsOf, type AttentionDetail, type DecisionAttentionItem } from "@/lib/attention";
+import { type NodeCheckState, useNodeCheck } from "@/hooks/use-node-check";
+import { type NodeDiscardState, useNodeDiscard } from "@/hooks/use-node-discard";
+import { type NodeOverrideState, useNodeOverride } from "@/hooks/use-node-override";
+import { type NodeResumeState, useNodeResume } from "@/hooks/use-node-resume";
+import { type NodeUnblockState, useNodeUnblock } from "@/hooks/use-node-unblock";
+import { type ProposalApproveState, useProposalApprove } from "@/hooks/use-proposal-approve";
+import { type AttentionDetail, type DecisionAttentionItem, openProposalsOf } from "@/lib/attention";
 import {
   hasOpenAttempt,
   readFailureText,
@@ -15,7 +15,7 @@ import {
   unresolvedRequestsText,
 } from "@/lib/external-requests";
 
-import { useDependencyRemove, type DependencyRemoveState } from "./use-dependency-remove";
+import { type DependencyRemoveState, useDependencyRemove } from "./use-dependency-remove";
 import { useLastTraceCause } from "./use-last-trace-cause";
 
 export interface DecisionActs {

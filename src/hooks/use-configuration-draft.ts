@@ -6,11 +6,11 @@ import { useAgentProviderModels } from "@/hooks/use-agent-provider-models";
 import { asApiError } from "@/hooks/use-resource";
 import { reasoningEffortOf } from "@/lib/enablement-draft";
 import {
+  type ConfigurationDraft,
   draftOf,
   effortOptions,
   modelAfterProviderChange,
   modelOptions,
-  type ConfigurationDraft,
 } from "@/lib/workbench-configuration";
 
 export interface ConfigurationDraftState {

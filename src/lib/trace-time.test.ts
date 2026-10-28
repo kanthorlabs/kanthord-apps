@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { TraceSpan, TraceSummary } from "@/api/types";
 
-import { TIME_LINE_LABELS, TimeLine, timeBreakdown, turnInputTokens, unionMs } from "./trace-time";
+import { TIME_LINE_LABELS, timeBreakdown, TimeLine, turnInputTokens, unionMs } from "./trace-time";
 
 const NOW = 100_000;
 

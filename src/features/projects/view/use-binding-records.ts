@@ -1,5 +1,5 @@
-import { useResource, type Resource } from "@/hooks/use-resource";
-import { readBindings, type BindingReads } from "./settled-read";
+import { type Resource, useResource } from "@/hooks/use-resource";
+import { type BindingReads, readBindings } from "./settled-read";
 
 export function useBindingRecords(
   projectId: string,

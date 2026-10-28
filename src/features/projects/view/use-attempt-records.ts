@@ -15,8 +15,8 @@ import type {
   MissionRevision,
   SchedulerExecutionRecord,
 } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
-import { readBindings, settle, type BindingReads, type SettledRead } from "./settled-read";
+import { type Resource, useResource } from "@/hooks/use-resource";
+import { type BindingReads, readBindings, settle, type SettledRead } from "./settled-read";
 
 export interface AttemptRecords {
   readonly revision: SettledRead<MissionRevision>;

@@ -6,10 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import type {
+  Intent,
   MissionNodeRecord,
   MissionProposal,
   MissionProposalApproveResult,
-  Intent,
 } from "@/api/types";
 import { buildGraph } from "@/lib/mission-graph";
 import { useNodeProposals } from "../use-node-proposals";

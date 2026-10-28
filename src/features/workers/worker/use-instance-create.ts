@@ -4,8 +4,8 @@ import { isApiError } from "@/api/errors";
 import { createWorkerInstance } from "@/api/resources/worker-instances";
 import type { WorkerInstanceWriteAnswer } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import { instanceNameError, type ContainerRuntime, type HostKind } from "@/lib/instance-host";
-import { useHostAddress, type HostAddressState } from "../use-host-address";
+import { type ContainerRuntime, type HostKind, instanceNameError } from "@/lib/instance-host";
+import { type HostAddressState, useHostAddress } from "../use-host-address";
 
 const NAME_CONFLICT = "worker.instance.name_conflict";
 const NAME_INVALID = "worker.instance.name_invalid";

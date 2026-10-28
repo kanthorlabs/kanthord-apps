@@ -1,5 +1,5 @@
 import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
-import { useCallback, type ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import type { ApiError } from "@/api/errors";
@@ -30,7 +30,7 @@ import { useInstanceDetach } from "../instance/use-instance-detach";
 import { AddInstanceSheet } from "./components/add-instance-sheet";
 import { InstanceRowActions } from "./components/instance-row-actions";
 import { useInstanceCreate } from "./use-instance-create";
-import { useInstancesDisclosure, type InstancesDisclosure } from "./use-instances-disclosure";
+import { type InstancesDisclosure, useInstancesDisclosure } from "./use-instances-disclosure";
 import { useWorkerPage } from "./use-worker-page";
 
 function Section({

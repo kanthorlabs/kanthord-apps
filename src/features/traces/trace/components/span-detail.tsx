@@ -10,12 +10,12 @@ import type { NamedValue } from "@/lib/span-detail";
 import type { SpanBlock } from "@/lib/span-blocks";
 
 import {
-  useSpanDetail,
   type Loadable,
   type ModelReply,
   type SpanDetailState,
   type SpanText,
   type ToolResult,
+  useSpanDetail,
 } from "../use-span-detail";
 import { useTraceSelection } from "../use-trace-selection";
 import { IdentityValue } from "./identity-value";

@@ -1,4 +1,4 @@
-import { ApiError, API_ERROR_CODES, type ApiErrorCode } from "./errors";
+import { API_ERROR_CODES, ApiError, type ApiErrorCode } from "./errors";
 
 export interface Connection {
   readonly baseUrl: string;

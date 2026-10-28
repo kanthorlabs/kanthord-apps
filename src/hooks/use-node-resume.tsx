@@ -1,4 +1,4 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { resumeNode } from "@/api/resources/mission";
@@ -9,15 +9,15 @@ import type { PauseCause } from "@/lib/execution-stop";
 import {
   choosesTarget,
   defaultTargetOf,
-  resumeEndOf,
-  resumeNotesOf,
-  waitingNeedsOf,
   type DependencyRef,
   type ResumeContext,
   type ResumeEnd,
+  resumeEndOf,
   type ResumeNote,
+  resumeNotesOf,
   type ResumeTarget,
   type WaitingNeed,
+  waitingNeedsOf,
 } from "@/lib/resume-target";
 
 export interface NodeResumeState {

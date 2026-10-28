@@ -3,9 +3,9 @@ import { useSearchParams } from "react-router-dom";
 
 import type { BindingSetEntry } from "@/api/types";
 import { classifyChange, isGuarded, unavailableOf } from "@/lib/binding-change";
-import { useBindingChangeGuard, type BindingChangeGuardState } from "./use-binding-change-guard";
+import { type BindingChangeGuardState, useBindingChangeGuard } from "./use-binding-change-guard";
 import type { BindingTarget } from "./use-binding-draft";
-import { useBindingSet, type BindingSetState } from "./use-binding-set";
+import { type BindingSetState, useBindingSet } from "./use-binding-set";
 
 export interface BindingEditorState {
   readonly bindings: BindingSetState;

@@ -12,7 +12,7 @@ import { NextSection } from "./components/next-section";
 import { NowSection } from "./components/now-section";
 import { PausedProjectAlert } from "./components/paused-project-alert";
 import { useSchedulerBoard } from "./use-scheduler-board";
-import { useSchedulerView, type SchedulerView } from "./use-scheduler-view";
+import { type SchedulerView, useSchedulerView } from "./use-scheduler-view";
 
 function SectionSkeletons() {
   return (

@@ -14,8 +14,8 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerRegistrationRecord,
   WorkerPlacement,
+  WorkerRegistrationRecord,
 } from "@/api/types";
 
 import type { AttentionContext, ProjectSnapshot, WorkerBindingView } from "./attention";

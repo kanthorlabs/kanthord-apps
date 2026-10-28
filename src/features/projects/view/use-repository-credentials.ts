@@ -1,6 +1,6 @@
 import { listCredentialPage } from "@/api/resources/credentials";
 import type { Credential } from "@/api/types";
-import { useResource, type Resource } from "@/hooks/use-resource";
+import { type Resource, useResource } from "@/hooks/use-resource";
 
 async function listRepositoryCredentials(): Promise<readonly Credential[]> {
   const credentials: Credential[] = [];

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AgentSummary, BindingSet, Credential, Project } from "@/api/types";
 
-import { hasOpenStep, onboardingStepsOf, type OnboardingFacts } from "./onboarding";
+import { hasOpenStep, type OnboardingFacts, onboardingStepsOf } from "./onboarding";
 
 const PROJECT: Project = {
   id: "prj-1",

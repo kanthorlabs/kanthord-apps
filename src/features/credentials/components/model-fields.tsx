@@ -7,9 +7,9 @@ import { Item, ItemActions, ItemContent } from "@/components/ui/item";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { REASONING_EFFORTS } from "@/lib/binding-draft";
 import {
+  type DraftErrors,
   MODEL_DEFAULT_CONTEXT_WINDOW,
   MODEL_DEFAULT_MAX_TOKENS,
-  type DraftErrors,
   type ModelDraft,
 } from "@/lib/credential-draft";
 import { CredentialField } from "./credential-field";

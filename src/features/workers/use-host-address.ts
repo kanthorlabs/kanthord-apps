@@ -6,12 +6,12 @@ import { listWorkerPlacements } from "@/api/resources/workers";
 import { useResource } from "@/hooks/use-resource";
 import {
   addressDefaultOf,
+  type ContainerRuntime,
   containerRuntimeOf,
   DEFAULT_CONTAINER_RUNTIME,
+  type HostKind,
   hostKindOf,
   instanceAddressError,
-  type ContainerRuntime,
-  type HostKind,
 } from "@/lib/instance-host";
 
 export interface HostAddressState {

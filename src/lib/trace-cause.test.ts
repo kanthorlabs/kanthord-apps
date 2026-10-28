@@ -5,9 +5,9 @@ import type { EffectiveCause, SpanAttributeValue, TraceListItem, TraceSpan } fro
 import {
   CAUSE_CATEGORY_LABELS,
   CAUSE_LABEL_SUFFIX,
+  causeChipText,
   causeLabelReasonTextIdOf,
   causeLabelSpanIdOf,
-  causeChipText,
   causeLine,
   isRepeat,
   rowCauseLineOf,

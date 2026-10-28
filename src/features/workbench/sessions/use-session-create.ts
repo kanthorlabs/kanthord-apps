@@ -3,14 +3,14 @@ import { useCallback, useState } from "react";
 import { createWorkbenchSession } from "@/api/resources/workbench";
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import {
-  useConfigurationDraft,
   type ConfigurationDraftState,
+  useConfigurationDraft,
 } from "@/hooks/use-configuration-draft";
 import { asApiError } from "@/hooks/use-resource";
 import {
+  type ConfigurationErrors,
   configurationOf,
   effortAfterModelChange,
-  type ConfigurationErrors,
 } from "@/lib/workbench-configuration";
 
 export interface SessionCreateState extends ConfigurationDraftState {

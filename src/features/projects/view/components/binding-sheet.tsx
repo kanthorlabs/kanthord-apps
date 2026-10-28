@@ -23,7 +23,7 @@ import { isArchived } from "@/lib/credential-revisions";
 import { SSH_PLATFORM, sshKeyNamed } from "@/lib/ssh-key";
 import { useBindingCredential } from "../use-binding-credential";
 import { useBindingCheck } from "../use-binding-check";
-import { useBindingDraft, type BindingTarget } from "../use-binding-draft";
+import { type BindingTarget, useBindingDraft } from "../use-binding-draft";
 import { useHostKeyPin } from "../use-host-key-pin";
 import { useInstanceSharing } from "../use-instance-sharing";
 import { usePlacementChoices } from "../use-placement-choices";

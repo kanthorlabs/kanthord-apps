@@ -4,23 +4,23 @@ import { toast } from "sonner";
 import { createCredential } from "@/api/resources/credentials";
 import { listWorkerInstances } from "@/api/resources/worker-instances";
 import type { CredentialPlatformEntry } from "@/api/types";
-import { asApiError, useResource, type Resource } from "@/hooks/use-resource";
+import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { platformEntryOf } from "@/lib/credential-platforms";
 import {
+  type DraftErrors,
   EMPTY_METADATA,
   EMPTY_MODEL,
   EMPTY_SECRET,
-  missingForCredentialCreate,
-  type DraftErrors,
   type MetadataDraft,
+  missingForCredentialCreate,
   type ModelDraft,
   type SecretDraft,
 } from "@/lib/credential-draft";
 import { holderGroupsOf, instanceCopyBodyOf } from "@/lib/instance-credential-draft";
 import { credentialMessage } from "@/features/credentials/credential-message";
 import {
-  useCredentialLogin,
   type CredentialLoginState,
+  useCredentialLogin,
 } from "@/features/credentials/form/use-credential-login";
 import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
 

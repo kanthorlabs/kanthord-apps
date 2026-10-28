@@ -1,11 +1,11 @@
-import { useCallback, useState, type ReactNode } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 
 import type { ApiError } from "@/api/errors";
 import { exportMissionJson, readMission } from "@/api/resources/mission";
 import type { BindingSetEntry, MissionPlanEntry } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
-import { isAvailable, nodesNaming, type BindingChangeKind } from "@/lib/binding-change";
+import { type BindingChangeKind, isAvailable, nodesNaming } from "@/lib/binding-change";
 
 export interface BindingChange {
   readonly name: string;
