@@ -22,25 +22,17 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
-      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
       ],
       "no-console": ["error", { allow: ["warn", "error"] }],
-      "jsx-a11y/click-events-have-key-events": "warn",
-      "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/heading-has-content": "warn",
-      "jsx-a11y/anchor-has-content": "warn",
-      "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/purity": "warn",
     },
   },
   {
-    files: ["src/components/ui/**/*.tsx", "src/hooks/use-mobile.ts"],
+    files: ["src/hooks/use-mobile.ts"],
     rules: {
-      "react-hooks/purity": "off",
       "react-hooks/set-state-in-effect": "off",
     },
   },
