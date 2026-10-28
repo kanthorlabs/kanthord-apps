@@ -1350,6 +1350,7 @@ const SUBCATEGORY_SETS = {
   prompt: ["context_missing", "instruction_conflict", "rule_absent"],
   plan: [
     "criterion_unstated",
+    "requirement_conflict",
     "dependency",
     "verification_context",
     "verification_insufficient",
@@ -1526,6 +1527,7 @@ export const TRANSITION_RULES = [
   "failure_limit",
   "further_work_limit",
   "rework_limit",
+  "plan_defect",
 ] as const;
 
 export type TransitionRule = (typeof TRANSITION_RULES)[number];

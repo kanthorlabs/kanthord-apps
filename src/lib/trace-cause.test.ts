@@ -10,6 +10,7 @@ import {
   causeLabelSpanIdOf,
   causeLine,
   isRepeat,
+  reviewOutcomeText,
   rowCauseLineOf,
   spanCauseOf,
   subcategoryText,
@@ -64,6 +65,21 @@ describe("cause labels", () => {
   it("builds the label span id and the reason text id", () => {
     expect(causeLabelSpanIdOf(ROOT)).toBe("root_1.cause_label");
     expect(causeLabelReasonTextIdOf(ROOT)).toBe("root_1.cause_label:reason");
+  });
+});
+
+describe("reviewOutcomeText", () => {
+  it("names a block for a plan cause and a rework for any other cause", () => {
+    expect(
+      reviewOutcomeText({
+        category: "plan",
+        subcategory: "requirement_conflict",
+        assigner: "reviewer",
+      }),
+    ).toBe("Blocked by review");
+    expect(
+      reviewOutcomeText({ category: "model", subcategory: "work_defect", assigner: "reviewer" }),
+    ).toBe("Reworked by review");
   });
 });
 
@@ -147,6 +163,20 @@ describe("spanCauseOf", () => {
       category: "unattributed",
       assigner: "rule",
       suspects: [],
+    });
+  });
+
+  it("reads a requirement conflict cause of the plan", () => {
+    const root = rootWith({
+      "kanthord.cause.category": "plan",
+      "kanthord.cause.assigner": "rule",
+      "kanthord.cause.subcategory": "requirement_conflict",
+    });
+
+    expect(spanCauseOf([root], ROOT)?.cause).toEqual({
+      category: "plan",
+      assigner: "rule",
+      subcategory: "requirement_conflict",
     });
   });
 

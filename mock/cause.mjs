@@ -2,6 +2,7 @@ export const CAUSE_SUBCATEGORIES = {
   prompt: ["context_missing", "instruction_conflict", "rule_absent"],
   plan: [
     "criterion_unstated",
+    "requirement_conflict",
     "dependency",
     "verification_context",
     "verification_insufficient",

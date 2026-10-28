@@ -242,6 +242,24 @@ describe("DiagnosisBlock", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("No such text.");
   });
 
+  it("shows a block by review for a plan cause of the evaluation", () => {
+    renderBlock(
+      [span("root", "scheduler.execution", { parent_span_id: null })],
+      nodeTraces([
+        execution({ traceId: "trace-1", current: true }),
+        execution({
+          traceId: "trace-2",
+          kind: "evaluation",
+          cause: { category: "plan", subcategory: "requirement_conflict", assigner: "reviewer" },
+          path: "/traces/trace-2?tab=summary",
+        }),
+      ]),
+    );
+
+    expect(screen.getByText("Blocked by review")).toBeInTheDocument();
+    expect(screen.queryByText("Reworked by review")).not.toBeInTheDocument();
+  });
+
   it("shows the rework cause and the link to the evaluation trace", () => {
     renderBlock(
       [span("root", "scheduler.execution", { parent_span_id: null })],

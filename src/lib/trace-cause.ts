@@ -47,6 +47,10 @@ export function causeLine(cause: EffectiveCause): string {
   return `${label} - suspects ${suspects.map((suspect) => CAUSE_CATEGORY_LABELS[suspect]).join(", ")}`;
 }
 
+export function reviewOutcomeText(cause: EffectiveCause): string {
+  return cause.category === "plan" ? "Blocked by review" : "Reworked by review";
+}
+
 export function rowCauseLineOf(item: TraceListItem, now: number): string | null {
   if (item.state === "open") {
     if (item.started_at === null) return "Open";

@@ -64,6 +64,7 @@ const RULE_DETAILS: Readonly<Record<Exclude<TransitionRule, "none">, string>> = 
   failure_limit: "Paused at the failure limit",
   further_work_limit: "Paused at the further work limit",
   rework_limit: "Blocked at the rework limit",
+  plan_defect: "Blocked by a plan defect",
 };
 
 const REVOCATION_DETAILS: Readonly<Record<RevokeCause, string>> = {
