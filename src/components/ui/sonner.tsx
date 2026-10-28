@@ -3,9 +3,9 @@ import { Toaster as Sonner, type ToasterProps } from "sonner";
 import {
   CircleCheckIcon,
   InfoIcon,
-  Loader2Icon,
-  OctagonXIcon,
   TriangleAlertIcon,
+  OctagonXIcon,
+  Loader2Icon,
 } from "lucide-react";
 
 const Toaster = ({ ...props }: ToasterProps) => {
