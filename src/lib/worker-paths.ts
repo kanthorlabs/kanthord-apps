@@ -1,7 +1,21 @@
-export function workerPagePath(workerName: string): string {
-  return `/workers/${encodeURIComponent(workerName)}`;
+function projectQuery(projectId: string | undefined): string {
+  return projectId === undefined || projectId === ""
+    ? ""
+    : `?project=${encodeURIComponent(projectId)}`;
 }
 
-export function instancePagePath(workerName: string, instanceName: string): string {
-  return `${workerPagePath(workerName)}/instances/${encodeURIComponent(instanceName)}`;
+export function workersPath(projectId?: string): string {
+  return `/workers${projectQuery(projectId)}`;
+}
+
+export function workerPagePath(workerName: string, projectId?: string): string {
+  return `/workers/${encodeURIComponent(workerName)}${projectQuery(projectId)}`;
+}
+
+export function instancePagePath(
+  workerName: string,
+  instanceName: string,
+  projectId?: string,
+): string {
+  return `/workers/${encodeURIComponent(workerName)}/instances/${encodeURIComponent(instanceName)}${projectQuery(projectId)}`;
 }

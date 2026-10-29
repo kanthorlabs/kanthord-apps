@@ -12,9 +12,11 @@ import type { WorkerBindingRecord, WorkerCatalogItem, WorkerRegistrationRecord }
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/workers");
-vi.mock("@/features/projects/project-context", () => ({
-  useProjectId: () => "prj-test",
-}));
+vi.mock("@/features/projects/project-context", () => {
+  const projects = [{ id: "prj-test" }, { id: "prj-b" }];
+  const value = { projects, project: projects[0] };
+  return { useProject: () => value };
+});
 
 import { WorkersScreen } from "./workers-screen";
 import { textContent } from "../../../../test/text-content";
@@ -82,9 +84,9 @@ function workerBinding(
   };
 }
 
-function renderScreen() {
+function renderScreen(entry = "/workers") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <WorkersScreen />
     </MemoryRouter>,
   );
@@ -123,14 +125,41 @@ describe("WorkersScreen", () => {
 
     expect(await screen.findByRole("button", { name: "Open reviewer@1" })).toHaveAttribute(
       "href",
-      "/workers/reviewer%401",
+      "/workers/reviewer%401?project=prj-test",
     );
     expect(screen.getByRole("button", { name: "Open tdd" })).toHaveAttribute(
       "href",
-      "/workers/tdd",
+      "/workers/tdd?project=prj-test",
     );
     expect(screen.getByText("2 live registrations in this project")).toBeDefined();
     expect(screen.getByText("1 live registration in this project")).toBeDefined();
+  });
+
+  it("reads the project of the query", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
+    renderScreen("/workers?project=prj-b");
+
+    expect(await screen.findByRole("button", { name: "Open tdd" })).toHaveAttribute(
+      "href",
+      "/workers/tdd?project=prj-b",
+    );
+    expect(projectsApi.listWorkerBindings).toHaveBeenCalledWith("prj-b");
+    expect(workersApi.listWorkerRegistrations).toHaveBeenCalledWith("prj-b");
+  });
+
+  it("keeps the project of the query on the link of a missing instance", async () => {
+    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
+    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
+      workerBinding("reviewer-main", { worker_instances: ["review-01"] }),
+    ]);
+    renderScreen("/workers?project=prj-b");
+
+    expect(await screen.findByRole("link", { name: "Open the worker page" })).toHaveAttribute(
+      "href",
+      "/workers/tdd?project=prj-b",
+    );
   });
 
   it("shows the activity, the drain mark and the execution of a live registration", async () => {
@@ -235,7 +264,7 @@ describe("WorkersScreen", () => {
     ).toBeDefined();
     expect(screen.getByRole("link", { name: "Open the worker page" })).toHaveAttribute(
       "href",
-      "/workers/tdd",
+      "/workers/tdd?project=prj-test",
     );
     expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
   });

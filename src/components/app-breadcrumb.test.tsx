@@ -38,6 +38,30 @@ describe("AppBreadcrumb", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Edit" })).toBeTruthy();
   });
 
+  it("keeps the project of the query on every crumb link", () => {
+    mount("/workers/coder%401/instances/mac-studio?project=prj-b");
+
+    const trail = screen.getByRole("navigation", { name: "breadcrumb" });
+    expect(within(trail).getByRole("link", { name: "Workers" })).toHaveAttribute(
+      "href",
+      "/workers?project=prj-b",
+    );
+    expect(within(trail).getByRole("link", { name: "coder@1" })).toHaveAttribute(
+      "href",
+      "/workers/coder%401?project=prj-b",
+    );
+  });
+
+  it("adds no query to a crumb link when the URL holds no project", () => {
+    mount("/workers/coder%401/instances/mac-studio");
+
+    const trail = screen.getByRole("navigation", { name: "breadcrumb" });
+    expect(within(trail).getByRole("link", { name: "coder@1" })).toHaveAttribute(
+      "href",
+      "/workers/coder%401",
+    );
+  });
+
   it("falls back to the path segment before a screen names it", () => {
     mount("/projects/project_1");
 

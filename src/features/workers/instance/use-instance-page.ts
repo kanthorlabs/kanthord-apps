@@ -18,6 +18,7 @@ import { type Resource, useResource } from "@/hooks/use-resource";
 import { OPENAI_COMPATIBLE } from "@/lib/credential-draft";
 import { type HealthBadgeVariant, healthLabel, healthVariant } from "@/lib/credential-health";
 import { instanceCopyHint } from "@/lib/failure-reason";
+import { useWorkersProjectId } from "../use-workers-project-id";
 
 const INSTANCE_INTERVAL_MS = 15_000;
 
@@ -57,6 +58,7 @@ export interface InstanceContext {
 }
 
 export interface InstancePage {
+  readonly projectId: string;
   readonly instance: Resource<WorkerInstanceDetail>;
   readonly bindingRows: readonly InstanceBindingRow[];
   readonly registrationRows: readonly InstanceRegistrationRow[];
@@ -168,6 +170,7 @@ export function credentialRowsOf(
 }
 
 export function useInstancePage(instanceName: string): InstancePage {
+  const projectId = useWorkersProjectId();
   const polled = usePolledResource(() => readWorkerInstance(instanceName), [instanceName], {
     intervalMs: INSTANCE_INTERVAL_MS,
   });
@@ -191,6 +194,7 @@ export function useInstancePage(instanceName: string): InstancePage {
     reloadPlatforms();
   }, [reloadContext, reloadPlatforms]);
   return {
+    projectId,
     instance,
     bindingRows: detail === null ? [] : bindingRowsOf(detail, known),
     registrationRows: registrationRowsOf(detail?.registrations ?? [], executions),

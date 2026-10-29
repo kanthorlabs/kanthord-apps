@@ -17,6 +17,7 @@ import { workerPagePath } from "@/lib/worker-paths";
 import { ADD_PLACEMENTS, type AddPlacement, type InstanceAddState } from "../use-instance-add";
 
 interface InstanceAddSheetProps {
+  readonly projectId: string;
   readonly worker: string;
   readonly add: InstanceAddState;
 }
@@ -25,7 +26,7 @@ function isAddPlacement(value: string | null): value is AddPlacement {
   return ADD_PLACEMENTS.some((placement) => placement === value);
 }
 
-export function InstanceAddSheet({ worker, add }: InstanceAddSheetProps) {
+export function InstanceAddSheet({ projectId, worker, add }: InstanceAddSheetProps) {
   return (
     <Sheet open={add.open} onOpenChange={(next) => !next && add.close()}>
       <SheetContent className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
@@ -72,7 +73,9 @@ export function InstanceAddSheet({ worker, add }: InstanceAddSheetProps) {
             </FieldGroup>
             {add.needsWorkerPage && (
               <p className="text-sm">
-                <Link to={workerPagePath(worker)}>Add a worker instance on the worker page</Link>
+                <Link to={workerPagePath(worker, projectId)}>
+                  Add a worker instance on the worker page
+                </Link>
               </p>
             )}
           </div>

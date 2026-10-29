@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -36,6 +36,11 @@ vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/scheduler");
 vi.mock("@/api/resources/mission");
+vi.mock("@/features/projects/project-context", () => {
+  const projects = [{ id: "prj-a" }, { id: "prj-b" }];
+  const value = { projects, project: projects[0] };
+  return { useProject: () => value };
+});
 
 import { InstanceScreen } from "./instance-screen";
 import { textContent } from "../../../../test/text-content";
@@ -207,12 +212,16 @@ function rowOf(credentials: HTMLElement, name: string): HTMLElement {
   return row!;
 }
 
-function mount() {
+function WorkerPageProbe() {
+  return <p>{`Worker page ${useLocation().search}`}</p>;
+}
+
+function mount(entry = "/workers/coder%401/instances/mac-studio") {
   return render(
-    <MemoryRouter initialEntries={["/workers/coder%401/instances/mac-studio"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/workers/:workerName/instances/:instanceName" element={<InstanceScreen />} />
-        <Route path="/workers/:workerName" element={<p>Worker page</p>} />
+        <Route path="/workers/:workerName" element={<WorkerPageProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -246,6 +255,25 @@ describe("InstanceScreen", () => {
     expect(within(bindings).getAllByRole("link", { name: "Open binding" })[0]).toHaveAttribute(
       "href",
       "/projects/prj-a?tab=bindings",
+    );
+  });
+
+  it("keeps the project of the query on the link to the worker page", async () => {
+    mount("/workers/coder%401/instances/mac-studio?project=prj-b");
+    expect(await screen.findByRole("link", { name: "coder@1" })).toHaveAttribute(
+      "href",
+      "/workers/coder%401?project=prj-b",
+    );
+  });
+
+  it("keeps the project of the query on the link of a failed read", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount("/workers/coder%401/instances/mac-studio?project=prj-b");
+    expect(await screen.findByRole("link", { name: "Open coder@1" })).toHaveAttribute(
+      "href",
+      "/workers/coder%401?project=prj-b",
     );
   });
 
@@ -537,7 +565,17 @@ describe("InstanceScreen", () => {
     await waitFor(() =>
       expect(instancesApi.archiveWorkerInstance).toHaveBeenCalledWith("mac-studio", 1),
     );
-    expect(await screen.findByText("Worker page")).toBeInTheDocument();
+    expect(await screen.findByText("Worker page ?project=prj-a")).toBeInTheDocument();
+  });
+
+  it("keeps the project of the query on the navigation after an archive", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(FREE);
+    vi.mocked(instancesApi.archiveWorkerInstance).mockResolvedValue({ ...FREE, ended_at: 9 });
+    mount("/workers/coder%401/instances/mac-studio?project=prj-b");
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Archive mac-studio" }));
+    expect(await screen.findByText("Worker page ?project=prj-b")).toBeInTheDocument();
   });
 
   it("shows the bindings of an in_use refusal", async () => {

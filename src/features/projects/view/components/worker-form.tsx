@@ -87,6 +87,7 @@ function WorkerAgentList({ draft, errors, agents, onEdit, onEnableAgent }: Worke
 }
 
 interface WorkerFormProps {
+  readonly projectId: string;
   readonly draft: WorkerDraft;
   readonly errors: DraftErrors;
   readonly creating: boolean;
@@ -99,6 +100,7 @@ interface WorkerFormProps {
 }
 
 export function WorkerForm({
+  projectId,
   draft,
   errors,
   creating,
@@ -148,6 +150,7 @@ export function WorkerForm({
       )}
       {draft.instanceCount === null ? (
         <InstancesField
+          projectId={projectId}
           draft={draft}
           saved={instances.saved}
           error={errors["instances"]}

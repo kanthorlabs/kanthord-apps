@@ -21,7 +21,7 @@ function Harness() {
       <button type="button" onClick={add.start}>
         Open
       </button>
-      <InstanceAddSheet worker="coder@1" add={add} />
+      <InstanceAddSheet projectId="prj-b" worker="coder@1" add={add} />
     </>
   );
 }
@@ -96,7 +96,7 @@ describe("InstanceAddSheet", () => {
 
     expect(
       screen.getByRole("link", { name: "Add a worker instance on the worker page" }),
-    ).toHaveAttribute("href", "/workers/coder%401");
+    ).toHaveAttribute("href", "/workers/coder%401?project=prj-b");
     expect(screen.queryByRole("button", { name: "Add instance" })).toBeNull();
     expect(createWorkerInstance).not.toHaveBeenCalled();
   });

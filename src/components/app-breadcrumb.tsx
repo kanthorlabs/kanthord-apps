@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Link, useLocation } from "react-router-dom";
 
-import { breadcrumbTrail } from "@/lib/breadcrumb-trail";
+import { breadcrumbTrail, crumbHref } from "@/lib/breadcrumb-trail";
 import { ROUTE_LABELS } from "./app-nav";
 import { useCrumbLabels } from "./crumb-labels";
 import {
@@ -14,7 +14,7 @@ import {
 } from "./ui/breadcrumb";
 
 export function AppBreadcrumb() {
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const labels = useCrumbLabels();
   const trail = breadcrumbTrail(pathname, (path) => labels.get(path) ?? ROUTE_LABELS.get(path));
   const current = trail.at(-1);
@@ -31,7 +31,10 @@ export function AppBreadcrumb() {
                 {crumb === current ? (
                   <BreadcrumbPage className="break-words">{crumb.label}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink className="break-words" render={<Link to={crumb.path} />}>
+                  <BreadcrumbLink
+                    className="break-words"
+                    render={<Link to={crumbHref(crumb.path, search)} />}
+                  >
                     {crumb.label}
                   </BreadcrumbLink>
                 )}

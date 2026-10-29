@@ -7,10 +7,10 @@ import type {
   WorkerInstanceListItem,
   WorkerRegistrationRecord,
 } from "@/api/types";
-import { useProjectId } from "@/features/projects/project-context";
 import { type InstanceExecution, useInstanceExecutions } from "@/hooks/use-instance-executions";
 import { usePolledResource } from "@/hooks/use-polled-resource";
 import { type Resource, useResource } from "@/hooks/use-resource";
+import { useWorkersProjectId } from "../use-workers-project-id";
 
 const INSTANCES_INTERVAL_MS = 15_000;
 
@@ -27,7 +27,7 @@ export interface WorkerPage {
 }
 
 export function useWorkerPage(workerName: string): WorkerPage {
-  const projectId = useProjectId();
+  const projectId = useWorkersProjectId();
   const entry = useResource(() => readWorkerCatalogEntry(workerName), [workerName]);
   const polled = usePolledResource(() => listWorkerInstances(workerName), [workerName], {
     intervalMs: INSTANCES_INTERVAL_MS,

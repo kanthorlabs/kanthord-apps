@@ -47,6 +47,7 @@ function renderField(
   return render(
     <MemoryRouter>
       <InstancesField
+        projectId="prj-b"
         draft={draftOf(options.instances ?? [])}
         saved={options.saved ?? []}
         error={options.error}
@@ -88,6 +89,24 @@ describe("InstancesField", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add instance" }));
 
     expect(onAdd).toHaveBeenCalledOnce();
+  });
+
+  it("links the worker page with the project of the binding", () => {
+    renderField();
+
+    expect(screen.getByRole("link", { name: "worker page" })).toHaveAttribute(
+      "href",
+      "/workers/coder%401?project=prj-b",
+    );
+  });
+
+  it("links the worker page with the project when the worker holds no live instance", () => {
+    renderField({ live: [] });
+
+    expect(screen.getByRole("link", { name: "worker page" })).toHaveAttribute(
+      "href",
+      "/workers/coder%401?project=prj-b",
+    );
   });
 
   it("offers Add instance when the worker holds no live instance", async () => {

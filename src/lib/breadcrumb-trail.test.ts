@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { breadcrumbTrail } from "./breadcrumb-trail";
+import { breadcrumbTrail, crumbHref } from "./breadcrumb-trail";
 
 const LABELS: Readonly<Record<string, string>> = {
   "/": "Overview",
@@ -47,5 +47,19 @@ describe("breadcrumbTrail", () => {
 
   it("keeps a segment that does not decode", () => {
     expect(breadcrumbTrail("/agents/%E0", labelOf).at(-1)?.label).toBe("%E0");
+  });
+});
+
+describe("crumbHref", () => {
+  it("keeps the project of the search", () => {
+    expect(crumbHref("/workers/coder%401", "?project=prj%20b&tab=x")).toBe(
+      "/workers/coder%401?project=prj%20b",
+    );
+  });
+
+  it("adds no query without a project", () => {
+    expect(crumbHref("/workers", "")).toBe("/workers");
+    expect(crumbHref("/workers", "?tab=x")).toBe("/workers");
+    expect(crumbHref("/workers", "?project=")).toBe("/workers");
   });
 });

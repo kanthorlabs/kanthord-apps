@@ -31,3 +31,10 @@ export function breadcrumbTrail(
     return { path, label: labelOf(path) ?? segmentLabel(segment) };
   });
 }
+
+export function crumbHref(path: string, search: string): string {
+  const project = new URLSearchParams(search).get("project");
+  return project === null || project === ""
+    ? path
+    : `${path}?project=${encodeURIComponent(project)}`;
+}

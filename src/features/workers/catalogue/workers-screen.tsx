@@ -38,7 +38,15 @@ function BadgeList({ label, values }: { label: string; values: readonly string[]
   );
 }
 
-function CatalogItem({ item, live }: { item: WorkerCatalogItem; live: number | null }) {
+function CatalogItem({
+  item,
+  live,
+  projectId,
+}: {
+  item: WorkerCatalogItem;
+  live: number | null;
+  projectId: string;
+}) {
   return (
     <Item variant="outline" role="listitem">
       <ItemHeader>
@@ -52,7 +60,7 @@ function CatalogItem({ item, live }: { item: WorkerCatalogItem; live: number | n
             size="sm"
             nativeButton={false}
             aria-label={`Open ${item.name}`}
-            render={<Link to={workerPagePath(item.name)} />}
+            render={<Link to={workerPagePath(item.name, projectId)} />}
           >
             Open
           </Button>
@@ -145,7 +153,7 @@ function EmptyList({ title }: { title: string }) {
 }
 
 export function WorkersScreen() {
-  const { catalog, registrations, bindings, bindingEntries, liveCounts } = useWorkers();
+  const { projectId, catalog, registrations, bindings, bindingEntries, liveCounts } = useWorkers();
   const liveKnown = registrations.data !== null;
   const catalogItems = catalog.data ?? [];
   const registrationItems = registrations.data ?? [];
@@ -167,6 +175,7 @@ export function WorkersScreen() {
               <CatalogItem
                 key={item.name}
                 item={item}
+                projectId={projectId}
                 live={liveKnown ? (liveCounts[item.name] ?? 0) : null}
               />
             ))}
@@ -195,6 +204,7 @@ export function WorkersScreen() {
               <BindingInstanceItem
                 key={entry.binding.id}
                 entry={entry}
+                projectId={projectId}
                 onChanged={() => {
                   bindings.reload();
                   registrations.reload();

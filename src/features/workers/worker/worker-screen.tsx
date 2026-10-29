@@ -21,7 +21,7 @@ import type { InstanceExecution } from "@/hooks/use-instance-executions";
 import { durationText } from "@/lib/format";
 import { effectiveInstanceCount } from "@/lib/instance-count";
 import { shortFingerprint } from "@/lib/instance-host";
-import { instancePagePath, workerPagePath } from "@/lib/worker-paths";
+import { instancePagePath, workerPagePath, workersPath } from "@/lib/worker-paths";
 import { BindingRemoveAction } from "@/features/projects/view/components/binding-remove-action";
 import { DetachInstanceDialog } from "../instance/components/detach-instance-dialog";
 import { useInstanceDetach } from "../instance/use-instance-detach";
@@ -305,7 +305,7 @@ export function WorkerScreen() {
           <Button variant="outline" size="sm" onClick={page.entry.reload}>
             Retry
           </Button>
-          <Button variant="outline" size="sm" render={<Link to="/workers" />}>
+          <Button variant="outline" size="sm" render={<Link to={workersPath(page.projectId)} />}>
             Open workers
           </Button>
         </div>
@@ -350,7 +350,9 @@ export function WorkerScreen() {
                   instance={instance}
                   execution={page.executionOf(instance.name)}
                   unlisted={page.runsUnlisted(instance)}
-                  onOpen={() => void navigate(instancePagePath(workerName, instance.name))}
+                  onOpen={() =>
+                    void navigate(instancePagePath(workerName, instance.name, page.projectId))
+                  }
                   actions={
                     <InstanceRowActions
                       instance={instance}
