@@ -106,7 +106,7 @@ const OPEN_DOMAIN: MissionProposal = {
 const REJECTED: MissionProposal = {
   ...OPEN,
   id: "proposal_rejected",
-  attempt: 1,
+  attempt: 2,
   content: { ...OPEN.content, name: "Fix the invite banner" },
   rejected_at: 1,
 };

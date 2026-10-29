@@ -26,6 +26,7 @@ export function NodeOverrideDialog({
           <AlertDialogTitle>Override {name}?</AlertDialogTitle>
           <AlertDialogDescription>{override.consequence}</AlertDialogDescription>
         </AlertDialogHeader>
+        {override.proposalNotice !== null && <p className="text-sm">{override.proposalNotice}</p>}
         <p className="text-sm text-muted-foreground">{override.saferPath}</p>
         <Field>
           <FieldLabel htmlFor="node-override-reason">Reason</FieldLabel>

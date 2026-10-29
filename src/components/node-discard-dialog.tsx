@@ -20,6 +20,7 @@ export function NodeDiscardDialog({ name, discard }: { name: string; discard: No
           <AlertDialogTitle>Discard {name}?</AlertDialogTitle>
           <AlertDialogDescription>{discard.consequence}</AlertDialogDescription>
         </AlertDialogHeader>
+        {discard.proposalNotice !== null && <p className="text-sm">{discard.proposalNotice}</p>}
         <p className="text-sm text-muted-foreground">{discard.saferPath}</p>
         <Field>
           <FieldLabel htmlFor="node-discard-reason">Reason</FieldLabel>

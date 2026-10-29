@@ -193,6 +193,27 @@ describe("useProposalDecision", () => {
     expect(result.current.reason).toBe("");
   });
 
+  it("drops a checked proposal that is no longer open", async () => {
+    let proposals: readonly MissionProposal[] = PROPOSALS;
+    const view = renderHook(() => useProposalDecision(PROPOSER, proposals, 7, vi.fn()));
+
+    act(() => view.result.current.request());
+    act(() => view.result.current.toggle("proposal_1"));
+    proposals = [{ ...FIRST, approved_at: 1 }, SECOND, THIRD];
+    view.rerender();
+
+    expect(view.result.current.checked).toEqual([]);
+    await act(async () => view.result.current.confirm());
+    expect(decideMock).not.toHaveBeenCalled();
+
+    act(() => view.result.current.toggle("proposal_2"));
+    await act(async () => view.result.current.confirm());
+    expect(decideMock).toHaveBeenCalledWith("assessment_1", {
+      expected_mission_version: 7,
+      approved_proposal_ids: ["proposal_2"],
+    });
+  });
+
   it("omits an empty reason", async () => {
     const { result } = mount();
 

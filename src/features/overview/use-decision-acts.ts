@@ -147,11 +147,11 @@ export function useDecisionActs(
   const unresolved = actions === null ? [] : unresolvedRequestsOf(actions);
   const unblock = useNodeUnblock(node, missionVersion, proposalsRead, reload);
   const decide = useProposalDecision(node, proposalsRead, missionVersion, reload);
-  const override = useNodeOverride(node, missionVersion, actions, reload);
+  const override = useNodeOverride(node, missionVersion, proposalsRead, actions, reload);
   const cause = item.kind === "paused" ? (item.pause?.cause ?? null) : null;
   const resume = useNodeResume(node, missionVersion, item.nodes, actions, cause, reload);
   const remove = useDependencyRemove(node, missionVersion, reload);
-  const discard = useNodeDiscard(node, missionVersion, actions, reload);
+  const discard = useNodeDiscard(node, missionVersion, proposalsRead, actions, reload);
   const itemId = item.id;
   const checkActed = useCallback(() => markActed(itemId), [markActed, itemId]);
   const check = useNodeCheck(node, missionVersion, actions, checkActed, reload);

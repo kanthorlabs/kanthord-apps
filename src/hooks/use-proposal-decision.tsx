@@ -59,17 +59,24 @@ export function useProposalDecision(
   reload: () => void,
 ): ProposalDecisionState {
   const [open, setOpen] = useState(false);
-  const [checked, setChecked] = useState<readonly string[]>([]);
+  const [selected, setSelected] = useState<readonly string[]>([]);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [deciding, setDeciding] = useState(false);
 
   const openProposals = useMemo(() => openProposalsOf(proposer, proposals), [proposer, proposals]);
+  const checked = useMemo(
+    () =>
+      openProposals
+        .filter((proposal) => selected.includes(proposal.id))
+        .map((proposal) => proposal.id),
+    [openProposals, selected],
+  );
   const unavailableReason = unavailableReasonOf(proposer, openProposals);
   const available = openProposals.length > 0 && unavailableReason === null;
 
   const toggle = useCallback((proposalId: string) => {
-    setChecked((current) =>
+    setSelected((current) =>
       current.includes(proposalId)
         ? current.filter((id) => id !== proposalId)
         : [...current, proposalId],
@@ -80,7 +87,7 @@ export function useProposalDecision(
     if (!available) return;
     setError(null);
     setReason("");
-    setChecked([]);
+    setSelected([]);
     setOpen(true);
   }, [available]);
 
@@ -96,17 +103,14 @@ export function useProposalDecision(
       setOpen(false);
       return;
     }
-    const approved = openProposals
-      .filter((proposal) => checked.includes(proposal.id))
-      .map((proposal) => proposal.id);
     const first = openProposals[0];
-    if (approved.length === 0 || first === undefined) return;
+    if (checked.length === 0 || first === undefined) return;
     const trimmed = reason.trim();
     setDeciding(true);
     setError(null);
     decideProposals(first.assessment_id, {
       expected_mission_version: missionVersion,
-      approved_proposal_ids: approved,
+      approved_proposal_ids: checked,
       ...(trimmed.length === 0 ? {} : { reason: trimmed }),
     }).then(
       ({ created, rejected_proposal_ids: rejected, proposer: unblocked }) => {
