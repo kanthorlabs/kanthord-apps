@@ -204,6 +204,11 @@ export function BindingSheet({
                     bindingId={bindingId}
                     bindingName={draft.name}
                     state={environment}
+                    action={
+                      target.entry?.kind === "repository"
+                        ? target.entry.config.strategy.action
+                        : undefined
+                    }
                     secrets={
                       target.entry?.kind === "repository"
                         ? (target.entry.config.environment_secrets ?? {})
