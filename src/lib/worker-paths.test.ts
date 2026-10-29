@@ -7,6 +7,23 @@ describe("worker paths", () => {
     expect(workerPagePath("coder@1")).toBe("/workers/coder%401");
   });
 
+  it("appends the encoded project to the worker page", () => {
+    expect(workerPagePath("coder@1", "prj a")).toBe("/workers/coder%401?project=prj%20a");
+  });
+
+  it("appends no project for an empty project", () => {
+    expect(workerPagePath("coder@1", "")).toBe("/workers/coder%401");
+    expect(instancePagePath("coder@1", "mac-studio", "")).toBe(
+      "/workers/coder%401/instances/mac-studio",
+    );
+  });
+
+  it("appends the encoded project to the instance page", () => {
+    expect(instancePagePath("coder@1", "mac-studio", "prj a")).toBe(
+      "/workers/coder%401/instances/mac-studio?project=prj%20a",
+    );
+  });
+
   it("nests the instance page under the worker page", () => {
     expect(instancePagePath("coder@1", "mac-studio")).toBe(
       "/workers/coder%401/instances/mac-studio",

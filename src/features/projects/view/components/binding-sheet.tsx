@@ -216,6 +216,7 @@ export function BindingSheet({
                 )}
                 {draft.kind === "worker" && (
                   <WorkerForm
+                    projectId={projectId}
                     draft={draft}
                     errors={errors}
                     creating={form.creating}
@@ -308,7 +309,7 @@ export function BindingSheet({
         </SheetContent>
       </Sheet>
       {draft.kind === "worker" && (
-        <InstanceAddSheet worker={draft.worker} add={workerInstances.add} />
+        <InstanceAddSheet projectId={projectId} worker={draft.worker} add={workerInstances.add} />
       )}
       {enablingAgent !== null && (
         <EnablementSheet

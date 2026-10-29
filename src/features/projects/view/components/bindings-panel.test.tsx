@@ -646,7 +646,7 @@ describe("BindingsPanel", () => {
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: "worker page" })).toHaveAttribute(
       "href",
-      "/workers/coder%401",
+      "/workers/coder%401?project=project_1",
     );
   });
 

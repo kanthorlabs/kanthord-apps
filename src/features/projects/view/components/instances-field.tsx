@@ -32,6 +32,7 @@ function SharingNotices({ sharing }: { readonly sharing: Resource<readonly Insta
 }
 
 interface InstancesFieldProps {
+  readonly projectId: string;
   readonly draft: WorkerDraft;
   readonly saved: readonly string[];
   readonly error: string | undefined;
@@ -42,6 +43,7 @@ interface InstancesFieldProps {
 }
 
 export function InstancesField({
+  projectId,
   draft,
   saved,
   error,
@@ -68,7 +70,7 @@ export function InstancesField({
         <FieldLabel>Instances</FieldLabel>
         <FieldDescription>
           No instances of <RecordName>{draft.worker}</RecordName>. Add one on the{" "}
-          <Link to={workerPagePath(draft.worker)}>worker page</Link>.
+          <Link to={workerPagePath(draft.worker, projectId)}>worker page</Link>.
         </FieldDescription>
         <div>
           <Button type="button" size="sm" variant="outline" onClick={onAdd}>
@@ -112,7 +114,7 @@ export function InstancesField({
         <FieldDescription>
           The binding runs one kanthord serve worker process on each chosen instance. No chosen
           instance makes the binding unavailable. Manage the instances on the{" "}
-          <Link to={workerPagePath(draft.worker)}>worker page</Link>.
+          <Link to={workerPagePath(draft.worker, projectId)}>worker page</Link>.
         </FieldDescription>
         {instancesRemoved(saved, draft.instances) && (
           <FieldDescription>

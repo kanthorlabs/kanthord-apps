@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -26,9 +26,11 @@ vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/scheduler");
 vi.mock("@/api/resources/mission");
-vi.mock("@/features/projects/project-context", () => ({
-  useProjectId: () => "prj-test",
-}));
+vi.mock("@/features/projects/project-context", () => {
+  const projects = [{ id: "prj-test" }, { id: "prj-b" }];
+  const value = { projects, project: projects[0] };
+  return { useProjectId: () => "prj-test", useProject: () => value };
+});
 
 import { WorkerScreen } from "./worker-screen";
 
@@ -110,12 +112,19 @@ function rowOf(list: HTMLElement, name: string): HTMLElement {
   return row;
 }
 
-function mount() {
+function InstancePageProbe() {
+  return <p>{`Instance page ${useLocation().search}`}</p>;
+}
+
+function mount(entry = "/workers/coder%401") {
   return render(
-    <MemoryRouter initialEntries={["/workers/coder%401"]}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/workers/:workerName" element={<WorkerScreen />} />
-        <Route path="/workers/:workerName/instances/:instanceName" element={<p>Instance page</p>} />
+        <Route
+          path="/workers/:workerName/instances/:instanceName"
+          element={<InstancePageProbe />}
+        />
       </Routes>
     </MemoryRouter>,
   );
@@ -134,6 +143,20 @@ beforeEach(() => {
 });
 
 describe("WorkerScreen", () => {
+  it("reads the bindings of the project of the query", async () => {
+    mount("/workers/coder%401?project=prj-b");
+    await screen.findByRole("list", { name: "Instances" });
+    expect(projectsApi.listWorkerBindings).toHaveBeenCalledWith("prj-b");
+    expect(projectsApi.listWorkerBindings).not.toHaveBeenCalledWith("prj-test");
+  });
+
+  it("falls back to the current project for an unknown query project", async () => {
+    mount("/workers/coder%401?project=prj-unknown");
+    await screen.findByRole("list", { name: "Instances" });
+    expect(projectsApi.listWorkerBindings).toHaveBeenCalledWith("prj-test");
+    expect(projectsApi.listWorkerBindings).not.toHaveBeenCalledWith("prj-unknown");
+  });
+
   it("lists the instances of the worker with their connection and a missing copy", async () => {
     mount();
     const list = await screen.findByRole("list", { name: "Instances" });
@@ -157,7 +180,13 @@ describe("WorkerScreen", () => {
   it("opens the instance page from a row", async () => {
     mount();
     await userEvent.click(await screen.findByRole("button", { name: "Open mac-studio" }));
-    expect(await screen.findByText("Instance page")).toBeInTheDocument();
+    expect(await screen.findByText("Instance page ?project=prj-test")).toBeInTheDocument();
+  });
+
+  it("keeps the project of the query when it opens the instance page", async () => {
+    mount("/workers/coder%401?project=prj-b");
+    await userEvent.click(await screen.findByRole("button", { name: "Open mac-studio" }));
+    expect(await screen.findByText("Instance page ?project=prj-b")).toBeInTheDocument();
   });
 
   it("offers Detach and a disabled Archive on an instance that a binding lists", async () => {

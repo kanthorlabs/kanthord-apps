@@ -8,7 +8,7 @@ import { BindingRemoveAction } from "@/features/projects/view/components/binding
 import { workerPagePath } from "@/lib/worker-paths";
 import type { BindingInstances } from "../binding-instances";
 
-function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
+function WorkerPlacementHint({ entry, projectId }: { entry: BindingInstances; projectId: string }) {
   const { missing, unregistered } = entry;
   return (
     <p className="text-sm">
@@ -21,7 +21,8 @@ function WorkerPlacementHint({ entry }: { entry: BindingInstances }) {
           <RecordName>{instance}</RecordName>
         </Fragment>
       ))}
-      . <Link to={workerPagePath(entry.binding.config.worker)}>Open the worker page</Link>
+      .{" "}
+      <Link to={workerPagePath(entry.binding.config.worker, projectId)}>Open the worker page</Link>
     </p>
   );
 }
@@ -48,9 +49,11 @@ function ContainerShortfallHint() {
 
 export function BindingInstanceItem({
   entry,
+  projectId,
   onChanged,
 }: {
   entry: BindingInstances;
+  projectId: string;
   onChanged: () => void;
 }) {
   return (
@@ -68,7 +71,7 @@ export function BindingInstanceItem({
           <RecordName>{entry.binding.config.worker}</RecordName>
           {entry.placement !== null && ` · ${entry.placement}`}
         </ItemDescription>
-        {entry.gap === "worker" && <WorkerPlacementHint entry={entry} />}
+        {entry.gap === "worker" && <WorkerPlacementHint entry={entry} projectId={projectId} />}
         {entry.gap === "server" && <ServerShortfallHint />}
         {entry.gap === "container" && <ContainerShortfallHint />}
       </ItemContent>

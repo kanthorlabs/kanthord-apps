@@ -73,7 +73,15 @@ function EmptyLine({ title }: { title: string }) {
   );
 }
 
-function InstanceHeader({ instance, keyed }: { instance: WorkerInstanceDetail; keyed: boolean }) {
+function InstanceHeader({
+  instance,
+  keyed,
+  projectId,
+}: {
+  instance: WorkerInstanceDetail;
+  keyed: boolean;
+  projectId: string;
+}) {
   const connection = instance.connection;
   return (
     <section aria-label="Instance" className="flex flex-col gap-2 border-b pb-3">
@@ -91,7 +99,10 @@ function InstanceHeader({ instance, keyed }: { instance: WorkerInstanceDetail; k
       <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-sm sm:grid-cols-[auto_minmax(0,1fr)]">
         <dt className="text-muted-foreground">Worker</dt>
         <dd className="min-w-0 break-all">
-          <Link to={workerPagePath(instance.worker)} className="underline underline-offset-4">
+          <Link
+            to={workerPagePath(instance.worker, projectId)}
+            className="underline underline-offset-4"
+          >
             {instance.worker}
           </Link>
         </dd>
@@ -466,7 +477,7 @@ function InstanceDetail({
   const archiveControl = useRef<HTMLButtonElement>(null);
   const archive = useInstanceArchive(
     { name: instance.name, revision: instance.revision },
-    () => void navigate(workerPagePath(instance.worker)),
+    () => void navigate(workerPagePath(instance.worker, page.projectId)),
     reload,
     archiveControl,
   );
@@ -479,7 +490,7 @@ function InstanceDetail({
   return (
     <div className="flex flex-col gap-6 px-4 lg:px-0">
       <ReadFailure page={page} />
-      <InstanceHeader instance={instance} keyed={page.keyed} />
+      <InstanceHeader instance={instance} keyed={page.keyed} projectId={page.projectId} />
       <ContextFailure page={page} />
       <InstanceReachNotice instance={instance.name} projects={page.servedProjects} />
       <section aria-labelledby="instance-bindings" className="flex flex-col gap-3">
@@ -597,7 +608,11 @@ export function InstanceScreen() {
           <Button variant="outline" size="sm" onClick={page.instance.reload}>
             Retry
           </Button>
-          <Button variant="outline" size="sm" render={<Link to={workerPagePath(workerName)} />}>
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link to={workerPagePath(workerName, page.projectId)} />}
+          >
             Open {workerName}
           </Button>
         </div>

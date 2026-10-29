@@ -350,7 +350,9 @@ export function WorkerScreen() {
                   instance={instance}
                   execution={page.executionOf(instance.name)}
                   unlisted={page.runsUnlisted(instance)}
-                  onOpen={() => void navigate(instancePagePath(workerName, instance.name))}
+                  onOpen={() =>
+                    void navigate(instancePagePath(workerName, instance.name, page.projectId))
+                  }
                   actions={
                     <InstanceRowActions
                       instance={instance}
