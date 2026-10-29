@@ -29,7 +29,7 @@ vi.mock("@/api/resources/mission");
 vi.mock("@/features/projects/project-context", () => {
   const projects = [{ id: "prj-test" }, { id: "prj-b" }];
   const value = { projects, project: projects[0] };
-  return { useProjectId: () => "prj-test", useProject: () => value };
+  return { useProject: () => value };
 });
 
 import { WorkerScreen } from "./worker-screen";
@@ -181,6 +181,17 @@ describe("WorkerScreen", () => {
     mount();
     await userEvent.click(await screen.findByRole("button", { name: "Open mac-studio" }));
     expect(await screen.findByText("Instance page ?project=prj-test")).toBeInTheDocument();
+  });
+
+  it("keeps the project of the query on the link of a failed read", async () => {
+    vi.mocked(workersApi.readWorkerCatalogEntry).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount("/workers/coder%401?project=prj-b");
+    expect(await screen.findByRole("link", { name: "Open workers" })).toHaveAttribute(
+      "href",
+      "/workers?project=prj-b",
+    );
   });
 
   it("keeps the project of the query when it opens the instance page", async () => {

@@ -41,8 +41,3 @@ export function useProject(): ProjectValue {
   if (value === null) throw new Error("useProject requires a ProjectProvider");
   return value;
 }
-
-export function useProjectId(): string {
-  const { project } = useProject();
-  return project?.id ?? "";
-}

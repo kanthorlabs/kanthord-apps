@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 
 import { AnalyticsScreen } from "@/features/analytics/analytics-screen";
 import { LoginScreen } from "@/features/auth/login/login-screen";
@@ -26,6 +26,7 @@ import { WorkerScreen } from "@/features/workers/worker/worker-screen";
 import { basePath } from "@/components/base-path";
 import { AppShell } from "./app-shell";
 import { AppToaster } from "./app-toaster";
+import { ParentRedirect } from "./parent-redirect";
 
 export function AppRouter() {
   const { session } = useSession();
@@ -49,10 +50,7 @@ export function AppRouter() {
             <Route path="analytics" element={<AnalyticsScreen />} />
             <Route path="workers" element={<WorkersScreen />} />
             <Route path="workers/:workerName" element={<WorkerScreen />} />
-            <Route
-              path="workers/:workerName/instances"
-              element={<Navigate to=".." relative="path" replace />}
-            />
+            <Route path="workers/:workerName/instances" element={<ParentRedirect />} />
             <Route
               path="workers/:workerName/instances/:instanceName"
               element={<InstanceScreen />}

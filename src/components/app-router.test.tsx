@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/features/auth/session/session-context", () => ({
@@ -39,6 +40,13 @@ vi.mock("@/features/analytics/analytics-screen", () => ({
   AnalyticsScreen: () => <p>Analytics body</p>,
 }));
 
+vi.mock("@/features/workers/worker/worker-screen", () => ({
+  WorkerScreen: () => {
+    const { pathname, search } = useLocation();
+    return <p>{`Worker page ${pathname}${search}`}</p>;
+  },
+}));
+
 import { AppRouter } from "./app-router";
 
 describe("AppRouter", () => {
@@ -56,6 +64,14 @@ describe("AppRouter", () => {
     render(<AppRouter />);
 
     expect(screen.getByText("Timeline body")).toBeInTheDocument();
+  });
+
+  it("redirects the instances path to the worker page and keeps the project", () => {
+    window.history.pushState({}, "", "/workers/coder%401/instances?project=prj-b");
+
+    render(<AppRouter />);
+
+    expect(screen.getByText("Worker page /workers/coder@1?project=prj-b")).toBeInTheDocument();
   });
 
   it("serves the analytics page at its own route", () => {

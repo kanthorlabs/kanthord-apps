@@ -15,7 +15,7 @@ vi.mock("@/api/resources/workers");
 vi.mock("@/features/projects/project-context", () => {
   const projects = [{ id: "prj-test" }, { id: "prj-b" }];
   const value = { projects, project: projects[0] };
-  return { useProjectId: () => "prj-test", useProject: () => value };
+  return { useProject: () => value };
 });
 
 import { WorkersScreen } from "./workers-screen";

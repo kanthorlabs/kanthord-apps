@@ -39,7 +39,7 @@ vi.mock("@/api/resources/mission");
 vi.mock("@/features/projects/project-context", () => {
   const projects = [{ id: "prj-a" }, { id: "prj-b" }];
   const value = { projects, project: projects[0] };
-  return { useProjectId: () => "prj-a", useProject: () => value };
+  return { useProject: () => value };
 });
 
 import { InstanceScreen } from "./instance-screen";
