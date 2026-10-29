@@ -170,4 +170,10 @@ describe("the placement of an instance", () => {
     expect(isUnlistedInstance({ ...server, bindings: DETAIL.bindings })).toBe(false);
     expect(isUnlistedInstance({ ...DETAIL, bindings: [] })).toBe(false);
   });
+
+  it("marks a container instance that no binding lists", () => {
+    const container: WorkerInstanceDetail = { ...DETAIL, placement: "container", bindings: [] };
+    expect(isUnlistedInstance(container)).toBe(true);
+    expect(isUnlistedInstance({ ...container, bindings: DETAIL.bindings })).toBe(false);
+  });
 });
