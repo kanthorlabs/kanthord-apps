@@ -26,8 +26,8 @@ import type {
   MissionNodeUnblockBody,
   MissionOutcome,
   MissionProposal,
-  MissionProposalApproveBody,
-  MissionProposalApproveResult,
+  MissionProposalDecideBody,
+  MissionProposalDecideResult,
   MissionRevision,
 } from "../types";
 
@@ -135,12 +135,12 @@ export async function listNodeProposals(nodeId: string): Promise<readonly Missio
   return readAllPages<MissionProposal>(`/api/mission/node/${encodeURIComponent(nodeId)}/proposal`);
 }
 
-export async function approveProposal(
-  proposalId: string,
-  body: MissionProposalApproveBody,
-): Promise<MissionProposalApproveResult> {
-  return request<MissionProposalApproveResult>(
-    `/api/mission/proposal/${encodeURIComponent(proposalId)}/approve`,
+export async function decideProposals(
+  assessmentId: string,
+  body: MissionProposalDecideBody,
+): Promise<MissionProposalDecideResult> {
+  return request<MissionProposalDecideResult>(
+    `/api/mission/assessment/${encodeURIComponent(assessmentId)}/decide`,
     {
       method: "POST",
       body,

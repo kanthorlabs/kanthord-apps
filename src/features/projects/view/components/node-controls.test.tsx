@@ -62,6 +62,7 @@ const OPEN: MissionProposal = {
   },
   created_node_id: null,
   approved_at: null,
+  rejected_at: null,
   created_at: 0,
 };
 

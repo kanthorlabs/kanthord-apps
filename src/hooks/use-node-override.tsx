@@ -2,8 +2,14 @@ import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { overrideNode } from "@/api/resources/mission";
-import type { MissionExternalAction, MissionNodeRecord, NodeState } from "@/api/types";
+import type {
+  MissionExternalAction,
+  MissionNodeRecord,
+  MissionProposal,
+  NodeState,
+} from "@/api/types";
 import { RecordName } from "@/components/record-name";
+import { proposalRejectionNoticeOf } from "@/hooks/proposal-rejection-notice";
 import { asApiError } from "@/hooks/use-resource";
 import { requestsClearOf } from "@/lib/external-requests";
 
@@ -15,6 +21,7 @@ export interface NodeOverrideState {
   readonly error: string | null;
   readonly overriding: boolean;
   readonly consequence: ReactNode;
+  readonly proposalNotice: ReactNode;
   readonly saferPath: ReactNode;
   readonly request: () => void;
   readonly setReason: (reason: string) => void;
@@ -67,6 +74,7 @@ function saferPathOf(node: MissionNodeRecord): ReactNode {
 export function useNodeOverride(
   node: MissionNodeRecord,
   missionVersion: number,
+  proposals: readonly MissionProposal[],
   actions: readonly MissionExternalAction[] | null,
   reload: () => void,
 ): NodeOverrideState {
@@ -137,6 +145,12 @@ export function useNodeOverride(
         authority and ends it as Completed. Nodes that depend on it can start. No commit is
         recorded. An override cannot be undone.
       </>
+    ),
+    proposalNotice: proposalRejectionNoticeOf(
+      "Override",
+      "They stay recorded, and no fix node is created.",
+      node,
+      proposals,
     ),
     saferPath: saferPathOf(node),
     request,

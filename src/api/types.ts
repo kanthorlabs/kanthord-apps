@@ -817,11 +817,13 @@ export interface MissionProposal {
   readonly content: MissionProposalContent;
   readonly created_node_id: string | null;
   readonly approved_at: number | null;
+  readonly rejected_at: number | null;
   readonly created_at: number;
 }
 
-export interface MissionProposalApproveBody {
+export interface MissionProposalDecideBody {
   readonly expected_mission_version: number;
+  readonly approved_proposal_ids: readonly string[];
   readonly reason?: string;
 }
 
@@ -902,8 +904,9 @@ export interface MissionNodeCheckAnswer {
   readonly failures: readonly MissionNodeCheckFailure[];
 }
 
-export interface MissionProposalApproveResult {
-  readonly created: MissionNodeChange;
+export interface MissionProposalDecideResult {
+  readonly created: readonly MissionNodeChange[];
+  readonly rejected_proposal_ids: readonly string[];
   readonly proposer: MissionControlResult;
 }
 
@@ -1531,7 +1534,7 @@ export const ACT_OPERATIONS = [
   "mission.node.unblock",
   "mission.node.discard",
   "mission.node.override",
-  "mission.proposal.approve",
+  "mission.proposal.decide",
   "mission.evidence.delete",
 ] as const;
 

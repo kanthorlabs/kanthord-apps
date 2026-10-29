@@ -110,10 +110,6 @@ const stateOfMission = (missionId) =>
   [...projectStates.values()].find((state) => state.mission.id === missionId);
 const stateOfNode = (nodeId) =>
   [...projectStates.values()].find((state) => state.nodes.some((node) => node.id === nodeId));
-const stateOfProposal = (proposalId) =>
-  [...projectStates.values()].find((state) =>
-    state.proposals.some((proposal) => proposal.id === proposalId),
-  );
 
 const routes = [];
 const on = (method, pattern, handler) => routes.push({ method, pattern, handler });
@@ -1329,38 +1325,29 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
   ),
 );
 
-on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
-  const state = stateOfProposal(decodeURIComponent(m[1]));
-  const proposal = state?.proposals.find((item) => item.id === decodeURIComponent(m[1]));
-  if (proposal === undefined)
-    return projectEnvelope(res, 404, "mission.record.not_found", "No such proposal.");
-  const { mission } = state;
-  if (proposal.approved_at !== null)
-    return projectEnvelope(res, 409, "mission.proposal.already_approved", "Proposal is approved.");
-  if (b.expected_mission_version !== mission.version)
-    return projectEnvelope(
-      res,
-      409,
-      "mission.version.conflict",
-      "The expected mission version differs from the current version.",
-    );
-  const proposer = graphNodeById(proposal.node_id);
-  if (proposer.state !== "Blocked" || proposer.attempt !== proposal.attempt)
-    return projectEnvelope(
-      res,
-      409,
-      "mission.node.state_conflict",
-      "The node state does not admit the control.",
-    );
-  const now = Date.now();
+const isOpenProposal = (proposal) => proposal.approved_at === null && proposal.rejected_at === null;
+
+const rejectOpenProposals = (state, proposer, now) => {
+  if (proposer.state !== "Blocked") return;
+  for (const proposal of state.proposals) {
+    if (
+      proposal.node_id === proposer.id &&
+      proposal.attempt === proposer.attempt &&
+      isOpenProposal(proposal)
+    )
+      proposal.rejected_at = now;
+  }
+};
+
+const fixNodeOf = (state, proposal) => {
   const stem = `proposal-${proposal.id.slice("proposal_".length).toLowerCase()}`;
   const { task, dependency_id: dependencyId, ...fixContent } = proposal.content;
   const dependency = graphNodeById(dependencyId);
   const tags = dependency?.content.tags ?? [];
-  const created = {
+  return {
     id: nodeIdOf(),
     filename: `${stem}.md`,
-    mission_id: mission.id,
+    mission_id: state.mission.id,
     intent: "implement",
     tags,
     tasks: [
@@ -1385,30 +1372,85 @@ on("POST", /^\/api\/mission\/proposal\/([^/]+)\/approve$/, (m, b, res) => {
     pinned_revision: null,
     priority: 0,
   };
-  const addedEdges = [{ dependent_id: proposer.id, depends_on_id: created.id }];
-  createdFirstRevisions.set(created.id, {
-    write: "node.create",
-    reason: b.reason ?? `Approve fix-node proposal ${proposal.id}`,
-    created_at: now,
-  });
-  state.nodes.push(created);
-  state.edges.push(...addedEdges);
-  proposer.state = "Pending";
-  proposer.attempt += 1;
-  proposer.pinned_by_attempts = [...proposer.pinned_by_attempts, proposer.attempt];
-  proposer.pinned_revision = proposer.visible_revision;
-  mission.version += 1;
-  proposal.approved_at = now;
-  proposal.created_node_id = created.id;
-  return json(res, 200, {
-    created: {
+};
+
+on("POST", /^\/api\/mission\/assessment\/([^/]+)\/decide$/, (m, b, res) => {
+  const assessmentId = decodeURIComponent(m[1]);
+  const ids = b.approved_proposal_ids;
+  if (!Array.isArray(ids) || ids.length < 1 || ids.length > 10 || new Set(ids).size !== ids.length)
+    return validationFailed(res, "approved_proposal_ids");
+  if (b.reason !== undefined && isBlank(b.reason)) return blankReason(res);
+  const state = [...projectStates.values()].find((candidate) =>
+    candidate.proposals.some((proposal) => proposal.assessment_id === assessmentId),
+  );
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.record.not_found", "No such assessment.");
+  const proposals = state.proposals.filter((proposal) => proposal.assessment_id === assessmentId);
+  const open = proposals.filter(isOpenProposal);
+  const decided = () =>
+    projectEnvelope(res, 409, "mission.proposal.decided", "Assessment has no open proposal.", {
+      assessment_id: assessmentId,
+    });
+  if (open.length === 0) return decided();
+  const mismatched = ids.filter((id) => !proposals.some((proposal) => proposal.id === id));
+  if (mismatched.length > 0)
+    return projectEnvelope(
+      res,
+      400,
+      "mission.proposal.assessment_mismatch",
+      "Proposal does not belong to the assessment.",
+      { proposal_ids: mismatched },
+    );
+  const approved = ids.map((id) => proposals.find((proposal) => proposal.id === id));
+  if (!approved.every(isOpenProposal)) return decided();
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const proposer = graphNodeById(open[0].node_id);
+  if (proposer.state !== "Blocked" || proposer.attempt !== open[0].attempt)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.state_conflict",
+      "The node state does not admit the control.",
+    );
+  const now = Date.now();
+  const created = approved.map((proposal) => {
+    const fix = fixNodeOf(state, proposal);
+    const addedEdges = [{ dependent_id: proposer.id, depends_on_id: fix.id }];
+    createdFirstRevisions.set(fix.id, {
+      write: "node.create",
+      reason: b.reason ?? `Approve fix-node proposal ${proposal.id}`,
+      created_at: now,
+    });
+    state.nodes.push(fix);
+    state.edges.push(...addedEdges);
+    mission.version += 1;
+    proposal.approved_at = now;
+    proposal.created_node_id = fix.id;
+    return {
       mission_version: mission.version,
-      revisions: graphRevisions(created),
+      revisions: graphRevisions(fix),
       retired_node_ids: [],
       added_edges: addedEdges,
       removed_edges: [],
       open_attempts_unchanged: [],
-    },
+    };
+  });
+  const rejected = open.filter((proposal) => proposal.approved_at === null);
+  for (const proposal of rejected) proposal.rejected_at = now;
+  proposer.state = "Pending";
+  proposer.attempt += 1;
+  proposer.pinned_by_attempts = [...proposer.pinned_by_attempts, proposer.attempt];
+  proposer.pinned_revision = proposer.visible_revision;
+  return json(res, 200, {
+    created,
+    rejected_proposal_ids: rejected.map((proposal) => proposal.id),
     proposer: {
       node: graphNodeRead(state, proposer),
       attempt: null,
@@ -1494,6 +1536,8 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
     return projectEnvelope(res, 409, "mission.revision.conflict", "Node revision changed.", {
       current: node.visible_revision,
     });
+  const now = Date.now();
+  rejectOpenProposals(state, node, now);
   if (node.attempt > 0) {
     node.attempt += 1;
     node.pinned_by_attempts = [...node.pinned_by_attempts, node.attempt];
@@ -1505,7 +1549,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/unblock$/, (m, b, res) => {
     attempt: null,
     outcome: null,
     actor: fx.GRAPH_HUMAN,
-    accepted_at: Date.now(),
+    accepted_at: now,
   });
 });
 
@@ -1532,6 +1576,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
     created_at: now,
   };
   state.outcomes.push(outcome);
+  rejectOpenProposals(state, node, now);
   node.state = "Discarded";
   return json(res, 200, {
     node: graphNodeRead(state, node),
@@ -1696,6 +1741,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/override$/, (m, b, res) => {
       { requirement_keys: unresolved.map((action) => action.action.key) },
     );
   const outcome = outcomeOf(state, node, "success-override", "success");
+  rejectOpenProposals(state, node, outcome.created_at);
   node.state = "Completed";
   return json(res, 200, {
     node: graphNodeRead(state, node),

@@ -8,15 +8,19 @@ import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/i
 import type { MissionProposal } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
-import type { ProposalApproveState } from "@/hooks/use-proposal-approve";
 import { type Fact, FactList } from "./fact-list";
 import { NodeLink } from "./node-link";
 
 interface ProposalItemProps {
   readonly model: GraphModel;
   readonly proposal: MissionProposal;
-  readonly approve: ProposalApproveState;
   readonly onSelect: (nodeId: string) => void;
+}
+
+function statusOf(proposal: MissionProposal): "open" | "approved" | "rejected" {
+  if (proposal.approved_at !== null) return "approved";
+  if (proposal.rejected_at !== null) return "rejected";
+  return "open";
 }
 
 function CommandList({ commands }: { commands: readonly string[] }) {
@@ -31,9 +35,9 @@ function CommandList({ commands }: { commands: readonly string[] }) {
   );
 }
 
-export function ProposalItem({ model, proposal, approve, onSelect }: ProposalItemProps) {
+export function ProposalItem({ model, proposal, onSelect }: ProposalItemProps) {
   const { content } = proposal;
-  const unavailable = approve.unavailableReason(proposal);
+  const status = statusOf(proposal);
   const facts: Fact[] = [
     {
       label: "Dependency",
@@ -49,6 +53,9 @@ export function ProposalItem({ model, proposal, approve, onSelect }: ProposalIte
   if (proposal.approved_at !== null) {
     facts.push({ label: "Approved", value: utcDateTime(proposal.approved_at) });
   }
+  if (proposal.rejected_at !== null) {
+    facts.push({ label: "Rejected", value: utcDateTime(proposal.rejected_at) });
+  }
   if (proposal.created_node_id !== null) {
     facts.push({
       label: "Created node",
@@ -62,9 +69,7 @@ export function ProposalItem({ model, proposal, approve, onSelect }: ProposalIte
         <ItemContent className="min-w-0">
           <ItemTitle className="w-full flex-wrap break-words">
             {content.name}
-            <Badge variant={proposal.approved_at === null ? "outline" : "secondary"}>
-              {proposal.approved_at === null ? "proposed" : "approved"}
-            </Badge>
+            <Badge variant={status === "open" ? "outline" : "secondary"}>{status}</Badge>
           </ItemTitle>
           <ItemDescription>
             Attempt {proposal.attempt}, proposed {utcDateTime(proposal.created_at)}
@@ -81,12 +86,6 @@ export function ProposalItem({ model, proposal, approve, onSelect }: ProposalIte
       <RevealPanel>
         <div className="flex flex-col items-start gap-3 pt-3">
           <FactList facts={facts} />
-          {approve.canApprove(proposal) && (
-            <Button size="sm" onClick={() => approve.request(proposal)}>
-              Approve proposal
-            </Button>
-          )}
-          {unavailable !== null && <p className="text-sm text-muted-foreground">{unavailable}</p>}
         </div>
       </RevealPanel>
     </Collapsible>

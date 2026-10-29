@@ -8,6 +8,7 @@ import type {
   MissionControlResult,
   MissionExternalAction,
   MissionNodeRecord,
+  MissionProposal,
   NodeState,
 } from "@/api/types";
 import { useNodeDiscard } from "./use-node-discard";
@@ -46,6 +47,24 @@ const IMPLEMENT: MissionNodeRecord = {
   depends_on: [],
 };
 
+const PROPOSAL: MissionProposal = {
+  id: "proposal_1",
+  node_id: "node_audit",
+  attempt: 3,
+  assessment_id: "assessment_1",
+  content: {
+    dependency_id: "node_invite",
+    name: "Fix the invite link",
+    requirement: "r",
+    criterion: "c",
+    task: { name: "t", requirement: "r", criterion: "c", verifications: ["v"] },
+  },
+  created_node_id: null,
+  approved_at: null,
+  rejected_at: null,
+  created_at: 0,
+};
+
 function action(resolution: MissionExternalAction["resolution"]): MissionExternalAction {
   return {
     node_id: "node_audit",
@@ -68,8 +87,9 @@ function mount(
   node: MissionNodeRecord = IMPLEMENT,
   reload = vi.fn(),
   actions: readonly MissionExternalAction[] | null = [],
+  proposals: readonly MissionProposal[] = [],
 ) {
-  const view = renderHook(() => useNodeDiscard(node, 7, actions, reload));
+  const view = renderHook(() => useNodeDiscard(node, 7, proposals, actions, reload));
   return { ...view, reload };
 }
 
@@ -187,6 +207,43 @@ describe("useNodeDiscard", () => {
       text: "To run Audit log again instead, keep it and unblock it.",
       bold: ["Audit log"],
     });
+  });
+
+  it("names the open proposals of the blocked attempt that discard rejects", () => {
+    const blocked: MissionNodeRecord = {
+      ...IMPLEMENT,
+      intent: "examine",
+      state: "Blocked",
+      attempt: 3,
+    };
+    const { result } = mount(
+      blocked,
+      vi.fn(),
+      [],
+      [
+        PROPOSAL,
+        { ...PROPOSAL, id: "proposal_old", attempt: 2 },
+        { ...PROPOSAL, id: "proposal_done", approved_at: 1 },
+      ],
+    );
+
+    expect(renderedText(result.current.proposalNotice)).toEqual({
+      text: "Discard rejects the open proposals: Fix the invite link. They stay recorded, and no fix node is created.",
+      bold: ["Fix the invite link"],
+    });
+  });
+
+  it("states no proposal notice unless a Blocked node holds an open proposal", () => {
+    expect(mount(IMPLEMENT, vi.fn(), [], [PROPOSAL]).result.current.proposalNotice).toBe(null);
+    const blocked: MissionNodeRecord = {
+      ...IMPLEMENT,
+      intent: "examine",
+      state: "Blocked",
+      attempt: 3,
+    };
+    expect(
+      mount(blocked, vi.fn(), [], [{ ...PROPOSAL, rejected_at: 1 }]).result.current.proposalNotice,
+    ).toBe(null);
   });
 
   it.each([

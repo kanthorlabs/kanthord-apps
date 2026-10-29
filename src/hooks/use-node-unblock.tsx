@@ -1,11 +1,11 @@
-import { Fragment, type ReactNode, useCallback, useState } from "react";
+import { type ReactNode, useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { unblockNode } from "@/api/resources/mission";
 import type { MissionNodeRecord, MissionProposal } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { asApiError } from "@/hooks/use-resource";
-import { openProposalsOf } from "@/lib/attention";
+import { proposalRejectionNoticeOf } from "@/hooks/proposal-rejection-notice";
 
 export interface NodeUnblockState {
   readonly available: boolean;
@@ -63,26 +63,6 @@ function consequenceOf(node: MissionNodeRecord): ReactNode {
     <>
       Unblock opens attempt {node.attempt + 1} of {name} at revision {node.visible_revision} and
       makes the node Available.
-    </>
-  );
-}
-
-function proposalNoticeOf(
-  node: MissionNodeRecord,
-  proposals: readonly MissionProposal[],
-): ReactNode {
-  const open = openProposalsOf(node, proposals);
-  if (open.length === 0) return null;
-  return (
-    <>
-      Unblock rejects the open proposals:{" "}
-      {open.map((proposal, index) => (
-        <Fragment key={proposal.id}>
-          {index > 0 && ", "}
-          <RecordName>{proposal.content.name}</RecordName>
-        </Fragment>
-      ))}
-      . They stay recorded, but the examine node runs the next attempt without the fix node.
     </>
   );
 }
@@ -161,7 +141,12 @@ export function useNodeUnblock(
     error,
     unblocking,
     consequence: consequenceOf(node),
-    proposalNotice: node.intent === "examine" ? proposalNoticeOf(node, proposals) : null,
+    proposalNotice: proposalRejectionNoticeOf(
+      "Unblock",
+      "They stay recorded, but the examine node runs the next attempt without the fix node.",
+      node,
+      proposals,
+    ),
     saferPath: (
       <>
         To end <RecordName>{node.content.name}</RecordName> instead, keep it Blocked and discard it.

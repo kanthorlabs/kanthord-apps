@@ -46,7 +46,7 @@ vi.mock("@/api/resources/mission", () => ({
   listNodeProposals: vi.fn(),
   listNodeExternalActions: vi.fn(),
   unblockNode: vi.fn(),
-  approveProposal: vi.fn(),
+  decideProposals: vi.fn(),
   overrideNode: vi.fn(),
   resumeNode: vi.fn(),
   removeDependency: vi.fn(),
@@ -69,8 +69,8 @@ vi.mock("@/api/resources/scheduler", () => ({
 
 import { listTracePage } from "@/api/resources/tracking";
 import {
-  approveProposal,
   checkNode,
+  decideProposals,
   discardNode,
   listMissionNodes,
   listNodeAssessments,
@@ -119,7 +119,7 @@ import type {
   MissionNodeCheckAnswer,
   MissionNodeRecord,
   MissionProposal,
-  MissionProposalApproveResult,
+  MissionProposalDecideResult,
   NodeState,
   Project,
   RepositoryActionName,
@@ -363,7 +363,7 @@ function assessment(nodeId: string, rationale: string): MissionAssessment {
 
 function proposal(nodeId: string, name: string, approvedAt: number | null = null): MissionProposal {
   return {
-    id: `proposal_${name}`,
+    id: `proposal_${name.replaceAll(" ", "_")}`,
     node_id: nodeId,
     attempt: 2,
     assessment_id: `assessment_${nodeId}`,
@@ -376,19 +376,23 @@ function proposal(nodeId: string, name: string, approvedAt: number | null = null
     },
     created_node_id: null,
     approved_at: approvedAt,
+    rejected_at: null,
     created_at: NOW - HOUR,
   };
 }
 
-const APPROVED: MissionProposalApproveResult = {
-  created: {
-    mission_version: 10,
-    revisions: [],
-    retired_node_ids: [],
-    added_edges: [],
-    removed_edges: [],
-    open_attempts_unchanged: [],
-  },
+const DECIDED: MissionProposalDecideResult = {
+  created: [
+    {
+      mission_version: 10,
+      revisions: [],
+      retired_node_ids: [],
+      added_edges: [],
+      removed_edges: [],
+      open_attempts_unchanged: [],
+    },
+  ],
+  rejected_proposal_ids: [],
   proposer: {
     node: plain("n_t", "Team workspaces", "Pending"),
     attempt: null,
@@ -526,7 +530,7 @@ function serve(world: World) {
   vi.mocked(resumeProject).mockResolvedValue(KANTHORD);
   vi.mocked(pauseProject).mockResolvedValue(KANTHORD);
   vi.mocked(unblockNode).mockResolvedValue({} as MissionControlResult);
-  vi.mocked(approveProposal).mockResolvedValue(APPROVED);
+  vi.mocked(decideProposals).mockResolvedValue(DECIDED);
   vi.mocked(overrideNode).mockResolvedValue({} as MissionControlResult);
   vi.mocked(resumeNode).mockResolvedValue({} as MissionControlResult);
   vi.mocked(removeDependency).mockResolvedValue({} as MissionNodeChange);
@@ -1403,34 +1407,42 @@ describe("OverviewScreen dependency items with an open attempt", () => {
   });
 });
 
-describe("OverviewScreen proposal approval", () => {
-  it("approves the open proposal of an examine node in place", async () => {
+describe("OverviewScreen proposal decision", () => {
+  it("decides the open proposals of an examine node with one Decide button", async () => {
     const user = userEvent.setup();
     serve({
       nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
-      proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
+      proposals: {
+        n_t: [
+          proposal("n_t", "Send the invite in the workspace language"),
+          proposal("n_t", "Expire the invite link"),
+        ],
+      },
     });
     renderScreen();
 
     const item = await waitFor(() => itemOf("Team workspaces"));
-    await user.click(await within(item).findByRole("button", { name: "Approve proposal" }));
+    expect(await within(item).findAllByRole("button", { name: "Decide" })).toHaveLength(1);
+    expect(within(item).queryByRole("button", { name: /^Approve proposal/ })).toBeNull();
+    await user.click(within(item).getByRole("button", { name: "Decide" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(
-      within(dialog).getByText("Approve the proposal Send the invite in the workspace language?"),
+      within(dialog).getByText("Decide the proposals of Team workspaces?"),
     ).toBeInTheDocument();
-    await user.type(within(dialog).getByLabelText("Reason"), "The fix is right.");
-    await user.click(within(dialog).getByRole("button", { name: "Approve proposal" }));
-
-    expect(approveProposal).toHaveBeenCalledWith(
-      "proposal_Send the invite in the workspace language",
-      {
-        expected_mission_version: 7,
-        reason: "The fix is right.",
-      },
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: "Send the invite in the workspace language" }),
     );
+    await user.type(within(dialog).getByLabelText("Reason"), "The fix is right.");
+    await user.click(within(dialog).getByRole("button", { name: "Decide" }));
+
+    expect(decideProposals).toHaveBeenCalledWith("assessment_n_t", {
+      expected_mission_version: 7,
+      approved_proposal_ids: ["proposal_Send_the_invite_in_the_workspace_language"],
+      reason: "The fix is right.",
+    });
   });
 
-  it("offers no approval for an approved proposal or for an implement node", async () => {
+  it("offers no Decide for a decided proposal or for an implement node", async () => {
     serve({
       nodes: {
         "prj-1": [
@@ -1445,7 +1457,7 @@ describe("OverviewScreen proposal approval", () => {
 
     const item = await waitFor(() => itemOf("Team workspaces"));
     await within(item).findByRole("button", { name: "Unblock" });
-    expect(screen.queryByRole("button", { name: "Approve proposal" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Decide" })).toBeNull();
   });
 });
 
@@ -1969,7 +1981,7 @@ describe("OverviewScreen dialog focus", () => {
     }
   });
 
-  it("focuses Reason first in the Approve proposal dialog", async () => {
+  it("focuses Reason first in the Decide dialog", async () => {
     const user = userEvent.setup();
     serve({
       nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
@@ -1978,7 +1990,7 @@ describe("OverviewScreen dialog focus", () => {
     renderScreen();
     const item = await waitFor(() => itemOf("Team workspaces"));
 
-    await user.click(await within(item).findByRole("button", { name: "Approve proposal" }));
+    await user.click(await within(item).findByRole("button", { name: "Decide" }));
 
     await expectReasonFocused();
   });

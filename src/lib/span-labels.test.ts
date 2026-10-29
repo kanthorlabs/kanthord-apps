@@ -83,7 +83,7 @@ describe("spanLabel", () => {
     ["mission.node.unblock", "Unblocked"],
     ["mission.node.discard", "Discarded"],
     ["mission.node.override", "Overridden"],
-    ["mission.proposal.approve", "Proposal approved"],
+    ["mission.proposal.decide", "Proposals decided"],
     ["mission.evidence.delete", "Evidence deleted"],
   ])("labels the act %s as %s", (operation, label) => {
     expect(spanLabel(span(operation))).toBe(label);

@@ -88,8 +88,8 @@ export function useNodeControls({
   const pause = useNodePause(node, missionVersion, onChanged);
   const unblock = useNodeUnblock(node, missionVersion, proposals, onChanged);
   const resume = useNodeResume(node, missionVersion, nodes, guard, cause, onChanged);
-  const override = useNodeOverride(node, missionVersion, guard, onChanged);
-  const discard = useNodeDiscard(node, missionVersion, guard, onChanged);
+  const override = useNodeOverride(node, missionVersion, proposals, guard, onChanged);
+  const discard = useNodeDiscard(node, missionVersion, proposals, guard, onChanged);
   const guardLine = guardLineOf(node, actions, executions);
   const failed = hasOpenAttempt(node) && !answered && !awaited.some((read) => read.loading);
 
