@@ -1,4 +1,5 @@
 import type {
+  ActionLanding,
   AgentDefaultConfiguration,
   BindingPromptAgent,
   BindingPrompts,
@@ -41,6 +42,7 @@ export interface RepositoryDraft {
   readonly baseBranch: string;
   readonly actionName: RepositoryActionName | "";
   readonly follows: RepositoryActionFollows;
+  readonly landing?: ActionLanding;
   readonly sshCredential: string;
   readonly credential: string;
   readonly prompts: Readonly<Record<BindingPromptAgent, string>>;
@@ -279,6 +281,9 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       baseBranch: config.strategy.base_branch,
       actionName: config.strategy.action?.name ?? "",
       follows: config.strategy.action?.follows ?? ASSESSMENT_PASSED,
+      ...(config.strategy.action?.landing === undefined
+        ? {}
+        : { landing: config.strategy.action.landing }),
       sshCredential: config.ssh_credential,
       credential: config.credential ?? "",
       prompts: promptDraftsOf(config.prompts),
@@ -400,7 +405,15 @@ function repositoryEntryOf(
         base_branch: draft.baseBranch.trim(),
         ...(draft.actionName === ""
           ? {}
-          : { action: { name: draft.actionName, follows: draft.follows } }),
+          : {
+              action: {
+                name: draft.actionName,
+                follows: draft.follows,
+                ...(draft.actionName === "pull_request" && draft.landing !== undefined
+                  ? { landing: draft.landing }
+                  : {}),
+              },
+            }),
       },
       ssh_credential: draft.sshCredential.trim(),
       ...(credential !== undefined && credential !== "" ? { credential } : {}),
