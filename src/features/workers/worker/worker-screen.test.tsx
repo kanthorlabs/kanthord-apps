@@ -194,7 +194,7 @@ describe("WorkerScreen", () => {
       registrations: [registration],
       credentials: [],
     });
-    vi.mocked(instancesApi.archiveWorkerInstance).mockResolvedValue({} as never);
+    vi.mocked(instancesApi.archiveWorkerInstance).mockResolvedValue({ ...CODER_ONE, ended_at: 9 });
     mount();
     const archive = await screen.findByRole("button", { name: "Archive coder-1" });
     expect(archive).not.toHaveAttribute("aria-disabled", "true");
