@@ -16,6 +16,7 @@ import {
   pauseProject,
   readBindingEnvironment,
   readEnvironmentSecret,
+  readSuitePassPlan,
   rebuildEnvironment,
   renameProject,
   resumeProject,
@@ -314,6 +315,31 @@ describe("environment resources", () => {
     expect(await readBindingEnvironment("prj-1", "bnd-1")).toEqual(result);
     expect(seen[0]?.method).toBe("GET");
     expect(seen[0]?.url).toBe("/api/project/prj-1/binding/bnd-1/environment");
+  });
+
+  it("readSuitePassPlan reads the suite pass plan route", async () => {
+    const plan = {
+      filename: "suite-pass-setup-repo.md",
+      content: {
+        name: "Add the suite pass record",
+        requirement: "r",
+        criterion: "c",
+        verifications: ["v"],
+        bindings: ["bnd-1"],
+      },
+      tasks: [],
+      reason: "Add the suite pass record to repo.",
+    };
+    const base = await serve([plan, plan]);
+    setConnection({ baseUrl: base, token: "jwt-1" });
+
+    expect(await readSuitePassPlan("prj-1", "bnd-1")).toEqual(plan);
+    await readSuitePassPlan("a/b", "c/d");
+    expect(seen[0]?.method).toBe("GET");
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/project/prj-1/binding/bnd-1/suite-pass/plan",
+      "/api/project/a%2Fb/binding/c%2Fd/suite-pass/plan",
+    ]);
   });
 
   it("puts the environment document with an idempotency key", async () => {

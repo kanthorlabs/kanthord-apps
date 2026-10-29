@@ -7,6 +7,7 @@ import { setConnection } from "../client";
 import {
   applyMissionImport,
   checkNode,
+  createMissionNode,
   decideProposals,
   discardNode,
   exportMissionJson,
@@ -325,6 +326,35 @@ describe("mission node control resources", () => {
       reason: "The dependency is gone",
       expected_mission_version: 7,
     });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
+  });
+});
+
+describe("createMissionNode", () => {
+  it("createMissionNode posts the body to the node route of the mission", async () => {
+    await serve({ mission_version: 4 });
+    const body = {
+      filename: "suite-pass-setup-repo.md",
+      content: {
+        name: "Add the suite pass record",
+        requirement: "r",
+        criterion: "c",
+        verifications: ["v"],
+        bindings: ["binding_1"],
+      },
+      tasks: [],
+      reason: "Add the suite pass record to repo.",
+      expected_mission_version: 3,
+    };
+
+    const change = await createMissionNode("mission/1", body);
+
+    expect(change).toEqual({ mission_version: 4 });
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/mission%2F1/node");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
       /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
     );

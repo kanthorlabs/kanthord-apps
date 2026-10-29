@@ -17,6 +17,7 @@ import type {
   EnvironmentState,
   Project,
   ProjectBindingRecord,
+  RepositoryBindingConfig,
   WorkerCatalogEntry,
   WorkerInstanceDetail,
   WorkerInstanceListItem,
@@ -29,7 +30,7 @@ vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/credentials");
 vi.mock("sonner", async (importOriginal) => ({
   ...(await importOriginal<typeof Sonner>()),
-  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
+  toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn(), info: vi.fn() }),
 }));
 
 import { toast } from "sonner";
@@ -262,6 +263,7 @@ describe("BindingsPanel", () => {
       commit: null,
       environment: { image: "node:24" },
       reason: null,
+      suite_pass: "present",
     });
     vi.mocked(credentialsApi.listCredentialPage).mockResolvedValue({
       items: [
@@ -2019,6 +2021,155 @@ describe("BindingsPanel", () => {
       expect(toast.success).toHaveBeenCalledWith("Onboarding of kanthord-repo started.");
     });
 
+    describe("suite pass proposal", () => {
+      const LINE = "Add the suite pass record so that CI skips the test files that already passed.";
+      type Action = NonNullable<RepositoryBindingConfig["strategy"]["action"]>;
+      const FOLLOWS = { type: "assessment_passed" } as const;
+      const PLAN = {
+        filename: "suite-pass-setup-kanthord-repo.md",
+        content: {
+          name: "Add the suite pass record",
+          requirement: "The repository records the suite pass.",
+          criterion: "The file .kanthord/suite-pass.json exists.",
+          verifications: ["test -f .kanthord/suite-pass.json"],
+          bindings: ["binding_REPO1"],
+        },
+        tasks: [],
+        reason: "Add the suite pass record to kanthord-repo.",
+      };
+
+      async function openSection(
+        suitePass: "absent" | "present" | null,
+        action: Action | undefined,
+      ) {
+        if (REPO.kind !== "repository") throw new Error("REPO is a repository binding");
+        const config: RepositoryBindingConfig = {
+          ...REPO.config,
+          strategy: { base_branch: "main", ...(action === undefined ? {} : { action }) },
+        };
+        vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+          version: 2,
+          bindings: { "kanthord-repo": { kind: "repository", config } },
+        });
+        vi.mocked(projectsApi.listBindings).mockResolvedValue([{ ...BINDING_REPO, config }]);
+        vi.mocked(projectsApi.readBindingEnvironment).mockResolvedValue({
+          source: "stored",
+          commit: null,
+          environment: { image: "node:24" },
+          reason: null,
+          suite_pass: suitePass,
+        });
+        mount([READY]);
+        await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+        const region = await screen.findByRole("region", { name: "Environment" });
+        await waitFor(() =>
+          expect(within(region).getByRole("button", { name: "Copy environment" })).toBeEnabled(),
+        );
+        return region;
+      }
+
+      async function openProposal() {
+        vi.mocked(projectsApi.readSuitePassPlan).mockResolvedValue(PLAN);
+        vi.mocked(missionApi.readMission).mockResolvedValue({
+          id: "mission_1",
+          project_id: "project_1",
+          version: 3,
+        });
+        const region = await openSection("absent", { name: "pull_request", follows: FOLLOWS });
+        await userEvent.click(
+          await within(region).findByRole("button", { name: "Add setup node" }),
+        );
+      }
+
+      it("shows the suite pass proposal for a binding with suite_pass absent and a human landing", async () => {
+        const human = await openSection("absent", {
+          name: "pull_request",
+          follows: FOLLOWS,
+          landing: "human",
+        });
+
+        expect(within(human).getByText(LINE)).toBeTruthy();
+        expect(within(human).getByRole("button", { name: "Add setup node" })).toBeEnabled();
+      });
+
+      it("reads an absent landing as human", async () => {
+        const region = await openSection("absent", { name: "pull_request", follows: FOLLOWS });
+
+        expect(within(region).getByText(LINE)).toBeTruthy();
+        expect(within(region).getByRole("button", { name: "Add setup node" })).toBeTruthy();
+      });
+
+      it.each([
+        ["suite_pass present", "present", { name: "pull_request", follows: FOLLOWS }],
+        ["suite_pass null", null, { name: "pull_request", follows: FOLLOWS }],
+        [
+          "another landing",
+          "absent",
+          { name: "pull_request", follows: FOLLOWS, landing: "kanthord" },
+        ],
+        ["a merge_push action", "absent", { name: "merge_push", follows: FOLLOWS }],
+        ["no action", "absent", undefined],
+      ] as const)("shows no proposal for %s", async (_name, suitePass, action) => {
+        const region = await openSection(suitePass, action);
+
+        expect(within(region).queryByText(LINE)).toBeNull();
+        expect(within(region).queryByRole("button", { name: "Add setup node" })).toBeNull();
+      });
+
+      it("Add setup node creates the setup node with the mission version", async () => {
+        vi.mocked(missionApi.createMissionNode).mockResolvedValue({
+          mission_version: 4,
+        } as Awaited<ReturnType<typeof missionApi.createMissionNode>>);
+
+        await openProposal();
+
+        await waitFor(() =>
+          expect(toast.success).toHaveBeenCalledWith("Setup node of kanthord-repo added."),
+        );
+        expect(projectsApi.readSuitePassPlan).toHaveBeenCalledWith("project_1", "binding_REPO1");
+        expect(missionApi.readMission).toHaveBeenCalledWith("project_1");
+        expect(missionApi.createMissionNode).toHaveBeenCalledTimes(1);
+        expect(missionApi.createMissionNode).toHaveBeenCalledWith("mission_1", {
+          ...PLAN,
+          expected_mission_version: 3,
+        });
+      });
+
+      it("a refused node create shows an error toast with Retry", async () => {
+        vi.mocked(missionApi.createMissionNode).mockRejectedValue(
+          new ApiError(
+            "conflict",
+            "The expected mission version differs from the current version.",
+            409,
+            "mission.version.conflict",
+          ),
+        );
+
+        await openProposal();
+
+        await waitFor(() =>
+          expect(toast.error).toHaveBeenCalledWith(
+            "The expected mission version differs from the current version.",
+            { action: { label: "Retry", onClick: expect.any(Function) } },
+          ),
+        );
+        expect(toast.info).not.toHaveBeenCalled();
+      });
+
+      it("an existing setup node shows an info toast with no Retry", async () => {
+        vi.mocked(missionApi.createMissionNode).mockRejectedValue(
+          new ApiError("conflict", "The node file exists.", 409, "mission.node.filename_conflict"),
+        );
+
+        await openProposal();
+
+        await waitFor(() =>
+          expect(toast.info).toHaveBeenCalledWith("Setup node of kanthord-repo exists."),
+        );
+        expect(toast.error).not.toHaveBeenCalled();
+      });
+    });
+
     it("holds no section in the sheet of a new repository binding", async () => {
       mount([READY]);
 
@@ -2335,6 +2486,7 @@ describe("BindingsPanel", () => {
           commit: null,
           environment: DRAFT,
           reason: null,
+          suite_pass: "present",
         });
         mount([READY]);
         await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
