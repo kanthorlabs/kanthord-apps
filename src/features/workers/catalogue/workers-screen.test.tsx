@@ -188,9 +188,8 @@ describe("WorkersScreen", () => {
       REGISTRATION_IDLE_WORKER,
     ]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
+      workerBinding("tdd-main", { worker_instances: ["tdd-1", "tdd-2"] }),
       workerBinding("reviewer-main", {
-        placement: "worker",
         worker_instances: ["review-01", "review-02", "review-03"],
       }),
     ]);
@@ -209,7 +208,7 @@ describe("WorkersScreen", () => {
       { ...REGISTRATION_IDLE_WORKER, project_id: "prj-other" },
     ]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { placement: "worker", worker_instances: ["review-01"] }),
+      workerBinding("reviewer-main", { worker_instances: ["review-01"] }),
     ]);
     renderScreen();
 
@@ -221,7 +220,6 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", {
-        placement: "worker",
         worker_instances: ["review-01", "review-02"],
       }),
     ]);
@@ -247,7 +245,6 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", {
-        placement: "worker",
         worker_instances: ["review-01", "review-02"],
       }),
     ]);
@@ -263,14 +260,14 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
+      workerBinding("tdd-main", { worker_instances: ["tdd-1", "tdd-2"] }),
     ]);
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
       version: 9,
       bindings: {
         "tdd-main": {
           kind: "worker",
-          config: { worker: "tdd", instance_count: 2, placement: "server" },
+          config: { worker: "tdd", worker_instances: ["tdd-1", "tdd-2"] },
         },
       },
     });
@@ -302,50 +299,11 @@ describe("WorkersScreen", () => {
     );
   });
 
-  it("shows the slot limit cause for a server placement binding with a gap", async () => {
-    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
-    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("tdd-main", { instance_count: 2, placement: "server" }),
-    ]);
-    renderScreen();
-
-    await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
-    expect(
-      screen.getByText(
-        textContent(
-          "The server starts these instances. A lasting shortfall means the worker.server_slot_limit cap. See the server log for worker.pool.slot_limit.",
-        ),
-      ),
-    ).toBeDefined();
-    expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
-  });
-
-  it("shows the container log hint for a container placement binding with a gap", async () => {
-    vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
-    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
-    vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("tdd-main", { instance_count: 2, placement: "container" }),
-    ]);
-    renderScreen();
-
-    await waitFor(() => expect(screen.getByText("0 of 2 live")).toBeDefined());
-    expect(screen.getByText(textContent("tdd · container"))).toBeDefined();
-    expect(
-      screen.getByText(
-        textContent(
-          "The server starts these instances, each in its own container. Read workers/<client_id>/stderr.log in the state directory of the server.",
-        ),
-      ),
-    ).toBeDefined();
-    expect(screen.queryByText(/kanthord auth jwt generate/)).toBeNull();
-  });
-
   it("shows no steps for a worker placement binding with all instances live", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([REGISTRATION_IDLE_WORKER]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { placement: "worker", worker_instances: ["review-01"] }),
+      workerBinding("reviewer-main", { worker_instances: ["review-01"] }),
     ]);
     renderScreen();
 
@@ -358,7 +316,7 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([CATALOG_TDD]);
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
-      workerBinding("reviewer-main", { placement: "worker", worker_instances: [] }),
+      workerBinding("reviewer-main", { worker_instances: [] }),
     ]);
     renderScreen();
 
@@ -395,7 +353,6 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", {
-        placement: "worker",
         worker_instances: ["review-01", "review-02"],
       }),
     ]);
@@ -416,7 +373,6 @@ describe("WorkersScreen", () => {
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([
       workerBinding("reviewer-main", {
-        placement: "worker",
         worker_instances: ["review-01", "review-02"],
       }),
     ]);

@@ -16,7 +16,7 @@ const STABLE_TEXTS: Readonly<
   Record<Exclude<PlacementReason, "runtime_failed" | "runtime_rootful">, string>
 > = {
   server_in_container:
-    "This server runs in a container, so it cannot start a container for each instance. Keep server.",
+    "This server runs in a container, so it cannot start a container for the instance. Choose Server.",
   runtime_absent: "Install Podman or Docker on the server host, then open this sheet again.",
 };
 
@@ -71,6 +71,6 @@ export function placementChoicesOf(
 export function containerDescriptionOf(choices: PlacementChoices): string {
   if (choices.disabled.includes("container") && choices.note !== null) return choices.note;
   const runtime = choices.runtime === null ? "" : ` with ${choices.runtime}`;
-  const base = `Runs each instance in its own container on the server host${runtime}.`;
+  const base = `Runs the instance in its own container on the server host${runtime}.`;
   return choices.note === null ? base : `${base} ${choices.note}`;
 }

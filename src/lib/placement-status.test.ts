@@ -25,7 +25,7 @@ function containerStatus(change: Partial<PlacementStatus>): readonly PlacementSt
 describe("placementReasonText", () => {
   it("states one sentence for each stable reason", () => {
     expect(placementReasonText("server_in_container", null, null)).toBe(
-      "This server runs in a container, so it cannot start a container for each instance. Keep server.",
+      "This server runs in a container, so it cannot start a container for the instance. Choose Server.",
     );
     expect(placementReasonText("runtime_absent", null, null)).toBe(
       "Install Podman or Docker on the server host, then open this sheet again.",
@@ -87,6 +87,22 @@ describe("placementChoicesOf", () => {
     });
   });
 
+  it("turns container off with the Choose Server reason when the server runs in a container", () => {
+    expect(
+      placementChoicesOf(
+        containerStatus({
+          available: false,
+          reason: "server_in_container",
+          container_runtime: null,
+        }),
+      ),
+    ).toEqual({
+      disabled: ["container"],
+      note: "Off. This server runs in a container, so it cannot start a container for the instance. Choose Server.",
+      runtime: null,
+    });
+  });
+
   it("keeps container on and shows the detail for a failed runtime", () => {
     expect(
       placementChoicesOf(
@@ -120,8 +136,14 @@ describe("placementChoicesOf", () => {
 describe("containerDescriptionOf", () => {
   it("names the runtime that the server uses", () => {
     expect(containerDescriptionOf(placementChoicesOf(containerStatus({})))).toBe(
-      "Runs each instance in its own container on the server host with Podman.",
+      "Runs the instance in its own container on the server host with Podman.",
     );
+  });
+
+  it("names no runtime when the server reports none", () => {
+    expect(
+      containerDescriptionOf(placementChoicesOf(containerStatus({ container_runtime: null }))),
+    ).toBe("Runs the instance in its own container on the server host.");
   });
 
   it("states only the reason when container is off", () => {
@@ -147,7 +169,7 @@ describe("containerDescriptionOf", () => {
         ),
       ),
     ).toBe(
-      "Runs each instance in its own container on the server host. Stopped. Fix the container runtime of the server user, then open this sheet again.",
+      "Runs the instance in its own container on the server host. Stopped. Fix the container runtime of the server user, then open this sheet again.",
     );
   });
 });

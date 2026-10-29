@@ -167,7 +167,7 @@ function listedInstancesOf(entries: readonly WorkerEntry[]): readonly string[] {
   return [
     ...new Set(
       entries.flatMap((entry) =>
-        entry.config.placement === "worker" ? (entry.config.worker_instances ?? []) : [],
+        "worker_instances" in entry.config ? entry.config.worker_instances : [],
       ),
     ),
   ];

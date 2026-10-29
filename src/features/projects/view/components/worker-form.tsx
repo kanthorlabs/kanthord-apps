@@ -13,13 +13,11 @@ import {
   withWorker,
   type WorkerDraft,
 } from "@/lib/binding-draft";
-import type { PlacementChoices } from "@/lib/placement-status";
 import { useAdvancedSettings } from "../use-advanced-settings";
 import type { InstanceSharing } from "../use-instance-sharing";
 import type { WorkerAgents } from "../use-worker-agents";
 import { DraftField } from "./draft-field";
 import { InstancesField } from "./instances-field";
-import { PlacementField } from "./placement-field";
 import { WorkerAdvancedSettings } from "./worker-advanced-settings";
 import { WorkerAgentItem } from "./worker-agent-item";
 
@@ -96,7 +94,6 @@ interface WorkerFormProps {
   readonly repositoryNames: readonly string[];
   readonly workers: readonly string[];
   readonly agents: Resource<WorkerAgents>;
-  readonly placements: PlacementChoices;
   readonly instances: Resource<readonly WorkerInstanceListItem[]>;
   readonly sharing: Resource<readonly InstanceSharing[]>;
   readonly onEdit: (draft: WorkerDraft) => void;
@@ -110,13 +107,11 @@ export function WorkerForm({
   repositoryNames,
   workers,
   agents,
-  placements,
   instances,
   sharing,
   onEdit,
   onEnableAgent,
 }: WorkerFormProps) {
-  const hosted = draft.worker !== "" && agents.data !== null && !agents.data.external;
   const advanced = useAdvancedSettings(draft, errors);
   return (
     <>
@@ -143,25 +138,7 @@ export function WorkerForm({
           onChange={(worker) => onEdit({ ...draft, worker })}
         />
       )}
-      {hosted &&
-        (creating ? (
-          <PlacementField
-            value={draft.placement}
-            choices={placements}
-            onChange={(placement) => onEdit({ ...draft, placement })}
-          />
-        ) : (
-          <DraftField
-            id="binding-placement"
-            label="Placement"
-            value={draft.placement ?? ""}
-            error={errors["placement"]}
-            readOnly
-            description="A worker binding keeps its placement. Remove the binding and add another to change it."
-            onChange={() => undefined}
-          />
-        ))}
-      {draft.placement === "container" && (
+      {draft.instanceCount === null && (
         <ChoiceField
           id="binding-environment"
           label="Environment"
@@ -172,7 +149,7 @@ export function WorkerForm({
           onChange={(environment) => onEdit({ ...draft, environment: environment ?? "" })}
         />
       )}
-      {draft.placement === "worker" ? (
+      {draft.instanceCount === null ? (
         <InstancesField
           draft={draft}
           error={errors["instances"]}
@@ -201,13 +178,7 @@ export function WorkerForm({
           onEnableAgent={onEnableAgent}
         />
       </section>
-      <WorkerAdvancedSettings
-        draft={draft}
-        errors={errors}
-        settings={advanced}
-        offersWorkerPlacement={creating && hosted}
-        onEdit={onEdit}
-      />
+      <WorkerAdvancedSettings draft={draft} errors={errors} settings={advanced} onEdit={onEdit} />
     </>
   );
 }

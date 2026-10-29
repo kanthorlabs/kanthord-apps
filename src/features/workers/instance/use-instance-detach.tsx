@@ -65,8 +65,8 @@ function detachedEntryOf(
   entry: BindingSetEntry | undefined,
   instance: string,
 ): BindingSetEntry | null {
-  if (entry?.kind !== "worker" || entry.config.placement !== "worker") return null;
-  const listed = entry.config.worker_instances ?? [];
+  if (entry?.kind !== "worker" || !("worker_instances" in entry.config)) return null;
+  const listed = entry.config.worker_instances;
   if (!listed.includes(instance)) return null;
   return {
     ...entry,

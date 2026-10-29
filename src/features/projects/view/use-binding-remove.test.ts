@@ -22,7 +22,7 @@ const SET: BindingSet = {
   bindings: {
     "mac-main": {
       kind: "worker",
-      config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
+      config: { worker: "coder@1", worker_instances: ["mac-studio"] },
     },
     evidence: {
       kind: "storage",
@@ -89,7 +89,7 @@ describe("useBindingRemove", () => {
       ...SET.bindings,
       "mac-main": {
         kind: "worker",
-        config: { worker: "coder@1", placement: "worker", worker_instances: [] },
+        config: { worker: "coder@1", worker_instances: [] },
       },
     });
   });

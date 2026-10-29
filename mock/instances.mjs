@@ -4,6 +4,9 @@ import * as fx from "./fixtures.mjs";
 
 const INSTANCE_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 const RESERVED_NAMES = ["server", "token", "connect", "heartbeat"];
+const INSTANCE_PLACEMENTS = ["server", "container", "worker"];
+const SERVER_INSTANCE_LIMIT = 16;
+const NO_KEY = { publicKey: null, privateKey: null };
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 const ulidTail = () => {
@@ -44,7 +47,16 @@ const connectionOf = (name, now) =>
     ? null
     : { connection_name: name, connected_at: now - 40 * 60_000, last_heartbeat_at: now - 9_000 };
 
-export function registerInstances({ on, json, envelope, page, bindingSets, credentials, agents }) {
+export function registerInstances({
+  on,
+  json,
+  envelope,
+  page,
+  bindingSets,
+  credentials,
+  agents,
+  containerBlockReason,
+}) {
   const now = Date.now();
   const instances = structuredClone(fx.WORKER_INSTANCES).map(({ connected, ...record }) => ({
     record,
@@ -59,9 +71,7 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
   const live = (instance) => instance.record.ended_at === null;
 
   const listsInstance = (entry, name) =>
-    entry.kind === "worker" &&
-    entry.config.placement === "worker" &&
-    (entry.config.worker_instances ?? []).includes(name);
+    entry.kind === "worker" && (entry.config.worker_instances ?? []).includes(name);
 
   const bindingsOf = (name) =>
     bindingSets().flatMap(([projectId, set]) =>
@@ -70,8 +80,29 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
         .map(([binding]) => ({ project_id: projectId, binding })),
     );
 
+  const bindingNameOf = (registration) =>
+    registration.resource_identity.replace("worker:kanthord:", "");
+
+  const registrationView = (registration) => {
+    if (registration.instance == null) return registration;
+    const set = bindingSets().find(([projectId]) => projectId === registration.project_id)?.[1];
+    const entry = set?.bindings[bindingNameOf(registration)];
+    if (entry === undefined) return registration;
+    return { ...registration, draining: !listsInstance(entry, registration.instance) };
+  };
+
   const registrationsOf = (name) =>
-    fx.WORKER_REGISTRATIONS.filter((registration) => registration.instance === name);
+    fx.WORKER_REGISTRATIONS.filter((registration) => registration.instance === name).map(
+      registrationView,
+    );
+
+  const dropRegistrationsOf = (name) => {
+    for (let index = fx.WORKER_REGISTRATIONS.length - 1; index >= 0; index -= 1) {
+      if (fx.WORKER_REGISTRATIONS[index].instance === name) {
+        fx.WORKER_REGISTRATIONS.splice(index, 1);
+      }
+    }
+  };
 
   const healthOf = (holder, copy) => {
     const report = fx.INSTANCE_COPY_REPORTS.find(
@@ -124,6 +155,7 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
     const held = copiesOf(instance.record.name)
       .filter((copy) => copy.sealed_current)
       .map((copy) => copy.name);
+    if (instance.record.placement !== "worker") return false;
     return listingConfigsOf(instance).some((config) =>
       agents
         .filter((agent) => agent.enablement !== null && agent.worker_names.includes(config.worker))
@@ -250,18 +282,58 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
         "The worker is unknown or is a worker of an external harness.",
       );
     }
+    if (!INSTANCE_PLACEMENTS.includes(b.placement)) {
+      return refuse(
+        res,
+        400,
+        "worker.instance.placement_invalid",
+        "The placement is not server, container or worker.",
+      );
+    }
+    const atWorker = b.placement === "worker";
+    if (!atWorker && (b.public_key !== undefined || b.endpoint !== undefined)) {
+      return refuse(
+        res,
+        400,
+        "worker.instance.key_forbidden",
+        "An instance at the server or container placement takes no public_key and no endpoint.",
+      );
+    }
     if (find(name) !== undefined) {
       return refuse(res, 409, "worker.instance.name_conflict", "The instance name is taken.");
     }
-    const key = keyOrRefuse(res, b);
+    const blockedReason = b.placement === "container" ? containerBlockReason() : null;
+    if (blockedReason !== null) {
+      return refuse(
+        res,
+        409,
+        "worker.instance.placement_unavailable",
+        "The server cannot run the container placement.",
+        { placement: "container", reason: blockedReason },
+      );
+    }
+    const serverRuns = instances.filter(
+      (instance) => live(instance) && instance.record.placement !== "worker",
+    );
+    if (!atWorker && serverRuns.length >= SERVER_INSTANCE_LIMIT) {
+      return refuse(
+        res,
+        409,
+        "worker.instance.server_limit",
+        "The server runs the most instances that it allows.",
+        { limit: SERVER_INSTANCE_LIMIT },
+      );
+    }
+    const key = atWorker ? keyOrRefuse(res, b) : NO_KEY;
     if (key === null) return undefined;
     const record = {
       id: `worker_instance_0${ulidTail()}`,
       name,
       worker: b.worker,
+      placement: b.placement,
       revision: 1,
       public_key: key.publicKey,
-      fingerprint: fingerprintOf(key.publicKey),
+      fingerprint: key.publicKey === null ? null : fingerprintOf(key.publicKey),
       created_at: Date.now(),
       ended_at: null,
     };
@@ -272,6 +344,14 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
   on("POST", /^\/api\/worker\/instance\/([^/]+)\/revision$/, (m, b, res) => {
     const instance = writable(res, decodeURIComponent(m[1]), b?.expected_revision);
     if (instance === null) return undefined;
+    if (instance.record.placement !== "worker") {
+      return refuse(
+        res,
+        409,
+        "worker.instance.placement_unsupported",
+        "An instance at the server or container placement holds no key to rotate.",
+      );
+    }
     const key = keyOrRefuse(res, b);
     if (key === null) return undefined;
     instance.record = {
@@ -286,11 +366,7 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
     for (const credential of credentials) {
       if (credential.holder === instance.record.name) credential.sealed_current = false;
     }
-    for (let index = fx.WORKER_REGISTRATIONS.length - 1; index >= 0; index -= 1) {
-      if (fx.WORKER_REGISTRATIONS[index].instance === instance.record.name) {
-        fx.WORKER_REGISTRATIONS.splice(index, 1);
-      }
-    }
+    dropRegistrationsOf(instance.record.name);
     return writeAnswer(res, instance.record, b.endpoint, key.privateKey);
   });
 
@@ -306,7 +382,7 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
     const executions = registrationsOf(instance.record.name)
       .filter((registration) => registration.execution_id !== undefined)
       .map((registration) => registration.execution_id);
-    if (executions.length > 0) {
+    if (executions.length > 0 && b?.force !== true) {
       return refuse(
         res,
         409,
@@ -315,6 +391,7 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
         { executions },
       );
     }
+    dropRegistrationsOf(instance.record.name);
     const endedAt = Date.now();
     instance.record = { ...instance.record, ended_at: endedAt };
     instance.connection = null;
@@ -326,6 +403,7 @@ export function registerInstances({ on, json, envelope, page, bindingSets, crede
   });
 
   return {
+    registrationView,
     liveInstance: (name) => {
       const instance = find(name);
       return instance !== undefined && live(instance) ? instance : null;

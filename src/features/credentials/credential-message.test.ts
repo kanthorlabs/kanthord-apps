@@ -56,7 +56,7 @@ describe("credentialMessage", () => {
         }),
       ),
     ).toBe(
-      "The container placement is not available. This server runs in a container, so it cannot start a container for each instance. Keep server.",
+      "The container placement is not available. This server runs in a container, so it cannot start a container for the instance. Choose Server.",
     );
     expect(credentialMessage(refusal("project.bindings.worker.placement_unavailable"))).toBe(
       "Daemon text.",

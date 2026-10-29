@@ -34,6 +34,7 @@ const MAC: WorkerInstanceDetail = {
   id: "worker_instance_1",
   name: "mac-studio",
   worker: "coder@1",
+  placement: "worker",
   revision: 1,
   public_key: "k",
   fingerprint: "f",
@@ -53,7 +54,7 @@ const SET_A: BindingSet = {
   bindings: {
     "mac-main": {
       kind: "worker",
-      config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio", "b-1"] },
+      config: { worker: "coder@1", worker_instances: ["mac-studio", "b-1"] },
     },
   },
 };
@@ -63,7 +64,7 @@ const SET_B: BindingSet = {
   bindings: {
     solo: {
       kind: "worker",
-      config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
+      config: { worker: "coder@1", worker_instances: ["mac-studio"] },
     },
   },
 };
@@ -131,7 +132,7 @@ describe("useInstanceDetach", () => {
     expect(writeBindingSet).toHaveBeenCalledWith("prj-a", 4, {
       "mac-main": {
         kind: "worker",
-        config: { worker: "coder@1", placement: "worker", worker_instances: ["b-1"] },
+        config: { worker: "coder@1", worker_instances: ["b-1"] },
       },
     });
     expect(toast.success).toHaveBeenCalledWith("Detached mac-studio.", expect.anything());
@@ -157,7 +158,7 @@ describe("useInstanceDetach", () => {
     expect(writeBindingSet).toHaveBeenCalledWith("prj-b", 7, {
       solo: {
         kind: "worker",
-        config: { worker: "coder@1", placement: "worker", worker_instances: [] },
+        config: { worker: "coder@1", worker_instances: [] },
       },
     });
     expect(writeBindingSet).toHaveBeenCalledTimes(2);

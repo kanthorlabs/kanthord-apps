@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { BindingSetEntry, MissionPlanEntry } from "@/api/types";
 import {
   classifyChange,
+  instanceChangeSummaryOf,
   isAvailable,
   isGuarded,
   nextBindings,
@@ -115,22 +116,51 @@ describe("isAvailable", () => {
   });
 });
 
-describe("unavailableOf at the worker placement", () => {
-  const placed: BindingSetEntry = {
+describe("unavailableOf for a native binding", () => {
+  const native: BindingSetEntry = {
     kind: "worker",
-    config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
+    config: { worker: "coder@1", worker_instances: ["mac-studio"] },
   };
 
   it("empties the instance list and sets no instance count", () => {
-    const unavailable = unavailableOf(placed);
+    const unavailable = unavailableOf(native);
     expect(unavailable.kind === "worker" && unavailable.config).toEqual({
       worker: "coder@1",
-      placement: "worker",
       worker_instances: [],
     });
-    expect(isAvailable(placed)).toBe(true);
+    expect(isAvailable(native)).toBe(true);
     expect(isAvailable(unavailable)).toBe(false);
-    expect(classifyChange("mac-main", placed, unavailable)).toBe("disable");
+    expect(classifyChange("mac-main", native, unavailable)).toBe("disable");
+  });
+});
+
+describe("instanceChangeSummaryOf", () => {
+  const listing = (...names: string[]): BindingSetEntry => ({
+    kind: "worker",
+    config: { worker: "coder@1", worker_instances: names },
+  });
+
+  it("names an added instance and a removed instance", () => {
+    expect(
+      instanceChangeSummaryOf(listing("coder-1", "coder-2"), listing("coder-1", "box-1")),
+    ).toBe("Adds instance box-1. Removes instance coder-2.");
+  });
+
+  it("names every instance of a new binding as added", () => {
+    expect(instanceChangeSummaryOf(undefined, listing("coder-1", "coder-2"))).toBe(
+      "Adds instances coder-1, coder-2.",
+    );
+  });
+
+  it("names a removed list as removed instances", () => {
+    expect(instanceChangeSummaryOf(listing("coder-1", "coder-2"), listing())).toBe(
+      "Removes instances coder-1, coder-2.",
+    );
+  });
+
+  it("answers no text when the list stays and for a binding of an external harness", () => {
+    expect(instanceChangeSummaryOf(listing("coder-1"), listing("coder-1"))).toBe("");
+    expect(instanceChangeSummaryOf(WORKER, WORKER)).toBe("");
   });
 });
 

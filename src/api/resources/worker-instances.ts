@@ -3,6 +3,7 @@ import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   WorkerInstance,
+  WorkerInstanceArchiveBody,
   WorkerInstanceCreateBody,
   WorkerInstanceDetail,
   WorkerInstanceListItem,
@@ -50,10 +51,15 @@ export async function resetWorkerInstanceKey(
 export async function archiveWorkerInstance(
   instanceName: string,
   expectedRevision: number,
+  options: Pick<WorkerInstanceArchiveBody, "force"> = {},
 ): Promise<WorkerInstance> {
+  const body: WorkerInstanceArchiveBody = {
+    expected_revision: expectedRevision,
+    ...(options.force === undefined ? {} : { force: options.force }),
+  };
   return request<WorkerInstance>(`${instancePath(instanceName)}/archive`, {
     method: "POST",
-    body: { expected_revision: expectedRevision },
+    body,
     headers: { "idempotency-key": newIdempotencyKey() },
   });
 }

@@ -14,7 +14,6 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerPlacement,
   WorkerRegistrationRecord,
 } from "@/api/types";
 
@@ -131,7 +130,7 @@ function agentView(agent: string, overrides: Partial<BindingAgentView> = {}): Bi
 function bindingView(
   name: string,
   worker: string,
-  placement?: WorkerPlacement,
+  instances: readonly string[] = ["instance-1"],
   agents: readonly BindingAgentView[] | null = [],
   tags?: readonly string[],
 ): WorkerBindingView {
@@ -144,8 +143,7 @@ function bindingView(
     revision: 1,
     config: {
       worker,
-      instance_count: 1,
-      ...(placement === undefined ? {} : { placement }),
+      worker_instances: instances,
       ...(tags === undefined ? {} : { tags }),
     },
     created_at: 1,
@@ -263,7 +261,7 @@ describe("fixItemsOf project_paused", () => {
 
 describe("fixItemsOf no_taker", () => {
   const waiting = node("w", "Waiting");
-  const reviewer = bindingView("reviewer-main", "reviewer@1", "server");
+  const reviewer = bindingView("reviewer-main", "reviewer@1");
 
   it("lists a state that no live registration declares once the oldest job is older than 60 s", () => {
     const items = fixItemsOf(
@@ -288,7 +286,7 @@ describe("fixItemsOf no_taker", () => {
       tags: [],
       jobCount: 2,
       at: NOW - 120_000,
-      hint: { kind: "server", binding: "reviewer-main", worker: "reviewer@1" },
+      hint: { kind: "no_registration", binding: "reviewer-main", worker: "reviewer@1" },
     });
   });
 
@@ -330,8 +328,8 @@ describe("fixItemsOf no_taker", () => {
           ],
           jobs: [job("m", 5 * MINUTE), job("l", 5 * MINUTE), job("l2", 4 * MINUTE)],
           bindings: [
-            bindingView("coder-mac", "coder@1", "worker", [], ["platform.macos"]),
-            bindingView("coder-linux", "coder@1", "server", [], ["platform.linux"]),
+            bindingView("coder-mac", "coder@1", [], [], ["platform.macos"]),
+            bindingView("coder-linux", "coder@1", ["coder-1"], [], ["platform.linux"]),
           ],
         }),
       ],
@@ -345,19 +343,19 @@ describe("fixItemsOf no_taker", () => {
           id: "no_taker:prj-1:Available:implement:platform.macos",
           tags: ["platform.macos"],
           jobCount: 1,
-          hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
+          hint: { kind: "no_instance", binding: "coder-mac", worker: "coder@1" },
         }),
         expect.objectContaining({
           id: "no_taker:prj-1:Available:implement:platform.linux",
           tags: ["platform.linux"],
           jobCount: 2,
-          hint: { kind: "server", binding: "coder-linux", worker: "coder@1" },
+          hint: { kind: "no_registration", binding: "coder-linux", worker: "coder@1" },
         }),
       ]),
     );
   });
 
-  it("names a hint of the worker placement when the binding sets no placement", () => {
+  it("names a hint of a hosted binding that lists an instance", () => {
     const [item] = fixItemsOf(
       [
         snapshot({
@@ -369,7 +367,7 @@ describe("fixItemsOf no_taker", () => {
       context(),
     );
 
-    expect(item).toMatchObject({ hint: { kind: "worker", binding: "reviewer-main" } });
+    expect(item).toMatchObject({ hint: { kind: "no_registration", binding: "reviewer-main" } });
   });
 
   it("names no binding when no binding declares the state", () => {
@@ -413,8 +411,8 @@ describe("fixItemsOf no_taker", () => {
           jobs: [job("m", 5 * MINUTE)],
           registrations: [registration("coder-main", "coder@1")],
           bindings: [
-            bindingView("coder-main", "coder@1", "server"),
-            bindingView("coder-mac", "coder@1", "worker", [], ["platform.macos"]),
+            bindingView("coder-main", "coder@1"),
+            bindingView("coder-mac", "coder@1", [], [], ["platform.macos"]),
           ],
         }),
       ],
@@ -423,7 +421,7 @@ describe("fixItemsOf no_taker", () => {
 
     expect(item).toMatchObject({
       id: "no_taker:prj-1:Available:implement:platform.macos",
-      hint: { kind: "worker", binding: "coder-mac", worker: "coder@1" },
+      hint: { kind: "no_instance", binding: "coder-mac", worker: "coder@1" },
     });
   });
 

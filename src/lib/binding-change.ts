@@ -41,9 +41,38 @@ export function isGuarded(kind: BindingChangeKind): boolean {
 }
 
 function unavailableWorkerOf(config: WorkerBindingConfig): WorkerBindingConfig {
-  return config.placement === "worker"
+  return "worker_instances" in config
     ? { ...config, worker_instances: [] }
     : { ...config, instance_count: 0 };
+}
+
+function listedInstancesOf(entry: BindingSetEntry | undefined): readonly string[] {
+  return entry?.kind === "worker" && "worker_instances" in entry.config
+    ? entry.config.worker_instances
+    : [];
+}
+
+function instanceSentence(verb: string, names: readonly string[]): readonly string[] {
+  if (names.length === 0) return [];
+  return [`${verb} ${names.length === 1 ? "instance" : "instances"} ${names.join(", ")}.`];
+}
+
+export function instanceChangeSummaryOf(
+  before: BindingSetEntry | undefined,
+  after: BindingSetEntry,
+): string {
+  const previous = listedInstancesOf(before);
+  const next = listedInstancesOf(after);
+  return [
+    ...instanceSentence(
+      "Adds",
+      next.filter((name) => !previous.includes(name)),
+    ),
+    ...instanceSentence(
+      "Removes",
+      previous.filter((name) => !next.includes(name)),
+    ),
+  ].join(" ");
 }
 
 export function unavailableOf(entry: BindingSetEntry): BindingSetEntry {

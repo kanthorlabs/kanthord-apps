@@ -2303,7 +2303,7 @@ function agedJob(projectId: string, nodeId: string, ageMs: number): SchedulerJob
 function workerBinding(
   name: string,
   worker: string,
-  placement?: "server" | "worker",
+  instances: readonly string[] | null = ["coder-1"],
   projectId = "prj-1",
 ): WorkerBindingRecord {
   return {
@@ -2314,9 +2314,7 @@ function workerBinding(
     resource_identity: `worker:kanthord:${name}`,
     revision: 1,
     config:
-      placement === undefined
-        ? { worker, instance_count: 1 }
-        : { worker, instance_count: 1, placement },
+      instances === null ? { worker, instance_count: 1 } : { worker, worker_instances: instances },
     created_at: 1,
     removed_at: null,
   };
@@ -2511,13 +2509,13 @@ describe("OverviewScreen fixes", () => {
   describe("no taker", () => {
     const waiting = plain("n_w", "Invoices page", "Waiting");
 
-    it("names the binding at the server placement and its instance_count", async () => {
+    it("names a hosted binding that lists an instance and has no live registration", async () => {
       serve({
         nodes: { "prj-1": [waiting] },
         jobs: {
           "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000), agedJob("prj-1", "n_w", 3 * 60_000)],
         },
-        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "server")] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", ["reviewer-1"])] },
       });
 
       renderScreen();
@@ -2528,7 +2526,7 @@ describe("OverviewScreen fixes", () => {
       expect(
         within(item).getByText(
           textContent(
-            "2 implement jobs in state Waiting wait. Binding reviewer-main (reviewer@1) matches them and runs no instance. Raise its instance_count, or check the server log.",
+            "2 implement jobs in state Waiting wait. Binding reviewer-main (reviewer@1) matches them and has no live registration of a listed instance. Open the worker page to check its instances.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2541,11 +2539,11 @@ describe("OverviewScreen fixes", () => {
       );
     });
 
-    it("tells the human to start the worker program at the worker placement", async () => {
+    it("tells the human to add an instance to a hosted binding that lists none", async () => {
       serve({
         nodes: { "prj-1": [waiting] },
         jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
-        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "worker")] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", [])] },
       });
 
       renderScreen();
@@ -2554,7 +2552,53 @@ describe("OverviewScreen fixes", () => {
       expect(
         within(item).getByText(
           textContent(
-            "1 implement job in state Waiting waits. Binding reviewer-main (reviewer@1) matches it and has no live registration. Start its worker program.",
+            "1 implement job in state Waiting waits. Binding reviewer-main (reviewer@1) matches it and lists no instance. Add an instance to the binding on the Bindings tab.",
+          ),
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("sends the human to the worker page for a hosted binding that lists a worker instance", async () => {
+      serve({
+        nodes: { "prj-1": [waiting] },
+        jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", ["box-1"])] },
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
+      expect(
+        within(item).getByText(
+          textContent(
+            "1 implement job in state Waiting waits. Binding reviewer-main (reviewer@1) matches it and has no live registration of a listed instance. Open the worker page to check its instances.",
+          ),
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("tells the human to start the worker program of an external harness", async () => {
+      serve({
+        nodes: { "prj-1": [waiting] },
+        jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
+        bindings: { "prj-1": [workerBinding("claude-main", "claude-code@1", null)] },
+        catalog: [
+          {
+            name: "claude-code@1",
+            host: "external-harness",
+            declared_node_states: ["Waiting"],
+            declared_intents: ["implement"],
+          },
+        ],
+      });
+
+      renderScreen();
+
+      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
+      expect(
+        within(item).getByText(
+          textContent(
+            "1 implement job in state Waiting waits. Binding claude-main (claude-code@1) matches it and has no live registration. Start its worker program.",
           ),
         ),
       ).toBeInTheDocument();
@@ -2568,7 +2612,7 @@ describe("OverviewScreen fixes", () => {
           ],
         },
         jobs: { "prj-1": [agedJob("prj-1", "n_m", 5 * 60_000)] },
-        bindings: { "prj-1": [workerBinding("general-main", "coder@1", "server")] },
+        bindings: { "prj-1": [workerBinding("general-main", "coder@1")] },
       });
 
       renderScreen();
@@ -2606,7 +2650,7 @@ describe("OverviewScreen fixes", () => {
       serve({
         nodes: { "prj-1": [waiting] },
         jobs: { "prj-1": [agedJob("prj-1", "n_w", 30_000)] },
-        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "server")] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", ["reviewer-1"])] },
       });
 
       renderScreen();
@@ -2619,7 +2663,7 @@ describe("OverviewScreen fixes", () => {
       serve({
         nodes: { "prj-1": [waiting] },
         jobs: { "prj-1": [agedJob("prj-1", "n_w", 5 * 60_000)] },
-        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", "server")] },
+        bindings: { "prj-1": [workerBinding("reviewer-main", "reviewer@1", ["reviewer-1"])] },
         registrations: {
           "prj-1": [
             {

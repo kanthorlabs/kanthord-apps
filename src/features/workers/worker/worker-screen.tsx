@@ -185,7 +185,9 @@ function InstanceRow({
         {
           label: "Fingerprint",
           value: (
-            <span className="font-mono break-all">{shortFingerprint(instance.fingerprint)}</span>
+            <span className="font-mono break-all">
+              {instance.fingerprint === null ? "None" : shortFingerprint(instance.fingerprint)}
+            </span>
           ),
         },
       ]}
@@ -196,15 +198,10 @@ function InstanceRow({
 
 function BindingRow({ binding, actions }: { binding: WorkerBindingRecord; actions: ReactNode }) {
   const config = binding.config;
-  const listed = config.placement === "worker" ? (config.worker_instances ?? []) : null;
+  const listed = "worker_instances" in config ? config.worker_instances : null;
   return (
     <DataListItem
       title={<span className="font-mono break-all">{binding.name}</span>}
-      status={
-        config.placement === undefined ? undefined : (
-          <Badge variant="outline">{config.placement}</Badge>
-        )
-      }
       fields={[
         listed === null
           ? { label: "Instance count", value: effectiveInstanceCount(config) }

@@ -268,7 +268,7 @@ on("GET", /^\/api\/worker\/registration$/, (_m, _b, res, _t, url) => {
   const projectId = url.searchParams.get("project_id");
   const items = fx.WORKER_REGISTRATIONS.filter(
     (registration) => projectId === null || registration.project_id === projectId,
-  );
+  ).map(instanceRoutes.registrationView);
   return json(res, 200, page(items));
 });
 const placementStatusOf = (placement) => {
@@ -950,6 +950,11 @@ const isHostedWorker = (name) =>
 
 const INSTANCE_LIST_MAX = 64;
 
+const listsContainerInstance = (config) =>
+  (config.worker_instances ?? []).some(
+    (name) => instanceRoutes.liveInstance(name)?.record.placement === "container",
+  );
+
 const workerEnvironmentRefusal = (bindings) => {
   const repositoryCount = Object.values(bindings).filter(
     (entry) => entry.kind === "repository",
@@ -957,11 +962,11 @@ const workerEnvironmentRefusal = (bindings) => {
   for (const [binding, entry] of Object.entries(bindings)) {
     if (entry.kind !== "worker") continue;
     const environment = entry.config.environment;
-    if (entry.config.placement !== "container") {
+    if (!listsContainerInstance(entry.config)) {
       if (environment === undefined) continue;
       return [
         "project.bindings.worker.field_forbidden",
-        "Only a binding at the container placement names an environment.",
+        "Only a binding that lists a container instance names an environment.",
         { binding, field: "environment" },
       ];
     }
@@ -988,18 +993,25 @@ const workerInstancesRefusal = (bindings) => {
   for (const [binding, entry] of Object.entries(bindings)) {
     if (entry.kind !== "worker") continue;
     const config = entry.config;
-    if (config.placement !== "worker") {
+    if (config.placement !== undefined) {
+      return [
+        "project.bindings.worker.field_forbidden",
+        "A worker binding holds no placement.",
+        { binding, field: "placement" },
+      ];
+    }
+    if (!isHostedWorker(config.worker)) {
       if (config.worker_instances === undefined) continue;
       return [
         "project.bindings.worker.field_forbidden",
-        "Only a binding at the worker placement lists worker instances.",
+        "Only a binding of a hosted worker lists worker instances.",
         { binding, field: "worker_instances" },
       ];
     }
     if (config.instance_count !== undefined) {
       return [
         "project.bindings.worker.field_forbidden",
-        "The worker placement holds worker_instances in place of instance_count.",
+        "A binding of a hosted worker holds worker_instances in place of instance_count.",
         { binding, field: "instance_count" },
       ];
     }
@@ -1007,7 +1019,7 @@ const workerInstancesRefusal = (bindings) => {
     if (names === undefined) {
       return [
         "project.bindings.worker.instances_required",
-        "A binding at the worker placement lists its worker instances.",
+        "A binding of a hosted worker lists its worker instances.",
         { binding },
       ];
     }
@@ -1043,6 +1055,33 @@ const workerInstancesRefusal = (bindings) => {
   return null;
 };
 
+const sharedContainerRefusal = (projectId, bindings) => {
+  const others = [
+    ...bindingSets()
+      .filter(([id]) => id !== projectId)
+      .flatMap(([, set]) => Object.entries(set.bindings)),
+  ];
+  const submitted = Object.entries(bindings);
+  for (const [binding, entry] of submitted) {
+    if (entry.kind !== "worker") continue;
+    for (const instance of entry.config.worker_instances ?? []) {
+      if (instanceRoutes.liveInstance(instance)?.record.placement !== "container") continue;
+      const taken = [...others, ...submitted.filter(([name]) => name !== binding)].some(
+        ([, other]) =>
+          other.kind === "worker" && (other.config.worker_instances ?? []).includes(instance),
+      );
+      if (taken) {
+        return [
+          "project.bindings.worker.instance_shared",
+          "Another live binding lists this container instance.",
+          { binding, instance },
+        ];
+      }
+    }
+  }
+  return null;
+};
+
 on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
   const projectId = decodeURIComponent(m[1]);
   const set = bindingSetOf(projectId);
@@ -1054,25 +1093,12 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       "The submitted binding-set version differs from the current version.",
     );
   }
-  const unplaced = Object.entries(b.bindings).find(
-    ([, entry]) =>
-      entry.kind === "worker" &&
-      isHostedWorker(entry.config.worker) &&
-      entry.config.placement === undefined,
-  );
-  if (unplaced !== undefined) {
-    return projectEnvelope(
-      res,
-      400,
-      "project.bindings.worker.placement_required",
-      "A hosted worker binding states its placement.",
-      { binding: unplaced[0] },
-    );
-  }
   const instanceRefusal = workerInstancesRefusal(b.bindings);
   if (instanceRefusal !== null) return projectEnvelope(res, 400, ...instanceRefusal);
   const environmentRefusal = workerEnvironmentRefusal(b.bindings);
   if (environmentRefusal !== null) return projectEnvelope(res, 400, ...environmentRefusal);
+  const sharedRefusal = sharedContainerRefusal(projectId, b.bindings);
+  if (sharedRefusal !== null) return projectEnvelope(res, 409, ...sharedRefusal);
   const promptRefusal = bindingPromptRefusalOf(b.bindings);
   if (promptRefusal !== null) return projectEnvelope(res, ...promptRefusal);
   const absentSecret = environments.absentSecretOf(b.bindings);
@@ -1083,37 +1109,6 @@ on("PUT", /^\/api\/project\/([^/]+)\/binding-set$/, (m, b, res) => {
       "project.bindings.repository.environment_secret_invalid",
       "A secret variable names a credential that is absent, archived or of another platform.",
       absentSecret,
-    );
-  }
-  const placementChanged = Object.entries(b.bindings).some(([name, entry]) => {
-    const stored = set.bindings[name];
-    return (
-      stored?.kind === "worker" &&
-      entry.kind === "worker" &&
-      stored.config.placement !== entry.config.placement
-    );
-  });
-  if (placementChanged) {
-    return projectEnvelope(
-      res,
-      409,
-      "project.bindings.worker.placement_changed",
-      "A binding cannot change its placement.",
-    );
-  }
-  const addedContainer = Object.entries(b.bindings).find(
-    ([name, entry]) =>
-      entry.kind === "worker" &&
-      entry.config.placement === "container" &&
-      set.bindings[name] === undefined,
-  );
-  if (addedContainer !== undefined && STABLE_PLACEMENT_REASONS.includes(containerReason)) {
-    return projectEnvelope(
-      res,
-      409,
-      "project.bindings.worker.placement_unavailable",
-      "The server cannot run the container placement.",
-      { binding: addedContainer[0], placement: "container", reason: containerReason },
     );
   }
   const changedRepositories = Object.entries(b.bindings)
@@ -1797,22 +1792,12 @@ on("DELETE", /^\/api\/mission\/node\/([^/]+)\/dependency\/([^/]+)$/, (m, b, res)
   });
 });
 
-const bindingConfigOf = (binding, projectId) => {
-  const config = bindingSet.bindings[binding.name]?.config ?? {};
-  const placement = fx.BINDING_PLACEMENTS[projectId]?.[binding.name];
-  if (binding.kind !== "worker" || placement === undefined || placement === config.placement) {
-    return config;
-  }
-  const { worker_instances: instances, ...rest } = config;
-  return placement === "worker"
-    ? { ...rest, placement, worker_instances: instances ?? [] }
-    : { ...rest, placement, instance_count: rest.instance_count ?? instances?.length ?? 1 };
-};
+const bindingConfigOf = (binding) => bindingSet.bindings[binding.name]?.config ?? {};
 
 const bindingRecordOf = (binding, projectId) => ({
   ...binding,
   project_id: projectId,
-  config: bindingConfigOf(binding, projectId),
+  config: bindingConfigOf(binding),
 });
 
 const bindingRecordByName = (name) =>
@@ -1867,7 +1852,7 @@ const COOLING_AGENTS = { [fx.PROJECT.id]: ["swe@1"] };
 const agentViewOf = (agent, binding, projectId) => {
   const base = {
     agent: agent.agent_name,
-    worker: bindingConfigOf(binding, projectId).worker,
+    worker: bindingConfigOf(binding).worker,
     worker_binding_id: binding.id,
     binding_set_version: bindingSet.version,
   };
@@ -1927,7 +1912,7 @@ on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/agent$/, (m, _b, res, _t,
   if (binding === undefined || binding.kind !== "worker") {
     return projectEnvelope(res, 404, "project.binding.not_found", "Binding not found.");
   }
-  const { worker } = bindingConfigOf(binding, project.id);
+  const { worker } = bindingConfigOf(binding);
   const items = agents
     .filter((agent) => agent.worker_names.includes(worker))
     .map((agent) => agentViewOf(agent, binding, project.id))
@@ -2970,6 +2955,8 @@ const instanceRoutes = registerInstances({
   bindingSets,
   credentials,
   agents,
+  containerBlockReason: () =>
+    STABLE_PLACEMENT_REASONS.includes(containerReason) ? containerReason : null,
 });
 
 registerWorkbench({

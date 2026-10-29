@@ -52,7 +52,7 @@ const REPOSITORY: RepositoryBindingConfig = {
 
 const OTHER = {
   kind: "worker",
-  config: { worker: "coder@1", placement: "server" },
+  config: { worker: "coder@1", worker_instances: ["coder-1"] },
 } as const;
 
 function bindingSet(secrets?: Readonly<Record<string, string>>): BindingSet {

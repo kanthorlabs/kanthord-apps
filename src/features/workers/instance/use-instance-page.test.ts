@@ -12,6 +12,7 @@ const DETAIL: WorkerInstanceDetail = {
   id: "worker_instance_1",
   name: "mac-studio",
   worker: "coder@1",
+  placement: "worker",
   revision: 1,
   public_key: "k",
   fingerprint: "SHA256:f",
@@ -43,7 +44,7 @@ const OLD_MAIN: WorkerBindingRecord = {
   kind: "worker",
   resource_identity: "worker:kanthord:old-main",
   revision: 2,
-  config: { worker: "coder@1", placement: "worker", worker_instances: [] },
+  config: { worker: "coder@1", worker_instances: [] },
   created_at: 1,
   removed_at: null,
 };

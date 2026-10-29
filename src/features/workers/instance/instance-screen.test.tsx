@@ -86,6 +86,7 @@ const MAC: WorkerInstanceDetail = {
   id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I01",
   name: "mac-studio",
   worker: "coder@1",
+  placement: "worker",
   revision: 1,
   public_key: "a".repeat(43),
   fingerprint: FINGERPRINT,
@@ -298,7 +299,6 @@ describe("InstanceScreen", () => {
           kind: "worker",
           config: {
             worker: "coder@1",
-            placement: "worker",
             worker_instances: ["mac-studio", "build-01"],
           },
         },
@@ -326,7 +326,7 @@ describe("InstanceScreen", () => {
       expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("prj-a", 6, {
         "mac-main": {
           kind: "worker",
-          config: { worker: "coder@1", placement: "worker", worker_instances: ["build-01"] },
+          config: { worker: "coder@1", worker_instances: ["build-01"] },
         },
       }),
     );

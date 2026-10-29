@@ -36,14 +36,14 @@ export function bindingInstances(
     const native = catalog.some(
       (item) => item.name === binding.config.worker && item.host === "kanthord",
     );
-    const placement = native ? (binding.config.placement ?? null) : null;
+    const listed =
+      native && "worker_instances" in binding.config ? binding.config.worker_instances : null;
+    const placement = listed === null ? null : "worker";
     const unregistered =
-      placement === "worker"
-        ? (binding.config.worker_instances ?? []).filter(
-            (instance) => !own.some((registration) => registration.instance === instance),
-          )
-        : [];
-    const missing = placement === "worker" ? unregistered.length : Math.max(expected - live, 0);
+      listed?.filter(
+        (instance) => !own.some((registration) => registration.instance === instance),
+      ) ?? [];
+    const missing = listed === null ? Math.max(expected - live, 0) : unregistered.length;
     return {
       binding,
       expected,

@@ -113,9 +113,10 @@ export interface WorkerInstance {
   readonly id: string;
   readonly name: string;
   readonly worker: string;
+  readonly placement: WorkerPlacement;
   readonly revision: number;
-  readonly public_key: string;
-  readonly fingerprint: string;
+  readonly public_key: string | null;
+  readonly fingerprint: string | null;
   readonly created_at: number;
   readonly ended_at: number | null;
 }
@@ -164,7 +165,14 @@ export interface WorkerInstanceWriteAnswer extends WorkerInstance {
 export interface WorkerInstanceCreateBody {
   readonly name: string;
   readonly worker: string;
-  readonly endpoint: string;
+  readonly placement: WorkerPlacement;
+  readonly public_key?: string;
+  readonly endpoint?: string;
+}
+
+export interface WorkerInstanceArchiveBody {
+  readonly expected_revision: number;
+  readonly force?: boolean;
 }
 
 export type AgentEnablementState = "enabled" | "disabled";
@@ -484,16 +492,23 @@ export interface PlacementStatus {
   readonly container_runtime: "podman" | "docker" | null;
 }
 
-export interface WorkerBindingConfig {
+interface WorkerBindingConfigBase {
   readonly worker: string;
-  readonly instance_count?: number;
-  readonly worker_instances?: readonly string[];
-  readonly placement?: WorkerPlacement;
   readonly resource_budget?: { readonly turns: number; readonly wall_time_ms: number };
   readonly entries?: readonly WorkerAgentEntry[];
   readonly tags?: readonly string[];
   readonly environment?: string;
 }
+
+export interface NativeWorkerBindingConfig extends WorkerBindingConfigBase {
+  readonly worker_instances: readonly string[];
+}
+
+export interface ExternalWorkerBindingConfig extends WorkerBindingConfigBase {
+  readonly instance_count: number;
+}
+
+export type WorkerBindingConfig = NativeWorkerBindingConfig | ExternalWorkerBindingConfig;
 
 export interface StorageBindingConfig {
   readonly available: boolean;

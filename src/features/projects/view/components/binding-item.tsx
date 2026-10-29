@@ -16,7 +16,6 @@ interface BindingItemProps {
   readonly entry: BindingSetEntry;
   readonly bindingId: string | null;
   readonly environment: EnvironmentState | null;
-  readonly hostedWorker: boolean;
   readonly revision: number | null;
   readonly verifyState: BindingVerifyState;
   readonly onVerify: () => void;
@@ -39,7 +38,7 @@ function instancesFact(instances: readonly string[]): ReactNode {
   );
 }
 
-function factsOf(entry: BindingSetEntry, hostedWorker: boolean): readonly ReactNode[] {
+function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
   if (entry.kind === "repository") {
     const { config } = entry;
     return [
@@ -61,10 +60,9 @@ function factsOf(entry: BindingSetEntry, hostedWorker: boolean): readonly ReactN
     const { config } = entry;
     return [
       <RecordName>{config.worker}</RecordName>,
-      ...(hostedWorker && config.placement !== undefined ? [`placement ${config.placement}`] : []),
-      config.placement === "worker"
-        ? instancesFact(config.worker_instances ?? [])
-        : `instance count ${config.instance_count ?? 0}`,
+      "worker_instances" in config
+        ? instancesFact(config.worker_instances)
+        : `instance count ${config.instance_count}`,
       config.resource_budget === undefined
         ? "worker default budget"
         : `budget ${counted(config.resource_budget.turns, "turn", "turns")}, ${config.resource_budget.wall_time_ms} ms`,
@@ -105,7 +103,6 @@ export function BindingItem({
   entry,
   bindingId,
   environment,
-  hostedWorker,
   revision,
   verifyState,
   onVerify,
@@ -147,7 +144,7 @@ export function BindingItem({
           )}
         </ItemTitle>
         <ItemDescription className="break-words">
-          {factsOf(entry, hostedWorker).map((fact, index) => (
+          {factsOf(entry).map((fact, index) => (
             <Fragment key={index}>
               {index > 0 && " · "}
               {fact}
