@@ -17,6 +17,7 @@ import type {
   Page,
   Project,
   ProjectBindingRecord,
+  SuitePassPlan,
   WorkerBindingRecord,
 } from "../types";
 
@@ -189,6 +190,15 @@ export async function readBindingEnvironment(
 ): Promise<BindingEnvironment> {
   return request<BindingEnvironment>(
     `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/environment`,
+  );
+}
+
+export async function readSuitePassPlan(
+  projectId: string,
+  bindingId: string,
+): Promise<SuitePassPlan> {
+  return request<SuitePassPlan>(
+    `/api/project/${encodeURIComponent(projectId)}/binding/${encodeURIComponent(bindingId)}/suite-pass/plan`,
   );
 }
 

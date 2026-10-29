@@ -1374,6 +1374,59 @@ const fixNodeOf = (state, proposal) => {
   };
 };
 
+on("POST", /^\/api\/mission\/([^/]+)\/node$/, (m, b, res) => {
+  const state = stateOfMission(decodeURIComponent(m[1]));
+  if (state === undefined) return missionNotFound(res);
+  if (!hasOnly(b, ["filename", "content", "tasks", "reason", "expected_mission_version"]))
+    return validationFailed(res, "filename");
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  if (state.nodes.some((node) => node.filename === b.filename))
+    return projectEnvelope(
+      res,
+      409,
+      "mission.node.filename_conflict",
+      "A node file with the same name exists.",
+    );
+  const node = {
+    id: nodeIdOf(),
+    filename: b.filename,
+    mission_id: mission.id,
+    intent: b.content.intent ?? "implement",
+    tags: b.content.tags ?? [],
+    tasks: [],
+    visible_revision: 1,
+    content: b.content,
+    retired_at: null,
+    pinned_by_attempts: [],
+    state: "Available",
+    attempt: 0,
+    pinned_revision: null,
+    priority: 0,
+  };
+  createdFirstRevisions.set(node.id, {
+    write: "node.create",
+    reason: b.reason,
+    created_at: Date.now(),
+  });
+  state.nodes.push(node);
+  mission.version += 1;
+  return json(res, 200, {
+    mission_version: mission.version,
+    revisions: graphRevisions(node),
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  });
+});
+
 on("POST", /^\/api\/mission\/assessment\/([^/]+)\/decide$/, (m, b, res) => {
   const assessmentId = decodeURIComponent(m[1]);
   const ids = b.approved_proposal_ids;

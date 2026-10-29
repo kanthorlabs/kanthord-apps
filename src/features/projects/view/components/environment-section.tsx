@@ -19,6 +19,7 @@ import {
 import { useBindingEnvironment } from "../use-binding-environment";
 import { useEnvAgentEnabled } from "../use-env-agent-enabled";
 import { useEnvironmentSecret } from "../use-environment-secret";
+import { useSuitePassProposal } from "../use-suite-pass-proposal";
 import { EnvironmentEditSheet } from "./environment-edit-sheet";
 import { EnvironmentSecretSheet } from "./environment-secret-sheet";
 import { type Fact, FactList } from "./fact-list";
@@ -30,6 +31,7 @@ interface EnvironmentSectionProps {
   readonly bindingId: string;
   readonly bindingName: string;
   readonly state: EnvironmentState | null;
+  readonly action: RepositoryBindingConfig["strategy"]["action"];
   readonly secrets: Readonly<Record<string, string>>;
   readonly focused: boolean;
   readonly onChanged: () => void;
@@ -84,6 +86,7 @@ export function EnvironmentSection({
   bindingId,
   bindingName,
   state,
+  action,
   secrets,
   focused,
   onChanged,
@@ -98,6 +101,13 @@ export function EnvironmentSection({
   );
   const secret = useEnvironmentSecret(projectId, bindingName, secrets, (environment_secrets) =>
     onWritten({ environment_secrets }),
+  );
+  const proposal = useSuitePassProposal(
+    projectId,
+    bindingId,
+    bindingName,
+    environment.loading ? null : environment.data,
+    action,
   );
   const secretEntries = Object.entries(secrets).sort(([left], [right]) => (left < right ? -1 : 1));
   const [documentOpen, setDocumentOpen] = useState(false);
@@ -288,6 +298,11 @@ export function EnvironmentSection({
           </AlertDescription>
         </Alert>
       )}
+      {proposal.proposed && (
+        <p className="text-sm break-words">
+          Add the suite pass record so that CI skips the test files that already passed.
+        </p>
+      )}
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Button
           type="button"
@@ -328,6 +343,17 @@ export function EnvironmentSection({
         >
           Set secret
         </Button>
+        {proposal.proposed && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={proposal.adding}
+            onClick={proposal.add}
+          >
+            Add setup node
+          </Button>
+        )}
       </div>
       {secret.editing && (
         <EnvironmentSecretSheet

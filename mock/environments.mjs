@@ -14,6 +14,11 @@ const FIXTURE_DOCUMENT = {
   updateContentCommand: "pnpm install --frozen-lockfile",
   customizations: { kanthord: { checks: ["node --version", "pnpm --version"] } },
 };
+const SUITE_PASS_VERIFICATIONS = [
+  "test -f .kanthord/suite-pass.json",
+  "! git check-ignore -q .kanthord/suite-pass.json",
+  "test ! -f .kanthord/affected-tests.json || grep -qF .kanthord/suite-pass.json .kanthord/affected-tests.json",
+];
 const RED_BASELINE = [{ command: "pnpm test", exit_code: 1 }];
 
 const digestOf = (name) => createHash("sha256").update(name).digest("hex");
@@ -150,6 +155,11 @@ export function registerEnvironments({
 
   const configOf = (projectId, name) => bindingSetOf(projectId).bindings[name].config;
 
+  const proposesSuitePass = (config) => {
+    const action = config.strategy.action;
+    return action?.name === "pull_request" && (action.landing ?? "human") === "human";
+  };
+
   const stateOf = (projectId, name, index, record) => {
     const built = ["proving", "ready", "failed"].includes(record.status);
     return {
@@ -230,6 +240,36 @@ export function registerEnvironments({
       commit: COMMIT,
       environment: config.environment ?? FIXTURE_DOCUMENT,
       reason: null,
+      suite_pass: config.strategy.action?.name === "pull_request" ? "absent" : "present",
+    });
+  });
+
+  on("GET", /^\/api\/project\/([^/]+)\/binding\/([^/]+)\/suite-pass\/plan$/, (m, _b, res) => {
+    const project = projectOrRefuse(res, m[1]);
+    if (project === undefined) return undefined;
+    const binding = bindingOrRefuse(res, project.id, m[2]);
+    if (binding === undefined) return undefined;
+    if (!proposesSuitePass(configOf(project.id, binding.name))) {
+      return envelope(
+        res,
+        409,
+        "project.suite_pass.not_proposed",
+        "The binding gets no suite pass proposal.",
+      );
+    }
+    return json(res, 200, {
+      filename: `suite-pass-setup-${binding.name}.md`,
+      content: {
+        name: "Add the suite pass record",
+        requirement: "The repository records which test files passed on which inputs.",
+        criterion: "The file .kanthord/suite-pass.json exists and git tracks it.",
+        verifications: SUITE_PASS_VERIFICATIONS,
+        bindings: [bindingIdOf(binding.name)],
+        intent: "implement",
+        commit_type: "chore",
+      },
+      tasks: [],
+      reason: `Add the suite pass record to ${binding.name}.`,
     });
   });
 

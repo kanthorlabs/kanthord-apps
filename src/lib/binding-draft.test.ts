@@ -73,6 +73,55 @@ describe("draftOf and entryOfDraft", () => {
     expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry });
   });
 
+  it("keeps the landing of a pull_request action in the write", () => {
+    if (REPO.kind !== "repository") throw new Error("fixture");
+    const entry: BindingSetEntry = {
+      kind: "repository",
+      config: {
+        ...REPO.config,
+        strategy: {
+          base_branch: "main",
+          action: {
+            name: "pull_request",
+            follows: { type: "assessment_passed" },
+            landing: "kanthord",
+          },
+        },
+      },
+    };
+
+    expect(entryOfDraft(draftOf("repo", entry), [])).toEqual({ ok: true, entry });
+  });
+
+  it("writes no landing for a merge_push action", () => {
+    if (REPO.kind !== "repository") throw new Error("fixture");
+    const entry: BindingSetEntry = {
+      kind: "repository",
+      config: {
+        ...REPO.config,
+        strategy: {
+          base_branch: "main",
+          action: {
+            name: "pull_request",
+            follows: { type: "assessment_passed" },
+            landing: "kanthord",
+          },
+        },
+      },
+    };
+    const draft = draftOf("repo", entry);
+    if (draft.kind !== "repository") throw new Error("fixture");
+
+    const result = entryOfDraft({ ...draft, actionName: "merge_push" }, []);
+
+    expect(result.ok && result.entry.kind === "repository" && result.entry.config.strategy).toEqual(
+      {
+        base_branch: "main",
+        action: { name: "merge_push", follows: { type: "assessment_passed" } },
+      },
+    );
+  });
+
   it("writes no prompts key when every binding prompt is blank", () => {
     const draft = emptyDraft("repository");
     if (draft.kind !== "repository") throw new Error("fixture");
