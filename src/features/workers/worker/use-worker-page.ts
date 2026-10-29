@@ -24,6 +24,7 @@ export interface WorkerPage {
   readonly executionOf: (instanceName: string) => InstanceExecution | null;
   readonly liveExecutionsOf: (instanceName: string) => readonly string[];
   readonly projectNameOf: (projectId: string) => string;
+  readonly runsUnlisted: (instance: WorkerInstanceListItem) => boolean;
 }
 
 export function useWorkerPage(workerName: string): WorkerPage {
@@ -64,6 +65,8 @@ export function useWorkerPage(workerName: string): WorkerPage {
         ? [registration.execution_id]
         : [],
     );
+  const runsUnlisted = (instance: WorkerInstanceListItem) =>
+    instance.placement === "server" && instance.binding_count === 0;
   return {
     projectId,
     entry,
@@ -74,5 +77,6 @@ export function useWorkerPage(workerName: string): WorkerPage {
     executionOf,
     liveExecutionsOf,
     projectNameOf,
+    runsUnlisted,
   };
 }

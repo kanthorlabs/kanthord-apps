@@ -1,7 +1,18 @@
 import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { FieldGroup } from "@/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from "@/components/ui/field";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Sheet,
   SheetContent,
@@ -15,6 +26,46 @@ import { missingHint } from "@/lib/missing-fields";
 import { HostFields } from "../../components/host-fields";
 import { InstanceConfiguration } from "../../components/instance-configuration";
 import type { InstanceCreateState } from "../use-instance-create";
+
+function PlacementField({ create }: { create: InstanceCreateState }) {
+  const error = create.errors["placement"];
+  return (
+    <FieldSet data-invalid={error !== undefined}>
+      <FieldLegend id="instance-placement" variant="label">
+        Placement
+      </FieldLegend>
+      <RadioGroup
+        aria-labelledby="instance-placement"
+        value={create.placement}
+        onValueChange={create.selectPlacement}
+      >
+        {create.cards.map((card) => (
+          <FieldLabel key={card.value} htmlFor={`instance-placement-${card.value}`}>
+            <Field orientation="horizontal" data-disabled={card.disabled}>
+              <FieldContent>
+                <FieldTitle id={`instance-placement-${card.value}-title`}>{card.title}</FieldTitle>
+                <FieldDescription id={`instance-placement-${card.value}-description`}>
+                  {card.description}
+                </FieldDescription>
+              </FieldContent>
+              <RadioGroupItem
+                id={`instance-placement-${card.value}`}
+                value={card.value}
+                disabled={card.disabled}
+                aria-labelledby={`instance-placement-${card.value}-title`}
+                aria-describedby={`instance-placement-${card.value}-description`}
+              />
+            </Field>
+          </FieldLabel>
+        ))}
+      </RadioGroup>
+      <FieldDescription>
+        The instance keeps this choice. Add another instance to change it.
+      </FieldDescription>
+      <FieldError>{error}</FieldError>
+    </FieldSet>
+  );
+}
 
 export function AddInstanceSheet({
   workerName,
@@ -34,8 +85,8 @@ export function AddInstanceSheet({
         <SheetHeader>
           <SheetTitle>Add instance</SheetTitle>
           <SheetDescription>
-            An instance of <RecordName>{workerName}</RecordName> is one kanthord serve worker
-            process. The server generates its key pair and keeps only the public key.
+            An instance of <RecordName>{workerName}</RecordName> gives the worker capacity to run
+            nodes.
           </SheetDescription>
         </SheetHeader>
         {result === null ? (
@@ -64,7 +115,10 @@ export function AddInstanceSheet({
                   description="Lowercase letters, digits and hyphens, a letter first. The name never changes."
                   onChange={create.setName}
                 />
-                <HostFields host={create.host} errors={create.errors} />
+                <PlacementField create={create} />
+                {create.placement === "worker" && (
+                  <HostFields host={create.host} errors={create.errors} />
+                )}
               </FieldGroup>
             </div>
             <SheetFooter>

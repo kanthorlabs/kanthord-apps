@@ -58,6 +58,15 @@ describe("bindingInstances", () => {
     });
   });
 
+  it("counts the listed instances of a binding against its live registrations", () => {
+    const [entry] = bindingInstances(
+      [binding({ worker: "coder@1", worker_instances: ["coder-1", "box-1"] })],
+      [registration("coder-1"), registration("box-1")],
+      CATALOG,
+    );
+    expect(entry).toMatchObject({ expected: 2, live: 2, missing: 0, shortfall: false });
+  });
+
   it("reads the instance count of an external harness and names no instance", () => {
     const [entry] = bindingInstances(
       [binding({ worker: "claude-code@1", instance_count: 2 })],
