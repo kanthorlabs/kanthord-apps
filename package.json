@@ -20,6 +20,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:affected": "node scripts/affected-tests.mjs",
+    "test:suite-pass": "node scripts/suite-pass.mjs run",
     "test:watch": "vitest",
     "typecheck": "tsrs -p . --noEmit --checkers 2",
     "verify": "pnpm run typecheck && pnpm run test && pnpm run lint && pnpm run format:check"
