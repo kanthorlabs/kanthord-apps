@@ -124,7 +124,7 @@ export function isKeyedInstance(detail: WorkerInstanceDetail): boolean {
 }
 
 export function isUnlistedInstance(detail: WorkerInstanceDetail): boolean {
-  return detail.placement === "server" && detail.bindings.length === 0;
+  return detail.placement !== "worker" && detail.bindings.length === 0;
 }
 
 export function registrationRowsOf(

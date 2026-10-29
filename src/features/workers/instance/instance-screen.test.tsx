@@ -953,6 +953,17 @@ describe("InstanceScreen placement", () => {
     ).toBeInTheDocument();
   });
 
+  it("tells that an unlisted container instance runs with no binding", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...SERVER,
+      placement: "container",
+    });
+    mount();
+    expect(
+      await screen.findByText("Runs with no binding. Archive it to stop it."),
+    ).toBeInTheDocument();
+  });
+
   it("shows the badge Draining on a registration that its binding no longer lists", async () => {
     vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
       ...MAC,
