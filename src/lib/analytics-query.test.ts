@@ -109,6 +109,7 @@ describe("time options", () => {
       "Queue wait",
       "Review wait",
       "Revision turns",
+      "Test floor share",
     ]);
     expect(TIME_GROUP_OPTIONS.map((option) => option.value)).toEqual([
       "none",

@@ -35,6 +35,7 @@ const MEASURES = [
   "queue_wait",
   "review_wait",
   "revision_turns",
+  "test_floor_share",
 ];
 const MODELS = [
   ["claude-sonnet-4-5", "anthropic", 0.000003, 0.000015],
@@ -52,6 +53,7 @@ const MEASURE_SPANS = {
   queue_wait: (span) => span.operation === "scheduler.execution",
   review_wait: (span) => span.operation === "scheduler.execution",
   revision_turns: (span) => span.operation === "scheduler.execution",
+  test_floor_share: (span) => span.operation === "worker.verification",
 };
 const MEASURE_VALUES = {
   span_duration: (span) => span.end - span.start,
@@ -109,6 +111,7 @@ const buildSpans = (now) =>
         tool_name: null,
         start: start + turnMs,
         end: start + turnMs + 15_000 + 2500 * (index % 7),
+        floorShare: Number((0.15 + 0.1 * (index % 6)).toFixed(2)),
       });
     }
     if (index % TURNS_PER_NODE === 0) {
@@ -256,6 +259,11 @@ const durationRow = (measure) => {
   };
 };
 
+const floorShareRow = ({ key, bucket_start, spans }) => {
+  const latest = spans.reduce((last, span) => (span.start > last.start ? span : last));
+  return { key, bucket_start, count: spans.length, share: latest.floorShare };
+};
+
 export function buildAnalytics(now) {
   const spans = buildSpans(now);
 
@@ -280,7 +288,8 @@ export function buildAnalytics(now) {
         MEASURE_SPANS[measure](span) &&
         (measure !== "span_duration" || operation === null || span.operation === operation),
     );
-    return finish(groupSpans(chosen, query).map(durationRow(measure)), query, "count");
+    const rowOf = measure === "test_floor_share" ? floorShareRow : durationRow(measure);
+    return finish(groupSpans(chosen, query).map(rowOf), query, "count");
   };
 
   return { readCost, readDuration };

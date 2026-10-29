@@ -1,8 +1,9 @@
-import type { AnalyticsDurationItem, AnalyticsMeasure } from "@/api/types";
+import type { AnalyticsDurationItem, AnalyticsFloorShareItem, AnalyticsMeasure } from "@/api/types";
 
 import { bucketTextOf, type CostField, costKeyLabel, tracesPathOf } from "./analytics-cost-rows";
 import type { AnalyticsSelectableBucket, TimeGroupName } from "./analytics-query";
 import { durationText } from "./format";
+import { percentText } from "./trace-format";
 
 export interface TimeMark {
   readonly label: string;
@@ -17,6 +18,16 @@ export interface TimeRow {
   readonly max: number;
   readonly scale: number;
   readonly marks: readonly TimeMark[];
+  readonly barLabel: string;
+  readonly tracesPath: string | null;
+}
+
+export interface FloorShareRow {
+  readonly key: string;
+  readonly title: string;
+  readonly bucketText: string | null;
+  readonly fields: readonly CostField[];
+  readonly share: number;
   readonly barLabel: string;
   readonly tracesPath: string | null;
 }
@@ -76,6 +87,48 @@ export function timeRowsOf(
         percent: (value / scale) * FULL_PERCENT,
       })),
       barLabel: `Time of ${title}${bucketText === null ? "" : ` ${bucketText}`}: ${texts.join(", ")}`,
+      tracesPath: tracesPathOf(group, item.key),
+    };
+  });
+}
+
+export function isFloorShareItem(
+  item: AnalyticsDurationItem | AnalyticsFloorShareItem,
+): item is AnalyticsFloorShareItem {
+  return "share" in item;
+}
+
+export function isDurationItem(
+  item: AnalyticsDurationItem | AnalyticsFloorShareItem,
+): item is AnalyticsDurationItem {
+  return !("share" in item);
+}
+
+export function isFloorShareRow(row: TimeRow | FloorShareRow): row is FloorShareRow {
+  return "share" in row;
+}
+
+export function floorShareRowsOf(
+  items: readonly AnalyticsFloorShareItem[],
+  bucket: AnalyticsSelectableBucket,
+  group: TimeGroupName,
+  names: ReadonlyMap<string, string>,
+): readonly FloorShareRow[] {
+  return items.map((item) => {
+    const title = titleOf(item.key, group, names);
+    const bucketText = bucketTextOf(bucket, item.bucket_start);
+    const count = String(item.count);
+    const percent = percentText(item.share);
+    return {
+      key: JSON.stringify([item.bucket_start, item.key]),
+      title,
+      bucketText,
+      fields: [
+        { label: "Count", value: count },
+        { label: "Share", value: percent },
+      ],
+      share: item.share,
+      barLabel: `Test floor share of ${title}${bucketText === null ? "" : ` ${bucketText}`}: count ${count}, share ${percent}`,
       tracesPath: tracesPathOf(group, item.key),
     };
   });

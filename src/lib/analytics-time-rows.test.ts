@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { AnalyticsDurationItem } from "@/api/types";
+import type { AnalyticsDurationItem, AnalyticsFloorShareItem } from "@/api/types";
 
-import { timeRowsOf } from "./analytics-time-rows";
+import { floorShareRowsOf, timeRowsOf } from "./analytics-time-rows";
 
 const DAY_START = Date.UTC(2026, 4, 4);
 
@@ -124,5 +124,25 @@ describe("timeRowsOf", () => {
     expect(path("node_id", null)).toBeNull();
     expect(path("tool_name", "read_file")).toBeNull();
     expect(path("none", null)).toBeNull();
+  });
+});
+
+describe("floorShareRowsOf", () => {
+  it("a floor share row holds the count and the percent", () => {
+    const share: AnalyticsFloorShareItem = {
+      key: "node_1",
+      bucket_start: DAY_START,
+      count: 3,
+      share: 0.25,
+    };
+    const [row] = floorShareRowsOf([share], "day", "node_id", new Map());
+
+    expect(row?.fields).toEqual([
+      { label: "Count", value: "3" },
+      { label: "Share", value: "25%" },
+    ]);
+    expect(row?.share).toBe(0.25);
+    expect(row?.barLabel).toBe("Test floor share of node_1 2026-05-04: count 3, share 25%");
+    expect(row?.tracesPath).toBe("/traces?node_id=node_1");
   });
 });

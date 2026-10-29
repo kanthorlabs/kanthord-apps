@@ -2,9 +2,22 @@ import { useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { readAnalyticsDuration } from "@/api/resources/tracking";
-import type { AnalyticsDurationItem, AnalyticsMeasure, AnalyticsPage, Project } from "@/api/types";
+import type {
+  AnalyticsDurationItem,
+  AnalyticsFloorShareItem,
+  AnalyticsMeasure,
+  AnalyticsPage,
+  Project,
+} from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
-import { type TimeRow, timeRowsOf } from "@/lib/analytics-time-rows";
+import {
+  type FloorShareRow,
+  floorShareRowsOf,
+  isDurationItem,
+  isFloorShareItem,
+  type TimeRow,
+  timeRowsOf,
+} from "@/lib/analytics-time-rows";
 import {
   type AnalyticsFilters,
   type AnalyticsSelectableBucket,
@@ -22,7 +35,7 @@ interface TimeRead {
   readonly measure: AnalyticsMeasure;
   readonly group: TimeGroupName;
   readonly bucket: AnalyticsSelectableBucket;
-  readonly page: AnalyticsPage<AnalyticsDurationItem>;
+  readonly page: AnalyticsPage<AnalyticsDurationItem | AnalyticsFloorShareItem>;
 }
 
 export interface TimeView {
@@ -33,7 +46,7 @@ export interface TimeView {
   readonly status: "loading" | "ready" | "error";
   readonly error: string | null;
   readonly retry: (() => void) | undefined;
-  readonly rows: readonly TimeRow[];
+  readonly rows: readonly (TimeRow | FloorShareRow)[];
   readonly truncated: boolean;
 }
 
@@ -85,13 +98,24 @@ export function useTime(
     [read, projects, nodeNames.data],
   );
 
-  const rows = useMemo(
-    () =>
-      read === null
-        ? []
-        : timeRowsOf(read.page.items, read.measure, read.bucket, read.group, names),
-    [read, names],
-  );
+  const rows = useMemo((): readonly (TimeRow | FloorShareRow)[] => {
+    if (read === null) return [];
+    if (read.measure === "test_floor_share") {
+      return floorShareRowsOf(
+        read.page.items.filter(isFloorShareItem),
+        read.bucket,
+        read.group,
+        names,
+      );
+    }
+    return timeRowsOf(
+      read.page.items.filter(isDurationItem),
+      read.measure,
+      read.bucket,
+      read.group,
+      names,
+    );
+  }, [read, names]);
 
   const write = useCallback(
     (key: string, value: string | null) =>

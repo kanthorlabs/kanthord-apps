@@ -437,6 +437,7 @@ describe("AnalyticsScreen", () => {
         "Queue wait",
         "Review wait",
         "Revision turns",
+        "Test floor share",
       ]);
       await user.keyboard("{Escape}");
       await user.click(screen.getByRole("combobox", { name: "Time group by" }));
@@ -494,6 +495,24 @@ describe("AnalyticsScreen", () => {
       expect(row).toContain("p994");
       expect(row).toContain("Max7");
       expect(row).not.toMatch(/\d (s|min|h)\b/);
+    });
+
+    it("shows Test floor share as a percent with one bar from 0 to 1", async () => {
+      vi.mocked(readAnalyticsDuration).mockResolvedValue({
+        items: [{ key: null, bucket_start: null, count: 3, share: 0.25 }],
+        truncated: false,
+      });
+      mount("/analytics?time_measure=test_floor_share");
+
+      await screen.findByText("All");
+      const [row] = timeRowTexts();
+      expect(row).toContain("Count3");
+      expect(row).toContain("25%");
+      expect(row).not.toContain("p50");
+      const list = screen.getByRole("list", { name: "Time" });
+      const bar = within(list).getByRole("progressbar");
+      expect(bar).toHaveAttribute("aria-valuenow", "0.25");
+      expect(bar).toHaveAttribute("aria-valuemax", "1");
     });
 
     it("gives each bar an accessible name that repeats p50, p90, p99 and max of its row", async () => {
