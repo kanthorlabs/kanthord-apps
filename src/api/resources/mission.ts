@@ -20,6 +20,7 @@ import type {
   MissionNodeChange,
   MissionNodeCheckAnswer,
   MissionNodeCheckBody,
+  MissionNodeCreate,
   MissionNodeOverrideBody,
   MissionNodeRecord,
   MissionNodeResumeBody,
@@ -217,6 +218,17 @@ export async function removeDependency(
       headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
+}
+
+export async function createMissionNode(
+  missionId: string,
+  body: MissionNodeCreate,
+): Promise<MissionNodeChange> {
+  return request<MissionNodeChange>(`/api/mission/${encodeURIComponent(missionId)}/node`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
 }
 
 export async function checkNode(

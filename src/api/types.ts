@@ -389,6 +389,8 @@ export type BindingPromptAgent = (typeof BINDING_PROMPT_AGENTS)[number];
 
 export type BindingPrompts = Readonly<Partial<Record<BindingPromptAgent, string>>>;
 
+export type SuitePassState = "present" | "absent";
+
 export type EnvironmentDocument = Readonly<Record<string, unknown>>;
 
 export type EnvironmentStatus = "none" | "pending" | "building" | "proving" | "ready" | "failed";
@@ -451,6 +453,14 @@ export interface BindingEnvironment {
   readonly commit: string | null;
   readonly environment: EnvironmentDocument | null;
   readonly reason: string | null;
+  readonly suite_pass: SuitePassState | null;
+}
+
+export interface SuitePassPlan {
+  readonly filename: string;
+  readonly content: MissionNodeCreateContent;
+  readonly tasks: readonly never[];
+  readonly reason: string;
 }
 
 export interface RepositoryBindingConfig {
@@ -462,6 +472,7 @@ export interface RepositoryBindingConfig {
     readonly action?: {
       readonly name: RepositoryActionName;
       readonly follows: RepositoryActionFollows;
+      readonly landing?: ActionLanding;
     };
   };
   readonly ssh_credential: string;
@@ -825,6 +836,28 @@ export interface MissionProposalDecideBody {
   readonly expected_mission_version: number;
   readonly approved_proposal_ids: readonly string[];
   readonly reason?: string;
+}
+
+export interface MissionNodeCreateContent {
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+  readonly verifications: readonly string[];
+  readonly bindings: readonly string[];
+  readonly intent?: unknown;
+  readonly tags?: unknown;
+  readonly commit_type?: unknown;
+}
+
+export interface MissionNodeCreateBody {
+  readonly filename: string;
+  readonly content: MissionNodeCreateContent;
+  readonly tasks: readonly never[];
+  readonly reason: string;
+}
+
+export interface MissionNodeCreate extends MissionNodeCreateBody {
+  readonly expected_mission_version: number;
 }
 
 export interface MissionNodeChange {

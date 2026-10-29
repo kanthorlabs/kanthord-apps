@@ -28,6 +28,7 @@ const ENVIRONMENT: BindingEnvironment = {
   commit: null,
   environment: { image: "node:24" },
   reason: null,
+  suite_pass: "present",
 };
 
 const write = vi.fn();
