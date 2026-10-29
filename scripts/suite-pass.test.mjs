@@ -177,6 +177,16 @@ describe("suite-pass run", () => {
     expect(existsSync(storeOf(cwd))).toBe(false);
   });
 
+  it("a run on a matching record that dirties the tree exits 2", () => {
+    const cwd = createFixture(["src/a.test.ts"]);
+    const countFile = join(temporaryDirectory(), "count");
+    run(cwd, commandWriting(countFile, REPORT), "--write");
+    const dirtying = commandWriting(countFile, REPORT, 0, `touch '${join(cwd, "created.txt")}'`);
+    const result = run(cwd, dirtying, "--write");
+    expect(result.status).toBe(2);
+    expect(result.error).toContain("the working tree is not clean");
+  });
+
   it("a failed run writes no record", () => {
     const cwd = createFixture();
     const countFile = join(temporaryDirectory(), "count");
@@ -190,12 +200,16 @@ describe("suite-pass run", () => {
     const countFile = join(temporaryDirectory(), "count");
     const command = commandWriting(countFile, REPORT);
     run(cwd, command, "--write");
+    const writtenAt = () =>
+      Object.values(JSON.parse(readFileSync(storeOf(cwd), "utf8")).records)[0].written_at;
+    const before = writtenAt();
     const full = run(cwd, command, "--write", "--full");
     expect(full.status).toBe(0);
     expect(full.output).toContain("Saved share: 0%");
     expect(lines(countFile)).toHaveLength(2);
     const store = JSON.parse(readFileSync(storeOf(cwd), "utf8"));
     expect(Object.values(store.records)).toHaveLength(1);
+    expect(writtenAt()).not.toBe(before);
   });
 
   it("a configuration of another shape exits 2", () => {
