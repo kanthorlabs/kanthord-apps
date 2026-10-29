@@ -300,6 +300,18 @@ describe("WorkerScreen", () => {
     expect(within(rowOf(list, "box-1")).queryByText(notice)).toBeNull();
   });
 
+  it("says that a container instance with no binding still runs", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+      { ...CODER_ONE, name: "pod-1", placement: "container", binding_count: 0 },
+      BOX_ONE,
+    ]);
+    mount();
+    const list = await screen.findByRole("list", { name: "Instances" });
+    const notice = "Runs with no binding. Archive it to stop it.";
+    expect(within(rowOf(list, "pod-1")).getByText(notice)).toBeInTheDocument();
+    expect(within(rowOf(list, "box-1")).queryByText(notice)).toBeNull();
+  });
+
   it("says nothing about a listed server instance", async () => {
     vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([CODER_ONE]);
     mount();
