@@ -10,6 +10,9 @@
     "package.json",
     "scripts/affected-tests.mjs",
     "vite.config.ts",
-    "test/setup.ts"
+    "test/setup.ts",
+    ".kanthord/suite-pass.json",
+    ".github/workflows/ci.yml",
+    "scripts/suite-pass.mjs"
   ]
 }
