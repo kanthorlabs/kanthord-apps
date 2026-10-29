@@ -240,7 +240,7 @@ export function registerEnvironments({
       commit: COMMIT,
       environment: config.environment ?? FIXTURE_DOCUMENT,
       reason: null,
-      suite_pass: proposesSuitePass(config) ? "absent" : "present",
+      suite_pass: config.strategy.action?.name === "pull_request" ? "absent" : "present",
     });
   });
 

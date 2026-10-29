@@ -330,8 +330,16 @@ export const BINDING_SET = {
         available: true,
         platform: "github",
         address: "git@github.com:kanthorlabs/hostkey-mirror.git",
-        strategy: { base_branch: "main" },
+        strategy: {
+          base_branch: "main",
+          action: {
+            name: "pull_request",
+            follows: { type: "assessment_passed" },
+            landing: "kanthord",
+          },
+        },
         ssh_credential: "atlas-ssh",
+        credential: "atlas-github",
       },
     },
     "alias-repo": {
