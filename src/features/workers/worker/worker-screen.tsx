@@ -354,7 +354,6 @@ export function WorkerScreen() {
                   actions={
                     <InstanceRowActions
                       instance={instance}
-                      liveExecutions={page.liveExecutionsOf(instance.name)}
                       detach={detach}
                       onChanged={reloadAll}
                       projectNameOf={page.projectNameOf}

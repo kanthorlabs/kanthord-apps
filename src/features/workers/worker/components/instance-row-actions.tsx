@@ -10,7 +10,6 @@ import type { InstanceDetachState } from "../../instance/use-instance-detach";
 
 interface InstanceRowActionsProps {
   readonly instance: WorkerInstanceListItem;
-  readonly liveExecutions: readonly string[];
   readonly detach: InstanceDetachState;
   readonly onChanged: () => void;
   readonly projectNameOf: (projectId: string) => string;
@@ -18,7 +17,6 @@ interface InstanceRowActionsProps {
 
 export function InstanceRowActions({
   instance,
-  liveExecutions,
   detach,
   onChanged,
   projectNameOf,
@@ -29,7 +27,6 @@ export function InstanceRowActions({
       name: instance.name,
       revision: instance.revision,
       bindingCount: instance.binding_count,
-      liveExecutions,
     },
     onChanged,
     onChanged,

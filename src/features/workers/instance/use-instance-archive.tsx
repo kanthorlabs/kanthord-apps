@@ -20,7 +20,6 @@ export interface ArchiveSubject {
   readonly name: string;
   readonly revision: number;
   readonly bindingCount?: number;
-  readonly liveExecutions?: readonly string[];
 }
 
 interface ArchiveReading {
@@ -84,16 +83,13 @@ function archiveSubjectOf(instance: WorkerInstanceDetail): ArchiveSubject {
     name: instance.name,
     revision: instance.revision,
     bindingCount: instance.bindings.length,
-    liveExecutions: liveExecutionsOf(instance),
   };
 }
 
-type ArchiveBlock = "listed" | "executing";
+type ArchiveBlock = "listed";
 
 function archiveBlockKindOf(subject: ArchiveSubject): ArchiveBlock | null {
-  if ((subject.bindingCount ?? 0) > 0) return "listed";
-  if ((subject.liveExecutions ?? []).length > 0) return "executing";
-  return null;
+  return (subject.bindingCount ?? 0) > 0 ? "listed" : null;
 }
 
 function blockNoticeOf(kind: ArchiveBlock, name: string): ReactNode {
@@ -105,8 +101,6 @@ function blockNoticeOf(kind: ArchiveBlock, name: string): ReactNode {
           A binding lists {record}. Detach {record} from each listing binding first.
         </>
       );
-    case "executing":
-      return <>A registration of {record} holds a live execution. Wait until the execution ends.</>;
   }
 }
 
@@ -146,7 +140,7 @@ export function useInstanceArchive(
   const pendingFocus = useRef(false);
   const blockKind = archiveBlockKindOf(subject);
   const blocked = blockKind === null ? null : blockNoticeOf(blockKind, subject.name);
-  const guarded = subject.bindingCount !== undefined || subject.liveExecutions !== undefined;
+  const guarded = subject.bindingCount !== undefined;
   const confirmable = reread.bindings.length === 0 && (reread.executions.length === 0 || stop);
 
   useEffect(() => {

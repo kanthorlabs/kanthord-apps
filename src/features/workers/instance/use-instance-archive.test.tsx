@@ -24,7 +24,6 @@ const FREE: ArchiveSubject = {
   name: "mac-studio",
   revision: 2,
   bindingCount: 0,
-  liveExecutions: [],
 };
 
 const DETAIL: WorkerInstanceDetail = {
@@ -64,14 +63,6 @@ describe("the block reason of Archive", () => {
     expect(screen.getAllByText("mac-studio", { selector: "strong" })).toHaveLength(2);
   });
 
-  it("waits for a live execution", () => {
-    const { container } = render(<p>{blockedOf({ ...FREE, liveExecutions: ["exec_1"] })}</p>);
-    expect(container.textContent).toBe(
-      "A registration of mac-studio holds a live execution. Wait until the execution ends.",
-    );
-    expect(screen.getByText("mac-studio", { selector: "strong" })).toBeInTheDocument();
-  });
-
   it("answers null for a free instance", () => {
     expect(blockedOf(FREE)).toBeNull();
   });
@@ -99,6 +90,16 @@ describe("useInstanceArchive", () => {
     await waitFor(() => expect(onArchived).toHaveBeenCalled());
     expect(archiveWorkerInstance).toHaveBeenCalledWith("mac-studio", 3);
     expect(result.current.open).toBe(false);
+  });
+
+  it("opens the dialog for a guarded subject whose fresh read shows a live execution", async () => {
+    vi.mocked(readWorkerInstance).mockResolvedValue(EXECUTING);
+    const { result } = renderHook(() =>
+      useInstanceArchive(FREE, vi.fn(), vi.fn(), { current: null }),
+    );
+    act(() => result.current.request());
+    await waitFor(() => expect(result.current.open).toBe(true));
+    expect(result.current.executions).toEqual(["execution_a"]);
   });
 
   it("opens no dialog when the read again shows a listing binding", async () => {

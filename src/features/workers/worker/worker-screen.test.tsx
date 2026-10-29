@@ -9,7 +9,12 @@ import * as gatewayApi from "@/api/resources/gateway";
 import * as instancesApi from "@/api/resources/worker-instances";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
-import type { PlacementStatus, WorkerCatalogEntry, WorkerInstanceListItem } from "@/api/types";
+import type {
+  PlacementStatus,
+  WorkerCatalogEntry,
+  WorkerInstanceListItem,
+  WorkerRegistrationRecord,
+} from "@/api/types";
 
 vi.mock("@/api/client", async (original) => ({
   ...(await original<typeof clientApi>()),
@@ -161,6 +166,50 @@ describe("WorkerScreen", () => {
     expect(screen.getByRole("button", { name: "Archive mac-studio" })).toHaveAttribute(
       "aria-disabled",
       "true",
+    );
+  });
+
+  it("offers Archive with Stop the live execution on an unlisted instance with a live execution", async () => {
+    const registration: WorkerRegistrationRecord = {
+      runtime_identity: "worker_registration_1",
+      project_id: "prj-test",
+      resource_identity: "worker:kanthord:coder@1",
+      worker_name: "coder@1",
+      instance: "coder-1",
+      activity: "executing",
+      draining: true,
+      execution_id: "execution_a",
+      registered: true,
+      host: "kanthord",
+      placement: "server",
+    };
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+      { ...CODER_ONE, binding_count: 0 },
+    ]);
+    vi.mocked(workersApi.listAllWorkerRegistrations).mockResolvedValue([registration]);
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...CODER_ONE,
+      revision: 4,
+      bindings: [],
+      registrations: [registration],
+      credentials: [],
+    });
+    vi.mocked(instancesApi.archiveWorkerInstance).mockResolvedValue({} as never);
+    mount();
+    const archive = await screen.findByRole("button", { name: "Archive coder-1" });
+    expect(archive).not.toHaveAttribute("aria-disabled", "true");
+    await userEvent.click(archive);
+    const dialog = await screen.findByRole("alertdialog");
+    const confirm = within(dialog).getByRole("button", { name: "Archive coder-1" });
+    expect(confirm).toBeDisabled();
+    await userEvent.click(
+      within(dialog).getByRole("checkbox", { name: "Stop the live execution" }),
+    );
+    await userEvent.click(confirm);
+    await waitFor(() =>
+      expect(instancesApi.archiveWorkerInstance).toHaveBeenCalledWith("coder-1", 4, {
+        force: true,
+      }),
     );
   });
 
