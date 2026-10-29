@@ -25,15 +25,15 @@ import { useBindingCredential } from "../use-binding-credential";
 import { useBindingCheck } from "../use-binding-check";
 import { type BindingTarget, useBindingDraft } from "../use-binding-draft";
 import { useHostKeyPin } from "../use-host-key-pin";
-import { useInstanceSharing } from "../use-instance-sharing";
 import { usePlacementDefault } from "../use-placement-default";
 import { useRepositoryCredentials } from "../use-repository-credentials";
 import { useWorkerAgents } from "../use-worker-agents";
-import { useWorkerInstanceChoices } from "../use-worker-instance-choices";
+import { useWorkerInstanceForm } from "../use-worker-instance-form";
 import { useWorkerNames } from "../use-worker-names";
 import { DraftField } from "./draft-field";
 import { EnvironmentSection } from "./environment-section";
 import { HostKeyPin } from "./host-key-pin";
+import { InstanceAddSheet } from "./instance-add-sheet";
 import { RepositoryForm } from "./repository-form";
 import { StorageForm } from "./storage-form";
 import { WorkerForm } from "./worker-form";
@@ -50,6 +50,7 @@ interface BindingSheetProps {
   readonly saving: boolean;
   readonly conflict: boolean;
   readonly errorMessage: string | null;
+  readonly instancesError: string | null;
   readonly onSave: (name: string, entry: BindingSetEntry) => void;
   readonly onEnvironmentChanged: () => void;
   readonly onEnvironmentWritten: (
@@ -68,31 +69,23 @@ export function BindingSheet({
   saving,
   conflict,
   errorMessage,
+  instancesError,
   onSave,
   onEnvironmentChanged,
   onEnvironmentWritten,
   onClose,
 }: BindingSheetProps) {
   const form = useBindingDraft(target, takenNames);
-  const { draft, errors } = form;
+  const { draft } = form;
+  const errors =
+    instancesError === null ? form.errors : { ...form.errors, instances: instancesError };
   const kindLabel = KIND_LABELS[target.kind];
 
   const credentials = useRepositoryCredentials();
   const workerNames = useWorkerNames();
   const workerAgents = useWorkerAgents(draft.kind === "worker" ? draft.worker : "");
   const placementDefault = usePlacementDefault(form, workerAgents);
-  const atWorkerPlacement = draft.kind === "worker" && draft.instanceCount === null;
-  const instanceChoices = useWorkerInstanceChoices(
-    draft.kind === "worker" ? draft.worker : "",
-    atWorkerPlacement,
-  );
-  const instanceSharing = useInstanceSharing(
-    projectId,
-    atWorkerPlacement && draft.kind === "worker" ? draft.instances : [],
-  );
-  const liveInstances = atWorkerPlacement
-    ? (instanceChoices.data?.map((instance) => instance.name) ?? null)
-    : null;
+  const workerInstances = useWorkerInstanceForm(projectId, form, target, repositoryNames);
   const [enablingAgent, setEnablingAgent] = useState<string | null>(null);
   const allCredentials = credentials.data ?? [];
   const sshCredentials = allCredentials.filter(
@@ -155,7 +148,7 @@ export function BindingSheet({
             className="flex min-h-0 flex-1 flex-col"
             onSubmit={(event) => {
               event.preventDefault();
-              const entry = form.validate(liveInstances);
+              const entry = workerInstances.validate();
               if (entry !== null) onSave(draft.name, entry);
             }}
           >
@@ -229,9 +222,8 @@ export function BindingSheet({
                     repositoryNames={repositoryNames}
                     workers={workerNames.data ?? []}
                     agents={workerAgents}
-                    instances={instanceChoices}
-                    sharing={instanceSharing}
-                    onEdit={form.edit}
+                    instances={workerInstances}
+                    onEdit={workerInstances.edit}
                     onEnableAgent={setEnablingAgent}
                   />
                 )}
@@ -315,6 +307,9 @@ export function BindingSheet({
           </form>
         </SheetContent>
       </Sheet>
+      {draft.kind === "worker" && (
+        <InstanceAddSheet worker={draft.worker} add={workerInstances.add} />
+      )}
       {enablingAgent !== null && (
         <EnablementSheet
           agentName={enablingAgent}

@@ -177,9 +177,10 @@ function disconnectedOf(
   listed: readonly string[],
   instances: readonly WorkerInstanceListItem[],
 ): readonly string[] {
-  return listed.filter(
-    (name) => !instances.some((instance) => instance.name === name && instance.connection !== null),
-  );
+  return listed.filter((name) => {
+    const live = instances.find((instance) => instance.name === name);
+    return live === undefined || (live.placement === "worker" && live.connection === null);
+  });
 }
 
 type InstanceDetail = Pick<ReadinessItem, "detail" | "names" | "after">;
@@ -209,7 +210,7 @@ function registrationItem(project: Project, facts: ReadinessFacts): ReadinessIte
   const entries = workerEntriesOf(facts.bindingSet);
   const active = entries.filter((entry) => effectiveInstanceCount(entry.config) > 0);
   const lacking = active
-    .filter((entry) => !hasLiveRegistration(entry, facts))
+    .filter((entry) => "instance_count" in entry.config && !hasLiveRegistration(entry, facts))
     .map((entry) => entry.name);
   const read = facts.workerBindings !== null && facts.registrations !== null;
   const instanceDetail = instanceDetailOf(listedInstancesOf(active), facts.instances);

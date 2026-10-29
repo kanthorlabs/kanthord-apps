@@ -24,7 +24,10 @@ export interface BindingDraftState {
   readonly errors: DraftErrors;
   readonly creating: boolean;
   readonly edit: (next: BindingDraft) => void;
-  readonly validate: (liveInstances?: readonly string[] | null) => BindingSetEntry | null;
+  readonly validate: (
+    liveInstances?: readonly string[] | null,
+    extraErrors?: DraftErrors,
+  ) => BindingSetEntry | null;
   readonly checkReady: boolean;
   readonly saveReady: boolean;
   readonly missingHint: string | null;
@@ -48,10 +51,11 @@ export function useBindingDraft(
   }, []);
 
   const validate = useCallback(
-    (liveInstances: readonly string[] | null = null) => {
+    (liveInstances: readonly string[] | null = null, extraErrors: DraftErrors = {}) => {
       const result = entryOfDraft(draft, creating ? takenNames : [], liveInstances);
-      setErrors(result.ok ? {} : result.errors);
-      return result.ok ? result.entry : null;
+      const found = { ...(result.ok ? {} : result.errors), ...extraErrors };
+      setErrors(found);
+      return result.ok && Object.keys(extraErrors).length === 0 ? result.entry : null;
     },
     [draft, creating, takenNames],
   );

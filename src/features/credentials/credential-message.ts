@@ -3,6 +3,8 @@ import { failureReasonHintOf } from "@/lib/failure-reason";
 import { placementReasonText } from "@/lib/placement-status";
 
 export const REVISION_CONFLICT = "credential.revision.conflict";
+export const INSTANCE_SHARED = "project.bindings.worker.instance_shared";
+export const ANOTHER_PROJECT = "another project";
 
 const MESSAGES: Readonly<Record<string, string>> = {
   [REVISION_CONFLICT]:
@@ -83,6 +85,26 @@ function nodeUnmatchedMessage(details: unknown): string {
   const base =
     "The change leaves a node with no matching worker binding. Keep a binding whose worker and tags match each listed node.";
   return ids.length === 0 ? base : `${base} Nodes: ${ids.map(String).join(", ")}.`;
+}
+
+export interface InstanceSharedFacts {
+  readonly instance: string;
+  readonly binding: string;
+  readonly projectId: string;
+}
+
+export function instanceSharedFactsOf(details: unknown): InstanceSharedFacts | null {
+  if (!isRecord(details) || !isRecord(details["listed_by"])) return null;
+  const instance = field(details, "instance");
+  const binding = field(details["listed_by"], "binding");
+  const projectId = field(details["listed_by"], "project_id");
+  return instance === null || binding === null || projectId === null
+    ? null
+    : { instance, binding, projectId };
+}
+
+export function instanceSharedMessage(facts: InstanceSharedFacts, project: string): string {
+  return `${facts.instance} already serves ${facts.binding} of ${project}. A container instance serves one binding.`;
 }
 
 function placementUnavailableMessage(cause: ApiError): string {
@@ -188,8 +210,12 @@ export function credentialMessage(cause: ApiError): string {
   if (cause.detail === "project.bindings.worker.node_unmatched") {
     return nodeUnmatchedMessage(cause.details);
   }
-  if (cause.detail === "project.bindings.worker.placement_unavailable") {
+  if (cause.detail === "worker.instance.placement_unavailable") {
     return placementUnavailableMessage(cause);
+  }
+  if (cause.detail === INSTANCE_SHARED) {
+    const facts = instanceSharedFactsOf(cause.details);
+    return facts === null ? cause.message : instanceSharedMessage(facts, ANOTHER_PROJECT);
   }
   if (cause.detail === "project.bindings.repository.ssh_unreachable") {
     return sshUnreachableMessage(cause.details);

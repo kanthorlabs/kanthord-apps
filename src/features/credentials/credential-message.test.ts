@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { failureReasonHint } from "@/lib/failure-reason";
-import { credentialMessage } from "./credential-message";
+import { credentialMessage, instanceSharedFactsOf } from "./credential-message";
 
 function refusal(detail: string, details?: unknown): ApiError {
   return new ApiError("conflict", "Daemon text.", 409, detail, details);
@@ -49,8 +49,7 @@ describe("credentialMessage", () => {
   it("states the reason of a refused container placement", () => {
     expect(
       credentialMessage(
-        refusal("project.bindings.worker.placement_unavailable", {
-          binding: "sandbox-main",
+        refusal("worker.instance.placement_unavailable", {
           placement: "container",
           reason: "server_in_container",
         }),
@@ -58,7 +57,26 @@ describe("credentialMessage", () => {
     ).toBe(
       "The container placement is not available. This server runs in a container, so it cannot start a container for the instance. Choose Server.",
     );
-    expect(credentialMessage(refusal("project.bindings.worker.placement_unavailable"))).toBe(
+    expect(credentialMessage(refusal("worker.instance.placement_unavailable"))).toBe(
+      "Daemon text.",
+    );
+  });
+
+  it("names the instance and the binding of a shared container instance", () => {
+    const shared = refusal("project.bindings.worker.instance_shared", {
+      instance: "builder-1",
+      listed_by: { project_id: "project_2", binding: "build-main" },
+    });
+
+    expect(credentialMessage(shared)).toBe(
+      "builder-1 already serves build-main of another project. A container instance serves one binding.",
+    );
+    expect(instanceSharedFactsOf(shared.details)).toEqual({
+      instance: "builder-1",
+      binding: "build-main",
+      projectId: "project_2",
+    });
+    expect(credentialMessage(refusal("project.bindings.worker.instance_shared"))).toBe(
       "Daemon text.",
     );
   });

@@ -3,10 +3,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { readBindingSet, writeBindingSet } from "@/api/resources/projects";
 import type { BindingSet, BindingSetEntry } from "@/api/types";
-import { credentialMessage } from "@/features/credentials/credential-message";
+import { credentialMessage, INSTANCE_SHARED } from "@/features/credentials/credential-message";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { nextBindings } from "@/lib/binding-change";
 import { returnToOf } from "@/lib/return-to";
+import { instanceSharedRefusalOf } from "./instance-shared-refusal";
 
 export const VERSION_CONFLICT = "project.binding_set.version_conflict";
 
@@ -15,6 +16,7 @@ export interface BindingSetState {
   readonly saving: boolean;
   readonly conflict: boolean;
   readonly error: string | null;
+  readonly instancesError: string | null;
   readonly write: (name: string, entry: BindingSetEntry | null, onWritten: () => void) => void;
   readonly clearFeedback: () => void;
 }
@@ -26,11 +28,13 @@ export function useBindingSet(projectId: string, onSetWritten: () => void): Bind
   const [saving, setSaving] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [instancesError, setInstancesError] = useState<string | null>(null);
   const { data, reload } = resource;
 
   const clearFeedback = useCallback(() => {
     setConflict(false);
     setError(null);
+    setInstancesError(null);
   }, []);
 
   const write = useCallback(
@@ -54,6 +58,10 @@ export function useBindingSet(projectId: string, onSetWritten: () => void): Bind
             reload();
             return;
           }
+          if (failure.status === 409 && failure.detail === INSTANCE_SHARED) {
+            instanceSharedRefusalOf(failure).then(setInstancesError);
+            return;
+          }
           setError(credentialMessage(failure));
         },
       );
@@ -61,5 +69,5 @@ export function useBindingSet(projectId: string, onSetWritten: () => void): Bind
     [saving, data, projectId, reload, onSetWritten, clearFeedback, returnTo, navigate],
   );
 
-  return { resource, saving, conflict, error, write, clearFeedback };
+  return { resource, saving, conflict, error, instancesError, write, clearFeedback };
 }

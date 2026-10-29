@@ -156,6 +156,7 @@ export function BindingsPanel({
           saving={bindings.saving}
           conflict={bindings.conflict}
           errorMessage={bindings.error}
+          instancesError={bindings.instancesError}
           onSave={editor.propose}
           onEnvironmentChanged={onEnvironmentChanged}
           onEnvironmentWritten={onEnvironmentWritten}

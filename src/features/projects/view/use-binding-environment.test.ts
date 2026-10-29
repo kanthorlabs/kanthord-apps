@@ -9,7 +9,7 @@ import {
   writeBindingEnvironment,
 } from "@/api/resources/projects";
 import type { BindingEnvironment, BindingSetWriteResult, EnvironmentState } from "@/api/types";
-import { useBindingEnvironment } from "./use-binding-environment";
+import { showsWorkerEnvironment, useBindingEnvironment } from "./use-binding-environment";
 
 vi.mock("@/api/resources/projects", () => ({
   readBindingEnvironment: vi.fn(),
@@ -208,5 +208,25 @@ describe("useBindingEnvironment", () => {
         expect(onWritten).not.toHaveBeenCalled();
       },
     );
+  });
+});
+
+describe("showsWorkerEnvironment", () => {
+  const OPTIONS = [
+    { name: "builder-1", placement: "container" },
+    { name: "coder-1", placement: "server" },
+    { name: "box-1", placement: "worker" },
+  ];
+
+  it("shows Environment for a selection that holds builder-1 · container", () => {
+    expect(showsWorkerEnvironment(OPTIONS, ["coder-1", "builder-1"])).toBe(true);
+  });
+
+  it("hides Environment for server and worker instances only", () => {
+    expect(showsWorkerEnvironment(OPTIONS, ["coder-1", "box-1"])).toBe(false);
+  });
+
+  it("hides Environment for an empty selection", () => {
+    expect(showsWorkerEnvironment(OPTIONS, [])).toBe(false);
   });
 });

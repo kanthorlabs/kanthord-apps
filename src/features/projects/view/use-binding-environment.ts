@@ -10,8 +10,18 @@ import type { BindingEnvironment, EnvironmentDocument } from "@/api/types";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { ENVIRONMENT_NOT_OBJECT, parseEnvironmentDocument } from "@/lib/environment-document";
+import type { InstanceOption } from "./use-worker-instance-choices";
 
 export const ENVIRONMENT_RUN_ACTIVE = "project.environment.run_active";
+
+export function showsWorkerEnvironment(
+  options: readonly InstanceOption[],
+  selected: readonly string[],
+): boolean {
+  return options.some(
+    (option) => option.placement === "container" && selected.includes(option.name),
+  );
+}
 
 export interface BindingEnvironmentState {
   readonly environment: Resource<BindingEnvironment>;

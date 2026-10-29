@@ -25,17 +25,12 @@ interface BindingItemProps {
 
 function instancesFact(instances: readonly string[]): ReactNode {
   if (instances.length === 0) return "no instances";
-  return (
-    <>
-      instances{" "}
-      {instances.map((instance, index) => (
-        <Fragment key={instance}>
-          {index > 0 && ", "}
-          <RecordName>{instance}</RecordName>
-        </Fragment>
-      ))}
-    </>
-  );
+  return instances.map((instance, index) => (
+    <Fragment key={instance}>
+      {index > 0 && ", "}
+      <RecordName>{instance}</RecordName>
+    </Fragment>
+  ));
 }
 
 function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
