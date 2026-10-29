@@ -9,7 +9,7 @@ import * as gatewayApi from "@/api/resources/gateway";
 import * as instancesApi from "@/api/resources/worker-instances";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
-import type { WorkerCatalogEntry, WorkerInstanceListItem } from "@/api/types";
+import type { PlacementStatus, WorkerCatalogEntry, WorkerInstanceListItem } from "@/api/types";
 
 vi.mock("@/api/client", async (original) => ({
   ...(await original<typeof clientApi>()),
@@ -51,6 +51,59 @@ const MAC: WorkerInstanceListItem = {
   binding_count: 1,
   holder_mismatch: true,
 };
+
+const CODER_ONE: WorkerInstanceListItem = {
+  ...MAC,
+  id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I02",
+  name: "coder-1",
+  placement: "server",
+  revision: 1,
+  public_key: null,
+  fingerprint: null,
+  connection: null,
+  binding_count: 1,
+  holder_mismatch: false,
+};
+
+const BOX_ONE: WorkerInstanceListItem = {
+  ...MAC,
+  id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I03",
+  name: "box-1",
+  revision: 1,
+  holder_mismatch: false,
+};
+
+function containerStatus(overrides: Partial<PlacementStatus> = {}): readonly PlacementStatus[] {
+  return [
+    {
+      placement: "container",
+      available: true,
+      reason: null,
+      detail: null,
+      container_runtime: "podman",
+      ...overrides,
+    },
+  ];
+}
+
+async function openSheet() {
+  await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
+  return screen.findByRole("dialog", { name: "Add instance" });
+}
+
+async function openWorkerSheet() {
+  const sheet = await openSheet();
+  await userEvent.click(within(sheet).getByRole("radio", { name: "Worker" }));
+  return sheet;
+}
+
+function rowOf(list: HTMLElement, name: string): HTMLElement {
+  const row = within(list)
+    .getAllByRole("listitem")
+    .find((item) => within(item).queryByText(name) !== null);
+  if (row === undefined) throw new Error(`No row for ${name}`);
+  return row;
+}
 
 function mount() {
   return render(
@@ -198,30 +251,262 @@ describe("WorkerScreen", () => {
     expect(await screen.findByRole("button", { name: "Remove mac-main" })).toBeEnabled();
   });
 
-  it("collapses the instances of a worker with no instance behind an advanced disclosure", async () => {
+  it("lists an empty worker open, with no advanced trigger", async () => {
     vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([]);
     mount();
-    const disclosure = await screen.findByRole("button", { name: "Advanced: worker instances" });
-    expect(disclosure).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("button", { name: "Add instance" })).toBeNull();
-    expect(screen.queryByRole("heading", { name: "Instances" })).toBeNull();
-    expect(screen.getByRole("heading", { name: "Bindings" })).toBeInTheDocument();
-
-    await userEvent.click(disclosure);
-
-    expect(disclosure).toHaveAttribute("aria-expanded", "true");
-    expect(await screen.findByText("No instances.")).toBeInTheDocument();
-    expect(
-      screen.getByText("Add one to run this worker at the worker placement."),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Instances" })).toBeInTheDocument();
+    expect(screen.getByText("No instances.")).toBeInTheDocument();
+    expect(screen.getByText("Add one to give this worker capacity.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add instance" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Advanced/ })).toBeNull();
   });
 
-  it("keeps the instances expanded with no disclosure while an instance exists", async () => {
+  it("lists the instances of every placement with a placement badge and no advanced trigger", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([CODER_ONE, BOX_ONE]);
     mount();
-    expect(await screen.findByRole("heading", { name: "Instances" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add instance" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Advanced: worker instances" })).toBeNull();
+    const list = await screen.findByRole("list", { name: "Instances" });
+    const server = rowOf(list, "coder-1");
+    const worker = rowOf(list, "box-1");
+    expect(within(server).getByText("(v1)")).toBeInTheDocument();
+    expect(within(server).getByText("server")).toBeInTheDocument();
+    expect(within(worker).getByText("(v1)")).toBeInTheDocument();
+    expect(within(worker).getByText("worker")).toBeInTheDocument();
+    expect(within(server).getByText("Idle")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Advanced/ })).toBeNull();
+  });
+
+  it("shows the fingerprint and the connection at the worker placement only", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([CODER_ONE, BOX_ONE]);
+    mount();
+    const list = await screen.findByRole("list", { name: "Instances" });
+    const server = rowOf(list, "coder-1");
+    const worker = rowOf(list, "box-1");
+    expect(within(worker).getByText("SHA256:4l0bK2qPn8Yw…")).toBeInTheDocument();
+    expect(within(worker).getByText("Connected · mac-studio.local")).toBeInTheDocument();
+    expect(within(server).queryByText("Fingerprint")).toBeNull();
+    expect(within(server).queryByText(/SHA256/)).toBeNull();
+    expect(within(server).queryByText(/Connected|Not connected/)).toBeNull();
+  });
+
+  it("says that a server instance with no binding still runs", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+      { ...CODER_ONE, binding_count: 0 },
+      BOX_ONE,
+    ]);
+    mount();
+    const list = await screen.findByRole("list", { name: "Instances" });
+    const notice = "Runs with no binding. Archive it to stop it.";
+    expect(within(rowOf(list, "coder-1")).getByText(notice)).toBeInTheDocument();
+    expect(within(rowOf(list, "box-1")).queryByText(notice)).toBeNull();
+  });
+
+  it("says nothing about a listed server instance", async () => {
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([CODER_ONE]);
+    mount();
+    await screen.findByRole("list", { name: "Instances" });
+    expect(screen.queryByText("Runs with no binding. Archive it to stop it.")).toBeNull();
+  });
+
+  it("offers three placements in order and preselects Server", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(containerStatus());
+    mount();
+    const sheet = await openSheet();
+    const radios = within(sheet).getAllByRole("radio");
+    expect(radios).toHaveLength(3);
+    const names = ["Server", "Container", "Worker"];
+    names.forEach((name, index) =>
+      expect(within(sheet).getByRole("radio", { name })).toBe(radios[index]),
+    );
+    expect(within(sheet).getByRole("radio", { name: "Server" })).toBeChecked();
+    expect(
+      within(sheet).getByText("Built in. Runs the instance as a thread of the server."),
+    ).toBeInTheDocument();
+    expect(
+      await within(sheet).findByText(
+        "Runs the instance in its own container on the server host with Podman.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(sheet).getByText(
+        "Runs the instance as a kanthord serve worker process on a machine that you manage.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(sheet).getByText("The instance keeps this choice. Add another instance to change it."),
+    ).toBeInTheDocument();
+  });
+
+  it("drops the runtime from the container text when the runtime is unknown", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
+      containerStatus({ container_runtime: null }),
+    );
+    mount();
+    const sheet = await openSheet();
+    expect(
+      await within(sheet).findByText("Runs the instance in its own container on the server host."),
+    ).toBeInTheDocument();
+  });
+
+  it("turns Container off while the placement list loads", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockReturnValue(new Promise(() => {}));
+    mount();
+    const sheet = await openSheet();
+    expect(within(sheet).getByRole("radio", { name: "Container" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(within(sheet).getByText("Checking the server host…")).toBeInTheDocument();
+  });
+
+  it("turns Container off when the placement list fails", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount();
+    const sheet = await openSheet();
+    expect(
+      await within(sheet).findByText(
+        "Off. The check of the server host failed. Open this sheet again.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Container" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("turns Container off with the text of runtime_absent", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
+      containerStatus({
+        available: false,
+        reason: "runtime_absent",
+        container_runtime: null,
+      }),
+    );
+    mount();
+    const sheet = await openSheet();
+    expect(
+      await within(sheet).findByText(
+        "Off. Install Podman or Docker on the server host, then open this sheet again.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Container" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("keeps Container on and adds the detail on runtime_failed", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
+      containerStatus({
+        available: false,
+        reason: "runtime_failed",
+        detail: "podman info exited with 125",
+      }),
+    );
+    mount();
+    const sheet = await openSheet();
+    expect(
+      await within(sheet).findByText(
+        /Runs the instance in its own container on the server host with Podman\. podman info exited with 125\. Fix the container runtime of the server user, then open this sheet again\./,
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Container" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
+  it("creates a server instance with no key input and no copy block", async () => {
+    vi.mocked(instancesApi.createWorkerInstance).mockResolvedValue({
+      ...CODER_ONE,
+      name: "srv-01",
+    });
+    mount();
+    const sheet = await openSheet();
+    expect(within(sheet).queryByRole("combobox", { name: "Where does it run?" })).toBeNull();
+    expect(within(sheet).queryByLabelText("Address")).toBeNull();
+    await userEvent.type(within(sheet).getByLabelText("Name"), "srv-01");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+
+    await waitFor(() =>
+      expect(instancesApi.createWorkerInstance).toHaveBeenCalledWith({
+        name: "srv-01",
+        worker: "coder@1",
+        placement: "server",
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add instance" })).toBeNull());
+    expect(screen.queryByText("The instance configuration shows only once.")).toBeNull();
+  });
+
+  it("creates a container instance with the container placement", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(containerStatus());
+    vi.mocked(instancesApi.createWorkerInstance).mockResolvedValue({
+      ...CODER_ONE,
+      name: "ctr-01",
+      placement: "container",
+    });
+    mount();
+    const sheet = await openSheet();
+    await waitFor(() =>
+      expect(within(sheet).getByRole("radio", { name: "Container" })).not.toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await userEvent.click(within(sheet).getByRole("radio", { name: "Container" }));
+    await userEvent.type(within(sheet).getByLabelText("Name"), "ctr-01");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+
+    await waitFor(() =>
+      expect(instancesApi.createWorkerInstance).toHaveBeenCalledWith({
+        name: "ctr-01",
+        worker: "coder@1",
+        placement: "container",
+      }),
+    );
+  });
+
+  it("shows the limit under Placement on a server_limit refusal", async () => {
+    vi.mocked(instancesApi.createWorkerInstance).mockRejectedValue(
+      new ApiError("conflict", "Refused.", 409, "worker.instance.server_limit", { limit: 16 }),
+    );
+    mount();
+    const sheet = await openSheet();
+    await userEvent.type(within(sheet).getByLabelText("Name"), "srv-17");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+    expect(
+      await within(sheet).findByText(
+        "This server runs 16 server instances, the limit. Archive one, or raise worker.server_instance_limit.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the reason text under Placement on a placement_unavailable refusal", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(containerStatus());
+    vi.mocked(instancesApi.createWorkerInstance).mockRejectedValue(
+      new ApiError("conflict", "Refused.", 409, "worker.instance.placement_unavailable", {
+        placement: "container",
+        reason: "runtime_rootful",
+      }),
+    );
+    mount();
+    const sheet = await openSheet();
+    await waitFor(() =>
+      expect(within(sheet).getByRole("radio", { name: "Container" })).not.toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await userEvent.click(within(sheet).getByRole("radio", { name: "Container" }));
+    await userEvent.type(within(sheet).getByLabelText("Name"), "ctr-01");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+    expect(
+      await within(sheet).findByText(
+        "Podman runs as root on this host. Use rootless Podman or rootless Docker.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("creates an instance and shows its configuration and the steps of the host kind once", async () => {
@@ -232,8 +517,7 @@ describe("WorkerScreen", () => {
       instance_configuration: "eyJuYW1lIjoibGFuLTAxIn0",
     });
     mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
-    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    const sheet = await openWorkerSheet();
     expect(within(sheet).getByRole("button", { name: "Create instance" })).toBeDisabled();
     await userEvent.type(within(sheet).getByLabelText("Name"), "lan-01");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
@@ -263,8 +547,7 @@ describe("WorkerScreen", () => {
   it("leaves the address empty with a hint for a loopback dashboard", async () => {
     vi.mocked(clientApi.connectionBaseUrl).mockReturnValue("http://127.0.0.1:31415");
     mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
-    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    const sheet = await openWorkerSheet();
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "macOS (foreground)" }));
     expect(within(sheet).getByLabelText("Address")).toHaveValue("");
@@ -282,8 +565,7 @@ describe("WorkerScreen", () => {
       },
     ]);
     mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
-    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    const sheet = await openWorkerSheet();
     await waitFor(() => expect(workersApi.listWorkerPlacements).toHaveBeenCalled());
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "Container on this host" }));
@@ -300,8 +582,7 @@ describe("WorkerScreen", () => {
       instance_configuration: "eyJuYW1lIjoiYm94LTAxIn0",
     });
     mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
-    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    const sheet = await openWorkerSheet();
     await userEvent.type(within(sheet).getByLabelText("Name"), "box-01");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "Container on this host" }));
@@ -324,8 +605,7 @@ describe("WorkerScreen", () => {
       instance_configuration: "eyJuYW1lIjoiYm94LTAxIn0",
     });
     mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
-    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    const sheet = await openWorkerSheet();
     await userEvent.type(within(sheet).getByLabelText("Name"), "box-01");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "Linux (systemd)" }));
@@ -353,8 +633,7 @@ describe("WorkerScreen", () => {
       new ApiError("conflict", "The name is taken.", 409, "worker.instance.name_conflict"),
     );
     mount();
-    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
-    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    const sheet = await openWorkerSheet();
     await userEvent.type(within(sheet).getByLabelText("Name"), "server");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "Container" }));

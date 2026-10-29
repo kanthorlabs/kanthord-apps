@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 import { type ReactNode, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -11,10 +11,8 @@ import type {
 } from "@/api/types";
 import { DataListItem } from "@/components/data-list-item";
 import { RecordName } from "@/components/record-name";
-import { RevealPanel } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,7 +28,6 @@ import { useInstanceDetach } from "../instance/use-instance-detach";
 import { AddInstanceSheet } from "./components/add-instance-sheet";
 import { InstanceRowActions } from "./components/instance-row-actions";
 import { useInstanceCreate } from "./use-instance-create";
-import { type InstancesDisclosure, useInstancesDisclosure } from "./use-instances-disclosure";
 import { useWorkerPage } from "./use-worker-page";
 
 function Section({
@@ -144,15 +141,18 @@ function activityText(execution: InstanceExecution | null): ReactNode {
 function InstanceRow({
   instance,
   execution,
+  unlisted,
   onOpen,
   actions,
 }: {
   instance: WorkerInstanceListItem;
   execution: InstanceExecution | null;
+  unlisted: boolean;
   onOpen: () => void;
   actions: ReactNode;
 }) {
   const connection = instance.connection;
+  const atWorker = instance.placement === "worker";
   return (
     <DataListItem
       title={
@@ -164,33 +164,44 @@ function InstanceRow({
       select={{ label: `Open ${instance.name}`, disabled: false, onSelect: onOpen }}
       status={
         <>
-          <Badge variant={connection === null ? "outline" : "secondary"}>
-            {connection === null ? "Not connected" : "Connected"}
-          </Badge>
+          <Badge variant="outline">{instance.placement}</Badge>
           {instance.holder_mismatch && <Badge variant="destructive">Credential copy missing</Badge>}
         </>
       }
       fields={[
-        {
-          label: "Connection",
-          value:
-            connection === null ? (
-              "Not connected"
-            ) : (
-              <span className="break-all">Connected · {connection.connection_name}</span>
-            ),
-        },
         { label: "Activity", value: activityText(execution) },
         { label: "Bindings", value: instance.binding_count },
-        {
-          label: "Fingerprint",
-          value: (
-            <span className="font-mono break-all">
-              {instance.fingerprint === null ? "None" : shortFingerprint(instance.fingerprint)}
-            </span>
-          ),
-        },
+        ...(atWorker
+          ? [
+              {
+                label: "Fingerprint",
+                value: (
+                  <span className="font-mono break-all">
+                    {instance.fingerprint === null
+                      ? "None"
+                      : shortFingerprint(instance.fingerprint)}
+                  </span>
+                ),
+              },
+              {
+                label: "Connection",
+                value:
+                  connection === null ? (
+                    "Not connected"
+                  ) : (
+                    <span className="break-all">Connected · {connection.connection_name}</span>
+                  ),
+              },
+            ]
+          : []),
       ]}
+      notice={
+        unlisted ? (
+          <p className="text-sm text-muted-foreground">
+            Runs with no binding. Archive it to stop it.
+          </p>
+        ) : undefined
+      }
       actions={actions}
     />
   );
@@ -261,32 +272,6 @@ function RegistrationRow({ registration }: { registration: WorkerRegistrationRec
   );
 }
 
-function InstancesDisclosureFrame({
-  disclosure,
-  children,
-}: {
-  disclosure: InstancesDisclosure;
-  children: ReactNode;
-}) {
-  return (
-    <Collapsible open={disclosure.open} onOpenChange={disclosure.setOpen}>
-      {disclosure.collapsible && (
-        <CollapsibleTrigger render={<Button variant="ghost" size="sm" />}>
-          {disclosure.open ? (
-            <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
-          ) : (
-            <ChevronRightIcon aria-hidden="true" data-icon="inline-start" />
-          )}
-          Advanced: worker instances
-        </CollapsibleTrigger>
-      )}
-      <RevealPanel>
-        <div className={disclosure.collapsible ? "pt-3" : undefined}>{children}</div>
-      </RevealPanel>
-    </Collapsible>
-  );
-}
-
 export function WorkerScreen() {
   const { workerName = "" } = useParams<{ workerName: string }>();
   const navigate = useNavigate();
@@ -299,7 +284,6 @@ export function WorkerScreen() {
     reloadBindings();
   }, [reloadInstances, reloadBindings]);
   const detach = useInstanceDetach(reloadAll);
-  const disclosure = useInstancesDisclosure(page.instances);
   useCrumbLabel(workerPagePath(workerName), workerName);
   const entry = page.entry.data;
 
@@ -337,54 +321,50 @@ export function WorkerScreen() {
     <div className="flex flex-col gap-6 px-4 lg:px-0">
       <WorkerHeader entry={entry} />
       {hosted && (
-        <InstancesDisclosureFrame disclosure={disclosure}>
-          <Section
-            id="worker-instances"
-            title="Instances"
-            loading={page.instances.loading}
-            error={page.instances.error}
-            reload={page.instances.reload}
-            stale={page.instances.data !== null}
-            action={
-              <Button
-                variant="outline"
-                size="sm"
-                className="self-start md:self-auto"
-                onClick={create.start}
-              >
-                <PlusIcon aria-hidden="true" data-icon="inline-start" />
-                Add instance
-              </Button>
-            }
-          >
-            {instances.length === 0 ? (
-              <EmptyList
-                title="No instances."
-                description="Add one to run this worker at the worker placement."
-              />
-            ) : (
-              <ItemGroup aria-label="Instances" className="gap-2">
-                {instances.map((instance) => (
-                  <InstanceRow
-                    key={instance.id}
-                    instance={instance}
-                    execution={page.executionOf(instance.name)}
-                    onOpen={() => void navigate(instancePagePath(workerName, instance.name))}
-                    actions={
-                      <InstanceRowActions
-                        instance={instance}
-                        liveExecutions={page.liveExecutionsOf(instance.name)}
-                        detach={detach}
-                        onChanged={reloadAll}
-                        projectNameOf={page.projectNameOf}
-                      />
-                    }
-                  />
-                ))}
-              </ItemGroup>
-            )}
-          </Section>
-        </InstancesDisclosureFrame>
+        <Section
+          id="worker-instances"
+          title="Instances"
+          loading={page.instances.loading}
+          error={page.instances.error}
+          reload={page.instances.reload}
+          stale={page.instances.data !== null}
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start md:self-auto"
+              onClick={create.start}
+            >
+              <PlusIcon aria-hidden="true" data-icon="inline-start" />
+              Add instance
+            </Button>
+          }
+        >
+          {instances.length === 0 ? (
+            <EmptyList title="No instances." description="Add one to give this worker capacity." />
+          ) : (
+            <ItemGroup aria-label="Instances" className="gap-2">
+              {instances.map((instance) => (
+                <InstanceRow
+                  key={instance.id}
+                  instance={instance}
+                  execution={page.executionOf(instance.name)}
+                  unlisted={page.runsUnlisted(instance)}
+                  onOpen={() => void navigate(instancePagePath(workerName, instance.name))}
+                  actions={
+                    <InstanceRowActions
+                      instance={instance}
+                      liveExecutions={page.liveExecutionsOf(instance.name)}
+                      detach={detach}
+                      onChanged={reloadAll}
+                      projectNameOf={page.projectNameOf}
+                    />
+                  }
+                />
+              ))}
+            </ItemGroup>
+          )}
+        </Section>
       )}
       <Section
         id="worker-bindings"
