@@ -9,6 +9,8 @@ import { asApiError } from "@/hooks/use-resource";
 
 const IN_USE = "worker.instance.in_use";
 
+const UNREAD: ArchiveReading = { bindings: [], executions: [], resettable: true };
+
 export interface ArchiveRefusal {
   readonly bindings: readonly InstanceBinding[];
   readonly executions: readonly string[];
@@ -17,20 +19,31 @@ export interface ArchiveRefusal {
 export interface ArchiveSubject {
   readonly name: string;
   readonly revision: number;
-  readonly bindingCount: number;
-  readonly liveExecutions: readonly string[];
+  readonly bindingCount?: number;
+  readonly liveExecutions?: readonly string[];
+}
+
+interface ArchiveReading {
+  readonly bindings: readonly InstanceBinding[];
+  readonly executions: readonly string[];
+  readonly resettable: boolean;
 }
 
 export interface InstanceArchiveState {
   readonly open: boolean;
   readonly blocked: ReactNode;
-  readonly liveExecutions: readonly string[];
+  readonly listing: readonly InstanceBinding[];
+  readonly executions: readonly string[];
+  readonly resettable: boolean;
+  readonly stop: boolean;
+  readonly confirmable: boolean;
   readonly error: string | null;
   readonly refusal: ArchiveRefusal | null;
   readonly archiving: boolean;
   readonly reading: boolean;
   readonly request: () => void;
   readonly cancel: () => void;
+  readonly setStop: (stop: boolean) => void;
   readonly confirm: () => void;
 }
 
@@ -66,7 +79,7 @@ export function liveExecutionsOf(instance: WorkerInstanceDetail): readonly strin
   );
 }
 
-export function archiveSubjectOf(instance: WorkerInstanceDetail): ArchiveSubject {
+function archiveSubjectOf(instance: WorkerInstanceDetail): ArchiveSubject {
   return {
     name: instance.name,
     revision: instance.revision,
@@ -78,8 +91,8 @@ export function archiveSubjectOf(instance: WorkerInstanceDetail): ArchiveSubject
 type ArchiveBlock = "listed" | "executing";
 
 function archiveBlockKindOf(subject: ArchiveSubject): ArchiveBlock | null {
-  if (subject.bindingCount > 0) return "listed";
-  if (subject.liveExecutions.length > 0) return "executing";
+  if ((subject.bindingCount ?? 0) > 0) return "listed";
+  if ((subject.liveExecutions ?? []).length > 0) return "executing";
   return null;
 }
 
@@ -97,15 +110,23 @@ function blockNoticeOf(kind: ArchiveBlock, name: string): ReactNode {
   }
 }
 
-function staleNoticeOf(subject: ArchiveSubject, ended: boolean): ReactNode {
+function staleNoticeOf(subject: ArchiveSubject, ended: boolean, guarded: boolean): ReactNode {
   if (ended)
     return (
       <>
         <RecordName>{subject.name}</RecordName> is already archived.
       </>
     );
-  const kind = archiveBlockKindOf(subject);
+  const kind = guarded ? archiveBlockKindOf(subject) : null;
   return kind === null ? null : blockNoticeOf(kind, subject.name);
+}
+
+function readingOf(instance: WorkerInstanceDetail): ArchiveReading {
+  return {
+    bindings: instance.bindings,
+    executions: liveExecutionsOf(instance),
+    resettable: instance.placement === "worker",
+  };
 }
 
 export function useInstanceArchive(
@@ -120,9 +141,13 @@ export function useInstanceArchive(
   const [archiving, setArchiving] = useState(false);
   const [reading, setReading] = useState(false);
   const [revision, setRevision] = useState(subject.revision);
+  const [reread, setReread] = useState<ArchiveReading>(UNREAD);
+  const [stop, setStop] = useState(false);
   const pendingFocus = useRef(false);
   const blockKind = archiveBlockKindOf(subject);
   const blocked = blockKind === null ? null : blockNoticeOf(blockKind, subject.name);
+  const guarded = subject.bindingCount !== undefined || subject.liveExecutions !== undefined;
+  const confirmable = reread.bindings.length === 0 && (reread.executions.length === 0 || stop);
 
   useEffect(() => {
     if (blockKind === null || !pendingFocus.current) return;
@@ -135,13 +160,14 @@ export function useInstanceArchive(
     pendingFocus.current = false;
     setError(null);
     setRefusal(null);
+    setStop(false);
     setReading(true);
     readWorkerInstance(subject.name).then(
       (detail) => {
         setReading(false);
         const fresh = archiveSubjectOf(detail);
         const ended = detail.ended_at !== null;
-        const freshBlock = staleNoticeOf(fresh, ended);
+        const freshBlock = staleNoticeOf(fresh, ended, guarded);
         if (freshBlock !== null) {
           toast.error(`${subject.name} was not archived.`, { description: freshBlock });
           pendingFocus.current = !ended;
@@ -149,6 +175,7 @@ export function useInstanceArchive(
           return;
         }
         setRevision(fresh.revision);
+        setReread(readingOf(detail));
         setOpen(true);
       },
       (cause: unknown) => {
@@ -156,17 +183,21 @@ export function useInstanceArchive(
         toast.error(`${subject.name} was not read.`, { description: asApiError(cause).message });
       },
     );
-  }, [blockKind, reading, subject.name, onStale]);
+  }, [blockKind, reading, guarded, subject.name, onStale]);
 
   const cancel = useCallback(() => {
     if (!archiving) setOpen(false);
   }, [archiving]);
 
   const confirm = useCallback(() => {
-    if (archiving) return;
+    if (archiving || !confirmable) return;
     setArchiving(true);
     setError(null);
-    archiveWorkerInstance(subject.name, revision).then(
+    const archived =
+      reread.executions.length > 0
+        ? archiveWorkerInstance(subject.name, revision, { force: true })
+        : archiveWorkerInstance(subject.name, revision);
+    archived.then(
       () => {
         setArchiving(false);
         setOpen(false);
@@ -181,18 +212,23 @@ export function useInstanceArchive(
         setError(asApiError(cause).message);
       },
     );
-  }, [archiving, subject.name, revision, onArchived]);
+  }, [archiving, confirmable, reread.executions.length, subject.name, revision, onArchived]);
 
   return {
     open,
     blocked,
-    liveExecutions: subject.liveExecutions,
+    listing: reread.bindings,
+    executions: reread.executions,
+    resettable: reread.resettable,
+    stop,
+    confirmable,
     error,
     refusal,
     archiving,
     reading,
     request,
     cancel,
+    setStop,
     confirm,
   };
 }
