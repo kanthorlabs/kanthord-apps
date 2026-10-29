@@ -138,10 +138,10 @@ function requireCleanTree() {
   if (isDirty()) throw new Refusal("the working tree is not clean: --write needs a clean tree");
 }
 
-function savedShare({ hit, full, record, alwaysRunSeconds }) {
+function savedShare({ hit, full, record, ranSeconds }) {
   if (!hit || full) return 0;
-  if (record.seconds <= 0) return alwaysRunSeconds === 0 ? 100 : 0;
-  return Math.round((Math.max(0, record.seconds - alwaysRunSeconds) / record.seconds) * 100);
+  if (record.seconds <= 0) return ranSeconds === 0 ? 100 : 0;
+  return Math.round((Math.max(0, record.seconds - ranSeconds) / record.seconds) * 100);
 }
 
 function writeSummary(job, hit, share) {
@@ -166,23 +166,23 @@ function execute({ job, write, full }) {
   const hit = record !== undefined && !isDirty();
   const fullRun = !hit || full;
   const files = fullRun ? [] : alwaysRun;
-  let alwaysRunSeconds = 0;
+  let ranSeconds = 0;
   let outcome;
   if (fullRun || files.length > 0) {
     outcome = runTests(files);
     if (!passed(outcome)) return 1;
-    alwaysRunSeconds = testSeconds(outcome.report);
+    ranSeconds = testSeconds(outcome.report);
   }
+  if (write) requireCleanTree();
   if (write && fullRun) {
-    requireCleanTree();
     records[key] = {
       file: WHOLE_TREE,
-      seconds: alwaysRunSeconds,
+      seconds: ranSeconds,
       written_at: new Date().toISOString(),
     };
     writeStore(records);
   }
-  writeSummary(job, hit, savedShare({ hit, full, record, alwaysRunSeconds }));
+  writeSummary(job, hit, savedShare({ hit, full, record, ranSeconds }));
   return 0;
 }
 
