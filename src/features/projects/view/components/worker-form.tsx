@@ -1,5 +1,4 @@
 import type { Resource } from "@/hooks/use-resource";
-import type { WorkerInstanceListItem } from "@/api/types";
 import { ChoiceField } from "@/components/choice-field";
 import { SearchChoiceField } from "@/components/search-choice-field";
 import { Button } from "@/components/ui/button";
@@ -14,8 +13,8 @@ import {
   type WorkerDraft,
 } from "@/lib/binding-draft";
 import { useAdvancedSettings } from "../use-advanced-settings";
-import type { InstanceSharing } from "../use-instance-sharing";
 import type { WorkerAgents } from "../use-worker-agents";
+import type { WorkerInstanceForm } from "../use-worker-instance-form";
 import { DraftField } from "./draft-field";
 import { InstancesField } from "./instances-field";
 import { WorkerAdvancedSettings } from "./worker-advanced-settings";
@@ -94,8 +93,7 @@ interface WorkerFormProps {
   readonly repositoryNames: readonly string[];
   readonly workers: readonly string[];
   readonly agents: Resource<WorkerAgents>;
-  readonly instances: Resource<readonly WorkerInstanceListItem[]>;
-  readonly sharing: Resource<readonly InstanceSharing[]>;
+  readonly instances: WorkerInstanceForm;
   readonly onEdit: (draft: WorkerDraft) => void;
   readonly onEnableAgent: (agentName: string) => void;
 }
@@ -108,7 +106,6 @@ export function WorkerForm({
   workers,
   agents,
   instances,
-  sharing,
   onEdit,
   onEnableAgent,
 }: WorkerFormProps) {
@@ -138,7 +135,7 @@ export function WorkerForm({
           onChange={(worker) => onEdit({ ...draft, worker })}
         />
       )}
-      {draft.instanceCount === null && (
+      {instances.environmentShown && (
         <ChoiceField
           id="binding-environment"
           label="Environment"
@@ -152,9 +149,11 @@ export function WorkerForm({
       {draft.instanceCount === null ? (
         <InstancesField
           draft={draft}
+          saved={instances.saved}
           error={errors["instances"]}
-          instances={instances}
-          sharing={sharing}
+          instances={instances.choices}
+          sharing={instances.sharing}
+          onAdd={instances.add.start}
           onEdit={onEdit}
         />
       ) : (

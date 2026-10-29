@@ -470,7 +470,7 @@ describe("BindingsPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
     await userEvent.click(
-      await screen.findByRole("button", { name: "mac-studio · Connected", pressed: true }),
+      await screen.findByRole("button", { name: "mac-studio · worker", pressed: true }),
     );
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
     const dialog = await screen.findByRole("alertdialog");
@@ -597,9 +597,9 @@ describe("BindingsPanel", () => {
     expect(await screen.findByText("Instances")).toBeTruthy();
     expect(instancesApi.listWorkerInstances).toHaveBeenCalledWith("coder@1");
     await userEvent.click(
-      await screen.findByRole("button", { name: "mac-studio · Connected", pressed: false }),
+      await screen.findByRole("button", { name: "mac-studio · worker", pressed: false }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "build-01 · Not connected" }));
+    await userEvent.click(screen.getByRole("button", { name: "build-01 · worker" }));
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -630,7 +630,7 @@ describe("BindingsPanel", () => {
     });
     mount();
 
-    expect(await screen.findByText(textContent(/instances mac-studio, build-01 · /))).toBeTruthy();
+    expect(await screen.findByText(textContent(/coder@1 · mac-studio, build-01 · /))).toBeTruthy();
     expect(screen.queryByText(/instance count/)).toBeNull();
   });
 
@@ -656,14 +656,14 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
 
     expect(
-      await screen.findByRole("button", { name: "mac-studio · Connected", pressed: true }),
+      await screen.findByRole("button", { name: "mac-studio · worker", pressed: true }),
     ).toBeTruthy();
-    expect(screen.getByRole("button", { name: "build-01 · Not connected" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "build-01 · worker" })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
     expect(screen.queryByText(/serves/)).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "build-01 · Not connected" }));
+    await userEvent.click(screen.getByRole("button", { name: "build-01 · worker" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "build-01 serves kanthord and apps. A tool of either project can read its key and its workspaces.",
@@ -2408,6 +2408,142 @@ describe("BindingsPanel", () => {
       await screen.findByRole("button", { name: "Edit general-main" });
 
       expect(screen.queryByRole("form")).toBeNull();
+    });
+  });
+
+  it("creates an instance inline, selects it and keeps the draft", async () => {
+    vi.mocked(instancesApi.createWorkerInstance).mockImplementation(async (body) => {
+      vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+        ...CODER_INSTANCES,
+        { ...instanceItem(body.name, false), placement: "server" },
+      ]);
+      return { ...instanceItem(body.name, false), placement: "server" };
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
+    await chooseWorker("coder@1");
+    await userEvent.click(await screen.findByRole("button", { name: "Add instance" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add instance" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "coder-3");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Add instance" }));
+
+    expect(
+      await screen.findByRole("button", { name: "coder-3 · server", pressed: true }),
+    ).toBeTruthy();
+    expect(instancesApi.createWorkerInstance).toHaveBeenCalledWith({
+      name: "coder-3",
+      worker: "coder@1",
+      placement: "server",
+    });
+    expect(screen.getByLabelText("Name")).toHaveValue("coder-main");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+    await waitFor(() =>
+      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith(
+        "project_1",
+        2,
+        expect.objectContaining({
+          "coder-main": {
+            kind: "worker",
+            config: { worker: "coder@1", worker_instances: ["coder-3"] },
+          },
+        }),
+      ),
+    );
+  });
+
+  describe("the Environment field of a native worker binding", () => {
+    const TWO_REPOSITORIES: BindingSet = {
+      version: 2,
+      bindings: { "kanthord-repo": REPO, "web-repo": REPO },
+    };
+
+    beforeEach(() => {
+      vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+        ...CODER_INSTANCES,
+        { ...instanceItem("builder-1", false), placement: "container" },
+      ]);
+    });
+
+    it("shows for a container instance and hides again when it leaves the selection", async () => {
+      mount();
+
+      await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+      await chooseWorker("coder@1");
+      await userEvent.click(await screen.findByRole("button", { name: "mac-studio · worker" }));
+      expect(screen.queryByRole("combobox", { name: "Environment" })).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: "builder-1 · container" }));
+      expect(await screen.findByRole("combobox", { name: "Environment" })).toBeTruthy();
+      await userEvent.click(screen.getByRole("button", { name: "builder-1 · container" }));
+      expect(screen.queryByRole("combobox", { name: "Environment" })).toBeNull();
+    });
+
+    it("is required with two repository bindings", async () => {
+      vi.mocked(projectsApi.readBindingSet).mockResolvedValue(TWO_REPOSITORIES);
+      mount();
+
+      await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
+      await userEvent.type(screen.getByLabelText("Name"), "build-main");
+      await chooseWorker("coder@1");
+      await userEvent.click(await screen.findByRole("button", { name: "builder-1 · container" }));
+      await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+      expect(
+        await screen.findByText(
+          "Choose the repository binding whose image the container instances run.",
+        ),
+      ).toBeTruthy();
+      expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("a shared container instance refusal", () => {
+    const REFUSAL = new ApiError(
+      "conflict",
+      "Another live binding lists this container instance.",
+      409,
+      "project.bindings.worker.instance_shared",
+      {
+        instance: "build-01",
+        listed_by: { project_id: "project_2", binding: "build-main" },
+      },
+    );
+
+    async function saveSharedInstance() {
+      vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(REFUSAL);
+      mount();
+      await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+      await userEvent.click(await screen.findByRole("button", { name: "build-01 · worker" }));
+      await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+    }
+
+    it("names the project that readProject answers under Instances", async () => {
+      vi.mocked(projectsApi.readProject).mockResolvedValue(PROJECTS[1]!);
+
+      await saveSharedInstance();
+
+      expect(
+        await screen.findByText(
+          "build-01 already serves build-main of apps. A container instance serves one binding.",
+        ),
+      ).toBeTruthy();
+      expect(projectsApi.readProject).toHaveBeenCalledWith("project_2");
+      expect(screen.queryByText("The binding was not saved.")).toBeNull();
+    });
+
+    it("names another project when readProject rejects", async () => {
+      vi.mocked(projectsApi.readProject).mockRejectedValue(
+        new ApiError("not_found", "The project does not exist.", 404),
+      );
+
+      await saveSharedInstance();
+
+      expect(
+        await screen.findByText(
+          "build-01 already serves build-main of another project. A container instance serves one binding.",
+        ),
+      ).toBeTruthy();
     });
   });
 });

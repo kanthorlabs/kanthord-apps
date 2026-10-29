@@ -15,6 +15,7 @@ import type {
   Project,
   WorkerBindingRecord,
   WorkerInstanceListItem,
+  WorkerPlacement,
   WorkerRegistrationRecord,
 } from "@/api/types";
 
@@ -120,12 +121,16 @@ function serveFull() {
   vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([]);
 }
 
-function instance(name: string, connected: boolean): WorkerInstanceListItem {
+function instance(
+  name: string,
+  connected: boolean,
+  placement: WorkerPlacement = "worker",
+): WorkerInstanceListItem {
   return {
     id: `worker_instance_${name}`,
     name,
     worker: "coder@1",
-    placement: "worker",
+    placement,
     revision: 1,
     public_key: "key",
     fingerprint: "SHA256:key",
@@ -398,6 +403,34 @@ describe("useProjectReadiness", () => {
     expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
       state: "done",
       detail: "Each worker binding runs a live registration.",
+    });
+  });
+
+  it("counts a native binding with one listed instance as ready without a registration", async () => {
+    serveFull();
+    servePlaced(["coder-1"]);
+    vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+      instance("coder-1", false, "server"),
+    ]);
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
+      state: "done",
+      detail: "Each worker binding runs a live registration.",
+    });
+  });
+
+  it("does not count a native binding with an empty list as ready", async () => {
+    serveFull();
+    servePlaced([]);
+
+    const readiness = await readinessOf(PROJECT);
+
+    expect(itemsOf(readiness).find((item) => item.key === "live_registrations")).toMatchObject({
+      state: "open",
+      detail: "No worker binding asks for an instance.",
     });
   });
 

@@ -12,7 +12,7 @@ import type { Resource } from "@/hooks/use-resource";
 import type { WorkerDraft } from "@/lib/binding-draft";
 import { workerPagePath } from "@/lib/worker-paths";
 import type { InstanceSharing } from "../use-instance-sharing";
-import { instanceOptionsOf } from "../use-worker-instance-choices";
+import { instanceOptionsOf, instancesRemoved } from "../use-worker-instance-choices";
 
 function SharingNotices({ sharing }: { readonly sharing: Resource<readonly InstanceSharing[]> }) {
   if (sharing.error !== null)
@@ -33,13 +33,23 @@ function SharingNotices({ sharing }: { readonly sharing: Resource<readonly Insta
 
 interface InstancesFieldProps {
   readonly draft: WorkerDraft;
+  readonly saved: readonly string[];
   readonly error: string | undefined;
   readonly instances: Resource<readonly WorkerInstanceListItem[]>;
   readonly sharing: Resource<readonly InstanceSharing[]>;
+  readonly onAdd: () => void;
   readonly onEdit: (draft: WorkerDraft) => void;
 }
 
-export function InstancesField({ draft, error, instances, sharing, onEdit }: InstancesFieldProps) {
+export function InstancesField({
+  draft,
+  saved,
+  error,
+  instances,
+  sharing,
+  onAdd,
+  onEdit,
+}: InstancesFieldProps) {
   if (draft.worker === "") return null;
   if (instances.loading) return <Skeleton className="h-16 w-full" />;
   if (instances.error !== null)
@@ -60,12 +70,22 @@ export function InstancesField({ draft, error, instances, sharing, onEdit }: Ins
           No instances of <RecordName>{draft.worker}</RecordName>. Add one on the{" "}
           <Link to={workerPagePath(draft.worker)}>worker page</Link>.
         </FieldDescription>
+        <div>
+          <Button type="button" size="sm" variant="outline" onClick={onAdd}>
+            Add instance
+          </Button>
+        </div>
       </Field>
     );
   return (
     <>
       <Field data-invalid={error !== undefined}>
-        <FieldLabel id="binding-instances-label">Instances</FieldLabel>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <FieldLabel id="binding-instances-label">Instances</FieldLabel>
+          <Button type="button" size="sm" variant="outline" onClick={onAdd}>
+            Add instance
+          </Button>
+        </div>
         <ToggleGroup
           variant="outline"
           size="sm"
@@ -85,7 +105,7 @@ export function InstancesField({ draft, error, instances, sharing, onEdit }: Ins
         >
           {options.map((option) => (
             <ToggleGroupItem key={option.name} value={option.name}>
-              {option.name} · {option.state}
+              {option.name} · {option.placement}
             </ToggleGroupItem>
           ))}
         </ToggleGroup>
@@ -94,6 +114,11 @@ export function InstancesField({ draft, error, instances, sharing, onEdit }: Ins
           instance makes the binding unavailable. Manage the instances on the{" "}
           <Link to={workerPagePath(draft.worker)}>worker page</Link>.
         </FieldDescription>
+        {instancesRemoved(saved, draft.instances) && (
+          <FieldDescription>
+            A removed instance finishes its execution, then takes no new work of this binding.
+          </FieldDescription>
+        )}
         <FieldError>{error}</FieldError>
       </Field>
       <SharingNotices sharing={sharing} />
