@@ -145,4 +145,24 @@ describe("floorShareRowsOf", () => {
     expect(row?.barLabel).toBe("Test floor share of node_1 2026-05-04: count 3, share 25%");
     expect(row?.tracesPath).toBe("/traces?node_id=node_1");
   });
+
+  it.each([
+    [0, "0%"],
+    [1, "100%"],
+  ])("a floor share of %s shows %s and the bar value", (value, text) => {
+    const share: AnalyticsFloorShareItem = {
+      key: "node_1",
+      bucket_start: DAY_START,
+      count: 2,
+      share: value,
+    };
+    const [row] = floorShareRowsOf([share], "day", "node_id", new Map());
+
+    expect(row?.fields).toEqual([
+      { label: "Count", value: "2" },
+      { label: "Share", value: text },
+    ]);
+    expect(row?.share).toBe(value);
+    expect(row?.barLabel).toBe(`Test floor share of node_1 2026-05-04: count 2, share ${text}`);
+  });
 });

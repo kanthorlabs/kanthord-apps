@@ -111,6 +111,7 @@ const buildSpans = (now) =>
         tool_name: null,
         start: start + turnMs,
         end: start + turnMs + 15_000 + 2500 * (index % 7),
+        spanId: `verification-${String(index).padStart(4, "0")}`,
         floorShare: Number((0.15 + 0.1 * (index % 6)).toFixed(2)),
       });
     }
@@ -259,8 +260,11 @@ const durationRow = (measure) => {
   };
 };
 
+const isLater = (span, last) =>
+  span.start > last.start || (span.start === last.start && span.spanId > last.spanId);
+
 const floorShareRow = ({ key, bucket_start, spans }) => {
-  const latest = spans.reduce((last, span) => (span.start > last.start ? span : last));
+  const latest = spans.reduce((last, span) => (isLater(span, last) ? span : last));
   return { key, bucket_start, count: spans.length, share: latest.floorShare };
 };
 
