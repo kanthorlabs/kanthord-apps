@@ -30,11 +30,7 @@ import { CredentialRotateSheet } from "./components/credential-rotate-sheet";
 import { DetachInstanceDialog } from "./components/detach-instance-dialog";
 import { ResetKeyDialog } from "./components/reset-key-dialog";
 import { SignInAgainSheet } from "./components/sign-in-again-sheet";
-import {
-  archiveSubjectOf,
-  type InstanceArchiveState,
-  useInstanceArchive,
-} from "./use-instance-archive";
+import { type InstanceArchiveState, useInstanceArchive } from "./use-instance-archive";
 import { type InstanceCopyModelsState, useInstanceCopyModels } from "./use-instance-copy-models";
 import { useInstanceCredentialAdd } from "./use-instance-credential-add";
 import { type InstanceDetachState, useInstanceDetach } from "./use-instance-detach";
@@ -77,7 +73,7 @@ function EmptyLine({ title }: { title: string }) {
   );
 }
 
-function InstanceHeader({ instance }: { instance: WorkerInstanceDetail }) {
+function InstanceHeader({ instance, keyed }: { instance: WorkerInstanceDetail; keyed: boolean }) {
   const connection = instance.connection;
   return (
     <section aria-label="Instance" className="flex flex-col gap-2 border-b pb-3">
@@ -85,9 +81,12 @@ function InstanceHeader({ instance }: { instance: WorkerInstanceDetail }) {
         <h2 className="min-w-0 font-mono text-lg font-semibold break-all">{instance.name}</h2>
         <span className="text-muted-foreground tabular-nums">(v{instance.revision})</span>
         {instance.ended_at !== null && <Badge variant="secondary">Archived</Badge>}
-        <Badge variant={connection === null ? "outline" : "secondary"}>
-          {connection === null ? "Not connected" : "Connected"}
-        </Badge>
+        <Badge variant="outline">{instance.placement}</Badge>
+        {keyed && (
+          <Badge variant={connection === null ? "outline" : "secondary"}>
+            {connection === null ? "Not connected" : "Connected"}
+          </Badge>
+        )}
       </div>
       <dl className="grid grid-cols-1 gap-x-3 gap-y-1 text-sm sm:grid-cols-[auto_minmax(0,1fr)]">
         <dt className="text-muted-foreground">Worker</dt>
@@ -96,14 +95,18 @@ function InstanceHeader({ instance }: { instance: WorkerInstanceDetail }) {
             {instance.worker}
           </Link>
         </dd>
-        <dt className="text-muted-foreground">Fingerprint</dt>
-        <dd className="min-w-0 font-mono break-all">{instance.fingerprint}</dd>
-        <dt className="text-muted-foreground">Connection</dt>
-        <dd className="min-w-0 break-all">
-          {connection === null
-            ? "Not connected"
-            : `Connected · ${connection.connection_name} · last heartbeat ${utcDateTime(connection.last_heartbeat_at)}`}
-        </dd>
+        {keyed && (
+          <>
+            <dt className="text-muted-foreground">Fingerprint</dt>
+            <dd className="min-w-0 font-mono break-all">{instance.fingerprint}</dd>
+            <dt className="text-muted-foreground">Connection</dt>
+            <dd className="min-w-0 break-all">
+              {connection === null
+                ? "Not connected"
+                : `Connected · ${connection.connection_name} · last heartbeat ${utcDateTime(connection.last_heartbeat_at)}`}
+            </dd>
+          </>
+        )}
         {instance.ended_at !== null && (
           <>
             <dt className="text-muted-foreground">Archived</dt>
@@ -153,14 +156,26 @@ function BindingRows({
   rows,
   instanceName,
   archived,
+  unlisted,
   detach,
 }: {
   rows: readonly InstanceBindingRow[];
   instanceName: string;
   archived: boolean;
+  unlisted: boolean;
   detach: InstanceDetachState;
 }) {
-  if (rows.length === 0) return <EmptyLine title="No binding lists this instance." />;
+  if (rows.length === 0) {
+    return (
+      <EmptyLine
+        title={
+          unlisted
+            ? "Runs with no binding. Archive it to stop it."
+            : "No binding lists this instance."
+        }
+      />
+    );
+  }
   return (
     <ItemGroup aria-label="Bindings" className="gap-2">
       {rows.map((row) => (
@@ -215,7 +230,7 @@ function RegistrationRows({
                 <Badge variant={registration.activity === "idle" ? "secondary" : "default"}>
                   {registration.activity}
                 </Badge>
-                {registration.draining && <Badge variant="outline">draining</Badge>}
+                {registration.draining && <Badge variant="outline">Draining</Badge>}
               </>
             }
             fields={[
@@ -390,9 +405,6 @@ function ArchiveButton({
   control: RefObject<HTMLButtonElement | null>;
 }) {
   const icon = <ArchiveIcon aria-hidden="true" data-icon="inline-start" />;
-  if (archive.blocked !== null) {
-    return <DisabledAction label="Archive" reason={archive.blocked} icon={icon} ref={control} />;
-  }
   return (
     <Button
       ref={control}
@@ -453,7 +465,7 @@ function InstanceDetail({
   const navigate = useNavigate();
   const archiveControl = useRef<HTMLButtonElement>(null);
   const archive = useInstanceArchive(
-    archiveSubjectOf(instance),
+    { name: instance.name, revision: instance.revision },
     () => void navigate(workerPagePath(instance.worker)),
     reload,
     archiveControl,
@@ -467,7 +479,7 @@ function InstanceDetail({
   return (
     <div className="flex flex-col gap-6 px-4 lg:px-0">
       <ReadFailure page={page} />
-      <InstanceHeader instance={instance} />
+      <InstanceHeader instance={instance} keyed={page.keyed} />
       <ContextFailure page={page} />
       <InstanceReachNotice instance={instance.name} projects={page.servedProjects} />
       <section aria-labelledby="instance-bindings" className="flex flex-col gap-3">
@@ -476,6 +488,7 @@ function InstanceDetail({
           rows={page.bindingRows}
           instanceName={instance.name}
           archived={archived}
+          unlisted={page.unlisted}
           detach={detach}
         />
       </section>
@@ -483,33 +496,35 @@ function InstanceDetail({
         <SectionHeading id="instance-registrations" title="Registrations" />
         <RegistrationRows rows={page.registrationRows} projectNameOf={projectNameOf} />
       </section>
-      <section aria-labelledby="instance-credentials" className="flex flex-col gap-3">
-        <SectionHeading
-          id="instance-credentials"
-          title="Credentials"
-          action={
-            archived ? undefined : (
-              <Button
-                variant="outline"
-                size="sm"
-                className="self-start md:self-auto"
-                onClick={add.start}
-              >
-                <PlusIcon aria-hidden="true" data-icon="inline-start" />
-                Add credential
-              </Button>
-            )
-          }
-        />
-        <CredentialRows
-          rows={page.credentialRows}
-          instanceName={instance.name}
-          archived={archived}
-          rotate={rotate}
-          models={models}
-          signIn={signIn}
-        />
-      </section>
+      {page.keyed && (
+        <section aria-labelledby="instance-credentials" className="flex flex-col gap-3">
+          <SectionHeading
+            id="instance-credentials"
+            title="Credentials"
+            action={
+              archived ? undefined : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="self-start md:self-auto"
+                  onClick={add.start}
+                >
+                  <PlusIcon aria-hidden="true" data-icon="inline-start" />
+                  Add credential
+                </Button>
+              )
+            }
+          />
+          <CredentialRows
+            rows={page.credentialRows}
+            instanceName={instance.name}
+            archived={archived}
+            rotate={rotate}
+            models={models}
+            signIn={signIn}
+          />
+        </section>
+      )}
       {!archived && (
         <section
           aria-labelledby="instance-danger"
@@ -519,24 +534,36 @@ function InstanceDetail({
             Danger zone
           </h3>
           <p className="text-sm text-muted-foreground">
-            Reset key replaces the key pair of <RecordName>{instance.name}</RecordName>. Archive
-            ends the instance for good.
+            {page.keyed && (
+              <>
+                Reset key replaces the key pair of <RecordName>{instance.name}</RecordName>.{" "}
+              </>
+            )}
+            Archive ends the instance for good.
           </p>
           <div className="flex flex-wrap gap-2 md:justify-end">
-            <Button variant="outline" size="sm" onClick={reset.request}>
-              <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />
-              Reset key
-            </Button>
+            {page.keyed && (
+              <Button variant="outline" size="sm" onClick={reset.request}>
+                <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />
+                Reset key
+              </Button>
+            )}
             <ArchiveButton archive={archive} control={archiveControl} />
           </div>
         </section>
       )}
-      <ResetKeyDialog instance={instance} reset={reset} projectNameOf={projectNameOf} />
+      {page.keyed && (
+        <ResetKeyDialog instance={instance} reset={reset} projectNameOf={projectNameOf} />
+      )}
       <ArchiveInstanceDialog name={instance.name} archive={archive} projectNameOf={projectNameOf} />
       <DetachInstanceDialog detach={detach} />
-      <CredentialAddSheet instanceName={instance.name} add={add} />
-      <CredentialRotateSheet instanceName={instance.name} rotate={rotate} />
-      <SignInAgainSheet instanceName={instance.name} signIn={signIn} />
+      {page.keyed && (
+        <>
+          <CredentialAddSheet instanceName={instance.name} add={add} />
+          <CredentialRotateSheet instanceName={instance.name} rotate={rotate} />
+          <SignInAgainSheet instanceName={instance.name} signIn={signIn} />
+        </>
+      )}
       {models.target !== null && (
         <CopyModelsSheet key={models.target.key} target={models.target} reload={reload} />
       )}

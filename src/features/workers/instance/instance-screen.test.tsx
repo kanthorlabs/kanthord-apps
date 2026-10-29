@@ -481,11 +481,49 @@ describe("InstanceScreen", () => {
     );
   });
 
-  it("disables Archive while a binding lists the instance", async () => {
+  it("opens the Archive dialog with the listing bindings and a disabled confirm", async () => {
     mount();
-    expect(await screen.findByRole("button", { name: "Archive" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getAllByRole("link", { name: "mac-main" })).toHaveLength(2);
+    expect(
+      within(dialog).getByText("Remove the instance from these bindings first."),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Archive mac-studio" })).toBeDisabled();
+  });
+
+  it("archives with force after the human checks Stop the live execution", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...FREE,
+      registrations: [
+        {
+          runtime_identity: "worker_registration_01",
+          project_id: "prj-a",
+          resource_identity: "worker:kanthord:coder@1",
+          worker_name: "coder@1",
+          instance: "mac-studio",
+          activity: "executing",
+          draining: false,
+          execution_id: "execution_a",
+          registered: true,
+          host: "kanthord",
+          placement: "worker",
+        },
+      ],
+    });
+    vi.mocked(instancesApi.archiveWorkerInstance).mockResolvedValue({ ...FREE, ended_at: 9 });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Archive" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Archive mac-studio" })).toBeDisabled();
+    await userEvent.click(
+      within(dialog).getByRole("checkbox", { name: "Stop the live execution" }),
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Archive mac-studio" }));
+    await waitFor(() =>
+      expect(instancesApi.archiveWorkerInstance).toHaveBeenCalledWith("mac-studio", 1, {
+        force: true,
+      }),
     );
   });
 
@@ -859,6 +897,83 @@ describe("InstanceScreen", () => {
       ).not.toBeInTheDocument(),
     );
     expect(projectsApi.listProjects).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("InstanceScreen placement", () => {
+  const SERVER: WorkerInstanceDetail = {
+    ...MAC,
+    placement: "server",
+    public_key: null,
+    fingerprint: null,
+    connection: null,
+    bindings: [],
+    credentials: [],
+  };
+
+  it("shows the badge of a worker placement and every section of the key", async () => {
+    mount();
+    expect(await screen.findByText("worker")).toBeInTheDocument();
+    expect(screen.getByText(FINGERPRINT)).toBeInTheDocument();
+    expect(screen.getByText(/Connected · mac-studio\.local/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset key" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Credentials" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add credential" })).toBeInTheDocument();
+    expect(
+      screen.queryByText("Runs with no binding. Archive it to stop it."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the badge of a server placement and none of the key sections", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...SERVER,
+      bindings: [{ project_id: "prj-a", binding: "mac-main" }],
+    });
+    mount();
+    expect(await screen.findByText("server")).toBeInTheDocument();
+    expect(screen.queryByText("Fingerprint")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connection")).not.toBeInTheDocument();
+    expect(screen.queryByText("Not connected")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset key" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Credentials" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add credential" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign in again" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rotate" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+    expect(
+      screen.queryByText("Runs with no binding. Archive it to stop it."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("tells that an unlisted server instance runs with no binding", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(SERVER);
+    mount();
+    expect(
+      await screen.findByText("Runs with no binding. Archive it to stop it."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the badge Draining on a registration that its binding no longer lists", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      registrations: [
+        {
+          runtime_identity: "worker_registration_01",
+          project_id: "prj-a",
+          resource_identity: "worker:kanthord:old-main",
+          worker_name: "coder@1",
+          instance: "mac-studio",
+          activity: "idle",
+          draining: true,
+          registered: true,
+          host: "kanthord",
+          placement: "worker",
+        },
+      ],
+    });
+    mount();
+    const registrations = await screen.findByRole("list", { name: "Registrations" });
+    expect(within(registrations).getByText("Draining")).toBeInTheDocument();
   });
 });
 

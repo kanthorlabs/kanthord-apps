@@ -64,6 +64,8 @@ export interface InstancePage {
   readonly contextError: string | null;
   readonly retryContext: () => void;
   readonly servedProjects: readonly string[];
+  readonly keyed: boolean;
+  readonly unlisted: boolean;
   readonly projectNameOf: (projectId: string) => string;
 }
 
@@ -115,6 +117,14 @@ export function bindingRowsOf(
     ];
   });
   return [...serving, ...draining];
+}
+
+export function isKeyedInstance(detail: WorkerInstanceDetail): boolean {
+  return detail.placement === "worker";
+}
+
+export function isUnlistedInstance(detail: WorkerInstanceDetail): boolean {
+  return detail.placement === "server" && detail.bindings.length === 0;
 }
 
 export function registrationRowsOf(
@@ -188,6 +198,8 @@ export function useInstancePage(instanceName: string): InstancePage {
     contextError: failure?.message ?? null,
     retryContext,
     servedProjects,
+    keyed: detail === null ? false : isKeyedInstance(detail),
+    unlisted: detail === null ? false : isUnlistedInstance(detail),
     projectNameOf,
   };
 }

@@ -6,7 +6,12 @@ import type {
   WorkerBindingRecord,
   WorkerInstanceDetail,
 } from "@/api/types";
-import { bindingRowsOf, credentialRowsOf } from "./use-instance-page";
+import {
+  bindingRowsOf,
+  credentialRowsOf,
+  isKeyedInstance,
+  isUnlistedInstance,
+} from "./use-instance-page";
 
 const DETAIL: WorkerInstanceDetail = {
   id: "worker_instance_1",
@@ -149,5 +154,20 @@ describe("credentialRowsOf", () => {
 
   it("offers no models edit while the platform list is not read", () => {
     expect(credentialRowsOf([ROUTER_COPY], null)[0]?.modelsEditable).toBe(false);
+  });
+});
+
+describe("the placement of an instance", () => {
+  it("keys only the worker placement", () => {
+    expect(isKeyedInstance(DETAIL)).toBe(true);
+    expect(isKeyedInstance({ ...DETAIL, placement: "server" })).toBe(false);
+    expect(isKeyedInstance({ ...DETAIL, placement: "container" })).toBe(false);
+  });
+
+  it("marks only a server instance that no binding lists", () => {
+    const server: WorkerInstanceDetail = { ...DETAIL, placement: "server", bindings: [] };
+    expect(isUnlistedInstance(server)).toBe(true);
+    expect(isUnlistedInstance({ ...server, bindings: DETAIL.bindings })).toBe(false);
+    expect(isUnlistedInstance({ ...DETAIL, bindings: [] })).toBe(false);
   });
 });
