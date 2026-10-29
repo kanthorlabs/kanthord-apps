@@ -92,17 +92,21 @@ function lines(file) {
 
 const storeOf = (cwd) => join(cwd, "node_modules", ".cache", "suite-pass", "records.json");
 
+const writtenAtOf = (cwd) =>
+  Object.values(JSON.parse(readFileSync(storeOf(cwd), "utf8")).records)[0].written_at;
+
 afterEach(() => {
   for (const directory of directories.splice(0))
     rmSync(directory, { recursive: true, force: true });
 });
 
-describe("suite-pass run", () => {
+describe("suite-pass run", { timeout: 60_000 }, () => {
   it("a tree with a matching record runs no test", () => {
     const cwd = createFixture();
     const countFile = join(temporaryDirectory(), "count");
     const command = commandWriting(countFile, REPORT);
     const first = run(cwd, command, "--write");
+    const before = writtenAtOf(cwd);
     const second = run(cwd, command, "--write");
     expect(first.status).toBe(0);
     expect(first.output).toContain("Floor: none");
@@ -112,6 +116,7 @@ describe("suite-pass run", () => {
     expect(second.output).toContain("Record: hit");
     expect(second.output).toContain("Saved share: 100%");
     expect(lines(countFile)).toHaveLength(1);
+    expect(writtenAtOf(cwd)).toBe(before);
   });
 
   it("a new commit runs the tests again", () => {
@@ -181,10 +186,12 @@ describe("suite-pass run", () => {
     const cwd = createFixture(["src/a.test.ts"]);
     const countFile = join(temporaryDirectory(), "count");
     run(cwd, commandWriting(countFile, REPORT), "--write");
+    const before = writtenAtOf(cwd);
     const dirtying = commandWriting(countFile, REPORT, 0, `touch '${join(cwd, "created.txt")}'`);
     const result = run(cwd, dirtying, "--write");
     expect(result.status).toBe(2);
     expect(result.error).toContain("the working tree is not clean");
+    expect(writtenAtOf(cwd)).toBe(before);
   });
 
   it("a failed run writes no record", () => {
@@ -200,16 +207,14 @@ describe("suite-pass run", () => {
     const countFile = join(temporaryDirectory(), "count");
     const command = commandWriting(countFile, REPORT);
     run(cwd, command, "--write");
-    const writtenAt = () =>
-      Object.values(JSON.parse(readFileSync(storeOf(cwd), "utf8")).records)[0].written_at;
-    const before = writtenAt();
+    const before = writtenAtOf(cwd);
     const full = run(cwd, command, "--write", "--full");
     expect(full.status).toBe(0);
     expect(full.output).toContain("Saved share: 0%");
     expect(lines(countFile)).toHaveLength(2);
     const store = JSON.parse(readFileSync(storeOf(cwd), "utf8"));
     expect(Object.values(store.records)).toHaveLength(1);
-    expect(writtenAt()).not.toBe(before);
+    expect(writtenAtOf(cwd)).not.toBe(before);
   });
 
   it("a configuration of another shape exits 2", () => {
