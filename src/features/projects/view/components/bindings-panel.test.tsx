@@ -2156,6 +2156,42 @@ describe("BindingsPanel", () => {
         expect(toast.info).not.toHaveBeenCalled();
       });
 
+      it("Retry reads the mission again and sends the new mission version", async () => {
+        vi.mocked(missionApi.createMissionNode)
+          .mockRejectedValueOnce(
+            new ApiError(
+              "conflict",
+              "The expected mission version differs from the current version.",
+              409,
+              "mission.version.conflict",
+            ),
+          )
+          .mockResolvedValueOnce({ mission_version: 5 } as Awaited<
+            ReturnType<typeof missionApi.createMissionNode>
+          >);
+
+        await openProposal();
+        await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+        vi.mocked(missionApi.readMission).mockResolvedValue({
+          id: "mission_1",
+          project_id: "project_1",
+          version: 4,
+        });
+        const retry = vi.mocked(toast.error).mock.calls[0]?.[1]?.action as unknown as {
+          onClick: () => void;
+        };
+        retry.onClick();
+
+        await waitFor(() =>
+          expect(toast.success).toHaveBeenCalledWith("Setup node of kanthord-repo added."),
+        );
+        expect(missionApi.readMission).toHaveBeenCalledTimes(2);
+        expect(missionApi.createMissionNode).toHaveBeenNthCalledWith(2, "mission_1", {
+          ...PLAN,
+          expected_mission_version: 4,
+        });
+      });
+
       it("an existing setup node shows an info toast with no Retry", async () => {
         vi.mocked(missionApi.createMissionNode).mockRejectedValue(
           new ApiError("conflict", "The node file exists.", 409, "mission.node.filename_conflict"),
