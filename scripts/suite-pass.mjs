@@ -132,10 +132,10 @@ function passed({ exitCode, report }) {
   );
 }
 
+const isDirty = () => git(["status", "--porcelain", "--untracked-files=all"]) !== "";
+
 function requireCleanTree() {
-  if (git(["status", "--porcelain", "--untracked-files=all"]) !== "") {
-    throw new Refusal("the working tree is not clean: --write needs a clean tree");
-  }
+  if (isDirty()) throw new Refusal("the working tree is not clean: --write needs a clean tree");
 }
 
 function savedShare({ hit, full, record, alwaysRunSeconds }) {
@@ -162,8 +162,8 @@ function execute({ job, write, full }) {
   const key = treeKeyOf(git(["rev-parse", "HEAD^{tree}"]).trim(), readToolchain());
   const records = readStore();
   const record = records[key];
-  const hit = record !== undefined;
   if (write) requireCleanTree();
+  const hit = record !== undefined && !isDirty();
   const fullRun = !hit || full;
   const files = fullRun ? [] : alwaysRun;
   let alwaysRunSeconds = 0;

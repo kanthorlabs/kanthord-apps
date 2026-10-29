@@ -63,13 +63,14 @@ function createFixture(alwaysRun = []) {
   return cwd;
 }
 
-function commandWriting(countFile, report, exitCode = 0) {
+function commandWriting(countFile, report, exitCode = 0, extra = "true") {
   const reportFile = join(temporaryDirectory(), "report.json");
   writeFileSync(reportFile, report);
   return [
     `echo "$*" >> '${countFile}'`,
     `for argument in "$@"; do case "$argument" in --outputFile.json=*) out="\${argument#--outputFile.json=}";; esac; done`,
     `cp '${reportFile}' "$out"`,
+    extra,
     `exit ${exitCode}`,
   ].join("; ");
 }
@@ -153,6 +154,27 @@ describe("suite-pass run", () => {
     expect(modified.status).toBe(2);
     expect(existsSync(storeOf(cwd))).toBe(false);
     expect(lines(countFile)).toHaveLength(0);
+  });
+
+  it("a dirty tree without --write runs the tests", () => {
+    const cwd = createFixture();
+    const countFile = join(temporaryDirectory(), "count");
+    const command = commandWriting(countFile, REPORT);
+    run(cwd, command, "--write");
+    writeFileSync(join(cwd, "value.txt"), "changed\n");
+    const dirty = run(cwd, command);
+    expect(dirty.status).toBe(0);
+    expect(dirty.output).toContain("Record: miss");
+    expect(lines(countFile)).toHaveLength(2);
+  });
+
+  it("a run that dirties the tree writes no record", () => {
+    const cwd = createFixture();
+    const countFile = join(temporaryDirectory(), "count");
+    const command = commandWriting(countFile, REPORT, 0, `touch '${join(cwd, "created.txt")}'`);
+    const result = run(cwd, command, "--write");
+    expect(result.status).toBe(2);
+    expect(existsSync(storeOf(cwd))).toBe(false);
   });
 
   it("a failed run writes no record", () => {
