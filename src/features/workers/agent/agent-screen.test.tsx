@@ -528,7 +528,7 @@ describe("AgentScreen", () => {
 
     const form = await screen.findByRole("form", { name: "Enable re@1" });
 
-    expect(within(form).getByLabelText("Agent provider name")).toHaveFocus();
+    await waitFor(() => expect(within(form).getByLabelText("Agent provider name")).toHaveFocus());
   });
 
   it("leaves the focus alone when the path holds no enablement hash", async () => {

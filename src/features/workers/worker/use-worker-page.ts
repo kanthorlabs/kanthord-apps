@@ -66,7 +66,7 @@ export function useWorkerPage(workerName: string): WorkerPage {
         : [],
     );
   const runsUnlisted = (instance: WorkerInstanceListItem) =>
-    instance.placement === "server" && instance.binding_count === 0;
+    instance.placement !== "worker" && instance.binding_count === 0;
   return {
     projectId,
     entry,
