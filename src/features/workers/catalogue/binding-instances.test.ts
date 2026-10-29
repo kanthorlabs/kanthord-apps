@@ -37,12 +37,11 @@ function registration(instance: string | null): WorkerRegistrationRecord {
 }
 
 describe("bindingInstances", () => {
-  it("names the listed instances that hold no live registration at the worker placement", () => {
+  it("names the listed instances that hold no live registration", () => {
     const [entry] = bindingInstances(
       [
         binding({
           worker: "coder@1",
-          placement: "worker",
           worker_instances: ["mac-studio", "build-01", "build-02"],
         }),
       ],
@@ -59,24 +58,32 @@ describe("bindingInstances", () => {
     });
   });
 
-  it("reads the instance count at the server placement and names no instance", () => {
+  it("reads the instance count of an external harness and names no instance", () => {
     const [entry] = bindingInstances(
-      [binding({ worker: "coder@1", placement: "server", instance_count: 2 })],
+      [binding({ worker: "claude-code@1", instance_count: 2 })],
       [registration(null)],
-      CATALOG,
+      [
+        ...CATALOG,
+        {
+          name: "claude-code@1",
+          host: "external-harness",
+          declared_node_states: [],
+          declared_intents: [],
+        },
+      ],
     );
     expect(entry).toMatchObject({
       expected: 2,
       live: 1,
       missing: 1,
       unregistered: [],
-      gap: "server",
+      gap: "none",
     });
   });
 
-  it("marks a worker placement binding with an empty list disabled", () => {
+  it("marks a native binding with an empty list disabled", () => {
     const [entry] = bindingInstances(
-      [binding({ worker: "coder@1", placement: "worker", worker_instances: [] })],
+      [binding({ worker: "coder@1", worker_instances: [] })],
       [],
       CATALOG,
     );

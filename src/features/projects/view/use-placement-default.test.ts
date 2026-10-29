@@ -31,7 +31,7 @@ function agentsOf(
 }
 
 describe("usePlacementDefault", () => {
-  it("waits and writes no placement while the agents of a new binding load", () => {
+  it("waits while the agents of a new binding load", () => {
     const form = formOf(PICKED, true);
     const { result } = renderHook(() => usePlacementDefault(form, agentsOf(null)));
 
@@ -50,24 +50,24 @@ describe("usePlacementDefault", () => {
     expect(result.current).toEqual({ waiting: true, reason: "Retry the agent list to save." });
   });
 
-  it("sets server for a new binding of a hosted worker after the agents load", () => {
+  it("leaves the instance count of a hosted worker empty after the agents load", () => {
     const form = formOf(PICKED, true);
     const { result } = renderHook(() =>
       usePlacementDefault(form, agentsOf({ external: false, agents: [] })),
     );
 
     expect(result.current.waiting).toBe(false);
-    expect(form.edit).toHaveBeenCalledWith({ ...PICKED, placement: "server" });
-  });
-
-  it("leaves the placement of an external harness worker empty", () => {
-    const form = formOf(PICKED, true);
-    renderHook(() => usePlacementDefault(form, agentsOf({ external: true, agents: [] })));
-
     expect(form.edit).not.toHaveBeenCalled();
   });
 
-  it("neither waits nor sets a placement for a saved binding", () => {
+  it("sets an instance count of 1 for an external harness worker", () => {
+    const form = formOf(PICKED, true);
+    renderHook(() => usePlacementDefault(form, agentsOf({ external: true, agents: [] })));
+
+    expect(form.edit).toHaveBeenCalledWith({ ...PICKED, instanceCount: "1" });
+  });
+
+  it("neither waits nor edits a saved binding", () => {
     const form = formOf(PICKED, false);
     const { result } = renderHook(() => usePlacementDefault(form, agentsOf(null)));
 

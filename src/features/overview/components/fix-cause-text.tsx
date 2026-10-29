@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 
 import { RecordName } from "@/components/record-name";
-import type { TakerHint } from "@/lib/claim-takers";
+import type { TakerSituation } from "@/lib/claim-takers";
 import type {
   AgentInvalidItem,
   CredentialRefusedItem,
@@ -35,17 +35,17 @@ function NoTakerSentence({ item }: { readonly item: NoTakerItem }) {
     <>
       {jobCount} {jobs} {jobCount === 1 ? "waits" : "wait"}. Binding{" "}
       <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) matches{" "}
-      {jobCount === 1 ? "it" : "them"} and <TakerSituation hint={hint} />
+      {jobCount === 1 ? "it" : "them"} and {SITUATION_TEXTS[hint.kind]}
     </>
   );
 }
 
-function TakerSituation({ hint }: { readonly hint: Exclude<TakerHint, { kind: "none" }> }) {
-  if (hint.kind === "server") {
-    return <>runs no instance. Raise its instance_count, or check the server log.</>;
-  }
-  return <>has no live registration. Start its worker program.</>;
-}
+const SITUATION_TEXTS: Readonly<Record<TakerSituation, string>> = {
+  no_instance: "lists no instance. Add an instance to the binding on the Bindings tab.",
+  no_registration:
+    "has no live registration of a listed instance. Open the worker page to check its instances.",
+  external_harness: "has no live registration. Start its worker program.",
+};
 
 function CredentialNames({ names }: { readonly names: readonly string[] }) {
   return (

@@ -15,7 +15,6 @@ import type {
   BindingSetEntry,
   Credential,
   EnvironmentState,
-  PlacementStatus,
   Project,
   ProjectBindingRecord,
   WorkerCatalogEntry,
@@ -52,7 +51,7 @@ const REPO: BindingSetEntry = {
 };
 const WORKER: BindingSetEntry = {
   kind: "worker",
-  config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
+  config: { worker: "coder@1", worker_instances: ["mac-studio"] },
 };
 
 const SET: BindingSet = { version: 2, bindings: { "kanthord-repo": REPO, "general-main": WORKER } };
@@ -107,37 +106,10 @@ const CATALOG_ENTRIES: Readonly<Record<string, WorkerCatalogEntry>> = {
 const onWritten = vi.fn();
 const onEnvironmentChanged = vi.fn();
 
-function placementList(container: Partial<PlacementStatus>): readonly PlacementStatus[] {
-  const open = { available: true, reason: null, detail: null, container_runtime: null } as const;
-  return [
-    { ...open, placement: "server" },
-    {
-      ...open,
-      placement: "container",
-      container_runtime: "podman",
-      ...container,
-    },
-    { ...open, placement: "worker" },
-  ];
-}
-
-const AVAILABLE_PLACEMENTS = placementList({});
-const IN_CONTAINER = placementList({
-  available: false,
-  reason: "server_in_container",
-  container_runtime: null,
-});
-
 async function chooseWorker(worker: string) {
   const input = screen.getByRole("combobox", { name: "Worker" });
   await userEvent.click(input);
   await userEvent.click(await screen.findByRole("option", { name: worker }));
-}
-
-async function chooseWorkerPlacement() {
-  await screen.findByRole("radio", { name: /^Server/ });
-  await userEvent.click(screen.getByRole("button", { name: "Advanced settings" }));
-  await userEvent.click(await screen.findByRole("switch", { name: "Worker placement" }));
 }
 
 async function agentItem(agent: string) {
@@ -239,6 +211,7 @@ function instanceItem(name: string, connected: boolean): WorkerInstanceListItem 
     id: `worker_instance_${name}`,
     name,
     worker: "coder@1",
+    placement: "worker",
     revision: 1,
     public_key: "key",
     fingerprint: "SHA256:key",
@@ -347,7 +320,6 @@ describe("BindingsPanel", () => {
     });
     vi.mocked(credentialsApi.listHostKeys).mockResolvedValue([GITHUB_HOST_KEY]);
     vi.mocked(projectsApi.listBindings).mockResolvedValue([BINDING_REPO, BINDING_WORKER]);
-    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(AVAILABLE_PLACEMENTS);
     vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue(CODER_INSTANCES);
     vi.mocked(instancesApi.readWorkerInstance).mockImplementation(async (name) =>
       instanceDetail(name, INSTANCE_PROJECTS[name] ?? []),
@@ -509,32 +481,6 @@ describe("BindingsPanel", () => {
     expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
   });
 
-  it("keeps the placement of a server binding when the binding is edited", async () => {
-    const server: BindingSetEntry = {
-      kind: "worker",
-      config: { worker: "coder@1", instance_count: 2, placement: "server" },
-    };
-    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
-      ...SET,
-      bindings: { ...SET.bindings, "general-main": server },
-    });
-    mount();
-
-    expect(await screen.findByText(/placement server · instance count 2/)).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Edit general-main" }));
-    expect(await screen.findByLabelText("Placement")).toHaveAttribute("readonly");
-    expect(screen.getByLabelText("Placement")).toHaveValue("server");
-    const count = screen.getByLabelText("Instance count");
-    await userEvent.clear(count);
-    await userEvent.type(count, "3");
-    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
-
-    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
-      "kanthord-repo": REPO,
-      "general-main": { kind: "worker", config: { ...server.config, instance_count: 3 } },
-    });
-  });
-
   it("shows no placement on the card of a worker of an external harness", async () => {
     vi.mocked(workersApi.listWorkerCatalog).mockResolvedValue([
       { ...CATALOG_ITEM, host: "external-harness", name: "coder@1" },
@@ -552,32 +498,15 @@ describe("BindingsPanel", () => {
     expect(screen.queryByText(/placement/)).toBeNull();
   });
 
-  it("explains the permanent placement choice on create", async () => {
+  it("writes a new hosted binding with an empty instance list", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await chooseWorker("coder@1");
-
-    expect(await screen.findByText("The binding keeps this choice.")).toBeTruthy();
-    expect(
-      screen.getByText("Built in. Runs each instance as a thread of the server."),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Runs each instance in its own container on the server host with Podman."),
-    ).toBeTruthy();
-    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
-    expect(screen.queryByRole("switch", { name: "Worker placement" })).toBeNull();
-  });
-
-  it("writes the placement that the human chooses for a new worker binding", async () => {
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    expect(screen.queryByRole("radiogroup", { name: "Placement" })).toBeNull();
     await userEvent.type(screen.getByLabelText("Name"), "coder-main");
     await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
-    await userEvent.click(screen.getByRole("radio", { name: /^Server/ }));
+    await screen.findByText("Instances");
+    expect(screen.queryByLabelText("Instance count")).toBeNull();
+    expect(screen.queryByLabelText("Placement")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -586,13 +515,13 @@ describe("BindingsPanel", () => {
         "general-main": WORKER,
         "coder-main": {
           kind: "worker",
-          config: { worker: "coder@1", instance_count: 1, placement: "server" },
+          config: { worker: "coder@1", worker_instances: [] },
         },
       }),
     );
   });
 
-  it("keeps Save off until the agents of a hosted worker load and then defaults to server", async () => {
+  it("keeps Save off until the agents of a hosted worker load and then writes an empty list", async () => {
     let finishEntry: (entry: WorkerCatalogEntry) => void = () => {};
     vi.mocked(workersApi.readWorkerCatalogEntry).mockImplementation(
       () =>
@@ -608,12 +537,10 @@ describe("BindingsPanel", () => {
 
     expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
     expect(screen.getByText("Save waits for the agents of the worker.")).toBeTruthy();
-    expect(screen.queryByRole("radiogroup", { name: "Placement" })).toBeNull();
     finishEntry(CATALOG_ENTRIES["coder@1"]!);
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Save binding" })).not.toBeDisabled(),
     );
-    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -622,7 +549,7 @@ describe("BindingsPanel", () => {
         "general-main": WORKER,
         "coder-main": {
           kind: "worker",
-          config: { worker: "coder@1", instance_count: 1, placement: "server" },
+          config: { worker: "coder@1", worker_instances: [] },
         },
       }),
     );
@@ -653,19 +580,18 @@ describe("BindingsPanel", () => {
         "general-main": WORKER,
         "coder-main": {
           kind: "worker",
-          config: { worker: "coder@1", instance_count: 1, placement: "server" },
+          config: { worker: "coder@1", worker_instances: [] },
         },
       }),
     );
   });
 
-  it("writes the placement worker when the human chooses it for a hosted worker", async () => {
+  it("writes the instances that the human lists for a hosted worker", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await userEvent.type(screen.getByLabelText("Name"), "coder-main");
     await chooseWorker("coder@1");
-    await chooseWorkerPlacement();
 
     expect(screen.queryByLabelText("Instance count")).toBeNull();
     expect(await screen.findByText("Instances")).toBeTruthy();
@@ -684,7 +610,6 @@ describe("BindingsPanel", () => {
           kind: "worker",
           config: {
             worker: "coder@1",
-            placement: "worker",
             worker_instances: ["mac-studio", "build-01"],
           },
         },
@@ -705,9 +630,7 @@ describe("BindingsPanel", () => {
     });
     mount();
 
-    expect(
-      await screen.findByText(textContent(/placement worker · instances mac-studio, build-01 · /)),
-    ).toBeTruthy();
+    expect(await screen.findByText(textContent(/instances mac-studio, build-01 · /))).toBeTruthy();
     expect(screen.queryByText(/instance count/)).toBeNull();
   });
 
@@ -717,7 +640,6 @@ describe("BindingsPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await chooseWorker("coder@1");
-    await chooseWorkerPlacement();
 
     expect(
       await screen.findByText(textContent("No instances of coder@1. Add one on the worker page.")),
@@ -794,219 +716,18 @@ describe("BindingsPanel", () => {
     expect(screen.queryByRole("button", { name: "gone-01 · Not found" })).toBeNull();
   });
 
-  it("requires the Environment choice of a container worker binding with two repositories", async () => {
-    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
-      ...SET,
-      bindings: { engine: REPO, web: REPO, "general-main": WORKER },
-    });
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await userEvent.type(screen.getByLabelText("Name"), "coder-main");
-    await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
-
-    const environment = await screen.findByRole("combobox", { name: "Environment" });
-    expect(screen.getByText(/^Fill .*Environment/)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Save binding" })).toBeDisabled();
-    await userEvent.click(environment);
-    expect(await screen.findByRole("option", { name: "engine" })).toBeTruthy();
-    expect(screen.getByRole("option", { name: "web" })).toBeTruthy();
-    await userEvent.click(screen.getByRole("option", { name: "web" }));
-    expect(screen.getByRole("button", { name: "Save binding" })).toBeEnabled();
-  });
-
-  it("turns container off with the reason when the server runs in a container", async () => {
-    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(IN_CONTAINER);
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await chooseWorker("coder@1");
-
-    expect(await screen.findByRole("radio", { name: /^Container/ })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-    expect(screen.getByRole("radio", { name: /^Server/ })).not.toHaveAttribute("aria-disabled");
-    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
-    expect(
-      screen.getByText(
-        "Off. This server runs in a container, so it cannot start a container for each instance. Keep server.",
-      ),
-    ).toBeTruthy();
-  });
-
-  it("turns container off with the reason when the placement list read fails", async () => {
-    vi.mocked(workersApi.listWorkerPlacements).mockRejectedValue(
-      new ApiError("unreachable", "The daemon did not answer.", 0),
-    );
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await chooseWorker("coder@1");
-
-    expect(await screen.findByRole("radio", { name: /^Container/ })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
-    expect(
-      await screen.findByText("Off. The check of the server host failed. Open this sheet again."),
-    ).toBeTruthy();
-  });
-
-  it("turns server and container off while Advanced sets the worker placement", async () => {
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await chooseWorker("coder@1");
-    await chooseWorkerPlacement();
-
-    expect(screen.getByRole("radio", { name: /^Server/ })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("radio", { name: /^Container/ })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-    expect(
-      screen.getByText(
-        "Advanced settings set the worker placement. Turn it off to choose server or container.",
-      ),
-    ).toBeTruthy();
-    await userEvent.click(screen.getByRole("switch", { name: "Worker placement" }));
-    expect(screen.getByRole("radio", { name: /^Server/ })).toBeChecked();
-    expect(screen.getByLabelText("Instance count")).toHaveValue("1");
-  });
-
   it("keeps the optional settings behind Advanced settings", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await chooseWorker("coder@1");
-    await screen.findByRole("radio", { name: /^Server/ });
+    await screen.findByRole("button", { name: "Advanced settings" });
 
     expect(screen.queryByLabelText("Turn budget")).toBeNull();
     expect(screen.queryByLabelText("Tags")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Advanced settings" }));
     expect(await screen.findByLabelText("Turn budget")).toBeTruthy();
     expect(screen.getByLabelText("Tags")).toBeTruthy();
-  });
-
-  it("names the other stable reasons of an unavailable container", async () => {
-    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
-      placementList({ available: false, reason: "runtime_absent" }),
-    );
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await chooseWorker("coder@1");
-
-    expect(
-      await screen.findByText(
-        "Off. Install Podman or Docker on the server host, then open this sheet again.",
-      ),
-    ).toBeTruthy();
-  });
-
-  it("keeps container on and shows the detail of a failed runtime", async () => {
-    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
-      placementList({
-        available: false,
-        reason: "runtime_failed",
-        detail: "Cannot connect to Podman.",
-        container_runtime: null,
-      }),
-    );
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await chooseWorker("coder@1");
-
-    expect(
-      await screen.findByText(
-        "Runs each instance in its own container on the server host. Cannot connect to Podman. Fix the container runtime of the server user, then open this sheet again.",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByRole("radio", { name: /^Container/ })).not.toHaveAttribute("aria-disabled");
-  });
-
-  it("writes the placement container when the server can run containers", async () => {
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await userEvent.type(screen.getByLabelText("Name"), "sandbox-main");
-    await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
-
-    await waitFor(() =>
-      expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
-        "kanthord-repo": REPO,
-        "general-main": WORKER,
-        "sandbox-main": {
-          kind: "worker",
-          config: {
-            worker: "coder@1",
-            instance_count: 1,
-            placement: "container",
-            environment: "kanthord-repo",
-          },
-        },
-      }),
-    );
-  });
-
-  it("shows the refusal of an added container binding and keeps the draft", async () => {
-    vi.mocked(projectsApi.writeBindingSet).mockRejectedValue(
-      new ApiError(
-        "conflict",
-        "Daemon text.",
-        409,
-        "project.bindings.worker.placement_unavailable",
-        { binding: "sandbox-main", placement: "container", reason: "runtime_rootful" },
-      ),
-    );
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
-    await userEvent.type(screen.getByLabelText("Name"), "sandbox-main");
-    await chooseWorker("coder@1");
-    await userEvent.click(await screen.findByRole("radio", { name: /^Container/ }));
-    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
-
-    expect(
-      await screen.findByText(
-        "The container placement is not available. The container runtime runs as root on this host. Use rootless Podman or rootless Docker.",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByLabelText("Name")).toHaveValue("sandbox-main");
-  });
-
-  it("lets the human lower the count of a container binding while container is off", async () => {
-    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(IN_CONTAINER);
-    const container: BindingSetEntry = {
-      kind: "worker",
-      config: { worker: "coder@1", instance_count: 2, placement: "container" },
-    };
-    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
-      ...SET,
-      bindings: { ...SET.bindings, "general-main": container },
-    });
-    mount();
-
-    await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
-    expect(await screen.findByLabelText("Placement")).toHaveValue("container");
-    const count = screen.getByLabelText("Instance count");
-    await userEvent.clear(count);
-    await userEvent.type(count, "0");
-    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
-    const dialog = await screen.findByRole("alertdialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Make unavailable" }));
-
-    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
-      "kanthord-repo": REPO,
-      "general-main": { kind: "worker", config: { ...container.config, instance_count: 0 } },
-    });
-    expect(workersApi.listWorkerPlacements).not.toHaveBeenCalled();
   });
 
   it("offers no placement for a worker of an external harness", async () => {
@@ -1052,8 +773,9 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Advanced settings" }));
     expect(
-      screen.getByText(
+      await screen.findByText(
         "One tag per line, for example platform.macos. Use lower-case dotted tags, each at most 64 bytes, each once. A node runs only on a binding whose tags include every tag of the node.",
       ),
     ).toBeTruthy();
@@ -1073,7 +795,8 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit general-main" }));
-    expect(screen.getByLabelText("Tags")).toHaveAttribute("aria-invalid", "false");
+    await userEvent.click(await screen.findByRole("button", { name: "Advanced settings" }));
+    expect(await screen.findByLabelText("Tags")).toHaveAttribute("aria-invalid", "false");
     await userEvent.type(screen.getByLabelText("Tags"), "platform.macos{enter}platform.macos");
 
     expect(screen.getByLabelText("Tags")).toHaveAttribute("aria-invalid", "true");
@@ -1530,9 +1253,6 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Add workers binding" }));
     await userEvent.type(screen.getByLabelText("Name"), "reviewer");
     await chooseWorker("reviewer@1");
-    const count = screen.getByLabelText("Instance count");
-    await userEvent.clear(count);
-    await userEvent.type(count, "2");
     const re = await agentItem("re@1");
     await userEvent.click(within(re).getByRole("button", { name: "Enable re@1" }));
 
@@ -1561,7 +1281,6 @@ describe("BindingsPanel", () => {
     expect(screen.queryByText("Onboarding view")).toBeNull();
     expect(within(await agentItem("re@1")).getByText("Enabled")).toBeTruthy();
     expect(screen.getByLabelText("Name")).toHaveValue("reviewer");
-    expect(screen.getByLabelText("Instance count")).toHaveValue("2");
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
 
     await waitFor(() =>
@@ -1570,7 +1289,7 @@ describe("BindingsPanel", () => {
         "general-main": WORKER,
         reviewer: {
           kind: "worker",
-          config: { worker: "reviewer@1", instance_count: 2, placement: "server" },
+          config: { worker: "reviewer@1", worker_instances: [] },
         },
       }),
     );
@@ -1597,8 +1316,7 @@ describe("BindingsPanel", () => {
           kind: "worker",
           config: {
             worker: "coder@1",
-            instance_count: 1,
-            placement: "server",
+            worker_instances: [],
             entries: [{ agent: "swe@1", model_identifier: "gpt-6-sol" }],
           },
         },

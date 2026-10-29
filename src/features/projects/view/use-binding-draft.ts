@@ -9,7 +9,6 @@ import {
   entryOfDraft,
   missingForCheck,
   missingForSave,
-  withEnvironmentDefault,
 } from "@/lib/binding-draft";
 import { missingHint } from "@/lib/missing-fields";
 
@@ -34,7 +33,6 @@ export interface BindingDraftState {
 export function useBindingDraft(
   target: BindingTarget,
   takenNames: readonly string[],
-  repositoryNames: readonly string[],
 ): BindingDraftState {
   const creating = target.name === null || target.entry === null;
   const [draft, setDraft] = useState<BindingDraft>(() =>
@@ -44,15 +42,10 @@ export function useBindingDraft(
   );
   const [errors, setErrors] = useState<DraftErrors>({});
 
-  const edit = useCallback(
-    (next: BindingDraft) => {
-      setDraft(
-        creating && next.kind === "worker" ? withEnvironmentDefault(next, repositoryNames) : next,
-      );
-      setErrors({});
-    },
-    [creating, repositoryNames],
-  );
+  const edit = useCallback((next: BindingDraft) => {
+    setDraft(next);
+    setErrors({});
+  }, []);
 
   const validate = useCallback(
     (liveInstances: readonly string[] | null = null) => {
@@ -63,7 +56,7 @@ export function useBindingDraft(
     [draft, creating, takenNames],
   );
 
-  const missing = missingForSave(draft, repositoryNames);
+  const missing = missingForSave(draft);
   const checkReady = draft.kind === "repository" && missingForCheck(draft).length === 0;
   const hint = missingHint(missing, draft.kind === "repository" ? "verify and save" : "save");
 

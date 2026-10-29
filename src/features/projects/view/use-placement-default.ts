@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import type { Resource } from "@/hooks/use-resource";
-import { withPlacementDefault } from "@/lib/binding-draft";
+import { withHostDefault } from "@/lib/binding-draft";
 import type { BindingDraftState } from "./use-binding-draft";
 import type { WorkerAgents } from "./use-worker-agents";
 
@@ -20,7 +20,7 @@ export function usePlacementDefault(
 
   useEffect(() => {
     if (!pickedWorker || draft.kind !== "worker" || loaded === null) return;
-    const next = withPlacementDefault(draft, loaded.external);
+    const next = withHostDefault(draft, loaded.external);
     if (next !== draft) edit(next);
   }, [pickedWorker, draft, loaded, edit]);
 

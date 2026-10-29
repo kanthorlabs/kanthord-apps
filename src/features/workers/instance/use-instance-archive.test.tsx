@@ -27,6 +27,7 @@ const DETAIL: WorkerInstanceDetail = {
   id: "worker_instance_1",
   name: "mac-studio",
   worker: "coder@1",
+  placement: "worker",
   revision: 3,
   public_key: "k",
   fingerprint: "f",

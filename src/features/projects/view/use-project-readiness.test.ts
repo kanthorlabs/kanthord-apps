@@ -125,6 +125,7 @@ function instance(name: string, connected: boolean): WorkerInstanceListItem {
     id: `worker_instance_${name}`,
     name,
     worker: "coder@1",
+    placement: "worker",
     revision: 1,
     public_key: "key",
     fingerprint: "SHA256:key",
@@ -143,7 +144,7 @@ function servePlaced(instances: readonly string[]) {
       ...FULL_SET.bindings,
       "general-main": {
         kind: "worker",
-        config: { worker: "coder@1", placement: "worker", worker_instances: instances },
+        config: { worker: "coder@1", worker_instances: instances },
       },
     },
   });

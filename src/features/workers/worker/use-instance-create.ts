@@ -96,7 +96,12 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
     const runtime = host.runtime;
     setSubmitting(true);
     setFailure(null);
-    createWorkerInstance({ name, worker: workerName, endpoint: host.address.trim() }).then(
+    createWorkerInstance({
+      name,
+      worker: workerName,
+      placement: "worker",
+      endpoint: host.address.trim(),
+    }).then(
       (record) => {
         setSubmitting(false);
         onCreated();

@@ -8,7 +8,6 @@ import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBindingEditor } from "../use-binding-editor";
 import { useBindingVerify } from "../use-binding-verify";
-import { useHostedWorkers } from "../use-hosted-workers";
 import { BindingGuardDialog } from "./binding-guard-dialog";
 import { BindingItem } from "./binding-item";
 import { BindingSheet } from "./binding-sheet";
@@ -43,7 +42,6 @@ export function BindingsPanel({
 
   const [sheetEpoch, setSheetEpoch] = useState(0);
   const bindingVerify = useBindingVerify(projectId, data?.version ?? null);
-  const hostedWorkers = useHostedWorkers().data;
 
   const onEnvironmentWritten = (
     patch: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">,
@@ -131,10 +129,6 @@ export function BindingsPanel({
                       entry={entry}
                       bindingId={bindingId}
                       environment={environmentOf(name, entry.kind)}
-                      hostedWorker={
-                        entry.kind === "worker" &&
-                        (hostedWorkers?.has(entry.config.worker) ?? false)
-                      }
                       revision={bindingVerify.revisionOf(name)}
                       verifyState={bindingVerify.getState(bindingId)}
                       onVerify={() => {

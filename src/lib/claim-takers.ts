@@ -80,9 +80,24 @@ export function uncoveredJobsOf(
   return [...groups.values()];
 }
 
+export type TakerSituation = "no_instance" | "no_registration" | "external_harness";
+
 export type TakerHint =
   | { readonly kind: "none" }
-  | { readonly kind: "server" | "worker"; readonly binding: string; readonly worker: string };
+  | {
+      readonly kind: TakerSituation;
+      readonly binding: string;
+      readonly worker: string;
+    };
+
+function situationOf(
+  worker: WorkerCatalogItem | undefined,
+  config: WorkerBindingRecord["config"],
+): TakerSituation {
+  if (worker?.host !== "kanthord") return "external_harness";
+  const listed = "worker_instances" in config ? config.worker_instances.length : 0;
+  return listed === 0 ? "no_instance" : "no_registration";
+}
 
 export function takerHintOf(
   facts: NodeFacts,
@@ -93,11 +108,8 @@ export function takerHintOf(
   for (const binding of ordered) {
     if (!admits(binding, catalog, facts)) continue;
     const worker = catalog.find((item) => item.name === binding.config.worker);
-    const atServer =
-      worker?.host === "kanthord" &&
-      (binding.config.placement === "server" || binding.config.placement === "container");
     return {
-      kind: atServer ? "server" : "worker",
+      kind: situationOf(worker, binding.config),
       binding: binding.name,
       worker: binding.config.worker,
     };

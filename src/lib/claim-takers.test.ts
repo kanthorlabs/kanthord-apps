@@ -6,7 +6,6 @@ import type {
   SchedulerJob,
   WorkerBindingRecord,
   WorkerCatalogItem,
-  WorkerPlacement,
   WorkerRegistrationRecord,
 } from "@/api/types";
 
@@ -88,7 +87,7 @@ const JOBS = [job("a"), job("w"), job("x")];
 function binding(
   name: string,
   worker: string,
-  placement?: WorkerPlacement,
+  instances: readonly string[] | null = ["instance-1"],
   tags?: readonly string[],
 ): WorkerBindingRecord {
   return {
@@ -100,8 +99,7 @@ function binding(
     revision: 1,
     config: {
       worker,
-      instance_count: 1,
-      ...(placement === undefined ? {} : { placement }),
+      ...(instances === null ? { instance_count: 1 } : { worker_instances: instances }),
       ...(tags === undefined ? {} : { tags }),
     },
     created_at: 1,
@@ -244,55 +242,43 @@ describe("uncoveredJobsOf", () => {
 const WAITING = factsOf(node("w", "Waiting"));
 
 describe("takerHintOf", () => {
-  it("names the binding at the server placement", () => {
-    expect(
-      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", "server")], CATALOG),
-    ).toEqual({
-      kind: "server",
+  const HARNESS: WorkerCatalogItem = {
+    name: "claude-code@1",
+    host: "external-harness",
+    declared_node_states: ["Waiting"],
+    declared_intents: ["implement", "examine"],
+  };
+
+  it("names a hosted binding that lists no instance", () => {
+    expect(takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", [])], CATALOG)).toEqual({
+      kind: "no_instance",
       binding: "reviewer-main",
       worker: "reviewer@1",
     });
   });
 
-  it("names the binding at the container placement as a server taker", () => {
+  it("names a hosted binding that lists instances", () => {
     expect(
-      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", "container")], CATALOG),
-    ).toEqual({
-      kind: "server",
-      binding: "reviewer-main",
-      worker: "reviewer@1",
-    });
+      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", ["reviewer-1"])], CATALOG),
+    ).toEqual({ kind: "no_registration", binding: "reviewer-main", worker: "reviewer@1" });
   });
 
-  it("reads an absent placement as the worker placement", () => {
-    expect(takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1")], CATALOG).kind).toBe(
-      "worker",
-    );
+  it("names a hosted binding that lists a worker instance like any other listed instance", () => {
+    expect(
+      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", ["box-1"])], CATALOG).kind,
+    ).toBe("no_registration");
   });
 
-  it("reads the worker placement of an explicit setting", () => {
+  it("names a binding of an external harness", () => {
     expect(
-      takerHintOf(WAITING, [binding("reviewer-main", "reviewer@1", "worker")], CATALOG).kind,
-    ).toBe("worker");
-  });
-
-  it("reads an external harness as the worker placement", () => {
-    const harness: WorkerCatalogItem = {
-      name: "claude-code@1",
-      host: "external-harness",
-      declared_node_states: ["Waiting"],
-      declared_intents: ["implement", "examine"],
-    };
-
-    expect(
-      takerHintOf(WAITING, [binding("claude-main", "claude-code@1", "server")], [harness]),
-    ).toEqual({ kind: "worker", binding: "claude-main", worker: "claude-code@1" });
+      takerHintOf(WAITING, [binding("claude-main", "claude-code@1", null)], [HARNESS]),
+    ).toEqual({ kind: "external_harness", binding: "claude-main", worker: "claude-code@1" });
   });
 
   it("takes the first binding by name that admits the node", () => {
     const hint = takerHintOf(
       WAITING,
-      [binding("z-review", "reviewer@1"), binding("a-review", "reviewer@1", "server")],
+      [binding("z-review", "reviewer@1", []), binding("a-review", "reviewer@1")],
       CATALOG,
     );
 
@@ -303,11 +289,11 @@ describe("takerHintOf", () => {
     const facts = factsOf(node("a", "Available", ["platform.macos"]));
     const bindings = [
       binding("a-general", "coder@1"),
-      binding("m-mac", "coder@1", "server", ["platform.macos"]),
+      binding("m-mac", "coder@1", ["coder-1"], ["platform.macos"]),
     ];
 
     expect(takerHintOf(facts, bindings, CATALOG)).toEqual({
-      kind: "server",
+      kind: "no_registration",
       binding: "m-mac",
       worker: "coder@1",
     });

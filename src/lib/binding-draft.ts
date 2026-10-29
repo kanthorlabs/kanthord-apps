@@ -4,13 +4,13 @@ import type {
   BindingPrompts,
   BindingSetEntry,
   BindingSetKind,
+  ExternalWorkerBindingConfig,
+  NativeWorkerBindingConfig,
   RepositoryActionFollows,
   RepositoryActionName,
   RepositoryBindingConfig,
   RepositoryPlatform,
   WorkerAgentEntry,
-  WorkerBindingConfig,
-  WorkerPlacement,
 } from "@/api/types";
 import { BINDING_PROMPT_AGENTS } from "@/api/types";
 
@@ -51,8 +51,7 @@ export interface WorkerDraft {
   readonly kind: "worker";
   readonly name: string;
   readonly worker: string;
-  readonly placement: WorkerPlacement | null;
-  readonly instanceCount: string;
+  readonly instanceCount: string | null;
   readonly instances: readonly string[];
   readonly turns: string;
   readonly wallTimeMs: string;
@@ -176,8 +175,7 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
       kind,
       name: "",
       worker: "",
-      placement: null,
-      instanceCount: "1",
+      instanceCount: null,
       instances: [],
       turns: "",
       wallTimeMs: "",
@@ -241,35 +239,16 @@ export function agentRowsOf(
 
 export function withWorker(draft: WorkerDraft, worker: string): WorkerDraft {
   const name = blank(draft.name) ? (worker.split("@")[0] ?? "") : draft.name;
-  return { ...draft, name, worker, placement: null, instances: [], entries: [] };
+  return { ...draft, name, worker, instanceCount: null, instances: [], entries: [] };
 }
 
-export function withPlacementDefault(draft: WorkerDraft, external: boolean): WorkerDraft {
-  const placement = external ? null : (draft.placement ?? "server");
-  return placement === draft.placement ? draft : { ...draft, placement };
-}
-
-export function withEnvironmentDefault(
-  draft: WorkerDraft,
-  repositoryNames: readonly string[],
-): WorkerDraft {
-  const [only] = repositoryNames;
-  if (draft.placement !== "container" || !blank(draft.environment)) return draft;
-  if (only === undefined || repositoryNames.length !== 1) return draft;
-  return { ...draft, environment: only };
-}
-
-export function withWorkerPlacement(draft: WorkerDraft, atWorker: boolean): WorkerDraft {
-  return { ...draft, placement: atWorker ? "worker" : "server", instances: [] };
+export function withHostDefault(draft: WorkerDraft, external: boolean): WorkerDraft {
+  const instanceCount = external ? (draft.instanceCount ?? "1") : null;
+  return instanceCount === draft.instanceCount ? draft : { ...draft, instanceCount };
 }
 
 export function holdsAdvancedSettings(draft: WorkerDraft): boolean {
-  return (
-    draft.placement === "worker" ||
-    !blank(draft.turns) ||
-    !blank(draft.wallTimeMs) ||
-    !blank(draft.tags)
-  );
+  return !blank(draft.turns) || !blank(draft.wallTimeMs) || !blank(draft.tags);
 }
 
 export function advancedNeedsAttention(draft: WorkerDraft, errors: DraftErrors): boolean {
@@ -317,9 +296,8 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       kind: "worker",
       name,
       worker: config.worker,
-      placement: config.placement ?? null,
-      instanceCount: String(config.instance_count ?? 1),
-      instances: config.worker_instances ?? [],
+      instanceCount: "instance_count" in config ? String(config.instance_count) : null,
+      instances: "worker_instances" in config ? config.worker_instances : [],
       turns: config.resource_budget === undefined ? "" : String(config.resource_budget.turns),
       wallTimeMs:
         config.resource_budget === undefined ? "" : String(config.resource_budget.wall_time_ms),
@@ -454,8 +432,10 @@ function instanceFieldOf(
   draft: WorkerDraft,
   liveInstances: readonly string[] | null,
   errors: Record<string, string>,
-): Pick<WorkerBindingConfig, "instance_count" | "worker_instances"> {
-  if (draft.placement === "worker") {
+):
+  | Pick<NativeWorkerBindingConfig, "worker_instances">
+  | Pick<ExternalWorkerBindingConfig, "instance_count"> {
+  if (draft.instanceCount === null) {
     const invalid = instancesError(draft, liveInstances);
     if (invalid !== null) errors["instances"] = invalid;
     return { worker_instances: draft.instances };
@@ -500,13 +480,12 @@ function workerEntryOf(
     config: {
       worker: draft.worker.trim(),
       ...instanceField,
-      ...(draft.placement === null ? {} : { placement: draft.placement }),
       ...(budgetGiven && turns !== null && wallTimeMs !== null
         ? { resource_budget: { turns, wall_time_ms: wallTimeMs } }
         : {}),
       ...(draft.entries.length === 0 ? {} : { entries: draft.entries.map(agentEntryOf) }),
       ...(tagsOf(draft.tags).length === 0 ? {} : { tags: tagsOf(draft.tags) }),
-      ...(draft.placement === "container" && !blank(draft.environment)
+      ...(draft.instanceCount === null && !blank(draft.environment)
         ? { environment: draft.environment }
         : {}),
     },
@@ -567,10 +546,7 @@ export function missingForCheck(draft: RepositoryDraft): readonly string[] {
   ]);
 }
 
-export function missingForSave(
-  draft: BindingDraft,
-  repositoryNames: readonly string[] = [],
-): readonly string[] {
+export function missingForSave(draft: BindingDraft): readonly string[] {
   const name: readonly [string, boolean] = ["Name", blank(draft.name)];
   if (draft.kind === "repository")
     return labelsOf([
@@ -589,12 +565,8 @@ export function missingForSave(
     return labelsOf([
       name,
       ["Worker", blank(draft.worker)],
-      ["Instance count", draft.placement !== "worker" && blank(draft.instanceCount)],
+      ["Instance count", draft.instanceCount !== null && blank(draft.instanceCount)],
       ["Tags", tagsInvalid(draft.tags)],
-      [
-        "Environment",
-        draft.placement === "container" && repositoryNames.length >= 2 && blank(draft.environment),
-      ],
     ]);
   return labelsOf([
     name,

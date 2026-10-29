@@ -26,7 +26,6 @@ import { useBindingCheck } from "../use-binding-check";
 import { type BindingTarget, useBindingDraft } from "../use-binding-draft";
 import { useHostKeyPin } from "../use-host-key-pin";
 import { useInstanceSharing } from "../use-instance-sharing";
-import { usePlacementChoices } from "../use-placement-choices";
 import { usePlacementDefault } from "../use-placement-default";
 import { useRepositoryCredentials } from "../use-repository-credentials";
 import { useWorkerAgents } from "../use-worker-agents";
@@ -74,7 +73,7 @@ export function BindingSheet({
   onEnvironmentWritten,
   onClose,
 }: BindingSheetProps) {
-  const form = useBindingDraft(target, takenNames, repositoryNames);
+  const form = useBindingDraft(target, takenNames);
   const { draft, errors } = form;
   const kindLabel = KIND_LABELS[target.kind];
 
@@ -82,8 +81,7 @@ export function BindingSheet({
   const workerNames = useWorkerNames();
   const workerAgents = useWorkerAgents(draft.kind === "worker" ? draft.worker : "");
   const placementDefault = usePlacementDefault(form, workerAgents);
-  const placementChoices = usePlacementChoices(draft.kind === "worker" && form.creating);
-  const atWorkerPlacement = draft.kind === "worker" && draft.placement === "worker";
+  const atWorkerPlacement = draft.kind === "worker" && draft.instanceCount === null;
   const instanceChoices = useWorkerInstanceChoices(
     draft.kind === "worker" ? draft.worker : "",
     atWorkerPlacement,
@@ -231,7 +229,6 @@ export function BindingSheet({
                     repositoryNames={repositoryNames}
                     workers={workerNames.data ?? []}
                     agents={workerAgents}
-                    placements={placementChoices}
                     instances={instanceChoices}
                     sharing={instanceSharing}
                     onEdit={form.edit}

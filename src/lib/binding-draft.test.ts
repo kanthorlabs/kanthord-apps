@@ -14,11 +14,9 @@ import {
   type RepositoryDraft,
   withAgentEntry,
   withBindingPrompt,
-  withEnvironmentDefault,
-  withPlacementDefault,
+  withHostDefault,
   withPlatform,
   withWorker,
-  withWorkerPlacement,
   type WorkerDraft,
 } from "./binding-draft";
 import { missingHint } from "./missing-fields";
@@ -357,90 +355,41 @@ describe("entryOfDraft", () => {
   });
 });
 
-describe("worker placement", () => {
-  const SERVER: BindingSetEntry = {
+describe("native worker binding", () => {
+  const NATIVE: BindingSetEntry = {
     kind: "worker",
-    config: { worker: "coder@1", instance_count: 2, placement: "server" },
+    config: { worker: "coder@1", worker_instances: ["coder-1", "box-1"] },
   };
+  const LIVE = ["box-1", "coder-1"];
 
-  it("keeps the placement of a server binding from the read to the write", () => {
-    const draft = draftOf("general-main", SERVER);
-    expect(draft).toMatchObject({ placement: "server" });
-    expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry: SERVER });
+  it("holds worker_instances and no placement or instance_count from the read to the write", () => {
+    const draft = draftOf("general-main", NATIVE);
+    expect(draft).toMatchObject({ instances: ["coder-1", "box-1"], instanceCount: null });
+    expect(draft).not.toHaveProperty("placement");
+    const result = entryOfDraft(draft, [], LIVE);
+    expect(result).toEqual({ ok: true, entry: NATIVE });
+    if (!result.ok || result.entry.kind !== "worker") throw new Error("fixture");
+    expect(result.entry.config).not.toHaveProperty("placement");
+    expect(result.entry.config).not.toHaveProperty("instance_count");
   });
 
-  it("writes no placement for a binding that reads none", () => {
-    const result = entryOfDraft(draftOf("general-main", WORKER), []);
-    expect(result).toEqual({ ok: true, entry: WORKER });
-  });
-
-  it("clears the placement when the worker changes", () => {
-    const draft = draftOf("general-main", SERVER) as WorkerDraft;
-    expect(withWorker(draft, "reviewer@1")).toMatchObject({ placement: null });
-  });
-
-  it("holds no placement for a new hosted binding before the agents load and server after", () => {
-    const draft = { ...withWorker(emptyDraft("worker") as WorkerDraft, "coder@1") };
-    expect(draft.placement).toBeNull();
-    const loaded = withPlacementDefault(draft, false);
-    expect(loaded.placement).toBe("server");
-    expect(entryOfDraft(loaded, [])).toEqual({
-      ok: true,
-      entry: {
-        kind: "worker",
-        config: { worker: "coder@1", instance_count: 1, placement: "server" },
-      },
-    });
-  });
-
-  it("keeps the placement that the human chose for a hosted worker", () => {
-    const draft = { ...withWorker(emptyDraft("worker") as WorkerDraft, "coder@1") };
-    const chosen: WorkerDraft = { ...draft, placement: "worker" };
-    expect(withPlacementDefault(chosen, false)).toBe(chosen);
-  });
-
-  it("holds no placement for a worker of an external harness", () => {
-    const draft = { ...withWorker(emptyDraft("worker") as WorkerDraft, "harness@1") };
-    expect(withPlacementDefault(draft, true)).toBe(draft);
-    expect(withPlacementDefault({ ...draft, placement: "server" }, true).placement).toBeNull();
-  });
-});
-
-describe("worker instances", () => {
-  const PLACED: BindingSetEntry = {
-    kind: "worker",
-    config: {
-      worker: "coder@1",
-      placement: "worker",
-      worker_instances: ["mac-studio", "build-01"],
-    },
-  };
-  const LIVE = ["build-01", "mac-studio"];
-
-  it("loads the instance list of a saved binding and writes it with no instance count", () => {
-    const draft = draftOf("mac-main", PLACED);
-    expect(draft).toMatchObject({ instances: ["mac-studio", "build-01"] });
-    expect(entryOfDraft(draft, [], LIVE)).toEqual({ ok: true, entry: PLACED });
-  });
-
-  it("writes an empty list and no instance count for a new binding at the worker placement", () => {
-    const draft: WorkerDraft = {
-      ...withWorker(emptyDraft("worker") as WorkerDraft, "coder@1"),
-      placement: "worker",
-    };
+  it("writes an empty list for a new native binding", () => {
+    const draft = withWorker(emptyDraft("worker") as WorkerDraft, "coder@1");
     expect(missingForSave(draft)).toEqual([]);
     expect(entryOfDraft(draft, [], LIVE)).toEqual({
       ok: true,
-      entry: {
-        kind: "worker",
-        config: { worker: "coder@1", placement: "worker", worker_instances: [] },
-      },
+      entry: { kind: "worker", config: { worker: "coder@1", worker_instances: [] } },
     });
   });
 
+  it("clears the instances when the worker changes", () => {
+    const draft = draftOf("general-main", NATIVE) as WorkerDraft;
+    expect(withWorker(draft, "reviewer@1")).toMatchObject({ instances: [], instanceCount: null });
+  });
+
   it("refuses a repeated instance, more than 64 instances and an instance of no live record", () => {
-    const draft = draftOf("mac-main", PLACED) as WorkerDraft;
-    expect(entryOfDraft({ ...draft, instances: ["build-01", "build-01"] }, [], LIVE)).toEqual({
+    const draft = draftOf("general-main", NATIVE) as WorkerDraft;
+    expect(entryOfDraft({ ...draft, instances: ["box-1", "box-1"] }, [], LIVE)).toEqual({
       ok: false,
       errors: { instances: "List each instance once." },
     });
@@ -457,11 +406,29 @@ describe("worker instances", () => {
       },
     });
   });
+});
 
-  it("clears the instances when the worker changes", () => {
-    expect(withWorker(draftOf("mac-main", PLACED) as WorkerDraft, "reviewer@1").instances).toEqual(
-      [],
-    );
+describe("external harness binding", () => {
+  it("keeps instance_count from the read to the write and holds no instance list", () => {
+    const draft = draftOf("general-main", WORKER);
+    expect(draft).toMatchObject({ instanceCount: "2", instances: [] });
+    const result = entryOfDraft(draft, []);
+    expect(result).toEqual({ ok: true, entry: WORKER });
+    if (!result.ok || result.entry.kind !== "worker") throw new Error("fixture");
+    expect(result.entry.config).not.toHaveProperty("worker_instances");
+  });
+
+  it("holds an instance count for a harness worker and none for a hosted worker", () => {
+    const draft = withWorker(emptyDraft("worker") as WorkerDraft, "harness@1");
+    const external = withHostDefault(draft, true);
+    expect(external.instanceCount).toBe("1");
+    expect(withHostDefault(external, true)).toBe(external);
+    expect(withHostDefault(external, false).instanceCount).toBeNull();
+    expect(withHostDefault(draft, false)).toBe(draft);
+    expect(entryOfDraft(external, [])).toEqual({
+      ok: true,
+      entry: { kind: "worker", config: { worker: "harness@1", instance_count: 1 } },
+    });
   });
 });
 
@@ -640,22 +607,10 @@ describe("missingForCheck, missingForSave and missingHint", () => {
 });
 
 describe("advanced settings of a worker draft", () => {
-  const base = {
-    ...(emptyDraft("worker") as WorkerDraft),
-    worker: "coder@1",
-    placement: "server" as const,
-  };
+  const base = { ...(emptyDraft("worker") as WorkerDraft), worker: "coder@1" };
 
-  it("switches between the worker placement and server and clears the instances", () => {
-    const atWorker = withWorkerPlacement({ ...base, instances: ["mac-studio"] }, true);
-    expect(atWorker.placement).toBe("worker");
-    expect(atWorker.instances).toEqual([]);
-    expect(withWorkerPlacement(atWorker, false).placement).toBe("server");
-  });
-
-  it("holds advanced settings only for the worker placement, a budget or a tag", () => {
+  it("holds advanced settings only for a budget or a tag", () => {
     expect(holdsAdvancedSettings(base)).toBe(false);
-    expect(holdsAdvancedSettings({ ...base, placement: "worker" })).toBe(true);
     expect(holdsAdvancedSettings({ ...base, turns: "20" })).toBe(true);
     expect(holdsAdvancedSettings({ ...base, wallTimeMs: "1000" })).toBe(true);
     expect(holdsAdvancedSettings({ ...base, tags: "platform.macos" })).toBe(true);
@@ -677,9 +632,9 @@ describe("environment keys", () => {
     customizations: { kanthord: { checks: ["pnpm test"] } },
   };
   const SECRETS = { NPM_AUTH: "registry-auth" };
-  const containerWorker = (config: object): BindingSetEntry => ({
+  const nativeWorker = (config: object): BindingSetEntry => ({
     kind: "worker",
-    config: { worker: "coder@1", instance_count: 1, placement: "container", ...config },
+    config: { worker: "coder@1", worker_instances: ["builder-1"], ...config },
   });
 
   it("keeps environment and environment_secrets of a repository through an address change", () => {
@@ -705,39 +660,15 @@ describe("environment keys", () => {
     expect("environment_secrets" in result.entry.config).toBe(false);
   });
 
-  it("round-trips the environment of a container worker", () => {
-    const entry = containerWorker({ environment: "engine" });
+  it("round-trips the environment of a native worker", () => {
+    const entry = nativeWorker({ environment: "engine" });
     expect(entryOfDraft(draftOf("coder-main", entry), [])).toEqual({ ok: true, entry });
   });
 
-  it("writes no environment at the server or worker placement", () => {
-    const base = draftOf("coder-main", containerWorker({ environment: "engine" })) as WorkerDraft;
-    for (const placement of ["server", "worker"] as const) {
-      const result = entryOfDraft({ ...base, placement, instances: [] }, []);
-      if (!result.ok || result.entry.kind !== "worker") throw new Error("fixture");
-      expect("environment" in result.entry.config).toBe(false);
-    }
-  });
-
-  it("names Environment for a container draft with two repositories and no choice", () => {
-    const draft = {
-      ...(draftOf("coder-main", containerWorker({})) as WorkerDraft),
-      environment: " ",
-    };
-    expect(missingForSave(draft, ["engine", "web"])).toContain("Environment");
-    expect(missingForSave(draft, ["engine"])).not.toContain("Environment");
-    expect(missingForSave(draft, [])).not.toContain("Environment");
-    expect(missingForSave({ ...draft, environment: "web" }, ["engine", "web"])).not.toContain(
-      "Environment",
-    );
-  });
-
-  it("presets the only repository for a container draft with no environment", () => {
-    const draft = draftOf("coder-main", containerWorker({})) as WorkerDraft;
-    expect(withEnvironmentDefault(draft, ["engine"]).environment).toBe("engine");
-    expect(withEnvironmentDefault(draft, ["engine", "web"])).toBe(draft);
-    expect(withEnvironmentDefault(draft, [])).toBe(draft);
-    const atServer = { ...draft, placement: "server" as const };
-    expect(withEnvironmentDefault(atServer, ["engine"])).toBe(atServer);
+  it("writes no environment for a worker of an external harness", () => {
+    const base = draftOf("coder-main", nativeWorker({ environment: "engine" })) as WorkerDraft;
+    const result = entryOfDraft({ ...base, instanceCount: "1", instances: [] }, []);
+    if (!result.ok || result.entry.kind !== "worker") throw new Error("fixture");
+    expect("environment" in result.entry.config).toBe(false);
   });
 });

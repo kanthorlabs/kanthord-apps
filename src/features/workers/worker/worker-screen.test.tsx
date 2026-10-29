@@ -41,6 +41,7 @@ const MAC: WorkerInstanceListItem = {
   id: "worker_instance_01J9ZQ4XKM3B6V8N2R5T7W0I01",
   name: "mac-studio",
   worker: "coder@1",
+  placement: "worker",
   revision: 2,
   public_key: "a".repeat(43),
   fingerprint: "SHA256:4l0bK2qPn8YwVx3JmT7rUe6Hs1Dc9GfZaR5iLoQyWkE",
@@ -188,7 +189,7 @@ describe("WorkerScreen", () => {
         kind: "worker",
         resource_identity: "worker:mac-main",
         revision: 1,
-        config: { worker: "coder@1", placement: "worker", worker_instances: ["mac-studio"] },
+        config: { worker: "coder@1", worker_instances: ["mac-studio"] },
         created_at: 1,
         removed_at: null,
       },
@@ -244,6 +245,7 @@ describe("WorkerScreen", () => {
       expect(instancesApi.createWorkerInstance).toHaveBeenCalledWith({
         name: "lan-01",
         worker: "coder@1",
+        placement: "worker",
         endpoint: "http://192.168.1.10:31415",
       }),
     );

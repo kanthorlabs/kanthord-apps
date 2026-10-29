@@ -88,13 +88,29 @@ describe("worker instance resources", () => {
 
   it("creates an instance with an endpoint and an idempotency key", async () => {
     await serve({ "POST /api/worker/instance": RECORD });
-    await createWorkerInstance({ name: "lan-01", worker: "coder@1", endpoint: "http://h:31415" });
+    await createWorkerInstance({
+      name: "lan-01",
+      worker: "coder@1",
+      placement: "worker",
+      endpoint: "http://h:31415",
+    });
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
       name: "lan-01",
       worker: "coder@1",
+      placement: "worker",
       endpoint: "http://h:31415",
     });
     expect(seen[0]?.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("creates a server instance with its placement alone", async () => {
+    await serve({ "POST /api/worker/instance": RECORD });
+    await createWorkerInstance({ name: "coder-1", worker: "coder@1", placement: "server" });
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      name: "coder-1",
+      worker: "coder@1",
+      placement: "server",
+    });
   });
 
   it("resets the key with the endpoint and the expected revision", async () => {
@@ -110,6 +126,12 @@ describe("worker instance resources", () => {
     await serve({ "POST /api/worker/instance/lan-01/archive": RECORD });
     await archiveWorkerInstance("lan-01", 2);
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ expected_revision: 2 });
+  });
+
+  it("archives with force when the option asks for it", async () => {
+    await serve({ "POST /api/worker/instance/coder-1/archive": RECORD });
+    await archiveWorkerInstance("coder-1", 2, { force: true });
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ expected_revision: 2, force: true });
   });
 });
 
