@@ -3,6 +3,7 @@ import type { AnalyticsDurationItem, AnalyticsFloorShareItem, AnalyticsMeasure }
 import { bucketTextOf, type CostField, costKeyLabel, tracesPathOf } from "./analytics-cost-rows";
 import type { AnalyticsSelectableBucket, TimeGroupName } from "./analytics-query";
 import { durationText } from "./format";
+import { percentText } from "./trace-format";
 
 export interface TimeMark {
   readonly label: string;
@@ -117,7 +118,7 @@ export function floorShareRowsOf(
     const title = titleOf(item.key, group, names);
     const bucketText = bucketTextOf(bucket, item.bucket_start);
     const count = String(item.count);
-    const percent = `${Math.round(item.share * FULL_PERCENT)}%`;
+    const percent = percentText(item.share);
     return {
       key: JSON.stringify([item.bucket_start, item.key]),
       title,
