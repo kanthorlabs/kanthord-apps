@@ -9,7 +9,7 @@ import type {
   Intent,
   MissionNodeRecord,
   MissionProposal,
-  MissionProposalApproveResult,
+  MissionProposalDecideResult,
 } from "@/api/types";
 import { buildGraph } from "@/lib/mission-graph";
 import { useNodeProposals } from "../use-node-proposals";
@@ -87,7 +87,28 @@ const OPEN: MissionProposal = {
   },
   created_node_id: null,
   approved_at: null,
+  rejected_at: null,
   created_at: 0,
+};
+
+const OPEN_RESEND: MissionProposal = {
+  ...OPEN,
+  id: "proposal_resend",
+  content: { ...OPEN.content, name: "Fix the invite resend" },
+};
+
+const OPEN_DOMAIN: MissionProposal = {
+  ...OPEN,
+  id: "proposal_domain",
+  content: { ...OPEN.content, name: "Fix the invite domain" },
+};
+
+const REJECTED: MissionProposal = {
+  ...OPEN,
+  id: "proposal_rejected",
+  attempt: 1,
+  content: { ...OPEN.content, name: "Fix the invite banner" },
+  rejected_at: 1,
 };
 
 const APPROVED: MissionProposal = {
@@ -99,15 +120,20 @@ const APPROVED: MissionProposal = {
   approved_at: 1,
 };
 
-const APPROVE_ANSWER: MissionProposalApproveResult = {
-  created: {
-    mission_version: 10,
-    revisions: [],
-    retired_node_ids: [],
-    added_edges: [],
-    removed_edges: [],
-    open_attempts_unchanged: [],
-  },
+const CHANGE = {
+  revisions: [],
+  retired_node_ids: [],
+  added_edges: [],
+  removed_edges: [],
+  open_attempts_unchanged: [],
+};
+
+const DECIDE_ANSWER: MissionProposalDecideResult = {
+  created: [
+    { ...CHANGE, mission_version: 10 },
+    { ...CHANGE, mission_version: 11 },
+  ],
+  rejected_proposal_ids: ["proposal_resend"],
   proposer: {
     node: { ...TEAM, state: "Pending", attempt: 3 },
     attempt: null,
@@ -159,7 +185,7 @@ describe("ProposalSection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(missionApi.listNodeProposals).mockResolvedValue([OPEN, APPROVED]);
-    vi.mocked(missionApi.approveProposal).mockResolvedValue(APPROVE_ANSWER);
+    vi.mocked(missionApi.decideProposals).mockResolvedValue(DECIDE_ANSWER);
   });
 
   it("renders nothing for an examine node without proposals", async () => {
@@ -181,7 +207,7 @@ describe("ProposalSection", () => {
       }),
     );
 
-    expect(within(item).getByText("proposed")).toBeTruthy();
+    expect(within(item).getByText("open")).toBeTruthy();
     expect(within(item).getByText("An invite link works once.")).toBeTruthy();
     expect(within(item).getByText("A second use of the link fails.")).toBeTruthy();
     expect(within(item).getByText("Mark the link used")).toBeTruthy();
@@ -193,7 +219,7 @@ describe("ProposalSection", () => {
     expect(onSelect).toHaveBeenCalledWith("node_invite");
   });
 
-  it("shows an approved proposal with its created node and no approve", async () => {
+  it("shows an approved proposal with its created node", async () => {
     const { onSelect } = mount();
 
     await screen.findByRole("region", { name: "Fix proposals" });
@@ -203,7 +229,6 @@ describe("ProposalSection", () => {
     );
 
     expect(within(item).getByText("approved")).toBeTruthy();
-    expect(within(item).queryByRole("button", { name: "Approve proposal" })).toBeNull();
     expect(within(item).getByText("Created node")).toBeTruthy();
     const created = within(item)
       .getAllByRole("button", { name: "Fix the invite expiry" })
@@ -212,49 +237,89 @@ describe("ProposalSection", () => {
     expect(onSelect).toHaveBeenCalledWith("node_fix");
   });
 
-  it("approves after the confirm with the mission version and refetches", async () => {
+  it("decides two of three open proposals in one dialog", async () => {
+    vi.mocked(missionApi.listNodeProposals).mockResolvedValue([OPEN, OPEN_RESEND, OPEN_DOMAIN]);
     const { onChanged } = mount();
 
-    await screen.findByRole("region", { name: "Fix proposals" });
-    const item = proposalItem("Fix the invite link reuse");
+    const region = await screen.findByRole("region", { name: "Fix proposals" });
     await userEvent.click(
-      within(item).getByRole("button", {
+      within(proposalItem("Fix the invite link reuse")).getByRole("button", {
         name: "Details of the proposal Fix the invite link reuse",
       }),
     );
-    await userEvent.click(within(item).getByRole("button", { name: "Approve proposal" }));
+    expect(screen.queryByRole("button", { name: "Approve proposal" })).toBeNull();
+    await userEvent.click(within(region).getByRole("button", { name: "Decide" }));
     const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(
+      within(dialog).getByRole("checkbox", { name: "Fix the invite link reuse" }),
+    );
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "Fix the invite domain" }));
     await userEvent.type(within(dialog).getByLabelText("Reason"), "The link must expire.");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Approve proposal" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Decide" }));
 
-    expect(missionApi.approveProposal).toHaveBeenCalledWith("proposal_open", {
+    expect(missionApi.decideProposals).toHaveBeenCalledTimes(1);
+    expect(missionApi.decideProposals).toHaveBeenCalledWith("assessment_2", {
       expected_mission_version: 9,
+      approved_proposal_ids: ["proposal_open", "proposal_domain"],
       reason: "The link must expire.",
     });
     await vi.waitFor(() => expect(onChanged).toHaveBeenCalledTimes(1));
     expect(missionApi.listNodeProposals).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps the confirm disabled until one proposal is checked", async () => {
+    vi.mocked(missionApi.listNodeProposals).mockResolvedValue([OPEN, OPEN_RESEND, OPEN_DOMAIN]);
+    mount();
+
+    const region = await screen.findByRole("region", { name: "Fix proposals" });
+    await userEvent.click(within(region).getByRole("button", { name: "Decide" }));
+    const dialog = await screen.findByRole("alertdialog");
+
+    expect(
+      within(dialog).getByText(
+        "Check one proposal or more. To reject every proposal, use Unblock or Discard.",
+      ),
+    ).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: "Decide" })).toHaveProperty("disabled", true);
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "Fix the invite resend" }));
+    expect(within(dialog).getByRole("button", { name: "Decide" })).toHaveProperty(
+      "disabled",
+      false,
+    );
+  });
+
+  it("shows a rejected proposal with its time and no decide", async () => {
+    vi.mocked(missionApi.listNodeProposals).mockResolvedValue([REJECTED]);
+    mount();
+
+    const region = await screen.findByRole("region", { name: "Fix proposals" });
+    const item = proposalItem("Fix the invite banner");
+    await userEvent.click(
+      within(item).getByRole("button", { name: "Details of the proposal Fix the invite banner" }),
+    );
+
+    expect(within(item).getByText("rejected")).toBeTruthy();
+    expect(within(item).getByText("Rejected")).toBeTruthy();
+    expect(within(region).queryByRole("button", { name: "Decide" })).toBeNull();
+  });
+
   it("shows the message of a version conflict and refetches", async () => {
-    vi.mocked(missionApi.approveProposal).mockRejectedValue(
+    vi.mocked(missionApi.decideProposals).mockRejectedValue(
       new ApiError("conflict", "Version conflict.", 409, "mission.version.conflict"),
     );
     const { onChanged } = mount();
 
-    await screen.findByRole("region", { name: "Fix proposals" });
-    const item = proposalItem("Fix the invite link reuse");
-    await userEvent.click(
-      within(item).getByRole("button", {
-        name: "Details of the proposal Fix the invite link reuse",
-      }),
-    );
-    await userEvent.click(within(item).getByRole("button", { name: "Approve proposal" }));
+    const region = await screen.findByRole("region", { name: "Fix proposals" });
+    await userEvent.click(within(region).getByRole("button", { name: "Decide" }));
     const dialog = await screen.findByRole("alertdialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Approve proposal" }));
+    await userEvent.click(
+      within(dialog).getByRole("checkbox", { name: "Fix the invite link reuse" }),
+    );
+    await userEvent.click(within(dialog).getByRole("button", { name: "Decide" }));
 
     expect(await within(dialog).findByRole("alert")).toHaveProperty(
       "textContent",
-      "The mission changed after this read. The view now shows the current mission. Review the proposal and approve again.",
+      "The mission changed after this read. The view now shows the current mission. Review the proposals and decide again.",
     );
     expect(onChanged).toHaveBeenCalledTimes(1);
   });

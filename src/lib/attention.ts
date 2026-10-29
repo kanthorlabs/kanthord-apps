@@ -243,7 +243,10 @@ export function openProposalsOf(
   proposals: readonly MissionProposal[],
 ): readonly MissionProposal[] {
   return proposals.filter(
-    (proposal) => proposal.approved_at === null && proposal.attempt === node.attempt,
+    (proposal) =>
+      proposal.approved_at === null &&
+      proposal.rejected_at === null &&
+      proposal.attempt === node.attempt,
   );
 }
 

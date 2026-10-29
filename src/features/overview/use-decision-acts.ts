@@ -6,7 +6,7 @@ import { type NodeDiscardState, useNodeDiscard } from "@/hooks/use-node-discard"
 import { type NodeOverrideState, useNodeOverride } from "@/hooks/use-node-override";
 import { type NodeResumeState, useNodeResume } from "@/hooks/use-node-resume";
 import { type NodeUnblockState, useNodeUnblock } from "@/hooks/use-node-unblock";
-import { type ProposalApproveState, useProposalApprove } from "@/hooks/use-proposal-approve";
+import { type ProposalDecisionState, useProposalDecision } from "@/hooks/use-proposal-decision";
 import { type AttentionDetail, type DecisionAttentionItem, openProposalsOf } from "@/lib/attention";
 import {
   hasOpenAttempt,
@@ -20,7 +20,7 @@ import { useLastTraceCause } from "./use-last-trace-cause";
 
 export interface DecisionActs {
   readonly unblock: NodeUnblockState;
-  readonly approve: ProposalApproveState;
+  readonly decide: ProposalDecisionState;
   readonly override: NodeOverrideState;
   readonly resume: NodeResumeState;
   readonly remove: DependencyRemoveState;
@@ -146,7 +146,7 @@ export function useDecisionActs(
   const actions = actionsRead?.status === "ready" ? actionsRead.data : null;
   const unresolved = actions === null ? [] : unresolvedRequestsOf(actions);
   const unblock = useNodeUnblock(node, missionVersion, proposalsRead, reload);
-  const approve = useProposalApprove(node, missionVersion, reload);
+  const decide = useProposalDecision(node, proposalsRead, missionVersion, reload);
   const override = useNodeOverride(node, missionVersion, actions, reload);
   const cause = item.kind === "paused" ? (item.pause?.cause ?? null) : null;
   const resume = useNodeResume(node, missionVersion, item.nodes, actions, cause, reload);
@@ -159,7 +159,7 @@ export function useDecisionActs(
   const lastTraceCause = useLastTraceCause(newestExecution?.execution_id ?? null);
   const open =
     unblock.open ||
-    approve.target !== null ||
+    decide.open ||
     override.open ||
     resume.open ||
     remove.target !== null ||
@@ -173,7 +173,7 @@ export function useDecisionActs(
 
   return {
     unblock,
-    approve,
+    decide,
     override,
     resume,
     remove,

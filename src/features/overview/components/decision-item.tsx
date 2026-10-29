@@ -5,7 +5,7 @@ import { NodeDiscardDialog } from "@/components/node-discard-dialog";
 import { NodeOverrideDialog } from "@/components/node-override-dialog";
 import { NodeResumeDialog } from "@/components/node-resume-dialog";
 import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
-import { ProposalApproveDialog } from "@/components/proposal-approve-dialog";
+import { ProposalDecisionDialog } from "@/components/proposal-decision-dialog";
 import { RecordName } from "@/components/record-name";
 import { Reveal } from "@/components/reveal";
 import { TouchTarget } from "@/components/touch-target";
@@ -137,23 +137,11 @@ export function DecisionItem({
               Unblock
             </Button>
           )}
-          {acts.proposals
-            .filter((proposal) => acts.approve.canApprove(proposal))
-            .map((proposal) => (
-              <Button
-                key={proposal.id}
-                variant="outline"
-                size="sm"
-                aria-label={
-                  acts.proposals.length > 1
-                    ? `Approve proposal ${proposal.content.name}`
-                    : undefined
-                }
-                onClick={() => acts.approve.request(proposal)}
-              >
-                Approve proposal
-              </Button>
-            ))}
+          {acts.decide.available && (
+            <Button variant="outline" size="sm" onClick={acts.decide.request}>
+              Decide
+            </Button>
+          )}
           {acts.lastTraceId !== null && (
             <>
               <TouchTarget>
@@ -204,7 +192,7 @@ export function DecisionItem({
         </ItemActions>
       )}
       <NodeUnblockDialog name={node.content.name} unblock={acts.unblock} />
-      <ProposalApproveDialog approve={acts.approve} />
+      <ProposalDecisionDialog name={node.content.name} decision={acts.decide} />
       <NodeResumeDialog name={node.content.name} resume={acts.resume} />
       <NodeOverrideDialog name={node.content.name} override={acts.override} />
       <DependencyRemoveDialog name={node.content.name} remove={acts.remove} />

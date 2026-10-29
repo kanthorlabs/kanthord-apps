@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setConnection } from "../client";
 import {
   applyMissionImport,
-  approveProposal,
   checkNode,
+  decideProposals,
   discardNode,
   exportMissionJson,
   listMissionDependencies,
@@ -147,14 +147,19 @@ describe("mission proposal resources", () => {
     expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/proposal?limit=1000");
   });
 
-  it("approves a proposal with the mission version and an idempotency key", async () => {
+  it("decides the proposals of an assessment with the approved identities and an idempotency key", async () => {
     await serve({});
 
-    await approveProposal("proposal_1", { expected_mission_version: 7, reason: "Fix it" });
+    await decideProposals("assessment_1", {
+      expected_mission_version: 7,
+      approved_proposal_ids: ["proposal_1", "proposal_3"],
+      reason: "Fix it",
+    });
     expect(seen[0]?.req.method).toBe("POST");
-    expect(seen[0]?.req.url).toBe("/api/mission/proposal/proposal_1/approve");
+    expect(seen[0]?.req.url).toBe("/api/mission/assessment/assessment_1/decide");
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
       expected_mission_version: 7,
+      approved_proposal_ids: ["proposal_1", "proposal_3"],
       reason: "Fix it",
     });
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(

@@ -75,6 +75,7 @@ function proposal(id: string, attempt: number, approvedAt: number | null): Missi
     },
     created_node_id: null,
     approved_at: approvedAt,
+    rejected_at: null,
     created_at: 1,
   };
 }
@@ -166,7 +167,12 @@ describe("useDecisionActs", () => {
       assessment: { status: "ready", data: null },
       proposals: {
         status: "ready",
-        data: [proposal("open", 2, null), proposal("approved", 2, 5), proposal("old", 1, null)],
+        data: [
+          proposal("open", 2, null),
+          proposal("approved", 2, 5),
+          { ...proposal("rejected", 2, null), rejected_at: 6 },
+          proposal("old", 1, null),
+        ],
       },
     };
 
