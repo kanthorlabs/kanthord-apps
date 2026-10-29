@@ -1,10 +1,12 @@
 import { DataList } from "@/components/data-list";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { isFloorShareRow } from "@/lib/analytics-time-rows";
 import { TIME_GROUP_OPTIONS, TIME_MEASURE_OPTIONS } from "@/lib/analytics-query";
 
 import { FilterSelect } from "../../traces/list/components/filter-select";
 import type { AnalyticsView } from "../use-analytics";
 import { useTime } from "../use-time";
+import { FloorShareRow } from "./floor-share-row";
 import { TimeRow } from "./time-row";
 
 type TimeSectionProps = Pick<AnalyticsView, "filters" | "projects" | "refreshCount">;
@@ -46,7 +48,9 @@ export function TimeSection({ filters, projects, refreshCount }: TimeSectionProp
         label="Time"
         items={time.rows}
         getKey={(row) => row.key}
-        renderItem={(row) => <TimeRow row={row} />}
+        renderItem={(row) =>
+          isFloorShareRow(row) ? <FloorShareRow row={row} /> : <TimeRow row={row} />
+        }
         status={time.status}
         error={time.error}
         pending={false}

@@ -4,8 +4,9 @@ import { readAllPages } from "../pages";
 import type {
   AnalyticsCostItem,
   AnalyticsCostQuery,
-  AnalyticsDurationItem,
+  AnalyticsDurationItemOf,
   AnalyticsDurationQuery,
+  AnalyticsMeasure,
   AnalyticsPage,
   CauseLabel,
   CauseLabelBody,
@@ -85,11 +86,11 @@ export async function readAnalyticsCost(
   return request<AnalyticsPage<AnalyticsCostItem>>(analyticsUrl(`${ANALYTICS_PATH}/cost`, query));
 }
 
-export async function readAnalyticsDuration(
-  query: AnalyticsDurationQuery,
-): Promise<AnalyticsPage<AnalyticsDurationItem>> {
+export async function readAnalyticsDuration<M extends AnalyticsMeasure>(
+  query: AnalyticsDurationQuery & { readonly measure: M },
+): Promise<AnalyticsPage<AnalyticsDurationItemOf<M>>> {
   const { measure, ...rest } = query;
-  return request<AnalyticsPage<AnalyticsDurationItem>>(
+  return request<AnalyticsPage<AnalyticsDurationItemOf<M>>>(
     analyticsUrl(`${ANALYTICS_PATH}/duration`, { measure, ...rest }),
   );
 }

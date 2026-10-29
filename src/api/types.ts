@@ -1625,6 +1625,7 @@ export const ANALYTICS_MEASURES = [
   "queue_wait",
   "review_wait",
   "revision_turns",
+  "test_floor_share",
 ] as const;
 
 export type AnalyticsMeasure = (typeof ANALYTICS_MEASURES)[number];
@@ -1669,6 +1670,17 @@ export interface AnalyticsDurationItem {
   readonly mean: number;
   readonly max: number;
 }
+
+export interface AnalyticsFloorShareItem {
+  readonly key: string | null;
+  readonly bucket_start: number | null;
+  readonly count: number;
+  readonly share: number;
+}
+
+export type AnalyticsDurationItemOf<M extends AnalyticsMeasure> = M extends "test_floor_share"
+  ? AnalyticsFloorShareItem
+  : AnalyticsDurationItem;
 
 export interface AnalyticsPage<T> {
   readonly items: readonly T[];

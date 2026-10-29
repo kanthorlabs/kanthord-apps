@@ -64,6 +64,7 @@ const TIME_MEASURE_LABELS: Readonly<Record<AnalyticsMeasure, string>> = {
   queue_wait: "Queue wait",
   review_wait: "Review wait",
   revision_turns: "Revision turns",
+  test_floor_share: "Test floor share",
 };
 
 const TIME_GROUP_LABELS: Readonly<Record<TimeGroupName, string>> = {
