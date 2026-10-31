@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -7,9 +7,12 @@ import { ApiError } from "@/api/errors";
 import type { FlowRead } from "@/api/types";
 
 import flowRead from "../../../../test/flow-read.json";
+import { flowFiltersOf } from "@/lib/flow-query";
+
 import { FlowTab } from "./flow-tab";
 
 const FLOW_READ = flowRead as unknown as FlowRead;
+const FILTERS = flowFiltersOf(new URLSearchParams());
 const EMPTY_TEXT = "No executions claimed in this range.";
 
 function renderTab(view: {
@@ -20,17 +23,33 @@ function renderTab(view: {
 }) {
   return render(
     <MemoryRouter>
-      <FlowTab view={{ refresh: vi.fn(), ...view }} />
+      <FlowTab view={{ refresh: vi.fn(), filters: FILTERS, ...view }} />
     </MemoryRouter>,
   );
 }
 
 describe("FlowTab", () => {
-  it("shows the skeleton while the first read runs", () => {
+  it("shows the skeleton with six columns while the first read runs", () => {
     renderTab({ read: null, error: null, empty: false });
 
-    expect(screen.getByRole("status", { name: "Loading the flow" })).toBeInTheDocument();
+    const status = screen.getByRole("status", { name: "Loading the flow" });
+    expect(within(status).getAllByRole("listitem")).toHaveLength(6);
     expect(screen.queryByText(EMPTY_TEXT)).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Flow" })).toBeNull();
+  });
+
+  it("shows the flow section after the read", () => {
+    renderTab({ read: FLOW_READ, error: null, empty: false });
+
+    expect(screen.getByRole("heading", { name: "Flow" })).toBeInTheDocument();
+    expect(screen.getByText("leak rate 16.7 % 7d")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Loading the flow" })).toBeNull();
+  });
+
+  it("shows no flow section for a read with no execution", () => {
+    renderTab({ read: FLOW_READ, error: null, empty: true });
+
+    expect(screen.queryByRole("heading", { name: "Flow" })).toBeNull();
   });
 
   it("shows the empty text with links to Scheduler and Workers for a read with no execution", () => {
