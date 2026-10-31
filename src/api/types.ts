@@ -1626,18 +1626,6 @@ export const ANALYTICS_BUCKETS = ["none", "hour", "day", "week"] as const;
 
 export type AnalyticsBucket = (typeof ANALYTICS_BUCKETS)[number];
 
-export const ANALYTICS_COST_GROUPS = [
-  "none",
-  "model",
-  "agent_name",
-  "provider_name",
-  "worker_name",
-  "node_id",
-  "project_id",
-] as const;
-
-export type AnalyticsCostGroup = (typeof ANALYTICS_COST_GROUPS)[number];
-
 export const ANALYTICS_DURATION_GROUPS = [
   "none",
   "operation",
@@ -1671,26 +1659,10 @@ export interface AnalyticsRange {
   readonly bucket?: AnalyticsBucket;
 }
 
-export interface AnalyticsCostQuery extends AnalyticsRange {
-  readonly group_by?: AnalyticsCostGroup;
-}
-
 export interface AnalyticsDurationQuery extends AnalyticsRange {
   readonly measure: AnalyticsMeasure;
   readonly operation?: string;
   readonly group_by?: AnalyticsDurationGroup;
-}
-
-export interface AnalyticsCostItem {
-  readonly key: string | null;
-  readonly bucket_start: number | null;
-  readonly turn_count: number;
-  readonly input_tokens: number;
-  readonly output_tokens: number;
-  readonly cache_read_tokens: number;
-  readonly cache_creation_tokens: number;
-  readonly total_tokens: number;
-  readonly cost_usd: number;
 }
 
 export interface AnalyticsDurationItem {

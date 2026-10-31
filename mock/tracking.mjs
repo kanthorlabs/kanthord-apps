@@ -597,10 +597,6 @@ export function registerTracking({ on, json, envelope, page, executions, usernam
       ? json(res, 200, answer)
       : envelope(res, answer.error.status, answer.error.code, answer.error.message);
 
-  on("GET", /^\/api\/tracking\/analytics\/cost$/, (_m, _b, res, _t, url) =>
-    answerAnalytics(res, analytics.readCost(url.searchParams, Date.now())),
-  );
-
   on("GET", /^\/api\/tracking\/analytics\/flow$/, (_m, _b, res) => json(res, 200, FLOW_READ));
 
   on("GET", /^\/api\/tracking\/analytics\/duration$/, (_m, _b, res, _t, url) =>
