@@ -22,7 +22,18 @@ import {
   readTraceText,
 } from "./tracking";
 
-const FLOW_READ = flowRead as unknown as FlowRead;
+type Widened<T> = T extends string
+  ? string
+  : T extends readonly (infer Item)[]
+    ? readonly Widened<Item>[]
+    : T extends object
+      ? string extends keyof T
+        ? { readonly [key: string]: Widened<T[string]> | undefined }
+        : { readonly [Key in keyof T]: Widened<T[Key]> }
+      : T;
+
+const FLOW_FIXTURE: Widened<FlowRead> = flowRead;
+const FLOW_READ = FLOW_FIXTURE as FlowRead;
 
 let server: Server | null = null;
 const seen: IncomingMessage[] = [];
