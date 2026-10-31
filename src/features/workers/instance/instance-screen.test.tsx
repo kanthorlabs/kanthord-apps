@@ -228,6 +228,12 @@ function mount(entry = "/workers/coder%401/instances/mac-studio") {
   );
 }
 
+async function waitOneLoginPoll() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(LOGIN_POLL_MS);
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(MAC);
@@ -720,9 +726,7 @@ describe("InstanceScreen", () => {
     const success = vi.spyOn(toast, "success");
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(LOGIN_POLL_MS);
-    });
+    await waitOneLoginPoll();
     await waitFor(() =>
       expect(
         screen.queryByRole("dialog", { name: "Sign in again to claude-sub" }),
@@ -754,9 +758,7 @@ describe("InstanceScreen", () => {
     await userEvent.click(await screen.findByRole("option", { name: "anthropic-subscription" }));
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(LOGIN_POLL_MS);
-    });
+    await waitOneLoginPoll();
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Add credential" })).not.toBeInTheDocument(),
     );
