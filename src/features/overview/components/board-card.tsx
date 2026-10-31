@@ -51,7 +51,7 @@ export function BoardCard({
               <Button
                 ref={titleRef}
                 variant="link"
-                className="max-w-full min-w-0 after:absolute after:inset-0"
+                className="max-w-full min-w-0 shrink after:absolute after:inset-0"
                 aria-describedby={`${causeId} ${ageId} ${heldId}`}
                 tabIndex={tabStop ? 0 : -1}
                 onClick={() => onSelect(item.id)}
