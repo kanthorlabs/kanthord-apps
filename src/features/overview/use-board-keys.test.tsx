@@ -4,10 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Project } from "@/api/types";
 import type { AttentionItem } from "@/lib/attention";
+import type { BoardAct } from "@/lib/board-acts";
 import { BOARD_TAB } from "@/lib/board-tabs";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
-import type { BoardAct } from "./components/board-acts";
 import { type BoardKeysInput, useBoardKeys } from "./use-board-keys";
 
 function project(id: string): Project {

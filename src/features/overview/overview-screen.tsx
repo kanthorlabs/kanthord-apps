@@ -19,7 +19,7 @@ import { announcementOf, leadLabelOf, workforceText } from "@/lib/board-text";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
 import { AllClear } from "./components/all-clear";
-import { BoardActsProvider, useBoardActs } from "./components/board-acts";
+import { BoardActsProvider } from "./components/board-acts";
 import { BoardDetailHost } from "./components/board-detail-host";
 import { BoardFilter } from "./components/board-filter";
 import { BoardList } from "./components/board-list";
@@ -30,6 +30,7 @@ import { BoardTabs } from "./components/board-tabs";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
 import { useBoard } from "./use-board";
+import { useBoardActs } from "./use-board-acts";
 import { type BoardKeysInput, useBoardKeys } from "./use-board-keys";
 import { BoardReadsProvider } from "./use-board-reads";
 import { useBoardWidth } from "./use-board-width";

@@ -5,11 +5,12 @@ import { DisabledAction } from "@/components/disabled-action";
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
+import type { BoardAct } from "@/lib/board-acts";
 import { actKeysOf } from "@/lib/board-keys";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
+import { useBoardActs, useBoardActsFrame } from "../use-board-acts";
 import { useShortcutSetting } from "../use-shortcut-setting";
-import { type BoardAct, useBoardActs, useBoardActsFrame } from "./board-acts";
 import { BoardMoreSheet } from "./board-more-sheet";
 import { CheckBadge } from "./check-badge";
 import { ResumeProjectAction } from "./resume-project-action";

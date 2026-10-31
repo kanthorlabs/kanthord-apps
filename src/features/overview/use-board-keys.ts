@@ -3,10 +3,10 @@ import { type NavigateFunction, useNavigate } from "react-router-dom";
 
 import type { Project } from "@/api/types";
 import type { AttentionItem } from "@/lib/attention";
+import type { BoardAct } from "@/lib/board-acts";
 import { actKeysOf, type BoardCommand, boardKeyOf, type BoardMove } from "@/lib/board-keys";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
-import type { BoardAct } from "./components/board-acts";
 import type { Board } from "./use-board";
 import { useShortcutSetting } from "./use-shortcut-setting";
 

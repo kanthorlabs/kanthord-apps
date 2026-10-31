@@ -37,8 +37,8 @@ import { badgeVariantOf } from "@/lib/node-state";
 import { relativeAge } from "@/lib/relative-age";
 import { causeLine } from "@/lib/trace-cause";
 
+import { useBoardActs } from "../use-board-acts";
 import { type BoardReadsValue, useBoardReadsContext } from "../use-board-reads";
-import { useBoardActs } from "./board-acts";
 import { BoardReadBlock } from "./board-read-block";
 import { CauseText } from "./cause-text";
 import { FixCauseText } from "./fix-cause-text";
