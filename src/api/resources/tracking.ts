@@ -10,6 +10,8 @@ import type {
   AnalyticsPage,
   CauseLabel,
   CauseLabelBody,
+  FlowQuery,
+  FlowRead,
   Page,
   TelemetryText,
   TimelineItem,
@@ -84,6 +86,10 @@ export async function readAnalyticsCost(
   query: AnalyticsCostQuery,
 ): Promise<AnalyticsPage<AnalyticsCostItem>> {
   return request<AnalyticsPage<AnalyticsCostItem>>(analyticsUrl(`${ANALYTICS_PATH}/cost`, query));
+}
+
+export async function readAnalyticsFlow(query: FlowQuery): Promise<FlowRead> {
+  return request<FlowRead>(analyticsUrl(`${ANALYTICS_PATH}/flow`, query));
 }
 
 export async function readAnalyticsDuration<M extends AnalyticsMeasure>(
