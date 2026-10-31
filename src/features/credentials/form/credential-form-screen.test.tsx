@@ -1,8 +1,8 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type * as Sonner from "sonner";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as credentialsApi from "@/api/resources/credentials";
@@ -21,6 +21,7 @@ vi.mock("sonner", async (importOriginal) => ({
 }));
 
 import { CredentialFormScreen } from "./credential-form-screen";
+import { LOGIN_POLL_MS } from "./use-credential-login";
 import { textContent } from "../../../../test/text-content";
 
 const ROUTER: Credential = {
@@ -109,6 +110,12 @@ async function mount(component: CredentialComponent, state: unknown = null) {
   await screen.findByLabelText("Name");
 }
 
+async function waitOneLoginPoll() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(LOGIN_POLL_MS);
+  });
+}
+
 async function choosePlatform(platform: string, label = platform) {
   const input = screen.getByRole("combobox", { name: "Platform" });
   await userEvent.clear(input);
@@ -122,6 +129,10 @@ beforeEach(() => {
   vi.mocked(credentialsApi.listCredentialPlatforms).mockImplementation(
     async (component) => PLATFORMS[component],
   );
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("CredentialFormScreen", () => {
@@ -860,12 +871,11 @@ describe("CredentialFormScreen", () => {
 
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await waitOneLoginPoll();
 
-    await waitFor(
-      () => expect(screen.getByRole("status")).toHaveTextContent("Enabling models..."),
-      { timeout: 4000 },
-    );
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Enabling models..."));
   });
 
   it("opens the credential when the sign-in completes", async () => {
@@ -880,9 +890,11 @@ describe("CredentialFormScreen", () => {
 
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await waitOneLoginPoll();
 
-    expect(await screen.findByText("Credential view", undefined, { timeout: 4000 })).toBeTruthy();
+    expect(await screen.findByText("Credential view")).toBeTruthy();
     expect(credentialsApi.readCredentialLoginStatus).toHaveBeenCalledWith(SESSION.session_id);
   });
 
@@ -898,9 +910,11 @@ describe("CredentialFormScreen", () => {
 
     await userEvent.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await waitOneLoginPoll();
 
-    expect(await screen.findByText("Onboarding view", undefined, { timeout: 4000 })).toBeTruthy();
+    expect(await screen.findByText("Onboarding view")).toBeTruthy();
   });
 
   it("supplies a pasted code and clears the field", async () => {
@@ -1090,9 +1104,11 @@ describe("CredentialFormScreen", () => {
 
     await userEvent.type(screen.getByLabelText("Name"), "claude");
     await choosePlatform("anthropic-subscription");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await waitOneLoginPoll();
 
-    expect(await screen.findByText("Credential view", undefined, { timeout: 4000 })).toBeTruthy();
+    expect(await screen.findByText("Credential view")).toBeTruthy();
   });
 
   it("explains a pending sign-in", async () => {
