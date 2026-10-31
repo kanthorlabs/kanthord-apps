@@ -2,8 +2,10 @@ import type { Ref } from "react";
 
 import type { EnvironmentState } from "@/api/types";
 import type { AttentionDetails, AttentionItem } from "@/lib/attention";
+import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
+import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActBar } from "./board-act-bar";
 import { type BoardPosition, BoardSections, type HeldNode } from "./board-sections";
 
@@ -12,6 +14,7 @@ interface BoardDetailProps {
   readonly widthClass: BoardWidth;
   readonly position: BoardPosition | null;
   readonly environments: readonly EnvironmentState[] | null;
+  readonly gate?: BoardGate | null;
   readonly details: AttentionDetails;
   readonly now: number;
   readonly tabName: string;
@@ -25,6 +28,7 @@ export function BoardDetail({
   widthClass,
   position,
   environments,
+  gate,
   details,
   now,
   tabName,
@@ -34,18 +38,21 @@ export function BoardDetail({
 }: BoardDetailProps) {
   const expanded = widthClass === BOARD_WIDTH.Expanded;
   const sections = (
-    <BoardSections
-      item={item}
-      details={details}
-      tabName={tabName}
-      widthClass={widthClass}
-      position={position}
-      now={now}
-      held={held}
-      environments={environments}
-      titleId={titleId}
-      titleRef={titleRef}
-    />
+    <BoardReadsProvider item={item} details={details}>
+      <BoardSections
+        item={item}
+        details={details}
+        tabName={tabName}
+        widthClass={widthClass}
+        position={position}
+        now={now}
+        held={held}
+        environments={environments}
+        gate={gate}
+        titleId={titleId}
+        titleRef={titleRef}
+      />
+    </BoardReadsProvider>
   );
 
   if (!expanded) {
