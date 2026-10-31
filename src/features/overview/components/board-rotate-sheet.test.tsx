@@ -61,7 +61,7 @@ const markActed = vi.fn();
 const setDialogOpen = vi.fn();
 
 function Harness() {
-  const rotate = useBoardRotate(ITEM, { reload, markActed, setDialogOpen });
+  const rotate = useBoardRotate(ITEM, { reload, paused: 2, markActed, setDialogOpen });
   return (
     <>
       <button type="button" onClick={rotate.start}>
@@ -124,7 +124,12 @@ describe("BoardRotateSheet", () => {
       { expected_revision: 5, secret: { key: "sk-2" } },
       "server",
     );
-    expect(markActed).toHaveBeenCalledWith("credential_refused:openai-main");
+    expect(markActed).toHaveBeenCalledWith("credential_refused:openai-main", {
+      id: "rotate",
+      revision: 6,
+      holders: [],
+      paused: 2,
+    });
     expect(reload).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(setDialogOpen).toHaveBeenLastCalledWith(
@@ -155,6 +160,14 @@ describe("BoardRotateSheet", () => {
       "openai-main",
       { expected_revision: 3, secret: { key: "sk-2" } },
       "mac-studio",
+    );
+    await waitFor(() =>
+      expect(markActed).toHaveBeenCalledWith("credential_refused:openai-main", {
+        id: "rotate",
+        revision: 6,
+        holders: ["mac-studio"],
+        paused: 2,
+      }),
     );
   });
 
@@ -191,7 +204,12 @@ describe("BoardRotateSheet", () => {
     await userEvent.click(within(sheet).getByRole("button", { name: "Cancel" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    expect(markActed).toHaveBeenCalledWith("credential_refused:openai-main");
+    expect(markActed).toHaveBeenCalledWith("credential_refused:openai-main", {
+      id: "rotate",
+      revision: 6,
+      holders: [],
+      paused: 2,
+    });
     expect(reload).toHaveBeenCalledTimes(1);
   });
 

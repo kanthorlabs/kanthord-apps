@@ -31,6 +31,7 @@ import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
 import { useBoard } from "./use-board";
 import { type BoardKeysInput, useBoardKeys } from "./use-board-keys";
+import { BoardReadsProvider } from "./use-board-reads";
 import { useBoardWidth } from "./use-board-width";
 import { useOverview } from "./use-overview";
 
@@ -170,6 +171,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
         onSelect={board.open}
         onShowAll={showAll}
         onGoToStart={goToStart}
+        onGoToTab={board.selectTab}
         cardRef={board.cardRef}
         allClearRef={board.allClearRef}
       />
@@ -282,51 +284,57 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       )}
 
       {overview.status === "ready" && (
-        <BoardActsProvider
-          item={board.selected}
-          details={overview.details}
-          reload={overview.refresh}
-          retryDetail={overview.retryDetail}
-          markActed={board.markActed}
-          setDialogOpen={board.setDialogOpen}
-          registerDialogCloser={board.registerDialogCloser}
-          widthClass={widthClass}
-          gate={board.selected === null ? null : (overview.gates.get(board.selected.id) ?? null)}
-          jump={board.jump}
-        >
-          <BoardKeys
-            board={board}
+        <BoardReadsProvider item={board.selected} details={overview.details}>
+          <BoardActsProvider
+            item={board.selected}
+            details={overview.details}
+            snapshots={overview.snapshots}
+            reload={overview.refresh}
+            retryDetail={overview.retryDetail}
+            markActed={board.markActed}
+            setDialogOpen={board.setDialogOpen}
+            registerDialogCloser={board.registerDialogCloser}
             widthClass={widthClass}
-            projects={overview.projects}
-            openShortcuts={() => setShortcutsOpen(true)}
-            announce={(text) =>
-              setNotice(text === null ? null : { text, itemId: board.selectedId })
-            }
-          />
-          <SystemHealthAlert components={overview.unavailable} failure={overview.livenessFailure} />
-          {readFault && <ReadFaultsAlert faults={overview.faults} onRetry={overview.refresh} />}
-          {!expanded && filter}
-          <BoardSummary
-            summary={board.summary}
-            widthClass={widthClass}
-            startSubject={startItem?.subject ?? null}
-            workforce={workforce}
-            cooling={overview.cooling}
-            showProject={board.projectId === null}
-            onStart={goToStart}
-          />
-          {expanded ? (
-            <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(544px,740px)] gap-4">
-              <div className="min-h-0 min-w-0 overflow-y-auto">{tabs}</div>
-              {host}
-            </div>
-          ) : (
-            <>
-              {tabs}
-              {host}
-            </>
-          )}
-        </BoardActsProvider>
+            gate={board.selected === null ? null : (overview.gates.get(board.selected.id) ?? null)}
+            jump={board.jump}
+          >
+            <BoardKeys
+              board={board}
+              widthClass={widthClass}
+              projects={overview.projects}
+              openShortcuts={() => setShortcutsOpen(true)}
+              announce={(text) =>
+                setNotice(text === null ? null : { text, itemId: board.selectedId })
+              }
+            />
+            <SystemHealthAlert
+              components={overview.unavailable}
+              failure={overview.livenessFailure}
+            />
+            {readFault && <ReadFaultsAlert faults={overview.faults} onRetry={overview.refresh} />}
+            {!expanded && filter}
+            <BoardSummary
+              summary={board.summary}
+              widthClass={widthClass}
+              startSubject={startItem?.subject ?? null}
+              workforce={workforce}
+              cooling={overview.cooling}
+              showProject={board.projectId === null}
+              onStart={goToStart}
+            />
+            {expanded ? (
+              <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(544px,740px)] gap-4">
+                <div className="min-h-0 min-w-0 overflow-y-auto">{tabs}</div>
+                {host}
+              </div>
+            ) : (
+              <>
+                {tabs}
+                {host}
+              </>
+            )}
+          </BoardActsProvider>
+        </BoardReadsProvider>
       )}
     </div>
   );

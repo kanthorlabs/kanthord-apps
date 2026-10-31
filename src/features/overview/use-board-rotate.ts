@@ -8,6 +8,7 @@ import {
   type RotateTarget,
   rotateTargetsOf,
 } from "@/features/workers/instance/use-instance-credential-rotate";
+import type { Credential } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import {
   type DraftErrors,
@@ -16,6 +17,7 @@ import {
   secretOfDraft,
 } from "@/lib/credential-draft";
 import { newestLiveRevision } from "@/lib/credential-revisions";
+import type { ActedAct } from "@/lib/board-done";
 import type { CredentialRefusedItem } from "@/lib/fix-attention";
 
 export interface BoardRotate {
@@ -39,7 +41,8 @@ export interface BoardRotate {
 
 interface RotateContext {
   readonly reload: () => void;
-  readonly markActed: (itemId: string) => void;
+  readonly paused: number;
+  readonly markActed: (itemId: string, act?: ActedAct) => void;
   readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
 }
 
@@ -52,9 +55,27 @@ function labelOf(target: RotateTarget): string {
   return `${target.holder} (v${target.expectedRevision})`;
 }
 
+function revisionOf(results: readonly PromiseSettledResult<Credential>[]) {
+  const first = results.find((result) => result.status === "fulfilled");
+  return first === undefined ? null : newestLiveRevision(first.value);
+}
+
+function rotatedActOf(
+  targets: readonly RotateTarget[],
+  results: readonly PromiseSettledResult<Credential>[],
+  paused: number,
+): ActedAct | null {
+  const revision = revisionOf(results);
+  if (revision === null) return null;
+  const holders = targets.flatMap((target, index) =>
+    target.holder !== SERVER && results[index]?.status === "fulfilled" ? [target.holder] : [],
+  );
+  return { id: "rotate", revision: revision.revision, holders, paused };
+}
+
 export function useBoardRotate(
   item: CredentialRefusedItem,
-  { reload, markActed, setDialogOpen }: RotateContext,
+  { reload, paused, markActed, setDialogOpen }: RotateContext,
 ): BoardRotate {
   const name = item.credential;
   const itemId = item.id;
@@ -67,7 +88,7 @@ export function useBoardRotate(
   const [checked, setChecked] = useState<readonly string[]>(NO_HOLDERS);
   const [failure, setFailure] = useState<WriteFailure | null>(null);
   const [outcome, setOutcome] = useState<readonly string[]>(NO_LINES);
-  const [rotated, setRotated] = useState(false);
+  const [acted, setActed] = useState<ActedAct | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const copy = rows.data?.find((row) => row.name === name && row.holder === SERVER) ?? null;
@@ -96,28 +117,28 @@ export function useBoardRotate(
     setChecked(NO_HOLDERS);
     setFailure(null);
     setOutcome(NO_LINES);
-    setRotated(false);
+    setActed(null);
     setOpen(true);
   }, [missing]);
 
   const leave = useCallback(
-    (didRotate: boolean) => {
+    (act: ActedAct | null) => {
       setSecret(EMPTY_SECRET);
       setOpen(false);
-      if (!didRotate) return;
-      markActed(itemId);
+      if (act === null) return;
+      markActed(itemId, act);
       reload();
     },
     [markActed, itemId, reload],
   );
 
   const close = useCallback(() => {
-    if (!submitting) leave(rotated);
-  }, [submitting, leave, rotated]);
+    if (!submitting) leave(acted);
+  }, [submitting, leave, acted]);
 
   const readLatest = useCallback(() => {
     reloadRows();
-    leave(false);
+    leave(null);
     reload();
   }, [reloadRows, leave, reload]);
 
@@ -161,13 +182,11 @@ export function useBoardRotate(
           ? [{ holder: targets[index]?.holder ?? "", cause: result.reason as unknown }]
           : [],
       );
-      const didRotate = lost.length < results.length;
-      setRotated(didRotate);
+      const act = rotatedActOf(targets, results, paused);
+      setActed(act);
       if (lost.length === 0) {
-        const [first] = results;
-        const revision = first?.status === "fulfilled" ? newestLiveRevision(first.value) : null;
-        toast.success(`Rotated ${name} to revision ${revision?.revision ?? "?"}.`);
-        leave(true);
+        toast.success(`Rotated ${name} to revision ${revisionOf(results)?.revision ?? "?"}.`);
+        leave(act);
         return;
       }
       if (targets.length === 1) {
@@ -180,7 +199,7 @@ export function useBoardRotate(
         ),
       );
     });
-  }, [submitting, serverRevision, secret, others, checked, name, leave]);
+  }, [submitting, serverRevision, secret, others, checked, name, paused, leave]);
 
   return {
     name,

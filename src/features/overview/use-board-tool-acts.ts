@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { approveWorkbenchCall } from "@/api/resources/workbench";
 import { asApiError } from "@/hooks/use-resource";
 import type { ToolApprovalItem } from "@/lib/approval-attention";
+import type { ActedAct } from "@/lib/board-done";
 
 import type { BoardReadsState } from "./use-board-reads";
 
@@ -22,7 +23,7 @@ export interface ToolActs {
 
 interface ToolContext {
   readonly reload: () => void;
-  readonly markActed: (itemId: string) => void;
+  readonly markActed: (itemId: string, act?: ActedAct) => void;
 }
 
 const SESSION_NEED = "Approve needs: the session read.";
@@ -56,7 +57,7 @@ export function useBoardToolActs(
         () => {
           setSending(false);
           toast.success(`${approved ? "Approved" : "Rejected"} ${subject}.`);
-          markActed(id);
+          markActed(id, { id: approved ? "approve" : "reject" });
           reload();
         },
         (cause: unknown) => {

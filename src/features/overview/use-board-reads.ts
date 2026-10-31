@@ -1,4 +1,12 @@
-import { createContext, createElement, type ReactNode, useContext } from "react";
+import {
+  createContext,
+  createElement,
+  type ReactNode,
+  useContext,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { listNodeAssessments, listNodeEvidence } from "@/api/resources/mission";
 import { listTraceSpans } from "@/api/resources/tracking";
@@ -53,7 +61,31 @@ const PENDING_READS: BoardReadsValue = {
   },
 };
 
-const BoardReadsContext = createContext<BoardReadsValue>(PENDING_READS);
+interface ReadsStore {
+  readonly get: () => BoardReadsValue;
+  readonly set: (value: BoardReadsValue) => void;
+  readonly subscribe: (listener: () => void) => () => void;
+}
+
+function createReadsStore(): ReadsStore {
+  let current = PENDING_READS;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (value) => {
+      current = value;
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+const BoardReadsContext = createContext<ReadsStore>(createReadsStore());
 
 async function settle<T>(read: Promise<T>): Promise<DetailRead<T>> {
   try {
@@ -174,21 +206,45 @@ function executionsOf(
 }
 
 interface BoardReadsProviderProps {
-  readonly item: AttentionItem;
+  readonly item: AttentionItem | null;
   readonly details: AttentionDetails;
   readonly children: ReactNode;
 }
 
-function ReadsScope({ item, details, children }: BoardReadsProviderProps) {
-  const reads = useBoardReads(item);
-  const value: BoardReadsValue = { ...reads, executions: executionsOf(item, details) };
-  return createElement(BoardReadsContext.Provider, { value }, children);
+interface ReadsScopeProps {
+  readonly store: ReadsStore;
+  readonly item: AttentionItem;
+  readonly details: AttentionDetails;
 }
 
-export function BoardReadsProvider(props: BoardReadsProviderProps) {
-  return createElement(ReadsScope, { key: readKeyOf(props.item), ...props });
+function ReadsScope({ store, item, details }: ReadsScopeProps) {
+  const reads = useBoardReads(item);
+  const value: BoardReadsValue = { ...reads, executions: executionsOf(item, details) };
+  useLayoutEffect(() => {
+    store.set(value);
+  });
+  useLayoutEffect(
+    () => () => {
+      store.set(PENDING_READS);
+    },
+    [store],
+  );
+  return null;
+}
+
+export function BoardReadsProvider({ item, details, children }: BoardReadsProviderProps) {
+  const [store] = useState(createReadsStore);
+  return createElement(
+    BoardReadsContext.Provider,
+    { value: store },
+    children,
+    item === null
+      ? null
+      : createElement(ReadsScope, { key: readKeyOf(item), store, item, details }),
+  );
 }
 
 export function useBoardReadsContext(): BoardReadsValue {
-  return useContext(BoardReadsContext);
+  const store = useContext(BoardReadsContext);
+  return useSyncExternalStore(store.subscribe, store.get);
 }

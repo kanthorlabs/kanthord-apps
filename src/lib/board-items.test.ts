@@ -26,6 +26,7 @@ import {
   isInProject,
   isNothingAtAll,
   itemNodeIdsOf,
+  pausedNodeCountOf,
   rankBoardItems,
   startItemOf,
 } from "./board-items";
@@ -320,6 +321,32 @@ describe("boardProjectsOf and isInProject", () => {
     expect(boardProjectsOf(item)).toEqual([]);
     expect(isInProject(item, "prj-1")).toBe(true);
     expect(isInProject(item, "prj-9")).toBe(true);
+  });
+});
+
+describe("pausedNodeCountOf", () => {
+  const shipped = node("n3", "Paused");
+  const failed = node("n2", "Waiting");
+  const executions = [
+    execution("n1", UNAUTHORIZED),
+    execution("n2", UNAUTHORIZED),
+    execution("n3", UNAUTHORIZED),
+  ];
+  const items = derive([snapshot([node("n1", "Paused"), failed, shipped], { executions })]);
+  const credential = itemOf(items, "credential_refused:openai-main");
+
+  it("counts the Paused nodes of the credential item", () => {
+    if (credential.kind !== "credential_refused") throw new Error("Not a credential item.");
+
+    expect(pausedNodeCountOf(credential, [snapshot([node("n1", "Paused"), failed, shipped])])).toBe(
+      2,
+    );
+  });
+
+  it("counts none without a snapshot of its nodes", () => {
+    if (credential.kind !== "credential_refused") throw new Error("Not a credential item.");
+
+    expect(pausedNodeCountOf(credential, [])).toBe(0);
   });
 });
 

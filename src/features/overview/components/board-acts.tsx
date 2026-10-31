@@ -25,9 +25,10 @@ import {
   type DecisionAttentionItem,
   detailOf,
   type OutsideAttentionItem,
+  type ProjectSnapshot,
 } from "@/lib/attention";
 import type { ActedAct } from "@/lib/board-done";
-import type { BoardGate } from "@/lib/board-items";
+import { type BoardGate, pausedNodeCountOf } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { readFailureText } from "@/lib/external-requests";
 import type { ToolApprovalItem } from "@/lib/approval-attention";
@@ -39,7 +40,7 @@ import {
 } from "@/lib/fix-attention";
 
 import { useBoardChecks } from "../use-board-checks";
-import { useBoardReads } from "../use-board-reads";
+import { useBoardReadsContext } from "../use-board-reads";
 import { useBoardRotate } from "../use-board-rotate";
 import { type ActFailure, useBoardToolActs } from "../use-board-tool-acts";
 import { type DecisionActs, useDecisionActs } from "../use-decision-acts";
@@ -152,6 +153,7 @@ interface GateRoute {
 
 interface BoardActsProviderProps extends ActsContext {
   readonly widthClass: BoardWidth;
+  readonly snapshots: readonly ProjectSnapshot[];
   readonly gate?: BoardGate | null;
   readonly jump?: (itemId: string) => void;
   readonly item: AttentionItem | null;
@@ -555,7 +557,7 @@ function ToolApprovalActs({
   reload,
   markActed,
 }: ActsContext & { readonly store: ActsStore; readonly item: ToolApprovalItem }) {
-  const tool = useBoardToolActs(item, useBoardReads(item), { reload, markActed });
+  const tool = useBoardToolActs(item, useBoardReadsContext(), { reload, markActed });
   const approve =
     tool.need === null
       ? actOf(
@@ -586,16 +588,22 @@ function ToolApprovalActs({
 function CredentialRefusedActs({
   store,
   item,
+  snapshots,
   reload,
   markActed,
   setDialogOpen,
-}: ActsContext & { readonly store: ActsStore; readonly item: CredentialRefusedItem }) {
-  const rotate = useBoardRotate(item, { reload, markActed, setDialogOpen });
+}: ActsContext & {
+  readonly store: ActsStore;
+  readonly item: CredentialRefusedItem;
+  readonly snapshots: readonly ProjectSnapshot[];
+}) {
+  const paused = pausedNodeCountOf(item, snapshots);
+  const rotate = useBoardRotate(item, { reload, paused, markActed, setDialogOpen });
   const { verify } = useBoardChecks(item, { reload, markActed });
   const gate: Gate | null =
     rotate.missing === null ? null : { gates: ["rotate"], read: rotate.missing };
   const target = fixTargetOf(item);
-  const open: LinkAct = { type: "link", id: "fix_target", label: target.label, to: target.path };
+  const open: LinkAct = { type: "link", id: "open", label: target.label, to: target.path };
   usePublished(
     store,
     stateOf(
@@ -623,7 +631,7 @@ function EnvironmentFailedActs({
 }: ActsContext & { readonly store: ActsStore; readonly item: EnvironmentFailedItem }) {
   const { onboarding } = useBoardChecks(item, { reload, markActed });
   const target = fixTargetOf(item);
-  const open: LinkAct = { type: "link", id: "fix_target", label: target.label, to: target.path };
+  const open: LinkAct = { type: "link", id: "open", label: target.label, to: target.path };
   usePublished(
     store,
     stateOf(
@@ -661,6 +669,7 @@ function ItemActs({
   readonly store: ActsStore;
   readonly item: AttentionItem;
   readonly details: AttentionDetails;
+  readonly snapshots: readonly ProjectSnapshot[];
   readonly route: GateRoute | null;
 }) {
   switch (item.kind) {

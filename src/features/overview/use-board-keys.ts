@@ -109,6 +109,7 @@ function runAct(context: KeyContext, key: string): boolean {
   if (act === undefined) return false;
   if (act.type === "button" && !act.disabled) act.press();
   if (act.type === "link") context.navigate(act.to);
+  if (act.type === "external") window.open(act.href, "_blank", "noreferrer");
   if (act.type === "gated") context.announce(act.need);
   return true;
 }

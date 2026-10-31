@@ -243,6 +243,7 @@ function renderSections(
         <BoardActsProvider
           item={item}
           details={options.details ?? new Map()}
+          snapshots={[]}
           reload={vi.fn()}
           retryDetail={vi.fn()}
           markActed={vi.fn()}

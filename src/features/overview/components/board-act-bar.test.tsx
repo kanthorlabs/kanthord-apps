@@ -33,6 +33,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { BoardActBar } from "./board-act-bar";
+import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
 
 const PROJECT: Project = {
@@ -141,20 +142,23 @@ function Bar({
 }) {
   return (
     <MemoryRouter>
-      <BoardActsProvider
-        item={item}
-        details={details}
-        reload={vi.fn()}
-        retryDetail={retryDetail}
-        markActed={vi.fn()}
-        setDialogOpen={vi.fn()}
-        registerDialogCloser={vi.fn()}
-        widthClass={widthClass}
-        gate={gate}
-        jump={jump}
-      >
-        <BoardActBar />
-      </BoardActsProvider>
+      <BoardReadsProvider item={item} details={details}>
+        <BoardActsProvider
+          item={item}
+          details={details}
+          snapshots={[]}
+          reload={vi.fn()}
+          retryDetail={retryDetail}
+          markActed={vi.fn()}
+          setDialogOpen={vi.fn()}
+          registerDialogCloser={vi.fn()}
+          widthClass={widthClass}
+          gate={gate}
+          jump={jump}
+        >
+          <BoardActBar />
+        </BoardActsProvider>
+      </BoardReadsProvider>
     </MemoryRouter>
   );
 }

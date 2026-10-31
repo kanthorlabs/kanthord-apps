@@ -5,7 +5,6 @@ import type { AttentionDetails, AttentionItem } from "@/lib/attention";
 import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
-import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActBar } from "./board-act-bar";
 import { type BoardPosition, BoardSections, type HeldNode } from "./board-sections";
 
@@ -38,21 +37,19 @@ export function BoardDetail({
 }: BoardDetailProps) {
   const expanded = widthClass === BOARD_WIDTH.Expanded;
   const sections = (
-    <BoardReadsProvider item={item} details={details}>
-      <BoardSections
-        item={item}
-        details={details}
-        tabName={tabName}
-        widthClass={widthClass}
-        position={position}
-        now={now}
-        held={held}
-        environments={environments}
-        gate={gate}
-        titleId={titleId}
-        titleRef={titleRef}
-      />
-    </BoardReadsProvider>
+    <BoardSections
+      item={item}
+      details={details}
+      tabName={tabName}
+      widthClass={widthClass}
+      position={position}
+      now={now}
+      held={held}
+      environments={environments}
+      gate={gate}
+      titleId={titleId}
+      titleRef={titleRef}
+    />
   );
 
   if (!expanded) {

@@ -141,7 +141,9 @@ describe("useBoardChecks onboarding", () => {
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Onboarding of api started."));
     expect(rebuildEnvironment).toHaveBeenCalledWith("prj-1", "binding_1");
-    expect(markActed).toHaveBeenCalledWith("environment_failed:prj-1:binding_1");
+    expect(markActed).toHaveBeenCalledWith("environment_failed:prj-1:binding_1", {
+      id: "onboarding",
+    });
     expect(reload).toHaveBeenCalledTimes(1);
     expect(result.current.onboarding.failure).toBeNull();
   });

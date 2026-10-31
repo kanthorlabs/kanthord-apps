@@ -4,16 +4,35 @@ import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Reveal } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
+import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import type { DoneEntry } from "@/lib/board-done";
+import type { BoardTabId } from "@/lib/board-tabs";
 
 interface BoardDoneProps {
   readonly entries: readonly DoneEntry[];
+  readonly onGoTo: (tab: BoardTabId) => void;
 }
 
 const TITLE = "Done this session";
 
-export function BoardDone({ entries }: BoardDoneProps) {
+function GoToButton({
+  goTo,
+  onGoTo,
+}: {
+  readonly goTo: NonNullable<DoneEntry["goTo"]>;
+  readonly onGoTo: (tab: BoardTabId) => void;
+}) {
+  return (
+    <TouchTarget>
+      <Button variant="outline" size="sm" onClick={() => onGoTo(goTo.tab)}>
+        {goTo.label}
+      </Button>
+    </TouchTarget>
+  );
+}
+
+export function BoardDone({ entries, onGoTo }: BoardDoneProps) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   if (entries.length === 0) return null;
@@ -42,6 +61,12 @@ export function BoardDone({ entries }: BoardDoneProps) {
               <DataListItem
                 title={entry.text}
                 description={entry.sentAt}
+                notice={entry.note}
+                actions={
+                  entry.goTo === undefined ? undefined : (
+                    <GoToButton goTo={entry.goTo} onGoTo={onGoTo} />
+                  )
+                }
                 status={entry.projects.map((project) => (
                   <Badge key={project.id} variant="outline">
                     {project.name}

@@ -8,6 +8,7 @@ import { credentialMessage } from "@/features/credentials/credential-message";
 import { ENVIRONMENT_RUN_ACTIVE } from "@/features/projects/view/use-binding-environment";
 import { asApiError } from "@/hooks/use-resource";
 import type { AttentionItem } from "@/lib/attention";
+import type { ActedAct } from "@/lib/board-done";
 import { CHECKING_LABEL } from "@/lib/check-result";
 import { healthLabel } from "@/lib/credential-health";
 
@@ -32,7 +33,7 @@ export interface BoardChecks {
 
 interface ChecksContext {
   readonly reload: () => void;
-  readonly markActed: (itemId: string) => void;
+  readonly markActed: (itemId: string, act?: ActedAct) => void;
 }
 
 const CHECK_FAILED_LABEL = "Check failed";
@@ -92,7 +93,7 @@ export function useBoardChecks(
         () => {
           setRunning(false);
           toast.success(`Onboarding of ${bindingName} started.`);
-          markActed(itemId);
+          markActed(itemId, { id: "onboarding" });
           reload();
         },
         (cause: unknown) => {

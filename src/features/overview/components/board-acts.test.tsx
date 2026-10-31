@@ -47,6 +47,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { BoardActBar } from "./board-act-bar";
+import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
 
 const PROJECT: Project = {
@@ -205,20 +206,23 @@ function renderActs(
 ) {
   render(
     <MemoryRouter>
-      <BoardActsProvider
-        item={item}
-        details={details}
-        reload={vi.fn()}
-        retryDetail={vi.fn()}
-        markActed={vi.fn()}
-        setDialogOpen={setDialogOpen}
-        registerDialogCloser={registerDialogCloser}
-        widthClass={BOARD_WIDTH.Expanded}
-        gate={gate}
-        jump={jump}
-      >
-        <BoardActBar />
-      </BoardActsProvider>
+      <BoardReadsProvider item={item} details={details}>
+        <BoardActsProvider
+          item={item}
+          details={details}
+          snapshots={[]}
+          reload={vi.fn()}
+          retryDetail={vi.fn()}
+          markActed={vi.fn()}
+          setDialogOpen={setDialogOpen}
+          registerDialogCloser={registerDialogCloser}
+          widthClass={BOARD_WIDTH.Expanded}
+          gate={gate}
+          jump={jump}
+        >
+          <BoardActBar />
+        </BoardActsProvider>
+      </BoardReadsProvider>
     </MemoryRouter>,
   );
 }
@@ -235,6 +239,13 @@ function actNames(): readonly (string | null)[] {
   return within(group)
     .getAllByRole("button")
     .map((control) => control.getAttribute("aria-label") ?? labelOf(control));
+}
+
+function keysOfActs(): readonly (string | null)[] {
+  const group = screen.getByRole("group", { name: "Acts" });
+  return within(group)
+    .getAllByRole("button")
+    .map((control) => control.getAttribute("aria-keyshortcuts"));
 }
 
 const PAUSED = node("implement", "Paused");
@@ -479,7 +490,7 @@ describe("BoardActsProvider act order", () => {
     expect(link).toHaveAttribute("href", "https://github.com/kanthorlabs/kanthord/pull/42");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noreferrer");
-    expect(link).toHaveTextContent(/^Open pull request$/);
+    expect(link).toHaveTextContent(/^Open pull request/);
   });
 
   it("offers no Open pull request without a pull request in the evidence", () => {
@@ -624,20 +635,55 @@ describe("BoardActsProvider act order", () => {
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Onboarding of api started."));
   });
 
+  it("gives each in-place act its letter of BOARD_KEYS", async () => {
+    renderActs(APPROVAL);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+
+    expect(keysOfActs()).toEqual(["a", "n", "o"]);
+  });
+
+  it("gives Rotate, Verify credential and Open credential their letters", async () => {
+    renderActs(CREDENTIAL);
+    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
+
+    expect(keysOfActs()).toEqual(["w", "c", "o"]);
+  });
+
+  it("gives Open project and Run onboarding again their letters", () => {
+    renderActs(ENVIRONMENT_FAILED);
+
+    expect(keysOfActs()).toEqual(["o", "y"]);
+  });
+
+  it("gives Open pull request and Check now their letters", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:github:kanthorlabs/kanthord", 42)));
+
+    expect(keysOfActs()).toEqual(["o", "c"]);
+  });
+
+  it("gives the gated Resume and Go to their letters", async () => {
+    renderActs(decision("paused", PAUSED), pausedDetail(PAUSED, [], [execution()]), vi.fn(), GATE);
+
+    await waitFor(() => expect(keysOfActs()).toEqual(["r", "f", "v", "t", "x"]));
+  });
+
   it("offers no act without an item", () => {
     render(
-      <BoardActsProvider
-        item={null}
-        details={new Map()}
-        reload={vi.fn()}
-        retryDetail={vi.fn()}
-        markActed={vi.fn()}
-        setDialogOpen={setDialogOpen}
-        registerDialogCloser={vi.fn()}
-        widthClass={BOARD_WIDTH.Expanded}
-      >
-        <BoardActBar />
-      </BoardActsProvider>,
+      <BoardReadsProvider item={null} details={new Map()}>
+        <BoardActsProvider
+          item={null}
+          details={new Map()}
+          snapshots={[]}
+          reload={vi.fn()}
+          retryDetail={vi.fn()}
+          markActed={vi.fn()}
+          setDialogOpen={setDialogOpen}
+          registerDialogCloser={vi.fn()}
+          widthClass={BOARD_WIDTH.Expanded}
+        >
+          <BoardActBar />
+        </BoardActsProvider>
+      </BoardReadsProvider>,
     );
 
     expect(screen.queryByRole("group", { name: "Acts" })).not.toBeInTheDocument();

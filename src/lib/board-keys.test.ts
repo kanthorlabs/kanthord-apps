@@ -106,6 +106,17 @@ describe("actKeyOf", () => {
     expect(actKeyOf("remove:node_2")).toBe("m");
   });
 
+  it("answers the letter of each in-place act", () => {
+    expect(actKeyOf("approve")).toBe("a");
+    expect(actKeyOf("reject")).toBe("n");
+    expect(actKeyOf("rotate")).toBe("w");
+    expect(actKeyOf("verify")).toBe("c");
+    expect(actKeyOf("onboarding")).toBe("y");
+    expect(actKeyOf("goto")).toBe("f");
+    expect(actKeyOf("open")).toBe("o");
+    expect(actKeyOf("open_pull_request")).toBe("o");
+  });
+
   it("answers null for an act without a letter", () => {
     expect(actKeyOf("check_badge")).toBeNull();
     expect(actKeyOf("resume_project")).toBeNull();

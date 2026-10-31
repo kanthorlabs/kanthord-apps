@@ -69,7 +69,7 @@ describe("useBoardToolActs", () => {
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Approved Create project."));
     expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", true);
-    expect(markActed).toHaveBeenCalledWith("tool_approval:s1");
+    expect(markActed).toHaveBeenCalledWith("tool_approval:s1", { id: "approve" });
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
@@ -81,6 +81,7 @@ describe("useBoardToolActs", () => {
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Rejected Create project."));
     expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", false);
+    expect(markActed).toHaveBeenCalledWith("tool_approval:s1", { id: "reject" });
   });
 
   it("keeps the failure line of a 404 answer and does not reload", async () => {
