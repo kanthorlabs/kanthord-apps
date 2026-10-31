@@ -3375,6 +3375,22 @@ describe("OverviewScreen widths", () => {
     expect(screen.getByRole("button", { name: "kanthord · 3" })).toBeVisible();
   });
 
+  it("places the tab strip above the list and the detail on expanded width", async () => {
+    serve({ nodes: threeBlocked() });
+
+    renderScreen();
+    setWidth(EXPANDED_WIDTH);
+
+    const detail = await screen.findByRole("region", { name: /^First item/ });
+    const tablist = screen.getByRole("tablist");
+    const panel = screen.getByRole("tabpanel");
+    const columns = panel.parentElement?.parentElement;
+    expect(columns).toContainElement(detail);
+    expect(columns).not.toContainElement(tablist);
+    expect(tablist.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(tablist.compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("selects a card without a sheet on expanded width", async () => {
     serve({ nodes: threeBlocked() });
     renderScreen();

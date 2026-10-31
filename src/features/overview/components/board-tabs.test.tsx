@@ -95,6 +95,27 @@ describe("BoardTabs", () => {
     }
   });
 
+  it("stacks the tab list above the panel in a column", () => {
+    render(<Harness />);
+
+    const list = screen.getByRole("tablist");
+    const panel = screen.getByText("panel");
+    const root = panel.parentElement;
+
+    expect(list.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(root).toContainElement(list);
+    expect(root).toHaveClass("flex-col");
+  });
+
+  it("fills the height of the board on expanded width only", () => {
+    const { unmount } = render(<Harness widthClass={BOARD_WIDTH.Expanded} />);
+    expect(screen.getByText("panel").parentElement).toHaveClass("min-h-0", "flex-1");
+    unmount();
+
+    render(<Harness widthClass={BOARD_WIDTH.Medium} />);
+    expect(screen.getByText("panel").parentElement).not.toHaveClass("flex-1");
+  });
+
   it("activates the next tab on the arrow keys", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

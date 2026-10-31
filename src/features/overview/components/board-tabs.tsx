@@ -28,11 +28,13 @@ export function BoardTabs({
   onChange,
   children,
 }: BoardTabsProps) {
-  const sticky = widthClass !== BOARD_WIDTH.Expanded;
+  const expanded = widthClass === BOARD_WIDTH.Expanded;
+  const sticky = !expanded;
   const { enabled } = useShortcutSetting();
   return (
     <Tabs
       value={tab}
+      className={expanded ? "flex min-h-0 min-w-0 flex-1 flex-col" : "flex min-w-0 flex-col"}
       onValueChange={(value) => {
         const next = boardTabById(value);
         if (next !== undefined) onChange(next.id);
