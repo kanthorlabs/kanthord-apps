@@ -266,7 +266,7 @@ export function SplitTable({ read, frame, split }: SplitTableProps) {
           </TouchTarget>
         ))}
       </ToggleGroup>
-      <div className="overflow-x-auto">
+      <div className="w-0 min-w-full overflow-x-auto">
         {model.kind === "stage" ? (
           <StageGrid model={model} />
         ) : (
