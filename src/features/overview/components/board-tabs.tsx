@@ -33,6 +33,7 @@ export function BoardTabs({
   return (
     <Tabs
       value={tab}
+      className="flex min-w-0 flex-col"
       onValueChange={(value) => {
         const next = boardTabById(value);
         if (next !== undefined) onChange(next.id);

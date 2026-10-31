@@ -95,6 +95,18 @@ describe("BoardTabs", () => {
     }
   });
 
+  it("stacks the tab list above the panel in a column", () => {
+    render(<Harness />);
+
+    const list = screen.getByRole("tablist");
+    const panel = screen.getByText("panel");
+    const root = panel.parentElement;
+
+    expect(list.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(root).toContainElement(list);
+    expect(root).toHaveClass("flex-col");
+  });
+
   it("activates the next tab on the arrow keys", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
