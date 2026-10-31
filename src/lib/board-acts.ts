@@ -8,6 +8,7 @@ import {
 } from "./attention";
 import type { ActedAct } from "./board-done";
 import type { BoardGate } from "./board-items";
+import { actKeysOf } from "./board-keys";
 import { readFailureText } from "./external-requests";
 import {
   type CredentialRefusedItem,
@@ -68,6 +69,13 @@ interface BadgeAct {
 
 export type BoardAct =
   ButtonAct | GatedAct | LinkAct | ExternalLinkAct | ResumeProjectAct | BadgeAct;
+
+export interface PhoneActs {
+  readonly lead: BoardAct | null;
+  readonly others: readonly BoardAct[];
+  readonly last: BoardAct | null;
+  readonly badges: readonly BoardAct[];
+}
 
 export interface ReadNote {
   readonly text: string;
@@ -146,6 +154,8 @@ interface Gate {
   readonly read: string;
 }
 
+const DISCARD = "discard";
+const NO_KEYS: ReadonlyMap<string, string> = new Map();
 const GITHUB_IDENTITY = /^repository:github:(.+)$/;
 
 function slotOf(
@@ -208,6 +218,39 @@ function present(acts: readonly (BoardAct | null)[]): readonly BoardAct[] {
 
 export function needsOf(acts: readonly BoardAct[]): readonly string[] {
   return [...new Set(acts.flatMap((act) => (act.type === "gated" ? [act.need] : [])))];
+}
+
+export function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
+  const badges = acts.filter((act) => act.type === "badge");
+  const actions = acts.filter((act) => act.type !== "badge");
+  const lead =
+    actions.find((act) => act.type !== "gated" && act.id !== DISCARD) ?? actions[0] ?? null;
+  const others = actions.filter((act) => act !== lead);
+  return {
+    lead,
+    others: others.filter((act) => act.id !== DISCARD),
+    last: others.find((act) => act.id === DISCARD) ?? null,
+    badges,
+  };
+}
+
+export function moreCountOf({ others, last }: PhoneActs): number {
+  return others.length + (last === null ? 0 : 1);
+}
+
+export function moreNeedsOf({ others, last }: PhoneActs): readonly string[] {
+  return needsOf(last === null ? others : [...others, last]);
+}
+
+export function needIdOf(base: string, needs: readonly string[], need: string): string {
+  return `${base}-need-${needs.indexOf(need)}`;
+}
+
+export function shortcutKeysOf(
+  acts: readonly BoardAct[],
+  enabled: boolean,
+): ReadonlyMap<string, string> {
+  return enabled ? actKeysOf(acts.map((act) => act.id)) : NO_KEYS;
 }
 
 function decisionGateOf(item: DecisionAttentionItem, ready: boolean): Gate | null {

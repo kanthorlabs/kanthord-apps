@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemDescription } from "@/components/ui/item";
 import type { AttentionItem } from "@/lib/attention";
 import { type BoardGate, boardProjectsOf } from "@/lib/board-items";
+import { ageTextOf } from "@/lib/board-pane-text";
 import { cardCauseOf, heldText } from "@/lib/board-text";
-import { relativeAge } from "@/lib/relative-age";
 
 interface BoardCardProps {
   readonly item: AttentionItem;
@@ -60,7 +60,7 @@ export function BoardCard({
               </Button>
             </TouchTarget>
             <span id={ageId} className="shrink-0 text-sm text-muted-foreground">
-              {item.at === null ? "age unknown" : relativeAge(item.at, now)}
+              {ageTextOf(item.at, now)}
             </span>
           </div>
           <ItemDescription id={causeId} className="line-clamp-none">

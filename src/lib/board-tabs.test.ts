@@ -19,7 +19,7 @@ import {
   detailKeyOf,
   type ProjectSnapshot,
 } from "./attention";
-import { BOARD_TAB, BOARD_TABS, boardTabOf } from "./board-tabs";
+import { BOARD_TAB, BOARD_TABS, boardTabById, boardTabNamed, boardTabOf } from "./board-tabs";
 
 const NOW = 10_000_000;
 
@@ -346,5 +346,25 @@ describe("boardTabOf", () => {
       expect(item.kind).toBe("delivery_unconfirmed");
       expect(boardTabOf(item, details)).toBe(BOARD_TAB.Outside);
     });
+  });
+});
+
+describe("boardTabById", () => {
+  it("returns the tab of an id", () => {
+    expect(boardTabById("blocked")?.id).toBe(BOARD_TAB.Rule);
+  });
+
+  it("returns undefined for an unknown id", () => {
+    expect(boardTabById("nothing")).toBeUndefined();
+  });
+});
+
+describe("boardTabNamed", () => {
+  it("returns the tab of an id", () => {
+    expect(boardTabNamed(BOARD_TAB.Resume).id).toBe(BOARD_TAB.Resume);
+  });
+
+  it("throws for an id that no tab holds", () => {
+    expect(() => boardTabNamed("nothing" as never)).toThrow("No board tab nothing.");
   });
 });

@@ -16,10 +16,15 @@ import {
   decisionActsOf,
   environmentFailedActsOf,
   fixTargetActsOf,
+  moreCountOf,
+  moreNeedsOf,
+  needIdOf,
   needsOf,
   outsideActsOf,
   outsideReadOf,
+  phoneActsOf,
   projectPausedActsOf,
+  shortcutKeysOf,
   toolApprovalActsOf,
 } from "./board-acts";
 import type { BoardGate } from "./board-items";
@@ -340,5 +345,100 @@ describe("needsOf", () => {
       need,
     });
     expect(needsOf([gated("a"), gated("b"), gated("a")])).toEqual(["a", "b"]);
+  });
+});
+
+describe("phoneActsOf", () => {
+  const button = (id: string): BoardAct => ({
+    type: "button",
+    id,
+    label: id,
+    ariaLabel: null,
+    variant: "outline",
+    disabled: false,
+    press: vi.fn(),
+  });
+  const gated = (id: string): BoardAct => ({
+    type: "gated",
+    id,
+    label: id,
+    ariaLabel: null,
+    need: `${id} needs`,
+  });
+  const badge = (id: string): BoardAct => ({ type: "badge", id, label: id });
+
+  it("leads with the first act that is not gated and not Discard", () => {
+    const phone = phoneActsOf([gated("decide"), button("discard"), button("override")]);
+    expect(phone.lead?.id).toBe("override");
+    expect(phone.others.map((act) => act.id)).toEqual(["decide"]);
+  });
+
+  it("falls back to the primary act when every act is gated or Discard", () => {
+    const phone = phoneActsOf([gated("decide"), button("discard")]);
+    expect(phone.lead?.id).toBe("decide");
+    expect(phone.others).toEqual([]);
+    expect(phone.last?.id).toBe("discard");
+  });
+
+  it("splits Discard off as the last act", () => {
+    const phone = phoneActsOf([button("discard"), button("decide"), button("override")]);
+    expect(phone.lead?.id).toBe("decide");
+    expect(phone.others.map((act) => act.id)).toEqual(["override"]);
+    expect(phone.last?.id).toBe("discard");
+  });
+
+  it("splits the badges off the acts", () => {
+    const phone = phoneActsOf([button("check"), badge("check_badge")]);
+    expect(phone.badges.map((act) => act.id)).toEqual(["check_badge"]);
+    expect(phone.lead?.id).toBe("check");
+  });
+
+  it("returns no lead and no last for no acts", () => {
+    expect(phoneActsOf([])).toEqual({ lead: null, others: [], last: null, badges: [] });
+  });
+});
+
+describe("phone more sheet", () => {
+  const button = (id: string): BoardAct => ({
+    type: "button",
+    id,
+    label: id,
+    ariaLabel: null,
+    variant: "outline",
+    disabled: false,
+    press: vi.fn(),
+  });
+  const gated = (id: string, need: string): BoardAct => ({
+    type: "gated",
+    id,
+    label: id,
+    ariaLabel: null,
+    need,
+  });
+
+  it("counts the other acts and the split Discard", () => {
+    const phone = phoneActsOf([button("decide"), button("override"), button("discard")]);
+    expect(moreCountOf(phone)).toBe(2);
+    expect(moreCountOf(phoneActsOf([button("decide")]))).toBe(0);
+  });
+
+  it("lists the needs of the other acts and of Discard once", () => {
+    const phone = phoneActsOf([
+      button("decide"),
+      gated("override", "a"),
+      gated("check", "a"),
+      gated("discard", "b"),
+    ]);
+    expect(moreNeedsOf(phone)).toEqual(["a", "b"]);
+  });
+
+  it("builds the id of a need from its place in the list", () => {
+    expect(needIdOf("base", ["a", "b"], "b")).toBe("base-need-1");
+  });
+
+  it("gives the shortcut keys of the acts only when shortcuts are on", () => {
+    const acts = [button("discard")];
+    expect(shortcutKeysOf(acts, true).get("discard")).toBe("x");
+    expect(shortcutKeysOf(acts, false).size).toBe(0);
   });
 });

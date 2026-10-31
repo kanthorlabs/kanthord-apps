@@ -117,3 +117,13 @@ export function boardTabOf(item: AttentionItem, details: AttentionDetails): Boar
       return BOARD_TAB.Outside;
   }
 }
+
+export function boardTabById(id: string): BoardTab | undefined {
+  return BOARD_TABS.find((entry) => entry.id === id);
+}
+
+export function boardTabNamed(id: BoardTabId): BoardTab {
+  const tab = boardTabById(id);
+  if (tab === undefined) throw new Error(`No board tab ${id}.`);
+  return tab;
+}

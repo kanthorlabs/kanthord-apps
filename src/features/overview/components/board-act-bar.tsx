@@ -5,8 +5,14 @@ import { DisabledAction } from "@/components/disabled-action";
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import type { BoardAct } from "@/lib/board-acts";
-import { actKeysOf } from "@/lib/board-keys";
+import {
+  type BoardAct,
+  moreCountOf,
+  moreNeedsOf,
+  needIdOf,
+  phoneActsOf,
+  shortcutKeysOf,
+} from "@/lib/board-acts";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
 import { useBoardActs, useBoardActsFrame } from "../use-board-acts";
@@ -14,30 +20,6 @@ import { useShortcutSetting } from "../use-shortcut-setting";
 import { BoardMoreSheet } from "./board-more-sheet";
 import { CheckBadge } from "./check-badge";
 import { ResumeProjectAction } from "./resume-project-action";
-
-const NO_KEYS: ReadonlyMap<string, string> = new Map();
-const DISCARD = "discard";
-
-interface PhoneActs {
-  readonly lead: BoardAct | null;
-  readonly others: readonly BoardAct[];
-  readonly last: BoardAct | null;
-  readonly badges: readonly BoardAct[];
-}
-
-function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
-  const badges = acts.filter((act) => act.type === "badge");
-  const actions = acts.filter((act) => act.type !== "badge");
-  const lead =
-    actions.find((act) => act.type !== "gated" && act.id !== DISCARD) ?? actions[0] ?? null;
-  const others = actions.filter((act) => act !== lead);
-  return {
-    lead,
-    others: others.filter((act) => act.id !== DISCARD),
-    last: others.find((act) => act.id === DISCARD) ?? null,
-    badges,
-  };
-}
 
 function KeyHint({ shortcut }: { readonly shortcut: string }) {
   return (
@@ -160,18 +142,13 @@ function PhoneBar({
   readonly subject: string;
   readonly needIds: NeedIds;
 }) {
-  const { lead, others, last, badges } = phoneActsOf(acts);
-  const count = others.length + (last === null ? 0 : 1);
+  const phone = phoneActsOf(acts);
+  const { lead, others, last, badges } = phone;
+  const count = moreCountOf(phone);
   const control = (act: BoardAct) => (
     <ActControl key={act.id} act={act} shortcut={keys.get(act.id) ?? null} needIds={needIds} />
   );
-  const sheetNeeds = [
-    ...new Set(
-      [...others, ...(last === null ? [] : [last])].flatMap((act) =>
-        act.type === "gated" ? [act.need] : [],
-      ),
-    ),
-  ];
+  const sheetNeeds = moreNeedsOf(phone);
 
   return (
     <>
@@ -198,9 +175,9 @@ export function BoardActBar() {
   const { widthClass, subject } = useBoardActsFrame();
   const { enabled } = useShortcutSetting();
   if (acts.length === 0) return null;
-  const keys = enabled ? actKeysOf(acts.map((act) => act.id)) : NO_KEYS;
+  const keys = shortcutKeysOf(acts, enabled);
   const phone = widthClass === BOARD_WIDTH.Compact;
-  const needIds: NeedIds = (need) => `${base}-need-${needs.indexOf(need)}`;
+  const needIds: NeedIds = (need) => needIdOf(base, needs, need);
 
   return (
     <div

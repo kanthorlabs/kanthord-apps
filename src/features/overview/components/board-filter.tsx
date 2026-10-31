@@ -3,14 +3,13 @@ import { useState } from "react";
 import { TouchTarget } from "@/components/touch-target";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Project } from "@/api/types";
+import { filterMessageOf, filterNameOf, pickedProjectIdOf } from "@/lib/board-filter";
 import type { BoardTab } from "@/lib/board-tabs";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
-import { counted } from "@/lib/counted";
 
 import type { BoardCounts } from "../use-board";
 
 const ALL = "all";
-const ALL_PROJECTS = "All projects";
 
 interface BoardFilterProps {
   readonly projects: readonly Project[];
@@ -19,10 +18,6 @@ interface BoardFilterProps {
   readonly tab: BoardTab;
   readonly widthClass: BoardWidth;
   readonly onChange: (projectId: string | null) => void;
-}
-
-function messageOf(name: string, tab: BoardTab, tabCount: number, viewCount: number): string {
-  return `${name}: ${counted(tabCount, "act", "acts")} in ${tab.name}, ${counted(viewCount, "act", "acts")} in all tabs.`;
 }
 
 export function BoardFilter({
@@ -34,7 +29,7 @@ export function BoardFilter({
   onChange,
 }: BoardFilterProps) {
   const [changed, setChanged] = useState(false);
-  const name = projects.find((project) => project.id === projectId)?.name ?? ALL_PROJECTS;
+  const name = filterNameOf(projects, projectId);
   const compact = widthClass === BOARD_WIDTH.Compact;
 
   return (
@@ -48,9 +43,8 @@ export function BoardFilter({
             className={compact ? undefined : "flex-wrap"}
             value={[projectId ?? ALL]}
             onValueChange={(next: string[]) => {
-              const picked = projects.find((project) => project.id === next[0]);
               setChanged(true);
-              onChange(picked?.id ?? null);
+              onChange(pickedProjectIdOf(projects, next[0]));
             }}
           >
             <ToggleGroupItem value={ALL}>All · {counts.all}</ToggleGroupItem>
@@ -63,7 +57,7 @@ export function BoardFilter({
         </TouchTarget>
       </div>
       <p role="status" className="sr-only">
-        {changed ? messageOf(name, tab, counts.tabs[tab.id], counts.view) : ""}
+        {changed ? filterMessageOf(name, tab, counts.tabs[tab.id], counts.view) : ""}
       </p>
     </div>
   );

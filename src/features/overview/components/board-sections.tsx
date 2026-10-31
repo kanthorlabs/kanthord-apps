@@ -1,26 +1,20 @@
 import { Fragment, type ReactNode, type Ref, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import type {
-  EnvironmentState,
-  MissionAssessment,
-  MissionNodeRecord,
-  MissionProposal,
-  Project,
-} from "@/api/types";
+import type { EnvironmentState, MissionAssessment, MissionProposal } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { approvalFactOf } from "@/lib/approval-attention";
-import {
-  type AttentionDetails,
-  type AttentionItem,
-  type BlockedDetail,
-  type DependencyItem,
-  detailOf,
+import type {
+  AttentionDetails,
+  AttentionItem,
+  BlockedDetail,
+  DependencyItem,
 } from "@/lib/attention";
 import { changeAskedOf } from "@/lib/board-change";
+import type { HeldNode } from "@/lib/board-detail-joins";
 import {
   type BoardEvidence,
   type EvidenceLine,
@@ -28,13 +22,25 @@ import {
   type TraceCause,
 } from "@/lib/board-evidence";
 import { type BoardGate, boardProjectsOf } from "@/lib/board-items";
-import { actorNameOf, proposalSourceOf, suggestionOf } from "@/lib/board-suggestion";
-import { detailTitleOf, heldText, positionText } from "@/lib/board-text";
+import { ageTextOf } from "@/lib/board-pane-text";
+import {
+  blockedDetailOf,
+  boardSuggestionOf,
+  discardReasonTextOf,
+  environmentFailureOf,
+  evidenceSettledOf,
+  evidenceWindowOf,
+  failureLimitOf,
+  impactHeldTextOf,
+  noCauseTextOf,
+  showProposalsOf,
+  spreadOf,
+} from "@/lib/board-section-facts";
+import { actorNameOf } from "@/lib/board-suggestion";
+import { detailTitleOf, positionText } from "@/lib/board-text";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { causeSentenceOf } from "@/lib/external-requests";
-import { spreadTextOf } from "@/lib/fix-attention";
 import { badgeVariantOf } from "@/lib/node-state";
-import { relativeAge } from "@/lib/relative-age";
 import { causeLine } from "@/lib/trace-cause";
 
 import { useBoardActs } from "../use-board-acts";
@@ -46,11 +52,6 @@ import { FixCauseText } from "./fix-cause-text";
 export interface BoardPosition {
   readonly index: number;
   readonly total: number;
-}
-
-export interface HeldNode {
-  readonly node: MissionNodeRecord;
-  readonly project: Project;
 }
 
 interface BoardSectionsProps {
@@ -71,7 +72,6 @@ const TEXT_WIDTH = "max-w-[80ch] break-words";
 const MUTED_TEXT = `text-sm text-muted-foreground ${TEXT_WIDTH}`;
 const LOG_BLOCK =
   "min-w-0 rounded-md bg-muted p-2 font-mono text-xs break-words whitespace-pre-wrap";
-const COMPACT_EVIDENCE_LINES = 3;
 
 function Section({ title, children }: { readonly title: string; readonly children: ReactNode }) {
   return (
@@ -109,20 +109,14 @@ function EnvironmentFailure({
   readonly item: AttentionItem;
   readonly environments: readonly EnvironmentState[] | null;
 }) {
-  if (item.kind !== "environment_failed") return null;
-  const failure = environments?.find((state) => state.binding_id === item.bindingId)?.failure;
-  if (failure === null || failure === undefined) return null;
+  const failure = environmentFailureOf(item, environments);
+  if (failure === null) return null;
   return (
     <p className={`text-sm ${TEXT_WIDTH}`}>
       <RecordName>{failure.command}</RecordName>
-      {failure.exit_code === null ? " did not finish." : ` exited with ${failure.exit_code}.`}{" "}
-      Reproduce it with <RecordName>{failure.reproduce}</RecordName>.
+      {failure.ended} Reproduce it with <RecordName>{failure.reproduce}</RecordName>.
     </p>
   );
-}
-
-function assessmentOf(detail: BlockedDetail | null): MissionAssessment | null {
-  return detail?.assessment.status === "ready" ? detail.assessment.data : null;
 }
 
 function WhatSection({
@@ -136,7 +130,7 @@ function WhatSection({
   readonly reads: BoardReadsValue;
   readonly evidence: BoardEvidence;
 }) {
-  const failureLimit = item.kind === "paused" && item.pause?.cause === "failure-limit";
+  const failureLimit = failureLimitOf(item);
   const { failures } = evidence;
   return (
     <Section title="What">
@@ -253,17 +247,12 @@ function DiscardReasons({
   return (
     <BoardReadBlock name="the discard reason" read={reads.discard} onRetry={reads.retry.discard}>
       {(reasons) =>
-        item.discarded.map((dependency) => {
-          const reason = reasons.find((candidate) => candidate.id === dependency.id)?.reason;
-          return (
-            <p key={dependency.id} className={`text-sm ${TEXT_WIDTH}`}>
-              You discarded <RecordName>{dependency.name}</RecordName>.{" "}
-              {reason === null || reason === undefined
-                ? "No reason is recorded."
-                : `Reason: "${reason}"`}
-            </p>
-          );
-        })
+        item.discarded.map((dependency) => (
+          <p key={dependency.id} className={`text-sm ${TEXT_WIDTH}`}>
+            You discarded <RecordName>{dependency.name}</RecordName>.{" "}
+            {discardReasonTextOf(reasons, dependency.id)}
+          </p>
+        ))
       }
     </BoardReadBlock>
   );
@@ -284,15 +273,7 @@ function RootCauseText({
       </>
     );
   }
-  const undetermined =
-    item.kind === "blocked" && item.node.blocked_context?.outcome.result === "undetermined";
-  return (
-    <p className={`text-sm ${TEXT_WIDTH}`}>
-      {undetermined
-        ? "No cause assigned: the assessment was undetermined."
-        : "No cause: this is a wait, not a fault."}
-    </p>
-  );
+  return <p className={`text-sm ${TEXT_WIDTH}`}>{noCauseTextOf(item)}</p>;
 }
 
 function EvidenceRow({ line }: { readonly line: EvidenceLine }) {
@@ -333,8 +314,7 @@ function EvidenceList({
 }) {
   const [expanded, setExpanded] = useState(false);
   const list = useRef<HTMLUListElement>(null);
-  const hidden = collapsible && !expanded ? lines.length - COMPACT_EVIDENCE_LINES : 0;
-  const shown = hidden > 0 ? lines.slice(0, COMPACT_EVIDENCE_LINES) : lines;
+  const { shown, hidden } = evidenceWindowOf(lines, collapsible, expanded);
 
   const showAll = () => {
     setExpanded(true);
@@ -373,7 +353,7 @@ function EvidenceSection({
   readonly widthClass: BoardWidth;
 }) {
   const blocked = item.kind === "blocked";
-  const settled = !blocked || reads.evidence?.status === "ready";
+  const settled = evidenceSettledOf(item, reads.evidence);
   const { lines } = evidence;
   return (
     <Section title="Evidence">
@@ -409,18 +389,12 @@ export function BoardSections({
 }: BoardSectionsProps) {
   const { read, proposals, unresolved, retry } = useBoardActs();
   const reads = useBoardReadsContext();
-  const spread = item.group === "fixes" ? spreadTextOf(item) : null;
-  const detail = item.kind === "blocked" ? detailOf(details, item.node) : null;
-  const blockedDetail = detail?.kind === "blocked" ? detail : null;
+  const spread = spreadOf(item);
+  const blockedDetail = blockedDetailOf(item, details);
   const evidence = evidenceOf(item, reads, environments);
   const proposalsRead = blockedDetail?.proposals ?? null;
-  const showProposals =
-    item.kind === "blocked" && (proposals.length > 0 || proposalsRead?.status === "failed");
-  const suggestion = suggestionOf(
-    item,
-    gate,
-    proposalSourceOf(proposals, assessmentOf(blockedDetail)),
-  );
+  const showProposals = showProposalsOf(item, proposals, blockedDetail);
+  const suggestion = boardSuggestionOf(item, gate, proposals, blockedDetail);
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
@@ -435,9 +409,7 @@ export function BoardSections({
           {"node" in item && (
             <Badge variant={badgeVariantOf(item.node.state)}>{item.node.state}</Badge>
           )}
-          <span className="text-sm text-muted-foreground">
-            {item.at === null ? "age unknown" : relativeAge(item.at, now)}
-          </span>
+          <span className="text-sm text-muted-foreground">{ageTextOf(item.at, now)}</span>
         </div>
         <div className="flex items-start justify-between gap-2">
           <h3
@@ -462,9 +434,7 @@ export function BoardSections({
       )}
       <Section title="Impact">
         {spread !== null && <p className={`text-sm ${TEXT_WIDTH}`}>{spread}</p>}
-        <p className={`text-sm ${TEXT_WIDTH}`}>
-          {held.length === 0 ? "No node waits on this card." : `${heldText(held.length)} in total.`}
-        </p>
+        <p className={`text-sm ${TEXT_WIDTH}`}>{impactHeldTextOf(held.length)}</p>
         {held.length > 0 && (
           <ul className="flex flex-col gap-1">
             {held.map(({ node, project }) => (

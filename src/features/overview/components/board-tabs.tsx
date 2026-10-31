@@ -4,7 +4,7 @@ import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Kbd } from "@/components/ui/kbd";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BOARD_TABS, type BoardTabId } from "@/lib/board-tabs";
+import { BOARD_TABS, boardTabById, type BoardTabId } from "@/lib/board-tabs";
 import { tabLabelOf, tabSubOf } from "@/lib/board-text";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
@@ -34,7 +34,7 @@ export function BoardTabs({
     <Tabs
       value={tab}
       onValueChange={(value) => {
-        const next = BOARD_TABS.find((entry) => entry.id === value);
+        const next = boardTabById(value);
         if (next !== undefined) onChange(next.id);
       }}
     >
