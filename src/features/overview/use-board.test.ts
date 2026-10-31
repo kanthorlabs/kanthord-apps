@@ -508,4 +508,37 @@ describe("useBoard", () => {
     expect(view.result.current.board.selectedId).toBe("blocked:b1");
     expect(document.activeElement).toBe(card);
   });
+
+  it("focuses the element of a card with focusCard", () => {
+    const view = render();
+    const card = elementOf();
+    act(() => view.result.current.board.cardRef("blocked:c1")(card));
+
+    act(() => view.result.current.board.focusCard("blocked:c1"));
+
+    expect(document.activeElement).toBe(card);
+  });
+
+  it("does nothing for a card without an element", () => {
+    const view = render();
+    const before = document.activeElement;
+
+    act(() => view.result.current.board.focusCard("blocked:missing"));
+
+    expect(document.activeElement).toBe(before);
+  });
+
+  it("focuses the detail title with focusTitle on every call", () => {
+    const view = render();
+    const title = elementOf();
+    const card = elementOf();
+    act(() => view.result.current.board.titleRef(title));
+
+    act(() => view.result.current.board.focusTitle());
+    expect(document.activeElement).toBe(title);
+
+    card.focus();
+    act(() => view.result.current.board.focusTitle());
+    expect(document.activeElement).toBe(title);
+  });
 });

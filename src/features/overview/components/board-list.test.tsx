@@ -143,9 +143,35 @@ describe("BoardList", () => {
 
     const panel = screen.getByRole("tabpanel");
 
-    expect(panel).toHaveAttribute("tabindex", "0");
     expect(panel).toHaveAccessibleDescription("Act on the stopped node.");
     expect(screen.getByRole("heading", { name: "Rule", level: 3 })).toBeInTheDocument();
+  });
+
+  it("makes the panel a tab stop only when it holds no card", () => {
+    renderList({ tab: RESUME, cards: [] });
+
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("tabindex", "0");
+  });
+
+  it("gives the list one tab stop on the selected card", () => {
+    renderList({ selectedId: "blocked:b2" });
+
+    expect(screen.getByRole("tabpanel")).not.toHaveAttribute("tabindex");
+    expect(screen.getByRole("button", { name: "Fix the build" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("button", { name: "Ship the release" })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
+  });
+
+  it("gives the tab stop to the first card when no listed card is selected", () => {
+    renderList({ selectedId: "blocked:gone" });
+
+    expect(screen.getByRole("button", { name: "Ship the release" })).toHaveAttribute(
+      "tabindex",
+      "0",
+    );
+    expect(screen.getByRole("button", { name: "Fix the build" })).toHaveAttribute("tabindex", "-1");
   });
 
   it("adds the what sentence on medium width only", () => {

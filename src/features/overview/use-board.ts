@@ -60,6 +60,8 @@ export interface Board {
   readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
   readonly cardRef: (itemId: string) => (element: HTMLElement | null) => void;
   readonly titleRef: (element: HTMLElement | null) => void;
+  readonly focusCard: (itemId: string) => void;
+  readonly focusTitle: () => void;
   readonly allClearRef: (element: HTMLElement | null) => void;
 }
 
@@ -438,6 +440,14 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     allClearElement.current = element;
   }, []);
 
+  const focusCard = useCallback((itemId: string) => {
+    cardElements.current.get(itemId)?.focus();
+  }, []);
+
+  const focusTitle = useCallback(() => {
+    setState((existing) => ({ ...existing, focus: { target: "title" } }));
+  }, []);
+
   const { focus } = current;
   useEffect(() => {
     if (focus === null) return;
@@ -482,6 +492,8 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     setDialogOpen,
     cardRef,
     titleRef,
+    focusCard,
+    focusTitle,
     allClearRef,
   };
 }

@@ -197,11 +197,18 @@ function renderActs(item: AttentionItem, details: AttentionDetails = new Map()) 
   );
 }
 
+function labelOf(control: HTMLElement): string {
+  return Array.from(control.childNodes)
+    .filter((node) => node.nodeType === Node.TEXT_NODE)
+    .map((node) => node.textContent)
+    .join("");
+}
+
 function actNames(): readonly (string | null)[] {
   const group = screen.getByRole("group", { name: "Acts" });
   return within(group)
     .getAllByRole("button")
-    .map((control) => control.getAttribute("aria-label") ?? control.textContent);
+    .map((control) => control.getAttribute("aria-label") ?? labelOf(control));
 }
 
 const PAUSED = node("implement", "Paused");

@@ -115,4 +115,35 @@ describe("BoardTabs", () => {
 
     expect(screen.getByText("panel")).toBeVisible();
   });
+
+  it("sets aria-keyshortcuts and shows the number on each tab", () => {
+    render(<Harness />);
+
+    expect(screen.getAllByRole("tab").map((tab) => tab.getAttribute("aria-keyshortcuts"))).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+    ]);
+    expect(screen.getAllByRole("tab").map((tab) => tab.querySelector("kbd")?.textContent)).toEqual([
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+    ]);
+  });
+
+  it("hides the numbers and the aria-keyshortcuts with the shortcuts off", () => {
+    window.localStorage.setItem("kd-board-shortcuts", "off");
+    render(<Harness />);
+
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab).not.toHaveAttribute("aria-keyshortcuts");
+      expect(tab.querySelector("kbd")).toBeNull();
+    }
+  });
 });

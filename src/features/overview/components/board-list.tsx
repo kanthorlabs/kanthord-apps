@@ -67,12 +67,13 @@ export function BoardList({
   const verbId = useId();
   const expanded = widthClass === BOARD_WIDTH.Expanded;
   const filtered = projectName !== null;
+  const tabStopId = cards.some((card) => card.id === selectedId) ? selectedId : cards[0]?.id;
   const emptyLine = `Nothing waits in ${tab.name}${filtered ? ` in ${projectName}` : ""}.`;
 
   return (
     <TabsContent
       value={tab.id}
-      tabIndex={0}
+      tabIndex={cards.length === 0 ? 0 : undefined}
       aria-describedby={verbId}
       className="flex min-w-0 flex-col gap-3"
     >
@@ -83,7 +84,7 @@ export function BoardList({
         {filtered && tab.id === BOARD_TAB.Tool && ` ${ALL_PROJECTS_NOTE}`}
       </p>
       {cards.length > 0 && (
-        <ItemGroup>
+        <ItemGroup data-board-list="">
           {cards.map((card) => (
             <BoardCard
               key={card.id}
@@ -93,6 +94,7 @@ export function BoardList({
               gate={gates.get(card.id) ?? null}
               leadLabel={leadLabelOf(card)}
               selected={card.id === selectedId}
+              tabStop={card.id === tabStopId}
               onSelect={onSelect}
               titleRef={cardRef(card.id)}
             />

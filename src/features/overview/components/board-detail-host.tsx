@@ -127,7 +127,11 @@ export function BoardDetailHost({
   }
 
   if (widthClass === BOARD_WIDTH.Expanded) {
-    return <div className="flex min-h-0 flex-col">{body ?? empty}</div>;
+    return (
+      <div data-board-detail="" className="flex min-h-0 flex-col">
+        {body ?? empty}
+      </div>
+    );
   }
 
   const compact = widthClass === BOARD_WIDTH.Compact;
@@ -142,6 +146,7 @@ export function BoardDetailHost({
         side="right"
         showCloseButton={false}
         aria-labelledby={titleId}
+        data-board-detail=""
         initialFocus={title}
         className={compact ? COMPACT_SHEET : MEDIUM_SHEET}
       >
