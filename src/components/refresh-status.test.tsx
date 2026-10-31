@@ -36,4 +36,16 @@ describe("RefreshStatus", () => {
 
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps the stock button height without the touch prop", () => {
+    render(<RefreshStatus updatedAt={NOW} now={NOW} onRefresh={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Refresh" })).not.toHaveClass("min-h-11");
+  });
+
+  it("sets a 44 px minimum height below 1024 px with the touch prop", () => {
+    render(<RefreshStatus touch updatedAt={NOW} now={NOW} onRefresh={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Refresh" })).toHaveClass("min-h-11", "lg:min-h-0");
+  });
 });

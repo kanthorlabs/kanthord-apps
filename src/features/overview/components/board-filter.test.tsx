@@ -108,4 +108,12 @@ describe("BoardFilter", () => {
 
     expect(screen.getAllByRole("button")).toHaveLength(3);
   });
+
+  it("sets a 44 px minimum height below 1024 px on each item", () => {
+    render(<Harness />);
+
+    for (const button of screen.getAllByRole("button")) {
+      expect(button).toHaveClass("min-h-11", "lg:min-h-0");
+    }
+  });
 });

@@ -10,6 +10,7 @@ import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import type { BoardCounts } from "../use-board";
 
 const ALL = "all";
+const ITEM_TOUCH = "min-h-11 lg:min-h-0";
 
 interface BoardFilterProps {
   readonly projects: readonly Project[];
@@ -47,9 +48,11 @@ export function BoardFilter({
               onChange(pickedProjectIdOf(projects, next[0]));
             }}
           >
-            <ToggleGroupItem value={ALL}>All · {counts.all}</ToggleGroupItem>
+            <ToggleGroupItem value={ALL} className={ITEM_TOUCH}>
+              All · {counts.all}
+            </ToggleGroupItem>
             {projects.map((project) => (
-              <ToggleGroupItem key={project.id} value={project.id}>
+              <ToggleGroupItem key={project.id} value={project.id} className={ITEM_TOUCH}>
                 {project.name} · {counts.projects[project.id] ?? 0}
               </ToggleGroupItem>
             ))}
