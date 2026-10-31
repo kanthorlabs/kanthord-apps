@@ -1,5 +1,19 @@
 import type { AttentionItem } from "./attention";
-import type { BoardGate } from "./board-items";
+import { type BoardGate, startItemOf } from "./board-items";
+import type { BoardTabId } from "./board-tabs";
+
+export interface InitialSelection {
+  readonly itemId: string;
+  readonly tab: BoardTabId | null;
+}
+
+export function initialSelectionOf(
+  ranked: readonly AttentionItem[],
+  tabOf: ReadonlyMap<string, BoardTabId>,
+): InitialSelection | null {
+  const start = startItemOf(ranked);
+  return start === null ? null : { itemId: start.id, tab: tabOf.get(start.id) ?? null };
+}
 
 export function tabStopIdOf(
   cards: readonly AttentionItem[],

@@ -198,6 +198,53 @@ describe("useBoard", () => {
     expect(board.summary.long).toContain("Start here: Node b1 in Rule.");
   });
 
+  it("follows the Start here card while the ranking changes before any choice", () => {
+    const view = render();
+    const base = overviewOf();
+    const heavier = {
+      ...base,
+      held: new Map(base.held).set("paused:p1", ["n1", "n2", "n3", "n4", "n5", "n6", "n7"]),
+    };
+
+    view.rerender({ overview: heavier, width: BOARD_WIDTH.Expanded });
+    const { board } = view.result.current;
+
+    expect(board.startItem?.id).toBe("paused:p1");
+    expect(board.selectedId).toBe("paused:p1");
+    expect(board.tab).toBe(BOARD_TAB.Resume);
+  });
+
+  it("keeps the card that the human chose when the Start here card changes", () => {
+    const view = render();
+    const base = overviewOf();
+    const heavier = {
+      ...base,
+      held: new Map(base.held).set("paused:p1", ["n1", "n2", "n3", "n4", "n5", "n6", "n7"]),
+    };
+
+    act(() => view.result.current.board.select("blocked:b2"));
+    view.rerender({ overview: heavier, width: BOARD_WIDTH.Expanded });
+    const { board } = view.result.current;
+
+    expect(board.startItem?.id).toBe("paused:p1");
+    expect(board.selectedId).toBe("blocked:b2");
+    expect(board.tab).toBe(BOARD_TAB.Rule);
+  });
+
+  it("lets an item parameter win over the Start here card when the ranking changes", () => {
+    const view = render("/?item=blocked:b2");
+    const base = overviewOf();
+    const heavier = {
+      ...base,
+      held: new Map(base.held).set("paused:p1", ["n1", "n2", "n3", "n4", "n5", "n6", "n7"]),
+    };
+
+    view.rerender({ overview: heavier, width: BOARD_WIDTH.Expanded });
+
+    expect(view.result.current.board.selectedId).toBe("blocked:b2");
+    expect(view.result.current.board.tab).toBe(BOARD_TAB.Rule);
+  });
+
   it("lets a kind parameter win for the tab", () => {
     const view = render("/?kind=paused");
     const { board } = view.result.current;

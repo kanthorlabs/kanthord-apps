@@ -849,6 +849,32 @@ describe("OverviewScreen board", () => {
     expect(screen.getByText("Nothing waits in Act outside.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Go to Audit log" })).toBeInTheDocument();
   });
+
+  it("selects the Start here card that outranks the first card once the reads answer", async () => {
+    serve({
+      nodes: {
+        "prj-1": [blocked("n_a", "Audit log for account changes")],
+        "prj-2": [outside("n_o", "Stripe webhook")],
+      },
+      actions: { n_o: [requested("n_o", "unresolved")] },
+      evidence: { n_o: [requestEvidence("n_o", NOW - 10 * HOUR)] },
+    });
+
+    renderScreen();
+
+    await waitFor(() =>
+      expect(screen.getByText(/Start here:/)).toHaveTextContent(
+        "Start here: Stripe webhook in Act outside.",
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: "Act outside, 1 act" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
+    expect(cardOf("Stripe webhook").firstElementChild).toHaveAttribute("aria-current", "true");
+  });
 });
 
 describe("OverviewScreen scope", () => {
