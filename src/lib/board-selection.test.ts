@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { AttentionItem } from "./attention";
 import type { BoardGate } from "./board-items";
-import { heldCountOf, selectedGateOf, tabStopIdOf } from "./board-selection";
+import { heldCountOf, initialSelectionOf, selectedGateOf, tabStopIdOf } from "./board-selection";
+import { BOARD_TAB, type BoardTabId } from "./board-tabs";
 
 function card(id: string): AttentionItem {
   return { id } as unknown as AttentionItem;
@@ -48,5 +49,26 @@ describe("selectedGateOf", () => {
   it("returns null without a selection or a gate", () => {
     expect(selectedGateOf(gates, null)).toBeNull();
     expect(selectedGateOf(gates, card("b"))).toBeNull();
+  });
+});
+
+describe("initialSelectionOf", () => {
+  const ranked = [card("outside"), card("rule"), card("tool")];
+
+  it("selects the Start here item and its tab, not the first card of the first tab", () => {
+    const tabOf = new Map<string, BoardTabId>([
+      ["tool", BOARD_TAB.Tool],
+      ["rule", BOARD_TAB.Rule],
+      ["outside", BOARD_TAB.Outside],
+    ]);
+
+    expect(initialSelectionOf(ranked, tabOf)).toEqual({
+      itemId: "outside",
+      tab: BOARD_TAB.Outside,
+    });
+  });
+
+  it("selects nothing for an empty list", () => {
+    expect(initialSelectionOf([], new Map())).toBeNull();
   });
 });

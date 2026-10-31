@@ -6,6 +6,7 @@ import type { AttentionItem } from "@/lib/attention";
 import { type ActedAct, type DoneEntry, doneEntryOf, doneInView } from "@/lib/board-done";
 import { BOARD_TAB, BOARD_TABS, type BoardTabId, boardTabOf } from "@/lib/board-tabs";
 import { isInProject, rankBoardItems, startItemOf } from "@/lib/board-items";
+import { initialSelectionOf } from "@/lib/board-selection";
 import { type BoardSummary, boardSummaryOf } from "@/lib/board-text";
 import { boardUrlOf } from "@/lib/board-url";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
@@ -121,7 +122,7 @@ interface Derived {
   readonly status: BoardOverview["status"];
   readonly items: readonly AttentionItem[];
   readonly tabOf: ReadonlyMap<string, BoardTabId>;
-  readonly start: AttentionItem | null;
+  readonly view: readonly AttentionItem[];
   readonly cardsByTab: Readonly<Record<BoardTabId, readonly AttentionItem[]>>;
   readonly widthClass: BoardWidth;
   readonly updatedAt: number | null;
@@ -240,16 +241,22 @@ const trackWidth: Advance = (state, { widthClass }) => {
   };
 };
 
-const settleStart: Advance = (state, { start, tabOf, cardsByTab }) => {
-  if (state.settled || start === null) return state;
-  if (state.kind !== null) {
+const settleStart: Advance = (state, { items, view, urlKind, tabOf, cardsByTab }) => {
+  if (state.settled || view.length === 0) return state;
+  if (state.selectedId !== null && !items.some((item) => item.id === state.selectedId)) {
+    return { ...state, settled: true };
+  }
+  if (urlKind !== null) {
     return {
       ...state,
       settled: true,
-      selectedId: cardsByTab[state.kind][0]?.id ?? null,
+      selectedId: cardsByTab[urlKind][0]?.id ?? null,
     };
   }
-  return { ...state, settled: true, selectedId: start.id, kind: tabOf.get(start.id) ?? null };
+  const initial = initialSelectionOf(view, tabOf);
+  if (initial === null) return state;
+  if (state.selectedId === initial.itemId && state.kind === initial.tab) return state;
+  return { ...state, selectedId: initial.itemId, kind: initial.tab };
 };
 
 const trackLast: Advance = (state, { items }) => {
@@ -371,7 +378,7 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     status,
     items: boardItems,
     tabOf,
-    start: startItem,
+    view,
     cardsByTab,
     widthClass,
     updatedAt,
@@ -491,6 +498,7 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     if (target === undefined) return;
     setState((existing) => ({
       ...existing,
+      settled: true,
       selectedId: target.id,
       openId: existing.openId === null ? null : target.id,
       focus: { target: "title" },
@@ -511,6 +519,7 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     const at = Date.now();
     setState((existing) => ({
       ...existing,
+      settled: true,
       handoff: { item, itemId, index, tab: shownTab, readAt, act: act ?? null, at },
     }));
   }, []);
