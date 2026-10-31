@@ -1,18 +1,25 @@
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyContent, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 
+import { DataFooter } from "./data-footer";
 import { FlowSection } from "./flow-section";
+import { OutOfBounds } from "./out-of-bounds";
 import { ReadState } from "./read-state";
+import { StopReasonSection, StopReasonSkeleton } from "./stop-reason-section";
 import type { FlowReadView, FlowView } from "./use-flow";
+import { WhySection, WhySkeleton } from "./why-section";
 
 interface FlowTabProps {
   readonly view: FlowReadView & Pick<FlowView, "filters">;
 }
 
 const FLOW_COLUMNS = [0, 1, 2, 3, 4, 5] as const;
+const DATA_HASH = "#flow-data";
+const DATA_ID = "flow-data";
 
 function FlowSkeleton() {
   return (
@@ -46,11 +53,35 @@ function NoExecutions() {
   );
 }
 
-export function FlowTab({ view }: FlowTabProps) {
+function TabSkeleton() {
   return (
-    <ReadState view={view} skeleton={<FlowSkeleton />}>
-      {view.read !== null && !view.empty && <FlowSection read={view.read} filters={view.filters} />}
-      {view.empty ? <NoExecutions /> : null}
+    <div className="flex flex-col gap-6">
+      <FlowSkeleton />
+      <WhySkeleton />
+      <StopReasonSkeleton />
+    </div>
+  );
+}
+
+export function FlowTab({ view }: FlowTabProps) {
+  const { hash } = useLocation();
+  const ready = view.read !== null;
+
+  useEffect(() => {
+    if (ready && hash === DATA_HASH) document.getElementById(DATA_ID)?.focus();
+  }, [ready, hash]);
+
+  return (
+    <ReadState view={view} skeleton={<TabSkeleton />}>
+      {view.read !== null && (
+        <div className="flex flex-col gap-6">
+          {!view.empty && <OutOfBounds read={view.read} filters={view.filters} />}
+          {view.empty ? <NoExecutions /> : <FlowSection read={view.read} filters={view.filters} />}
+          <WhySection read={view.read} filters={view.filters} />
+          <StopReasonSection read={view.read} filters={view.filters} />
+          <DataFooter read={view.read} filters={view.filters} />
+        </div>
+      )}
     </ReadState>
   );
 }

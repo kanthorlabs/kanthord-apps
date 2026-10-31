@@ -15,14 +15,17 @@ const FLOW_READ = flowRead as unknown as FlowRead;
 const FILTERS = flowFiltersOf(new URLSearchParams());
 const EMPTY_TEXT = "No executions claimed in this range.";
 
-function renderTab(view: {
-  read: FlowRead | null;
-  error: ApiError | null;
-  empty: boolean;
-  refresh?: () => void;
-}) {
+function renderTab(
+  view: {
+    read: FlowRead | null;
+    error: ApiError | null;
+    empty: boolean;
+    refresh?: () => void;
+  },
+  entry = "/analytics",
+) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <FlowTab view={{ refresh: vi.fn(), filters: FILTERS, ...view }} />
     </MemoryRouter>,
   );
@@ -38,6 +41,35 @@ describe("FlowTab", () => {
     expect(screen.queryByRole("heading", { name: "Flow" })).toBeNull();
   });
 
+  it("shows the skeleton of each section and no Out of bounds while the first read runs", () => {
+    renderTab({ read: null, error: null, empty: false });
+
+    expect(screen.getByRole("status", { name: "Loading the causes" })).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading the stop reasons" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Out of bounds/ })).toBeNull();
+  });
+
+  it("shows the five sections in order after the read", () => {
+    renderTab({ read: FLOW_READ, error: null, empty: false });
+
+    const names = screen
+      .getAllByRole("heading", { level: 3 })
+      .map((heading) => heading.textContent?.split(" ")[0]);
+    expect(names).toEqual(["Out", "Flow", "Why", "Stop"]);
+    const lastHeading = screen.getByRole("heading", { name: "Stop reasons" });
+    expect(
+      lastHeading.compareDocumentPosition(screen.getByText("Completeness")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("shows no cost or token scorecard", () => {
+    renderTab({ read: FLOW_READ, error: null, empty: false });
+
+    expect(screen.queryByRole("heading", { name: "Cost and tokens" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "Cost tiles" })).toBeNull();
+  });
+
   it("shows the flow section after the read", () => {
     renderTab({ read: FLOW_READ, error: null, empty: false });
 
@@ -50,6 +82,15 @@ describe("FlowTab", () => {
     renderTab({ read: FLOW_READ, error: null, empty: true });
 
     expect(screen.queryByRole("heading", { name: "Flow" })).toBeNull();
+  });
+
+  it("keeps the Why, stop-reason and data sections for a read with no execution", () => {
+    renderTab({ read: FLOW_READ, error: null, empty: true });
+
+    expect(screen.getByRole("heading", { name: /^Why/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Stop reasons" })).toBeInTheDocument();
+    expect(screen.getByText("Completeness")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Out of bounds/ })).toBeNull();
   });
 
   it("shows the empty text with links to Scheduler and Workers for a read with no execution", () => {
@@ -74,6 +115,24 @@ describe("FlowTab", () => {
     expect(screen.queryByText(EMPTY_TEXT)).toBeNull();
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("moves the focus to the data footer for the hash flow-data", () => {
+    renderTab({ read: FLOW_READ, error: null, empty: false }, "/analytics?tab=flow#flow-data");
+
+    expect(screen.getByText("Completeness").closest("dl")).toHaveFocus();
+  });
+
+  it("keeps the focus where it is without the hash flow-data", () => {
+    renderTab({ read: FLOW_READ, error: null, empty: false });
+
+    expect(screen.getByText("Completeness").closest("dl")).not.toHaveFocus();
+  });
+
+  it("moves no focus while the first read runs", () => {
+    renderTab({ read: null, error: null, empty: false }, "/analytics#flow-data");
+
+    expect(document.body).toHaveFocus();
   });
 
   it("shows the error and Retry after a failed first read", async () => {
