@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/empty";
 import type { AttentionItem } from "@/lib/attention";
 import { hiddenByFilterOf, isNothingAtAll } from "@/lib/board-items";
-import { BOARD_TABS, type BoardTab, type BoardTabId } from "@/lib/board-tabs";
+import { projectNameOf } from "@/lib/board-filter";
+import { noticeTextOf } from "@/lib/board-pane-text";
+import { selectedGateOf } from "@/lib/board-selection";
+import { type BoardTab, boardTabNamed } from "@/lib/board-tabs";
 import { announcementOf, leadLabelOf, workforceText } from "@/lib/board-text";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
@@ -35,12 +38,6 @@ import { type BoardKeysInput, useBoardKeys } from "./use-board-keys";
 import { BoardReadsProvider } from "./use-board-reads";
 import { useBoardWidth } from "./use-board-width";
 import { useOverview } from "./use-overview";
-
-function tabNamed(id: BoardTabId): BoardTab {
-  const tab = BOARD_TABS.find((entry) => entry.id === id);
-  if (tab === undefined) throw new Error(`No board tab ${id}.`);
-  return tab;
-}
 
 function BoardKeys(props: Omit<BoardKeysInput, "acts">) {
   const { acts } = useBoardActs();
@@ -111,7 +108,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [notice, setNotice] = useState<{ text: string; itemId: string | null } | null>(null);
   const expanded = widthClass === BOARD_WIDTH.Expanded;
-  const tab = tabNamed(board.tab);
+  const tab = boardTabNamed(board.tab);
   const { startItem } = board;
   const workforce = workforceText(overview.running, overview.waiting);
   const readFault = overview.faults.length > 0;
@@ -121,14 +118,14 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
     board.tab,
     board.projectId,
   );
-  const projectName = overview.projects.find((entry) => entry.id === board.projectId)?.name ?? null;
+  const projectName = projectNameOf(overview.projects, board.projectId);
   const nothingAtAll = isNothingAtAll({
     projectId: board.projectId,
     view: board.counts.view,
     allClear: overview.allClear,
     readFault,
   });
-  const noticeText = notice?.itemId === board.selectedId ? (notice?.text ?? null) : null;
+  const noticeText = noticeTextOf(notice, board.selectedId);
   const showAll = () => board.selectProject(null);
   const goToStart = () => {
     if (startItem !== null) board.select(startItem.id);
@@ -296,7 +293,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
             setDialogOpen={board.setDialogOpen}
             registerDialogCloser={board.registerDialogCloser}
             widthClass={widthClass}
-            gate={board.selected === null ? null : (overview.gates.get(board.selected.id) ?? null)}
+            gate={selectedGateOf(overview.gates, board.selected)}
             jump={board.jump}
           >
             <BoardKeys

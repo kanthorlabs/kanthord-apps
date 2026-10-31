@@ -14,7 +14,9 @@ import { TabsContent } from "@/components/ui/tabs";
 import type { AttentionItem } from "@/lib/attention";
 import type { DoneEntry } from "@/lib/board-done";
 import type { BoardGate } from "@/lib/board-items";
-import { BOARD_TAB, type BoardTab, type BoardTabId } from "@/lib/board-tabs";
+import { emptyLineOf, tabVerbOf } from "@/lib/board-pane-text";
+import { heldCountOf, tabStopIdOf } from "@/lib/board-selection";
+import type { BoardTab, BoardTabId } from "@/lib/board-tabs";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import { AllClear } from "./all-clear";
@@ -45,8 +47,6 @@ interface BoardListProps {
   readonly allClearRef: (element: HTMLElement | null) => void;
 }
 
-const ALL_PROJECTS_NOTE = "Counts all projects.";
-
 export function BoardList({
   tab,
   cards,
@@ -73,8 +73,8 @@ export function BoardList({
   const verbId = useId();
   const expanded = widthClass === BOARD_WIDTH.Expanded;
   const filtered = projectName !== null;
-  const tabStopId = cards.some((card) => card.id === selectedId) ? selectedId : cards[0]?.id;
-  const emptyLine = `Nothing waits in ${tab.name}${filtered ? ` in ${projectName}` : ""}.`;
+  const tabStopId = tabStopIdOf(cards, selectedId);
+  const emptyLine = emptyLineOf(tab, projectName);
 
   return (
     <TabsContent
@@ -85,9 +85,7 @@ export function BoardList({
     >
       <h3 className="sr-only">{tab.name}</h3>
       <p id={verbId} className="text-sm text-muted-foreground">
-        {tab.verb}
-        {widthClass === BOARD_WIDTH.Medium && ` ${tab.what}`}
-        {filtered && tab.id === BOARD_TAB.Tool && ` ${ALL_PROJECTS_NOTE}`}
+        {tabVerbOf(tab, widthClass, filtered)}
       </p>
       {cards.length > 0 && (
         <ItemGroup data-board-list="">
@@ -96,7 +94,7 @@ export function BoardList({
               key={card.id}
               item={card}
               now={now}
-              held={held.get(card.id)?.length ?? 0}
+              held={heldCountOf(held, card.id)}
               gate={gates.get(card.id) ?? null}
               leadLabel={leadLabelOf(card)}
               selected={card.id === selectedId}

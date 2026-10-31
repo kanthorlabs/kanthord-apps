@@ -5,8 +5,14 @@ import { DisabledAction } from "@/components/disabled-action";
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import { type BoardAct, phoneActsOf } from "@/lib/board-acts";
-import { actKeysOf } from "@/lib/board-keys";
+import {
+  type BoardAct,
+  moreCountOf,
+  moreNeedsOf,
+  needIdOf,
+  phoneActsOf,
+  shortcutKeysOf,
+} from "@/lib/board-acts";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
 import { useBoardActs, useBoardActsFrame } from "../use-board-acts";
@@ -14,8 +20,6 @@ import { useShortcutSetting } from "../use-shortcut-setting";
 import { BoardMoreSheet } from "./board-more-sheet";
 import { CheckBadge } from "./check-badge";
 import { ResumeProjectAction } from "./resume-project-action";
-
-const NO_KEYS: ReadonlyMap<string, string> = new Map();
 
 function KeyHint({ shortcut }: { readonly shortcut: string }) {
   return (
@@ -138,18 +142,13 @@ function PhoneBar({
   readonly subject: string;
   readonly needIds: NeedIds;
 }) {
-  const { lead, others, last, badges } = phoneActsOf(acts);
-  const count = others.length + (last === null ? 0 : 1);
+  const phone = phoneActsOf(acts);
+  const { lead, others, last, badges } = phone;
+  const count = moreCountOf(phone);
   const control = (act: BoardAct) => (
     <ActControl key={act.id} act={act} shortcut={keys.get(act.id) ?? null} needIds={needIds} />
   );
-  const sheetNeeds = [
-    ...new Set(
-      [...others, ...(last === null ? [] : [last])].flatMap((act) =>
-        act.type === "gated" ? [act.need] : [],
-      ),
-    ),
-  ];
+  const sheetNeeds = moreNeedsOf(phone);
 
   return (
     <>
@@ -176,9 +175,9 @@ export function BoardActBar() {
   const { widthClass, subject } = useBoardActsFrame();
   const { enabled } = useShortcutSetting();
   if (acts.length === 0) return null;
-  const keys = enabled ? actKeysOf(acts.map((act) => act.id)) : NO_KEYS;
+  const keys = shortcutKeysOf(acts, enabled);
   const phone = widthClass === BOARD_WIDTH.Compact;
-  const needIds: NeedIds = (need) => `${base}-need-${needs.indexOf(need)}`;
+  const needIds: NeedIds = (need) => needIdOf(base, needs, need);
 
   return (
     <div

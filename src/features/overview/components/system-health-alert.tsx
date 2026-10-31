@@ -1,4 +1,5 @@
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { healthMessageOf } from "@/lib/board-pane-text";
 
 interface SystemHealthAlertProps {
   readonly components: readonly string[];
@@ -11,9 +12,7 @@ export function SystemHealthAlert({ components, failure }: SystemHealthAlertProp
     <Alert variant="destructive">
       <AlertTitle>The daemon reports a fault.</AlertTitle>
       <AlertDescription className="break-words">
-        {failure === null
-          ? `${components.join(", ")}. Operate the host.`
-          : `The liveness of the daemon could not be read: ${failure}`}
+        {healthMessageOf(components, failure)}
       </AlertDescription>
     </Alert>
   );

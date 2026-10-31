@@ -2,6 +2,7 @@ import { Fragment } from "react";
 
 import { RecordName } from "@/components/record-name";
 import type { DecisionAttentionItem, DiscardedDependency } from "@/lib/attention";
+import { dependencySeparatorOf, discardedVerbOf } from "@/lib/board-pane-text";
 import { pauseSentence } from "@/lib/execution-stop";
 import { closingEventText } from "@/lib/mission-labels";
 
@@ -14,7 +15,7 @@ function DependencyNames({ discarded }: { readonly discarded: readonly Discarded
     <>
       {discarded.map((dependency, index) => (
         <Fragment key={dependency.id}>
-          {index > 0 && (index === discarded.length - 1 ? " and " : ", ")}
+          {dependencySeparatorOf(index, discarded.length)}
           <RecordName>{dependency.name}</RecordName>
         </Fragment>
       ))}
@@ -33,11 +34,10 @@ export function CauseText({ item }: CauseTextProps) {
     );
   }
   if (item.kind === "paused") return <>{item.pause === null ? null : pauseSentence(item.pause)}</>;
-  const plural = item.discarded.length > 1;
   return (
     <>
-      It depends on <DependencyNames discarded={item.discarded} />, which {plural ? "are" : "is"}{" "}
-      Discarded. A discarded node satisfies no dependency.
+      It depends on <DependencyNames discarded={item.discarded} />, which{" "}
+      {discardedVerbOf(item.discarded.length)} Discarded. A discarded node satisfies no dependency.
     </>
   );
 }

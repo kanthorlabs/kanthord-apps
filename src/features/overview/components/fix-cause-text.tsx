@@ -1,51 +1,45 @@
 import { Fragment } from "react";
 
 import { RecordName } from "@/components/record-name";
-import type { TakerSituation } from "@/lib/claim-takers";
+import {
+  exampleOf,
+  issuesTextOf,
+  jobPronounOf,
+  jobsTextOf,
+  jobWaitVerbOf,
+  pendingReasonTextOf,
+  situationTextOf,
+} from "@/lib/fix-cause-text";
 import type {
   AgentInvalidItem,
-  CredentialRefusedItem,
   FixAttentionItem,
   InvalidBinding,
   NoTakerItem,
-  RequestRejectedItem,
 } from "@/lib/fix-attention";
 
 interface FixCauseTextProps {
   readonly item: FixAttentionItem;
 }
 
-function tagsTextOf(tags: readonly string[]): string {
-  if (tags.length === 0) return "";
-  return ` with the tags ${tags.join(", ")}`;
-}
-
 function NoTakerSentence({ item }: { readonly item: NoTakerItem }) {
-  const { hint, state, intent, tags, jobCount } = item;
-  const jobs = `${intent} ${jobCount === 1 ? "job" : "jobs"} in state ${state}${tagsTextOf(tags)}`;
+  const { hint, jobCount } = item;
+  const jobs = jobsTextOf(item);
+  const pronoun = jobPronounOf(jobCount);
   if (hint.kind === "none") {
     return (
       <>
-        No worker binding matches the {jobs}. Add a binding whose worker and tags match{" "}
-        {jobCount === 1 ? "it" : "them"} on the Bindings tab.
+        No worker binding matches the {jobs}. Add a binding whose worker and tags match {pronoun} on
+        the Bindings tab.
       </>
     );
   }
   return (
     <>
-      {jobCount} {jobs} {jobCount === 1 ? "waits" : "wait"}. Binding{" "}
-      <RecordName>{hint.binding}</RecordName> (<RecordName>{hint.worker}</RecordName>) matches{" "}
-      {jobCount === 1 ? "it" : "them"} and {SITUATION_TEXTS[hint.kind]}
+      {jobCount} {jobs} {jobWaitVerbOf(jobCount)}. Binding <RecordName>{hint.binding}</RecordName> (
+      <RecordName>{hint.worker}</RecordName>) matches {pronoun} and {situationTextOf(hint.kind)}
     </>
   );
 }
-
-const SITUATION_TEXTS: Readonly<Record<TakerSituation, string>> = {
-  no_instance: "lists no instance. Add an instance to the binding on the Bindings tab.",
-  no_registration:
-    "has no live registration of a listed instance. Open the worker page to check its instances.",
-  external_harness: "has no live registration. Start its worker program.",
-};
 
 function CredentialNames({ names }: { readonly names: readonly string[] }) {
   return (
@@ -74,16 +68,12 @@ function BindingPairs({ bindings }: { readonly bindings: readonly InvalidBinding
   );
 }
 
-function exampleOf(item: CredentialRefusedItem | RequestRejectedItem): string {
-  return item.count > 1 ? ", for example" : "";
-}
-
 function AgentInvalidSentence({ item }: { readonly item: AgentInvalidItem }) {
   return (
     <>
       Agent <RecordName>{item.agent}</RecordName> has an invalid configuration
-      {item.issues.length === 0 ? "" : ` (${item.issues.join(", ")})`} in{" "}
-      <BindingPairs bindings={item.bindings} />. Fix the enablement on the agent page.
+      {issuesTextOf(item.issues)} in <BindingPairs bindings={item.bindings} />. Fix the enablement
+      on the agent page.
     </>
   );
 }
@@ -108,8 +98,8 @@ export function FixCauseText({ item }: FixCauseTextProps) {
     return (
       <>
         <RecordName>{item.binding}</RecordName> of <RecordName>{item.project.name}</RecordName>{" "}
-        waits{item.reason === "" ? "." : `: ${item.reason}`} Workers claim no node of it. The server
-        reads it again each minute.
+        waits{pendingReasonTextOf(item.reason)} Workers claim no node of it. The server reads it
+        again each minute.
       </>
     );
   }
