@@ -44,6 +44,8 @@ export const TRACE_QUERY_KEYS = [
   "min_total_tokens",
   "min_cost_usd",
   "sort",
+  "from",
+  "to",
 ] as const;
 
 export type TraceQueryKey = (typeof TRACE_QUERY_KEYS)[number];
@@ -61,6 +63,13 @@ const MINIMUM_KEYS = ["min_duration_ms", "min_total_tokens", "min_cost_usd"] as 
 const TRACE_STATES: readonly TraceState[] = ["open", "ok", "error"];
 const TRACE_SORTS: readonly TraceSort[] = ["started_at", "duration_ms", "total_tokens", "cost_usd"];
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export interface TimeWindow {
+  readonly from: number | null;
+  readonly to: number | null;
+}
+
 type MutableQuery = { -readonly [K in keyof TraceListQuery]: TraceListQuery[K] };
 
 export function isTimeRange(value: string | null): value is TimeRange {
@@ -71,6 +80,34 @@ function minimumOf(value: string): number | null {
   if (value.trim() === "") return null;
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
+function millisecondsParamOf(value: string | null): number | null {
+  if (value === null || !/^\d+$/.test(value)) return null;
+  const milliseconds = Number(value);
+  return Number.isSafeInteger(milliseconds) ? milliseconds : null;
+}
+
+export function timeWindowOf(params: URLSearchParams): TimeWindow | null {
+  const from = millisecondsParamOf(params.get("from"));
+  const to = millisecondsParamOf(params.get("to"));
+  if (from === null && to === null) return null;
+  if (from !== null && to !== null && from > to) return null;
+  return { from, to };
+}
+
+function windowInstantOf(milliseconds: number): string {
+  const date = new Date(milliseconds);
+  const time = date.toISOString().slice(11, 16);
+  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()} ${time}`;
+}
+
+export function windowLabelOf(window: TimeWindow): string {
+  if (window.from !== null && window.to !== null) {
+    return `${windowInstantOf(window.from)} – ${windowInstantOf(window.to)} UTC`;
+  }
+  if (window.from !== null) return `From ${windowInstantOf(window.from)} UTC`;
+  return `Until ${windowInstantOf(window.to as number)} UTC`;
 }
 
 export function rangeStartOf(range: TimeRange, now: number): number | null {
@@ -96,6 +133,12 @@ export function traceQueryOf(params: URLSearchParams, now: number): TraceListQue
   if (causeCategory) query.cause_category = causeCategory;
   const sort = TRACE_SORTS.find((candidate) => candidate === params.get("sort"));
   if (sort) query.sort = sort;
+  const window = timeWindowOf(params);
+  if (window !== null) {
+    if (window.from !== null) query.from = window.from;
+    if (window.to !== null) query.to = window.to;
+    return query;
+  }
   const rangeParam = params.get("range");
   const range = isTimeRange(rangeParam) ? rangeParam : DEFAULT_TIME_RANGE;
   if (range !== "all") query.from = now - TIME_RANGE_MS[range];
@@ -110,5 +153,12 @@ export function withParam(
   const copy = new URLSearchParams(params);
   if (value === null || value === "") copy.delete(key);
   else copy.set(key, value);
+  return copy;
+}
+
+export function withRange(params: URLSearchParams, range: string | null): URLSearchParams {
+  const copy = withParam(params, "range", range);
+  copy.delete("from");
+  copy.delete("to");
   return copy;
 }

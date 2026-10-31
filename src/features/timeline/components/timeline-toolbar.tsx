@@ -3,18 +3,16 @@ import { Link } from "react-router-dom";
 import { DisabledAction } from "@/components/disabled-action";
 import { Button } from "@/components/ui/button";
 import { nodePath } from "@/lib/node-path";
-import { TIME_RANGE_LABELS, type TimeRange } from "@/lib/trace-query";
+import type { TimeRange, TimeWindow } from "@/lib/trace-query";
 
-import { type FilterOption, FilterSelect } from "../../traces/list/components/filter-select";
+import { FilterSelect } from "../../traces/list/components/filter-select";
+import { RangeFilter } from "../../traces/list/components/range-filter";
 import type { TimelineScopeView } from "../use-timeline";
-
-const RANGE_OPTIONS: readonly FilterOption[] = Object.entries(TIME_RANGE_LABELS).map(
-  ([value, label]) => ({ value, label }),
-);
 
 interface TimelineToolbarProps {
   readonly scope: TimelineScopeView;
   readonly range: TimeRange;
+  readonly window: TimeWindow | null;
   readonly onRange: (range: string | null) => void;
   readonly onProject: (projectId: string | null) => void;
 }
@@ -52,7 +50,13 @@ function NodeScope({ scope }: { readonly scope: Extract<TimelineScopeView, { kin
   );
 }
 
-export function TimelineToolbar({ scope, range, onRange, onProject }: TimelineToolbarProps) {
+export function TimelineToolbar({
+  scope,
+  range,
+  window,
+  onRange,
+  onProject,
+}: TimelineToolbarProps) {
   return (
     <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
       {scope.kind === "node" ? (
@@ -69,13 +73,7 @@ export function TimelineToolbar({ scope, range, onRange, onProject }: TimelineTo
         </div>
       )}
       <div className="w-full md:w-44">
-        <FilterSelect
-          label="Time range"
-          allLabel={null}
-          options={RANGE_OPTIONS}
-          value={range}
-          onChange={onRange}
-        />
+        <RangeFilter value={range} window={window} onChange={onRange} />
       </div>
     </div>
   );

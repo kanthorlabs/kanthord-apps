@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 
 import { SHEET_KEYS, type SheetKey } from "@/lib/trace-filter-draft";
-import { withParam } from "@/lib/trace-query";
+import { withParam, withRange } from "@/lib/trace-query";
 
 import type { TraceSetter } from "./use-trace-list";
 
@@ -20,7 +20,10 @@ export function useFilterDraft(applied: URLSearchParams, appliedSeconds: string)
       Object.fromEntries(
         SHEET_KEYS.map((key) => [
           key,
-          (value: string | null) => setParams((current) => withParam(current, key, value)),
+          (value: string | null) =>
+            setParams((current) =>
+              key === "range" ? withRange(current, value) : withParam(current, key, value),
+            ),
         ]),
       ) as Record<SheetKey, TraceSetter>,
     [],
