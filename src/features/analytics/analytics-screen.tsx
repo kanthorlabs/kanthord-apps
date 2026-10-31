@@ -35,15 +35,19 @@ export function AnalyticsScreen() {
           <AlertDescription>{flow.rebuildNotice}</AlertDescription>
         </Alert>
       )}
-      <Tabs value={flow.filters.tab} onValueChange={flow.selectTab} className="gap-6">
+      <Tabs
+        value={flow.filters.tab}
+        onValueChange={flow.selectTab}
+        className="flex min-w-0 flex-col gap-6"
+      >
         <TabsList>
           <TabsTrigger value="flow">Flow</TabsTrigger>
           <TabsTrigger value="cost">Cost</TabsTrigger>
         </TabsList>
-        <TabsContent value="flow">
+        <TabsContent value="flow" className="min-w-0">
           <FlowTab view={flow} />
         </TabsContent>
-        <TabsContent value="cost">
+        <TabsContent value="cost" className="min-w-0">
           <CostTab view={flow} />
         </TabsContent>
       </Tabs>

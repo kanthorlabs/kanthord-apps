@@ -162,6 +162,32 @@ describe("AnalyticsScreen", () => {
     expect(readAnalyticsFlow).toHaveBeenCalledTimes(1);
   });
 
+  it("stacks the tab list above the tab panel in a flex-col container", async () => {
+    mountAt("/analytics");
+    await screen.findByText(CONTEXT_LINE);
+    const tabs = screen.getByRole("tablist");
+    const container = tabs.parentElement;
+
+    expect(tabs.compareDocumentPosition(screen.getByRole("tabpanel"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(container).toContainElement(screen.getByRole("tabpanel"));
+    expect(container).toHaveClass("flex-col");
+  });
+
+  it("reads nothing on a click on Cost and then on Flow", async () => {
+    const user = userEvent.setup();
+    mountAt("/analytics");
+    await screen.findByText(CONTEXT_LINE);
+    const before = vi.mocked(readAnalyticsFlow).mock.calls.length;
+
+    await user.click(screen.getByRole("tab", { name: "Cost" }));
+    await user.click(screen.getByRole("tab", { name: "Flow" }));
+
+    expect(screen.getByRole("tab", { name: "Flow" })).toHaveAttribute("aria-selected", "true");
+    expect(vi.mocked(readAnalyticsFlow).mock.calls).toHaveLength(before);
+  });
+
   it("reads the flow of 7d by day with the previous window", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(NOW);
