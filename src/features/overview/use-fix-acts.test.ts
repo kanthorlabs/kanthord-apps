@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { readProject, resumeProject } from "@/api/resources/projects";
 import type { Project } from "@/api/types";
-import type { ProjectPausedItem } from "@/lib/fix-attention";
+import { fixItemsOf, type ProjectPausedItem } from "@/lib/fix-attention";
 
 import { useFixActs } from "./use-fix-acts";
 
@@ -25,15 +25,21 @@ const PROJECT: Project = {
   workspace_directory: "/state/prj-1",
 };
 
-const ITEM: ProjectPausedItem = {
-  id: "project_paused:prj-1",
-  group: "fixes",
-  kind: "project_paused",
-  project: PROJECT,
-  subject: "atlas",
-  at: 5,
-  cause: "Project paused",
-};
+const [ITEM] = fixItemsOf(
+  [
+    {
+      project: PROJECT,
+      missionVersion: 1,
+      nodes: [],
+      jobs: [],
+      registrations: [],
+      executions: [],
+      bindings: [],
+      environments: null,
+    },
+  ],
+  { now: 10, catalog: [], credentials: [], sessions: null },
+) as readonly [ProjectPausedItem];
 
 beforeEach(() => {
   vi.mocked(readProject).mockReset().mockResolvedValue(PROJECT);
