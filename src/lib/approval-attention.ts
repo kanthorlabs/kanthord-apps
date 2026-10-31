@@ -9,6 +9,7 @@ export interface ToolApprovalItem {
   readonly subject: string;
   readonly at: number;
   readonly sessionId: string;
+  readonly toolCallId: string;
   readonly agent: string;
   readonly operationId: string;
 }
@@ -26,6 +27,7 @@ export function approvalItemsOf(
             subject: sessionTitle(session),
             at: session.modified,
             sessionId: session.id,
+            toolCallId: session.pending_approval.tool_call_id,
             agent: session.agent_name,
             operationId: session.pending_approval.operation_id,
           },

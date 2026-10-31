@@ -257,6 +257,27 @@ describe("fixItemsOf project_paused", () => {
   it("lists nothing for an active project", () => {
     expect(fixItemsOf([snapshot()], context())).toEqual([]);
   });
+
+  it("holds the non-terminal nodes of the project and the project", () => {
+    const paused = { ...PROJECT, paused_at: NOW - 5 * MINUTE };
+
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          project: paused,
+          nodes: [
+            node("a", "Pending"),
+            node("b", "Completed"),
+            node("c", "Discarded"),
+            node("d", "Paused"),
+          ],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ nodeIds: ["a", "d"], projects: [paused] });
+  });
 });
 
 describe("fixItemsOf no_taker", () => {
@@ -288,6 +309,21 @@ describe("fixItemsOf no_taker", () => {
       at: NOW - 120_000,
       hint: { kind: "no_registration", binding: "reviewer-main", worker: "reviewer@1" },
     });
+  });
+
+  it("holds the nodes of the uncovered jobs once each and the project", () => {
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          nodes: [waiting, node("w2", "Waiting"), node("done", "Waiting")],
+          jobs: [job("w", 61_000), job("w2", 120_000), job("w", 90_000)],
+          bindings: [reviewer],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ nodeIds: ["w", "w2"], projects: [PROJECT] });
   });
 
   it("lists nothing while the oldest job is 60 s old or younger", () => {
@@ -546,6 +582,33 @@ describe("fixItemsOf agent_invalid", () => {
     ]);
   });
 
+  it("holds no node and the project of each invalid binding in the order of the snapshots", () => {
+    const invalid = agentView("swe@1", {
+      valid: false,
+      issues: [{ path: [], code: "agent.enablement.unavailable" }],
+    });
+    const other = { ...PROJECT, id: "prj-2", name: "beta" };
+
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          nodes: [node("a", "Pending")],
+          bindings: [
+            bindingView("coder-main", "coder@1", undefined, [invalid]),
+            bindingView("coder-extra", "coder@1", undefined, [invalid]),
+          ],
+        }),
+        snapshot({
+          project: other,
+          bindings: [bindingView("coder-main", "coder@1", undefined, [invalid])],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ nodeIds: [], projects: [PROJECT, other] });
+  });
+
   it("lists nothing while the agent views are unread", () => {
     expect(
       fixItemsOf(
@@ -691,7 +754,34 @@ describe("fixItemsOf credential_refused", () => {
       context(),
     );
 
-    expect(item).toMatchObject({ project: PROJECT, count: 2, projectCount: 2 });
+    expect(item).toMatchObject({
+      project: PROJECT,
+      count: 2,
+      projectCount: 2,
+      nodeIds: ["n1", "n2"],
+      projects: [PROJECT, other],
+    });
+  });
+
+  it("holds the nodes of the refusals that name the credential", () => {
+    const second = node("n2", "Waiting", { content: { ...work.content, name: "Add export" } });
+    const items = fixItemsOf(
+      [
+        refused({
+          nodes: [work, second],
+          executions: [
+            execution("execution_1", "n1", END, UNAUTHORIZED, [selection("swe@1", "openai-main")]),
+            execution("execution_2", "n2", END, UNAUTHORIZED, [selection("swe@1", "atlas-router")]),
+          ],
+        }),
+      ],
+      context(),
+    );
+
+    expect(items.map((item) => [item.subject, item.nodeIds])).toEqual([
+      ["openai-main", ["n1"]],
+      ["atlas-router", ["n2"]],
+    ]);
   });
 
   it("judges by the execution that ended last", () => {
@@ -783,6 +873,27 @@ describe("fixItemsOf request_rejected", () => {
     );
 
     expect(items).toEqual([]);
+  });
+
+  it("holds the nodes of the refusals and their projects", () => {
+    const other = { ...PROJECT, id: "prj-2", name: "beta" };
+
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          nodes: [work],
+          executions: [execution("execution_1", "n1", END, BAD_REQUEST)],
+        }),
+        snapshot({
+          project: other,
+          nodes: [node("n2", "Waiting")],
+          executions: [execution("execution_2", "n2", END, BAD_REQUEST)],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ nodeIds: ["n1", "n2"], projects: [PROJECT, other] });
   });
 
   it("clears when the node becomes terminal", () => {
@@ -936,7 +1047,37 @@ describe("fixItemsOf environment_failed", () => {
       binding: "engine",
       at: 1000,
       failureClass: "command_absent",
+      bindingId: "binding_1",
+      failure: { command: "make", exit_code: 127 },
+      projects: [PROJECT],
     });
+  });
+
+  it("holds the non-terminal nodes pinned to the revision of its binding", () => {
+    const pinned = node("a", "Pending", {
+      content: { ...node("a", "Pending").content, bindings: ["binding_1"] },
+    });
+    const done = node("b", "Completed", {
+      content: { ...node("b", "Completed").content, bindings: ["binding_1"] },
+    });
+    const older = node("c", "Pending", {
+      content: { ...node("c", "Pending").content, bindings: ["binding_0"] },
+    });
+    const byName = node("d", "Pending", {
+      content: { ...node("d", "Pending").content, bindings: ["engine"] },
+    });
+
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          nodes: [pinned, done, older, byName],
+          environments: [environment("failed", 1000)],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ nodeIds: ["a"] });
   });
 
   it("lists nothing for a ready, building or none environment", () => {
@@ -993,7 +1134,31 @@ describe("fixItemsOf environment_pending", () => {
       binding: "engine",
       at: startedAt,
       reason: SSH_REASON,
+      bindingId: "binding_1",
+      nodeIds: [],
+      projects: [PROJECT],
     });
+  });
+
+  it("holds the non-terminal nodes pinned to the revision of its binding", () => {
+    const pinned = node("a", "Executing", {
+      content: { ...node("a", "Executing").content, bindings: ["binding_1"] },
+    });
+    const other = node("c", "Pending", {
+      content: { ...node("c", "Pending").content, bindings: ["binding_2"] },
+    });
+
+    const [item] = fixItemsOf(
+      [
+        snapshot({
+          nodes: [pinned, other],
+          environments: [waiting(SSH_REASON, NOW - 60 * MINUTE)],
+        }),
+      ],
+      context(),
+    );
+
+    expect(item).toMatchObject({ nodeIds: ["a"] });
   });
 
   it("ends a reason with no final period with a period", () => {

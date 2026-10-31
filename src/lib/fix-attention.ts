@@ -1,7 +1,9 @@
 import type {
   Credential,
+  EnvironmentFailure,
   EnvironmentFailureClass,
   Intent,
+  MissionNodeRecord,
   NodeState,
   Project,
   SchedulerExecutionRecord,
@@ -18,6 +20,8 @@ const PENDING_FIX_AFTER_MS = 600_000;
 interface FixBase extends ItemBase {
   readonly group: "fixes";
   readonly cause: string;
+  readonly nodeIds: readonly string[];
+  readonly projects: readonly Project[];
 }
 
 export interface ProjectPausedItem extends FixBase {
@@ -27,12 +31,15 @@ export interface ProjectPausedItem extends FixBase {
 export interface EnvironmentFailedItem extends FixBase {
   readonly kind: "environment_failed";
   readonly binding: string;
+  readonly bindingId: string;
+  readonly failure: EnvironmentFailure | null;
   readonly failureClass: EnvironmentFailureClass;
 }
 
 export interface EnvironmentPendingItem extends FixBase {
   readonly kind: "environment_pending";
   readonly binding: string;
+  readonly bindingId: string;
   readonly reason: string;
 }
 
@@ -86,10 +93,26 @@ export type FixAttentionItem =
 
 interface Refusal {
   readonly project: Project;
+  readonly nodeId: string;
   readonly nodeName: string;
   readonly endedAt: number;
   readonly credentials: readonly string[];
   readonly agents: readonly string[];
+}
+
+function liveNodeIdsOf(
+  snapshot: ProjectSnapshot,
+  isStopped: (node: MissionNodeRecord) => boolean = () => true,
+): readonly string[] {
+  return snapshot.nodes
+    .filter((node) => !isTerminal(node.state) && isStopped(node))
+    .map((node) => node.id);
+}
+
+function distinctProjectsOf(projects: readonly Project[]): readonly Project[] {
+  return projects.filter(
+    (project, index) => projects.findIndex((other) => other.id === project.id) === index,
+  );
 }
 
 function projectPausedOf(snapshot: ProjectSnapshot): readonly FixAttentionItem[] {
@@ -104,6 +127,8 @@ function projectPausedOf(snapshot: ProjectSnapshot): readonly FixAttentionItem[]
       at: project.paused_at,
       subject: project.name,
       cause: "Project paused",
+      nodeIds: liveNodeIdsOf(snapshot),
+      projects: [project],
     },
   ];
 }
@@ -122,7 +147,13 @@ function environmentFailedOf(snapshot: ProjectSnapshot): readonly EnvironmentFai
         subject: state.binding_name,
         cause: "Environment failed",
         binding: state.binding_name,
+        bindingId: state.binding_id,
+        failure: state.failure,
         failureClass: state.failure.class,
+        nodeIds: liveNodeIdsOf(snapshot, (node) =>
+          node.content.bindings.includes(state.binding_id),
+        ),
+        projects: [project],
       },
     ];
   });
@@ -155,7 +186,12 @@ function environmentPendingOf(
         subject: state.binding_name,
         cause: "Environment waiting",
         binding: state.binding_name,
+        bindingId: state.binding_id,
         reason: sentenceOf(reason),
+        nodeIds: liveNodeIdsOf(snapshot, (node) =>
+          node.content.bindings.includes(state.binding_id),
+        ),
+        projects: [project],
       },
     ];
   });
@@ -186,6 +222,8 @@ function noTakerOf(snapshot: ProjectSnapshot, context: AttentionContext): readon
       intent,
       tags,
       jobCount: stuck.length,
+      nodeIds: [...new Set(stuck.map((job) => job.node_id))],
+      projects: [project],
       hint: takerHintOf(facts, workerBindings, catalog),
     });
   }
@@ -197,7 +235,7 @@ interface InvalidGroup {
   readonly agent: string;
   readonly issues: readonly string[];
   readonly bindings: InvalidBinding[];
-  readonly projectIds: Set<string>;
+  readonly projects: Project[];
 }
 
 interface InvalidView {
@@ -231,10 +269,12 @@ function agentInvalidOf(snapshots: readonly ProjectSnapshot[]): readonly AgentIn
       agent: view.agent,
       issues: view.issues,
       bindings: [],
-      projectIds: new Set<string>(),
+      projects: [],
     };
     group.bindings.push({ binding: view.binding, project: view.project.name });
-    group.projectIds.add(view.project.id);
+    if (!group.projects.some((project) => project.id === view.project.id)) {
+      group.projects.push(view.project);
+    }
     groups.set(key, group);
   }
   return [...groups].map(([key, group]) => ({
@@ -249,7 +289,9 @@ function agentInvalidOf(snapshots: readonly ProjectSnapshot[]): readonly AgentIn
     bindings: group.bindings,
     issues: group.issues,
     count: group.bindings.length,
-    projectCount: group.projectIds.size,
+    projectCount: group.projects.length,
+    nodeIds: [],
+    projects: group.projects,
   }));
 }
 
@@ -282,6 +324,7 @@ function refusalsOf(
     return [
       {
         project: snapshot.project,
+        nodeId: node.id,
         nodeName: node.content.name,
         endedAt: latest.endedAt,
         credentials: [...new Set(selections.map((selection) => selection.credential))],
@@ -295,6 +338,8 @@ interface RefusalGroup {
   readonly oldest: Refusal;
   readonly count: number;
   readonly projectCount: number;
+  readonly nodeIds: readonly string[];
+  readonly projects: readonly Project[];
 }
 
 function groupBy(
@@ -312,6 +357,8 @@ function groupBy(
         oldest: group.reduce((held, refusal) => (refusal.endedAt < held.endedAt ? refusal : held)),
         count: group.length,
         projectCount: new Set(group.map((refusal) => refusal.project.id)).size,
+        nodeIds: group.map((refusal) => refusal.nodeId),
+        projects: distinctProjectsOf(group.map((refusal) => refusal.project)),
       },
     ]),
   );
@@ -340,7 +387,7 @@ function credentialRefusedOf(
   const items: CredentialRefusedItem[] = [];
   const unrotatedOf = (refusal: Refusal) =>
     refusal.credentials.filter((name) => !isRotatedAfter(credentials, name, refusal.endedAt));
-  for (const [credential, { oldest: refusal, count, projectCount }] of groupBy(
+  for (const [credential, { oldest: refusal, count, projectCount, nodeIds, projects }] of groupBy(
     refusals,
     unrotatedOf,
   )) {
@@ -357,6 +404,8 @@ function credentialRefusedOf(
       nodeName: refusal.nodeName,
       count,
       projectCount,
+      nodeIds,
+      projects,
     });
   }
   return items;
@@ -365,7 +414,7 @@ function credentialRefusedOf(
 function requestRejectedOf(snapshots: readonly ProjectSnapshot[]): readonly RequestRejectedItem[] {
   const refusals = snapshots.flatMap((snapshot) => refusalsOf(snapshot, "bad_request"));
   return [...groupBy(refusals, (entry) => entry.agents)].map(
-    ([agent, { oldest: refusal, count, projectCount }]) => ({
+    ([agent, { oldest: refusal, count, projectCount, nodeIds, projects }]) => ({
       id: `request_rejected:${agent}`,
       kind: "request_rejected" as const,
       group: "fixes" as const,
@@ -377,6 +426,8 @@ function requestRejectedOf(snapshots: readonly ProjectSnapshot[]): readonly Requ
       nodeName: refusal.nodeName,
       count,
       projectCount,
+      nodeIds,
+      projects,
     }),
   );
 }
