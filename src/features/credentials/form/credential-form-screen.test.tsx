@@ -1,5 +1,5 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import userEvent, { type UserEvent } from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type * as Sonner from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -118,12 +118,15 @@ async function waitOneLoginPoll() {
 
 async function choosePlatform(platform: string, label = platform) {
   const input = screen.getByRole("combobox", { name: "Platform" });
-  await userEvent.clear(input);
-  await userEvent.type(input, label);
-  await userEvent.click(await screen.findByRole("option", { name: label }));
+  await user.clear(input);
+  await user.type(input, label);
+  await user.click(await screen.findByRole("option", { name: label }));
 }
 
+let user: UserEvent;
+
 beforeEach(() => {
+  user = userEvent.setup({ delay: null });
   vi.clearAllMocks();
   vi.mocked(credentialsApi.browserLoginAvailable).mockReturnValue(true);
   vi.mocked(credentialsApi.listCredentialPlatforms).mockImplementation(
@@ -144,11 +147,11 @@ describe("CredentialFormScreen", () => {
     });
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
+    await user.type(screen.getByLabelText("Name"), "ci-github");
     const key = screen.getByLabelText("API Key");
     expect(key.getAttribute("type")).toBe("password");
-    await userEvent.type(key, "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(key, "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     await waitFor(() =>
       expect(credentialsApi.listCredentialPlatforms).toHaveBeenCalledWith("repository"),
@@ -166,11 +169,11 @@ describe("CredentialFormScreen", () => {
     vi.mocked(credentialsApi.createCredential).mockResolvedValue(ROUTER);
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openai-compatible");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-1");
-    await userEvent.type(screen.getByLabelText("Base URL"), "https://openrouter.ai/api/v1");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-1");
+    await user.type(screen.getByLabelText("Base URL"), "https://openrouter.ai/api/v1");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(credentialsApi.createCredential).toHaveBeenCalledWith("llm", {
       name: "router",
@@ -187,11 +190,11 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-or");
+    await user.type(screen.getByLabelText("API Key"), "sk-or");
     expect(screen.queryByLabelText("Base URL")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(credentialsApi.createCredential).toHaveBeenCalledWith("llm", {
       name: "router",
@@ -208,10 +211,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm", { return_to: "/" });
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-or");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-or");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(await screen.findByText("Onboarding view")).toBeTruthy();
   });
@@ -224,10 +227,10 @@ describe("CredentialFormScreen", () => {
     );
     await mount("llm", { return_to: "/" });
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-or");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-or");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(
       await screen.findByText(
@@ -244,10 +247,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm", { return_to: "https://evil.example/" });
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-or");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-or");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(await screen.findByText("Credential view")).toBeTruthy();
     expect(screen.queryByText("Onboarding view")).toBeNull();
@@ -261,14 +264,14 @@ describe("CredentialFormScreen", () => {
     });
     await mount("storage");
 
-    await userEvent.type(screen.getByLabelText("Name"), "evidence");
+    await user.type(screen.getByLabelText("Name"), "evidence");
     await choosePlatform("s3");
-    await userEvent.type(screen.getByLabelText("Access Key ID"), "AKIA1");
-    await userEvent.type(screen.getByLabelText("Secret Access Key"), "s3-secret");
-    await userEvent.type(screen.getByLabelText("Endpoint"), "https://s3.amazonaws.com");
-    await userEvent.type(screen.getByLabelText("Bucket"), "evidence");
-    await userEvent.type(screen.getByLabelText("Region"), "us-east-1");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("Access Key ID"), "AKIA1");
+    await user.type(screen.getByLabelText("Secret Access Key"), "s3-secret");
+    await user.type(screen.getByLabelText("Endpoint"), "https://s3.amazonaws.com");
+    await user.type(screen.getByLabelText("Bucket"), "evidence");
+    await user.type(screen.getByLabelText("Region"), "us-east-1");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(credentialsApi.createCredential).toHaveBeenCalledWith("storage", {
       name: "evidence",
@@ -312,7 +315,7 @@ describe("CredentialFormScreen", () => {
   it("groups the LLM platforms into the checked, the sign-in and the other groups", async () => {
     await mount("llm");
 
-    await userEvent.type(screen.getByRole("combobox", { name: "Platform" }), "t");
+    await user.type(screen.getByRole("combobox", { name: "Platform" }), "t");
     const checked = await screen.findByRole("group", { name: "Checked before save" });
     const signIn = screen.getByRole("group", { name: "Sign in with an account" });
     const other = screen.getByRole("group", { name: "Not checked before save" });
@@ -329,7 +332,7 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByRole("combobox", { name: "Platform" }), "r");
+    await user.type(screen.getByRole("combobox", { name: "Platform" }), "r");
     expect(await screen.findByRole("group", { name: "Checked before save" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Not checked before save" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Sign in with an account" })).toBeNull();
@@ -339,8 +342,8 @@ describe("CredentialFormScreen", () => {
     await mount("storage");
 
     const input = screen.getByRole("combobox", { name: "Platform" });
-    await userEvent.clear(input);
-    await userEvent.type(input, "s");
+    await user.clear(input);
+    await user.type(input, "s");
     expect(await screen.findByRole("option", { name: "s3" })).toBeTruthy();
     for (const name of [
       "Checked before save",
@@ -355,8 +358,8 @@ describe("CredentialFormScreen", () => {
     await mount("llm");
 
     const input = screen.getByRole("combobox", { name: "Platform" });
-    await userEvent.clear(input);
-    await userEvent.type(input, "open");
+    await user.clear(input);
+    await user.type(input, "open");
     const options = await screen.findAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual([
       "openai-compatible",
@@ -373,8 +376,8 @@ describe("CredentialFormScreen", () => {
     expect(screen.getByRole("button", { name: "Create credential" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start sign-in" })).toBeNull();
     const input = screen.getByRole("combobox", { name: "Platform" });
-    await userEvent.clear(input);
-    await userEvent.type(input, "i");
+    await user.clear(input);
+    await user.type(input, "i");
     const options = await screen.findAllByRole("option");
     expect(options.map((option) => option.textContent)).toEqual(["github"]);
     expect(credentialsApi.startCredentialLogin).not.toHaveBeenCalled();
@@ -388,12 +391,12 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "gateway");
+    await user.type(screen.getByLabelText("Name"), "gateway");
     await choosePlatform("cloudflare-ai-gateway");
-    await userEvent.type(screen.getByLabelText("API Key"), "cf-1");
-    await userEvent.type(screen.getByLabelText("Account ID"), "acc-1");
-    await userEvent.type(screen.getByLabelText("Gateway ID"), "gw-1");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("API Key"), "cf-1");
+    await user.type(screen.getByLabelText("Account ID"), "acc-1");
+    await user.type(screen.getByLabelText("Gateway ID"), "gw-1");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(credentialsApi.createCredential).toHaveBeenCalledWith("llm", {
       name: "gateway",
@@ -413,10 +416,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "acme");
+    await user.type(screen.getByLabelText("Name"), "acme");
     await choosePlatform("acme-sso");
     expect(screen.queryByLabelText("API Key")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
     expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
@@ -434,7 +437,7 @@ describe("CredentialFormScreen", () => {
     expect(check.hasAttribute("disabled")).toBe(true);
     expect(screen.getByText("Fill Name and API Key to verify and create.")).toBeTruthy();
 
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
     expect(check.hasAttribute("disabled")).toBe(false);
     expect(create.hasAttribute("disabled")).toBe(true);
     expect(screen.getByText("Fill Name to verify and create.")).toBeTruthy();
@@ -443,9 +446,9 @@ describe("CredentialFormScreen", () => {
   it("refuses an invalid draft before any request", async () => {
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("Name"), "login");
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("Name"), "login");
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(screen.getByText("The name login is reserved. Choose another name.")).toBeTruthy();
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
@@ -459,8 +462,8 @@ describe("CredentialFormScreen", () => {
     });
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
 
     expect(await screen.findByText("Healthy")).toBeTruthy();
     expect(credentialsApi.checkCredential).toHaveBeenCalledWith("repository", {
@@ -484,11 +487,11 @@ describe("CredentialFormScreen", () => {
     });
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("Name"), "ci-github");
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     await screen.findByText("Healthy");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     const state = await screen.findByText(/priorCheck/);
     expect(JSON.parse(state.textContent ?? "")).toEqual({
@@ -507,9 +510,9 @@ describe("CredentialFormScreen", () => {
     });
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("Name"), "ci-github");
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     await screen.findByText("Credential view");
     expect(screen.queryByText(/priorCheck/)).toBeNull();
@@ -529,10 +532,10 @@ describe("CredentialFormScreen", () => {
       });
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unhealthy")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unknown")).toBeTruthy();
     expect(screen.queryByText("Unhealthy")).toBeNull();
   });
@@ -550,10 +553,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-fake");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-fake");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unhealthy")).toBeTruthy();
     expect(
       screen.getByText(
@@ -561,7 +564,7 @@ describe("CredentialFormScreen", () => {
       ),
     ).toBeTruthy();
 
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
     const dialog = await screen.findByRole("alertdialog", {
       name: "Create the credential with an unhealthy secret?",
     });
@@ -572,11 +575,11 @@ describe("CredentialFormScreen", () => {
         "Correct the secret and verify it again. Then create the credential.",
       ),
     ).toBeTruthy();
-    await userEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    await user.click(within(dialog).getByRole("button", { name: "Keep editing" }));
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Create anyway" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(await screen.findByRole("button", { name: "Create anyway" }));
     await screen.findByText("Credential view");
     expect(credentialsApi.createCredential).toHaveBeenCalledTimes(1);
   });
@@ -595,17 +598,17 @@ describe("CredentialFormScreen", () => {
     await mount("repository");
 
     const input = screen.getByRole("combobox", { name: "Platform" });
-    await userEvent.clear(input);
-    await userEvent.type(input, "git");
+    await user.clear(input);
+    await user.type(input, "git");
     expect(await screen.findByRole("option", { name: "github" })).toBeTruthy();
     expect(screen.queryByRole("group", { name: "Checked before save" })).toBeNull();
-    await userEvent.click(screen.getByRole("option", { name: "github" }));
+    await user.click(screen.getByRole("option", { name: "github" }));
 
-    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-fake");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("Name"), "ci-github");
+    await user.type(screen.getByLabelText("API Key"), "ghp-fake");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unhealthy")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     await screen.findByText("Credential view");
     expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -625,12 +628,12 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-live");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-live");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unknown")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     await screen.findByText("Credential view");
     expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -649,13 +652,13 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-fake");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-fake");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unhealthy")).toBeTruthy();
-    await userEvent.type(screen.getByLabelText("API Key"), "2");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("API Key"), "2");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     await screen.findByText("Credential view");
     expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -669,12 +672,12 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "Router");
+    await user.type(screen.getByLabelText("Name"), "Router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-fake");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-fake");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Unhealthy")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(
       await screen.findByText(
@@ -698,12 +701,12 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "router");
+    await user.type(screen.getByLabelText("Name"), "router");
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-live");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-live");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Healthy")).toBeTruthy();
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     await screen.findByText("Credential view");
     expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -718,9 +721,9 @@ describe("CredentialFormScreen", () => {
     await mount("llm");
 
     await choosePlatform("openai-compatible");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-1");
-    await userEvent.type(screen.getByLabelText("Base URL"), "https://openrouter.ai/api/v1");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-1");
+    await user.type(screen.getByLabelText("Base URL"), "https://openrouter.ai/api/v1");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
 
     expect(await screen.findByText("Healthy")).toBeTruthy();
     expect(credentialsApi.checkCredential).toHaveBeenCalledWith("llm", {
@@ -739,13 +742,13 @@ describe("CredentialFormScreen", () => {
     await mount("llm");
 
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "sk-1");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "sk-1");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Healthy")).toBeTruthy();
-    await userEvent.type(screen.getByLabelText("API Key"), "2");
+    await user.type(screen.getByLabelText("API Key"), "2");
     expect(screen.queryByText("Healthy")).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Healthy")).toBeTruthy();
     await choosePlatform("openai-compatible");
     expect(screen.queryByText("Healthy")).toBeNull();
@@ -762,8 +765,8 @@ describe("CredentialFormScreen", () => {
     ).toBe(true);
     expect(credentialsApi.checkCredential).not.toHaveBeenCalled();
 
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Check the typed secret" }));
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Check the typed secret" }));
     expect(await screen.findByText("Check failed")).toBeTruthy();
     expect(
       screen.getByText(
@@ -782,13 +785,13 @@ describe("CredentialFormScreen", () => {
     expect(
       disabled.getAttribute("aria-disabled") ?? disabled.hasAttribute("disabled"),
     ).toBeTruthy();
-    await userEvent.click(disabled);
+    await user.click(disabled);
     expect(
       await screen.findByText(textContent("Verification is not supported yet for mistral.")),
     ).toBeTruthy();
     expect(credentialsApi.checkCredential).not.toHaveBeenCalled();
     await choosePlatform("openrouter");
-    await userEvent.type(screen.getByLabelText("API Key"), "or-secret");
+    await user.type(screen.getByLabelText("API Key"), "or-secret");
     expect(
       screen.getByRole("button", { name: "Check the typed secret" }).hasAttribute("disabled"),
     ).toBe(false);
@@ -797,9 +800,9 @@ describe("CredentialFormScreen", () => {
   it("refuses the reserved name check before any request", async () => {
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("Name"), "check");
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("Name"), "check");
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(screen.getByText("The name check is reserved. Choose another name.")).toBeTruthy();
     expect(credentialsApi.createCredential).not.toHaveBeenCalled();
@@ -813,9 +816,9 @@ describe("CredentialFormScreen", () => {
     );
     await mount("repository");
 
-    await userEvent.type(screen.getByLabelText("Name"), "ci-github");
-    await userEvent.type(screen.getByLabelText("API Key"), "ghp-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Create credential" }));
+    await user.type(screen.getByLabelText("Name"), "ci-github");
+    await user.type(screen.getByLabelText("API Key"), "ghp-secret");
+    await user.click(screen.getByRole("button", { name: "Create credential" }));
 
     expect(
       await screen.findByText(
@@ -835,11 +838,11 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await user.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
     expect(screen.queryByLabelText("API Key")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Sign-in Mode" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
     expect(screen.getByRole("status")).toHaveTextContent(
@@ -869,10 +872,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await user.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
     await waitOneLoginPoll();
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Enabling models..."));
@@ -888,10 +891,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await user.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
     await waitOneLoginPoll();
 
     expect(await screen.findByText("Credential view")).toBeTruthy();
@@ -908,10 +911,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm", { return_to: "/" });
 
-    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await user.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
     await waitOneLoginPoll();
 
     expect(await screen.findByText("Onboarding view")).toBeTruthy();
@@ -930,13 +933,13 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await user.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
-    await userEvent.click(await screen.findByRole("button", { name: "The callback failed?" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(await screen.findByRole("button", { name: "The callback failed?" }));
     const field = await screen.findByLabelText("Code or Redirect URL");
-    await userEvent.type(field, "http://localhost:1455/callback?code=1");
-    await userEvent.click(screen.getByRole("button", { name: "Send code" }));
+    await user.type(field, "http://localhost:1455/callback?code=1");
+    await user.click(screen.getByRole("button", { name: "Send code" }));
 
     expect(credentialsApi.submitCredentialLoginCode).toHaveBeenCalledWith(
       SESSION.session_id,
@@ -955,11 +958,11 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "codex");
+    await user.type(screen.getByLabelText("Name"), "codex");
     await choosePlatform("openai-codex");
     expect(screen.queryByLabelText("API Key")).toBeNull();
     expect(screen.getByRole("combobox", { name: "Sign-in Mode" }).textContent).toContain("Browser");
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
     expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
@@ -976,7 +979,7 @@ describe("CredentialFormScreen", () => {
   it("states the container port and the code fallback of a browser sign-in", async () => {
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "codex");
+    await user.type(screen.getByLabelText("Name"), "codex");
     await choosePlatform("openai-codex");
 
     expect(
@@ -998,11 +1001,11 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "codex");
+    await user.type(screen.getByLabelText("Name"), "codex");
     await choosePlatform("openai-codex");
-    await userEvent.click(screen.getByRole("combobox", { name: "Sign-in Mode" }));
-    await userEvent.click(await screen.findByRole("option", { name: "Headless (device code)" }));
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("combobox", { name: "Sign-in Mode" }));
+    await user.click(await screen.findByRole("option", { name: "Headless (device code)" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
     expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
@@ -1024,17 +1027,17 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "codex");
+    await user.type(screen.getByLabelText("Name"), "codex");
     await choosePlatform("openai-codex");
     const select = screen.getByRole("combobox", { name: "Sign-in Mode" });
     expect(select.textContent).toContain("Headless (device code)");
     expect(screen.getByText(/Browser sign-in is not available at this address\./)).toBeTruthy();
     expect(screen.queryByText(/In a container, Browser sign-in needs port 1455/)).toBeNull();
-    await userEvent.click(select);
+    await user.click(select);
     const browser = await screen.findByRole("option", { name: "Browser" });
     expect(browser.getAttribute("aria-disabled")).toBe("true");
-    await userEvent.keyboard("{Escape}");
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.keyboard("{Escape}");
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("ABCD-1234")).toBeTruthy();
     expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
@@ -1062,11 +1065,11 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "claude");
+    await user.type(screen.getByLabelText("Name"), "claude");
     await choosePlatform("anthropic-subscription");
     expect(screen.queryByLabelText("API Key")).toBeNull();
     expect(screen.queryByRole("combobox", { name: "Sign-in Mode" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByRole("link", { name: authorization })).toBeTruthy();
     expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
@@ -1078,8 +1081,8 @@ describe("CredentialFormScreen", () => {
     expect(open.getAttribute("href")).toBe(authorization);
     expect(screen.queryByRole("button", { name: "The callback failed?" })).toBeNull();
     const field = screen.getByLabelText("Paste code");
-    await userEvent.type(field, "abc123#state456");
-    await userEvent.click(screen.getByRole("button", { name: "Send code" }));
+    await user.type(field, "abc123#state456");
+    await user.click(screen.getByRole("button", { name: "Send code" }));
 
     expect(credentialsApi.submitCredentialLoginCode).toHaveBeenCalledWith(
       SESSION.session_id,
@@ -1102,10 +1105,10 @@ describe("CredentialFormScreen", () => {
     });
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "claude");
+    await user.type(screen.getByLabelText("Name"), "claude");
     await choosePlatform("anthropic-subscription");
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
     await waitOneLoginPoll();
 
     expect(await screen.findByText("Credential view")).toBeTruthy();
@@ -1117,9 +1120,9 @@ describe("CredentialFormScreen", () => {
     );
     await mount("llm");
 
-    await userEvent.type(screen.getByLabelText("Name"), "copilot");
+    await user.type(screen.getByLabelText("Name"), "copilot");
     await choosePlatform("github-copilot");
-    await userEvent.click(screen.getByRole("button", { name: "Start sign-in" }));
+    await user.click(screen.getByRole("button", { name: "Start sign-in" }));
 
     expect(await screen.findByText("The sign-in did not start.")).toBeTruthy();
     expect(screen.getByText(/Another sign-in of yours for this platform is pending/)).toBeTruthy();
