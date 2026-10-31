@@ -1,4 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -47,5 +48,32 @@ describe("AppToaster", () => {
     expect(toaster).toHaveAttribute("data-y-position", "top");
     expect(toaster).toHaveAttribute("data-x-position", "right");
     expect(toaster.style.getPropertyValue("--offset-top")).toBe("64px");
+  });
+
+  it("lets a tap on the body of a toast pass through below 700 px", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    render(<AppToaster />);
+    act(() => {
+      toast("Saved.", { action: { label: "Retry", onClick: vi.fn() } });
+    });
+
+    const body = (await screen.findByText("Saved.")).closest("[data-sonner-toast]");
+
+    expect(body).toHaveClass("cn-toast", "max-[699px]:pointer-events-none");
+  });
+
+  it("keeps the Retry action of a toast tappable and runs it", async () => {
+    vi.stubGlobal("innerWidth", 390);
+    const retry = vi.fn();
+    render(<AppToaster />);
+    act(() => {
+      toast("Saved.", { action: { label: "Retry", onClick: retry } });
+    });
+
+    const action = await screen.findByRole("button", { name: "Retry" });
+    await userEvent.setup().click(action);
+
+    expect(action).toHaveClass("pointer-events-auto");
+    expect(retry).toHaveBeenCalledOnce();
   });
 });

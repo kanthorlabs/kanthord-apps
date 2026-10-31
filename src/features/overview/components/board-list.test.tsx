@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { MissionNodeRecord, Project } from "@/api/types";
 import { Tabs } from "@/components/ui/tabs";
 import { type AttentionItem, deriveAttention } from "@/lib/attention";
+import type { DoneEntry } from "@/lib/board-done";
 import { BOARD_TABS, type BoardTab, type BoardTabId } from "@/lib/board-tabs";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
@@ -99,6 +100,7 @@ function renderList(
   const props: ListProps = {
     tab: RULE,
     cards: ITEMS,
+    done: [],
     selectedId: null,
     widthClass,
     projectName: null,
@@ -276,5 +278,27 @@ describe("BoardList", () => {
     expect(
       screen.getByRole("button", { name: "Fix the build" }).closest("[aria-current='true']"),
     ).not.toBeNull();
+  });
+
+  it("ends the list with a closed Done this session toggle that holds the count", () => {
+    const entry: DoneEntry = {
+      itemId: "blocked:gone",
+      subject: "Gone",
+      tab: RULE.id,
+      projects: [ATLAS],
+      text: "Discarded Gone.",
+      sentAt: "Sent at 09:05 UTC",
+    };
+    renderList({ done: [entry] });
+
+    const toggle = screen.getByRole("button", { name: "Done this session 1" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Discarded Gone.")).toBeNull();
+  });
+
+  it("shows no Done this session toggle without an entry", () => {
+    renderList();
+
+    expect(screen.queryByText("Done this session")).toBeNull();
   });
 });

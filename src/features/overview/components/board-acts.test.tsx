@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +23,8 @@ import {
   type MergeWaitItem,
 } from "@/lib/attention";
 import type { CredentialRefusedItem, ProjectPausedItem } from "@/lib/fix-attention";
+
+import { BOARD_WIDTH } from "@/lib/board-width";
 
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/tracking");
@@ -180,7 +182,11 @@ function openDetail(target: MissionNodeRecord): AttentionDetails {
 
 const setDialogOpen = vi.fn();
 
-function renderActs(item: AttentionItem, details: AttentionDetails = new Map()) {
+function renderActs(
+  item: AttentionItem,
+  details: AttentionDetails = new Map(),
+  registerDialogCloser: (close: (() => void) | null) => void = vi.fn(),
+) {
   render(
     <MemoryRouter>
       <BoardActsProvider
@@ -190,6 +196,8 @@ function renderActs(item: AttentionItem, details: AttentionDetails = new Map()) 
         retryDetail={vi.fn()}
         markActed={vi.fn()}
         setDialogOpen={setDialogOpen}
+        registerDialogCloser={registerDialogCloser}
+        widthClass={BOARD_WIDTH.Expanded}
       >
         <BoardActBar />
       </BoardActsProvider>
@@ -417,6 +425,8 @@ describe("BoardActsProvider act order", () => {
         retryDetail={vi.fn()}
         markActed={vi.fn()}
         setDialogOpen={setDialogOpen}
+        registerDialogCloser={vi.fn()}
+        widthClass={BOARD_WIDTH.Expanded}
       >
         <BoardActBar />
       </BoardActsProvider>,
@@ -428,15 +438,37 @@ describe("BoardActsProvider act order", () => {
 
 describe("BoardActsProvider dialogs", () => {
   it.each([
-    ["Unblock", decision("blocked", IMPLEMENT), new Map(), "Unblock Team?", "Keep it blocked"],
-    ["Override", decision("blocked", IMPLEMENT), new Map(), "Override Team?", "Keep the node"],
-    ["Discard", decision("blocked", IMPLEMENT), new Map(), "Discard Team?", "Keep the node"],
+    [
+      "Unblock",
+      decision("blocked", IMPLEMENT),
+      new Map(),
+      "Unblock Team?",
+      "Keep it blocked",
+      { id: "unblock" },
+    ],
+    [
+      "Override",
+      decision("blocked", IMPLEMENT),
+      new Map(),
+      "Override Team?",
+      "Keep the node",
+      { id: "override" },
+    ],
+    [
+      "Discard",
+      decision("blocked", IMPLEMENT),
+      new Map(),
+      "Discard Team?",
+      "Keep the node",
+      { id: "discard" },
+    ],
     [
       "Decide",
       decision("blocked", EXAMINE),
       blockedDetail(EXAMINE),
       "Decide the proposals of Team?",
       "Keep the proposals",
+      { id: "decide" },
     ],
     [
       "Resume",
@@ -444,6 +476,7 @@ describe("BoardActsProvider dialogs", () => {
       pausedDetail(PAUSED, []),
       "Resume Team?",
       "Keep it paused",
+      { id: "resume" },
     ],
     [
       "Remove dependency on First",
@@ -453,10 +486,11 @@ describe("BoardActsProvider dialogs", () => {
       openDetail(DEPENDENCY),
       "Remove the dependency of Team on First?",
       "Keep the dependency",
+      { id: "remove_dependency", dependency: "First" },
     ],
   ])(
-    "opens the dialog of %s and reports the open and the close",
-    async (name, item, details, title, cancel) => {
+    "opens the dialog of %s and reports the open and the close with the act",
+    async (name, item, details, title, cancel, acted) => {
       setDialogOpen.mockClear();
       const user = userEvent.setup();
       renderActs(item, details);
@@ -468,7 +502,23 @@ describe("BoardActsProvider dialogs", () => {
 
       await user.click(screen.getByRole("button", { name: cancel }));
 
-      await waitFor(() => expect(setDialogOpen).toHaveBeenLastCalledWith(item.id, "node_1", false));
+      await waitFor(() =>
+        expect(setDialogOpen).toHaveBeenLastCalledWith(item.id, "node_1", false, acted),
+      );
     },
   );
+
+  it("registers a closer that cancels the open dialog", async () => {
+    const user = userEvent.setup();
+    const registerDialogCloser = vi.fn();
+    renderActs(decision("blocked", IMPLEMENT), new Map(), registerDialogCloser);
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+    await screen.findByRole("alertdialog", { name: "Discard Team?" });
+
+    const closer = registerDialogCloser.mock.lastCall?.[0];
+    expect(closer).toBeTypeOf("function");
+    act(() => closer?.());
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  });
 });

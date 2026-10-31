@@ -72,6 +72,8 @@ function renderDetail(widthClass: BoardWidth) {
         retryDetail={vi.fn()}
         markActed={vi.fn()}
         setDialogOpen={vi.fn()}
+        registerDialogCloser={vi.fn()}
+        widthClass={widthClass}
       >
         <BoardDetail
           item={ITEM}

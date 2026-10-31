@@ -154,6 +154,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       <BoardList
         tab={tab}
         cards={board.cards}
+        done={board.done}
         selectedId={board.selectedId}
         widthClass={widthClass}
         projectName={projectName}
@@ -205,7 +206,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       titleRef={board.titleRef}
       onClose={board.close}
       onStep={board.step}
-      onOpen={board.open}
+      onOpen={board.jump}
     />
   );
 
@@ -288,6 +289,8 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
           retryDetail={overview.retryDetail}
           markActed={board.markActed}
           setDialogOpen={board.setDialogOpen}
+          registerDialogCloser={board.registerDialogCloser}
+          widthClass={widthClass}
         >
           <BoardKeys
             board={board}

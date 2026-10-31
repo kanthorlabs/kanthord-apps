@@ -1,8 +1,12 @@
 import {
   createContext,
   type ReactNode,
+  useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
+  useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -22,6 +26,8 @@ import {
   detailOf,
   type OutsideAttentionItem,
 } from "@/lib/attention";
+import type { ActedAct } from "@/lib/board-done";
+import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { readFailureText } from "@/lib/external-requests";
 import { fixTargetOf, type ProjectPausedItem } from "@/lib/fix-attention";
 
@@ -112,11 +118,13 @@ interface Gate {
 interface ActsContext {
   readonly reload: () => void;
   readonly retryDetail: (nodeId: string) => void;
-  readonly markActed: (itemId: string) => void;
-  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
+  readonly markActed: (itemId: string, act?: ActedAct) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean, act?: ActedAct) => void;
+  readonly registerDialogCloser: (close: (() => void) | null) => void;
 }
 
 interface BoardActsProviderProps extends ActsContext {
+  readonly widthClass: BoardWidth;
   readonly item: AttentionItem | null;
   readonly details: AttentionDetails;
   readonly children: ReactNode;
@@ -160,9 +168,23 @@ function createActsStore(): ActsStore {
 
 const BoardActsContext = createContext<ActsStore>(createActsStore());
 
+interface ActsFrame {
+  readonly widthClass: BoardWidth;
+  readonly subject: string;
+}
+
+const BoardFrameContext = createContext<ActsFrame>({
+  widthClass: BOARD_WIDTH.Expanded,
+  subject: "",
+});
+
 export function useBoardActs(): BoardActsState {
   const store = useContext(BoardActsContext);
   return useSyncExternalStore(store.subscribe, store.get);
+}
+
+export function useBoardActsFrame(): ActsFrame {
+  return useContext(BoardFrameContext);
 }
 
 function usePublished(store: ActsStore, state: BoardActsState) {
@@ -309,6 +331,27 @@ function stateOf(acts: readonly BoardAct[], rest: Partial<BoardActsState> = {}):
   return { ...EMPTY, acts, needs: needsOf(acts), ...rest };
 }
 
+function openActOf(acts: DecisionActs): ActedAct | null {
+  if (acts.unblock.open) return { id: "unblock" };
+  if (acts.decide.open) return { id: "decide" };
+  if (acts.override.open) return { id: "override" };
+  if (acts.resume.open) return { id: "resume" };
+  if (acts.remove.target !== null) {
+    return { id: "remove_dependency", dependency: acts.remove.target.name };
+  }
+  if (acts.discard.open) return { id: "discard" };
+  return null;
+}
+
+function cancelDialogsOf(acts: DecisionActs) {
+  if (acts.unblock.open) acts.unblock.cancel();
+  if (acts.decide.open) acts.decide.cancel();
+  if (acts.override.open) acts.override.cancel();
+  if (acts.resume.open) acts.resume.cancel();
+  if (acts.remove.target !== null) acts.remove.cancel();
+  if (acts.discard.open) acts.discard.cancel();
+}
+
 function DecisionActs({
   store,
   item,
@@ -317,13 +360,39 @@ function DecisionActs({
   retryDetail,
   markActed,
   setDialogOpen,
+  registerDialogCloser,
 }: ActsContext & {
   readonly store: ActsStore;
   readonly item: DecisionAttentionItem;
   readonly details: AttentionDetails;
 }) {
   const { node } = item;
-  const acts = useDecisionActs(item, detailOf(details, node), { reload, markActed, setDialogOpen });
+  const lastOpen = useRef<ActedAct | null>(null);
+  const trackedDialogOpen = useCallback(
+    (itemId: string, nodeId: string, open: boolean) => {
+      if (open) {
+        setDialogOpen(itemId, nodeId, true);
+        return;
+      }
+      const act = lastOpen.current ?? undefined;
+      lastOpen.current = null;
+      setDialogOpen(itemId, nodeId, false, act);
+    },
+    [setDialogOpen],
+  );
+  const acts = useDecisionActs(item, detailOf(details, node), {
+    reload,
+    markActed,
+    setDialogOpen: trackedDialogOpen,
+  });
+  const openAct = openActOf(acts);
+  useEffect(() => {
+    if (openAct !== null) lastOpen.current = openAct;
+  });
+  useEffect(() => {
+    registerDialogCloser(() => cancelDialogsOf(acts));
+    return () => registerDialogCloser(null);
+  });
   usePublished(
     store,
     stateOf(decisionActsOf(item, acts), {
@@ -448,7 +517,7 @@ function ItemActs({
               id: "resume_project",
               item,
               reload: context.reload,
-              markActed: context.markActed,
+              markActed: (itemId) => context.markActed(itemId, { id: "resume_project" }),
             },
           ]}
         />
@@ -465,12 +534,21 @@ function ItemActs({
   }
 }
 
-export function BoardActsProvider({ item, children, ...context }: BoardActsProviderProps) {
+export function BoardActsProvider({
+  item,
+  widthClass,
+  children,
+  ...context
+}: BoardActsProviderProps) {
   const [store] = useState(createActsStore);
+  const subject = item?.subject ?? "";
+  const frame = useMemo(() => ({ widthClass, subject }), [widthClass, subject]);
   return (
     <BoardActsContext.Provider value={store}>
-      {children}
-      {item !== null && <ItemActs key={item.id} store={store} item={item} {...context} />}
+      <BoardFrameContext.Provider value={frame}>
+        {children}
+        {item !== null && <ItemActs key={item.id} store={store} item={item} {...context} />}
+      </BoardFrameContext.Provider>
     </BoardActsContext.Provider>
   );
 }

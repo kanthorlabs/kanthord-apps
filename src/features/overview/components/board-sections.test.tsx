@@ -247,6 +247,8 @@ function renderSections(
           retryDetail={vi.fn()}
           markActed={vi.fn()}
           setDialogOpen={vi.fn()}
+          registerDialogCloser={vi.fn()}
+          widthClass={BOARD_WIDTH.Expanded}
         >
           {reads}
         </BoardActsProvider>
