@@ -1,12 +1,24 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { delimiter, join } from "node:path";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import { treeKeyOf } from "./suite-pass.mjs";
 
 const SCRIPT = join(import.meta.dirname, "suite-pass.mjs");
+
+const PNPM_VERSION = JSON.parse(
+  readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8"),
+).packageManager.replace(/^pnpm@/, "");
 
 const REPORT = JSON.stringify({
   testResults: [
@@ -33,6 +45,8 @@ const FAILED_REPORT = JSON.stringify({
 });
 
 const directories = [];
+
+let stubDirectory;
 
 function temporaryDirectory() {
   const directory = mkdtempSync(join(tmpdir(), "suite-pass-"));
@@ -75,8 +89,25 @@ function commandWriting(countFile, report, exitCode = 0, extra = "true") {
   ].join("; ");
 }
 
-function run(cwd, command, ...flags) {
-  const env = { ...process.env, SUITE_PASS_TEST_COMMAND: command };
+function writePnpmStub() {
+  const directory = mkdtempSync(join(tmpdir(), "suite-pass-pnpm-"));
+  const stub = join(directory, "pnpm");
+  writeFileSync(
+    stub,
+    [
+      "#!/bin/sh",
+      `if [ "$#" -eq 1 ] && [ "$1" = "--version" ]; then echo '${PNPM_VERSION}'; exit 0; fi`,
+      'echo "pnpm stub: unexpected arguments: $*" >&2',
+      "exit 1",
+      "",
+    ].join("\n"),
+  );
+  chmodSync(stub, 0o755);
+  return directory;
+}
+
+function runWithPath(path, cwd, command, flags) {
+  const env = { ...process.env, PATH: path, SUITE_PASS_TEST_COMMAND: command };
   delete env.GITHUB_STEP_SUMMARY;
   const result = spawnSync(process.execPath, [SCRIPT, "run", "--job", "check", ...flags], {
     cwd,
@@ -86,6 +117,12 @@ function run(cwd, command, ...flags) {
   return { status: result.status, output: result.stdout, error: result.stderr };
 }
 
+const run = (cwd, command, ...flags) =>
+  runWithPath(`${stubDirectory}${delimiter}${process.env.PATH}`, cwd, command, flags);
+
+const runWithRealPnpm = (cwd, command, ...flags) =>
+  runWithPath(process.env.PATH, cwd, command, flags);
+
 function lines(file) {
   return existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean) : [];
 }
@@ -94,6 +131,14 @@ const storeOf = (cwd) => join(cwd, "node_modules", ".cache", "suite-pass", "reco
 
 const writtenAtOf = (cwd) =>
   Object.values(JSON.parse(readFileSync(storeOf(cwd), "utf8")).records)[0].written_at;
+
+beforeAll(() => {
+  stubDirectory = writePnpmStub();
+});
+
+afterAll(() => {
+  rmSync(stubDirectory, { recursive: true, force: true });
+});
 
 afterEach(() => {
   for (const directory of directories.splice(0))
@@ -105,9 +150,9 @@ describe("suite-pass run", { timeout: 60_000 }, () => {
     const cwd = createFixture();
     const countFile = join(temporaryDirectory(), "count");
     const command = commandWriting(countFile, REPORT);
-    const first = run(cwd, command, "--write");
+    const first = runWithRealPnpm(cwd, command, "--write");
     const before = writtenAtOf(cwd);
-    const second = run(cwd, command, "--write");
+    const second = runWithRealPnpm(cwd, command, "--write");
     expect(first.status).toBe(0);
     expect(first.output).toContain("Floor: none");
     expect(first.output).toContain("Record: miss");
@@ -153,10 +198,12 @@ describe("suite-pass run", { timeout: 60_000 }, () => {
     writeFileSync(join(cwd, "untracked.txt"), "x\n");
     const untracked = run(cwd, command, "--write");
     expect(untracked.status).toBe(2);
+    expect(untracked.error).toContain("the working tree is not clean");
     rmSync(join(cwd, "untracked.txt"));
     writeFileSync(join(cwd, "value.txt"), "changed\n");
     const modified = run(cwd, command, "--write");
     expect(modified.status).toBe(2);
+    expect(modified.error).toContain("the working tree is not clean");
     expect(existsSync(storeOf(cwd))).toBe(false);
     expect(lines(countFile)).toHaveLength(0);
   });
@@ -179,6 +226,7 @@ describe("suite-pass run", { timeout: 60_000 }, () => {
     const command = commandWriting(countFile, REPORT, 0, `touch '${join(cwd, "created.txt")}'`);
     const result = run(cwd, command, "--write");
     expect(result.status).toBe(2);
+    expect(result.error).toContain("the working tree is not clean");
     expect(existsSync(storeOf(cwd))).toBe(false);
   });
 
