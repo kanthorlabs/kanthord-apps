@@ -224,7 +224,7 @@ function decisionGateOf(item: DecisionAttentionItem, ready: boolean): Gate | nul
   return { gates: ["remove", "check", "discard"], read: "the external actions read" };
 }
 
-export function credentialOf(gate: BoardGate): string {
+function credentialOf(gate: BoardGate): string {
   return gate.itemId.slice(gate.itemId.indexOf(":") + 1);
 }
 

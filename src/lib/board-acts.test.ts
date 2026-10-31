@@ -11,7 +11,6 @@ import type {
 } from "./attention";
 import {
   type BoardAct,
-  credentialOf,
   credentialRefusedActsOf,
   type DecisionActControls,
   decisionActsOf,
@@ -122,6 +121,12 @@ describe("decisionActsOf", () => {
     expect(acts[1]).toMatchObject({ type: "button", label: "Go to openai-main" });
     if (acts[1]?.type === "button") acts[1].press();
     expect(jump).toHaveBeenCalledWith(GATE.itemId);
+  });
+
+  it("names the jump after the text past the first colon of the gate item", () => {
+    const gate = { ...GATE, itemId: "credential_refused:a:b" };
+    const acts = decisionActsOf(decisionOf("paused"), controlsOf(), { gate, jump: vi.fn() });
+    expect(acts[1]).toMatchObject({ type: "button", label: "Go to a:b" });
   });
 
   it("orders the acts of a blocked node", () => {
@@ -335,12 +340,5 @@ describe("needsOf", () => {
       need,
     });
     expect(needsOf([gated("a"), gated("b"), gated("a")])).toEqual(["a", "b"]);
-  });
-});
-
-describe("credentialOf", () => {
-  it("takes the text after the first colon", () => {
-    expect(credentialOf(GATE)).toBe("openai-main");
-    expect(credentialOf({ ...GATE, itemId: "credential_refused:a:b" })).toBe("a:b");
   });
 });
