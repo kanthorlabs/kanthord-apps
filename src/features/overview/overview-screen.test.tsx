@@ -1441,8 +1441,10 @@ describe("OverviewScreen paused items", () => {
 
     const item = await findDetail();
 
-    const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
-    expect(acts.map(labelOf)).toEqual(["Resume", "Override", "Discard"]);
+    await waitFor(() => {
+      const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
+      expect(acts.map(labelOf)).toEqual(["Resume", "Override", "Discard"]);
+    });
     expect(within(cardOf("Draft the notes")).getByText("Resume")).toBeInTheDocument();
   });
 
