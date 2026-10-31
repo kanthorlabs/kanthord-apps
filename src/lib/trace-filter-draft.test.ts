@@ -34,4 +34,11 @@ describe("sheetChangesOf", () => {
     expect(changes.min_duration_ms).toBe("2000");
     expect(changes).not.toHaveProperty("state");
   });
+
+  it("answers from and to of the draft", () => {
+    const changes = sheetChangesOf(new URLSearchParams("from=100&to=200"), "");
+    expect(changes.from).toBe("100");
+    expect(changes.to).toBe("200");
+    expect(sheetChangesOf(new URLSearchParams(), "").from).toBeNull();
+  });
 });

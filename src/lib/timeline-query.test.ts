@@ -24,17 +24,36 @@ describe("timelineRangeOf", () => {
 
 describe("timelineQueryOf", () => {
   it("scopes to a node and sends no from for All time", () => {
-    expect(timelineQueryOf({ kind: "node", nodeId: "n" }, "all", NOW)).toEqual({ node_id: "n" });
+    expect(timelineQueryOf({ kind: "node", nodeId: "n" }, "all", NOW, null)).toEqual({
+      node_id: "n",
+    });
   });
 
   it("scopes to a project and sends the start of the range", () => {
-    expect(timelineQueryOf({ kind: "project", projectId: "p" }, "24h", NOW)).toEqual({
+    expect(timelineQueryOf({ kind: "project", projectId: "p" }, "24h", NOW, null)).toEqual({
       project_id: "p",
       from: NOW - DAY,
     });
-    expect(timelineQueryOf({ kind: "project", projectId: "p" }, "1h", NOW)).toEqual({
+    expect(timelineQueryOf({ kind: "project", projectId: "p" }, "1h", NOW, null)).toEqual({
       project_id: "p",
       from: NOW - HOUR,
+    });
+  });
+
+  it("takes from and to of a window and ignores range", () => {
+    const scope = { kind: "project", projectId: "p" } as const;
+    expect(timelineQueryOf(scope, "1h", NOW, { from: 100, to: 200 })).toEqual({
+      project_id: "p",
+      from: 100,
+      to: 200,
+    });
+  });
+
+  it("takes one side of a window", () => {
+    const scope = { kind: "node", nodeId: "n" } as const;
+    expect(timelineQueryOf(scope, "24h", NOW, { from: null, to: 200 })).toEqual({
+      node_id: "n",
+      to: 200,
     });
   });
 });

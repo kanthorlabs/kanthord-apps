@@ -12,7 +12,13 @@ import {
   timelineScopeOf,
 } from "@/lib/timeline-query";
 import { type TimelineRow, timelineRows } from "@/lib/timeline-rows";
-import { type TimeRange, withParam } from "@/lib/trace-query";
+import {
+  type TimeRange,
+  type TimeWindow,
+  timeWindowOf,
+  withParam,
+  withRange,
+} from "@/lib/trace-query";
 
 import { readNodeNames } from "../traces/list/read-node-names";
 import { type TimelinePages, useTimelinePages } from "./use-timeline-pages";
@@ -42,6 +48,7 @@ export interface TimelineList {
 export interface TimelineView {
   readonly scope: TimelineScopeView;
   readonly range: TimeRange;
+  readonly window: TimeWindow | null;
   readonly selectRange: (range: string | null) => void;
   readonly selectProject: (projectId: string | null) => void;
   readonly rows: readonly TimelineRow[];
@@ -60,9 +67,10 @@ export function useTimeline(): TimelineView {
   const sorted = useMemo(() => [...(projects.data ?? [])].sort(byName), [projects.data]);
   const scope = useMemo(() => timelineScopeOf(params, sorted[0]?.id ?? null), [params, sorted]);
   const range = timelineRangeOf(params);
+  const window = useMemo(() => timeWindowOf(params), [params]);
   const query = useMemo(
-    () => (scope === null ? null : timelineQueryOf(scope, range, now)),
-    [scope, range, now],
+    () => (scope === null ? null : timelineQueryOf(scope, range, now, window)),
+    [scope, range, now, window],
   );
   const pages = useTimelinePages(query);
   const rows = useMemo(() => timelineRows(pages.items), [pages.items]);
@@ -77,7 +85,13 @@ export function useTimeline(): TimelineView {
     },
     [setParams],
   );
-  const selectRange = useCallback((value: string | null) => write("range", value), [write]);
+  const selectRange = useCallback(
+    (value: string | null) => {
+      startTransition(() => setNow(Date.now()));
+      setParams((current) => withRange(current, value), { replace: true });
+    },
+    [setParams],
+  );
   const selectProject = useCallback((value: string | null) => write("project_id", value), [write]);
 
   const unscoped = scope === null;
@@ -93,6 +107,7 @@ export function useTimeline(): TimelineView {
   return {
     scope: scopeViewOf(scope, sorted, pages, names.data),
     range,
+    window,
     selectRange,
     selectProject,
     rows,

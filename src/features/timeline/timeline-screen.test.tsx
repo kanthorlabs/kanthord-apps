@@ -479,6 +479,49 @@ describe("TimelineScreen", () => {
     );
   });
 
+  it("reads the window of the query string and ignores the range", async () => {
+    mount("/timeline?project_id=project_1&from=1793059200000&to=1793145600000&range=1h");
+
+    await waitFor(() => expect(listTimelinePage).toHaveBeenCalled());
+    expect(vi.mocked(listTimelinePage).mock.calls[0]?.[0]).toEqual({
+      project_id: "project_1",
+      from: 1_793_059_200_000,
+      to: 1_793_145_600_000,
+    });
+    expect(await screen.findByRole("combobox", { name: "Time range" })).toHaveTextContent(
+      "Oct 27 00:00 – Oct 28 00:00 UTC",
+    );
+  });
+
+  it("follows the range rule for an invalid window", async () => {
+    mount("/timeline?node_id=node_1&from=abc&to=1.5");
+
+    await waitFor(() => expect(listTimelinePage).toHaveBeenCalled());
+    expect(listTimelinePage).toHaveBeenCalledWith({ node_id: "node_1" }, null, 200);
+    expect(await screen.findByRole("combobox", { name: "Time range" })).toHaveTextContent(
+      "All time",
+    );
+  });
+
+  it("removes the window from the query string when a range is chosen", async () => {
+    const user = userEvent.setup();
+    mount("/timeline?project_id=project_1&from=1793059200000&to=1793145600000");
+    await waitFor(() => expect(listTimelinePage).toHaveBeenCalledTimes(1));
+
+    await user.click(await screen.findByRole("combobox", { name: "Time range" }));
+    const options = await screen.findAllByRole("option");
+    expect(options[0]).toHaveTextContent("Oct 27 00:00 – Oct 28 00:00 UTC");
+    await user.click(screen.getByRole("option", { name: "Last 7 days" }));
+
+    expect(await screen.findByText(/range=7d/)).toBeInTheDocument();
+    expect(screen.queryByText(/from=/)).toBeNull();
+    expect(screen.queryByText(/to=/)).toBeNull();
+    await waitFor(() => expect(listTimelinePage).toHaveBeenCalledTimes(2));
+    const query = vi.mocked(listTimelinePage).mock.calls[1]?.[0];
+    expect(query).not.toHaveProperty("to");
+    expect(query?.from).toBeLessThanOrEqual(Date.now() - 7 * DAY_MS);
+  });
+
   it("selects the first project in name order when the query holds no scope", async () => {
     mount("/timeline");
 

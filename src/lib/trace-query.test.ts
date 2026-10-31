@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TIME_RANGE,
   TIME_RANGE_LABELS,
+  timeWindowOf,
   TRACE_QUERY_KEYS,
   traceQueryOf,
+  windowLabelOf,
   withParam,
+  withRange,
 } from "./trace-query";
 
 const NOW = 10_000_000_000;
@@ -43,6 +46,8 @@ describe("trace query constants", () => {
       "min_total_tokens",
       "min_cost_usd",
       "sort",
+      "from",
+      "to",
     ]);
   });
 });
@@ -133,6 +138,93 @@ describe("traceQueryOf", () => {
       expect(traceQueryOf(new URLSearchParams(`sort=${sort}&range=all`), NOW).sort).toBe(sort);
     }
     expect(traceQueryOf(new URLSearchParams("sort=name&range=all"), NOW)).toEqual({});
+  });
+});
+
+describe("timeWindowOf", () => {
+  const OCT_27 = 1_793_059_200_000;
+  const OCT_28 = 1_793_145_600_000;
+
+  it("reads both sides", () => {
+    const params = new URLSearchParams({ from: String(OCT_27), to: String(OCT_28) });
+    expect(timeWindowOf(params)).toEqual({ from: OCT_27, to: OCT_28 });
+  });
+
+  it("answers null for an absent side", () => {
+    expect(timeWindowOf(new URLSearchParams({ from: "5" }))).toEqual({ from: 5, to: null });
+    expect(timeWindowOf(new URLSearchParams({ to: "5" }))).toEqual({ from: null, to: 5 });
+  });
+
+  it("answers null when both sides are absent", () => {
+    expect(timeWindowOf(new URLSearchParams("range=1h"))).toBeNull();
+  });
+
+  it("accepts equal sides", () => {
+    expect(timeWindowOf(new URLSearchParams("from=5&to=5"))).toEqual({ from: 5, to: 5 });
+  });
+
+  it("answers null when from is after to", () => {
+    expect(timeWindowOf(new URLSearchParams("from=6&to=5"))).toBeNull();
+  });
+
+  it.each(["abc", "-1", "1.5", "1e3", " 5", "", "9007199254740993", "+5"])(
+    "ignores the invalid side %j",
+    (value) => {
+      expect(timeWindowOf(new URLSearchParams({ from: value }))).toBeNull();
+      expect(timeWindowOf(new URLSearchParams({ from: value, to: "5" }))).toEqual({
+        from: null,
+        to: 5,
+      });
+    },
+  );
+});
+
+describe("windowLabelOf", () => {
+  it("labels both sides", () => {
+    expect(windowLabelOf({ from: 1_793_059_200_000, to: 1_793_145_600_000 })).toBe(
+      "Oct 27 00:00 – Oct 28 00:00 UTC",
+    );
+  });
+
+  it("labels from alone", () => {
+    expect(windowLabelOf({ from: 1_793_059_200_000, to: null })).toBe("From Oct 27 00:00 UTC");
+  });
+
+  it("labels to alone", () => {
+    expect(windowLabelOf({ from: null, to: Date.UTC(2026, 9, 28, 9, 5) })).toBe(
+      "Until Oct 28 09:05 UTC",
+    );
+  });
+
+  it("names the UTC month in three letters", () => {
+    expect(windowLabelOf({ from: Date.UTC(2026, 0, 3, 23, 59), to: null })).toBe(
+      "From Jan 3 23:59 UTC",
+    );
+  });
+});
+
+describe("traceQueryOf with a window", () => {
+  it("takes from and to and ignores range", () => {
+    const params = new URLSearchParams("from=100&to=200&range=1h");
+    expect(traceQueryOf(params, NOW)).toEqual({ from: 100, to: 200 });
+  });
+
+  it("takes one side and ignores range", () => {
+    expect(traceQueryOf(new URLSearchParams("to=200&range=1h"), NOW)).toEqual({ to: 200 });
+  });
+
+  it("follows range when the window is invalid", () => {
+    expect(traceQueryOf(new URLSearchParams("from=9&to=3&range=1h"), NOW)).toEqual({
+      from: NOW - HOUR,
+    });
+    expect(traceQueryOf(new URLSearchParams("from=abc"), NOW)).toEqual({ from: NOW - 7 * DAY });
+  });
+});
+
+describe("withRange", () => {
+  it("writes range and removes from and to", () => {
+    const next = withRange(new URLSearchParams("from=1&to=2&state=ok"), "7d");
+    expect(next.toString()).toBe("state=ok&range=7d");
   });
 });
 

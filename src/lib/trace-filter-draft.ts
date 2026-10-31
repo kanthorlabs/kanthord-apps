@@ -14,6 +14,8 @@ export const SHEET_KEYS = [
   "min_total_tokens",
   "min_cost_usd",
   "sort",
+  "from",
+  "to",
 ] as const satisfies readonly TraceQueryKey[];
 
 export type SheetKey = (typeof SHEET_KEYS)[number];
