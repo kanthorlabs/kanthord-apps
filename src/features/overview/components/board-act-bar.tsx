@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Link } from "react-router-dom";
 
 import { DisabledAction } from "@/components/disabled-action";
@@ -45,12 +46,24 @@ function KeyHint({ shortcut }: { readonly shortcut: string }) {
   );
 }
 
+type NeedIds = (need: string) => string;
+
+function NeedLine({ need, id }: { readonly need: string; readonly id: string }) {
+  return (
+    <p id={id} className="text-sm text-muted-foreground">
+      {need}
+    </p>
+  );
+}
+
 function ActControl({
   act,
   shortcut,
+  needIds,
 }: {
   readonly act: BoardAct;
   readonly shortcut: string | null;
+  readonly needIds: NeedIds;
 }) {
   const hint = shortcut === null ? undefined : <KeyHint shortcut={shortcut} />;
   const keyShortcuts = shortcut ?? undefined;
@@ -77,9 +90,10 @@ function ActControl({
           <DisabledAction
             label={act.label}
             ariaLabel={act.ariaLabel ?? undefined}
-            reason={act.need}
+            reason={act.reason ?? act.need}
             keyShortcuts={keyShortcuts}
             hint={hint}
+            describedBy={needIds(act.need)}
           />
         </TouchTarget>
       );
@@ -98,6 +112,31 @@ function ActControl({
           </Button>
         </TouchTarget>
       );
+    case "external": {
+      const content = (
+        <>
+          {act.label}
+          {hint}
+        </>
+      );
+      return (
+        <TouchTarget>
+          <Button
+            nativeButton={false}
+            render={
+              <a href={act.href} target="_blank" rel="noreferrer">
+                {content}
+              </a>
+            }
+            variant="outline"
+            size="sm"
+            aria-keyshortcuts={keyShortcuts}
+          >
+            {content}
+          </Button>
+        </TouchTarget>
+      );
+    }
     case "resume_project":
       return (
         <TouchTarget>
@@ -113,16 +152,25 @@ function PhoneBar({
   acts,
   keys,
   subject,
+  needIds,
 }: {
   readonly acts: readonly BoardAct[];
   readonly keys: ReadonlyMap<string, string>;
   readonly subject: string;
+  readonly needIds: NeedIds;
 }) {
   const { lead, others, last, badges } = phoneActsOf(acts);
   const count = others.length + (last === null ? 0 : 1);
   const control = (act: BoardAct) => (
-    <ActControl key={act.id} act={act} shortcut={keys.get(act.id) ?? null} />
+    <ActControl key={act.id} act={act} shortcut={keys.get(act.id) ?? null} needIds={needIds} />
   );
+  const sheetNeeds = [
+    ...new Set(
+      [...others, ...(last === null ? [] : [last])].flatMap((act) =>
+        act.type === "gated" ? [act.need] : [],
+      ),
+    ),
+  ];
 
   return (
     <>
@@ -131,22 +179,27 @@ function PhoneBar({
         {count > 0 && (
           <BoardMoreSheet subject={subject} count={count} last={last && control(last)}>
             {others.map(control)}
+            {sheetNeeds.map((need) => (
+              <NeedLine key={need} need={need} id={needIds(need)} />
+            ))}
           </BoardMoreSheet>
         )}
         {badges.map(control)}
       </div>
-      {lead?.type === "gated" && <p className="text-sm text-muted-foreground">{lead.need}</p>}
+      {lead?.type === "gated" && <NeedLine need={lead.need} id={needIds(lead.need)} />}
     </>
   );
 }
 
 export function BoardActBar() {
-  const { acts, needs, read } = useBoardActs();
+  const { acts, needs, read, failure } = useBoardActs();
+  const base = useId();
   const { widthClass, subject } = useBoardActsFrame();
   const { enabled } = useShortcutSetting();
   if (acts.length === 0) return null;
   const keys = enabled ? actKeysOf(acts.map((act) => act.id)) : NO_KEYS;
   const phone = widthClass === BOARD_WIDTH.Compact;
+  const needIds: NeedIds = (need) => `${base}-need-${needs.indexOf(need)}`;
 
   return (
     <div
@@ -155,20 +208,35 @@ export function BoardActBar() {
       className="flex flex-col gap-2 pb-[env(safe-area-inset-bottom)]"
     >
       {phone ? (
-        <PhoneBar acts={acts} keys={keys} subject={subject} />
+        <PhoneBar acts={acts} keys={keys} subject={subject} needIds={needIds} />
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
             {acts.map((act) => (
-              <ActControl key={act.id} act={act} shortcut={keys.get(act.id) ?? null} />
+              <ActControl
+                key={act.id}
+                act={act}
+                shortcut={keys.get(act.id) ?? null}
+                needIds={needIds}
+              />
             ))}
           </div>
           {needs.map((need) => (
-            <p key={need} className="text-sm text-muted-foreground">
-              {need}
-            </p>
+            <NeedLine key={need} need={need} id={needIds(need)} />
           ))}
         </>
+      )}
+      {failure !== null && (
+        <div className="flex flex-wrap items-center gap-2">
+          <p role="alert" className="text-sm break-words text-destructive">
+            {failure.text}
+          </p>
+          <TouchTarget>
+            <Button variant="outline" size="sm" onClick={failure.retry}>
+              Retry
+            </Button>
+          </TouchTarget>
+        </div>
       )}
       {read?.failed === true && (
         <div className="flex flex-wrap items-center gap-2">

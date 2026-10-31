@@ -27,6 +27,7 @@ import {
   type OutsideAttentionItem,
 } from "@/lib/attention";
 import type { ActedAct } from "@/lib/board-done";
+import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { readFailureText } from "@/lib/external-requests";
 import type { ToolApprovalItem } from "@/lib/approval-attention";
@@ -64,6 +65,7 @@ interface GatedAct {
   readonly label: string;
   readonly ariaLabel: string | null;
   readonly need: string;
+  readonly reason?: string;
 }
 
 interface LinkAct {
@@ -71,6 +73,13 @@ interface LinkAct {
   readonly id: string;
   readonly label: string;
   readonly to: string;
+}
+
+interface ExternalLinkAct {
+  readonly type: "external";
+  readonly id: string;
+  readonly label: string;
+  readonly href: string;
 }
 
 interface ResumeProjectAct {
@@ -87,7 +96,8 @@ interface BadgeAct {
   readonly label: string;
 }
 
-export type BoardAct = ButtonAct | GatedAct | LinkAct | ResumeProjectAct | BadgeAct;
+export type BoardAct =
+  ButtonAct | GatedAct | LinkAct | ExternalLinkAct | ResumeProjectAct | BadgeAct;
 
 interface ReadNote {
   readonly text: string;
@@ -135,8 +145,15 @@ interface ActsContext {
   readonly registerDialogCloser: (close: (() => void) | null) => void;
 }
 
+interface GateRoute {
+  readonly gate: BoardGate;
+  readonly jump: (itemId: string) => void;
+}
+
 interface BoardActsProviderProps extends ActsContext {
   readonly widthClass: BoardWidth;
+  readonly gate?: BoardGate | null;
+  readonly jump?: (itemId: string) => void;
   readonly item: AttentionItem | null;
   readonly details: AttentionDetails;
   readonly children: ReactNode;
@@ -288,7 +305,33 @@ function decisionGateOf(item: DecisionAttentionItem, acts: DecisionActs): Gate |
   return { gates: ["remove", "check", "discard"], read: "the external actions read" };
 }
 
-function decisionActsOf(item: DecisionAttentionItem, acts: DecisionActs): readonly BoardAct[] {
+function credentialOf(gate: BoardGate): string {
+  return gate.itemId.slice(gate.itemId.indexOf(":") + 1);
+}
+
+function gatedResumeOf({ gate }: GateRoute): GatedAct {
+  return {
+    type: "gated",
+    id: "resume",
+    label: "Resume",
+    ariaLabel: null,
+    need: `Resume needs: ${gate.need}.`,
+    reason: `${gate.need}.`,
+  };
+}
+
+function goToOf({ gate, jump }: GateRoute): BoardAct | null {
+  return actOf(
+    slotOf("goto", `Go to ${credentialOf(gate)}`, "outline", true, () => jump(gate.itemId)),
+    null,
+  );
+}
+
+function decisionActsOf(
+  item: DecisionAttentionItem,
+  acts: DecisionActs,
+  route: GateRoute | null,
+): readonly BoardAct[] {
   const gate = decisionGateOf(item, acts);
   const decide = actOf(
     slotOf("decide", "Decide", "outline", acts.decide.available, acts.decide.request),
@@ -320,7 +363,11 @@ function decisionActsOf(item: DecisionAttentionItem, acts: DecisionActs): readon
           to: `/traces/${encodeURIComponent(acts.lastTraceId)}`,
         };
   const check = checkActsOf(acts.check, gate);
-  if (item.kind === "paused") return present([resume, override, ...check, trace, discard]);
+  if (item.kind === "paused") {
+    return route === null
+      ? present([resume, override, ...check, trace, discard])
+      : present([gatedResumeOf(route), goToOf(route), override, ...check, trace, discard]);
+  }
   if (item.kind === "blocked") {
     return present([decide, unblock, override, ...check, trace, discard]);
   }
@@ -374,10 +421,12 @@ function DecisionActs({
   markActed,
   setDialogOpen,
   registerDialogCloser,
+  route,
 }: ActsContext & {
   readonly store: ActsStore;
   readonly item: DecisionAttentionItem;
   readonly details: AttentionDetails;
+  readonly route: GateRoute | null;
 }) {
   const { node } = item;
   const lastOpen = useRef<ActedAct | null>(null);
@@ -408,7 +457,7 @@ function DecisionActs({
   });
   usePublished(
     store,
-    stateOf(decisionActsOf(item, acts), {
+    stateOf(decisionActsOf(item, acts, route), {
       read:
         acts.waiting === null
           ? null
@@ -457,6 +506,23 @@ function outsideReadOf(
   return null;
 }
 
+const GITHUB_IDENTITY = /^repository:github:(.+)$/;
+
+function pullRequestActOf(item: OutsideAttentionItem): ExternalLinkAct | null {
+  for (const asset of item.request.evidence?.assets ?? []) {
+    if (asset.kind !== "platform" || asset.address.kind !== "pull_request") continue;
+    const github = GITHUB_IDENTITY.exec(asset.address.resource_identity);
+    if (github?.[1] === undefined) return null;
+    return {
+      type: "external",
+      id: "open_pull_request",
+      label: "Open pull request",
+      href: `https://github.com/${github[1]}/pull/${asset.address.number}`,
+    };
+  }
+  return null;
+}
+
 function OutsideActs({
   store,
   item,
@@ -475,7 +541,7 @@ function OutsideActs({
     read === null ? null : { gates: ["check"], read: "the external actions read" };
   usePublished(
     store,
-    stateOf(present(checkActsOf(check, gate)), {
+    stateOf(present([pullRequestActOf(item), ...checkActsOf(check, gate)]), {
       read,
       retry: () => retryDetail(item.node.id),
     }),
@@ -595,6 +661,7 @@ function ItemActs({
   readonly store: ActsStore;
   readonly item: AttentionItem;
   readonly details: AttentionDetails;
+  readonly route: GateRoute | null;
 }) {
   switch (item.kind) {
     case "blocked":
@@ -640,17 +707,22 @@ function ItemActs({
 export function BoardActsProvider({
   item,
   widthClass,
+  gate = null,
+  jump,
   children,
   ...context
 }: BoardActsProviderProps) {
   const [store] = useState(createActsStore);
+  const route = gate === null || jump === undefined ? null : { gate, jump };
   const subject = item?.subject ?? "";
   const frame = useMemo(() => ({ widthClass, subject }), [widthClass, subject]);
   return (
     <BoardActsContext.Provider value={store}>
       <BoardFrameContext.Provider value={frame}>
         {children}
-        {item !== null && <ItemActs key={item.id} store={store} item={item} {...context} />}
+        {item !== null && (
+          <ItemActs key={item.id} store={store} item={item} route={route} {...context} />
+        )}
       </BoardFrameContext.Provider>
     </BoardActsContext.Provider>
   );

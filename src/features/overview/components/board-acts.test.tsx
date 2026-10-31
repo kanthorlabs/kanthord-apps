@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { listAllCredentials, verifyCredential } from "@/api/resources/credentials";
@@ -10,6 +11,7 @@ import { approveWorkbenchCall, readWorkbenchEvents } from "@/api/resources/workb
 import type {
   Credential,
   Intent,
+  MissionEvidence,
   MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
@@ -32,6 +34,7 @@ import type {
   ProjectPausedItem,
 } from "@/lib/fix-attention";
 
+import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
 vi.mock("@/api/resources/mission");
@@ -192,11 +195,13 @@ function openDetail(target: MissionNodeRecord): AttentionDetails {
 }
 
 const setDialogOpen = vi.fn();
+const jump = vi.fn();
 
 function renderActs(
   item: AttentionItem,
   details: AttentionDetails = new Map(),
   registerDialogCloser: (close: (() => void) | null) => void = vi.fn(),
+  gate: BoardGate | null = null,
 ) {
   render(
     <MemoryRouter>
@@ -209,6 +214,8 @@ function renderActs(
         setDialogOpen={setDialogOpen}
         registerDialogCloser={registerDialogCloser}
         widthClass={BOARD_WIDTH.Expanded}
+        gate={gate}
+        jump={jump}
       >
         <BoardActBar />
       </BoardActsProvider>
@@ -247,6 +254,32 @@ const MERGE_WAIT: MergeWaitItem = {
   at: null,
   cause: "Waits for merge",
   request: { action: unresolved(), evidence: null },
+};
+
+function pullRequestEvidence(resourceIdentity: string, number: number): MissionEvidence {
+  return {
+    id: "evidence_1",
+    node_id: "node_1",
+    attempt: 2,
+    subject: "pull request",
+    assets: [
+      {
+        kind: "platform",
+        address: { kind: "pull_request", resource_identity: resourceIdentity, number },
+      },
+    ],
+    created_at: 1,
+  } as unknown as MissionEvidence;
+}
+
+function mergeWaitWith(evidence: MissionEvidence | null): MergeWaitItem {
+  return { ...MERGE_WAIT, request: { action: unresolved(), evidence } };
+}
+
+const GATE: BoardGate = {
+  itemId: "credential_refused:openai-main",
+  need: "Rotate openai-main in Fix setup",
+  short: "Rotate openai-main",
 };
 
 const PROJECT_PAUSED: ProjectPausedItem = {
@@ -432,6 +465,61 @@ describe("BoardActsProvider act order", () => {
     expect(screen.getAllByRole("button", { name: "Check now" })[1]).toBeEnabled();
   });
 
+  it("leads an outside item with Open pull request, then Check now", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:github:kanthorlabs/kanthord", 42)));
+
+    expect(actNames()).toEqual(["Open pull request", "Check now"]);
+  });
+
+  it("opens the pull request on GitHub in a new tab", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:github:kanthorlabs/kanthord", 42)));
+
+    const link = screen.getByRole("button", { name: "Open pull request" });
+
+    expect(link).toHaveAttribute("href", "https://github.com/kanthorlabs/kanthord/pull/42");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noreferrer");
+    expect(link).toHaveTextContent(/^Open pull request$/);
+  });
+
+  it("offers no Open pull request without a pull request in the evidence", () => {
+    renderActs(mergeWaitWith(null));
+
+    expect(actNames()).toEqual(["Check now"]);
+  });
+
+  it("offers no Open pull request for a resource that is not on GitHub", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:gitlab:group/project", 7)));
+
+    expect(actNames()).toEqual(["Check now"]);
+  });
+
+  it("goes to the refused credential of a gated Paused item", async () => {
+    renderActs(decision("paused", PAUSED), pausedDetail(PAUSED, [], [execution()]), vi.fn(), GATE);
+
+    await waitFor(() =>
+      expect(actNames()).toEqual([
+        "Resume",
+        "Go to openai-main",
+        "Override",
+        "Last trace",
+        "Discard",
+      ]),
+    );
+    expect(screen.getByText("Resume needs: Rotate openai-main in Fix setup.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Go to openai-main" }));
+
+    expect(jump).toHaveBeenCalledWith("credential_refused:openai-main");
+  });
+
+  it("keeps a Paused item without a gate on today's acts", async () => {
+    renderActs(decision("paused", PAUSED), pausedDetail(PAUSED, [], [execution()]));
+
+    await waitFor(() =>
+      expect(actNames()).toEqual(["Resume", "Override", "Last trace", "Discard"]),
+    );
+  });
+
   it("leads a credential refusal with Rotate and links its credential", async () => {
     renderActs(CREDENTIAL);
 
@@ -533,6 +621,7 @@ describe("BoardActsProvider act order", () => {
     await userEvent.click(screen.getByRole("button", { name: "Run onboarding again" }));
 
     expect(rebuildEnvironment).toHaveBeenCalledWith("prj-1", "binding_1");
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Onboarding of api started."));
   });
 
   it("offers no act without an item", () => {

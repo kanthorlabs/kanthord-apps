@@ -291,6 +291,8 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
           setDialogOpen={board.setDialogOpen}
           registerDialogCloser={board.registerDialogCloser}
           widthClass={widthClass}
+          gate={board.selected === null ? null : (overview.gates.get(board.selected.id) ?? null)}
+          jump={board.jump}
         >
           <BoardKeys
             board={board}

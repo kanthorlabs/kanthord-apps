@@ -3,25 +3,31 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/api/errors";
 import { checkNode } from "@/api/resources/mission";
 import { listTracePage } from "@/api/resources/tracking";
+import { approveWorkbenchCall, readWorkbenchEvents } from "@/api/resources/workbench";
 import type {
   MissionExternalAction,
   MissionNodeRecord,
   Project,
   SchedulerExecutionRecord,
 } from "@/api/types";
+import type { ToolApprovalItem } from "@/lib/approval-attention";
 import {
   type AttentionDetail,
   type AttentionDetails,
+  type AttentionItem,
   type DecisionAttentionItem,
   detailKeyOf,
 } from "@/lib/attention";
+import type { BoardGate } from "@/lib/board-items";
 
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/tracking");
+vi.mock("@/api/resources/workbench");
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
@@ -120,14 +126,18 @@ function pausedDetails(
 
 const retryDetail = vi.fn();
 
+const jump = vi.fn();
+
 function Bar({
   item,
   details,
   widthClass = BOARD_WIDTH.Expanded,
+  gate = null,
 }: {
-  item: DecisionAttentionItem;
+  item: AttentionItem;
   details: AttentionDetails;
   widthClass?: BoardWidth;
+  gate?: BoardGate | null;
 }) {
   return (
     <MemoryRouter>
@@ -140,6 +150,8 @@ function Bar({
         setDialogOpen={vi.fn()}
         registerDialogCloser={vi.fn()}
         widthClass={widthClass}
+        gate={gate}
+        jump={jump}
       >
         <BoardActBar />
       </BoardActsProvider>
@@ -162,9 +174,30 @@ function names(): readonly (string | null)[] {
 
 const PAUSED = node("implement", "Paused");
 
+const GATE: BoardGate = {
+  itemId: "credential_refused:openai-main",
+  need: "Rotate openai-main in Fix setup",
+  short: "Rotate openai-main",
+};
+
+const APPROVAL: ToolApprovalItem = {
+  id: "tool_approval:s1",
+  group: "decisions",
+  kind: "tool_approval",
+  subject: "Create project",
+  at: 2,
+  sessionId: "s1",
+  toolCallId: "c1",
+  agent: "swe@1",
+  operationId: "project.create",
+};
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
+  vi.mocked(readWorkbenchEvents).mockResolvedValue({
+    snapshot: { pending_approval: null },
+  } as Awaited<ReturnType<typeof readWorkbenchEvents>>);
 });
 
 describe("BoardActBar", () => {
@@ -327,6 +360,132 @@ describe("BoardActBar", () => {
       "m",
       null,
     ]);
+  });
+});
+
+describe("BoardActBar gated Resume", () => {
+  function gatedBar(widthClass: BoardWidth = BOARD_WIDTH.Expanded) {
+    render(
+      <Bar
+        item={itemOf(PAUSED, "paused")}
+        details={pausedDetails(PAUSED, [])}
+        gate={GATE}
+        widthClass={widthClass}
+      />,
+    );
+  }
+
+  it("leads with Resume gated, then Go to the credential, in the act order", async () => {
+    gatedBar();
+    await screen.findByRole("button", { name: "Last trace" });
+
+    expect(names()).toEqual(["Resume", "Go to openai-main", "Override", "Last trace", "Discard"]);
+  });
+
+  it("renders Resume through DisabledAction with its key, its hint and its need line", async () => {
+    gatedBar();
+    const resume = await screen.findByRole("button", { name: "Resume" });
+    const need = screen.getByText("Resume needs: Rotate openai-main in Fix setup.");
+
+    expect(resume).toHaveAttribute("aria-disabled", "true");
+    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+    expect(resume.querySelector("kbd")).toHaveTextContent("r");
+    expect(resume).toHaveAttribute("aria-describedby", need.id);
+    expect(resume).toHaveAccessibleDescription("Resume needs: Rotate openai-main in Fix setup.");
+    expect(need).toBeVisible();
+    expect(resume.compareDocumentPosition(need) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps Resume focusable and shows the gate need as its reason after a press", async () => {
+    gatedBar();
+    const resume = await screen.findByRole("button", { name: "Resume" });
+
+    resume.focus();
+    expect(resume).toHaveFocus();
+    await userEvent.setup().click(resume);
+
+    expect(await screen.findByText("Rotate openai-main in Fix setup.")).toBeVisible();
+  });
+
+  it("jumps to the credential card with Go to", async () => {
+    gatedBar();
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Go to openai-main" }));
+
+    expect(jump).toHaveBeenCalledWith("credential_refused:openai-main");
+  });
+
+  it("leads the phone bar with Go to and names the Resume need in More", async () => {
+    gatedBar(BOARD_WIDTH.Compact);
+    const user = userEvent.setup();
+
+    expect(names()[0]).toBe("Go to openai-main");
+    expect(screen.queryByText(/^Resume needs:/)).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: /^More/ }));
+
+    const sheet = await screen.findByRole("dialog", { name: "More acts on Team" });
+    const resume = within(sheet).getByRole("button", { name: "Resume" });
+    const need = within(sheet).getByText("Resume needs: Rotate openai-main in Fix setup.");
+
+    expect(resume).toHaveAttribute("aria-describedby", need.id);
+  });
+});
+
+describe("BoardActBar failure line", () => {
+  async function approve() {
+    render(<Bar item={APPROVAL} details={new Map()} />);
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    return user;
+  }
+
+  it("shows the failed act with its message and Retry, and keeps the acts", async () => {
+    vi.mocked(approveWorkbenchCall).mockRejectedValue(
+      new ApiError("unavailable", "The daemon did not answer.", 503),
+    );
+
+    await approve();
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Approving Create project failed. The daemon did not answer.");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Approve" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Reject" })).toBeVisible();
+  });
+
+  it("sends again on Retry and clears the line", async () => {
+    vi.mocked(approveWorkbenchCall)
+      .mockRejectedValueOnce(new ApiError("unavailable", "Down.", 503))
+      .mockResolvedValue({} as never);
+    const user = await approve();
+    await screen.findByRole("alert");
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+    expect(approveWorkbenchCall).toHaveBeenCalledTimes(2);
+    expect(approveWorkbenchCall).toHaveBeenLastCalledWith("s1", "c1", true);
+  });
+
+  it("shows no failure line without a failure", async () => {
+    render(<Bar item={APPROVAL} details={new Map()} />);
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps the line under the row on compact width", async () => {
+    vi.mocked(approveWorkbenchCall).mockRejectedValue(new ApiError("unavailable", "Down.", 503));
+    render(<Bar item={APPROVAL} details={new Map()} widthClass={BOARD_WIDTH.Compact} />);
+    const user = userEvent.setup();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Approving Create project failed. Down.",
+    );
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
   });
 });
 
