@@ -1,25 +1,56 @@
-import { AnalyticsToolbar } from "./components/analytics-toolbar";
-import { CostSection } from "./components/cost-section";
-import { TimeSection } from "./components/time-section";
-import { useAnalytics } from "./use-analytics";
+import { Link } from "react-router-dom";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { CostTab } from "./flow/cost-tab";
+import { FlowTab } from "./flow/flow-tab";
+import { FlowToolbar } from "./flow/flow-toolbar";
+import { useFlow } from "./flow/use-flow";
+
+const LINK_CLASS = "underline underline-offset-4 hover:text-foreground";
 
 export function AnalyticsScreen() {
-  const analytics = useAnalytics();
+  const flow = useFlow();
 
   return (
     <div className="flex flex-col gap-6">
       <h2 className="text-lg font-semibold">Analytics</h2>
-      <AnalyticsToolbar {...analytics} />
-      <CostSection
-        filters={analytics.filters}
-        projects={analytics.projects}
-        refreshCount={analytics.refreshCount}
-      />
-      <TimeSection
-        filters={analytics.filters}
-        projects={analytics.projects}
-        refreshCount={analytics.refreshCount}
-      />
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-muted-foreground">
+        {flow.contextLine !== null && <p>{flow.contextLine}</p>}
+        <p className="md:ml-auto">
+          Live state:{" "}
+          <Link to="/" className={LINK_CLASS}>
+            Overview
+          </Link>{" "}
+          ·{" "}
+          <Link to="/scheduler" className={LINK_CLASS}>
+            Scheduler
+          </Link>
+        </p>
+      </div>
+      <FlowToolbar flow={flow} onRefresh={flow.refresh} />
+      {flow.rebuildNotice !== null && (
+        <Alert>
+          <AlertDescription>{flow.rebuildNotice}</AlertDescription>
+        </Alert>
+      )}
+      <Tabs
+        value={flow.filters.tab}
+        onValueChange={flow.selectTab}
+        className="flex min-w-0 flex-col gap-6"
+      >
+        <TabsList>
+          <TabsTrigger value="flow">Flow</TabsTrigger>
+          <TabsTrigger value="cost">Cost</TabsTrigger>
+        </TabsList>
+        <TabsContent value="flow" className="min-w-0">
+          <FlowTab view={flow} />
+        </TabsContent>
+        <TabsContent value="cost" className="min-w-0">
+          <CostTab view={flow} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

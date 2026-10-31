@@ -9,15 +9,6 @@ const TURN_COUNT = 60;
 const TURN_STEP_MS = 2.5 * HOUR_MS;
 const TURNS_PER_NODE = 6;
 const BUCKETS = ["none", "hour", "day", "week"];
-const COST_GROUPS = [
-  "none",
-  "model",
-  "agent_name",
-  "provider_name",
-  "worker_name",
-  "node_id",
-  "project_id",
-];
 const DURATION_GROUPS = [
   "none",
   "operation",
@@ -224,22 +215,6 @@ const finish = (rows, query, orderKey) => {
 
 const sumOf = (spans, pick) => spans.reduce((total, span) => total + pick(span), 0);
 
-const costRow = ({ key, bucket_start, spans }) => {
-  const input = sumOf(spans, (span) => span.usage.input);
-  const output = sumOf(spans, (span) => span.usage.output);
-  return {
-    key,
-    bucket_start,
-    turn_count: spans.length,
-    input_tokens: input,
-    output_tokens: output,
-    cache_read_tokens: sumOf(spans, (span) => span.usage.cacheRead),
-    cache_creation_tokens: sumOf(spans, (span) => span.usage.cacheCreation),
-    total_tokens: input + output,
-    cost_usd: Number(sumOf(spans, (span) => span.usage.cost).toFixed(6)),
-  };
-};
-
 const percentileOf = (sorted, fraction) =>
   sorted[Math.max(Math.ceil(fraction * sorted.length) - 1, 0)];
 
@@ -271,13 +246,6 @@ const floorShareRow = ({ key, bucket_start, spans }) => {
 export function buildAnalytics(now) {
   const spans = buildSpans(now);
 
-  const readCost = (params, readAt) => {
-    const query = queryOf(params, readAt, COST_GROUPS, "model");
-    if (query.error !== undefined) return query;
-    const turns = select(spans, params, query, (span) => span.operation === "agent.turn");
-    return finish(groupSpans(turns, query).map(costRow), query, "cost_usd");
-  };
-
   const readDuration = (params, readAt) => {
     const measure = closedSet(params, "measure", MEASURES, null);
     if (measure === null) return { error: invalid("The measure is required and closed.") };
@@ -296,5 +264,5 @@ export function buildAnalytics(now) {
     return finish(groupSpans(chosen, query).map(rowOf), query, "count");
   };
 
-  return { readCost, readDuration };
+  return { readDuration };
 }

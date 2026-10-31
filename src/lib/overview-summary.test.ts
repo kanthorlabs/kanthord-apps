@@ -2,15 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MissionNodeRecord, NodeState } from "@/api/types";
 
-import { deriveAttention } from "./attention";
-import {
-  attentionSummary,
-  claimedNodeCount,
-  coolingFactsOf,
-  progressSummary,
-  projectsWithoutSetup,
-  statusLineText,
-} from "./overview-summary";
+import { claimedNodeCount, coolingFactsOf, projectsWithoutSetup } from "./overview-summary";
 
 function node(id: string, state: NodeState, retiredAt: number | null = null): MissionNodeRecord {
   return {
@@ -40,16 +32,6 @@ function node(id: string, state: NodeState, retiredAt: number | null = null): Mi
   };
 }
 
-describe("statusLineText", () => {
-  it("counts the executions and the jobs", () => {
-    expect(statusLineText(3, 4)).toBe("3 executions run · 4 jobs wait");
-  });
-
-  it("uses the singular for one", () => {
-    expect(statusLineText(1, 1)).toBe("1 execution runs · 1 job waits");
-  });
-});
-
 describe("claimedNodeCount", () => {
   it("counts the nodes in Executing and Evaluating", () => {
     expect(
@@ -60,63 +42,6 @@ describe("claimedNodeCount", () => {
         node("d", "Executing", 7),
       ]),
     ).toBe(2);
-  });
-});
-
-describe("attentionSummary", () => {
-  const project = {
-    id: "p",
-    name: "p",
-    binding_set_version: 1,
-    created_at: 1,
-    paused_at: null,
-    workspace_directory: "/p",
-  };
-
-  it("names the count of each group", () => {
-    const items = deriveAttention(
-      [
-        {
-          project,
-          missionVersion: 1,
-          nodes: [node("a", "Blocked"), node("b", "Blocked")],
-          jobs: null,
-          registrations: null,
-          executions: null,
-          bindings: null,
-          environments: null,
-        },
-      ],
-      new Map(),
-      { now: 1, catalog: null, credentials: null, sessions: null },
-    );
-
-    expect(attentionSummary(items)).toBe("2 decisions");
-  });
-
-  it("names the decisions and the fixes in the order of the groups", () => {
-    const items = deriveAttention(
-      [
-        {
-          project: { ...project, paused_at: 5 },
-          missionVersion: 1,
-          nodes: [node("a", "Blocked")],
-          jobs: null,
-          registrations: null,
-          executions: null,
-          bindings: null,
-          environments: null,
-        },
-      ],
-      new Map(),
-      { now: 1, catalog: null, credentials: null, sessions: null },
-    );
-
-    expect(attentionSummary(items)).toBe("1 decision · 1 fix");
-  });
-
-  it("says that no item waits when the list is empty", () => {
-    expect(attentionSummary([])).toBe("No item waits for you");
   });
 });
 
@@ -236,23 +161,5 @@ describe("projectsWithoutSetup", () => {
     expect(projectsWithoutSetup([snapshotOf(atlas)], [{ project: atlas }, { project: beta }])).toBe(
       0,
     );
-  });
-});
-
-describe("progressSummary", () => {
-  it("counts the projects, the nodes and the completed nodes", () => {
-    expect(
-      progressSummary([
-        [
-          { state: "Pending", count: 1 },
-          { state: "Completed", count: 2 },
-        ],
-        [{ state: "Executing", count: 1 }],
-      ]),
-    ).toBe("2 projects · 4 nodes · 2 completed");
-  });
-
-  it("names one project with no node", () => {
-    expect(progressSummary([[]])).toBe("1 project · 0 nodes · 0 completed");
   });
 });

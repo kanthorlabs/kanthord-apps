@@ -285,6 +285,66 @@ describe("TracesScreen", () => {
     expect(query).not.toHaveProperty("started_from");
   });
 
+  it("reads the window of the query string and shows it in the range select", async () => {
+    mount("/traces?from=1793059200000&to=1793145600000&range=1h");
+
+    await waitFor(() => expect(listTracePage).toHaveBeenCalled());
+    const query = vi.mocked(listTracePage).mock.calls[0]?.[0];
+    expect(query).toEqual({ from: 1_793_059_200_000, to: 1_793_145_600_000 });
+    expect(screen.getByRole("combobox", { name: "Time range" })).toHaveTextContent(
+      "Oct 27 00:00 – Oct 28 00:00 UTC",
+    );
+  });
+
+  it("follows the range rule for an invalid window", async () => {
+    const before = Date.now();
+    mount("/traces?from=abc&to=-5");
+
+    await waitFor(() => expect(listTracePage).toHaveBeenCalled());
+    const query = vi.mocked(listTracePage).mock.calls[0]?.[0];
+    expect(query).not.toHaveProperty("to");
+    expect(query?.from).toBeGreaterThanOrEqual(before - SEVEN_DAYS_MS);
+    expect(screen.getByRole("combobox", { name: "Time range" })).toHaveTextContent("Last 7 days");
+  });
+
+  it("offers the window first and removes it when another range is chosen", async () => {
+    const user = userEvent.setup();
+    mount("/traces?from=1793059200000&to=1793145600000");
+    await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("combobox", { name: "Time range" }));
+    const options = await screen.findAllByRole("option");
+    expect(options[0]).toHaveTextContent("Oct 27 00:00 – Oct 28 00:00 UTC");
+    expect(options).toHaveLength(6);
+    await user.click(screen.getByRole("option", { name: "Last 30 days" }));
+
+    await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(2));
+    const query = vi.mocked(listTracePage).mock.calls[1]?.[0];
+    expect(query).not.toHaveProperty("to");
+    expect(query?.from).toBeLessThanOrEqual(Date.now() - 30 * 24 * 3_600_000);
+    expect(query?.from).not.toBe(1_793_059_200_000);
+    expect(screen.getByRole("combobox", { name: "Time range" })).toHaveTextContent("Last 30 days");
+  });
+
+  it("keeps the window in the filter sheet until a range is chosen and applied", async () => {
+    matchLargeScreen(false);
+    const user = userEvent.setup();
+    mount("/traces?from=1793059200000&to=1793145600000");
+    await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("combobox", { name: "Time range" })).toHaveTextContent(
+      "Oct 27 00:00 – Oct 28 00:00 UTC",
+    );
+    await user.click(within(dialog).getByRole("combobox", { name: "Time range" }));
+    await user.click(await screen.findByRole("option", { name: "Last hour" }));
+    await user.click(within(dialog).getByRole("button", { name: "Apply" }));
+
+    await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(listTracePage).mock.calls[1]?.[0]).not.toHaveProperty("to");
+  });
+
   it("writes a typed search once, 300 ms after the last keystroke", async () => {
     mount();
     await waitFor(() => expect(listTracePage).toHaveBeenCalledTimes(1));

@@ -53,7 +53,11 @@ export function TracesScreen() {
               />
             </div>
             <div className="w-full md:w-44">
-              <RangeFilter value={params.get("range")} onChange={setters.range} />
+              <RangeFilter
+                value={params.get("range")}
+                window={list.window}
+                onChange={setters.range}
+              />
             </div>
           </>
         )}

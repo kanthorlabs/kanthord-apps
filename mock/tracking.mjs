@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 
 import { buildAnalytics } from "./analytics.mjs";
 import {
@@ -9,6 +10,9 @@ import {
 } from "./cause.mjs";
 import { buildTimelineTraces } from "./timeline-fixtures.mjs";
 
+const FLOW_READ = JSON.parse(
+  readFileSync(new URL("../test/flow-read.json", import.meta.url), "utf8"),
+);
 const WINDOW_FLOOR_MS = 60_000;
 const ENTRY_STEP_MS = 1000;
 const TIMELINE_SCOPES = ["execution_id", "node_id", "project_id"];
@@ -593,9 +597,7 @@ export function registerTracking({ on, json, envelope, page, executions, usernam
       ? json(res, 200, answer)
       : envelope(res, answer.error.status, answer.error.code, answer.error.message);
 
-  on("GET", /^\/api\/tracking\/analytics\/cost$/, (_m, _b, res, _t, url) =>
-    answerAnalytics(res, analytics.readCost(url.searchParams, Date.now())),
-  );
+  on("GET", /^\/api\/tracking\/analytics\/flow$/, (_m, _b, res) => json(res, 200, FLOW_READ));
 
   on("GET", /^\/api\/tracking\/analytics\/duration$/, (_m, _b, res, _t, url) =>
     answerAnalytics(res, analytics.readDuration(url.searchParams, Date.now())),

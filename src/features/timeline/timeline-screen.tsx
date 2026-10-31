@@ -15,6 +15,7 @@ export function TimelineScreen() {
       <TimelineToolbar
         scope={timeline.scope}
         range={timeline.range}
+        window={timeline.window}
         onRange={timeline.selectRange}
         onProject={timeline.selectProject}
       />

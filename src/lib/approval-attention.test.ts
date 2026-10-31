@@ -31,6 +31,7 @@ describe("approvalItemsOf", () => {
         subject: "Create the project account-recovery",
         at: 500,
         sessionId: "workbench_session_A",
+        toolCallId: "call_1",
         agent: "swe@1",
         operationId: "project.create",
       },

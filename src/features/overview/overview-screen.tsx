@@ -1,7 +1,8 @@
+import { type ReactNode, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { ProjectFilter } from "@/components/project-filter";
 import { RefreshStatus } from "@/components/refresh-status";
+import { TouchTarget } from "@/components/touch-target";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,21 +12,90 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { Skeleton } from "@/components/ui/skeleton";
+import type { AttentionItem } from "@/lib/attention";
+import { hiddenByFilterOf, isNothingAtAll } from "@/lib/board-items";
+import { BOARD_TABS, type BoardTab, type BoardTabId } from "@/lib/board-tabs";
+import { announcementOf, leadLabelOf, workforceText } from "@/lib/board-text";
+import { BOARD_WIDTH } from "@/lib/board-width";
 
-import { AttentionSection } from "./components/attention-section";
-import { ProgressSection } from "./components/progress-section";
-import { StatusLine } from "./components/status-line";
+import { AllClear } from "./components/all-clear";
+import { BoardActsProvider } from "./components/board-acts";
+import { BoardDetailHost } from "./components/board-detail-host";
+import { BoardFilter } from "./components/board-filter";
+import { BoardList } from "./components/board-list";
+import { BoardShortcutsDialog } from "./components/board-shortcuts-dialog";
+import { BoardSkeleton } from "./components/board-skeleton";
+import { BoardSummary } from "./components/board-summary";
+import { BoardTabs } from "./components/board-tabs";
+import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
+import { useBoard } from "./use-board";
+import { useBoardActs } from "./use-board-acts";
+import { type BoardKeysInput, useBoardKeys } from "./use-board-keys";
+import { BoardReadsProvider } from "./use-board-reads";
+import { useBoardWidth } from "./use-board-width";
 import { useOverview } from "./use-overview";
 
-function SectionSkeletons() {
+function tabNamed(id: BoardTabId): BoardTab {
+  const tab = BOARD_TABS.find((entry) => entry.id === id);
+  if (tab === undefined) throw new Error(`No board tab ${id}.`);
+  return tab;
+}
+
+function BoardKeys(props: Omit<BoardKeysInput, "acts">) {
+  const { acts } = useBoardActs();
+  useBoardKeys({ ...props, acts });
+  return null;
+}
+
+interface PaneEmptyProps {
+  readonly tab: BoardTab;
+  readonly nothingAtAll: boolean;
+  readonly allClear: boolean;
+  readonly workforce: string;
+  readonly hiddenByFilter: boolean;
+  readonly start: AttentionItem | null;
+  readonly onShowAll: () => void;
+  readonly onGoToStart: () => void;
+  readonly allClearRef: (element: HTMLElement | null) => void;
+}
+
+function PaneEmpty({
+  tab,
+  nothingAtAll,
+  allClear,
+  workforce,
+  hiddenByFilter,
+  start,
+  onShowAll,
+  onGoToStart,
+  allClearRef,
+}: PaneEmptyProps) {
+  if (nothingAtAll) {
+    return <AllClear titleRef={allClearRef} fault={!allClear} workforce={workforce} />;
+  }
   return (
-    <div className="flex flex-col gap-6">
-      {["Status", "Needs you", "Mission progress"].map((section) => (
-        <Skeleton key={section} className="h-24 w-full" />
-      ))}
-    </div>
+    <Empty>
+      <EmptyHeader>
+        <EmptyDescription>{tab.what}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        {hiddenByFilter && (
+          <TouchTarget>
+            <Button variant="outline" size="sm" onClick={onShowAll}>
+              Show all projects
+            </Button>
+          </TouchTarget>
+        )}
+        {start !== null && (
+          <TouchTarget>
+            <Button variant="outline" size="sm" onClick={onGoToStart}>
+              Go to {start.subject}
+            </Button>
+          </TouchTarget>
+        )}
+      </EmptyContent>
+    </Empty>
   );
 }
 
@@ -35,10 +105,124 @@ interface OverviewScreenProps {
 
 export function OverviewScreen({ onResume }: OverviewScreenProps) {
   const overview = useOverview();
+  const frame = useRef<HTMLDivElement>(null);
+  const widthClass = useBoardWidth(frame);
+  const board = useBoard(overview, widthClass);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; itemId: string | null } | null>(null);
+  const expanded = widthClass === BOARD_WIDTH.Expanded;
+  const tab = tabNamed(board.tab);
+  const { startItem } = board;
+  const workforce = workforceText(overview.running, overview.waiting);
+  const readFault = overview.faults.length > 0;
+  const hiddenByFilter = hiddenByFilterOf(
+    overview.boardItems,
+    overview.details,
+    board.tab,
+    board.projectId,
+  );
+  const projectName = overview.projects.find((entry) => entry.id === board.projectId)?.name ?? null;
+  const nothingAtAll = isNothingAtAll({
+    projectId: board.projectId,
+    view: board.counts.view,
+    allClear: overview.allClear,
+    readFault,
+  });
+  const noticeText = notice?.itemId === board.selectedId ? (notice?.text ?? null) : null;
+  const showAll = () => board.selectProject(null);
+  const goToStart = () => {
+    if (startItem !== null) board.select(startItem.id);
+  };
+
+  const filter: ReactNode = (
+    <BoardFilter
+      projects={overview.projects}
+      counts={board.counts}
+      projectId={board.projectId}
+      tab={tab}
+      widthClass={widthClass}
+      onChange={board.selectProject}
+    />
+  );
+
+  const tabs = (
+    <BoardTabs
+      tab={board.tab}
+      counts={board.counts}
+      allProjects={board.projectId !== null}
+      widthClass={widthClass}
+      onChange={board.selectTab}
+    >
+      <BoardList
+        tab={tab}
+        cards={board.cards}
+        done={board.done}
+        selectedId={board.selectedId}
+        widthClass={widthClass}
+        projectName={projectName}
+        hiddenByFilter={hiddenByFilter}
+        allClear={overview.allClear}
+        nothingAtAll={nothingAtAll}
+        start={startItem}
+        workforce={workforce}
+        now={overview.now}
+        held={overview.held}
+        gates={overview.gates}
+        leadLabelOf={(item) => leadLabelOf(item, overview.details)}
+        onSelect={board.open}
+        onShowAll={showAll}
+        onGoToStart={goToStart}
+        onGoToTab={board.selectTab}
+        cardRef={board.cardRef}
+        allClearRef={board.allClearRef}
+      />
+    </BoardTabs>
+  );
+
+  const host = (
+    <BoardDetailHost
+      widthClass={widthClass}
+      selected={board.selected}
+      gone={board.gone}
+      openId={board.openId}
+      position={board.position}
+      total={board.total}
+      tab={tab}
+      cards={board.cards}
+      details={overview.details}
+      now={overview.now}
+      held={overview.held}
+      snapshots={overview.snapshots}
+      empty={
+        <PaneEmpty
+          tab={tab}
+          nothingAtAll={nothingAtAll}
+          allClear={overview.allClear}
+          workforce={workforce}
+          hiddenByFilter={hiddenByFilter}
+          start={startItem}
+          onShowAll={showAll}
+          onGoToStart={goToStart}
+          allClearRef={board.allClearRef}
+        />
+      }
+      titleRef={board.titleRef}
+      onClose={board.close}
+      onStep={board.step}
+      onOpen={board.jump}
+    />
+  );
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+    <div
+      ref={frame}
+      className={
+        expanded
+          ? "@container flex h-[calc(100svh-var(--app-header-height)-3rem)] min-h-0 min-w-0 flex-col gap-4"
+          : "@container flex min-w-0 flex-col gap-4"
+      }
+    >
+      <div className="flex flex-wrap items-center gap-3 md:gap-4">
         <h2 className="text-lg font-semibold">Overview</h2>
         {onResume !== undefined && (
           <Button variant="link" size="sm" className="self-start" onClick={onResume}>
@@ -47,14 +231,9 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
         )}
         {overview.status === "ready" && (
           <>
-            <div className="w-full md:w-64">
-              <ProjectFilter
-                projects={overview.projects}
-                value={overview.projectId}
-                onChange={overview.selectProject}
-              />
-            </div>
-            <div className="md:ml-auto">
+            {expanded && filter}
+            <div className="flex items-center gap-2 md:ml-auto">
+              <BoardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
               <RefreshStatus
                 updatedAt={overview.updatedAt}
                 now={overview.now}
@@ -65,7 +244,19 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
         )}
       </div>
 
-      {overview.status === "loading" && <SectionSkeletons />}
+      <div role="status" className="sr-only">
+        {noticeText ??
+          announcementOf({
+            gone: board.gone !== null,
+            expanded,
+            open: board.openId !== null,
+            subject: board.selected?.subject ?? null,
+            position: board.position,
+            total: board.total,
+          })}
+      </div>
+
+      {overview.status === "loading" && <BoardSkeleton widthClass={widthClass} />}
 
       {overview.status === "empty" && (
         <Empty>
@@ -94,33 +285,57 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       )}
 
       {overview.status === "ready" && (
-        <>
-          <SystemHealthAlert components={overview.unavailable} failure={overview.livenessFailure} />
-          <AttentionSection
-            summary={overview.summary}
-            groups={overview.groups}
-            shownGroups={overview.shownGroups}
-            groupId={overview.groupId}
-            selectGroup={overview.selectGroup}
-            faults={overview.faults}
-            allClear={overview.allClear}
+        <BoardReadsProvider item={board.selected} details={overview.details}>
+          <BoardActsProvider
+            item={board.selected}
             details={overview.details}
-            showProject={overview.showProjects}
-            now={overview.now}
+            snapshots={overview.snapshots}
             reload={overview.refresh}
             retryDetail={overview.retryDetail}
-            setDialogOpen={overview.setDialogOpen}
-            focus={overview.focus}
-          />
-          <StatusLine
-            running={overview.running}
-            waiting={overview.waiting}
-            schedulerPath={overview.schedulerPath}
-            cooling={overview.cooling}
-            showProject={overview.showProjects}
-          />
-          <ProgressSection progress={overview.progress} summary={overview.progressSummary} />
-        </>
+            markActed={board.markActed}
+            setDialogOpen={board.setDialogOpen}
+            registerDialogCloser={board.registerDialogCloser}
+            widthClass={widthClass}
+            gate={board.selected === null ? null : (overview.gates.get(board.selected.id) ?? null)}
+            jump={board.jump}
+          >
+            <BoardKeys
+              board={board}
+              widthClass={widthClass}
+              projects={overview.projects}
+              openShortcuts={() => setShortcutsOpen(true)}
+              announce={(text) =>
+                setNotice(text === null ? null : { text, itemId: board.selectedId })
+              }
+            />
+            <SystemHealthAlert
+              components={overview.unavailable}
+              failure={overview.livenessFailure}
+            />
+            {readFault && <ReadFaultsAlert faults={overview.faults} onRetry={overview.refresh} />}
+            {!expanded && filter}
+            <BoardSummary
+              summary={board.summary}
+              widthClass={widthClass}
+              startSubject={startItem?.subject ?? null}
+              workforce={workforce}
+              cooling={overview.cooling}
+              showProject={board.projectId === null}
+              onStart={goToStart}
+            />
+            {expanded ? (
+              <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(544px,740px)] gap-4">
+                <div className="min-h-0 min-w-0 overflow-y-auto">{tabs}</div>
+                {host}
+              </div>
+            ) : (
+              <>
+                {tabs}
+                {host}
+              </>
+            )}
+          </BoardActsProvider>
+        </BoardReadsProvider>
       )}
     </div>
   );

@@ -7,7 +7,15 @@ import type { Project, TraceFacets, TraceListItem } from "@/api/types";
 import { type CursorPages, useCursorPages } from "@/hooks/use-cursor-pages";
 import { type Resource, useResource } from "@/hooks/use-resource";
 import { millisecondsOf, secondsOf, sheetChangesOf } from "@/lib/trace-filter-draft";
-import { TRACE_QUERY_KEYS, type TraceQueryKey, traceQueryOf, withParam } from "@/lib/trace-query";
+import {
+  type TimeWindow,
+  timeWindowOf,
+  TRACE_QUERY_KEYS,
+  type TraceQueryKey,
+  traceQueryOf,
+  withParam,
+  withRange,
+} from "@/lib/trace-query";
 import { nodeNameOf, traceTitleOf } from "@/lib/trace-title";
 
 import { useNodeNames } from "./use-node-names";
@@ -16,6 +24,7 @@ export const TRACE_PAGE_LIMIT = 50;
 
 const SEARCH_DELAY_MS = 300;
 const ALL_PILL = "all";
+const IGNORED_BY_FILTERED: readonly TraceQueryKey[] = ["range", "from", "to"];
 
 export type TraceSetter = (value: string | null) => void;
 
@@ -26,6 +35,7 @@ export interface TraceList {
   readonly params: URLSearchParams;
   readonly projectId: string | null;
   readonly filtered: boolean;
+  readonly window: TimeWindow | null;
   readonly setters: Readonly<Record<TraceQueryKey, TraceSetter>>;
   readonly now: number;
   readonly statePill: string;
@@ -63,7 +73,10 @@ export function useTraceList(): TraceList {
   const write = useCallback(
     (key: TraceQueryKey, value: string | null) => {
       startTransition(() => setNow(Date.now()));
-      setParams((current) => withParam(current, key, value), { replace: true });
+      setParams(
+        (current) => (key === "range" ? withRange(current, value) : withParam(current, key, value)),
+        { replace: true },
+      );
     },
     [setParams],
   );
@@ -128,7 +141,9 @@ export function useTraceList(): TraceList {
     [names],
   );
 
-  const filtered = TRACE_QUERY_KEYS.some((key) => key !== "range" && params.has(key));
+  const filtered = TRACE_QUERY_KEYS.some(
+    (key) => !IGNORED_BY_FILTERED.includes(key) && params.has(key),
+  );
 
   return {
     pages,
@@ -137,6 +152,7 @@ export function useTraceList(): TraceList {
     params,
     projectId,
     filtered,
+    window: timeWindowOf(params),
     setters,
     now,
     statePill: params.get("state") ?? ALL_PILL,

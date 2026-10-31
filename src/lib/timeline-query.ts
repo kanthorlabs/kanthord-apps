@@ -1,6 +1,6 @@
 import type { TimelineQuery } from "@/api/types";
 
-import { isTimeRange, rangeStartOf, type TimeRange } from "./trace-query";
+import { isTimeRange, rangeStartOf, type TimeRange, type TimeWindow } from "./trace-query";
 
 const NODE_RANGE: TimeRange = "all";
 const PROJECT_RANGE: TimeRange = "24h";
@@ -29,9 +29,17 @@ export function timelineQueryOf(
   scope: TimelineScope,
   range: TimeRange,
   now: number,
+  window: TimeWindow | null,
 ): TimelineQuery {
-  const from = rangeStartOf(range, now);
   const base: TimelineQuery =
     scope.kind === "node" ? { node_id: scope.nodeId } : { project_id: scope.projectId };
+  if (window !== null) {
+    return {
+      ...base,
+      ...(window.from === null ? {} : { from: window.from }),
+      ...(window.to === null ? {} : { to: window.to }),
+    };
+  }
+  const from = rangeStartOf(range, now);
   return from === null ? base : { ...base, from };
 }

@@ -14,6 +14,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
+import { timeWindowOf } from "@/lib/trace-query";
+
 import { useFilterDraft } from "../use-filter-draft";
 import { MoreFilters } from "./more-filters";
 import { RangeFilter } from "./range-filter";
@@ -38,7 +40,11 @@ function DraftFilters({ projects, facets, params, durationSeconds, onApply }: Dr
             onChange={draft.setters.project_id}
           />
         </TouchTarget>
-        <RangeFilter value={draft.params.get("range")} onChange={draft.setters.range} />
+        <RangeFilter
+          value={draft.params.get("range")}
+          window={timeWindowOf(draft.params)}
+          onChange={draft.setters.range}
+        />
         <MoreFilters
           facets={facets}
           params={draft.params}

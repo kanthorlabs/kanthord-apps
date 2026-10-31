@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { StrictMode } from "react";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -18,6 +19,7 @@ vi.mock("@/api/resources/projects", () => ({
   readProject: vi.fn(),
   resumeProject: vi.fn(),
   pauseProject: vi.fn(),
+  rebuildEnvironment: vi.fn(),
 }));
 
 vi.mock("@/api/resources/workers", () => ({
@@ -27,6 +29,8 @@ vi.mock("@/api/resources/workers", () => ({
 
 vi.mock("@/api/resources/credentials", () => ({
   listAllCredentials: vi.fn(),
+  verifyCredential: vi.fn(),
+  rotateCredential: vi.fn(),
 }));
 
 vi.mock("@/api/resources/gateway", () => ({
@@ -55,10 +59,13 @@ vi.mock("@/api/resources/mission", () => ({
 
 vi.mock("@/api/resources/workbench", () => ({
   listWorkbenchSessions: vi.fn(),
+  readWorkbenchEvents: vi.fn(),
+  approveWorkbenchCall: vi.fn(),
 }));
 
 vi.mock("@/api/resources/tracking", () => ({
   listTracePage: vi.fn(),
+  listTraceSpans: vi.fn(),
 }));
 
 vi.mock("@/api/resources/scheduler", () => ({
@@ -67,7 +74,7 @@ vi.mock("@/api/resources/scheduler", () => ({
   listProjectExecutionPage: vi.fn(),
 }));
 
-import { listTracePage } from "@/api/resources/tracking";
+import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
 import {
   checkNode,
   decideProposals,
@@ -84,7 +91,11 @@ import {
   unblockNode,
 } from "@/api/resources/mission";
 import { connectionBaseUrl } from "@/api/client";
-import { listAllCredentials } from "@/api/resources/credentials";
+import {
+  listAllCredentials,
+  rotateCredential,
+  verifyCredential,
+} from "@/api/resources/credentials";
 import { readLiveness } from "@/api/resources/gateway";
 import {
   listBindingAgents,
@@ -93,6 +104,7 @@ import {
   listWorkerBindings,
   pauseProject,
   readProject,
+  rebuildEnvironment,
   resumeProject,
 } from "@/api/resources/projects";
 import {
@@ -100,7 +112,11 @@ import {
   listProjectExecutionPage,
   listQueueJobs,
 } from "@/api/resources/scheduler";
-import { listWorkbenchSessions } from "@/api/resources/workbench";
+import {
+  approveWorkbenchCall,
+  listWorkbenchSessions,
+  readWorkbenchEvents,
+} from "@/api/resources/workbench";
 import { listWorkerCatalog, listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   ActionLanding,
@@ -131,7 +147,6 @@ import type {
   WorkerCatalogItem,
   WorkerRegistrationRecord,
 } from "@/api/types";
-import { closingEventText } from "@/lib/mission-labels";
 import { newUlid } from "@/lib/ulid";
 
 import { textContent } from "../../../test/text-content";
@@ -525,6 +540,30 @@ function serve(world: World) {
   );
   vi.mocked(listAllCredentials).mockResolvedValue(world.credentials ?? []);
   vi.mocked(listWorkbenchSessions).mockResolvedValue(world.sessions ?? []);
+  vi.mocked(readWorkbenchEvents).mockResolvedValue({
+    entries: [],
+    snapshot: {
+      streaming_message: null,
+      pending_tool_calls: [],
+      pending_approval: null,
+      run_active: false,
+      error_message: null,
+    },
+    version: 1,
+  });
+  vi.mocked(approveWorkbenchCall).mockResolvedValue({
+    session_id: "workbench_session_A",
+    tool_call_id: "call_1",
+    approved: true,
+  });
+  vi.mocked(listTraceSpans).mockResolvedValue([]);
+  vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
+  vi.mocked(verifyCredential).mockResolvedValue({
+    status: "healthy",
+    capability: "llm",
+    failure_reason: null,
+  });
+  vi.mocked(rebuildEnvironment).mockResolvedValue(failedEnvironment());
   vi.mocked(connectionBaseUrl).mockReturnValue("http://daemon.test");
   vi.mocked(readLiveness).mockResolvedValue(world.liveness ?? HEALTHY);
   vi.mocked(resumeProject).mockResolvedValue(KANTHORD);
@@ -537,27 +576,118 @@ function serve(world: World) {
   vi.mocked(discardNode).mockResolvedValue({} as MissionControlResult);
 }
 
+function Location() {
+  const location = useLocation();
+  return <output aria-label="Location">{location.search}</output>;
+}
+
 function renderScreen(entry = "/", onResume?: () => void) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <OverviewScreen onResume={onResume} />
+      <Location />
     </MemoryRouter>,
   );
 }
 
-function itemOf(name: string): HTMLElement {
-  const item = screen.getByRole("link", { name }).closest('[role="listitem"]');
-  if (!(item instanceof HTMLElement)) throw new Error(`No item for ${name}.`);
-  return item;
+function searchOf(): URLSearchParams {
+  return new URLSearchParams(
+    screen.getByRole("status", { name: "Location", hidden: true }).textContent ?? "",
+  );
+}
+
+class FakeResizeObserver {
+  static readonly live = new Set<FakeResizeObserver>();
+
+  static width: number | null = null;
+
+  constructor(
+    private readonly callback: (entries: readonly { contentRect: { width: number } }[]) => void,
+  ) {
+    FakeResizeObserver.live.add(this);
+  }
+
+  observe() {
+    if (FakeResizeObserver.width !== null) this.measure(FakeResizeObserver.width);
+  }
+
+  unobserve() {}
+
+  disconnect() {
+    FakeResizeObserver.live.delete(this);
+  }
+
+  measure(width: number) {
+    this.callback([{ contentRect: { width } }]);
+  }
+}
+
+function setWidth(width: number) {
+  FakeResizeObserver.width = width;
+  act(() => {
+    for (const observer of FakeResizeObserver.live) observer.measure(width);
+  });
+}
+
+const EXPANDED_WIDTH = 1200;
+const MEDIUM_WIDTH = 700;
+const COMPACT_WIDTH = 500;
+
+function listOf(): HTMLElement {
+  return screen.getByRole("tabpanel");
+}
+
+function cardButton(name: string): HTMLElement {
+  return within(listOf()).getByRole("button", { name });
+}
+
+function cardOf(name: string): HTMLElement {
+  const card = cardButton(name).closest('[role="listitem"]');
+  if (!(card instanceof HTMLElement)) throw new Error(`No card for ${name}.`);
+  return card;
+}
+
+const NOT_LOADING = { name: (name: string) => name !== "Loading the board" };
+
+function detailOf(): HTMLElement {
+  return screen.getByRole("region", NOT_LOADING);
+}
+
+async function showItem(name: string, tab?: string): Promise<HTMLElement> {
+  if (tab !== undefined) {
+    await userEvent.click(await screen.findByRole("tab", { name: new RegExp(`^${tab},`) }));
+  }
+  const button = await waitFor(() => cardButton(name));
+  await userEvent.click(button);
+  return detailOf();
+}
+
+async function findDetail(): Promise<HTMLElement> {
+  return screen.findByRole("region", NOT_LOADING);
+}
+
+function labelOf(control: HTMLElement): string {
+  return Array.from(control.childNodes)
+    .filter((node) => node.nodeType === Node.TEXT_NODE)
+    .map((node) => node.textContent)
+    .join("");
+}
+
+function expectGated(scope: HTMLElement, name: string | RegExp) {
+  expect(within(scope).getByRole("button", { name })).toHaveAttribute("aria-disabled", "true");
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
   NOW = Date.now();
+  FakeResizeObserver.live.clear();
+  FakeResizeObserver.width = null;
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe("OverviewScreen onboarding link", () => {
@@ -582,7 +712,7 @@ describe("OverviewScreen onboarding link", () => {
       "/projects/new",
     );
     expect(screen.getByRole("button", { name: "Resume onboarding" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "Needs you" })).toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
   });
 
   it("offers no Resume onboarding when the setup is done", async () => {
@@ -595,86 +725,75 @@ describe("OverviewScreen onboarding link", () => {
   });
 });
 
-describe("OverviewScreen inbox", () => {
-  it("lists the Blocked nodes of every project with cause, project and age", async () => {
-    serve({
-      nodes: {
-        "prj-1": [blocked("n_a", "Audit log for account changes")],
-        "prj-2": [
-          blocked("n_b", "Localize the order email", {
-            result: "undetermined",
-            createdAt: NOW - 5 * HOUR,
-          }),
-        ],
-      },
-    });
+describe("OverviewScreen board", () => {
+  const world = () => ({
+    nodes: {
+      "prj-1": [blocked("n_a", "Audit log for account changes")],
+      "prj-2": [
+        blocked("n_b", "Localize the order email", {
+          result: "undetermined",
+          createdAt: NOW - 5 * HOUR,
+        }),
+      ],
+    },
+  });
+
+  it("shows the header row, the filter, the summary, six tabs and the Start here card", async () => {
+    serve(world());
 
     renderScreen();
 
-    const decisions = await screen.findByRole("list", { name: "Decisions" });
+    expect(await screen.findAllByRole("tab")).toHaveLength(6);
+    expect(screen.getByRole("heading", { level: 2, name: "Overview" })).toBeInTheDocument();
+    const filter = screen.getByRole("group", { name: "Show the acts of" });
     expect(
-      within(decisions)
-        .getAllByRole("listitem")
-        .map((item) => within(item).getAllByRole("link")[0]?.textContent),
-    ).toEqual(["Localize the order email", "Audit log for account changes"]);
-    const first = itemOf("Localize the order email");
-    expect(within(first).getByText("Blocked")).toBeInTheDocument();
-    expect(within(first).getByText("Undetermined")).toBeInTheDocument();
-    expect(
-      within(first).getByText(textContent("project atlas · attempt 2 · 5 hours ago")),
-    ).toBeInTheDocument();
-    expect(within(first).getByText(closingEventText("assessment-not-passed"))).toBeInTheDocument();
-    expect(within(first).getByRole("link", { name: "Localize the order email" })).toHaveAttribute(
-      "href",
-      "/projects/prj-2?node=n_b",
+      within(filter)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["All · 2", "kanthord · 1", "atlas · 1"]);
+    expect(screen.getByText(/Start here:/)).toHaveTextContent(
+      "2 acts wait for you. 2 nodes wait on them. Start here: Localize the order email in Rule.",
+    );
+    expect(screen.getByRole("tab", { name: "Rule, 2 acts" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
     expect(
-      within(itemOf("Audit log for account changes")).getByText("Criterion not met"),
-    ).toBeInTheDocument();
+      within(listOf())
+        .getAllByRole("listitem")
+        .map((card) => within(card).getAllByRole("button")[0]?.textContent),
+    ).toEqual(["Localize the order email", "Audit log for account changes"]);
+    expect(cardOf("Localize the order email").firstElementChild).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(
+      screen.getByRole("region", { name: "Localize the order email: undetermined" }),
+    ).toBeVisible();
   });
 
-  it("names the summary of the groups in a polite live region", async () => {
-    serve({
-      nodes: { "prj-1": [blocked("n_a", "A"), blocked("n_b", "B")], "prj-2": [] },
-    });
+  it("shows the cause, the project, the age and the lead act on a card", async () => {
+    serve(world());
 
     renderScreen();
 
-    const summary = await screen.findByText("2 decisions");
-    expect(summary.parentElement).toHaveAttribute("aria-live", "polite");
+    await screen.findAllByRole("tab");
+    const card = cardOf("Localize the order email");
+    expect(within(card).getByText("Undetermined · attempt 2")).toBeInTheDocument();
+    expect(within(card).getByText("atlas")).toBeInTheDocument();
+    expect(within(card).getByText("5 hours ago")).toBeInTheDocument();
+    expect(within(card).getByText("1 node waits")).toBeInTheDocument();
+    expect(within(card).getByText("Unblock")).toBeInTheDocument();
   });
 
-  it("narrows the inbox to one group on demand", async () => {
-    serve({
-      projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS],
-      nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [] },
-    });
-
-    renderScreen();
-
-    const filter = await screen.findByRole("group", { name: "Show the items of" });
-    expect(screen.getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Fixes" })).toBeInTheDocument();
-    await userEvent.click(within(filter).getByRole("button", { name: "Fixes · 1" }));
-    expect(screen.queryByRole("heading", { name: "Decisions" })).toBeNull();
-    expect(screen.getByRole("heading", { name: "Fixes" })).toBeInTheDocument();
-    await userEvent.click(within(filter).getByRole("button", { name: "All · 2" }));
-    expect(screen.getByRole("heading", { name: "Decisions" })).toBeInTheDocument();
-  });
-
-  it("offers no group filter while one group holds items", async () => {
-    serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [] } });
-
-    renderScreen();
-
-    expect(await screen.findByRole("heading", { name: "Decisions" })).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "Show the items of" })).toBeNull();
-  });
-
-  it("names the status line and links to the scheduler", async () => {
+  it("names the workforce fact", async () => {
     serve({
       nodes: {
-        "prj-1": [plain("n_a", "A", "Executing"), plain("n_b", "B", "Evaluating")],
+        "prj-1": [
+          plain("n_a", "A", "Executing"),
+          plain("n_b", "B", "Evaluating"),
+          blocked("n_x", "Waiting for a human"),
+        ],
         "prj-2": [plain("n_c", "C", "Executing"), plain("n_d", "D", "Available")],
       },
       jobs: { "prj-1": [job("prj-1", "n_d"), job("prj-1", "n_e")], "prj-2": [job("prj-2", "n_d")] },
@@ -683,55 +802,70 @@ describe("OverviewScreen inbox", () => {
     renderScreen();
 
     expect(await screen.findByText("3 executions run · 3 jobs wait")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open scheduler" })).toHaveAttribute(
-      "href",
-      "/scheduler",
-    );
   });
 
-  it("shows the Mission progress of each project in lifecycle order", async () => {
-    serve({
-      nodes: {
-        "prj-1": [
-          plain("n_a", "A", "Completed"),
-          plain("n_b", "B", "Pending"),
-          plain("n_c", "C", "Completed"),
-        ],
-        "prj-2": [plain("n_d", "D", "Executing")],
-      },
-    });
+  it("shows no Mission progress and no status line link", async () => {
+    serve({ nodes: { "prj-1": [plain("n_a", "A", "Completed"), blocked("n_x", "X")] } });
 
     renderScreen();
 
-    expect(await screen.findByText("2 projects · 4 nodes · 2 completed")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Node states of kanthord" })).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "Node states" }));
-    const kanthord = await screen.findByRole("list", { name: "Node states of kanthord" });
-    expect(
-      within(kanthord)
-        .getAllByRole("listitem")
-        .map((item) => item.textContent),
-    ).toEqual(["Pending 1", "Completed 2"]);
-    expect(
-      within(screen.getByRole("list", { name: "Node states of atlas" })).getByText("Executing"),
-    ).toBeInTheDocument();
+    await screen.findAllByRole("tab");
+    expect(screen.queryByText(/Mission progress/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Node states" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open scheduler" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Needs you" })).toBeNull();
+  });
+
+  it("counts each tab and shows the cards of the tab that the human picks", async () => {
+    serve({
+      projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS],
+      nodes: {
+        "prj-1": [paused("n_p", "Draft the notes")],
+        "prj-2": [blocked("n_b", "Localize the order email")],
+      },
+    });
+    const user = userEvent.setup();
+
+    renderScreen();
+
+    expect(await screen.findByRole("tab", { name: "Fix setup, 1 act" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Resume, 1 act" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Rule, 1 act" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Decide proposal, 0 acts, clear" })).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Resume, 1 act" }));
+
+    expect(within(listOf()).getByRole("button", { name: "Draft the notes" })).toBeInTheDocument();
+    expect(within(listOf()).queryByRole("button", { name: "Localize the order email" })).toBeNull();
+    expect(screen.getByRole("region", { name: /^Draft the notes/ })).toBeVisible();
+  });
+
+  it("shows the empty tab with a way to the Start here card", async () => {
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    const user = userEvent.setup();
+
+    renderScreen();
+    await user.click(await screen.findByRole("tab", { name: "Act outside, 0 acts, clear" }));
+
+    expect(screen.getByText("Nothing waits in Act outside.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Go to Audit log" })).toBeInTheDocument();
   });
 });
 
 describe("OverviewScreen scope", () => {
-  it("offers All projects first and shows both projects by default", async () => {
+  it("offers All first and shows both projects by default", async () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [blocked("n_b", "B")] } });
 
     renderScreen();
 
-    expect(await screen.findByRole("combobox", { name: "Project" })).toHaveTextContent(
-      "All projects",
+    expect(await screen.findByRole("button", { name: "All · 2" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
-    expect(screen.getByRole("link", { name: "A" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "B" })).toBeInTheDocument();
+    expect(cardButton("A")).toBeInTheDocument();
+    expect(cardButton("B")).toBeInTheDocument();
   });
 
-  it("narrows the inbox, the status line and the link to the project of the parameter", async () => {
+  it("narrows the board and the workforce fact to the project of the parameter", async () => {
     serve({
       nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [blocked("n_b", "B")] },
       jobs: { "prj-1": [job("prj-1", "n_a")], "prj-2": [job("prj-2", "n_b"), job("prj-2", "n_c")] },
@@ -739,59 +873,59 @@ describe("OverviewScreen scope", () => {
 
     renderScreen("/?project=prj-2");
 
-    expect(await screen.findByRole("link", { name: "B" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "A" })).toBeNull();
-    expect(screen.getByRole("combobox", { name: "Project" })).toHaveTextContent("atlas");
-    expect(screen.getByText("0 executions run · 2 jobs wait")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Open scheduler" })).toHaveAttribute(
-      "href",
-      "/scheduler?project=prj-2",
+    await waitFor(() => expect(cardButton("B")).toBeInTheDocument());
+    expect(within(listOf()).queryByRole("button", { name: "A" })).toBeNull();
+    expect(screen.getByRole("button", { name: "atlas · 1" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
-    expect(within(itemOf("B")).queryByText(/project atlas/)).toBeNull();
+    expect(screen.getByText("0 executions run · 2 jobs wait")).toBeInTheDocument();
   });
 
-  it("narrows the inbox when the human picks a project", async () => {
+  it("narrows the board and announces the counts when the human presses a project", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [blocked("n_b", "B")] } });
     renderScreen();
 
-    await user.click(await screen.findByRole("combobox", { name: "Project" }));
-    await user.click(await screen.findByRole("option", { name: "kanthord" }));
+    await user.click(await screen.findByRole("button", { name: "kanthord · 1" }));
 
-    expect(await screen.findByRole("link", { name: "A" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "B" })).toBeNull();
+    expect(within(listOf()).getByRole("button", { name: "A" })).toBeInTheDocument();
+    expect(within(listOf()).queryByRole("button", { name: "B" })).toBeNull();
+    expect(screen.getByText("kanthord: 1 act in Rule, 1 act in all tabs.")).toBeInTheDocument();
+    expect(searchOf().get("project")).toBe("prj-1");
+  });
+
+  it("returns to All on a press of the pressed item", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [blocked("n_b", "B")] } });
+    renderScreen("/?project=prj-1");
+
+    await user.click(await screen.findByRole("button", { name: "kanthord · 1" }));
+
+    expect(within(listOf()).getByRole("button", { name: "B" })).toBeInTheDocument();
+    expect(searchOf().get("project")).toBeNull();
+  });
+
+  it("offers Show all projects on a tab that the filter empties", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [paused("n_p", "P")] } });
+    renderScreen("/?project=prj-1&kind=paused");
+
+    expect(await screen.findByText("Nothing waits in Resume in kanthord.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show all projects" }));
+
+    expect(await within(listOf()).findByRole("button", { name: "P" })).toBeInTheDocument();
   });
 });
 
 describe("OverviewScreen assessment", () => {
-  it("reads the rationale and shows it with the request evidence on the toggle", async () => {
-    const user = userEvent.setup();
-    const request: MissionEvidence = {
-      id: "evidence_1",
-      node_id: "n_a",
-      attempt: 2,
-      subject: "Pull request for the audit log",
-      assets: [
-        {
-          id: "asset_1",
-          kind: "platform",
-          address: { kind: "pull_request", resource_identity: "github.com/atlas", number: 12 },
-          published_at: null,
-          expired_at: null,
-        },
-      ],
-      provenance: { kind: "human", account: "kanthorlabs", name: "Kanthor Labs" },
-      created_at: NOW - HOUR,
-      requirement_key: "repo.pull_request",
-      end_state: "other",
-    };
+  it("reads the rationale and shows it as a quote of its actor", async () => {
     serve({
       nodes: {
         "prj-1": [
           blocked("n_a", "Audit log", {
             closingEvent: "external-failed",
             result: "undetermined",
-            requests: [request],
           }),
         ],
       },
@@ -799,25 +933,16 @@ describe("OverviewScreen assessment", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Audit log"));
-    expect(within(item).getByText("External action failed")).toBeInTheDocument();
-    await user.click(within(item).getByRole("button", { name: "Show assessment" }));
+    const item = await findDetail();
 
-    expect(await within(item).findByText("The audit entry holds no actor.")).toBeInTheDocument();
-    expect(
-      within(item).getByText(
-        "repo.pull_request: Pull request for the audit log, pull request #12 on github.com/atlas. End state other.",
-      ),
-    ).toBeInTheDocument();
+    expect(within(cardOf("Audit log")).getByText(/^External action failed/)).toBeInTheDocument();
+    const quote = await within(item).findByText("The audit entry holds no actor.");
+    expect(quote.tagName).toBe("BLOCKQUOTE");
+    expect(within(item).getByText("Kanthor Labs").tagName).toBe("CITE");
     expect(listNodeAssessments).toHaveBeenCalledWith("n_a", 2);
-    expect(within(item).getByRole("button", { name: "Hide assessment" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
   });
 
-  it("shows the open fix proposal of an examine node in the panel", async () => {
-    const user = userEvent.setup();
+  it("shows the open fix proposal of an examine node under Proposal", async () => {
     serve({
       nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
       proposals: {
@@ -829,16 +954,12 @@ describe("OverviewScreen assessment", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Team workspaces"));
-    await user.click(within(item).getByRole("button", { name: "Show assessment" }));
+    const item = await findDetail();
 
     expect(
-      await within(item).findByText(
-        textContent(
-          "Send the invite in the workspace language: The invite email uses the workspace language.",
-        ),
-      ),
+      await within(item).findByText("Send the invite in the workspace language"),
     ).toBeInTheDocument();
+    expect(within(item).getByText("The invite email uses the workspace language.")).toBeVisible();
     expect(within(item).queryByText(/Old/)).toBeNull();
     expect(listNodeProposals).toHaveBeenCalledWith("n_t");
   });
@@ -851,11 +972,8 @@ describe("OverviewScreen assessment", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Audit log"));
-    await user.click(within(item).getByRole("button", { name: "Show assessment" }));
-    expect(
-      await within(item).findByText("The assessment could not be read: The daemon did not answer."),
-    ).toBeInTheDocument();
+    const item = await findDetail();
+    expect(await within(item).findByText("Could not read the assessment.")).toBeInTheDocument();
     vi.mocked(listNodeAssessments).mockResolvedValue([assessment("n_a", "Read after the retry.")]);
     await user.click(within(item).getByRole("button", { name: "Retry" }));
 
@@ -868,12 +986,29 @@ describe("OverviewScreen acts", () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Audit log"));
-    expect(within(item).getByRole("button", { name: "Unblock" })).toBeInTheDocument();
-    expect(within(item).getByRole("button", { name: "Discard" })).toBeInTheDocument();
+    const item = await findDetail();
+
+    expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled();
+    expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled();
+    expect(within(item).queryByText(/needs:/)).toBeNull();
   });
 
-  it("holds Unblock and Discard of an examine node until the proposals read answers", async () => {
+  it("leads a Decide proposal card with Decide and ends every card with Discard", async () => {
+    serve({
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
+      proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
+    });
+    renderScreen();
+
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Decide" })).toBeEnabled());
+
+    const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
+    expect(acts.map(labelOf)).toEqual(["Decide", "Unblock", "Override", "Discard"]);
+    expect(within(cardOf("Team workspaces")).getByText("Decide")).toBeInTheDocument();
+  });
+
+  it("gates the acts of an examine node until the proposals read answers", async () => {
     let answer: (value: readonly MissionProposal[]) => void = () => undefined;
     serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] } });
     vi.mocked(listNodeProposals).mockReturnValue(
@@ -883,18 +1018,25 @@ describe("OverviewScreen acts", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Team workspaces"));
+    const item = await findDetail();
     expect(within(item).getByText(/Reading the fix proposals/)).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Unblock" })).toBeNull();
-    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    expect(within(item).getByText("Decide needs: the proposals read.")).toBeInTheDocument();
+    expect(within(item).getByText("Unblock needs: the proposals read.")).toBeInTheDocument();
+    expect(within(item).getByText("Discard needs: the proposals read.")).toBeInTheDocument();
+    expectGated(item, "Decide");
+    expectGated(item, "Unblock");
+    expectGated(item, "Discard");
 
     answer([]);
 
-    expect(await within(item).findByRole("button", { name: "Unblock" })).toBeInTheDocument();
-    expect(within(item).getByRole("button", { name: "Discard" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled(),
+    );
+    expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled();
+    expect(within(item).queryByText(/needs:/)).toBeNull();
   });
 
-  it("keeps the acts of an examine node off when the proposals read fails", async () => {
+  it("keeps the acts of an examine node gated when the proposals read fails", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] } });
     vi.mocked(listNodeProposals).mockRejectedValueOnce(
@@ -902,19 +1044,21 @@ describe("OverviewScreen acts", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Team workspaces"));
+    const item = await findDetail();
     expect(
       await within(item).findByText(
-        textContent(
-          "The fix proposals could not be read: The daemon did not answer.. Unblock and Discard wait for them. Retry",
-        ),
+        /The fix proposals could not be read: The daemon did not answer\.\. Unblock and Discard wait for them\./,
       ),
     ).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Unblock" })).toBeNull();
+    expect(within(item).getByText("Unblock needs: the proposals read.")).toBeInTheDocument();
+    expectGated(item, "Unblock");
+    expect(within(item).getByText("Could not read the proposals.")).toBeInTheDocument();
     vi.mocked(listNodeProposals).mockResolvedValue([]);
-    await user.click(within(item).getByRole("button", { name: "Retry" }));
+    await user.click(within(item).getAllByRole("button", { name: "Retry" })[0] as HTMLElement);
 
-    expect(await within(item).findByRole("button", { name: "Unblock" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled(),
+    );
   });
 
   it("names the rejected proposals in the Unblock dialog and sends the unblock", async () => {
@@ -925,8 +1069,11 @@ describe("OverviewScreen acts", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Team workspaces"));
-    await user.click(await within(item).findByRole("button", { name: "Unblock" }));
+    const item = await findDetail();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled(),
+    );
+    await user.click(within(item).getByRole("button", { name: "Unblock" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(
       within(dialog).getByText(
@@ -947,12 +1094,12 @@ describe("OverviewScreen acts", () => {
     await waitFor(() => expect(vi.mocked(listMissionNodes).mock.calls.length).toBeGreaterThan(2));
   });
 
-  it("discards after the reason and reads the inbox again", async () => {
+  it("discards after the reason and reads the board again", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-2": [blocked("n_b", "Localize the order email")] } });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Localize the order email"));
+    const item = await findDetail();
     await user.click(within(item).getByRole("button", { name: "Discard" }));
     const dialog = await screen.findByRole("alertdialog");
     const action = within(dialog).getByRole("button", { name: "Discard node" });
@@ -977,11 +1124,11 @@ describe("OverviewScreen states", () => {
     renderScreen();
 
     expect(await screen.findByText("All clear")).toBeInTheDocument();
-    expect(screen.getByText("No decision waits for you.")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Decisions" })).toBeNull();
+    expect(screen.getAllByText("No decision waits for you.").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("listitem")).toBeNull();
   });
 
-  it("replaces All clear with an alert that names the missing records", async () => {
+  it("replaces All clear with a notice that names the missing records", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [], "prj-2": [] } });
     vi.mocked(readMission).mockImplementation(async (projectId) => {
@@ -999,6 +1146,8 @@ describe("OverviewScreen states", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
+    expect(screen.getByText("No act found")).toBeInTheDocument();
+    expect(screen.getByText("Some records could not be read.")).toBeInTheDocument();
     vi.mocked(readMission).mockImplementation(async (projectId) => ({
       id: `mission_${projectId}`,
       project_id: projectId,
@@ -1013,7 +1162,7 @@ describe("OverviewScreen states", () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")], "prj-2": [] } });
     renderScreen();
-    await screen.findByRole("link", { name: "Audit log" });
+    await findDetail();
 
     vi.mocked(listMissionNodes).mockRejectedValue(
       new ApiError("unreachable", "The daemon did not answer.", 0),
@@ -1023,18 +1172,23 @@ describe("OverviewScreen states", () => {
     expect(
       await screen.findByText(textContent(/Some records could not be read: kanthord node list/)),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Audit log" })).toBeInTheDocument();
+    expect(cardButton("Audit log")).toBeInTheDocument();
   });
 
-  it("shows only the heading while the first read runs", () => {
+  it("shows the heading and a busy skeleton while the first read runs", () => {
     serve({});
     vi.mocked(listProjects).mockReturnValue(new Promise(() => undefined));
 
     renderScreen();
 
     expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Loading the board" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(screen.queryByText(/Nothing waits/)).toBeNull();
     expect(screen.queryByText("All clear")).toBeNull();
-    expect(screen.queryByRole("combobox", { name: "Project" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Show the acts of" })).toBeNull();
   });
 
   it("shows an alert with Retry when the project list fails on the first read", async () => {
@@ -1047,6 +1201,7 @@ describe("OverviewScreen states", () => {
 
     expect(await screen.findByText("The overview could not be read.")).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
+    expect(screen.queryByRole("tab")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("All clear")).toBeInTheDocument();
@@ -1070,15 +1225,14 @@ describe("OverviewScreen paused items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Compute the shipping rates"));
-    expect(await within(item).findByText("Failure limit")).toBeInTheDocument();
-    expect(within(item).getByText("Paused")).toBeInTheDocument();
+    const item = await findDetail();
     expect(
-      within(item).getByText("The last execution ended: provider failed (rate limited)."),
+      await within(item).findByText("The last execution ended: provider failed (rate limited)."),
     ).toBeInTheDocument();
-    expect(
-      within(item).getByText(textContent("project kanthord · attempt 2 · 2 hours ago")),
-    ).toBeInTheDocument();
+    expect(within(cardOf("Compute the shipping rates")).getByText(/^Failure limit/)).toBeVisible();
+    expect(within(item).getAllByText("Paused")).toHaveLength(2);
+    expect(within(item).getByText("kanthord")).toBeInTheDocument();
+    expect(within(item).getByText("2 hours ago")).toBeInTheDocument();
     expect(listNodeExecutions).toHaveBeenCalledWith("prj-1", "n_p", 2);
     expect(listNodeExternalActions).toHaveBeenCalledWith("n_p", 2);
   });
@@ -1097,14 +1251,16 @@ describe("OverviewScreen paused items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Compute the shipping rates"));
-    expect(await within(item).findByRole("button", { name: "Last trace" })).toHaveAttribute(
+    const item = await findDetail();
+    const links = await within(item).findAllByRole("button", { name: "Last trace" });
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/traces/trace_new"]);
+    expect(within(item).getByRole("link", { name: "e2" })).toHaveAttribute(
       "href",
       "/traces/trace_new",
     );
   });
 
-  it("shows the cause of the last trace beside Last trace", async () => {
+  it("shows the cause of the last trace under Root cause", async () => {
     serve({
       nodes: { "prj-1": [paused("n_p", "Compute the shipping rates")] },
       executions: {
@@ -1122,20 +1278,20 @@ describe("OverviewScreen paused items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Compute the shipping rates"));
+    const item = await findDetail();
     expect(await within(item).findByText("LLM provider - rate limited")).toBeInTheDocument();
-    expect(within(item).getByRole("button", { name: "Last trace" })).toBeInTheDocument();
     expect(listTracePage).toHaveBeenCalledWith({ execution_id: "e1" }, null, 1);
   });
 
-  it("offers no Last trace to a Paused node without an execution", async () => {
+  it("offers no Last trace and no cause to a Paused node without an execution", async () => {
     serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
-    expect(await within(item).findByRole("button", { name: "Resume" })).toBeInTheDocument();
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Resume" })).toBeEnabled());
     expect(within(item).queryByRole("button", { name: "Last trace" })).toBeNull();
+    expect(within(item).getByText("No cause: this is a wait, not a fault.")).toBeInTheDocument();
   });
 
   it("names a lost execution as the Failure limit and takes the expiry as its end", async () => {
@@ -1154,10 +1310,10 @@ describe("OverviewScreen paused items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Compute the shipping rates"));
-    expect(await within(item).findByText("Failure limit")).toBeInTheDocument();
-    expect(within(item).getByText("The last execution ended: lost.")).toBeInTheDocument();
-    expect(within(item).getByText(/4 hours ago/)).toBeInTheDocument();
+    const item = await findDetail();
+    expect(await within(item).findByText("The last execution ended: lost.")).toBeInTheDocument();
+    expect(within(cardOf("Compute the shipping rates")).getByText(/^Failure limit/)).toBeVisible();
+    expect(within(item).getByText("4 hours ago")).toBeInTheDocument();
   });
 
   it("names the Further-work limit after a budget end", async () => {
@@ -1170,11 +1326,11 @@ describe("OverviewScreen paused items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Print the packing slip"));
-    expect(await within(item).findByText("Further-work limit")).toBeInTheDocument();
+    const item = await findDetail();
     expect(
-      within(item).getByText("The last execution ended at its budget (turns)."),
+      await within(item).findByText("The last execution ended at its budget (turns)."),
     ).toBeInTheDocument();
+    expect(within(cardOf("Print the packing slip")).getByText(/^Further-work limit/)).toBeVisible();
   });
 
   it("names a pause by a human with an unknown age when no execution ran", async () => {
@@ -1182,15 +1338,16 @@ describe("OverviewScreen paused items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
-    expect(await within(item).findByText("Paused by a human")).toBeInTheDocument();
+    const item = await findDetail();
     expect(
-      within(item).getByText(textContent("project kanthord · attempt 2 · age unknown")),
+      await within(item).findByText("No execution limit explains the pause."),
     ).toBeInTheDocument();
-    expect(within(item).getByText("No execution limit explains the pause.")).toBeInTheDocument();
+    const card = cardOf("Draft the notes");
+    expect(within(card).getByText("Paused by a human")).toBeInTheDocument();
+    expect(within(card).getByText("age unknown")).toBeInTheDocument();
   });
 
-  it("holds Discard of a Paused node until the executions and the actions answer", async () => {
+  it("gates the acts of a Paused node until the executions and the actions answer", async () => {
     let answer: (value: readonly MissionExternalAction[]) => void = () => undefined;
     serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
     vi.mocked(listNodeExternalActions).mockReturnValue(
@@ -1200,15 +1357,25 @@ describe("OverviewScreen paused items", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
+    const item = await findDetail();
     expect(
       within(item).getByText(/Reading the executions and the external actions of attempt 2/),
     ).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    expect(
+      within(item).getByText("Resume needs: the executions and external actions read."),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByText("Discard needs: the executions and external actions read."),
+    ).toBeInTheDocument();
+    expectGated(item, "Resume");
+    expectGated(item, "Discard");
 
     answer([]);
 
-    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled(),
+    );
+    expect(within(item).queryByText(/needs:/)).toBeNull();
   });
 
   it("keeps Discard off and names the reason when an unresolved request waits", async () => {
@@ -1219,7 +1386,7 @@ describe("OverviewScreen paused items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Publish the changelog"));
+    const item = await findDetail();
     expect(
       await within(item).findByText(
         "Attempt 2 has an unresolved pull request. Override and discard wait for its end state. Resume the node.",
@@ -1228,7 +1395,7 @@ describe("OverviewScreen paused items", () => {
     expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
   });
 
-  it("keeps Discard off when a read fails and reads again on Retry", async () => {
+  it("keeps the acts gated when a read fails and reads again on Retry", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes")] } });
     vi.mocked(listNodeExecutions).mockRejectedValueOnce(
@@ -1236,16 +1403,18 @@ describe("OverviewScreen paused items", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
+    const item = await findDetail();
     expect(
       await within(item).findByText(
         "The executions or the external actions of attempt 2 could not be read: The daemon did not answer. The controls wait for them.",
       ),
     ).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    expectGated(item, "Discard");
     await user.click(within(item).getByRole("button", { name: "Retry" }));
 
-    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled(),
+    );
   });
 
   it("offers Resume, Override and Discard for a Paused node at attempt 0 without a read", async () => {
@@ -1255,13 +1424,28 @@ describe("OverviewScreen paused items", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
-    expect(await within(item).findByRole("button", { name: "Resume" })).toBeInTheDocument();
-    expect(within(item).getByRole("button", { name: "Override" })).toBeInTheDocument();
-    expect(within(item).getByRole("button", { name: "Discard" })).toBeInTheDocument();
-    expect(within(item).getByText("Paused by a human")).toBeInTheDocument();
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Resume" })).toBeEnabled());
+    expect(within(item).getByRole("button", { name: "Override" })).toBeEnabled();
+    expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled();
+    expect(within(cardOf("Draft the notes")).getByText("Paused by a human")).toBeInTheDocument();
     expect(listNodeExecutions).not.toHaveBeenCalled();
     expect(listNodeExternalActions).not.toHaveBeenCalled();
+  });
+
+  it("leads a paused card with Resume and Discard last", async () => {
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Draft the notes", 0)] },
+    });
+    renderScreen();
+
+    const item = await findDetail();
+
+    await waitFor(() => {
+      const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
+      expect(acts.map(labelOf)).toEqual(["Resume", "Override", "Discard"]);
+    });
+    expect(within(cardOf("Draft the notes")).getByText("Resume")).toBeInTheDocument();
   });
 
   it("discards a Paused node with the expected state Paused", async () => {
@@ -1269,8 +1453,11 @@ describe("OverviewScreen paused items", () => {
     serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes", 3)] } });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
-    await user.click(await within(item).findByRole("button", { name: "Discard" }));
+    const item = await findDetail();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled(),
+    );
+    await user.click(within(item).getByRole("button", { name: "Discard" }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "The feature moves.");
     await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
@@ -1300,9 +1487,8 @@ describe("OverviewScreen dependency items", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
-    expect(within(item).getByText("Pending")).toBeInTheDocument();
-    expect(within(item).getByText("Discarded dependency")).toBeInTheDocument();
+    const item = await findDetail();
+    expect(within(item).getAllByText("Pending")).toHaveLength(2);
     expect(
       within(item).getByText(
         textContent(
@@ -1310,10 +1496,12 @@ describe("OverviewScreen dependency items", () => {
         ),
       ),
     ).toBeInTheDocument();
+    const card = cardOf("Redirect the legacy links");
     expect(
-      within(item).getByText(textContent("project atlas · no attempt · age unknown")),
+      within(card).getByText("Discarded dependency · Drop the legacy checkout"),
     ).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Show assessment" })).toBeNull();
+    expect(within(card).getByText("atlas")).toBeInTheDocument();
+    expect(within(card).getByText("age unknown")).toBeInTheDocument();
     expect(listNodeExecutions).not.toHaveBeenCalled();
   });
 
@@ -1322,7 +1510,7 @@ describe("OverviewScreen dependency items", () => {
     serve(world);
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
     await user.click(within(item).getByRole("button", { name: "Discard" }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "The links die with the checkout.");
@@ -1350,7 +1538,7 @@ describe("OverviewScreen dependency items with an open attempt", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
     expect(
       await within(item).findByText(
         "Attempt 2 has an unresolved pull request. Discard waits for its end state.",
@@ -1371,19 +1559,24 @@ describe("OverviewScreen dependency items with an open attempt", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
     expect(
       await within(item).findByText(
         "The external actions of attempt 2 could not be read: The daemon did not answer. Check now, Remove dependency and Discard wait for them.",
       ),
     ).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    expect(
+      within(item).getByText("Remove dependency needs: the external actions read."),
+    ).toBeInTheDocument();
+    expectGated(item, "Discard");
     await user.click(within(item).getByRole("button", { name: "Retry" }));
 
-    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled(),
+    );
   });
 
-  it("holds Discard until the external actions answer", async () => {
+  it("gates Remove dependency, Check now and Discard until the external actions answer", async () => {
     let answer: (value: readonly MissionExternalAction[]) => void = () => undefined;
     serve({
       nodes: { "prj-2": [started(), plain("n_b", "Drop the legacy checkout", "Discarded")] },
@@ -1395,15 +1588,21 @@ describe("OverviewScreen dependency items with an open attempt", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
     expect(
       within(item).getByText(/Reading the external actions of attempt 2\. The acts show/),
     ).toBeInTheDocument();
-    expect(within(item).queryByRole("button", { name: "Discard" })).toBeNull();
+    expect(
+      within(item).getByText("Check now needs: the external actions read."),
+    ).toBeInTheDocument();
+    expect(within(item).getByText("Discard needs: the external actions read.")).toBeInTheDocument();
+    expectGated(item, /Remove dependency on/);
 
     answer([]);
 
-    expect(await within(item).findByRole("button", { name: "Discard" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Discard" })).toBeEnabled(),
+    );
   });
 });
 
@@ -1421,8 +1620,9 @@ describe("OverviewScreen proposal decision", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Team workspaces"));
-    expect(await within(item).findAllByRole("button", { name: "Decide" })).toHaveLength(1);
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Decide" })).toBeEnabled());
+    expect(within(item).getAllByRole("button", { name: "Decide" })).toHaveLength(1);
     expect(within(item).queryByRole("button", { name: /^Approve proposal/ })).toBeNull();
     await user.click(within(item).getByRole("button", { name: "Decide" }));
     const dialog = await screen.findByRole("alertdialog");
@@ -1442,53 +1642,114 @@ describe("OverviewScreen proposal decision", () => {
     });
   });
 
-  it("offers no Decide for a decided proposal or for an implement node", async () => {
+  it("offers no Decide for a decided proposal", async () => {
     serve({
-      nodes: {
-        "prj-1": [
-          blocked("n_t", "Team workspaces", { intent: "examine" }),
-          blocked("n_a", "Audit log"),
-        ],
-      },
+      nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
       proposals: { n_t: [proposal("n_t", "Old fix", 5)] },
     });
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Team workspaces"));
-    await within(item).findByRole("button", { name: "Unblock" });
+    const item = await findDetail();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled(),
+    );
+    expect(screen.queryByRole("button", { name: "Decide" })).toBeNull();
+  });
+
+  it("offers no Decide for an implement node", async () => {
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+
+    renderScreen();
+
+    const item = await findDetail();
+    expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Decide" })).toBeNull();
   });
 });
 
-describe("OverviewScreen focus handoff", () => {
-  it("moves focus to the title of the next item after a discard removes an item", async () => {
-    const user = userEvent.setup();
-    const nodes: Record<string, MissionNodeRecord[]> = {
+describe("OverviewScreen next card", () => {
+  function threeBlocked(): Record<string, MissionNodeRecord[]> {
+    return {
       "prj-1": [
         blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
         blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
         blocked("n_c", "Third item", { createdAt: NOW - 7 * HOUR }),
       ],
     };
-    serve({ nodes });
+  }
+
+  async function discard(item: HTMLElement) {
+    const user = userEvent.setup();
+    await user.click(within(item).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+  }
+
+  function discardRemoves(nodes: Record<string, MissionNodeRecord[]>) {
     vi.mocked(discardNode).mockImplementation(async (nodeId) => {
       nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
       return {} as MissionControlResult;
     });
+  }
+
+  it("selects the next card and moves focus to the detail title after a discard", async () => {
+    const nodes = threeBlocked();
+    serve({ nodes });
+    discardRemoves(nodes);
     renderScreen();
 
-    const second = await waitFor(() => itemOf("Second item"));
-    await user.click(within(second).getByRole("button", { name: "Discard" }));
-    const dialog = await screen.findByRole("alertdialog");
-    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
-    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+    const item = await showItem("Second item");
+    await discard(item);
 
-    await waitFor(() => expect(screen.queryByRole("link", { name: "Second item" })).toBeNull());
-    await waitFor(() => expect(screen.getByRole("link", { name: "Third item" })).toHaveFocus());
+    await waitFor(() =>
+      expect(within(listOf()).queryByRole("button", { name: "Second item" })).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 3, name: /^Third item/ })).toHaveFocus(),
+    );
+    expect(cardOf("Third item").firstElementChild).toHaveAttribute("aria-current", "true");
+    expect(screen.queryByText("This item no longer waits")).toBeNull();
   });
 
-  it("moves focus to the title of the new item when an act changes the kind of the item", async () => {
+  it("selects the last card when the discarded card was the last", async () => {
+    const nodes = threeBlocked();
+    serve({ nodes });
+    discardRemoves(nodes);
+    renderScreen();
+
+    const item = await showItem("Third item");
+    await discard(item);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 3, name: /^Second item/ })).toHaveFocus(),
+    );
+  });
+
+  it("selects the next card of the filtered list only", async () => {
+    const nodes: Record<string, MissionNodeRecord[]> = {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+      ],
+      "prj-2": [blocked("n_z", "Other project item", { createdAt: NOW - 10 * HOUR })],
+    };
+    serve({ nodes });
+    discardRemoves(nodes);
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.click(await screen.findByRole("button", { name: "kanthord · 2" }));
+    const item = await showItem("Second item");
+    await discard(item);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 3, name: /^First item/ })).toHaveFocus(),
+    );
+  });
+
+  it("shows the new kind of an item in its own tab after a resume", async () => {
     const user = userEvent.setup();
     const nodes: Record<string, MissionNodeRecord[]> = {
       "prj-1": [
@@ -1506,88 +1767,25 @@ describe("OverviewScreen focus handoff", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Compute the rates"));
-    await user.click(await within(item).findByRole("button", { name: "Resume" }));
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Resume" })).toBeEnabled());
+    await user.click(within(item).getByRole("button", { name: "Resume" }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "Try again.");
     await user.click(within(dialog).getByRole("button", { name: "Resume node" }));
 
-    await waitFor(() =>
-      expect(within(itemOf("Compute the rates")).getByText("Discarded dependency")).toBeVisible(),
-    );
-    await waitFor(() =>
-      expect(screen.getByRole("link", { name: "Compute the rates" })).toHaveFocus(),
-    );
+    expect(await screen.findByRole("tab", { name: "Rule, 1 act" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Resume, 0 acts, clear" })).toBeInTheDocument();
   });
 
-  it("moves focus to the last item when the discarded item was the last", async () => {
-    const user = userEvent.setup();
-    const nodes: Record<string, MissionNodeRecord[]> = {
-      "prj-1": [
-        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
-        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
-      ],
-    };
+  it("moves focus to the All clear title when no card is left", async () => {
+    const nodes: Record<string, MissionNodeRecord[]> = { "prj-1": [blocked("n_a", "Only item")] };
     serve({ nodes });
-    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
-      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
-      return {} as MissionControlResult;
-    });
+    discardRemoves(nodes);
     renderScreen();
 
-    const second = await waitFor(() => itemOf("Second item"));
-    await user.click(within(second).getByRole("button", { name: "Discard" }));
-    const dialog = await screen.findByRole("alertdialog");
-    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
-    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
-
-    await waitFor(() => expect(screen.getByRole("link", { name: "First item" })).toHaveFocus());
-  });
-
-  it("moves focus to the next shown item while a group filter narrows the inbox", async () => {
-    const user = userEvent.setup();
-    const nodes: Record<string, MissionNodeRecord[]> = {
-      "prj-1": [
-        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
-        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
-      ],
-      "prj-2": [],
-    };
-    serve({ projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS], nodes });
-    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
-      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
-      return {} as MissionControlResult;
-    });
-    renderScreen();
-
-    const filter = await screen.findByRole("group", { name: "Show the items of" });
-    await user.click(within(filter).getByRole("button", { name: "Decisions · 2" }));
-    const second = await waitFor(() => itemOf("Second item"));
-    await user.click(within(second).getByRole("button", { name: "Discard" }));
-    const dialog = await screen.findByRole("alertdialog");
-    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
-    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
-
-    await waitFor(() => expect(screen.getByRole("link", { name: "First item" })).toHaveFocus());
-  });
-
-  it("moves focus to the All clear title when no item is left", async () => {
-    const user = userEvent.setup();
-    const nodes: Record<string, MissionNodeRecord[]> = {
-      "prj-1": [blocked("n_a", "Only item")],
-    };
-    serve({ nodes });
-    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
-      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
-      return {} as MissionControlResult;
-    });
-    renderScreen();
-
-    const item = await waitFor(() => itemOf("Only item"));
-    await user.click(within(item).getByRole("button", { name: "Discard" }));
-    const dialog = await screen.findByRole("alertdialog");
-    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
-    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+    const item = await findDetail();
+    await discard(item);
 
     await waitFor(() => expect(screen.getByText("All clear")).toHaveFocus());
   });
@@ -1597,12 +1795,13 @@ describe("OverviewScreen focus handoff", () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "First item"), blocked("n_b", "Second item")] } });
     renderScreen();
 
-    const first = await waitFor(() => itemOf("First item"));
+    const first = await findDetail();
     await user.click(within(first).getByRole("button", { name: "Discard" }));
     await user.click(await screen.findByRole("button", { name: "Keep the node" }));
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
-    expect(screen.getByRole("link", { name: "Second item" })).not.toHaveFocus();
+    expect(cardButton("Second item")).not.toHaveFocus();
+    expect(cardOf("First item").firstElementChild).toHaveAttribute("aria-current", "true");
   });
 });
 
@@ -1613,7 +1812,7 @@ describe("OverviewScreen polling", () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "First item")] } });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("First item"));
+    const item = await findDetail();
     await user.click(within(item).getByRole("button", { name: "Discard" }));
     await screen.findByRole("alertdialog");
     const reads = vi.mocked(listProjects).mock.calls.length;
@@ -1627,11 +1826,11 @@ describe("OverviewScreen polling", () => {
     await waitFor(() => expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads));
   });
 
-  it("reads the inbox again every 15 s while no dialog is open", async () => {
+  it("reads the board again every 15 s while no dialog is open", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     serve({ nodes: { "prj-1": [blocked("n_a", "First item")] } });
     renderScreen();
-    await waitFor(() => itemOf("First item"));
+    await findDetail();
     const reads = vi.mocked(listProjects).mock.calls.length;
 
     await act(async () => {
@@ -1648,7 +1847,7 @@ describe("OverviewScreen override", () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Audit log"));
+    const item = await findDetail();
     await user.click(within(item).getByRole("button", { name: "Override" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("To run it again, unblock it.")).toBeInTheDocument();
@@ -1669,8 +1868,11 @@ describe("OverviewScreen override", () => {
     serve({ nodes: { "prj-1": [paused("n_p", "Draft the notes", 3)] } });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
-    await user.click(await within(item).findByRole("button", { name: "Override" }));
+    const item = await findDetail();
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Override" })).toBeEnabled(),
+    );
+    await user.click(within(item).getByRole("button", { name: "Override" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("To continue the work, resume it.")).toBeInTheDocument();
     await user.type(within(dialog).getByLabelText("Reason"), "Done elsewhere.");
@@ -1685,7 +1887,7 @@ describe("OverviewScreen override", () => {
     });
   });
 
-  it("shows the message of a state conflict in the dialog and reads the inbox again", async () => {
+  it("shows the message of a state conflict in the dialog and reads the board again", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
     vi.mocked(overrideNode).mockRejectedValue(
@@ -1693,7 +1895,7 @@ describe("OverviewScreen override", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Audit log"));
+    const item = await findDetail();
     await user.click(within(item).getByRole("button", { name: "Override" }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "Verified.");
@@ -1716,14 +1918,14 @@ describe("OverviewScreen override", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Audit log"));
+    const item = await findDetail();
     await user.click(within(item).getByRole("button", { name: "Override" }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "Verified.");
     vi.mocked(listMissionNodes).mockResolvedValue([]);
     await user.click(within(dialog).getByRole("button", { name: "Override node" }));
 
-    await waitFor(() => expect(screen.queryByRole("link", { name: "Audit log" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Audit log" })).toBeNull());
     expect(toast.error).toHaveBeenCalledWith("Overriding Audit log failed.", {
       description: expect.stringContaining("The state or the attempt of the node changed"),
     });
@@ -1740,7 +1942,7 @@ describe("OverviewScreen override", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
 
     expect(within(item).queryByRole("button", { name: "Override" })).toBeNull();
   });
@@ -1757,8 +1959,8 @@ describe("OverviewScreen resume", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Compute the rates"));
-    await within(item).findByText("Failure limit");
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended: lost.");
     await user.click(within(item).getByRole("button", { name: "Resume" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(
@@ -1787,8 +1989,8 @@ describe("OverviewScreen resume", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Print the packing slip"));
-    await within(item).findByText("Further-work limit");
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
     await user.click(within(item).getByRole("button", { name: "Resume" }));
     const dialog = await screen.findByRole("alertdialog");
     expect(
@@ -1826,8 +2028,8 @@ describe("OverviewScreen resume", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Print the packing slip"));
-    await within(item).findByText("Further-work limit");
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
     await user.click(within(item).getByRole("button", { name: "Resume" }));
     const dialog = await screen.findByRole("alertdialog");
 
@@ -1853,8 +2055,9 @@ describe("OverviewScreen resume", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Publish the changelog"));
-    await user.click(await within(item).findByRole("button", { name: "Resume" }));
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Resume" })).toBeEnabled());
+    await user.click(within(item).getByRole("button", { name: "Resume" }));
     const dialog = await screen.findByRole("alertdialog");
 
     expect(
@@ -1879,8 +2082,9 @@ describe("OverviewScreen resume", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Draft the notes"));
-    await user.click(await within(item).findByRole("button", { name: "Resume" }));
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Resume" })).toBeEnabled());
+    await user.click(within(item).getByRole("button", { name: "Resume" }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "Try.");
     await user.click(within(dialog).getByRole("button", { name: "Resume node" }));
@@ -1905,7 +2109,7 @@ describe("OverviewScreen dependency removal", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
     await user.click(
       within(item).getByRole("button", { name: "Remove dependency on Drop the legacy checkout" }),
     );
@@ -1949,7 +2153,7 @@ describe("OverviewScreen dependency removal", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
     await user.click(within(item).getByRole("button", { name: /Remove dependency on/ }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "Gone.");
@@ -1971,7 +2175,7 @@ describe("OverviewScreen dialog focus", () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
     renderScreen();
-    const item = await waitFor(() => itemOf("Audit log"));
+    const item = await findDetail();
 
     for (const act of ["Unblock", "Override", "Discard"]) {
       await user.click(within(item).getByRole("button", { name: act }));
@@ -1988,9 +2192,10 @@ describe("OverviewScreen dialog focus", () => {
       proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
     });
     renderScreen();
-    const item = await waitFor(() => itemOf("Team workspaces"));
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Decide" })).toBeEnabled());
 
-    await user.click(await within(item).findByRole("button", { name: "Decide" }));
+    await user.click(within(item).getByRole("button", { name: "Decide" }));
 
     await expectReasonFocused();
   });
@@ -2002,8 +2207,8 @@ describe("OverviewScreen dialog focus", () => {
       executions: { n_p: [ended("e1", "n_p", { stop: { reason: "budget_end", code: "turns" } })] },
     });
     renderScreen();
-    const item = await waitFor(() => itemOf("Print the packing slip"));
-    await within(item).findByText("Further-work limit");
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
 
     await user.click(within(item).getByRole("button", { name: "Resume" }));
 
@@ -2023,7 +2228,7 @@ describe("OverviewScreen dialog focus", () => {
       },
     });
     renderScreen();
-    const item = await waitFor(() => itemOf("Redirect the legacy links"));
+    const item = await findDetail();
 
     await user.click(within(item).getByRole("button", { name: /Remove dependency/ }));
 
@@ -2047,9 +2252,8 @@ describe("OverviewScreen waiting outside kanthord", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Stripe webhook"));
-    expect(within(item).getByText("External.Requested")).toBeInTheDocument();
-    expect(within(item).getByText("Waits for merge")).toBeInTheDocument();
+    const item = await findDetail();
+    expect(within(item).getAllByText("External.Requested")).toHaveLength(2);
     expect(
       within(item).getByText(
         textContent(
@@ -2057,12 +2261,16 @@ describe("OverviewScreen waiting outside kanthord", () => {
         ),
       ),
     ).toBeInTheDocument();
+    expect(within(item).getByText("25 minutes ago")).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Check now" })).toBeEnabled();
     expect(
-      within(item).getByText(textContent("project atlas · attempt 2 · 25 minutes ago")),
+      within(cardOf("Stripe webhook")).getByText("Waits for merge · pull request #12"),
     ).toBeInTheDocument();
-    expect(within(item).getByRole("button", { name: "Check now" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Waiting outside kanthord" })).toBeInTheDocument();
-    expect(screen.getByText("1 waiting outside")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Act outside, 1 act" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("region", { name: "PR #12 waits for your merge" })).toBeVisible();
   });
 
   it("lists a push as unconfirmed after 10 minutes and names it", async () => {
@@ -2074,14 +2282,16 @@ describe("OverviewScreen waiting outside kanthord", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Publish the changelog"));
-    expect(within(item).getByText("Delivery not confirmed")).toBeInTheDocument();
+    const item = await findDetail();
     expect(
       within(item).getByText(
         textContent(
           "kanthord pushed to main 25 minutes ago, and no end state arrived. Check the delivery.",
         ),
       ),
+    ).toBeInTheDocument();
+    expect(
+      within(cardOf("Publish the changelog")).getByText("Delivery not confirmed"),
     ).toBeInTheDocument();
   });
 
@@ -2095,7 +2305,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     renderScreen();
 
     expect(await screen.findByText("All clear")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Publish the changelog" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Publish the changelog" })).toBeNull();
   });
 
   it("holds All clear back while the external reads run", async () => {
@@ -2109,7 +2319,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
 
     renderScreen();
 
-    await screen.findByText("Needs you");
+    await screen.findAllByRole("tab");
     expect(screen.queryByText("All clear")).toBeNull();
     await act(async () => settle([]));
     expect(await screen.findByText("All clear")).toBeInTheDocument();
@@ -2123,7 +2333,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
 
     renderScreen();
 
-    await screen.findByText("Needs you");
+    await screen.findAllByRole("tab");
     expect(screen.queryByText("All clear")).toBeNull();
   });
 
@@ -2160,7 +2370,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     );
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Stripe webhook"));
+    const item = await findDetail();
     await user.click(await within(item).findByRole("button", { name: "Check now" }));
 
     expect(checkNode).toHaveBeenCalledWith("n_o", { expected_mission_version: 7 });
@@ -2209,7 +2419,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Stripe webhook"));
+    const item = await findDetail();
     await user.click(await within(item).findByRole("button", { name: "Check now" }));
 
     expect(await within(item).findByText("Not delivered yet")).toBeInTheDocument();
@@ -2220,7 +2430,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
   });
 
-  it("reads the inbox again after a check", async () => {
+  it("reads the board again after a check", async () => {
     const user = userEvent.setup();
     serve({
       nodes: { "prj-2": [outside("n_o", "Stripe webhook")] },
@@ -2229,7 +2439,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
     vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [] });
     renderScreen();
-    const item = await waitFor(() => itemOf("Stripe webhook"));
+    const item = await findDetail();
     const reads = vi.mocked(listProjects).mock.calls.length;
 
     await user.click(await within(item).findByRole("button", { name: "Check now" }));
@@ -2237,7 +2447,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     await waitFor(() => expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads));
   });
 
-  it("offers Check now on a Paused node with an unresolved request and no other node act that conflicts", async () => {
+  it("offers Check now on a Paused node with an unresolved request", async () => {
     const user = userEvent.setup();
     serve({
       nodes: { "prj-1": [paused("n_p", "Publish the changelog")] },
@@ -2255,7 +2465,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Publish the changelog"));
+    const item = await findDetail();
     await user.click(await within(item).findByRole("button", { name: "Check now" }));
 
     expect(await within(item).findByText("Ended in another state")).toBeInTheDocument();
@@ -2269,13 +2479,13 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Publish the changelog"));
-    await within(item).findByRole("button", { name: "Resume" });
+    const item = await findDetail();
+    await waitFor(() => expect(within(item).getByRole("button", { name: "Resume" })).toBeEnabled());
 
     expect(within(item).queryByRole("button", { name: "Check now" })).toBeNull();
   });
 
-  it("moves focus to the next item after a check removes an item", async () => {
+  it("selects the next card after a check removes an item", async () => {
     const user = userEvent.setup();
     const nodes: Record<string, MissionNodeRecord[]> = {
       "prj-1": [outside("n_a", "First wait"), outside("n_b", "Second wait")],
@@ -2294,11 +2504,16 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
     renderScreen();
 
-    const first = await waitFor(() => itemOf("First wait"));
+    const first = await findDetail();
     await user.click(await within(first).findByRole("button", { name: "Check now" }));
 
-    await waitFor(() => expect(screen.queryByRole("link", { name: "First wait" })).toBeNull());
-    await waitFor(() => expect(screen.getByRole("link", { name: "Second wait" })).toHaveFocus());
+    await waitFor(() =>
+      expect(within(listOf()).queryByRole("button", { name: "First wait" })).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 3, name: /Second wait|PR #12/ })).toHaveFocus(),
+    );
+    expect(cardOf("Second wait").firstElementChild).toHaveAttribute("aria-current", "true");
   });
 });
 
@@ -2399,8 +2614,8 @@ describe("OverviewScreen fixes", () => {
     serve({ environments: { "prj-1": [failedEnvironment()] } });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("engine"));
-    expect(within(item).getByText("Environment failed")).toBeInTheDocument();
+    const item = await findDetail();
+    expect(within(cardOf("engine")).getByText(/^Environment failed/)).toBeInTheDocument();
     expect(
       within(item).getByText(
         textContent("engine of kanthord failed: command_absent. Workers claim no node of it."),
@@ -2409,6 +2624,17 @@ describe("OverviewScreen fixes", () => {
     expect(within(item).getByRole("button", { name: "Open project" })).toHaveAttribute(
       "href",
       "/projects/prj-1",
+    );
+  });
+
+  it("shows the failed command of the environment under Why", async () => {
+    serve({ environments: { "prj-1": [failedEnvironment()] } });
+    renderScreen();
+
+    const item = await findDetail();
+
+    expect(within(item).getByText(/exited with 127/)).toHaveTextContent(
+      "make exited with 127. Reproduce it with make.",
     );
   });
 
@@ -2428,8 +2654,8 @@ describe("OverviewScreen fixes", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("engine"));
-    expect(within(item).getByText("Environment waiting")).toBeInTheDocument();
+    const item = await findDetail();
+    expect(within(cardOf("engine")).getByText(/^Environment waiting/)).toBeInTheDocument();
     expect(
       within(item).getByText(
         textContent(
@@ -2459,7 +2685,7 @@ describe("OverviewScreen fixes", () => {
     });
     renderScreen();
 
-    const item = await waitFor(() => itemOf("engine"));
+    const item = await findDetail();
     expect(
       within(item).getByText(
         textContent(
@@ -2479,7 +2705,7 @@ describe("OverviewScreen fixes", () => {
     expect(
       await screen.findByText(textContent(/Some records could not be read:.*environment list/)),
     ).toBeInTheDocument();
-    expect(itemOf("kanthord")).toBeInTheDocument();
+    expect(cardOf("kanthord")).toBeInTheDocument();
   });
 
   it("lists a paused project and resumes it in place", async () => {
@@ -2489,8 +2715,8 @@ describe("OverviewScreen fixes", () => {
     vi.mocked(readProject).mockResolvedValue(paused);
     renderScreen();
 
-    const item = await waitFor(() => itemOf("kanthord"));
-    expect(within(item).getByText("Project paused")).toBeInTheDocument();
+    const item = await findDetail();
+    expect(within(cardOf("kanthord")).getByText("Project paused")).toBeInTheDocument();
     expect(
       within(item).getByText(textContent("kanthord is paused. Workers claim none of its nodes.")),
     ).toBeInTheDocument();
@@ -2506,7 +2732,7 @@ describe("OverviewScreen fixes", () => {
     );
   });
 
-  it("names the group Fixes and counts it in the summary", async () => {
+  it("counts the fixes on their own tab and in the summary", async () => {
     serve({
       projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS],
       nodes: { "prj-2": [blocked("n_b", "Localize the order email")] },
@@ -2514,8 +2740,9 @@ describe("OverviewScreen fixes", () => {
 
     renderScreen();
 
-    expect(await screen.findByRole("heading", { name: "Fixes" })).toBeInTheDocument();
-    expect(screen.getByText("1 decision · 1 fix")).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Fix setup, 1 act" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Rule, 1 act" })).toBeInTheDocument();
+    expect(screen.getByText(/Start here:/)).toHaveTextContent(/^2 acts wait for you\./);
   });
 
   describe("no taker", () => {
@@ -2532,8 +2759,10 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
-      expect(within(item).getByText("No taker")).toBeInTheDocument();
+      const item = await findDetail();
+      const card = cardOf("Implement jobs in state Waiting");
+      expect(within(card).getByText(/^No taker/)).toBeInTheDocument();
+      expect(within(card).getByText("5 minutes ago")).toBeInTheDocument();
       expect(within(item).getByText("Waiting")).toBeInTheDocument();
       expect(
         within(item).getByText(
@@ -2541,9 +2770,6 @@ describe("OverviewScreen fixes", () => {
             "2 implement jobs in state Waiting wait. Binding reviewer-main (reviewer@1) matches them and has no live registration of a listed instance. Open the worker page to check its instances.",
           ),
         ),
-      ).toBeInTheDocument();
-      expect(
-        within(item).getByText(textContent("project kanthord · 5 minutes ago")),
       ).toBeInTheDocument();
       expect(within(item).getByRole("button", { name: "Open bindings" })).toHaveAttribute(
         "href",
@@ -2560,7 +2786,7 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
+      const item = await findDetail();
       expect(
         within(item).getByText(
           textContent(
@@ -2579,7 +2805,7 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
+      const item = await findDetail();
       expect(
         within(item).getByText(
           textContent(
@@ -2606,7 +2832,7 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
+      const item = await findDetail();
       expect(
         within(item).getByText(
           textContent(
@@ -2629,7 +2855,7 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Implement jobs in state Available"));
+      const item = await findDetail();
       expect(
         within(item).getByText(
           textContent(
@@ -2648,7 +2874,7 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("Implement jobs in state Waiting"));
+      const item = await findDetail();
       expect(
         within(item).getByText(
           textContent(
@@ -2668,7 +2894,7 @@ describe("OverviewScreen fixes", () => {
       renderScreen();
 
       expect(await screen.findByText("All clear")).toBeInTheDocument();
-      expect(screen.queryByRole("link", { name: "Implement jobs in state Waiting" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Implement jobs in state Waiting" })).toBeNull();
     });
 
     it("lists nothing when a live registration declares the state", async () => {
@@ -2716,8 +2942,11 @@ describe("OverviewScreen fixes", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("swe@1"));
-    expect(within(item).getByText("Invalid agent configuration")).toBeInTheDocument();
+    const item = await findDetail();
+    const card = cardOf("swe@1");
+    expect(within(card).getByText(/^Invalid agent configuration/)).toBeInTheDocument();
+    expect(within(card).getByText("kanthord")).toBeInTheDocument();
+    expect(within(card).getByText("age unknown")).toBeInTheDocument();
     expect(
       within(item).getByText(
         textContent(
@@ -2725,14 +2954,11 @@ describe("OverviewScreen fixes", () => {
         ),
       ),
     ).toBeInTheDocument();
-    expect(
-      within(item).getByText(textContent("project kanthord · age unknown")),
-    ).toBeInTheDocument();
     expect(within(item).getByRole("button", { name: "Open agent" })).toHaveAttribute(
       "href",
       "/agents/swe%401",
     );
-    expect(screen.queryByRole("link", { name: "re@1" })).toBeNull();
+    expect(within(listOf()).queryByRole("button", { name: "re@1" })).toBeNull();
   });
 
   it("lists one item for a server-wide agent fault and names each binding in its project", async () => {
@@ -2751,8 +2977,8 @@ describe("OverviewScreen fixes", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("swe@1"));
-    expect(screen.getAllByRole("link", { name: "swe@1" })).toHaveLength(1);
+    const item = await findDetail();
+    expect(within(listOf()).getAllByRole("button", { name: "swe@1" })).toHaveLength(1);
     expect(
       within(item).getByText(
         textContent(
@@ -2760,9 +2986,7 @@ describe("OverviewScreen fixes", () => {
         ),
       ),
     ).toBeInTheDocument();
-    expect(
-      within(item).getByText(textContent("2 bindings in 2 projects · age unknown")),
-    ).toBeInTheDocument();
+    expect(within(item).getByText("2 bindings in 2 projects")).toBeInTheDocument();
   });
 
   describe("provider refusals", () => {
@@ -2777,8 +3001,8 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("openai-main"));
-      expect(within(item).getByText("Credential refused")).toBeInTheDocument();
+      const item = await findDetail();
+      expect(within(cardOf("openai-main")).getByText(/^Credential refused/)).toBeInTheDocument();
       expect(
         within(item).getByText(
           textContent(
@@ -2786,9 +3010,7 @@ describe("OverviewScreen fixes", () => {
           ),
         ),
       ).toBeInTheDocument();
-      expect(
-        within(item).getByText(textContent("project kanthord · 2 hours ago")),
-      ).toBeInTheDocument();
+      expect(within(item).getByText("2 hours ago")).toBeInTheDocument();
       expect(within(item).getByRole("button", { name: "Open credential" })).toHaveAttribute(
         "href",
         "/llm/openai-main",
@@ -2807,10 +3029,8 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("openai-main"));
-      expect(
-        within(item).getByText(textContent("2 nodes in 2 projects · 2 hours ago")),
-      ).toBeInTheDocument();
+      const item = await findDetail();
+      expect(within(item).getByText("2 nodes in 2 projects")).toBeInTheDocument();
       expect(within(item).getByText(/, for example in the execution of/)).toBeInTheDocument();
     });
 
@@ -2834,8 +3054,10 @@ describe("OverviewScreen fixes", () => {
 
       renderScreen();
 
-      const item = await waitFor(() => itemOf("swe@1"));
-      expect(within(item).getByText("Provider rejected the request")).toBeInTheDocument();
+      const item = await findDetail();
+      expect(
+        within(cardOf("swe@1")).getByText(/^Provider rejected the request/),
+      ).toBeInTheDocument();
       expect(
         within(item).getByText(
           textContent(
@@ -2877,8 +3099,8 @@ describe("OverviewScreen fixes", () => {
     });
   });
 
-  it("shows a cooling chain as a fact line of the status area, not as an item", async () => {
-    serve({
+  describe("cooling chain", () => {
+    const cooling = {
       nodes: { "prj-1": [] },
       bindings: { "prj-1": [workerBinding("coder-main", "coder@1")] },
       agents: {
@@ -2891,28 +3113,38 @@ describe("OverviewScreen fixes", () => {
           }),
         ],
       },
+    };
+
+    it("shows a cooling chain as a fact line of the summary, not as an item", async () => {
+      serve(cooling);
+
+      renderScreen();
+
+      expect(
+        await screen.findByText(
+          textContent(
+            "swe@1 in coder-main of kanthord: every model cools down until 2026-10-15 14:05 UTC.",
+          ),
+        ),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "swe@1" })).toHaveAttribute(
+        "href",
+        "/agents/swe%401",
+      );
+      expect(screen.getByText("All clear")).toBeInTheDocument();
     });
 
-    renderScreen();
+    it("names the project of a cooling line only under All projects", async () => {
+      serve(cooling);
 
-    expect(
-      await screen.findByText(
-        textContent(
-          "swe@1 in coder-main of kanthord: every model cools down until 2026-10-15 14:05 UTC.",
+      renderScreen("/?project=prj-1");
+
+      expect(
+        await screen.findByText(
+          textContent("swe@1 in coder-main: every model cools down until 2026-10-15 14:05 UTC."),
         ),
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "swe@1" })).toHaveAttribute("href", "/agents/swe%401");
-    expect(screen.getByText("All clear")).toBeInTheDocument();
-  });
-
-  it("names the project only under All projects", async () => {
-    serve({ projects: [{ ...KANTHORD, paused_at: NOW - HOUR }, ATLAS] });
-
-    renderScreen("/?project=prj-1");
-
-    const item = await waitFor(() => itemOf("kanthord"));
-    expect(within(item).getByText("1 hour ago")).toBeInTheDocument();
+      ).toBeInTheDocument();
+    });
   });
 
   it("keeps All clear back and names a failed setup read", async () => {
@@ -3004,19 +3236,24 @@ describe("OverviewScreen tool approvals", () => {
 
     renderScreen();
 
-    const item = await waitFor(() => itemOf("Create the project account-recovery"));
-    expect(within(item).getByText("swe@1")).toBeInTheDocument();
-    expect(within(item).getByText("Waits for approval")).toBeInTheDocument();
-    expect(within(item).getByText(/operation project\.create · 1 hour ago/)).toBeInTheDocument();
+    const item = await findDetail();
+    const card = cardOf("Create the project account-recovery");
+    expect(
+      within(card).getByText("Waits for approval · swe@1 · project.create"),
+    ).toBeInTheDocument();
+    expect(within(card).getByText("1 hour ago")).toBeInTheDocument();
     expect(within(item).getByRole("button", { name: "Open chat" })).toHaveAttribute(
       "href",
       "/workbench/workbench_session_A",
     );
-    expect(within(item).getByRole("link", { name: /Create the project/ })).toHaveAttribute(
-      "href",
-      "/workbench/workbench_session_A",
+    expect(
+      within(item).getByText(/waits for your answer to operation project\.create\./),
+    ).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Approve tool, 1 act" })).toHaveAttribute(
+      "aria-selected",
+      "true",
     );
-    expect(screen.getByText("1 decision")).toBeInTheDocument();
+    expect(screen.getByText(/Start here:/)).toHaveTextContent(/^1 act waits for you\./);
     expect(screen.queryByText("All clear")).toBeNull();
   });
 
@@ -3025,7 +3262,8 @@ describe("OverviewScreen tool approvals", () => {
 
     renderScreen();
 
-    expect(await screen.findByRole("link", { name: "Recovery flow" })).toBeInTheDocument();
+    await findDetail();
+    expect(cardButton("Recovery flow")).toBeInTheDocument();
   });
 
   it("skips a session with no pending approval and a pending approval of an ended run", async () => {
@@ -3042,7 +3280,7 @@ describe("OverviewScreen tool approvals", () => {
     expect(screen.queryByRole("button", { name: "Open chat" })).toBeNull();
   });
 
-  it("counts the approval with the decisions of the nodes", async () => {
+  it("counts the approval with the acts of the nodes", async () => {
     serve({
       nodes: { "prj-1": [blocked("n_a", "Audit log")] },
       sessions: [session("workbench_session_A")],
@@ -3050,10 +3288,13 @@ describe("OverviewScreen tool approvals", () => {
 
     renderScreen();
 
-    expect(await screen.findByText("2 decisions")).toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "Approve tool, 1 act" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Rule, 1 act" })).toBeInTheDocument();
+    expect(screen.getByText(/Start here:/)).toHaveTextContent(/^2 acts wait for you\./);
   });
 
-  it("hides the approval under a project filter", async () => {
+  it("counts the approval under a project filter and says that it counts all projects", async () => {
+    const user = userEvent.setup();
     serve({
       nodes: { "prj-2": [blocked("n_b", "B")] },
       sessions: [session("workbench_session_A")],
@@ -3061,12 +3302,27 @@ describe("OverviewScreen tool approvals", () => {
 
     renderScreen("/?project=prj-2");
 
-    expect(await screen.findByRole("link", { name: "B" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Open chat" })).toBeNull();
-    expect(screen.getByText("1 decision")).toBeInTheDocument();
+    const tab = await screen.findByRole("tab", { name: "Approve tool, 1 act, all projects" });
+    expect(screen.getByRole("button", { name: "atlas · 2" })).toBeInTheDocument();
+    await user.click(tab);
+    expect(screen.getByText("Approve or reject. Counts all projects.")).toBeInTheDocument();
+    expect(
+      within(listOf()).getByRole("button", { name: "Create the project account-recovery" }),
+    ).toBeInTheDocument();
   });
 
-  it("does not read the sessions under a project filter, so a failed read cannot hold All clear back", async () => {
+  it("reads the sessions under a project filter", async () => {
+    serve({ sessions: [session("workbench_session_A")] });
+
+    renderScreen("/?project=prj-1");
+
+    expect(
+      await screen.findByRole("tab", { name: "Approve tool, 1 act, all projects" }),
+    ).toBeInTheDocument();
+    expect(listWorkbenchSessions).toHaveBeenCalledTimes(1);
+  });
+
+  it("names a failed session read under a project filter and holds back All clear", async () => {
     serve({});
     vi.mocked(listWorkbenchSessions).mockRejectedValue(
       new ApiError("unreachable", "The daemon did not answer.", 0),
@@ -3074,25 +3330,10 @@ describe("OverviewScreen tool approvals", () => {
 
     renderScreen("/?project=prj-1");
 
-    expect(await screen.findByText("All clear")).toBeInTheDocument();
-    expect(listWorkbenchSessions).not.toHaveBeenCalled();
-  });
-
-  it("reads the sessions again when the human returns to All projects", async () => {
-    const user = userEvent.setup();
-    serve({ sessions: [session("workbench_session_A")] });
-
-    renderScreen("/?project=prj-1");
-
-    expect(await screen.findByText("All clear")).toBeInTheDocument();
-    expect(listWorkbenchSessions).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("combobox", { name: "Project" }));
-    await user.click(await screen.findByRole("option", { name: "All projects" }));
-
     expect(
-      await screen.findByRole("link", { name: "Create the project account-recovery" }),
+      await screen.findByText(textContent(/Some records could not be read: workbench sessions/)),
     ).toBeInTheDocument();
-    expect(listWorkbenchSessions).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("All clear")).toBeNull();
   });
 
   it("names the failed session read and holds back All clear", async () => {
@@ -3107,5 +3348,773 @@ describe("OverviewScreen tool approvals", () => {
       await screen.findByText(textContent(/Some records could not be read: workbench sessions/)),
     ).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
+  });
+});
+
+describe("OverviewScreen widths", () => {
+  function threeBlocked(): Record<string, MissionNodeRecord[]> {
+    return {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+        blocked("n_c", "Third item", { createdAt: NOW - 7 * HOUR }),
+      ],
+    };
+  }
+
+  it("shows the list and the detail side by side on expanded width", async () => {
+    serve({ nodes: threeBlocked() });
+
+    renderScreen();
+    setWidth(EXPANDED_WIDTH);
+
+    expect(await screen.findByRole("region", { name: /^First item/ })).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+    expect(screen.getByText("1 of 3")).toBeVisible();
+    expect(screen.getByRole("button", { name: "kanthord · 3" })).toBeVisible();
+  });
+
+  it("selects a card without a sheet on expanded width", async () => {
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    setWidth(EXPANDED_WIDTH);
+
+    await showItem("Second item");
+
+    expect(screen.getByRole("region", { name: /^Second item/ })).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(searchOf().get("item")).toBe("blocked:n_b");
+    expect(searchOf().get("kind")).toBe("blocked");
+  });
+
+  it("opens a right sheet with Close and steps through the cards on medium width", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    setWidth(MEDIUM_WIDTH);
+    await screen.findAllByRole("tab");
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      screen.getByText(/^Act on the stopped node\. A node stops until you act/),
+    ).toBeInTheDocument();
+    await user.click(cardButton("Second item"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveClass("data-[side=right]:w-[min(560px,100%)]");
+    expect(within(dialog).getByRole("button", { name: "Close" })).toBeVisible();
+    expect(within(dialog).getByText("2 of 3")).toBeVisible();
+    expect(screen.getByText("Second item, 2 of 3.")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(dialog).getByRole("heading", { level: 3, name: /^Second item/ })).toHaveFocus(),
+    );
+
+    await user.click(within(dialog).getByRole("button", { name: "Next card" }));
+
+    expect(within(dialog).getByText("3 of 3")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Next card" })).toBeDisabled();
+    expect(searchOf().get("item")).toBe("blocked:n_c");
+    expect(screen.getByText("Third item, 3 of 3.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { level: 3, name: /^Third item/ })).toHaveFocus();
+
+    await user.click(within(dialog).getByRole("button", { name: "Previous card" }));
+    await user.click(within(dialog).getByRole("button", { name: "Previous card" }));
+
+    expect(within(dialog).getByText("1 of 3")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Previous card" })).toBeDisabled();
+    expect(searchOf().get("item")).toBe("blocked:n_a");
+
+    await user.click(within(dialog).getByRole("button", { name: "Close" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("opens a full-width sheet with Back on compact width", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    setWidth(COMPACT_WIDTH);
+    await screen.findAllByRole("tab");
+
+    await user.click(cardButton("First item"));
+
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveClass("data-[side=right]:w-full");
+    expect(within(dialog).getByRole("button", { name: "Back" })).toBeVisible();
+    expect(within(dialog).queryByRole("button", { name: "Close" })).toBeNull();
+    expect(within(dialog).getByText("1 of 3")).toBeVisible();
+  });
+
+  it("opens the detail of a deep link on compact width", async () => {
+    serve({ nodes: threeBlocked() });
+
+    renderScreen("/?item=blocked:n_b");
+    setWidth(COMPACT_WIDTH);
+
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("2 of 3")).toBeVisible();
+    expect(within(dialog).getByRole("heading", { level: 3, name: /^Second item/ })).toBeVisible();
+  });
+
+  it("keeps the selection when the width grows to expanded and opens no sheet when it shrinks", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    setWidth(MEDIUM_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("Second item"));
+    await screen.findByRole("dialog");
+
+    setWidth(EXPANDED_WIDTH);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("region", { name: /^Second item/ })).toBeVisible();
+    setWidth(COMPACT_WIDTH);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(cardOf("Second item").firstElementChild).toHaveAttribute("aria-current", "true");
+  });
+
+  it("pins a selected item that leaves the list and offers the next card", async () => {
+    const user = userEvent.setup();
+    const nodes = threeBlocked();
+    serve({ nodes });
+    renderScreen();
+    await showItem("Second item");
+
+    nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== "n_b");
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(await screen.findByText("This item no longer waits")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Second item left the list at the last refresh. An act elsewhere or a change outside KanthorD resolved it.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByText("The selected item no longer waits.")).toBeInTheDocument();
+    expect(within(listOf()).queryByRole("button", { name: "Second item" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Next card" }));
+
+    expect(await screen.findByRole("region", { name: /^First item/ })).toBeVisible();
+    expect(screen.queryByText("This item no longer waits")).toBeNull();
+  });
+
+  it("shows the unknown item of a link as an item that does not wait", async () => {
+    serve({ nodes: threeBlocked() });
+
+    renderScreen("/?item=blocked:n_missing");
+
+    expect(await screen.findByText("This item no longer waits")).toBeVisible();
+    expect(screen.getByText("The link points to an item that does not wait now.")).toBeVisible();
+    expect(screen.getByText("The selected item no longer waits.")).toBeInTheDocument();
+  });
+
+  it("closes the sheet and focuses the next card after a confirmed act on medium width", async () => {
+    const user = userEvent.setup();
+    const nodes = threeBlocked();
+    serve({ nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+    setWidth(MEDIUM_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("Second item"));
+    const sheet = await screen.findByRole("dialog");
+
+    await user.click(within(sheet).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(cardButton("Third item")).toHaveFocus());
+    expect(within(listOf()).queryByRole("button", { name: "Second item" })).toBeNull();
+  });
+});
+
+describe("OverviewScreen keyboard", () => {
+  function threeBlocked(): Record<string, MissionNodeRecord[]> {
+    return {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+        blocked("n_c", "Third item", { createdAt: NOW - 7 * HOUR }),
+      ],
+    };
+  }
+
+  function selected(name: string): boolean {
+    return cardOf(name).firstElementChild?.getAttribute("aria-current") === "true";
+  }
+
+  function resumable(): Record<string, MissionNodeRecord[]> {
+    return { "prj-1": [paused("n_p", "Print the packing slip")] };
+  }
+
+  const BUDGET_END = {
+    n_p: [ended("e1", "n_p", { stop: { reason: "budget_end", code: "turns" } })],
+  };
+
+  async function openShortcuts(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: "Keyboard shortcuts" }));
+    return screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+  }
+
+  it("moves the selection and the focus with ArrowDown and j, and leaves the list with one Tab", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await showItem("First item");
+
+    await user.keyboard("{ArrowDown}");
+    expect(cardButton("Second item")).toHaveFocus();
+    expect(selected("Second item")).toBe(true);
+    expect(within(await findDetail()).getByRole("heading", { level: 3 })).toHaveTextContent(
+      /^Second item/,
+    );
+    expect(cardButton("Second item")).toHaveAttribute("tabindex", "0");
+    expect(cardButton("First item")).toHaveAttribute("tabindex", "-1");
+
+    await user.keyboard("j");
+    expect(cardButton("Third item")).toHaveFocus();
+    await user.keyboard("{ArrowUp}k");
+    expect(cardButton("First item")).toHaveFocus();
+    await user.keyboard("{End}");
+    expect(cardButton("Third item")).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(cardButton("First item")).toHaveFocus();
+
+    await user.keyboard("j");
+    await user.tab();
+    expect(listOf()).not.toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("does nothing to the cards with an arrow key or a letter outside the list", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await showItem("First item");
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await user.keyboard("{ArrowDown}j{End}");
+
+    expect(selected("First item")).toBe(true);
+  });
+
+  it("selects Fix setup with 2", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked(), environments: { "prj-1": [failedEnvironment()] } });
+    renderScreen();
+    await screen.findAllByRole("tab");
+
+    await user.keyboard("2");
+
+    expect(screen.getByRole("tab", { name: /^Fix setup,/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(await within(listOf()).findByRole("button", { name: "engine" })).toBeVisible();
+    expect(selected("engine")).toBe(true);
+  });
+
+  it("opens the resume dialog with r on a selected Resume card", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: resumable(), executions: BUDGET_END });
+    renderScreen();
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
+
+    await user.keyboard("r");
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Resume node" })).toBeVisible();
+  });
+
+  it("shows the key hints and aria-keyshortcuts while the shortcuts are on", async () => {
+    serve({ nodes: resumable(), executions: BUDGET_END });
+    renderScreen();
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
+
+    const resume = within(item).getByRole("button", { name: "Resume" });
+
+    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+    expect(resume.querySelector("kbd")).toHaveTextContent("r");
+    expect(screen.getByRole("tab", { name: /^Fix setup,/ })).toHaveAttribute(
+      "aria-keyshortcuts",
+      "2",
+    );
+  });
+
+  it("turns the shortcuts off and keeps the setting after a reload", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: resumable(), executions: BUDGET_END });
+    const first = renderScreen();
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
+    const dialog = await openShortcuts(user);
+
+    await user.click(within(dialog).getByRole("switch", { name: "Single-key shortcuts" }));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.keyboard("2r");
+
+    expect(screen.getByRole("tab", { name: /^Resume,/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(within(item).getByRole("button", { name: "Resume" })).not.toHaveAttribute(
+      "aria-keyshortcuts",
+    );
+    expect(within(item).getByRole("button", { name: "Resume" }).querySelector("kbd")).toBeNull();
+    expect(screen.getByRole("tab", { name: /^Fix setup,/ })).not.toHaveAttribute(
+      "aria-keyshortcuts",
+    );
+
+    first.unmount();
+    renderScreen();
+    const again = await findDetail();
+    await within(again).findByText("The last execution ended at its budget (turns).");
+    await user.keyboard("2r");
+
+    expect(screen.getByRole("tab", { name: /^Resume,/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByText("r", { selector: "kbd" })).toBeNull();
+  });
+
+  it("opens the shortcuts dialog with ?", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await screen.findAllByRole("tab");
+
+    await user.keyboard("?");
+
+    expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+  });
+
+  it("keeps the key of an act that waits for a read and names what it needs", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: resumable() });
+    vi.mocked(listNodeExecutions).mockReturnValue(new Promise(() => undefined));
+    renderScreen();
+    const item = await findDetail();
+
+    const resume = within(item).getByRole("button", { name: "Resume" });
+    expect(resume).toHaveAttribute("aria-disabled", "true");
+    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+    expect(resume.querySelector("kbd")).toHaveTextContent("r");
+
+    await user.keyboard("r");
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getAllByRole("status").map((region) => region.textContent)).toContain(
+      "Resume needs: the executions and external actions read.",
+    );
+  });
+
+  it("moves focus to the detail title with Enter and back to the card with Esc", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await showItem("Second item");
+
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 3, name: /^Second item/ })).toHaveFocus(),
+    );
+
+    await user.keyboard("{Escape}");
+    expect(cardButton("Second item")).toHaveFocus();
+  });
+
+  it("opens the next card in the sheet with j and closes the sheet with 3 on compact width", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [...(threeBlocked()["prj-1"] ?? []), paused("n_p", "Print the slip")] },
+    });
+    renderScreen();
+    setWidth(COMPACT_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("First item"));
+    const sheet = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(within(sheet).getByRole("heading", { level: 3, name: /^First item/ })).toHaveFocus(),
+    );
+
+    await user.keyboard("j");
+
+    expect(within(sheet).getByText("2 of 3")).toBeVisible();
+    await waitFor(() =>
+      expect(within(sheet).getByRole("heading", { level: 3, name: /^Second item/ })).toHaveFocus(),
+    );
+
+    await user.keyboard("3");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("tab", { name: /^Resume,/ })).toHaveAttribute("aria-selected", "true");
+    expect(cardButton("Print the slip")).toBeVisible();
+  });
+});
+
+describe("OverviewScreen history and phone", () => {
+  function threeBlocked(): Record<string, MissionNodeRecord[]> {
+    return {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+        blocked("n_c", "Third item", { createdAt: NOW - 7 * HOUR }),
+      ],
+    };
+  }
+
+  function BrowserBack() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    return (
+      <>
+        <button type="button" onClick={() => navigate(-1)}>
+          Browser back
+        </button>
+        <output aria-label="Path">{location.pathname}</output>
+      </>
+    );
+  }
+
+  function renderHistory(
+    entries: readonly (string | { pathname: string; search: string })[],
+    strict = false,
+  ) {
+    const tree = (
+      <MemoryRouter initialEntries={[...entries]} initialIndex={entries.length - 1}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <OverviewScreen />
+                <Location />
+              </>
+            }
+          />
+          <Route path="/previous" element={<p>Previous page</p>} />
+          <Route path="/traces/:traceId" element={<p>Trace page</p>} />
+        </Routes>
+        <BrowserBack />
+      </MemoryRouter>
+    );
+    return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
+  }
+
+  async function goBack(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Browser back", hidden: true }));
+  }
+
+  function pathOf(): string | null {
+    return screen.getByRole("status", { name: "Path", hidden: true }).textContent;
+  }
+
+  async function openFirstOnPhone(user: ReturnType<typeof userEvent.setup>) {
+    setWidth(COMPACT_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("First item"));
+    return screen.findByRole("dialog");
+  }
+
+  it("closes the detail with Back and focuses the card", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    await openFirstOnPhone(user);
+
+    await goBack(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+    expect(cardButton("First item")).toHaveFocus();
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("closes the sheet with 3, writes kind paused and leaves no entry behind", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [...(threeBlocked()["prj-1"] ?? []), paused("n_p", "Print the slip")] },
+    });
+    renderHistory(["/previous", "/"]);
+    await openFirstOnPhone(user);
+
+    await user.keyboard("3");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(searchOf().get("kind")).toBe("paused");
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes the sheet with Esc through one history pop", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    await openFirstOnPhone(user);
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("shows Done this session closed after a discard and leaves no entry behind", async () => {
+    const user = userEvent.setup();
+    const nodes = threeBlocked();
+    serve({ nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderHistory(["/previous", "/"]);
+    const sheet = await openFirstOnPhone(user);
+
+    await user.click(within(sheet).getByRole("button", { name: "More (2)" }));
+    const more = await screen.findByRole("dialog", { name: "More acts on First item" });
+    await user.click(within(more).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    const toggle = await screen.findByRole("button", { name: "Done this session 1" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(cardButton("Second item")).toHaveFocus());
+    await user.click(toggle);
+    expect(await screen.findByText("Discarded First item.")).toBeVisible();
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("goes to the credential, rotates it and pops back to the Resume card", async () => {
+    const user = userEvent.setup();
+    const credentials = [llmCredential("openai-main", NOW - 5 * HOUR)];
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+    });
+    vi.mocked(listAllCredentials).mockImplementation(async () => credentials);
+    vi.mocked(rotateCredential).mockImplementation(async () => {
+      credentials[0] = llmCredential("openai-main", NOW);
+      return credentials[0] as Credential;
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(COMPACT_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+    const resume = await screen.findByRole("dialog");
+    expect(await within(resume).findByRole("button", { name: "Go to openai-main" })).toBeVisible();
+
+    await user.click(within(resume).getByRole("button", { name: /^More/ }));
+    const more = await screen.findByRole("dialog", { name: "More acts on Print the slip" });
+    expect(within(more).getByRole("button", { name: "Resume" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(within(more).getByText("Resume needs: Rotate openai-main in Fix setup.")).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /^More acts/ })).toBeNull());
+
+    await user.click(within(resume).getByRole("button", { name: "Go to openai-main" }));
+
+    const credential = await screen.findByRole("dialog");
+    expect(
+      await within(credential).findByRole("heading", {
+        level: 3,
+        name: "Provider refuses credential openai-main",
+      }),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(within(credential).getByRole("button", { name: "Rotate" })).not.toHaveAttribute(
+        "aria-disabled",
+      ),
+    );
+    await user.click(within(credential).getByRole("button", { name: "Rotate" }));
+    const sheet = await screen.findByRole("dialog", { name: "Rotate openai-main" });
+    await user.type(within(sheet).getByLabelText("API Key"), "sk-2");
+    await user.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+    await waitFor(() => expect(rotateCredential).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Rotate openai-main" })).toBeNull(),
+    );
+
+    const back = await screen.findByRole("dialog", { name: /Print the slip/ });
+    const title = await within(back).findByRole("heading", { level: 3, name: /^Print the slip/ });
+    await waitFor(() => expect(title).toHaveFocus());
+    await waitFor(() => expect(within(back).queryByText(/^Resume needs:/)).toBeNull());
+    expect(within(back).getByRole("button", { name: "Resume" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+    expect(within(back).queryByRole("button", { name: /^Go to / })).toBeNull();
+    expect(pathOf()).toBe("/");
+  });
+
+  it("selects the credential card in Fix setup with Go to on expanded width", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+      credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(EXPANDED_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+
+    await user.click(await screen.findByRole("button", { name: "Go to openai-main" }));
+
+    await waitFor(() => expect(searchOf().get("kind")).toBe("setup"));
+    expect(searchOf().get("item")).toBe("credential_refused:openai-main");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Provider refuses credential openai-main",
+      }),
+    ).toBeVisible();
+  });
+
+  it("writes the need of a gated Resume to the status region with r", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+      credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(EXPANDED_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+    const resume = await screen.findByRole("button", { name: "Resume" });
+    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+
+    await user.keyboard("r");
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("status")
+          .some(
+            (region) => region.textContent === "Resume needs: Rotate openai-main in Fix setup.",
+          ),
+      ).toBe(true),
+    );
+  });
+
+  it("closes only the act dialog on Back and keeps the sheet", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    const sheet = await openFirstOnPhone(user);
+    await user.click(within(sheet).getByRole("button", { name: "More (2)" }));
+    const more = await screen.findByRole("dialog", { name: "More acts on First item" });
+    await user.click(within(more).getByRole("button", { name: "Discard" }));
+    await screen.findByRole("alertdialog");
+
+    await goBack(user);
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.getByRole("dialog", { name: "More acts on First item" })).toBeInTheDocument();
+    expect(pathOf()).toBe("/");
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "More acts on First item" })).toBeNull(),
+    );
+    expect(screen.getByText("1 of 3")).toBeVisible();
+    await goBack(user);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+  });
+
+  it("reopens the sheet on Back from Last trace and returns to the list with a second Back", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      executions: { n_p: [ended("e1", "n_p", { trace_id: "trace_one" })] },
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(COMPACT_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+    const sheet = await screen.findByRole("dialog");
+    await user.click(await within(sheet).findByRole("button", { name: "More (3)" }));
+    const more = await screen.findByRole("dialog", { name: "More acts on Print the slip" });
+    await user.click(within(more).getByRole("button", { name: "Last trace" }));
+    expect(await screen.findByText("Trace page")).toBeVisible();
+
+    await goBack(user);
+
+    expect(await screen.findByRole("dialog", { name: /Print the slip/ })).toBeVisible();
+    await goBack(user);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("opens the detail of a reloaded deep link under StrictMode and returns to the list with one Back", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [...(threeBlocked()["prj-1"] ?? []), paused("n_p", "Print the slip")] },
+    });
+    renderHistory(["/previous", { pathname: "/", search: "?kind=paused&item=paused:n_p" }], true);
+    setWidth(COMPACT_WIDTH);
+
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("heading", { level: 3, name: /^Print the slip/ })).toBeVisible();
+
+    await goBack(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("leaves the Overview entry with the first Back after medium, expanded and medium", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    setWidth(MEDIUM_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("Second item"));
+    await screen.findByRole("dialog");
+
+    setWidth(EXPANDED_WIDTH);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    setWidth(MEDIUM_WIDTH);
+    await goBack(user);
+
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("opens More on compact width and closes only that sheet with Esc", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    const sheet = await openFirstOnPhone(user);
+    const trigger = within(sheet).getByRole("button", { name: "More (2)" });
+
+    await user.click(trigger);
+    await screen.findByRole("dialog", { name: "More acts on First item" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "More acts on First item" })).toBeNull(),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(pathOf()).toBe("/");
   });
 });

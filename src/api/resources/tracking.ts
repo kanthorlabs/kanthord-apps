@@ -2,14 +2,14 @@ import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
-  AnalyticsCostItem,
-  AnalyticsCostQuery,
   AnalyticsDurationItemOf,
   AnalyticsDurationQuery,
   AnalyticsMeasure,
   AnalyticsPage,
   CauseLabel,
   CauseLabelBody,
+  FlowQuery,
+  FlowRead,
   Page,
   TelemetryText,
   TimelineItem,
@@ -80,10 +80,8 @@ function analyticsUrl(path: string, query: object): string {
   return text === "" ? path : `${path}?${text}`;
 }
 
-export async function readAnalyticsCost(
-  query: AnalyticsCostQuery,
-): Promise<AnalyticsPage<AnalyticsCostItem>> {
-  return request<AnalyticsPage<AnalyticsCostItem>>(analyticsUrl(`${ANALYTICS_PATH}/cost`, query));
+export async function readAnalyticsFlow(query: FlowQuery): Promise<FlowRead> {
+  return request<FlowRead>(analyticsUrl(`${ANALYTICS_PATH}/flow`, query));
 }
 
 export async function readAnalyticsDuration<M extends AnalyticsMeasure>(
