@@ -142,38 +142,30 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
     />
   );
 
-  const tabs = (
-    <BoardTabs
-      tab={board.tab}
-      counts={board.counts}
-      allProjects={board.projectId !== null}
+  const list = (
+    <BoardList
+      tab={tab}
+      cards={board.cards}
+      done={board.done}
+      selectedId={board.selectedId}
       widthClass={widthClass}
-      onChange={board.selectTab}
-    >
-      <BoardList
-        tab={tab}
-        cards={board.cards}
-        done={board.done}
-        selectedId={board.selectedId}
-        widthClass={widthClass}
-        projectName={projectName}
-        hiddenByFilter={hiddenByFilter}
-        allClear={overview.allClear}
-        nothingAtAll={nothingAtAll}
-        start={startItem}
-        workforce={workforce}
-        now={overview.now}
-        held={overview.held}
-        gates={overview.gates}
-        leadLabelOf={(item) => leadLabelOf(item, overview.details)}
-        onSelect={board.open}
-        onShowAll={showAll}
-        onGoToStart={goToStart}
-        onGoToTab={board.selectTab}
-        cardRef={board.cardRef}
-        allClearRef={board.allClearRef}
-      />
-    </BoardTabs>
+      projectName={projectName}
+      hiddenByFilter={hiddenByFilter}
+      allClear={overview.allClear}
+      nothingAtAll={nothingAtAll}
+      start={startItem}
+      workforce={workforce}
+      now={overview.now}
+      held={overview.held}
+      gates={overview.gates}
+      leadLabelOf={(item) => leadLabelOf(item, overview.details)}
+      onSelect={board.open}
+      onShowAll={showAll}
+      onGoToStart={goToStart}
+      onGoToTab={board.selectTab}
+      cardRef={board.cardRef}
+      allClearRef={board.allClearRef}
+    />
   );
 
   const host = (
@@ -320,17 +312,23 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
               showProject={board.projectId === null}
               onStart={goToStart}
             />
-            {expanded ? (
-              <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(544px,740px)] gap-4">
-                <div className="min-h-0 min-w-0 overflow-y-auto">{tabs}</div>
-                {host}
-              </div>
-            ) : (
-              <>
-                {tabs}
-                {host}
-              </>
-            )}
+            <BoardTabs
+              tab={board.tab}
+              counts={board.counts}
+              allProjects={board.projectId !== null}
+              widthClass={widthClass}
+              onChange={board.selectTab}
+            >
+              {expanded ? (
+                <div className="grid min-h-0 flex-1 grid-cols-[minmax(400px,1fr)_minmax(544px,740px)] gap-4">
+                  <div className="min-h-0 min-w-0 overflow-y-auto">{list}</div>
+                  {host}
+                </div>
+              ) : (
+                list
+              )}
+            </BoardTabs>
+            {!expanded && host}
           </BoardActsProvider>
         </BoardReadsProvider>
       )}
