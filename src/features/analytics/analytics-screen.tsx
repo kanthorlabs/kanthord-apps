@@ -3,22 +3,15 @@ import { Link } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { CostSection } from "./components/cost-section";
-import { TimeSection } from "./components/time-section";
+import { CostTab } from "./flow/cost-tab";
 import { FlowTab } from "./flow/flow-tab";
 import { FlowToolbar } from "./flow/flow-toolbar";
 import { useFlow } from "./flow/use-flow";
-import { useAnalytics } from "./use-analytics";
 
 const LINK_CLASS = "underline underline-offset-4 hover:text-foreground";
 
 export function AnalyticsScreen() {
   const flow = useFlow();
-  const analytics = useAnalytics();
-  const refresh = () => {
-    flow.refresh();
-    analytics.refresh();
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,7 +29,7 @@ export function AnalyticsScreen() {
           </Link>
         </p>
       </div>
-      <FlowToolbar flow={flow} onRefresh={refresh} />
+      <FlowToolbar flow={flow} onRefresh={flow.refresh} />
       {flow.rebuildNotice !== null && (
         <Alert>
           <AlertDescription>{flow.rebuildNotice}</AlertDescription>
@@ -50,17 +43,8 @@ export function AnalyticsScreen() {
         <TabsContent value="flow">
           <FlowTab view={flow} />
         </TabsContent>
-        <TabsContent value="cost" className="flex flex-col gap-6">
-          <CostSection
-            filters={analytics.filters}
-            projects={analytics.projects}
-            refreshCount={analytics.refreshCount}
-          />
-          <TimeSection
-            filters={analytics.filters}
-            projects={analytics.projects}
-            refreshCount={analytics.refreshCount}
-          />
+        <TabsContent value="cost">
+          <CostTab view={flow} />
         </TabsContent>
       </Tabs>
     </div>
