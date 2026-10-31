@@ -1,10 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { MissionNodeRecord, Project } from "@/api/types";
+import { listNodeEvidence } from "@/api/resources/mission";
+import { listTracePage } from "@/api/resources/tracking";
+import type { MissionEvidence, MissionNodeRecord, Project } from "@/api/types";
 import type { BlockedItem } from "@/lib/attention";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
+
+vi.mock("@/api/resources/mission");
+vi.mock("@/api/resources/tracking");
 
 import { BoardActsProvider } from "./board-acts";
 import { BoardDetail } from "./board-detail";
@@ -87,6 +92,14 @@ function renderDetail(widthClass: BoardWidth) {
   );
 }
 
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(listNodeEvidence).mockResolvedValue([
+    { id: "ev1", subject: "Add the team", assets: [] } as unknown as MissionEvidence,
+  ]);
+  vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
+});
+
 describe.each([BOARD_WIDTH.Expanded, BOARD_WIDTH.Medium, BOARD_WIDTH.Compact])(
   "BoardDetail on %s width",
   (widthClass) => {
@@ -95,8 +108,16 @@ describe.each([BOARD_WIDTH.Expanded, BOARD_WIDTH.Medium, BOARD_WIDTH.Compact])(
 
       const region = screen.getByRole("region", { name: "Team: criterion not met" });
 
-      expect(within(region).getAllByRole("heading", { level: 4 })).toHaveLength(5);
+      expect(within(region).getAllByRole("heading", { level: 4 })).toHaveLength(6);
       expect(within(region).getByRole("group", { name: "Acts" })).toBeVisible();
+    });
+
+    it("mounts the reads of the selected item around the sections", async () => {
+      renderDetail(widthClass);
+
+      expect(await screen.findByText("Add the team")).toBeVisible();
+      expect(listNodeEvidence).toHaveBeenCalledWith("node_1", 2);
+      expect(listNodeEvidence).toHaveBeenCalledTimes(1);
     });
   },
 );

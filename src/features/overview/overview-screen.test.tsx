@@ -552,6 +552,7 @@ function serve(world: World) {
     approved: true,
   });
   vi.mocked(listTraceSpans).mockResolvedValue([]);
+  vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
   vi.mocked(verifyCredential).mockResolvedValue({
     status: "healthy",
     capability: "llm",
@@ -913,33 +914,13 @@ describe("OverviewScreen scope", () => {
 });
 
 describe("OverviewScreen assessment", () => {
-  it("reads the rationale and shows it with the request evidence", async () => {
-    const request: MissionEvidence = {
-      id: "evidence_1",
-      node_id: "n_a",
-      attempt: 2,
-      subject: "Pull request for the audit log",
-      assets: [
-        {
-          id: "asset_1",
-          kind: "platform",
-          address: { kind: "pull_request", resource_identity: "github.com/atlas", number: 12 },
-          published_at: null,
-          expired_at: null,
-        },
-      ],
-      provenance: { kind: "human", account: "kanthorlabs", name: "Kanthor Labs" },
-      created_at: NOW - HOUR,
-      requirement_key: "repo.pull_request",
-      end_state: "other",
-    };
+  it("reads the rationale and shows it as a quote of its actor", async () => {
     serve({
       nodes: {
         "prj-1": [
           blocked("n_a", "Audit log", {
             closingEvent: "external-failed",
             result: "undetermined",
-            requests: [request],
           }),
         ],
       },
@@ -950,16 +931,13 @@ describe("OverviewScreen assessment", () => {
     const item = await findDetail();
 
     expect(within(cardOf("Audit log")).getByText(/^External action failed/)).toBeInTheDocument();
-    expect(await within(item).findByText("The audit entry holds no actor.")).toBeInTheDocument();
-    expect(
-      within(item).getByText(
-        "repo.pull_request: Pull request for the audit log, pull request #12 on github.com/atlas. End state other.",
-      ),
-    ).toBeInTheDocument();
+    const quote = await within(item).findByText("The audit entry holds no actor.");
+    expect(quote.tagName).toBe("BLOCKQUOTE");
+    expect(within(item).getByText("Kanthor Labs").tagName).toBe("CITE");
     expect(listNodeAssessments).toHaveBeenCalledWith("n_a", 2);
   });
 
-  it("shows the open fix proposal of an examine node under Why", async () => {
+  it("shows the open fix proposal of an examine node under Proposal", async () => {
     serve({
       nodes: { "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })] },
       proposals: {
@@ -974,12 +952,9 @@ describe("OverviewScreen assessment", () => {
     const item = await findDetail();
 
     expect(
-      await within(item).findByText(
-        textContent(
-          "Send the invite in the workspace language: The invite email uses the workspace language.",
-        ),
-      ),
+      await within(item).findByText("Send the invite in the workspace language"),
     ).toBeInTheDocument();
+    expect(within(item).getByText("The invite email uses the workspace language.")).toBeVisible();
     expect(within(item).queryByText(/Old/)).toBeNull();
     expect(listNodeProposals).toHaveBeenCalledWith("n_t");
   });
@@ -993,9 +968,7 @@ describe("OverviewScreen assessment", () => {
     renderScreen();
 
     const item = await findDetail();
-    expect(
-      await within(item).findByText("The assessment could not be read: The daemon did not answer."),
-    ).toBeInTheDocument();
+    expect(await within(item).findByText("Could not read the assessment.")).toBeInTheDocument();
     vi.mocked(listNodeAssessments).mockResolvedValue([assessment("n_a", "Read after the retry.")]);
     await user.click(within(item).getByRole("button", { name: "Retry" }));
 
@@ -1074,8 +1047,9 @@ describe("OverviewScreen acts", () => {
     ).toBeInTheDocument();
     expect(within(item).getByText("Unblock needs: the proposals read.")).toBeInTheDocument();
     expectGated(item, "Unblock");
+    expect(within(item).getByText("Could not read the proposals.")).toBeInTheDocument();
     vi.mocked(listNodeProposals).mockResolvedValue([]);
-    await user.click(within(item).getByRole("button", { name: "Retry" }));
+    await user.click(within(item).getAllByRole("button", { name: "Retry" })[0] as HTMLElement);
 
     await waitFor(() =>
       expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled(),
@@ -1274,10 +1248,11 @@ describe("OverviewScreen paused items", () => {
 
     const item = await findDetail();
     const links = await within(item).findAllByRole("button", { name: "Last trace" });
-    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/traces/trace_new"]);
+    expect(within(item).getByRole("link", { name: "e2" })).toHaveAttribute(
+      "href",
       "/traces/trace_new",
-      "/traces/trace_new",
-    ]);
+    );
   });
 
   it("shows the cause of the last trace under Root cause", async () => {
