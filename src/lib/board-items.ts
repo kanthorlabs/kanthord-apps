@@ -20,8 +20,10 @@ function dependentsOf(snapshot: ProjectSnapshot, seeds: readonly string[]): read
   const reached = new Set(seeds);
   const queue = [...seeds];
   for (const id of queue) {
-    for (const node of snapshot.nodes) {
-      if (reached.has(node.id) || isTerminal(node.state) || !node.depends_on.includes(id)) continue;
+    const dependents = snapshot.nodes.filter(
+      (node) => !reached.has(node.id) && !isTerminal(node.state) && node.depends_on.includes(id),
+    );
+    for (const node of dependents) {
       reached.add(node.id);
       queue.push(node.id);
     }
