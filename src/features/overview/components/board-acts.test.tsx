@@ -1,11 +1,17 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { listAllCredentials, verifyCredential } from "@/api/resources/credentials";
+import { rebuildEnvironment } from "@/api/resources/projects";
 import { listTracePage } from "@/api/resources/tracking";
+import { approveWorkbenchCall, readWorkbenchEvents } from "@/api/resources/workbench";
 import type {
+  Credential,
   Intent,
+  MissionEvidence,
   MissionExternalAction,
   MissionNodeRecord,
   MissionProposal,
@@ -22,17 +28,26 @@ import {
   detailKeyOf,
   type MergeWaitItem,
 } from "@/lib/attention";
-import type { CredentialRefusedItem, ProjectPausedItem } from "@/lib/fix-attention";
+import type {
+  CredentialRefusedItem,
+  EnvironmentFailedItem,
+  ProjectPausedItem,
+} from "@/lib/fix-attention";
 
+import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
 vi.mock("@/api/resources/mission");
+vi.mock("@/api/resources/credentials");
+vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/tracking");
+vi.mock("@/api/resources/workbench");
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
 
 import { BoardActBar } from "./board-act-bar";
+import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
 
 const PROJECT: Project = {
@@ -181,26 +196,33 @@ function openDetail(target: MissionNodeRecord): AttentionDetails {
 }
 
 const setDialogOpen = vi.fn();
+const jump = vi.fn();
 
 function renderActs(
   item: AttentionItem,
   details: AttentionDetails = new Map(),
   registerDialogCloser: (close: (() => void) | null) => void = vi.fn(),
+  gate: BoardGate | null = null,
 ) {
   render(
     <MemoryRouter>
-      <BoardActsProvider
-        item={item}
-        details={details}
-        reload={vi.fn()}
-        retryDetail={vi.fn()}
-        markActed={vi.fn()}
-        setDialogOpen={setDialogOpen}
-        registerDialogCloser={registerDialogCloser}
-        widthClass={BOARD_WIDTH.Expanded}
-      >
-        <BoardActBar />
-      </BoardActsProvider>
+      <BoardReadsProvider item={item} details={details}>
+        <BoardActsProvider
+          item={item}
+          details={details}
+          snapshots={[]}
+          reload={vi.fn()}
+          retryDetail={vi.fn()}
+          markActed={vi.fn()}
+          setDialogOpen={setDialogOpen}
+          registerDialogCloser={registerDialogCloser}
+          widthClass={BOARD_WIDTH.Expanded}
+          gate={gate}
+          jump={jump}
+        >
+          <BoardActBar />
+        </BoardActsProvider>
+      </BoardReadsProvider>
     </MemoryRouter>,
   );
 }
@@ -217,6 +239,13 @@ function actNames(): readonly (string | null)[] {
   return within(group)
     .getAllByRole("button")
     .map((control) => control.getAttribute("aria-label") ?? labelOf(control));
+}
+
+function keysOfActs(): readonly (string | null)[] {
+  const group = screen.getByRole("group", { name: "Acts" });
+  return within(group)
+    .getAllByRole("button")
+    .map((control) => control.getAttribute("aria-keyshortcuts"));
 }
 
 const PAUSED = node("implement", "Paused");
@@ -236,6 +265,32 @@ const MERGE_WAIT: MergeWaitItem = {
   at: null,
   cause: "Waits for merge",
   request: { action: unresolved(), evidence: null },
+};
+
+function pullRequestEvidence(resourceIdentity: string, number: number): MissionEvidence {
+  return {
+    id: "evidence_1",
+    node_id: "node_1",
+    attempt: 2,
+    subject: "pull request",
+    assets: [
+      {
+        kind: "platform",
+        address: { kind: "pull_request", resource_identity: resourceIdentity, number },
+      },
+    ],
+    created_at: 1,
+  } as unknown as MissionEvidence;
+}
+
+function mergeWaitWith(evidence: MissionEvidence | null): MergeWaitItem {
+  return { ...MERGE_WAIT, request: { action: unresolved(), evidence } };
+}
+
+const GATE: BoardGate = {
+  itemId: "credential_refused:openai-main",
+  need: "Rotate openai-main in Fix setup",
+  short: "Rotate openai-main",
 };
 
 const PROJECT_PAUSED: ProjectPausedItem = {
@@ -267,6 +322,33 @@ const CREDENTIAL: CredentialRefusedItem = {
   nodeName: "Team",
 };
 
+const ENVIRONMENT_FAILED: EnvironmentFailedItem = {
+  id: "environment_failed:prj-1:binding_1",
+  kind: "environment_failed",
+  group: "fixes",
+  project: PROJECT,
+  subject: "api",
+  at: null,
+  cause: "Environment failed",
+  nodeIds: [],
+  projects: [PROJECT],
+  binding: "api",
+  bindingId: "binding_1",
+  failure: null,
+  failureClass: "setup",
+} as unknown as EnvironmentFailedItem;
+
+function serverCopy(name: string): Credential {
+  return {
+    name,
+    platform: "openai",
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
+    revisions: [{ id: "live", revision: 5, metadata: null, created_at: 2, ended_at: null }],
+  };
+}
+
 const APPROVAL: ToolApprovalItem = {
   id: "tool_approval:s1",
   group: "decisions",
@@ -282,6 +364,10 @@ const APPROVAL: ToolApprovalItem = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
+  vi.mocked(listAllCredentials).mockResolvedValue([serverCopy("openai-main")]);
+  vi.mocked(readWorkbenchEvents).mockResolvedValue({
+    snapshot: { pending_approval: null },
+  } as Awaited<ReturnType<typeof readWorkbenchEvents>>);
 });
 
 describe("BoardActsProvider act order", () => {
@@ -390,14 +476,97 @@ describe("BoardActsProvider act order", () => {
     expect(screen.getAllByRole("button", { name: "Check now" })[1]).toBeEnabled();
   });
 
-  it("links a fix item with its target", () => {
+  it("leads an outside item with Open pull request, then Check now", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:github:kanthorlabs/kanthord", 42)));
+
+    expect(actNames()).toEqual(["Open pull request", "Check now"]);
+  });
+
+  it("opens the pull request on GitHub in a new tab", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:github:kanthorlabs/kanthord", 42)));
+
+    const link = screen.getByRole("button", { name: "Open pull request" });
+
+    expect(link).toHaveAttribute("href", "https://github.com/kanthorlabs/kanthord/pull/42");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noreferrer");
+    expect(link).toHaveTextContent(/^Open pull request/);
+  });
+
+  it("offers no Open pull request without a pull request in the evidence", () => {
+    renderActs(mergeWaitWith(null));
+
+    expect(actNames()).toEqual(["Check now"]);
+  });
+
+  it("offers no Open pull request for a resource that is not on GitHub", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:gitlab:group/project", 7)));
+
+    expect(actNames()).toEqual(["Check now"]);
+  });
+
+  it("goes to the refused credential of a gated Paused item", async () => {
+    renderActs(decision("paused", PAUSED), pausedDetail(PAUSED, [], [execution()]), vi.fn(), GATE);
+
+    await waitFor(() =>
+      expect(actNames()).toEqual([
+        "Resume",
+        "Go to openai-main",
+        "Override",
+        "Last trace",
+        "Discard",
+      ]),
+    );
+    expect(screen.getByText("Resume needs: Rotate openai-main in Fix setup.")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Go to openai-main" }));
+
+    expect(jump).toHaveBeenCalledWith("credential_refused:openai-main");
+  });
+
+  it("keeps a Paused item without a gate on today's acts", async () => {
+    renderActs(decision("paused", PAUSED), pausedDetail(PAUSED, [], [execution()]));
+
+    await waitFor(() =>
+      expect(actNames()).toEqual(["Resume", "Override", "Last trace", "Discard"]),
+    );
+  });
+
+  it("leads a credential refusal with Rotate and links its credential", async () => {
     renderActs(CREDENTIAL);
 
-    expect(actNames()).toEqual(["Open credential"]);
+    expect(actNames()).toEqual(["Rotate", "Verify credential", "Open credential"]);
     expect(screen.getByRole("button", { name: "Open credential" })).toHaveAttribute(
       "href",
       "/llm/openai-main",
     );
+    expect(screen.getByText("Rotate needs: the credential read.")).toBeVisible();
+    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Rotate" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("gates Rotate when the credential has no server copy", async () => {
+    vi.mocked(listAllCredentials).mockResolvedValue([]);
+    renderActs(CREDENTIAL);
+
+    expect(await screen.findByText("Rotate needs: a server copy of openai-main.")).toBeVisible();
+    expect(actNames()).toEqual(["Rotate", "Verify credential", "Open credential"]);
+    expect(screen.getByRole("button", { name: "Rotate" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("opens the Rotate sheet from the act", async () => {
+    renderActs(CREDENTIAL);
+    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Rotate" }));
+
+    expect(await screen.findByRole("dialog", { name: "Rotate openai-main" })).toBeVisible();
+    expect(setDialogOpen).toHaveBeenCalledWith(CREDENTIAL.id, expect.any(String), true);
+  });
+
+  it("leads an environment failure with Open project and ends with Run onboarding again", () => {
+    renderActs(ENVIRONMENT_FAILED);
+
+    expect(actNames()).toEqual(["Open project", "Run onboarding again"]);
   });
 
   it("resumes a paused project through the project action", () => {
@@ -406,30 +575,115 @@ describe("BoardActsProvider act order", () => {
     expect(actNames()).toEqual(["Resume project"]);
   });
 
-  it("links a tool approval to its chat", () => {
+  it("gates Approve before the session read and keeps Reject and Open chat", () => {
     renderActs(APPROVAL);
 
-    expect(actNames()).toEqual(["Open chat"]);
+    expect(actNames()).toEqual(["Approve", "Reject", "Open chat"]);
+    expect(screen.getByText("Approve needs: the session read.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Approve" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Open chat" })).toHaveAttribute(
       "href",
       expect.stringContaining("s1"),
     );
   });
 
+  it("enables Approve once the session read is ready", async () => {
+    renderActs(APPROVAL);
+
+    await waitFor(() => expect(screen.queryByText(/^Approve needs:/)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
+    expect(actNames()).toEqual(["Approve", "Reject", "Open chat"]);
+  });
+
+  it("sends Approve and Reject through the acts", async () => {
+    vi.mocked(approveWorkbenchCall).mockResolvedValue({} as never);
+    renderActs(APPROVAL);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+
+    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", true);
+    expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", false);
+  });
+
+  it("shows the result of Verify credential in a status badge", async () => {
+    vi.mocked(verifyCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "llm",
+      failure_reason: "unauthorized",
+    });
+    renderActs(CREDENTIAL);
+
+    await userEvent.click(screen.getByRole("button", { name: "Verify credential" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Refused: unauthorized");
+    expect(verifyCredential).toHaveBeenCalledWith("llm", "openai-main");
+  });
+
+  it("starts the onboarding of a failed environment with the binding id", async () => {
+    vi.mocked(rebuildEnvironment).mockResolvedValue({} as never);
+    renderActs(ENVIRONMENT_FAILED);
+
+    await userEvent.click(screen.getByRole("button", { name: "Run onboarding again" }));
+
+    expect(rebuildEnvironment).toHaveBeenCalledWith("prj-1", "binding_1");
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Onboarding of api started."));
+  });
+
+  it("gives each in-place act its letter of BOARD_KEYS", async () => {
+    renderActs(APPROVAL);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+
+    expect(keysOfActs()).toEqual(["a", "n", "o"]);
+  });
+
+  it("gives Rotate, Verify credential and Open credential their letters", async () => {
+    renderActs(CREDENTIAL);
+    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
+
+    expect(keysOfActs()).toEqual(["w", "c", "o"]);
+  });
+
+  it("gives Open project and Run onboarding again their letters", () => {
+    renderActs(ENVIRONMENT_FAILED);
+
+    expect(keysOfActs()).toEqual(["o", "y"]);
+  });
+
+  it("gives Open pull request and Check now their letters", () => {
+    renderActs(mergeWaitWith(pullRequestEvidence("repository:github:kanthorlabs/kanthord", 42)));
+
+    expect(keysOfActs()).toEqual(["o", "c"]);
+  });
+
+  it("gives the gated Resume and Go to their letters", async () => {
+    renderActs(decision("paused", PAUSED), pausedDetail(PAUSED, [], [execution()]), vi.fn(), GATE);
+
+    await waitFor(() => expect(keysOfActs()).toEqual(["r", "f", "v", "t", "x"]));
+  });
+
   it("offers no act without an item", () => {
     render(
-      <BoardActsProvider
-        item={null}
-        details={new Map()}
-        reload={vi.fn()}
-        retryDetail={vi.fn()}
-        markActed={vi.fn()}
-        setDialogOpen={setDialogOpen}
-        registerDialogCloser={vi.fn()}
-        widthClass={BOARD_WIDTH.Expanded}
-      >
-        <BoardActBar />
-      </BoardActsProvider>,
+      <BoardReadsProvider item={null} details={new Map()}>
+        <BoardActsProvider
+          item={null}
+          details={new Map()}
+          snapshots={[]}
+          reload={vi.fn()}
+          retryDetail={vi.fn()}
+          markActed={vi.fn()}
+          setDialogOpen={setDialogOpen}
+          registerDialogCloser={vi.fn()}
+          widthClass={BOARD_WIDTH.Expanded}
+        >
+          <BoardActBar />
+        </BoardActsProvider>
+      </BoardReadsProvider>,
     );
 
     expect(screen.queryByRole("group", { name: "Acts" })).not.toBeInTheDocument();

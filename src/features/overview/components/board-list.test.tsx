@@ -116,6 +116,7 @@ function renderList(
     onSelect: vi.fn(),
     onShowAll: vi.fn(),
     onGoToStart: vi.fn(),
+    onGoToTab: vi.fn(),
     cardRef: () => () => undefined,
     allClearRef: () => undefined,
     ...overrides,

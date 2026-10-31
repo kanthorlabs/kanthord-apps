@@ -330,6 +330,28 @@ describe("useBoardKeys acts", () => {
     expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent("/traces/t1");
   });
 
+  it("opens the address of an external act in a new tab", () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    acts = [
+      {
+        type: "external",
+        id: "open_pull_request",
+        label: "Open pull request",
+        href: "https://github.com/kanthorlabs/kanthord/pull/42",
+      },
+    ];
+    renderBoard();
+
+    key("o");
+
+    expect(open).toHaveBeenCalledWith(
+      "https://github.com/kanthorlabs/kanthord/pull/42",
+      "_blank",
+      "noreferrer",
+    );
+    open.mockRestore();
+  });
+
   it("writes the need of a gated act and runs nothing", () => {
     acts = [
       {

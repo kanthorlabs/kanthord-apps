@@ -10,6 +10,7 @@ import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import type { EnvironmentFailedItem } from "@/lib/fix-attention";
 
 import type { GoneItem } from "../use-board";
+import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
 import { BoardDetailHost } from "./board-detail-host";
 
@@ -136,18 +137,21 @@ function renderHost(widthClass: BoardWidth, overrides: Partial<HostProps> = {}) 
   };
   render(
     <MemoryRouter>
-      <BoardActsProvider
-        item={props.selected}
-        details={props.details}
-        reload={vi.fn()}
-        retryDetail={vi.fn()}
-        markActed={vi.fn()}
-        setDialogOpen={vi.fn()}
-        registerDialogCloser={vi.fn()}
-        widthClass={widthClass}
-      >
-        <BoardDetailHost {...props} />
-      </BoardActsProvider>
+      <BoardReadsProvider item={props.selected} details={props.details}>
+        <BoardActsProvider
+          item={props.selected}
+          details={props.details}
+          snapshots={[]}
+          reload={vi.fn()}
+          retryDetail={vi.fn()}
+          markActed={vi.fn()}
+          setDialogOpen={vi.fn()}
+          registerDialogCloser={vi.fn()}
+          widthClass={widthClass}
+        >
+          <BoardDetailHost {...props} />
+        </BoardActsProvider>
+      </BoardReadsProvider>
     </MemoryRouter>,
   );
   return props;

@@ -46,6 +46,14 @@ export interface BoardKeyEvent {
 }
 
 const ACT_KEY_NAMES: ReadonlyMap<string, BoardActKey> = new Map([
+  ["approve", "approve"],
+  ["reject", "reject"],
+  ["rotate", "rotate"],
+  ["verify", "verify"],
+  ["onboarding", "onboarding"],
+  ["goto", "goto"],
+  ["open", "open"],
+  ["open_pull_request", "open"],
   ["check", "check"],
   ["unblock", "unblock"],
   ["decide", "decide"],

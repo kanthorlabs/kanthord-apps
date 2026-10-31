@@ -39,4 +39,26 @@ describe("DisabledAction", () => {
     expect(button.textContent).toBe("Check nowc");
     expect(button.lastElementChild).toHaveTextContent("c");
   });
+
+  it("sets describedBy as aria-describedby on the button", () => {
+    render(
+      <>
+        <DisabledAction label="Check now" reason="Wait." describedBy="need-line" />
+        <p id="need-line">Check now needs: the read.</p>
+      </>,
+    );
+
+    const button = screen.getByRole("button", { name: "Check now" });
+
+    expect(button).toHaveAttribute("aria-describedby", "need-line");
+    expect(button).toHaveAccessibleDescription("Check now needs: the read.");
+  });
+
+  it("sets no aria-describedby without describedBy", () => {
+    render(<DisabledAction label="Check now" reason="Wait." />);
+
+    expect(screen.getByRole("button", { name: "Check now" })).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
 });

@@ -25,14 +25,27 @@ import {
   type DecisionAttentionItem,
   detailOf,
   type OutsideAttentionItem,
+  type ProjectSnapshot,
 } from "@/lib/attention";
 import type { ActedAct } from "@/lib/board-done";
+import { type BoardGate, pausedNodeCountOf } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { readFailureText } from "@/lib/external-requests";
-import { fixTargetOf, type ProjectPausedItem } from "@/lib/fix-attention";
+import type { ToolApprovalItem } from "@/lib/approval-attention";
+import {
+  type CredentialRefusedItem,
+  type EnvironmentFailedItem,
+  fixTargetOf,
+  type ProjectPausedItem,
+} from "@/lib/fix-attention";
 
+import { useBoardChecks } from "../use-board-checks";
+import { useBoardReadsContext } from "../use-board-reads";
+import { useBoardRotate } from "../use-board-rotate";
+import { type ActFailure, useBoardToolActs } from "../use-board-tool-acts";
 import { type DecisionActs, useDecisionActs } from "../use-decision-acts";
 import { useOutsideActs } from "../use-outside-acts";
+import { BoardRotateSheet } from "./board-rotate-sheet";
 import { DependencyRemoveDialog } from "./dependency-remove-dialog";
 
 type ActVariant = "outline" | "destructive";
@@ -53,6 +66,7 @@ interface GatedAct {
   readonly label: string;
   readonly ariaLabel: string | null;
   readonly need: string;
+  readonly reason?: string;
 }
 
 interface LinkAct {
@@ -60,6 +74,13 @@ interface LinkAct {
   readonly id: string;
   readonly label: string;
   readonly to: string;
+}
+
+interface ExternalLinkAct {
+  readonly type: "external";
+  readonly id: string;
+  readonly label: string;
+  readonly href: string;
 }
 
 interface ResumeProjectAct {
@@ -76,7 +97,8 @@ interface BadgeAct {
   readonly label: string;
 }
 
-export type BoardAct = ButtonAct | GatedAct | LinkAct | ResumeProjectAct | BadgeAct;
+export type BoardAct =
+  ButtonAct | GatedAct | LinkAct | ExternalLinkAct | ResumeProjectAct | BadgeAct;
 
 interface ReadNote {
   readonly text: string;
@@ -96,6 +118,7 @@ export interface BoardActsState {
   readonly proposals: readonly MissionProposal[];
   readonly unresolved: string | null;
   readonly lastTrace: LastTrace | null;
+  readonly failure: ActFailure | null;
   readonly retry: () => void;
 }
 
@@ -123,8 +146,16 @@ interface ActsContext {
   readonly registerDialogCloser: (close: (() => void) | null) => void;
 }
 
+interface GateRoute {
+  readonly gate: BoardGate;
+  readonly jump: (itemId: string) => void;
+}
+
 interface BoardActsProviderProps extends ActsContext {
   readonly widthClass: BoardWidth;
+  readonly snapshots: readonly ProjectSnapshot[];
+  readonly gate?: BoardGate | null;
+  readonly jump?: (itemId: string) => void;
   readonly item: AttentionItem | null;
   readonly details: AttentionDetails;
   readonly children: ReactNode;
@@ -139,6 +170,7 @@ const EMPTY: BoardActsState = {
   proposals: NO_PROPOSALS,
   unresolved: null,
   lastTrace: null,
+  failure: null,
   retry: () => undefined,
 };
 
@@ -275,7 +307,33 @@ function decisionGateOf(item: DecisionAttentionItem, acts: DecisionActs): Gate |
   return { gates: ["remove", "check", "discard"], read: "the external actions read" };
 }
 
-function decisionActsOf(item: DecisionAttentionItem, acts: DecisionActs): readonly BoardAct[] {
+function credentialOf(gate: BoardGate): string {
+  return gate.itemId.slice(gate.itemId.indexOf(":") + 1);
+}
+
+function gatedResumeOf({ gate }: GateRoute): GatedAct {
+  return {
+    type: "gated",
+    id: "resume",
+    label: "Resume",
+    ariaLabel: null,
+    need: `Resume needs: ${gate.need}.`,
+    reason: `${gate.need}.`,
+  };
+}
+
+function goToOf({ gate, jump }: GateRoute): BoardAct | null {
+  return actOf(
+    slotOf("goto", `Go to ${credentialOf(gate)}`, "outline", true, () => jump(gate.itemId)),
+    null,
+  );
+}
+
+function decisionActsOf(
+  item: DecisionAttentionItem,
+  acts: DecisionActs,
+  route: GateRoute | null,
+): readonly BoardAct[] {
   const gate = decisionGateOf(item, acts);
   const decide = actOf(
     slotOf("decide", "Decide", "outline", acts.decide.available, acts.decide.request),
@@ -307,7 +365,11 @@ function decisionActsOf(item: DecisionAttentionItem, acts: DecisionActs): readon
           to: `/traces/${encodeURIComponent(acts.lastTraceId)}`,
         };
   const check = checkActsOf(acts.check, gate);
-  if (item.kind === "paused") return present([resume, override, ...check, trace, discard]);
+  if (item.kind === "paused") {
+    return route === null
+      ? present([resume, override, ...check, trace, discard])
+      : present([gatedResumeOf(route), goToOf(route), override, ...check, trace, discard]);
+  }
   if (item.kind === "blocked") {
     return present([decide, unblock, override, ...check, trace, discard]);
   }
@@ -361,10 +423,12 @@ function DecisionActs({
   markActed,
   setDialogOpen,
   registerDialogCloser,
+  route,
 }: ActsContext & {
   readonly store: ActsStore;
   readonly item: DecisionAttentionItem;
   readonly details: AttentionDetails;
+  readonly route: GateRoute | null;
 }) {
   const { node } = item;
   const lastOpen = useRef<ActedAct | null>(null);
@@ -395,7 +459,7 @@ function DecisionActs({
   });
   usePublished(
     store,
-    stateOf(decisionActsOf(item, acts), {
+    stateOf(decisionActsOf(item, acts, route), {
       read:
         acts.waiting === null
           ? null
@@ -444,6 +508,23 @@ function outsideReadOf(
   return null;
 }
 
+const GITHUB_IDENTITY = /^repository:github:(.+)$/;
+
+function pullRequestActOf(item: OutsideAttentionItem): ExternalLinkAct | null {
+  for (const asset of item.request.evidence?.assets ?? []) {
+    if (asset.kind !== "platform" || asset.address.kind !== "pull_request") continue;
+    const github = GITHUB_IDENTITY.exec(asset.address.resource_identity);
+    if (github?.[1] === undefined) return null;
+    return {
+      type: "external",
+      id: "open_pull_request",
+      label: "Open pull request",
+      href: `https://github.com/${github[1]}/pull/${asset.address.number}`,
+    };
+  }
+  return null;
+}
+
 function OutsideActs({
   store,
   item,
@@ -462,10 +543,109 @@ function OutsideActs({
     read === null ? null : { gates: ["check"], read: "the external actions read" };
   usePublished(
     store,
-    stateOf(present(checkActsOf(check, gate)), {
+    stateOf(present([pullRequestActOf(item), ...checkActsOf(check, gate)]), {
       read,
       retry: () => retryDetail(item.node.id),
     }),
+  );
+  return null;
+}
+
+function ToolApprovalActs({
+  store,
+  item,
+  reload,
+  markActed,
+}: ActsContext & { readonly store: ActsStore; readonly item: ToolApprovalItem }) {
+  const tool = useBoardToolActs(item, useBoardReadsContext(), { reload, markActed });
+  const approve =
+    tool.need === null
+      ? actOf(
+          slotOf("approve", "Approve", "outline", true, tool.approve, { disabled: tool.sending }),
+          null,
+        )
+      : ({
+          type: "gated",
+          id: "approve",
+          label: "Approve",
+          ariaLabel: null,
+          need: tool.need,
+        } satisfies GatedAct);
+  const reject = actOf(
+    slotOf("reject", "Reject", "outline", true, tool.reject, { disabled: tool.sending }),
+    null,
+  );
+  const chat: LinkAct = {
+    type: "link",
+    id: "open_chat",
+    label: "Open chat",
+    to: approvalChatPathOf(item),
+  };
+  usePublished(store, stateOf(present([approve, reject, chat]), { failure: tool.failure }));
+  return null;
+}
+
+function CredentialRefusedActs({
+  store,
+  item,
+  snapshots,
+  reload,
+  markActed,
+  setDialogOpen,
+}: ActsContext & {
+  readonly store: ActsStore;
+  readonly item: CredentialRefusedItem;
+  readonly snapshots: readonly ProjectSnapshot[];
+}) {
+  const paused = pausedNodeCountOf(item, snapshots);
+  const rotate = useBoardRotate(item, { reload, paused, markActed, setDialogOpen });
+  const { verify } = useBoardChecks(item, { reload, markActed });
+  const gate: Gate | null =
+    rotate.missing === null ? null : { gates: ["rotate"], read: rotate.missing };
+  const target = fixTargetOf(item);
+  const open: LinkAct = { type: "link", id: "open", label: target.label, to: target.path };
+  usePublished(
+    store,
+    stateOf(
+      present([
+        actOf(slotOf("rotate", "Rotate", "outline", true, rotate.start), gate),
+        actOf(
+          slotOf("verify", "Verify credential", "outline", true, verify.verify, {
+            disabled: verify.checking,
+          }),
+          null,
+        ),
+        verify.label === null ? null : { type: "badge", id: "verify_badge", label: verify.label },
+        open,
+      ]),
+    ),
+  );
+  return <BoardRotateSheet rotate={rotate} />;
+}
+
+function EnvironmentFailedActs({
+  store,
+  item,
+  reload,
+  markActed,
+}: ActsContext & { readonly store: ActsStore; readonly item: EnvironmentFailedItem }) {
+  const { onboarding } = useBoardChecks(item, { reload, markActed });
+  const target = fixTargetOf(item);
+  const open: LinkAct = { type: "link", id: "open", label: target.label, to: target.path };
+  usePublished(
+    store,
+    stateOf(
+      present([
+        open,
+        actOf(
+          slotOf("onboarding", "Run onboarding again", "outline", true, onboarding.run, {
+            disabled: onboarding.running,
+          }),
+          null,
+        ),
+      ]),
+      { failure: onboarding.failure },
+    ),
   );
   return null;
 }
@@ -489,6 +669,8 @@ function ItemActs({
   readonly store: ActsStore;
   readonly item: AttentionItem;
   readonly details: AttentionDetails;
+  readonly snapshots: readonly ProjectSnapshot[];
+  readonly route: GateRoute | null;
 }) {
   switch (item.kind) {
     case "blocked":
@@ -499,14 +681,11 @@ function ItemActs({
     case "delivery_unconfirmed":
       return <OutsideActs store={store} item={item} {...context} />;
     case "tool_approval":
-      return (
-        <StaticActs
-          store={store}
-          acts={[
-            { type: "link", id: "open_chat", label: "Open chat", to: approvalChatPathOf(item) },
-          ]}
-        />
-      );
+      return <ToolApprovalActs store={store} item={item} {...context} />;
+    case "credential_refused":
+      return <CredentialRefusedActs store={store} item={item} {...context} />;
+    case "environment_failed":
+      return <EnvironmentFailedActs store={store} item={item} {...context} />;
     case "project_paused":
       return (
         <StaticActs
@@ -537,17 +716,22 @@ function ItemActs({
 export function BoardActsProvider({
   item,
   widthClass,
+  gate = null,
+  jump,
   children,
   ...context
 }: BoardActsProviderProps) {
   const [store] = useState(createActsStore);
+  const route = gate === null || jump === undefined ? null : { gate, jump };
   const subject = item?.subject ?? "";
   const frame = useMemo(() => ({ widthClass, subject }), [widthClass, subject]);
   return (
     <BoardActsContext.Provider value={store}>
       <BoardFrameContext.Provider value={frame}>
         {children}
-        {item !== null && <ItemActs key={item.id} store={store} item={item} {...context} />}
+        {item !== null && (
+          <ItemActs key={item.id} store={store} item={item} route={route} {...context} />
+        )}
       </BoardFrameContext.Provider>
     </BoardActsContext.Provider>
   );

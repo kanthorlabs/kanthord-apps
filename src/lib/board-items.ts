@@ -46,6 +46,15 @@ export function heldNodeIdsOf(
   return [...new Set([...own, ...dependents])];
 }
 
+export function pausedNodeCountOf(
+  item: CredentialRefusedItem,
+  snapshots: readonly ProjectSnapshot[],
+): number {
+  return snapshots
+    .flatMap((snapshot) => snapshot.nodes)
+    .filter((node) => node.state === "Paused" && item.nodeIds.includes(node.id)).length;
+}
+
 export function boardProjectsOf(item: AttentionItem): readonly Project[] {
   if (item.kind === "tool_approval") return [];
   if (item.group === "fixes") return item.projects;

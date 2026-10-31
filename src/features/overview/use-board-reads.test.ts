@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { createElement, type ReactNode } from "react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
+import { createElement, type ReactNode, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -23,7 +23,12 @@ vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/tracking");
 vi.mock("@/api/resources/workbench");
 
-import { BoardReadsProvider, useBoardReads, useBoardReadsContext } from "./use-board-reads";
+import {
+  BoardReadsProvider,
+  type BoardReadsValue,
+  useBoardReads,
+  useBoardReadsContext,
+} from "./use-board-reads";
 
 const PROJECT: Project = {
   id: "prj-1",
@@ -362,6 +367,55 @@ describe("BoardReadsProvider", () => {
 
     expect(result.current.executions).toEqual(executions);
     await waitFor(() => expect(result.current.transition?.status).toBe("ready"));
+  });
+
+  it("reads the session once for the provider and every consumer", async () => {
+    vi.mocked(readWorkbenchEvents).mockResolvedValue(events(true));
+
+    const { result } = renderHook(
+      () => ({ first: useBoardReadsContext(), second: useBoardReadsContext() }),
+      { wrapper: wrapperOf(APPROVAL) },
+    );
+
+    await waitFor(() => expect(result.current.first.session?.status).toBe("ready"));
+    expect(result.current.second.session?.status).toBe("ready");
+    expect(readWorkbenchEvents).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds pending reads without an item", () => {
+    const { result } = renderHook(() => useBoardReadsContext(), {
+      wrapper: ({ children }: { children: ReactNode }) =>
+        createElement(BoardReadsProvider, { item: null, details: new Map(), children }),
+    });
+
+    expect(result.current.session).toBeNull();
+    expect(readWorkbenchEvents).not.toHaveBeenCalled();
+  });
+
+  it("keeps its children mounted and drops the reads when the item changes", async () => {
+    vi.mocked(readWorkbenchEvents).mockResolvedValue(events(true));
+    let mounts = 0;
+    let latest: BoardReadsValue | null = null;
+    function Probe() {
+      latest = useBoardReadsContext();
+      useEffect(() => {
+        mounts += 1;
+      }, []);
+      return null;
+    }
+    const view = (item: AttentionItem | null) =>
+      createElement(BoardReadsProvider, {
+        item,
+        details: new Map(),
+        children: createElement(Probe),
+      });
+    const { rerender } = render(view(APPROVAL));
+    await waitFor(() => expect(latest?.session?.status).toBe("ready"));
+
+    rerender(view(null));
+
+    await waitFor(() => expect(latest?.session).toBeNull());
+    expect(mounts).toBe(1);
   });
 
   it("holds no execution without a paused detail", () => {

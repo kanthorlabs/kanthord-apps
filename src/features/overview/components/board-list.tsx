@@ -14,7 +14,7 @@ import { TabsContent } from "@/components/ui/tabs";
 import type { AttentionItem } from "@/lib/attention";
 import type { DoneEntry } from "@/lib/board-done";
 import type { BoardGate } from "@/lib/board-items";
-import { BOARD_TAB, type BoardTab } from "@/lib/board-tabs";
+import { BOARD_TAB, type BoardTab, type BoardTabId } from "@/lib/board-tabs";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import { AllClear } from "./all-clear";
@@ -40,6 +40,7 @@ interface BoardListProps {
   readonly onSelect: (itemId: string) => void;
   readonly onShowAll: () => void;
   readonly onGoToStart: () => void;
+  readonly onGoToTab: (tab: BoardTabId) => void;
   readonly cardRef: (itemId: string) => (element: HTMLElement | null) => void;
   readonly allClearRef: (element: HTMLElement | null) => void;
 }
@@ -65,6 +66,7 @@ export function BoardList({
   onSelect,
   onShowAll,
   onGoToStart,
+  onGoToTab,
   cardRef,
   allClearRef,
 }: BoardListProps) {
@@ -133,7 +135,7 @@ export function BoardList({
           </EmptyContent>
         </Empty>
       )}
-      <BoardDone entries={done} />
+      <BoardDone entries={done} onGoTo={onGoToTab} />
     </TabsContent>
   );
 }

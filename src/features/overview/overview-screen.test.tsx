@@ -30,6 +30,7 @@ vi.mock("@/api/resources/workers", () => ({
 vi.mock("@/api/resources/credentials", () => ({
   listAllCredentials: vi.fn(),
   verifyCredential: vi.fn(),
+  rotateCredential: vi.fn(),
 }));
 
 vi.mock("@/api/resources/gateway", () => ({
@@ -90,7 +91,11 @@ import {
   unblockNode,
 } from "@/api/resources/mission";
 import { connectionBaseUrl } from "@/api/client";
-import { listAllCredentials, verifyCredential } from "@/api/resources/credentials";
+import {
+  listAllCredentials,
+  rotateCredential,
+  verifyCredential,
+} from "@/api/resources/credentials";
 import { readLiveness } from "@/api/resources/gateway";
 import {
   listBindingAgents,
@@ -3885,6 +3890,124 @@ describe("OverviewScreen history and phone", () => {
     expect(await screen.findByText("Discarded First item.")).toBeVisible();
     await goBack(user);
     expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("goes to the credential, rotates it and pops back to the Resume card", async () => {
+    const user = userEvent.setup();
+    const credentials = [llmCredential("openai-main", NOW - 5 * HOUR)];
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+    });
+    vi.mocked(listAllCredentials).mockImplementation(async () => credentials);
+    vi.mocked(rotateCredential).mockImplementation(async () => {
+      credentials[0] = llmCredential("openai-main", NOW);
+      return credentials[0] as Credential;
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(COMPACT_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+    const resume = await screen.findByRole("dialog");
+    expect(await within(resume).findByRole("button", { name: "Go to openai-main" })).toBeVisible();
+
+    await user.click(within(resume).getByRole("button", { name: /^More/ }));
+    const more = await screen.findByRole("dialog", { name: "More acts on Print the slip" });
+    expect(within(more).getByRole("button", { name: "Resume" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(within(more).getByText("Resume needs: Rotate openai-main in Fix setup.")).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /^More acts/ })).toBeNull());
+
+    await user.click(within(resume).getByRole("button", { name: "Go to openai-main" }));
+
+    const credential = await screen.findByRole("dialog");
+    expect(
+      await within(credential).findByRole("heading", {
+        level: 3,
+        name: "Provider refuses credential openai-main",
+      }),
+    ).toBeVisible();
+    await waitFor(() =>
+      expect(within(credential).getByRole("button", { name: "Rotate" })).not.toHaveAttribute(
+        "aria-disabled",
+      ),
+    );
+    await user.click(within(credential).getByRole("button", { name: "Rotate" }));
+    const sheet = await screen.findByRole("dialog", { name: "Rotate openai-main" });
+    await user.type(within(sheet).getByLabelText("API Key"), "sk-2");
+    await user.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+    await waitFor(() => expect(rotateCredential).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Rotate openai-main" })).toBeNull(),
+    );
+
+    const back = await screen.findByRole("dialog", { name: /Print the slip/ });
+    const title = await within(back).findByRole("heading", { level: 3, name: /^Print the slip/ });
+    await waitFor(() => expect(title).toHaveFocus());
+    await waitFor(() => expect(within(back).queryByText(/^Resume needs:/)).toBeNull());
+    expect(within(back).getByRole("button", { name: "Resume" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+    expect(within(back).queryByRole("button", { name: /^Go to / })).toBeNull();
+    expect(pathOf()).toBe("/");
+  });
+
+  it("selects the credential card in Fix setup with Go to on expanded width", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+      credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(EXPANDED_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+
+    await user.click(await screen.findByRole("button", { name: "Go to openai-main" }));
+
+    await waitFor(() => expect(searchOf().get("kind")).toBe("setup"));
+    expect(searchOf().get("item")).toBe("credential_refused:openai-main");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      await screen.findByRole("heading", {
+        level: 3,
+        name: "Provider refuses credential openai-main",
+      }),
+    ).toBeVisible();
+  });
+
+  it("writes the need of a gated Resume to the status region with r", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+      credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(EXPANDED_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+    const resume = await screen.findByRole("button", { name: "Resume" });
+    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+
+    await user.keyboard("r");
+
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole("status")
+          .some(
+            (region) => region.textContent === "Resume needs: Rotate openai-main in Fix setup.",
+          ),
+      ).toBe(true),
+    );
   });
 
   it("closes only the act dialog on Back and keeps the sheet", async () => {

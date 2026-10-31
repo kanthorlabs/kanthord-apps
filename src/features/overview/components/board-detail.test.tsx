@@ -11,6 +11,7 @@ import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/tracking");
 
+import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
 import { BoardDetail } from "./board-detail";
 
@@ -65,29 +66,32 @@ const ITEM: BlockedItem = {
 function renderDetail(widthClass: BoardWidth) {
   render(
     <MemoryRouter>
-      <BoardActsProvider
-        item={ITEM}
-        details={new Map()}
-        reload={vi.fn()}
-        retryDetail={vi.fn()}
-        markActed={vi.fn()}
-        setDialogOpen={vi.fn()}
-        registerDialogCloser={vi.fn()}
-        widthClass={widthClass}
-      >
-        <BoardDetail
+      <BoardReadsProvider item={ITEM} details={new Map()}>
+        <BoardActsProvider
           item={ITEM}
-          widthClass={widthClass}
-          position={{ index: 0, total: 2 }}
-          environments={null}
           details={new Map()}
-          now={10_000_000}
-          tabName="Rule"
-          held={[]}
-          titleId="detail-title"
-          titleRef={() => undefined}
-        />
-      </BoardActsProvider>
+          snapshots={[]}
+          reload={vi.fn()}
+          retryDetail={vi.fn()}
+          markActed={vi.fn()}
+          setDialogOpen={vi.fn()}
+          registerDialogCloser={vi.fn()}
+          widthClass={widthClass}
+        >
+          <BoardDetail
+            item={ITEM}
+            widthClass={widthClass}
+            position={{ index: 0, total: 2 }}
+            environments={null}
+            details={new Map()}
+            now={10_000_000}
+            tabName="Rule"
+            held={[]}
+            titleId="detail-title"
+            titleRef={() => undefined}
+          />
+        </BoardActsProvider>
+      </BoardReadsProvider>
     </MemoryRouter>,
   );
 }

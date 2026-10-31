@@ -10,6 +10,7 @@ interface DisabledActionProps {
   readonly ariaLabel?: string;
   readonly keyShortcuts?: string;
   readonly hint?: ReactNode;
+  readonly describedBy?: string;
   readonly ref?: Ref<HTMLButtonElement>;
 }
 
@@ -20,6 +21,7 @@ export function DisabledAction({
   ariaLabel,
   keyShortcuts,
   hint,
+  describedBy,
   ref,
 }: DisabledActionProps) {
   const [open, setOpen] = useState(false);
@@ -33,6 +35,7 @@ export function DisabledAction({
             size="sm"
             aria-label={ariaLabel}
             aria-keyshortcuts={keyShortcuts}
+            aria-describedby={describedBy}
             disabled
             focusableWhenDisabled
             className="data-disabled:opacity-50"
