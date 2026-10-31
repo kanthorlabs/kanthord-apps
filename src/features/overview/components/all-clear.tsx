@@ -2,16 +2,21 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 
 interface AllClearProps {
   readonly titleRef: (element: HTMLElement | null) => void;
+  readonly fault?: boolean;
+  readonly workforce?: string;
 }
 
-export function AllClear({ titleRef }: AllClearProps) {
+export function AllClear({ titleRef, fault = false, workforce }: AllClearProps) {
   return (
     <Empty>
       <EmptyHeader>
         <EmptyTitle ref={titleRef} tabIndex={-1}>
-          All clear
+          {fault ? "No act found" : "All clear"}
         </EmptyTitle>
-        <EmptyDescription>No decision waits for you.</EmptyDescription>
+        <EmptyDescription>
+          {fault ? "Some records could not be read." : "No decision waits for you."}
+        </EmptyDescription>
+        {workforce !== undefined && <EmptyDescription>{workforce}</EmptyDescription>}
       </EmptyHeader>
     </Empty>
   );

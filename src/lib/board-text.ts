@@ -1,7 +1,8 @@
 import type { AttentionDetails, AttentionItem, OutsideAttentionItem } from "./attention";
-import { BOARD_TAB, type BoardTab, openProposalsReadOf } from "./board-tabs";
+import { BOARD_TAB, type BoardTab, boardTabOf, openProposalsReadOf } from "./board-tabs";
 import { counted } from "./counted";
 import { codeLabel, stopLabel } from "./execution-stop";
+import { fixTargetOf } from "./fix-attention";
 
 const FACT_SEPARATOR = " · ";
 const PAUSED_LABEL = "Paused";
@@ -122,6 +123,44 @@ export function tabSubOf(tab: BoardTab, held: number, count: number, allProjects
 
 export function positionText(index: number, total: number): string {
   return `${index + 1} of ${total}`;
+}
+
+const GONE_ANNOUNCEMENT = "The selected item no longer waits.";
+
+export interface AnnouncementInput {
+  readonly gone: boolean;
+  readonly expanded: boolean;
+  readonly open: boolean;
+  readonly subject: string | null;
+  readonly position: number | null;
+  readonly total: number;
+}
+
+export function announcementOf(input: AnnouncementInput): string {
+  if (input.gone) return GONE_ANNOUNCEMENT;
+  const { expanded, open, subject, position, total } = input;
+  if (expanded || !open || subject === null || position === null) return "";
+  return `${subject}, ${positionText(position, total)}.`;
+}
+
+export function leadLabelOf(item: AttentionItem, details: AttentionDetails): string | null {
+  switch (item.kind) {
+    case "paused":
+      return "Resume";
+    case "blocked":
+      return boardTabOf(item, details) === BOARD_TAB.Proposal ? "Decide" : "Unblock";
+    case "dependency_discarded":
+      return "Remove dependency";
+    case "merge_wait":
+    case "delivery_unconfirmed":
+      return "Check now";
+    case "tool_approval":
+      return "Open chat";
+    case "project_paused":
+      return "Resume project";
+    default:
+      return fixTargetOf(item).label;
+  }
 }
 
 function lowerCauseOf(item: Exclude<AttentionItem, { kind: "tool_approval" }>): string {

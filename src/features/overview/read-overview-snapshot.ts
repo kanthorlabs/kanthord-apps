@@ -131,10 +131,9 @@ async function readProject(
 
 export async function readOverviewSnapshot(
   previous: OverviewSnapshot | null,
-  selectedProjectId: string | null,
+  _selectedProjectId: string | null,
 ): Promise<OverviewSnapshot> {
   const projects = await listProjects();
-  const scoped = projects.some((project) => project.id === selectedProjectId);
   const [results, sessions] = await Promise.all([
     Promise.all(
       projects.map((project) =>
@@ -144,14 +143,12 @@ export async function readOverviewSnapshot(
         ),
       ),
     ),
-    scoped
-      ? { data: previous?.sessions ?? null, fault: null }
-      : settle(
-          null,
-          "workbench sessions",
-          () => listWorkbenchSessions(null),
-          previous?.sessions ?? null,
-        ),
+    settle(
+      null,
+      "workbench sessions",
+      () => listWorkbenchSessions(null),
+      previous?.sessions ?? null,
+    ),
   ]);
   return {
     projects,

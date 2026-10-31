@@ -24,38 +24,6 @@ import { type FixAttentionItem, fixItemsOf } from "./fix-attention";
 
 export type AttentionGroupId = "decisions" | "fixes" | "outside";
 
-export interface AttentionGroup {
-  readonly id: AttentionGroupId;
-  readonly heading: string;
-  readonly description: string;
-  readonly noun: string;
-  readonly plural: string;
-}
-
-export const ATTENTION_GROUPS: readonly AttentionGroup[] = [
-  {
-    id: "decisions",
-    heading: "Decisions",
-    description: "The work of a node stops until a human rules.",
-    noun: "decision",
-    plural: "decisions",
-  },
-  {
-    id: "fixes",
-    heading: "Fixes",
-    description: "The workforce cannot progress until a human changes the setup.",
-    noun: "fix",
-    plural: "fixes",
-  },
-  {
-    id: "outside",
-    heading: "Waiting outside kanthord",
-    description: "The node waits for an act on an external platform.",
-    noun: "waiting outside",
-    plural: "waiting outside",
-  },
-];
-
 export interface WorkerBindingView {
   readonly binding: WorkerBindingRecord;
   readonly agents: readonly BindingAgentView[] | null;
@@ -486,13 +454,4 @@ export function externalReadStateOf(
     if (message !== null) failures.push({ target, message });
   }
   return { pending, failures };
-}
-
-export function groupItems(
-  items: readonly AttentionItem[],
-): readonly { readonly group: AttentionGroup; readonly items: readonly AttentionItem[] }[] {
-  return ATTENTION_GROUPS.map((group) => ({
-    group,
-    items: items.filter((item) => item.group === group.id),
-  })).filter((entry) => entry.items.length > 0);
 }

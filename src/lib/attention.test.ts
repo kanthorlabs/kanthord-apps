@@ -21,7 +21,6 @@ import {
   detailOf,
   detailTargetsOf,
   externalReadStateOf,
-  groupItems,
 } from "./attention";
 import type { AttentionDetail, AttentionDetails, ProjectSnapshot } from "./attention";
 
@@ -244,20 +243,6 @@ describe("deriveAttention", () => {
     ]);
 
     expect(items.map((item) => item.id)).toEqual(["blocked:n1", "blocked:n2"]);
-  });
-});
-
-describe("groupItems", () => {
-  it("hides an empty group", () => {
-    expect(groupItems([])).toEqual([]);
-  });
-
-  it("collects the Blocked items under Decisions", () => {
-    const items = derive([snapshot("atlas", [blocked("n1", "A", 1)])]);
-
-    expect(groupItems(items).map((entry) => [entry.group.heading, entry.items.length])).toEqual([
-      ["Decisions", 1],
-    ]);
   });
 });
 

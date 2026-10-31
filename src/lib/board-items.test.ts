@@ -22,7 +22,9 @@ import {
   boardProjectsOf,
   gateOf,
   heldNodeIdsOf,
+  hiddenByFilterOf,
   isInProject,
+  isNothingAtAll,
   itemNodeIdsOf,
   rankBoardItems,
   startItemOf,
@@ -437,5 +439,40 @@ describe("rankBoardItems and startItemOf", () => {
   it("starts at the first ranked item, or at null", () => {
     expect(startItemOf(rankBoardItems(items, none, noGates))?.id).toBe("blocked:b");
     expect(startItemOf([])).toBeNull();
+  });
+});
+
+describe("hiddenByFilterOf", () => {
+  const second = snapshot([node("n2", "Paused")], { project: OTHER });
+  const first = snapshot([node("n1", "Paused")]);
+  const none: AttentionDetails = new Map();
+  const items = derive([first, second], none, [SESSION]);
+
+  it("hides nothing without a filter", () => {
+    expect(hiddenByFilterOf(items, none, "paused", null)).toBe(false);
+  });
+
+  it("hides the cards of another project in the tab", () => {
+    expect(hiddenByFilterOf(items, none, "paused", "prj-1")).toBe(true);
+    expect(hiddenByFilterOf(items, none, "outside", "prj-1")).toBe(false);
+  });
+
+  it("hides no tool approval", () => {
+    expect(hiddenByFilterOf(items, none, "tool", "prj-9")).toBe(false);
+  });
+});
+
+describe("isNothingAtAll", () => {
+  const base = { projectId: null, view: 0, allClear: true, readFault: false };
+
+  it("holds with no card, no filter and an all clear", () => {
+    expect(isNothingAtAll(base)).toBe(true);
+    expect(isNothingAtAll({ ...base, allClear: false, readFault: true })).toBe(true);
+  });
+
+  it("fails under a filter, with a card or with neither all clear nor fault", () => {
+    expect(isNothingAtAll({ ...base, projectId: "prj-1" })).toBe(false);
+    expect(isNothingAtAll({ ...base, view: 1 })).toBe(false);
+    expect(isNothingAtAll({ ...base, allClear: false })).toBe(false);
   });
 });
