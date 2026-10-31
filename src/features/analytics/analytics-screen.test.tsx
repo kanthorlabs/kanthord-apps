@@ -6,13 +6,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { readMissionNode } from "@/api/resources/mission";
 import { listProjects } from "@/api/resources/projects";
-import { readAnalyticsCost, readAnalyticsDuration } from "@/api/resources/tracking";
+import {
+  readAnalyticsCost,
+  readAnalyticsDuration,
+  readAnalyticsFlow,
+} from "@/api/resources/tracking";
 import type {
   AnalyticsCostItem,
   AnalyticsCostQuery,
   AnalyticsDurationItem,
   AnalyticsDurationQuery,
   AnalyticsPage,
+  FlowRead,
   MissionNodeRecord,
   Project,
 } from "@/api/types";
@@ -22,9 +27,13 @@ vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/mission");
 
 import { PRICE_NOTE } from "@/lib/trace-format";
+import { textContent } from "../../../test/text-content";
+
+import flowRead from "../../../test/flow-read.json";
 
 import { AnalyticsScreen } from "./analytics-screen";
 
+const FLOW_READ = flowRead as unknown as FlowRead;
 const DAY_START = Date.UTC(2026, 4, 4);
 const DAY_MS = 86_400_000;
 const POLL_MS = 60_000;
@@ -99,7 +108,7 @@ function durationCalls(): readonly AnalyticsDurationQuery[] {
 }
 
 function timeRowTexts(): readonly string[] {
-  const list = screen.getByRole("list", { name: "Time" });
+  const list = panel().getByRole("list", { name: "Time" });
   return within(list)
     .getAllByRole("listitem")
     .map((row) => row.textContent ?? "");
@@ -121,7 +130,15 @@ function Probe() {
   return <p>{`at ${location.search}`}</p>;
 }
 
-function mount(entry = "/analytics") {
+function panel() {
+  return within(screen.getByRole("tabpanel"));
+}
+
+function mount(params = "") {
+  return mountAt(params === "" ? "/analytics?tab=cost" : `/analytics?tab=cost&${params}`);
+}
+
+function mountAt(entry: string) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
@@ -152,13 +169,14 @@ async function choose(user: ReturnType<typeof userEvent.setup>, select: string, 
 }
 
 function rowTexts(): readonly string[] {
-  const list = screen.getByRole("list", { name: "Cost" });
+  const list = panel().getByRole("list", { name: "Cost" });
   return within(list)
     .getAllByRole("listitem")
     .map((row) => row.textContent ?? "");
 }
 
 beforeEach(() => {
+  vi.mocked(readAnalyticsFlow).mockResolvedValue(FLOW_READ);
   answer(page([]));
   answerDuration(durationPage([]));
   vi.mocked(listProjects).mockResolvedValue([project("prj_1", "alpha"), project("prj_2", "zeta")]);
@@ -183,7 +201,7 @@ describe("AnalyticsScreen", () => {
     );
     mount();
 
-    await screen.findByText("claude-sonnet-4-5");
+    await panel().findByText("claude-sonnet-4-5");
     const [query] = groupedCalls();
     expect(query).toMatchObject({ group_by: "model", bucket: "day" });
     expect((query?.to ?? 0) - (query?.from ?? 0)).toBe(7 * DAY_MS);
@@ -192,7 +210,7 @@ describe("AnalyticsScreen", () => {
     expect(texts).toHaveLength(3);
     expect(texts[0]).toContain("claude-sonnet-4-5");
     expect(texts[0]).toContain("2026-05-04");
-    expect(screen.getAllByText(PRICE_NOTE)).toHaveLength(1);
+    expect(panel().getAllByText(PRICE_NOTE)).toHaveLength(1);
     expect(texts[0]).toContain("Turns3");
     expect(texts[0]).toContain("Input1.5k");
     expect(texts[0]).toContain("Output250");
@@ -207,11 +225,11 @@ describe("AnalyticsScreen", () => {
     answer(page([item()]));
     mount();
 
-    await screen.findByText("claude-sonnet-4-5");
+    await panel().findByText("claude-sonnet-4-5");
     const [query] = totalsCalls();
     expect(query).toMatchObject({ group_by: "none", bucket: "none" });
     expect(query?.from).toBe(groupedCalls()[0]?.from);
-    const totals = screen.getByRole("list", { name: "Cost totals" });
+    const totals = panel().getByRole("list", { name: "Cost totals" });
     expect(totals).toHaveTextContent("Turns9");
     expect(totals).toHaveTextContent("Input4.0M");
     expect(totals).toHaveTextContent("API price$12.50");
@@ -222,55 +240,54 @@ describe("AnalyticsScreen", () => {
     mount();
 
     expect(
-      await screen.findByText("The range holds more groups. Narrow the range or the filter."),
+      await panel().findByText("The range holds more groups. Narrow the range or the filter."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Cost totals" })).toHaveTextContent("API price$12.50");
+    expect(panel().getByRole("list", { name: "Cost totals" })).toHaveTextContent("API price$12.50");
   });
 
   it("shows no truncated message for a complete read", async () => {
     answer(page([item()]));
     mount();
 
-    await screen.findByText("claude-sonnet-4-5");
-    expect(screen.queryByText(/The range holds more groups/)).toBeNull();
+    await panel().findByText("claude-sonnet-4-5");
+    expect(panel().queryByText(/The range holds more groups/)).toBeNull();
   });
 
   it("reads again by Agent and writes the query string", async () => {
     answer(page([item()]));
     const user = userEvent.setup();
     mount();
-    await screen.findByText("claude-sonnet-4-5");
+    await panel().findByText("claude-sonnet-4-5");
 
     await choose(user, "Group by", "Agent");
 
     await waitFor(() => expect(groupedCalls().at(-1)).toMatchObject({ group_by: "agent_name" }));
-    expect(screen.getByText("at ?group_by=agent_name")).toBeInTheDocument();
+    expect(screen.getByText("at ?tab=cost&group_by=agent_name")).toBeInTheDocument();
   });
 
-  it("reads again by Week and by Last 30 days and writes the query string", async () => {
+  it("reads the Week bucket of the query string and reads again on 30d", async () => {
     answer(page([item()]));
     const user = userEvent.setup();
-    mount();
-    await screen.findByText("claude-sonnet-4-5");
+    mount("bucket=week");
+    await panel().findByText("claude-sonnet-4-5");
+    expect(groupedCalls().at(-1)).toMatchObject({ bucket: "week" });
 
-    await choose(user, "Bucket", "Week");
-    await waitFor(() => expect(groupedCalls().at(-1)).toMatchObject({ bucket: "week" }));
-    await choose(user, "Time range", "Last 30 days");
+    await user.click(screen.getByRole("button", { name: "30d" }));
 
     await waitFor(() => {
       const last = groupedCalls().at(-1);
       expect((last?.to ?? 0) - (last?.from ?? 0)).toBe(30 * DAY_MS);
     });
     expect(groupedCalls().at(-1)).toMatchObject({ bucket: "week" });
-    expect(screen.getByText("at ?bucket=week&range=30d")).toBeInTheDocument();
+    expect(screen.getByText("at ?tab=cost&bucket=week&range=30d")).toBeInTheDocument();
   });
 
   it("reads a project from the query string and offers All projects first", async () => {
     answer(page([item()]));
     const user = userEvent.setup();
-    mount("/analytics?project_id=prj_2&range=24h&bucket=hour&group_by=provider_name");
+    mount("project_id=prj_2&range=24h&bucket=hour&group_by=provider_name");
 
-    await screen.findByText("claude-sonnet-4-5");
+    await panel().findByText("claude-sonnet-4-5");
     expect(groupedCalls()[0]).toMatchObject({
       project_id: "prj_2",
       bucket: "hour",
@@ -289,31 +306,31 @@ describe("AnalyticsScreen", () => {
     answer(page([item()]));
     const user = userEvent.setup();
     mount();
-    await screen.findByText("claude-sonnet-4-5");
+    await panel().findByText("claude-sonnet-4-5");
 
     await choose(user, "Project", "alpha");
     await waitFor(() => expect(groupedCalls().at(-1)).toMatchObject({ project_id: "prj_1" }));
-    expect(screen.getByText("at ?project_id=prj_1")).toBeInTheDocument();
+    expect(screen.getByText("at ?tab=cost&project_id=prj_1")).toBeInTheDocument();
     await choose(user, "Project", "All projects");
 
     await waitFor(() => expect(groupedCalls().at(-1)).not.toHaveProperty("project_id"));
-    expect(screen.getByText("at")).toBeInTheDocument();
+    expect(screen.getByText("at ?tab=cost")).toBeInTheDocument();
   });
 
   it("shows the node name in a node group row and Unknown for a null key", async () => {
     answer(page([item({ key: "node_1" }), item({ key: null })]));
-    mount("/analytics?group_by=node_id");
+    mount("group_by=node_id");
 
-    expect(await screen.findByText("Audit log")).toBeInTheDocument();
+    expect(await panel().findByText("Audit log")).toBeInTheDocument();
     expect(vi.mocked(readMissionNode).mock.calls[0]?.[0]).toBe("node_1");
-    expect(screen.getByText("Unknown")).toBeInTheDocument();
+    expect(panel().getByText("Unknown")).toBeInTheDocument();
   });
 
   it("links a cost row grouped by model to the filtered trace list", async () => {
     answer(page([item({ key: "gpt-5" })]));
     mount();
 
-    const list = await screen.findByRole("list", { name: "Cost" });
+    const list = await panel().findByRole("list", { name: "Cost" });
     expect(await within(list).findByRole("button", { name: "Traces" })).toHaveAttribute(
       "href",
       "/traces?model=gpt-5",
@@ -322,18 +339,18 @@ describe("AnalyticsScreen", () => {
 
   it("shows the project name in a project group row", async () => {
     answer(page([item({ key: "prj_2" })]));
-    mount("/analytics?group_by=project_id");
+    mount("group_by=project_id");
 
-    expect(await screen.findByText("zeta")).toBeInTheDocument();
+    expect(await panel().findByText("zeta")).toBeInTheDocument();
   });
 
   it("gives each bar an accessible name that repeats the cost of its row", async () => {
     answer(page([item(), item({ key: "gpt-5", cost_usd: 0.005 })]));
     mount();
 
-    await screen.findByText("gpt-5");
+    await panel().findByText("gpt-5");
 
-    const bars = screen.getAllByRole("progressbar");
+    const bars = panel().getAllByRole("progressbar");
     expect(bars).toHaveLength(2);
     expect(bars[0]).toHaveAccessibleName(expect.stringContaining("$0.0125"));
     expect(bars[0]).toHaveAccessibleName(expect.stringContaining("claude-sonnet-4-5"));
@@ -346,9 +363,9 @@ describe("AnalyticsScreen", () => {
     answer(page([]), page([]));
     mount();
 
-    const region = await screen.findByRole("region", { name: "Cost" });
+    const region = await panel().findByRole("region", { name: "Cost" });
     expect(await within(region).findByText("No spans in this range.")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Cost totals" })).toBeNull();
+    expect(panel().queryByRole("list", { name: "Cost totals" })).toBeNull();
   });
 
   it("shows the error with Retry and reads again on Retry", async () => {
@@ -359,11 +376,11 @@ describe("AnalyticsScreen", () => {
     const user = userEvent.setup();
     mount();
 
-    expect(await screen.findByText("The range is more than 31 days.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await panel().findByText("The range is more than 31 days.")).toBeInTheDocument();
+    await user.click(panel().getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByText("claude-sonnet-4-5")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(await panel().findByText("claude-sonnet-4-5")).toBeInTheDocument();
+    expect(panel().queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
   it("shows a range error with no Retry", async () => {
@@ -372,7 +389,7 @@ describe("AnalyticsScreen", () => {
     );
     mount();
 
-    const cost = await screen.findByRole("region", { name: "Cost" });
+    const cost = await panel().findByRole("region", { name: "Cost" });
     expect(await within(cost).findByText("The range is longer than 31 days.")).toBeInTheDocument();
     expect(within(cost).queryByRole("button", { name: "Retry" })).toBeNull();
   });
@@ -381,20 +398,21 @@ describe("AnalyticsScreen", () => {
     answer(page([item()]));
     const user = userEvent.setup();
     mount();
-    await screen.findByText("claude-sonnet-4-5");
+    await panel().findByText("claude-sonnet-4-5");
     const before = groupedCalls().length;
 
     await user.click(screen.getByRole("button", { name: "Refresh" }));
 
     await waitFor(() => expect(groupedCalls()).toHaveLength(before + 1));
     expect(totalsCalls()).toHaveLength(before + 1);
+    await waitFor(() => expect(readAnalyticsFlow).toHaveBeenCalledTimes(2));
   });
 
   it("reads nothing on a timer", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     answer(page([item()]));
     mount();
-    await screen.findByText("claude-sonnet-4-5");
+    await panel().findByText("claude-sonnet-4-5");
     const reads = vi.mocked(readAnalyticsCost).mock.calls.length;
 
     await act(async () => {
@@ -409,7 +427,7 @@ describe("AnalyticsScreen", () => {
       answerDuration(durationPage([duration()]));
       mount();
 
-      await screen.findByText("All");
+      await panel().findByText("All");
       const [query] = durationCalls();
       expect(query).toMatchObject({ measure: "span_duration", group_by: "none", bucket: "day" });
       expect((query?.to ?? 0) - (query?.from ?? 0)).toBe(7 * DAY_MS);
@@ -457,7 +475,7 @@ describe("AnalyticsScreen", () => {
       answerDuration(durationPage([duration({ key: "read_file" })]));
       const user = userEvent.setup();
       mount();
-      await screen.findByText("All");
+      await panel().findByText("All");
 
       await choose(user, "Measure", "Tool latency");
       await choose(user, "Time group by", "Tool");
@@ -469,13 +487,13 @@ describe("AnalyticsScreen", () => {
         }),
       );
       expect(
-        screen.getByText("at ?time_measure=tool_latency&time_group_by=tool_name"),
+        screen.getByText("at ?tab=cost&time_measure=tool_latency&time_group_by=tool_name"),
       ).toBeInTheDocument();
-      expect(await screen.findByText("read_file")).toBeInTheDocument();
+      expect(await panel().findByText("read_file")).toBeInTheDocument();
     });
 
     it("reads the measure and the group from the query string", async () => {
-      mount("/analytics?time_measure=queue_wait&time_group_by=worker_name");
+      mount("time_measure=queue_wait&time_group_by=worker_name");
 
       await waitFor(() => expect(durationCalls()).toHaveLength(1));
       expect(durationCalls()[0]).toMatchObject({
@@ -486,9 +504,9 @@ describe("AnalyticsScreen", () => {
 
     it("shows Revision turns as counts with no unit of time", async () => {
       answerDuration(durationPage([duration({ p50: 1, p90: 2, p99: 4, max: 7 })]));
-      mount("/analytics?time_measure=revision_turns");
+      mount("time_measure=revision_turns");
 
-      await screen.findByText("All");
+      await panel().findByText("All");
       const [row] = timeRowTexts();
       expect(row).toContain("p501");
       expect(row).toContain("p902");
@@ -502,14 +520,14 @@ describe("AnalyticsScreen", () => {
         items: [{ key: null, bucket_start: null, count: 3, share: 0.25 }],
         truncated: false,
       });
-      mount("/analytics?time_measure=test_floor_share");
+      mount("time_measure=test_floor_share");
 
-      await screen.findByText("All");
+      await panel().findByText("All");
       const [row] = timeRowTexts();
       expect(row).toContain("Count3");
       expect(row).toContain("25%");
       expect(row).not.toContain("p50");
-      const list = screen.getByRole("list", { name: "Time" });
+      const list = panel().getByRole("list", { name: "Time" });
       const bar = within(list).getByRole("progressbar");
       expect(bar).toHaveAttribute("aria-valuenow", "0.25");
       expect(bar).toHaveAttribute("aria-valuemax", "1");
@@ -522,11 +540,11 @@ describe("AnalyticsScreen", () => {
           duration({ key: "edit_file", p50: 500, p90: 2000, p99: 3000, max: 4000 }),
         ]),
       );
-      mount("/analytics?time_group_by=tool_name");
+      mount("time_group_by=tool_name");
 
-      await screen.findByText("edit_file");
+      await panel().findByText("edit_file");
 
-      const bars = screen.getAllByRole("progressbar");
+      const bars = panel().getAllByRole("progressbar");
       expect(bars).toHaveLength(2);
       expect(bars[0]).toHaveAccessibleName(
         "Time of read_file 2026-05-04: p50 1 s, p90 1 min, p99 1 h, max 1 h 30 min",
@@ -540,17 +558,17 @@ describe("AnalyticsScreen", () => {
 
     it("shows the node name, the project name and Unknown for a null key", async () => {
       answerDuration(durationPage([duration({ key: "node_1" }), duration({ key: null })]));
-      mount("/analytics?time_group_by=node_id");
+      mount("time_group_by=node_id");
 
-      expect(await screen.findByText("Audit log")).toBeInTheDocument();
-      expect(screen.getByText("Unknown")).toBeInTheDocument();
+      expect(await panel().findByText("Audit log")).toBeInTheDocument();
+      expect(panel().getByText("Unknown")).toBeInTheDocument();
     });
 
     it("links a time row grouped by node to the filtered trace list", async () => {
       answerDuration(durationPage([duration({ key: "node_1" }), duration({ key: null })]));
-      mount("/analytics?time_group_by=node_id");
+      mount("time_group_by=node_id");
 
-      const list = await screen.findByRole("list", { name: "Time" });
+      const list = await panel().findByRole("list", { name: "Time" });
       expect(await within(list).findByRole("button", { name: "Traces" })).toHaveAttribute(
         "href",
         "/traces?node_id=node_1",
@@ -560,9 +578,9 @@ describe("AnalyticsScreen", () => {
 
     it("shows the project name in a project group row", async () => {
       answerDuration(durationPage([duration({ key: "prj_2" })]));
-      mount("/analytics?time_group_by=project_id");
+      mount("time_group_by=project_id");
 
-      expect(await screen.findByText("zeta")).toBeInTheDocument();
+      expect(await panel().findByText("zeta")).toBeInTheDocument();
     });
 
     it("reads both sections again on a change of the toolbar and on Refresh", async () => {
@@ -573,8 +591,11 @@ describe("AnalyticsScreen", () => {
       await choose(user, "Project", "alpha");
       await waitFor(() => expect(durationCalls().at(-1)).toMatchObject({ project_id: "prj_1" }));
       expect(groupedCalls().at(-1)).toMatchObject({ project_id: "prj_1" });
-      await choose(user, "Bucket", "Week");
-      await waitFor(() => expect(durationCalls().at(-1)).toMatchObject({ bucket: "week" }));
+      await user.click(screen.getByRole("button", { name: "24h" }));
+      await waitFor(() => {
+        const last = durationCalls().at(-1);
+        expect((last?.to ?? 0) - (last?.from ?? 0)).toBe(DAY_MS);
+      });
       const before = durationCalls().length;
       await user.click(screen.getByRole("button", { name: "Refresh" }));
 
@@ -586,14 +607,14 @@ describe("AnalyticsScreen", () => {
       mount();
 
       expect(
-        await screen.findByText("The range holds more groups. Narrow the range or the filter."),
+        await panel().findByText("The range holds more groups. Narrow the range or the filter."),
       ).toBeInTheDocument();
     });
 
     it("shows the empty text", async () => {
       mount();
 
-      const region = await screen.findByRole("region", { name: "Time" });
+      const region = await panel().findByRole("region", { name: "Time" });
       expect(await within(region).findByText("No spans in this range.")).toBeInTheDocument();
     });
 
@@ -605,11 +626,11 @@ describe("AnalyticsScreen", () => {
       const user = userEvent.setup();
       mount();
 
-      expect(await screen.findByText("The measure is closed.")).toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Retry" }));
+      expect(await panel().findByText("The measure is closed.")).toBeInTheDocument();
+      await user.click(panel().getByRole("button", { name: "Retry" }));
 
-      expect(await screen.findByText("All")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+      expect(await panel().findByText("All")).toBeInTheDocument();
+      expect(panel().queryByRole("button", { name: "Retry" })).toBeNull();
     });
 
     it("shows a range error with no Retry", async () => {
@@ -618,11 +639,175 @@ describe("AnalyticsScreen", () => {
       );
       mount();
 
-      const time = await screen.findByRole("region", { name: "Time" });
+      const time = await panel().findByRole("region", { name: "Time" });
       expect(
         await within(time).findByText("The range is longer than 31 days."),
       ).toBeInTheDocument();
       expect(within(time).queryByRole("button", { name: "Retry" })).toBeNull();
+    });
+  });
+
+  describe("Flow and Cost tabs", () => {
+    const NOW = Date.UTC(2026, 9, 30, 14, 12);
+    const CONTEXT_LINE =
+      "All projects · all workers · Oct 24 00:00 – Oct 30 14:12 UTC (today partial) · vs Oct 17 – Oct 23 to the same hour · counted by claim time";
+
+    function flowQueries() {
+      return vi.mocked(readAnalyticsFlow).mock.calls.map(([query]) => query);
+    }
+
+    it("opens on the Flow tab and writes tab=cost on a click on Cost", async () => {
+      const user = userEvent.setup();
+      mountAt("/analytics");
+
+      expect(screen.getByRole("tab", { name: "Flow" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.queryByRole("region", { name: "Cost" })).toBeNull();
+      await user.click(screen.getByRole("tab", { name: "Cost" }));
+
+      expect(screen.getByRole("tab", { name: "Cost" })).toHaveAttribute("aria-selected", "true");
+      expect(await panel().findByRole("region", { name: "Cost" })).toBeInTheDocument();
+      expect(screen.getByText("at ?tab=cost")).toBeInTheDocument();
+    });
+
+    it("falls back to the Flow tab for an unknown tab", () => {
+      mountAt("/analytics?tab=time");
+
+      expect(screen.getByRole("tab", { name: "Flow" })).toHaveAttribute("aria-selected", "true");
+    });
+
+    it("shows one Project combobox and no Bucket combobox on the Cost tab", () => {
+      mount();
+
+      expect(screen.getAllByRole("combobox", { name: "Project" })).toHaveLength(1);
+      expect(screen.queryByRole("combobox", { name: "Bucket" })).toBeNull();
+      expect(screen.queryByRole("combobox", { name: "Time range" })).toBeNull();
+    });
+
+    it("shows the context line and the toolbar above the tab list on both tabs, with one read", async () => {
+      const user = userEvent.setup();
+      mountAt("/analytics");
+      const context = await screen.findByText(CONTEXT_LINE);
+      const project = screen.getByRole("combobox", { name: "Project" });
+      const tabs = screen.getByRole("tablist");
+      const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
+
+      expect(context.compareDocumentPosition(tabs) & FOLLOWING).toBeTruthy();
+      expect(project.compareDocumentPosition(tabs) & FOLLOWING).toBeTruthy();
+      await user.click(screen.getByRole("tab", { name: "Cost" }));
+      await panel().findByRole("region", { name: "Cost" });
+
+      expect(screen.getByText(CONTEXT_LINE)).toBe(context);
+      expect(screen.getByRole("combobox", { name: "Project" })).toBe(project);
+      expect(readAnalyticsFlow).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads the flow of 7d by day with the previous window", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+      mountAt("/analytics");
+
+      await screen.findByText(CONTEXT_LINE);
+      expect(flowQueries()).toEqual([
+        { from: Date.UTC(2026, 9, 24), to: NOW, bucket: "day", compare: "previous" },
+      ]);
+    });
+
+    it("reads the flow of 24h by hour with the previous window", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+      mountAt("/analytics?range=24h");
+
+      await screen.findByText(CONTEXT_LINE);
+      expect(flowQueries()).toEqual([
+        { from: Date.UTC(2026, 9, 29, 15), to: NOW, bucket: "hour", compare: "previous" },
+      ]);
+    });
+
+    it("reads the project, the worker and the range of the query string", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(NOW);
+      mountAt("/analytics?project_id=prj_2&worker_name=coder@1&range=30d");
+
+      await waitFor(() => expect(readAnalyticsFlow).toHaveBeenCalledTimes(1));
+      expect(flowQueries()).toEqual([
+        {
+          from: Date.UTC(2026, 9, 1),
+          to: NOW,
+          bucket: "day",
+          project_id: "prj_2",
+          worker_name: "coder@1",
+          compare: "previous",
+        },
+      ]);
+    });
+
+    it("writes the project to the URL and reads again", async () => {
+      const user = userEvent.setup();
+      mountAt("/analytics");
+      await screen.findByText(CONTEXT_LINE);
+
+      await choose(user, "Project", "alpha");
+
+      await waitFor(() => expect(flowQueries().at(-1)).toMatchObject({ project_id: "prj_1" }));
+      expect(screen.getByText("at ?project_id=prj_1")).toBeInTheDocument();
+    });
+
+    it("writes the worker to the URL and reads again", async () => {
+      const user = userEvent.setup();
+      mountAt("/analytics");
+      await screen.findByText(CONTEXT_LINE);
+
+      await choose(user, "Worker", "coder@1");
+
+      await waitFor(() => expect(flowQueries().at(-1)).toMatchObject({ worker_name: "coder@1" }));
+      expect(screen.getByText("at ?worker_name=coder%401")).toBeInTheDocument();
+    });
+
+    it("writes the range to the URL and reads again", async () => {
+      const user = userEvent.setup();
+      mountAt("/analytics");
+      await screen.findByText(CONTEXT_LINE);
+
+      await user.click(screen.getByRole("button", { name: "24h" }));
+
+      await waitFor(() => expect(flowQueries().at(-1)).toMatchObject({ bucket: "hour" }));
+      expect(screen.getByText("at ?range=24h")).toBeInTheDocument();
+    });
+
+    it("shows the context line and the live state links", async () => {
+      mountAt("/analytics");
+
+      expect(await screen.findByText(CONTEXT_LINE)).toBeInTheDocument();
+      expect(screen.getByText(textContent("Live state: Overview · Scheduler"))).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/");
+      expect(screen.getByRole("link", { name: "Scheduler" })).toHaveAttribute("href", "/scheduler");
+    });
+
+    it("prints the project name in the context line", async () => {
+      mountAt("/analytics?project_id=prj_2");
+
+      expect(await screen.findByText(/^zeta · all workers · Oct 24 00:00/)).toBeInTheDocument();
+    });
+
+    it("shows the rebuild banner for a read with a rebuild", async () => {
+      vi.mocked(readAnalyticsFlow).mockResolvedValue({
+        ...FLOW_READ,
+        rebuild: { pending_until: Date.UTC(2026, 9, 26) },
+      });
+      mountAt("/analytics");
+
+      expect(
+        await screen.findByText(
+          "Aggregates rebuild in progress. Numbers before Oct 26 are incomplete.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("shows no rebuild banner for a read with no rebuild", async () => {
+      mountAt("/analytics");
+
+      await screen.findByText(CONTEXT_LINE);
+      expect(screen.queryByText(/Aggregates rebuild in progress/)).toBeNull();
     });
   });
 });

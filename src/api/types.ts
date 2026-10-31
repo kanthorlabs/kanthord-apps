@@ -1719,3 +1719,200 @@ export interface AnalyticsPage<T> {
   readonly items: readonly T[];
   readonly truncated: boolean;
 }
+
+export type FlowStage =
+  "queued" | "executing" | "verification" | "release_gate" | "evaluation" | "outcome";
+
+export type FlowExit =
+  | "open"
+  | "revoked"
+  | "paused"
+  | "completed"
+  | "external"
+  | "rework"
+  | "blocked"
+  | "budget"
+  | "stopped"
+  | "further_work"
+  | "handed_on"
+  | "unknown";
+
+export type FlowStopReason =
+  | "operation_failed"
+  | "judgement_invalid"
+  | "report_absent"
+  | "action_unsettled"
+  | "assessment_absent"
+  | "provider_failed"
+  | "no_progress"
+  | "environment_failed"
+  | "lost"
+  | "budget_end";
+
+export interface FlowQuery {
+  readonly from: number;
+  readonly to: number;
+  readonly bucket: "hour" | "day";
+  readonly project_id?: string;
+  readonly worker_name?: string;
+  readonly compare: "previous" | "none";
+}
+
+export interface FlowPercentiles {
+  readonly count: number;
+  readonly p50: number | null;
+  readonly p90: number | null;
+  readonly p99: number | null;
+}
+
+export interface FlowExitTotal {
+  readonly count: number;
+  readonly cost_usd: number;
+}
+
+export interface FlowStageWindow {
+  readonly entered: number;
+  readonly unobserved: number;
+  readonly open: number;
+  readonly exits: Readonly<Partial<Record<FlowExit, FlowExitTotal>>>;
+  readonly time: FlowPercentiles | null;
+  readonly signals: Readonly<Record<string, number>>;
+}
+
+export interface FlowStageSeries {
+  readonly entered: readonly number[];
+  readonly open: readonly number[];
+  readonly leaked: readonly number[];
+  readonly loops: readonly number[];
+  readonly time_p90: readonly (number | null)[];
+  readonly signals: Readonly<Record<string, readonly (number | null)[]>>;
+  readonly changed_after_end: readonly boolean[];
+}
+
+export interface FlowStageDimension {
+  readonly by: "project_id" | "worker_name";
+  readonly key: string;
+  readonly entered: number;
+  readonly leaked: number;
+  readonly loops: number;
+  readonly time: FlowPercentiles | null;
+  readonly signals: Readonly<Record<string, number>>;
+}
+
+export interface FlowStageResult {
+  readonly stage: FlowStage;
+  readonly current: FlowStageWindow;
+  readonly previous: FlowStageWindow | null;
+  readonly series: FlowStageSeries;
+  readonly dimensions: readonly FlowStageDimension[];
+  readonly previous_bucket_median: Readonly<Record<string, number>> | null;
+}
+
+export interface FlowCauseRow {
+  readonly stage: FlowStage;
+  readonly exit: FlowExit;
+  readonly category: string;
+  readonly detail: string;
+  readonly assigner: "rule" | "reviewer" | "human" | "";
+  readonly count: number;
+  readonly cost_usd: number;
+}
+
+export interface FlowPreviousCauseRow {
+  readonly stage: FlowStage;
+  readonly exit: FlowExit;
+  readonly category: string;
+  readonly count: number;
+}
+
+export interface FlowCostWindow {
+  readonly total_usd: number;
+  readonly success: number;
+  readonly per_success_usd: number | null;
+  readonly leaked_usd: number;
+  readonly rejected_review_usd: number;
+}
+
+export interface FlowCostSameHour {
+  readonly total_usd: number;
+  readonly success: number;
+  readonly rejected_review_usd: number;
+}
+
+export interface FlowUsageTotals {
+  readonly turn_count: number;
+  readonly input_tokens: number;
+  readonly output_tokens: number;
+  readonly cache_read_tokens: number;
+  readonly cost_usd: number;
+  readonly unpriced_tokens: number;
+}
+
+export interface FlowUsageRow extends FlowUsageTotals {
+  readonly key: string;
+  readonly success?: number;
+  readonly previous_same_hour: { readonly cost_usd: number } | null;
+  readonly series: {
+    readonly cost_usd: readonly number[];
+    readonly cache_hit: readonly (number | null)[];
+  };
+}
+
+export interface FlowRead {
+  readonly window: {
+    readonly from: number;
+    readonly to: number;
+    readonly now: number;
+    readonly bucket: "hour" | "day";
+    readonly buckets: readonly number[];
+  };
+  readonly previous_window: { readonly from: number; readonly to: number } | null;
+  readonly percentile_method: "log_bins_4";
+  readonly stages: readonly FlowStageResult[];
+  readonly cost: {
+    readonly current: FlowCostWindow;
+    readonly previous: FlowCostWindow | null;
+    readonly previous_same_hour: FlowCostSameHour | null;
+    readonly series: {
+      readonly total_usd: readonly number[];
+      readonly leaked_usd: readonly number[];
+      readonly rejected_review_usd: readonly number[];
+      readonly success: readonly number[];
+    };
+  };
+  readonly causes: {
+    readonly rows: readonly FlowCauseRow[];
+    readonly previous_rows: readonly FlowPreviousCauseRow[] | null;
+    readonly previous_unattributed_share: number | null;
+    readonly unattributed_share_series: readonly (number | null)[];
+    readonly truncated: boolean;
+  };
+  readonly stop_reasons: {
+    readonly order: readonly FlowStopReason[];
+    readonly rows: Readonly<Record<FlowStopReason, readonly number[]>>;
+    readonly previous_totals: Readonly<Record<FlowStopReason, number>> | null;
+  };
+  readonly usage: {
+    readonly current: FlowUsageTotals;
+    readonly previous: FlowUsageTotals | null;
+    readonly previous_same_hour: FlowUsageTotals | null;
+    readonly series: {
+      readonly total_tokens: readonly number[];
+      readonly cache_hit: readonly (number | null)[];
+      readonly unpriced_tokens: readonly number[];
+    };
+    readonly by: Readonly<Record<"model" | "worker_name" | "project_id", readonly FlowUsageRow[]>>;
+  };
+  readonly completeness: {
+    readonly executions: number;
+    readonly open: number;
+    readonly no_root: number;
+    readonly exit_unknown: number;
+    readonly awaiting_ingestion: readonly {
+      readonly worker_name: string;
+      readonly count: number;
+    }[];
+    readonly late_records: number;
+  };
+  readonly rebuild: { readonly pending_until: number } | null;
+}

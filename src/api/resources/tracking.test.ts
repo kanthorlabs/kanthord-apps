@@ -3,8 +3,10 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import flowRead from "../../../test/flow-read.json";
 import { setConnection } from "../client";
 import { ApiError } from "../errors";
+import type { FlowRead } from "../types";
 import {
   labelTraceCause,
   listSessionEntryPage,
@@ -13,11 +15,25 @@ import {
   listTraceSpans,
   readAnalyticsCost,
   readAnalyticsDuration,
+  readAnalyticsFlow,
   readSessionEntry,
   readTrace,
   readTraceFacets,
   readTraceText,
 } from "./tracking";
+
+type Widened<T> = T extends string
+  ? string
+  : T extends readonly (infer Item)[]
+    ? readonly Widened<Item>[]
+    : T extends object
+      ? string extends keyof T
+        ? { readonly [key: string]: Widened<T[string]> | undefined }
+        : { readonly [Key in keyof T]: Widened<T[Key]> }
+      : T;
+
+const FLOW_FIXTURE: Widened<FlowRead> = flowRead;
+const FLOW_READ = FLOW_FIXTURE as FlowRead;
 
 let server: Server | null = null;
 const seen: IncomingMessage[] = [];
@@ -319,6 +335,31 @@ describe("readAnalyticsCost", () => {
     ]);
 
     await expect(readAnalyticsCost({ from: 2000, to: 1000 })).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe("readAnalyticsFlow", () => {
+  it("requests the flow path with every set field and no absent parameter", async () => {
+    await connect([{ body: FLOW_READ }, { body: FLOW_READ }]);
+
+    expect(
+      await readAnalyticsFlow({ from: 1000, to: 2000, bucket: "day", compare: "previous" }),
+    ).toEqual(FLOW_READ);
+    expect(
+      await readAnalyticsFlow({
+        from: 1000,
+        to: 2000,
+        bucket: "hour",
+        project_id: "prj-1",
+        worker_name: "coder@1",
+        compare: "none",
+      }),
+    ).toEqual(FLOW_READ);
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/tracking/analytics/flow?from=1000&to=2000&bucket=day&compare=previous",
+      "/api/tracking/analytics/flow?from=1000&to=2000&bucket=hour&project_id=prj-1&worker_name=coder%401&compare=none",
+    ]);
+    expect(seen[0]?.headers.authorization).toBe("Bearer jwt-1");
   });
 });
 
