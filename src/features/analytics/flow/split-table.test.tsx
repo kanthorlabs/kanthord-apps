@@ -38,6 +38,13 @@ function cellTexts(row: HTMLElement): readonly string[] {
 }
 
 describe("SplitTable", () => {
+  it("adds no min-content width to the page", () => {
+    mount();
+
+    const box = screen.getByRole("table", { name: "Cost by model" }).parentElement;
+    expect(box).toHaveClass("w-0", "min-w-full", "overflow-x-auto");
+  });
+
   it("renders one table in an overflow-x-auto box", () => {
     mount();
 
