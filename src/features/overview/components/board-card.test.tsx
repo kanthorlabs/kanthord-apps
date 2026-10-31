@@ -131,6 +131,14 @@ describe("BoardCard", () => {
     );
   });
 
+  it("lets the title button shrink so a long title truncates", () => {
+    renderCard();
+
+    const title = screen.getByRole("button", { name: "Ship the release" });
+    expect(title).toHaveClass("shrink");
+    expect(title).not.toHaveClass("shrink-0");
+  });
+
   it("holds the title button as the one control", () => {
     renderCard();
 
