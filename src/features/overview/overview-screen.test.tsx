@@ -1184,6 +1184,14 @@ describe("OverviewScreen states", () => {
     expect(await screen.findByText("All clear")).toBeInTheDocument();
   });
 
+  it("sets a 44 px minimum height below 1024 px on the Refresh button", async () => {
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")], "prj-2": [] } });
+    renderScreen();
+    await findDetail();
+
+    expect(screen.getByRole("button", { name: "Refresh" })).toHaveClass("min-h-11", "lg:min-h-0");
+  });
+
   it("keeps the last good nodes of a project when its next read fails", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")], "prj-2": [] } });

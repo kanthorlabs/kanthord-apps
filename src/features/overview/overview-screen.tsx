@@ -224,6 +224,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
             <div className="flex items-center gap-2 md:ml-auto">
               <BoardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
               <RefreshStatus
+                touch
                 updatedAt={overview.updatedAt}
                 now={overview.now}
                 onRefresh={overview.refresh}
