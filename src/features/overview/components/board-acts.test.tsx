@@ -3,8 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { listAllCredentials, verifyCredential } from "@/api/resources/credentials";
+import { rebuildEnvironment } from "@/api/resources/projects";
 import { listTracePage } from "@/api/resources/tracking";
+import { approveWorkbenchCall, readWorkbenchEvents } from "@/api/resources/workbench";
 import type {
+  Credential,
   Intent,
   MissionExternalAction,
   MissionNodeRecord,
@@ -22,12 +26,19 @@ import {
   detailKeyOf,
   type MergeWaitItem,
 } from "@/lib/attention";
-import type { CredentialRefusedItem, ProjectPausedItem } from "@/lib/fix-attention";
+import type {
+  CredentialRefusedItem,
+  EnvironmentFailedItem,
+  ProjectPausedItem,
+} from "@/lib/fix-attention";
 
 import { BOARD_WIDTH } from "@/lib/board-width";
 
 vi.mock("@/api/resources/mission");
+vi.mock("@/api/resources/credentials");
+vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/tracking");
+vi.mock("@/api/resources/workbench");
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), { success: vi.fn(), error: vi.fn() }),
 }));
@@ -267,6 +278,33 @@ const CREDENTIAL: CredentialRefusedItem = {
   nodeName: "Team",
 };
 
+const ENVIRONMENT_FAILED: EnvironmentFailedItem = {
+  id: "environment_failed:prj-1:binding_1",
+  kind: "environment_failed",
+  group: "fixes",
+  project: PROJECT,
+  subject: "api",
+  at: null,
+  cause: "Environment failed",
+  nodeIds: [],
+  projects: [PROJECT],
+  binding: "api",
+  bindingId: "binding_1",
+  failure: null,
+  failureClass: "setup",
+} as unknown as EnvironmentFailedItem;
+
+function serverCopy(name: string): Credential {
+  return {
+    name,
+    platform: "openai",
+    holder: "server",
+    sealed_to: null,
+    sealed_current: true,
+    revisions: [{ id: "live", revision: 5, metadata: null, created_at: 2, ended_at: null }],
+  };
+}
+
 const APPROVAL: ToolApprovalItem = {
   id: "tool_approval:s1",
   group: "decisions",
@@ -282,6 +320,10 @@ const APPROVAL: ToolApprovalItem = {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
+  vi.mocked(listAllCredentials).mockResolvedValue([serverCopy("openai-main")]);
+  vi.mocked(readWorkbenchEvents).mockResolvedValue({
+    snapshot: { pending_approval: null },
+  } as Awaited<ReturnType<typeof readWorkbenchEvents>>);
 });
 
 describe("BoardActsProvider act order", () => {
@@ -390,14 +432,42 @@ describe("BoardActsProvider act order", () => {
     expect(screen.getAllByRole("button", { name: "Check now" })[1]).toBeEnabled();
   });
 
-  it("links a fix item with its target", () => {
+  it("leads a credential refusal with Rotate and links its credential", async () => {
     renderActs(CREDENTIAL);
 
-    expect(actNames()).toEqual(["Open credential"]);
+    expect(actNames()).toEqual(["Rotate", "Verify credential", "Open credential"]);
     expect(screen.getByRole("button", { name: "Open credential" })).toHaveAttribute(
       "href",
       "/llm/openai-main",
     );
+    expect(screen.getByText("Rotate needs: the credential read.")).toBeVisible();
+    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Rotate" })).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("gates Rotate when the credential has no server copy", async () => {
+    vi.mocked(listAllCredentials).mockResolvedValue([]);
+    renderActs(CREDENTIAL);
+
+    expect(await screen.findByText("Rotate needs: a server copy of openai-main.")).toBeVisible();
+    expect(actNames()).toEqual(["Rotate", "Verify credential", "Open credential"]);
+    expect(screen.getByRole("button", { name: "Rotate" })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("opens the Rotate sheet from the act", async () => {
+    renderActs(CREDENTIAL);
+    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "Rotate" }));
+
+    expect(await screen.findByRole("dialog", { name: "Rotate openai-main" })).toBeVisible();
+    expect(setDialogOpen).toHaveBeenCalledWith(CREDENTIAL.id, expect.any(String), true);
+  });
+
+  it("leads an environment failure with Open project and ends with Run onboarding again", () => {
+    renderActs(ENVIRONMENT_FAILED);
+
+    expect(actNames()).toEqual(["Open project", "Run onboarding again"]);
   });
 
   it("resumes a paused project through the project action", () => {
@@ -406,14 +476,63 @@ describe("BoardActsProvider act order", () => {
     expect(actNames()).toEqual(["Resume project"]);
   });
 
-  it("links a tool approval to its chat", () => {
+  it("gates Approve before the session read and keeps Reject and Open chat", () => {
     renderActs(APPROVAL);
 
-    expect(actNames()).toEqual(["Open chat"]);
+    expect(actNames()).toEqual(["Approve", "Reject", "Open chat"]);
+    expect(screen.getByText("Approve needs: the session read.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Approve" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Open chat" })).toHaveAttribute(
       "href",
       expect.stringContaining("s1"),
     );
+  });
+
+  it("enables Approve once the session read is ready", async () => {
+    renderActs(APPROVAL);
+
+    await waitFor(() => expect(screen.queryByText(/^Approve needs:/)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
+    expect(actNames()).toEqual(["Approve", "Reject", "Open chat"]);
+  });
+
+  it("sends Approve and Reject through the acts", async () => {
+    vi.mocked(approveWorkbenchCall).mockResolvedValue({} as never);
+    renderActs(APPROVAL);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
+
+    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
+    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+    expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", true);
+    expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", false);
+  });
+
+  it("shows the result of Verify credential in a status badge", async () => {
+    vi.mocked(verifyCredential).mockResolvedValue({
+      status: "unhealthy",
+      capability: "llm",
+      failure_reason: "unauthorized",
+    });
+    renderActs(CREDENTIAL);
+
+    await userEvent.click(screen.getByRole("button", { name: "Verify credential" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Refused: unauthorized");
+    expect(verifyCredential).toHaveBeenCalledWith("llm", "openai-main");
+  });
+
+  it("starts the onboarding of a failed environment with the binding id", async () => {
+    vi.mocked(rebuildEnvironment).mockResolvedValue({} as never);
+    renderActs(ENVIRONMENT_FAILED);
+
+    await userEvent.click(screen.getByRole("button", { name: "Run onboarding again" }));
+
+    expect(rebuildEnvironment).toHaveBeenCalledWith("prj-1", "binding_1");
   });
 
   it("offers no act without an item", () => {

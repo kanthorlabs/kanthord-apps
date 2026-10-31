@@ -29,10 +29,21 @@ import {
 import type { ActedAct } from "@/lib/board-done";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { readFailureText } from "@/lib/external-requests";
-import { fixTargetOf, type ProjectPausedItem } from "@/lib/fix-attention";
+import type { ToolApprovalItem } from "@/lib/approval-attention";
+import {
+  type CredentialRefusedItem,
+  type EnvironmentFailedItem,
+  fixTargetOf,
+  type ProjectPausedItem,
+} from "@/lib/fix-attention";
 
+import { useBoardChecks } from "../use-board-checks";
+import { useBoardReads } from "../use-board-reads";
+import { useBoardRotate } from "../use-board-rotate";
+import { type ActFailure, useBoardToolActs } from "../use-board-tool-acts";
 import { type DecisionActs, useDecisionActs } from "../use-decision-acts";
 import { useOutsideActs } from "../use-outside-acts";
+import { BoardRotateSheet } from "./board-rotate-sheet";
 import { DependencyRemoveDialog } from "./dependency-remove-dialog";
 
 type ActVariant = "outline" | "destructive";
@@ -96,6 +107,7 @@ export interface BoardActsState {
   readonly proposals: readonly MissionProposal[];
   readonly unresolved: string | null;
   readonly lastTrace: LastTrace | null;
+  readonly failure: ActFailure | null;
   readonly retry: () => void;
 }
 
@@ -139,6 +151,7 @@ const EMPTY: BoardActsState = {
   proposals: NO_PROPOSALS,
   unresolved: null,
   lastTrace: null,
+  failure: null,
   retry: () => undefined,
 };
 
@@ -470,6 +483,99 @@ function OutsideActs({
   return null;
 }
 
+function ToolApprovalActs({
+  store,
+  item,
+  reload,
+  markActed,
+}: ActsContext & { readonly store: ActsStore; readonly item: ToolApprovalItem }) {
+  const tool = useBoardToolActs(item, useBoardReads(item), { reload, markActed });
+  const approve =
+    tool.need === null
+      ? actOf(
+          slotOf("approve", "Approve", "outline", true, tool.approve, { disabled: tool.sending }),
+          null,
+        )
+      : ({
+          type: "gated",
+          id: "approve",
+          label: "Approve",
+          ariaLabel: null,
+          need: tool.need,
+        } satisfies GatedAct);
+  const reject = actOf(
+    slotOf("reject", "Reject", "outline", true, tool.reject, { disabled: tool.sending }),
+    null,
+  );
+  const chat: LinkAct = {
+    type: "link",
+    id: "open_chat",
+    label: "Open chat",
+    to: approvalChatPathOf(item),
+  };
+  usePublished(store, stateOf(present([approve, reject, chat]), { failure: tool.failure }));
+  return null;
+}
+
+function CredentialRefusedActs({
+  store,
+  item,
+  reload,
+  markActed,
+  setDialogOpen,
+}: ActsContext & { readonly store: ActsStore; readonly item: CredentialRefusedItem }) {
+  const rotate = useBoardRotate(item, { reload, markActed, setDialogOpen });
+  const { verify } = useBoardChecks(item, { reload, markActed });
+  const gate: Gate | null =
+    rotate.missing === null ? null : { gates: ["rotate"], read: rotate.missing };
+  const target = fixTargetOf(item);
+  const open: LinkAct = { type: "link", id: "fix_target", label: target.label, to: target.path };
+  usePublished(
+    store,
+    stateOf(
+      present([
+        actOf(slotOf("rotate", "Rotate", "outline", true, rotate.start), gate),
+        actOf(
+          slotOf("verify", "Verify credential", "outline", true, verify.verify, {
+            disabled: verify.checking,
+          }),
+          null,
+        ),
+        verify.label === null ? null : { type: "badge", id: "verify_badge", label: verify.label },
+        open,
+      ]),
+    ),
+  );
+  return <BoardRotateSheet rotate={rotate} />;
+}
+
+function EnvironmentFailedActs({
+  store,
+  item,
+  reload,
+  markActed,
+}: ActsContext & { readonly store: ActsStore; readonly item: EnvironmentFailedItem }) {
+  const { onboarding } = useBoardChecks(item, { reload, markActed });
+  const target = fixTargetOf(item);
+  const open: LinkAct = { type: "link", id: "fix_target", label: target.label, to: target.path };
+  usePublished(
+    store,
+    stateOf(
+      present([
+        open,
+        actOf(
+          slotOf("onboarding", "Run onboarding again", "outline", true, onboarding.run, {
+            disabled: onboarding.running,
+          }),
+          null,
+        ),
+      ]),
+      { failure: onboarding.failure },
+    ),
+  );
+  return null;
+}
+
 function StaticActs({
   store,
   acts,
@@ -499,14 +605,11 @@ function ItemActs({
     case "delivery_unconfirmed":
       return <OutsideActs store={store} item={item} {...context} />;
     case "tool_approval":
-      return (
-        <StaticActs
-          store={store}
-          acts={[
-            { type: "link", id: "open_chat", label: "Open chat", to: approvalChatPathOf(item) },
-          ]}
-        />
-      );
+      return <ToolApprovalActs store={store} item={item} {...context} />;
+    case "credential_refused":
+      return <CredentialRefusedActs store={store} item={item} {...context} />;
+    case "environment_failed":
+      return <EnvironmentFailedActs store={store} item={item} {...context} />;
     case "project_paused":
       return (
         <StaticActs
