@@ -2492,7 +2492,13 @@ describe("OverviewScreen waiting outside kanthord", () => {
     renderScreen();
 
     const item = await findDetail();
-    await user.click(await within(item).findByRole("button", { name: "Check now" }));
+    await waitFor(() =>
+      expect(within(item).getByRole("button", { name: "Check now" })).not.toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await user.click(within(item).getByRole("button", { name: "Check now" }));
 
     expect(await within(item).findByText("Ended in another state")).toBeInTheDocument();
     expect(checkNode).toHaveBeenCalledWith("n_p", { expected_mission_version: 7 });
