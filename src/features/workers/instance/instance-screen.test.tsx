@@ -13,6 +13,7 @@ import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import * as schedulerApi from "@/api/resources/scheduler";
 import * as workersApi from "@/api/resources/workers";
+import { LOGIN_POLL_MS } from "@/features/credentials/form/use-credential-login";
 import type {
   CopyHealth,
   Credential,
@@ -237,6 +238,10 @@ beforeEach(() => {
   vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue([]);
   vi.mocked(gatewayApi.readServerVersion).mockResolvedValue("28.0.1");
   vi.mocked(clientApi.connectionBaseUrl).mockReturnValue("https://kd.example.com");
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe("InstanceScreen", () => {
@@ -713,13 +718,15 @@ describe("InstanceScreen", () => {
     const sheet = await screen.findByRole("dialog", { name: "Sign in again to claude-sub" });
     const reads = vi.mocked(instancesApi.readWorkerInstance).mock.calls.length;
     const success = vi.spyOn(toast, "success");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
-    await waitFor(
-      () =>
-        expect(
-          screen.queryByRole("dialog", { name: "Sign in again to claude-sub" }),
-        ).not.toBeInTheDocument(),
-      { timeout: 4000 },
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LOGIN_POLL_MS);
+    });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Sign in again to claude-sub" }),
+      ).not.toBeInTheDocument(),
     );
     expect(vi.mocked(instancesApi.readWorkerInstance).mock.calls.length).toBeGreaterThan(reads);
     expect(success.mock.calls).toEqual([["Stored a new revision of claude-sub for mac-studio."]]);
@@ -745,11 +752,13 @@ describe("InstanceScreen", () => {
     await userEvent.type(within(sheet).getByLabelText("Name"), "claude-sub-2");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Platform" }));
     await userEvent.click(await screen.findByRole("option", { name: "anthropic-subscription" }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
-    await waitFor(
-      () =>
-        expect(screen.queryByRole("dialog", { name: "Add credential" })).not.toBeInTheDocument(),
-      { timeout: 4000 },
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LOGIN_POLL_MS);
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Add credential" })).not.toBeInTheDocument(),
     );
     expect(success.mock.calls).toEqual([["Stored claude-sub-2 for mac-studio."]]);
   });
@@ -1027,10 +1036,6 @@ describe("InstanceScreen placement", () => {
 });
 
 describe("InstanceScreen polling", () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   it("reads the instance again every 15 s and shows a new credential report", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const copy = {
