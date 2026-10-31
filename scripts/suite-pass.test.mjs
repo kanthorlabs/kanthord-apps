@@ -198,10 +198,12 @@ describe("suite-pass run", { timeout: 60_000 }, () => {
     writeFileSync(join(cwd, "untracked.txt"), "x\n");
     const untracked = run(cwd, command, "--write");
     expect(untracked.status).toBe(2);
+    expect(untracked.error).toContain("the working tree is not clean");
     rmSync(join(cwd, "untracked.txt"));
     writeFileSync(join(cwd, "value.txt"), "changed\n");
     const modified = run(cwd, command, "--write");
     expect(modified.status).toBe(2);
+    expect(modified.error).toContain("the working tree is not clean");
     expect(existsSync(storeOf(cwd))).toBe(false);
     expect(lines(countFile)).toHaveLength(0);
   });
@@ -224,6 +226,7 @@ describe("suite-pass run", { timeout: 60_000 }, () => {
     const command = commandWriting(countFile, REPORT, 0, `touch '${join(cwd, "created.txt")}'`);
     const result = run(cwd, command, "--write");
     expect(result.status).toBe(2);
+    expect(result.error).toContain("the working tree is not clean");
     expect(existsSync(storeOf(cwd))).toBe(false);
   });
 
