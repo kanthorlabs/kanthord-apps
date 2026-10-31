@@ -1,4 +1,11 @@
-import { createContext, type ReactNode, useContext } from "react";
+import {
+  createContext,
+  type ReactNode,
+  useContext,
+  useLayoutEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import type { EffectiveCause, MissionProposal } from "@/api/types";
 import { NodeDiscardDialog } from "@/components/node-discard-dialog";
@@ -127,10 +134,47 @@ const EMPTY: BoardActsState = {
   retry: () => undefined,
 };
 
-const BoardActsContext = createContext<BoardActsState>(EMPTY);
+interface ActsStore {
+  readonly get: () => BoardActsState;
+  readonly set: (state: BoardActsState) => void;
+  readonly subscribe: (listener: () => void) => () => void;
+}
+
+function createActsStore(): ActsStore {
+  let current = EMPTY;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (state) => {
+      current = state;
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+  };
+}
+
+const BoardActsContext = createContext<ActsStore>(createActsStore());
 
 export function useBoardActs(): BoardActsState {
-  return useContext(BoardActsContext);
+  const store = useContext(BoardActsContext);
+  return useSyncExternalStore(store.subscribe, store.get);
+}
+
+function usePublished(store: ActsStore, state: BoardActsState) {
+  useLayoutEffect(() => {
+    store.set(state);
+  });
+  useLayoutEffect(
+    () => () => {
+      store.set(EMPTY);
+    },
+    [store],
+  );
 }
 
 function slotOf(
@@ -265,43 +309,45 @@ function stateOf(acts: readonly BoardAct[], rest: Partial<BoardActsState> = {}):
   return { ...EMPTY, acts, needs: needsOf(acts), ...rest };
 }
 
-function DecisionActsProvider({
+function DecisionActs({
+  store,
   item,
   details,
   reload,
   retryDetail,
   markActed,
   setDialogOpen,
-  children,
 }: ActsContext & {
+  readonly store: ActsStore;
   readonly item: DecisionAttentionItem;
   readonly details: AttentionDetails;
-  readonly children: ReactNode;
 }) {
   const { node } = item;
   const acts = useDecisionActs(item, detailOf(details, node), { reload, markActed, setDialogOpen });
-  const state = stateOf(decisionActsOf(item, acts), {
-    read:
-      acts.waiting === null
-        ? null
-        : { text: acts.waiting, failed: acts.failed, retry: () => retryDetail(node.id) },
-    retry: () => retryDetail(node.id),
-    proposals: acts.proposals,
-    unresolved: acts.unresolved,
-    lastTrace:
-      acts.lastTraceId === null ? null : { id: acts.lastTraceId, cause: acts.lastTraceCause },
-  });
+  usePublished(
+    store,
+    stateOf(decisionActsOf(item, acts), {
+      read:
+        acts.waiting === null
+          ? null
+          : { text: acts.waiting, failed: acts.failed, retry: () => retryDetail(node.id) },
+      retry: () => retryDetail(node.id),
+      proposals: acts.proposals,
+      unresolved: acts.unresolved,
+      lastTrace:
+        acts.lastTraceId === null ? null : { id: acts.lastTraceId, cause: acts.lastTraceCause },
+    }),
+  );
 
   return (
-    <BoardActsContext.Provider value={state}>
-      {children}
+    <>
       <NodeUnblockDialog name={node.content.name} unblock={acts.unblock} />
       <ProposalDecisionDialog name={node.content.name} decision={acts.decide} />
       <NodeResumeDialog name={node.content.name} resume={acts.resume} />
       <NodeOverrideDialog name={node.content.name} override={acts.override} />
       <DependencyRemoveDialog name={node.content.name} remove={acts.remove} />
       <NodeDiscardDialog name={node.content.name} discard={acts.discard} />
-    </BoardActsContext.Provider>
+    </>
   );
 }
 
@@ -329,83 +375,73 @@ function outsideReadOf(
   return null;
 }
 
-function OutsideActsProvider({
+function OutsideActs({
+  store,
   item,
   details,
   reload,
   retryDetail,
   markActed,
-  children,
 }: ActsContext & {
+  readonly store: ActsStore;
   readonly item: OutsideAttentionItem;
   readonly details: AttentionDetails;
-  readonly children: ReactNode;
 }) {
   const { check } = useOutsideActs(item, detailOf(details, item.node), { reload, markActed });
   const read = outsideReadOf(item, details, retryDetail);
   const gate: Gate | null =
     read === null ? null : { gates: ["check"], read: "the external actions read" };
-
-  return (
-    <BoardActsContext.Provider
-      value={stateOf(present(checkActsOf(check, gate)), {
-        read,
-        retry: () => retryDetail(item.node.id),
-      })}
-    >
-      {children}
-    </BoardActsContext.Provider>
+  usePublished(
+    store,
+    stateOf(present(checkActsOf(check, gate)), {
+      read,
+      retry: () => retryDetail(item.node.id),
+    }),
   );
+  return null;
 }
 
-function StaticActsProvider({
+function StaticActs({
+  store,
   acts,
-  children,
 }: {
+  readonly store: ActsStore;
   readonly acts: readonly BoardAct[];
-  readonly children: ReactNode;
 }) {
-  return <BoardActsContext.Provider value={stateOf(acts)}>{children}</BoardActsContext.Provider>;
+  usePublished(store, stateOf(acts));
+  return null;
 }
 
-function ItemActsProvider({
+function ItemActs({
   item,
-  children,
+  store,
   ...context
 }: ActsContext & {
+  readonly store: ActsStore;
   readonly item: AttentionItem;
   readonly details: AttentionDetails;
-  readonly children: ReactNode;
 }) {
   switch (item.kind) {
     case "blocked":
     case "paused":
     case "dependency_discarded":
-      return (
-        <DecisionActsProvider item={item} {...context}>
-          {children}
-        </DecisionActsProvider>
-      );
+      return <DecisionActs store={store} item={item} {...context} />;
     case "merge_wait":
     case "delivery_unconfirmed":
-      return (
-        <OutsideActsProvider item={item} {...context}>
-          {children}
-        </OutsideActsProvider>
-      );
+      return <OutsideActs store={store} item={item} {...context} />;
     case "tool_approval":
       return (
-        <StaticActsProvider
+        <StaticActs
+          store={store}
           acts={[
             { type: "link", id: "open_chat", label: "Open chat", to: approvalChatPathOf(item) },
           ]}
-        >
-          {children}
-        </StaticActsProvider>
+        />
       );
     case "project_paused":
       return (
-        <StaticActsProvider
+        <StaticActs
+          store={store}
           acts={[
             {
               type: "resume_project",
@@ -415,30 +451,26 @@ function ItemActsProvider({
               markActed: context.markActed,
             },
           ]}
-        >
-          {children}
-        </StaticActsProvider>
+        />
       );
     default: {
       const target = fixTargetOf(item);
       return (
-        <StaticActsProvider
+        <StaticActs
+          store={store}
           acts={[{ type: "link", id: "fix_target", label: target.label, to: target.path }]}
-        >
-          {children}
-        </StaticActsProvider>
+        />
       );
     }
   }
 }
 
 export function BoardActsProvider({ item, children, ...context }: BoardActsProviderProps) {
-  if (item === null) {
-    return <BoardActsContext.Provider value={EMPTY}>{children}</BoardActsContext.Provider>;
-  }
+  const [store] = useState(createActsStore);
   return (
-    <ItemActsProvider key={item.id} item={item} {...context}>
+    <BoardActsContext.Provider value={store}>
       {children}
-    </ItemActsProvider>
+      {item !== null && <ItemActs key={item.id} store={store} item={item} {...context} />}
+    </BoardActsContext.Provider>
   );
 }

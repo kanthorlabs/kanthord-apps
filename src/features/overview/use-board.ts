@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import type { Project } from "@/api/types";
@@ -392,7 +392,7 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
   };
 
   const latest = useRef({ cards, tab, updatedAt, setDialogOpen: overview.setDialogOpen });
-  useLayoutEffect(() => {
+  useEffect(() => {
     latest.current = { cards, tab, updatedAt, setDialogOpen: overview.setDialogOpen };
   });
 

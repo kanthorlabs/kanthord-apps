@@ -6,67 +6,44 @@ import { useScopedProject } from "@/hooks/use-scoped-project";
 import {
   type AttentionContext,
   type AttentionDetails,
-  type AttentionGroupId,
   type AttentionItem,
   deriveAttention,
   detailTargetsOf,
   externalReadStateOf,
-  groupItems,
   type ProjectSnapshot,
 } from "@/lib/attention";
 import { type BoardGate, gateOf, heldNodeIdsOf } from "@/lib/board-items";
 import { unavailableComponentsOf } from "@/lib/liveness-alert";
 import {
-  attentionSummary,
   claimedNodeCount,
   type CoolingFact,
   coolingFactsOf,
-  progressSummary,
   projectsWithoutSetup,
 } from "@/lib/overview-summary";
-import { type StateTally, tallyStates } from "@/lib/state-tally";
 
 import type { ReadFault } from "./read-overview-snapshot";
 import { useAttentionDetails } from "./use-attention-details";
-import { type AttentionFocus, useAttentionFocus } from "./use-attention-focus";
 import { useOverviewSetup } from "./use-overview-setup";
 import { useOverviewSnapshot } from "./use-overview-snapshot";
-
-export interface ProjectProgress {
-  readonly project: Project;
-  readonly tallies: readonly StateTally[];
-}
 
 export interface OverviewState {
   readonly status: "loading" | "ready" | "empty" | "error";
   readonly error: ApiError | null;
   readonly projects: readonly Project[];
-  readonly projectId: string | null;
-  readonly selectProject: (projectId: string | null) => void;
-  readonly showProjects: boolean;
   readonly running: number;
   readonly waiting: number;
-  readonly schedulerPath: string;
   readonly cooling: readonly CoolingFact[];
   readonly unavailable: readonly string[];
   readonly livenessFailure: string | null;
-  readonly summary: string;
   readonly boardItems: readonly AttentionItem[];
   readonly gates: ReadonlyMap<string, BoardGate>;
   readonly held: ReadonlyMap<string, readonly string[]>;
   readonly snapshots: readonly ProjectSnapshot[];
-  readonly groups: ReturnType<typeof groupItems>;
-  readonly shownGroups: ReturnType<typeof groupItems>;
-  readonly groupId: AttentionGroupId | null;
-  readonly selectGroup: (groupId: AttentionGroupId | null) => void;
   readonly faults: readonly ReadFault[];
   readonly allClear: boolean;
-  readonly progress: readonly ProjectProgress[];
-  readonly progressSummary: string;
   readonly details: AttentionDetails;
   readonly retryDetail: (nodeId: string) => void;
   readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
-  readonly focus: AttentionFocus;
   readonly updatedAt: number | null;
   readonly now: number;
   readonly refresh: () => void;
@@ -75,16 +52,11 @@ export interface OverviewState {
 const NO_FAULTS: readonly ReadFault[] = [];
 const NO_COMPONENTS: readonly string[] = [];
 
-function schedulerPathOf(projectId: string | null): string {
-  return projectId === null ? "/scheduler" : `/scheduler?project=${encodeURIComponent(projectId)}`;
-}
-
 export function useOverview(): OverviewState {
-  const { projectId: requested, select } = useScopedProject();
+  const { projectId: requested } = useScopedProject();
   const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
-  const [requestedGroup, selectGroup] = useState<AttentionGroupId | null>(null);
   const hold = openDialogs.size > 0;
-  const snapshot = useOverviewSnapshot(hold, requested);
+  const snapshot = useOverviewSnapshot(hold, null);
   const setup = useOverviewSetup(hold);
 
   const data = snapshot.data;
@@ -139,21 +111,13 @@ export function useOverview(): OverviewState {
       now: snapshot.now,
       catalog: setupData?.catalog ?? null,
       credentials: setupData?.credentials ?? null,
-      sessions: projectId === null ? (data?.sessions ?? null) : null,
+      sessions: data?.sessions ?? null,
     }),
-    [snapshot.now, setupData, data, projectId],
-  );
-  const boardContext = useMemo<AttentionContext>(
-    () => ({ ...context, sessions: data?.sessions ?? null }),
-    [context, data],
+    [snapshot.now, setupData, data],
   );
   const boardItems = useMemo<readonly AttentionItem[]>(
-    () => deriveAttention(everySnapshots, details, boardContext),
-    [everySnapshots, details, boardContext],
-  );
-  const items = useMemo<readonly AttentionItem[]>(
-    () => (projectId === null ? boardItems : deriveAttention(snapshots, details, context)),
-    [projectId, boardItems, snapshots, details, context],
+    () => deriveAttention(everySnapshots, details, context),
+    [everySnapshots, details, context],
   );
   const gates = useMemo(
     () =>
@@ -171,28 +135,9 @@ export function useOverview(): OverviewState {
   );
   const externalReads = useMemo(() => externalReadStateOf(targets, details), [targets, details]);
 
-  const groups = useMemo(() => groupItems(items), [items]);
-  const groupId = groups.some((entry) => entry.group.id === requestedGroup) ? requestedGroup : null;
-  const shownGroups = useMemo(
-    () => (groupId === null ? groups : groups.filter((entry) => entry.group.id === groupId)),
-    [groups, groupId],
-  );
-  const progress = useMemo(
-    () =>
-      snapshots.map((entry) => ({
-        project: entry.project,
-        tallies: tallyStates(entry.nodes),
-      })),
-    [snapshots],
-  );
-
-  const shownItems = useMemo(() => shownGroups.flatMap((entry) => entry.items), [shownGroups]);
-  const focus = useAttentionFocus(shownItems, snapshot.updatedAt);
-  const { markActed } = focus;
-
   const faults = useMemo<readonly ReadFault[]>(() => {
     const scoped = (data?.faults ?? NO_FAULTS).filter(
-      (fault) => projectId === null || fault.projectId === projectId,
+      (fault) => projectId === null || fault.projectId === null || fault.projectId === projectId,
     );
     const outside = externalReads.failures.map(({ target, message }) => ({
       projectId: target.projectId,
@@ -238,9 +183,8 @@ export function useOverview(): OverviewState {
         return next;
       });
       if (open) refreshDetail(nodeId);
-      else markActed(itemId);
     },
-    [refreshDetail, markActed],
+    [refreshDetail],
   );
 
   const cooling = useMemo(() => coolingFactsOf(snapshots), [snapshots]);
@@ -271,24 +215,15 @@ export function useOverview(): OverviewState {
     status,
     error: snapshot.error,
     projects,
-    projectId,
-    selectProject: select,
-    showProjects: projectId === null,
     running: snapshots.reduce((total, entry) => total + claimedNodeCount(entry.nodes), 0),
     waiting: reads.reduce((total, read) => total + (read.jobs?.length ?? 0), 0),
-    schedulerPath: schedulerPathOf(projectId),
     cooling,
     unavailable,
     livenessFailure,
-    summary: attentionSummary(items),
     boardItems,
     gates,
     held,
     snapshots: everySnapshots,
-    groups,
-    shownGroups,
-    groupId,
-    selectGroup,
     faults,
     allClear:
       faults.length === 0 &&
@@ -296,13 +231,10 @@ export function useOverview(): OverviewState {
       setupData !== null &&
       projectsWithoutSetup(snapshots, setupData.projects) === 0 &&
       livenessFailure === null &&
-      items.length === 0,
-    progress,
-    progressSummary: progressSummary(progress.map((entry) => entry.tallies)),
+      boardItems.length === 0,
     details,
     retryDetail: refreshDetail,
     setDialogOpen,
-    focus,
     updatedAt: snapshot.updatedAt,
     now: snapshot.now,
     refresh,

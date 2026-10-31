@@ -1,22 +1,6 @@
 import type { MissionNodeRecord, Project } from "@/api/types";
 
-import { ATTENTION_GROUPS, type AttentionItem, type ProjectSnapshot } from "./attention";
-import { counted } from "./counted";
-import type { StateTally } from "./state-tally";
-
-export function attentionSummary(items: readonly AttentionItem[]): string {
-  const parts = ATTENTION_GROUPS.flatMap((group) => {
-    const count = items.filter((item) => item.group === group.id).length;
-    return count === 0 ? [] : [counted(count, group.noun, group.plural)];
-  });
-  return parts.length === 0 ? "No item waits for you" : parts.join(" · ");
-}
-
-export function statusLineText(running: number, waiting: number): string {
-  const executions = running === 1 ? "execution runs" : "executions run";
-  const jobs = waiting === 1 ? "job waits" : "jobs wait";
-  return `${running} ${executions} · ${waiting} ${jobs}`;
-}
+import type { ProjectSnapshot } from "./attention";
 
 export function claimedNodeCount(nodes: readonly MissionNodeRecord[]): number {
   return nodes.filter(
@@ -60,13 +44,4 @@ export function projectsWithoutSetup(
   return snapshots.filter(
     (snapshot) => !setupProjects.some((entry) => entry.project.id === snapshot.project.id),
   ).length;
-}
-
-export function progressSummary(projects: readonly (readonly StateTally[])[]): string {
-  const tallies = projects.flat();
-  const nodes = tallies.reduce((total, tally) => total + tally.count, 0);
-  const completed = tallies
-    .filter((tally) => tally.state === "Completed")
-    .reduce((total, tally) => total + tally.count, 0);
-  return `${counted(projects.length, "project", "projects")} · ${counted(nodes, "node", "nodes")} · ${completed} completed`;
 }

@@ -77,12 +77,18 @@ function blocked(id: string): MissionNodeRecord {
   };
 }
 
-function readOf(project: Project, nodeId: string): ProjectRead {
+function readOf(project: Project, nodeId: string, jobs = 0): ProjectRead {
   return {
     project,
     mission: { id: `mission_${project.id}`, project_id: project.id, version: 1 },
     nodes: [blocked(nodeId)],
-    jobs: [],
+    jobs: Array.from({ length: jobs }, (_, index) => ({
+      job_id: `job_${project.id}_${index}`,
+      project_id: project.id,
+      node_id: nodeId,
+      priority: 0,
+      queued_at: 1,
+    })),
     registrations: [],
     executions: [],
     environments: [],
@@ -91,7 +97,7 @@ function readOf(project: Project, nodeId: string): ProjectRead {
 
 const SNAPSHOT: OverviewSnapshot = {
   projects: [ATLAS, BETA],
-  reads: [readOf(ATLAS, "a1"), readOf(BETA, "b1")],
+  reads: [readOf(ATLAS, "a1", 2), readOf(BETA, "b1", 1)],
   sessions: [SESSION],
   faults: [],
 };
@@ -123,13 +129,13 @@ describe("useOverview board state", () => {
     expect(snapshots.map((entry) => entry.project.id)).toEqual(["prj-1", "prj-2"]);
   });
 
-  it("keeps the board items and the sessions under a project filter and scopes the old fields", () => {
+  it("keeps the board items and the sessions under a project filter and scopes the workforce fact", () => {
     const state = render("/?project=prj-2").result.current;
 
     expect(idsOf(state.boardItems)).toEqual(["blocked:a1", "blocked:b1", "tool_approval:s1"]);
     expect(state.snapshots).toHaveLength(2);
-    expect(state.projectId).toBe("prj-2");
-    expect(idsOf(state.groups.flatMap((entry) => entry.items))).toEqual(["blocked:b1"]);
+    expect(state.waiting).toBe(1);
+    expect(render("/").result.current.waiting).toBe(3);
   });
 
   it("answers the held nodes of each board item", () => {
