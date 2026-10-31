@@ -14,6 +14,7 @@ import {
   groupItems,
   type ProjectSnapshot,
 } from "@/lib/attention";
+import { type BoardGate, gateOf, heldNodeIdsOf } from "@/lib/board-items";
 import { unavailableComponentsOf } from "@/lib/liveness-alert";
 import {
   attentionSummary,
@@ -50,6 +51,10 @@ export interface OverviewState {
   readonly unavailable: readonly string[];
   readonly livenessFailure: string | null;
   readonly summary: string;
+  readonly boardItems: readonly AttentionItem[];
+  readonly gates: ReadonlyMap<string, BoardGate>;
+  readonly held: ReadonlyMap<string, readonly string[]>;
+  readonly snapshots: readonly ProjectSnapshot[];
   readonly groups: ReturnType<typeof groupItems>;
   readonly shownGroups: ReturnType<typeof groupItems>;
   readonly groupId: AttentionGroupId | null;
@@ -93,9 +98,9 @@ export function useOverview(): OverviewState {
 
   const setupData = setup.data;
 
-  const snapshots = useMemo<readonly ProjectSnapshot[]>(
+  const everySnapshots = useMemo<readonly ProjectSnapshot[]>(
     () =>
-      reads.flatMap((read) =>
+      (data?.reads ?? []).flatMap((read) =>
         read.mission === null || read.nodes === null
           ? []
           : [
@@ -113,11 +118,22 @@ export function useOverview(): OverviewState {
               },
             ],
       ),
-    [reads, setupData],
+    [data, setupData],
+  );
+  const snapshots = useMemo(
+    () =>
+      projectId === null
+        ? everySnapshots
+        : everySnapshots.filter((entry) => entry.project.id === projectId),
+    [everySnapshots, projectId],
   );
 
-  const targets = useMemo(() => detailTargetsOf(snapshots), [snapshots]);
-  const { details, refresh: refreshDetail } = useAttentionDetails(targets, snapshot.updatedAt);
+  const everyTargets = useMemo(() => detailTargetsOf(everySnapshots), [everySnapshots]);
+  const targets = useMemo(
+    () => (projectId === null ? everyTargets : detailTargetsOf(snapshots)),
+    [everyTargets, snapshots, projectId],
+  );
+  const { details, refresh: refreshDetail } = useAttentionDetails(everyTargets, snapshot.updatedAt);
   const context = useMemo<AttentionContext>(
     () => ({
       now: snapshot.now,
@@ -127,9 +143,31 @@ export function useOverview(): OverviewState {
     }),
     [snapshot.now, setupData, data, projectId],
   );
+  const boardContext = useMemo<AttentionContext>(
+    () => ({ ...context, sessions: data?.sessions ?? null }),
+    [context, data],
+  );
+  const boardItems = useMemo<readonly AttentionItem[]>(
+    () => deriveAttention(everySnapshots, details, boardContext),
+    [everySnapshots, details, boardContext],
+  );
   const items = useMemo<readonly AttentionItem[]>(
-    () => deriveAttention(snapshots, details, context),
-    [snapshots, details, context],
+    () => (projectId === null ? boardItems : deriveAttention(snapshots, details, context)),
+    [projectId, boardItems, snapshots, details, context],
+  );
+  const gates = useMemo(
+    () =>
+      new Map(
+        boardItems.flatMap((item): readonly (readonly [string, BoardGate])[] => {
+          const gate = gateOf(item, boardItems);
+          return gate === null ? [] : [[item.id, gate]];
+        }),
+      ),
+    [boardItems],
+  );
+  const held = useMemo(
+    () => new Map(boardItems.map((item) => [item.id, heldNodeIdsOf(item, everySnapshots)])),
+    [boardItems, everySnapshots],
   );
   const externalReads = useMemo(() => externalReadStateOf(targets, details), [targets, details]);
 
@@ -243,6 +281,10 @@ export function useOverview(): OverviewState {
     unavailable,
     livenessFailure,
     summary: attentionSummary(items),
+    boardItems,
+    gates,
+    held,
+    snapshots: everySnapshots,
     groups,
     shownGroups,
     groupId,
