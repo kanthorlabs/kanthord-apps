@@ -3,12 +3,14 @@ import { useSearchParams } from "react-router-dom";
 
 import type { Project } from "@/api/types";
 import type { AttentionItem } from "@/lib/attention";
+import { type ActedAct, type DoneEntry, doneEntryOf, doneInView } from "@/lib/board-done";
 import { BOARD_TAB, BOARD_TABS, type BoardTabId, boardTabOf } from "@/lib/board-tabs";
 import { isInProject, rankBoardItems, startItemOf } from "@/lib/board-items";
 import { type BoardSummary, boardSummaryOf } from "@/lib/board-text";
-import { boardParamsOf, boardUrlOf, type BoardUrlState } from "@/lib/board-url";
+import { boardUrlOf } from "@/lib/board-url";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
+import { useBoardHistory, useOverviewItem } from "./use-board-history";
 import type { OverviewState } from "./use-overview";
 
 export type BoardOverview = Pick<
@@ -49,15 +51,18 @@ export interface Board {
   readonly select: (itemId: string) => void;
   readonly openId: string | null;
   readonly open: (itemId: string) => void;
-  readonly close: () => void;
+  readonly jump: (itemId: string) => void;
+  readonly close: (then?: () => void) => void;
   readonly gone: GoneItem | null;
   readonly summary: BoardSummary;
   readonly startItem: AttentionItem | null;
   readonly step: (delta: number) => void;
   readonly position: number | null;
   readonly total: number;
-  readonly markActed: (itemId: string) => void;
-  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
+  readonly markActed: (itemId: string, act?: ActedAct) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean, act?: ActedAct) => void;
+  readonly registerDialogCloser: (close: (() => void) | null) => void;
+  readonly done: readonly DoneEntry[];
   readonly cardRef: (itemId: string) => (element: HTMLElement | null) => void;
   readonly titleRef: (element: HTMLElement | null) => void;
   readonly focusCard: (itemId: string) => void;
@@ -71,10 +76,18 @@ interface UrlSeen {
 }
 
 interface Handoff {
+  readonly item: AttentionItem;
   readonly itemId: string;
   readonly index: number;
   readonly tab: BoardTabId;
   readonly readAt: number | null;
+  readonly act: ActedAct | null;
+  readonly at: number;
+}
+
+interface Exit {
+  readonly selectedId: string | null;
+  readonly focus: FocusRequest;
 }
 
 type FocusRequest =
@@ -92,13 +105,19 @@ interface BoardState {
   readonly lastItem: AttentionItem | null;
   readonly seenUrl: UrlSeen | null;
   readonly seenWidth: BoardWidth;
+  readonly seenEntry: string | null;
+  readonly deepLink: string | null;
+  readonly dialogOpen: boolean;
   readonly handoff: Handoff | null;
+  readonly exit: Exit | null;
+  readonly done: readonly DoneEntry[];
   readonly focus: FocusRequest | null;
 }
 
 interface Derived {
   readonly urlItem: string | null;
   readonly urlKind: BoardTabId | null;
+  readonly overviewItem: string | null;
   readonly status: BoardOverview["status"];
   readonly items: readonly AttentionItem[];
   readonly tabOf: ReadonlyMap<string, BoardTabId>;
@@ -167,6 +186,32 @@ function scopedProjectOf(projects: readonly Project[], id: string | null): strin
   return projects.some((project) => project.id === id) ? id : null;
 }
 
+const applyEntry: Advance = (state, { overviewItem, widthClass, urlItem, urlKind, tabOf }) => {
+  if (state.seenEntry === overviewItem) return state;
+  const next = { ...state, seenEntry: overviewItem };
+  if (widthClass === BOARD_WIDTH.Expanded) return next;
+  const seen = { item: urlItem, kind: urlKind };
+  if (overviewItem === null) {
+    if (state.dialogOpen) return { ...next, seenUrl: seen };
+    return {
+      ...next,
+      seenUrl: seen,
+      openId: null,
+      focus: state.selectedId === null ? state.focus : { target: "card", itemId: state.selectedId },
+    };
+  }
+  return {
+    ...next,
+    seenUrl: seen,
+    settled: true,
+    deepLink: null,
+    selectedId: overviewItem,
+    kind: tabOf.get(overviewItem) ?? urlKind ?? state.kind,
+    openId: overviewItem,
+    focus: state.openId === overviewItem ? state.focus : { target: "title" },
+  };
+};
+
 const applyUrl: Advance = (state, { urlItem, urlKind }) => {
   const seen = state.seenUrl;
   if (seen !== null && seen.item === urlItem && seen.kind === urlKind) return state;
@@ -184,7 +229,9 @@ const trackWidth: Advance = (state, { widthClass }) => {
   const before = state.seenWidth;
   if (before === widthClass) return state;
   const next = { ...state, seenWidth: widthClass };
-  if (widthClass === BOARD_WIDTH.Expanded) return { ...next, openId: null };
+  if (widthClass === BOARD_WIDTH.Expanded) {
+    return { ...next, openId: null, deepLink: null, exit: null };
+  }
   if (before !== BOARD_WIDTH.Expanded) return next;
   return {
     ...next,
@@ -211,7 +258,7 @@ const trackLast: Advance = (state, { items }) => {
   return { ...state, lastItem: selected };
 };
 
-const resolveOpen: Advance = (state, { items, status, widthClass }) => {
+const resolveOpen: Advance = (state, { items, status, widthClass, overviewItem }) => {
   if (state.pendingOpen === null) return state;
   const found = items.some((item) => item.id === state.selectedId);
   if (!found && status !== "ready") return state;
@@ -220,33 +267,46 @@ const resolveOpen: Advance = (state, { items, status, widthClass }) => {
     ...state,
     pendingOpen: null,
     openId: state.pendingOpen,
+    deepLink: overviewItem === state.pendingOpen ? null : state.pendingOpen,
     focus: { target: "title" },
   };
 };
 
-const resolveHandoff: Advance = (state, { items, cardsByTab, updatedAt, widthClass }) => {
+function doneAfter(state: BoardState, handoff: Handoff): readonly DoneEntry[] {
+  if (handoff.act === null) return state.done;
+  const act = { ...handoff.act, tab: handoff.tab };
+  return [...state.done, doneEntryOf(handoff.item, act, handoff.at)];
+}
+
+const resolveHandoff: Advance = (
+  state,
+  { items, cardsByTab, updatedAt, widthClass, overviewItem },
+) => {
   const { handoff } = state;
   if (handoff === null) return state;
   if (items.some((item) => item.id === handoff.itemId)) {
     return handoff.readAt === updatedAt ? state : { ...state, handoff: null };
   }
-  const next = { ...state, handoff: null };
+  const next = { ...state, handoff: null, done: doneAfter(state, handoff) };
   if (state.selectedId !== handoff.itemId) return next;
   const cards = cardsByTab[handoff.tab];
   const target = cards[Math.min(handoff.index, cards.length - 1)];
-  if (target === undefined) {
-    return { ...next, selectedId: null, openId: null, focus: { target: "all_clear" } };
-  }
   const expanded = widthClass === BOARD_WIDTH.Expanded;
-  return {
-    ...next,
-    selectedId: target.id,
-    openId: expanded ? state.openId : null,
-    focus: expanded ? { target: "title" } : { target: "card", itemId: target.id },
-  };
+  if (expanded) {
+    return target === undefined
+      ? { ...next, selectedId: null, focus: { target: "all_clear" } }
+      : { ...next, selectedId: target.id, focus: { target: "title" } };
+  }
+  const arrival: Exit =
+    target === undefined
+      ? { selectedId: null, focus: { target: "all_clear" } }
+      : { selectedId: target.id, focus: { target: "card", itemId: target.id } };
+  if (overviewItem !== null) return { ...next, openId: null, exit: arrival };
+  return { ...next, ...arrival, openId: null };
 };
 
 const ADVANCES: readonly Advance[] = [
+  applyEntry,
   applyUrl,
   trackWidth,
   settleStart,
@@ -261,7 +321,8 @@ function advanceBoard(state: BoardState, derived: Derived): BoardState {
 
 export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board {
   const { status, boardItems, gates, held, details, projects, faults, updatedAt } = overview;
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
+  const overviewItem = useOverviewItem();
   const url = useMemo(() => boardUrlOf(params), [params]);
   const { project: urlProject, item: urlItem, kind: urlKind } = url;
   const projectId = scopedProjectOf(projects, urlProject);
@@ -294,13 +355,19 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     lastItem: null,
     seenUrl: null,
     seenWidth: widthClass,
+    seenEntry: overviewItem,
+    deepLink: null,
+    dialogOpen: false,
     handoff: null,
+    exit: null,
+    done: [],
     focus: null,
   });
 
   const derived: Derived = {
     urlItem,
     urlKind,
+    overviewItem,
     status,
     items: boardItems,
     tabOf,
@@ -343,10 +410,42 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
         }
       : null;
 
-  const writeUrl = (patch: Partial<BoardUrlState>) => {
-    setParams((existing) => boardParamsOf(existing, { ...boardUrlOf(existing), ...patch }), {
-      replace: true,
-    });
+  const dialogCloser = useRef<(() => void) | null>(null);
+  const registerDialogCloser = useCallback((close: (() => void) | null) => {
+    dialogCloser.current = close;
+  }, []);
+  const closeDialogs = useCallback(() => dialogCloser.current?.(), []);
+  const focusTitle = useCallback(() => {
+    setState((existing) => ({ ...existing, focus: { target: "title" } }));
+  }, []);
+
+  const history = useBoardHistory({
+    widthClass,
+    deepLink: current.deepLink,
+    dialogOpen: current.dialogOpen,
+    closeDialogs,
+    focusTitle,
+  });
+
+  const exit = current.exit;
+  const closeHistory = history.close;
+  useEffect(() => {
+    if (exit === null) return;
+    closeHistory(() =>
+      setState((existing) => ({
+        ...existing,
+        selectedId: exit.selectedId,
+        focus: exit.focus,
+        exit: null,
+      })),
+    );
+  }, [exit, closeHistory]);
+
+  const close = (then?: () => void) => {
+    if (history.overviewItem === null) {
+      setState((existing) => ({ ...existing, openId: null }));
+    }
+    history.close(then);
   };
 
   const choose = (itemId: string, opens: boolean) => {
@@ -359,10 +458,11 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
       openId: opens ? itemId : existing.openId,
       focus: opens ? { target: "title" } : existing.focus,
     }));
-    writeUrl({ kind, item: itemId });
+    if (opens) history.push({ kind, item: itemId }, itemId);
+    else history.replace({ kind, item: itemId });
   };
 
-  const rescope = (nextTab: BoardTabId, nextProject: string | null, project: boolean) => {
+  const applyRescope = (nextTab: BoardTabId, nextProject: string | null, project: boolean) => {
     const next = cardsOf(ranked, tabOf, nextProject, nextTab);
     const itemId = next.some((card) => card.id === current.selectedId)
       ? current.selectedId
@@ -374,11 +474,16 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
       selectedId: itemId,
       openId: null,
     }));
-    writeUrl(
+    history.replace(
       project
         ? { project: nextProject, kind: nextTab, item: itemId }
         : { kind: nextTab, item: itemId },
     );
+  };
+
+  const rescope = (nextTab: BoardTabId, nextProject: string | null, project: boolean) => {
+    if (history.overviewItem === null) applyRescope(nextTab, nextProject, project);
+    else history.close(() => applyRescope(nextTab, nextProject, project));
   };
 
   const step = (delta: number) => {
@@ -390,7 +495,7 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
       openId: existing.openId === null ? null : target.id,
       focus: { target: "title" },
     }));
-    writeUrl({ item: target.id });
+    history.replace({ item: target.id });
   };
 
   const latest = useRef({ cards, tab, updatedAt, setDialogOpen: overview.setDialogOpen });
@@ -398,20 +503,25 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     latest.current = { cards, tab, updatedAt, setDialogOpen: overview.setDialogOpen };
   });
 
-  const markActed = useCallback((itemId: string) => {
+  const markActed = useCallback((itemId: string, act?: ActedAct) => {
     const { cards: shown, tab: shownTab, updatedAt: readAt } = latest.current;
-    const at = shown.findIndex((card) => card.id === itemId);
-    if (at < 0) return;
+    const index = shown.findIndex((card) => card.id === itemId);
+    const item = shown[index];
+    if (item === undefined) return;
+    const at = Date.now();
     setState((existing) => ({
       ...existing,
-      handoff: { itemId, index: at, tab: shownTab, readAt },
+      handoff: { item, itemId, index, tab: shownTab, readAt, act: act ?? null, at },
     }));
   }, []);
 
   const setDialogOpen = useCallback(
-    (itemId: string, nodeId: string, open: boolean) => {
+    (itemId: string, nodeId: string, open: boolean, act?: ActedAct) => {
       latest.current.setDialogOpen(itemId, nodeId, open);
-      if (!open) markActed(itemId);
+      setState((existing) =>
+        existing.dialogOpen === open ? existing : { ...existing, dialogOpen: open },
+      );
+      if (!open) markActed(itemId, act);
     },
     [markActed],
   );
@@ -442,10 +552,6 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
 
   const focusCard = useCallback((itemId: string) => {
     cardElements.current.get(itemId)?.focus();
-  }, []);
-
-  const focusTitle = useCallback(() => {
-    setState((existing) => ({ ...existing, focus: { target: "title" } }));
   }, []);
 
   const { focus } = current;
@@ -481,7 +587,8 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     select: (itemId) => choose(itemId, false),
     openId: current.openId,
     open: (itemId) => choose(itemId, widthClass !== BOARD_WIDTH.Expanded),
-    close: () => setState((existing) => ({ ...existing, openId: null })),
+    jump: (itemId) => choose(itemId, widthClass !== BOARD_WIDTH.Expanded),
+    close,
     gone,
     summary,
     startItem,
@@ -490,6 +597,8 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     total: cards.length,
     markActed,
     setDialogOpen,
+    registerDialogCloser,
+    done: doneInView(current.done, tab, projectId),
     cardRef,
     titleRef,
     focusCard,

@@ -12,16 +12,19 @@ import {
 import { ItemGroup } from "@/components/ui/item";
 import { TabsContent } from "@/components/ui/tabs";
 import type { AttentionItem } from "@/lib/attention";
+import type { DoneEntry } from "@/lib/board-done";
 import type { BoardGate } from "@/lib/board-items";
 import { BOARD_TAB, type BoardTab } from "@/lib/board-tabs";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import { AllClear } from "./all-clear";
 import { BoardCard } from "./board-card";
+import { BoardDone } from "./board-done";
 
 interface BoardListProps {
   readonly tab: BoardTab;
   readonly cards: readonly AttentionItem[];
+  readonly done: readonly DoneEntry[];
   readonly selectedId: string | null;
   readonly widthClass: BoardWidth;
   readonly projectName: string | null;
@@ -46,6 +49,7 @@ const ALL_PROJECTS_NOTE = "Counts all projects.";
 export function BoardList({
   tab,
   cards,
+  done,
   selectedId,
   widthClass,
   projectName,
@@ -129,6 +133,7 @@ export function BoardList({
           </EmptyContent>
         </Empty>
       )}
+      <BoardDone entries={done} />
     </TabsContent>
   );
 }

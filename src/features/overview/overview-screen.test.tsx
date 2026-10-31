@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { StrictMode } from "react";
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -592,13 +593,17 @@ function searchOf(): URLSearchParams {
 class FakeResizeObserver {
   static readonly live = new Set<FakeResizeObserver>();
 
+  static width: number | null = null;
+
   constructor(
     private readonly callback: (entries: readonly { contentRect: { width: number } }[]) => void,
   ) {
     FakeResizeObserver.live.add(this);
   }
 
-  observe() {}
+  observe() {
+    if (FakeResizeObserver.width !== null) this.measure(FakeResizeObserver.width);
+  }
 
   unobserve() {}
 
@@ -612,6 +617,7 @@ class FakeResizeObserver {
 }
 
 function setWidth(width: number) {
+  FakeResizeObserver.width = width;
   act(() => {
     for (const observer of FakeResizeObserver.live) observer.measure(width);
   });
@@ -669,6 +675,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   NOW = Date.now();
   FakeResizeObserver.live.clear();
+  FakeResizeObserver.width = null;
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
 });
 
@@ -3765,5 +3772,249 @@ describe("OverviewScreen keyboard", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByRole("tab", { name: /^Resume,/ })).toHaveAttribute("aria-selected", "true");
     expect(cardButton("Print the slip")).toBeVisible();
+  });
+});
+
+describe("OverviewScreen history and phone", () => {
+  function threeBlocked(): Record<string, MissionNodeRecord[]> {
+    return {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+        blocked("n_c", "Third item", { createdAt: NOW - 7 * HOUR }),
+      ],
+    };
+  }
+
+  function BrowserBack() {
+    const navigate = useNavigate();
+    const location = useLocation();
+    return (
+      <>
+        <button type="button" onClick={() => navigate(-1)}>
+          Browser back
+        </button>
+        <output aria-label="Path">{location.pathname}</output>
+      </>
+    );
+  }
+
+  function renderHistory(
+    entries: readonly (string | { pathname: string; search: string })[],
+    strict = false,
+  ) {
+    const tree = (
+      <MemoryRouter initialEntries={[...entries]} initialIndex={entries.length - 1}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <>
+                <OverviewScreen />
+                <Location />
+              </>
+            }
+          />
+          <Route path="/previous" element={<p>Previous page</p>} />
+          <Route path="/traces/:traceId" element={<p>Trace page</p>} />
+        </Routes>
+        <BrowserBack />
+      </MemoryRouter>
+    );
+    return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
+  }
+
+  async function goBack(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Browser back", hidden: true }));
+  }
+
+  function pathOf(): string | null {
+    return screen.getByRole("status", { name: "Path", hidden: true }).textContent;
+  }
+
+  async function openFirstOnPhone(user: ReturnType<typeof userEvent.setup>) {
+    setWidth(COMPACT_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("First item"));
+    return screen.findByRole("dialog");
+  }
+
+  it("closes the detail with Back and focuses the card", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    await openFirstOnPhone(user);
+
+    await goBack(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+    expect(cardButton("First item")).toHaveFocus();
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("closes the sheet with 3, writes kind paused and leaves no entry behind", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [...(threeBlocked()["prj-1"] ?? []), paused("n_p", "Print the slip")] },
+    });
+    renderHistory(["/previous", "/"]);
+    await openFirstOnPhone(user);
+
+    await user.keyboard("3");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(searchOf().get("kind")).toBe("paused");
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("closes the sheet with Esc through one history pop", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    await openFirstOnPhone(user);
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("shows Done this session closed after a discard and leaves no entry behind", async () => {
+    const user = userEvent.setup();
+    const nodes = threeBlocked();
+    serve({ nodes });
+    vi.mocked(discardNode).mockImplementation(async (nodeId) => {
+      nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
+      return {} as MissionControlResult;
+    });
+    renderHistory(["/previous", "/"]);
+    const sheet = await openFirstOnPhone(user);
+
+    await user.click(within(sheet).getByRole("button", { name: "More (2)" }));
+    const more = await screen.findByRole("dialog", { name: "More acts on First item" });
+    await user.click(within(more).getByRole("button", { name: "Discard" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Out of scope.");
+    await user.click(within(dialog).getByRole("button", { name: "Discard node" }));
+
+    const toggle = await screen.findByRole("button", { name: "Done this session 1" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(cardButton("Second item")).toHaveFocus());
+    await user.click(toggle);
+    expect(await screen.findByText("Discarded First item.")).toBeVisible();
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("closes only the act dialog on Back and keeps the sheet", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    const sheet = await openFirstOnPhone(user);
+    await user.click(within(sheet).getByRole("button", { name: "More (2)" }));
+    const more = await screen.findByRole("dialog", { name: "More acts on First item" });
+    await user.click(within(more).getByRole("button", { name: "Discard" }));
+    await screen.findByRole("alertdialog");
+
+    await goBack(user);
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.getByRole("dialog", { name: "More acts on First item" })).toBeInTheDocument();
+    expect(pathOf()).toBe("/");
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "More acts on First item" })).toBeNull(),
+    );
+    expect(screen.getByText("1 of 3")).toBeVisible();
+    await goBack(user);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+  });
+
+  it("reopens the sheet on Back from Last trace and returns to the list with a second Back", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      executions: { n_p: [ended("e1", "n_p", { trace_id: "trace_one" })] },
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(COMPACT_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+    const sheet = await screen.findByRole("dialog");
+    await user.click(await within(sheet).findByRole("button", { name: "More (3)" }));
+    const more = await screen.findByRole("dialog", { name: "More acts on Print the slip" });
+    await user.click(within(more).getByRole("button", { name: "Last trace" }));
+    expect(await screen.findByText("Trace page")).toBeVisible();
+
+    await goBack(user);
+
+    expect(await screen.findByRole("dialog", { name: /Print the slip/ })).toBeVisible();
+    await goBack(user);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("opens the detail of a reloaded deep link under StrictMode and returns to the list with one Back", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [...(threeBlocked()["prj-1"] ?? []), paused("n_p", "Print the slip")] },
+    });
+    renderHistory(["/previous", { pathname: "/", search: "?kind=paused&item=paused:n_p" }], true);
+    setWidth(COMPACT_WIDTH);
+
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("heading", { level: 3, name: /^Print the slip/ })).toBeVisible();
+
+    await goBack(user);
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pathOf()).toBe("/");
+    await goBack(user);
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("leaves the Overview entry with the first Back after medium, expanded and medium", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    setWidth(MEDIUM_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("Second item"));
+    await screen.findByRole("dialog");
+
+    setWidth(EXPANDED_WIDTH);
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    setWidth(MEDIUM_WIDTH);
+    await goBack(user);
+
+    expect(await screen.findByText("Previous page")).toBeVisible();
+  });
+
+  it("opens More on compact width and closes only that sheet with Esc", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderHistory(["/previous", "/"]);
+    const sheet = await openFirstOnPhone(user);
+    const trigger = within(sheet).getByRole("button", { name: "More (2)" });
+
+    await user.click(trigger);
+    await screen.findByRole("dialog", { name: "More acts on First item" });
+    await user.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "More acts on First item" })).toBeNull(),
+    );
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(pathOf()).toBe("/");
   });
 });

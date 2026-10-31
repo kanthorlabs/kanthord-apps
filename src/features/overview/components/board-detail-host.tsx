@@ -37,6 +37,8 @@ interface BoardDetailHostProps {
 }
 
 const MEDIUM_SHEET = "data-[side=right]:w-[min(560px,100%)] data-[side=right]:sm:max-w-none";
+const MEDIUM_WRAPPER = "flex min-h-0 flex-1 flex-col";
+const COMPACT_WRAPPER = `${MEDIUM_WRAPPER} pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]`;
 const COMPACT_SHEET = "data-[side=right]:w-full data-[side=right]:sm:max-w-none";
 
 function heldNodesOf(
@@ -150,43 +152,47 @@ export function BoardDetailHost({
         initialFocus={title}
         className={compact ? COMPACT_SHEET : MEDIUM_SHEET}
       >
-        <div className="flex items-center gap-2 border-b p-2">
-          <TouchTarget>
-            <SheetClose render={<Button variant="outline" size="sm" />}>
-              {compact ? "Back" : "Close"}
-            </SheetClose>
-          </TouchTarget>
-          {position !== null && (
-            <>
-              <span className="text-sm text-muted-foreground">{positionText(position, total)}</span>
-              <div className="ml-auto flex items-center gap-2">
-                <TouchTarget>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    aria-label="Previous card"
-                    disabled={position === 0}
-                    onClick={() => step(-1)}
-                  >
-                    <ChevronUpIcon aria-hidden="true" />
-                  </Button>
-                </TouchTarget>
-                <TouchTarget>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    aria-label="Next card"
-                    disabled={position === total - 1}
-                    onClick={() => step(1)}
-                  >
-                    <ChevronDownIcon aria-hidden="true" />
-                  </Button>
-                </TouchTarget>
-              </div>
-            </>
-          )}
+        <div className={compact ? COMPACT_WRAPPER : MEDIUM_WRAPPER}>
+          <div className="flex items-center gap-2 border-b p-2">
+            <TouchTarget>
+              <SheetClose render={<Button variant="outline" size="sm" />}>
+                {compact ? "Back" : "Close"}
+              </SheetClose>
+            </TouchTarget>
+            {position !== null && (
+              <>
+                <span className="text-sm text-muted-foreground">
+                  {positionText(position, total)}
+                </span>
+                <div className="ml-auto flex items-center gap-2">
+                  <TouchTarget>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      aria-label="Previous card"
+                      disabled={position === 0}
+                      onClick={() => step(-1)}
+                    >
+                      <ChevronUpIcon aria-hidden="true" />
+                    </Button>
+                  </TouchTarget>
+                  <TouchTarget>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      aria-label="Next card"
+                      disabled={position === total - 1}
+                      onClick={() => step(1)}
+                    >
+                      <ChevronDownIcon aria-hidden="true" />
+                    </Button>
+                  </TouchTarget>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{body}</div>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{body}</div>
       </SheetContent>
     </Sheet>
   );
