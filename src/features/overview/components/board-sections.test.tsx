@@ -26,6 +26,7 @@ import {
   type DecisionAttentionItem,
   detailKeyOf,
 } from "@/lib/attention";
+import type { HeldNode } from "@/lib/board-detail-joins";
 import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import type {
@@ -40,7 +41,7 @@ vi.mock("@/api/resources/workbench");
 
 import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
-import { BoardSections, type HeldNode } from "./board-sections";
+import { BoardSections } from "./board-sections";
 
 const PROJECT: Project = {
   id: "prj-1",

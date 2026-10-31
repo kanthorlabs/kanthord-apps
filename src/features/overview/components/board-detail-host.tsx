@@ -1,12 +1,11 @@
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { type ReactNode, useCallback, useId, useRef } from "react";
 
-import type { EnvironmentState } from "@/api/types";
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent } from "@/components/ui/sheet";
 import type { AttentionDetails, AttentionItem, ProjectSnapshot } from "@/lib/attention";
-import { boardProjectsOf } from "@/lib/board-items";
+import { environmentsOf, heldNodesOf } from "@/lib/board-detail-joins";
 import type { BoardTab } from "@/lib/board-tabs";
 import { positionText } from "@/lib/board-text";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
@@ -14,7 +13,6 @@ import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import type { GoneItem } from "../use-board";
 import { BoardDetail } from "./board-detail";
 import { BoardGone } from "./board-gone";
-import type { HeldNode } from "./board-sections";
 
 interface BoardDetailHostProps {
   readonly widthClass: BoardWidth;
@@ -40,28 +38,6 @@ const MEDIUM_SHEET = "data-[side=right]:w-[min(560px,100%)] data-[side=right]:sm
 const MEDIUM_WRAPPER = "flex min-h-0 flex-1 flex-col";
 const COMPACT_WRAPPER = `${MEDIUM_WRAPPER} pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]`;
 const COMPACT_SHEET = "data-[side=right]:w-full data-[side=right]:sm:max-w-none";
-
-function heldNodesOf(
-  ids: readonly string[],
-  snapshots: readonly ProjectSnapshot[],
-): readonly HeldNode[] {
-  return ids.flatMap((id): readonly HeldNode[] => {
-    for (const snapshot of snapshots) {
-      const node = snapshot.nodes.find((candidate) => candidate.id === id);
-      if (node !== undefined) return [{ node, project: snapshot.project }];
-    }
-    return [];
-  });
-}
-
-function environmentsOf(
-  item: AttentionItem,
-  snapshots: readonly ProjectSnapshot[],
-): readonly EnvironmentState[] | null {
-  const project = boardProjectsOf(item)[0];
-  if (project === undefined) return null;
-  return snapshots.find((snapshot) => snapshot.project.id === project.id)?.environments ?? null;
-}
 
 export function BoardDetailHost({
   widthClass,

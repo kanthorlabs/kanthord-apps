@@ -69,6 +69,13 @@ interface BadgeAct {
 export type BoardAct =
   ButtonAct | GatedAct | LinkAct | ExternalLinkAct | ResumeProjectAct | BadgeAct;
 
+export interface PhoneActs {
+  readonly lead: BoardAct | null;
+  readonly others: readonly BoardAct[];
+  readonly last: BoardAct | null;
+  readonly badges: readonly BoardAct[];
+}
+
 export interface ReadNote {
   readonly text: string;
   readonly failed: boolean;
@@ -146,6 +153,7 @@ interface Gate {
   readonly read: string;
 }
 
+const DISCARD = "discard";
 const GITHUB_IDENTITY = /^repository:github:(.+)$/;
 
 function slotOf(
@@ -208,6 +216,20 @@ function present(acts: readonly (BoardAct | null)[]): readonly BoardAct[] {
 
 export function needsOf(acts: readonly BoardAct[]): readonly string[] {
   return [...new Set(acts.flatMap((act) => (act.type === "gated" ? [act.need] : [])))];
+}
+
+export function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
+  const badges = acts.filter((act) => act.type === "badge");
+  const actions = acts.filter((act) => act.type !== "badge");
+  const lead =
+    actions.find((act) => act.type !== "gated" && act.id !== DISCARD) ?? actions[0] ?? null;
+  const others = actions.filter((act) => act !== lead);
+  return {
+    lead,
+    others: others.filter((act) => act.id !== DISCARD),
+    last: others.find((act) => act.id === DISCARD) ?? null,
+    badges,
+  };
 }
 
 function decisionGateOf(item: DecisionAttentionItem, ready: boolean): Gate | null {

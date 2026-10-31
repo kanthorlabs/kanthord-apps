@@ -1,13 +1,7 @@
 import { Fragment, type ReactNode, type Ref, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import type {
-  EnvironmentState,
-  MissionAssessment,
-  MissionNodeRecord,
-  MissionProposal,
-  Project,
-} from "@/api/types";
+import type { EnvironmentState, MissionAssessment, MissionProposal } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +15,7 @@ import {
   detailOf,
 } from "@/lib/attention";
 import { changeAskedOf } from "@/lib/board-change";
+import type { HeldNode } from "@/lib/board-detail-joins";
 import {
   type BoardEvidence,
   type EvidenceLine,
@@ -46,11 +41,6 @@ import { FixCauseText } from "./fix-cause-text";
 export interface BoardPosition {
   readonly index: number;
   readonly total: number;
-}
-
-export interface HeldNode {
-  readonly node: MissionNodeRecord;
-  readonly project: Project;
 }
 
 interface BoardSectionsProps {

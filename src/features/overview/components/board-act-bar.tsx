@@ -5,7 +5,7 @@ import { DisabledAction } from "@/components/disabled-action";
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import type { BoardAct } from "@/lib/board-acts";
+import { type BoardAct, phoneActsOf } from "@/lib/board-acts";
 import { actKeysOf } from "@/lib/board-keys";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
@@ -16,28 +16,6 @@ import { CheckBadge } from "./check-badge";
 import { ResumeProjectAction } from "./resume-project-action";
 
 const NO_KEYS: ReadonlyMap<string, string> = new Map();
-const DISCARD = "discard";
-
-interface PhoneActs {
-  readonly lead: BoardAct | null;
-  readonly others: readonly BoardAct[];
-  readonly last: BoardAct | null;
-  readonly badges: readonly BoardAct[];
-}
-
-function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
-  const badges = acts.filter((act) => act.type === "badge");
-  const actions = acts.filter((act) => act.type !== "badge");
-  const lead =
-    actions.find((act) => act.type !== "gated" && act.id !== DISCARD) ?? actions[0] ?? null;
-  const others = actions.filter((act) => act !== lead);
-  return {
-    lead,
-    others: others.filter((act) => act.id !== DISCARD),
-    last: others.find((act) => act.id === DISCARD) ?? null,
-    badges,
-  };
-}
 
 function KeyHint({ shortcut }: { readonly shortcut: string }) {
   return (

@@ -2,11 +2,12 @@ import type { Ref } from "react";
 
 import type { EnvironmentState } from "@/api/types";
 import type { AttentionDetails, AttentionItem } from "@/lib/attention";
+import type { HeldNode } from "@/lib/board-detail-joins";
 import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import { BoardActBar } from "./board-act-bar";
-import { type BoardPosition, BoardSections, type HeldNode } from "./board-sections";
+import { type BoardPosition, BoardSections } from "./board-sections";
 
 interface BoardDetailProps {
   readonly item: AttentionItem;
