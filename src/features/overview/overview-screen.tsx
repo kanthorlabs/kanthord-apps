@@ -1,4 +1,4 @@
-import { type ReactNode, useRef } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { RefreshStatus } from "@/components/refresh-status";
@@ -19,16 +19,18 @@ import { announcementOf, leadLabelOf, workforceText } from "@/lib/board-text";
 import { BOARD_WIDTH } from "@/lib/board-width";
 
 import { AllClear } from "./components/all-clear";
-import { BoardActsProvider } from "./components/board-acts";
+import { BoardActsProvider, useBoardActs } from "./components/board-acts";
 import { BoardDetailHost } from "./components/board-detail-host";
 import { BoardFilter } from "./components/board-filter";
 import { BoardList } from "./components/board-list";
+import { BoardShortcutsDialog } from "./components/board-shortcuts-dialog";
 import { BoardSkeleton } from "./components/board-skeleton";
 import { BoardSummary } from "./components/board-summary";
 import { BoardTabs } from "./components/board-tabs";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
 import { useBoard } from "./use-board";
+import { type BoardKeysInput, useBoardKeys } from "./use-board-keys";
 import { useBoardWidth } from "./use-board-width";
 import { useOverview } from "./use-overview";
 
@@ -36,6 +38,12 @@ function tabNamed(id: BoardTabId): BoardTab {
   const tab = BOARD_TABS.find((entry) => entry.id === id);
   if (tab === undefined) throw new Error(`No board tab ${id}.`);
   return tab;
+}
+
+function BoardKeys(props: Omit<BoardKeysInput, "acts">) {
+  const { acts } = useBoardActs();
+  useBoardKeys({ ...props, acts });
+  return null;
 }
 
 interface PaneEmptyProps {
@@ -98,6 +106,8 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
   const frame = useRef<HTMLDivElement>(null);
   const widthClass = useBoardWidth(frame);
   const board = useBoard(overview, widthClass);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [notice, setNotice] = useState<{ text: string; itemId: string | null } | null>(null);
   const expanded = widthClass === BOARD_WIDTH.Expanded;
   const tab = tabNamed(board.tab);
   const { startItem } = board;
@@ -116,6 +126,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
     allClear: overview.allClear,
     readFault,
   });
+  const noticeText = notice?.itemId === board.selectedId ? (notice?.text ?? null) : null;
   const showAll = () => board.selectProject(null);
   const goToStart = () => {
     if (startItem !== null) board.select(startItem.id);
@@ -217,7 +228,8 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
         {overview.status === "ready" && (
           <>
             {expanded && filter}
-            <div className="md:ml-auto">
+            <div className="flex items-center gap-2 md:ml-auto">
+              <BoardShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
               <RefreshStatus
                 updatedAt={overview.updatedAt}
                 now={overview.now}
@@ -229,14 +241,15 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       </div>
 
       <div role="status" className="sr-only">
-        {announcementOf({
-          gone: board.gone !== null,
-          expanded,
-          open: board.openId !== null,
-          subject: board.selected?.subject ?? null,
-          position: board.position,
-          total: board.total,
-        })}
+        {noticeText ??
+          announcementOf({
+            gone: board.gone !== null,
+            expanded,
+            open: board.openId !== null,
+            subject: board.selected?.subject ?? null,
+            position: board.position,
+            total: board.total,
+          })}
       </div>
 
       {overview.status === "loading" && <BoardSkeleton widthClass={widthClass} />}
@@ -276,6 +289,15 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
           markActed={board.markActed}
           setDialogOpen={board.setDialogOpen}
         >
+          <BoardKeys
+            board={board}
+            widthClass={widthClass}
+            projects={overview.projects}
+            openShortcuts={() => setShortcutsOpen(true)}
+            announce={(text) =>
+              setNotice(text === null ? null : { text, itemId: board.selectedId })
+            }
+          />
           <SystemHealthAlert components={overview.unavailable} failure={overview.livenessFailure} />
           {readFault && <ReadFaultsAlert faults={overview.faults} onRetry={overview.refresh} />}
           {!expanded && filter}

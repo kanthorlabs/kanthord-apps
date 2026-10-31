@@ -16,6 +16,7 @@ interface BoardCardProps {
   readonly gate: BoardGate | null;
   readonly leadLabel: string | null;
   readonly selected: boolean;
+  readonly tabStop: boolean;
   readonly onSelect: (itemId: string) => void;
   readonly titleRef?: Ref<HTMLButtonElement>;
 }
@@ -27,6 +28,7 @@ export function BoardCard({
   gate,
   leadLabel,
   selected,
+  tabStop,
   onSelect,
   titleRef,
 }: BoardCardProps) {
@@ -51,6 +53,7 @@ export function BoardCard({
                 variant="link"
                 className="max-w-full min-w-0 after:absolute after:inset-0"
                 aria-describedby={`${causeId} ${ageId} ${heldId}`}
+                tabIndex={tabStop ? 0 : -1}
                 onClick={() => onSelect(item.id)}
               >
                 <span className="truncate">{item.subject}</span>

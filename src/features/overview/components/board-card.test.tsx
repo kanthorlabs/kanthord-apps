@@ -97,6 +97,7 @@ function renderCard(overrides: Partial<Parameters<typeof BoardCard>[0]> = {}) {
         gate={null}
         leadLabel="Decide"
         selected={false}
+        tabStop={false}
         onSelect={onSelect}
         {...overrides}
       />
@@ -111,6 +112,22 @@ describe("BoardCard", () => {
 
     expect(screen.getByRole("listitem")).toContainElement(
       screen.getByRole("button", { name: "Ship the release" }),
+    );
+  });
+
+  it("makes the title a tab stop only for the tab stop card", () => {
+    renderCard({ tabStop: true });
+    expect(screen.getByRole("button", { name: "Ship the release" })).toHaveAttribute(
+      "tabindex",
+      "0",
+    );
+  });
+
+  it("takes the title out of the tab order for any other card", () => {
+    renderCard({ tabStop: false });
+    expect(screen.getByRole("button", { name: "Ship the release" })).toHaveAttribute(
+      "tabindex",
+      "-1",
     );
   });
 

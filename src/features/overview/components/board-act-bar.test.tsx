@@ -135,10 +135,17 @@ function Bar({ item, details }: { item: DecisionAttentionItem; details: Attentio
   );
 }
 
+function labelOf(control: HTMLElement): string {
+  return Array.from(control.childNodes)
+    .filter((node) => node.nodeType === Node.TEXT_NODE)
+    .map((node) => node.textContent)
+    .join("");
+}
+
 function names(): readonly (string | null)[] {
   return within(screen.getByRole("group", { name: "Acts" }))
     .getAllByRole("button")
-    .map((control) => control.textContent);
+    .map(labelOf);
 }
 
 const PAUSED = node("implement", "Paused");
@@ -223,5 +230,81 @@ describe("BoardActBar", () => {
 
     expect(screen.queryByRole("button", { name: "Check now" })).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Merged");
+  });
+
+  it("shows the letter of each act in a key hint with aria-keyshortcuts", async () => {
+    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
+    await screen.findByRole("button", { name: "Last trace" });
+
+    const keyed = within(screen.getByRole("group", { name: "Acts" }))
+      .getAllByRole("button")
+      .map((control) => [
+        labelOf(control),
+        control.getAttribute("aria-keyshortcuts"),
+        control.querySelector("kbd")?.textContent,
+      ]);
+
+    expect(keyed).toEqual([
+      ["Resume", "r", "r"],
+      ["Override", "v", "v"],
+      ["Last trace", "t", "t"],
+      ["Discard", "x", "x"],
+    ]);
+  });
+
+  it("keeps the accessible name free of the key hint", async () => {
+    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
+
+    expect(await screen.findByRole("button", { name: "Resume" })).toBeVisible();
+  });
+
+  it("carries the key on an act that waits for a read", () => {
+    const target = node("examine", "Blocked");
+    render(<Bar item={itemOf(target, "blocked")} details={new Map()} />);
+
+    const gated = screen.getByRole("button", { name: "Discard" });
+
+    expect(gated).toHaveAttribute("aria-disabled", "true");
+    expect(gated).toHaveAttribute("aria-keyshortcuts", "x");
+    expect(gated.querySelector("kbd")).toHaveTextContent("x");
+  });
+
+  it("hides the key hints and the aria-keyshortcuts with the shortcuts off", async () => {
+    window.localStorage.setItem("kd-board-shortcuts", "off");
+    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
+    await screen.findByRole("button", { name: "Last trace" });
+
+    for (const control of within(screen.getByRole("group", { name: "Acts" })).getAllByRole(
+      "button",
+    )) {
+      expect(control).not.toHaveAttribute("aria-keyshortcuts");
+      expect(control.querySelector("kbd")).toBeNull();
+    }
+  });
+
+  it("gives a shared letter to the first act only", () => {
+    const target = node("implement", "Paused");
+    render(
+      <Bar
+        item={
+          {
+            ...itemOf(target, "paused"),
+            kind: "dependency_discarded",
+            discarded: [
+              { id: "dep_a", name: "Alpha" },
+              { id: "dep_b", name: "Beta" },
+            ],
+          } as unknown as DecisionAttentionItem
+        }
+        details={new Map()}
+      />,
+    );
+
+    const removals = screen.getAllByRole("button", { name: /^Remove dependency on/ });
+
+    expect(removals.map((control) => control.getAttribute("aria-keyshortcuts"))).toEqual([
+      "m",
+      null,
+    ]);
   });
 });

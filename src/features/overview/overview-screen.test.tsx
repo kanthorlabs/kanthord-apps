@@ -654,6 +654,13 @@ async function findDetail(): Promise<HTMLElement> {
   return screen.findByRole("region", NOT_LOADING);
 }
 
+function labelOf(control: HTMLElement): string {
+  return Array.from(control.childNodes)
+    .filter((node) => node.nodeType === Node.TEXT_NODE)
+    .map((node) => node.textContent)
+    .join("");
+}
+
 function expectGated(scope: HTMLElement, name: string | RegExp) {
   expect(within(scope).getByRole("button", { name })).toHaveAttribute("aria-disabled", "true");
 }
@@ -1012,12 +1019,7 @@ describe("OverviewScreen acts", () => {
     await waitFor(() => expect(within(item).getByRole("button", { name: "Decide" })).toBeEnabled());
 
     const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
-    expect(acts.map((act) => act.textContent)).toEqual([
-      "Decide",
-      "Unblock",
-      "Override",
-      "Discard",
-    ]);
+    expect(acts.map(labelOf)).toEqual(["Decide", "Unblock", "Override", "Discard"]);
     expect(within(cardOf("Team workspaces")).getByText("Decide")).toBeInTheDocument();
   });
 
@@ -1453,7 +1455,7 @@ describe("OverviewScreen paused items", () => {
     const item = await findDetail();
 
     const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
-    expect(acts.map((act) => act.textContent)).toEqual(["Resume", "Override", "Discard"]);
+    expect(acts.map(labelOf)).toEqual(["Resume", "Override", "Discard"]);
     expect(within(cardOf("Draft the notes")).getByText("Resume")).toBeInTheDocument();
   });
 
@@ -3540,5 +3542,228 @@ describe("OverviewScreen widths", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(cardButton("Third item")).toHaveFocus());
     expect(within(listOf()).queryByRole("button", { name: "Second item" })).toBeNull();
+  });
+});
+
+describe("OverviewScreen keyboard", () => {
+  function threeBlocked(): Record<string, MissionNodeRecord[]> {
+    return {
+      "prj-1": [
+        blocked("n_a", "First item", { createdAt: NOW - 9 * HOUR }),
+        blocked("n_b", "Second item", { createdAt: NOW - 8 * HOUR }),
+        blocked("n_c", "Third item", { createdAt: NOW - 7 * HOUR }),
+      ],
+    };
+  }
+
+  function selected(name: string): boolean {
+    return cardOf(name).firstElementChild?.getAttribute("aria-current") === "true";
+  }
+
+  function resumable(): Record<string, MissionNodeRecord[]> {
+    return { "prj-1": [paused("n_p", "Print the packing slip")] };
+  }
+
+  const BUDGET_END = {
+    n_p: [ended("e1", "n_p", { stop: { reason: "budget_end", code: "turns" } })],
+  };
+
+  async function openShortcuts(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(await screen.findByRole("button", { name: "Keyboard shortcuts" }));
+    return screen.findByRole("dialog", { name: "Keyboard shortcuts" });
+  }
+
+  it("moves the selection and the focus with ArrowDown and j, and leaves the list with one Tab", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await showItem("First item");
+
+    await user.keyboard("{ArrowDown}");
+    expect(cardButton("Second item")).toHaveFocus();
+    expect(selected("Second item")).toBe(true);
+    expect(within(await findDetail()).getByRole("heading", { level: 3 })).toHaveTextContent(
+      /^Second item/,
+    );
+    expect(cardButton("Second item")).toHaveAttribute("tabindex", "0");
+    expect(cardButton("First item")).toHaveAttribute("tabindex", "-1");
+
+    await user.keyboard("j");
+    expect(cardButton("Third item")).toHaveFocus();
+    await user.keyboard("{ArrowUp}k");
+    expect(cardButton("First item")).toHaveFocus();
+    await user.keyboard("{End}");
+    expect(cardButton("Third item")).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(cardButton("First item")).toHaveFocus();
+
+    await user.keyboard("j");
+    await user.tab();
+    expect(listOf()).not.toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it("does nothing to the cards with an arrow key or a letter outside the list", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await showItem("First item");
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await user.keyboard("{ArrowDown}j{End}");
+
+    expect(selected("First item")).toBe(true);
+  });
+
+  it("selects Fix setup with 2", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked(), environments: { "prj-1": [failedEnvironment()] } });
+    renderScreen();
+    await screen.findAllByRole("tab");
+
+    await user.keyboard("2");
+
+    expect(screen.getByRole("tab", { name: /^Fix setup,/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(await within(listOf()).findByRole("button", { name: "engine" })).toBeVisible();
+    expect(selected("engine")).toBe(true);
+  });
+
+  it("opens the resume dialog with r on a selected Resume card", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: resumable(), executions: BUDGET_END });
+    renderScreen();
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
+
+    await user.keyboard("r");
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "Resume node" })).toBeVisible();
+  });
+
+  it("shows the key hints and aria-keyshortcuts while the shortcuts are on", async () => {
+    serve({ nodes: resumable(), executions: BUDGET_END });
+    renderScreen();
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
+
+    const resume = within(item).getByRole("button", { name: "Resume" });
+
+    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+    expect(resume.querySelector("kbd")).toHaveTextContent("r");
+    expect(screen.getByRole("tab", { name: /^Fix setup,/ })).toHaveAttribute(
+      "aria-keyshortcuts",
+      "2",
+    );
+  });
+
+  it("turns the shortcuts off and keeps the setting after a reload", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: resumable(), executions: BUDGET_END });
+    const first = renderScreen();
+    const item = await findDetail();
+    await within(item).findByText("The last execution ended at its budget (turns).");
+    const dialog = await openShortcuts(user);
+
+    await user.click(within(dialog).getByRole("switch", { name: "Single-key shortcuts" }));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await user.keyboard("2r");
+
+    expect(screen.getByRole("tab", { name: /^Resume,/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(within(item).getByRole("button", { name: "Resume" })).not.toHaveAttribute(
+      "aria-keyshortcuts",
+    );
+    expect(within(item).getByRole("button", { name: "Resume" }).querySelector("kbd")).toBeNull();
+    expect(screen.getByRole("tab", { name: /^Fix setup,/ })).not.toHaveAttribute(
+      "aria-keyshortcuts",
+    );
+
+    first.unmount();
+    renderScreen();
+    const again = await findDetail();
+    await within(again).findByText("The last execution ended at its budget (turns).");
+    await user.keyboard("2r");
+
+    expect(screen.getByRole("tab", { name: /^Resume,/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByText("r", { selector: "kbd" })).toBeNull();
+  });
+
+  it("opens the shortcuts dialog with ?", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await screen.findAllByRole("tab");
+
+    await user.keyboard("?");
+
+    expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
+  });
+
+  it("keeps the key of an act that waits for a read and names what it needs", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: resumable() });
+    vi.mocked(listNodeExecutions).mockReturnValue(new Promise(() => undefined));
+    renderScreen();
+    const item = await findDetail();
+
+    const resume = within(item).getByRole("button", { name: "Resume" });
+    expect(resume).toHaveAttribute("aria-disabled", "true");
+    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+    expect(resume.querySelector("kbd")).toHaveTextContent("r");
+
+    await user.keyboard("r");
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getAllByRole("status").map((region) => region.textContent)).toContain(
+      "Resume needs: the executions and external actions read.",
+    );
+  });
+
+  it("moves focus to the detail title with Enter and back to the card with Esc", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: threeBlocked() });
+    renderScreen();
+    await showItem("Second item");
+
+    await user.keyboard("{Enter}");
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 3, name: /^Second item/ })).toHaveFocus(),
+    );
+
+    await user.keyboard("{Escape}");
+    expect(cardButton("Second item")).toHaveFocus();
+  });
+
+  it("opens the next card in the sheet with j and closes the sheet with 3 on compact width", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [...(threeBlocked()["prj-1"] ?? []), paused("n_p", "Print the slip")] },
+    });
+    renderScreen();
+    setWidth(COMPACT_WIDTH);
+    await screen.findAllByRole("tab");
+    await user.click(cardButton("First item"));
+    const sheet = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(within(sheet).getByRole("heading", { level: 3, name: /^First item/ })).toHaveFocus(),
+    );
+
+    await user.keyboard("j");
+
+    expect(within(sheet).getByText("2 of 3")).toBeVisible();
+    await waitFor(() =>
+      expect(within(sheet).getByRole("heading", { level: 3, name: /^Second item/ })).toHaveFocus(),
+    );
+
+    await user.keyboard("3");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByRole("tab", { name: /^Resume,/ })).toHaveAttribute("aria-selected", "true");
+    expect(cardButton("Print the slip")).toBeVisible();
   });
 });
