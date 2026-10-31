@@ -12,18 +12,11 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty";
-import type { AttentionDetails, AttentionItem } from "@/lib/attention";
-import { isInProject } from "@/lib/board-items";
-import {
-  BOARD_TAB,
-  BOARD_TABS,
-  type BoardTab,
-  type BoardTabId,
-  boardTabOf,
-} from "@/lib/board-tabs";
-import { positionText, workforceText } from "@/lib/board-text";
+import type { AttentionItem } from "@/lib/attention";
+import { hiddenByFilterOf, isNothingAtAll } from "@/lib/board-items";
+import { BOARD_TABS, type BoardTab, type BoardTabId } from "@/lib/board-tabs";
+import { announcementOf, leadLabelOf, workforceText } from "@/lib/board-text";
 import { BOARD_WIDTH } from "@/lib/board-width";
-import { fixTargetOf } from "@/lib/fix-attention";
 
 import { AllClear } from "./components/all-clear";
 import { BoardActsProvider } from "./components/board-acts";
@@ -35,54 +28,14 @@ import { BoardSummary } from "./components/board-summary";
 import { BoardTabs } from "./components/board-tabs";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
-import { type Board, useBoard } from "./use-board";
+import { useBoard } from "./use-board";
 import { useBoardWidth } from "./use-board-width";
 import { useOverview } from "./use-overview";
-
-const GONE_ANNOUNCEMENT = "The selected item no longer waits.";
 
 function tabNamed(id: BoardTabId): BoardTab {
   const tab = BOARD_TABS.find((entry) => entry.id === id);
   if (tab === undefined) throw new Error(`No board tab ${id}.`);
   return tab;
-}
-
-function leadLabelOf(item: AttentionItem, details: AttentionDetails): string | null {
-  switch (item.kind) {
-    case "paused":
-      return "Resume";
-    case "blocked":
-      return boardTabOf(item, details) === BOARD_TAB.Proposal ? "Decide" : "Unblock";
-    case "dependency_discarded":
-      return "Remove dependency";
-    case "merge_wait":
-    case "delivery_unconfirmed":
-      return "Check now";
-    case "tool_approval":
-      return "Open chat";
-    case "project_paused":
-      return "Resume project";
-    default:
-      return fixTargetOf(item).label;
-  }
-}
-
-function hiddenByFilterOf(
-  items: readonly AttentionItem[],
-  details: AttentionDetails,
-  tab: BoardTabId,
-  projectId: string | null,
-): boolean {
-  if (projectId === null) return false;
-  return items.some((item) => boardTabOf(item, details) === tab && !isInProject(item, projectId));
-}
-
-function announcementOf(board: Board, expanded: boolean): string {
-  if (board.gone !== null) return GONE_ANNOUNCEMENT;
-  if (expanded || board.openId === null || board.selected === null || board.position === null) {
-    return "";
-  }
-  return `${board.selected.subject}, ${positionText(board.position, board.total)}.`;
 }
 
 interface PaneEmptyProps {
@@ -157,8 +110,12 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
     board.projectId,
   );
   const projectName = overview.projects.find((entry) => entry.id === board.projectId)?.name ?? null;
-  const nothingAtAll =
-    board.projectId === null && board.counts.view === 0 && (overview.allClear || readFault);
+  const nothingAtAll = isNothingAtAll({
+    projectId: board.projectId,
+    view: board.counts.view,
+    allClear: overview.allClear,
+    readFault,
+  });
   const showAll = () => board.selectProject(null);
   const goToStart = () => {
     if (startItem !== null) board.select(startItem.id);
@@ -189,10 +146,9 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
         selectedId={board.selectedId}
         widthClass={widthClass}
         projectName={projectName}
-        total={board.counts.view}
         hiddenByFilter={hiddenByFilter}
         allClear={overview.allClear}
-        readFault={readFault}
+        nothingAtAll={nothingAtAll}
         start={startItem}
         workforce={workforce}
         now={overview.now}
@@ -273,7 +229,14 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       </div>
 
       <div role="status" className="sr-only">
-        {announcementOf(board, expanded)}
+        {announcementOf({
+          gone: board.gone !== null,
+          expanded,
+          open: board.openId !== null,
+          subject: board.selected?.subject ?? null,
+          position: board.position,
+          total: board.total,
+        })}
       </div>
 
       {overview.status === "loading" && <BoardSkeleton widthClass={widthClass} />}

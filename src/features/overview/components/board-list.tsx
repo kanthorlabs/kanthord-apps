@@ -25,10 +25,9 @@ interface BoardListProps {
   readonly selectedId: string | null;
   readonly widthClass: BoardWidth;
   readonly projectName: string | null;
-  readonly total: number;
   readonly hiddenByFilter: boolean;
   readonly allClear: boolean;
-  readonly readFault: boolean;
+  readonly nothingAtAll: boolean;
   readonly start: AttentionItem | null;
   readonly workforce: string;
   readonly now: number;
@@ -50,10 +49,9 @@ export function BoardList({
   selectedId,
   widthClass,
   projectName,
-  total,
   hiddenByFilter,
   allClear,
-  readFault,
+  nothingAtAll,
   start,
   workforce,
   now,
@@ -70,7 +68,6 @@ export function BoardList({
   const expanded = widthClass === BOARD_WIDTH.Expanded;
   const filtered = projectName !== null;
   const emptyLine = `Nothing waits in ${tab.name}${filtered ? ` in ${projectName}` : ""}.`;
-  const nothingAtAll = !filtered && total === 0 && (allClear || readFault);
 
   return (
     <TabsContent

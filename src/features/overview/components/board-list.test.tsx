@@ -102,10 +102,9 @@ function renderList(
     selectedId: null,
     widthClass,
     projectName: null,
-    total: ITEMS.length,
     hiddenByFilter: false,
     allClear: false,
-    readFault: false,
+    nothingAtAll: false,
     start: ITEMS[0] ?? null,
     workforce: "0 executions run · 0 jobs wait",
     now: NOW,
@@ -206,7 +205,7 @@ describe("BoardList", () => {
   });
 
   it("shows all clear when nothing waits at all", () => {
-    renderList({ tab: RESUME, cards: [], total: 0, start: null, allClear: true });
+    renderList({ tab: RESUME, cards: [], start: null, allClear: true, nothingAtAll: true });
 
     expect(screen.getByText("All clear")).toBeVisible();
     expect(screen.getByText("No decision waits for you.")).toBeVisible();
@@ -214,21 +213,24 @@ describe("BoardList", () => {
   });
 
   it("shows no act found when a fault hides the records", () => {
-    renderList({ tab: RESUME, cards: [], total: 0, start: null, readFault: true });
+    renderList({ tab: RESUME, cards: [], start: null, nothingAtAll: true });
 
     expect(screen.getByText("No act found")).toBeVisible();
     expect(screen.getByText("Some records could not be read.")).toBeVisible();
   });
 
   it("shows no all clear under a filter", () => {
-    renderList({ tab: RESUME, cards: [], total: 0, allClear: true, projectName: "atlas" });
+    renderList({ tab: RESUME, cards: [], allClear: true, projectName: "atlas" });
 
     expect(screen.queryByText("All clear")).not.toBeInTheDocument();
     expect(screen.getByText("Nothing waits in Resume in atlas.")).toBeVisible();
   });
 
   it("shows no all clear on expanded width", () => {
-    renderList({ tab: RESUME, cards: [], total: 0, allClear: true }, BOARD_WIDTH.Expanded);
+    renderList(
+      { tab: RESUME, cards: [], allClear: true, nothingAtAll: true },
+      BOARD_WIDTH.Expanded,
+    );
 
     expect(screen.queryByText("All clear")).not.toBeInTheDocument();
     expect(screen.getByText("Nothing waits in Resume.")).toBeVisible();

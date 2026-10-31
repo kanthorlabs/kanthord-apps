@@ -26,10 +26,12 @@ import {
 } from "./attention";
 import { BOARD_TABS } from "./board-tabs";
 import {
+  announcementOf,
   boardSummaryOf,
   cardCauseOf,
   detailTitleOf,
   heldText,
+  leadLabelOf,
   positionText,
   tabLabelOf,
   tabSubOf,
@@ -701,5 +703,88 @@ describe("detailTitleOf", () => {
 
     expect(detailTitleOf(paused, none)).toBe("atlas: project paused");
     expect(detailTitleOf(dependency, none)).toBe("Node a: discarded dependency");
+  });
+});
+
+describe("leadLabelOf", () => {
+  const none: AttentionDetails = new Map();
+
+  it("leads a paused node with Resume", () => {
+    expect(leadLabelOf(pausedItemWith(null), none)).toBe("Resume");
+  });
+
+  it("leads a blocked node with Decide in the proposal tab and Unblock otherwise", () => {
+    const examine = blockedNode("e", "Review", { intent: "examine" });
+    const details = blockedDetails(examine, [proposal("e", "p1")]);
+    const proposed = itemOf(derive([snapshot([examine])], details), "blocked:e");
+    const rule = itemOf(derive([snapshot([blockedNode("a", "Add reset")])]), "blocked:a");
+
+    expect(leadLabelOf(proposed, details)).toBe("Decide");
+    expect(leadLabelOf(rule, none)).toBe("Unblock");
+  });
+
+  it("leads a discarded dependency with Remove dependency", () => {
+    const items = derive([
+      snapshot([node("a", "Pending", { depends_on: ["b"] }), node("b", "Discarded")]),
+    ]);
+
+    expect(leadLabelOf(itemOf(items, "dependency_discarded:a"), none)).toBe("Remove dependency");
+  });
+
+  it("leads an outside item with Check now", () => {
+    expect(leadLabelOf(outsideItem("merge_wait", 42).item, none)).toBe("Check now");
+    expect(leadLabelOf(outsideItem("delivery_unconfirmed", 7).item, none)).toBe("Check now");
+  });
+
+  it("leads a tool approval with Open chat", () => {
+    const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1");
+
+    expect(leadLabelOf(item, none)).toBe("Open chat");
+  });
+
+  it("leads a paused project with Resume project", () => {
+    const items = derive([snapshot([], { project: { ...PROJECT, paused_at: 5 } })]);
+
+    expect(leadLabelOf(itemOf(items, "project_paused:prj-1"), none)).toBe("Resume project");
+  });
+
+  it("leads a refused credential with its fix link", () => {
+    const items = derive([
+      snapshot([node("n1", "Paused")], {
+        executions: [execution("n1", { reason: "provider_failed", code: "unauthorized" })],
+      }),
+    ]);
+
+    expect(leadLabelOf(itemOf(items, "credential_refused:openai-main"), none)).toBe(
+      "Open credential",
+    );
+  });
+});
+
+describe("announcementOf", () => {
+  const input = {
+    gone: false,
+    expanded: false,
+    open: true,
+    subject: "Add reset",
+    position: 1,
+    total: 4,
+  };
+
+  it("announces the open card with its position", () => {
+    expect(announcementOf(input)).toBe("Add reset, 2 of 4.");
+  });
+
+  it("announces a gone item first", () => {
+    expect(announcementOf({ ...input, gone: true, expanded: true })).toBe(
+      "The selected item no longer waits.",
+    );
+  });
+
+  it("announces nothing in the pane, with no open card or with no position", () => {
+    expect(announcementOf({ ...input, expanded: true })).toBe("");
+    expect(announcementOf({ ...input, open: false })).toBe("");
+    expect(announcementOf({ ...input, position: null })).toBe("");
+    expect(announcementOf({ ...input, subject: null })).toBe("");
   });
 });

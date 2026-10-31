@@ -1,6 +1,7 @@
 import type { Project } from "@/api/types";
 
-import type { AttentionItem, ProjectSnapshot } from "./attention";
+import type { AttentionDetails, AttentionItem, ProjectSnapshot } from "./attention";
+import { type BoardTabId, boardTabOf } from "./board-tabs";
 import type { CredentialRefusedItem } from "./fix-attention";
 import { isTerminal } from "./node-state";
 
@@ -102,4 +103,25 @@ export function rankBoardItems(
 
 export function startItemOf(ranked: readonly AttentionItem[]): AttentionItem | null {
   return ranked[0] ?? null;
+}
+
+export function hiddenByFilterOf(
+  items: readonly AttentionItem[],
+  details: AttentionDetails,
+  tab: BoardTabId,
+  projectId: string | null,
+): boolean {
+  if (projectId === null) return false;
+  return items.some((item) => boardTabOf(item, details) === tab && !isInProject(item, projectId));
+}
+
+export interface NothingAtAllInput {
+  readonly projectId: string | null;
+  readonly view: number;
+  readonly allClear: boolean;
+  readonly readFault: boolean;
+}
+
+export function isNothingAtAll(input: NothingAtAllInput): boolean {
+  return input.projectId === null && input.view === 0 && (input.allClear || input.readFault);
 }
