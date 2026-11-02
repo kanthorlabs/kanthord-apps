@@ -138,8 +138,9 @@ describe("verdictsOf", () => {
     expect(targetOf("outcome.rework")).toContain("/timeline?project_id=billing");
     expect(targetOf("tile.cache_hit")).not.toMatch(/project_id=|worker_name=|model=/);
     expect(targetOf("causes.unattributed")).not.toMatch(/project_id=|worker_name=/);
-    expect(targetOf("data.awaiting")).toContain("worker_name=claude-code%401");
-    expect(targetOf("data.awaiting")).not.toContain("coder%401&");
+    expect(targetOf("data.awaiting")).toBe(
+      "/traces?worker_name=claude-code%401&state=ok&from=1792800000000&to=1793369520000",
+    );
   });
 
   it("builds a group link from the slices of the lead only", () => {
