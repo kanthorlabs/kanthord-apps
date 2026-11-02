@@ -376,4 +376,44 @@ describe("BoardRotateSheet", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("gives Rotate secret and Cancel a 44 px minimum height below 1024 px", async () => {
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    for (const name of ["Rotate secret", "Cancel"]) {
+      const wrapper = within(sheet).getByRole("button", { name }).parentElement;
+      expect(wrapper).toHaveClass("[&>*]:min-h-11", "lg:[&>*]:min-h-0");
+    }
+  });
+
+  it("gives Read the latest a 44 px minimum height below 1024 px", async () => {
+    vi.mocked(rotateCredential).mockRejectedValue(
+      new ApiError("conflict", "Conflict.", 409, "credential.revision.conflict"),
+    );
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    await userEvent.type(within(sheet).getByLabelText("API Key"), "sk-2");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+
+    const latest = await within(sheet).findByRole("button", { name: "Read the latest" });
+    expect(latest.parentElement).toHaveClass("[&>*]:min-h-11", "lg:[&>*]:min-h-0");
+  });
+
+  it("gives Open workers a 44 px minimum height below 1024 px", async () => {
+    serveOAuthCopies();
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    const workers = within(sheet).getByRole("button", { name: "Open workers" });
+    expect(workers.parentElement).toHaveClass("[&>*]:min-h-11", "lg:[&>*]:min-h-0");
+  });
+
+  it("shows no Close button in the sheet", async () => {
+    render(<Harness />);
+    await openSheet();
+
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+  });
 });

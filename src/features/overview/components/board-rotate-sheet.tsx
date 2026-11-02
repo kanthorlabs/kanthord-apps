@@ -22,7 +22,11 @@ export function BoardRotateSheet({ rotate }: { readonly rotate: BoardRotate }) {
   const alsoRotate = rotate.shape !== "oauth";
   return (
     <Sheet open={rotate.open} onOpenChange={(open) => !open && rotate.close()}>
-      <SheetContent side="right" className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg"
+      >
         <SheetHeader>
           <SheetTitle>Rotate {rotate.name}</SheetTitle>
           <SheetDescription>
@@ -46,9 +50,11 @@ export function BoardRotateSheet({ rotate }: { readonly rotate: BoardRotate }) {
                 <AlertDescription>{rotate.failure.message}</AlertDescription>
                 {rotate.failure.conflict && (
                   <AlertAction>
-                    <Button type="button" variant="outline" size="sm" onClick={rotate.readLatest}>
-                      Read the latest
-                    </Button>
+                    <TouchTarget>
+                      <Button type="button" variant="outline" size="sm" onClick={rotate.readLatest}>
+                        Read the latest
+                      </Button>
+                    </TouchTarget>
                   </AlertAction>
                 )}
               </Alert>
@@ -111,17 +117,21 @@ export function BoardRotateSheet({ rotate }: { readonly rotate: BoardRotate }) {
             )}
           </div>
           <SheetFooter>
-            <Button type="submit" disabled={rotate.submitting}>
-              Rotate secret
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={rotate.submitting}
-              onClick={rotate.close}
-            >
-              Cancel
-            </Button>
+            <TouchTarget>
+              <Button type="submit" disabled={rotate.submitting}>
+                Rotate secret
+              </Button>
+            </TouchTarget>
+            <TouchTarget>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={rotate.submitting}
+                onClick={rotate.close}
+              >
+                Cancel
+              </Button>
+            </TouchTarget>
           </SheetFooter>
         </form>
       </SheetContent>

@@ -40,16 +40,18 @@ export function BoardDone({ entries, onGoTo }: BoardDoneProps) {
   return (
     <div className="flex flex-col gap-2">
       <h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          aria-expanded={open}
-          aria-controls={panelId}
-          onClick={() => setOpen(!open)}
-        >
-          {TITLE}
-          <Badge variant="secondary">{entries.length}</Badge>
-        </Button>
+        <TouchTarget>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => setOpen(!open)}
+          >
+            {TITLE}
+            <Badge variant="secondary">{entries.length}</Badge>
+          </Button>
+        </TouchTarget>
       </h3>
       <div id={panelId}>
         <Reveal open={open}>
