@@ -5,8 +5,10 @@ import type { FlowRead } from "@/api/types";
 import flowRead from "../../test/flow-read.json";
 import { awaitingOf, completenessOf, dataSignalOf } from "./flow-completeness";
 import { evaluate, frameOf, isActive } from "./flow-status";
+import { verdictsOf } from "./flow-verdicts";
 
 const FLOW_READ = flowRead as unknown as FlowRead;
+const SCOPE = { projectId: null, workerName: null };
 
 function readWith(completeness: Partial<FlowRead["completeness"]>): FlowRead {
   return { ...FLOW_READ, completeness: { ...FLOW_READ.completeness, ...completeness } };
@@ -85,9 +87,30 @@ describe("dataSignalOf", () => {
     expect(evaluate(dataSignalOf(read, frame), frame).state).toBe("ok");
   });
 
-  it("drills to the traces of the window", () => {
+  it("drills to the ok traces of the awaiting worker", () => {
     expect(dataSignalOf(FLOW_READ, frame).target).toBe(
-      "/traces?state=ok&from=1792800000000&to=1793369520000",
+      "/traces?worker_name=claude-code%401&state=ok&from=1792800000000&to=1793369520000",
+    );
+  });
+
+  it("links the same target as the Out of bounds data row", () => {
+    const row = verdictsOf(FLOW_READ, frame, SCOPE).rows.find(
+      (entry) => entry.id === "data.awaiting",
+    );
+
+    expect(dataSignalOf(FLOW_READ, frame).target).toBe(row?.link.target);
+  });
+
+  it("names the first awaiting worker when several workers await", () => {
+    const read = readWith({
+      awaiting_ingestion: [
+        { worker_name: "a@1", count: 3 },
+        { worker_name: "b@1", count: 4 },
+      ],
+    });
+
+    expect(dataSignalOf(read, frame).target).toBe(
+      "/traces?worker_name=a%401&state=ok&from=1792800000000&to=1793369520000",
     );
   });
 });

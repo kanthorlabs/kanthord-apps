@@ -62,7 +62,7 @@ describe("DataFooter", () => {
 
     expect(screen.getByRole("link", { name: "9 →" })).toHaveAttribute(
       "href",
-      "/traces?state=ok&from=1792800000000&to=1793369520000",
+      "/traces?worker_name=claude-code%401&state=ok&from=1792800000000&to=1793369520000",
     );
     expect(screen.getByRole("img", { name: "warning" })).toBeInTheDocument();
   });
