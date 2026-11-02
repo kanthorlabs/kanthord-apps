@@ -7,7 +7,8 @@ import type { BoardGate } from "@/lib/board-items";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import { BoardActBar } from "./board-act-bar";
-import { type BoardPosition, BoardSections } from "./board-sections";
+import { BoardDetailHead, type BoardPosition } from "./board-detail-head";
+import { BoardSections } from "./board-sections";
 
 interface BoardDetailProps {
   readonly item: AttentionItem;
@@ -23,6 +24,20 @@ interface BoardDetailProps {
   readonly titleRef: Ref<HTMLHeadingElement>;
 }
 
+const PANE_LAYOUT = {
+  section: "flex min-h-0 flex-1 flex-col gap-3",
+  head: "border-b pb-3",
+  sections: "min-h-0 flex-1 overflow-y-auto",
+  acts: "border-t pt-3",
+} as const;
+
+const SHEET_LAYOUT = {
+  section: "flex min-h-0 flex-1 flex-col",
+  head: "border-b px-4 py-3",
+  sections: "min-h-0 flex-1 overflow-y-auto px-4 py-4",
+  acts: "border-t px-4 py-3",
+} as const;
+
 export function BoardDetail({
   item,
   widthClass,
@@ -36,35 +51,33 @@ export function BoardDetail({
   titleId,
   titleRef,
 }: BoardDetailProps) {
-  const expanded = widthClass === BOARD_WIDTH.Expanded;
-  const sections = (
-    <BoardSections
-      item={item}
-      details={details}
-      tabName={tabName}
-      widthClass={widthClass}
-      position={position}
-      now={now}
-      held={held}
-      environments={environments}
-      gate={gate}
-      titleId={titleId}
-      titleRef={titleRef}
-    />
-  );
-
-  if (!expanded) {
-    return (
-      <section aria-labelledby={titleId} className="flex flex-col gap-4">
-        {sections}
-        <BoardActBar />
-      </section>
-    );
-  }
+  const layout = widthClass === BOARD_WIDTH.Expanded ? PANE_LAYOUT : SHEET_LAYOUT;
   return (
-    <section aria-labelledby={titleId} className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="min-h-0 flex-1 overflow-y-auto">{sections}</div>
-      <div className="border-t pt-3">
+    <section aria-labelledby={titleId} className={layout.section}>
+      <div className={layout.head}>
+        <BoardDetailHead
+          item={item}
+          details={details}
+          tabName={tabName}
+          widthClass={widthClass}
+          position={position}
+          now={now}
+          titleId={titleId}
+          titleRef={titleRef}
+        />
+      </div>
+      <div className={layout.sections}>
+        <BoardSections
+          item={item}
+          details={details}
+          widthClass={widthClass}
+          now={now}
+          held={held}
+          environments={environments}
+          gate={gate}
+        />
+      </div>
+      <div className={layout.acts}>
         <BoardActBar />
       </div>
     </section>

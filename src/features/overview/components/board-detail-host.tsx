@@ -78,6 +78,7 @@ export function BoardDetailHost({
   };
 
   let body: ReactNode = null;
+  const detail = selected !== null;
   if (selected !== null) {
     body = (
       <BoardDetail
@@ -133,7 +134,11 @@ export function BoardDetailHost({
         className={compact ? COMPACT_SHEET : MEDIUM_SHEET}
       >
         <div className={compact ? COMPACT_WRAPPER : MEDIUM_WRAPPER}>
-          <div className="flex items-center gap-2 border-b p-2">
+          <div
+            className={
+              detail ? "flex items-center gap-2 p-2" : "flex items-center gap-2 border-b p-2"
+            }
+          >
             <TouchTarget>
               <SheetClose render={<Button variant="outline" size="sm" />}>
                 {compact ? "Back" : "Close"}
@@ -171,7 +176,7 @@ export function BoardDetailHost({
               </>
             )}
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{body}</div>
+          {detail ? body : <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">{body}</div>}
         </div>
       </SheetContent>
     </Sheet>

@@ -117,6 +117,27 @@ describe.each([BOARD_WIDTH.Expanded, BOARD_WIDTH.Medium, BOARD_WIDTH.Compact])(
       expect(within(region).getByRole("group", { name: "Acts" })).toBeVisible();
     });
 
+    it("keeps the title and the act bar outside the scrolling sections", () => {
+      renderDetail(widthClass);
+
+      const region = screen.getByRole("region", { name: "Team: criterion not met" });
+      const children = Array.from(region.children) as HTMLElement[];
+      const sections = children.find(
+        (child) => within(child).queryByRole("heading", { level: 4, name: "What" }) !== null,
+      );
+
+      expect(sections).toBeDefined();
+      expect(within(sections as HTMLElement).queryByRole("heading", { level: 3 })).toBeNull();
+      expect(within(sections as HTMLElement).queryByRole("group", { name: "Acts" })).toBeNull();
+      expect(children).toHaveLength(3);
+      const [head, body, acts] = children as [HTMLElement, HTMLElement, HTMLElement];
+      expect(
+        within(head).getByRole("heading", { level: 3, name: "Team: criterion not met" }),
+      ).toBeVisible();
+      expect(body).toBe(sections);
+      expect(within(acts).getByRole("group", { name: "Acts" })).toBeVisible();
+    });
+
     it("mounts the reads of the selected item around the sections", async () => {
       renderDetail(widthClass);
 

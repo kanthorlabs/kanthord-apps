@@ -222,15 +222,11 @@ function renderSections(
     <BoardSections
       item={item}
       details={options.details ?? new Map()}
-      tabName="Rule"
       widthClass={options.widthClass ?? BOARD_WIDTH.Expanded}
-      position={{ index: 1, total: 3 }}
       now={10_000_000}
       held={options.held ?? []}
       environments={options.environments ?? null}
       gate={options.gate ?? null}
-      titleId="detail-title"
-      titleRef={() => undefined}
     />
   );
   const reads = (
@@ -271,33 +267,6 @@ beforeEach(() => {
 });
 
 describe("BoardSections", () => {
-  it("shows the title from detailTitleOf", () => {
-    renderSections(BLOCKED);
-
-    expect(
-      screen.getByRole("heading", { level: 3, name: "Team: criterion not met" }),
-    ).toHaveAttribute("id", "detail-title");
-  });
-
-  it("shows the header facts", () => {
-    renderSections(BLOCKED);
-
-    expect(screen.getByText("kanthord")).toBeVisible();
-    expect(screen.getByText("Rule")).toBeVisible();
-    expect(screen.getByText("Blocked")).toBeVisible();
-    expect(screen.getByText("age unknown")).toBeVisible();
-  });
-
-  it("shows the position on expanded width only", () => {
-    renderSections(BLOCKED);
-    expect(screen.getByText("2 of 3")).toBeVisible();
-  });
-
-  it("leaves out the position on medium width", () => {
-    renderSections(BLOCKED, { widthClass: BOARD_WIDTH.Medium });
-    expect(screen.queryByText("2 of 3")).not.toBeInTheDocument();
-  });
-
   it("orders the sections What, Impact, Why, Root cause, Evidence, Suggestion", () => {
     renderSections(BLOCKED);
 
