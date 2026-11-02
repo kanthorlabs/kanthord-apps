@@ -90,6 +90,85 @@ describe("verdictsOf", () => {
     );
   });
 
+  it("keeps the worker filter out of an All-level cache-hit link", () => {
+    const read = {
+      ...FLOW_READ,
+      usage: {
+        ...FLOW_READ.usage,
+        by: { ...FLOW_READ.usage.by, model: [] },
+        series: { ...FLOW_READ.usage.series, cache_hit: [0.7, 0.7, 0.7, 0.7, 0.3, 0.3, 0.3] },
+      },
+    } as unknown as FlowRead;
+    const scope = { projectId: null, workerName: "coder@1" };
+    const linkOf = (source: FlowRead) =>
+      verdictsOf(source, frameOf(source, "7d"), scope).rows.find(
+        (row) => row.id === "tile.cache_hit",
+      )?.link.target;
+
+    expect(linkOf(read)).toBe("/traces?sort=total_tokens&from=1793145600000&to=1793369520000");
+    expect(linkOf(FLOW_READ)).toContain("model=gpt-5-codex");
+    expect(linkOf(FLOW_READ)).not.toContain("worker_name=");
+  });
+
+  it("keeps the scope rule of each drill family", () => {
+    const read = {
+      ...FLOW_READ,
+      stages: FLOW_READ.stages.map((stage) => {
+        if (stage.stage === "verification") return { ...stage, dimensions: [] };
+        if (stage.stage !== "outcome") return stage;
+        const signals = {
+          ...stage.series.signals,
+          rework_rate: [0.2, 0.2, 0.2, 0.2, 0.2, 0.45, 0.45],
+        };
+        return { ...stage, dimensions: [], series: { ...stage.series, signals } };
+      }),
+      usage: {
+        ...FLOW_READ.usage,
+        by: { ...FLOW_READ.usage.by, model: [] },
+        series: { ...FLOW_READ.usage.series, cache_hit: [0.7, 0.7, 0.7, 0.7, 0.3, 0.3, 0.3] },
+      },
+    } as unknown as FlowRead;
+    const { rows } = verdictsOf(read, frameOf(read, "7d"), {
+      projectId: "billing",
+      workerName: "coder@1",
+    });
+    const targetOf = (id: string) => rows.find((row) => row.id === id)?.link.target ?? "";
+
+    expect(targetOf("verification.flaky")).toContain("project_id=billing&worker_name=coder%401");
+    expect(targetOf("outcome.rework")).toContain("/timeline?project_id=billing");
+    expect(targetOf("tile.cache_hit")).not.toMatch(/project_id=|worker_name=|model=/);
+    expect(targetOf("causes.unattributed")).not.toMatch(/project_id=|worker_name=/);
+    expect(targetOf("data.awaiting")).toContain("worker_name=claude-code%401");
+    expect(targetOf("data.awaiting")).not.toContain("coder%401&");
+  });
+
+  it("builds a group link from the slices of the lead only", () => {
+    const read = {
+      ...FLOW_READ,
+      usage: {
+        ...FLOW_READ.usage,
+        by: {
+          ...FLOW_READ.usage.by,
+          model: FLOW_READ.usage.by.model.map((model) =>
+            model.key === "gpt-5-codex"
+              ? {
+                  ...model,
+                  cache_read_tokens: model.input_tokens * 0.7,
+                  series: { ...model.series, cache_hit: [0.7, 0.3, 0.7, 0.3, 0.3, 0.7, 0.7] },
+                }
+              : model,
+          ),
+        },
+      },
+    } as unknown as FlowRead;
+    const group = verdictsOf(read, frameOf(read, "7d"), SCOPE).groups.find((entry) =>
+      entry.text.startsWith("Oct 25, Oct 27 – Oct 28 · Verification base red"),
+    );
+
+    expect(group?.text).toContain("gpt-5-codex");
+    expect(group?.link.target).toBe("/traces?from=1792886400000&to=1793232000000");
+  });
+
   it("links the tile group to the Cost tab and no other place", () => {
     expect(verdicts.rows.map((row) => row.whereTarget)).toEqual([
       null,
