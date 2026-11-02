@@ -218,7 +218,7 @@ describe("flowOf day strips", () => {
     const cell = columnOf("executing", read).strip.cells[0];
     expect(cell?.underSettled).toBe(true);
     expect(cell?.severity).toBe("ok");
-    expect(cell?.label).toBe("Oct 24: leak rate 9.1 %, under 5 settled");
+    expect(cell?.label).toBe("Oct 24: leak rate —, under 5 settled");
   });
 
   it("reads under 5 settled only for the leak keys", () => {
