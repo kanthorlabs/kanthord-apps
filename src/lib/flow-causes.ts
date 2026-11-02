@@ -192,7 +192,7 @@ export function paretoOf(read: FlowRead, options: ParetoOptions): ParetoModel {
       cumulativeText:
         tally.count === 0 ? NO_VALUE : `${Math.round((running / caused) * PERCENT)} %`,
       bar: peak === 0 ? 0 : tally.count / peak,
-      target: tally.count > 0 ? causeTarget(key, options.scope, span) : null,
+      target: tally.count > 0 && key !== "" ? causeTarget(key, options.scope, span) : null,
       details: key === UNATTRIBUTED ? [] : detailsOf(tally),
     };
   });

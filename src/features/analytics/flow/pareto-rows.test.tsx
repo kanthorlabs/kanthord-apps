@@ -124,6 +124,23 @@ describe("ParetoRows", () => {
     expect(screen.queryByRole("link", { name: "Traces of worker_action" })).toBeNull();
   });
 
+  it("shows no Traces link on the no-cause row", () => {
+    const read = {
+      ...FLOW_READ,
+      causes: {
+        ...FLOW_READ.causes,
+        rows: [
+          ...FLOW_READ.causes.rows,
+          { ...FLOW_READ.causes.rows[0], category: "", detail: "", count: 2 },
+        ],
+      },
+    } as FlowRead;
+    renderPareto({ read });
+
+    expect(screen.getByRole("rowheader", { name: /no cause/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Traces of no cause" })).toBeNull();
+  });
+
   it("gives a category with details a toggle button and none to unattributed", () => {
     renderPareto({});
 
