@@ -145,6 +145,12 @@ describe("paretoOf", () => {
     expect(paretoOf(read, ALL).rows[0]).toMatchObject({ key: "", name: "no cause" });
   });
 
+  it("gives the no-cause row no target", () => {
+    const read = readWith([causeRow({ category: "", count: 2 })]);
+
+    expect(paretoOf(read, ALL).rows[0]?.target).toBeNull();
+  });
+
   it("sorts equal counts by suspected count", () => {
     const read = readWith([
       causeRow({ category: "plan", count: 3 }),

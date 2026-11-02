@@ -130,10 +130,12 @@ function linkOf(
   const sliced = sliceParamsOf(read, slice);
   const target = signalTarget(
     signal.id,
-    {
-      project_id: sliced.project_id ?? scope.projectId,
-      worker_name: sliced.worker_name ?? scope.workerName,
-    },
+    signal.where === "tile"
+      ? sliced
+      : {
+          project_id: sliced.project_id ?? scope.projectId,
+          worker_name: sliced.worker_name ?? scope.workerName,
+        },
     spanOf(read, first, last),
   );
   return { label: `${targetLabel(target)} →`, target };
@@ -213,7 +215,7 @@ function groupOf(
       ...(slices.length === 0 ? [] : [joined(slices)]),
       ...(causes.length === 0 ? [] : [joined(causes)]),
     ].join(SEPARATOR),
-    link: linkOf(read, scope, lead.signal, slices, first, last),
+    link: linkOf(read, scope, lead.signal, sliceKeysOf(lead), first, last),
   };
 }
 

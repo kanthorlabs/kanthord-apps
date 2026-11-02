@@ -20,6 +20,9 @@ export function dataSignalOf(read: FlowRead, _frame: FlowFrame): FlowSignal {
   const id = awaiting > 0 ? "data.awaiting" : "data.completeness";
   const value = awaiting > 0 ? awaiting : completenessOf(read);
   const span = spanOf(read, 0, read.window.buckets.length - 1);
+  const slices = read.completeness.awaiting_ingestion
+    .filter((worker) => worker.count > 0)
+    .map((worker) => ({ key: worker.worker_name, window: worker.count, series: null }));
   return {
     id,
     where: "data",
@@ -34,11 +37,9 @@ export function dataSignalOf(read: FlowRead, _frame: FlowFrame): FlowSignal {
     shown: value,
     previous: null,
     series: null,
-    slices: read.completeness.awaiting_ingestion
-      .filter((worker) => worker.count > 0)
-      .map((worker) => ({ key: worker.worker_name, window: worker.count, series: null })),
+    slices,
     slice: [],
     cause: null,
-    target: signalTarget(id, { project_id: null, worker_name: null }, span),
+    target: signalTarget(id, { project_id: null, worker_name: slices[0]?.key ?? null }, span),
   };
 }
