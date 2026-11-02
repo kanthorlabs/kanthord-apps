@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode, type Ref, useRef, useState } from "react";
+import { Fragment, type ReactNode, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import type { EnvironmentState, MissionAssessment, MissionProposal } from "@/api/types";
@@ -21,8 +21,7 @@ import {
   evidenceOf,
   type TraceCause,
 } from "@/lib/board-evidence";
-import { type BoardGate, boardProjectsOf } from "@/lib/board-items";
-import { ageTextOf } from "@/lib/board-pane-text";
+import type { BoardGate } from "@/lib/board-items";
 import {
   blockedDetailOf,
   boardSuggestionOf,
@@ -37,7 +36,6 @@ import {
   spreadOf,
 } from "@/lib/board-section-facts";
 import { actorNameOf } from "@/lib/board-suggestion";
-import { detailTitleOf, positionText } from "@/lib/board-text";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { causeSentenceOf } from "@/lib/external-requests";
 import { badgeVariantOf } from "@/lib/node-state";
@@ -49,23 +47,14 @@ import { BoardReadBlock } from "./board-read-block";
 import { CauseText } from "./cause-text";
 import { FixCauseText } from "./fix-cause-text";
 
-export interface BoardPosition {
-  readonly index: number;
-  readonly total: number;
-}
-
 interface BoardSectionsProps {
   readonly item: AttentionItem;
   readonly details: AttentionDetails;
-  readonly tabName: string;
   readonly widthClass: BoardWidth;
-  readonly position: BoardPosition | null;
   readonly now: number;
   readonly held: readonly HeldNode[];
   readonly environments: readonly EnvironmentState[] | null;
-  readonly gate?: BoardGate | null;
-  readonly titleId: string;
-  readonly titleRef: Ref<HTMLHeadingElement>;
+  readonly gate: BoardGate | null;
 }
 
 const TEXT_WIDTH = "max-w-[80ch] break-words";
@@ -377,15 +366,11 @@ function EvidenceSection({
 export function BoardSections({
   item,
   details,
-  tabName,
   widthClass,
-  position,
   now,
   held,
   environments,
-  gate = null,
-  titleId,
-  titleRef,
+  gate,
 }: BoardSectionsProps) {
   const { read, proposals, unresolved, retry } = useBoardActs();
   const reads = useBoardReadsContext();
@@ -398,35 +383,6 @@ export function BoardSections({
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-1.5">
-          {boardProjectsOf(item).map((project) => (
-            <Badge key={project.id} variant="outline">
-              {project.name}
-            </Badge>
-          ))}
-          <Badge variant="secondary">{tabName}</Badge>
-          {"node" in item && (
-            <Badge variant={badgeVariantOf(item.node.state)}>{item.node.state}</Badge>
-          )}
-          <span className="text-sm text-muted-foreground">{ageTextOf(item.at, now)}</span>
-        </div>
-        <div className="flex items-start justify-between gap-2">
-          <h3
-            id={titleId}
-            ref={titleRef}
-            tabIndex={-1}
-            className="text-base font-semibold break-words"
-          >
-            {detailTitleOf(item, details)}
-          </h3>
-          {widthClass === BOARD_WIDTH.Expanded && position !== null && (
-            <span className="shrink-0 text-sm text-muted-foreground">
-              {positionText(position.index, position.total)}
-            </span>
-          )}
-        </div>
-      </div>
       <WhatSection item={item} now={now} reads={reads} evidence={evidence} />
       {item.kind === "tool_approval" && <ChangeAskedSection reads={reads} />}
       {showProposals && (

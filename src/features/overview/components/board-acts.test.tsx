@@ -4,7 +4,11 @@ import { MemoryRouter } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { listAllCredentials, verifyCredential } from "@/api/resources/credentials";
+import {
+  listAllCredentials,
+  listCredentialPlatforms,
+  verifyCredential,
+} from "@/api/resources/credentials";
 import { rebuildEnvironment } from "@/api/resources/projects";
 import { listTracePage } from "@/api/resources/tracking";
 import { approveWorkbenchCall, readWorkbenchEvents } from "@/api/resources/workbench";
@@ -365,6 +369,17 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listTracePage).mockResolvedValue({ items: [], next_cursor: null });
   vi.mocked(listAllCredentials).mockResolvedValue([serverCopy("openai-main")]);
+  vi.mocked(listCredentialPlatforms).mockResolvedValue({
+    items: [
+      {
+        platform: "openai",
+        secret_shape: "api_key",
+        login_modes: [],
+        metadata_fields: [],
+        verifiable: true,
+      },
+    ],
+  });
   vi.mocked(readWorkbenchEvents).mockResolvedValue({
     snapshot: { pending_approval: null },
   } as Awaited<ReturnType<typeof readWorkbenchEvents>>);

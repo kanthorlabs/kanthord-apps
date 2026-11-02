@@ -118,6 +118,7 @@ function renderHost(widthClass: BoardWidth, overrides: Partial<HostProps> = {}) 
   const props: HostProps = {
     widthClass,
     selected: CARDS[1] ?? null,
+    gate: null,
     gone: null,
     openId: widthClass === BOARD_WIDTH.Expanded ? null : "blocked:b",
     position: 1,
@@ -217,6 +218,33 @@ describe("BoardDetailHost on expanded width", () => {
 
     expect(screen.getByText(/exited with 1/)).toHaveTextContent("npm test exited with 1.");
     expect(screen.queryByText("other command")).not.toBeInTheDocument();
+  });
+
+  it("passes the gate to the detail", () => {
+    const target = { ...node("p", "Team P"), state: "Paused" as const };
+    const pausedCard: AttentionItem = {
+      id: "paused:p",
+      kind: "paused",
+      group: "decisions",
+      project: PROJECT,
+      subject: "Team P",
+      missionVersion: 7,
+      node: target,
+      nodes: [target],
+      at: null,
+      pause: null,
+      cause: null,
+    };
+    renderHost(BOARD_WIDTH.Expanded, {
+      selected: pausedCard,
+      gate: { itemId: "x", need: "Rotate openai-main in Fix setup", short: "Rotate" },
+    });
+
+    expect(
+      screen.getByText(
+        "Rotate openai-main in Fix setup first. A resume before that fix spends the extra try.",
+      ),
+    ).toBeVisible();
   });
 
   it("passes the held nodes of the selected item", () => {

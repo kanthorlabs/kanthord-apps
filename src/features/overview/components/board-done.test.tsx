@@ -52,6 +52,16 @@ describe("BoardDone", () => {
     expect(screen.queryByText("Resumed Print the slip.")).toBeNull();
   });
 
+  it("gives the Done toggle a 44 px minimum height below 1024 px", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(<BoardDone entries={ENTRIES} onGoTo={vi.fn()} />);
+
+    const wrapper = screen.getByRole("button", { name: "Done this session 2" }).parentElement;
+    expect(wrapper).toHaveClass("[&>*]:min-h-11", "lg:[&>*]:min-h-0");
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
+  });
+
   it("opens and closes the list of entries", async () => {
     const user = userEvent.setup();
     render(<BoardDone entries={ENTRIES} onGoTo={vi.fn()} />);

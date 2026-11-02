@@ -172,6 +172,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
     <BoardDetailHost
       widthClass={widthClass}
       selected={board.selected}
+      gate={selectedGateOf(overview.gates, board.selected)}
       gone={board.gone}
       openId={board.openId}
       position={board.position}

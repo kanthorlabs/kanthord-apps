@@ -29,6 +29,7 @@ vi.mock("@/api/resources/workers", () => ({
 
 vi.mock("@/api/resources/credentials", () => ({
   listAllCredentials: vi.fn(),
+  listCredentialPlatforms: vi.fn(),
   verifyCredential: vi.fn(),
   rotateCredential: vi.fn(),
 }));
@@ -93,6 +94,7 @@ import {
 import { connectionBaseUrl } from "@/api/client";
 import {
   listAllCredentials,
+  listCredentialPlatforms,
   rotateCredential,
   verifyCredential,
 } from "@/api/resources/credentials";
@@ -539,6 +541,17 @@ function serve(world: World) {
     async (_projectId, bindingId) => world.agents?.[bindingId] ?? [],
   );
   vi.mocked(listAllCredentials).mockResolvedValue(world.credentials ?? []);
+  vi.mocked(listCredentialPlatforms).mockResolvedValue({
+    items: [
+      {
+        platform: "openai-compatible",
+        secret_shape: "api_key",
+        login_modes: [],
+        metadata_fields: [],
+        verifiable: true,
+      },
+    ],
+  });
   vi.mocked(listWorkbenchSessions).mockResolvedValue(world.sessions ?? []);
   vi.mocked(readWorkbenchEvents).mockResolvedValue({
     entries: [],
@@ -4038,6 +4051,29 @@ describe("OverviewScreen history and phone", () => {
         name: "Provider refuses credential openai-main",
       }),
     ).toBeVisible();
+  });
+
+  it("shows the gate need in the Suggestion of a gated paused card", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+      credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(EXPANDED_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+
+    expect(
+      await screen.findByText(
+        "Rotate openai-main in Fix setup first. A resume before that fix spends the extra try.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Resume the node. The next execution starts a new try."),
+    ).not.toBeInTheDocument();
   });
 
   it("writes the need of a gated Resume to the status region with r", async () => {

@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
@@ -9,20 +11,27 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { RecordName } from "@/components/record-name";
+import { TouchTarget } from "@/components/touch-target";
 import { SecretFields } from "@/features/credentials/components/secret-fields";
 import { HolderToggle } from "@/features/workers/instance/components/holder-toggle";
 
 import type { BoardRotate } from "../use-board-rotate";
 
 export function BoardRotateSheet({ rotate }: { readonly rotate: BoardRotate }) {
+  const alsoRotate = rotate.shape !== "oauth";
   return (
     <Sheet open={rotate.open} onOpenChange={(open) => !open && rotate.close()}>
-      <SheetContent side="right" className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg">
+      <SheetContent
+        side="right"
+        showCloseButton={false}
+        className="data-[side=right]:w-full data-[side=right]:sm:max-w-lg"
+      >
         <SheetHeader>
           <SheetTitle>Rotate {rotate.name}</SheetTitle>
           <SheetDescription>
-            The new secret becomes the next revision of the server copy. The server seals it to the
-            current key of each holder.
+            The new secret becomes the next revision of the server copy.
+            {alsoRotate && " The server seals it to the current key of each holder."}
           </SheetDescription>
         </SheetHeader>
         <form
@@ -41,9 +50,11 @@ export function BoardRotateSheet({ rotate }: { readonly rotate: BoardRotate }) {
                 <AlertDescription>{rotate.failure.message}</AlertDescription>
                 {rotate.failure.conflict && (
                   <AlertAction>
-                    <Button type="button" variant="outline" size="sm" onClick={rotate.readLatest}>
-                      Read the latest
-                    </Button>
+                    <TouchTarget>
+                      <Button type="button" variant="outline" size="sm" onClick={rotate.readLatest}>
+                        Read the latest
+                      </Button>
+                    </TouchTarget>
                   </AlertAction>
                 )}
               </Alert>
@@ -61,38 +72,66 @@ export function BoardRotateSheet({ rotate }: { readonly rotate: BoardRotate }) {
               </Alert>
             )}
             <FieldGroup>
-              <SecretFields
-                shape="api_key"
-                draft={rotate.secret}
-                errors={rotate.errors}
-                onEdit={rotate.setSecret}
-              />
-              <HolderToggle
-                id="board-rotate-also-rotate-on"
-                label="Also rotate on"
-                description="Each selected holder gets the same new secret in its own rotation."
-                groups={
-                  rotate.choices.length === 0
-                    ? []
-                    : [{ label: "Other holders", names: rotate.choices }]
-                }
-                value={rotate.chosen}
-                onChange={rotate.choose}
-              />
+              {rotate.shape !== null && (
+                <SecretFields
+                  shape={rotate.shape}
+                  draft={rotate.secret}
+                  errors={rotate.errors}
+                  onEdit={rotate.setSecret}
+                />
+              )}
+              {alsoRotate && (
+                <HolderToggle
+                  id="board-rotate-also-rotate-on"
+                  label="Also rotate on"
+                  description="Each selected holder gets the same new secret in its own rotation."
+                  groups={
+                    rotate.choices.length === 0
+                      ? []
+                      : [{ label: "Other holders", names: rotate.choices }]
+                  }
+                  value={rotate.chosen}
+                  onChange={rotate.choose}
+                />
+              )}
             </FieldGroup>
+            {rotate.keptHolders.length > 0 && (
+              <div className="flex flex-col items-start gap-2">
+                {rotate.keptHolders.map((holder) => (
+                  <p key={holder} className="text-sm">
+                    <RecordName>{holder}</RecordName> keeps its own secret. Sign in again on its
+                    worker instance page.
+                  </p>
+                ))}
+                <TouchTarget>
+                  <Button
+                    nativeButton={false}
+                    variant="outline"
+                    size="sm"
+                    render={<Link to="/workers" />}
+                  >
+                    Open workers
+                  </Button>
+                </TouchTarget>
+              </div>
+            )}
           </div>
           <SheetFooter>
-            <Button type="submit" disabled={rotate.submitting}>
-              Rotate secret
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={rotate.submitting}
-              onClick={rotate.close}
-            >
-              Cancel
-            </Button>
+            <TouchTarget>
+              <Button type="submit" disabled={rotate.submitting}>
+                Rotate secret
+              </Button>
+            </TouchTarget>
+            <TouchTarget>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={rotate.submitting}
+                onClick={rotate.close}
+              >
+                Cancel
+              </Button>
+            </TouchTarget>
           </SheetFooter>
         </form>
       </SheetContent>
