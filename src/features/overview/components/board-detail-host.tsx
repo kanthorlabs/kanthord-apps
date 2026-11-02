@@ -5,6 +5,7 @@ import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetClose, SheetContent } from "@/components/ui/sheet";
 import type { AttentionDetails, AttentionItem, ProjectSnapshot } from "@/lib/attention";
+import type { BoardGate } from "@/lib/board-items";
 import { environmentsOf, heldNodesOf } from "@/lib/board-detail-joins";
 import type { BoardTab } from "@/lib/board-tabs";
 import { positionText } from "@/lib/board-text";
@@ -17,6 +18,7 @@ import { BoardGone } from "./board-gone";
 interface BoardDetailHostProps {
   readonly widthClass: BoardWidth;
   readonly selected: AttentionItem | null;
+  readonly gate: BoardGate | null;
   readonly gone: GoneItem | null;
   readonly openId: string | null;
   readonly position: number | null;
@@ -42,6 +44,7 @@ const COMPACT_SHEET = "data-[side=right]:w-full data-[side=right]:sm:max-w-none"
 export function BoardDetailHost({
   widthClass,
   selected,
+  gate,
   gone,
   openId,
   position,
@@ -82,6 +85,7 @@ export function BoardDetailHost({
         widthClass={widthClass}
         position={position === null ? null : { index: position, total }}
         environments={environmentsOf(selected, snapshots)}
+        gate={gate}
         details={details}
         now={now}
         tabName={tab.name}

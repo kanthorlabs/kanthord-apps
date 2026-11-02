@@ -4053,6 +4053,29 @@ describe("OverviewScreen history and phone", () => {
     ).toBeVisible();
   });
 
+  it("shows the gate need in the Suggestion of a gated paused card", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [paused("n_p", "Print the slip")] },
+      pages: { "prj-1": [providerStop("e1", "n_p", "unauthorized")] },
+      executions: { n_p: [providerStop("e1", "n_p", "unauthorized")] },
+      credentials: [llmCredential("openai-main", NOW - 5 * HOUR)],
+    });
+    renderHistory(["/previous", "/"]);
+    setWidth(EXPANDED_WIDTH);
+    await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
+    await user.click(await waitFor(() => cardButton("Print the slip")));
+
+    expect(
+      await screen.findByText(
+        "Rotate openai-main in Fix setup first. A resume before that fix spends the extra try.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Resume the node. The next execution starts a new try."),
+    ).not.toBeInTheDocument();
+  });
+
   it("writes the need of a gated Resume to the status region with r", async () => {
     const user = userEvent.setup();
     serve({

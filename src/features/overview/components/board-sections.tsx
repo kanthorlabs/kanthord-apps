@@ -63,7 +63,7 @@ interface BoardSectionsProps {
   readonly now: number;
   readonly held: readonly HeldNode[];
   readonly environments: readonly EnvironmentState[] | null;
-  readonly gate?: BoardGate | null;
+  readonly gate: BoardGate | null;
   readonly titleId: string;
   readonly titleRef: Ref<HTMLHeadingElement>;
 }
@@ -383,7 +383,7 @@ export function BoardSections({
   now,
   held,
   environments,
-  gate = null,
+  gate,
   titleId,
   titleRef,
 }: BoardSectionsProps) {

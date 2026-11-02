@@ -83,6 +83,7 @@ function renderDetail(widthClass: BoardWidth) {
             widthClass={widthClass}
             position={{ index: 0, total: 2 }}
             environments={null}
+            gate={null}
             details={new Map()}
             now={10_000_000}
             tabName="Rule"

@@ -14,7 +14,7 @@ interface BoardDetailProps {
   readonly widthClass: BoardWidth;
   readonly position: BoardPosition | null;
   readonly environments: readonly EnvironmentState[] | null;
-  readonly gate?: BoardGate | null;
+  readonly gate: BoardGate | null;
   readonly details: AttentionDetails;
   readonly now: number;
   readonly tabName: string;
