@@ -67,8 +67,8 @@ export function StageColumn({ column, showAxis }: StageColumnProps) {
       </div>
       <StageException column={column} />
       <DayStrip strip={column.strip} />
-      <div className="h-4">{showAxis && <DayAxis cells={column.strip.cells} />}</div>
-      <StageBar name={column.name} bar={column.bar} />
+      <div className="h-4">{showAxis && <DayAxis axis={column.strip.axis} />}</div>
+      <StageBar label={column.barLabel} bar={column.bar} />
       <p className="min-h-5 text-xs break-words">{column.exits}</p>
       <p className="text-xs text-muted-foreground">{column.entered}</p>
     </div>

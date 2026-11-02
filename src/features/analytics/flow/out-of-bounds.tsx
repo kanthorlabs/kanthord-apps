@@ -86,19 +86,15 @@ function GroupItem({ group }: { readonly group: VerdictGroup }) {
 export function OutOfBounds({ read, filters }: OutOfBoundsProps) {
   const [open, setOpen] = useState(false);
   const { range, projectId, workerName } = filters;
-  const { rows, groups, days } = useMemo(
+  const { rows, groups, days, qualifier } = useMemo(
     () => verdictsOf(read, frameOf(read, range), { projectId, workerName }),
     [read, range, projectId, workerName],
   );
-  const ongoing = rows.filter((row) => row.state === "ongoing").length;
 
   return (
     <section className="flex flex-col gap-3">
       <h3 className="text-base font-semibold">
-        Out of bounds{" "}
-        <span className="font-normal text-muted-foreground">
-          {`${ongoing} ongoing · ${rows.length - ongoing} in range`}
-        </span>
+        Out of bounds <span className="font-normal text-muted-foreground">{qualifier}</span>
       </h3>
       {rows.length === 0 && groups.length === 0 && (
         <p className="text-sm text-muted-foreground">

@@ -58,9 +58,15 @@ export interface FlowDayCell {
   readonly target: string;
 }
 
+export interface FlowDayAxis {
+  readonly start: string;
+  readonly end: string;
+}
+
 export interface FlowDayStrip {
   readonly metric: string;
   readonly cells: readonly FlowDayCell[];
+  readonly axis: FlowDayAxis | null;
 }
 
 export interface FlowSegment {
@@ -110,6 +116,7 @@ export interface FlowColumn {
   readonly exception: FlowException | null;
   readonly strip: FlowDayStrip;
   readonly bar: readonly FlowSegment[];
+  readonly barLabel: string;
   readonly exits: string;
   readonly entered: string;
   readonly bands: FlowBands;
@@ -223,6 +230,11 @@ const SEVERITY_STATUS: Readonly<Record<FlowSeverity, string>> = {
   bad: "bad",
 };
 const SEVERITY_ORDER: readonly FlowSeverity[] = ["bad", "warn"];
+const KIND_NAME: Readonly<Record<FlowSegment["kind"], string>> = {
+  forward: "forward",
+  loops: "loops",
+  leaks: "leaks",
+};
 const UNIT_TEXT: Readonly<Record<FlowUnit, (value: number) => string>> = {
   ms: durationText,
   ratio: rateText,
@@ -340,7 +352,17 @@ function stripOf(
       target: dayTarget(part.stage, scope, spanOf(read, index, index)),
     };
   });
-  return { metric: signal.metric, cells };
+  return { metric: signal.metric, cells, axis: axisOf(cells) };
+}
+
+function axisOf(cells: readonly FlowDayCell[]): FlowDayAxis | null {
+  const first = cells[0];
+  const end = cells.at(-1);
+  if (first === undefined || end === undefined) return null;
+  return {
+    start: first.day,
+    end: `${end.day.split(" ").slice(1).join(" ")}${end.partial ? " ◔" : ""}`,
+  };
 }
 
 function segmentSeverity(entry: Evaluated | undefined): FlowSeverity {
@@ -366,6 +388,14 @@ function barOf(
     },
   ];
   return segments.filter((segment) => segment.count > 0);
+}
+
+function barLabelOf(name: string, bar: readonly FlowSegment[]): string {
+  const parts = bar.map(
+    (segment) =>
+      `${countText(segment.count)} ${KIND_NAME[segment.kind]}${segment.severity === "ok" ? "" : ` (${segment.severity})`}`,
+  );
+  return `${name} settled executions: ${parts.length === 0 ? "none" : parts.join(", ")}`;
 }
 
 function exitSummaryOf(stage: FlowStage, window: FlowStageWindow): string {
@@ -523,6 +553,7 @@ function columnOf(
 ): FlowColumn {
   const stage = stageResultOf(read, part.stage);
   const key = keyEntryOf(entries, part);
+  const bar = barOf(stage.current, entries, part);
   return {
     stage: part.stage,
     name: part.name,
@@ -530,7 +561,8 @@ function columnOf(
     headline: headlineOf(key, frame),
     exception: exceptionOf(entries, part, frame),
     strip: stripOf(read, frame, scope, part, key),
-    bar: barOf(stage.current, entries, part),
+    bar,
+    barLabel: barLabelOf(part.name, bar),
     exits: exitSummaryOf(part.stage, stage.current),
     entered: `${countText(stage.current.entered)} in`,
     bands: {

@@ -10,7 +10,7 @@ import type { FlowRead } from "@/api/types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { paretoOf, unattributedOf } from "@/lib/flow-causes";
 import { countText } from "@/lib/flow-format";
-import { FLOW_FILTER_STAGES, type FlowFilters } from "@/lib/flow-query";
+import { FLOW_STAGE_OPTIONS, type FlowFilters } from "@/lib/flow-query";
 import { frameOf } from "@/lib/flow-status";
 import { withParam } from "@/lib/trace-query";
 
@@ -25,10 +25,6 @@ interface WhySectionProps {
 
 const ALL_STAGES = "all";
 const BUDGET_CHECKBOX = "why-include-budget";
-const STAGE_OPTIONS = FLOW_FILTER_STAGES.map((stage) => {
-  const words = stage.replace("_", " ");
-  return { value: stage, label: `${words.charAt(0).toUpperCase()}${words.slice(1)}` };
-});
 
 export function WhySkeleton() {
   return (
@@ -89,7 +85,7 @@ export function WhySection({ read, filters }: WhySectionProps) {
               <FilterSelect
                 label="Stage"
                 allLabel="All"
-                options={STAGE_OPTIONS}
+                options={FLOW_STAGE_OPTIONS}
                 value={stage}
                 onChange={selectStage}
               />
@@ -104,7 +100,7 @@ export function WhySection({ read, filters }: WhySectionProps) {
                 if (value !== undefined) selectStage(value);
               }}
             >
-              {[{ value: ALL_STAGES, label: "All" }, ...STAGE_OPTIONS].map((option) => (
+              {[{ value: ALL_STAGES, label: "All" }, ...FLOW_STAGE_OPTIONS].map((option) => (
                 <TouchTarget key={option.value}>
                   <ToggleGroupItem value={option.value}>{option.label}</ToggleGroupItem>
                 </TouchTarget>

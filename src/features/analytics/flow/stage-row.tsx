@@ -38,7 +38,7 @@ export function StageRow({ column }: StageRowProps) {
       <DayStrip strip={column.strip} />
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <StageBar name={column.name} bar={column.bar} />
+          <StageBar label={column.barLabel} bar={column.bar} />
         </div>
         <p className="text-xs break-words">{column.exits}</p>
       </div>

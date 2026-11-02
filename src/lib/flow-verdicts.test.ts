@@ -218,4 +218,8 @@ describe("verdictsOf", () => {
     expect(quiet.rows).toEqual([]);
     expect(quiet.groups).toEqual([]);
   });
+
+  it("reads the qualifier with the ongoing and the range counts", () => {
+    expect(verdictsOf(FLOW_READ, FRAME, SCOPE).qualifier).toBe("4 ongoing · 2 in range");
+  });
 });

@@ -58,6 +58,7 @@ export interface Verdicts {
   readonly rows: readonly VerdictRow[];
   readonly groups: readonly VerdictGroup[];
   readonly days: string;
+  readonly qualifier: string;
 }
 
 interface Evaluated {
@@ -256,9 +257,11 @@ export function verdictsOf(read: FlowRead, frame: FlowFrame, scope: FlowScope): 
   const first = buckets[0];
   const last = buckets.at(-1);
   if (first === undefined || last === undefined) throw new RangeError("No bucket in the window");
+  const ongoing = rows.filter((row) => row.state === "ongoing").length;
   return {
     rows,
     groups: groupOrder(read, frame, scope, bucketsOf(ended)),
     days: `${dayLabel(first)} – ${dayLabel(last)}`,
+    qualifier: `${ongoing} ongoing · ${rows.length - ongoing} in range`,
   };
 }

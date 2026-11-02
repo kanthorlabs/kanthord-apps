@@ -272,7 +272,39 @@ describe("flowOf day strips", () => {
   });
 });
 
+describe("flowOf axis", () => {
+  it("reads the axis of each strip with the partial mark", () => {
+    expect(modelOf().columns[0]?.strip.axis).toEqual({ start: "Oct 24", end: "30 ◔" });
+  });
+
+  it("reads the axis end with no partial mark for a full last bucket", () => {
+    const read = { ...FLOW_READ, window: { ...FLOW_READ.window, now: FLOW_READ.window.to } };
+    expect(modelOf(read).columns[0]?.strip.axis).toEqual({ start: "Oct 24", end: "30" });
+  });
+});
+
 describe("flowOf bars", () => {
+  it("names the bar segments with their counts and severities", () => {
+    expect(columnOf("executing").barLabel).toBe(
+      "Executing settled executions: 331 forward, 9 loops, 68 leaks",
+    );
+    const reworked = withStage(FLOW_READ, "outcome", (result) => ({
+      ...result,
+      series: {
+        ...result.series,
+        signals: { ...result.series.signals, rework_rate: [0.3, 0.3, 0.3, 0.3, 0.3, 0.45, 0.2] },
+      },
+    }));
+    expect(columnOf("outcome", reworked).barLabel).toBe(
+      "Outcome settled executions: 183 forward, 74 loops (bad), 9 leaks",
+    );
+    const empty = withStage(FLOW_READ, "queued", (result) => ({
+      ...result,
+      current: { ...result.current, entered: 0 },
+    }));
+    expect(columnOf("queued", empty).barLabel).toBe("Queued settled executions: none");
+  });
+
   it("shows forward, loops and leaks of Executing in grey", () => {
     expect(columnOf("executing").bar).toEqual([
       { kind: "forward", count: 331, severity: "ok" },
