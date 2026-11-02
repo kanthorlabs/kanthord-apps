@@ -38,6 +38,16 @@ function withStage(
   };
 }
 
+function withFewRuns(read: FlowRead): FlowRead {
+  return withStage(read, "verification", (result) => ({
+    ...result,
+    series: {
+      ...result.series,
+      signals: { ...result.series.signals, affected_runs: [61, 64, 68, 55, 76, 3, 92] },
+    },
+  }));
+}
+
 function severitiesOf(stage: FlowStage, read: FlowRead = FLOW_READ): readonly string[] {
   return columnOf(stage, read).strip.cells.map((cell) => cell.severity);
 }
@@ -216,17 +226,34 @@ describe("flowOf day strips", () => {
       },
     }));
     const cell = columnOf("executing", read).strip.cells[0];
-    expect(cell?.underSettled).toBe(true);
+    expect(cell?.underMinimum).toBe("settled");
     expect(cell?.severity).toBe("ok");
     expect(cell?.label).toBe("Oct 24: leak rate —, under 5 settled");
   });
 
-  it("reads under 5 settled only for the leak keys", () => {
+  it("uses the denominator of each key signal", () => {
     const read = withStage(FLOW_READ, "verification", (result) => ({
       ...result,
       series: { ...result.series, entered: [3, ...result.series.entered.slice(1)] },
     }));
-    expect(columnOf("verification", read).strip.cells[0]?.underSettled).toBe(false);
+    expect(columnOf("verification", read).strip.cells[0]?.underMinimum).toBeNull();
+  });
+
+  it("marks a flaky cell under 5 runs", () => {
+    const cell = columnOf("verification", withFewRuns(FLOW_READ)).strip.cells[5];
+    expect(cell?.label).toBe("Oct 29: flaky runs —, under 5 runs");
+    expect(cell?.severity).toBe("ok");
+    expect(cell?.underMinimum).toBe("runs");
+  });
+
+  it("marks a rework cell under 5 settled", () => {
+    const read = withStage(FLOW_READ, "outcome", (result) => ({
+      ...result,
+      series: { ...result.series, entered: [39, 40, 42, 36, 38, 4, 35] },
+    }));
+    const cell = columnOf("outcome", read).strip.cells[5];
+    expect(cell?.label).toBe("Oct 29: rework rate —, under 5 settled");
+    expect(cell?.underMinimum).toBe("settled");
   });
 
   it("opens the target of the stage for each cell", () => {
@@ -497,6 +524,19 @@ describe("flowOf legend", () => {
       },
     }));
     expect(legendOf(read)).toContain("┄ under 5 settled");
+  });
+
+  it("shows one legend entry for both minimum nouns", () => {
+    const read = withStage(withFewRuns(FLOW_READ), "executing", (result) => ({
+      ...result,
+      series: {
+        ...result.series,
+        entered: [6, ...result.series.entered.slice(1)],
+        open: [3, 0, 0, 0, 0, 0, 4],
+      },
+    }));
+    const minimum = legendOf(read).filter((entry) => entry.startsWith("┄"));
+    expect(minimum).toEqual(["┄ under 5 settled · under 5 runs"]);
   });
 
   it("leaves out an exit that no column shows", () => {

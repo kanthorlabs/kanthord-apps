@@ -12,7 +12,7 @@ function cellOf(day: string, patch: Partial<FlowDayCell> = {}): FlowDayCell {
     day,
     severity: "ok",
     partial: false,
-    underSettled: false,
+    underMinimum: null,
     changed: false,
     label: `${day}: leak rate 10.0 %, within`,
     target: `/traces?day=${day.replace(" ", "")}`,

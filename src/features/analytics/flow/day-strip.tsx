@@ -22,7 +22,7 @@ const ARROW_STEP: Readonly<Record<string, number>> = { ArrowLeft: -1, ArrowRight
 
 function fillOf(cell: FlowDayCell): string {
   if (cell.partial) return "border border-dashed border-foreground";
-  if (cell.underSettled) return "border border-dashed border-muted-foreground";
+  if (cell.underMinimum !== null) return "border border-dashed border-muted-foreground";
   return SEVERITY_FILL[cell.severity];
 }
 
