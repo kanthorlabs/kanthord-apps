@@ -1,11 +1,16 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
-import { listAllCredentials, rotateCredential } from "@/api/resources/credentials";
-import type { Credential, Project } from "@/api/types";
+import {
+  listAllCredentials,
+  listCredentialPlatforms,
+  rotateCredential,
+} from "@/api/resources/credentials";
+import type { Credential, CredentialPlatformEntry, Project, SecretShape } from "@/api/types";
 import type { CredentialRefusedItem } from "@/lib/fix-attention";
 
 vi.mock("@/api/resources/credentials");
@@ -42,10 +47,27 @@ const ITEM: CredentialRefusedItem = {
   nodeName: "Team",
 };
 
-function copyOf(holder: string, revision: number, name = "openai-main"): Credential {
+const OAUTH_PLATFORM = "anthropic-subscription";
+
+function platformOf(platform: string, secretShape: SecretShape): CredentialPlatformEntry {
+  return {
+    platform,
+    secret_shape: secretShape,
+    login_modes: [],
+    metadata_fields: [],
+    verifiable: false,
+  };
+}
+
+function copyOf(
+  holder: string,
+  revision: number,
+  name = "openai-main",
+  platform = "openai",
+): Credential {
   return {
     name,
-    platform: "openai",
+    platform,
     holder,
     sealed_to: null,
     sealed_current: true,
@@ -63,18 +85,35 @@ const setDialogOpen = vi.fn();
 function Harness() {
   const rotate = useBoardRotate(ITEM, { reload, paused: 2, markActed, setDialogOpen });
   return (
-    <>
+    <MemoryRouter>
       <button type="button" onClick={rotate.start}>
         Open rotate
       </button>
       <p>{rotate.missing ?? "ready"}</p>
       <BoardRotateSheet rotate={rotate} />
-    </>
+    </MemoryRouter>
   );
 }
 
+function serveOAuthCopies() {
+  vi.mocked(listAllCredentials).mockResolvedValue([
+    copyOf("server", 5, "openai-main", OAUTH_PLATFORM),
+    copyOf("mac-studio", 3, "openai-main", OAUTH_PLATFORM),
+    copyOf("linux-box", 7, "openai-main", OAUTH_PLATFORM),
+  ]);
+  vi.mocked(listCredentialPlatforms).mockResolvedValue({
+    items: [platformOf("openai", "api_key"), platformOf(OAUTH_PLATFORM, "oauth")],
+  });
+}
+
+function holderLine(holder: string) {
+  const text = `${holder} keeps its own secret. Sign in again on its worker instance page.`;
+  return (_content: string, element: Element | null) =>
+    element?.tagName === "P" && element.textContent === text;
+}
+
 async function openSheet(): Promise<HTMLElement> {
-  await waitFor(() => expect(screen.queryByText("the credential read")).not.toBeInTheDocument());
+  await screen.findByText("ready");
   await userEvent.click(screen.getByRole("button", { name: "Open rotate" }));
   return screen.findByRole("dialog", { name: "Rotate openai-main" });
 }
@@ -87,6 +126,9 @@ beforeEach(() => {
     copyOf("linux-box", 7),
     copyOf("server", 9, "other-key"),
   ]);
+  vi.mocked(listCredentialPlatforms).mockResolvedValue({
+    items: [platformOf("openai", "api_key")],
+  });
 });
 
 describe("BoardRotateSheet", () => {
@@ -252,6 +294,84 @@ describe("BoardRotateSheet", () => {
     render(<Harness />);
 
     expect(await screen.findByText("a server copy of openai-main")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Open rotate" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("rotates an OAuth credential with the refresh token, the access token and the expiry", async () => {
+    serveOAuthCopies();
+    vi.mocked(rotateCredential).mockResolvedValue(
+      copyOf("server", 6, "openai-main", OAUTH_PLATFORM),
+    );
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    expect(within(sheet).queryByLabelText("API Key")).not.toBeInTheDocument();
+    await userEvent.type(within(sheet).getByLabelText("Refresh Token"), "rt-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token"), "at-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token Expiry"), "1700000000000");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+
+    await waitFor(() => expect(rotateCredential).toHaveBeenCalledTimes(1));
+    expect(rotateCredential).toHaveBeenCalledWith(
+      "llm",
+      "openai-main",
+      {
+        expected_revision: 5,
+        secret: { refresh: "rt-2", access: "at-2", expires: 1700000000000 },
+      },
+      "server",
+    );
+  });
+
+  it("rotates only the server copy of an OAuth credential", async () => {
+    serveOAuthCopies();
+    vi.mocked(rotateCredential).mockResolvedValue(
+      copyOf("server", 6, "openai-main", OAUTH_PLATFORM),
+    );
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    expect(within(sheet).queryByText("Also rotate on")).not.toBeInTheDocument();
+    await userEvent.type(within(sheet).getByLabelText("Refresh Token"), "rt-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token"), "at-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token Expiry"), "1700000000000");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(rotateCredential).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(rotateCredential).mock.calls[0]?.[3]).toBe("server");
+  });
+
+  it("tells which holders keep their secret after an OAuth rotation", async () => {
+    serveOAuthCopies();
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    expect(within(sheet).getByText(holderLine("mac-studio"))).toBeVisible();
+    expect(within(sheet).getByText(holderLine("linux-box"))).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: "Open workers" })).toHaveAttribute(
+      "href",
+      "/workers",
+    );
+    expect(within(sheet).queryByText(/seals it to the current key of each holder/)).toBeNull();
+  });
+
+  it("shows the seal sentence and no holder line for an API key credential", async () => {
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    expect(within(sheet).getByText(/seals it to the current key of each holder/)).toBeVisible();
+    expect(within(sheet).queryByText(/keeps its own secret/)).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Open workers" })).toBeNull();
+  });
+
+  it("gates Rotate until the platforms answer", async () => {
+    vi.mocked(listCredentialPlatforms).mockReturnValue(new Promise(() => undefined));
+    render(<Harness />);
+
+    expect(await screen.findByText("the platform read")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Open rotate" }));
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

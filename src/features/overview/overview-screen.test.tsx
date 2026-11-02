@@ -29,6 +29,7 @@ vi.mock("@/api/resources/workers", () => ({
 
 vi.mock("@/api/resources/credentials", () => ({
   listAllCredentials: vi.fn(),
+  listCredentialPlatforms: vi.fn(),
   verifyCredential: vi.fn(),
   rotateCredential: vi.fn(),
 }));
@@ -93,6 +94,7 @@ import {
 import { connectionBaseUrl } from "@/api/client";
 import {
   listAllCredentials,
+  listCredentialPlatforms,
   rotateCredential,
   verifyCredential,
 } from "@/api/resources/credentials";
@@ -539,6 +541,17 @@ function serve(world: World) {
     async (_projectId, bindingId) => world.agents?.[bindingId] ?? [],
   );
   vi.mocked(listAllCredentials).mockResolvedValue(world.credentials ?? []);
+  vi.mocked(listCredentialPlatforms).mockResolvedValue({
+    items: [
+      {
+        platform: "openai-compatible",
+        secret_shape: "api_key",
+        login_modes: [],
+        metadata_fields: [],
+        verifiable: true,
+      },
+    ],
+  });
   vi.mocked(listWorkbenchSessions).mockResolvedValue(world.sessions ?? []);
   vi.mocked(readWorkbenchEvents).mockResolvedValue({
     entries: [],

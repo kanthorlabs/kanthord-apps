@@ -3,12 +3,13 @@ import { toast } from "sonner";
 
 import { listAllCredentials, rotateCredential } from "@/api/resources/credentials";
 import { credentialMessage } from "@/features/credentials/credential-message";
+import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
 import { type WriteFailure, writeFailureOf } from "@/features/credentials/write-failure";
 import {
   type RotateTarget,
   rotateTargetsOf,
 } from "@/features/workers/instance/use-instance-credential-rotate";
-import type { Credential } from "@/api/types";
+import type { Credential, SecretShape } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import {
   type DraftErrors,
@@ -23,6 +24,8 @@ import type { CredentialRefusedItem } from "@/lib/fix-attention";
 export interface BoardRotate {
   readonly name: string;
   readonly missing: string | null;
+  readonly shape: SecretShape | null;
+  readonly keptHolders: readonly string[];
   readonly open: boolean;
   readonly secret: SecretDraft;
   readonly errors: DraftErrors;
@@ -82,6 +85,7 @@ export function useBoardRotate(
   const nodeId = item.nodeIds[0] ?? itemId;
   const rows = useResource(() => listAllCredentials("llm"), [name]);
   const { reload: reloadRows } = rows;
+  const platforms = useCredentialPlatforms("llm");
   const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState<SecretDraft>(EMPTY_SECRET);
   const [errors, setErrors] = useState<DraftErrors>(NO_ERRORS);
@@ -93,16 +97,22 @@ export function useBoardRotate(
 
   const copy = rows.data?.find((row) => row.name === name && row.holder === SERVER) ?? null;
   const serverRevision = copy === null ? null : (newestLiveRevision(copy)?.revision ?? null);
-  const others = useMemo(
+  const entry =
+    platforms.data?.items.find((platform) => platform.platform === copy?.platform) ?? null;
+  const oauth = entry?.secret_shape === "oauth";
+  const holders = useMemo(
     () => (rows.data === null ? [] : rotateTargetsOf(rows.data, name, SERVER)),
     [rows.data, name],
   );
+  const others = useMemo(() => (oauth ? [] : holders), [oauth, holders]);
   const missing =
     rows.data === null
       ? "the credential read"
       : serverRevision === null
         ? `a server copy of ${name}`
-        : null;
+        : entry === null
+          ? "the platform read"
+          : null;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -152,8 +162,8 @@ export function useBoardRotate(
   );
 
   const submit = useCallback(() => {
-    if (submitting || serverRevision === null) return;
-    const parsed = secretOfDraft("api_key", secret);
+    if (submitting || serverRevision === null || entry === null) return;
+    const parsed = secretOfDraft(entry.secret_shape, secret);
     if (!parsed.ok) {
       setErrors(parsed.errors);
       return;
@@ -199,11 +209,13 @@ export function useBoardRotate(
         ),
       );
     });
-  }, [submitting, serverRevision, secret, others, checked, name, paused, leave]);
+  }, [submitting, serverRevision, entry, secret, others, checked, name, paused, leave]);
 
   return {
     name,
     missing,
+    shape: entry?.secret_shape ?? null,
+    keptHolders: oauth ? holders.map((target) => target.holder) : NO_HOLDERS,
     open,
     secret,
     errors,
