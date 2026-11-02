@@ -48,6 +48,20 @@ function withFewRuns(read: FlowRead): FlowRead {
   }));
 }
 
+function withFiveAtBucket5(read: FlowRead): FlowRead {
+  const executing = withStage(read, "executing", (result) => ({
+    ...result,
+    series: { ...result.series, entered: [55, 58, 60, 79, 54, 5, 54] },
+  }));
+  return withStage(executing, "verification", (result) => ({
+    ...result,
+    series: {
+      ...result.series,
+      signals: { ...result.series.signals, affected_runs: [61, 64, 68, 55, 76, 5, 92] },
+    },
+  }));
+}
+
 function severitiesOf(stage: FlowStage, read: FlowRead = FLOW_READ): readonly string[] {
   return columnOf(stage, read).strip.cells.map((cell) => cell.severity);
 }
@@ -237,6 +251,12 @@ describe("flowOf day strips", () => {
       series: { ...result.series, entered: [3, ...result.series.entered.slice(1)] },
     }));
     expect(columnOf("verification", read).strip.cells[0]?.underMinimum).toBeNull();
+  });
+
+  it("marks no cell at exactly 5 settled or 5 runs", () => {
+    const read = withFiveAtBucket5(FLOW_READ);
+    expect(columnOf("executing", read).strip.cells[5]?.underMinimum).toBeNull();
+    expect(columnOf("verification", read).strip.cells[5]?.underMinimum).toBeNull();
   });
 
   it("marks a flaky cell under 5 runs", () => {

@@ -41,6 +41,20 @@ function stageOf(stage: FlowStage): FlowStageResult {
   return result;
 }
 
+function withFiveAtBucket5(read: FlowRead): FlowRead {
+  const executing = withStage(read, "executing", (result) => ({
+    ...result,
+    series: { ...result.series, entered: [55, 58, 60, 79, 54, 5, 54] },
+  }));
+  return withStage(executing, "verification", (result) => ({
+    ...result,
+    series: {
+      ...result.series,
+      signals: { ...result.series.signals, affected_runs: [61, 64, 68, 55, 76, 5, 92] },
+    },
+  }));
+}
+
 function ratios(numerators: readonly (number | null)[], denominators: readonly (number | null)[]) {
   return numerators.map((numerator, index) => (numerator ?? 0) / (denominators[index] ?? 1));
 }
@@ -283,6 +297,12 @@ describe("stageSignalsOf", () => {
     expect(signalOf("verification.flaky", read).series?.[4]).toBe(0.184);
     expect(signalOf("release_gate.leak", read).series?.[4]).toBe(0.029);
     expect(signalOf("outcome.rework", read).series?.[4]).toBe(0.263);
+  });
+
+  it("keeps the stored bucket value at exactly MIN_SETTLED", () => {
+    const read = withFiveAtBucket5(FLOW_READ);
+    expect(signalOf("executing.leak", read).series?.[5]).toBe(0.115);
+    expect(signalOf("verification.flaky", read).series?.[5]).toBe(0.22);
   });
 
   it("sets no ongoing status from a last full bucket below MIN_SETTLED", () => {
