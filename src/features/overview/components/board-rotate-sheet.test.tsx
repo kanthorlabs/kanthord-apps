@@ -89,6 +89,9 @@ function Harness() {
       <button type="button" onClick={rotate.start}>
         Open rotate
       </button>
+      <button type="button" onClick={() => rotate.choose(["mac-studio (v3)", "linux-box (v7)"])}>
+        Choose every holder
+      </button>
       <p>{rotate.missing ?? "ready"}</p>
       <BoardRotateSheet rotate={rotate} />
     </MemoryRouter>
@@ -415,5 +418,51 @@ describe("BoardRotateSheet", () => {
     await openSheet();
 
     expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+  });
+
+  it("rotates only the server copy of an OAuth credential after a choice of other holders", async () => {
+    serveOAuthCopies();
+    vi.mocked(rotateCredential).mockResolvedValue(
+      copyOf("server", 6, "openai-main", OAUTH_PLATFORM),
+    );
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Choose every holder", hidden: true }),
+    );
+    await userEvent.type(within(sheet).getByLabelText("Refresh Token"), "rt-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token"), "at-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token Expiry"), "1700000000000");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(rotateCredential).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(rotateCredential).mock.calls[0]?.[3]).toBe("server");
+  });
+
+  it("shows no holder line for an OAuth credential with only the server copy", async () => {
+    serveOAuthCopies();
+    vi.mocked(listAllCredentials).mockResolvedValue([
+      copyOf("server", 5, "openai-main", OAUTH_PLATFORM),
+    ]);
+    vi.mocked(rotateCredential).mockResolvedValue(
+      copyOf("server", 6, "openai-main", OAUTH_PLATFORM),
+    );
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    expect(within(sheet).queryByText(/keeps its own secret/)).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Open workers" })).toBeNull();
+    expect(within(sheet).queryByText("Also rotate on")).toBeNull();
+    expect(within(sheet).queryByText(/seals it to the current key of each holder/)).toBeNull();
+    await userEvent.type(within(sheet).getByLabelText("Refresh Token"), "rt-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token"), "at-2");
+    await userEvent.type(within(sheet).getByLabelText("Access Token Expiry"), "1700000000000");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalled());
+    expect(rotateCredential).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(rotateCredential).mock.calls[0]?.[3]).toBe("server");
   });
 });
