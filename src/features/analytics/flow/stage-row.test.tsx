@@ -14,12 +14,12 @@ const FLOW_READ = flowRead as unknown as FlowRead;
 const MODEL = flowOf(FLOW_READ, frameOf(FLOW_READ, "7d"), { projectId: null, workerName: null });
 const OUTCOME = MODEL.columns[5];
 
-function renderRow() {
+function renderRow(showAxis = false) {
   if (OUTCOME === undefined) throw new Error("No outcome column");
   return render(
     <MemoryRouter>
       <ol>
-        <StageRow column={OUTCOME} />
+        <StageRow column={OUTCOME} showAxis={showAxis} />
       </ol>
     </MemoryRouter>,
   );
@@ -35,6 +35,16 @@ describe("StageRow", () => {
     expect(screen.getByRole("grid", { name: "rework rate" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^Outcome settled executions/ })).toBeInTheDocument();
     expect(screen.getByText("✓ 183 ↺ 74 ↓ 9")).toBeInTheDocument();
+  });
+
+  it("shows the axis only when asked", () => {
+    const { unmount } = renderRow(true);
+    expect(screen.getByText("Oct 24")).toBeInTheDocument();
+    expect(screen.getByText("30 ◔")).toBeInTheDocument();
+    unmount();
+
+    renderRow();
+    expect(screen.queryByText("Oct 24")).toBeNull();
   });
 
   it("opens and closes the bands with the button", async () => {

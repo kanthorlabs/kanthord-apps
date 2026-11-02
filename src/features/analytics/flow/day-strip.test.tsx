@@ -12,7 +12,7 @@ function cellOf(day: string, patch: Partial<FlowDayCell> = {}): FlowDayCell {
     day,
     severity: "ok",
     partial: false,
-    underSettled: false,
+    underMinimum: null,
     changed: false,
     label: `${day}: leak rate 10.0 %, within`,
     target: `/traces?day=${day.replace(" ", "")}`,
@@ -27,6 +27,7 @@ const STRIP: FlowDayStrip = {
     cellOf("Oct 29", { changed: true }),
     cellOf("Oct 30", { partial: true }),
   ],
+  axis: { start: "Oct 28", end: "30 ◔" },
 };
 
 describe("DayStrip", () => {
@@ -81,21 +82,15 @@ describe("DayStrip", () => {
 });
 
 describe("DayAxis", () => {
-  it("shows the first day and the last day number with the partial mark", () => {
-    render(<DayAxis cells={STRIP.cells} />);
+  it("shows the start and the end of the axis", () => {
+    render(<DayAxis axis={{ start: "Oct 28", end: "30 ◔" }} />);
 
     expect(screen.getByText("Oct 28")).toBeInTheDocument();
     expect(screen.getByText("30 ◔")).toBeInTheDocument();
   });
 
-  it("shows no partial mark for a full last bucket", () => {
-    render(<DayAxis cells={[cellOf("Oct 28"), cellOf("Oct 29")]} />);
-
-    expect(screen.getByText("29")).toBeInTheDocument();
-  });
-
-  it("shows nothing without a cell", () => {
-    const { container } = render(<DayAxis cells={[]} />);
+  it("shows nothing without an axis", () => {
+    const { container } = render(<DayAxis axis={null} />);
 
     expect(container).toBeEmptyDOMElement();
   });

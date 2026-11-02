@@ -11,6 +11,11 @@ export const FLOW_FILTER_STAGES = [
   "outcome",
 ] as const satisfies readonly FlowStage[];
 
+export const FLOW_STAGE_OPTIONS = FLOW_FILTER_STAGES.map((stage) => {
+  const words = stage.replace("_", " ");
+  return { value: stage, label: `${words.charAt(0).toUpperCase()}${words.slice(1)}` };
+});
+
 export type FlowTab = (typeof FLOW_TABS)[number];
 export type FlowRange = (typeof FLOW_RANGES)[number];
 export type FlowSplit = (typeof FLOW_SPLITS)[number];

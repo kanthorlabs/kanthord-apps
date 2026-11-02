@@ -1,3 +1,4 @@
+import { sparklineNameOf } from "@/lib/flow-chart-names";
 import type { FlowSeverity } from "@/lib/flow-status";
 
 type Values = readonly (number | null)[];
@@ -120,17 +121,6 @@ function Line({ values, partial, y, stroke, endLabel }: LineProps) {
   );
 }
 
-function nameOf(
-  label: string,
-  numbers: readonly number[],
-  bounds: readonly (readonly [string, number])[],
-  format: (value: number) => string,
-): string {
-  if (numbers.length === 0) return `Daily ${label} has no values`;
-  const range = `Daily ${label} from ${format(Math.min(...numbers))} to ${format(Math.max(...numbers))}`;
-  return [range, ...bounds.map(([name, value]) => `${name} line ${format(value)}`)].join(", ");
-}
-
 export function Sparkline({
   values,
   partial,
@@ -153,7 +143,7 @@ export function Sparkline({
   return (
     <svg
       role="img"
-      aria-label={nameOf(label, numbers, bounds, format)}
+      aria-label={sparklineNameOf(label, numbers, bounds, format)}
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       className="h-8 w-40 max-w-full"
     >

@@ -13,8 +13,10 @@ import {
 import type { FlowScope } from "./flow-query";
 import {
   exitCountOf,
+  type FlowMinimumNoun,
   leakedOf,
   loopsOf,
+  minimumRuleOf,
   settledOf,
   stageResultOf,
   stageSignalsOf,
@@ -50,15 +52,21 @@ export interface FlowDayCell {
   readonly day: string;
   readonly severity: FlowSeverity;
   readonly partial: boolean;
-  readonly underSettled: boolean;
+  readonly underMinimum: FlowMinimumNoun | null;
   readonly changed: boolean;
   readonly label: string;
   readonly target: string;
 }
 
+export interface FlowDayAxis {
+  readonly start: string;
+  readonly end: string;
+}
+
 export interface FlowDayStrip {
   readonly metric: string;
   readonly cells: readonly FlowDayCell[];
+  readonly axis: FlowDayAxis | null;
 }
 
 export interface FlowSegment {
@@ -108,6 +116,7 @@ export interface FlowColumn {
   readonly exception: FlowException | null;
   readonly strip: FlowDayStrip;
   readonly bar: readonly FlowSegment[];
+  readonly barLabel: string;
   readonly exits: string;
   readonly entered: string;
   readonly bands: FlowBands;
@@ -212,7 +221,7 @@ const EXIT_LINES = [
 const NO_VALUE = "—";
 const PARTIAL_STATUS = "today, partial";
 const LATE_RECORDS = "changed by late records";
-const LEAK_KEYS = new Set(["executing.leak", "release_gate.leak"]);
+const MINIMUM_NOUNS: readonly FlowMinimumNoun[] = ["settled", "runs"];
 const UNOBSERVED_STAGES = new Set<FlowStage>(["verification", "release_gate"]);
 const SEVERITY_GLYPH: Readonly<Record<FlowSeverity, string>> = { ok: "▢", warn: "◐", bad: "■" };
 const SEVERITY_STATUS: Readonly<Record<FlowSeverity, string>> = {
@@ -221,6 +230,11 @@ const SEVERITY_STATUS: Readonly<Record<FlowSeverity, string>> = {
   bad: "bad",
 };
 const SEVERITY_ORDER: readonly FlowSeverity[] = ["bad", "warn"];
+const KIND_NAME: Readonly<Record<FlowSegment["kind"], string>> = {
+  forward: "forward",
+  loops: "loops",
+  leaks: "leaks",
+};
 const UNIT_TEXT: Readonly<Record<FlowUnit, (value: number) => string>> = {
   ms: durationText,
   ratio: rateText,
@@ -294,9 +308,17 @@ function exceptionOf(
   };
 }
 
-function statusOf(partial: boolean, underSettled: boolean, severity: FlowSeverity): string {
+function minimumText(noun: FlowMinimumNoun): string {
+  return `under ${MIN_SETTLED} ${noun}`;
+}
+
+function statusOf(
+  partial: boolean,
+  underMinimum: FlowMinimumNoun | null,
+  severity: FlowSeverity,
+): string {
   if (partial) return PARTIAL_STATUS;
-  if (underSettled) return `under ${MIN_SETTLED} settled`;
+  if (underMinimum !== null) return minimumText(underMinimum);
   return SEVERITY_STATUS[severity];
 }
 
@@ -308,26 +330,39 @@ function stripOf(
   { signal }: Evaluated,
 ): FlowDayStrip {
   const { series } = stageResultOf(read, part.stage);
+  const rule = minimumRuleOf(signal.id);
+  const denominators = rule?.denominator(series);
   const cells = read.window.buckets.map((_, index): FlowDayCell => {
     const partial = index > frame.lastFull;
     const value = signal.series?.[index] ?? null;
-    const settled = (series.entered[index] ?? 0) - (series.open[index] ?? 0);
-    const underSettled = !partial && LEAK_KEYS.has(signal.id) && settled < MIN_SETTLED;
-    const severity = partial || underSettled ? "ok" : severityOf(value, signal.bounds);
+    const denominator = denominators?.[index] ?? null;
+    const under = !partial && rule !== null && denominator !== null && denominator < MIN_SETTLED;
+    const underMinimum = under ? rule.noun : null;
+    const severity = partial || underMinimum !== null ? "ok" : severityOf(value, signal.bounds);
     const changed = series.changed_after_end[index] === true;
     const day = frame.labels[index] ?? "";
-    const status = statusOf(partial, underSettled, severity);
+    const status = statusOf(partial, underMinimum, severity);
     return {
       day,
       severity,
       partial,
-      underSettled,
+      underMinimum,
       changed,
       label: `${day}: ${signal.metric} ${valueText(signal.unit, value)}, ${status}${changed ? `, ${LATE_RECORDS}` : ""}`,
       target: dayTarget(part.stage, scope, spanOf(read, index, index)),
     };
   });
-  return { metric: signal.metric, cells };
+  return { metric: signal.metric, cells, axis: axisOf(cells) };
+}
+
+function axisOf(cells: readonly FlowDayCell[]): FlowDayAxis | null {
+  const first = cells[0];
+  const end = cells.at(-1);
+  if (first === undefined || end === undefined) return null;
+  return {
+    start: first.day,
+    end: `${end.day.split(" ").slice(1).join(" ")}${end.partial ? " ◔" : ""}`,
+  };
 }
 
 function segmentSeverity(entry: Evaluated | undefined): FlowSeverity {
@@ -353,6 +388,14 @@ function barOf(
     },
   ];
   return segments.filter((segment) => segment.count > 0);
+}
+
+function barLabelOf(name: string, bar: readonly FlowSegment[]): string {
+  const parts = bar.map(
+    (segment) =>
+      `${countText(segment.count)} ${KIND_NAME[segment.kind]}${segment.severity === "ok" ? "" : ` (${segment.severity})`}`,
+  );
+  return `${name} settled executions: ${parts.length === 0 ? "none" : parts.join(", ")}`;
 }
 
 function exitSummaryOf(stage: FlowStage, window: FlowStageWindow): string {
@@ -510,6 +553,7 @@ function columnOf(
 ): FlowColumn {
   const stage = stageResultOf(read, part.stage);
   const key = keyEntryOf(entries, part);
+  const bar = barOf(stage.current, entries, part);
   return {
     stage: part.stage,
     name: part.name,
@@ -517,7 +561,8 @@ function columnOf(
     headline: headlineOf(key, frame),
     exception: exceptionOf(entries, part, frame),
     strip: stripOf(read, frame, scope, part, key),
-    bar: barOf(stage.current, entries, part),
+    bar,
+    barLabel: barLabelOf(part.name, bar),
     exits: exitSummaryOf(part.stage, stage.current),
     entered: `${countText(stage.current.entered)} in`,
     bands: {
@@ -537,19 +582,19 @@ function loopLineOf(read: FlowRead): string | null {
 function legendOf(columns: readonly FlowColumn[]): readonly FlowLegendEntry[] {
   const cells = columns.flatMap((column) => column.strip.cells);
   const severities = new Set<FlowSeverity>([
-    ...cells.filter((cell) => !cell.partial && !cell.underSettled).map((cell) => cell.severity),
+    ...cells
+      .filter((cell) => !cell.partial && cell.underMinimum === null)
+      .map((cell) => cell.severity),
     ...columns.map((column) => column.icon).filter((icon) => icon !== "ok"),
     ...columns.flatMap((column) => (column.exception === null ? [] : [column.exception.severity])),
   ]);
   const shows = (glyph: string) => columns.some((column) => column.exits.includes(glyph));
+  const nouns = MINIMUM_NOUNS.filter((noun) => cells.some((cell) => cell.underMinimum === noun));
   const entries: readonly (readonly [boolean, FlowLegendEntry])[] = [
     [severities.has("ok"), { glyph: SEVERITY_GLYPH.ok, label: SEVERITY_STATUS.ok }],
     [severities.has("warn"), { glyph: SEVERITY_GLYPH.warn, label: SEVERITY_STATUS.warn }],
     [severities.has("bad"), { glyph: SEVERITY_GLYPH.bad, label: SEVERITY_STATUS.bad }],
-    [
-      cells.some((cell) => cell.underSettled),
-      { glyph: "┄", label: `under ${MIN_SETTLED} settled` },
-    ],
+    [nouns.length > 0, { glyph: "┄", label: nouns.map(minimumText).join(" · ") }],
     [cells.some((cell) => cell.partial), { glyph: "◔", label: PARTIAL_STATUS }],
     [shows("↓"), { glyph: "↓", label: "leak" }],
     [shows("↺"), { glyph: "↺", label: "loop" }],

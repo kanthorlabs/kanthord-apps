@@ -38,6 +38,30 @@ function withStage(
   };
 }
 
+function withFewRuns(read: FlowRead): FlowRead {
+  return withStage(read, "verification", (result) => ({
+    ...result,
+    series: {
+      ...result.series,
+      signals: { ...result.series.signals, affected_runs: [61, 64, 68, 55, 76, 3, 92] },
+    },
+  }));
+}
+
+function withFiveAtBucket5(read: FlowRead): FlowRead {
+  const executing = withStage(read, "executing", (result) => ({
+    ...result,
+    series: { ...result.series, entered: [55, 58, 60, 79, 54, 5, 54] },
+  }));
+  return withStage(executing, "verification", (result) => ({
+    ...result,
+    series: {
+      ...result.series,
+      signals: { ...result.series.signals, affected_runs: [61, 64, 68, 55, 76, 5, 92] },
+    },
+  }));
+}
+
 function severitiesOf(stage: FlowStage, read: FlowRead = FLOW_READ): readonly string[] {
   return columnOf(stage, read).strip.cells.map((cell) => cell.severity);
 }
@@ -216,17 +240,40 @@ describe("flowOf day strips", () => {
       },
     }));
     const cell = columnOf("executing", read).strip.cells[0];
-    expect(cell?.underSettled).toBe(true);
+    expect(cell?.underMinimum).toBe("settled");
     expect(cell?.severity).toBe("ok");
-    expect(cell?.label).toBe("Oct 24: leak rate 9.1 %, under 5 settled");
+    expect(cell?.label).toBe("Oct 24: leak rate —, under 5 settled");
   });
 
-  it("reads under 5 settled only for the leak keys", () => {
+  it("uses the denominator of each key signal", () => {
     const read = withStage(FLOW_READ, "verification", (result) => ({
       ...result,
       series: { ...result.series, entered: [3, ...result.series.entered.slice(1)] },
     }));
-    expect(columnOf("verification", read).strip.cells[0]?.underSettled).toBe(false);
+    expect(columnOf("verification", read).strip.cells[0]?.underMinimum).toBeNull();
+  });
+
+  it("marks no cell at exactly 5 settled or 5 runs", () => {
+    const read = withFiveAtBucket5(FLOW_READ);
+    expect(columnOf("executing", read).strip.cells[5]?.underMinimum).toBeNull();
+    expect(columnOf("verification", read).strip.cells[5]?.underMinimum).toBeNull();
+  });
+
+  it("marks a flaky cell under 5 runs", () => {
+    const cell = columnOf("verification", withFewRuns(FLOW_READ)).strip.cells[5];
+    expect(cell?.label).toBe("Oct 29: flaky runs —, under 5 runs");
+    expect(cell?.severity).toBe("ok");
+    expect(cell?.underMinimum).toBe("runs");
+  });
+
+  it("marks a rework cell under 5 settled", () => {
+    const read = withStage(FLOW_READ, "outcome", (result) => ({
+      ...result,
+      series: { ...result.series, entered: [39, 40, 42, 36, 38, 4, 35] },
+    }));
+    const cell = columnOf("outcome", read).strip.cells[5];
+    expect(cell?.label).toBe("Oct 29: rework rate —, under 5 settled");
+    expect(cell?.underMinimum).toBe("settled");
   });
 
   it("opens the target of the stage for each cell", () => {
@@ -245,7 +292,39 @@ describe("flowOf day strips", () => {
   });
 });
 
+describe("flowOf axis", () => {
+  it("reads the axis of each strip with the partial mark", () => {
+    expect(modelOf().columns[0]?.strip.axis).toEqual({ start: "Oct 24", end: "30 ◔" });
+  });
+
+  it("reads the axis end with no partial mark for a full last bucket", () => {
+    const read = { ...FLOW_READ, window: { ...FLOW_READ.window, now: FLOW_READ.window.to } };
+    expect(modelOf(read).columns[0]?.strip.axis).toEqual({ start: "Oct 24", end: "30" });
+  });
+});
+
 describe("flowOf bars", () => {
+  it("names the bar segments with their counts and severities", () => {
+    expect(columnOf("executing").barLabel).toBe(
+      "Executing settled executions: 331 forward, 9 loops, 68 leaks",
+    );
+    const reworked = withStage(FLOW_READ, "outcome", (result) => ({
+      ...result,
+      series: {
+        ...result.series,
+        signals: { ...result.series.signals, rework_rate: [0.3, 0.3, 0.3, 0.3, 0.3, 0.45, 0.2] },
+      },
+    }));
+    expect(columnOf("outcome", reworked).barLabel).toBe(
+      "Outcome settled executions: 183 forward, 74 loops (bad), 9 leaks",
+    );
+    const empty = withStage(FLOW_READ, "queued", (result) => ({
+      ...result,
+      current: { ...result.current, entered: 0 },
+    }));
+    expect(columnOf("queued", empty).barLabel).toBe("Queued settled executions: none");
+  });
+
   it("shows forward, loops and leaks of Executing in grey", () => {
     expect(columnOf("executing").bar).toEqual([
       { kind: "forward", count: 331, severity: "ok" },
@@ -497,6 +576,19 @@ describe("flowOf legend", () => {
       },
     }));
     expect(legendOf(read)).toContain("┄ under 5 settled");
+  });
+
+  it("shows one legend entry for both minimum nouns", () => {
+    const read = withStage(withFewRuns(FLOW_READ), "executing", (result) => ({
+      ...result,
+      series: {
+        ...result.series,
+        entered: [6, ...result.series.entered.slice(1)],
+        open: [3, 0, 0, 0, 0, 0, 4],
+      },
+    }));
+    const minimum = legendOf(read).filter((entry) => entry.startsWith("┄"));
+    expect(minimum).toEqual(["┄ under 5 settled · under 5 runs"]);
   });
 
   it("leaves out an exit that no column shows", () => {

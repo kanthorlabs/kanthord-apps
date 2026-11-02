@@ -65,7 +65,7 @@ function NarrowRows({ model }: Pick<ColumnsProps, "model">) {
     <div className="flex flex-col gap-3">
       <ol className="flex flex-col">
         {model.columns.map((column) => (
-          <StageRow key={column.stage} column={column} />
+          <StageRow key={column.stage} column={column} showAxis={column.stage === "queued"} />
         ))}
       </ol>
       {model.loops !== null && <p className="text-xs text-muted-foreground">{model.loops}</p>}

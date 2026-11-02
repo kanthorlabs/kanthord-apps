@@ -103,6 +103,41 @@ const storedSeries =
   (key: string) =>
   (series: FlowStageSeries): Series | null =>
     series.signals[key] ?? null;
+
+export type FlowMinimumNoun = "settled" | "runs";
+
+export interface FlowMinimumRule {
+  readonly denominator: (series: FlowStageSeries) => Series | undefined;
+  readonly noun: FlowMinimumNoun;
+}
+
+const SETTLED_MINIMUM: FlowMinimumRule = { denominator: settledSeriesOf, noun: "settled" };
+const RUNS_MINIMUM: FlowMinimumRule = {
+  denominator: (series) => series.signals.affected_runs,
+  noun: "runs",
+};
+const MINIMUM_RULES: ReadonlyMap<string, FlowMinimumRule> = new Map([
+  ["executing.leak", SETTLED_MINIMUM],
+  ["verification.flaky", RUNS_MINIMUM],
+  ["release_gate.leak", SETTLED_MINIMUM],
+  ["outcome.rework", SETTLED_MINIMUM],
+]);
+
+export function minimumRuleOf(id: string): FlowMinimumRule | null {
+  return MINIMUM_RULES.get(id) ?? null;
+}
+
+const minimumSeries =
+  (key: string, rule: FlowMinimumRule) =>
+  (series: FlowStageSeries): Series | null => {
+    const values = series.signals[key];
+    const denominators = rule.denominator(series);
+    if (values === undefined || denominators === undefined) return null;
+    return values.map((value, index) => {
+      const denominator = denominators[index] ?? null;
+      return value === null || denominator === null || denominator < MIN_SETTLED ? null : value;
+    });
+  };
 const noSeries = (): null => null;
 const leakShareOf = (window: FlowStageWindow): number | null =>
   ratio(leakedOf(window), settledOf(window));
@@ -176,7 +211,7 @@ const SPECS: readonly SignalSpec[] = [
     label: "leak rate",
     short: "Executing leak",
     value: leakShareOf,
-    series: storedSeries("leak_rate"),
+    series: minimumSeries("leak_rate", SETTLED_MINIMUM),
     slice: overRepresented(byLeaked),
     causeExits: LEAK_EXITS,
   },
@@ -207,7 +242,7 @@ const SPECS: readonly SignalSpec[] = [
     short: "Verification flaky runs",
     value: (window) =>
       signalRatio(window, "affected_flaky_runs", "affected_runs", "flaky_run_share"),
-    series: storedSeries("flaky_run_share"),
+    series: minimumSeries("flaky_run_share", RUNS_MINIMUM),
     slice: overRepresented(bySignal("affected_flaky_runs")),
     causeExits: ["budget"],
   },
@@ -260,7 +295,7 @@ const SPECS: readonly SignalSpec[] = [
     label: "leak rate",
     short: "Release gate leak",
     value: leakShareOf,
-    series: storedSeries("leak_rate"),
+    series: minimumSeries("leak_rate", SETTLED_MINIMUM),
     slice: overRepresented(byLeaked),
   },
   {
@@ -309,7 +344,7 @@ const SPECS: readonly SignalSpec[] = [
     label: "rework",
     short: "Outcome rework",
     value: (window) => ratio(exitCountOf(window, ["rework"]), settledOf(window)),
-    series: storedSeries("rework_rate"),
+    series: minimumSeries("rework_rate", SETTLED_MINIMUM),
     slice: overRepresented(byLoops),
     causeExits: ["rework"],
   },

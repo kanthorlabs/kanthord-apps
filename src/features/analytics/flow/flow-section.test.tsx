@@ -210,6 +210,23 @@ describe("FlowSection on a narrow screen", () => {
     expect(screen.getByText("↺ 100 loops re-enter Queued")).toBeInTheDocument();
   });
 
+  it("shows the day axis under the Queued strip only", async () => {
+    stubWidth(390);
+    renderSection();
+    await screen.findAllByRole("button", { name: / details$/ });
+
+    const axisStart = screen.getByText("Oct 24");
+    const axisEnd = screen.getByText("30 ◔");
+    const queued = screen.getByRole("grid", { name: "wait p90" });
+    const [executing] = screen.getAllByRole("grid", { name: "leak rate" });
+    expect(screen.getAllByText("Oct 24")).toHaveLength(1);
+    expect(screen.getAllByText("30 ◔")).toHaveLength(1);
+    expect(queued.compareDocumentPosition(axisStart)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(axisEnd.compareDocumentPosition(executing as HTMLElement)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
   it("opens only the bands of the row that its button names", async () => {
     stubWidth(390);
     const user = userEvent.setup();

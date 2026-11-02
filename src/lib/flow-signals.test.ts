@@ -4,7 +4,7 @@ import type { FlowCauseRow, FlowRead, FlowStage, FlowStageResult } from "@/api/t
 
 import flowRead from "../../test/flow-read.json";
 import { stageSignalsOf } from "./flow-signals";
-import { type FlowSignal, frameOf } from "./flow-status";
+import { evaluate, type FlowSignal, frameOf } from "./flow-status";
 
 const FLOW_READ = flowRead as unknown as FlowRead;
 const FRAME = frameOf(FLOW_READ, "7d");
@@ -39,6 +39,20 @@ function stageOf(stage: FlowStage): FlowStageResult {
   const result = FLOW_READ.stages.find((candidate) => candidate.stage === stage);
   if (result === undefined) throw new Error(`No stage ${stage}`);
   return result;
+}
+
+function withFiveAtBucket5(read: FlowRead): FlowRead {
+  const executing = withStage(read, "executing", (result) => ({
+    ...result,
+    series: { ...result.series, entered: [55, 58, 60, 79, 54, 5, 54] },
+  }));
+  return withStage(executing, "verification", (result) => ({
+    ...result,
+    series: {
+      ...result.series,
+      signals: { ...result.series.signals, affected_runs: [61, 64, 68, 55, 76, 5, 92] },
+    },
+  }));
 }
 
 function ratios(numerators: readonly (number | null)[], denominators: readonly (number | null)[]) {
@@ -240,6 +254,71 @@ describe("stageSignalsOf", () => {
     expect(signalOf("verification.fail", read).series?.[0]).toBeNull();
     expect(signalOf("verification.base_red", read).series?.[0]).toBeNull();
     expect(signalOf("verification.fail", read).series?.[1]).toBeCloseTo(16 / 64, 10);
+  });
+
+  it("gives a null bucket value of a stored ratio series below MIN_SETTLED", () => {
+    const fewSettled = (key: string) => (result: FlowStageResult) => ({
+      ...result,
+      series: {
+        ...result.series,
+        entered: result.series.entered.map((entered, index) => (index === 5 ? 4 : entered)),
+        open: result.series.open.map((open, index) => (index === 5 ? 0 : open)),
+        signals: {
+          ...result.series.signals,
+          [key]: (result.series.signals[key] ?? []).map((value, index) =>
+            index === 5 ? 0.5 : value,
+          ),
+        },
+      },
+    });
+    let read = withStage(FLOW_READ, "executing", fewSettled("leak_rate"));
+    read = withStage(read, "release_gate", fewSettled("leak_rate"));
+    read = withStage(read, "outcome", fewSettled("rework_rate"));
+    read = withStage(read, "verification", (result) => ({
+      ...result,
+      series: {
+        ...result.series,
+        signals: {
+          ...result.series.signals,
+          affected_runs: [61, 64, 68, 55, 76, 3, 92],
+          flaky_run_share: [0.049, 0.031, 0.044, 0.036, 0.184, 0.6, 0.207],
+        },
+      },
+    }));
+    for (const id of [
+      "executing.leak",
+      "verification.flaky",
+      "release_gate.leak",
+      "outcome.rework",
+    ]) {
+      expect(signalOf(id, read).series?.[5]).toBeNull();
+    }
+    expect(signalOf("executing.leak", read).series?.[4]).toBe(0.111);
+    expect(signalOf("verification.flaky", read).series?.[4]).toBe(0.184);
+    expect(signalOf("release_gate.leak", read).series?.[4]).toBe(0.029);
+    expect(signalOf("outcome.rework", read).series?.[4]).toBe(0.263);
+  });
+
+  it("keeps the stored bucket value at exactly MIN_SETTLED", () => {
+    const read = withFiveAtBucket5(FLOW_READ);
+    expect(signalOf("executing.leak", read).series?.[5]).toBe(0.115);
+    expect(signalOf("verification.flaky", read).series?.[5]).toBe(0.22);
+  });
+
+  it("sets no ongoing status from a last full bucket below MIN_SETTLED", () => {
+    const read = withStage(FLOW_READ, "executing", (result) => ({
+      ...result,
+      series: {
+        ...result.series,
+        entered: [55, 58, 60, 79, 54, 3, 54],
+        open: [0, 0, 0, 0, 0, 0, 4],
+        signals: {
+          ...result.series.signals,
+          leak_rate: [0.091, 0.121, 0.083, 0.43, 0.111, 0.67, 0.1],
+        },
+      },
+    }));
+    expect(evaluate(signalOf("executing.leak", read), FRAME).state).not.toBe("ongoing");
   });
 
   it("keeps the null of a ratio series of the read", () => {

@@ -5,15 +5,16 @@ import { Button } from "@/components/ui/button";
 import type { FlowColumn } from "@/lib/flow-stages";
 
 import { StageBands } from "./flow-bands";
-import { DayStrip } from "./day-strip";
+import { DayAxis, DayStrip } from "./day-strip";
 import { StageBar } from "./stage-bar";
 import { StageException, StageHeadline, StageIcon } from "./stage-column";
 
 interface StageRowProps {
   readonly column: FlowColumn;
+  readonly showAxis: boolean;
 }
 
-export function StageRow({ column }: StageRowProps) {
+export function StageRow({ column, showAxis }: StageRowProps) {
   const [open, setOpen] = useState(false);
   return (
     <li className="flex flex-col gap-2 border-b py-3 last:border-b-0">
@@ -36,9 +37,10 @@ export function StageRow({ column }: StageRowProps) {
       <StageHeadline column={column} />
       <StageException column={column} />
       <DayStrip strip={column.strip} />
+      {showAxis && <DayAxis axis={column.strip.axis} />}
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <StageBar name={column.name} bar={column.bar} />
+          <StageBar label={column.barLabel} bar={column.bar} />
         </div>
         <p className="text-xs break-words">{column.exits}</p>
       </div>

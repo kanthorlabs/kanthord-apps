@@ -1,14 +1,14 @@
 import { type KeyboardEvent, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import type { FlowDayCell, FlowDayStrip } from "@/lib/flow-stages";
+import type { FlowDayAxis, FlowDayCell, FlowDayStrip } from "@/lib/flow-stages";
 
 interface DayStripProps {
   readonly strip: FlowDayStrip;
 }
 
 interface DayAxisProps {
-  readonly cells: readonly FlowDayCell[];
+  readonly axis: FlowDayAxis | null;
 }
 
 const CELL_LAYOUT =
@@ -22,7 +22,7 @@ const ARROW_STEP: Readonly<Record<string, number>> = { ArrowLeft: -1, ArrowRight
 
 function fillOf(cell: FlowDayCell): string {
   if (cell.partial) return "border border-dashed border-foreground";
-  if (cell.underSettled) return "border border-dashed border-muted-foreground";
+  if (cell.underMinimum !== null) return "border border-dashed border-muted-foreground";
   return SEVERITY_FILL[cell.severity];
 }
 
@@ -67,15 +67,12 @@ export function DayStrip({ strip }: DayStripProps) {
   );
 }
 
-export function DayAxis({ cells }: DayAxisProps) {
-  const first = cells[0];
-  const end = cells.at(-1);
-  if (first === undefined || end === undefined) return null;
-  const endText = `${end.day.split(" ").slice(1).join(" ")}${end.partial ? " ◔" : ""}`;
+export function DayAxis({ axis }: DayAxisProps) {
+  if (axis === null) return null;
   return (
     <div className="flex justify-between text-xs text-muted-foreground">
-      <span>{first.day}</span>
-      <span>{endText}</span>
+      <span>{axis.start}</span>
+      <span>{axis.end}</span>
     </div>
   );
 }

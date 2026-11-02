@@ -1,17 +1,11 @@
-import { countText } from "@/lib/flow-format";
 import type { FlowSegment } from "@/lib/flow-stages";
 import type { FlowSeverity } from "@/lib/flow-status";
 
 interface StageBarProps {
-  readonly name: string;
+  readonly label: string;
   readonly bar: readonly FlowSegment[];
 }
 
-const KIND_NAME: Readonly<Record<FlowSegment["kind"], string>> = {
-  forward: "forward",
-  loops: "loops",
-  leaks: "leaks",
-};
 const KIND_FILL: Readonly<Record<FlowSegment["kind"], string>> = {
   forward: "bg-flow-forward",
   loops: "bg-flow-loop",
@@ -26,19 +20,11 @@ function fillOf(segment: FlowSegment): string {
   return segment.severity === "ok" ? KIND_FILL[segment.kind] : SEVERITY_FILL[segment.severity];
 }
 
-function labelOf(name: string, bar: readonly FlowSegment[]): string {
-  const parts = bar.map(
-    (segment) =>
-      `${countText(segment.count)} ${KIND_NAME[segment.kind]}${segment.severity === "ok" ? "" : ` (${segment.severity})`}`,
-  );
-  return `${name} settled executions: ${parts.length === 0 ? "none" : parts.join(", ")}`;
-}
-
-export function StageBar({ name, bar }: StageBarProps) {
+export function StageBar({ label, bar }: StageBarProps) {
   return (
     <div
       role="img"
-      aria-label={labelOf(name, bar)}
+      aria-label={label}
       className="flex h-2 w-full gap-px overflow-hidden rounded-full bg-muted"
     >
       {bar.map((segment) => (

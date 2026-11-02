@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { flowFiltersOf, flowQueryOf } from "./flow-query";
+import { FLOW_STAGE_OPTIONS, flowFiltersOf, flowQueryOf } from "./flow-query";
 
 const NOW = Date.UTC(2026, 9, 30, 14, 12);
 
@@ -106,5 +106,17 @@ describe("flowQueryOf", () => {
     for (const range of ["24h", "7d", "30d"]) {
       expect(flowQueryOf(filtersOf(`range=${range}`), NOW).compare).toBe("previous");
     }
+  });
+});
+
+describe("FLOW_STAGE_OPTIONS", () => {
+  it("labels each stage option of the Why filter", () => {
+    expect(FLOW_STAGE_OPTIONS).toEqual([
+      { value: "executing", label: "Executing" },
+      { value: "verification", label: "Verification" },
+      { value: "release_gate", label: "Release gate" },
+      { value: "evaluation", label: "Evaluation" },
+      { value: "outcome", label: "Outcome" },
+    ]);
   });
 });
