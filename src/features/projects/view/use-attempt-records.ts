@@ -2,6 +2,7 @@ import {
   listNodeAssessments,
   listNodeEvidence,
   listNodeExternalActions,
+  listNodeFindings,
   listNodeOutcomes,
   readNodeRevision,
 } from "@/api/resources/mission";
@@ -11,6 +12,7 @@ import type {
   MissionAttempt,
   MissionEvidence,
   MissionExternalAction,
+  MissionFinding,
   MissionOutcome,
   MissionRevision,
   SchedulerExecutionRecord,
@@ -25,6 +27,7 @@ export interface AttemptRecords {
   readonly assessments: SettledRead<readonly MissionAssessment[]>;
   readonly outcomes: SettledRead<readonly MissionOutcome[]>;
   readonly externalActions: SettledRead<readonly MissionExternalAction[]>;
+  readonly findings: SettledRead<readonly MissionFinding[]>;
   readonly bindings: BindingReads;
 }
 
@@ -33,7 +36,7 @@ async function readAttemptRecords(
   attempt: MissionAttempt,
 ): Promise<AttemptRecords> {
   const { node_id: nodeId } = attempt;
-  const [revision, executions, evidence, assessments, outcomes, externalActions] =
+  const [revision, executions, evidence, assessments, outcomes, externalActions, findings] =
     await Promise.all([
       settle(readNodeRevision(nodeId, attempt.node_revision)),
       settle(listNodeExecutions(projectId, nodeId, attempt.attempt)),
@@ -41,21 +44,32 @@ async function readAttemptRecords(
       settle(listNodeAssessments(nodeId, attempt.attempt)),
       settle(listNodeOutcomes(nodeId, attempt.attempt)),
       settle(listNodeExternalActions(nodeId, attempt.attempt)),
+      settle(listNodeFindings(nodeId, attempt.attempt)),
     ]);
   const bindingIds = [
     ...(revision.data?.content.bindings ?? []),
     ...attempt.required_external_actions.map((action) => action.binding_id),
   ];
   const bindings = await readBindings(projectId, bindingIds);
-  return { revision, executions, evidence, assessments, outcomes, externalActions, bindings };
+  return {
+    revision,
+    executions,
+    evidence,
+    assessments,
+    outcomes,
+    externalActions,
+    findings,
+    bindings,
+  };
 }
 
 export function useAttemptRecords(
   projectId: string,
   attempt: MissionAttempt,
+  refreshKey: number,
 ): Resource<AttemptRecords> {
   return useResource(
     () => readAttemptRecords(projectId, attempt),
-    [projectId, attempt.node_id, attempt.attempt],
+    [projectId, attempt.node_id, attempt.attempt, refreshKey],
   );
 }

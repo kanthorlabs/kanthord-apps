@@ -375,6 +375,7 @@ function assessment(nodeId: string, rationale: string): MissionAssessment {
     currency: null,
     dependency_node_ids: [],
     worker_version: null,
+    round: null,
   };
 }
 

@@ -697,6 +697,7 @@ export interface MissionAssessment {
   readonly currency: MissionCurrency | null;
   readonly dependency_node_ids: readonly string[];
   readonly worker_version: string | null;
+  readonly round: number | null;
 }
 
 export interface MissionOutcome {
@@ -836,6 +837,68 @@ export interface MissionProposalDecideBody {
   readonly expected_mission_version: number;
   readonly approved_proposal_ids: readonly string[];
   readonly reason?: string;
+}
+
+export type MissionFindingKind = "blocker" | "suggestion";
+export type MissionFindingAction = "yes" | "no";
+export type MissionFindingGround = "stated" | "standard" | "unstated" | "conflict";
+export type MissionFindingRoute = "fix" | "report" | "record";
+export type MissionFindingStatus = "open" | "fixed";
+export type MissionFindingSource = "reviewer" | "human";
+export type MissionFindingCauseOwner =
+  "plan" | "agent" | "reviewer" | "gate" | "engine" | "apps" | "load" | "human";
+export type MissionFindingDecision = "accepted" | "dismissed";
+
+export interface MissionFinding {
+  readonly id: string;
+  readonly node_id: string;
+  readonly attempt: number;
+  readonly round: number | null;
+  readonly assessment_id: string;
+  readonly source: MissionFindingSource;
+  readonly label: string;
+  readonly kind: MissionFindingKind;
+  readonly action: MissionFindingAction;
+  readonly task_id: string | null;
+  readonly ground: MissionFindingGround | null;
+  readonly name: string;
+  readonly description: string;
+  readonly fix: string;
+  readonly why: string;
+  readonly route: MissionFindingRoute;
+  readonly status: MissionFindingStatus;
+  readonly fixed_assessment_id: string | null;
+  readonly cause_owner: MissionFindingCauseOwner | null;
+  readonly created_by: MissionActor | null;
+  readonly created_at: number;
+  readonly decision: MissionFindingDecision | null;
+  readonly decision_reason: string | null;
+  readonly decided_by: MissionActor | null;
+  readonly decided_at: number | null;
+}
+
+export interface MissionFindingDecideBody {
+  readonly decision: MissionFindingDecision;
+  readonly decision_reason: string;
+}
+
+export interface MissionFindingReport {
+  readonly kind: MissionFindingKind;
+  readonly task_id: string | null;
+  readonly name: string;
+  readonly description: string;
+  readonly fix: string;
+  readonly why: string;
+  readonly cause_owner: MissionFindingCauseOwner;
+}
+
+export interface MissionFindingCreateBody extends MissionFindingReport {
+  readonly expected_mission_version: number;
+  readonly assessment_id: string;
+}
+
+export interface MissionFindingUpdateBody extends Partial<MissionFindingReport> {
+  readonly expected_mission_version: number;
 }
 
 export interface MissionNodeCreateContent {

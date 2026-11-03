@@ -10,6 +10,10 @@ import type {
   MissionEdge,
   MissionEvidence,
   MissionExternalAction,
+  MissionFinding,
+  MissionFindingCreateBody,
+  MissionFindingDecideBody,
+  MissionFindingUpdateBody,
   MissionHumanActBody,
   MissionImportApply,
   MissionImportPreview,
@@ -105,11 +109,11 @@ export async function listNodeEvidence(
 
 export async function listNodeAssessments(
   nodeId: string,
-  attempt: number,
+  attempt?: number,
 ): Promise<readonly MissionAssessment[]> {
   return readAllPages<MissionAssessment>(
     `/api/mission/node/${encodeURIComponent(nodeId)}/assessment`,
-    { attempt: String(attempt) },
+    attempt === undefined ? {} : { attempt: String(attempt) },
   );
 }
 
@@ -148,6 +152,58 @@ export async function decideProposals(
       headers: { "idempotency-key": newIdempotencyKey() },
     },
   );
+}
+
+export async function listNodeFindings(
+  nodeId: string,
+  attempt: number,
+): Promise<readonly MissionFinding[]> {
+  return readAllPages<MissionFinding>(`/api/mission/node/${encodeURIComponent(nodeId)}/finding`, {
+    attempt: String(attempt),
+  });
+}
+
+export async function getFinding(findingId: string): Promise<MissionFinding> {
+  return request<MissionFinding>(`/api/mission/finding/${encodeURIComponent(findingId)}`);
+}
+
+export async function listUndecidedFindings(projectId: string): Promise<readonly MissionFinding[]> {
+  return readAllPages<MissionFinding>(
+    `/api/mission/project/${encodeURIComponent(projectId)}/undecided-finding`,
+  );
+}
+
+export async function decideFinding(
+  findingId: string,
+  body: MissionFindingDecideBody,
+): Promise<MissionFinding> {
+  return request<MissionFinding>(`/api/mission/finding/${encodeURIComponent(findingId)}/decide`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
+}
+
+export async function createFinding(
+  nodeId: string,
+  body: MissionFindingCreateBody,
+): Promise<MissionFinding> {
+  return request<MissionFinding>(`/api/mission/node/${encodeURIComponent(nodeId)}/finding`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
+}
+
+export async function updateFinding(
+  findingId: string,
+  body: MissionFindingUpdateBody,
+): Promise<MissionFinding> {
+  return request<MissionFinding>(`/api/mission/finding/${encodeURIComponent(findingId)}`, {
+    method: "PATCH",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
 }
 
 export async function unblockNode(

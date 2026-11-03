@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import { Link } from "react-router-dom";
 
-import type { MissionAttempt } from "@/api/types";
+import type { MissionAttempt, MissionFinding } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ import { useAttemptRecords } from "../use-attempt-records";
 import { useTraceSummaries } from "../use-trace-summaries";
 import { BindingList } from "./binding-list";
 import { FactList } from "./fact-list";
+import { FindingSection } from "./finding-section";
 import { RecordSection } from "./record-section";
 import { ActorLabel } from "./actor-label";
 
@@ -41,6 +42,8 @@ interface AttemptRecordsProps {
   readonly model: GraphModel;
   readonly attempt: MissionAttempt;
   readonly currentRevision: number;
+  readonly refreshKey: number;
+  readonly onEditFinding: (finding: MissionFinding) => void;
 }
 
 function Empty({ text }: { text: string }) {
@@ -52,8 +55,10 @@ export function AttemptRecords({
   model,
   attempt,
   currentRevision,
+  refreshKey,
+  onEditFinding,
 }: AttemptRecordsProps) {
-  const records = useAttemptRecords(projectId, attempt);
+  const records = useAttemptRecords(projectId, attempt, refreshKey);
   const traceSummaries = useTraceSummaries(attempt.node_id, records.data?.executions.data ?? null);
 
   if (records.loading) return <Skeleton className="h-32 w-full" />;
@@ -64,8 +69,16 @@ export function AttemptRecords({
       </Alert>
     );
   }
-  const { revision, executions, evidence, assessments, outcomes, externalActions, bindings } =
-    records.data;
+  const {
+    revision,
+    executions,
+    evidence,
+    assessments,
+    outcomes,
+    externalActions,
+    findings,
+    bindings,
+  } = records.data;
   const subjectOf = (id: string) => evidence.data?.find((item) => item.id === id)?.subject ?? id;
   const bindingName = (id: string) => {
     const read = bindings.get(id);
@@ -234,6 +247,7 @@ export function AttemptRecords({
                 <Item key={item.id} variant="outline" size="sm" role="listitem">
                   <ItemContent className="min-w-0">
                     <ItemTitle className="w-full flex-wrap">
+                      {item.round !== null && <span>Round {item.round}</span>}
                       <Badge variant={resultVariant(item.result)}>{item.result}</Badge>
                       <span className="break-all">{actorText(item.actor)}</span>
                     </ItemTitle>
@@ -285,6 +299,14 @@ export function AttemptRecords({
           )
         }
       </RecordSection>
+
+      <FindingSection
+        findings={findings}
+        assessments={assessments.data}
+        tasks={revision.data?.tasks ?? []}
+        onEdit={onEditFinding}
+        reload={records.reload}
+      />
 
       <RecordSection title="Evidence" read={evidence}>
         {(items) =>
