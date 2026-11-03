@@ -39,12 +39,12 @@ export function PromptPartDiff({ executionId, agentName, part }: PromptPartDiffP
       </Alert>
     );
   return (
-    <div className="flex min-w-0 flex-col gap-2">
+    <div className="flex w-full min-w-0 flex-col gap-2">
       {diff.note !== null && <p className="text-sm text-muted-foreground">{diff.note}</p>}
       {diff.lines !== null && (
         <pre
           aria-label={`Diff of ${part.part} ${part.name}`}
-          className="min-w-0 rounded-md bg-muted p-2 text-xs break-words whitespace-pre-wrap"
+          className="w-full min-w-0 rounded-md bg-muted p-2 text-xs break-words whitespace-pre-wrap"
         >
           {diff.lines.map((line, index) => (
             <Line key={index} line={line} />

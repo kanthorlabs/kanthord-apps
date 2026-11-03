@@ -20,6 +20,7 @@ export interface DataListItemProps {
   readonly description?: ReactNode;
   readonly fields?: readonly DataListField[];
   readonly notice?: ReactNode;
+  readonly detail?: ReactNode;
   readonly actions?: ReactNode;
   readonly select?: DataListSelect;
 }
@@ -30,6 +31,7 @@ export function DataListItem({
   description,
   fields,
   notice,
+  detail,
   actions,
   select,
 }: DataListItemProps) {
@@ -73,6 +75,9 @@ export function DataListItem({
         <ItemActions className="relative basis-full flex-wrap md:basis-auto md:justify-end">
           {actions}
         </ItemActions>
+      )}
+      {detail !== undefined && (
+        <div className="min-w-0 basis-full [&:not(:has(:not(:empty)))]:hidden">{detail}</div>
       )}
     </Item>
   );

@@ -1,4 +1,4 @@
-import type { InstructionFileCheck } from "@/api/types";
+import type { InstructionFileCheck, InstructionFileReason } from "@/api/types";
 
 import { failureReasonHint } from "./failure-reason";
 
@@ -7,7 +7,7 @@ export interface InstructionFileView {
   readonly problem: boolean;
 }
 
-const INVALID_REASONS: Readonly<Record<string, string>> = {
+const INVALID_REASONS: Readonly<Partial<Record<InstructionFileReason, string>>> = {
   too_large: "the file is larger than 32768 bytes",
   not_utf8: "the file is not UTF-8 text",
   unreadable: "the server cannot read the file",
@@ -17,7 +17,7 @@ const INVALID_REASONS: Readonly<Record<string, string>> = {
 const BASE_BRANCH_ABSENT = "base_branch_absent";
 const BASE_BRANCH_ABSENT_HINT = "The remote does not hold the base branch.";
 
-function unreachableHint(reason: string | null): string {
+function unreachableHint(reason: InstructionFileReason | null): string {
   if (reason === BASE_BRANCH_ABSENT) return BASE_BRANCH_ABSENT_HINT;
   return reason === null ? "" : failureReasonHint(reason, "repository");
 }
@@ -35,7 +35,7 @@ export function instructionFileView(check: InstructionFileCheck): InstructionFil
       };
     case "invalid":
       return {
-        text: `${path} invalid: ${INVALID_REASONS[reason ?? ""] ?? reason ?? "unknown reason"}. Save refuses this file.`,
+        text: `${path} invalid: ${(reason === null ? undefined : INVALID_REASONS[reason]) ?? reason ?? "unknown reason"}. Save refuses this file.`,
         problem: true,
       };
     case "unreachable":

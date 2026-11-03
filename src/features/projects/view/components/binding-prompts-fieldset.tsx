@@ -43,7 +43,7 @@ export function BindingPromptsFieldset({
         description={INSTRUCTION_FILE_HELP}
         onChange={(path) => onEdit(withInstructionFile(draft, path))}
       />
-      <div aria-live="polite" className="flex min-w-0 flex-col gap-1">
+      <div aria-live="polite" className="flex min-w-0 flex-col gap-1 empty:hidden">
         {!pathEmpty &&
           instructionFile !== null &&
           (instructionFile.problem ? (

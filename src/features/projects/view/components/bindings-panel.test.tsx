@@ -1022,14 +1022,53 @@ describe("BindingsPanel", () => {
       },
       credential: null,
       instruction_file: null,
-      instruction_file_hint: "AGENTS.md exists at the base head.",
+      instruction_file_hint: "Server hint text.",
     });
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
     await userEvent.click(screen.getByRole("button", { name: "Verify" }));
 
-    expect(await screen.findByText("AGENTS.md exists at the base head.")).toBeTruthy();
+    expect(await screen.findByText("Server hint text.")).toBeTruthy();
+  });
+
+  it("offers the Agent select in the Repository prompt preview only", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      agent_name: "swe@1",
+      configuration_schema: {},
+      overridable_fields: [],
+      enablement: null,
+      tools: [],
+      chain: [],
+      active_position: null,
+      cooling: null,
+      prompt: { final: null, parts: [] },
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit Repository prompt" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+    expect(await screen.findByRole("combobox", { name: "Agent" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit Binding prompt of re@1" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+    expect(await screen.findByRole("list", { name: "System prompt of re@1" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Agent" })).toBeNull();
+  });
+
+  it("asks to save a new binding before the preview and reads no agent", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add repositories binding" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit Repository prompt" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+
+    expect(
+      screen.getByText("Save the binding first. The preview reads the stored binding."),
+    ).toBeTruthy();
+    expect(workersApi.readAgent).not.toHaveBeenCalled();
   });
 
   it("gives the reviewer row the relaxation help", async () => {

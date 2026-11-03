@@ -27,7 +27,7 @@ export function BindingPromptDialog({ dialog, preview }: BindingPromptDialogProp
   const usageId = `binding-prompt-usage-${dialog.target}`;
   return (
     <Dialog open={dialog.open} onOpenChange={(next) => !next && dialog.cancel()}>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto]">
         <DialogHeader>
           <DialogTitle>Edit {title}</DialogTitle>
           <DialogDescription>
@@ -35,41 +35,43 @@ export function BindingPromptDialog({ dialog, preview }: BindingPromptDialogProp
             store the text. A prompt holds no secret.
           </DialogDescription>
         </DialogHeader>
-        {promptHelp(dialog.target).map((help) => (
-          <FieldDescription key={help}>{help}</FieldDescription>
-        ))}
-        <Tabs defaultValue="edit" className="flex min-w-0 flex-col gap-3">
-          <TabsList>
-            <TabsTrigger value="edit">Edit</TabsTrigger>
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-          </TabsList>
-          <TabsContent value="edit" className="flex min-w-0 flex-col gap-2">
-            <Textarea
-              aria-label={`Markdown of the ${title}`}
-              aria-invalid={dialog.problem !== null}
-              aria-describedby={usageId}
-              className="max-h-[50dvh] min-h-60"
-              placeholder="Write markdown. An empty text removes the prompt."
-              value={dialog.draft}
-              onChange={(event) => dialog.setDraft(event.target.value)}
-            />
-            <div id={usageId} className="flex flex-wrap justify-between gap-2">
-              {dialog.problem !== null ? (
-                <FieldError>{dialog.problem}</FieldError>
+        <div className="-m-1 flex min-h-0 min-w-0 flex-col gap-3 overflow-y-auto p-1">
+          {promptHelp(dialog.target).map((help) => (
+            <FieldDescription key={help}>{help}</FieldDescription>
+          ))}
+          <Tabs defaultValue="edit" className="flex min-w-0 flex-col gap-3">
+            <TabsList>
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+              <TabsTrigger value="preview">Preview</TabsTrigger>
+            </TabsList>
+            <TabsContent value="edit" className="flex min-w-0 flex-col gap-2">
+              <Textarea
+                aria-label={`Markdown of the ${title}`}
+                aria-invalid={dialog.problem !== null}
+                aria-describedby={usageId}
+                className="max-h-[50dvh] min-h-60"
+                placeholder="Write markdown. An empty text removes the prompt."
+                value={dialog.draft}
+                onChange={(event) => dialog.setDraft(event.target.value)}
+              />
+              <div id={usageId} className="flex flex-wrap justify-between gap-2">
+                {dialog.problem !== null ? (
+                  <FieldError>{dialog.problem}</FieldError>
+                ) : (
+                  <FieldDescription>Markdown.</FieldDescription>
+                )}
+                <FieldDescription>{dialog.usage}</FieldDescription>
+              </div>
+            </TabsContent>
+            <TabsContent value="preview">
+              {preview === null ? (
+                <p className="text-sm text-muted-foreground">{PREVIEW_ABSENT}</p>
               ) : (
-                <FieldDescription>Markdown.</FieldDescription>
+                <PromptPreviewPanel scope={preview} target={dialog.target} text={dialog.draft} />
               )}
-              <FieldDescription>{dialog.usage}</FieldDescription>
-            </div>
-          </TabsContent>
-          <TabsContent value="preview">
-            {preview === null ? (
-              <p className="text-sm text-muted-foreground">{PREVIEW_ABSENT}</p>
-            ) : (
-              <PromptPreviewPanel scope={preview} target={dialog.target} text={dialog.draft} />
-            )}
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={dialog.cancel}>
             Cancel

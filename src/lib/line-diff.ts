@@ -23,9 +23,13 @@ function commonLengths(before: readonly string[], after: readonly string[]): num
   return lengths;
 }
 
+function linesOf(text: string): readonly string[] {
+  return text === "" ? [] : text.split(LINE_BREAK);
+}
+
 export function lineDiff(beforeText: string, afterText: string): readonly DiffLine[] {
-  const before = beforeText.split(LINE_BREAK);
-  const after = afterText.split(LINE_BREAK);
+  const before = linesOf(beforeText);
+  const after = linesOf(afterText);
   const lengths = commonLengths(before, after);
   const lines: DiffLine[] = [];
   let i = 0;

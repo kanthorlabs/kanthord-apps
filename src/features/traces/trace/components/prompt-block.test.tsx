@@ -250,6 +250,40 @@ describe("PromptBlock", () => {
     expect(within(diff).getByText("+ Line two.")).toBeInTheDocument();
   });
 
+  it("diffs a part against the earlier part of the same binding", async () => {
+    const file = (name: string, text: string) =>
+      part({ ...FILE, name, binding_id: `binding-${name}`, text });
+    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+    vi.mocked(resolveAgentPrompt).mockImplementation(async (executionId) => ({
+      ...ANSWER,
+      parts:
+        executionId === "exec-0"
+          ? [file("app", "App rule."), file("web", "Old web rule.")]
+          : [file("app", "App rule."), file("web", "New web rule.")],
+    }));
+    const user = userEvent.setup();
+    render(
+      <PromptBlock
+        traceId="trace-1"
+        executionId="exec-1"
+        spans={SPANS}
+        selection={selectionOf()}
+        diffBase={{
+          executionId: "exec-0",
+          changed: new Map([["coder", new Set(["instruction_file:web"])]]),
+        }}
+      />,
+    );
+    const parts = within(await screen.findByRole("list", { name: "Prompt parts of coder" }));
+
+    await user.click(parts.getByRole("button", { name: "Diff" }));
+
+    const diff = await screen.findByLabelText("Diff of instruction_file web");
+    expect(within(diff).getByText("- Old web rule.")).toBeInTheDocument();
+    expect(within(diff).getByText("+ New web rule.")).toBeInTheDocument();
+    expect(diff).not.toHaveTextContent("App rule.");
+  });
+
   it("shows the refusal of one agent", async () => {
     mockReads();
     const { ApiError } = await import("@/api/errors");

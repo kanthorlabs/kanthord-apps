@@ -22,7 +22,7 @@ import {
 } from "@/lib/prompt-part";
 import { type PromptPreviewScope, usePromptPreview } from "../use-prompt-preview";
 
-const NEW_PART_NOTE = "The server writes the heading of this new part when the binding is saved.";
+const NEW_PART_NOTE = "The server adds the heading of this new part when you save the binding.";
 
 function PreviewItem({ part }: { readonly part: PreviewPart }) {
   const note = promptPartStateNote(part.state);
@@ -46,7 +46,7 @@ function PreviewItem({ part }: { readonly part: PreviewPart }) {
       )}
       {note !== null && <p className="text-sm text-muted-foreground">{note}</p>}
       {part.text !== null && (
-        <pre className="max-h-48 min-w-0 overflow-y-auto rounded-md bg-muted p-2 text-xs break-words whitespace-pre-wrap">
+        <pre className="min-w-0 rounded-md bg-muted p-2 text-xs break-words whitespace-pre-wrap">
           {part.text}
         </pre>
       )}
@@ -102,7 +102,7 @@ export function PromptPreviewPanel({ scope, target, text }: PromptPreviewPanelPr
       ) : (
         <ol
           aria-label={`System prompt of ${preview.agent}`}
-          className="flex max-h-[50dvh] min-w-0 flex-col gap-2 overflow-y-auto"
+          className="flex min-w-0 flex-col gap-2"
         >
           {preview.parts.map((part) => (
             <PreviewItem key={`${part.part}:${part.name}`} part={part} />

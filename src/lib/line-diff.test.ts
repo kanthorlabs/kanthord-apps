@@ -21,9 +21,13 @@ describe("lineDiff", () => {
   });
 
   it("marks every line of an empty earlier text as added", () => {
-    expect(lineDiff("", "a")).toEqual([
-      { change: "removed", text: "" },
+    expect(lineDiff("", "a\nb")).toEqual([
       { change: "added", text: "a" },
+      { change: "added", text: "b" },
     ]);
+  });
+
+  it("marks every line of an empty later text as removed", () => {
+    expect(lineDiff("a", "")).toEqual([{ change: "removed", text: "a" }]);
   });
 });

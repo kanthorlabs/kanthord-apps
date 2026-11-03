@@ -1349,11 +1349,19 @@ export interface BindingVerifyResult {
 
 export type InstructionFileState = "present" | "absent" | "invalid" | "unreachable";
 
+export type InstructionFileReason =
+  | ResourceFailureReason
+  | "too_large"
+  | "not_utf8"
+  | "unreadable"
+  | "control_character"
+  | "base_branch_absent";
+
 export interface InstructionFileCheck {
   readonly path: string;
   readonly commit: string | null;
   readonly state: InstructionFileState;
-  readonly reason: string | null;
+  readonly reason: InstructionFileReason | null;
 }
 
 export interface BindingCheckResult extends BindingVerifyResult {

@@ -64,7 +64,7 @@ function PromptRow({ title, template, prompt, onOpen }: PromptRowProps) {
           )}
         </>
       }
-      notice={
+      detail={
         <Reveal open={open}>
           <pre className="min-w-0 rounded-md bg-muted p-2 text-xs break-words whitespace-pre-wrap">
             {prompt.text}
@@ -147,7 +147,7 @@ function PartRow({ agent, part }: PartRowProps) {
           )}
         </>
       }
-      notice={
+      detail={
         <>
           <Reveal open={shown === "text"}>
             <pre className="min-w-0 rounded-md bg-muted p-2 text-xs break-words whitespace-pre-wrap">

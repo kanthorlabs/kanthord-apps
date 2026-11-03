@@ -50,6 +50,22 @@ describe("DataListItem", () => {
     expect(screen.getByRole("listitem")).toHaveTextContent("The instance did not answer.");
   });
 
+  it("renders the detail as a full row after the actions", () => {
+    render(
+      <DataListItem
+        title="local"
+        actions={<Button size="sm">Show</Button>}
+        detail={<pre>Full text.</pre>}
+      />,
+    );
+
+    const detail = screen.getByText("Full text.").parentElement;
+    expect(detail).toHaveClass("basis-full");
+    expect(detail?.previousElementSibling).toContainElement(
+      screen.getByRole("button", { name: "Show" }),
+    );
+  });
+
   it("turns the title into the select control of the item", async () => {
     const onSelect = vi.fn();
     render(
