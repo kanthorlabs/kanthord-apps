@@ -15,14 +15,16 @@ import type {
 } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import {
+  deliveryAssessmentsOf,
   draftOfFinding,
   emptyFindingDraft,
   type FindingDraft,
-  findingDraftErrors,
   type FindingDraftErrors,
+  findingDraftErrors,
   type FindingDraftField,
   findingReportOf,
   NODE_TASK,
+  refusedFindingErrors,
 } from "@/lib/finding-draft";
 
 export interface FindingReportState {
@@ -33,6 +35,7 @@ export interface FindingReportState {
   readonly saving: boolean;
   readonly error: string | null;
   readonly assessments: readonly MissionAssessment[];
+  readonly assessmentChoices: readonly MissionAssessment[];
   readonly tasks: readonly MissionTaskContent[];
   readonly available: boolean;
   readonly unavailableReason: string | null;
@@ -82,7 +85,7 @@ function unavailableReasonOf(
   if (loading) return "The view reads the assessments of the node.";
   if (error !== null) return error;
   if (assessments.length === 0)
-    return "The node holds no assessment. A defect report names the assessment that missed the defect.";
+    return "The node holds no execution assessment. A defect report names the assessment of the attempt that delivered the code.";
   return null;
 }
 
@@ -91,16 +94,17 @@ export function useFindingReport(
   missionVersion: number,
   reload: () => void,
 ): FindingReportState {
-  const reads = useResource(() => readReportReads(nodeId), [nodeId]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const reads = useResource(() => readReportReads(nodeId), [nodeId, missionVersion, refreshKey]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<MissionFinding | null>(null);
   const [draft, setDraft] = useState<FindingDraft>(() => emptyFindingDraft(""));
   const [errors, setErrors] = useState<FindingDraftErrors>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const assessments = reads.data?.assessments ?? NO_ASSESSMENTS;
+  const assessmentChoices = useMemo(() => deliveryAssessmentsOf(assessments), [assessments]);
   const tasks = useMemo(() => {
     const assessment = assessments.find((item) => item.id === draft.assessment_id);
     if (assessment === undefined) return NO_TASKS;
@@ -112,7 +116,7 @@ export function useFindingReport(
   const unavailableReason = unavailableReasonOf(
     reads.loading,
     reads.error?.message ?? null,
-    assessments,
+    assessmentChoices,
   );
   const available = unavailableReason === null;
 
@@ -126,8 +130,8 @@ export function useFindingReport(
 
   const requestCreate = useCallback(() => {
     if (!available) return;
-    start(null, emptyFindingDraft(assessments.at(-1)?.id ?? ""));
-  }, [available, assessments, start]);
+    start(null, emptyFindingDraft(assessmentChoices.at(-1)?.id ?? ""));
+  }, [available, assessmentChoices, start]);
 
   const requestEdit = useCallback(
     (finding: MissionFinding) => start(finding, draftOfFinding(finding)),
@@ -154,6 +158,7 @@ export function useFindingReport(
     const found = findingDraftErrors(
       draft,
       tasks.map((task) => task.id),
+      editing === null ? assessmentChoices.map((assessment) => assessment.id) : null,
     );
     const report = findingReportOf(draft);
     if (Object.keys(found).length > 0 || report === null) {
@@ -187,6 +192,7 @@ export function useFindingReport(
         const failure = asApiError(cause);
         const message = REFUSAL_MESSAGES[failure.detail] ?? failure.message;
         setError(message);
+        setErrors(refusedFindingErrors(failure.details));
         toast.error(
           editing === null ? "Reporting the defect failed." : "Updating the finding failed.",
           { description: message },
@@ -195,7 +201,7 @@ export function useFindingReport(
         reload();
       },
     );
-  }, [saving, open, draft, tasks, editing, nodeId, missionVersion, reload]);
+  }, [saving, open, draft, tasks, assessmentChoices, editing, nodeId, missionVersion, reload]);
 
   return {
     open,
@@ -205,6 +211,7 @@ export function useFindingReport(
     saving,
     error,
     assessments,
+    assessmentChoices,
     tasks,
     available,
     unavailableReason,

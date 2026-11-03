@@ -1669,7 +1669,9 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/finding$/, (m, b, res) => {
     return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
   if (!hasOnly(b, ["expected_mission_version", "assessment_id", ...FINDING_REPORT_FIELDS]))
     return validationFailed(res, "body");
-  const missing = FINDING_REPORT_FIELDS.find((key) => b[key] === undefined);
+  const missing = ["expected_mission_version", "assessment_id", ...FINDING_REPORT_FIELDS].find(
+    (key) => b[key] === undefined,
+  );
   if (missing !== undefined) return validationFailed(res, missing);
   const refused = findingReportRefusal(b);
   if (refused !== null) return validationFailed(res, refused);

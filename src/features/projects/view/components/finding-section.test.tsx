@@ -131,7 +131,7 @@ describe("FindingSection", () => {
     const titles = within(section)
       .getAllByRole("list")
       .map((list) => list.getAttribute("aria-label"));
-    expect(titles).toEqual(["Round 1", "Round 3 · final, report only", "Found after delivery"]);
+    expect(titles).toEqual(["Round 1", "Round 3 · report only", "Found after delivery"]);
   });
 
   it("keeps the order of the read inside a round", () => {
@@ -164,7 +164,7 @@ describe("FindingSection", () => {
   it("shows the decision of a decided finding and no decision actions", () => {
     mount();
 
-    const round = screen.getByRole("list", { name: "Round 3 · final, report only" });
+    const round = screen.getByRole("list", { name: "Round 3 · report only" });
     const [decided, waiting] = within(round).getAllByRole("listitem");
     expect(
       within(decided as HTMLElement).getByText(
@@ -198,10 +198,16 @@ describe("FindingSection", () => {
     expect(onEdit).toHaveBeenCalledWith(FINDINGS[5]);
   });
 
-  it("labels the last round without the final suffix when it still holds a fix item", () => {
-    mount([finding("finding_a", 1, "B1"), finding("finding_b", 2, "S1")]);
+  it("labels a round report only from its own action items", () => {
+    mount([
+      finding("finding_a", 1, "B1", { route: "report" }),
+      finding("finding_b", 2, "S1"),
+      finding("finding_c", 3, "S1", { action: "no", route: "record" }),
+    ]);
 
+    expect(screen.getByRole("list", { name: "Round 1 · report only" })).toBeTruthy();
     expect(screen.getByRole("list", { name: "Round 2" })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "Round 3" })).toBeTruthy();
   });
 
   it("decides a finding with a required reason", async () => {

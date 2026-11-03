@@ -52,7 +52,7 @@ export function FindingReportSheet({ report }: { report: FindingReportState }) {
   const mobile = useIsMobile();
   const { draft, errors } = report;
   const editing = report.editing;
-  const assessmentIds = report.assessments.map((assessment) => assessment.id);
+  const assessmentIds = report.assessmentChoices.map((assessment) => assessment.id);
   const assessmentLabel = (id: string) => assessmentChoiceText(id, report.assessments);
   const taskIds = [NODE_TASK, ...report.tasks.map((task) => task.id)];
   const taskLabel = (id: string) => taskChoiceText(id, report.tasks);
@@ -86,7 +86,7 @@ export function FindingReportSheet({ report }: { report: FindingReportState }) {
               error={errors.assessment_id}
               placeholder="Search the assessments"
               emptyText="No assessment matches."
-              description="The attempt of this assessment delivered the code."
+              description="An execution assessment of the attempt that delivered the code."
               onChange={set("assessment_id")}
             />
           ) : (

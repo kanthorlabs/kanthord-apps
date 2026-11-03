@@ -1,4 +1,5 @@
 import type {
+  MissionAssessment,
   MissionFinding,
   MissionFindingCauseOwner,
   MissionFindingKind,
@@ -83,9 +84,12 @@ function textError(text: string): string | undefined {
 export function findingDraftErrors(
   draft: FindingDraft,
   taskIds: readonly string[],
+  assessmentIds: readonly string[] | null,
 ): FindingDraftErrors {
   const errors: FindingDraftErrors = {};
   if (draft.assessment_id === "") errors.assessment_id = "Choose the assessment that missed it.";
+  else if (assessmentIds !== null && !assessmentIds.includes(draft.assessment_id))
+    errors.assessment_id = "Choose an execution assessment of the attempt that delivered the code.";
   if (!isKind(draft.kind)) errors.kind = "Choose the kind.";
   if (draft.task !== NODE_TASK && !taskIds.includes(draft.task))
     errors.task = "Choose a task of the revision of that assessment, or the node.";
@@ -113,4 +117,44 @@ export function findingReportOf(draft: FindingDraft): MissionFindingReport | nul
 export function taskChoiceText(task: string, tasks: readonly MissionTaskContent[]): string {
   if (task === NODE_TASK) return "The node";
   return tasks.find((item) => item.id === task)?.content.name ?? task;
+}
+
+export function deliveryAssessmentsOf(
+  assessments: readonly MissionAssessment[],
+): readonly MissionAssessment[] {
+  return assessments.filter((assessment) => assessment.execution_id !== null);
+}
+
+const REFUSED_FIELDS: Readonly<Record<string, FindingDraftField>> = {
+  assessment_id: "assessment_id",
+  kind: "kind",
+  task_id: "task",
+  name: "name",
+  description: "description",
+  fix: "fix",
+  why: "why",
+  cause_owner: "cause_owner",
+};
+
+const REFUSED_FIELD_MESSAGES: Readonly<Partial<Record<FindingDraftField, string>>> = {
+  assessment_id:
+    "The daemon refused the assessment. Choose an execution assessment of the attempt that delivered the code.",
+  task: "The daemon refused the task. Choose a task of the revision of that assessment, or the node.",
+};
+
+function pathOf(issue: unknown): readonly unknown[] {
+  if (typeof issue !== "object" || issue === null || !("path" in issue)) return [];
+  return Array.isArray(issue.path) ? issue.path : [];
+}
+
+export function refusedFindingErrors(details: unknown): FindingDraftErrors {
+  const errors: FindingDraftErrors = {};
+  if (!Array.isArray(details)) return errors;
+  for (const issue of details) {
+    const key = pathOf(issue).at(-1);
+    const field = typeof key === "string" ? REFUSED_FIELDS[key] : undefined;
+    if (field !== undefined)
+      errors[field] = REFUSED_FIELD_MESSAGES[field] ?? "The daemon refused this field.";
+  }
+  return errors;
 }

@@ -50,13 +50,11 @@ export function findingGroupsOf(findings: readonly MissionFinding[]): readonly F
     rounds.set(finding.round, [...(rounds.get(finding.round) ?? []), finding]);
   }
   const numbers = [...rounds.keys()].sort((left, right) => left - right);
-  const last = numbers.at(-1);
   const groups: FindingGroup[] = numbers.map((round) => {
     const items = rounds.get(round) ?? [];
-    const final = round === last && isReportOnlyRound(items);
     return {
       key: `round-${round}`,
-      title: final ? `Round ${round} · final, report only` : `Round ${round}`,
+      title: isReportOnlyRound(items) ? `Round ${round} · report only` : `Round ${round}`,
       findings: items,
     };
   });

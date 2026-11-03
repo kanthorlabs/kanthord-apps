@@ -24,11 +24,15 @@ vi.mock("sonner", () => ({
 
 const ACTOR = { kind: "human" as const, account: "ulrich", name: "Ulrich" };
 
-function assessment(id: string, revision: number): MissionAssessment {
+function assessment(
+  id: string,
+  revision: number,
+  executionId: string | null = `execution_${id}`,
+): MissionAssessment {
   return {
     id,
     node_id: "node_signup",
-    execution_id: null,
+    execution_id: executionId,
     attempt: 1,
     node_revision: revision,
     evidence_ids: [],
@@ -125,6 +129,7 @@ beforeEach(() => {
   vi.mocked(listNodeAssessments).mockResolvedValue([
     assessment("assessment_1", 1),
     assessment("assessment_2", 2),
+    assessment("assessment_override", 2, null),
   ]);
   vi.mocked(listNodeRevisions).mockResolvedValue([
     revision(2, ["task_b"]),
@@ -135,13 +140,13 @@ beforeEach(() => {
 });
 
 describe("useFindingReport", () => {
-  it("offers no report for a node with no assessment", async () => {
-    vi.mocked(listNodeAssessments).mockResolvedValue([]);
+  it("offers no report for a node with no execution assessment", async () => {
+    vi.mocked(listNodeAssessments).mockResolvedValue([assessment("assessment_override", 1, null)]);
     const { result } = renderHook(() => useFindingReport("node_signup", 7, vi.fn()));
 
     await waitFor(() =>
       expect(result.current.unavailableReason).toBe(
-        "The node holds no assessment. A defect report names the assessment that missed the defect.",
+        "The node holds no execution assessment. A defect report names the assessment of the attempt that delivered the code.",
       ),
     );
     act(() => result.current.requestCreate());
@@ -154,6 +159,10 @@ describe("useFindingReport", () => {
     act(() => result.current.requestCreate());
 
     expect(result.current.draft.assessment_id).toBe("assessment_2");
+    expect(result.current.assessmentChoices.map((item) => item.id)).toEqual([
+      "assessment_1",
+      "assessment_2",
+    ]);
     expect(result.current.tasks.map((task) => task.id)).toEqual(["task_b"]);
     act(() => result.current.setField("assessment_id", "assessment_1"));
     expect(result.current.tasks.map((task) => task.id)).toEqual(["task_a"]);
@@ -215,6 +224,60 @@ describe("useFindingReport", () => {
       cause_owner: "plan",
     });
     expect(createFinding).not.toHaveBeenCalled();
+  });
+
+  it("refuses a human assessment on create before the call", async () => {
+    const { result } = await mount();
+
+    act(() => result.current.requestCreate());
+    fill(result);
+    act(() => result.current.setField("assessment_id", "assessment_override"));
+    act(() => result.current.save());
+
+    expect(createFinding).not.toHaveBeenCalled();
+    expect(result.current.errors.assessment_id).toBe(
+      "Choose an execution assessment of the attempt that delivered the code.",
+    );
+  });
+
+  it("maps a refused assessment of the daemon to the assessment field", async () => {
+    vi.mocked(createFinding).mockRejectedValue(
+      new ApiError(
+        "malformed",
+        "Request validation failed.",
+        400,
+        "gateway.request.validation_failed",
+        [{ path: ["assessment_id"], code: "custom" }],
+      ),
+    );
+    const { result } = await mount();
+
+    act(() => result.current.requestCreate());
+    fill(result);
+    await act(async () => result.current.save());
+
+    expect(result.current.errors.assessment_id).toBe(
+      "The daemon refused the assessment. Choose an execution assessment of the attempt that delivered the code.",
+    );
+    expect(result.current.open).toBe(true);
+  });
+
+  it("reads the assessments again after a save and after a mission version change", async () => {
+    const view = renderHook(
+      ({ version }: { version: number }) => useFindingReport("node_signup", version, vi.fn()),
+      { initialProps: { version: 7 } },
+    );
+    await waitFor(() => expect(view.result.current.available).toBe(true));
+    expect(listNodeAssessments).toHaveBeenCalledTimes(1);
+
+    act(() => view.result.current.requestCreate());
+    fill(view.result);
+    await act(async () => view.result.current.save());
+    await waitFor(() => expect(listNodeAssessments).toHaveBeenCalledTimes(2));
+
+    view.rerender({ version: 8 });
+    await waitFor(() => expect(listNodeAssessments).toHaveBeenCalledTimes(3));
+    expect(listNodeRevisions).toHaveBeenCalledTimes(3);
   });
 
   it.each([
