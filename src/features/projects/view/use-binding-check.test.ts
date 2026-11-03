@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { checkBinding } from "@/api/resources/projects";
-import type { BindingSetEntry, BindingVerifyResult } from "@/api/types";
+import type { BindingCheckResult, BindingSetEntry } from "@/api/types";
 import { failureReasonHint } from "@/lib/failure-reason";
 import { useBindingCheck } from "./use-binding-check";
 
@@ -30,10 +30,12 @@ const HEALTHY_SSH = {
   failure_reason: null,
 };
 
-const VERIFY_RESULT: BindingVerifyResult = {
+const VERIFY_RESULT: BindingCheckResult = {
   address: HEALTHY_ADDRESS,
   ssh_credential: HEALTHY_SSH,
   credential: null,
+  instruction_file: null,
+  instruction_file_hint: null,
 };
 
 const REPO_ENTRY: BindingSetEntry = {
@@ -53,6 +55,7 @@ const DRAFT = {
   sshCredential: "github-ssh",
   credential: "",
   actionName: "" as const,
+  prompts: { instructionFile: "" },
 };
 
 function makeValidate(entry: BindingSetEntry | null): () => BindingSetEntry | null {
@@ -74,8 +77,8 @@ describe("useBindingCheck", () => {
   });
 
   it("shows checking badges while the request is pending then shows result badges", async () => {
-    let resolve!: (v: BindingVerifyResult) => void;
-    checkMock.mockReturnValue(new Promise<BindingVerifyResult>((r) => (resolve = r)));
+    let resolve!: (v: BindingCheckResult) => void;
+    checkMock.mockReturnValue(new Promise<BindingCheckResult>((r) => (resolve = r)));
 
     const validate = makeValidate(REPO_ENTRY);
     const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, validate));
@@ -94,7 +97,7 @@ describe("useBindingCheck", () => {
   });
 
   it("shows a credential badge when the result includes one", async () => {
-    const withCredential: BindingVerifyResult = {
+    const withCredential: BindingCheckResult = {
       ...VERIFY_RESULT,
       credential: { status: "healthy", capability: "credential verify", failure_reason: null },
     };
@@ -204,9 +207,63 @@ describe("useBindingCheck", () => {
     expect(result.current.sshCredentialBadge).toBeNull();
   });
 
+  it("answers the instruction file state of the check", async () => {
+    checkMock.mockResolvedValue({
+      ...VERIFY_RESULT,
+      instruction_file: {
+        path: "AGENTS.md",
+        commit: "c".repeat(40),
+        state: "invalid",
+        reason: "not_utf8",
+      },
+    });
+    const draft = { ...DRAFT, prompts: { instructionFile: "AGENTS.md" } };
+
+    const { result } = renderHook(() => useBindingCheck("prj-1", draft, makeValidate(REPO_ENTRY)));
+    await act(async () => result.current.run());
+
+    expect(result.current.instructionFile).toEqual({
+      text: "AGENTS.md invalid: the file is not UTF-8 text. Save refuses this file.",
+      problem: true,
+    });
+    expect(result.current.instructionFileHint).toBeNull();
+  });
+
+  it("answers the hint of the check for an empty instruction file", async () => {
+    checkMock.mockResolvedValue({
+      ...VERIFY_RESULT,
+      instruction_file_hint: "AGENTS.md exists at the base head.",
+    });
+
+    const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
+    await act(async () => result.current.run());
+
+    expect(result.current.instructionFile).toBeNull();
+    expect(result.current.instructionFileHint).toBe("AGENTS.md exists at the base head.");
+  });
+
+  it("resets the instruction file state when the path changes", async () => {
+    checkMock.mockResolvedValue({
+      ...VERIFY_RESULT,
+      instruction_file_hint: "AGENTS.md exists at the base head.",
+    });
+    let currentDraft = { ...DRAFT };
+    const { result, rerender } = renderHook(() =>
+      useBindingCheck("prj-1", currentDraft, makeValidate(REPO_ENTRY)),
+    );
+    await act(async () => result.current.run());
+    expect(result.current.instructionFileHint).not.toBeNull();
+
+    currentDraft = { ...DRAFT, prompts: { instructionFile: "AGENTS.md" } };
+    rerender();
+
+    expect(result.current.instructionFileHint).toBeNull();
+    expect(result.current.addressBadge).toBeNull();
+  });
+
   it("does not start a second request while checking", async () => {
-    let resolve!: (v: BindingVerifyResult) => void;
-    checkMock.mockReturnValue(new Promise<BindingVerifyResult>((r) => (resolve = r)));
+    let resolve!: (v: BindingCheckResult) => void;
+    checkMock.mockReturnValue(new Promise<BindingCheckResult>((r) => (resolve = r)));
 
     const { result } = renderHook(() => useBindingCheck("prj-1", DRAFT, makeValidate(REPO_ENTRY)));
     act(() => result.current.run());

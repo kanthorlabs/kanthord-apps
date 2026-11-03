@@ -12,8 +12,10 @@ import {
   listAgents,
   listCredentialModels,
   putAgentEnablement,
+  readAgent,
   readAgentEnablement,
   removeAgentProvider,
+  resolveAgentPrompt,
 } from "./workers";
 
 const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
@@ -223,6 +225,36 @@ describe("readAgentEnablement", () => {
     expect(await readAgentEnablement("swe@1")).toEqual(SWE_ENABLEMENT);
     expect(seen.map((call) => [call.method, call.url])).toEqual([
       ["GET", "/api/agent/enablement/swe%401"],
+    ]);
+  });
+});
+
+describe("readAgent", () => {
+  it("reads the stack of one repository binding when a scope is given", async () => {
+    const answer = { agent_name: "re@1" };
+    await serve({
+      "GET /api/agent/re%401": answer,
+      "GET /api/agent/re%401?project_id=prj-1&binding_id=binding-7": answer,
+    });
+
+    await readAgent("re@1");
+    await readAgent("re@1", { projectId: "prj-1", bindingId: "binding-7" });
+
+    expect(seen.map((call) => call.url)).toEqual([
+      "/api/agent/re%401",
+      "/api/agent/re%401?project_id=prj-1&binding_id=binding-7",
+    ]);
+  });
+});
+
+describe("resolveAgentPrompt", () => {
+  it("gets agent.prompt.resolve with the execution and the agent", async () => {
+    const answer = { parts: [], final: null, engine_version: "0.1.0" };
+    await serve({ "GET /api/agent/prompt/resolve?execution_id=exec-1&agent_name=re%401": answer });
+
+    expect(await resolveAgentPrompt("exec-1", "re@1")).toEqual(answer);
+    expect(seen.map((call) => [call.method, call.url])).toEqual([
+      ["GET", "/api/agent/prompt/resolve?execution_id=exec-1&agent_name=re%401"],
     ]);
   });
 });

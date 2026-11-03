@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { byteUsage, promptTextProblem, utf8Bytes } from "./prompt-text";
+import { byteUsage, instructionFilePathProblem, promptTextProblem, utf8Bytes } from "./prompt-text";
 
 describe("prompt text", () => {
   it("counts UTF-8 bytes, not characters", () => {
@@ -21,5 +21,28 @@ describe("prompt text", () => {
     expect(promptTextProblem("a\u0007b")).toMatch(/control character/);
     expect(promptTextProblem("a\r\nb")).toMatch(/control character/);
     expect(promptTextProblem("a\u007Fb")).toMatch(/control character/);
+  });
+
+  it("accepts a relative instruction file path", () => {
+    expect(instructionFilePathProblem("AGENTS.md")).toBeNull();
+    expect(instructionFilePathProblem("docs/agent-rules.md")).toBeNull();
+    expect(instructionFilePathProblem(`${"a".repeat(252)}.md`)).toBeNull();
+  });
+
+  it("refuses each instruction file path that the server refuses", () => {
+    for (const path of [
+      "",
+      "/AGENTS.md",
+      "docs/",
+      "docs//AGENTS.md",
+      "./AGENTS.md",
+      "../AGENTS.md",
+      "docs\\AGENTS.md",
+      "AGENTS\tmd",
+      "AGENTS.md\u007F",
+      `${"a".repeat(253)}.md`,
+    ]) {
+      expect(instructionFilePathProblem(path)).toMatch(/^Enter a relative path/);
+    }
   });
 });

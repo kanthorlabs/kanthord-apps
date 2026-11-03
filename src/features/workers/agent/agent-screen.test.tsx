@@ -28,24 +28,47 @@ const RE: AgentDeclaration = {
   prompt: {
     parts: [
       {
+        layer: 1,
         part: "standard",
         name: "base.md",
         origin: "binary",
         path: "/data/agents/base.md",
+        binding_id: null,
+        commit: null,
         digest: "a".repeat(64),
+        heading: null,
+        state: "resolved",
         text: "This text is the shared standard of every agent.",
       },
       {
+        layer: 1,
         part: "role",
         name: "re@1.md",
         origin: "file",
         path: "/data/agents/re@1.md",
+        binding_id: null,
+        commit: null,
         digest: "b".repeat(64),
+        heading: null,
+        state: "resolved",
         text: "Your role is `re@1`, the reviewer.",
+      },
+      {
+        layer: null,
+        part: "framing",
+        name: "framing-worker",
+        origin: "binary",
+        path: "/data/agents/prompts/framing-worker.md",
+        binding_id: null,
+        commit: null,
+        digest: "d".repeat(64),
+        heading: null,
+        state: "resolved",
+        text: "The worker owns the commit.",
       },
     ],
     final:
-      "Framing of the final prompt.\n\nInstructions of repository kanthord:\n\nThe final reviewer text.",
+      "This text is the shared standard.\n\nFraming of the final prompt.\n\nThe final reviewer text.",
   },
   tools: [
     { name: "read", source: "builtin", input_schema: {} },
@@ -262,20 +285,21 @@ describe("AgentScreen", () => {
     ).toBeTruthy();
   });
 
-  it("lists each part of the Agent prompt with its origin and digest", async () => {
+  it("lists each part of the KanthorD prompt with its layer, origin and digest", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
-    const parts = within(await screen.findByRole("list", { name: "Agent prompt" }));
-    expect(parts.getAllByRole("listitem")).toHaveLength(2);
-    expect(parts.getByText("Shipped")).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "KanthorD prompt (layer 1)" })).toBeTruthy();
+    const parts = within(screen.getByRole("list", { name: "KanthorD prompt" }));
+    expect(parts.getAllByRole("listitem")).toHaveLength(3);
+    expect(parts.getAllByText("Shipped")).toHaveLength(2);
     expect(parts.getByText("/data/agents/base.md")).toBeTruthy();
-    expect(parts.getByText(/No override file at/)).toBeTruthy();
+    expect(parts.getAllByText(/No override file at/)).toHaveLength(2);
     expect(parts.getByText("Overridden")).toBeTruthy();
     expect(parts.getByText("/data/agents/re@1.md")).toBeTruthy();
     expect(parts.getByText(/Override file/)).toBeTruthy();
-    expect(parts.getByText("standard")).toBeTruthy();
-    expect(parts.getByText("role")).toBeTruthy();
+    expect(parts.getAllByText("KanthorD prompt")).toHaveLength(2);
+    expect(parts.getByText("Framing")).toBeTruthy();
     expect(parts.getByText("a".repeat(64))).toBeTruthy();
     expect(parts.getByText("b".repeat(64))).toBeTruthy();
   });
@@ -293,11 +317,16 @@ describe("AgentScreen", () => {
         parts: [
           ...(RE.prompt.parts ?? []),
           {
+            layer: 1,
             part: "workbench",
             name: "workbench.md",
             origin: "binary",
             path: null,
+            binding_id: null,
+            commit: null,
             digest: "c".repeat(64),
+            heading: null,
+            state: "resolved",
             text: "Work with a human.",
           },
         ],
@@ -307,11 +336,11 @@ describe("AgentScreen", () => {
     expect(await screen.findByRole("heading", { name: "Workbench final prompt" })).toBeTruthy();
   });
 
-  it("shows no switch and no editor for the Agent prompt", async () => {
+  it("shows no switch and no editor for the KanthorD prompt", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
-    await screen.findByRole("list", { name: "Agent prompt" });
+    await screen.findByRole("list", { name: "KanthorD prompt" });
     expect(screen.queryByRole("switch", { name: /inactive sources/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Edit/ })).toBeNull();
   });
@@ -320,7 +349,7 @@ describe("AgentScreen", () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(RE);
     mount();
 
-    await screen.findByRole("list", { name: "Agent prompt" });
+    await screen.findByRole("list", { name: "KanthorD prompt" });
     expect(screen.queryByText(/the reviewer/)).toBeNull();
     expect(screen.queryByText("Framing of the final prompt.")).toBeNull();
 
@@ -349,7 +378,7 @@ describe("AgentScreen", () => {
     expect(writeText).toHaveBeenCalledWith("Your role is `re@1`, the reviewer.");
   });
 
-  it("shows no Agent prompt card when the answer holds no parts", async () => {
+  it("shows no KanthorD prompt card when the answer holds no parts", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue({
       ...RE,
       prompt: { final: RE.prompt.final },
@@ -357,7 +386,7 @@ describe("AgentScreen", () => {
     mount();
 
     await screen.findByRole("button", { name: "System prompt" });
-    expect(screen.queryByRole("list", { name: "Agent prompt" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "KanthorD prompt" })).toBeNull();
   });
 
   it("names the file and the reason when an override file is invalid", async () => {

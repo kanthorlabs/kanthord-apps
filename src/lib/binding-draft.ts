@@ -15,6 +15,8 @@ import type {
 } from "@/api/types";
 import { BINDING_PROMPT_AGENTS } from "@/api/types";
 
+import { instructionFilePathProblem } from "./prompt-text";
+
 export const REASONING_EFFORTS = [
   "off",
   "minimal",
@@ -33,6 +35,14 @@ export interface AgentEntryDraft {
   readonly fallbackConfigurations?: readonly AgentDefaultConfiguration[];
 }
 
+export type PromptTarget = "repository" | BindingPromptAgent;
+
+export interface PromptDrafts {
+  readonly instructionFile: string;
+  readonly repository: string;
+  readonly agents: Readonly<Record<BindingPromptAgent, string>>;
+}
+
 export interface RepositoryDraft {
   readonly kind: "repository";
   readonly name: string;
@@ -45,7 +55,7 @@ export interface RepositoryDraft {
   readonly landing?: ActionLanding;
   readonly sshCredential: string;
   readonly credential: string;
-  readonly prompts: Readonly<Record<BindingPromptAgent, string>>;
+  readonly prompts: PromptDrafts;
   readonly kept: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">;
 }
 
@@ -136,23 +146,35 @@ export function withPlatform(
   return { ...draft, platform, actionName, address };
 }
 
-function promptDraftsOf(
-  prompts: BindingPrompts | undefined,
-): Readonly<Record<BindingPromptAgent, string>> {
+function promptDraftsOf(prompts: BindingPrompts | undefined): PromptDrafts {
   return {
-    "swe@1": prompts?.["swe@1"] ?? "",
-    "re@1": prompts?.["re@1"] ?? "",
-    "env@1": prompts?.["env@1"] ?? "",
+    instructionFile: prompts?.instruction_file ?? "",
+    repository: prompts?.repository ?? "",
+    agents: {
+      "swe@1": prompts?.agents?.["swe@1"] ?? "",
+      "re@1": prompts?.agents?.["re@1"] ?? "",
+      "env@1": prompts?.agents?.["env@1"] ?? "",
+    },
   };
 }
 
 function promptsOf(draft: RepositoryDraft): BindingPrompts {
-  return Object.fromEntries(
+  const { instructionFile, repository } = draft.prompts;
+  const agents = Object.fromEntries(
     BINDING_PROMPT_AGENTS.flatMap((agent) => {
-      const text = draft.prompts[agent];
+      const text = draft.prompts.agents[agent];
       return blank(text) ? [] : [[agent, text]];
     }),
   );
+  return {
+    ...(blank(instructionFile) ? {} : { instruction_file: instructionFile.trim() }),
+    ...(blank(repository) ? {} : { repository }),
+    ...(Object.keys(agents).length === 0 ? {} : { agents }),
+  };
+}
+
+export function promptTextOf(draft: RepositoryDraft, target: PromptTarget): string {
+  return target === "repository" ? draft.prompts.repository : draft.prompts.agents[target];
 }
 
 export function emptyDraft(kind: BindingSetKind): BindingDraft {
@@ -198,12 +220,23 @@ export function emptyDraft(kind: BindingSetKind): BindingDraft {
   };
 }
 
-export function withBindingPrompt(
+export function withPromptText(
   draft: RepositoryDraft,
-  agent: BindingPromptAgent,
+  target: PromptTarget,
   text: string,
 ): RepositoryDraft {
-  return { ...draft, prompts: { ...draft.prompts, [agent]: text } };
+  const { prompts } = draft;
+  return {
+    ...draft,
+    prompts:
+      target === "repository"
+        ? { ...prompts, repository: text }
+        : { ...prompts, agents: { ...prompts.agents, [target]: text } },
+  };
+}
+
+export function withInstructionFile(draft: RepositoryDraft, path: string): RepositoryDraft {
+  return { ...draft, prompts: { ...draft.prompts, instructionFile: path } };
 }
 
 function agentDraftOf(entry: WorkerAgentEntry): AgentEntryDraft {
@@ -394,6 +427,10 @@ function repositoryEntryOf(
   ) {
     errors["credential"] = "Open a pull request requires a credential.";
   }
+  const pathProblem = blank(draft.prompts.instructionFile)
+    ? null
+    : instructionFilePathProblem(draft.prompts.instructionFile.trim());
+  if (pathProblem !== null) errors["instructionFile"] = pathProblem;
   const prompts = promptsOf(draft);
   return {
     kind: "repository",

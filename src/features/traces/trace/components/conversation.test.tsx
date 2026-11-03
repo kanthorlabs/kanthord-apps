@@ -8,8 +8,12 @@ import { ApiError } from "@/api/errors";
 vi.mock("@/api/resources/tracking", () => ({
   listSessionEntryPage: vi.fn(),
 }));
+vi.mock("@/api/resources/workers", () => ({
+  resolveAgentPrompt: vi.fn(),
+}));
 
 import { listSessionEntryPage } from "@/api/resources/tracking";
+import { resolveAgentPrompt } from "@/api/resources/workers";
 import type { TraceSessionEntry, TraceSpan } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
 
@@ -69,8 +73,8 @@ function message(role: string, fields: Record<string, unknown>): Record<string, 
   return { type: "message", message: { role, ...fields } };
 }
 
-function pinned(part: string, text: string): Record<string, unknown> {
-  return { type: "custom", customType: "kanthord.pinned_context", data: { part, text } };
+function pinned(part: string): Record<string, unknown> {
+  return { type: "custom", customType: "kanthord.pinned_context", data: { part } };
 }
 
 const SESSION_1 = span("session-1", "agent.session", { "kanthord.agent.name": "coder" });
@@ -86,7 +90,7 @@ const TURN = span("turn-1", "agent.turn", {
 });
 
 const ENTRIES: readonly TraceSessionEntry[] = [
-  entry("pin-prompt", 1, pinned("system_prompt", "You are a coder.")),
+  entry("pin-prompt", 1, pinned("system_prompt")),
   entry(
     "pi-system",
     3,
@@ -146,7 +150,13 @@ function Harness({ spans, live = false }: { spans: readonly TraceSpan[]; live?: 
   const location = useLocation();
   return (
     <>
-      <Conversation traceId="trace-1" spans={spans} live={live} selection={selection} />
+      <Conversation
+        traceId="trace-1"
+        executionId="exec-1"
+        spans={spans}
+        live={live}
+        selection={selection}
+      />
       <output>{location.search}</output>
     </>
   );
@@ -200,16 +210,22 @@ describe("Conversation", () => {
     expect(blocks[3]).toHaveTextContent("I will list the files.");
   });
 
-  it("shows the pinned context and the pi system message collapsed behind Show prompt", async () => {
+  it("expands the pinned marker through the resolve read and the pi system message in place", async () => {
     mockEntries(ENTRIES);
+    vi.mocked(resolveAgentPrompt).mockResolvedValue({
+      parts: [],
+      final: "You are a coder.",
+      engine_version: "0.4.0",
+    });
     show([SESSION_1, TURN]);
     await screen.findByText("List the files.");
 
     const prompt = blockOf("System prompt");
-    expect(prompt).toHaveTextContent("16 characters");
-    expect(screen.queryByText("You are a coder.")).not.toBeInTheDocument();
+    expect(resolveAgentPrompt).not.toHaveBeenCalled();
     await userEvent.click(within(prompt).getByRole("button", { name: "Show prompt" }));
     expect(await screen.findByText("You are a coder.")).toBeInTheDocument();
+    expect(prompt).toHaveTextContent("16 characters");
+    expect(resolveAgentPrompt).toHaveBeenCalledWith("exec-1", "coder");
 
     const update = blockOf("System prompt update");
     expect(update).toHaveTextContent("15 characters");
@@ -217,6 +233,23 @@ describe("Conversation", () => {
     expect(await screen.findByText("Updated prompt.")).toBeInTheDocument();
     expect(screen.getByText("rules")).toBeInTheDocument();
     expect(screen.getByText("Be brief.")).toBeInTheDocument();
+  });
+
+  it("states a pinned marker whose system prompt does not resolve", async () => {
+    mockEntries(ENTRIES);
+    vi.mocked(resolveAgentPrompt).mockResolvedValue({
+      parts: [],
+      final: null,
+      engine_version: "0.4.0",
+    });
+    show([SESSION_1, TURN]);
+    await screen.findByText("List the files.");
+
+    await userEvent.click(
+      within(blockOf("System prompt")).getByRole("button", { name: "Show prompt" }),
+    );
+
+    expect(await screen.findByText(/A part of this system prompt does not resolve/)).toBeTruthy();
   });
 
   it("shows the user message and the model reply with thinking, calls and usage", async () => {

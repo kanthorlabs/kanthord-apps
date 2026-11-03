@@ -241,22 +241,58 @@ export interface AgentTool {
   readonly input_schema: Readonly<Record<string, unknown>>;
 }
 
-export type PromptOrigin = "binary" | "file" | "database";
+export const PROMPT_ORIGINS = ["binary", "file", "database", "repository"] as const;
 
-export type PromptPartKind = "standard" | "role" | "workbench" | "binding";
+export type PromptOrigin = (typeof PROMPT_ORIGINS)[number];
 
-export interface PromptPart {
+export const PROMPT_PART_KINDS = [
+  "standard",
+  "role",
+  "workbench",
+  "instruction_file",
+  "repository",
+  "binding",
+  "framing",
+] as const;
+
+export type PromptPartKind = (typeof PROMPT_PART_KINDS)[number];
+
+export type PromptLayer = 1 | 2 | 3;
+
+export type PromptPartState = "resolved" | "changed" | "invalid" | "unreachable";
+
+export interface PromptReference {
   readonly part: PromptPartKind;
   readonly name: string;
   readonly origin: PromptOrigin;
   readonly path: string | null;
+  readonly binding_id: string | null;
+  readonly commit: string | null;
   readonly digest: string;
-  readonly text: string;
+}
+
+export interface PromptPart extends Omit<PromptReference, "digest"> {
+  readonly layer: PromptLayer | null;
+  readonly digest: string | null;
+  readonly heading: string | null;
+  readonly state: PromptPartState;
+  readonly text: string | null;
 }
 
 export interface AgentPrompt {
   readonly parts?: readonly PromptPart[];
-  readonly final: string;
+  readonly final: string | null;
+}
+
+export interface AgentPromptScope {
+  readonly projectId: string;
+  readonly bindingId: string;
+}
+
+export interface PromptResolveAnswer {
+  readonly parts: readonly PromptPart[];
+  readonly final: string | null;
+  readonly engine_version: string;
 }
 
 export interface AgentDeclaration {
@@ -387,7 +423,11 @@ export const BINDING_PROMPT_AGENTS = ["swe@1", "re@1", "env@1"] as const;
 
 export type BindingPromptAgent = (typeof BINDING_PROMPT_AGENTS)[number];
 
-export type BindingPrompts = Readonly<Partial<Record<BindingPromptAgent, string>>>;
+export interface BindingPrompts {
+  readonly instruction_file?: string;
+  readonly repository?: string;
+  readonly agents?: Readonly<Partial<Record<BindingPromptAgent, string>>>;
+}
 
 export type SuitePassState = "present" | "absent";
 
@@ -1307,6 +1347,20 @@ export interface BindingVerifyResult {
   readonly credential: HealthEntry | null;
 }
 
+export type InstructionFileState = "present" | "absent" | "invalid" | "unreachable";
+
+export interface InstructionFileCheck {
+  readonly path: string;
+  readonly commit: string | null;
+  readonly state: InstructionFileState;
+  readonly reason: string | null;
+}
+
+export interface BindingCheckResult extends BindingVerifyResult {
+  readonly instruction_file: InstructionFileCheck | null;
+  readonly instruction_file_hint: string | null;
+}
+
 export interface SshKeyCreateBody {
   readonly name: string;
 }
@@ -1461,7 +1515,7 @@ export const CAUSE_CATEGORIES = [
 export type CauseCategory = (typeof CAUSE_CATEGORIES)[number];
 
 const SUBCATEGORY_SETS = {
-  prompt: ["context_missing", "instruction_conflict", "rule_absent"],
+  prompt: ["context_missing", "instruction_conflict", "rule_absent", "source_invalid"],
   plan: [
     "criterion_unstated",
     "requirement_conflict",
@@ -1493,7 +1547,7 @@ const SUBCATEGORY_SETS = {
     "verification_hang",
     "repository_hook",
   ],
-  infrastructure: ["verification_killed", "network", "execution_lost"],
+  infrastructure: ["verification_killed", "network", "execution_lost", "prompt_record"],
   human: ["intervention", "configuration"],
   unattributed: [],
 } as const satisfies Readonly<Record<CauseCategory, readonly string[]>>;

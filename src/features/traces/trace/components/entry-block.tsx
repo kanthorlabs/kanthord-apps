@@ -13,6 +13,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { noteLine, systemLabel, systemSize, usageLine } from "@/lib/entry-blocks";
 import { type EntryToolCall, type EntryView, entryView } from "@/lib/session-entries";
 
+import type { PromptSource } from "../use-resolved-prompt";
+import { PinnedPromptText } from "./pinned-prompt-text";
+
+const NO_SOURCE_TEXT = "This trace names no execution, so the server rebuilds no system prompt.";
+
 const CUT_HINT = "The worker cut this entry to fit the entry bound of 60 KiB.";
 
 function TextBlock({ children }: { readonly children: string }) {
@@ -126,6 +131,18 @@ function SystemBody({ view }: { readonly view: Of<"system"> }) {
   );
 }
 
+function PinnedBody({ source }: { readonly source: PromptSource | null }) {
+  return (
+    <Disclosure label="Show prompt">
+      {source === null ? (
+        <p className="text-sm text-muted-foreground">{NO_SOURCE_TEXT}</p>
+      ) : (
+        <PinnedPromptText source={source} />
+      )}
+    </Disclosure>
+  );
+}
+
 function PromptBody({ text }: { readonly text: string }) {
   return (
     <Disclosure label="Show prompt">
@@ -156,7 +173,7 @@ function titleOf(view: EntryView): ReactNode {
   }
 }
 
-function bodyOf(view: EntryView, labelled: boolean): ReactNode {
+function bodyOf(view: EntryView, labelled: boolean, promptSource: PromptSource | null): ReactNode {
   switch (view.kind) {
     case "user":
       if (labelled) return <PromptBody text={view.text} />;
@@ -166,6 +183,7 @@ function bodyOf(view: EntryView, labelled: boolean): ReactNode {
     case "tool_result":
       return <ToolResultBody view={view} />;
     case "system":
+      if (view.source === "pinned") return <PinnedBody source={promptSource} />;
       return <SystemBody view={view} />;
     default:
       return <p className="min-w-0 break-words">{noteLine(view)}</p>;
@@ -177,6 +195,7 @@ interface EntryBlockProps {
   readonly current: boolean;
   readonly turn: TraceSpan | null;
   readonly promptLabel: string | null;
+  readonly promptSource: PromptSource | null;
   readonly onShowInTimeline: (spanId: string) => void;
 }
 
@@ -185,6 +204,7 @@ export function EntryBlock({
   current,
   turn,
   promptLabel,
+  promptSource,
   onShowInTimeline,
 }: EntryBlockProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -210,7 +230,7 @@ export function EntryBlock({
             {entry.truncated && <CutBadge />}
           </ItemTitle>
         )}
-        {bodyOf(view, promptLabel !== null)}
+        {bodyOf(view, promptLabel !== null, promptSource)}
         {view.kind === "assistant" && turn !== null && (
           <TouchTarget>
             <Button

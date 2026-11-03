@@ -321,6 +321,12 @@ export const BINDING_SET = {
         },
         ssh_credential: "atlas-ssh",
         credential: "atlas-github",
+        prompts: {
+          instruction_file: "AGENTS.md",
+          repository:
+            "Write each name outside the code in snake_case. A test file sits beside its source file.",
+          agents: { "re@1": "A missing changelog entry gives a suggestion, not a blocker." },
+        },
         environment: { image: "mcr.microsoft.com/devcontainers/javascript-node:24-bookworm" },
       },
     },

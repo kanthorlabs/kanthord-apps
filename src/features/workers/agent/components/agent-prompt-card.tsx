@@ -2,7 +2,7 @@ import type { PromptPart } from "@/api/types";
 import { PromptItem } from "@/components/prompt-item";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
-import { promptPartOrigin, promptPartPathNote } from "@/lib/prompt-part";
+import { promptLayerLabel, promptPartOrigin, promptPartPathNote } from "@/lib/prompt-part";
 
 interface AgentPromptCardProps {
   readonly parts: readonly PromptPart[];
@@ -20,9 +20,11 @@ function PartFacts({ part }: { readonly part: PromptPart }) {
           {note.lead} <span className="font-mono break-all">{note.path}</span>.
         </span>
       )}
-      <span>
-        Digest <span className="font-mono break-all">{part.digest}</span>
-      </span>
+      {part.digest !== null && (
+        <span>
+          Digest <span className="font-mono break-all">{part.digest}</span>
+        </span>
+      )}
     </>
   );
 }
@@ -31,21 +33,27 @@ export function AgentPromptCard({ parts }: AgentPromptCardProps) {
   return (
     <Card>
       <CardHeader>
-        <h2 className="font-semibold leading-none">Agent prompt</h2>
+        <h2 className="font-semibold leading-none">KanthorD prompt (layer 1)</h2>
         <CardDescription>
-          Read-only. The server reads these files, then joins the Binding prompts of a repository.
-          Change a file in the agent directory on the server host.
+          Read-only. The server reads these files for every agent. Then it joins the Repository
+          prompt and the Binding prompt of each repository, and closes with the framing. Change a
+          file in the agent directory on the server host.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div role="list" aria-label="Agent prompt" className="grid grid-cols-[minmax(0,1fr)] gap-2">
+        <div
+          role="list"
+          aria-label="KanthorD prompt"
+          className="grid grid-cols-[minmax(0,1fr)] gap-2"
+        >
           {parts.map((part) => (
             <PromptItem
               key={`${part.part}:${part.name}`}
               title={part.name}
               path
               text={part.text}
-              badges={<Badge variant="outline">{part.part}</Badge>}
+              dimmed={part.state !== "resolved"}
+              badges={<Badge variant="outline">{promptLayerLabel(part.layer)}</Badge>}
               facts={<PartFacts part={part} />}
             />
           ))}

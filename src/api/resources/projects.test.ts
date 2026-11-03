@@ -196,7 +196,7 @@ describe("verifyBinding", () => {
 });
 
 describe("checkBinding", () => {
-  it("posts project.binding.check with the entry body and returns verify-shaped health entries", async () => {
+  it("posts project.binding.check with the entry body and returns the health entries and the instruction file state", async () => {
     const result = {
       address: { status: "healthy", capability: "network git read", failure_reason: null },
       ssh_credential: {
@@ -205,6 +205,13 @@ describe("checkBinding", () => {
         failure_reason: null,
       },
       credential: null,
+      instruction_file: {
+        path: "AGENTS.md",
+        commit: "a".repeat(40),
+        state: "present",
+        reason: null,
+      },
+      instruction_file_hint: null,
     };
     const entry = {
       kind: "repository" as const,

@@ -30,6 +30,7 @@ import { useRepositoryCredentials } from "../use-repository-credentials";
 import { useWorkerAgents } from "../use-worker-agents";
 import { useWorkerInstanceForm } from "../use-worker-instance-form";
 import { useWorkerNames } from "../use-worker-names";
+import { BindingPromptsFieldset } from "./binding-prompts-fieldset";
 import { DraftField } from "./draft-field";
 import { EnvironmentSection } from "./environment-section";
 import { HostKeyPin } from "./host-key-pin";
@@ -108,7 +109,14 @@ export function BindingSheet({
   const checkDraft =
     draft.kind === "repository"
       ? draft
-      : { platform: "", address: "", sshCredential: "", credential: "", actionName: "" };
+      : {
+          platform: "",
+          address: "",
+          sshCredential: "",
+          credential: "",
+          actionName: "",
+          prompts: { instructionFile: "" },
+        };
   const check = useBindingCheck(projectId, checkDraft, form.validate);
   const hostKeyPin = useHostKeyPin(draft.kind === "repository" ? pinnableHostOf(draft) : null);
   const refusedKey =
@@ -191,6 +199,20 @@ export function BindingSheet({
                     sshCredentials={sshCredentials}
                     apiCredentials={apiCredentials}
                     hostKey={<HostKeyPin pin={hostKeyPin} />}
+                    prompts={
+                      <BindingPromptsFieldset
+                        draft={draft}
+                        errors={errors}
+                        instructionFile={check.instructionFile}
+                        instructionFileHint={check.instructionFileHint}
+                        preview={
+                          form.creating || bindingId === null
+                            ? null
+                            : { projectId, bindingId, bindingName: draft.name }
+                        }
+                        onEdit={form.edit}
+                      />
+                    }
                     onEdit={form.edit}
                     onNewSshCredential={onNewSshCredential}
                     onNewApiCredential={bindingCredential.openCreate}

@@ -3,6 +3,7 @@ import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
   BindingAgentView,
+  BindingCheckResult,
   BindingEnvironment,
   BindingSet,
   BindingSetEntry,
@@ -158,8 +159,8 @@ export async function verifyBinding(
 export async function checkBinding(
   projectId: string,
   entry: BindingSetEntry,
-): Promise<BindingVerifyResult> {
-  return request<BindingVerifyResult>(
+): Promise<BindingCheckResult> {
+  return request<BindingCheckResult>(
     `/api/project/${encodeURIComponent(projectId)}/binding/check`,
     { method: "POST", body: { kind: entry.kind, config: entry.config } },
   );

@@ -92,7 +92,17 @@ function promptSpan(digest: string): TraceSpan {
     status: "Ok",
     attributes: {
       "kanthord.agent.name": "coder",
-      "kanthord.prompt.parts": [`system:coder:${digest}`],
+      "kanthord.prompt.sources": [
+        JSON.stringify({
+          part: "standard",
+          name: "base.md",
+          origin: "binary",
+          path: null,
+          binding_id: null,
+          commit: null,
+          digest,
+        }),
+      ],
     },
     events: [],
     links: [],
@@ -173,6 +183,29 @@ describe("useNodeTraces", () => {
     expect(marked.map((execution) => execution.traceId)).toEqual(["t3"]);
     expect(listTraceSpans).toHaveBeenCalledWith("t2");
     expect(listTraceSpans).toHaveBeenCalledTimes(1);
+  });
+
+  it("answers the earlier execution and the changed parts as the diff base", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue([promptSpan("old")]);
+    const node = traceNode([FIRST, { ...SECOND, execution_id: "exec-2" }, THIRD]);
+
+    const { result } = renderHook(() => useNodeTraces(THIRD, [promptSpan("new")], node));
+
+    await waitFor(() => expect(result.current.promptDiffBase).not.toBeNull());
+    expect(result.current.promptDiffBase?.executionId).toBe("exec-2");
+    expect([...(result.current.promptDiffBase?.changed.get("coder") ?? [])]).toEqual([
+      "standard:base.md",
+    ]);
+  });
+
+  it("answers no diff base when the prompt did not change", async () => {
+    vi.mocked(listTraceSpans).mockResolvedValue([promptSpan("same")]);
+    const node = traceNode([FIRST, { ...SECOND, execution_id: "exec-2" }, THIRD]);
+
+    const { result } = renderHook(() => useNodeTraces(THIRD, [promptSpan("same")], node));
+
+    await waitFor(() => expect(listTraceSpans).toHaveBeenCalled());
+    expect(result.current.promptDiffBase).toBeNull();
   });
 
   it("reads no span for a trace with no node", async () => {

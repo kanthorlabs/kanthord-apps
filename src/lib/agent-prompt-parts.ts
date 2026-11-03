@@ -1,42 +1,65 @@
-import type { TraceSessionEntry, TraceSpan } from "@/api/types";
+import type { PromptReference, TraceSessionEntry, TraceSpan } from "@/api/types";
+import { PROMPT_ORIGINS, PROMPT_PART_KINDS } from "@/api/types";
 
 import { entryView } from "./session-entries";
 import { conversationIdOf, isTurn, replyEntryIdOf } from "./span-detail";
 
-export interface PromptPartRef {
-  readonly part: string;
-  readonly name: string;
-  readonly digest: string;
-}
-
 const OPERATION_PROMPT = "agent.prompt";
 const OPERATION_TASK = "worker.task";
 const ATTRIBUTE_AGENT_NAME = "kanthord.agent.name";
-const ATTRIBUTE_PROMPT_PARTS = "kanthord.prompt.parts";
+const ATTRIBUTE_PROMPT_SOURCES = "kanthord.prompt.sources";
 const ATTRIBUTE_TEMPLATES_DIGEST = "kanthord.prompt.templates_digest";
 const ATTRIBUTE_TEMPLATE = "kanthord.prompt.template";
-const PART_SEPARATOR = ":";
-const PART_FIELD_COUNT = 3;
+const KEY_SEPARATOR = ":";
 const TYPE_CUSTOM = "custom";
 const CUSTOM_PINNED_CONTEXT = "kanthord.pinned_context";
+
+type Json = Readonly<Record<string, unknown>>;
 
 function startOf(span: TraceSpan): number {
   return span.start_time ?? Number.POSITIVE_INFINITY;
 }
 
-function partOf(item: string): PromptPartRef | null {
-  const fields = item.split(PART_SEPARATOR);
-  if (fields.length !== PART_FIELD_COUNT || fields.some((field) => field === "")) return null;
-  const [part = "", name = "", digest = ""] = fields;
-  return { part, name, digest };
+function isRecord(value: unknown): value is Json {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export function promptPartsOf(span: TraceSpan): readonly PromptPartRef[] {
-  const items = span.attributes[ATTRIBUTE_PROMPT_PARTS];
+function isNullableText(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function includes<T extends string>(set: readonly T[], value: unknown): value is T {
+  return typeof value === "string" && (set as readonly string[]).includes(value);
+}
+
+function parsed(item: string): unknown {
+  try {
+    return JSON.parse(item);
+  } catch {
+    return null;
+  }
+}
+
+function referenceOf(item: unknown): PromptReference | null {
+  const value = typeof item === "string" ? parsed(item) : null;
+  if (!isRecord(value)) return null;
+  const { part, name, origin, path, binding_id: bindingId, commit, digest } = value;
+  if (!includes(PROMPT_PART_KINDS, part) || !includes(PROMPT_ORIGINS, origin)) return null;
+  if (typeof name !== "string" || name === "" || typeof digest !== "string") return null;
+  if (!isNullableText(path) || !isNullableText(bindingId) || !isNullableText(commit)) return null;
+  return { part, name, origin, path, binding_id: bindingId, commit, digest };
+}
+
+export function promptPartKey(part: Pick<PromptReference, "part" | "name">): string {
+  return `${part.part}${KEY_SEPARATOR}${part.name}`;
+}
+
+export function promptSourcesOf(span: TraceSpan): readonly PromptReference[] {
+  const items = span.attributes[ATTRIBUTE_PROMPT_SOURCES];
   if (!Array.isArray(items)) return [];
   return items.flatMap((item: unknown) => {
-    const parsed = typeof item === "string" ? partOf(item) : null;
-    return parsed === null ? [] : [parsed];
+    const reference = referenceOf(item);
+    return reference === null ? [] : [reference];
   });
 }
 
@@ -51,24 +74,21 @@ function promptSpansByAgent(spans: readonly TraceSpan[]): ReadonlyMap<string, Tr
 }
 
 function digestsOf(span: TraceSpan): ReadonlyMap<string, string> {
-  return new Map(
-    promptPartsOf(span).map(({ part, name, digest }) => [
-      `${part}${PART_SEPARATOR}${name}`,
-      digest,
-    ]),
-  );
+  return new Map(promptSourcesOf(span).map((source) => [promptPartKey(source), source.digest]));
 }
 
-function differs(previous: TraceSpan, current: TraceSpan): boolean {
-  if (
-    previous.attributes[ATTRIBUTE_TEMPLATES_DIGEST] !==
-    current.attributes[ATTRIBUTE_TEMPLATES_DIGEST]
-  )
-    return true;
+function changedKeys(previous: TraceSpan, current: TraceSpan): ReadonlySet<string> {
   const before = digestsOf(previous);
   const after = digestsOf(current);
   const keys = new Set([...before.keys(), ...after.keys()]);
-  return [...keys].some((key) => before.get(key) !== after.get(key));
+  return new Set([...keys].filter((key) => before.get(key) !== after.get(key)));
+}
+
+function differs(previous: TraceSpan, current: TraceSpan): boolean {
+  return (
+    previous.attributes[ATTRIBUTE_TEMPLATES_DIGEST] !==
+      current.attributes[ATTRIBUTE_TEMPLATES_DIGEST] || changedKeys(previous, current).size > 0
+  );
 }
 
 export function promptChanged(
@@ -80,6 +100,19 @@ export function promptChanged(
     const earlier = before.get(name);
     return earlier !== undefined && differs(earlier, span);
   });
+}
+
+export function changedPromptParts(
+  previous: readonly TraceSpan[],
+  current: readonly TraceSpan[],
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const before = promptSpansByAgent(previous);
+  const changed = new Map<string, ReadonlySet<string>>();
+  for (const [name, span] of promptSpansByAgent(current)) {
+    const earlier = before.get(name);
+    if (earlier !== undefined) changed.set(name, changedKeys(earlier, span));
+  }
+  return changed;
 }
 
 function firstTurnOf(spans: readonly TraceSpan[], task: TraceSpan): TraceSpan | null {

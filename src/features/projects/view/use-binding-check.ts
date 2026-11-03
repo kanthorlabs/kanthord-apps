@@ -1,11 +1,12 @@
 import { useCallback, useState } from "react";
 
 import { checkBinding } from "@/api/resources/projects";
-import type { BindingSetEntry, HealthEntry } from "@/api/types";
+import type { BindingSetEntry, HealthEntry, InstructionFileCheck } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { credentialMessage } from "@/features/credentials/credential-message";
 import { healthLabel, healthVariant } from "@/lib/credential-health";
 import { healthEntryHint } from "@/lib/failure-reason";
+import { type InstructionFileView, instructionFileView } from "@/lib/instruction-file";
 import type { BindingCheckBadge } from "./use-binding-verify";
 
 interface CheckInputs {
@@ -14,6 +15,16 @@ interface CheckInputs {
   readonly sshCredential: string;
   readonly credential: string;
   readonly actionName: string;
+  readonly instructionFile: string;
+}
+
+interface CheckDraft {
+  readonly platform: string;
+  readonly address: string;
+  readonly sshCredential: string;
+  readonly credential: string;
+  readonly actionName: string;
+  readonly prompts: { readonly instructionFile: string };
 }
 
 type CheckResult =
@@ -23,6 +34,8 @@ type CheckResult =
       readonly address: HealthEntry;
       readonly sshCredential: HealthEntry;
       readonly credential: HealthEntry | null;
+      readonly instructionFile: InstructionFileCheck | null;
+      readonly instructionFileHint: string | null;
     }
   | { readonly status: "failed"; readonly message: string };
 
@@ -38,6 +51,8 @@ export interface BindingCheckState {
   readonly sshCredentialHint: string | null;
   readonly keyRefused: boolean;
   readonly credentialBadge: BindingCheckBadge | null;
+  readonly instructionFile: InstructionFileView | null;
+  readonly instructionFileHint: string | null;
   readonly checking: boolean;
   readonly error: string | null;
   readonly run: () => void;
@@ -49,19 +64,14 @@ function toCheckBadge(entry: HealthEntry): BindingCheckBadge {
   return { label: healthLabel(entry), variant: healthVariant(entry), busy: false };
 }
 
-function inputsOf(draft: {
-  readonly platform: string;
-  readonly address: string;
-  readonly sshCredential: string;
-  readonly credential: string;
-  readonly actionName: string;
-}): CheckInputs {
+function inputsOf(draft: CheckDraft): CheckInputs {
   return {
     platform: draft.platform,
     address: draft.address,
     sshCredential: draft.sshCredential,
     credential: draft.credential,
     actionName: draft.actionName,
+    instructionFile: draft.prompts.instructionFile,
   };
 }
 
@@ -71,19 +81,14 @@ function sameInputs(left: CheckInputs, right: CheckInputs): boolean {
     left.address === right.address &&
     left.sshCredential === right.sshCredential &&
     left.credential === right.credential &&
-    left.actionName === right.actionName
+    left.actionName === right.actionName &&
+    left.instructionFile === right.instructionFile
   );
 }
 
 export function useBindingCheck(
   projectId: string,
-  draft: {
-    readonly platform: string;
-    readonly address: string;
-    readonly sshCredential: string;
-    readonly credential: string;
-    readonly actionName: string;
-  },
+  draft: CheckDraft,
   validate: () => BindingSetEntry | null,
 ): BindingCheckState {
   const [checkState, setCheckState] = useState<CheckState | null>(null);
@@ -103,8 +108,15 @@ export function useBindingCheck(
       );
     setCheckState({ inputs: started, result: { status: "checking" } });
     checkBinding(projectId, entry).then(
-      ({ address, ssh_credential: sshCredential, credential }) =>
-        settle({ status: "ready", address, sshCredential, credential }),
+      (answer) =>
+        settle({
+          status: "ready",
+          address: answer.address,
+          sshCredential: answer.ssh_credential,
+          credential: answer.credential,
+          instructionFile: answer.instruction_file,
+          instructionFileHint: answer.instruction_file_hint,
+        }),
       (cause: unknown) =>
         settle({ status: "failed", message: credentialMessage(asApiError(cause)) }),
     );
@@ -116,6 +128,8 @@ export function useBindingCheck(
   let sshCredentialHint: string | null = null;
   let keyRefused = false;
   let credentialBadge: BindingCheckBadge | null = null;
+  let instructionFile: InstructionFileView | null = null;
+  let instructionFileHint: string | null = null;
   let checking = false;
   let error: string | null = null;
 
@@ -132,6 +146,9 @@ export function useBindingCheck(
       sshCredentialHint = healthEntryHint(current.sshCredential, "repository");
       keyRefused = current.address.failure_reason === "key_refused";
       credentialBadge = current.credential !== null ? toCheckBadge(current.credential) : null;
+      instructionFile =
+        current.instructionFile === null ? null : instructionFileView(current.instructionFile);
+      instructionFileHint = current.instructionFileHint;
     } else {
       error = current.message;
     }
@@ -144,6 +161,8 @@ export function useBindingCheck(
     sshCredentialHint,
     keyRefused,
     credentialBadge,
+    instructionFile,
+    instructionFileHint,
     checking,
     error,
     run,

@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 
-import type { BindingPromptAgent } from "@/api/types";
+import type { PromptTarget } from "@/lib/binding-draft";
 import { byteUsage, promptTextProblem } from "@/lib/prompt-text";
 
 export interface BindingPromptDialogState {
-  readonly agent: BindingPromptAgent;
+  readonly target: PromptTarget;
   readonly open: boolean;
   readonly draft: string;
   readonly usage: string;
@@ -16,7 +16,7 @@ export interface BindingPromptDialogState {
 }
 
 export function useBindingPromptDialog(
-  agent: BindingPromptAgent,
+  target: PromptTarget,
   current: string,
   write: (text: string) => void,
 ): BindingPromptDialogState {
@@ -37,5 +37,5 @@ export function useBindingPromptDialog(
 
   const cancel = useCallback(() => setOpen(false), []);
 
-  return { agent, open, draft, usage: byteUsage(draft), problem, start, setDraft, apply, cancel };
+  return { target, open, draft, usage: byteUsage(draft), problem, start, setDraft, apply, cancel };
 }

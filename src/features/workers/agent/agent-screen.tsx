@@ -197,7 +197,7 @@ function ToolsSection({ tools }: { tools: readonly AgentTool[] }) {
   );
 }
 
-function PromptSection({ title, text }: { title: string; text: string }) {
+function PromptSection({ title, text }: { title: string; text: string | null }) {
   return (
     <Card>
       <CardHeader>

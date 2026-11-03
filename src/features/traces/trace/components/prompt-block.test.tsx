@@ -5,9 +5,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/api/resources/tracking", () => ({
   listSessionEntryPage: vi.fn(),
 }));
+vi.mock("@/api/resources/workers", () => ({
+  resolveAgentPrompt: vi.fn(),
+}));
 
 import { listSessionEntryPage } from "@/api/resources/tracking";
-import type { SpanAttributeValue, TraceSessionEntry, TraceSpan } from "@/api/types";
+import { resolveAgentPrompt } from "@/api/resources/workers";
+import type {
+  PromptPart,
+  PromptResolveAnswer,
+  SpanAttributeValue,
+  TraceSessionEntry,
+  TraceSpan,
+} from "@/api/types";
 
 import type { TraceSelection } from "../use-trace-selection";
 import { PromptBlock } from "./prompt-block";
@@ -61,18 +71,52 @@ const ENTRIES = [
   entry("pinned", 1, {
     type: "custom",
     customType: "kanthord.pinned_context",
-    data: { part: "system_prompt", text: "You are a coder." },
+    data: { part: "system_prompt" },
   }),
   entry("work-1", 2, message("user", "Do task one now")),
   entry("reply-1", 3, message("assistant", "ok")),
 ];
 
+function part(overrides: Partial<PromptPart>): PromptPart {
+  return {
+    layer: 1,
+    part: "standard",
+    name: "base.md",
+    origin: "binary",
+    path: "/data/agents/base.md",
+    binding_id: null,
+    commit: null,
+    digest: "a".repeat(64),
+    heading: null,
+    state: "resolved",
+    text: "Shared standard.",
+    ...overrides,
+  };
+}
+
+const COMMIT = "c".repeat(40);
+const FILE = part({
+  layer: 2,
+  part: "instruction_file",
+  name: "apps",
+  origin: "repository",
+  path: "AGENTS.md",
+  binding_id: "binding-1",
+  commit: COMMIT,
+  digest: "b".repeat(64),
+  heading: "Repository prompt of repository apps, file AGENTS.md:",
+  text: "Line one.\nLine two.",
+});
+
+const ANSWER: PromptResolveAnswer = {
+  parts: [part({}), FILE],
+  final: "You are a coder.",
+  engine_version: "0.4.0",
+};
+
 const SPANS = [
   span("session-1", "agent.session", { "kanthord.agent.name": "coder" }),
-  span("prompt", "agent.prompt", {
-    "kanthord.agent.name": "coder",
-    "kanthord.prompt.parts": ["system:coder:a1", "rules:style:b2"],
-  }),
+  span("prompt", "agent.prompt", { "kanthord.agent.name": "coder" }),
   span("task-1", "worker.task", { "kanthord.task.id": "T1" }),
   span(
     "turn-1",
@@ -86,7 +130,9 @@ const SPANS = [
   ),
 ];
 
-function selectionOf(openInConversation = vi.fn()): TraceSelection {
+function selectionOf(
+  openInConversation: (sessionId: string, entryId: string) => void = vi.fn(),
+): TraceSelection {
   return { openInConversation } as unknown as TraceSelection;
 }
 
@@ -94,23 +140,132 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-describe("PromptBlock", () => {
-  it("shows the system prompt, the layers and the work prompt of each task", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+function mockReads(answer: PromptResolveAnswer = ANSWER) {
+  vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+  vi.mocked(resolveAgentPrompt).mockImplementation(async (executionId) =>
+    executionId === "exec-0"
+      ? { ...answer, parts: [part({}), { ...FILE, text: "Line one.\nOld line." }] }
+      : answer,
+  );
+}
 
-    render(<PromptBlock traceId="trace-1" spans={SPANS} selection={selectionOf()} />);
+function block(
+  spans: readonly TraceSpan[] = SPANS,
+  options: { open?: (sessionId: string, entryId: string) => void; changed?: boolean } = {},
+) {
+  render(
+    <PromptBlock
+      traceId="trace-1"
+      executionId="exec-1"
+      spans={spans}
+      selection={selectionOf(options.open)}
+      diffBase={
+        options.changed === true
+          ? {
+              executionId: "exec-0",
+              changed: new Map([["coder", new Set(["instruction_file:apps"])]]),
+            }
+          : null
+      }
+    />,
+  );
+}
+
+describe("PromptBlock", () => {
+  it("shows the system prompt, the parts and the work prompt of each task", async () => {
+    mockReads();
+
+    block();
 
     expect(await screen.findByText("System prompt 16 chars")).toBeInTheDocument();
-    expect(screen.getByText("system coder")).toBeInTheDocument();
-    expect(screen.getByText("rules style")).toBeInTheDocument();
+    const parts = within(screen.getByRole("list", { name: "Prompt parts of coder" }));
+    expect(parts.getByText("standard base.md")).toBeInTheDocument();
+    expect(parts.getByText("instruction_file apps")).toBeInTheDocument();
     expect(screen.getByText("Work prompt T1 15 chars")).toBeInTheDocument();
     expect(screen.getByText("Template work")).toBeInTheDocument();
   });
 
-  it("shows and hides the work prompt text", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+  it("shows the layer, the origin, the commit, the digest and the state of each part", async () => {
+    mockReads();
+
+    block();
+
+    const parts = within(await screen.findByRole("list", { name: "Prompt parts of coder" }));
+    const file = parts
+      .getAllByRole("listitem")
+      .find((item) => within(item).queryByText("instruction_file apps") !== null);
+    if (file === undefined) throw new Error("No file part");
+    expect(file).toHaveTextContent("Repository prompt");
+    expect(file).toHaveTextContent("Repository file");
+    expect(file).toHaveTextContent(COMMIT);
+    expect(file).toHaveTextContent("AGENTS.md");
+    expect(file).toHaveTextContent("b".repeat(64));
+    expect(file).toHaveTextContent("Resolved");
+    expect(file).toHaveTextContent("Default standard");
+    expect(file).toHaveTextContent("Repository prompt of repository apps, file AGENTS.md:");
+  });
+
+  it("expands the text of one part", async () => {
+    mockReads();
     const user = userEvent.setup();
-    render(<PromptBlock traceId="trace-1" spans={SPANS} selection={selectionOf()} />);
+    block();
+    const parts = within(await screen.findByRole("list", { name: "Prompt parts of coder" }));
+
+    await user.click(parts.getAllByRole("button", { name: "Show" })[0] as HTMLElement);
+
+    expect(await parts.findByText("Shared standard.")).toBeInTheDocument();
+  });
+
+  it("states a changed shipped part with the engine version and no system prompt", async () => {
+    mockReads({
+      parts: [part({ state: "changed", text: null })],
+      final: null,
+      engine_version: "0.4.0",
+    });
+
+    block();
+
+    expect(await screen.findByText(/A part does not resolve/)).toBeInTheDocument();
+    expect(screen.queryByText(/^System prompt \d+ chars$/)).toBeNull();
+    const parts = within(screen.getByRole("list", { name: "Prompt parts of coder" }));
+    expect(parts.getByText("Changed")).toBeInTheDocument();
+    expect(parts.getByText(/Engine version 0\.4\.0\./)).toBeInTheDocument();
+    expect(parts.queryByRole("button", { name: "Show" })).toBeNull();
+  });
+
+  it("shows the line diff of a changed part against the earlier execution", async () => {
+    mockReads();
+    const user = userEvent.setup();
+    block(SPANS, { changed: true });
+    const parts = within(await screen.findByRole("list", { name: "Prompt parts of coder" }));
+
+    expect(parts.getByText("Differs from the earlier execution")).toBeInTheDocument();
+    expect(parts.getAllByRole("button", { name: "Diff" })).toHaveLength(1);
+    await user.click(parts.getByRole("button", { name: "Diff" }));
+
+    const diff = await screen.findByLabelText("Diff of instruction_file apps");
+    expect(resolveAgentPrompt).toHaveBeenCalledWith("exec-0", "coder");
+    expect(diff).toHaveTextContent("Line one.");
+    expect(within(diff).getByText("- Old line.")).toBeInTheDocument();
+    expect(within(diff).getByText("+ Line two.")).toBeInTheDocument();
+  });
+
+  it("shows the refusal of one agent", async () => {
+    mockReads();
+    const { ApiError } = await import("@/api/errors");
+    vi.mocked(resolveAgentPrompt).mockRejectedValue(
+      new ApiError("not_found", "No prompt record of coder.", 404, "agent.prompt.record_absent"),
+    );
+
+    block();
+
+    expect(await screen.findByText("No prompt record of coder.")).toBeInTheDocument();
+  });
+
+  it("shows and hides the work prompt text", async () => {
+    mockReads();
+    const user = userEvent.setup();
+    block();
     const group = await screen.findByRole("list", { name: "Work prompts" });
 
     await user.click(within(group).getByRole("button", { name: "Show" }));
@@ -120,22 +275,23 @@ describe("PromptBlock", () => {
     await waitFor(() => expect(within(group).queryByText("Do task one now")).toBeNull());
   });
 
-  it("opens the work prompt in the conversation", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+  it("opens the system prompt and the work prompt in the conversation", async () => {
+    mockReads();
     const open = vi.fn();
     const user = userEvent.setup();
-    render(<PromptBlock traceId="trace-1" spans={SPANS} selection={selectionOf(open)} />);
-    const group = await screen.findByRole("list", { name: "Work prompts" });
+    block(SPANS, { open });
+    const system = await screen.findByRole("list", { name: "System prompt" });
+    const group = screen.getByRole("list", { name: "Work prompts" });
 
+    await user.click(within(system).getByRole("button", { name: "Open in conversation" }));
     await user.click(within(group).getByRole("button", { name: "Open in conversation" }));
 
-    expect(open).toHaveBeenCalledWith("session-1", "work-1");
+    expect(open).toHaveBeenNthCalledWith(1, "session-1", "pinned");
+    expect(open).toHaveBeenNthCalledWith(2, "session-1", "work-1");
   });
 
   it("says that the trace has no prompt record", () => {
-    const spans = SPANS.filter((item) => item.operation !== "agent.prompt");
-
-    render(<PromptBlock traceId="trace-1" spans={spans} selection={selectionOf()} />);
+    block(SPANS.filter((item) => item.operation !== "agent.prompt"));
 
     expect(screen.getByText("No prompt record for this trace.")).toBeInTheDocument();
   });

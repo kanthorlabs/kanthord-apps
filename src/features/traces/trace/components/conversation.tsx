@@ -40,6 +40,7 @@ function Transcript({ sessionEntries, conversation, selection }: TranscriptProps
               current={entry.entry_id === selection.entry}
               turn={conversation.turnOf(entry.entry_id)}
               promptLabel={conversation.promptLabelOf(entry.entry_id)}
+              promptSource={conversation.promptSource}
               onShowInTimeline={selection.showInTimeline}
             />
           ))}
@@ -103,6 +104,7 @@ function Head({ session, conversation, selection }: HeadProps) {
 
 interface SessionConversationProps {
   readonly traceId: string;
+  readonly executionId: string | null;
   readonly sessionId: string;
   readonly spans: readonly TraceSpan[];
   readonly live: boolean;
@@ -111,13 +113,14 @@ interface SessionConversationProps {
 
 function SessionConversation({
   traceId,
+  executionId,
   sessionId,
   spans,
   live,
   selection,
 }: SessionConversationProps) {
   const sessionEntries = useSessionEntries(traceId, sessionId, live);
-  const conversation = useConversation(spans, sessionId, sessionEntries.entries);
+  const conversation = useConversation(spans, sessionId, sessionEntries.entries, executionId);
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <Head session={sessionId} conversation={conversation} selection={selection} />
@@ -132,17 +135,19 @@ function SessionConversation({
 
 interface ConversationProps {
   readonly traceId: string;
+  readonly executionId: string | null;
   readonly spans: readonly TraceSpan[];
   readonly live: boolean;
   readonly selection: TraceSelection;
 }
 
-export function Conversation({ traceId, spans, live, selection }: ConversationProps) {
+export function Conversation({ traceId, executionId, spans, live, selection }: ConversationProps) {
   const { session } = selection;
   if (session === null) return <p>This trace holds no agent session.</p>;
   return (
     <SessionConversation
       traceId={traceId}
+      executionId={executionId}
       sessionId={session}
       spans={spans}
       live={live}

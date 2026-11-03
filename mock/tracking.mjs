@@ -8,6 +8,8 @@ import {
   causeAttributes,
   causeOfAttributes,
 } from "./cause.mjs";
+import { GRAPH_BINDINGS } from "./fixtures.mjs";
+import * as pr from "./prompts.mjs";
 import { buildTimelineTraces } from "./timeline-fixtures.mjs";
 
 const FLOW_READ = JSON.parse(
@@ -37,12 +39,37 @@ const TOOL_WINDOWS = [
 const GATE_WINDOW = [0.002, 0.01];
 const LABEL_OPERATION = "tracking.cause_label";
 const LABEL_REASON_MAX = 4096;
-const PROMPT_PARTS = [
-  ["standard", "base"],
-  ["role", null],
-  ["binding", "apps"],
-  ["framing", "default"],
-];
+const PROMPT_BINDING = "kanthord-repo";
+const SHIPPED_BASE = "This text is the shared standard of every agent.";
+const OLD_SHIPPED_BASE = "This text is the old shared standard of every agent.";
+const REPOSITORY_PROMPTS = {
+  [GRAPH_BINDINGS.repositoryOld.id]: "Write each name outside the code in snake_case.",
+  [GRAPH_BINDINGS.repository.id]:
+    "Write each name outside the code in snake_case.\nA test file sits beside its source file.",
+};
+const REVIEWER_PROMPT = "A missing changelog entry gives a suggestion, not a blocker.";
+const FRAMING_TEXT =
+  "The worker owns the commit, the branch, the push, the verification and the release.";
+const roleText = (agent) => `Your role is ${agent}.`;
+const LAYERS = {
+  standard: 1,
+  role: 1,
+  workbench: 1,
+  instruction_file: 2,
+  repository: 2,
+  binding: 3,
+  framing: null,
+};
+const KNOWN_TEXTS = new Map(
+  [
+    SHIPPED_BASE,
+    pr.INSTRUCTION_FILE_TEXT,
+    ...Object.values(REPOSITORY_PROMPTS),
+    REVIEWER_PROMPT,
+    FRAMING_TEXT,
+    ...["swe@1", "re@1", "env@1", "claude-code@1"].map(roleText),
+  ].map((text) => [pr.digestOf(text), text]),
+);
 const GATE_VIOLATION = "worker.turn.branch_changed";
 const TOOLS = [
   ["read_file", { path: "src/index.ts" }, "export const answer = 42;"],
@@ -153,7 +180,7 @@ const buildEntries = (record, traceId, selection) => {
     plain({
       type: "custom",
       customType: "kanthord.pinned_context",
-      data: { part: "system_prompt", text: SYSTEM_PROMPT },
+      data: { part: "system_prompt" },
     }),
     message({
       role: "system",
@@ -171,6 +198,83 @@ const buildEntries = (record, traceId, selection) => {
     }),
     message({ role: "assistant", content: [{ type: "text", text: TRUNCATED_TEXT }] }, null, true),
   ];
+};
+
+const reference = (part, name, origin, path, bindingId, commit, text) => ({
+  part,
+  name,
+  origin,
+  path,
+  binding_id: bindingId,
+  commit,
+  digest: pr.digestOf(text),
+});
+
+const promptSourcesOf = (record, agent) => {
+  const first = record.attempt === 1;
+  const bindingId = first ? GRAPH_BINDINGS.repositoryOld.id : GRAPH_BINDINGS.repository.id;
+  const directory = "~/.local/share/kanthord/agents";
+  return [
+    reference(
+      "standard",
+      "base.md",
+      "binary",
+      `${directory}/base.md`,
+      null,
+      null,
+      first ? OLD_SHIPPED_BASE : SHIPPED_BASE,
+    ),
+    reference(
+      "role",
+      `${agent}.md`,
+      "binary",
+      `${directory}/${agent}.md`,
+      null,
+      null,
+      roleText(agent),
+    ),
+    reference(
+      "instruction_file",
+      PROMPT_BINDING,
+      "repository",
+      "AGENTS.md",
+      bindingId,
+      pr.BASE_COMMIT,
+      pr.INSTRUCTION_FILE_TEXT,
+    ),
+    reference(
+      "repository",
+      PROMPT_BINDING,
+      "database",
+      null,
+      bindingId,
+      null,
+      REPOSITORY_PROMPTS[bindingId],
+    ),
+    ...(agent === "re@1"
+      ? [reference("binding", PROMPT_BINDING, "database", null, bindingId, null, REVIEWER_PROMPT)]
+      : []),
+    reference(
+      "framing",
+      "framing-worker",
+      "binary",
+      `${directory}/prompts/framing-worker.md`,
+      null,
+      null,
+      FRAMING_TEXT,
+    ),
+  ];
+};
+
+const resolvedPartOf = (source) => {
+  const text = KNOWN_TEXTS.get(source.digest) ?? null;
+  return {
+    layer: LAYERS[source.part],
+    ...source,
+    heading: pr.headingOf(source.part, source.name, source.path),
+    state: text === null ? "changed" : "resolved",
+    text,
+  };
 };
 
 const buildTrace = (record, now) => {
@@ -227,14 +331,12 @@ const buildTrace = (record, now) => {
       add("worker.phase", root, from, to, { "kanthord.phase": name }),
     ]),
   );
-  const promptParts = PROMPT_PARTS.map(([part, name]) => {
-    const partName = name ?? selection.agent_name;
-    return `${part}:${partName}:${sha256(`${part}:${partName}`)}`;
-  });
+  const sources = promptSourcesOf(record, selection.agent_name);
   add("agent.prompt", phases.prepare, 0.01, 0.02, {
     "kanthord.agent.name": selection.agent_name,
-    "kanthord.prompt.parts": promptParts,
-    "kanthord.prompt.templates_digest": sha256(promptParts.join("\n")),
+    "kanthord.prompt.sources": sources.map((source) => JSON.stringify(source)),
+    "kanthord.prompt.templates_digest": sha256("work\ntask-revision"),
+    "kanthord.engine.version": pr.ENGINE_VERSION,
   });
   const task = add("worker.task", phases.tasks, 0.12, 0.92);
   const session = add("agent.session", task, 0.13, state === "open" ? null : 0.89, {
@@ -559,6 +661,41 @@ export function registerTracking({ on, json, envelope, page, executions, usernam
     }
     return trace;
   };
+
+  on("GET", /^\/api\/agent\/prompt\/resolve$/, (_m, _b, res, _t, url) => {
+    const executionId = url.searchParams.get("execution_id");
+    const agentName = url.searchParams.get("agent_name");
+    if (!executionId || !agentName) {
+      return envelope(res, 400, "gateway.request.validation_failed", "The query is invalid.");
+    }
+    const trace = traces().find((item) => item.summary.execution_id === executionId);
+    if (trace === undefined) {
+      return envelope(res, 404, "scheduler.execution.not_found", "Execution not found.", {
+        execution_id: executionId,
+      });
+    }
+    const span = trace.spans.find(
+      (item) =>
+        item.operation === "agent.prompt" && item.attributes["kanthord.agent.name"] === agentName,
+    );
+    if (span === undefined) {
+      return envelope(
+        res,
+        404,
+        "agent.prompt.record_absent",
+        "The trace of the execution holds no prompt record of the agent.",
+        { execution_id: executionId, agent_name: agentName },
+      );
+    }
+    const parts = span.attributes["kanthord.prompt.sources"].map((item) =>
+      resolvedPartOf(JSON.parse(item)),
+    );
+    return json(res, 200, {
+      parts,
+      final: pr.finalOf(parts),
+      engine_version: span.attributes["kanthord.engine.version"],
+    });
+  });
 
   on("GET", /^\/api\/tracking\/trace$/, (_m, _b, res, _t, url) => {
     const key = sortOf(url.searchParams);

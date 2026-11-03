@@ -7,10 +7,12 @@ import type {
   AgentEnablement,
   AgentEnablementPutBody,
   AgentModel,
+  AgentPromptScope,
   AgentProviderAddBody,
   AgentProviderKind,
   AgentSummary,
   PlacementStatus,
+  PromptResolveAnswer,
   WorkerCatalogEntry,
   WorkerCatalogItem,
   WorkerRegistrationRecord,
@@ -79,8 +81,23 @@ export async function listAgents(): Promise<readonly AgentSummary[]> {
     }));
 }
 
-export async function readAgent(agentName: string): Promise<AgentDeclaration> {
-  return request<AgentDeclaration>(`/api/agent/${encodeURIComponent(agentName)}`);
+export async function readAgent(
+  agentName: string,
+  scope: AgentPromptScope | null = null,
+): Promise<AgentDeclaration> {
+  const query =
+    scope === null
+      ? ""
+      : `?${new URLSearchParams({ project_id: scope.projectId, binding_id: scope.bindingId })}`;
+  return request<AgentDeclaration>(`/api/agent/${encodeURIComponent(agentName)}${query}`);
+}
+
+export async function resolveAgentPrompt(
+  executionId: string,
+  agentName: string,
+): Promise<PromptResolveAnswer> {
+  const query = new URLSearchParams({ execution_id: executionId, agent_name: agentName });
+  return request<PromptResolveAnswer>(`/api/agent/prompt/resolve?${query}`);
 }
 
 export async function listAgentProviderModels(

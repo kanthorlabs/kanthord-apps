@@ -83,6 +83,7 @@ function nodeTraces(executions: readonly NodeExecution[] = []): NodeTraces {
         : [{ attempt: 1, nodeRevision: 1, planChanged: false, executions }],
     repeatedAttempts: 0,
     repeatedExecutions: 0,
+    promptDiffBase: null,
     loading: false,
     error: null,
     retry: vi.fn(),

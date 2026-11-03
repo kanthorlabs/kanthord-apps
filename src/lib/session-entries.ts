@@ -62,7 +62,6 @@ const PART_TOOL_CALL = "toolCall";
 
 const CUSTOM_PINNED_CONTEXT = "kanthord.pinned_context";
 const PINNED_PART_SYSTEM_PROMPT = "system_prompt";
-const SYSTEM_PROMPT_NAME = "System prompt";
 
 const TEXT_SEPARATOR = "\n";
 const LINE_BREAK = /\r?\n/;
@@ -173,16 +172,9 @@ function messageView(message: unknown): EntryView | null {
   }
 }
 
-function pinnedName(data: Json): string | null {
-  return data.part === PINNED_PART_SYSTEM_PROMPT ? SYSTEM_PROMPT_NAME : null;
-}
-
 function pinnedView(data: unknown): EntryView | null {
-  if (!isRecord(data)) return null;
-  const name = pinnedName(data);
-  const text = stringOf(data.text);
-  if (name === null || text === null) return null;
-  return { kind: "system", source: "pinned", text: "", sections: [{ name, text }] };
+  if (!isRecord(data) || data.part !== PINNED_PART_SYSTEM_PROMPT) return null;
+  return { kind: "system", source: "pinned", text: "", sections: [] };
 }
 
 function viewOf(raw: Json): EntryView | null {

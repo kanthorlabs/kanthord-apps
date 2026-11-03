@@ -110,7 +110,11 @@ const TURN = span(
   { parent_span_id: "task-1" },
 );
 const ENTRIES = [
-  entry("pin", 1, { type: "custom", customType: "kanthord.pinned_context", data: {} }),
+  entry("pin", 1, {
+    type: "custom",
+    customType: "kanthord.pinned_context",
+    data: { part: "system_prompt" },
+  }),
   entry("ask", 2, { type: "message", message: { role: "user", content: "Go." } }),
   entry("reply", 3, { type: "message", message: { role: "assistant", content: "Done." } }),
   entry("result", 4, { type: "message", message: { role: "toolResult", content: "ok" } }, "call-1"),
