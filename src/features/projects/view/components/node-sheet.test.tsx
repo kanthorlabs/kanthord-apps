@@ -489,6 +489,24 @@ describe("NodeSheet", () => {
     expect(missionApi.listNodeAssessments).toHaveBeenCalledWith("node_audit");
   });
 
+  it("disables Report a defect with its reason on a node with no assessment", async () => {
+    vi.mocked(missionApi.listNodeAssessments).mockResolvedValue([]);
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+    const reason =
+      "The node holds no assessment. A defect report names the assessment that missed the defect.";
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Report a defect" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Report a defect" }));
+
+    expect(await screen.findByText(reason)).toBeVisible();
+  });
+
   it("shows the stop reason of an execution in the records of an attempt", async () => {
     vi.mocked(schedulerApi.listNodeExecutions).mockResolvedValue([
       execution({

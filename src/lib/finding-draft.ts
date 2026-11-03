@@ -89,7 +89,7 @@ export function findingDraftErrors(
   const errors: FindingDraftErrors = {};
   if (draft.assessment_id === "") errors.assessment_id = "Choose the assessment that missed it.";
   else if (assessmentIds !== null && !assessmentIds.includes(draft.assessment_id))
-    errors.assessment_id = "Choose an execution assessment of the attempt that delivered the code.";
+    errors.assessment_id = "Choose an assessment of this node.";
   if (!isKind(draft.kind)) errors.kind = "Choose the kind.";
   if (draft.task !== NODE_TASK && !taskIds.includes(draft.task))
     errors.task = "Choose a task of the revision of that assessment, or the node.";
@@ -121,8 +121,9 @@ export function taskChoiceText(task: string, tasks: readonly MissionTaskContent[
 
 export function deliveryAssessmentsOf(
   assessments: readonly MissionAssessment[],
+  nodeId: string,
 ): readonly MissionAssessment[] {
-  return assessments.filter((assessment) => assessment.execution_id !== null);
+  return assessments.filter((assessment) => assessment.node_id === nodeId);
 }
 
 const REFUSED_FIELDS: Readonly<Record<string, FindingDraftField>> = {
@@ -137,8 +138,7 @@ const REFUSED_FIELDS: Readonly<Record<string, FindingDraftField>> = {
 };
 
 const REFUSED_FIELD_MESSAGES: Readonly<Partial<Record<FindingDraftField, string>>> = {
-  assessment_id:
-    "The daemon refused the assessment. Choose an execution assessment of the attempt that delivered the code.",
+  assessment_id: "The daemon refused the assessment. Choose an assessment of this node.",
   task: "The daemon refused the task. Choose a task of the revision of that assessment, or the node.",
 };
 

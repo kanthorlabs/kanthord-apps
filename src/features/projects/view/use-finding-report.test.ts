@@ -28,10 +28,11 @@ function assessment(
   id: string,
   revision: number,
   executionId: string | null = `execution_${id}`,
+  nodeId = "node_signup",
 ): MissionAssessment {
   return {
     id,
-    node_id: "node_signup",
+    node_id: nodeId,
     execution_id: executionId,
     attempt: 1,
     node_revision: revision,
@@ -128,8 +129,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(listNodeAssessments).mockResolvedValue([
     assessment("assessment_1", 1),
+    assessment("assessment_override", 1, null),
     assessment("assessment_2", 2),
-    assessment("assessment_override", 2, null),
+    assessment("assessment_other", 1, "execution_other", "node_other"),
   ]);
   vi.mocked(listNodeRevisions).mockResolvedValue([
     revision(2, ["task_b"]),
@@ -140,13 +142,13 @@ beforeEach(() => {
 });
 
 describe("useFindingReport", () => {
-  it("offers no report for a node with no execution assessment", async () => {
-    vi.mocked(listNodeAssessments).mockResolvedValue([assessment("assessment_override", 1, null)]);
+  it("offers no report for a node with no assessment", async () => {
+    vi.mocked(listNodeAssessments).mockResolvedValue([]);
     const { result } = renderHook(() => useFindingReport("node_signup", 7, vi.fn()));
 
     await waitFor(() =>
       expect(result.current.unavailableReason).toBe(
-        "The node holds no execution assessment. A defect report names the assessment of the attempt that delivered the code.",
+        "The node holds no assessment. A defect report names the assessment that missed the defect.",
       ),
     );
     act(() => result.current.requestCreate());
@@ -161,6 +163,7 @@ describe("useFindingReport", () => {
     expect(result.current.draft.assessment_id).toBe("assessment_2");
     expect(result.current.assessmentChoices.map((item) => item.id)).toEqual([
       "assessment_1",
+      "assessment_override",
       "assessment_2",
     ]);
     expect(result.current.tasks.map((task) => task.id)).toEqual(["task_b"]);
@@ -226,18 +229,16 @@ describe("useFindingReport", () => {
     expect(createFinding).not.toHaveBeenCalled();
   });
 
-  it("refuses a human assessment on create before the call", async () => {
+  it("refuses an assessment of another node on create before the call", async () => {
     const { result } = await mount();
 
     act(() => result.current.requestCreate());
     fill(result);
-    act(() => result.current.setField("assessment_id", "assessment_override"));
+    act(() => result.current.setField("assessment_id", "assessment_other"));
     act(() => result.current.save());
 
     expect(createFinding).not.toHaveBeenCalled();
-    expect(result.current.errors.assessment_id).toBe(
-      "Choose an execution assessment of the attempt that delivered the code.",
-    );
+    expect(result.current.errors.assessment_id).toBe("Choose an assessment of this node.");
   });
 
   it("maps a refused assessment of the daemon to the assessment field", async () => {
@@ -257,7 +258,7 @@ describe("useFindingReport", () => {
     await act(async () => result.current.save());
 
     expect(result.current.errors.assessment_id).toBe(
-      "The daemon refused the assessment. Choose an execution assessment of the attempt that delivered the code.",
+      "The daemon refused the assessment. Choose an assessment of this node.",
     );
     expect(result.current.open).toBe(true);
   });

@@ -86,7 +86,7 @@ export function FindingReportSheet({ report }: { report: FindingReportState }) {
               error={errors.assessment_id}
               placeholder="Search the assessments"
               emptyText="No assessment matches."
-              description="An execution assessment of the attempt that delivered the code."
+              description="An assessment of this node. The attempt of this assessment delivered the code."
               onChange={set("assessment_id")}
             />
           ) : (

@@ -85,7 +85,7 @@ function unavailableReasonOf(
   if (loading) return "The view reads the assessments of the node.";
   if (error !== null) return error;
   if (assessments.length === 0)
-    return "The node holds no execution assessment. A defect report names the assessment of the attempt that delivered the code.";
+    return "The node holds no assessment. A defect report names the assessment that missed the defect.";
   return null;
 }
 
@@ -104,7 +104,10 @@ export function useFindingReport(
   const [error, setError] = useState<string | null>(null);
 
   const assessments = reads.data?.assessments ?? NO_ASSESSMENTS;
-  const assessmentChoices = useMemo(() => deliveryAssessmentsOf(assessments), [assessments]);
+  const assessmentChoices = useMemo(
+    () => deliveryAssessmentsOf(assessments, nodeId),
+    [assessments, nodeId],
+  );
   const tasks = useMemo(() => {
     const assessment = assessments.find((item) => item.id === draft.assessment_id);
     if (assessment === undefined) return NO_TASKS;

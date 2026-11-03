@@ -56,7 +56,7 @@ describe("findingDraftErrors", () => {
 describe("findingDraftErrors on create", () => {
   it("refuses an assessment outside the delivery assessments", () => {
     expect(findingDraftErrors(COMPLETE, [], ["assessment_2"])).toEqual({
-      assessment_id: "Choose an execution assessment of the attempt that delivered the code.",
+      assessment_id: "Choose an assessment of this node.",
     });
     expect(findingDraftErrors(COMPLETE, [], ["assessment_1"])).toEqual({});
   });
@@ -73,8 +73,7 @@ describe("refusedFindingErrors", () => {
         "no issue",
       ]),
     ).toEqual({
-      assessment_id:
-        "The daemon refused the assessment. Choose an execution assessment of the attempt that delivered the code.",
+      assessment_id: "The daemon refused the assessment. Choose an assessment of this node.",
       task: "The daemon refused the task. Choose a task of the revision of that assessment, or the node.",
       name: "The daemon refused this field.",
     });
@@ -83,10 +82,11 @@ describe("refusedFindingErrors", () => {
 });
 
 describe("deliveryAssessmentsOf", () => {
-  it("keeps only the execution assessments", () => {
-    const execution = { execution_id: "execution_1" } as MissionAssessment;
-    const human = { execution_id: null } as MissionAssessment;
-    expect(deliveryAssessmentsOf([human, execution])).toEqual([execution]);
+  it("keeps the execution and the human assessments of the node only", () => {
+    const execution = { node_id: "node_1", execution_id: "execution_1" } as MissionAssessment;
+    const human = { node_id: "node_1", execution_id: null } as MissionAssessment;
+    const other = { node_id: "node_2", execution_id: "execution_2" } as MissionAssessment;
+    expect(deliveryAssessmentsOf([human, other, execution], "node_1")).toEqual([human, execution]);
   });
 });
 
