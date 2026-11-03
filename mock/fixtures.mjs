@@ -522,6 +522,7 @@ export const GRAPH_BINDINGS = {
 
 const REPO = GRAPH_BINDINGS.repository.id;
 const REPO_OLD = GRAPH_BINDINGS.repositoryOld.id;
+const MIRROR = GRAPH_BINDINGS.mirror.id;
 const STORAGE = GRAPH_BINDINGS.storage.id;
 
 const body = (name, bindings, extra = {}) => ({
@@ -645,7 +646,7 @@ export const GRAPH_NODES = [
     }),
     { state: "Blocked", attempt: 1, visible_revision: 2 },
   ),
-  graphNode("YC2", "stripe-webhook.md", content("Stripe webhook", [REPO]), {
+  graphNode("YC2", "stripe-webhook.md", content("Stripe webhook", [REPO, MIRROR]), {
     state: "External.Requested",
     attempt: 1,
     pinned_by_attempts: [1],
@@ -728,13 +729,13 @@ const execution = (suffix, name) => ({
   name,
 });
 
-const pullRequest = (key, bindingId) => ({
+const pullRequest = (key, bindingId, landing = "human") => ({
   key,
   binding_id: bindingId,
   action: "pull_request",
   expected_end_state: "pull_request_merged",
   follows: null,
-  configuration: { base_branch: "main", landing: "human" },
+  configuration: { base_branch: "main", landing },
 });
 
 export const GRAPH_ATTEMPTS = {
@@ -796,7 +797,10 @@ export const GRAPH_ATTEMPTS = {
       attempt: 1,
       node_revision: 1,
       start_point: "base_branch",
-      required_external_actions: [pullRequest("kanthord-repo.pull_request", REPO)],
+      required_external_actions: [
+        pullRequest("kanthord-repo.pull_request", REPO),
+        pullRequest("mirror-repo.pull_request", MIRROR, "kanthord"),
+      ],
       opened_at: minutes(300),
       closed_at: null,
       outcome_ids: [],
@@ -925,6 +929,38 @@ export const GRAPH_EVIDENCE = [
     provenance: execution("EC9", "reviewer-main #1"),
     created_at: minutes(240),
     requirement_key: "kanthord-repo.pull_request",
+  },
+  {
+    id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0RM2",
+    node_id: ids.webhook,
+    attempt: 1,
+    subject: "Pull request for the webhook handler mirror",
+    assets: [
+      {
+        id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PM2",
+        kind: "platform",
+        address: {
+          kind: "pull_request",
+          resource_identity: "repository:github:kanthorlabs/hostkey-mirror",
+          number: 17,
+        },
+        published_at: minutes(235),
+        expired_at: null,
+      },
+    ],
+    provenance: execution("EC9", "reviewer-main #1"),
+    created_at: minutes(235),
+    requirement_key: "mirror-repo.pull_request",
+    end_state: "expected",
+  },
+  {
+    id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0LM2",
+    node_id: ids.webhook,
+    attempt: 1,
+    subject: "Landed commit",
+    assets: [repositoryAsset("LM2", MIRROR, "e2")],
+    provenance: { kind: "service", service: "mission" },
+    created_at: minutes(220),
   },
 ];
 
@@ -1258,6 +1294,17 @@ export const GRAPH_OUTCOMES = [
     assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD2",
     evidence_ids: [],
     created_at: minutes(90),
+  },
+  {
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OI1",
+    node_id: ids.invite,
+    attempt: 1,
+    node_revision: 1,
+    closing_event: "assessment-passed",
+    result: "success",
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SI1",
+    evidence_ids: [],
+    created_at: minutes(1690),
   },
 ];
 

@@ -19,6 +19,7 @@ import {
   listNodeAssessments,
   listNodeEvidence,
   listNodeFindings,
+  listNodeOutcomes,
   listNodeProposals,
   listUndecidedFindings,
   overrideNode,
@@ -137,6 +138,17 @@ describe("mission graph resources", () => {
 
     await listNodeEvidence("node_1", 2);
     expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/evidence?attempt=2&limit=1000");
+  });
+
+  it("reads the evidence and the outcomes of every attempt when no attempt is given", async () => {
+    await serve({ items: [], next_cursor: null });
+
+    await listNodeEvidence("node_1");
+    await listNodeOutcomes("node_1");
+    expect(seen.map((item) => item.req.url)).toEqual([
+      "/api/mission/node/node_1/evidence?limit=1000",
+      "/api/mission/node/node_1/outcome?limit=1000",
+    ]);
   });
 
   it("reads one revision through mission.node.revision.get", async () => {

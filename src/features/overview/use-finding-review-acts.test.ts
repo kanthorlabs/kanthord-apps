@@ -1,7 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { decideFinding, listNodeAssessments, listNodeRevisions } from "@/api/resources/mission";
+import {
+  decideFinding,
+  listNodeAssessments,
+  listNodeEvidence,
+  listNodeOutcomes,
+  listNodeRevisions,
+} from "@/api/resources/mission";
 import type { MissionFinding, MissionNodeRecord, Project } from "@/api/types";
 import type { FindingReviewItem } from "@/lib/attention";
 
@@ -11,6 +17,8 @@ vi.mock("@/api/resources/mission", () => ({
   createFinding: vi.fn(),
   decideFinding: vi.fn(),
   listNodeAssessments: vi.fn(),
+  listNodeEvidence: vi.fn(),
+  listNodeOutcomes: vi.fn(),
   listNodeRevisions: vi.fn(),
   updateFinding: vi.fn(),
 }));
@@ -83,6 +91,8 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(listNodeAssessments).mockResolvedValue([]);
   vi.mocked(listNodeRevisions).mockResolvedValue([]);
+  vi.mocked(listNodeOutcomes).mockResolvedValue([]);
+  vi.mocked(listNodeEvidence).mockResolvedValue([]);
 });
 
 describe("useFindingReviewActs", () => {

@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { MissionAssessment } from "@/api/types";
+import type { MissionAssessment, MissionEvidence, MissionOutcome } from "@/api/types";
 
 import {
+  deliveredAttemptsOf,
   emptyFindingDraft,
   FINDING_TEXT_MAX_BYTES,
   findingDraftErrors,
@@ -56,7 +57,7 @@ describe("findingDraftErrors", () => {
 describe("findingDraftErrors on create", () => {
   it("refuses an assessment outside the delivery assessments", () => {
     expect(findingDraftErrors(COMPLETE, [], ["assessment_2"])).toEqual({
-      assessment_id: "Choose an assessment of this node.",
+      assessment_id: "Choose an assessment of an attempt that delivered the code.",
     });
     expect(findingDraftErrors(COMPLETE, [], ["assessment_1"])).toEqual({});
   });
@@ -73,7 +74,8 @@ describe("refusedFindingErrors", () => {
         "no issue",
       ]),
     ).toEqual({
-      assessment_id: "The daemon refused the assessment. Choose an assessment of this node.",
+      assessment_id:
+        "The daemon refused the assessment. Choose an assessment of an attempt that delivered the code.",
       task: "The daemon refused the task. Choose a task of the revision of that assessment, or the node.",
       name: "The daemon refused this field.",
     });
@@ -82,11 +84,39 @@ describe("refusedFindingErrors", () => {
 });
 
 describe("nodeAssessmentsOf", () => {
-  it("keeps the execution and the human assessments of the node only", () => {
-    const execution = { node_id: "node_1", execution_id: "execution_1" } as MissionAssessment;
-    const human = { node_id: "node_1", execution_id: null } as MissionAssessment;
-    const other = { node_id: "node_2", execution_id: "execution_2" } as MissionAssessment;
-    expect(nodeAssessmentsOf([human, other, execution], "node_1")).toEqual([human, execution]);
+  it("keeps the assessments of the node in a delivered attempt only", () => {
+    const outcome = (attempt: number, result: string) =>
+      ({ attempt, result }) as unknown as MissionOutcome;
+    const evidence = (attempt: number, provenance: MissionEvidence["provenance"]) =>
+      ({ attempt, provenance }) as MissionEvidence;
+    const assessment = (nodeId: string, attempt: number, executionId: string | null) =>
+      ({ node_id: nodeId, attempt, execution_id: executionId }) as MissionAssessment;
+    const delivered = deliveredAttemptsOf(
+      [outcome(1, "undetermined"), outcome(2, "success"), outcome(0, "success")],
+      [
+        evidence(3, { kind: "service", service: "mission" }),
+        evidence(4, {
+          kind: "execution",
+          execution_id: "execution_4",
+          client_id: null,
+          name: null,
+        }),
+      ],
+    );
+    const successful = assessment("node_1", 2, "execution_2");
+    const landed = assessment("node_1", 3, "execution_3");
+    const override = assessment("node_1", 0, null);
+    const undelivered = assessment("node_1", 1, "execution_1");
+    const executionEvidence = assessment("node_1", 4, "execution_4");
+    const other = assessment("node_2", 2, "execution_9");
+    expect(
+      nodeAssessmentsOf(
+        [successful, undelivered, landed, other, override, executionEvidence],
+        "node_1",
+        delivered,
+      ),
+    ).toEqual([successful, landed, override]);
+    expect(deliveredAttemptsOf([outcome(1, "undetermined")], [])).toEqual(new Set());
   });
 });
 
