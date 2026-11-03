@@ -729,13 +729,13 @@ const execution = (suffix, name) => ({
   name,
 });
 
-const pullRequest = (key, bindingId) => ({
+const pullRequest = (key, bindingId, landing = "human") => ({
   key,
   binding_id: bindingId,
   action: "pull_request",
   expected_end_state: "pull_request_merged",
   follows: null,
-  configuration: { base_branch: "main", landing: "human" },
+  configuration: { base_branch: "main", landing },
 });
 
 export const GRAPH_ATTEMPTS = {
@@ -799,7 +799,7 @@ export const GRAPH_ATTEMPTS = {
       start_point: "base_branch",
       required_external_actions: [
         pullRequest("kanthord-repo.pull_request", REPO),
-        pullRequest("mirror-repo.pull_request", MIRROR),
+        pullRequest("mirror-repo.pull_request", MIRROR, "kanthord"),
       ],
       opened_at: minutes(300),
       closed_at: null,

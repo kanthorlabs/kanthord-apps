@@ -1695,9 +1695,9 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/finding$/, (m, b, res) => {
     assessment.node_id !== nodeId ||
     !isDeliveredAttempt(state, nodeId, assessment.attempt)
   )
-    return validationFailed(res, "assessment_id");
+    return fieldRefused(res, "assessment_id");
   const taskRefused = revisionTaskRefusal(node, assessment, b.task_id);
-  if (taskRefused !== null) return validationFailed(res, taskRefused);
+  if (taskRefused !== null) return fieldRefused(res, taskRefused);
   const humanCount = state.findings.filter(
     (finding) => finding.node_id === nodeId && finding.created_by !== null,
   ).length;
@@ -1996,6 +1996,11 @@ const RESUME_TARGETS = ["Available", "Waiting"];
 const validationFailed = (res, field) =>
   projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
     { path: ["body", field], code: "invalid_value" },
+  ]);
+
+const fieldRefused = (res, field) =>
+  projectEnvelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+    { path: [field], code: "custom" },
   ]);
 
 const outcomeOf = (state, node, closingEvent, result) => {
