@@ -9,7 +9,12 @@ import {
   listCredentialPlatforms,
   verifyCredential,
 } from "@/api/resources/credentials";
-import { listNodeAssessments, listNodeRevisions } from "@/api/resources/mission";
+import {
+  listNodeAssessments,
+  listNodeEvidence,
+  listNodeOutcomes,
+  listNodeRevisions,
+} from "@/api/resources/mission";
 import { rebuildEnvironment } from "@/api/resources/projects";
 import { listTracePage } from "@/api/resources/tracking";
 import { approveWorkbenchCall, readWorkbenchEvents } from "@/api/resources/workbench";
@@ -726,6 +731,8 @@ describe("BoardActsProvider finding review", () => {
   it("offers Open node to the node sheet and reads the assessments of the node", async () => {
     vi.mocked(listNodeAssessments).mockResolvedValue([]);
     vi.mocked(listNodeRevisions).mockResolvedValue([]);
+    vi.mocked(listNodeOutcomes).mockResolvedValue([]);
+    vi.mocked(listNodeEvidence).mockResolvedValue([]);
     const registerDialogCloser = vi.fn();
     renderActs(item, new Map(), registerDialogCloser);
 

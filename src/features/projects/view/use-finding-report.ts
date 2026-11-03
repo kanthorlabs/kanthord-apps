@@ -4,17 +4,22 @@ import { toast } from "sonner";
 import {
   createFinding,
   listNodeAssessments,
+  listNodeEvidence,
+  listNodeOutcomes,
   listNodeRevisions,
   updateFinding,
 } from "@/api/resources/mission";
 import type {
   MissionAssessment,
+  MissionEvidence,
   MissionFinding,
+  MissionOutcome,
   MissionRevision,
   MissionTaskContent,
 } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import {
+  deliveredAttemptsOf,
   draftOfFinding,
   emptyFindingDraft,
   type FindingDraft,
@@ -50,9 +55,12 @@ export interface FindingReportState {
 interface ReportReads {
   readonly assessments: readonly MissionAssessment[];
   readonly revisions: readonly MissionRevision[];
+  readonly outcomes: readonly MissionOutcome[];
+  readonly evidence: readonly MissionEvidence[];
 }
 
 const NO_ASSESSMENTS: readonly MissionAssessment[] = [];
+const NO_DELIVERED_ATTEMPTS: ReadonlySet<number> = new Set();
 const NO_TASKS: readonly MissionTaskContent[] = [];
 
 const REFUSAL_MESSAGES: Readonly<Record<string, string>> = {
@@ -70,22 +78,27 @@ const REFUSAL_MESSAGES: Readonly<Record<string, string>> = {
 };
 
 async function readReportReads(nodeId: string): Promise<ReportReads> {
-  const [assessments, revisions] = await Promise.all([
+  const [assessments, revisions, outcomes, evidence] = await Promise.all([
     listNodeAssessments(nodeId),
     listNodeRevisions(nodeId),
+    listNodeOutcomes(nodeId),
+    listNodeEvidence(nodeId),
   ]);
-  return { assessments, revisions };
+  return { assessments, revisions, outcomes, evidence };
 }
 
 function unavailableReasonOf(
   loading: boolean,
   error: string | null,
   assessments: readonly MissionAssessment[],
+  choices: readonly MissionAssessment[],
 ): string | null {
   if (loading) return "The view reads the assessments of the node.";
   if (error !== null) return error;
   if (assessments.length === 0)
     return "The node holds no assessment. A defect report names the assessment that missed the defect.";
+  if (choices.length === 0)
+    return "No attempt of the node delivered the code. A defect report names an assessment of that attempt.";
   return null;
 }
 
@@ -104,9 +117,16 @@ export function useFindingReport(
   const [error, setError] = useState<string | null>(null);
 
   const assessments = reads.data?.assessments ?? NO_ASSESSMENTS;
+  const delivered = useMemo(
+    () =>
+      reads.data === null
+        ? NO_DELIVERED_ATTEMPTS
+        : deliveredAttemptsOf(reads.data.outcomes, reads.data.evidence),
+    [reads.data],
+  );
   const assessmentChoices = useMemo(
-    () => nodeAssessmentsOf(assessments, nodeId),
-    [assessments, nodeId],
+    () => nodeAssessmentsOf(assessments, nodeId, delivered),
+    [assessments, nodeId, delivered],
   );
   const tasks = useMemo(() => {
     const assessment = assessments.find((item) => item.id === draft.assessment_id);
@@ -119,6 +139,7 @@ export function useFindingReport(
   const unavailableReason = unavailableReasonOf(
     reads.loading,
     reads.error?.message ?? null,
+    assessments,
     assessmentChoices,
   );
   const available = unavailableReason === null;

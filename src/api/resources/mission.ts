@@ -100,11 +100,12 @@ export async function listNodeAttempts(nodeId: string): Promise<readonly Mission
 
 export async function listNodeEvidence(
   nodeId: string,
-  attempt: number,
+  attempt?: number,
 ): Promise<readonly MissionEvidence[]> {
-  return readAllPages<MissionEvidence>(`/api/mission/node/${encodeURIComponent(nodeId)}/evidence`, {
-    attempt: String(attempt),
-  });
+  return readAllPages<MissionEvidence>(
+    `/api/mission/node/${encodeURIComponent(nodeId)}/evidence`,
+    attempt === undefined ? {} : { attempt: String(attempt) },
+  );
 }
 
 export async function listNodeAssessments(
@@ -119,11 +120,12 @@ export async function listNodeAssessments(
 
 export async function listNodeOutcomes(
   nodeId: string,
-  attempt: number,
+  attempt?: number,
 ): Promise<readonly MissionOutcome[]> {
-  return readAllPages<MissionOutcome>(`/api/mission/node/${encodeURIComponent(nodeId)}/outcome`, {
-    attempt: String(attempt),
-  });
+  return readAllPages<MissionOutcome>(
+    `/api/mission/node/${encodeURIComponent(nodeId)}/outcome`,
+    attempt === undefined ? {} : { attempt: String(attempt) },
+  );
 }
 
 export async function listNodeExternalActions(

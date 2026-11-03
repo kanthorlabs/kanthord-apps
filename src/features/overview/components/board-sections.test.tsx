@@ -4,7 +4,12 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
-import { listNodeAssessments, listNodeEvidence, listNodeRevisions } from "@/api/resources/mission";
+import {
+  listNodeAssessments,
+  listNodeEvidence,
+  listNodeOutcomes,
+  listNodeRevisions,
+} from "@/api/resources/mission";
 import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
 import { readWorkbenchEvents } from "@/api/resources/workbench";
 import type {
@@ -297,6 +302,7 @@ beforeEach(() => {
   vi.mocked(listNodeEvidence).mockResolvedValue([]);
   vi.mocked(listNodeAssessments).mockResolvedValue([]);
   vi.mocked(listNodeRevisions).mockResolvedValue([]);
+  vi.mocked(listNodeOutcomes).mockResolvedValue([]);
   vi.mocked(readWorkbenchEvents).mockResolvedValue(sessionEvents(null));
 });
 

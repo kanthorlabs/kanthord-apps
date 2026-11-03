@@ -111,6 +111,20 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(missionApi.listNodeAssessments).mockResolvedValue([ASSESSMENT]);
   vi.mocked(missionApi.listNodeRevisions).mockResolvedValue([REVISION]);
+  vi.mocked(missionApi.listNodeOutcomes).mockResolvedValue([
+    {
+      id: "outcome_3",
+      node_id: "node_signup",
+      attempt: 1,
+      node_revision: 1,
+      closing_event: "assessment-passed",
+      result: "success",
+      assessment_id: "assessment_3",
+      evidence_ids: [],
+      created_at: 0,
+    },
+  ]);
+  vi.mocked(missionApi.listNodeEvidence).mockResolvedValue([]);
   vi.mocked(missionApi.createFinding).mockResolvedValue(HUMAN_FINDING);
   vi.mocked(missionApi.updateFinding).mockResolvedValue(HUMAN_FINDING);
 });

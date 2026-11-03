@@ -1,9 +1,11 @@
 import type {
   MissionAssessment,
+  MissionEvidence,
   MissionFinding,
   MissionFindingCauseOwner,
   MissionFindingKind,
   MissionFindingReport,
+  MissionOutcome,
   MissionTaskContent,
 } from "@/api/types";
 
@@ -89,7 +91,7 @@ export function findingDraftErrors(
   const errors: FindingDraftErrors = {};
   if (draft.assessment_id === "") errors.assessment_id = "Choose the assessment that missed it.";
   else if (assessmentIds !== null && !assessmentIds.includes(draft.assessment_id))
-    errors.assessment_id = "Choose an assessment of this node.";
+    errors.assessment_id = "Choose an assessment of the attempt that delivered the code.";
   if (!isKind(draft.kind)) errors.kind = "Choose the kind.";
   if (draft.task !== NODE_TASK && !taskIds.includes(draft.task))
     errors.task = "Choose a task of the revision of that assessment, or the node.";
@@ -119,11 +121,28 @@ export function taskChoiceText(task: string, tasks: readonly MissionTaskContent[
   return tasks.find((item) => item.id === task)?.content.name ?? task;
 }
 
+export function deliveredAttemptsOf(
+  outcomes: readonly MissionOutcome[],
+  evidence: readonly MissionEvidence[],
+): ReadonlySet<number> {
+  return new Set([
+    ...outcomes.filter((outcome) => outcome.result === "success").map((outcome) => outcome.attempt),
+    ...evidence
+      .filter(
+        (record) => record.provenance.kind === "service" && record.provenance.service === "mission",
+      )
+      .map((record) => record.attempt),
+  ]);
+}
+
 export function nodeAssessmentsOf(
   assessments: readonly MissionAssessment[],
   nodeId: string,
+  delivered: ReadonlySet<number>,
 ): readonly MissionAssessment[] {
-  return assessments.filter((assessment) => assessment.node_id === nodeId);
+  return assessments.filter(
+    (assessment) => assessment.node_id === nodeId && delivered.has(assessment.attempt),
+  );
 }
 
 const REFUSED_FIELDS: Readonly<Record<string, FindingDraftField>> = {
@@ -138,7 +157,8 @@ const REFUSED_FIELDS: Readonly<Record<string, FindingDraftField>> = {
 };
 
 const REFUSED_FIELD_MESSAGES: Readonly<Partial<Record<FindingDraftField, string>>> = {
-  assessment_id: "The daemon refused the assessment. Choose an assessment of this node.",
+  assessment_id:
+    "The daemon refused the assessment. Choose an assessment of the attempt that delivered the code.",
   task: "The daemon refused the task. Choose a task of the revision of that assessment, or the node.",
 };
 

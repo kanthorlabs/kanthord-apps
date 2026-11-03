@@ -6,15 +6,24 @@ import { ApiError } from "@/api/errors";
 import {
   createFinding,
   listNodeAssessments,
+  listNodeEvidence,
+  listNodeOutcomes,
   listNodeRevisions,
   updateFinding,
 } from "@/api/resources/mission";
-import type { MissionAssessment, MissionFinding, MissionRevision } from "@/api/types";
+import type {
+  MissionAssessment,
+  MissionFinding,
+  MissionOutcome,
+  MissionRevision,
+} from "@/api/types";
 import { useFindingReport } from "./use-finding-report";
 
 vi.mock("@/api/resources/mission", () => ({
   createFinding: vi.fn(),
   listNodeAssessments: vi.fn(),
+  listNodeEvidence: vi.fn(),
+  listNodeOutcomes: vi.fn(),
   listNodeRevisions: vi.fn(),
   updateFinding: vi.fn(),
 }));
@@ -29,12 +38,13 @@ function assessment(
   revision: number,
   executionId: string | null = `execution_${id}`,
   nodeId = "node_signup",
+  attempt = 1,
 ): MissionAssessment {
   return {
     id,
     node_id: nodeId,
     execution_id: executionId,
-    attempt: 1,
+    attempt,
     node_revision: revision,
     evidence_ids: [],
     dependency_outcome_ids: [],
@@ -49,6 +59,18 @@ function assessment(
     round: null,
   };
 }
+
+const SUCCESS_OUTCOME: MissionOutcome = {
+  id: "outcome_1",
+  node_id: "node_signup",
+  attempt: 1,
+  node_revision: 2,
+  closing_event: "assessment-passed",
+  result: "success",
+  assessment_id: "assessment_2",
+  evidence_ids: [],
+  created_at: 0,
+};
 
 function revision(number: number, taskIds: readonly string[]): MissionRevision {
   return {
@@ -132,7 +154,10 @@ beforeEach(() => {
     assessment("assessment_override", 1, null),
     assessment("assessment_2", 2),
     assessment("assessment_other", 1, "execution_other", "node_other"),
+    assessment("assessment_undelivered", 1, "execution_undelivered", "node_signup", 2),
   ]);
+  vi.mocked(listNodeOutcomes).mockResolvedValue([SUCCESS_OUTCOME]);
+  vi.mocked(listNodeEvidence).mockResolvedValue([]);
   vi.mocked(listNodeRevisions).mockResolvedValue([
     revision(2, ["task_b"]),
     revision(1, ["task_a"]),
@@ -151,6 +176,23 @@ describe("useFindingReport", () => {
         "The node holds no assessment. A defect report names the assessment that missed the defect.",
       ),
     );
+    act(() => result.current.requestCreate());
+    expect(result.current.open).toBe(false);
+  });
+
+  it("offers no report for a node with no delivered attempt", async () => {
+    vi.mocked(listNodeOutcomes).mockResolvedValue([
+      { ...SUCCESS_OUTCOME, result: "criterion-not-met" },
+    ]);
+    const { result } = renderHook(() => useFindingReport("node_signup", 7, vi.fn()));
+
+    await waitFor(() =>
+      expect(result.current.unavailableReason).toBe(
+        "No attempt of the node delivered the code. A defect report names an assessment of that attempt.",
+      ),
+    );
+    expect(listNodeOutcomes).toHaveBeenCalledWith("node_signup");
+    expect(listNodeEvidence).toHaveBeenCalledWith("node_signup");
     act(() => result.current.requestCreate());
     expect(result.current.open).toBe(false);
   });
@@ -238,7 +280,23 @@ describe("useFindingReport", () => {
     act(() => result.current.save());
 
     expect(createFinding).not.toHaveBeenCalled();
-    expect(result.current.errors.assessment_id).toBe("Choose an assessment of this node.");
+    expect(result.current.errors.assessment_id).toBe(
+      "Choose an assessment of the attempt that delivered the code.",
+    );
+  });
+
+  it("refuses an assessment of an undelivered attempt on create before the call", async () => {
+    const { result } = await mount();
+
+    act(() => result.current.requestCreate());
+    fill(result);
+    act(() => result.current.setField("assessment_id", "assessment_undelivered"));
+    act(() => result.current.save());
+
+    expect(createFinding).not.toHaveBeenCalled();
+    expect(result.current.errors.assessment_id).toBe(
+      "Choose an assessment of the attempt that delivered the code.",
+    );
   });
 
   it("maps a refused assessment of the daemon to the assessment field", async () => {
@@ -258,7 +316,7 @@ describe("useFindingReport", () => {
     await act(async () => result.current.save());
 
     expect(result.current.errors.assessment_id).toBe(
-      "The daemon refused the assessment. Choose an assessment of this node.",
+      "The daemon refused the assessment. Choose an assessment of the attempt that delivered the code.",
     );
     expect(result.current.open).toBe(true);
   });

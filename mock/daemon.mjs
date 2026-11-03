@@ -1535,6 +1535,19 @@ const FINDING_TEXT_MAX_BYTES = 8192;
 
 const assessmentById = (id) => fx.GRAPH_ASSESSMENTS.find((assessment) => assessment.id === id);
 
+const isDeliveredAttempt = (state, nodeId, attempt) =>
+  state.outcomes.some(
+    (outcome) =>
+      outcome.node_id === nodeId && outcome.result === "success" && outcome.attempt === attempt,
+  ) ||
+  fx.GRAPH_EVIDENCE.some(
+    (record) =>
+      record.node_id === nodeId &&
+      record.attempt === attempt &&
+      record.provenance.kind === "service" &&
+      record.provenance.service === "mission",
+  );
+
 const findingRead = (finding) => {
   const assessment = assessmentById(finding.assessment_id);
   return {
@@ -1677,7 +1690,11 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/finding$/, (m, b, res) => {
   if (refused !== null) return validationFailed(res, refused);
   if (b.expected_mission_version !== state.mission.version) return versionConflict(res);
   const assessment = assessmentById(b.assessment_id);
-  if (assessment === undefined || assessment.node_id !== nodeId)
+  if (
+    assessment === undefined ||
+    assessment.node_id !== nodeId ||
+    !isDeliveredAttempt(state, nodeId, assessment.attempt)
+  )
     return validationFailed(res, "assessment_id");
   const taskRefused = revisionTaskRefusal(node, assessment, b.task_id);
   if (taskRefused !== null) return validationFailed(res, taskRefused);
@@ -1874,6 +1891,8 @@ const checkResolutions = new Map();
 const checkCounts = new Map();
 const resolutionKey = (nodeId, attemptNumber, key) => `${nodeId}:${attemptNumber}:${key}`;
 
+const END_STATE_RESOLUTIONS = { expected: "expected-end", other: "other-end" };
+
 const externalActionsOf = (nodeId) =>
   (fx.GRAPH_ATTEMPTS[nodeId] ?? []).flatMap((attempt) =>
     attempt.required_external_actions.map((action) => {
@@ -1893,6 +1912,7 @@ const externalActionsOf = (nodeId) =>
           request === undefined
             ? "unrequested"
             : (checkResolutions.get(resolutionKey(nodeId, attempt.attempt, action.key)) ??
+              END_STATE_RESOLUTIONS[request.end_state] ??
               "unresolved"),
       };
     }),
