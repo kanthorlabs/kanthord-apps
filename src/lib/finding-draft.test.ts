@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import type { MissionAssessment } from "@/api/types";
 
 import {
-  deliveryAssessmentsOf,
   emptyFindingDraft,
   FINDING_TEXT_MAX_BYTES,
   findingDraftErrors,
   findingReportOf,
   NODE_TASK,
+  nodeAssessmentsOf,
   refusedFindingErrors,
   taskChoiceText,
 } from "./finding-draft";
@@ -81,12 +81,12 @@ describe("refusedFindingErrors", () => {
   });
 });
 
-describe("deliveryAssessmentsOf", () => {
+describe("nodeAssessmentsOf", () => {
   it("keeps the execution and the human assessments of the node only", () => {
     const execution = { node_id: "node_1", execution_id: "execution_1" } as MissionAssessment;
     const human = { node_id: "node_1", execution_id: null } as MissionAssessment;
     const other = { node_id: "node_2", execution_id: "execution_2" } as MissionAssessment;
-    expect(deliveryAssessmentsOf([human, other, execution], "node_1")).toEqual([human, execution]);
+    expect(nodeAssessmentsOf([human, other, execution], "node_1")).toEqual([human, execution]);
   });
 });
 

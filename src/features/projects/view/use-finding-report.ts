@@ -15,15 +15,15 @@ import type {
 } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import {
-  deliveryAssessmentsOf,
   draftOfFinding,
   emptyFindingDraft,
   type FindingDraft,
-  type FindingDraftErrors,
   findingDraftErrors,
+  type FindingDraftErrors,
   type FindingDraftField,
   findingReportOf,
   NODE_TASK,
+  nodeAssessmentsOf,
   refusedFindingErrors,
 } from "@/lib/finding-draft";
 
@@ -105,7 +105,7 @@ export function useFindingReport(
 
   const assessments = reads.data?.assessments ?? NO_ASSESSMENTS;
   const assessmentChoices = useMemo(
-    () => deliveryAssessmentsOf(assessments, nodeId),
+    () => nodeAssessmentsOf(assessments, nodeId),
     [assessments, nodeId],
   );
   const tasks = useMemo(() => {

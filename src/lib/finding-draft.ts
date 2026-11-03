@@ -119,7 +119,7 @@ export function taskChoiceText(task: string, tasks: readonly MissionTaskContent[
   return tasks.find((item) => item.id === task)?.content.name ?? task;
 }
 
-export function deliveryAssessmentsOf(
+export function nodeAssessmentsOf(
   assessments: readonly MissionAssessment[],
   nodeId: string,
 ): readonly MissionAssessment[] {
