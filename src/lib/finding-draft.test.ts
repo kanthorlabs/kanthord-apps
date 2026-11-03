@@ -57,7 +57,7 @@ describe("findingDraftErrors", () => {
 describe("findingDraftErrors on create", () => {
   it("refuses an assessment outside the delivery assessments", () => {
     expect(findingDraftErrors(COMPLETE, [], ["assessment_2"])).toEqual({
-      assessment_id: "Choose an assessment of the attempt that delivered the code.",
+      assessment_id: "Choose an assessment of an attempt that delivered the code.",
     });
     expect(findingDraftErrors(COMPLETE, [], ["assessment_1"])).toEqual({});
   });
@@ -75,7 +75,7 @@ describe("refusedFindingErrors", () => {
       ]),
     ).toEqual({
       assessment_id:
-        "The daemon refused the assessment. Choose an assessment of the attempt that delivered the code.",
+        "The daemon refused the assessment. Choose an assessment of an attempt that delivered the code.",
       task: "The daemon refused the task. Choose a task of the revision of that assessment, or the node.",
       name: "The daemon refused this field.",
     });

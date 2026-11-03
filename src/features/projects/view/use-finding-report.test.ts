@@ -281,7 +281,7 @@ describe("useFindingReport", () => {
 
     expect(createFinding).not.toHaveBeenCalled();
     expect(result.current.errors.assessment_id).toBe(
-      "Choose an assessment of the attempt that delivered the code.",
+      "Choose an assessment of an attempt that delivered the code.",
     );
   });
 
@@ -295,7 +295,7 @@ describe("useFindingReport", () => {
 
     expect(createFinding).not.toHaveBeenCalled();
     expect(result.current.errors.assessment_id).toBe(
-      "Choose an assessment of the attempt that delivered the code.",
+      "Choose an assessment of an attempt that delivered the code.",
     );
   });
 
@@ -316,7 +316,7 @@ describe("useFindingReport", () => {
     await act(async () => result.current.save());
 
     expect(result.current.errors.assessment_id).toBe(
-      "The daemon refused the assessment. Choose an assessment of the attempt that delivered the code.",
+      "The daemon refused the assessment. Choose an assessment of an attempt that delivered the code.",
     );
     expect(result.current.open).toBe(true);
   });

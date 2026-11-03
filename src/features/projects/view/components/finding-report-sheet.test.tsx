@@ -136,6 +136,9 @@ describe("FindingReportSheet", () => {
 
     await user.click(screen.getByRole("button", { name: "Open the report" }));
     const sheet = await screen.findByRole("dialog", { name: "Report a defect" });
+    expect(
+      within(sheet).getByText("An assessment of an attempt that delivered the code."),
+    ).toBeInTheDocument();
     await user.type(within(sheet).getByLabelText("Name"), "Duplicate account");
     await user.type(
       within(sheet).getByLabelText("Description"),
