@@ -399,18 +399,29 @@ function barLabelOf(name: string, bar: readonly FlowSegment[]): string {
 }
 
 function exitSummaryOf(stage: FlowStage, window: FlowStageWindow): string {
-  const forward: readonly [string, number] = ["✓", forwardOf(window)];
-  const loops: readonly [string, number] = ["↺", loopsOf(window)];
-  const leaked: readonly [string, number] = ["↓", leakedOf(window)];
-  const handedOn: readonly [string, number] = [
+  const forward: readonly [string, number, string] = ["✓", forwardOf(window), ""];
+  const loops: readonly [string, number, string] = ["↺", loopsOf(window), ""];
+  const leaked: readonly [string, number, string] = ["↓", leakedOf(window), ""];
+  const handedOn: readonly [string, number, string] = [
     "→",
     stage === "release_gate" ? exitCountOf(window, ["handed_on"]) : 0,
+    unobservedSuffixOf(window),
   ];
   const parts = stage === "outcome" ? [forward, loops, leaked] : [leaked, loops, handedOn];
   return parts
     .filter(([, count]) => count > 0)
-    .map(([glyph, count]) => `${glyph} ${countText(count)}`)
+    .map(([glyph, count, suffix]) => `${glyph} ${countText(count)}${suffix}`)
     .join(" ");
+}
+
+function unobservedSuffixOf(window: FlowStageWindow): string {
+  return window.unobserved > 0 ? `, ${countText(window.unobserved)} unobserved` : "";
+}
+
+function exitSuffixOf(exit: FlowExit, window: FlowStageWindow): string {
+  if (exit === "rework") return " → Queued";
+  if (exit === "handed_on") return unobservedSuffixOf(window);
+  return "";
 }
 
 function exitsBandOf(stage: FlowStage, window: FlowStageWindow): FlowExitsBand {
@@ -421,7 +432,7 @@ function exitsBandOf(stage: FlowStage, window: FlowStageWindow): FlowExitsBand {
     const count = exitCountOf(window, [exit]);
     if (count === 0) return [];
     const name = exit.replace(/_/g, " ");
-    return [`${glyph} ${countText(count)} ${name}${exit === "rework" ? " → Queued" : ""}`];
+    return [`${glyph} ${countText(count)} ${name}${exitSuffixOf(exit, window)}`];
   });
   return { header: `${stage === "outcome" ? "success" : "pass"} ${rate}`, lines };
 }

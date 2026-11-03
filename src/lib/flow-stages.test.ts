@@ -140,7 +140,7 @@ describe("flowOf columns", () => {
       "",
       "↓ 68 ↺ 9",
       "↓ 7 ↺ 17",
-      "↓ 5 → 300",
+      "↓ 5 → 300, 50 unobserved",
       "↓ 25",
       "✓ 183 ↺ 74 ↓ 9",
     ]);
@@ -403,13 +403,25 @@ describe("flowOf Details bands", () => {
       "↺ 6 budget",
       "↺ 3 further work",
     ]);
-    expect(bands[3]?.lines).toEqual(["↓ 5 stopped", "→ 300 handed on"]);
+    expect(bands[3]?.lines).toEqual(["↓ 5 stopped", "→ 300 handed on, 50 unobserved"]);
     expect(bands[5]?.lines).toEqual([
       "✓ 171 completed",
       "✓ 12 external",
       "↓ 9 blocked",
       "↺ 74 rework → Queued",
     ]);
+  });
+
+  it("reads the handed on lines without unobserved executions", () => {
+    const read = withStage(FLOW_READ, "release_gate", (result) => ({
+      ...result,
+      current: { ...result.current, unobserved: 0 },
+    }));
+    expect(columnOf("release_gate", read).bands.exits.lines).toEqual([
+      "↓ 5 stopped",
+      "→ 300 handed on",
+    ]);
+    expect(columnOf("release_gate", read).exits).toBe("↓ 5 → 300");
   });
 
   it("reads the time band of each column", () => {
