@@ -974,7 +974,35 @@ export const GRAPH_ASSESSMENTS = [
     },
     dependency_node_ids: [],
     worker_version: "reviewer@1",
+    round: 1,
   },
+  ...[1, 2].map((round) => ({
+    id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0SR${round}`,
+    node_id: ids.signup,
+    execution_id: `execution_01J9ZQ4XKM3B6V8N2R5T7W0ER${round}`,
+    attempt: 1,
+    node_revision: 1,
+    evidence_ids: ["evidence_01J9ZQ4XKM3B6V8N2R5T7W0VS1"],
+    dependency_outcome_ids: [],
+    result: round === 1 ? "criterion-not-met" : "success",
+    rationale:
+      round === 1
+        ? "The form accepts an email address without a domain."
+        : "The fix rejects an email address without a domain. Two suggestions stay open.",
+    tested_input: { kind: "repository", binding_id: REPO_OLD, commit: commitOf("a4") },
+    actor: execution(`ER${round}`, "reviewer-main #1"),
+    created_at: minutes(round === 1 ? 5400 : 5250),
+    currency: {
+      current: true,
+      context_matches: true,
+      authority_admits: true,
+      order_selected: true,
+      reasons: [],
+    },
+    dependency_node_ids: [],
+    worker_version: "reviewer@1",
+    round,
+  })),
   {
     id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SS1",
     node_id: ids.signup,
@@ -988,9 +1016,16 @@ export const GRAPH_ASSESSMENTS = [
     tested_input: { kind: "repository", binding_id: REPO_OLD, commit: commitOf("a4") },
     actor: execution("ES9", "reviewer-main #1"),
     created_at: minutes(5100),
-    currency: null,
+    currency: {
+      current: true,
+      context_matches: true,
+      authority_admits: true,
+      order_selected: true,
+      reasons: [],
+    },
     dependency_node_ids: [],
     worker_version: "reviewer@1",
+    round: 3,
   },
   {
     id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SC2",
@@ -1014,6 +1049,7 @@ export const GRAPH_ASSESSMENTS = [
     },
     dependency_node_ids: [],
     worker_version: "reviewer@1",
+    round: 1,
   },
   ...[1, 2].map((attempt) => ({
     id: `assessment_01J9ZQ4XKM3B6V8N2R5T7W0SD${attempt}`,
@@ -1034,6 +1070,7 @@ export const GRAPH_ASSESSMENTS = [
     currency: null,
     dependency_node_ids: [ids.invite],
     worker_version: "reviewer@1",
+    round: 1,
   })),
   {
     id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SF8",
@@ -1052,7 +1089,104 @@ export const GRAPH_ASSESSMENTS = [
     currency: null,
     dependency_node_ids: [],
     worker_version: "reviewer@1",
+    round: 1,
   },
+];
+
+const signupRound = (round) =>
+  round === 3
+    ? "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SS1"
+    : `assessment_01J9ZQ4XKM3B6V8N2R5T7W0SR${round}`;
+
+const reviewerFinding = (suffix, round, label, fields) => ({
+  id: `finding_01J9ZQ4XKM3B6V8N2R5T7W0F${suffix}`,
+  node_id: ids.signup,
+  assessment_id: signupRound(round),
+  label,
+  kind: label.startsWith("B") ? "blocker" : "suggestion",
+  action: "yes",
+  task_id: null,
+  ground: null,
+  route: "fix",
+  fixed_assessment_id: null,
+  cause_owner: null,
+  created_by: null,
+  created_at: minutes(round === 1 ? 5400 : round === 2 ? 5250 : 5100),
+  decision: null,
+  decision_reason: null,
+  decided_by: null,
+  decided_at: null,
+  ...fields,
+});
+
+export const GRAPH_FINDINGS = [
+  reviewerFinding("01", 1, "B1", {
+    ground: "stated",
+    name: "Email without a domain",
+    description: "The form accepts the address ulrich@ as valid.",
+    fix: "Require a domain after the @ sign in the email check.",
+    why: "The criterion requires a valid email address.",
+    fixed_assessment_id: signupRound(2),
+  }),
+  reviewerFinding("02", 1, "S1", {
+    name: "Error text placement",
+    description: "The email error shows at the top of the form, far from the field.",
+    fix: "Show the error below the email field.",
+    why: "A reader finds the error next to the field that caused it.",
+    fixed_assessment_id: signupRound(2),
+  }),
+  reviewerFinding("03", 1, "S2", {
+    name: "Password hint",
+    description: "The password field states no length rule.",
+    fix: "Add the length rule below the password field.",
+    why: "A user learns the rule before the first refusal.",
+    fixed_assessment_id: signupRound(3),
+  }),
+  reviewerFinding("04", 1, "S3", {
+    action: "no",
+    route: "record",
+    name: "Button color",
+    description: "The submit button uses the secondary color.",
+    fix: "Keep the color. The design system names the secondary color for forms.",
+    why: "The color follows the design system, so no change applies.",
+  }),
+  reviewerFinding("05", 2, "S1", {
+    route: "report",
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+  }),
+  reviewerFinding("06", 3, "S1", {
+    route: "report",
+    name: "Autocomplete attribute",
+    description: "The email field holds no autocomplete attribute.",
+    fix: "Set autocomplete=email on the email field.",
+    why: "The browser then offers the saved address.",
+    decision: "accepted",
+    decision_reason: "A follow-up node of the next mission adds it.",
+    decided_by: human,
+    decided_at: minutes(4900),
+  }),
+  reviewerFinding("07", 3, "S2", {
+    route: "report",
+    name: "Submit while pending",
+    description: "A second click on submit sends the form twice.",
+    fix: "Disable the submit button while the request is pending.",
+    why: "A double submit creates two accounts.",
+  }),
+  reviewerFinding("08", 3, "H1", {
+    kind: "blocker",
+    route: "report",
+    name: "Duplicate account on case change",
+    description:
+      "The form creates a second account for Ulrich@Example.com after ulrich@example.com.",
+    fix: "Compare email addresses without case before the insert.",
+    why: "One person then owns two accounts and two billing records.",
+    cause_owner: "reviewer",
+    created_by: human,
+    created_at: minutes(1200),
+  }),
 ];
 
 export const GRAPH_OUTCOMES = [

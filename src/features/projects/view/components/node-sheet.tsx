@@ -95,6 +95,8 @@ export function NodeSheet({
                   model={model}
                   nodeId={node.id}
                   currentRevision={node.visible_revision}
+                  missionVersion={missionVersion}
+                  onChanged={onChanged}
                 />
               </TabsContent>
               <TabsContent value="revisions">

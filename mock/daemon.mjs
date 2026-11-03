@@ -73,6 +73,7 @@ const projectStates = new Map([
       nodes: fx.GRAPH_NODES,
       edges: fx.GRAPH_EDGES,
       proposals: fx.GRAPH_PROPOSALS,
+      findings: fx.GRAPH_FINDINGS,
       outcomes: fx.GRAPH_OUTCOMES,
       queue: fx.GRAPH_QUEUE,
       executions: fx.GRAPH_EXECUTIONS,
@@ -85,6 +86,7 @@ const projectStates = new Map([
       nodes: fx.ATLAS_NODES,
       edges: fx.ATLAS_EDGES,
       proposals: [],
+      findings: [],
       outcomes: fx.ATLAS_OUTCOMES,
       queue: fx.ATLAS_QUEUE,
       executions: fx.ATLAS_EXECUTIONS,
@@ -98,6 +100,7 @@ const emptyProjectState = (projectId) => ({
   nodes: [],
   edges: [],
   proposals: [],
+  findings: [],
   outcomes: [],
   queue: [],
   executions: [],
@@ -1512,6 +1515,233 @@ on("POST", /^\/api\/mission\/assessment\/([^/]+)\/decide$/, (m, b, res) => {
       accepted_at: now,
     },
   });
+});
+
+const FINDING_KINDS = ["blocker", "suggestion"];
+const FINDING_DECISIONS = ["accepted", "dismissed"];
+const FINDING_CAUSE_OWNERS = [
+  "plan",
+  "agent",
+  "reviewer",
+  "gate",
+  "engine",
+  "apps",
+  "load",
+  "human",
+];
+const FINDING_TEXTS = ["name", "description", "fix", "why"];
+const FINDING_REPORT_FIELDS = ["kind", "task_id", ...FINDING_TEXTS, "cause_owner"];
+const FINDING_TEXT_MAX_BYTES = 8192;
+
+const assessmentById = (id) => fx.GRAPH_ASSESSMENTS.find((assessment) => assessment.id === id);
+
+const findingRead = (finding) => {
+  const assessment = assessmentById(finding.assessment_id);
+  return {
+    ...finding,
+    attempt: assessment?.attempt ?? 0,
+    round: finding.created_by === null ? (assessment?.round ?? null) : null,
+    source: finding.created_by === null ? "reviewer" : "human",
+    status: finding.fixed_assessment_id === null ? "open" : "fixed",
+  };
+};
+
+const labelNumber = (finding) => Number(finding.label.slice(1));
+
+const findingOrder = (left, right) =>
+  left.attempt - right.attempt ||
+  (left.round ?? Number.MAX_SAFE_INTEGER) - (right.round ?? Number.MAX_SAFE_INTEGER) ||
+  FINDING_KINDS.indexOf(left.kind) - FINDING_KINDS.indexOf(right.kind) ||
+  labelNumber(left) - labelNumber(right) ||
+  left.id.localeCompare(right.id);
+
+const findingById = (id) => {
+  for (const state of projectStates.values()) {
+    const finding = state.findings.find((candidate) => candidate.id === id);
+    if (finding !== undefined) return { state, finding };
+  }
+  return null;
+};
+
+const findingNotFound = (res) =>
+  projectEnvelope(res, 404, "mission.record.not_found", "No such finding.");
+
+const findingDecidedRefusal = (res, finding) =>
+  projectEnvelope(res, 409, "mission.finding.decided", "Finding already holds a decision.", {
+    finding_id: finding.id,
+  });
+
+const versionConflict = (res) =>
+  projectEnvelope(
+    res,
+    409,
+    "mission.version.conflict",
+    "The expected mission version differs from the current version.",
+  );
+
+const findingTextRefusal = (body) =>
+  FINDING_TEXTS.find(
+    (key) =>
+      body[key] !== undefined &&
+      (isBlank(body[key]) || Buffer.byteLength(body[key]) > FINDING_TEXT_MAX_BYTES),
+  );
+
+const findingReportRefusal = (body) => {
+  if (body.kind !== undefined && !FINDING_KINDS.includes(body.kind)) return "kind";
+  if (body.cause_owner !== undefined && !FINDING_CAUSE_OWNERS.includes(body.cause_owner))
+    return "cause_owner";
+  return findingTextRefusal(body) ?? null;
+};
+
+const revisionTaskRefusal = (node, assessment, taskId) => {
+  if (taskId === undefined || taskId === null) return null;
+  const revision = graphRevisions(node).find((item) => item.revision === assessment.node_revision);
+  return revision?.tasks.some((task) => task.id === taskId) ? null : "task_id";
+};
+
+on("GET", /^\/api\/mission\/node\/([^/]+)\/finding$/, (m, _b, res, _t, url) => {
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  const attempt = url.searchParams.get("attempt");
+  const round = url.searchParams.get("round");
+  const findings = state.findings
+    .filter((finding) => finding.node_id === nodeId)
+    .map(findingRead)
+    .filter(
+      (finding) =>
+        (attempt === null || String(finding.attempt) === attempt) &&
+        (round === null || String(finding.round) === round),
+    )
+    .sort(findingOrder);
+  return json(res, 200, page(findings, url));
+});
+
+on("GET", /^\/api\/mission\/finding\/([^/]+)$/, (m, _b, res) => {
+  const found = findingById(decodeURIComponent(m[1]));
+  if (found === null) return findingNotFound(res);
+  return json(res, 200, findingRead(found.finding));
+});
+
+on("GET", /^\/api\/mission\/project\/([^/]+)\/undecided-finding$/, (m, _b, res, _t, url) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.mission.not_found", "No such mission.");
+  const findings = state.findings
+    .filter((finding) => finding.route === "report" && finding.decision === null)
+    .map(findingRead)
+    .sort((left, right) => right.id.localeCompare(left.id));
+  return json(res, 200, page(findings, url));
+});
+
+on("POST", /^\/api\/mission\/finding\/([^/]+)\/decide$/, (m, b, res) => {
+  if (!hasOnly(b, ["decision", "decision_reason"])) return validationFailed(res, "decision");
+  if (!FINDING_DECISIONS.includes(b.decision)) return validationFailed(res, "decision");
+  if (isBlank(b.decision_reason)) return validationFailed(res, "decision_reason");
+  const found = findingById(decodeURIComponent(m[1]));
+  if (found === null) return findingNotFound(res);
+  const { finding } = found;
+  if (finding.decision !== null) return findingDecidedRefusal(res, finding);
+  if (finding.route !== "report")
+    return projectEnvelope(
+      res,
+      409,
+      "mission.finding.not_reported",
+      "Finding does not wait for a human.",
+      {
+        finding_id: finding.id,
+        route: finding.route,
+      },
+    );
+  finding.decision = b.decision;
+  finding.decision_reason = b.decision_reason;
+  finding.decided_by = fx.GRAPH_HUMAN;
+  finding.decided_at = Date.now();
+  return json(res, 200, findingRead(finding));
+});
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/finding$/, (m, b, res) => {
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  const node = graphNodeById(nodeId);
+  if (node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  if (!hasOnly(b, ["expected_mission_version", "assessment_id", ...FINDING_REPORT_FIELDS]))
+    return validationFailed(res, "body");
+  const missing = ["expected_mission_version", "assessment_id", ...FINDING_REPORT_FIELDS].find(
+    (key) => b[key] === undefined,
+  );
+  if (missing !== undefined) return validationFailed(res, missing);
+  const refused = findingReportRefusal(b);
+  if (refused !== null) return validationFailed(res, refused);
+  if (b.expected_mission_version !== state.mission.version) return versionConflict(res);
+  const assessment = assessmentById(b.assessment_id);
+  if (assessment === undefined || assessment.node_id !== nodeId)
+    return validationFailed(res, "assessment_id");
+  const taskRefused = revisionTaskRefusal(node, assessment, b.task_id);
+  if (taskRefused !== null) return validationFailed(res, taskRefused);
+  const humanCount = state.findings.filter(
+    (finding) => finding.node_id === nodeId && finding.created_by !== null,
+  ).length;
+  const now = Date.now();
+  const finding = {
+    id: `finding_01J9ZQ4XKM3B6V8N2R5T7W${String(state.findings.length + 100).padStart(4, "0")}`,
+    node_id: nodeId,
+    assessment_id: assessment.id,
+    label: `H${humanCount + 1}`,
+    kind: b.kind,
+    action: "yes",
+    task_id: b.task_id,
+    ground: null,
+    name: b.name,
+    description: b.description,
+    fix: b.fix,
+    why: b.why,
+    route: "report",
+    fixed_assessment_id: null,
+    cause_owner: b.cause_owner,
+    created_by: fx.GRAPH_HUMAN,
+    created_at: now,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+  };
+  state.findings.push(finding);
+  return json(res, 200, findingRead(finding));
+});
+
+on("PATCH", /^\/api\/mission\/finding\/([^/]+)$/, (m, b, res) => {
+  if (!hasOnly(b, ["expected_mission_version", ...FINDING_REPORT_FIELDS]))
+    return validationFailed(res, "body");
+  if (FINDING_REPORT_FIELDS.every((key) => b[key] === undefined))
+    return validationFailed(res, "body");
+  const refused = findingReportRefusal(b);
+  if (refused !== null) return validationFailed(res, refused);
+  const found = findingById(decodeURIComponent(m[1]));
+  if (found === null) return findingNotFound(res);
+  const { state, finding } = found;
+  if (finding.created_by === null)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.finding.not_human",
+      "Finding is a reviewer finding.",
+      {
+        finding_id: finding.id,
+      },
+    );
+  if (finding.decision !== null) return findingDecidedRefusal(res, finding);
+  if (b.expected_mission_version !== state.mission.version) return versionConflict(res);
+  const taskRefused = revisionTaskRefusal(
+    graphNodeById(finding.node_id),
+    assessmentById(finding.assessment_id),
+    b.task_id,
+  );
+  if (taskRefused !== null) return validationFailed(res, taskRefused);
+  for (const key of FINDING_REPORT_FIELDS) if (b[key] !== undefined) finding[key] = b[key];
+  return json(res, 200, findingRead(finding));
 });
 
 const DISCARD_STATES = [

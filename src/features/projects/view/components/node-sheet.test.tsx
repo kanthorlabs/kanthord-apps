@@ -307,6 +307,7 @@ describe("NodeSheet", () => {
     vi.mocked(workersApi.listWorkerRegistrations).mockResolvedValue([]);
     vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
     vi.mocked(missionApi.listNodeEvidence).mockResolvedValue([]);
+    vi.mocked(missionApi.listNodeFindings).mockResolvedValue([]);
     vi.mocked(missionApi.listNodeAssessments).mockResolvedValue([
       {
         id: "assessment_1",
@@ -329,6 +330,7 @@ describe("NodeSheet", () => {
         currency: null,
         dependency_node_ids: [],
         worker_version: "reviewer@1",
+        round: 2,
       },
     ]);
     vi.mocked(missionApi.listNodeOutcomes).mockResolvedValue([
@@ -461,6 +463,48 @@ describe("NodeSheet", () => {
         textContent("Basis: criterion-not-met assessment by reviewer (execution_9)"),
       ),
     ).toBeTruthy();
+  });
+
+  it("shows the review round of an assessment and the findings of the attempt", async () => {
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Records of attempt 1" }));
+
+    const assessments = await screen.findByRole("list", { name: "Assessments" });
+    expect(within(assessments).getByText("Round 2")).toBeTruthy();
+    const findings = screen.getByRole("region", { name: "Findings" });
+    expect(within(findings).getByText("No review finding names this attempt.")).toBeTruthy();
+    expect(missionApi.listNodeFindings).toHaveBeenCalledWith("node_audit", 1);
+  });
+
+  it("offers Report a defect on the attempts of a node with an assessment", async () => {
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Report a defect" })).toBeEnabled(),
+    );
+    expect(missionApi.listNodeAssessments).toHaveBeenCalledWith("node_audit");
+  });
+
+  it("disables Report a defect with its reason on a node with no assessment", async () => {
+    vi.mocked(missionApi.listNodeAssessments).mockResolvedValue([]);
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+    const reason =
+      "The node holds no assessment. A defect report names the assessment that missed the defect.";
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Report a defect" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Report a defect" }));
+
+    expect(await screen.findByText(reason)).toBeVisible();
   });
 
   it("shows the stop reason of an execution in the records of an attempt", async () => {

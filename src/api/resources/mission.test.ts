@@ -7,14 +7,20 @@ import { setConnection } from "../client";
 import {
   applyMissionImport,
   checkNode,
+  createFinding,
   createMissionNode,
+  decideFinding,
   decideProposals,
   discardNode,
   exportMissionJson,
+  getFinding,
   listMissionDependencies,
   listMissionNodes,
+  listNodeAssessments,
   listNodeEvidence,
+  listNodeFindings,
   listNodeProposals,
+  listUndecidedFindings,
   overrideNode,
   pauseNode,
   previewMissionImport,
@@ -23,6 +29,7 @@ import {
   removeDependency,
   resumeNode,
   unblockNode,
+  updateFinding,
 } from "./mission";
 
 let server: Server | null = null;
@@ -358,5 +365,85 @@ describe("createMissionNode", () => {
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
       /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
     );
+  });
+});
+
+describe("mission finding resources", () => {
+  const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+
+  it("lists the findings of one attempt of a node", async () => {
+    await serve({ items: [], next_cursor: null });
+
+    await listNodeFindings("node_1", 2);
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/finding?attempt=2&limit=1000");
+  });
+
+  it("lists the assessments of every attempt of a node when no attempt is given", async () => {
+    await serve({ items: [], next_cursor: null });
+
+    await listNodeAssessments("node_1");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/assessment?limit=1000");
+  });
+
+  it("gets one finding", async () => {
+    await serve({});
+
+    await getFinding("finding_1");
+    expect(seen[0]?.req.method).toBe("GET");
+    expect(seen[0]?.req.url).toBe("/api/mission/finding/finding_1");
+  });
+
+  it("lists the undecided findings of a project", async () => {
+    await serve({ items: [], next_cursor: null });
+
+    await listUndecidedFindings("project_1");
+    expect(seen[0]?.req.url).toBe("/api/mission/project/project_1/undecided-finding?limit=1000");
+  });
+
+  it("decides a finding with the decision, the reason and an idempotency key", async () => {
+    await serve({});
+
+    await decideFinding("finding_1", { decision: "dismissed", decision_reason: "No defect." });
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/finding/finding_1/decide");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      decision: "dismissed",
+      decision_reason: "No defect.",
+    });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("creates a human finding on a node with an idempotency key", async () => {
+    await serve({});
+    const body = {
+      expected_mission_version: 4,
+      assessment_id: "assessment_1",
+      kind: "blocker" as const,
+      task_id: null,
+      name: "Reset link reuse",
+      description: "A reset link works twice.",
+      fix: "Mark the link used.",
+      why: "A second use resets the password of another session.",
+      cause_owner: "reviewer" as const,
+    };
+
+    await createFinding("node_1", body);
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/finding");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("updates a human finding with PATCH and an idempotency key", async () => {
+    await serve({});
+
+    await updateFinding("finding_1", { expected_mission_version: 4, cause_owner: "plan" });
+    expect(seen[0]?.req.method).toBe("PATCH");
+    expect(seen[0]?.req.url).toBe("/api/mission/finding/finding_1");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({
+      expected_mission_version: 4,
+      cause_owner: "plan",
+    });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
   });
 });
