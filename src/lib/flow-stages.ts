@@ -413,6 +413,13 @@ function exitSummaryOf(stage: FlowStage, window: FlowStageWindow): string {
     .join(" ");
 }
 
+function exitSuffixOf(exit: FlowExit, window: FlowStageWindow): string {
+  if (exit === "rework") return " → Queued";
+  if (exit === "handed_on" && window.unobserved > 0)
+    return `, ${countText(window.unobserved)} unobserved`;
+  return "";
+}
+
 function exitsBandOf(stage: FlowStage, window: FlowStageWindow): FlowExitsBand {
   if (stage === "queued") return { header: NO_VALUE, lines: [] };
   const settled = settledOf(window);
@@ -421,7 +428,7 @@ function exitsBandOf(stage: FlowStage, window: FlowStageWindow): FlowExitsBand {
     const count = exitCountOf(window, [exit]);
     if (count === 0) return [];
     const name = exit.replace(/_/g, " ");
-    return [`${glyph} ${countText(count)} ${name}${exit === "rework" ? " → Queued" : ""}`];
+    return [`${glyph} ${countText(count)} ${name}${exitSuffixOf(exit, window)}`];
   });
   return { header: `${stage === "outcome" ? "success" : "pass"} ${rate}`, lines };
 }
