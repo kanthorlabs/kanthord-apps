@@ -79,7 +79,7 @@ describe("FlowSection on a wide screen", () => {
       "◐ blocked 5.3 % · Oct 28",
       "↓ 68 ↺ 9",
       "↓ 7 ↺ 17",
-      "↓ 5 → 300",
+      "↓ 5 → 300, 50 unobserved",
       "↓ 25",
       "✓ 183 ↺ 74 ↓ 9",
     ]) {

@@ -140,7 +140,7 @@ describe("flowOf columns", () => {
       "",
       "↓ 68 ↺ 9",
       "↓ 7 ↺ 17",
-      "↓ 5 → 300",
+      "↓ 5 → 300, 50 unobserved",
       "↓ 25",
       "✓ 183 ↺ 74 ↓ 9",
     ]);
@@ -412,7 +412,7 @@ describe("flowOf Details bands", () => {
     ]);
   });
 
-  it("reads the handed on line without unobserved executions", () => {
+  it("reads the handed on lines without unobserved executions", () => {
     const read = withStage(FLOW_READ, "release_gate", (result) => ({
       ...result,
       current: { ...result.current, unobserved: 0 },
@@ -421,6 +421,7 @@ describe("flowOf Details bands", () => {
       "↓ 5 stopped",
       "→ 300 handed on",
     ]);
+    expect(columnOf("release_gate", read).exits).toBe("↓ 5 → 300");
   });
 
   it("reads the time band of each column", () => {
