@@ -295,10 +295,18 @@ describe("boardFindingGroupsOf", () => {
     expect(
       groups.map((group) => [group.title, group.findings.map((finding) => finding.id)]),
     ).toEqual([
-      ["Attempt 1 · Round 2 · report only", ["f1", "f2", "f3"]],
+      ["Attempt 1 · Round 2", ["f1", "f2", "f3"]],
       ["Attempt 1 · Found after delivery", ["f4"]],
-      ["Attempt 2 · Round 1 · report only", ["f5"]],
+      ["Attempt 2 · Round 1", ["f5"]],
     ]);
+  });
+
+  it("titles a human finding at attempt 0 as found after delivery", () => {
+    const groups = boardFindingGroupsOf([
+      missionFinding({ id: "f1", source: "human", attempt: 0, round: null }),
+    ]);
+
+    expect(groups.map((group) => group.title)).toEqual(["Attempt 0 · Found after delivery"]);
   });
 });
 

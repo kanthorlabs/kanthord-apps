@@ -345,7 +345,7 @@ describe("BoardSections findings", () => {
         "2 findings wait for your decision. KanthorD fixes none of them. Accept or dismiss each finding.",
       ),
     ).toBeVisible();
-    const review = screen.getByRole("list", { name: "Attempt 1 · Round 2 · report only" });
+    const review = screen.getByRole("list", { name: "Attempt 1 · Round 2" });
     expect(within(review).getByText("Trim the email")).toBeVisible();
     expect(within(review).getByRole("button", { name: "Accept the finding S1" })).toBeEnabled();
     expect(within(review).getByRole("button", { name: "Dismiss the finding S1" })).toBeEnabled();

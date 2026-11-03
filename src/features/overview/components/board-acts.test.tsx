@@ -9,6 +9,7 @@ import {
   listCredentialPlatforms,
   verifyCredential,
 } from "@/api/resources/credentials";
+import { listNodeAssessments, listNodeRevisions } from "@/api/resources/mission";
 import { rebuildEnvironment } from "@/api/resources/projects";
 import { listTracePage } from "@/api/resources/tracking";
 import { approveWorkbenchCall, readWorkbenchEvents } from "@/api/resources/workbench";
@@ -30,6 +31,7 @@ import {
   type AttentionItem,
   type DecisionAttentionItem,
   detailKeyOf,
+  type FindingReviewItem,
   type MergeWaitItem,
 } from "@/lib/attention";
 import type {
@@ -702,6 +704,39 @@ describe("BoardActsProvider act order", () => {
     );
 
     expect(screen.queryByRole("group", { name: "Acts" })).not.toBeInTheDocument();
+  });
+});
+
+describe("BoardActsProvider finding review", () => {
+  const target = node("implement", "Completed");
+  const item: FindingReviewItem = {
+    id: "finding_review:node_1",
+    kind: "finding_review",
+    group: "decisions",
+    project: PROJECT,
+    subject: "Team",
+    missionVersion: 7,
+    node: target,
+    nodes: [target],
+    at: 1,
+    cause: "Findings wait for a decision",
+    findings: [],
+  };
+
+  it("offers Open node to the node sheet and reads the assessments of the node", async () => {
+    vi.mocked(listNodeAssessments).mockResolvedValue([]);
+    vi.mocked(listNodeRevisions).mockResolvedValue([]);
+    const registerDialogCloser = vi.fn();
+    renderActs(item, new Map(), registerDialogCloser);
+
+    expect(actNames()).toEqual(["Open node"]);
+    expect(screen.getByRole("button", { name: "Open node" })).toHaveAttribute(
+      "href",
+      "/projects/prj-1?node=node_1",
+    );
+    await waitFor(() => expect(listNodeAssessments).toHaveBeenCalledWith("node_1"));
+    expect(listNodeRevisions).toHaveBeenCalledWith("node_1");
+    expect(registerDialogCloser).toHaveBeenCalledWith(expect.any(Function));
   });
 });
 

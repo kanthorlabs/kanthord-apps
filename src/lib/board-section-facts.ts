@@ -17,7 +17,7 @@ import { proposalSourceOf, type Suggestion, suggestionOf } from "./board-suggest
 import { heldText } from "./board-text";
 import { counted } from "./counted";
 import { spreadTextOf } from "./fix-attention";
-import { type FindingGroup, findingGroupsOf } from "./review-findings";
+import { type FindingGroup, findingGroupsOf, HUMAN_FINDING_GROUP } from "./review-findings";
 
 const COMPACT_EVIDENCE_LINES = 3;
 
@@ -128,6 +128,14 @@ function compareFindings(left: MissionFinding, right: MissionFinding): number {
   );
 }
 
+function boardGroupTitleOf(group: FindingGroup): string {
+  const [first] = group.findings;
+  if (first === undefined || first.source === "human" || first.round === null) {
+    return HUMAN_FINDING_GROUP;
+  }
+  return `Round ${first.round}`;
+}
+
 export function boardFindingGroupsOf(findings: readonly MissionFinding[]): readonly FindingGroup[] {
   const attempts = [...new Set(findings.map((finding) => finding.attempt))].sort(
     (left, right) => left - right,
@@ -138,7 +146,7 @@ export function boardFindingGroupsOf(findings: readonly MissionFinding[]): reado
     ).map((group) => ({
       ...group,
       key: `${attempt}:${group.key}`,
-      title: `Attempt ${attempt} · ${group.title}`,
+      title: `Attempt ${attempt} · ${boardGroupTitleOf(group)}`,
     })),
   );
 }

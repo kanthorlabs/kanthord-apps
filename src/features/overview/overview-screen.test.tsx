@@ -1802,9 +1802,7 @@ describe("OverviewScreen review findings", () => {
     expect(
       within(item).getByRole("heading", { name: "Sign-up form: findings wait for a decision" }),
     ).toBeInTheDocument();
-    expect(
-      within(item).getByRole("list", { name: "Attempt 1 · Round 2 · report only" }),
-    ).toBeInTheDocument();
+    expect(within(item).getByRole("list", { name: "Attempt 1 · Round 2" })).toBeInTheDocument();
     expect(
       within(item).getByRole("list", { name: "Attempt 1 · Found after delivery" }),
     ).toBeInTheDocument();
@@ -1847,6 +1845,98 @@ describe("OverviewScreen review findings", () => {
       decision: "accepted",
       decision_reason: "The next mission adds it.",
     });
+  });
+});
+
+describe("OverviewScreen review finding decisions", () => {
+  function serveDecisions(initial: readonly MissionFinding[]) {
+    const findings: Record<string, readonly MissionFinding[]> = { "prj-1": initial };
+    serve({ nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] }, findings });
+    vi.mocked(decideFinding).mockImplementation(async (findingId, body) => {
+      const decided = (findings["prj-1"] ?? []).find((item) => item.id === findingId);
+      if (decided === undefined) throw new Error(`No finding ${findingId}.`);
+      findings["prj-1"] = (findings["prj-1"] ?? []).filter((item) => item.id !== findingId);
+      return { ...decided, decision: body.decision, decision_reason: body.decision_reason };
+    });
+  }
+
+  async function decide(item: HTMLElement, label: string) {
+    const user = userEvent.setup();
+    await user.click(
+      await within(item).findByRole("button", { name: `Dismiss the finding ${label}` }),
+    );
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "No defect.");
+    await user.click(within(dialog).getByRole("button", { name: "Dismiss" }));
+  }
+
+  it("keeps the card with the new count after one decision of two", async () => {
+    serveDecisions([
+      finding("n_s", "S1", "Trim the email"),
+      finding("n_s", "S2", "Submit while pending"),
+    ]);
+    renderScreen();
+
+    const item = await findDetail();
+    await decide(item, "S1");
+
+    await waitFor(() =>
+      expect(
+        within(cardOf("Sign-up form")).getByText("Findings wait for a decision · 1 review finding"),
+      ).toBeInTheDocument(),
+    );
+    expect(within(item).queryByRole("button", { name: "Dismiss the finding S1" })).toBeNull();
+    expect(within(item).getByRole("button", { name: "Dismiss the finding S2" })).toBeEnabled();
+  });
+
+  it("clears the card after the last decision and records the done entry", async () => {
+    const user = userEvent.setup();
+    serveDecisions([finding("n_s", "S1", "Trim the email")]);
+    renderScreen();
+
+    const item = await findDetail();
+    await decide(item, "S1");
+
+    const toggle = await screen.findByRole("button", { name: "Done this session 1" });
+    expect(screen.queryByRole("button", { name: "Sign-up form" })).toBeNull();
+    await user.click(toggle);
+    expect(await screen.findByText("Decided the findings of Sign-up form.")).toBeVisible();
+  });
+
+  it("groups the findings of two attempts in attempt order", async () => {
+    serve({
+      nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] },
+      findings: {
+        "prj-1": [
+          {
+            ...finding("n_s", "S1", "Second attempt finding"),
+            id: "finding_b",
+            attempt: 2,
+            round: 1,
+          },
+          {
+            ...finding("n_s", "S1", "First attempt finding"),
+            id: "finding_a",
+            attempt: 1,
+            round: 3,
+          },
+        ],
+      },
+    });
+    renderScreen();
+
+    const item = await findDetail();
+    expect(
+      within(item)
+        .getAllByRole("list")
+        .map((list) => list.getAttribute("aria-label"))
+        .filter((label) => label?.startsWith("Attempt") === true),
+    ).toEqual(["Attempt 1 · Round 3", "Attempt 2 · Round 1"]);
+    expect(
+      within(within(item).getByRole("list", { name: "Attempt 2 · Round 1" })).getByText(
+        "Second attempt finding",
+      ),
+    ).toBeInTheDocument();
   });
 });
 
