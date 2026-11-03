@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
-import { listMissionNodes, readMission } from "@/api/resources/mission";
+import { listMissionNodes, listUndecidedFindings, readMission } from "@/api/resources/mission";
 import { listProjectEnvironments, listProjects } from "@/api/resources/projects";
 import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
 import { listWorkbenchSessions } from "@/api/resources/workbench";
 import { listWorkerRegistrations } from "@/api/resources/workers";
-import type { Project, WorkbenchSessionListItem } from "@/api/types";
+import type { MissionFinding, Project, WorkbenchSessionListItem } from "@/api/types";
 
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/projects");
@@ -15,6 +15,38 @@ vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
 import { readOverviewSnapshot } from "./read-overview-snapshot";
+
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
 
 const ATLAS: Project = {
   id: "prj-1",
@@ -42,6 +74,7 @@ beforeEach(() => {
   vi.mocked(listProjects).mockResolvedValue([ATLAS]);
   vi.mocked(readMission).mockResolvedValue({ id: "mission_1", project_id: "prj-1", version: 1 });
   vi.mocked(listMissionNodes).mockResolvedValue([]);
+  vi.mocked(listUndecidedFindings).mockResolvedValue([]);
   vi.mocked(listQueueJobs).mockResolvedValue([]);
   vi.mocked(listWorkerRegistrations).mockResolvedValue([]);
   vi.mocked(listProjectEnvironments).mockResolvedValue([]);
@@ -76,5 +109,42 @@ describe("readOverviewSnapshot sessions", () => {
 
     expect(snapshot.sessions).toEqual([SESSION]);
     expect(snapshot.faults.map((fault) => fault.source)).toEqual(["workbench sessions"]);
+  });
+});
+
+describe("readOverviewSnapshot undecided findings", () => {
+  it("reads the undecided findings of each project with a mission", async () => {
+    const finding = missionFinding();
+    vi.mocked(listUndecidedFindings).mockResolvedValue([finding]);
+
+    const snapshot = await readOverviewSnapshot(null, null);
+
+    expect(listUndecidedFindings).toHaveBeenCalledWith("prj-1");
+    expect(snapshot.reads[0]?.findings).toEqual([finding]);
+  });
+
+  it("reads no finding for a project without a mission", async () => {
+    vi.mocked(readMission).mockRejectedValue(
+      new ApiError("not_found", "No such mission.", 404, "mission.mission.not_found"),
+    );
+
+    const snapshot = await readOverviewSnapshot(null, null);
+
+    expect(listUndecidedFindings).not.toHaveBeenCalled();
+    expect(snapshot.reads[0]?.findings).toBeNull();
+  });
+
+  it("keeps the last findings and names the fault when the read fails", async () => {
+    const finding = missionFinding();
+    vi.mocked(listUndecidedFindings).mockResolvedValue([finding]);
+    const previous = await readOverviewSnapshot(null, null);
+    vi.mocked(listUndecidedFindings).mockRejectedValue(
+      new ApiError("unreachable", "No answer.", 0),
+    );
+
+    const snapshot = await readOverviewSnapshot(previous, null);
+
+    expect(snapshot.reads[0]?.findings).toEqual([finding]);
+    expect(snapshot.faults.map((fault) => fault.source)).toEqual(["undecided findings"]);
   });
 });

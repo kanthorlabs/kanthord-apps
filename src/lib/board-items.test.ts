@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   AgentSelection,
   ExecutionStop,
+  MissionFinding,
   MissionNodeRecord,
   NodeState,
   Project,
@@ -30,6 +31,38 @@ import {
   rankBoardItems,
   startItemOf,
 } from "./board-items";
+
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
 
 const NOW = 10_000_000;
 
@@ -124,6 +157,7 @@ function snapshot(
     executions: null,
     bindings: null,
     environments: null,
+    findings: null,
     ...overrides,
   };
 }
@@ -246,6 +280,13 @@ describe("heldNodeIdsOf", () => {
     const item = itemOf(derive([chain]), "blocked:a");
 
     expect(heldNodeIdsOf(item, [chain])).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("answers no node for a finding item, because a finding holds no node", () => {
+    const held = { ...chain, findings: [missionFinding({ node_id: "a" })] };
+    const item = itemOf(derive([held]), "finding_review:a");
+
+    expect(heldNodeIdsOf(item, [held])).toEqual([]);
   });
 
   it("stops at a terminal node", () => {

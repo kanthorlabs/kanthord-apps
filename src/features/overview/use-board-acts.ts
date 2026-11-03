@@ -8,7 +8,13 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import type { EffectiveCause, MissionProposal } from "@/api/types";
+import type {
+  EffectiveCause,
+  MissionAssessment,
+  MissionFinding,
+  MissionFindingDecision,
+  MissionProposal,
+} from "@/api/types";
 import { type AttentionDetails, type DecisionAttentionItem, detailOf } from "@/lib/attention";
 import {
   type BoardAct,
@@ -28,6 +34,12 @@ interface LastTrace {
   readonly cause: EffectiveCause | null;
 }
 
+export interface FindingRowActs {
+  readonly assessments: readonly MissionAssessment[];
+  readonly decide: (finding: MissionFinding, decision: MissionFindingDecision) => void;
+  readonly edit: (finding: MissionFinding) => void;
+}
+
 export interface BoardActsState {
   readonly acts: readonly BoardAct[];
   readonly needs: readonly string[];
@@ -36,6 +48,7 @@ export interface BoardActsState {
   readonly unresolved: string | null;
   readonly lastTrace: LastTrace | null;
   readonly failure: ActFailure | null;
+  readonly findings: FindingRowActs | null;
   readonly retry: () => void;
 }
 
@@ -68,6 +81,7 @@ const EMPTY: BoardActsState = {
   unresolved: null,
   lastTrace: null,
   failure: null,
+  findings: null,
   retry: () => undefined,
 };
 

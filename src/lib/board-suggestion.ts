@@ -85,6 +85,10 @@ export function suggestionOf(
       return clientRule(
         `Does the work of ${item.discarded.map((dependency) => dependency.name).join(", ")} still need to happen? No: remove the dependency. Yes: add a new node for that work, then remove the dependency.`,
       );
+    case "finding_review":
+      return clientRule(
+        "Accept a finding that names a defect that you fix outside KanthorD. Dismiss a finding that names no defect. Neither decision changes the node.",
+      );
     case "merge_wait":
     case "delivery_unconfirmed":
       return clientRule("Merge the pull request on the platform, then Check now.");

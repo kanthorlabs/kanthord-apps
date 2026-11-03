@@ -1,4 +1,4 @@
-import { listMissionNodes, readMission } from "@/api/resources/mission";
+import { listMissionNodes, listUndecidedFindings, readMission } from "@/api/resources/mission";
 import { listProjectEnvironments, listProjects } from "@/api/resources/projects";
 import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
 import { listWorkbenchSessions } from "@/api/resources/workbench";
@@ -6,6 +6,7 @@ import { listWorkerRegistrations } from "@/api/resources/workers";
 import type {
   EnvironmentState,
   Mission,
+  MissionFinding,
   MissionNodeRecord,
   Project,
   SchedulerExecutionRecord,
@@ -25,6 +26,7 @@ export interface ProjectRead {
   readonly registrations: readonly WorkerRegistrationRecord[] | null;
   readonly executions: readonly SchedulerExecutionRecord[] | null;
   readonly environments: readonly EnvironmentState[] | null;
+  readonly findings: readonly MissionFinding[] | null;
 }
 
 export interface ReadFault {
@@ -76,6 +78,20 @@ async function readNodes(
   return settle(project, "node list", () => listMissionNodes(mission.id), previous?.nodes ?? null);
 }
 
+async function readFindings(
+  project: Project,
+  mission: Mission | null,
+  previous: ProjectRead | null,
+): Promise<Settled<readonly MissionFinding[]>> {
+  if (mission === null) return { data: previous?.findings ?? null, fault: null };
+  return settle(
+    project,
+    "undecided findings",
+    () => listUndecidedFindings(project.id),
+    previous?.findings ?? null,
+  );
+}
+
 async function readProject(
   project: Project,
   previous: ProjectRead | null,
@@ -86,8 +102,9 @@ async function readProject(
     () => readMission(project.id),
     previous?.mission ?? null,
   );
-  const [nodes, jobs, registrations, executions, environments] = await Promise.all([
+  const [nodes, findings, jobs, registrations, executions, environments] = await Promise.all([
     readNodes(project, mission.data, previous),
+    readFindings(project, mission.data, previous),
     settle(project, "queue", () => listQueueJobs(project.id), previous?.jobs ?? null),
     settle(
       project,
@@ -117,10 +134,12 @@ async function readProject(
       registrations: registrations.data,
       executions: executions.data,
       environments: environments.data,
+      findings: findings.data,
     },
     faults: [
       mission.fault,
       nodes.fault,
+      findings.fault,
       jobs.fault,
       registrations.fault,
       executions.fault,

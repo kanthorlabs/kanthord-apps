@@ -56,6 +56,11 @@ vi.mock("@/api/resources/mission", () => ({
   resumeNode: vi.fn(),
   removeDependency: vi.fn(),
   discardNode: vi.fn(),
+  listUndecidedFindings: vi.fn(),
+  listNodeRevisions: vi.fn(),
+  decideFinding: vi.fn(),
+  createFinding: vi.fn(),
+  updateFinding: vi.fn(),
 }));
 
 vi.mock("@/api/resources/workbench", () => ({
@@ -78,6 +83,7 @@ vi.mock("@/api/resources/scheduler", () => ({
 import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
 import {
   checkNode,
+  decideFinding,
   decideProposals,
   discardNode,
   listMissionNodes,
@@ -85,6 +91,8 @@ import {
   listNodeEvidence,
   listNodeExternalActions,
   listNodeProposals,
+  listNodeRevisions,
+  listUndecidedFindings,
   overrideNode,
   readMission,
   removeDependency,
@@ -133,6 +141,7 @@ import type {
   MissionControlResult,
   MissionEvidence,
   MissionExternalAction,
+  MissionFinding,
   MissionNodeChange,
   MissionNodeCheckAnswer,
   MissionNodeRecord,
@@ -153,6 +162,38 @@ import { newUlid } from "@/lib/ulid";
 
 import { textContent } from "../../../test/text-content";
 import { OverviewScreen } from "./overview-screen";
+
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
 
 let NOW = 0;
 const HOUR = 3_600_000;
@@ -478,6 +519,7 @@ interface World {
   readonly liveness?: LivenessReport;
   readonly sessions?: readonly WorkbenchSessionListItem[];
   readonly environments?: Readonly<Record<string, readonly EnvironmentState[]>>;
+  readonly findings?: Readonly<Record<string, readonly MissionFinding[]>>;
 }
 
 const HEALTHY: LivenessReport = {
@@ -511,6 +553,10 @@ function serve(world: World) {
     async (missionId) => world.nodes?.[missionId.replace("mission_", "")] ?? [],
   );
   vi.mocked(listQueueJobs).mockImplementation(async (projectId) => world.jobs?.[projectId] ?? []);
+  vi.mocked(listUndecidedFindings).mockImplementation(
+    async (projectId) => world.findings?.[projectId] ?? [],
+  );
+  vi.mocked(listNodeRevisions).mockResolvedValue([]);
   vi.mocked(listNodeAssessments).mockImplementation(async (nodeId) => [
     assessment(nodeId, world.rationales?.[nodeId] ?? "The criterion is not met."),
   ]);
@@ -1713,6 +1759,94 @@ describe("OverviewScreen proposal decision", () => {
     const item = await findDetail();
     expect(within(item).getByRole("button", { name: "Unblock" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Decide" })).toBeNull();
+  });
+});
+
+function finding(
+  nodeId: string,
+  label: string,
+  name: string,
+  source: MissionFinding["source"] = "reviewer",
+): MissionFinding {
+  return missionFinding({
+    id: `finding_${nodeId}_${label}`,
+    node_id: nodeId,
+    assessment_id: `assessment_${nodeId}`,
+    source,
+    label,
+    name,
+    created_at: NOW - HOUR,
+  });
+}
+
+describe("OverviewScreen review findings", () => {
+  it("lists the undecided findings of a node in Decide proposal", async () => {
+    serve({
+      nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] },
+      findings: {
+        "prj-1": [
+          finding("n_s", "S2", "Submit while pending"),
+          finding("n_s", "H1", "Duplicate account", "human"),
+        ],
+      },
+    });
+    renderScreen();
+
+    const item = await findDetail();
+    expect(screen.getByRole("tab", { name: "Decide proposal, 1 act" })).toBeInTheDocument();
+    expect(
+      within(cardOf("Sign-up form")).getByText(
+        "Findings wait for a decision · 1 review finding · 1 found after delivery",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByRole("heading", { name: "Sign-up form: findings wait for a decision" }),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByRole("list", { name: "Attempt 1 · Round 2 · report only" }),
+    ).toBeInTheDocument();
+    expect(
+      within(item).getByRole("list", { name: "Attempt 1 · Found after delivery" }),
+    ).toBeInTheDocument();
+    expect(within(item).getByRole("button", { name: "Open node" })).toHaveAttribute(
+      "href",
+      "/projects/prj-1?node=n_s",
+    );
+  });
+
+  it("names a node with only a human finding Found after delivery", async () => {
+    serve({
+      nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] },
+      findings: { "prj-1": [finding("n_s", "H1", "Duplicate account", "human")] },
+    });
+    renderScreen();
+
+    await findDetail();
+    expect(
+      within(cardOf("Sign-up form")).getByText("Found after delivery · 1 finding"),
+    ).toBeInTheDocument();
+  });
+
+  it("accepts a finding with the reason in the body", async () => {
+    const user = userEvent.setup();
+    const target = finding("n_s", "S2", "Submit while pending");
+    serve({
+      nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] },
+      findings: { "prj-1": [target] },
+    });
+    vi.mocked(decideFinding).mockResolvedValue({ ...target, decision: "accepted" });
+    renderScreen();
+
+    const item = await findDetail();
+    await user.click(await within(item).findByRole("button", { name: "Accept the finding S2" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "The next mission adds it.");
+    await user.click(within(dialog).getByRole("button", { name: "Accept" }));
+
+    expect(decideFinding).toHaveBeenCalledWith("finding_n_s_S2", {
+      decision: "accepted",
+      decision_reason: "The next mission adds it.",
+    });
   });
 });
 

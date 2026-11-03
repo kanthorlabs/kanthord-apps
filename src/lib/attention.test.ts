@@ -6,6 +6,7 @@ import type {
   MissionClosingEvent,
   MissionEvidence,
   MissionExternalAction,
+  MissionFinding,
   MissionNodeRecord,
   NodeState,
   Project,
@@ -23,6 +24,38 @@ import {
   externalReadStateOf,
 } from "./attention";
 import type { AttentionDetail, AttentionDetails, ProjectSnapshot } from "./attention";
+
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
 
 const NO_DETAILS: AttentionDetails = new Map();
 
@@ -168,7 +201,17 @@ function snapshot(
     executions: null,
     bindings: null,
     environments: null,
+    findings: null,
   };
+}
+
+function finding(
+  id: string,
+  nodeId: string,
+  createdAt: number,
+  source: MissionFinding["source"] = "reviewer",
+): MissionFinding {
+  return missionFinding({ id, node_id: nodeId, created_at: createdAt, source });
 }
 
 describe("blockedCauseOf", () => {
@@ -349,6 +392,68 @@ describe("deriveAttention paused", () => {
     ]);
 
     expect(items.map((item) => item.kind)).toEqual(["blocked", "paused", "dependency_discarded"]);
+  });
+});
+
+describe("deriveAttention finding_review", () => {
+  it("lists one item per node with its undecided findings and the oldest age", () => {
+    const items = derive([
+      {
+        ...snapshot("atlas", [node("n1", "Sign-up form", "Completed")]),
+        findings: [finding("f2", "n1", 700), finding("f1", "n1", 300)],
+      },
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      id: "finding_review:n1",
+      kind: "finding_review",
+      group: "decisions",
+      cause: "Findings wait for a decision",
+      at: 300,
+      missionVersion: 4,
+    });
+    expect(items[0]?.kind === "finding_review" && items[0].findings.map((item) => item.id)).toEqual(
+      ["f2", "f1"],
+    );
+  });
+
+  it("names a node with only human findings Found after delivery", () => {
+    const items = derive([
+      {
+        ...snapshot("atlas", [node("n1", "Sign-up form", "Completed")]),
+        findings: [finding("f1", "n1", 300, "human")],
+      },
+    ]);
+
+    expect(items[0]).toMatchObject({ kind: "finding_review", cause: "Found after delivery" });
+  });
+
+  it("lists no item without findings or for a finding of an unknown node", () => {
+    expect(derive([snapshot("atlas", [node("n1", "Done", "Completed")])])).toEqual([]);
+    expect(
+      derive([
+        {
+          ...snapshot("atlas", [node("n1", "Done", "Completed")]),
+          findings: [finding("f1", "n9", 300)],
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it("sorts a finding item after a dependency item", () => {
+    const items = derive([
+      {
+        ...snapshot("atlas", [
+          node("n9", "Pending", "Pending", { depends_on: ["n8"] }),
+          node("n8", "Gone", "Discarded"),
+          node("n1", "Sign-up form", "Completed"),
+        ]),
+        findings: [finding("f1", "n1", 1)],
+      },
+    ]);
+
+    expect(items.map((item) => item.kind)).toEqual(["dependency_discarded", "finding_review"]);
   });
 });
 

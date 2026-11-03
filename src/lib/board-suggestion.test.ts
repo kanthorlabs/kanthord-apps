@@ -131,6 +131,20 @@ function dependency(...names: readonly string[]): AttentionItem {
   };
 }
 
+const FINDINGS: AttentionItem = {
+  id: "finding_review:node_1",
+  kind: "finding_review",
+  group: "decisions",
+  project: PROJECT,
+  subject: "Sign-up form",
+  missionVersion: 1,
+  node: NODE,
+  nodes: [NODE],
+  at: 1,
+  cause: "Findings wait for a decision",
+  findings: [],
+};
+
 const APPROVAL: ToolApprovalItem = {
   id: "tool_approval:s1",
   group: "decisions",
@@ -150,6 +164,13 @@ const GATE: BoardGate = {
 };
 
 describe("suggestionOf", () => {
+  it("states the meaning of each finding decision", () => {
+    expect(suggestionOf(FINDINGS, null)).toEqual({
+      text: "Accept a finding that names a defect that you fix outside KanthorD. Dismiss a finding that names no defect. Neither decision changes the node.",
+      source: CLIENT_RULE,
+    });
+  });
+
   it("tells a credential refusal to rotate, then resume the paused nodes", () => {
     expect(suggestionOf(CREDENTIAL, null)).toEqual({
       text: "Rotate openai-main, then resume the 3 paused nodes. A resume before the rotation spends the extra try.",

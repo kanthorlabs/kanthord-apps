@@ -77,6 +77,7 @@ function itemOf(createdAt: number | null = NOW - TEN_MINUTES_MS): AttentionItem 
         executions: null,
         bindings: null,
         environments: null,
+        findings: null,
       },
     ],
     new Map(),

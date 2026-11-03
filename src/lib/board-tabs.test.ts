@@ -4,6 +4,7 @@ import type {
   MissionAssessmentResult,
   MissionEvidence,
   MissionExternalAction,
+  MissionFinding,
   MissionNodeRecord,
   MissionProposal,
   NodeState,
@@ -20,6 +21,38 @@ import {
   type ProjectSnapshot,
 } from "./attention";
 import { BOARD_TAB, BOARD_TABS, boardTabById, boardTabNamed, boardTabOf } from "./board-tabs";
+
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
 
 const NOW = 10_000_000;
 
@@ -96,6 +129,7 @@ function snapshot(nodes: readonly MissionNodeRecord[], project = PROJECT): Proje
     executions: null,
     bindings: null,
     environments: null,
+    findings: null,
   };
 }
 
@@ -179,7 +213,10 @@ describe("BOARD_TABS", () => {
         "Resume or discard.",
         "A node is Paused at a limit or by a human. A resume lets the node run again.",
       ],
-      ["Decide the proposals.", "A reviewer proposes a new node. You decide."],
+      [
+        "Decide the proposals or findings.",
+        "A reviewer proposes a new node or reports a finding. You decide.",
+      ],
       [
         "Act on the stopped node.",
         "A node stops until you act: a closed attempt or a discarded dependency.",
@@ -245,6 +282,17 @@ describe("boardTabOf", () => {
 
     expect(item.kind).toBe("dependency_discarded");
     expect(boardTabOf(item, new Map())).toBe(BOARD_TAB.Rule);
+  });
+
+  it("answers proposal for a node with an undecided finding", () => {
+    const item = onlyItem(
+      derive([
+        { ...snapshot([node("a", "Completed")]), findings: [missionFinding({ node_id: "a" })] },
+      ]),
+    );
+
+    expect(item.kind).toBe("finding_review");
+    expect(boardTabOf(item, new Map())).toBe(BOARD_TAB.Proposal);
   });
 
   describe("a blocked examine node", () => {

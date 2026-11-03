@@ -7,6 +7,7 @@ import type {
   ExecutionStop,
   MissionEvidence,
   MissionExternalAction,
+  MissionFinding,
   MissionNodeRecord,
   MissionProposal,
   NodeState,
@@ -37,6 +38,38 @@ import {
   tabSubOf,
   workforceText,
 } from "./board-text";
+
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
 
 const NOW = 10_000_000;
 const MINUTE = 60_000;
@@ -112,6 +145,7 @@ function snapshot(
     executions: null,
     bindings: null,
     environments: null,
+    findings: null,
     ...overrides,
   };
 }
@@ -343,7 +377,27 @@ function outsideItem(kind: "merge_wait" | "delivery_unconfirmed", pullRequest: n
   return { item: itemOf(derive([snapshot([requested])], details), `${kind}:n1`), details };
 }
 
+function findingItemOf(sources: readonly ("reviewer" | "human")[]): AttentionItem {
+  const findings = sources.map((source, index) =>
+    missionFinding({ id: `finding_${index}`, node_id: "n1", source }),
+  );
+  return itemOf(
+    derive([snapshot([named(node("n1", "Completed"), "Sign-up form")], { findings })]),
+    "finding_review:n1",
+  );
+}
+
 describe("cardCauseOf", () => {
+  it("counts the review findings and the findings after delivery of a node", () => {
+    expect(cardCauseOf(findingItemOf(["reviewer", "reviewer"]))).toBe(
+      "Findings wait for a decision · 2 review findings",
+    );
+    expect(cardCauseOf(findingItemOf(["reviewer", "human"]))).toBe(
+      "Findings wait for a decision · 1 review finding · 1 found after delivery",
+    );
+    expect(cardCauseOf(findingItemOf(["human"]))).toBe("Found after delivery · 1 finding");
+  });
+
   it("states the approval wait of a tool approval", () => {
     const item = itemOf(derive([], new Map(), [SESSION]), "tool_approval:s1");
 
@@ -617,6 +671,15 @@ describe("tab texts", () => {
 describe("detailTitleOf", () => {
   const none: AttentionDetails = new Map();
 
+  it("titles a finding item with the node and the cause", () => {
+    expect(detailTitleOf(findingItemOf(["reviewer"]), none)).toBe(
+      "Sign-up form: findings wait for a decision",
+    );
+    expect(detailTitleOf(findingItemOf(["human"]), none)).toBe(
+      "Sign-up form: found after delivery",
+    );
+  });
+
   it("titles a tool approval with the agent and the operation", () => {
     const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1");
 
@@ -729,6 +792,10 @@ describe("leadLabelOf", () => {
     ]);
 
     expect(leadLabelOf(itemOf(items, "dependency_discarded:a"), none)).toBe("Remove dependency");
+  });
+
+  it("leads a finding item with Decide", () => {
+    expect(leadLabelOf(findingItemOf(["reviewer"]), none)).toBe("Decide");
   });
 
   it("leads an outside item with Check now", () => {

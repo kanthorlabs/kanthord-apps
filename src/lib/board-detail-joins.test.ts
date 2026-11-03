@@ -36,6 +36,7 @@ function snapshotOf(
     executions: null,
     bindings: null,
     environments,
+    findings: null,
   };
 }
 

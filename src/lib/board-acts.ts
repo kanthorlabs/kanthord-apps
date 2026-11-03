@@ -4,12 +4,14 @@ import {
   type DecisionAttentionItem,
   detailOf,
   type DiscardedDependency,
+  type FindingReviewItem,
   type OutsideAttentionItem,
 } from "./attention";
 import type { ActedAct } from "./board-done";
 import type { BoardGate } from "./board-items";
 import { actKeysOf } from "./board-keys";
 import { readFailureText } from "./external-requests";
+import { nodePath } from "./node-path";
 import {
   type CredentialRefusedItem,
   type EnvironmentFailedItem,
@@ -499,4 +501,15 @@ export function projectPausedActsOf(
 export function fixTargetActsOf(item: FixAttentionItem): readonly BoardAct[] {
   const target = fixTargetOf(item);
   return [{ type: "link", id: "fix_target", label: target.label, to: target.path }];
+}
+
+export function findingReviewActsOf(item: FindingReviewItem): readonly BoardAct[] {
+  return [
+    {
+      type: "link",
+      id: "open_node",
+      label: "Open node",
+      to: nodePath(item.project.id, item.node.id),
+    },
+  ];
 }

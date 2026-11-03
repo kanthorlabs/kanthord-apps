@@ -87,6 +87,7 @@ function snapshot(nodes: readonly MissionNodeRecord[]): ProjectSnapshot {
     executions: null,
     bindings: null,
     environments: null,
+    findings: null,
   };
 }
 

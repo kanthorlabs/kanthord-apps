@@ -99,6 +99,7 @@ function snapshot(project: Project, nodes: readonly MissionNodeRecord[]): Projec
     executions: null,
     bindings: null,
     environments: null,
+    findings: null,
   };
 }
 

@@ -92,6 +92,7 @@ function readOf(project: Project, nodeId: string, jobs = 0): ProjectRead {
     registrations: [],
     executions: [],
     environments: [],
+    findings: [],
   };
 }
 

@@ -4,13 +4,14 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
-import { listNodeAssessments, listNodeEvidence } from "@/api/resources/mission";
+import { listNodeAssessments, listNodeEvidence, listNodeRevisions } from "@/api/resources/mission";
 import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
 import { readWorkbenchEvents } from "@/api/resources/workbench";
 import type {
   EnvironmentState,
   MissionAssessment,
   MissionEvidence,
+  MissionFinding,
   MissionNodeRecord,
   MissionProposal,
   Project,
@@ -42,6 +43,38 @@ vi.mock("@/api/resources/workbench");
 import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
 import { BoardSections } from "./board-sections";
+
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
 
 const PROJECT: Project = {
   id: "prj-1",
@@ -263,7 +296,73 @@ beforeEach(() => {
   vi.mocked(listTraceSpans).mockResolvedValue([]);
   vi.mocked(listNodeEvidence).mockResolvedValue([]);
   vi.mocked(listNodeAssessments).mockResolvedValue([]);
+  vi.mocked(listNodeRevisions).mockResolvedValue([]);
   vi.mocked(readWorkbenchEvents).mockResolvedValue(sessionEvents(null));
+});
+
+const FINDINGS: AttentionItem = {
+  id: "finding_review:node_1",
+  kind: "finding_review",
+  group: "decisions",
+  project: PROJECT,
+  subject: "Team",
+  missionVersion: 7,
+  node: TEAM,
+  nodes: [TEAM],
+  at: 1,
+  cause: "Findings wait for a decision",
+  findings: [
+    missionFinding({ id: "f1", node_id: "node_1", label: "S1", name: "Trim the email" }),
+    missionFinding({
+      id: "f2",
+      node_id: "node_1",
+      source: "human",
+      name: "Duplicate account",
+      assessment_id: "assessment_1",
+    }),
+  ],
+};
+
+describe("BoardSections findings", () => {
+  it("puts Findings after What and lists each finding with its acts", async () => {
+    vi.mocked(listNodeAssessments).mockResolvedValue([
+      {
+        id: "assessment_1",
+        node_id: "node_1",
+        attempt: 1,
+        round: 3,
+        result: "success",
+        actor: { kind: "execution", execution_id: "e9", client_id: null, name: "reviewer@1" },
+      } as MissionAssessment,
+    ]);
+    renderSections(FINDINGS, { provider: true });
+
+    expect(
+      screen.getAllByRole("heading", { level: 4 }).map((heading) => heading.textContent),
+    ).toEqual(["What", "Findings", "Impact", "Why", "Root cause", "Evidence", "Suggestion"]);
+    expect(
+      screen.getByText(
+        "2 findings wait for your decision. KanthorD fixes none of them. Accept or dismiss each finding.",
+      ),
+    ).toBeVisible();
+    const review = screen.getByRole("list", { name: "Attempt 1 · Round 2 · report only" });
+    expect(within(review).getByText("Trim the email")).toBeVisible();
+    expect(within(review).getByRole("button", { name: "Accept the finding S1" })).toBeEnabled();
+    expect(within(review).getByRole("button", { name: "Dismiss the finding S1" })).toBeEnabled();
+    const human = screen.getByRole("list", { name: "Attempt 1 · Found after delivery" });
+    expect(within(human).getByRole("button", { name: "Edit the finding H1" })).toBeEnabled();
+    expect(await within(human).findByText(/^Missed by the success assessment/)).toBeVisible();
+  });
+
+  it("opens the decision dialog of a finding", async () => {
+    renderSections(FINDINGS, { provider: true });
+
+    await userEvent.click(screen.getByRole("button", { name: "Dismiss the finding S1" }));
+
+    expect(
+      within(await screen.findByRole("alertdialog")).getByText("Dismiss the finding S1?"),
+    ).toBeVisible();
+  });
 });
 
 describe("BoardSections", () => {
