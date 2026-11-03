@@ -6,6 +6,7 @@ import type {
   MissionBlockedContext,
   MissionEvidence,
   MissionExternalAction,
+  MissionFinding,
   MissionNodeRecord,
   MissionProposal,
   Project,
@@ -21,6 +22,7 @@ import { approvalItemsOf, type ToolApprovalItem } from "./approval-attention";
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
 import { type FixAttentionItem, fixItemsOf } from "./fix-attention";
+import { HUMAN_FINDING_GROUP } from "./review-findings";
 
 export type AttentionGroupId = "decisions" | "fixes" | "outside";
 
@@ -38,6 +40,7 @@ export interface ProjectSnapshot {
   readonly executions: readonly SchedulerExecutionRecord[] | null;
   readonly bindings: readonly WorkerBindingView[] | null;
   readonly environments: readonly EnvironmentState[] | null;
+  readonly findings: readonly MissionFinding[] | null;
 }
 
 export interface AttentionContext {
@@ -141,12 +144,23 @@ export interface DeliveryItem extends NodeItemBase {
   readonly request: OutsideRequest;
 }
 
+export interface FindingReviewItem extends NodeItemBase {
+  readonly group: "decisions";
+  readonly kind: "finding_review";
+  readonly cause: string;
+  readonly findings: readonly MissionFinding[];
+}
+
 export type DecisionAttentionItem = BlockedItem | PausedItem | DependencyItem;
 
 export type OutsideAttentionItem = MergeWaitItem | DeliveryItem;
 
 export type AttentionItem =
-  DecisionAttentionItem | ToolApprovalItem | FixAttentionItem | OutsideAttentionItem;
+  | DecisionAttentionItem
+  | FindingReviewItem
+  | ToolApprovalItem
+  | FixAttentionItem
+  | OutsideAttentionItem;
 
 export interface DetailTarget {
   readonly kind: "blocked" | "paused" | "open" | "external";
@@ -160,6 +174,7 @@ const KIND_ORDER: readonly AttentionItem["kind"][] = [
   "blocked",
   "paused",
   "dependency_discarded",
+  "finding_review",
   "tool_approval",
   "project_paused",
   "no_taker",
@@ -384,6 +399,38 @@ function itemsOf(
   });
 }
 
+function findingCauseOf(findings: readonly MissionFinding[]): string {
+  return findings.every((finding) => finding.source === "human")
+    ? HUMAN_FINDING_GROUP
+    : "Findings wait for a decision";
+}
+
+function findingItemsOf(snapshot: ProjectSnapshot): readonly FindingReviewItem[] {
+  const byNode = new Map<string, MissionFinding[]>();
+  for (const finding of snapshot.findings ?? []) {
+    byNode.set(finding.node_id, [...(byNode.get(finding.node_id) ?? []), finding]);
+  }
+  return snapshot.nodes.flatMap((node): readonly FindingReviewItem[] => {
+    const findings = byNode.get(node.id);
+    if (findings === undefined) return [];
+    return [
+      {
+        id: `finding_review:${node.id}`,
+        kind: "finding_review",
+        group: "decisions",
+        project: snapshot.project,
+        subject: node.content.name,
+        missionVersion: snapshot.missionVersion,
+        node,
+        nodes: snapshot.nodes,
+        at: Math.min(...findings.map((finding) => finding.created_at)),
+        cause: findingCauseOf(findings),
+        findings,
+      },
+    ];
+  });
+}
+
 function compareAt(left: number | null, right: number | null): number {
   if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
   return left - right;
@@ -405,6 +452,7 @@ export function deriveAttention(
 ): readonly AttentionItem[] {
   return [
     ...snapshots.flatMap((snapshot) => itemsOf(snapshot, details, context.now)),
+    ...snapshots.flatMap(findingItemsOf),
     ...approvalItemsOf(context.sessions),
     ...fixItemsOf(snapshots, context),
   ].sort(compareItems);

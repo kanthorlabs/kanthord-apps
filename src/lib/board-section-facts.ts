@@ -1,4 +1,9 @@
-import type { EnvironmentState, MissionAssessment, MissionProposal } from "@/api/types";
+import type {
+  EnvironmentState,
+  MissionAssessment,
+  MissionFinding,
+  MissionProposal,
+} from "@/api/types";
 
 import {
   type AttentionDetails,
@@ -10,9 +15,13 @@ import type { DiscardReason, EvidenceLine } from "./board-evidence";
 import type { BoardGate } from "./board-items";
 import { proposalSourceOf, type Suggestion, suggestionOf } from "./board-suggestion";
 import { heldText } from "./board-text";
+import { counted } from "./counted";
 import { spreadTextOf } from "./fix-attention";
+import { type FindingGroup, findingGroupsOf, HUMAN_FINDING_GROUP } from "./review-findings";
 
 const COMPACT_EVIDENCE_LINES = 3;
+
+const BLOCKER_FIRST: readonly MissionFinding["kind"][] = ["blocker", "suggestion"];
 
 export interface EnvironmentFailureLine {
   readonly command: string;
@@ -109,4 +118,40 @@ export function boardSuggestionOf(
   const assessment: MissionAssessment | null =
     detail?.assessment.status === "ready" ? detail.assessment.data : null;
   return suggestionOf(item, gate, proposalSourceOf(proposals, assessment));
+}
+
+function compareFindings(left: MissionFinding, right: MissionFinding): number {
+  return (
+    BLOCKER_FIRST.indexOf(left.kind) - BLOCKER_FIRST.indexOf(right.kind) ||
+    Number(left.label.slice(1)) - Number(right.label.slice(1)) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+function boardGroupTitleOf(group: FindingGroup): string {
+  const [first] = group.findings;
+  if (first === undefined || first.source === "human" || first.round === null) {
+    return HUMAN_FINDING_GROUP;
+  }
+  return `Round ${first.round}`;
+}
+
+export function boardFindingGroupsOf(findings: readonly MissionFinding[]): readonly FindingGroup[] {
+  const attempts = [...new Set(findings.map((finding) => finding.attempt))].sort(
+    (left, right) => left - right,
+  );
+  return attempts.flatMap((attempt) =>
+    findingGroupsOf(
+      findings.filter((finding) => finding.attempt === attempt).sort(compareFindings),
+    ).map((group) => ({
+      ...group,
+      key: `${attempt}:${group.key}`,
+      title: `Attempt ${attempt} · ${boardGroupTitleOf(group)}`,
+    })),
+  );
+}
+
+export function findingWhatTextOf(findings: readonly MissionFinding[]): string {
+  const waits = counted(findings.length, "finding waits", "findings wait");
+  return `${waits} for your decision. KanthorD fixes none of them. Accept or dismiss each finding.`;
 }

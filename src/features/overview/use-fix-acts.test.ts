@@ -36,6 +36,7 @@ const [ITEM] = fixItemsOf(
       executions: [],
       bindings: [],
       environments: null,
+      findings: null,
     },
   ],
   { now: 10, catalog: [], credentials: [], sessions: null },

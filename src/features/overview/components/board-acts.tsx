@@ -1,16 +1,19 @@
 import { type ReactNode, useMemo, useState } from "react";
 
+import { FindingDecisionDialog } from "@/components/finding-decision-dialog";
 import { NodeDiscardDialog } from "@/components/node-discard-dialog";
 import { NodeOverrideDialog } from "@/components/node-override-dialog";
 import { NodeResumeDialog } from "@/components/node-resume-dialog";
 import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 import { ProposalDecisionDialog } from "@/components/proposal-decision-dialog";
+import { FindingReportSheet } from "@/features/projects/view/components/finding-report-sheet";
 import type { ToolApprovalItem } from "@/lib/approval-attention";
 import {
   type AttentionDetails,
   type AttentionItem,
   type DecisionAttentionItem,
   detailOf,
+  type FindingReviewItem,
   type OutsideAttentionItem,
   type ProjectSnapshot,
 } from "@/lib/attention";
@@ -18,6 +21,7 @@ import {
   type BoardAct,
   credentialRefusedActsOf,
   environmentFailedActsOf,
+  findingReviewActsOf,
   fixTargetActsOf,
   type GateRoute,
   outsideActsOf,
@@ -42,6 +46,7 @@ import {
 import { useBoardChecks } from "../use-board-checks";
 import { useBoardReadsContext } from "../use-board-reads";
 import { useBoardRotate } from "../use-board-rotate";
+import { useFindingReviewActs } from "../use-finding-review-acts";
 import { useBoardToolActs } from "../use-board-tool-acts";
 import { useOutsideActs } from "../use-outside-acts";
 import { BoardRotateSheet } from "./board-rotate-sheet";
@@ -79,6 +84,30 @@ function DecisionActs({
       <NodeOverrideDialog name={node.content.name} override={acts.override} />
       <DependencyRemoveDialog name={node.content.name} remove={acts.remove} />
       <NodeDiscardDialog name={node.content.name} discard={acts.discard} />
+    </>
+  );
+}
+
+function FindingReviewActs({
+  store,
+  item,
+  ...context
+}: ActsContext & { readonly store: ActsStore; readonly item: FindingReviewItem }) {
+  const { decision, report } = useFindingReviewActs(item, context);
+  usePublished(
+    store,
+    stateOf(findingReviewActsOf(item), {
+      findings: {
+        assessments: report.assessments,
+        decide: decision.request,
+        edit: report.requestEdit,
+      },
+    }),
+  );
+  return (
+    <>
+      <FindingDecisionDialog decision={decision} />
+      <FindingReportSheet report={report} />
     </>
   );
 }
@@ -178,6 +207,8 @@ function ItemActs({
     case "paused":
     case "dependency_discarded":
       return <DecisionActs store={store} item={item} {...context} />;
+    case "finding_review":
+      return <FindingReviewActs store={store} item={item} {...context} />;
     case "merge_wait":
     case "delivery_unconfirmed":
       return <OutsideActs store={store} item={item} {...context} />;

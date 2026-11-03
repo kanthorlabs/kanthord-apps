@@ -206,6 +206,7 @@ function snapshot(overrides: Partial<ProjectSnapshot> = {}): ProjectSnapshot {
     executions: [],
     bindings: [],
     environments: null,
+    findings: null,
     ...overrides,
   };
 }

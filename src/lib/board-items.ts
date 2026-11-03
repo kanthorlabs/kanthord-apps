@@ -36,6 +36,7 @@ export function heldNodeIdsOf(
   item: AttentionItem,
   snapshots: readonly ProjectSnapshot[],
 ): readonly string[] {
+  if (item.kind === "finding_review") return [];
   const own = itemNodeIdsOf(item);
   const dependents = snapshots.flatMap((snapshot) =>
     dependentsOf(

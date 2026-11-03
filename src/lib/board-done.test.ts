@@ -49,6 +49,7 @@ describe("doneEntryOf", () => {
     ["override", "Overrode Print the slip."],
     ["discard", "Discarded Print the slip."],
     ["decide", "Decided the proposals of Print the slip."],
+    ["decide_finding", "Decided the findings of Print the slip."],
     ["resume_project", "Resumed project Print the slip."],
     ["approve", "Approved Print the slip."],
     ["reject", "Rejected Print the slip."],

@@ -85,6 +85,7 @@ const ITEMS: readonly AttentionItem[] = deriveAttention(
       executions: null,
       bindings: null,
       environments: null,
+      findings: null,
     },
   ],
   new Map(),

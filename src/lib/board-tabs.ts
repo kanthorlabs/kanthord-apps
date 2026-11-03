@@ -57,8 +57,8 @@ export const BOARD_TABS: readonly BoardTab[] = [
     id: BOARD_TAB.Proposal,
     name: "Decide proposal",
     short: "Decide",
-    verb: "Decide the proposals.",
-    what: "A reviewer proposes a new node. You decide.",
+    verb: "Decide the proposals or findings.",
+    what: "A reviewer proposes a new node or reports a finding. You decide.",
     key: "4",
   },
   {
@@ -112,6 +112,8 @@ export function boardTabOf(item: AttentionItem, details: AttentionDetails): Boar
       return isProposalItem(item, details) ? BOARD_TAB.Proposal : BOARD_TAB.Rule;
     case "dependency_discarded":
       return BOARD_TAB.Rule;
+    case "finding_review":
+      return BOARD_TAB.Proposal;
     case "merge_wait":
     case "delivery_unconfirmed":
       return BOARD_TAB.Outside;

@@ -91,6 +91,7 @@ function snapshot(
     executions: null,
     bindings: null,
     environments,
+    findings: null,
   };
 }
 

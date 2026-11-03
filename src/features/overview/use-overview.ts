@@ -84,6 +84,7 @@ export function useOverview(): OverviewState {
                 registrations: read.registrations,
                 executions: read.executions,
                 environments: read.environments,
+                findings: read.findings,
                 bindings:
                   setupData?.projects.find((entry) => entry.project.id === read.project.id)
                     ?.bindings ?? null,

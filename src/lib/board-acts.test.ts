@@ -7,6 +7,7 @@ import type {
   AttentionDetails,
   DecisionAttentionItem,
   DiscardedDependency,
+  FindingReviewItem,
   OutsideAttentionItem,
 } from "./attention";
 import {
@@ -15,6 +16,7 @@ import {
   type DecisionActControls,
   decisionActsOf,
   environmentFailedActsOf,
+  findingReviewActsOf,
   fixTargetActsOf,
   moreCountOf,
   moreNeedsOf,
@@ -199,6 +201,16 @@ describe("decisionActsOf", () => {
     );
     expect(acts.find((act) => act.id === "override")?.type).toBe("button");
     expect(acts.find((act) => act.id === "last_trace")?.type).toBe("link");
+  });
+});
+
+describe("findingReviewActsOf", () => {
+  it("links the node sheet of the finding item", () => {
+    const item = { project: PROJECT, node: { id: "node_1" } } as unknown as FindingReviewItem;
+
+    expect(findingReviewActsOf(item)).toEqual([
+      { type: "link", id: "open_node", label: "Open node", to: "/projects/prj-1?node=node_1" },
+    ]);
   });
 });
 

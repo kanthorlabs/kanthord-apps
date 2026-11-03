@@ -1,8 +1,14 @@
-import type { AttentionDetails, AttentionItem, OutsideAttentionItem } from "./attention";
+import type {
+  AttentionDetails,
+  AttentionItem,
+  FindingReviewItem,
+  OutsideAttentionItem,
+} from "./attention";
 import { BOARD_TAB, type BoardTab, boardTabOf, openProposalsReadOf } from "./board-tabs";
 import { counted } from "./counted";
 import { codeLabel, stopLabel } from "./execution-stop";
 import { fixTargetOf } from "./fix-attention";
+import { HUMAN_FINDING_GROUP } from "./review-findings";
 
 const FACT_SEPARATOR = " · ";
 const PAUSED_LABEL = "Paused";
@@ -18,6 +24,16 @@ function pullRequestNumberOf(item: OutsideAttentionItem): number | null {
     }
   }
   return null;
+}
+
+function findingFactOf(item: FindingReviewItem): string {
+  const human = item.findings.filter((finding) => finding.source === "human").length;
+  const review = item.findings.length - human;
+  if (review === 0) return counted(human, "finding", "findings");
+  const reviewText = counted(review, "review finding", "review findings");
+  return human === 0
+    ? reviewText
+    : `${reviewText}${FACT_SEPARATOR}${human} ${HUMAN_FINDING_GROUP.toLowerCase()}`;
 }
 
 function pausedCauseOf(item: Extract<AttentionItem, { kind: "paused" }>): string {
@@ -55,6 +71,8 @@ export function cardCauseOf(item: AttentionItem): string {
       return withFact(item.cause, `attempt ${item.node.attempt}`);
     case "dependency_discarded":
       return withFact(item.cause, item.discarded[0]?.name);
+    case "finding_review":
+      return withFact(item.cause, findingFactOf(item));
     case "merge_wait":
     case "delivery_unconfirmed": {
       const number = pullRequestNumberOf(item);
@@ -151,6 +169,8 @@ export function leadLabelOf(item: AttentionItem, details: AttentionDetails): str
       return boardTabOf(item, details) === BOARD_TAB.Proposal ? "Decide" : "Unblock";
     case "dependency_discarded":
       return "Remove dependency";
+    case "finding_review":
+      return "Decide";
     case "merge_wait":
     case "delivery_unconfirmed":
       return "Check now";

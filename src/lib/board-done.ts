@@ -10,6 +10,7 @@ export const DONE_ACT = {
   Override: "override",
   Discard: "discard",
   Decide: "decide",
+  DecideFinding: "decide_finding",
   RemoveDependency: "remove_dependency",
   ResumeProject: "resume_project",
   Approve: "approve",
@@ -63,6 +64,8 @@ function textOf(subject: string, act: ActedAct): string {
       return `Discarded ${subject}.`;
     case "decide":
       return `Decided the proposals of ${subject}.`;
+    case "decide_finding":
+      return `Decided the findings of ${subject}.`;
     case "remove_dependency":
       return `Removed the dependency of ${subject} on ${act.dependency}.`;
     case "resume_project":

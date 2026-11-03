@@ -101,6 +101,7 @@ describe("coolingFactsOf", () => {
           },
         ],
         environments: null,
+        findings: null,
       },
     ]);
 
@@ -121,6 +122,7 @@ describe("coolingFactsOf", () => {
           executions: null,
           bindings: null,
           environments: null,
+          findings: null,
         },
       ]),
     ).toEqual([]);
@@ -148,6 +150,7 @@ describe("projectsWithoutSetup", () => {
       executions: [],
       bindings: null,
       environments: null,
+      findings: null,
     };
   }
 
