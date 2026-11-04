@@ -22,7 +22,9 @@ import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
 import { nodePath } from "@/lib/node-path";
+import { instancePlacementNoteOf } from "@/lib/placement-status";
 import { workerPagePath } from "@/lib/worker-paths";
+import { usePlacementStatuses } from "../worker/use-placement-statuses";
 import { ArchiveInstanceDialog } from "./components/archive-instance-dialog";
 import { CopyModelsSheet } from "./components/copy-models-sheet";
 import { CredentialAddSheet } from "./components/credential-add-sheet";
@@ -83,6 +85,9 @@ function InstanceHeader({
   projectId: string;
 }) {
   const connection = instance.connection;
+  const placementNote = instancePlacementNoteOf(
+    usePlacementStatuses(instance.placement === "container" ? 1 : 0),
+  );
   return (
     <section aria-label="Instance" className="flex flex-col gap-2 border-b pb-3">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -116,6 +121,12 @@ function InstanceHeader({
                 ? "Not connected"
                 : `Connected · ${connection.connection_name} · last heartbeat ${utcDateTime(connection.last_heartbeat_at)}`}
             </dd>
+          </>
+        )}
+        {placementNote !== null && (
+          <>
+            <dt className="text-muted-foreground">Connection</dt>
+            <dd className="min-w-0 break-words">{placementNote}</dd>
           </>
         )}
         {instance.ended_at !== null && (

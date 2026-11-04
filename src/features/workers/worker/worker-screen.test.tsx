@@ -518,6 +518,29 @@ describe("WorkerScreen", () => {
     );
   });
 
+  it("keeps Container on and adds the rootless Docker detail on runtime_failed", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue(
+      containerStatus({
+        available: false,
+        reason: "runtime_failed",
+        detail:
+          "rootless Docker cannot map the container uid 10001 to the server user. Use rootless Podman or a rootful runtime.",
+        container_runtime: "docker",
+      }),
+    );
+    mount();
+    const sheet = await openSheet();
+    expect(
+      await within(sheet).findByText(
+        "Runs the instance in its own container on the server host with Docker. rootless Docker cannot map the container uid 10001 to the server user. Use rootless Podman or a rootful runtime. Fix the container runtime of the server user, then open this sheet again.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("radio", { name: "Container" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
   it("creates a server instance with no key input and no copy block", async () => {
     vi.mocked(instancesApi.createWorkerInstance).mockResolvedValue({
       ...CODER_ONE,
@@ -604,9 +627,7 @@ describe("WorkerScreen", () => {
     await userEvent.type(within(sheet).getByLabelText("Name"), "ctr-01");
     await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
     expect(
-      await within(sheet).findByText(
-        "Podman runs as root on this host. Use rootless Podman or rootless Docker.",
-      ),
+      await within(sheet).findByText("Podman runs as root on this host. Use rootless Podman."),
     ).toBeInTheDocument();
   });
 

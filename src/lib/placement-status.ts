@@ -20,6 +20,14 @@ const STABLE_TEXTS: Readonly<
   runtime_absent: "Install Podman or Docker on the server host, then open this sheet again.",
 };
 
+const INSTANCE_TEXTS: Readonly<
+  Record<Exclude<PlacementReason, "runtime_failed" | "runtime_rootful">, string>
+> = {
+  server_in_container:
+    "This server runs in a container, so it cannot start a container for the instance.",
+  runtime_absent: "Install Podman or Docker on the server host.",
+};
+
 function isStableReason(
   reason: PlacementReason,
 ): reason is Exclude<PlacementReason, "runtime_failed"> {
@@ -31,11 +39,43 @@ export function placementReasonText(
   detail: string | null,
   runtime: string | null,
 ): string {
-  if (reason === "runtime_rootful")
-    return `${runtime ?? "The container runtime"} runs as root on this host. Use rootless Podman or rootless Docker.`;
+  if (reason === "runtime_rootful") return rootfulText(runtime);
   if (isStableReason(reason)) return STABLE_TEXTS[reason];
-  const cause = (detail ?? "The container runtime does not answer").replace(/\.+$/, "");
-  return `${cause}. Fix the container runtime of the server user, then open this sheet again.`;
+  return `${failureSentence(detail)} Fix the container runtime of the server user, then open this sheet again.`;
+}
+
+export function instancePlacementText(
+  reason: PlacementReason,
+  detail: string | null,
+  runtime: string | null,
+): string {
+  if (reason === "runtime_rootful") return rootfulText(runtime);
+  if (isStableReason(reason)) return INSTANCE_TEXTS[reason];
+  return `${failureSentence(detail)} The server retries the launch with a backoff.`;
+}
+
+function rootfulText(runtime: string | null): string {
+  return `${runtime ?? "The container runtime"} runs as root on this host. Use rootless Podman.`;
+}
+
+function failureSentence(detail: string | null): string {
+  const cause = (detail ?? "The container runtime does not answer").trimEnd();
+  return /[.!?]$/.test(cause) ? cause : `${cause}.`;
+}
+
+export function instancePlacementNoteOf(
+  statuses: readonly PlacementStatus[] | "checking" | "failed",
+): string | null {
+  if (statuses === "checking" || statuses === "failed") return null;
+  const container = statuses.find((status) => status.placement === "container");
+  if (container === undefined || container.available || container.reason === null) return null;
+  return instancePlacementText(container.reason, container.detail, runtimeLabelOf(container));
+}
+
+function runtimeLabelOf(container: PlacementStatus | undefined): string | null {
+  return container === undefined || container.container_runtime === null
+    ? null
+    : RUNTIME_LABELS[container.container_runtime];
 }
 
 const CHECKING: PlacementChoices = {
@@ -56,10 +96,7 @@ export function placementChoicesOf(
   if (statuses === "checking") return CHECKING;
   if (statuses === "failed") return CHECK_FAILED;
   const container = statuses.find((status) => status.placement === "container");
-  const runtime =
-    container === undefined || container.container_runtime === null
-      ? null
-      : RUNTIME_LABELS[container.container_runtime];
+  const runtime = runtimeLabelOf(container);
   if (container === undefined || container.available || container.reason === null)
     return { disabled: [], note: null, runtime };
   const text = placementReasonText(container.reason, container.detail, runtime);

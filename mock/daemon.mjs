@@ -25,6 +25,12 @@ const PROMPT_INVALID = process.env.KANTHORD_MOCK_PROMPT_INVALID ?? "";
 const STABLE_PLACEMENT_REASONS = ["server_in_container", "runtime_absent", "runtime_rootful"];
 const CONTAINER_REASON_ENV = process.env.KANTHORD_MOCK_CONTAINER ?? "server_in_container";
 let containerReason = CONTAINER_REASON_ENV === "available" ? null : CONTAINER_REASON_ENV;
+const RUNTIME_FAILED_DETAILS = {
+  podman: "Cannot connect to Podman. Is the Podman machine running?",
+  docker:
+    "rootless Docker cannot map the container uid 10001 to the server user. Use rootless Podman or a rootful runtime.",
+};
+let containerRuntime = process.env.KANTHORD_MOCK_CONTAINER_RUNTIME ?? "podman";
 
 const HEALTHY_SERVICES = {
   server: { gateway: 200, store: 200, log: 200 },
@@ -279,12 +285,13 @@ const placementStatusOf = (placement) => {
     reason: unavailable ? containerReason : null,
     detail:
       unavailable && containerReason === "runtime_failed"
-        ? "Cannot connect to Podman. Is the Podman machine running?"
+        ? RUNTIME_FAILED_DETAILS[containerRuntime]
         : null,
     container_runtime:
       placement === "container" &&
-      !["server_in_container", "runtime_absent"].includes(containerReason)
-        ? "podman"
+      !["server_in_container", "runtime_absent"].includes(containerReason) &&
+      !(containerReason === "runtime_failed" && containerRuntime === "podman")
+        ? containerRuntime
         : null,
   };
 };
@@ -293,6 +300,7 @@ on("GET", /^\/api\/worker\/placement$/, (_m, _b, res) =>
 );
 on("PUT", /^\/api\/mock\/container$/, (_m, b, res) => {
   containerReason = b?.reason ?? null;
+  containerRuntime = b?.runtime ?? "podman";
   return json(res, 200, placementStatusOf("container"));
 });
 const WORKER_METHODS = {
