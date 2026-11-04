@@ -6,6 +6,9 @@ import { useSession } from "@/features/auth/session/session-context";
 import { CredentialFormScreen } from "@/features/credentials/form/credential-form-screen";
 import { CredentialsScreen } from "@/features/credentials/list/credentials-screen";
 import { CredentialScreen } from "@/features/credentials/view/credential-screen";
+import { FootprintScreen } from "@/features/footprint/list/footprint-screen";
+import { FootprintCleanupScreen } from "@/features/footprint/view/footprint-cleanup-screen";
+import { FootprintKindScreen } from "@/features/footprint/view/footprint-kind-screen";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { ProjectFormScreen } from "@/features/projects/form/project-form-screen";
 import { ProjectsScreen } from "@/features/projects/list/projects-screen";
@@ -86,6 +89,10 @@ export function AppRouter() {
               path="storage/:credentialName"
               element={<CredentialScreen key="storage" component="storage" />}
             />
+            <Route path="footprint" element={<FootprintScreen />} />
+            <Route path="footprint/cleanups" element={<ParentRedirect />} />
+            <Route path="footprint/cleanups/:cleanupId" element={<FootprintCleanupScreen />} />
+            <Route path="footprint/:kind" element={<FootprintKindScreen />} />
           </Route>
         </Routes>
       </BrowserRouter>

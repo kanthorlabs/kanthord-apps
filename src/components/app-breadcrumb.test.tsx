@@ -74,7 +74,7 @@ describe("AppBreadcrumb", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Agents" })).toBeTruthy();
   });
 
-  it("wraps every crumb at word boundaries", async () => {
+  it("wraps every crumb at word boundaries and breaks only a word longer than the line", async () => {
     mount("/projects/project_1/edit", true);
 
     const trail = screen.getByRole("navigation", { name: "breadcrumb" });
@@ -84,7 +84,7 @@ describe("AppBreadcrumb", () => {
       within(trail).getByText("Edit"),
     ];
     for (const crumb of crumbs) {
-      expect(crumb).toHaveClass("break-words");
+      expect(crumb).toHaveClass("wrap-anywhere");
       expect(crumb).not.toHaveClass("break-all");
     }
   });

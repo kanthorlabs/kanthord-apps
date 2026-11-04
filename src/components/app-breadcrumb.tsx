@@ -29,10 +29,10 @@ export function AppBreadcrumb() {
               {index > 0 && <BreadcrumbSeparator />}
               <BreadcrumbItem className="min-w-0">
                 {crumb === current ? (
-                  <BreadcrumbPage className="break-words">{crumb.label}</BreadcrumbPage>
+                  <BreadcrumbPage className="wrap-anywhere">{crumb.label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink
-                    className="break-words"
+                    className="wrap-anywhere"
                     render={<Link to={crumbHref(crumb.path, search)} />}
                   >
                     {crumb.label}

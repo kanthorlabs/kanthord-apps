@@ -47,6 +47,18 @@ vi.mock("@/features/workers/worker/worker-screen", () => ({
   },
 }));
 
+vi.mock("@/features/footprint/list/footprint-screen", () => ({
+  FootprintScreen: () => <p>Footprint body</p>,
+}));
+
+vi.mock("@/features/footprint/view/footprint-kind-screen", () => ({
+  FootprintKindScreen: () => <p>Footprint kind body</p>,
+}));
+
+vi.mock("@/features/footprint/view/footprint-cleanup-screen", () => ({
+  FootprintCleanupScreen: () => <p>Footprint cleanup body</p>,
+}));
+
 import { AppRouter } from "./app-router";
 
 describe("AppRouter", () => {
@@ -80,5 +92,17 @@ describe("AppRouter", () => {
     render(<AppRouter />);
 
     expect(screen.getByText("Analytics body")).toBeInTheDocument();
+  });
+
+  it("serves the cleanup record before the kind screen under footprint", () => {
+    window.history.pushState({}, "", "/footprint/cleanups/cleanup_1");
+    render(<AppRouter />);
+    expect(screen.getByText("Footprint cleanup body")).toBeInTheDocument();
+  });
+
+  it("serves the kind screen under footprint", () => {
+    window.history.pushState({}, "", "/footprint/workspace");
+    render(<AppRouter />);
+    expect(screen.getByText("Footprint kind body")).toBeInTheDocument();
   });
 });
