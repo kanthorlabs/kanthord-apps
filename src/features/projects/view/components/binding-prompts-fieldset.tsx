@@ -35,25 +35,27 @@ export function BindingPromptsFieldset({
         and clears <code>environment_from_agent</code>. The Repository prompt joins every agent. A
         Binding prompt joins one agent.
       </FieldDescription>
-      <DraftField
-        id="binding-instruction-file"
-        label="Instruction file"
-        value={draft.prompts.instructionFile}
-        error={errors["instructionFile"]}
-        description={INSTRUCTION_FILE_HELP}
-        onChange={(path) => onEdit(withInstructionFile(draft, path))}
-      />
-      <div aria-live="polite" className="flex min-w-0 flex-col gap-1 empty:hidden">
-        {!pathEmpty &&
-          instructionFile !== null &&
-          (instructionFile.problem ? (
-            <FieldError>{instructionFile.text}</FieldError>
-          ) : (
-            <FieldDescription className="break-all">{instructionFile.text}</FieldDescription>
-          ))}
-        {pathEmpty && instructionFileHint !== null && (
-          <FieldDescription>{instructionFileHint}</FieldDescription>
-        )}
+      <div className="flex flex-col gap-1">
+        <DraftField
+          id="binding-instruction-file"
+          label="Instruction file"
+          value={draft.prompts.instructionFile}
+          error={errors["instructionFile"]}
+          description={INSTRUCTION_FILE_HELP}
+          onChange={(path) => onEdit(withInstructionFile(draft, path))}
+        />
+        <div aria-live="polite" className="flex min-w-0 flex-col gap-1">
+          {!pathEmpty &&
+            instructionFile !== null &&
+            (instructionFile.problem ? (
+              <FieldError>{instructionFile.text}</FieldError>
+            ) : (
+              <FieldDescription className="break-all">{instructionFile.text}</FieldDescription>
+            ))}
+          {pathEmpty && instructionFileHint !== null && (
+            <FieldDescription>{instructionFileHint}</FieldDescription>
+          )}
+        </div>
       </div>
       <div role="list" aria-label="Prompts" className="grid grid-cols-[minmax(0,1fr)] gap-2">
         <BindingPromptRow target="repository" draft={draft} preview={preview} onEdit={onEdit} />

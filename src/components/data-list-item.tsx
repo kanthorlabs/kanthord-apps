@@ -77,7 +77,9 @@ export function DataListItem({
         </ItemActions>
       )}
       {detail !== undefined && (
-        <div className="min-w-0 basis-full [&:not(:has(:not(:empty)))]:hidden">{detail}</div>
+        <div className="min-w-0 basis-full [&:has(>*):not(:has(:not(:empty)))]:hidden">
+          {detail}
+        </div>
       )}
     </Item>
   );

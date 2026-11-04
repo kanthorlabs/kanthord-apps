@@ -29,7 +29,7 @@ function PreviewItem({ part }: { readonly part: PreviewPart }) {
   return (
     <li className="flex min-w-0 flex-col gap-1 rounded-md border p-3">
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        <span className="text-sm font-medium break-all">
+        <span className="text-sm font-medium break-words">
           {promptLayerLabel(part.layer)} · {part.part} {part.name}
         </span>
         {part.draft && <Badge>Draft</Badge>}
