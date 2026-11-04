@@ -3445,7 +3445,7 @@ createServer((req, res) => {
       projectEnvelope(res, 500, "gateway.http.failed", "HTTP request failed.");
     }
   });
-}).listen(PORT, () => {
+}).listen(PORT, "127.0.0.1", () => {
   process.stdout.write(
     `mock daemon on http://localhost:${PORT} (origin ${ORIGIN}, account ${USERNAME})\ndev token: ${DEV_TOKEN}\n`,
   );
