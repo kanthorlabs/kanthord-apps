@@ -3,9 +3,14 @@ import { describe, expect, it } from "vitest";
 import type { PlacementStatus } from "@/api/types";
 import {
   containerDescriptionOf,
+  instancePlacementNoteOf,
+  instancePlacementText,
   placementChoicesOf,
   placementReasonText,
 } from "./placement-status";
+
+const ROOTLESS_DOCKER =
+  "rootless Docker cannot map the container uid 10001 to the server user. Use rootless Podman or a rootful runtime.";
 
 function containerStatus(change: Partial<PlacementStatus>): readonly PlacementStatus[] {
   return [
@@ -34,10 +39,10 @@ describe("placementReasonText", () => {
 
   it("names the rootful runtime when the server knows it", () => {
     expect(placementReasonText("runtime_rootful", null, "Podman")).toBe(
-      "Podman runs as root on this host. Use rootless Podman or rootless Docker.",
+      "Podman runs as root on this host. Use rootless Podman.",
     );
     expect(placementReasonText("runtime_rootful", null, null)).toBe(
-      "The container runtime runs as root on this host. Use rootless Podman or rootless Docker.",
+      "The container runtime runs as root on this host. Use rootless Podman.",
     );
   });
 
@@ -48,6 +53,72 @@ describe("placementReasonText", () => {
     expect(placementReasonText("runtime_failed", null, null)).toBe(
       "The container runtime does not answer. Fix the container runtime of the server user, then open this sheet again.",
     );
+  });
+
+  it("puts the rootless Docker detail before the action", () => {
+    expect(placementReasonText("runtime_failed", ROOTLESS_DOCKER, "Docker")).toBe(
+      `${ROOTLESS_DOCKER} Fix the container runtime of the server user, then open this sheet again.`,
+    );
+  });
+});
+
+describe("instancePlacementText", () => {
+  it("states one sentence for each stable reason", () => {
+    expect(instancePlacementText("server_in_container", null, null)).toBe(
+      "This server runs in a container, so it cannot start a container for the instance.",
+    );
+    expect(instancePlacementText("runtime_absent", null, null)).toBe(
+      "Install Podman or Docker on the server host.",
+    );
+    expect(instancePlacementText("runtime_rootful", null, "Podman")).toBe(
+      "Podman runs as root on this host. Use rootless Podman.",
+    );
+    expect(instancePlacementText("runtime_rootful", null, null)).toBe(
+      "The container runtime runs as root on this host. Use rootless Podman.",
+    );
+  });
+
+  it("puts the detail of a failed runtime before the retry", () => {
+    expect(instancePlacementText("runtime_failed", ROOTLESS_DOCKER, "Docker")).toBe(
+      `${ROOTLESS_DOCKER} The server retries the launch with a backoff.`,
+    );
+    expect(instancePlacementText("runtime_failed", null, null)).toBe(
+      "The container runtime does not answer. The server retries the launch with a backoff.",
+    );
+  });
+
+  it("holds no sentence of the Add instance sheet", () => {
+    const reasons = [
+      "server_in_container",
+      "runtime_absent",
+      "runtime_failed",
+      "runtime_rootful",
+    ] as const;
+    for (const reason of reasons)
+      expect(instancePlacementText(reason, null, null)).not.toMatch(
+        /open this sheet again|Choose Server/,
+      );
+  });
+});
+
+describe("instancePlacementNoteOf", () => {
+  it("states no text while the list loads, after a failed read or when container is available", () => {
+    expect(instancePlacementNoteOf("checking")).toBeNull();
+    expect(instancePlacementNoteOf("failed")).toBeNull();
+    expect(instancePlacementNoteOf(containerStatus({}))).toBeNull();
+    expect(instancePlacementNoteOf([])).toBeNull();
+  });
+
+  it("states the instance text with the runtime label when container is not available", () => {
+    expect(
+      instancePlacementNoteOf(
+        containerStatus({
+          available: false,
+          reason: "runtime_rootful",
+          container_runtime: "docker",
+        }),
+      ),
+    ).toBe("Docker runs as root on this host. Use rootless Podman.");
   });
 });
 
@@ -82,7 +153,7 @@ describe("placementChoicesOf", () => {
       ),
     ).toEqual({
       disabled: ["container"],
-      note: "Off. Docker runs as root on this host. Use rootless Podman or rootless Docker.",
+      note: "Off. Docker runs as root on this host. Use rootless Podman.",
       runtime: "Docker",
     });
   });

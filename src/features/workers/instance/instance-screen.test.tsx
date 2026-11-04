@@ -1013,6 +1013,84 @@ describe("InstanceScreen placement", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the runtime_failed detail of a container instance under Connection", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...SERVER,
+      placement: "container",
+    });
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue([
+      {
+        placement: "container",
+        available: false,
+        reason: "runtime_failed",
+        detail:
+          "rootless Docker cannot map the container uid 10001 to the server user. Use rootless Podman or a rootful runtime.",
+        container_runtime: "docker",
+      },
+    ]);
+    mount();
+    const header = await screen.findByRole("region", { name: "Instance" });
+    expect(await within(header).findByText("Connection")).toBeInTheDocument();
+    expect(
+      within(header).getByText(
+        "rootless Docker cannot map the container uid 10001 to the server user. Use rootless Podman or a rootful runtime. The server retries the launch with a backoff.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no Connection row on a container instance when container is available", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...SERVER,
+      placement: "container",
+    });
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue([
+      {
+        placement: "container",
+        available: true,
+        reason: null,
+        detail: null,
+        container_runtime: "podman",
+      },
+    ]);
+    mount();
+    expect(await screen.findByText("container")).toBeInTheDocument();
+    await waitFor(() => expect(workersApi.listWorkerPlacements).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Connection")).not.toBeInTheDocument();
+  });
+
+  it("reads no placement list and shows no placement text on a server instance", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(SERVER);
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue([
+      {
+        placement: "container",
+        available: false,
+        reason: "runtime_failed",
+        detail: "Stopped.",
+        container_runtime: "podman",
+      },
+    ]);
+    mount();
+    expect(await screen.findByText("server")).toBeInTheDocument();
+    expect(workersApi.listWorkerPlacements).not.toHaveBeenCalled();
+    expect(screen.queryByText(/The server retries the launch/)).not.toBeInTheDocument();
+  });
+
+  it("shows no placement text on a worker instance", async () => {
+    vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue([
+      {
+        placement: "container",
+        available: false,
+        reason: "runtime_failed",
+        detail: "Stopped.",
+        container_runtime: "podman",
+      },
+    ]);
+    mount();
+    expect(await screen.findByText("worker")).toBeInTheDocument();
+    expect(workersApi.listWorkerPlacements).not.toHaveBeenCalled();
+    expect(screen.queryByText(/The server retries the launch/)).not.toBeInTheDocument();
+  });
+
   it("shows the badge Draining on a registration that its binding no longer lists", async () => {
     vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
       ...MAC,
