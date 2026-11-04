@@ -27,7 +27,7 @@ export function AttemptZeroFindings({
         <ItemContent className="min-w-0">
           <ItemTitle>Attempt 0</ItemTitle>
           <ItemDescription className="break-words">
-            No attempt opened. A human act on the node wrote these records.
+            A human act on the node, outside an attempt, wrote these records.
           </ItemDescription>
         </ItemContent>
       </Item>
