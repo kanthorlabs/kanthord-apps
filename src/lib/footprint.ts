@@ -10,6 +10,7 @@ import type {
 
 export const FOOTPRINT_DEFAULT_AGE_DAYS = 30;
 export const FOOTPRINT_CLEANUP_KEYS_MAX = 1000;
+export const FOOTPRINT_OLDER_THAN_DAYS_MAX = 3650;
 export const SERVER_HOST_LABEL = "server";
 
 export const FOOTPRINT_KIND_LABELS: Readonly<Record<FootprintKind, string>> = {
@@ -50,6 +51,14 @@ export const ALERT_STATE_LABELS: Readonly<Record<FootprintAlertState, string | n
   pending: "Pending",
   firing: "Above threshold",
   recovering: "Recovering",
+};
+
+export const CLEANUP_STATE_NOTES: Readonly<Partial<Record<CleanupState, string>>> = {
+  queued: "The cleanup waits for its owner. The record updates every 15 seconds.",
+  running: "The owner deletes the keys. The record updates every 15 seconds.",
+  failed:
+    "The owner could not run the cleanup. The outcome holds the keys that it removed before the failure. KanthorD rolls back nothing.",
+  cancelled: "A human cancelled the cleanup before it ran. KanthorD deleted nothing.",
 };
 
 export const CLEANUP_STATE_LABELS: Readonly<Record<CleanupState, string>> = {

@@ -87,7 +87,7 @@ export function FootprintScreen() {
                 onSelect: () => navigate(alertKindPath(alert)),
               }}
               actions={
-                alert.acknowledged_at === null ? (
+                !footprint.heldAlerts.has(alert.alert_id) ? (
                   <Button
                     variant="outline"
                     size="sm"

@@ -2,16 +2,12 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { listAllFootprintCandidates, readFootprintKind } from "@/api/resources/footprint";
-import type { CleanupRule, FootprintKind, WorkerPlacement } from "@/api/types";
+import type { FootprintKind, WorkerPlacement } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { FOOTPRINT_CLEANUP_KEYS_MAX, FOOTPRINT_DEFAULT_AGE_DAYS } from "@/lib/footprint";
-import { type CleanupPlan, oversizedCall, presetPlan } from "./cleanup-plan";
+import { type CleanupPlan, oversizedCall, PRESET_RULE, presetPlan } from "./cleanup-plan";
 
 const PRESET_KINDS: readonly FootprintKind[] = ["trace", "session"];
-const PRESET_RULE: CleanupRule = {
-  name: "older_than",
-  older_than_days: FOOTPRINT_DEFAULT_AGE_DAYS,
-};
 
 export interface FootprintPresetState {
   readonly available: boolean;
@@ -27,7 +23,9 @@ async function readPreset(
     readFootprintKind("session"),
   ]);
   const names = sessions.stats.flatMap((stat) =>
-    stat.delete_operation === null || stat.instance_name === null ? [] : [stat.instance_name],
+    stat.delete_operation === null || stat.instance_name === null || stat.stale
+      ? []
+      : [stat.instance_name],
   );
   const hosts = await Promise.all(
     names.map(async (instanceName) => ({

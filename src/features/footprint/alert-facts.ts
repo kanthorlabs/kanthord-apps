@@ -1,4 +1,4 @@
-import type { FootprintAlert } from "@/api/types";
+import type { FootprintAlert, FootprintStat } from "@/api/types";
 import { byteText, utcDateTime } from "@/lib/format";
 import { FOOTPRINT_KIND_LABELS, SERVER_HOST_LABEL } from "@/lib/footprint";
 import type { StatFact } from "./stat-facts";
@@ -31,6 +31,27 @@ export function alertFacts(alert: FootprintAlert): readonly StatFact[] {
           : `${utcDateTime(alert.acknowledged_at)} by ${alert.acknowledged_by?.name ?? "—"}`,
     },
   ];
+}
+
+function subjectOf(alert: FootprintAlert, stats: readonly FootprintStat[]): FootprintStat | null {
+  return (
+    stats.find(
+      (stat) =>
+        stat.kind === alert.kind &&
+        stat.instance_name === alert.instance_name &&
+        stat.item_key === alert.item_key,
+    ) ?? null
+  );
+}
+
+export function acknowledgementHolds(
+  alert: FootprintAlert,
+  stats: readonly FootprintStat[],
+): boolean {
+  if (alert.acknowledged_until === null) return false;
+  const subject = subjectOf(alert, stats);
+  if (alert.kind === "disk") return (subject?.free_bytes ?? 0) >= alert.acknowledged_until;
+  return (subject?.bytes ?? alert.value) < alert.acknowledged_until;
 }
 
 export function alertKindPath(alert: FootprintAlert): string {

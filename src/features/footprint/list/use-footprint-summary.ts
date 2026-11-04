@@ -11,6 +11,7 @@ import {
 import type { FootprintAlert, FootprintCleanupRecord, FootprintStat } from "@/api/types";
 import { type PolledResource, usePolledResource } from "@/hooks/use-polled-resource";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
+import { acknowledgementHolds } from "../alert-facts";
 import { sortedStats } from "../stat-facts";
 
 export const SUMMARY_POLL_MS = 60_000;
@@ -29,6 +30,7 @@ export interface FootprintSummaryState {
   readonly alerts: Resource<readonly FootprintAlert[]>;
   readonly measuring: boolean;
   readonly acknowledging: string | null;
+  readonly heldAlerts: ReadonlySet<string>;
   readonly measure: () => void;
   readonly acknowledge: (alertId: string) => void;
 }
@@ -86,13 +88,19 @@ export function useFootprintSummary(): FootprintSummaryState {
     [reloadAlerts, refreshSummary],
   );
 
+  const stats = summary.data?.stats ?? [];
   return {
     summary,
-    stats: sortedStats(summary.data?.stats ?? []),
+    stats: sortedStats(stats),
     cleanups,
     alerts,
     measuring,
     acknowledging,
+    heldAlerts: new Set(
+      (alerts.data ?? [])
+        .filter((alert) => acknowledgementHolds(alert, stats))
+        .map((alert) => alert.alert_id),
+    ),
     measure,
     acknowledge,
   };

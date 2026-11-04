@@ -229,4 +229,53 @@ describe("FootprintScreen", () => {
     expect(footprintApi.runFootprintMeasure).toHaveBeenCalledTimes(1);
     expect(footprintApi.acknowledgeFootprintAlert).toHaveBeenCalledWith(ALERT.alert_id);
   });
+
+  it("keeps Acknowledge disabled while the acknowledgement of a disk episode holds", async () => {
+    const acknowledged = {
+      ...ALERT,
+      acknowledged_by: { kind: "human", account: "ulrich", name: "Ulrich" },
+      acknowledged_at: NOW - MINUTE_MS,
+      acknowledged_until: 100 * GIB,
+    } as const;
+    const disk = { kind: "disk", instance_name: "mac-studio", item_key: "16777231" } as const;
+    vi.mocked(footprintApi.listFootprintAlertPage).mockResolvedValue({
+      items: [acknowledged],
+      next_cursor: null,
+    });
+    serve([stat({ ...disk, free_bytes: 120 * GIB, total_bytes: 1024 * GIB })]);
+    mount();
+
+    expect(await screen.findByText("Ulrich", { exact: false })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Acknowledge Disk · mac-studio" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers Acknowledge when the free bytes pass the acknowledged bound", async () => {
+    vi.mocked(footprintApi.listFootprintAlertPage).mockResolvedValue({
+      items: [
+        {
+          ...ALERT,
+          acknowledged_by: { kind: "human", account: "ulrich", name: "Ulrich" },
+          acknowledged_at: NOW - MINUTE_MS,
+          acknowledged_until: 100 * GIB,
+        },
+      ],
+      next_cursor: null,
+    });
+    serve([
+      stat({
+        kind: "disk",
+        instance_name: "mac-studio",
+        item_key: "16777231",
+        free_bytes: 80 * GIB,
+        total_bytes: 1024 * GIB,
+      }),
+    ]);
+    mount();
+
+    expect(
+      await screen.findByRole("button", { name: "Acknowledge Disk · mac-studio" }),
+    ).toBeInTheDocument();
+  });
 });

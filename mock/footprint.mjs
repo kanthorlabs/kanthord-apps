@@ -567,7 +567,9 @@ export function registerFootprint({ on, json, envelope, page, username, instance
         const key = `${record.kind}|${record.instance_name ?? ""}`;
         const list = items.get(key) ?? [];
         const doomed = new Set(record.keys);
-        const removed = list.filter((entry) => doomed.has(entry.key) && isLive(entry));
+        const named = list.filter((entry) => doomed.has(entry.key));
+        const refused = named.filter((entry) => entry.refusal !== null);
+        const removed = named.filter((entry) => entry.refusal === null);
         items.set(
           key,
           list.filter((entry) => !removed.includes(entry)),
@@ -577,11 +579,11 @@ export function registerFootprint({ on, json, envelope, page, username, instance
         record.outcome = {
           removed: removed.length,
           removed_bytes:
-            record.kind === "trace"
-              ? null
-              : removed.reduce((sum, entry) => sum + (entry.bytes ?? 0), 0),
-          absent: record.keys.length - removed.length,
-          refused: [],
+            record.kind === "database_backup"
+              ? removed.reduce((sum, entry) => sum + (entry.bytes ?? 0), 0)
+              : null,
+          absent: record.keys.length - named.length,
+          refused: refused.map((entry) => ({ key: entry.key, reason: entry.refusal })),
         };
       }, FINISH_DELAY_MS);
     }, START_DELAY_MS);
@@ -648,7 +650,12 @@ export function registerFootprint({ on, json, envelope, page, username, instance
     const record = findCleanup(res, decodeURIComponent(m[1]));
     if (record === undefined) return;
     if (record.state !== "queued") {
-      return envelope(res, 409, "footprint.cleanup.not_queued", "The cleanup is not queued.");
+      return envelope(
+        res,
+        409,
+        "footprint.cleanup.not_queued",
+        "Only a queued cleanup can be cancelled.",
+      );
     }
     record.state = "cancelled";
     record.finished_at = Date.now();

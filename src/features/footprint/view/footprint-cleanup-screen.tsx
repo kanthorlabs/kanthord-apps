@@ -6,17 +6,10 @@ import { Reveal } from "@/components/reveal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CLEANUP_STATE_LABELS, refusalText } from "@/lib/footprint";
+import { counted } from "@/lib/counted";
+import { CLEANUP_STATE_LABELS, CLEANUP_STATE_NOTES, refusalText } from "@/lib/footprint";
 import { cleanupFacts, cleanupTitle } from "../cleanup-facts";
 import { useFootprintCleanupRecord } from "./use-footprint-cleanup-record";
-
-const STATE_NOTES: Readonly<Record<string, string>> = {
-  queued: "The cleanup waits for its owner. The record updates every 15 seconds.",
-  running: "The owner deletes the keys. The record updates every 15 seconds.",
-  failed:
-    "The owner could not run the cleanup. The outcome holds the keys that it removed before the failure. KanthorD rolls back nothing.",
-  cancelled: "A human cancelled the cleanup before it ran. KanthorD deleted nothing.",
-};
 
 export function FootprintCleanupScreen() {
   const { cleanupId = "" } = useParams();
@@ -37,7 +30,7 @@ export function FootprintCleanupScreen() {
     );
   }
 
-  const note = STATE_NOTES[value.state];
+  const note = CLEANUP_STATE_NOTES[value.state];
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
@@ -92,7 +85,7 @@ export function FootprintCleanupScreen() {
           onClick={() => setKeysOpen((open) => !open)}
         >
           <ChevronDownIcon aria-hidden="true" data-icon="inline-start" />
-          {keysOpen ? "Hide keys" : `Show ${value.keys.length} keys`}
+          {keysOpen ? "Hide keys" : `Show ${counted(value.keys.length, "key", "keys")}`}
         </Button>
         <Reveal open={keysOpen}>
           <ul className="flex flex-col gap-1 font-mono text-sm break-all">

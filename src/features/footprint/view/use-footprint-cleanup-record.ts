@@ -22,15 +22,15 @@ export interface CleanupRecordState {
 
 export function useFootprintCleanupRecord(cleanupId: string): CleanupRecordState {
   const [cancelling, setCancelling] = useState(false);
-  const [held, setHeld] = useState(false);
+  const [endedId, setEndedId] = useState<string | null>(null);
   const record = usePolledResource(
     () =>
       readFootprintCleanup(cleanupId).then((value) => {
-        setHeld(!LIVE_STATES.includes(value.state));
+        setEndedId(LIVE_STATES.includes(value.state) ? null : cleanupId);
         return value;
       }),
     [cleanupId],
-    { intervalMs: CLEANUP_RECORD_POLL_MS, hold: held },
+    { intervalMs: CLEANUP_RECORD_POLL_MS, hold: endedId === cleanupId },
   );
   const refresh = record.refresh;
 

@@ -118,6 +118,7 @@ function mount(path: string) {
 }
 
 beforeEach(() => {
+  vi.mocked(footprintApi.createFootprintCleanup).mockReset();
   vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
     instance("mac-studio", "worker"),
     instance("coder-1", "server"),
@@ -297,6 +298,87 @@ describe("FootprintKindScreen", () => {
         "The measurement of this host is stale. Clean up waits for the next report of the host.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("sends rule null for a cleanup picked from every item", async () => {
+    const key = "kanthord.db.bak-20260901T101500";
+    serve({ stats: [BACKUP], tables: null });
+    vi.mocked(footprintApi.listFootprintItemPage).mockResolvedValue({
+      items: [candidate(key)],
+      next_cursor: null,
+    });
+    mount("/footprint/database_backup");
+
+    await userEvent.click(await screen.findByRole("combobox", { name: "Rule" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Pick from every item" }));
+    await userEvent.click(await screen.findByRole("checkbox", { name: `Select ${key}` }));
+    await userEvent.click(screen.getByRole("button", { name: "Clean up" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Delete 1 item" }));
+
+    await waitFor(() =>
+      expect(footprintApi.createFootprintCleanup).toHaveBeenCalledWith({
+        kind: "database_backup",
+        instance_name: null,
+        rule: null,
+        keys: [key],
+      }),
+    );
+  });
+
+  it("disables Clean up above 1000 keys and names the safer path of the rule", async () => {
+    const items = Array.from({ length: 1001 }, (_, index) =>
+      candidate(`execution_01J9ZQ4XKM3B6V8N2R5T7W${String(index).padStart(4, "0")}`),
+    );
+    serve({ stats: [SESSION], tables: null });
+    serveCandidates(items.slice(0, 2));
+    vi.mocked(footprintApi.listAllFootprintCandidates).mockResolvedValue(items);
+    mount("/footprint/session?instance=mac-studio");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Select all 2" }));
+
+    expect(await screen.findByText("1001 items selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clean up" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(
+      screen.getByText(
+        "Select at most 1000 items. Narrow the set with a larger age, for example 60 days.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves a stale instance out of the preset", async () => {
+    const trace = stat({
+      kind: "trace",
+      delete_operation: "tracking.trace.delete",
+      rules: ["older_than"],
+    });
+    vi.mocked(footprintApi.readFootprintKind).mockImplementation(async (kind) => ({
+      stats:
+        kind === "session"
+          ? [SESSION, { ...SESSION, instance_name: "coder-1", stale: true }]
+          : [trace],
+      tables: null,
+    }));
+    vi.mocked(footprintApi.listAllFootprintCandidates).mockResolvedValue([]);
+    mount("/footprint/trace");
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Executions older than 30 days" }),
+    );
+
+    await waitFor(() =>
+      expect(footprintApi.listAllFootprintCandidates).toHaveBeenCalledWith("session", {
+        instance_name: "mac-studio",
+        rule: { name: "older_than", older_than_days: 30 },
+      }),
+    );
+    expect(footprintApi.listAllFootprintCandidates).not.toHaveBeenCalledWith(
+      "session",
+      expect.objectContaining({ instance_name: "coder-1" }),
+    );
   });
 
   it("opens the dialog with the consequence after a selection", async () => {

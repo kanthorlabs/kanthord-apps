@@ -23,14 +23,15 @@ import {
   EVERY_ITEM_LABEL,
   FOOTPRINT_CLEANUP_KEYS_MAX,
   FOOTPRINT_DEFAULT_AGE_DAYS,
+  FOOTPRINT_OLDER_THAN_DAYS_MAX,
   RULE_LABELS,
 } from "@/lib/footprint";
-import { type CleanupPlan, isSelectable, selectionPlan } from "./cleanup-plan";
+import { type CleanupPlan, isSelectable, saferPathOf, selectionPlan } from "./cleanup-plan";
 
 export const CANDIDATE_PAGE_LIMIT = 50;
 export const EVERY_ITEM = "every";
 const AGE_MIN = 1;
-const AGE_MAX = 3650;
+const AGE_MAX = FOOTPRINT_OLDER_THAN_DAYS_MAX;
 
 export type CandidateMode = CleanupRuleName | typeof EVERY_ITEM;
 
@@ -209,7 +210,7 @@ export function useCandidateSelection(
     : bytes.size === 0
       ? "Select at least one item."
       : bytes.size > FOOTPRINT_CLEANUP_KEYS_MAX
-        ? `Select at most ${FOOTPRINT_CLEANUP_KEYS_MAX} items. Narrow the set with a larger age.`
+        ? `Select at most ${FOOTPRINT_CLEANUP_KEYS_MAX} items. ${saferPathOf(rule)}`
         : null;
 
   return {

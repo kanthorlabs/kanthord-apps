@@ -43,7 +43,7 @@ export interface PresetHost {
   readonly candidates: readonly FootprintCandidate[];
 }
 
-const PRESET_RULE: CleanupRule = {
+export const PRESET_RULE: CleanupRule = {
   name: "older_than",
   older_than_days: FOOTPRINT_DEFAULT_AGE_DAYS,
 };
@@ -59,6 +59,10 @@ function sizeText(bytes: number | null, estimated: boolean): string {
 
 function nouns(kind: CleanableKind, count: number): string {
   return `${count} ${itemNoun(kind, count)}`;
+}
+
+export function saferPathOf(rule: CleanupRule | null): string {
+  return rule?.name === "older_than" ? OLDER_THAN_SAFER_TEXT : HAND_PICK_SAFER_TEXT;
 }
 
 export function isSelectable(candidate: FootprintCandidate): boolean {
@@ -81,7 +85,7 @@ export function selectionPlan(input: SelectionPlanInput): CleanupPlan {
   return {
     title: `Delete ${nouns(input.kind, count)}?`,
     sentences,
-    saferPath: input.rule?.name === "older_than" ? OLDER_THAN_SAFER_TEXT : HAND_PICK_SAFER_TEXT,
+    saferPath: saferPathOf(input.rule),
     actionLabel: `Delete ${counted(count, "item", "items")}`,
     calls: [
       {
