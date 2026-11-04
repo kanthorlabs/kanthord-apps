@@ -5,7 +5,7 @@ import { verifyCredential } from "@/api/resources/credentials";
 import { rebuildEnvironment } from "@/api/resources/projects";
 import type { HealthEntry } from "@/api/types";
 import { credentialMessage } from "@/features/credentials/credential-message";
-import { ENVIRONMENT_RUN_ACTIVE } from "@/features/projects/view/use-binding-environment";
+import { ENVIRONMENT_RUN_ACTIVE } from "@/hooks/use-binding-environment";
 import { asApiError } from "@/hooks/use-resource";
 import type { AttentionItem } from "@/lib/attention";
 import type { ActedAct } from "@/lib/board-done";

@@ -7,7 +7,7 @@ import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
-import { FindingItem } from "@/features/projects/view/components/finding-item";
+import { FindingItem } from "@/components/finding-item";
 import { approvalFactOf } from "@/lib/approval-attention";
 import type {
   AttentionDetails,

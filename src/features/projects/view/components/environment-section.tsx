@@ -16,7 +16,7 @@ import {
   stepLineOf,
   storableSource,
 } from "@/lib/environment-bar";
-import { useBindingEnvironment } from "../use-binding-environment";
+import { useBindingEnvironment } from "@/hooks/use-binding-environment";
 import { useEnvAgentEnabled } from "../use-env-agent-enabled";
 import { useEnvironmentSecret } from "../use-environment-secret";
 import { useSuitePassProposal } from "../use-suite-pass-proposal";

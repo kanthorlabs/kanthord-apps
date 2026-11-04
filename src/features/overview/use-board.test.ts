@@ -1,6 +1,6 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MissionNodeRecord, NodeState, Project, WorkbenchSessionListItem } from "@/api/types";
@@ -161,6 +161,7 @@ function render(entry = "/", width: BoardWidth = BOARD_WIDTH.Expanded, overview 
     ({ overview: current, width: widthClass }: Props) => ({
       board: useBoard(current, widthClass),
       location: useLocation(),
+      navigationType: useNavigationType(),
     }),
     { wrapper, initialProps: { overview, width } },
   );
@@ -182,6 +183,45 @@ function paramOf(location: { readonly search: string }, name: string): string | 
 }
 
 const RULE_IDS = ["blocked:b1", "blocked:c1", "blocked:b2", "blocked:b3"];
+
+const ITEM_KINDS: readonly AttentionItem["kind"][] = [
+  "tool_approval",
+  "project_paused",
+  "environment_failed",
+  "environment_pending",
+  "no_taker",
+  "agent_invalid",
+  "credential_refused",
+  "request_rejected",
+  "paused",
+  "blocked",
+  "dependency_discarded",
+  "finding_review",
+  "merge_wait",
+  "delivery_unconfirmed",
+];
+
+function kindItem(kind: AttentionItem["kind"], suffix: string, at: number): AttentionItem {
+  const template = overviewOf().boardItems.find((item) => item.id === "blocked:b1");
+  return {
+    ...template,
+    id: `${kind}:${suffix}`,
+    kind,
+    subject: `Item ${suffix}`,
+    at,
+    projects: [ATLAS],
+  } as AttentionItem;
+}
+
+function kindOverview(kind: AttentionItem["kind"], suffixes: readonly string[], updatedAt: number) {
+  const boardItems = suffixes.map((suffix, index) => kindItem(kind, suffix, 100 * (index + 1)));
+  return {
+    ...overviewOf([], updatedAt, []),
+    boardItems,
+    gates: new Map(),
+    held: new Map(),
+  };
+}
 
 describe("useBoard", () => {
   it("starts on the Start here card and its tab", () => {
@@ -504,6 +544,88 @@ describe("useBoard", () => {
     expect(view.result.current.board.openId).toBeNull();
     expect(view.result.current.board.selectedId).toBe("blocked:b2");
     expect(document.activeElement).toBe(next);
+  });
+
+  it.each(ITEM_KINDS)(
+    "writes the next card to item after a marked %s item leaves, on expanded",
+    (kind) => {
+      const view = render(
+        `/?item=${kind}:k1`,
+        BOARD_WIDTH.Expanded,
+        kindOverview(kind, ["k1", "k2"], 1),
+      );
+
+      act(() => view.result.current.board.markActed(`${kind}:k1`));
+      view.rerender({ overview: kindOverview(kind, ["k2"], 2), width: BOARD_WIDTH.Expanded });
+
+      expect(view.result.current.board.selectedId).toBe(`${kind}:k2`);
+      expect(paramOf(view.result.current.location, "item")).toBe(`${kind}:k2`);
+
+      act(() => view.result.current.board.markActed(`${kind}:k2`));
+      view.rerender({ overview: kindOverview(kind, [], 3), width: BOARD_WIDTH.Expanded });
+
+      expect(view.result.current.board.selectedId).toBeNull();
+      expect(view.result.current.board.gone).toBeNull();
+      expect(paramOf(view.result.current.location, "item")).toBeNull();
+    },
+  );
+
+  it.each(ITEM_KINDS)(
+    "closes the detail and writes the next card to item after a marked %s item leaves, on compact",
+    async (kind) => {
+      const view = render("/", BOARD_WIDTH.Compact, kindOverview(kind, ["k1", "k2"], 1));
+      act(() => view.result.current.board.open(`${kind}:k1`));
+
+      act(() => view.result.current.board.markActed(`${kind}:k1`));
+      view.rerender({ overview: kindOverview(kind, ["k2"], 2), width: BOARD_WIDTH.Compact });
+
+      await waitFor(() => expect(paramOf(view.result.current.location, "item")).toBe(`${kind}:k2`));
+      expect(view.result.current.board.openId).toBeNull();
+      expect(view.result.current.board.selectedId).toBe(`${kind}:k2`);
+    },
+  );
+
+  it.each(ITEM_KINDS)(
+    "keeps a %s item that left the list without an act as gone in item",
+    (kind) => {
+      const view = render(
+        `/?item=${kind}:k1`,
+        BOARD_WIDTH.Expanded,
+        kindOverview(kind, ["k1", "k2"], 1),
+      );
+
+      view.rerender({ overview: kindOverview(kind, ["k2"], 2), width: BOARD_WIDTH.Expanded });
+
+      expect(view.result.current.board.gone?.id).toBe(`${kind}:k1`);
+      expect(paramOf(view.result.current.location, "item")).toBe(`${kind}:k1`);
+    },
+  );
+
+  it.each(ITEM_KINDS)(
+    "writes the next card to item after a marked %s item leaves, on compact without the detail",
+    (kind) => {
+      const view = render("/", BOARD_WIDTH.Compact, kindOverview(kind, ["k1", "k2"], 1));
+      act(() => view.result.current.board.select(`${kind}:k1`));
+      expect(view.result.current.board.openId).toBeNull();
+
+      act(() => view.result.current.board.markActed(`${kind}:k1`));
+      view.rerender({ overview: kindOverview(kind, ["k2"], 2), width: BOARD_WIDTH.Compact });
+
+      expect(view.result.current.board.selectedId).toBe(`${kind}:k2`);
+      expect(view.result.current.board.openId).toBeNull();
+      expect(paramOf(view.result.current.location, "item")).toBe(`${kind}:k2`);
+    },
+  );
+
+  it("replaces the history entry when it writes the next card to item", () => {
+    const view = render("/?item=blocked:c1&kind=blocked");
+    expect(view.result.current.navigationType).toBe("POP");
+
+    act(() => view.result.current.board.markActed("blocked:c1"));
+    view.rerender({ overview: overviewOf(["c1"], 2), width: BOARD_WIDTH.Expanded });
+
+    expect(paramOf(view.result.current.location, "item")).toBe("blocked:b2");
+    expect(view.result.current.navigationType).toBe("REPLACE");
   });
 
   it("calls markActed on a dialog close, and the next card follows at a newer read", () => {

@@ -4,7 +4,7 @@ import type { WorkerInstanceListItem } from "@/api/types";
 import type { Resource } from "@/hooks/use-resource";
 import type { BindingDraft, DraftErrors, WorkerDraft } from "@/lib/binding-draft";
 import type { BindingDraftState, BindingTarget } from "./use-binding-draft";
-import { showsWorkerEnvironment } from "./use-binding-environment";
+import { showsWorkerEnvironment } from "@/hooks/use-binding-environment";
 import { type InstanceAddState, useInstanceAdd } from "./use-instance-add";
 import { type InstanceSharing, useInstanceSharing } from "./use-instance-sharing";
 import { instanceOptionsOf, useWorkerInstanceChoices } from "./use-worker-instance-choices";

@@ -1912,6 +1912,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/discard$/, (m, b, res) => {
   };
   state.outcomes.push(outcome);
   rejectOpenProposals(state, node, now);
+  routeOpenFixFindings(state, node, "record");
   node.state = "Discarded";
   return json(res, 200, {
     node: graphNodeRead(state, node),
@@ -2055,6 +2056,19 @@ const outcomeOf = (state, node, closingEvent, result) => {
   return outcome;
 };
 
+const routeOpenFixFindings = (state, node, route) => {
+  if (node.attempt === 0 || CLOSED_ATTEMPT_STATES.includes(node.state)) return;
+  for (const finding of state.findings) {
+    if (
+      finding.node_id === node.id &&
+      finding.route === "fix" &&
+      finding.fixed_assessment_id === null &&
+      assessmentById(finding.assessment_id)?.attempt === node.attempt
+    )
+      finding.route = route;
+  }
+};
+
 const humanControlRefusal = (res, state, node, b, states) => {
   const refusal = controlRefusal(res, state, node, b.expected_mission_version);
   if (refusal !== null) return refusal;
@@ -2085,6 +2099,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/override$/, (m, b, res) => {
     );
   const outcome = outcomeOf(state, node, "success-override", "success");
   rejectOpenProposals(state, node, outcome.created_at);
+  routeOpenFixFindings(state, node, "report");
   node.state = "Completed";
   return json(res, 200, {
     node: graphNodeRead(state, node),

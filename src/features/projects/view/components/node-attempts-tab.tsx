@@ -12,12 +12,13 @@ import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
 import type { SchedulerExecutionRecord } from "@/api/types";
 import { endLabel, lastEndOf } from "@/lib/execution-stop";
+import { FindingReportSheet } from "@/components/finding-report-sheet";
+import { type FindingReportState, useFindingReport } from "@/hooks/use-finding-report";
 import { useNodeAttempts } from "../use-node-attempts";
-import { type FindingReportState, useFindingReport } from "../use-finding-report";
 import { useNodeExecutionHistory } from "../use-node-executions";
 import { AttemptRecords } from "./attempt-records";
+import { AttemptZeroFindings } from "./attempt-zero-findings";
 import { ActorLabel } from "./actor-label";
-import { FindingReportSheet } from "./finding-report-sheet";
 
 interface NodeAttemptsTabProps {
   readonly projectId: string;
@@ -74,6 +75,15 @@ export function NodeAttemptsTab({
   const attempts = useNodeAttempts(nodeId);
   const history = useNodeExecutionHistory(projectId, nodeId);
   const report = useFindingReport(nodeId, missionVersion, onChanged);
+  const attemptZero = (
+    <AttemptZeroFindings
+      nodeId={nodeId}
+      assessments={report.assessments}
+      tasks={model.nodeById.get(nodeId)?.tasks ?? []}
+      refreshKey={report.refreshKey}
+      onEdit={report.requestEdit}
+    />
+  );
 
   if (attempts.loading) return <Skeleton className="h-32 w-full" />;
   if (attempts.data === null) {
@@ -93,6 +103,7 @@ export function NodeAttemptsTab({
       <>
         <ReportDefectAction report={report} />
         <p className="text-sm text-muted-foreground">No attempt of this node opened.</p>
+        {attemptZero}
       </>
     );
   }
@@ -100,6 +111,7 @@ export function NodeAttemptsTab({
   return (
     <>
       <ReportDefectAction report={report} />
+      {attemptZero}
       <ItemGroup aria-label="Attempts" className="gap-3">
         {attempts.data.map((attempt) => (
           <Collapsible key={attempt.attempt} role="listitem" className="flex flex-col">

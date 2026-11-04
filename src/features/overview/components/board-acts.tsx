@@ -6,7 +6,7 @@ import { NodeOverrideDialog } from "@/components/node-override-dialog";
 import { NodeResumeDialog } from "@/components/node-resume-dialog";
 import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 import { ProposalDecisionDialog } from "@/components/proposal-decision-dialog";
-import { FindingReportSheet } from "@/features/projects/view/components/finding-report-sheet";
+import { FindingReportSheet } from "@/components/finding-report-sheet";
 import type { ToolApprovalItem } from "@/lib/approval-attention";
 import {
   type AttentionDetails,
