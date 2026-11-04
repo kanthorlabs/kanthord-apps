@@ -20,3 +20,15 @@ export function durationText(ms: number): string {
   const minutes = Math.floor((milliseconds % HOUR_MS) / MINUTE_MS);
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
+
+const BYTE_STEP = 1_024;
+
+function oneDecimal(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, "");
+}
+
+export function byteText(bytes: number): string {
+  const kibibytes = bytes / BYTE_STEP;
+  if (Number(kibibytes.toFixed(1)) < BYTE_STEP) return `${oneDecimal(kibibytes)} KiB`;
+  return `${oneDecimal(kibibytes / BYTE_STEP)} MiB`;
+}

@@ -19,6 +19,7 @@ import {
   readTrace,
   readTraceFacets,
   readTraceText,
+  rebuildSessionEntry,
 } from "./tracking";
 
 type Widened<T> = T extends string
@@ -295,6 +296,38 @@ describe("readSessionEntry", () => {
     expect(seen.map((req) => req.url)).toEqual([
       "/api/tracking/trace/t-1/session/s-1/entry/e%2F1",
       "/api/tracking/trace/t-1/session/s-1/entry/e-2",
+    ]);
+  });
+});
+
+describe("rebuildSessionEntry", () => {
+  it("reads the full entry of a cut entry and rejects with the error details", async () => {
+    const tooLarge = {
+      status: 409,
+      body: {
+        error: {
+          code: "tracking.entry.too_large",
+          message: "The full entry is above the full entry bound.",
+          details: { instance: "local", placement: "server", bytes: 40000000, limit: 33488896 },
+        },
+        request_id: "req-1",
+      },
+    };
+    await connect([{ body: { entry_id: "e/1", truncated: false } }, tooLarge]);
+
+    expect(await rebuildSessionEntry("t-1", "s-1", "e/1")).toEqual({
+      entry_id: "e/1",
+      truncated: false,
+    });
+    await expect(rebuildSessionEntry("t-1", "s-1", "e-2")).rejects.toMatchObject({
+      code: "conflict",
+      status: 409,
+      detail: "tracking.entry.too_large",
+      details: { instance: "local", placement: "server", bytes: 40000000, limit: 33488896 },
+    });
+    expect(seen.map((req) => req.url)).toEqual([
+      "/api/tracking/trace/t-1/session/s-1/entry/e%2F1/full",
+      "/api/tracking/trace/t-1/session/s-1/entry/e-2/full",
     ]);
   });
 });

@@ -140,3 +140,13 @@ export async function readSessionEntry(
     `${sessionPath(traceId, sessionId)}/${encodeURIComponent(entryId)}`,
   );
 }
+
+export async function rebuildSessionEntry(
+  traceId: string,
+  sessionId: string,
+  entryId: string,
+): Promise<TraceSessionEntry> {
+  return request<TraceSessionEntry>(
+    `${sessionPath(traceId, sessionId)}/${encodeURIComponent(entryId)}/full`,
+  );
+}

@@ -7,12 +7,13 @@ import { ApiError } from "@/api/errors";
 
 vi.mock("@/api/resources/tracking", () => ({
   listSessionEntryPage: vi.fn(),
+  rebuildSessionEntry: vi.fn(),
 }));
 vi.mock("@/api/resources/workers", () => ({
   resolveAgentPrompt: vi.fn(),
 }));
 
-import { listSessionEntryPage } from "@/api/resources/tracking";
+import { listSessionEntryPage, rebuildSessionEntry } from "@/api/resources/tracking";
 import { resolveAgentPrompt } from "@/api/resources/workers";
 import type { TraceSessionEntry, TraceSpan } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
@@ -182,6 +183,82 @@ function blockOf(label: string): HTMLElement {
   return block;
 }
 
+const CUT_ENTRY = entry("ask", 1, message("user", { content: "Long." }), { truncated: true });
+const FULL_ENTRY = entry("ask", 1, message("user", { content: "Long. And the rest of it." }));
+
+function rebuildFailure(
+  status: number,
+  detail: string,
+  details: Record<string, unknown>,
+): ApiError {
+  return new ApiError(
+    status === 409 ? "conflict" : "unavailable",
+    "Refused.",
+    status,
+    detail,
+    details,
+  );
+}
+
+const SERVER = { instance: "local", placement: "server" };
+const WORKER = { instance: "laptop", placement: "worker" };
+
+const REBUILD_FAILURES: readonly (readonly [string, ApiError, string])[] = [
+  [
+    "unreachable offline",
+    rebuildFailure(503, "tracking.entry.unreachable", { ...WORKER, reason: "offline" }),
+    "The worker instance laptop holds no connection. KanthorD reads its sessions only while it runs. Start it, then try again.",
+  ],
+  [
+    "unreachable timeout",
+    rebuildFailure(503, "tracking.entry.unreachable", { ...WORKER, reason: "timeout" }),
+    "The worker instance laptop did not answer within 25 s. A large entry over a slow link cannot finish in time.",
+  ],
+  [
+    "unreachable busy",
+    rebuildFailure(503, "tracking.entry.unreachable", { ...WORKER, reason: "busy" }),
+    "The worker instance laptop serves 8 reads now. Try again.",
+  ],
+  [
+    "unreadable",
+    rebuildFailure(503, "tracking.entry.unreadable", SERVER),
+    "KanthorD could not read the session file of local. Try again.",
+  ],
+  [
+    "too_large",
+    rebuildFailure(409, "tracking.entry.too_large", {
+      ...SERVER,
+      bytes: 40_000_000,
+      limit: 33_488_896,
+    }),
+    "The full entry holds 38.1 MiB. KanthorD rebuilds an entry of at most 31.9 MiB.",
+  ],
+  [
+    "session_absent not_kept",
+    rebuildFailure(404, "tracking.entry.session_absent", { ...SERVER, reason: "not_kept" }),
+    "The host of local holds no file of this session.",
+  ],
+  [
+    "session_absent archived",
+    rebuildFailure(404, "tracking.entry.session_absent", { ...WORKER, reason: "archived" }),
+    "The worker instance laptop is archived. KanthorD no longer reads its sessions.",
+  ],
+  [
+    "session_absent instance_unknown",
+    rebuildFailure(404, "tracking.entry.session_absent", {
+      instance: null,
+      placement: null,
+      reason: "instance_unknown",
+    }),
+    "No worker instance of KanthorD ran this session.",
+  ],
+  [
+    "entry_absent",
+    rebuildFailure(404, "tracking.entry.entry_absent", SERVER),
+    "The session file on local holds no entry with this identity.",
+  ],
+];
+
 afterEach(() => {
   vi.resetAllMocks();
 });
@@ -313,6 +390,87 @@ describe("Conversation", () => {
         { timeout: 2000 },
       ),
     ).toBeInTheDocument();
+  });
+
+  it("offers Load full entry only on a cut entry", async () => {
+    mockEntries([CUT_ENTRY, entry("reply", 2, message("user", { content: "Short." }))]);
+    show([SESSION_1]);
+    await screen.findByText("Short.");
+
+    expect(screen.getAllByRole("button", { name: "Load full entry" })).toHaveLength(1);
+    expect(
+      within(screen.getByText("Long.").closest("[role=listitem]") as HTMLElement).getByRole(
+        "button",
+        { name: "Load full entry" },
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("loads the full entry in place of the cut copy and marks it Full", async () => {
+    mockEntries([CUT_ENTRY]);
+    let answer: (entry: TraceSessionEntry) => void = () => undefined;
+    vi.mocked(rebuildSessionEntry).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    show([SESSION_1]);
+    await screen.findByText("Long.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load full entry" }));
+    expect(screen.getByRole("button", { name: "Load full entry" })).toBeDisabled();
+    expect(rebuildSessionEntry).toHaveBeenCalledWith("trace-1", "session-1", "ask");
+    answer(FULL_ENTRY);
+
+    expect(await screen.findByText("Long. And the rest of it.")).toBeInTheDocument();
+    expect(screen.queryByText("Long.")).not.toBeInTheDocument();
+    expect(screen.getByText("Full")).toBeInTheDocument();
+    expect(screen.queryByText("Cut")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load full entry" })).not.toBeInTheDocument();
+  });
+
+  it.each(REBUILD_FAILURES)(
+    "states the %s failure and keeps the cut copy",
+    async (_name, failure, text) => {
+      mockEntries([CUT_ENTRY]);
+      vi.mocked(rebuildSessionEntry).mockRejectedValue(failure);
+      show([SESSION_1]);
+      await screen.findByText("Long.");
+
+      await userEvent.click(screen.getByRole("button", { name: "Load full entry" }));
+
+      const block = screen.getByText("Long.").closest("[role=listitem]") as HTMLElement;
+      expect((await within(block).findByRole("alert")).textContent).toBe(text);
+      expect(within(block).getByText("Cut")).toBeInTheDocument();
+      expect(within(block).getByRole("button", { name: "Load full entry" })).toBeEnabled();
+    },
+  );
+
+  it("states a timeout with no Try again", async () => {
+    mockEntries([CUT_ENTRY]);
+    vi.mocked(rebuildSessionEntry).mockRejectedValue(
+      rebuildFailure(503, "tracking.entry.unreachable", { ...WORKER, reason: "timeout" }),
+    );
+    show([SESSION_1]);
+    await screen.findByText("Long.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load full entry" }));
+
+    expect(await screen.findByRole("alert")).not.toHaveTextContent("Try again.");
+  });
+
+  it("names the instance of a failure as a record name", async () => {
+    mockEntries([CUT_ENTRY]);
+    vi.mocked(rebuildSessionEntry).mockRejectedValue(
+      rebuildFailure(503, "tracking.entry.unreachable", { ...WORKER, reason: "offline" }),
+    );
+    show([SESSION_1]);
+    await screen.findByText("Long.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load full entry" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("laptop").tagName).toBe("STRONG");
   });
 
   it("shows no Session select for one session", async () => {

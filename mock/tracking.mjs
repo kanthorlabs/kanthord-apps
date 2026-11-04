@@ -79,6 +79,80 @@ const SYSTEM_PROMPT = "You are a software engineer. Work on one task and report 
 const VERIFICATION_COMMAND = "pnpm run verify";
 const VERIFICATION_OUTPUT = "Test Files  12 passed (12)\n     Tests  94 passed (94)";
 const TRUNCATED_TEXT = "The command printed a long log. The daemon keeps only the first part of it";
+const FULL_TEXT = `${TRUNCATED_TEXT}. The rest of the log lists each test file, its duration and its result, and the last line states that every test passed.`;
+const FULL_ENTRY_LIMIT = 33554432 - 65536;
+
+const UNREACHABLE_MESSAGE = "The worker instance cannot serve the session read now.";
+const SESSION_ABSENT_MESSAGE = "The host holds no file of the session.";
+const onWorker = (instance) => ({ instance, placement: "worker" });
+const onServer = (instance) => ({ instance, placement: "server" });
+
+const REBUILD_FAILURES = [
+  null,
+  (i) => [
+    503,
+    "tracking.entry.unreachable",
+    UNREACHABLE_MESSAGE,
+    { ...onWorker(i), reason: "offline" },
+  ],
+  (i) => [
+    503,
+    "tracking.entry.unreachable",
+    UNREACHABLE_MESSAGE,
+    { ...onWorker(i), reason: "timeout" },
+  ],
+  (i) => [
+    503,
+    "tracking.entry.unreachable",
+    UNREACHABLE_MESSAGE,
+    { ...onWorker(i), reason: "busy" },
+  ],
+  (i) => [
+    503,
+    "tracking.entry.unreadable",
+    "The host failed to read the session file.",
+    onServer(i),
+  ],
+  (i) => [
+    409,
+    "tracking.entry.too_large",
+    "The full entry is above the full entry bound.",
+    { ...onServer(i), bytes: 41943040, limit: FULL_ENTRY_LIMIT },
+  ],
+  (i) => [
+    404,
+    "tracking.entry.session_absent",
+    SESSION_ABSENT_MESSAGE,
+    { ...onServer(i), reason: "not_kept" },
+  ],
+  (i) => [
+    404,
+    "tracking.entry.session_absent",
+    SESSION_ABSENT_MESSAGE,
+    { ...onWorker(i), reason: "archived" },
+  ],
+  () => [
+    404,
+    "tracking.entry.session_absent",
+    SESSION_ABSENT_MESSAGE,
+    { instance: null, placement: null, reason: "instance_unknown" },
+  ],
+  (i) => [
+    404,
+    "tracking.entry.entry_absent",
+    "The session file holds no entry with the entry identity and type.",
+    onServer(i),
+  ],
+];
+
+const fullEntryOf = (entry) => ({
+  ...entry,
+  truncated: false,
+  entry: {
+    ...entry.entry,
+    message: { ...entry.entry.message, content: [{ type: "text", text: FULL_TEXT }] },
+  },
+});
 
 const hex8 = (text) => {
   let hash = 0x811c9dc5;
@@ -839,4 +913,27 @@ export function registerTracking({ on, json, envelope, page, executions, usernam
     }
     json(res, 200, entry);
   });
+
+  on(
+    "GET",
+    /^\/api\/tracking\/trace\/([^/]+)\/session\/([^/]+)\/entry\/([^/]+)\/full$/,
+    (m, _b, res) => {
+      const all = traces();
+      const index = all.findIndex((item) => item.summary.trace_id === decodeURIComponent(m[1]));
+      const trace = find(res, decodeURIComponent(m[1]));
+      if (trace === undefined) return;
+      const entry = trace.entries.find(
+        (item) =>
+          item.session_id === decodeURIComponent(m[2]) &&
+          item.entry_id === decodeURIComponent(m[3]),
+      );
+      if (entry === undefined) {
+        return envelope(res, 404, "tracking.entry.not_found", "The session entry is unknown.");
+      }
+      if (!entry.truncated) return json(res, 200, entry);
+      const failure = REBUILD_FAILURES[index % REBUILD_FAILURES.length];
+      if (failure === null) return json(res, 200, fullEntryOf(entry));
+      envelope(res, ...failure(trace.summary.worker_name));
+    },
+  );
 }

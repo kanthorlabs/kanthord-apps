@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { durationText, utcDateTime, utcShortDateTime } from "./format";
+import { byteText, durationText, utcDateTime, utcShortDateTime } from "./format";
 
 describe("utcDateTime", () => {
   it("renders a millisecond time as a UTC minute", () => {
@@ -39,5 +39,16 @@ describe("durationText", () => {
 
   it("answers zero milliseconds for a negative span", () => {
     expect(durationText(-5)).toBe("0 ms");
+  });
+});
+
+describe("byteText", () => {
+  it("renders a size in KiB under one MiB and in MiB above", () => {
+    expect(byteText(61_440)).toBe("60 KiB");
+    expect(byteText(65_600)).toBe("64.1 KiB");
+    expect(byteText(1_048_575)).toBe("1 MiB");
+    expect(byteText(1_048_576)).toBe("1 MiB");
+    expect(byteText(33_488_896)).toBe("31.9 MiB");
+    expect(byteText(41_943_040)).toBe("40 MiB");
   });
 });
