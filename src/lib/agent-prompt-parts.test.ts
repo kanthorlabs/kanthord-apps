@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { SpanAttributeValue, TraceSessionEntry, TraceSpan } from "@/api/types";
 
 import {
+  changedPromptParts,
   pinnedContextEntryIds,
   promptChanged,
-  promptPartsOf,
+  promptSourcesOf,
   taskTemplates,
   workPromptEntryIds,
 } from "./agent-prompt-parts";
@@ -35,10 +36,29 @@ function span(
   };
 }
 
-function prompt(parts: readonly string[], digest = "all", agent = "coder"): TraceSpan {
+function source(part: string, name: string, digest: string, extra: Record<string, unknown> = {}) {
+  return JSON.stringify({
+    part,
+    name,
+    origin: "binary",
+    path: null,
+    binding_id: null,
+    commit: null,
+    digest,
+    ...extra,
+  });
+}
+
+const STANDARD = source("standard", "base.md", "abc");
+const REPOSITORY = source("repository", "apps", "def", {
+  origin: "database",
+  binding_id: "binding-1",
+});
+
+function prompt(sources: readonly string[], digest = "all", agent = "coder"): TraceSpan {
   return span("prompt", "agent.prompt", {
     "kanthord.agent.name": agent,
-    "kanthord.prompt.parts": parts,
+    "kanthord.prompt.sources": sources,
     "kanthord.prompt.templates_digest": digest,
   });
 }
@@ -63,46 +83,94 @@ function message(role: string, text: string): Record<string, unknown> {
   return { type: "message", message: { role, content: [{ type: "text", text }] } };
 }
 
-describe("promptPartsOf", () => {
-  it("parses the part, the name and the digest of each item", () => {
-    expect(promptPartsOf(prompt(["system:coder:abc", "rules:style:def"]))).toEqual([
-      { part: "system", name: "coder", digest: "abc" },
-      { part: "rules", name: "style", digest: "def" },
+describe("promptSourcesOf", () => {
+  it("parses the prompt reference of each item in reading order", () => {
+    expect(promptSourcesOf(prompt([STANDARD, REPOSITORY]))).toEqual([
+      {
+        part: "standard",
+        name: "base.md",
+        origin: "binary",
+        path: null,
+        binding_id: null,
+        commit: null,
+        digest: "abc",
+      },
+      {
+        part: "repository",
+        name: "apps",
+        origin: "database",
+        path: null,
+        binding_id: "binding-1",
+        commit: null,
+        digest: "def",
+      },
     ]);
   });
 
   it("skips an item of another form", () => {
-    expect(promptPartsOf(prompt(["system:coder:abc", "broken", "a:b", "a:b:c:d", "a::c"]))).toEqual(
-      [{ part: "system", name: "coder", digest: "abc" }],
-    );
+    expect(
+      promptSourcesOf(
+        prompt([
+          STANDARD,
+          "standard:base.md:abc",
+          "{",
+          source("rules", "style", "x"),
+          source("standard", "", "x"),
+          source("standard", "base.md", "x", { origin: "disk" }),
+          source("standard", "base.md", "x", { commit: 7 }),
+        ]),
+      ).map((reference) => reference.digest),
+    ).toEqual(["abc"]);
   });
 
-  it("returns no part for a span without the attribute", () => {
-    expect(promptPartsOf(span("x", "agent.prompt"))).toEqual([]);
+  it("returns no reference for a span without the attribute", () => {
+    expect(promptSourcesOf(span("x", "agent.prompt"))).toEqual([]);
   });
 });
 
 describe("promptChanged", () => {
-  const base = prompt(["system:coder:abc", "rules:style:def"]);
+  const base = prompt([STANDARD, REPOSITORY]);
 
   it("reports no change for equal prompts", () => {
-    expect(promptChanged([base], [prompt(["system:coder:abc", "rules:style:def"])])).toBe(false);
+    expect(promptChanged([base], [prompt([STANDARD, REPOSITORY])])).toBe(false);
   });
 
   it("reports a different digest of one part", () => {
-    expect(promptChanged([base], [prompt(["system:coder:abc", "rules:style:xyz"])])).toBe(true);
+    const changed = source("repository", "apps", "xyz", { origin: "database" });
+    expect(promptChanged([base], [prompt([STANDARD, changed])])).toBe(true);
   });
 
   it("reports a different templates digest", () => {
-    expect(promptChanged([base], [prompt(["system:coder:abc", "rules:style:def"], "other")])).toBe(
-      true,
-    );
+    expect(promptChanged([base], [prompt([STANDARD, REPOSITORY], "other")])).toBe(true);
   });
 
   it("compares the prompts of the same agent name only", () => {
-    const other = prompt(["system:coder:zzz"], "other", "reviewer");
+    const other = prompt([source("standard", "base.md", "zzz")], "other", "reviewer");
 
     expect(promptChanged([base], [other])).toBe(false);
+  });
+});
+
+describe("changedPromptParts", () => {
+  it("names each part of an agent whose digest differs, by part and name", () => {
+    const current = prompt([
+      source("standard", "base.md", "new"),
+      REPOSITORY,
+      source("binding", "apps", "b1"),
+    ]);
+
+    const changed = changedPromptParts([prompt([STANDARD, REPOSITORY])], [current]);
+
+    expect([...(changed.get("coder") ?? [])]).toEqual(["standard:base.md", "binding:apps"]);
+  });
+
+  it("names no agent that the earlier execution did not run", () => {
+    const changed = changedPromptParts(
+      [prompt([STANDARD])],
+      [prompt([STANDARD], "all", "reviewer")],
+    );
+
+    expect(changed.has("reviewer")).toBe(false);
   });
 });
 
@@ -195,7 +263,11 @@ describe("workPromptEntryIds", () => {
 describe("pinnedContextEntryIds", () => {
   it("lists the custom entries of the pinned context", () => {
     const entries = [
-      entry("pinned", 1, { type: "custom", customType: "kanthord.pinned_context", data: {} }),
+      entry("pinned", 1, {
+        type: "custom",
+        customType: "kanthord.pinned_context",
+        data: { part: "system_prompt" },
+      }),
       entry("custom", 2, { type: "custom", customType: "other" }),
       entry("user", 3, message("user", "hello")),
     ];

@@ -11,7 +11,7 @@ import type {
   TraceSummary,
 } from "@/api/types";
 import { useResource } from "@/hooks/use-resource";
-import { promptChanged } from "@/lib/agent-prompt-parts";
+import { changedPromptParts, promptChanged } from "@/lib/agent-prompt-parts";
 import { durationText } from "@/lib/format";
 import {
   type AttemptExecution,
@@ -57,8 +57,14 @@ export interface NodeAttempt {
   readonly executions: readonly NodeExecution[];
 }
 
+export interface PromptDiffBase {
+  readonly executionId: string;
+  readonly changed: ReadonlyMap<string, ReadonlySet<string>>;
+}
+
 export interface NodeTraces {
   readonly items: readonly TraceListItem[];
+  readonly promptDiffBase: PromptDiffBase | null;
   readonly groups: readonly NodeAttempt[];
   readonly repeatedAttempts: number;
   readonly repeatedExecutions: number;
@@ -72,11 +78,25 @@ async function readPreviousSpans(previousId: string | null): Promise<readonly Tr
   return listTraceSpans(previousId);
 }
 
-function previousTraceIdOf(items: readonly TraceListItem[], summary: TraceSummary): string | null {
+function previousItemOf(
+  items: readonly TraceListItem[],
+  summary: TraceSummary,
+): TraceListItem | null {
   const earlier = items
     .filter((item) => item.trace_id !== summary.trace_id && item.created_at < summary.created_at)
     .sort((a, b) => b.created_at - a.created_at);
-  return earlier[0]?.trace_id ?? null;
+  return earlier[0] ?? null;
+}
+
+function diffBaseOf(
+  previous: TraceListItem | null,
+  previousSpans: readonly TraceSpan[] | null,
+  spans: readonly TraceSpan[],
+): PromptDiffBase | null {
+  const executionId = previous?.execution_id ?? null;
+  if (executionId === null || previousSpans === null || !promptChanged(previousSpans, spans))
+    return null;
+  return { executionId, changed: changedPromptParts(previousSpans, spans) };
 }
 
 function markedRepeats(
@@ -137,9 +157,14 @@ export function useNodeTraces(
 ): NodeTraces {
   const { trace_id: traceId } = summary;
   const { items, attempts } = traceNode;
-  const previousId = previousTraceIdOf(items, summary);
+  const previousItem = previousItemOf(items, summary);
+  const previousId = previousItem?.trace_id ?? null;
   const previous = useResource(() => readPreviousSpans(previousId), [previousId]);
   const changed = previous.data !== null && promptChanged(previous.data, spans);
+  const promptDiffBase = useMemo(
+    () => diffBaseOf(previousItem, previous.data, spans),
+    [previousItem, previous.data, spans],
+  );
 
   const groups = useMemo(
     () => groupsOf(items, attempts, traceId, changed),
@@ -151,6 +176,7 @@ export function useNodeTraces(
 
   return {
     items,
+    promptDiffBase,
     groups,
     repeatedAttempts: repeated.filter((executions) => executions.length > 0).length,
     repeatedExecutions: repeated.reduce((total, executions) => total + executions.length, 0),

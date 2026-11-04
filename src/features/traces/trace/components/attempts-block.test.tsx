@@ -32,6 +32,7 @@ function node(overrides: Partial<NodeTraces> = {}): NodeTraces {
     groups: [],
     repeatedAttempts: 0,
     repeatedExecutions: 0,
+    promptDiffBase: null,
     loading: false,
     error: null,
     retry: vi.fn(),
@@ -80,6 +81,7 @@ const TWO_ATTEMPTS = node({
   ],
   repeatedAttempts: 1,
   repeatedExecutions: 1,
+  promptDiffBase: null,
 });
 
 describe("AttemptsBlock", () => {

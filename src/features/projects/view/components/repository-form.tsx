@@ -16,7 +16,6 @@ import {
   withPlatform,
 } from "@/lib/binding-draft";
 import { AvailabilityField } from "./availability-field";
-import { BindingPromptsFieldset } from "./binding-prompts-fieldset";
 import { CredentialCombobox } from "./credential-combobox";
 import { DraftField } from "./draft-field";
 
@@ -48,6 +47,7 @@ interface RepositoryFormProps {
   readonly sshCredentials: readonly Credential[];
   readonly apiCredentials: readonly Credential[];
   readonly hostKey: ReactNode;
+  readonly prompts: ReactNode;
   readonly onEdit: (draft: RepositoryDraft) => void;
   readonly onNewSshCredential: () => void;
   readonly onNewApiCredential: () => void;
@@ -61,6 +61,7 @@ export function RepositoryForm({
   sshCredentials,
   apiCredentials,
   hostKey,
+  prompts,
   onEdit,
   onNewSshCredential,
   onNewApiCredential,
@@ -175,7 +176,7 @@ export function RepositoryForm({
           <FieldDescription>The action follows a passing assessment.</FieldDescription>
         </Field>
       </FieldSet>
-      <BindingPromptsFieldset draft={draft} onEdit={onEdit} />
+      {prompts}
     </>
   );
 }

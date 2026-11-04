@@ -50,6 +50,36 @@ describe("DataListItem", () => {
     expect(screen.getByRole("listitem")).toHaveTextContent("The instance did not answer.");
   });
 
+  it("renders the detail as a full row after the actions", () => {
+    render(
+      <DataListItem
+        title="local"
+        actions={<Button size="sm">Show</Button>}
+        detail={<pre>Full text.</pre>}
+      />,
+    );
+
+    const detail = screen.getByText("Full text.").parentElement;
+    expect(detail).toHaveClass("basis-full");
+    expect(detail?.previousElementSibling).toContainElement(
+      screen.getByRole("button", { name: "Show" }),
+    );
+  });
+
+  it("hides the detail only when it holds empty elements", () => {
+    const hidden = (detail: Element) =>
+      detail.matches(":has(> *)") && detail.querySelector(":not(:empty)") === null;
+    const { rerender } = render(<DataListItem title="local" detail="Full text." />);
+    const textDetail = screen.getByText("Full text.");
+    expect(textDetail).toHaveClass("[&:has(>*):not(:has(:not(:empty)))]:hidden");
+    expect(hidden(textDetail)).toBe(false);
+
+    rerender(<DataListItem title="local" detail={<div data-testid="closed" />} />);
+    const closedDetail = screen.getByTestId("closed").parentElement;
+    expect(closedDetail).not.toBeNull();
+    expect(hidden(closedDetail as Element)).toBe(true);
+  });
+
   it("turns the title into the select control of the item", async () => {
     const onSelect = vi.fn();
     render(

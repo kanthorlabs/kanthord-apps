@@ -62,7 +62,13 @@ export function SummaryTab({ summary, spans, traceNode, selection, onLabeled }: 
       <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         <TimeBlock summary={summary} spans={spans} />
         <PlanBlock summary={summary} spans={spans} traceNode={traceNode} />
-        <PromptBlock traceId={summary.trace_id} spans={spans} selection={selection} />
+        <PromptBlock
+          traceId={summary.trace_id}
+          executionId={summary.execution_id}
+          spans={spans}
+          selection={selection}
+          diffBase={nodeTraces.promptDiffBase}
+        />
       </div>
     </div>
   );

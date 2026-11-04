@@ -11,6 +11,7 @@ import { createServer } from "node:http";
 import { registerEnvironments } from "./environments.mjs";
 import * as fx from "./fixtures.mjs";
 import { registerInstances } from "./instances.mjs";
+import * as pr from "./prompts.mjs";
 import { registerTracking } from "./tracking.mjs";
 import { registerWorkbench } from "./workbench.mjs";
 
@@ -580,12 +581,17 @@ const AGENT_DIRECTORY = "~/.local/share/kanthord/agents";
 
 const digestOf = (text) => createHash("sha256").update(text).digest("hex");
 
-const filePartOf = (part, name, text, overridden) => ({
+const filePartOf = (part, name, text, overridden, layer = 1) => ({
+  layer,
   part,
   name,
   origin: overridden ? "file" : "binary",
-  path: `${AGENT_DIRECTORY}/${name}`,
+  path: part === "framing" ? `${AGENT_DIRECTORY}/prompts/${name}.md` : `${AGENT_DIRECTORY}/${name}`,
+  binding_id: null,
+  commit: null,
   digest: digestOf(text),
+  heading: null,
+  state: "resolved",
   text,
 });
 
@@ -595,30 +601,58 @@ const agentPartsOf = (agent, workbench) => [
   ...(workbench ? [filePartOf("workbench", "workbench.md", fx.WORKBENCH_PROMPT, false)] : []),
 ];
 
-const bindingPartOf = (agentName, binding) => {
-  const text = bindingSet.bindings[binding.name]?.config.prompts?.[agentName];
-  if (!isNonblank(text)) return [];
+const framingPartOf = (workbench) =>
+  workbench
+    ? filePartOf("framing", "framing-workbench", WORKBENCH_FRAMING, false, null)
+    : filePartOf("framing", "framing-worker", WORKER_FRAMING, false, null);
+
+const storedPartOf = (part, layer, binding, text) => ({
+  layer,
+  part,
+  name: binding.name,
+  origin: "database",
+  path: null,
+  binding_id: binding.id,
+  commit: null,
+  digest: digestOf(text),
+  heading: pr.headingOf(part, binding.name, null),
+  state: "resolved",
+  text,
+});
+
+const instructionPartOf = (binding, path) => {
+  const file = pr.instructionFileAt(path);
+  if (file.state === "absent") return [];
   return [
     {
-      part: "binding",
+      layer: 2,
+      part: "instruction_file",
       name: binding.name,
-      origin: "database",
-      path: null,
-      digest: digestOf(text),
-      text,
+      origin: "repository",
+      path,
+      binding_id: binding.id,
+      commit: file.commit,
+      digest: file.text === null ? null : digestOf(file.text),
+      heading: pr.headingOf("instruction_file", binding.name, path),
+      state: file.state === "present" ? "resolved" : file.state,
+      text: file.text,
     },
   ];
 };
 
-const finalPromptOf = (parts, framing) =>
-  [
-    ...parts.map((part) =>
-      part.part === "binding"
-        ? `Instructions of repository ${part.name}:\n\n${part.text}`
-        : part.text,
-    ),
-    framing,
-  ].join("\n\n");
+const bindingPartsOf = (agentName, binding) => {
+  const prompts = bindingSet.bindings[binding.name]?.config.prompts ?? {};
+  const agentText = prompts.agents?.[agentName];
+  return [
+    ...(isNonblank(prompts.instruction_file)
+      ? instructionPartOf(binding, prompts.instruction_file)
+      : []),
+    ...(isNonblank(prompts.repository)
+      ? [storedPartOf("repository", 2, binding, prompts.repository)]
+      : []),
+    ...(isNonblank(agentText) ? [storedPartOf("binding", 3, binding, agentText)] : []),
+  ];
+};
 
 const EXPIRED_HOLDS = [
   { credential: "openai-main", strikes: 3, available_at: Date.now() - 10 * 60_000 },
@@ -723,9 +757,10 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
   const workbench = binding === undefined && declaration.workbench === true;
   const parts = [
     ...agentPartsOf(declaration, workbench),
-    ...(binding === undefined ? [] : bindingPartOf(agentName, binding)),
+    ...(binding === undefined ? [] : bindingPartsOf(agentName, binding)),
+    framingPartOf(workbench),
   ];
-  const final = finalPromptOf(parts, workbench ? WORKBENCH_FRAMING : WORKER_FRAMING);
+  const final = pr.finalOf(parts);
   return json(res, 200, {
     agent_name: agentName,
     configuration_schema: configurationSchema,
@@ -2305,49 +2340,78 @@ const remoteFailureOf = (address) => {
   return null;
 };
 
-const BINDING_PROMPT_AGENTS = ["swe@1", "re@1", "env@1"];
-const BINDING_PROMPT_MAX_BYTES = 32768;
-const holdsControlCharacter = (text) =>
-  [...text].some((char) => {
-    const code = char.charCodeAt(0);
-    return (code < 32 && code !== 9 && code !== 10) || code === 127;
-  });
+const PROMPT_KEYS = ["instruction_file", "repository", "agents"];
+
+const promptsShapeValid = (prompts) =>
+  typeof prompts === "object" &&
+  prompts !== null &&
+  Object.keys(prompts).every((key) => PROMPT_KEYS.includes(key)) &&
+  ["instruction_file", "repository"].every(
+    (key) => prompts[key] === undefined || typeof prompts[key] === "string",
+  ) &&
+  (prompts.agents === undefined ||
+    (typeof prompts.agents === "object" &&
+      prompts.agents !== null &&
+      Object.entries(prompts.agents).every(
+        ([agent, text]) => pr.PROMPT_AGENTS.includes(agent) && typeof text === "string",
+      )));
+
+const promptInvalid = (prompt, reason) => [
+  400,
+  "project.bindings.repository.prompt_invalid",
+  "The binding prompt is invalid.",
+  { prompt, reason },
+];
+
+const promptRefusalOf = (prompts, readHead) => {
+  if (!promptsShapeValid(prompts)) {
+    return [
+      400,
+      "gateway.request.validation_failed",
+      "The prompts field holds an unknown key, an unknown agent or a non-text value.",
+    ];
+  }
+  const texts = [
+    ["repository", prompts.repository],
+    ...Object.entries(prompts.agents ?? {}),
+  ].filter(([, text]) => text !== undefined);
+  for (const [prompt, text] of texts) {
+    const reason = pr.textReasonOf(text);
+    if (reason !== null) return promptInvalid(prompt, reason);
+  }
+  const path = prompts.instruction_file;
+  if (path === undefined) return null;
+  if (pr.pathInvalid(path)) return promptInvalid("instruction_file", "path_invalid");
+  const file = readHead ? pr.instructionFileAt(path) : null;
+  return file?.state === "invalid" ? promptInvalid("instruction_file", file.reason) : null;
+};
 
 const bindingPromptRefusalOf = (bindings) => {
   for (const entry of Object.values(bindings)) {
     const prompts = entry.kind === "repository" ? entry.config.prompts : undefined;
     if (prompts === undefined) continue;
-    if (
-      typeof prompts !== "object" ||
-      prompts === null ||
-      Object.entries(prompts).some(
-        ([agent, text]) => !BINDING_PROMPT_AGENTS.includes(agent) || typeof text !== "string",
-      )
-    ) {
-      return [
-        400,
-        "gateway.request.validation_failed",
-        "The prompts field names an unknown agent or a non-text value.",
-      ];
-    }
-    for (const [agent, text] of Object.entries(prompts)) {
-      const reason =
-        Buffer.byteLength(text) > BINDING_PROMPT_MAX_BYTES
-          ? "too_large"
-          : holdsControlCharacter(text)
-            ? "control_character"
-            : null;
-      if (reason !== null) {
-        return [
-          400,
-          "project.bindings.repository.prompt_invalid",
-          "The binding prompt is invalid.",
-          { agent_name: agent, reason },
-        ];
-      }
-    }
+    const refusal = promptRefusalOf(prompts, true);
+    if (refusal !== null) return refusal;
   }
   return null;
+};
+
+const instructionFileCheckOf = (prompts) => {
+  const path = prompts?.instruction_file;
+  if (path === undefined) {
+    return {
+      instruction_file: null,
+      instruction_file_hint:
+        pr.instructionFileAt("AGENTS.md").state === "present"
+          ? "AGENTS.md exists at the base head."
+          : null,
+    };
+  }
+  const file = pr.instructionFileAt(path);
+  return {
+    instruction_file: { path, commit: file.commit, state: file.state, reason: file.reason },
+    instruction_file_hint: null,
+  };
 };
 
 const repositoryRefusalOf = (config) => {
@@ -2451,7 +2515,10 @@ on("POST", /^\/api\/project\/([^/]+)\/binding\/check$/, (m, b, res) => {
       "Repository address must have the form git@<host>:<owner>/<repository>.git.",
     );
   }
-  return json(res, 200, bindingHealthOf(config));
+  const promptRefusal =
+    config.prompts === undefined ? null : promptRefusalOf(config.prompts, false);
+  if (promptRefusal !== null) return projectEnvelope(res, ...promptRefusal);
+  return json(res, 200, { ...bindingHealthOf(config), ...instructionFileCheckOf(config.prompts) });
 });
 
 const projectOrRefuseScheduler = (res, encodedId) => {

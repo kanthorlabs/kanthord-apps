@@ -149,20 +149,15 @@ describe("entryView", () => {
     });
   });
 
-  it("reads a pinned system prompt as system", () => {
+  it("reads the pinned system prompt marker as a system entry with no text", () => {
     const view = entryView(
       entry("custom", {
         type: "custom",
         customType: "kanthord.pinned_context",
-        data: { part: "system_prompt", text: "You are an agent." },
+        data: { part: "system_prompt" },
       }),
     );
-    expect(view).toEqual({
-      kind: "system",
-      source: "pinned",
-      text: "",
-      sections: [{ name: "System prompt", text: "You are an agent." }],
-    });
+    expect(view).toEqual({ kind: "system", source: "pinned", text: "", sections: [] });
   });
 
   it("maps compaction, model change and thinking level change", () => {

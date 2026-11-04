@@ -1,6 +1,6 @@
 import type { CauseCategory, EffectiveCause, SpanAttributeValue, TraceSpan } from "@/api/types";
 
-import { promptPartsOf } from "./agent-prompt-parts";
+import { promptSourcesOf } from "./agent-prompt-parts";
 import { utcDateTime } from "./format";
 import { namedSpanLabel, revocationLabel, spanLabel } from "./span-labels";
 
@@ -118,10 +118,10 @@ function promptEvidence(context: EvidenceContext): readonly EvidenceLine[] {
   const layers = spans
     .filter((span) => span.operation === OPERATION_PROMPT)
     .flatMap((span) => {
-      const parts = promptPartsOf(span);
+      const parts = promptSourcesOf(span);
       return parts.length === 0
         ? []
-        : [line(span, `Prompt layers: ${parts.map((p) => `${p.part}:${p.name}`).join(", ")}`)];
+        : [line(span, `Prompt parts: ${parts.map((p) => `${p.part}:${p.name}`).join(", ")}`)];
     });
   const task = taskSpanOf(byId, causal);
   const work =

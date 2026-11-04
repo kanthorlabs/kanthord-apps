@@ -381,6 +381,8 @@ describe("BindingsPanel", () => {
         failure_reason: null,
       },
       credential: null,
+      instruction_file: null,
+      instruction_file_hint: null,
     });
     vi.mocked(missionApi.readMission).mockResolvedValue({
       id: "mission_1",
@@ -893,37 +895,37 @@ describe("BindingsPanel", () => {
     expect(within(connection).getByLabelText("GitHub credential")).toBeTruthy();
     expect(within(policy).getByLabelText("Base branch")).toBeTruthy();
     expect(within(policy).getByLabelText("External action")).toBeTruthy();
-    expect(within(policy).queryByRole("list", { name: "Binding prompts" })).toBeNull();
-    const prompts = screen.getByRole("group", { name: "Binding prompts" });
-    expect(within(prompts).getByRole("list", { name: "Binding prompts" })).toBeTruthy();
+    expect(within(policy).queryByRole("list", { name: "Prompts" })).toBeNull();
+    const prompts = screen.getByRole("group", { name: "Prompts" });
+    expect(within(prompts).getByRole("list", { name: "Prompts" })).toBeTruthy();
   });
 
-  it("states that an edit creates a binding revision and that a relaxing rule goes into swe@1 and re@1", async () => {
+  it("states that an edit creates a binding revision and explains each prompt", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
-    const prompts = screen.getByRole("group", { name: "Binding prompts" });
+    const prompts = screen.getByRole("group", { name: "Prompts" });
 
+    expect(prompts).toHaveTextContent("join the KanthorD prompt of each native agent");
     expect(prompts).toHaveTextContent("creates a new binding revision");
     expect(prompts).toHaveTextContent("until mission node rebind");
     expect(prompts).toHaveTextContent("clears environment_from_agent");
-    expect(prompts).toHaveTextContent("relaxes the standard of the Agent prompt goes into both");
+    expect(prompts).toHaveTextContent("KanthorD reads no nested file.");
+    expect(prompts).not.toHaveTextContent("Agent prompt");
   });
 
-  it("offers one Binding prompt row for each agent", async () => {
+  it("offers the Repository prompt row, then one Binding prompt row for each agent", async () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
-    const rows = within(screen.getByRole("list", { name: "Binding prompts" })).getAllByRole(
-      "listitem",
-    );
+    const rows = within(screen.getByRole("list", { name: "Prompts" })).getAllByRole("listitem");
 
-    expect(rows.map((row) => within(row).getByText(/@1/).textContent)).toEqual([
-      "swe@1",
-      "re@1",
-      "env@1",
+    expect(rows.map((row) => within(row).getByText(/prompt/).textContent)).toEqual([
+      "Repository prompt",
+      "Binding prompt · swe@1",
+      "Binding prompt · re@1",
+      "Binding prompt · env@1",
     ]);
-    expect(screen.queryByRole("group", { name: "Repository instructions" })).toBeNull();
   });
 
   it("writes the Binding prompt of one agent into the binding", async () => {
@@ -932,7 +934,7 @@ describe("BindingsPanel", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
     await userEvent.click(screen.getByRole("button", { name: "Edit Binding prompt of swe@1" }));
     await userEvent.type(
-      screen.getByRole("textbox", { name: "Binding prompt markdown of swe@1" }),
+      screen.getByRole("textbox", { name: "Markdown of the Binding prompt of swe@1" }),
       "Use pnpm.",
     );
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
@@ -941,9 +943,219 @@ describe("BindingsPanel", () => {
     expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
       "kanthord-repo": {
         ...REPO,
-        config: { ...REPO.config, prompts: { "swe@1": "Use pnpm." } },
+        config: { ...REPO.config, prompts: { agents: { "swe@1": "Use pnpm." } } },
       },
       "general-main": WORKER,
+    });
+  });
+
+  it("writes the Repository prompt and the instruction file into the binding", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.type(screen.getByLabelText("Instruction file"), "AGENTS.md");
+    await userEvent.click(screen.getByRole("button", { name: "Edit Repository prompt" }));
+    expect(screen.getByText(/Each work-product sentence is a rule\./)).toBeTruthy();
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "Markdown of the Repository prompt" }),
+      "Write each name in snake_case.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      "kanthord-repo": {
+        ...REPO,
+        config: {
+          ...REPO.config,
+          prompts: { instruction_file: "AGENTS.md", repository: "Write each name in snake_case." },
+        },
+      },
+      "general-main": WORKER,
+    });
+  });
+
+  it("refuses an invalid instruction file path before the write", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.type(screen.getByLabelText("Instruction file"), "../AGENTS.md");
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(await screen.findByText(/^Enter a relative path/)).toBeTruthy();
+    expect(projectsApi.writeBindingSet).not.toHaveBeenCalled();
+  });
+
+  it("shows the instruction file state of the check", async () => {
+    vi.mocked(projectsApi.checkBinding).mockResolvedValue({
+      address: { status: "healthy", capability: "network git read", failure_reason: null },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
+      credential: null,
+      instruction_file: {
+        path: "AGENTS.md",
+        commit: "c".repeat(40),
+        state: "present",
+        reason: null,
+      },
+      instruction_file_hint: null,
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.type(screen.getByLabelText("Instruction file"), "AGENTS.md");
+    await userEvent.click(screen.getByRole("button", { name: "Verify" }));
+
+    expect(await screen.findByText(`AGENTS.md found at ${"c".repeat(40)}.`)).toBeTruthy();
+  });
+
+  it("shows the hint of the check while the instruction file is empty", async () => {
+    vi.mocked(projectsApi.checkBinding).mockResolvedValue({
+      address: { status: "healthy", capability: "network git read", failure_reason: null },
+      ssh_credential: {
+        status: "healthy",
+        capability: "ssh credential verify",
+        failure_reason: null,
+      },
+      credential: null,
+      instruction_file: null,
+      instruction_file_hint: "Server hint text.",
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(screen.getByRole("button", { name: "Verify" }));
+
+    expect(await screen.findByText("Server hint text.")).toBeTruthy();
+  });
+
+  it("offers the Agent select in the Repository prompt preview only", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      agent_name: "swe@1",
+      configuration_schema: {},
+      overridable_fields: [],
+      enablement: null,
+      tools: [],
+      chain: [],
+      active_position: null,
+      cooling: null,
+      prompt: { final: null, parts: [] },
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit Repository prompt" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+    expect(await screen.findByRole("combobox", { name: "Agent" })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit Binding prompt of re@1" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+    expect(await screen.findByRole("list", { name: "System prompt of re@1" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "Agent" })).toBeNull();
+  });
+
+  it("asks to save a new binding before the preview and reads no agent", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Add repositories binding" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit Repository prompt" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+
+    expect(
+      screen.getByText("Save the binding first. The preview reads the stored binding."),
+    ).toBeTruthy();
+    expect(workersApi.readAgent).not.toHaveBeenCalled();
+  });
+
+  it("gives the reviewer row the relaxation help", async () => {
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit Binding prompt of re@1" }));
+
+    expect(screen.getByText(/Use this text only to relax the judgement of a rule\./)).toBeTruthy();
+  });
+
+  it("previews the stack of the agent with the draft text in place of the stored part", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      agent_name: "swe@1",
+      configuration_schema: {},
+      overridable_fields: [],
+      enablement: null,
+      tools: [],
+      chain: [],
+      active_position: null,
+      cooling: null,
+      prompt: {
+        final: null,
+        parts: [
+          {
+            layer: 1,
+            part: "standard",
+            name: "base.md",
+            origin: "binary",
+            path: null,
+            binding_id: null,
+            commit: null,
+            digest: "a".repeat(64),
+            heading: null,
+            state: "resolved",
+            text: "Shared standard.",
+          },
+          {
+            layer: 2,
+            part: "instruction_file",
+            name: "kanthord-repo",
+            origin: "repository",
+            path: "AGENTS.md",
+            binding_id: "binding_REPO1",
+            commit: "c".repeat(40),
+            digest: null,
+            heading: "Repository prompt of repository kanthord-repo, file AGENTS.md:",
+            state: "unreachable",
+            text: null,
+          },
+          {
+            layer: 3,
+            part: "binding",
+            name: "kanthord-repo",
+            origin: "database",
+            path: null,
+            binding_id: "binding_REPO1",
+            commit: null,
+            digest: "b".repeat(64),
+            heading: "Binding prompt of repository kanthord-repo:",
+            state: "resolved",
+            text: "Stored coder rule.",
+          },
+        ],
+      },
+    });
+    mount();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
+    await userEvent.click(screen.getByRole("button", { name: "Edit Binding prompt of swe@1" }));
+    await userEvent.type(
+      screen.getByRole("textbox", { name: "Markdown of the Binding prompt of swe@1" }),
+      "Draft coder rule.",
+    );
+    await userEvent.click(screen.getByRole("tab", { name: "Preview" }));
+
+    const stack = await screen.findByRole("list", { name: "System prompt of swe@1" });
+    const items = within(stack).getAllByRole("listitem");
+    expect(items).toHaveLength(3);
+    expect(items[1]).toHaveTextContent("Repository prompt · instruction_file kanthord-repo");
+    expect(items[1]).toHaveTextContent("Unreachable");
+    expect(items[2]).toHaveTextContent("Binding prompt of repository kanthord-repo:");
+    expect(items[2]).toHaveTextContent("Draft coder rule.");
+    expect(items[2]).not.toHaveTextContent("Stored coder rule.");
+    expect(workersApi.readAgent).toHaveBeenCalledWith("swe@1", {
+      projectId: "project_1",
+      bindingId: "binding_REPO1",
     });
   });
 
@@ -952,9 +1164,10 @@ describe("BindingsPanel", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
     await userEvent.click(screen.getByRole("button", { name: "Edit Binding prompt of re@1" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Binding prompt markdown of re@1" }), {
-      target: { value: "bad\u0007text" },
-    });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Markdown of the Binding prompt of re@1" }),
+      { target: { value: "bad\u0007text" } },
+    );
 
     expect(screen.getByText(/holds a control character/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Apply" })).toBeDisabled();
@@ -963,7 +1176,7 @@ describe("BindingsPanel", () => {
   it("shows a stored Binding prompt as set and keeps it in the written binding", async () => {
     const stored: BindingSetEntry = {
       kind: "repository",
-      config: { ...REPO.config, prompts: { "env@1": "Pin the node image." } },
+      config: { ...REPO.config, prompts: { agents: { "env@1": "Pin the node image." } } },
     };
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
       ...SET,
@@ -972,7 +1185,7 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
-    const env = screen.getByRole("button", { name: "env@1" });
+    const env = screen.getByRole("button", { name: "Binding prompt · env@1" });
     await userEvent.click(env);
     expect(await screen.findByText("Pin the node image.")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
@@ -1502,6 +1715,8 @@ describe("BindingsPanel", () => {
         failure_reason: null,
       },
       credential: null,
+      instruction_file: null,
+      instruction_file_hint: null,
     });
     mount();
 
@@ -1820,6 +2035,8 @@ describe("BindingsPanel", () => {
       },
       ssh_credential: { status: "healthy", capability: "ssh identity", failure_reason: null },
       credential: null,
+      instruction_file: null,
+      instruction_file_hint: null,
     });
     mount();
 
@@ -1842,7 +2059,11 @@ describe("BindingsPanel", () => {
       credential: null,
     };
     vi.mocked(projectsApi.verifyBinding).mockResolvedValue(unavailable);
-    vi.mocked(projectsApi.checkBinding).mockResolvedValue(unavailable);
+    vi.mocked(projectsApi.checkBinding).mockResolvedValue({
+      ...unavailable,
+      instruction_file: null,
+      instruction_file_hint: null,
+    });
     const hint = failureReasonHint("identity_unavailable", "repository");
     mount();
 

@@ -123,6 +123,7 @@ function nodeTraces(executions: readonly NodeExecution[] = []): NodeTraces {
     groups,
     repeatedAttempts: 0,
     repeatedExecutions: 0,
+    promptDiffBase: null,
     loading: false,
     error: null,
     retry: vi.fn(),

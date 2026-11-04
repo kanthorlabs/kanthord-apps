@@ -22,9 +22,13 @@ export function sessionSpansOf(spans: readonly TraceSpan[]): readonly TraceSpan[
     .sort((a, b) => startOf(a) - startOf(b));
 }
 
-export function sessionLabel(session: TraceSpan): string {
+export function agentNameOf(session: TraceSpan): string | null {
   const name = session.attributes[ATTRIBUTE_AGENT_NAME];
-  const agent = typeof name === "string" ? name : FALLBACK_AGENT_NAME;
+  return typeof name === "string" ? name : null;
+}
+
+export function sessionLabel(session: TraceSpan): string {
+  const agent = agentNameOf(session) ?? FALLBACK_AGENT_NAME;
   return session.start_time === null
     ? agent
     : `${agent}${LABEL_SEPARATOR}${utcDateTime(session.start_time)}`;

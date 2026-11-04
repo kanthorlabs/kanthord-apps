@@ -1,5 +1,5 @@
 export const CAUSE_SUBCATEGORIES = {
-  prompt: ["context_missing", "instruction_conflict", "rule_absent"],
+  prompt: ["context_missing", "instruction_conflict", "rule_absent", "source_invalid"],
   plan: [
     "criterion_unstated",
     "requirement_conflict",
@@ -31,7 +31,7 @@ export const CAUSE_SUBCATEGORIES = {
     "verification_hang",
     "repository_hook",
   ],
-  infrastructure: ["verification_killed", "network", "execution_lost"],
+  infrastructure: ["verification_killed", "network", "execution_lost", "prompt_record"],
   human: ["intervention", "configuration"],
   unattributed: [],
 };

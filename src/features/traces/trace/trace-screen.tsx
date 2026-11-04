@@ -112,6 +112,7 @@ export function TraceScreen() {
         <TabsContent value="conversation">
           <Conversation
             traceId={summary.trace_id}
+            executionId={summary.execution_id}
             spans={trace.spans}
             live={trace.live}
             selection={selection}

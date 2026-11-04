@@ -123,12 +123,31 @@ const BINDING_PROMPT_REASONS: Readonly<Record<string, string>> = {
   control_character: "the text holds a control character",
 };
 
+const INSTRUCTION_FILE_REASONS: Readonly<Record<string, string>> = {
+  path_invalid: "the path is not a valid relative repository path",
+  too_large: "the file at the base head is larger than 32768 bytes",
+  not_utf8: "the file at the base head is not UTF-8 text",
+  unreadable: "the server cannot read the file at the base head",
+  control_character: "the file at the base head holds a control character",
+};
+
+const PROMPT_INSTRUCTION_FILE = "instruction_file";
+const PROMPT_REPOSITORY = "repository";
+
+function promptNameOf(prompt: string): string {
+  if (prompt === PROMPT_INSTRUCTION_FILE) return "The instruction file";
+  if (prompt === PROMPT_REPOSITORY) return "The Repository prompt";
+  return `The Binding prompt of ${prompt}`;
+}
+
 function bindingPromptInvalidMessage(cause: ApiError): string {
   const details = cause.details;
-  const agent = isRecord(details) ? details["agent_name"] : undefined;
+  const prompt = isRecord(details) ? details["prompt"] : undefined;
   const reason = isRecord(details) ? details["reason"] : undefined;
-  if (typeof agent !== "string" || typeof reason !== "string") return cause.message;
-  return `The Binding prompt of ${agent} is invalid: ${BINDING_PROMPT_REASONS[reason] ?? reason}.`;
+  if (typeof prompt !== "string" || typeof reason !== "string") return cause.message;
+  const reasons =
+    prompt === PROMPT_INSTRUCTION_FILE ? INSTRUCTION_FILE_REASONS : BINDING_PROMPT_REASONS;
+  return `${promptNameOf(prompt)} is invalid: ${reasons[reason] ?? reason}.`;
 }
 
 function sshUnreachableMessage(details: unknown): string {

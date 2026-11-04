@@ -1,30 +1,36 @@
 import { PencilIcon } from "lucide-react";
 
-import type { BindingPromptAgent } from "@/api/types";
 import { PromptItem } from "@/components/prompt-item";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { type RepositoryDraft, withBindingPrompt } from "@/lib/binding-draft";
+import {
+  type PromptTarget,
+  promptTextOf,
+  type RepositoryDraft,
+  withPromptText,
+} from "@/lib/binding-draft";
+import { promptTitle } from "../prompt-help";
 import { useBindingPromptDialog } from "../use-binding-prompt-dialog";
+import type { PromptPreviewScope } from "../use-prompt-preview";
 import { BindingPromptDialog } from "./binding-prompt-dialog";
 
 interface BindingPromptRowProps {
-  readonly agent: BindingPromptAgent;
+  readonly target: PromptTarget;
   readonly draft: RepositoryDraft;
+  readonly preview: PromptPreviewScope | null;
   readonly onEdit: (draft: RepositoryDraft) => void;
 }
 
-export function BindingPromptRow({ agent, draft, onEdit }: BindingPromptRowProps) {
-  const text = draft.prompts[agent];
-  const dialog = useBindingPromptDialog(agent, text, (next) =>
-    onEdit(withBindingPrompt(draft, agent, next)),
+export function BindingPromptRow({ target, draft, preview, onEdit }: BindingPromptRowProps) {
+  const text = promptTextOf(draft, target);
+  const dialog = useBindingPromptDialog(target, text, (next) =>
+    onEdit(withPromptText(draft, target, next)),
   );
   const filled = text.trim() !== "";
   return (
     <>
       <PromptItem
-        title={agent}
-        path
+        title={target === "repository" ? "Repository prompt" : `Binding prompt · ${target}`}
         text={filled ? text : null}
         badges={
           <Badge variant={filled ? "default" : "secondary"}>{filled ? "set" : "empty"}</Badge>
@@ -34,14 +40,14 @@ export function BindingPromptRow({ agent, draft, onEdit }: BindingPromptRowProps
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label={`Edit Binding prompt of ${agent}`}
+            aria-label={`Edit ${promptTitle(target)}`}
             onClick={dialog.start}
           >
             <PencilIcon aria-hidden="true" />
           </Button>
         }
       />
-      <BindingPromptDialog dialog={dialog} />
+      <BindingPromptDialog dialog={dialog} preview={preview} />
     </>
   );
 }

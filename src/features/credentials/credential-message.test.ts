@@ -32,15 +32,39 @@ describe("credentialMessage", () => {
     );
   });
 
-  it("names the agent and the reason of an invalid Binding prompt", () => {
+  it("names the prompt and the reason of an invalid prompt", () => {
     expect(
       credentialMessage(
         refusal("project.bindings.repository.prompt_invalid", {
-          agent_name: "re@1",
+          prompt: "re@1",
           reason: "control_character",
         }),
       ),
     ).toBe("The Binding prompt of re@1 is invalid: the text holds a control character.");
+    expect(
+      credentialMessage(
+        refusal("project.bindings.repository.prompt_invalid", {
+          prompt: "repository",
+          reason: "too_large",
+        }),
+      ),
+    ).toBe("The Repository prompt is invalid: the text is larger than 32768 bytes.");
+    expect(
+      credentialMessage(
+        refusal("project.bindings.repository.prompt_invalid", {
+          prompt: "instruction_file",
+          reason: "not_utf8",
+        }),
+      ),
+    ).toBe("The instruction file is invalid: the file at the base head is not UTF-8 text.");
+    expect(
+      credentialMessage(
+        refusal("project.bindings.repository.prompt_invalid", {
+          prompt: "instruction_file",
+          reason: "path_invalid",
+        }),
+      ),
+    ).toBe("The instruction file is invalid: the path is not a valid relative repository path.");
     expect(credentialMessage(refusal("project.bindings.repository.prompt_invalid"))).toBe(
       "Daemon text.",
     );

@@ -4,9 +4,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/api/resources/tracking", () => ({
   listSessionEntryPage: vi.fn(),
 }));
+vi.mock("@/api/resources/workers", () => ({
+  resolveAgentPrompt: vi.fn(),
+}));
 
+import { ApiError } from "@/api/errors";
 import { listSessionEntryPage } from "@/api/resources/tracking";
-import type { SpanAttributeValue, TraceSessionEntry, TraceSpan } from "@/api/types";
+import { resolveAgentPrompt } from "@/api/resources/workers";
+import type {
+  PromptPart,
+  PromptResolveAnswer,
+  SpanAttributeValue,
+  TraceSessionEntry,
+  TraceSpan,
+} from "@/api/types";
 
 import { useAgentPrompt } from "./use-agent-prompt";
 import type { TraceSelection } from "./use-trace-selection";
@@ -56,14 +67,46 @@ function message(role: string, text: string): Record<string, unknown> {
   return { type: "message", message: { role, content: [{ type: "text", text }] } };
 }
 
-const SYSTEM_ENTRY = {
-  type: "custom",
-  customType: "kanthord.pinned_context",
-  data: { part: "system_prompt", text: "You are a coder." },
+function part(overrides: Partial<PromptPart>): PromptPart {
+  return {
+    layer: 1,
+    part: "standard",
+    name: "base.md",
+    origin: "binary",
+    path: null,
+    binding_id: null,
+    commit: null,
+    digest: "a".repeat(64),
+    heading: null,
+    state: "resolved",
+    text: "Standard.",
+    ...overrides,
+  };
+}
+
+const ANSWER: PromptResolveAnswer = {
+  parts: [
+    part({}),
+    part({
+      layer: 2,
+      part: "repository",
+      name: "apps",
+      origin: "database",
+      binding_id: "binding-1",
+      heading: "Repository prompt of repository apps, set in KanthorD:",
+      text: "Rules.",
+    }),
+  ],
+  final: "You are a coder.",
+  engine_version: "0.4.0",
 };
 
 const ENTRIES = [
-  entry("pinned", 1, SYSTEM_ENTRY),
+  entry("pinned", 1, {
+    type: "custom",
+    customType: "kanthord.pinned_context",
+    data: { part: "system_prompt" },
+  }),
   entry("work-1", 2, message("user", "Do task one now")),
   entry("reply-1", 3, message("assistant", "ok")),
   entry("work-2", 4, message("user", "Do two")),
@@ -72,10 +115,7 @@ const ENTRIES = [
 
 const SPANS = [
   span("session-1", "agent.session", { "kanthord.agent.name": "coder" }),
-  span("prompt", "agent.prompt", {
-    "kanthord.agent.name": "coder",
-    "kanthord.prompt.parts": ["system:coder:a1", "rules:style:b2", "task:work:c3"],
-  }),
+  span("prompt", "agent.prompt", { "kanthord.agent.name": "coder" }),
   span("task-1", "worker.task", { "kanthord.task.id": "T1" }),
   span("task-2", "worker.task", { "kanthord.task.id": "T2" }, { start_time: 3000 }),
   span(
@@ -104,29 +144,39 @@ function selectionOf(openInConversation = vi.fn()): TraceSelection {
   return { openInConversation } as unknown as TraceSelection;
 }
 
+function mockReads() {
+  vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+  vi.mocked(resolveAgentPrompt).mockResolvedValue(ANSWER);
+}
+
 afterEach(() => {
   vi.resetAllMocks();
 });
 
 describe("useAgentPrompt", () => {
-  it("lists the prompt parts of the agent in reading order", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+  it("resolves the prompt of each agent of the execution and lists its parts in reading order", async () => {
+    mockReads();
 
-    const { result } = renderHook(() => useAgentPrompt("trace-1", SPANS, selectionOf()));
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), null),
+    );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(resolveAgentPrompt).toHaveBeenCalledWith("exec-1", "coder");
     expect(result.current.agents.map((agent) => agent.name)).toEqual(["coder"]);
-    expect(result.current.agents[0]?.parts.map((part) => `${part.part} ${part.name}`)).toEqual([
-      "system coder",
-      "rules style",
-      "task work",
+    expect(result.current.agents[0]?.parts.map((item) => item.key)).toEqual([
+      "standard:base.md",
+      "repository:apps",
     ]);
+    expect(result.current.agents[0]?.engineVersion).toBe("0.4.0");
   });
 
-  it("answers the system prompt entry and its length", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+  it("answers the resolved final text and the pinned marker entry as the system prompt", async () => {
+    mockReads();
 
-    const { result } = renderHook(() => useAgentPrompt("trace-1", SPANS, selectionOf()));
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), null),
+    );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.agents[0]?.systemPrompt).toEqual({
@@ -136,10 +186,45 @@ describe("useAgentPrompt", () => {
     });
   });
 
-  it("answers the work prompt entry, its length and the template of each task", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+  it("answers no system prompt when the final text does not resolve", async () => {
+    mockReads();
+    vi.mocked(resolveAgentPrompt).mockResolvedValue({
+      ...ANSWER,
+      parts: [part({ state: "changed", text: null })],
+      final: null,
+    });
 
-    const { result } = renderHook(() => useAgentPrompt("trace-1", SPANS, selectionOf()));
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), null),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.agents[0]?.systemPrompt).toBeNull();
+    expect(result.current.agents[0]?.parts[0]?.state).toBe("changed");
+  });
+
+  it("marks each part that differs from the earlier execution", async () => {
+    mockReads();
+    const diffBase = {
+      executionId: "exec-0",
+      changed: new Map([["coder", new Set(["repository:apps"])]]),
+    };
+
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), diffBase),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.agents[0]?.parts.map((item) => item.changed)).toEqual([false, true]);
+    expect(result.current.agents[0]?.diffExecutionId).toBe("exec-0");
+  });
+
+  it("answers the work prompt entry, its length and the template of each task", async () => {
+    mockReads();
+
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), null),
+    );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.tasks).toEqual([
@@ -156,64 +241,88 @@ describe("useAgentPrompt", () => {
     ]);
   });
 
-  it("reads the entries of the first session only", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
-    const spans = [
-      ...SPANS,
-      span("session-0", "agent.session", { "kanthord.agent.name": "coder" }, { start_time: 500 }),
-    ];
-
-    const { result } = renderHook(() => useAgentPrompt("trace-1", spans, selectionOf()));
-
-    await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(listSessionEntryPage).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(listSessionEntryPage).mock.calls[0]?.slice(0, 3)).toEqual([
-      "trace-1",
-      "session-0",
-      null,
-    ]);
-  });
-
-  it("reads every page of the entries", async () => {
+  it("reads every page of the entries of the first session", async () => {
+    vi.mocked(resolveAgentPrompt).mockResolvedValue(ANSWER);
     vi.mocked(listSessionEntryPage)
       .mockResolvedValueOnce({ items: ENTRIES.slice(0, 2), next_cursor: "c1" })
       .mockResolvedValueOnce({ items: ENTRIES.slice(2), next_cursor: null });
 
-    const { result } = renderHook(() => useAgentPrompt("trace-1", SPANS, selectionOf()));
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), null),
+    );
 
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(listSessionEntryPage).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(listSessionEntryPage).mock.calls[0]?.slice(0, 3)).toEqual([
+      "trace-1",
+      "session-1",
+      null,
+    ]);
     expect(result.current.tasks).toHaveLength(2);
   });
 
   it("opens an entry of the first session in the conversation", async () => {
-    vi.mocked(listSessionEntryPage).mockResolvedValue({ items: ENTRIES, next_cursor: null });
+    mockReads();
     const open = vi.fn();
 
-    const { result } = renderHook(() => useAgentPrompt("trace-1", SPANS, selectionOf(open)));
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(open), null),
+    );
     await waitFor(() => expect(result.current.loading).toBe(false));
     result.current.openInConversation("work-1");
 
     expect(open).toHaveBeenCalledWith("session-1", "work-1");
   });
 
-  it("reads no entry and records no prompt for a trace without a prompt span", async () => {
+  it("reads nothing for a trace without a prompt span", async () => {
     const spans = SPANS.filter((item) => item.operation !== "agent.prompt");
 
-    const { result } = renderHook(() => useAgentPrompt("trace-1", spans, selectionOf()));
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", spans, selectionOf(), null),
+    );
 
     await waitFor(() => expect(result.current.recorded).toBe(false));
     expect(result.current.loading).toBe(false);
     expect(result.current.agents).toEqual([]);
-    expect(result.current.tasks).toEqual([]);
     expect(listSessionEntryPage).not.toHaveBeenCalled();
+    expect(resolveAgentPrompt).not.toHaveBeenCalled();
   });
 
-  it("reports the read failure", async () => {
-    const { ApiError } = await import("@/api/errors");
+  it("resolves nothing for a trace that names no execution", async () => {
+    mockReads();
+
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", null, SPANS, selectionOf(), null),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.resolvable).toBe(false);
+    expect(result.current.agents).toEqual([]);
+    expect(resolveAgentPrompt).not.toHaveBeenCalled();
+  });
+
+  it("answers the resolve refusal of one agent on that agent", async () => {
+    mockReads();
+    vi.mocked(resolveAgentPrompt).mockRejectedValue(
+      new ApiError("not_found", "No prompt record.", 404, "agent.prompt.record_absent"),
+    );
+
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), null),
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.agents[0]?.error?.detail).toBe("agent.prompt.record_absent");
+    expect(result.current.error).toBeNull();
+  });
+
+  it("reports the read failure of the entries", async () => {
+    vi.mocked(resolveAgentPrompt).mockResolvedValue(ANSWER);
     vi.mocked(listSessionEntryPage).mockRejectedValue(new ApiError("unavailable", "Down.", 503));
 
-    const { result } = renderHook(() => useAgentPrompt("trace-1", SPANS, selectionOf()));
+    const { result } = renderHook(() =>
+      useAgentPrompt("trace-1", "exec-1", SPANS, selectionOf(), null),
+    );
 
     await waitFor(() => expect(result.current.error?.message).toBe("Down."));
   });

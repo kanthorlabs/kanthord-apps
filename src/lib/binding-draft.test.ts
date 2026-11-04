@@ -13,9 +13,10 @@ import {
   pinnableHostOf,
   type RepositoryDraft,
   withAgentEntry,
-  withBindingPrompt,
   withHostDefault,
+  withInstructionFile,
   withPlatform,
+  withPromptText,
   withWorker,
   type WorkerDraft,
 } from "./binding-draft";
@@ -58,19 +59,40 @@ const STORAGE: BindingSetEntry = {
 };
 
 describe("draftOf and entryOfDraft", () => {
-  it("keeps the binding prompts of the read in the write", () => {
+  it("keeps the prompts of the read in the write", () => {
     if (REPO.kind !== "repository") throw new Error("fixture");
     const entry: BindingSetEntry = {
       kind: "repository",
-      config: { ...REPO.config, prompts: { "swe@1": "Use pnpm.", "env@1": "Pin the node image." } },
+      config: {
+        ...REPO.config,
+        prompts: {
+          instruction_file: "AGENTS.md",
+          repository: "Write each name in snake_case.",
+          agents: { "swe@1": "Use pnpm.", "env@1": "Pin the node image." },
+        },
+      },
     };
     const draft = draftOf("repo", entry);
     expect(draft.kind === "repository" && draft.prompts).toEqual({
-      "swe@1": "Use pnpm.",
-      "re@1": "",
-      "env@1": "Pin the node image.",
+      instructionFile: "AGENTS.md",
+      repository: "Write each name in snake_case.",
+      agents: { "swe@1": "Use pnpm.", "re@1": "", "env@1": "Pin the node image." },
     });
     expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry });
+  });
+
+  it("writes the trimmed instruction file path and refuses an invalid path", () => {
+    const draft = emptyDraft("repository");
+    if (draft.kind !== "repository") throw new Error("fixture");
+    const ready = { ...draft, name: "repo", sshCredential: "github-ssh", address: REPO_ADDRESS };
+
+    const valid = entryOfDraft(withInstructionFile(ready, " docs/rules.md "), []);
+    const invalid = entryOfDraft(withInstructionFile(ready, "../AGENTS.md"), []);
+
+    expect(valid.ok && valid.entry.kind === "repository" && valid.entry.config.prompts).toEqual({
+      instruction_file: "docs/rules.md",
+    });
+    expect(!invalid.ok && invalid.errors["instructionFile"]).toMatch(/^Enter a relative path/);
   });
 
   it("keeps the landing of a pull_request action in the write", () => {
@@ -125,8 +147,11 @@ describe("draftOf and entryOfDraft", () => {
   it("writes no prompts key when every binding prompt is blank", () => {
     const draft = emptyDraft("repository");
     if (draft.kind !== "repository") throw new Error("fixture");
-    const blanked = withBindingPrompt(draft, "re@1", "  \n");
-    expect(blanked.prompts["re@1"]).toBe("  \n");
+    const blanked = withInstructionFile(
+      withPromptText(withPromptText(draft, "re@1", "  \n"), "repository", " "),
+      "  ",
+    );
+    expect(blanked.prompts.agents["re@1"]).toBe("  \n");
     const result = entryOfDraft(
       { ...blanked, name: "repo", sshCredential: "github-ssh", address: REPO_ADDRESS },
       [],
@@ -141,7 +166,11 @@ describe("draftOf and entryOfDraft", () => {
     if (draft.kind !== "repository") throw new Error("fixture");
     const result = entryOfDraft(
       {
-        ...withBindingPrompt(draft, "swe@1", "  Use pnpm.\n"),
+        ...withPromptText(
+          withPromptText(draft, "swe@1", "  Use pnpm.\n"),
+          "repository",
+          " Rule.\n",
+        ),
         name: "repo",
         sshCredential: "github-ssh",
         address: REPO_ADDRESS,
@@ -149,16 +178,21 @@ describe("draftOf and entryOfDraft", () => {
       [],
     );
     expect(result.ok && result.entry.kind === "repository" && result.entry.config.prompts).toEqual({
-      "swe@1": "  Use pnpm.\n",
+      repository: " Rule.\n",
+      agents: { "swe@1": "  Use pnpm.\n" },
     });
   });
 
-  it("sets one binding prompt and keeps the others", () => {
+  it("sets one prompt text and keeps the others", () => {
     const draft = emptyDraft("repository");
     if (draft.kind !== "repository") throw new Error("fixture");
-    const next = withBindingPrompt(draft, "swe@1", "Use pnpm.");
-    expect(next.prompts).toEqual({ "swe@1": "Use pnpm.", "re@1": "", "env@1": "" });
-    expect(draft.prompts["swe@1"]).toBe("");
+    const next = withPromptText(withPromptText(draft, "swe@1", "Use pnpm."), "repository", "Rule.");
+    expect(next.prompts).toEqual({
+      instructionFile: "",
+      repository: "Rule.",
+      agents: { "swe@1": "Use pnpm.", "re@1": "", "env@1": "" },
+    });
+    expect(draft.prompts.agents["swe@1"]).toBe("");
   });
 
   it("round-trips every binding kind unchanged", () => {

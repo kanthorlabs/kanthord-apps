@@ -32,3 +32,22 @@ export function promptTextProblem(text: string): string | null {
   if (utf8Bytes(text) > PROMPT_TEXT_MAX_BYTES) return PROBLEM_MESSAGES.too_large;
   return holdsControlCharacter(text) ? PROBLEM_MESSAGES.control_character : null;
 }
+
+export const INSTRUCTION_FILE_PATH_MAX_BYTES = 255;
+
+const PATH_SEPARATOR = "/";
+const BACKSLASH = "\\";
+const REFUSED_SEGMENTS: readonly string[] = ["", ".", ".."];
+const PATH_RULE =
+  "Enter a relative path with / between the segments, for example docs/agent-rules.md. A segment is never empty, . or .., and the path holds no backslash, no control character and at most 255 bytes.";
+
+export function instructionFilePathProblem(path: string): string | null {
+  const invalid =
+    utf8Bytes(path) > INSTRUCTION_FILE_PATH_MAX_BYTES ||
+    path.includes(BACKSLASH) ||
+    Array.from(path, (character) => character.charCodeAt(0)).some(
+      (code) => code < FIRST_PRINTABLE || code === DELETE,
+    ) ||
+    path.split(PATH_SEPARATOR).some((segment) => REFUSED_SEGMENTS.includes(segment));
+  return invalid ? PATH_RULE : null;
+}
