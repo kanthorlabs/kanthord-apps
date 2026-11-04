@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigationType } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MissionNodeRecord, NodeState, Project, WorkbenchSessionListItem } from "@/api/types";
@@ -161,6 +161,7 @@ function render(entry = "/", width: BoardWidth = BOARD_WIDTH.Expanded, overview 
     ({ overview: current, width: widthClass }: Props) => ({
       board: useBoard(current, widthClass),
       location: useLocation(),
+      navigationType: useNavigationType(),
     }),
     { wrapper, initialProps: { overview, width } },
   );
@@ -599,6 +600,33 @@ describe("useBoard", () => {
       expect(paramOf(view.result.current.location, "item")).toBe(`${kind}:k1`);
     },
   );
+
+  it.each(ITEM_KINDS)(
+    "writes the next card to item after a marked %s item leaves, on compact without the detail",
+    (kind) => {
+      const view = render("/", BOARD_WIDTH.Compact, kindOverview(kind, ["k1", "k2"], 1));
+      act(() => view.result.current.board.select(`${kind}:k1`));
+      expect(view.result.current.board.openId).toBeNull();
+
+      act(() => view.result.current.board.markActed(`${kind}:k1`));
+      view.rerender({ overview: kindOverview(kind, ["k2"], 2), width: BOARD_WIDTH.Compact });
+
+      expect(view.result.current.board.selectedId).toBe(`${kind}:k2`);
+      expect(view.result.current.board.openId).toBeNull();
+      expect(paramOf(view.result.current.location, "item")).toBe(`${kind}:k2`);
+    },
+  );
+
+  it("replaces the history entry when it writes the next card to item", () => {
+    const view = render("/?item=blocked:c1&kind=blocked");
+    expect(view.result.current.navigationType).toBe("POP");
+
+    act(() => view.result.current.board.markActed("blocked:c1"));
+    view.rerender({ overview: overviewOf(["c1"], 2), width: BOARD_WIDTH.Expanded });
+
+    expect(paramOf(view.result.current.location, "item")).toBe("blocked:b2");
+    expect(view.result.current.navigationType).toBe("REPLACE");
+  });
 
   it("calls markActed on a dialog close, and the next card follows at a newer read", () => {
     setDialogOpen.mockClear();
