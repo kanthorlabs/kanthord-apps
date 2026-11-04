@@ -21,7 +21,7 @@ import {
   taskChoiceText,
 } from "@/lib/finding-draft";
 import { assessmentChoiceText } from "@/lib/review-findings";
-import type { FindingReportState } from "../use-finding-report";
+import type { FindingReportState } from "@/hooks/use-finding-report";
 
 interface TextAreaFieldProps {
   readonly id: string;

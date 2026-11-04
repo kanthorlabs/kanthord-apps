@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import type { MissionAssessment, MissionFinding, MissionRevision } from "@/api/types";
-import { useFindingReport } from "../use-finding-report";
+import { useFindingReport } from "@/hooks/use-finding-report";
 
 vi.mock("@/api/resources/mission");
 vi.mock("sonner", () => ({

@@ -9,7 +9,7 @@ import { ItemGroup } from "@/components/ui/item";
 import { useFindingDecision } from "@/hooks/use-finding-decision";
 import { findingGroupsOf, taskNameOf } from "@/lib/review-findings";
 import type { SettledRead } from "../settled-read";
-import { FindingItem } from "./finding-item";
+import { FindingItem } from "@/components/finding-item";
 import { RecordSection } from "./record-section";
 
 const NO_ASSESSMENTS: readonly MissionAssessment[] = [];

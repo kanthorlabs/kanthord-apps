@@ -1,9 +1,6 @@
 import { useEffect } from "react";
 
-import {
-  type FindingReportState,
-  useFindingReport,
-} from "@/features/projects/view/use-finding-report";
+import { type FindingReportState, useFindingReport } from "@/hooks/use-finding-report";
 import { type FindingDecisionState, useFindingDecision } from "@/hooks/use-finding-decision";
 import type { FindingReviewItem } from "@/lib/attention";
 import { type ActedAct, DONE_ACT } from "@/lib/board-done";

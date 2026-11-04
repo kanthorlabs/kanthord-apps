@@ -13,11 +13,11 @@ import type { GraphModel } from "@/lib/mission-graph";
 import type { SchedulerExecutionRecord } from "@/api/types";
 import { endLabel, lastEndOf } from "@/lib/execution-stop";
 import { useNodeAttempts } from "../use-node-attempts";
-import { type FindingReportState, useFindingReport } from "../use-finding-report";
+import { type FindingReportState, useFindingReport } from "@/hooks/use-finding-report";
 import { useNodeExecutionHistory } from "../use-node-executions";
 import { AttemptRecords } from "./attempt-records";
 import { ActorLabel } from "./actor-label";
-import { FindingReportSheet } from "./finding-report-sheet";
+import { FindingReportSheet } from "@/components/finding-report-sheet";
 
 interface NodeAttemptsTabProps {
   readonly projectId: string;
