@@ -1,11 +1,7 @@
 import { listWorkerInstances } from "@/api/resources/worker-instances";
 import type { WorkerInstanceListItem } from "@/api/types";
+import type { InstanceOption } from "@/hooks/use-binding-environment";
 import { type Resource, useResource } from "@/hooks/use-resource";
-
-export interface InstanceOption {
-  readonly name: string;
-  readonly placement: string;
-}
 
 export function instanceOptionsOf(
   live: readonly WorkerInstanceListItem[],

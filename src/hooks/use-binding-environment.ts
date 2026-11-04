@@ -10,7 +10,11 @@ import type { BindingEnvironment, EnvironmentDocument } from "@/api/types";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { ENVIRONMENT_NOT_OBJECT, parseEnvironmentDocument } from "@/lib/environment-document";
-import type { InstanceOption } from "./use-worker-instance-choices";
+
+export interface InstanceOption {
+  readonly name: string;
+  readonly placement: string;
+}
 
 export const ENVIRONMENT_RUN_ACTIVE = "project.environment.run_active";
 
