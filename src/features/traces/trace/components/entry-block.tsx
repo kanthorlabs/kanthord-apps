@@ -1,8 +1,10 @@
 import { ChevronDownIcon } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
+import type { EntryRebuildFailure } from "@/api/entry-rebuild-failure";
 import type { TraceSessionEntry, TraceSpan } from "@/api/types";
 import { MarkdownText } from "@/components/markdown-text";
+import { RecordName } from "@/components/record-name";
 import { RevealPanel } from "@/components/reveal";
 import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +14,7 @@ import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { noteLine, systemLabel, systemSize, usageLine } from "@/lib/entry-blocks";
+import { byteText } from "@/lib/format";
 import { type EntryToolCall, type EntryView, entryView } from "@/lib/session-entries";
 
 import { type FullEntry, useFullEntry } from "../use-full-entry";
@@ -20,7 +23,9 @@ import { PinnedPromptText } from "./pinned-prompt-text";
 
 const NO_SOURCE_TEXT = "This trace names no execution, so the server rebuilds no system prompt.";
 
-const CUT_HINT = "The worker cut this entry to fit the entry bound of 60 KiB.";
+const ENTRY_BOUND_BYTES = 61_440;
+
+const CUT_HINT = `The worker cut this entry to fit the entry bound of ${byteText(ENTRY_BOUND_BYTES)}.`;
 
 function TextBlock({ children }: { readonly children: string }) {
   return (
@@ -76,6 +81,16 @@ function FullEntryAction({ full }: { readonly full: FullEntry }) {
         Load full entry
       </Button>
     </TouchTarget>
+  );
+}
+
+function FullEntryFailure({ failure }: { readonly failure: EntryRebuildFailure }) {
+  return (
+    <p role="alert" className="text-sm break-words text-destructive">
+      {failure.lead}
+      {failure.instance !== null && <RecordName>{failure.instance}</RecordName>}
+      {failure.tail}
+    </p>
   );
 }
 
@@ -267,7 +282,7 @@ export function EntryBlock({
             </Button>
           </TouchTarget>
         )}
-        {full.failure !== null && <p className="text-sm text-destructive">{full.failure}</p>}
+        {full.failure !== null && <FullEntryFailure failure={full.failure} />}
       </ItemContent>
     </Item>
   );

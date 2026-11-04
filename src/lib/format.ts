@@ -21,10 +21,14 @@ export function durationText(ms: number): string {
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
 
-const BYTE_STEP = 1_000;
+const BYTE_STEP = 1_024;
+
+function oneDecimal(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, "");
+}
 
 export function byteText(bytes: number): string {
-  const kilobytes = (bytes / BYTE_STEP).toFixed(1);
-  if (Number(kilobytes) < BYTE_STEP) return `${kilobytes} KB`;
-  return `${(bytes / BYTE_STEP / BYTE_STEP).toFixed(1)} MB`;
+  const kibibytes = bytes / BYTE_STEP;
+  if (Number(kibibytes.toFixed(1)) < BYTE_STEP) return `${oneDecimal(kibibytes)} KiB`;
+  return `${oneDecimal(kibibytes / BYTE_STEP)} MiB`;
 }

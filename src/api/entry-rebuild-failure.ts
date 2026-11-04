@@ -9,25 +9,46 @@ const TOO_LARGE = "tracking.entry.too_large";
 const SESSION_ABSENT = "tracking.entry.session_absent";
 const ENTRY_ABSENT = "tracking.entry.entry_absent";
 
-const UNREACHABLE_TEXTS: Readonly<
-  Record<SessionEntryUnreachableReason, (instance: string) => string>
-> = {
-  offline: (instance) =>
-    `The worker instance ${instance} holds no connection. KanthorD reads its sessions only while it runs. Start it, then try again.`,
-  timeout: (instance) =>
-    `The worker instance ${instance} did not answer within 25 s. A large entry over a slow link cannot finish in time.`,
-  busy: (instance) => `The worker instance ${instance} serves 8 reads now. Try again.`,
+export interface EntryRebuildFailure {
+  readonly lead: string;
+  readonly instance: string | null;
+  readonly tail: string;
+}
+
+type InstanceText = (instance: string) => EntryRebuildFailure;
+
+function named(lead: string, tail: string): InstanceText {
+  return (instance) => ({ lead, instance, tail });
+}
+
+function plain(text: string): EntryRebuildFailure {
+  return { lead: text, instance: null, tail: "" };
+}
+
+const UNREACHABLE_TEXTS: Readonly<Record<SessionEntryUnreachableReason, InstanceText>> = {
+  offline: named(
+    "The worker instance ",
+    " holds no connection. KanthorD reads its sessions only while it runs. Start it, then try again.",
+  ),
+  timeout: named(
+    "The worker instance ",
+    " did not answer within 25 s. A large entry over a slow link cannot finish in time.",
+  ),
+  busy: named("The worker instance ", " serves 8 reads now. Try again."),
 };
 
 const SESSION_ABSENT_TEXTS: Readonly<
-  Record<Exclude<SessionEntryAbsentReason, "instance_unknown">, (instance: string) => string>
+  Record<Exclude<SessionEntryAbsentReason, "instance_unknown">, InstanceText>
 > = {
-  not_kept: (instance) => `The host of ${instance} holds no file of this session.`,
-  archived: (instance) =>
-    `The worker instance ${instance} is archived. KanthorD no longer reads its sessions.`,
+  not_kept: named("The host of ", " holds no file of this session."),
+  archived: named("The worker instance ", " is archived. KanthorD no longer reads its sessions."),
 };
 
-const INSTANCE_UNKNOWN_TEXT = "No worker instance of KanthorD ran this session.";
+const UNREADABLE_TEXT = named("KanthorD could not read the session file of ", ". Try again.");
+
+const ENTRY_ABSENT_TEXT = named("The session file on ", " holds no entry with this identity.");
+
+const INSTANCE_UNKNOWN_TEXT = plain("No worker instance of KanthorD ran this session.");
 
 function field(details: unknown, key: string): unknown {
   if (typeof details !== "object" || details === null) return null;
@@ -51,7 +72,7 @@ function isKey<K extends string>(
   return key !== null && Object.hasOwn(texts, key);
 }
 
-function textOf(error: ApiError): string | null {
+function textOf(error: ApiError): EntryRebuildFailure | null {
   const instance = stringField(error.details, "instance");
   const reason = stringField(error.details, "reason");
   if (error.detail === SESSION_ABSENT && reason === "instance_unknown")
@@ -63,20 +84,22 @@ function textOf(error: ApiError): string | null {
     case SESSION_ABSENT:
       return isKey(SESSION_ABSENT_TEXTS, reason) ? SESSION_ABSENT_TEXTS[reason](instance) : null;
     case UNREADABLE:
-      return `KanthorD could not read the session file of ${instance}. Try again.`;
+      return UNREADABLE_TEXT(instance);
     case ENTRY_ABSENT:
-      return `The session file on ${instance} holds no entry with this identity.`;
+      return ENTRY_ABSENT_TEXT(instance);
     case TOO_LARGE: {
       const bytes = numberField(error.details, "bytes");
       const limit = numberField(error.details, "limit");
       if (bytes === null || limit === null) return null;
-      return `The full entry holds ${byteText(bytes)}. KanthorD rebuilds an entry of at most ${byteText(limit)}.`;
+      return plain(
+        `The full entry holds ${byteText(bytes)}. KanthorD rebuilds an entry of at most ${byteText(limit)}.`,
+      );
     }
     default:
       return null;
   }
 }
 
-export function entryRebuildFailure(error: ApiError): string {
-  return textOf(error) ?? error.message;
+export function entryRebuildFailure(error: ApiError): EntryRebuildFailure {
+  return textOf(error) ?? plain(error.message);
 }

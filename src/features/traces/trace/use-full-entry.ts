@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { entryRebuildFailure } from "@/api/entry-rebuild-failure";
+import { type EntryRebuildFailure, entryRebuildFailure } from "@/api/entry-rebuild-failure";
 import { rebuildSessionEntry } from "@/api/resources/tracking";
 import type { TraceSessionEntry } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
@@ -8,14 +8,14 @@ import { asApiError } from "@/hooks/use-resource";
 export interface FullEntry {
   readonly entry: TraceSessionEntry | null;
   readonly loading: boolean;
-  readonly failure: string | null;
+  readonly failure: EntryRebuildFailure | null;
   readonly load: () => void;
 }
 
 interface State {
   readonly entry: TraceSessionEntry | null;
   readonly loading: boolean;
-  readonly failure: string | null;
+  readonly failure: EntryRebuildFailure | null;
 }
 
 const IDLE: State = { entry: null, loading: false, failure: null };

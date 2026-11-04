@@ -231,7 +231,7 @@ const REBUILD_FAILURES: readonly (readonly [string, ApiError, string])[] = [
       bytes: 40_000_000,
       limit: 33_488_896,
     }),
-    "The full entry holds 40.0 MB. KanthorD rebuilds an entry of at most 33.5 MB.",
+    "The full entry holds 38.1 MiB. KanthorD rebuilds an entry of at most 31.9 MiB.",
   ],
   [
     "session_absent not_kept",
@@ -440,7 +440,7 @@ describe("Conversation", () => {
       await userEvent.click(screen.getByRole("button", { name: "Load full entry" }));
 
       const block = screen.getByText("Long.").closest("[role=listitem]") as HTMLElement;
-      expect(await within(block).findByText(text)).toBeInTheDocument();
+      expect((await within(block).findByRole("alert")).textContent).toBe(text);
       expect(within(block).getByText("Cut")).toBeInTheDocument();
       expect(within(block).getByRole("button", { name: "Load full entry" })).toBeEnabled();
     },
@@ -456,9 +456,21 @@ describe("Conversation", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Load full entry" }));
 
-    expect(await screen.findByText(/did not answer within 25 s/)).not.toHaveTextContent(
-      "Try again.",
+    expect(await screen.findByRole("alert")).not.toHaveTextContent("Try again.");
+  });
+
+  it("names the instance of a failure as a record name", async () => {
+    mockEntries([CUT_ENTRY]);
+    vi.mocked(rebuildSessionEntry).mockRejectedValue(
+      rebuildFailure(503, "tracking.entry.unreachable", { ...WORKER, reason: "offline" }),
     );
+    show([SESSION_1]);
+    await screen.findByText("Long.");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load full entry" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("laptop").tagName).toBe("STRONG");
   });
 
   it("shows no Session select for one session", async () => {

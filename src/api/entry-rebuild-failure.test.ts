@@ -12,9 +12,11 @@ describe("entryRebuildFailure", () => {
       "tracking.entry.unreachable",
       { instance: "laptop", placement: "worker", reason: "busy" },
     );
-    expect(entryRebuildFailure(error)).toBe(
-      "The worker instance laptop serves 8 reads now. Try again.",
-    );
+    expect(entryRebuildFailure(error)).toEqual({
+      lead: "The worker instance ",
+      instance: "laptop",
+      tail: " serves 8 reads now. Try again.",
+    });
   });
 
   it("keeps the message of an unknown reason", () => {
@@ -25,9 +27,11 @@ describe("entryRebuildFailure", () => {
       "tracking.entry.unreachable",
       { instance: "laptop", placement: "worker", reason: "later" },
     );
-    expect(entryRebuildFailure(error)).toBe(
-      "The worker instance cannot serve the session read now.",
-    );
+    expect(entryRebuildFailure(error)).toEqual({
+      lead: "The worker instance cannot serve the session read now.",
+      instance: null,
+      tail: "",
+    });
   });
 
   it("keeps the message of any other failure", () => {
@@ -37,6 +41,10 @@ describe("entryRebuildFailure", () => {
       404,
       "tracking.entry.not_found",
     );
-    expect(entryRebuildFailure(error)).toBe("The session entry is unknown.");
+    expect(entryRebuildFailure(error)).toEqual({
+      lead: "The session entry is unknown.",
+      instance: null,
+      tail: "",
+    });
   });
 });

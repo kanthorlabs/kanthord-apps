@@ -43,10 +43,12 @@ describe("durationText", () => {
 });
 
 describe("byteText", () => {
-  it("renders a size in KB under one MB and in MB above", () => {
-    expect(byteText(65_536)).toBe("65.5 KB");
-    expect(byteText(999_999)).toBe("1.0 MB");
-    expect(byteText(1_000_000)).toBe("1.0 MB");
-    expect(byteText(33_488_896)).toBe("33.5 MB");
+  it("renders a size in KiB under one MiB and in MiB above", () => {
+    expect(byteText(61_440)).toBe("60 KiB");
+    expect(byteText(65_600)).toBe("64.1 KiB");
+    expect(byteText(1_048_575)).toBe("1 MiB");
+    expect(byteText(1_048_576)).toBe("1 MiB");
+    expect(byteText(33_488_896)).toBe("31.9 MiB");
+    expect(byteText(41_943_040)).toBe("40 MiB");
   });
 });
