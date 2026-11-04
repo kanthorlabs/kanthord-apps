@@ -11,6 +11,8 @@ import type {
 export const FOOTPRINT_DEFAULT_AGE_DAYS = 30;
 export const FOOTPRINT_CLEANUP_KEYS_MAX = 1000;
 export const FOOTPRINT_OLDER_THAN_DAYS_MAX = 3650;
+export const FOOTPRINT_SUMMARY_POLL_MS = 60_000;
+export const FOOTPRINT_OPEN_ALERTS_LIMIT = 100;
 export const SERVER_HOST_LABEL = "server";
 
 export const FOOTPRINT_KIND_LABELS: Readonly<Record<FootprintKind, string>> = {

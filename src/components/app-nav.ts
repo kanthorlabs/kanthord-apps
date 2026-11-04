@@ -15,11 +15,14 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+export type NavBadge = "footprint_alerts";
+
 export interface NavItem {
   readonly to: string;
   readonly label: string;
   readonly icon: LucideIcon;
   readonly group: (typeof NAV_GROUPS)[number];
+  readonly badge?: NavBadge;
 }
 
 export const NAV_GROUPS = ["Work", "Workforce", "Credentials", "System"] as const;
@@ -37,7 +40,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Credentials" },
   { to: "/repositories", label: "Git", icon: FolderGit2, group: "Credentials" },
   { to: "/storage", label: "Storage", icon: Database, group: "Credentials" },
-  { to: "/footprint", label: "Footprint", icon: HardDrive, group: "System" },
+  {
+    to: "/footprint",
+    label: "Footprint",
+    icon: HardDrive,
+    group: "System",
+    badge: "footprint_alerts",
+  },
 ];
 
 export const ROUTE_LABELS: ReadonlyMap<string, string> = new Map([
