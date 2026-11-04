@@ -91,6 +91,10 @@ interface Exit {
   readonly focus: FocusRequest;
 }
 
+interface ItemWrite {
+  readonly item: string | null;
+}
+
 type FocusRequest =
   | { readonly target: "title" }
   | { readonly target: "all_clear" }
@@ -111,6 +115,7 @@ interface BoardState {
   readonly dialogOpen: boolean;
   readonly handoff: Handoff | null;
   readonly exit: Exit | null;
+  readonly itemWrite: ItemWrite | null;
   readonly done: readonly DoneEntry[];
   readonly focus: FocusRequest | null;
 }
@@ -299,17 +304,18 @@ const resolveHandoff: Advance = (
   const cards = cardsByTab[handoff.tab];
   const target = cards[Math.min(handoff.index, cards.length - 1)];
   const expanded = widthClass === BOARD_WIDTH.Expanded;
+  const itemWrite = { item: target?.id ?? null };
   if (expanded) {
     return target === undefined
-      ? { ...next, selectedId: null, focus: { target: "all_clear" } }
-      : { ...next, selectedId: target.id, focus: { target: "title" } };
+      ? { ...next, selectedId: null, focus: { target: "all_clear" }, itemWrite }
+      : { ...next, selectedId: target.id, focus: { target: "title" }, itemWrite };
   }
   const arrival: Exit =
     target === undefined
       ? { selectedId: null, focus: { target: "all_clear" } }
       : { selectedId: target.id, focus: { target: "card", itemId: target.id } };
   if (overviewItem !== null) return { ...next, openId: null, exit: arrival };
-  return { ...next, ...arrival, openId: null };
+  return { ...next, ...arrival, openId: null, itemWrite };
 };
 
 const ADVANCES: readonly Advance[] = [
@@ -367,6 +373,7 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     dialogOpen: false,
     handoff: null,
     exit: null,
+    itemWrite: null,
     done: [],
     focus: null,
   });
@@ -444,9 +451,17 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
         selectedId: exit.selectedId,
         focus: exit.focus,
         exit: null,
+        itemWrite: { item: exit.selectedId },
       })),
     );
   }, [exit, closeHistory]);
+
+  const itemWrite = current.itemWrite;
+  const replaceHistory = history.replace;
+  useEffect(() => {
+    if (itemWrite === null) return;
+    replaceHistory({ item: itemWrite.item });
+  }, [itemWrite, replaceHistory]);
 
   const close = (then?: () => void) => {
     if (history.overviewItem === null) {
