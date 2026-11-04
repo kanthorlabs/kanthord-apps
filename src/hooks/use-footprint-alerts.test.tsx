@@ -85,6 +85,17 @@ describe("useFootprintAlerts", () => {
     expect(view.result.current.count).toBe(2);
   });
 
+  it("stops the poll on unmount", async () => {
+    serve(0);
+
+    const view = renderHook(() => useFootprintAlerts(), { wrapper });
+    await advance(0);
+    view.unmount();
+    await advance(POLL_MS * 2);
+
+    expect(footprintApi.readFootprintSummary).toHaveBeenCalledTimes(1);
+  });
+
   it("reads no episode while every open episode is acknowledged", async () => {
     serve(0);
 

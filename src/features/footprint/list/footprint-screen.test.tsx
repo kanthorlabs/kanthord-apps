@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as footprintApi from "@/api/resources/footprint";
 import type { FootprintAlert, FootprintStat } from "@/api/types";
+import { FootprintAlertsProvider, useFootprintAlerts } from "@/hooks/use-footprint-alerts";
 
 vi.mock("@/api/resources/footprint");
 
@@ -77,6 +78,23 @@ function mount() {
         <Route path="*" element={<Location />} />
       </Routes>
     </MemoryRouter>,
+  );
+}
+
+function BadgeCount() {
+  return <p>{`Badge ${useFootprintAlerts().count}`}</p>;
+}
+
+function mountWithBadge() {
+  render(
+    <FootprintAlertsProvider>
+      <BadgeCount />
+      <MemoryRouter initialEntries={["/footprint"]}>
+        <Routes>
+          <Route path="/footprint" element={<FootprintScreen />} />
+        </Routes>
+      </MemoryRouter>
+    </FootprintAlertsProvider>,
   );
 }
 
@@ -228,6 +246,23 @@ describe("FootprintScreen", () => {
 
     expect(footprintApi.runFootprintMeasure).toHaveBeenCalledTimes(1);
     expect(footprintApi.acknowledgeFootprintAlert).toHaveBeenCalledWith(ALERT.alert_id);
+  });
+
+  it("refreshes the navigation badge after an acknowledgement", async () => {
+    serve([stat({})]);
+    mountWithBadge();
+    expect(await screen.findByText("Badge 1")).toBeInTheDocument();
+    vi.mocked(footprintApi.readFootprintSummary).mockResolvedValue({
+      stats: [stat({})],
+      open_alerts: 1,
+      unacknowledged_alerts: 0,
+    });
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Acknowledge Disk · mac-studio" }),
+    );
+
+    expect(await screen.findByText("Badge 0")).toBeInTheDocument();
   });
 
   it("keeps Acknowledge disabled while the acknowledgement of a disk episode holds", async () => {

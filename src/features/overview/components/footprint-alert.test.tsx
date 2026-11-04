@@ -166,6 +166,74 @@ describe("FootprintAlert", () => {
     expect(screen.getByText("At /footprint/workspace?instance=e2e-coder-1")).toBeInTheDocument();
   });
 
+  it("shows a recovering episode that the badge counts", async () => {
+    serve([{ ...DISK_ALERT, state: "recovering" }]);
+    mount();
+
+    expect(await screen.findByText(/^The disk of/)).toHaveTextContent(DISK_TEXT);
+  });
+
+  it("names the free ratio of a disk below the floor", async () => {
+    vi.mocked(footprintApi.readFootprintSummary).mockResolvedValue({
+      stats: [
+        stat({
+          kind: "disk",
+          item_key: "16777231",
+          bytes: null,
+          count: null,
+          free_bytes: 51 * GIB,
+          total_bytes: 1024 * GIB,
+          days_to_floor: 0,
+          growth_per_day: null,
+        }),
+      ],
+      open_alerts: 1,
+      unacknowledged_alerts: 1,
+    });
+    vi.mocked(footprintApi.listFootprintAlertPage).mockResolvedValue({
+      items: [{ ...DISK_ALERT, threshold: { measure: "free_ratio", value: 0.1 }, value: 0.05 }],
+      next_cursor: null,
+    });
+    mount();
+
+    expect(await screen.findByText(/^The disk of/)).toHaveTextContent(
+      "The disk of e2e-coder-1 has 5% free, below the 10% floor. Review the footprint.",
+    );
+  });
+
+  it("links the server disk text to the disk statistics and names no kind", async () => {
+    const serverDisk = { ...DISK_ALERT, instance_name: null };
+    vi.mocked(footprintApi.readFootprintSummary).mockResolvedValue({
+      stats: [
+        ...STATS,
+        stat({
+          kind: "disk",
+          instance_name: null,
+          item_key: "16777231",
+          bytes: null,
+          count: null,
+          free_bytes: 260 * GIB,
+          total_bytes: 1024 * GIB,
+          days_to_floor: 26.7,
+          growth_per_day: null,
+        }),
+      ],
+      open_alerts: 1,
+      unacknowledged_alerts: 1,
+    });
+    vi.mocked(footprintApi.listFootprintAlertPage).mockResolvedValue({
+      items: [serverDisk],
+      next_cursor: null,
+    });
+    mount();
+
+    expect(await screen.findByText(/^The disk of/)).toHaveTextContent(
+      "The disk of server reaches 10% free in about 27 days. Review the footprint.",
+    );
+    await userEvent.click(screen.getByRole("link", { name: "Review the footprint." }));
+    expect(screen.getByText("At /footprint/disk")).toBeInTheDocument();
+  });
+
   it("acknowledges the episode and reads the alerts again", async () => {
     mount();
     await screen.findByText(/^The disk of/);
