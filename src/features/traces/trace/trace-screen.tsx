@@ -62,11 +62,11 @@ export function TraceScreen() {
       <Tabs
         value={selection.tab}
         onValueChange={(value) => selection.selectTab(String(value))}
-        className="flex min-w-0 flex-col gap-3"
+        className="flex min-w-0 flex-col gap-0"
       >
         <div
           ref={stickyRef}
-          className="sticky top-[var(--app-header-height,3.5rem)] z-10 flex min-w-0 flex-col gap-3 bg-background"
+          className="sticky top-[var(--app-header-height,3.5rem)] z-10 flex min-w-0 flex-col gap-3 bg-background pb-3"
         >
           <TraceHeader
             summary={summary}

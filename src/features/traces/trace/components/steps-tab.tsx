@@ -60,7 +60,7 @@ export function StepsTab({ traceId, traceNode, spans, traceState, selection }: S
       {large && (
         <aside
           aria-label="Span detail"
-          className="sticky top-[calc(var(--app-header-height,3.5rem)+var(--trace-sticky-height,0px)+1rem)] max-h-[calc(100svh-var(--app-header-height,3.5rem)-var(--trace-sticky-height,0px)-2rem)] min-w-0 self-start overflow-y-auto rounded-lg border p-3"
+          className="sticky top-[calc(var(--app-header-height,3.5rem)+var(--trace-sticky-height,0px)+0.25rem)] max-h-[calc(100svh-var(--app-header-height,3.5rem)-var(--trace-sticky-height,0px)-1.25rem)] min-w-0 self-start overflow-y-auto rounded-lg border p-3"
         >
           {detail ?? <p className="text-muted-foreground">Select a span to see its detail.</p>}
         </aside>

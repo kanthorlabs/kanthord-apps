@@ -59,17 +59,17 @@ export function SummaryTab({ summary, spans, traceNode, selection, onLabeled }: 
       )}
       {large && steps}
       <AttemptsBlock node={nodeTraces} />
-      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
         <TimeBlock summary={summary} spans={spans} />
         <PlanBlock summary={summary} spans={spans} traceNode={traceNode} />
-        <PromptBlock
-          traceId={summary.trace_id}
-          executionId={summary.execution_id}
-          spans={spans}
-          selection={selection}
-          diffBase={nodeTraces.promptDiffBase}
-        />
       </div>
+      <PromptBlock
+        traceId={summary.trace_id}
+        executionId={summary.execution_id}
+        spans={spans}
+        selection={selection}
+        diffBase={nodeTraces.promptDiffBase}
+      />
     </div>
   );
 }
