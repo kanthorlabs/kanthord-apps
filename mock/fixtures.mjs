@@ -1183,7 +1183,7 @@ export const GRAPH_ASSESSMENTS = [
   {
     id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SC3",
     node_id: ids.invoices,
-    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0EC7",
+    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0EC4",
     attempt: 1,
     node_revision: 1,
     evidence_ids: [],
@@ -1191,7 +1191,7 @@ export const GRAPH_ASSESSMENTS = [
     result: "criterion-not-met",
     rationale: "The invoices page lists no invoice of the current month.",
     tested_input: null,
-    actor: execution("EC7", "reviewer-main #1"),
+    actor: execution("EC4", "reviewer-main #1"),
     created_at: minutes(150),
     currency: null,
     dependency_node_ids: [],
@@ -1561,6 +1561,7 @@ export const GRAPH_EXECUTIONS = [
       detail: "400 Bad Request: the model does not accept the tool_choice field",
     },
   ],
+  ["EC4", ids.invoices, "finished", 158, 151, GRAPH_BINDINGS.reviewer],
 ].map(([suffix, nodeId, claimState, startedAgo, endedAgo, binding, stop, unnamed], index) =>
   executionRecord(
     PROJECT.id,
