@@ -1180,6 +1180,24 @@ export const GRAPH_ASSESSMENTS = [
     worker_version: null,
     round: null,
   },
+  {
+    id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SC3",
+    node_id: ids.invoices,
+    execution_id: "execution_01J9ZQ4XKM3B6V8N2R5T7W0EC7",
+    attempt: 1,
+    node_revision: 1,
+    evidence_ids: [],
+    dependency_outcome_ids: [],
+    result: "criterion-not-met",
+    rationale: "The invoices page lists no invoice of the current month.",
+    tested_input: null,
+    actor: execution("EC7", "reviewer-main #1"),
+    created_at: minutes(150),
+    currency: null,
+    dependency_node_ids: [],
+    worker_version: "reviewer@1",
+    round: 1,
+  },
 ];
 
 const signupRound = (round) =>
@@ -1299,6 +1317,16 @@ export const GRAPH_FINDINGS = [
     cause_owner: "human",
     created_by: human,
     created_at: minutes(650),
+  }),
+  reviewerFinding("11", 1, "B1", {
+    node_id: ids.invoices,
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SC3",
+    ground: "stated",
+    name: "Current month missing",
+    description: "The invoices page filters out the invoices of the current month.",
+    fix: "Include the current month in the date filter.",
+    why: "The criterion requires every invoice of the account.",
+    created_at: minutes(150),
   }),
 ];
 
