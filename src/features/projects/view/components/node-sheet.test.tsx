@@ -536,6 +536,45 @@ describe("NodeSheet", () => {
     expect(screen.getByRole("button", { name: "Records of attempt 1" })).toBeTruthy();
   });
 
+  it("names a failed read of the findings of attempt 0", async () => {
+    vi.mocked(missionApi.listNodeFindings).mockImplementation(async (_nodeId, attempt) => {
+      if (attempt === 0) throw new ApiError("unavailable", "The findings read failed.", 503);
+      return [];
+    });
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+
+    const zero = await screen.findByRole("region", { name: "Attempt 0" });
+    expect(within(zero).getByText("The findings read failed.")).toBeTruthy();
+  });
+
+  it("reads the findings of attempt 0 once across a rerender", async () => {
+    const sheet = (
+      <MemoryRouter>
+        <NodeSheet
+          projectId="project_1"
+          model={MODEL}
+          selectedId="node_audit"
+          missionVersion={3}
+          onChanged={vi.fn()}
+          onSelect={vi.fn()}
+        />
+      </MemoryRouter>
+    );
+    const view = render(sheet);
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+    await screen.findByRole("button", { name: "Records of attempt 1" });
+
+    view.rerender(sheet);
+    await screen.findByRole("button", { name: "Records of attempt 1" });
+
+    const zeroReads = vi
+      .mocked(missionApi.listNodeFindings)
+      .mock.calls.filter(([nodeId, attempt]) => nodeId === "node_audit" && attempt === 0);
+    expect(zeroReads).toHaveLength(1);
+  });
+
   it("shows no attempt 0 records when no finding names attempt 0", async () => {
     renderSheet("node_audit");
 
