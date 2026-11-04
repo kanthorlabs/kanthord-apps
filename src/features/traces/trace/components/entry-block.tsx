@@ -9,10 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
+import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { noteLine, systemLabel, systemSize, usageLine } from "@/lib/entry-blocks";
 import { type EntryToolCall, type EntryView, entryView } from "@/lib/session-entries";
 
+import { type FullEntry, useFullEntry } from "../use-full-entry";
 import type { PromptSource } from "../use-resolved-prompt";
 import { PinnedPromptText } from "./pinned-prompt-text";
 
@@ -55,6 +57,25 @@ function CutBadge() {
       </TooltipTrigger>
       <TooltipContent>{CUT_HINT}</TooltipContent>
     </Tooltip>
+  );
+}
+
+function FullEntryAction({ full }: { readonly full: FullEntry }) {
+  return (
+    <TouchTarget>
+      <Button
+        variant="outline"
+        size="sm"
+        className="self-start"
+        disabled={full.loading}
+        onClick={full.load}
+      >
+        {full.loading && (
+          <Spinner aria-hidden="true" role="presentation" data-icon="inline-start" />
+        )}
+        Load full entry
+      </Button>
+    </TouchTarget>
   );
 }
 
@@ -208,7 +229,8 @@ export function EntryBlock({
   onShowInTimeline,
 }: EntryBlockProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const view = entryView(entry);
+  const full = useFullEntry(entry);
+  const view = entryView(full.entry ?? entry);
   const title = promptLabel ?? titleOf(view);
 
   useEffect(() => {
@@ -227,10 +249,12 @@ export function EntryBlock({
         {(title !== null || entry.truncated) && (
           <ItemTitle className="w-full min-w-0 flex-wrap break-words">
             {title}
-            {entry.truncated && <CutBadge />}
+            {entry.truncated &&
+              (full.entry === null ? <CutBadge /> : <Badge variant="outline">Full</Badge>)}
           </ItemTitle>
         )}
         {bodyOf(view, promptLabel !== null, promptSource)}
+        {entry.truncated && full.entry === null && <FullEntryAction full={full} />}
         {view.kind === "assistant" && turn !== null && (
           <TouchTarget>
             <Button
@@ -243,6 +267,7 @@ export function EntryBlock({
             </Button>
           </TouchTarget>
         )}
+        {full.failure !== null && <p className="text-sm text-destructive">{full.failure}</p>}
       </ItemContent>
     </Item>
   );

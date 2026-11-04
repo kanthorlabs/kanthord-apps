@@ -1662,6 +1662,10 @@ export interface TraceSessionEntry {
   readonly created_at: number;
 }
 
+export type SessionEntryUnreachableReason = "offline" | "timeout" | "busy";
+
+export type SessionEntryAbsentReason = "not_kept" | "archived" | "instance_unknown";
+
 export interface TraceListQuery {
   readonly project_id?: string;
   readonly node_id?: string;

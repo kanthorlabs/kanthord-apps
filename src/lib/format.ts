@@ -20,3 +20,11 @@ export function durationText(ms: number): string {
   const minutes = Math.floor((milliseconds % HOUR_MS) / MINUTE_MS);
   return minutes === 0 ? `${hours} h` : `${hours} h ${minutes} min`;
 }
+
+const BYTE_STEP = 1_000;
+
+export function byteText(bytes: number): string {
+  const kilobytes = (bytes / BYTE_STEP).toFixed(1);
+  if (Number(kilobytes) < BYTE_STEP) return `${kilobytes} KB`;
+  return `${(bytes / BYTE_STEP / BYTE_STEP).toFixed(1)} MB`;
+}
