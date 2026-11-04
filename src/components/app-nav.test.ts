@@ -49,4 +49,10 @@ describe("NAV_ITEMS", () => {
   it("labels the /repositories breadcrumb Git", () => {
     expect(ROUTE_LABELS.get("/repositories")).toBe("Git");
   });
+
+  it("names Footprint in the System group after Credentials", () => {
+    expect(NAV_ITEMS.filter((item) => item.group === "System")).toEqual([
+      expect.objectContaining({ to: "/footprint", label: "Footprint" }),
+    ]);
+  });
 });

@@ -27,8 +27,14 @@ function oneDecimal(value: number): string {
   return value.toFixed(1).replace(/\.0$/, "");
 }
 
+const BYTE_UNITS = ["KiB", "MiB", "GiB", "TiB"] as const;
+
 export function byteText(bytes: number): string {
-  const kibibytes = bytes / BYTE_STEP;
-  if (Number(kibibytes.toFixed(1)) < BYTE_STEP) return `${oneDecimal(kibibytes)} KiB`;
-  return `${oneDecimal(kibibytes / BYTE_STEP)} MiB`;
+  let value = bytes / BYTE_STEP;
+  let unit = 0;
+  while (unit < BYTE_UNITS.length - 1 && Number(value.toFixed(1)) >= BYTE_STEP) {
+    value /= BYTE_STEP;
+    unit += 1;
+  }
+  return `${oneDecimal(value)} ${BYTE_UNITS[unit]}`;
 }

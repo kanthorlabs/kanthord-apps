@@ -9,6 +9,7 @@ import { createHash, generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:http";
 
 import { registerEnvironments } from "./environments.mjs";
+import { registerFootprint } from "./footprint.mjs";
 import * as fx from "./fixtures.mjs";
 import { registerInstances } from "./instances.mjs";
 import * as pr from "./prompts.mjs";
@@ -3427,6 +3428,15 @@ const environments = registerEnvironments({
   projectOrRefuse,
   bindingSetOf,
   bindingIdOf: (name) => bindingRecordByName(name)?.id ?? name,
+});
+
+registerFootprint({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  username: USERNAME,
+  instancePlacement: (name) => instanceRoutes.liveInstance(name)?.record.placement ?? null,
 });
 
 const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;

@@ -51,4 +51,10 @@ describe("byteText", () => {
     expect(byteText(33_488_896)).toBe("31.9 MiB");
     expect(byteText(41_943_040)).toBe("40 MiB");
   });
+
+  it("renders a size in GiB and in TiB above", () => {
+    expect(byteText(1_073_741_824)).toBe("1 GiB");
+    expect(byteText(230_854_492_160)).toBe("215 GiB");
+    expect(byteText(1_099_511_627_776)).toBe("1 TiB");
+  });
 });

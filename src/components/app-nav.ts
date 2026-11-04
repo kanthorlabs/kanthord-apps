@@ -7,6 +7,7 @@ import {
   Database,
   FolderGit2,
   FolderKanban,
+  HardDrive,
   History,
   LayoutDashboard,
   ListOrdered,
@@ -21,7 +22,7 @@ export interface NavItem {
   readonly group: (typeof NAV_GROUPS)[number];
 }
 
-export const NAV_GROUPS = ["Work", "Workforce", "Credentials"] as const;
+export const NAV_GROUPS = ["Work", "Workforce", "Credentials", "System"] as const;
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/", label: "Overview", icon: LayoutDashboard, group: "Work" },
@@ -36,6 +37,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Credentials" },
   { to: "/repositories", label: "Git", icon: FolderGit2, group: "Credentials" },
   { to: "/storage", label: "Storage", icon: Database, group: "Credentials" },
+  { to: "/footprint", label: "Footprint", icon: HardDrive, group: "System" },
 ];
 
 export const ROUTE_LABELS: ReadonlyMap<string, string> = new Map([

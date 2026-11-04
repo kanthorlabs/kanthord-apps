@@ -2017,3 +2017,165 @@ export interface FlowRead {
   };
   readonly rebuild: { readonly pending_until: number } | null;
 }
+
+export type FootprintKind =
+  | "operational_database"
+  | "trace"
+  | "database_backup"
+  | "log"
+  | "environment"
+  | "cache_volume"
+  | "slot_image"
+  | "slot_residue"
+  | "intake_mirror"
+  | "workbench"
+  | "session"
+  | "workspace"
+  | "tool_output"
+  | "disk";
+
+export type CleanableKind =
+  | "trace"
+  | "database_backup"
+  | "environment"
+  | "cache_volume"
+  | "slot_image"
+  | "session"
+  | "workspace"
+  | "tool_output";
+
+export type CleanupRuleName = "older_than" | "node_closed" | "unbound" | "superseded" | "dangling";
+
+export type CleanupRule =
+  | { readonly name: "older_than"; readonly older_than_days: number }
+  | { readonly name: "node_closed" }
+  | { readonly name: "unbound" }
+  | { readonly name: "superseded" }
+  | { readonly name: "dangling" };
+
+export type CleanupState = "queued" | "running" | "completed" | "failed" | "cancelled";
+
+export type CleanupRefusal = "live" | "unreadable";
+
+export type FootprintAlertState = "ok" | "pending" | "firing" | "recovering";
+
+export type FootprintThreshold =
+  | { readonly measure: "bytes"; readonly value: number }
+  | { readonly measure: "free_ratio"; readonly value: number }
+  | { readonly measure: "days_to_floor"; readonly value: number; readonly free_ratio: number };
+
+export interface HumanActor {
+  readonly kind: "human";
+  readonly account: string;
+  readonly name: string;
+}
+
+export interface FootprintStat {
+  readonly kind: FootprintKind;
+  readonly instance_name: string | null;
+  readonly item_key: string | null;
+  readonly instance_names: readonly string[];
+  readonly measured_at: number | null;
+  readonly stale: boolean;
+  readonly measure_error: { readonly code: string; readonly message: string } | null;
+  readonly count: number | null;
+  readonly bytes: number | null;
+  readonly wal_bytes: number | null;
+  readonly free_bytes: number | null;
+  readonly total_bytes: number | null;
+  readonly oldest_at: number | null;
+  readonly newest_at: number | null;
+  readonly growth_per_day: { readonly count: number; readonly bytes: number } | null;
+  readonly days_to_floor: number | null;
+  readonly thresholds: readonly FootprintThreshold[];
+  readonly alert: { readonly state: FootprintAlertState; readonly alert_id: string | null };
+  readonly delete_operation: string | null;
+  readonly rules: readonly CleanupRuleName[];
+  readonly candidates: {
+    readonly rule: CleanupRule;
+    readonly count: number;
+    readonly bytes: number | null;
+    readonly bytes_estimated: boolean;
+  } | null;
+}
+
+export interface FootprintSummary {
+  readonly stats: readonly FootprintStat[];
+  readonly open_alerts: number;
+  readonly unacknowledged_alerts: number;
+}
+
+export interface FootprintTable {
+  readonly name: string;
+  readonly bytes: number | null;
+  readonly oldest_at: number | null;
+  readonly delete_operation: string | null;
+}
+
+export interface FootprintKindRead {
+  readonly stats: readonly FootprintStat[];
+  readonly tables: readonly FootprintTable[] | null;
+}
+
+export interface FootprintCandidate {
+  readonly key: string;
+  readonly at: number;
+  readonly bytes: number | null;
+  readonly project_id: string | null;
+  readonly node_id: string | null;
+  readonly execution_id: string | null;
+  readonly refusal: CleanupRefusal | null;
+  readonly kept: boolean;
+}
+
+export interface FootprintCandidatePage extends Page<FootprintCandidate> {
+  readonly total_count: number;
+  readonly total_bytes: number | null;
+  readonly bytes_estimated: boolean;
+}
+
+export interface FootprintCandidateQuery {
+  readonly instance_name: string | null;
+  readonly rule: CleanupRule;
+}
+
+export interface FootprintCleanupCreateBody {
+  readonly kind: CleanableKind;
+  readonly instance_name: string | null;
+  readonly rule: CleanupRule | null;
+  readonly keys: readonly string[];
+}
+
+export interface FootprintCleanupRecord {
+  readonly cleanup_id: string;
+  readonly kind: CleanableKind;
+  readonly instance_name: string | null;
+  readonly rule: CleanupRule | null;
+  readonly keys: readonly string[];
+  readonly requested_by: HumanActor;
+  readonly requested_at: number;
+  readonly state: CleanupState;
+  readonly finished_at: number | null;
+  readonly outcome: {
+    readonly removed: number;
+    readonly removed_bytes: number | null;
+    readonly absent: number;
+    readonly refused: readonly { readonly key: string; readonly reason: CleanupRefusal }[];
+    readonly pending: number;
+  } | null;
+}
+
+export interface FootprintAlert {
+  readonly alert_id: string;
+  readonly kind: FootprintKind;
+  readonly instance_name: string | null;
+  readonly item_key: string | null;
+  readonly threshold: FootprintThreshold;
+  readonly value: number;
+  readonly fired_at: number;
+  readonly resolved_at: number | null;
+  readonly acknowledged_by: HumanActor | null;
+  readonly acknowledged_at: number | null;
+  readonly acknowledged_until: number | null;
+  readonly state: FootprintAlertState;
+}
