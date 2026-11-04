@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setConnection } from "@/api/client";
+import * as footprintApi from "@/api/resources/footprint";
 import { SessionProvider } from "@/features/auth/session/session-context";
 import { AppShell } from "./app-shell";
 
@@ -15,6 +16,20 @@ vi.mock("@/api/resources/gateway", () => ({
 vi.mock("@/api/client", () => ({
   setConnection: vi.fn(),
 }));
+
+vi.mock("@/api/resources/footprint");
+
+function serveFootprint(unacknowledged: number) {
+  vi.mocked(footprintApi.readFootprintSummary).mockResolvedValue({
+    stats: [],
+    open_alerts: unacknowledged,
+    unacknowledged_alerts: unacknowledged,
+  });
+  vi.mocked(footprintApi.listFootprintAlertPage).mockResolvedValue({
+    items: [],
+    next_cursor: null,
+  });
+}
 
 const PROJECT = { id: "prj-1", name: "kanthord", binding_set_version: 1, created_at: 1 };
 
@@ -93,6 +108,7 @@ describe("AppShell", () => {
       return this.tagName === "HEADER" ? headerHeight.value : 0;
     });
     vi.clearAllMocks();
+    serveFootprint(0);
     window.sessionStorage.setItem("kanthord.session", JSON.stringify(STORED));
     projectState.value = {
       projects: [PROJECT],
@@ -225,6 +241,23 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: "LLM" })).toHaveAttribute("href", "/llm");
     expect(screen.getByRole("link", { name: "Git" })).toHaveAttribute("href", "/repositories");
     expect(screen.queryByRole("link", { name: "Repositories" })).toBeNull();
+  });
+
+  it("shows the unacknowledged footprint alert count on the Footprint item", async () => {
+    serveFootprint(2);
+    mount();
+
+    const item = screen.getByRole("link", { name: "Footprint" }).closest("li");
+    await vi.waitFor(() =>
+      expect(item).toHaveTextContent("Footprint2 unacknowledged footprint alerts"),
+    );
+  });
+
+  it("shows no badge while no footprint alert is unacknowledged", async () => {
+    mount();
+
+    await vi.waitFor(() => expect(footprintApi.readFootprintSummary).toHaveBeenCalled());
+    expect(screen.queryByText(/unacknowledged footprint alerts/)).toBeNull();
   });
 
   it("signs out from the sidebar footer", async () => {

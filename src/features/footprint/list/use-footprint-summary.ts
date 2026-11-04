@@ -11,17 +11,12 @@ import {
 import type { FootprintAlert, FootprintCleanupRecord, FootprintStat } from "@/api/types";
 import { type PolledResource, usePolledResource } from "@/hooks/use-polled-resource";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
-import { acknowledgementHolds } from "../alert-facts";
+import { useFootprintAlerts } from "@/hooks/use-footprint-alerts";
+import { FOOTPRINT_OPEN_ALERTS_LIMIT, FOOTPRINT_SUMMARY_POLL_MS } from "@/lib/footprint";
+import { acknowledgeFailureText, acknowledgementHolds } from "../alert-facts";
 import { sortedStats } from "../stat-facts";
 
-export const SUMMARY_POLL_MS = 60_000;
 export const RECENT_CLEANUPS = 20;
-const OPEN_ALERTS_LIMIT = 100;
-
-const ACKNOWLEDGE_MESSAGES: Readonly<Record<string, string>> = {
-  "footprint.alert.resolved": "The episode is resolved. The list now shows the open episodes.",
-  "footprint.alert.acknowledged": "The acknowledgement of this episode still holds.",
-};
 
 export interface FootprintSummaryState {
   readonly summary: PolledResource<{ readonly stats: readonly FootprintStat[] }>;
@@ -36,19 +31,23 @@ export interface FootprintSummaryState {
 }
 
 export function useFootprintSummary(): FootprintSummaryState {
-  const summary = usePolledResource(readFootprintSummary, [], { intervalMs: SUMMARY_POLL_MS });
+  const summary = usePolledResource(readFootprintSummary, [], {
+    intervalMs: FOOTPRINT_SUMMARY_POLL_MS,
+  });
   const cleanups = useResource(
     () => listFootprintCleanupPage(null, null, RECENT_CLEANUPS).then((page) => page.items),
     [],
   );
   const alerts = useResource(
-    () => listFootprintAlertPage(true, null, OPEN_ALERTS_LIMIT).then((page) => page.items),
+    () =>
+      listFootprintAlertPage(true, null, FOOTPRINT_OPEN_ALERTS_LIMIT).then((page) => page.items),
     [],
   );
   const [measuring, setMeasuring] = useState(false);
   const [acknowledging, setAcknowledging] = useState<string | null>(null);
   const refreshSummary = summary.refresh;
   const reloadAlerts = alerts.reload;
+  const refreshBadge = useFootprintAlerts().refresh;
 
   const measure = useCallback(() => {
     setMeasuring(true);
@@ -74,18 +73,18 @@ export function useFootprintSummary(): FootprintSummaryState {
           toast.success("Acknowledged the alert.");
           reloadAlerts();
           refreshSummary();
+          refreshBadge();
         },
         (cause: unknown) => {
           setAcknowledging(null);
-          const failure = asApiError(cause);
           toast.error("The acknowledgement failed.", {
-            description: ACKNOWLEDGE_MESSAGES[failure.detail] ?? failure.message,
+            description: acknowledgeFailureText(asApiError(cause)),
           });
           reloadAlerts();
         },
       );
     },
-    [reloadAlerts, refreshSummary],
+    [reloadAlerts, refreshSummary, refreshBadge],
   );
 
   const stats = summary.data?.stats ?? [];

@@ -30,6 +30,7 @@ import { BoardShortcutsDialog } from "./components/board-shortcuts-dialog";
 import { BoardSkeleton } from "./components/board-skeleton";
 import { BoardSummary } from "./components/board-summary";
 import { BoardTabs } from "./components/board-tabs";
+import { FootprintAlert } from "./components/footprint-alert";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
 import { useBoard } from "./use-board";
@@ -303,6 +304,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
               components={overview.unavailable}
               failure={overview.livenessFailure}
             />
+            <FootprintAlert />
             {readFault && <ReadFaultsAlert faults={overview.faults} onRetry={overview.refresh} />}
             {!expanded && filter}
             <BoardSummary

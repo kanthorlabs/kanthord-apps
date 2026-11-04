@@ -6,8 +6,9 @@ import logoReversed from "@/assets/logo/logo-reversed.svg";
 import logo from "@/assets/logo/logo.svg";
 import { useSession } from "@/features/auth/session/session-context";
 import { useProject } from "@/features/projects/project-context";
+import { FootprintAlertsProvider, useFootprintAlerts } from "@/hooks/use-footprint-alerts";
 import { AppBreadcrumb } from "./app-breadcrumb";
-import { NAV_GROUPS, NAV_ITEMS } from "./app-nav";
+import { NAV_GROUPS, NAV_ITEMS, type NavBadge } from "./app-nav";
 import { CrumbLabelsProvider } from "./crumb-labels";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
@@ -23,6 +24,7 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
@@ -39,6 +41,20 @@ function waitsForProject(pathname: string): boolean {
 
 function isActive(pathname: string, to: string): boolean {
   return to === "/" ? pathname === "/" : pathname.startsWith(to);
+}
+
+function NavItemBadge({ source }: { readonly source: NavBadge }) {
+  const counts: Readonly<Record<NavBadge, number>> = {
+    footprint_alerts: useFootprintAlerts().count,
+  };
+  const count = counts[source];
+  if (count === 0) return null;
+  return (
+    <SidebarMenuBadge>
+      {count}
+      <span className="sr-only"> unacknowledged footprint alerts</span>
+    </SidebarMenuBadge>
+  );
 }
 
 export function AppShell() {
@@ -62,97 +78,102 @@ export function AppShell() {
 
   return (
     <CrumbLabelsProvider>
-      <SidebarProvider>
-        <Sidebar collapsible="icon">
-          <SidebarHeader>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton size="lg" render={<NavLink to="/" />} tooltip="kanthord">
-                  <img src={logo} alt="" className="size-8 shrink-0 dark:hidden" />
-                  <img src={logoReversed} alt="" className="hidden size-8 shrink-0 dark:block" />
-                  <div className="grid text-left leading-tight">
-                    <span className="truncate text-sm font-semibold">kanthord</span>
-                    <span className="truncate text-xs text-muted-foreground">Control surface</span>
-                  </div>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarHeader>
-          <SidebarContent>
-            {NAV_GROUPS.map((group) => (
-              <SidebarGroup key={group}>
-                <SidebarGroupLabel>{group}</SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {NAV_ITEMS.filter((item) => item.group === group).map((item) => (
-                      <SidebarMenuItem key={item.to}>
-                        <SidebarMenuButton
-                          render={<NavLink to={item.to} end={item.to === "/"} />}
-                          tooltip={item.label}
-                          isActive={isActive(pathname, item.to)}
-                        >
-                          <item.icon />
-                          <span>{item.label}</span>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            ))}
-          </SidebarContent>
-          <SidebarFooter>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={signOut} tooltip="Sign out">
-                  <LogOut />
-                  <span>Sign out</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
-        <SidebarInset ref={insetRef}>
-          <header
-            ref={headerRef}
-            className="sticky top-0 z-10 flex min-h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4"
-          >
-            <SidebarTrigger />
-            <Separator orientation="vertical" className="mr-1" />
-            <AppBreadcrumb />
-            {session !== null && (
-              <div className="ml-auto grid max-w-[40%] min-w-0 shrink-0 text-right text-sm leading-tight">
-                <span className="truncate font-medium">{session.identity.name}</span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {session.instance.name}
-                </span>
-              </div>
-            )}
-          </header>
-          <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-4 lg:p-6">
-            {project !== null || !waitsForProject(pathname) ? (
-              <Outlet />
-            ) : loading ? null : error !== null ? (
-              <Alert variant="destructive">
-                <AlertTitle>The projects could not be read</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            ) : (
-              <Empty>
-                <EmptyHeader>
-                  <EmptyTitle>No projects</EmptyTitle>
-                  <EmptyDescription>This server holds no project.</EmptyDescription>
-                </EmptyHeader>
-                <EmptyContent>
-                  <Button nativeButton={false} render={<NavLink to="/projects/new" />} size="lg">
-                    New project
-                  </Button>
-                </EmptyContent>
-              </Empty>
-            )}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+      <FootprintAlertsProvider>
+        <SidebarProvider>
+          <Sidebar collapsible="icon">
+            <SidebarHeader>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton size="lg" render={<NavLink to="/" />} tooltip="kanthord">
+                    <img src={logo} alt="" className="size-8 shrink-0 dark:hidden" />
+                    <img src={logoReversed} alt="" className="hidden size-8 shrink-0 dark:block" />
+                    <div className="grid text-left leading-tight">
+                      <span className="truncate text-sm font-semibold">kanthord</span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        Control surface
+                      </span>
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarHeader>
+            <SidebarContent>
+              {NAV_GROUPS.map((group) => (
+                <SidebarGroup key={group}>
+                  <SidebarGroupLabel>{group}</SidebarGroupLabel>
+                  <SidebarGroupContent>
+                    <SidebarMenu>
+                      {NAV_ITEMS.filter((item) => item.group === group).map((item) => (
+                        <SidebarMenuItem key={item.to}>
+                          <SidebarMenuButton
+                            render={<NavLink to={item.to} end={item.to === "/"} />}
+                            tooltip={item.label}
+                            isActive={isActive(pathname, item.to)}
+                          >
+                            <item.icon />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                          {item.badge !== undefined && <NavItemBadge source={item.badge} />}
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </SidebarGroup>
+              ))}
+            </SidebarContent>
+            <SidebarFooter>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton onClick={signOut} tooltip="Sign out">
+                    <LogOut />
+                    <span>Sign out</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarFooter>
+          </Sidebar>
+          <SidebarInset ref={insetRef}>
+            <header
+              ref={headerRef}
+              className="sticky top-0 z-10 flex min-h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4"
+            >
+              <SidebarTrigger />
+              <Separator orientation="vertical" className="mr-1" />
+              <AppBreadcrumb />
+              {session !== null && (
+                <div className="ml-auto grid max-w-[40%] min-w-0 shrink-0 text-right text-sm leading-tight">
+                  <span className="truncate font-medium">{session.identity.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {session.instance.name}
+                  </span>
+                </div>
+              )}
+            </header>
+            <div className="flex min-w-0 flex-1 flex-col p-3 sm:p-4 lg:p-6">
+              {project !== null || !waitsForProject(pathname) ? (
+                <Outlet />
+              ) : loading ? null : error !== null ? (
+                <Alert variant="destructive">
+                  <AlertTitle>The projects could not be read</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              ) : (
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyTitle>No projects</EmptyTitle>
+                    <EmptyDescription>This server holds no project.</EmptyDescription>
+                  </EmptyHeader>
+                  <EmptyContent>
+                    <Button nativeButton={false} render={<NavLink to="/projects/new" />} size="lg">
+                      New project
+                    </Button>
+                  </EmptyContent>
+                </Empty>
+              )}
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </FootprintAlertsProvider>
     </CrumbLabelsProvider>
   );
 }
