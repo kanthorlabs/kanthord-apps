@@ -12,13 +12,13 @@ import { utcDateTime } from "@/lib/format";
 import type { GraphModel } from "@/lib/mission-graph";
 import type { SchedulerExecutionRecord } from "@/api/types";
 import { endLabel, lastEndOf } from "@/lib/execution-stop";
-import { useNodeAttempts } from "../use-node-attempts";
+import { FindingReportSheet } from "@/components/finding-report-sheet";
 import { type FindingReportState, useFindingReport } from "@/hooks/use-finding-report";
+import { useNodeAttempts } from "../use-node-attempts";
 import { useNodeExecutionHistory } from "../use-node-executions";
 import { AttemptRecords } from "./attempt-records";
 import { AttemptZeroFindings } from "./attempt-zero-findings";
 import { ActorLabel } from "./actor-label";
-import { FindingReportSheet } from "@/components/finding-report-sheet";
 
 interface NodeAttemptsTabProps {
   readonly projectId: string;

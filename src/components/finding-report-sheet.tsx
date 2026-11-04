@@ -12,6 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import type { FindingReportState } from "@/hooks/use-finding-report";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   FINDING_CAUSE_OWNERS,
@@ -21,7 +22,6 @@ import {
   taskChoiceText,
 } from "@/lib/finding-draft";
 import { assessmentChoiceText } from "@/lib/review-findings";
-import type { FindingReportState } from "@/hooks/use-finding-report";
 
 interface TextAreaFieldProps {
   readonly id: string;
