@@ -41,7 +41,7 @@ export function placementReasonText(
 ): string {
   if (reason === "runtime_rootful") return rootfulText(runtime);
   if (isStableReason(reason)) return STABLE_TEXTS[reason];
-  return `${failureCause(detail)}. Fix the container runtime of the server user, then open this sheet again.`;
+  return `${failureSentence(detail)} Fix the container runtime of the server user, then open this sheet again.`;
 }
 
 export function instancePlacementText(
@@ -51,15 +51,16 @@ export function instancePlacementText(
 ): string {
   if (reason === "runtime_rootful") return rootfulText(runtime);
   if (isStableReason(reason)) return INSTANCE_TEXTS[reason];
-  return `${failureCause(detail)}. The server retries the launch with a backoff.`;
+  return `${failureSentence(detail)} The server retries the launch with a backoff.`;
 }
 
 function rootfulText(runtime: string | null): string {
   return `${runtime ?? "The container runtime"} runs as root on this host. Use rootless Podman.`;
 }
 
-function failureCause(detail: string | null): string {
-  return (detail ?? "The container runtime does not answer").replace(/\.+$/, "");
+function failureSentence(detail: string | null): string {
+  const cause = (detail ?? "The container runtime does not answer").trimEnd();
+  return /[.!?]$/.test(cause) ? cause : `${cause}.`;
 }
 
 export function instancePlacementNoteOf(

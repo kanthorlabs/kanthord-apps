@@ -289,7 +289,8 @@ const placementStatusOf = (placement) => {
         : null,
     container_runtime:
       placement === "container" &&
-      !["server_in_container", "runtime_absent"].includes(containerReason)
+      !["server_in_container", "runtime_absent"].includes(containerReason) &&
+      !(containerReason === "runtime_failed" && containerRuntime === "podman")
         ? containerRuntime
         : null,
   };

@@ -87,6 +87,27 @@ describe("instancePlacementText", () => {
     );
   });
 
+  it("ends each engine detail with one sentence mark before the retry", () => {
+    const cases = [
+      [
+        "podman answers no host",
+        "podman answers no host. The server retries the launch with a backoff.",
+      ],
+      ["docker info exits 1", "docker info exits 1. The server retries the launch with a backoff."],
+      [
+        "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?",
+        "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running? The server retries the launch with a backoff.",
+      ],
+      [
+        "docker client 20.10.0 is below 23. Upgrade the Docker client to 23 or later.",
+        "docker client 20.10.0 is below 23. Upgrade the Docker client to 23 or later. The server retries the launch with a backoff.",
+      ],
+      ["Error: stopped ", "Error: stopped. The server retries the launch with a backoff."],
+    ] as const;
+    for (const [detail, text] of cases)
+      expect(instancePlacementText("runtime_failed", detail, null)).toBe(text);
+  });
+
   it("holds no sentence of the Add instance sheet", () => {
     const reasons = [
       "server_in_container",

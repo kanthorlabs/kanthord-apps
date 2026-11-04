@@ -24,6 +24,7 @@ import { utcDateTime } from "@/lib/format";
 import { nodePath } from "@/lib/node-path";
 import { instancePlacementNoteOf } from "@/lib/placement-status";
 import { workerPagePath } from "@/lib/worker-paths";
+import { usePlacementStatuses } from "../worker/use-placement-statuses";
 import { ArchiveInstanceDialog } from "./components/archive-instance-dialog";
 import { CopyModelsSheet } from "./components/copy-models-sheet";
 import { CredentialAddSheet } from "./components/credential-add-sheet";
@@ -47,7 +48,6 @@ import {
   type InstanceRegistrationRow,
   useInstancePage,
 } from "./use-instance-page";
-import { usePlacementStatuses } from "../worker/use-placement-statuses";
 import { useInstanceReset } from "./use-instance-reset";
 import { type InstanceSignInState, useInstanceSignIn } from "./use-instance-sign-in";
 
