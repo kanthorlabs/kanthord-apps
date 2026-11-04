@@ -591,6 +591,7 @@ export const GRAPH_IDS = {
   inviteFix: graphId("YD3"),
   changelog: graphId("YE1"),
   macBuild: graphId("YE2"),
+  signingKey: graphId("YE3"),
 };
 
 const ids = GRAPH_IDS;
@@ -700,6 +701,10 @@ export const GRAPH_NODES = [
     }),
     { state: "Available", attempt: 0 },
   ),
+  graphNode("YE3", "signing-key.md", content("Rotate the release signing key", [REPO]), {
+    state: "Completed",
+    attempt: 0,
+  }),
 ];
 
 const dependency = (dependentId, dependsOnId) => ({
@@ -1157,6 +1162,24 @@ export const GRAPH_ASSESSMENTS = [
     worker_version: "reviewer@1",
     round: 1,
   },
+  {
+    id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SK1",
+    node_id: ids.signingKey,
+    execution_id: null,
+    attempt: 0,
+    node_revision: 1,
+    evidence_ids: [],
+    dependency_outcome_ids: [],
+    result: "success",
+    rationale: "A human rotated the key by hand and closed the node.",
+    tested_input: null,
+    actor: human,
+    created_at: minutes(700),
+    currency: null,
+    dependency_node_ids: [],
+    worker_version: null,
+    round: null,
+  },
 ];
 
 const signupRound = (round) =>
@@ -1265,6 +1288,18 @@ export const GRAPH_FINDINGS = [
     created_by: human,
     created_at: minutes(300),
   }),
+  reviewerFinding("10", 1, "H1", {
+    node_id: ids.signingKey,
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SK1",
+    route: "report",
+    name: "Old key still trusted",
+    description: "The update check still accepts a release that the old key signs.",
+    fix: "Remove the old public key from the trusted key list.",
+    why: "A holder of the old key can still ship a release.",
+    cause_owner: "human",
+    created_by: human,
+    created_at: minutes(650),
+  }),
 ];
 
 export const GRAPH_OUTCOMES = [
@@ -1311,6 +1346,17 @@ export const GRAPH_OUTCOMES = [
     assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SI1",
     evidence_ids: [],
     created_at: minutes(1690),
+  },
+  {
+    id: "outcome_01J9ZQ4XKM3B6V8N2R5T7W0OK1",
+    node_id: ids.signingKey,
+    attempt: 0,
+    node_revision: 1,
+    closing_event: "success-override",
+    result: "success",
+    assessment_id: "assessment_01J9ZQ4XKM3B6V8N2R5T7W0SK1",
+    evidence_ids: [],
+    created_at: minutes(700),
   },
 ];
 

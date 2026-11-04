@@ -15,6 +15,7 @@ import type {
   Intent,
   MissionAttempt,
   MissionControlResult,
+  MissionFinding,
   MissionNodeRecord,
   MissionRevision,
   ProjectBindingRecord,
@@ -184,6 +185,34 @@ const REVISION_2: MissionRevision = {
   content: AUDIT.content,
   change: { write: "node.update", previous_revision: 1, changed_fields: ["criterion", "bindings"] },
   pinned_by_attempts: [],
+};
+
+const ATTEMPT_ZERO_FINDING: MissionFinding = {
+  id: "finding_zero",
+  node_id: "node_audit",
+  attempt: 0,
+  round: null,
+  assessment_id: "assessment_override",
+  source: "human",
+  label: "H1",
+  kind: "blocker",
+  action: "yes",
+  task_id: "task_entry",
+  ground: "stated",
+  name: "Override missed the actor",
+  description: "The audit entry of the override holds no actor.",
+  fix: "Write the actor.",
+  why: "The audit needs the actor.",
+  route: "report",
+  status: "open",
+  fixed_assessment_id: null,
+  cause_owner: "agent",
+  created_by: { kind: "human", account: "ulrich", name: "Ulrich" },
+  created_at: 0,
+  decision: null,
+  decision_reason: null,
+  decided_by: null,
+  decided_at: null,
 };
 
 function binding(id: string, revision: number): ProjectBindingRecord {
@@ -476,6 +505,45 @@ describe("NodeSheet", () => {
     const findings = screen.getByRole("region", { name: "Findings" });
     expect(within(findings).getByText("No review finding names this attempt.")).toBeTruthy();
     expect(missionApi.listNodeFindings).toHaveBeenCalledWith("node_audit", 1);
+  });
+
+  it("shows the findings of attempt 0 on a node with no attempt", async () => {
+    vi.mocked(missionApi.listNodeAttempts).mockResolvedValue([]);
+    vi.mocked(missionApi.listNodeFindings).mockImplementation(async (_nodeId, attempt) =>
+      attempt === 0 ? [ATTEMPT_ZERO_FINDING] : [],
+    );
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+
+    const zero = await screen.findByRole("region", { name: "Attempt 0" });
+    expect(screen.getByText("No attempt of this node opened.")).toBeTruthy();
+    expect(within(zero).getByText("Override missed the actor")).toBeTruthy();
+    expect(within(zero).getByText("Task: Write the audit entry")).toBeTruthy();
+    expect(missionApi.listNodeFindings).toHaveBeenCalledWith("node_audit", 0);
+  });
+
+  it("shows the findings of attempt 0 beside the attempts of the node", async () => {
+    vi.mocked(missionApi.listNodeFindings).mockImplementation(async (_nodeId, attempt) =>
+      attempt === 0 ? [ATTEMPT_ZERO_FINDING] : [],
+    );
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+
+    const zero = await screen.findByRole("region", { name: "Attempt 0" });
+    expect(within(zero).getByText("Override missed the actor")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Records of attempt 1" })).toBeTruthy();
+  });
+
+  it("shows no attempt 0 records when no finding names attempt 0", async () => {
+    renderSheet("node_audit");
+
+    await userEvent.click(await screen.findByRole("tab", { name: "Attempts" }));
+
+    await screen.findByRole("button", { name: "Records of attempt 1" });
+    await waitFor(() => expect(missionApi.listNodeFindings).toHaveBeenCalledWith("node_audit", 0));
+    expect(screen.queryByRole("region", { name: "Attempt 0" })).toBeNull();
   });
 
   it("offers Report a defect on the attempts of a node with an assessment", async () => {
