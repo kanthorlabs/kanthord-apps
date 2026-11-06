@@ -1556,7 +1556,26 @@ const executionRecord = (projectId, spec, index) => ({
   root_span_id: `${spec.traceSeed}${"0".repeat(16 - spec.traceSeed.length)}`,
 });
 
+export const GRAPH_FOLLOWUPS = [
+  {
+    id: "followup_01J9ZQ4XKM3B6V8N2R5T7W0FU1",
+    node_id: ids.signup,
+    attempt: 1,
+    assessment_id: null,
+    content: {
+      name: "Reply to the reporter on the issue",
+      requirement: "Tell the reporter of the issue that the sign-up form is fixed.",
+      criterion: "The issue holds one reply that links the fix.",
+    },
+    created_node_id: null,
+    approved_at: null,
+    rejected_at: null,
+    created_at: minutes(25),
+  },
+];
+
 export const GRAPH_EXECUTIONS = [
+  ["ES1", ids.signup, "finished", 700, 650, GRAPH_BINDINGS.worker],
   ["EB2", ids.codes, "running", 30, null, GRAPH_BINDINGS.worker],
   ["EB3", ids.audit, "finished", 400, 210, GRAPH_BINDINGS.worker],
   [

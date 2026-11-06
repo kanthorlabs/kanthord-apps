@@ -918,6 +918,34 @@ export interface MissionProposal {
   readonly created_at: number;
 }
 
+export interface MissionFollowupContent {
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+}
+
+export interface MissionFollowupProposal {
+  readonly id: string;
+  readonly node_id: string;
+  readonly attempt: number;
+  readonly assessment_id: null;
+  readonly content: MissionFollowupContent;
+  readonly created_node_id: string | null;
+  readonly approved_at: number | null;
+  readonly rejected_at: number | null;
+  readonly created_at: number;
+}
+
+export interface MissionFollowupDecideBody {
+  readonly expected_mission_version: number;
+  readonly approve: boolean;
+  readonly requirement?: string;
+  readonly criterion?: string;
+  readonly reason?: string;
+}
+
+export type MissionFollowupDecideResult = Readonly<Record<string, unknown>>;
+
 export interface MissionProposalDecideBody {
   readonly expected_mission_version: number;
   readonly approved_proposal_ids: readonly string[];

@@ -15,6 +15,7 @@ import type {
   BlockedDetail,
   DependencyItem,
   FindingReviewItem,
+  FollowupItem,
 } from "@/lib/attention";
 import { changeAskedOf } from "@/lib/board-change";
 import type { HeldNode } from "@/lib/board-detail-joins";
@@ -85,6 +86,13 @@ function WhatText({ item, now }: { readonly item: AttentionItem; readonly now: n
       return <CauseText item={item} />;
     case "finding_review":
       return <>{findingWhatTextOf(item.findings)}</>;
+    case "followup_proposal":
+      return (
+        <>
+          <RecordName>{item.subject}</RecordName> is {item.node.state}. A follow-up proposal waits
+          for your decision.
+        </>
+      );
     case "merge_wait":
     case "delivery_unconfirmed":
       return <>{causeSentenceOf(item, now)}</>;
@@ -244,6 +252,22 @@ function FindingSection({
           </ItemGroup>
         </div>
       ))}
+    </Section>
+  );
+}
+
+function FollowupSection({ item }: { readonly item: FollowupItem }) {
+  return (
+    <Section title="Follow-up proposal">
+      <ul aria-label="Open follow-up proposals" className="flex flex-col gap-2">
+        {item.proposals.map((proposal) => (
+          <li key={proposal.id} className={`flex flex-col gap-0.5 text-sm ${TEXT_WIDTH}`}>
+            <span className="font-medium">{proposal.content.name}</span>
+            <span>Requirement: {proposal.content.requirement}</span>
+            <span>Criterion: {proposal.content.criterion}</span>
+          </li>
+        ))}
+      </ul>
     </Section>
   );
 }
@@ -429,6 +453,7 @@ export function BoardSections({
       {item.kind === "finding_review" && findings !== null && (
         <FindingSection item={item} acts={findings} />
       )}
+      {item.kind === "followup_proposal" && <FollowupSection item={item} />}
       <Section title="Impact">
         {spread !== null && <p className={`text-sm ${TEXT_WIDTH}`}>{spread}</p>}
         <p className={`text-sm ${TEXT_WIDTH}`}>{impactHeldTextOf(held.length)}</p>

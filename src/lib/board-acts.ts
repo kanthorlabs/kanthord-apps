@@ -509,6 +509,30 @@ export function fixTargetActsOf(item: FixAttentionItem): readonly BoardAct[] {
   return [{ type: "link", id: "fix_target", label: target.label, to: target.path }];
 }
 
+export interface FollowupActControls {
+  readonly decide: ActControl;
+  readonly lastTraceId: string | null;
+}
+
+export function followupActsOf(controls: FollowupActControls): readonly BoardAct[] {
+  const trace: LinkAct | null =
+    controls.lastTraceId === null
+      ? null
+      : {
+          type: "link",
+          id: "last_trace",
+          label: "Last trace",
+          to: `/traces/${encodeURIComponent(controls.lastTraceId)}`,
+        };
+  return present([
+    actOf(
+      slotOf("decide", "Decide", "outline", controls.decide.available, controls.decide.request),
+      null,
+    ),
+    trace,
+  ]);
+}
+
 export function findingReviewActsOf(item: FindingReviewItem): readonly BoardAct[] {
   return [
     {

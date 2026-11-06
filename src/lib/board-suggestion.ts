@@ -89,6 +89,10 @@ export function suggestionOf(
       return clientRule(
         "Accept a finding that names a defect that you fix outside KanthorD. Dismiss a finding that names no defect. Neither decision changes the node.",
       );
+    case "followup_proposal":
+      return clientRule(
+        "Create a follow-up node when the link updates ask for more work. Reject the proposal when they ask for none. The finished node keeps its state.",
+      );
     case "merge_wait":
     case "delivery_unconfirmed":
       return clientRule("Merge the pull request on the platform, then Check now.");

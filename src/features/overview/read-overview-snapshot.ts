@@ -1,4 +1,9 @@
-import { listMissionNodes, listUndecidedFindings, readMission } from "@/api/resources/mission";
+import {
+  listMissionNodes,
+  listProjectFollowups,
+  listUndecidedFindings,
+  readMission,
+} from "@/api/resources/mission";
 import { listProjectEnvironments, listProjects } from "@/api/resources/projects";
 import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
 import { listWorkbenchSessions } from "@/api/resources/workbench";
@@ -7,6 +12,7 @@ import type {
   EnvironmentState,
   Mission,
   MissionFinding,
+  MissionFollowupProposal,
   MissionNodeRecord,
   Project,
   SchedulerExecutionRecord,
@@ -27,6 +33,7 @@ export interface ProjectRead {
   readonly executions: readonly SchedulerExecutionRecord[] | null;
   readonly environments: readonly EnvironmentState[] | null;
   readonly findings: readonly MissionFinding[] | null;
+  readonly followups?: readonly MissionFollowupProposal[] | null;
 }
 
 export interface ReadFault {
@@ -92,6 +99,20 @@ async function readFindings(
   );
 }
 
+async function readFollowups(
+  project: Project,
+  mission: Mission | null,
+  previous: ProjectRead | null,
+): Promise<Settled<readonly MissionFollowupProposal[]>> {
+  if (mission === null) return { data: previous?.followups ?? null, fault: null };
+  return settle(
+    project,
+    "follow-up proposals",
+    () => listProjectFollowups(project.id),
+    previous?.followups ?? null,
+  );
+}
+
 async function readProject(
   project: Project,
   previous: ProjectRead | null,
@@ -102,29 +123,31 @@ async function readProject(
     () => readMission(project.id),
     previous?.mission ?? null,
   );
-  const [nodes, findings, jobs, registrations, executions, environments] = await Promise.all([
-    readNodes(project, mission.data, previous),
-    readFindings(project, mission.data, previous),
-    settle(project, "queue", () => listQueueJobs(project.id), previous?.jobs ?? null),
-    settle(
-      project,
-      "worker registrations",
-      () => listWorkerRegistrations(project.id),
-      previous?.registrations ?? null,
-    ),
-    settle(
-      project,
-      "executions",
-      async () => (await listProjectExecutionPage(project.id, null, EXECUTION_PAGE_LIMIT)).items,
-      previous?.executions ?? null,
-    ),
-    settle(
-      project,
-      "environment list",
-      () => listProjectEnvironments(project.id),
-      previous?.environments ?? null,
-    ),
-  ]);
+  const [nodes, findings, followups, jobs, registrations, executions, environments] =
+    await Promise.all([
+      readNodes(project, mission.data, previous),
+      readFindings(project, mission.data, previous),
+      readFollowups(project, mission.data, previous),
+      settle(project, "queue", () => listQueueJobs(project.id), previous?.jobs ?? null),
+      settle(
+        project,
+        "worker registrations",
+        () => listWorkerRegistrations(project.id),
+        previous?.registrations ?? null,
+      ),
+      settle(
+        project,
+        "executions",
+        async () => (await listProjectExecutionPage(project.id, null, EXECUTION_PAGE_LIMIT)).items,
+        previous?.executions ?? null,
+      ),
+      settle(
+        project,
+        "environment list",
+        () => listProjectEnvironments(project.id),
+        previous?.environments ?? null,
+      ),
+    ]);
   return {
     read: {
       project,
@@ -135,11 +158,13 @@ async function readProject(
       executions: executions.data,
       environments: environments.data,
       findings: findings.data,
+      followups: followups.data,
     },
     faults: [
       mission.fault,
       nodes.fault,
       findings.fault,
+      followups.fault,
       jobs.fault,
       registrations.fault,
       executions.fault,

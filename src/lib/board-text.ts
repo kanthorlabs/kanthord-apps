@@ -73,6 +73,8 @@ export function cardCauseOf(item: AttentionItem): string {
       return withFact(item.cause, item.discarded[0]?.name);
     case "finding_review":
       return withFact(item.cause, findingFactOf(item));
+    case "followup_proposal":
+      return withFact(item.cause, counted(item.proposals.length, "proposal", "proposals"));
     case "merge_wait":
     case "delivery_unconfirmed": {
       const number = pullRequestNumberOf(item);
@@ -170,6 +172,7 @@ export function leadLabelOf(item: AttentionItem, details: AttentionDetails): str
     case "dependency_discarded":
       return "Remove dependency";
     case "finding_review":
+    case "followup_proposal":
       return "Decide";
     case "merge_wait":
     case "delivery_unconfirmed":

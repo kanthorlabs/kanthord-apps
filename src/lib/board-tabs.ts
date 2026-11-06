@@ -113,6 +113,7 @@ export function boardTabOf(item: AttentionItem, details: AttentionDetails): Boar
     case "dependency_discarded":
       return BOARD_TAB.Rule;
     case "finding_review":
+    case "followup_proposal":
       return BOARD_TAB.Proposal;
     case "merge_wait":
     case "delivery_unconfirmed":

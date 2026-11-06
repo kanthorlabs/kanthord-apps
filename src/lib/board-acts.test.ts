@@ -18,6 +18,7 @@ import {
   environmentFailedActsOf,
   findingReviewActsOf,
   fixTargetActsOf,
+  followupActsOf,
   moreCountOf,
   moreNeedsOf,
   needIdOf,
@@ -464,5 +465,27 @@ describe("phone more sheet", () => {
     const acts = [button("discard")];
     expect(shortcutKeysOf(acts, true).get("discard")).toBe("x");
     expect(shortcutKeysOf(acts, false).size).toBe(0);
+  });
+});
+
+describe("followupActsOf", () => {
+  it("offers Decide and Last trace", () => {
+    const request = vi.fn();
+    const acts = followupActsOf({ decide: { available: true, request }, lastTraceId: "trace 1" });
+
+    expect(idsOf(acts)).toEqual(["decide", "last_trace"]);
+    expect(acts[0]).toMatchObject({ type: "button", label: "Decide" });
+    expect(acts[1]).toMatchObject({ type: "link", label: "Last trace", to: "/traces/trace%201" });
+    if (acts[0]?.type === "button") acts[0].press();
+    expect(request).toHaveBeenCalledOnce();
+  });
+
+  it("omits Last trace when the node has no trace", () => {
+    const acts = followupActsOf({
+      decide: { available: true, request: vi.fn() },
+      lastTraceId: null,
+    });
+
+    expect(idsOf(acts)).toEqual(["decide"]);
   });
 });

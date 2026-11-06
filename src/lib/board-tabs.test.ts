@@ -5,6 +5,7 @@ import type {
   MissionEvidence,
   MissionExternalAction,
   MissionFinding,
+  MissionFollowupProposal,
   MissionNodeRecord,
   MissionProposal,
   NodeState,
@@ -414,5 +415,71 @@ describe("boardTabNamed", () => {
 
   it("throws for an id that no tab holds", () => {
     expect(() => boardTabNamed("nothing" as never)).toThrow("No board tab nothing.");
+  });
+});
+
+function followup(nodeId: string, overrides: Partial<MissionFollowupProposal> = {}) {
+  const proposal: MissionFollowupProposal = {
+    id: `followup_${nodeId}`,
+    node_id: nodeId,
+    attempt: 1,
+    assessment_id: null,
+    content: { name: "Reply on the issue", requirement: "r", criterion: "c" },
+    created_node_id: null,
+    approved_at: null,
+    rejected_at: null,
+    created_at: 1,
+    ...overrides,
+  };
+  return proposal;
+}
+
+function withFollowups(
+  nodes: readonly MissionNodeRecord[],
+  followups: readonly MissionFollowupProposal[] | null,
+): ProjectSnapshot {
+  return { ...snapshot(nodes), followups };
+}
+
+describe("boardTabOf of a follow-up proposal", () => {
+  it.each<NodeState>(["Completed", "Discarded"])(
+    "answers proposal for a %s node with an open follow-up proposal",
+    (state) => {
+      const items = derive([withFollowups([node("a", state)], [followup("a")])]);
+
+      expect(items).toHaveLength(1);
+      expect(onlyItem(items).kind).toBe("followup_proposal");
+      expect(boardTabOf(onlyItem(items), new Map())).toBe(BOARD_TAB.Proposal);
+    },
+  );
+
+  it("makes one item of a node with several open follow-up proposals", () => {
+    const items = derive([
+      withFollowups(
+        [node("a", "Completed")],
+        [followup("a"), followup("a", { id: "followup_a_2" })],
+      ),
+    ]);
+
+    expect(items).toHaveLength(1);
+  });
+
+  it("answers no tab once the decision leaves no open follow-up proposal", () => {
+    const nodes = [node("a", "Completed")];
+
+    expect(derive([withFollowups(nodes, [followup("a", { approved_at: 9 })])])).toEqual([]);
+    expect(derive([withFollowups(nodes, [followup("a", { rejected_at: 9 })])])).toEqual([]);
+    expect(derive([withFollowups(nodes, [])])).toEqual([]);
+  });
+
+  it("answers no tab for a node that is not terminal or is retired", () => {
+    expect(derive([withFollowups([node("a", "Pending")], [followup("a")])])).toEqual([]);
+    expect(
+      derive([withFollowups([node("a", "Completed", { retired_at: 5 })], [followup("a")])]),
+    ).toEqual([]);
+  });
+
+  it("answers no tab when the follow-up read is absent", () => {
+    expect(derive([withFollowups([node("a", "Completed")], null)])).toEqual([]);
   });
 });
