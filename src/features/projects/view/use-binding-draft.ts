@@ -33,16 +33,20 @@ export interface BindingDraftState {
   readonly missingHint: string | null;
 }
 
+function initialDraftOf(target: BindingTarget): BindingDraft {
+  if (target.name !== null && target.entry !== null) return draftOf(target.name, target.entry);
+  if (target.kind === "conversation") {
+    throw new Error("A conversation binding is not created on the dashboard.");
+  }
+  return emptyDraft(target.kind);
+}
+
 export function useBindingDraft(
   target: BindingTarget,
   takenNames: readonly string[],
 ): BindingDraftState {
   const creating = target.name === null || target.entry === null;
-  const [draft, setDraft] = useState<BindingDraft>(() =>
-    target.name === null || target.entry === null
-      ? emptyDraft(target.kind)
-      : draftOf(target.name, target.entry),
-  );
+  const [draft, setDraft] = useState<BindingDraft>(() => initialDraftOf(target));
   const [errors, setErrors] = useState<DraftErrors>({});
 
   const edit = useCallback((next: BindingDraft) => {

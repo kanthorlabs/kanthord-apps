@@ -420,6 +420,36 @@ describe("BindingsPanel", () => {
     expect(screen.getByText("No storage binding.")).toBeTruthy();
   });
 
+  it("lists a conversation binding and keeps its config in the written set", async () => {
+    const conversation: BindingSetEntry = {
+      kind: "conversation",
+      config: {
+        available: true,
+        platform: "github",
+        repository: "kanthorlabs/kanthord",
+        credential: "github-main",
+        link_trust: { actor_ids: ["octocat"] },
+      },
+    };
+    vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
+      version: 2,
+      bindings: { ...SET.bindings, issues: conversation },
+    });
+    mount();
+
+    const conversations = await screen.findByRole("list", { name: "Conversations" });
+    expect(within(conversations).getByText("issues")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add conversations binding" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Edit issues" }));
+    expect(await screen.findByText("octocat")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(projectsApi.writeBindingSet).toHaveBeenCalledWith("project_1", 2, {
+      ...SET.bindings,
+      issues: conversation,
+    });
+  });
+
   it("writes a revision as the whole set at the read version without a guard", async () => {
     mount();
 

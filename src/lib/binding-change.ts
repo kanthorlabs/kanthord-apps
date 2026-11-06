@@ -17,6 +17,7 @@ export function resourceIdentityOf(name: string, entry: BindingSetEntry): string
     const match = REPOSITORY_ADDRESS.exec(entry.config.address);
     return match === null ? null : `repository:github:${match[2]}/${match[3]}`;
   }
+  if (entry.kind === "conversation") return null;
   try {
     return `storage:s3:${new URL(entry.config.endpoint).host}/${entry.config.bucket}`;
   } catch {
@@ -78,6 +79,9 @@ export function instanceChangeSummaryOf(
 export function unavailableOf(entry: BindingSetEntry): BindingSetEntry {
   if (entry.kind === "worker") return { ...entry, config: unavailableWorkerOf(entry.config) };
   if (entry.kind === "repository") {
+    return { ...entry, config: { ...entry.config, available: false } };
+  }
+  if (entry.kind === "storage") {
     return { ...entry, config: { ...entry.config, available: false } };
   }
   return { ...entry, config: { ...entry.config, available: false } };

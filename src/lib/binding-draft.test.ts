@@ -755,3 +755,35 @@ describe("environment keys", () => {
     expect("environment" in result.entry.config).toBe(false);
   });
 });
+
+describe("bindings that keep every key", () => {
+  const CONVERSATION: BindingSetEntry = {
+    kind: "conversation",
+    config: {
+      available: true,
+      platform: "github",
+      repository: "kanthorlabs/kanthord",
+      credential: "github-main",
+      reply_policy: { follows: { type: "assessment_passed" } },
+      link_trust: { actor_ids: ["octocat"] },
+    },
+  };
+
+  it("drafts a conversation entry with no throw and writes it back unchanged", () => {
+    const draft = draftOf("issues", CONVERSATION);
+
+    expect(draft.kind).toBe("conversation");
+    expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry: CONVERSATION });
+    expect(missingForSave(draft)).toEqual([]);
+  });
+
+  it("keeps link_trust of a repository entry in the write", () => {
+    if (REPO.kind !== "repository") throw new Error("fixture");
+    const entry: BindingSetEntry = {
+      kind: "repository",
+      config: { ...REPO.config, link_trust: { actor_ids: ["octocat", "hubot"] } },
+    };
+
+    expect(entryOfDraft(draftOf("repo", entry), [])).toEqual({ ok: true, entry });
+  });
+});

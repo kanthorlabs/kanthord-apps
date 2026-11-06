@@ -409,7 +409,7 @@ export interface MissionImportResult {
   readonly assigned_ids: readonly { readonly filename: string; readonly node_id: string }[];
 }
 
-export type BindingSetKind = "repository" | "worker" | "storage";
+export type BindingSetKind = "repository" | "worker" | "storage" | "conversation";
 
 export type RepositoryActionName = "pull_request" | "merge_push";
 
@@ -503,6 +503,24 @@ export interface SuitePassPlan {
   readonly reason: string;
 }
 
+export interface LinkTrust {
+  readonly actor_ids: readonly string[];
+}
+
+export type ConversationPlatform = "github" | "jira" | "slack";
+
+export interface ConversationBindingConfig {
+  readonly available: boolean;
+  readonly platform: ConversationPlatform;
+  readonly repository?: string;
+  readonly site?: string;
+  readonly project_key?: string;
+  readonly team_id?: string;
+  readonly credential: string;
+  readonly reply_policy?: { readonly follows: { readonly type: "assessment_passed" } };
+  readonly link_trust?: LinkTrust;
+}
+
 export interface RepositoryBindingConfig {
   readonly available: boolean;
   readonly platform: RepositoryPlatform;
@@ -520,6 +538,7 @@ export interface RepositoryBindingConfig {
   readonly prompts?: BindingPrompts;
   readonly environment?: EnvironmentDocument;
   readonly environment_secrets?: Readonly<Record<string, string>>;
+  readonly link_trust?: LinkTrust;
 }
 
 export interface WorkerAgentEntry {
@@ -573,7 +592,8 @@ export interface StorageBindingConfig {
 export type BindingSetEntry =
   | { readonly kind: "repository"; readonly config: RepositoryBindingConfig }
   | { readonly kind: "worker"; readonly config: WorkerBindingConfig }
-  | { readonly kind: "storage"; readonly config: StorageBindingConfig };
+  | { readonly kind: "storage"; readonly config: StorageBindingConfig }
+  | { readonly kind: "conversation"; readonly config: ConversationBindingConfig };
 
 export interface BindingSet {
   readonly version: number;

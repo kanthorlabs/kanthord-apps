@@ -32,14 +32,21 @@ import { useWorkerInstanceForm } from "../use-worker-instance-form";
 import { useWorkerNames } from "../use-worker-names";
 import { BindingPromptsFieldset } from "./binding-prompts-fieldset";
 import { DraftField } from "./draft-field";
+import { ConversationForm } from "./conversation-form";
 import { EnvironmentSection } from "./environment-section";
 import { HostKeyPin } from "./host-key-pin";
 import { InstanceAddSheet } from "./instance-add-sheet";
+import { LinkTrustFacts } from "./link-trust-facts";
 import { RepositoryForm } from "./repository-form";
 import { StorageForm } from "./storage-form";
 import { WorkerForm } from "./worker-form";
 
-const KIND_LABELS = { repository: "repository", worker: "worker", storage: "storage" } as const;
+const KIND_LABELS = {
+  repository: "repository",
+  worker: "worker",
+  storage: "storage",
+  conversation: "conversation",
+} as const;
 
 interface BindingSheetProps {
   readonly projectId: string;
@@ -220,6 +227,9 @@ export function BindingSheet({
                     rotateApiCredentialAvailable={bindingCredential.rotate.available}
                   />
                 )}
+                {draft.kind === "repository" && draft.kept.link_trust !== undefined && (
+                  <LinkTrustFacts linkTrust={draft.kept.link_trust} />
+                )}
                 {draft.kind === "repository" && !form.creating && bindingId !== null && (
                   <EnvironmentSection
                     projectId={projectId}
@@ -254,6 +264,9 @@ export function BindingSheet({
                     onEdit={workerInstances.edit}
                     onEnableAgent={setEnablingAgent}
                   />
+                )}
+                {draft.kind === "conversation" && draft.entry.kind === "conversation" && (
+                  <ConversationForm config={draft.entry.config} />
                 )}
                 {draft.kind === "storage" && (
                   <StorageForm draft={draft} errors={errors} onEdit={form.edit} />
