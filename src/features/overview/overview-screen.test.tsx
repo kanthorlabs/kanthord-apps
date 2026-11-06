@@ -54,6 +54,7 @@ vi.mock("@/api/resources/mission", () => ({
   decideProposals: vi.fn(),
   decideFollowup: vi.fn(),
   listProjectFollowups: vi.fn(),
+  listInboxItems: vi.fn(),
   listNodeLinkUpdates: vi.fn(),
   overrideNode: vi.fn(),
   resumeNode: vi.fn(),
@@ -90,6 +91,7 @@ import {
   decideFollowup,
   decideProposals,
   discardNode,
+  listInboxItems,
   listMissionNodes,
   listNodeAssessments,
   listNodeEvidence,
@@ -139,6 +141,7 @@ import type {
   BindingAgentView,
   Credential,
   EnvironmentState,
+  InboxItem,
   Intent,
   LivenessReport,
   MissionAssessment,
@@ -528,6 +531,9 @@ interface World {
   readonly environments?: Readonly<Record<string, readonly EnvironmentState[]>>;
   readonly findings?: Readonly<Record<string, readonly MissionFinding[]>>;
   readonly followups?: Readonly<Record<string, readonly MissionFollowupProposal[]>>;
+  readonly inbox?: readonly InboxItem[];
+  readonly inboxPage?: number;
+  readonly inboxSnoozed?: number;
 }
 
 const HEALTHY: LivenessReport = {
@@ -567,6 +573,19 @@ function serve(world: World) {
   vi.mocked(listProjectFollowups).mockImplementation(
     async (projectId) => world.followups?.[projectId] ?? [],
   );
+  vi.mocked(listInboxItems).mockImplementation(async (query) => {
+    const matching = (world.inbox ?? []).filter(
+      (item) => query.projectId === null || item.project_id === query.projectId,
+    );
+    const size = Math.min(world.inboxPage ?? query.limit, query.limit);
+    const from = query.cursor === null ? 0 : Number(query.cursor);
+    const items = matching.slice(from, from + size);
+    return {
+      items,
+      next_cursor: from + size < matching.length ? String(from + size) : null,
+      counts: { open: matching.length, snoozed: world.inboxSnoozed ?? 0 },
+    };
+  });
   vi.mocked(listNodeLinkUpdates).mockResolvedValue([]);
   vi.mocked(listNodeRevisions).mockResolvedValue([]);
   vi.mocked(listNodeAssessments).mockImplementation(async (nodeId) => [
@@ -810,12 +829,12 @@ describe("OverviewScreen board", () => {
     },
   });
 
-  it("shows the header row, the filter, the summary, six tabs and the Start here card", async () => {
+  it("shows the header row, the filter, the summary, seven tabs and the Start here card", async () => {
     serve(world());
 
     renderScreen();
 
-    expect(await screen.findAllByRole("tab")).toHaveLength(6);
+    expect(await screen.findAllByRole("tab")).toHaveLength(7);
     expect(screen.getByRole("heading", { level: 2, name: "Overview" })).toBeInTheDocument();
     const filter = screen.getByRole("group", { name: "Show the acts of" });
     expect(
@@ -4530,5 +4549,213 @@ describe("OverviewScreen history and phone", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(trigger).toHaveFocus();
     expect(pathOf()).toBe("/");
+  });
+});
+
+describe("OverviewScreen inbox tab", () => {
+  function thread(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
+    return {
+      link_update_id: id,
+      project_id: "prj-1",
+      external_link: {
+        kind: "github_issue",
+        resource_identity: "conversation:github:acme/shop",
+        number: 42,
+      },
+      reason: "linked",
+      state: "open",
+      occurred_at: NOW - 2 * HOUR,
+      done_at: null,
+      snoozed_until: null,
+      inbound_event_id: `event_${id}`,
+      actor_id: "actor_1",
+      trusted: true,
+      linked_node_ids: [],
+      content: {
+        author: "ulrich",
+        body: `Body of ${id}`,
+        url: "https://github.com/acme/shop/issues/42",
+        occurred_at: NOW - 2 * HOUR,
+      },
+      ...overrides,
+    };
+  }
+
+  const THREADS: readonly InboxItem[] = [
+    thread("link_update_a", { reason: "participating" }),
+    thread("link_update_b", {
+      reason: "linked",
+      external_link: { kind: "jira_issue", resource_identity: "conversation:jira:x", key: "KD-7" },
+    }),
+    thread("link_update_c", {
+      reason: "mentioned",
+      external_link: {
+        kind: "slack_thread",
+        resource_identity: "conversation:slack:x",
+        channel: "dev",
+        thread_ts: "1.2",
+      },
+      trusted: false,
+    }),
+    thread("link_update_d", { reason: "linked", occurred_at: NOW - 5 * HOUR }),
+  ];
+
+  async function openInbox(world: Parameters<typeof serve>[0]) {
+    serve(world);
+    renderScreen();
+    await screen.findAllByRole("tab");
+    await waitFor(() => within(listOf()).getAllByRole("heading", { level: 4 }));
+  }
+
+  it("shows the count, the group headers and the cards of the open threads", async () => {
+    await openInbox({ inbox: THREADS, inboxSnoozed: 2 });
+
+    expect(screen.getByRole("tab", { name: "Inbox, 4 acts" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      within(listOf())
+        .getAllByRole("heading", { level: 4 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["Linked to your nodes · 2", "Mentions you · 1", "Replies in your threads · 1"]);
+    expect(
+      within(listOf())
+        .getAllByRole("listitem")
+        .map((card) => within(card).getAllByRole("button")[0]?.textContent),
+    ).toEqual(["acme/shop#42", "KD-7", "#dev", "acme/shop#42"]);
+    expect(
+      within(cardOf("KD-7")).getByText("Linked to your nodes · ulrich: Body of link_update_b"),
+    ).toBeVisible();
+    expect(within(cardOf("KD-7")).getByText("Mark done")).toBeVisible();
+    expect(within(cardOf("KD-7")).getByText("kanthord")).toBeVisible();
+    expect(screen.getByText("Reply, act or mark done. 2 snoozed.")).toBeVisible();
+  });
+
+  it("labels a card with trusted false as not trusted and no other card", async () => {
+    await openInbox({ inbox: THREADS });
+
+    expect(within(cardOf("#dev")).getByText("not trusted")).toBeVisible();
+    expect(screen.getAllByText("not trusted")).toHaveLength(1);
+  });
+
+  it("renders the author and the body as plain text", async () => {
+    const markup = thread("link_update_m", {
+      content: {
+        author: "<b>ulrich</b>",
+        body: "**bold** <img src=x onerror=alert(1)>",
+        url: "https://github.com/x",
+        occurred_at: NOW,
+      },
+    });
+    await openInbox({ inbox: [markup] });
+
+    expect(
+      within(listOf()).getByText(
+        "Linked to your nodes · <b>ulrich</b>: **bold** <img src=x onerror=alert(1)>",
+      ),
+    ).toBeVisible();
+    expect(listOf().querySelector("img")).toBeNull();
+    expect(listOf().querySelector("b")).toBeNull();
+  });
+
+  it("adds the threads to the long summary", async () => {
+    await openInbox({ inbox: THREADS });
+
+    expect(screen.getByText(/Start here:/)).toHaveTextContent(
+      "0 acts wait for you. 0 nodes wait on them. Start here: acme/shop#42 in Inbox. 4 threads wait in Inbox.",
+    );
+  });
+
+  it("starts at a node act while tabs 1 to 6 hold a card", async () => {
+    serve({
+      inbox: THREADS,
+      nodes: { "prj-1": [blocked("n_a", "Audit log for account changes")] },
+    });
+    renderScreen();
+
+    expect(await screen.findByRole("tab", { name: "Rule, 1 act" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText(/Start here:/)).toHaveTextContent(
+      "1 act waits for you. 1 node waits on them. Start here: Audit log for account changes in Rule. 4 threads wait in Inbox.",
+    );
+  });
+
+  it("selects the tab Inbox with the key 7", async () => {
+    const user = userEvent.setup();
+    serve({
+      inbox: THREADS,
+      nodes: { "prj-1": [blocked("n_a", "Audit log for account changes")] },
+    });
+    renderScreen();
+    await screen.findByRole("tab", { name: "Rule, 1 act" });
+
+    await user.keyboard("7");
+
+    expect(screen.getByRole("tab", { name: "Inbox, 4 acts" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      await within(listOf()).findByRole("heading", { name: "Linked to your nodes · 2" }),
+    ).toBeVisible();
+  });
+
+  it("shows Show more with a next cursor and loads the next page", async () => {
+    const user = userEvent.setup();
+    await openInbox({ inbox: THREADS, inboxPage: 3 });
+
+    expect(within(listOf()).getAllByRole("listitem")).toHaveLength(3);
+    await user.click(within(listOf()).getByRole("button", { name: "Show more" }));
+
+    await waitFor(() => expect(within(listOf()).getAllByRole("listitem")).toHaveLength(4));
+    expect(within(listOf()).queryByRole("button", { name: "Show more" })).toBeNull();
+    expect(vi.mocked(listInboxItems)).toHaveBeenCalledWith({
+      state: "open",
+      projectId: null,
+      limit: 100,
+      cursor: "3",
+    });
+  });
+
+  it("shows no Show more without a next cursor", async () => {
+    await openInbox({ inbox: THREADS });
+
+    expect(within(listOf()).queryByRole("button", { name: "Show more" })).toBeNull();
+  });
+
+  it("shows the message of the selected thread in the detail without a crash", async () => {
+    serve({ inbox: THREADS });
+    renderScreen();
+    setWidth(EXPANDED_WIDTH);
+
+    const detail = await screen.findByRole("region", { name: /acme\/shop#42/ });
+
+    expect(within(detail).getByRole("heading", { name: "What" })).toBeVisible();
+    expect(within(detail).getByRole("heading", { name: "Message" })).toBeVisible();
+    expect(within(detail).getByText(/Body of link_update_d/)).toBeVisible();
+    expect(within(detail).queryByRole("heading", { name: "Root cause" })).toBeNull();
+  });
+
+  it("reads again with the project id under a project filter", async () => {
+    const user = userEvent.setup();
+    await openInbox({
+      inbox: [...THREADS, thread("link_update_e", { project_id: "prj-2" })],
+    });
+
+    await user.click(screen.getByRole("button", { name: "atlas · 0" }));
+
+    await waitFor(() =>
+      expect(vi.mocked(listInboxItems)).toHaveBeenCalledWith({
+        state: "open",
+        projectId: "prj-2",
+        limit: 100,
+        cursor: null,
+      }),
+    );
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Inbox, 1 act" })).toBeVisible());
+    expect(within(listOf()).getAllByRole("listitem")).toHaveLength(1);
   });
 });

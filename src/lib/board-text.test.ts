@@ -5,6 +5,7 @@ import type {
   BindingAgentView,
   EnvironmentState,
   ExecutionStop,
+  InboxItem,
   MissionEvidence,
   MissionExternalAction,
   MissionFinding,
@@ -26,10 +27,12 @@ import {
   type ProjectSnapshot,
 } from "./attention";
 import { BOARD_TABS } from "./board-tabs";
+import { inboxItemsOf } from "./inbox-attention";
 import {
   announcementOf,
   boardSummaryOf,
   cardCauseOf,
+  cardLabelOf,
   detailTitleOf,
   heldText,
   leadLabelOf,
@@ -617,7 +620,7 @@ describe("boardSummaryOf", () => {
 
   it("states the acts, the held nodes and the start", () => {
     expect(
-      boardSummaryOf({ count: 3, held: 5, start, projectName: null, readFault: false }),
+      boardSummaryOf({ count: 3, held: 5, start, projectName: null, readFault: false, inbox: 0 }),
     ).toEqual({
       long: "3 acts wait for you. 5 nodes wait on them. Start here: Retention rule in Fix setup.",
       short: "3 acts · 5 nodes wait · Start: Retention rule",
@@ -626,7 +629,8 @@ describe("boardSummaryOf", () => {
 
   it("names the project of a filter", () => {
     expect(
-      boardSummaryOf({ count: 3, held: 5, start, projectName: "atlas", readFault: false }).long,
+      boardSummaryOf({ count: 3, held: 5, start, projectName: "atlas", readFault: false, inbox: 0 })
+        .long,
     ).toBe(
       "3 acts wait for you in atlas. 5 nodes wait on them. Start here: Retention rule in Fix setup.",
     );
@@ -634,7 +638,7 @@ describe("boardSummaryOf", () => {
 
   it("uses the singular for one act and one node", () => {
     expect(
-      boardSummaryOf({ count: 1, held: 1, start, projectName: null, readFault: false }),
+      boardSummaryOf({ count: 1, held: 1, start, projectName: null, readFault: false, inbox: 0 }),
     ).toEqual({
       long: "1 act waits for you. 1 node waits on them. Start here: Retention rule in Fix setup.",
       short: "1 act · 1 node waits · Start: Retention rule",
@@ -645,7 +649,14 @@ describe("boardSummaryOf", () => {
     const text = "Nothing waits for you in atlas.";
 
     expect(
-      boardSummaryOf({ count: 0, held: 0, start: null, projectName: "atlas", readFault: true }),
+      boardSummaryOf({
+        count: 0,
+        held: 0,
+        start: null,
+        projectName: "atlas",
+        readFault: true,
+        inbox: 0,
+      }),
     ).toEqual({ long: text, short: text });
   });
 
@@ -653,7 +664,14 @@ describe("boardSummaryOf", () => {
     const text = "No act found. Some records could not be read.";
 
     expect(
-      boardSummaryOf({ count: 0, held: 0, start: null, projectName: null, readFault: true }),
+      boardSummaryOf({
+        count: 0,
+        held: 0,
+        start: null,
+        projectName: null,
+        readFault: true,
+        inbox: 0,
+      }),
     ).toEqual({ long: text, short: text });
   });
 
@@ -661,7 +679,14 @@ describe("boardSummaryOf", () => {
     const text = "No decision waits for you.";
 
     expect(
-      boardSummaryOf({ count: 0, held: 0, start: null, projectName: null, readFault: false }),
+      boardSummaryOf({
+        count: 0,
+        held: 0,
+        start: null,
+        projectName: null,
+        readFault: false,
+        inbox: 0,
+      }),
     ).toEqual({ long: text, short: text });
   });
 });
@@ -886,5 +911,71 @@ describe("announcementOf", () => {
     expect(announcementOf({ ...input, open: false })).toBe("");
     expect(announcementOf({ ...input, position: null })).toBe("");
     expect(announcementOf({ ...input, subject: null })).toBe("");
+  });
+});
+
+describe("inbox card texts", () => {
+  const thread: InboxItem = {
+    link_update_id: "link_update_1",
+    project_id: "prj-1",
+    external_link: {
+      kind: "github_issue",
+      resource_identity: "conversation:github:acme/shop",
+      number: 42,
+    },
+    reason: "mentioned",
+    state: "open",
+    occurred_at: 1_000,
+    done_at: null,
+    snoozed_until: null,
+    inbound_event_id: "event_1",
+    actor_id: "actor_1",
+    trusted: true,
+    linked_node_ids: [],
+    content: { author: "ulrich", body: "Can you look?\nThanks", url: "https://x", occurred_at: 1 },
+  };
+  const itemOf = (overrides: Partial<InboxItem> = {}): AttentionItem => {
+    const [item] = inboxItemsOf([{ ...thread, ...overrides }], [PROJECT]);
+    if (item === undefined) throw new Error("No item.");
+    return item;
+  };
+
+  it("holds the group label, the author and the first line of the body", () => {
+    expect(cardCauseOf(itemOf())).toBe("Mentions you · ulrich: Can you look?");
+  });
+
+  it("labels an untrusted thread and no other", () => {
+    expect(cardLabelOf(itemOf({ trusted: false }))).toBe("not trusted");
+    expect(cardLabelOf(itemOf())).toBeNull();
+  });
+
+  it("leads with Mark done", () => {
+    expect(leadLabelOf(itemOf(), new Map())).toBe("Mark done");
+  });
+
+  it("titles the detail with the subject", () => {
+    expect(detailTitleOf(itemOf(), new Map())).toBe("acme/shop#42");
+  });
+});
+
+describe("boardSummaryOf with inbox threads", () => {
+  const [tool] = BOARD_TABS;
+  if (tool === undefined) throw new Error("No tab.");
+  const start = { subject: "Retention rule", tab: tool };
+
+  it("adds the threads to the long text and the inbox count to the short text", () => {
+    expect(
+      boardSummaryOf({ count: 3, held: 5, start, projectName: null, readFault: false, inbox: 4 }),
+    ).toEqual({
+      long: "3 acts wait for you. 5 nodes wait on them. Start here: Retention rule in Approve tool. 4 threads wait in Inbox.",
+      short: "3 acts · 5 nodes wait · Start: Retention rule · 4 inbox",
+    });
+  });
+
+  it("uses the singular for one thread", () => {
+    expect(
+      boardSummaryOf({ count: 1, held: 0, start, projectName: null, readFault: false, inbox: 1 })
+        .long,
+    ).toContain("1 thread waits in Inbox.");
   });
 });

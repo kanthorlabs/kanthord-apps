@@ -157,11 +157,14 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       start={startItem}
       workforce={workforce}
       now={overview.now}
+      snoozed={overview.inbox.snoozed}
+      hasMore={overview.inbox.hasMore}
       held={overview.held}
       gates={overview.gates}
       leadLabelOf={(item) => leadLabelOf(item, overview.details)}
       onSelect={board.open}
       onShowAll={showAll}
+      onShowMore={overview.inbox.loadMore}
       onGoToStart={goToStart}
       onGoToTab={board.selectTab}
       cardRef={board.cardRef}

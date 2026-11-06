@@ -8,6 +8,8 @@ import { BOARD_TAB, type BoardTab, boardTabOf, openProposalsReadOf } from "./boa
 import { counted } from "./counted";
 import { codeLabel, stopLabel } from "./execution-stop";
 import { fixTargetOf } from "./fix-attention";
+import { inboxLineOf } from "./inbox-attention";
+import { inboxReasonLabelOf } from "./inbox-reasons";
 import { HUMAN_FINDING_GROUP } from "./review-findings";
 
 const FACT_SEPARATOR = " · ";
@@ -80,7 +82,13 @@ export function cardCauseOf(item: AttentionItem): string {
       const number = pullRequestNumberOf(item);
       return withFact(item.cause, number === null ? null : `pull request #${number}`);
     }
+    case "inbox_item":
+      return withFact(inboxReasonLabelOf(item.inbox.reason), inboxLineOf(item));
   }
+}
+
+export function cardLabelOf(item: AttentionItem): string | null {
+  return item.kind === "inbox_item" && !item.inbox.trusted ? "not trusted" : null;
 }
 
 export function heldText(count: number): string {
@@ -98,6 +106,7 @@ export interface BoardSummaryInput {
   readonly start: { readonly subject: string; readonly tab: BoardTab } | null;
   readonly projectName: string | null;
   readonly readFault: boolean;
+  readonly inbox: number;
 }
 
 export interface BoardSummary {
@@ -120,9 +129,12 @@ export function boardSummaryOf(input: BoardSummaryInput): BoardSummary {
   const scope = projectName === null ? "" : ` in ${projectName}`;
   const acts = counted(count, "act waits", "acts wait");
   const nodes = counted(held, "node waits", "nodes wait");
+  const threads =
+    input.inbox > 0 ? ` ${counted(input.inbox, "thread waits", "threads wait")} in Inbox.` : "";
+  const inbox = input.inbox > 0 ? `${FACT_SEPARATOR}${input.inbox} inbox` : "";
   return {
-    long: `${acts} for you${scope}. ${nodes} on them. Start here: ${start.subject} in ${start.tab.name}.`,
-    short: `${counted(count, "act", "acts")}${FACT_SEPARATOR}${nodes}${FACT_SEPARATOR}Start: ${start.subject}`,
+    long: `${acts} for you${scope}. ${nodes} on them. Start here: ${start.subject} in ${start.tab.name}.${threads}`,
+    short: `${counted(count, "act", "acts")}${FACT_SEPARATOR}${nodes}${FACT_SEPARATOR}Start: ${start.subject}${inbox}`,
   };
 }
 
@@ -179,6 +191,8 @@ export function leadLabelOf(item: AttentionItem, details: AttentionDetails): str
       return "Check now";
     case "tool_approval":
       return "Open chat";
+    case "inbox_item":
+      return "Mark done";
     case "project_paused":
       return "Resume project";
     default:
@@ -186,13 +200,16 @@ export function leadLabelOf(item: AttentionItem, details: AttentionDetails): str
   }
 }
 
-function lowerCauseOf(item: Exclude<AttentionItem, { kind: "tool_approval" }>): string {
+function lowerCauseOf(
+  item: Exclude<AttentionItem, { kind: "tool_approval" | "inbox_item" }>,
+): string {
   const cause = item.kind === "paused" ? pausedCauseOf(item) : item.cause;
   return cause.toLowerCase();
 }
 
 export function detailTitleOf(item: AttentionItem, details: AttentionDetails): string {
   if (item.kind === "tool_approval") return `${item.agent} asks to run ${item.operationId}`;
+  if (item.kind === "inbox_item") return item.subject;
   if (item.kind === "credential_refused") return `Provider refuses credential ${item.credential}`;
   if (item.kind === "environment_failed") return `Environment ${item.binding} failed`;
   if (item.kind === "merge_wait") {

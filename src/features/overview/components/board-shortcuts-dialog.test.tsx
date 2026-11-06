@@ -28,7 +28,7 @@ describe("BoardShortcutsDialog", () => {
     const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
 
     expect(within(dialog).getByText("Show a tab")).toBeVisible();
-    expect(within(dialog).getByText("1 to 6")).toBeVisible();
+    expect(within(dialog).getByText("1 to 7")).toBeVisible();
     expect(within(dialog).getByText("Select the next card")).toBeVisible();
     expect(within(dialog).getByText("Cycle the project filter")).toBeVisible();
     expect(within(dialog).getByText("Resume the node")).toBeVisible();

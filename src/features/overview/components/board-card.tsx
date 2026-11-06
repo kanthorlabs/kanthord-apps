@@ -7,7 +7,7 @@ import { Item, ItemContent, ItemDescription } from "@/components/ui/item";
 import type { AttentionItem } from "@/lib/attention";
 import { type BoardGate, boardProjectsOf } from "@/lib/board-items";
 import { ageTextOf } from "@/lib/board-pane-text";
-import { cardCauseOf, heldText } from "@/lib/board-text";
+import { cardCauseOf, cardLabelOf, heldText } from "@/lib/board-text";
 
 interface BoardCardProps {
   readonly item: AttentionItem;
@@ -36,6 +36,7 @@ export function BoardCard({
   const causeId = `${id}-cause`;
   const ageId = `${id}-age`;
   const heldId = `${id}-held`;
+  const label = cardLabelOf(item);
 
   return (
     <div role="listitem" className="scroll-mt-[calc(var(--app-header-height)+64px)]">
@@ -63,9 +64,12 @@ export function BoardCard({
               {ageTextOf(item.at, now)}
             </span>
           </div>
-          <ItemDescription id={causeId} className="line-clamp-none">
-            {cardCauseOf(item)}
-          </ItemDescription>
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+            <ItemDescription id={causeId} className="line-clamp-none min-w-0 break-words">
+              {cardCauseOf(item)}
+            </ItemDescription>
+            {label !== null && <Badge variant="outline">{label}</Badge>}
+          </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {boardProjectsOf(item).map((project) => (
               <Badge key={project.id} variant="outline">

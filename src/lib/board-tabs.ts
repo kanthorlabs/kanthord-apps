@@ -15,6 +15,7 @@ export const BOARD_TAB = {
   Proposal: "proposal",
   Rule: "blocked",
   Outside: "outside",
+  Inbox: "inbox",
 } as const;
 
 export type BoardTabId = (typeof BOARD_TAB)[keyof typeof BOARD_TAB];
@@ -77,6 +78,14 @@ export const BOARD_TABS: readonly BoardTab[] = [
     what: "KanthorD waits for an act outside, for example a merge.",
     key: "6",
   },
+  {
+    id: BOARD_TAB.Inbox,
+    name: "Inbox",
+    short: "Inbox",
+    verb: "Reply, act or mark done.",
+    what: "Someone on GitHub, Jira or Slack waits for you, or a linked node got an update.",
+    key: "7",
+  },
 ];
 
 export function openProposalsReadOf(
@@ -118,6 +127,8 @@ export function boardTabOf(item: AttentionItem, details: AttentionDetails): Boar
     case "merge_wait":
     case "delivery_unconfirmed":
       return BOARD_TAB.Outside;
+    case "inbox_item":
+      return BOARD_TAB.Inbox;
   }
 }
 

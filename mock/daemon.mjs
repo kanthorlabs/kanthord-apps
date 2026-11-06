@@ -73,6 +73,7 @@ const agents = structuredClone(fx.AGENT_DECLARATIONS).map((agent) =>
   EMPTY ? { ...agent, enablement: null } : agent,
 );
 const workbenchSessions = EMPTY ? [] : structuredClone(fx.WORKBENCH_SESSIONS);
+const inboxItems = EMPTY ? [] : structuredClone(fx.INBOX_ITEMS);
 const projectStates = new Map([
   [
     fx.PROJECT.id,
@@ -1378,6 +1379,43 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
 on("GET", /^\/api\/mission\/node\/([^/]+)\/link-update$/, (m, _b, res, _t, url) =>
   json(res, 200, page(fx.GRAPH_LINK_UPDATES[decodeURIComponent(m[1])] ?? [], url)),
 );
+
+const INBOX_STATES = ["open", "snoozed", "done"];
+
+on("GET", /^\/api\/mission\/inbox-item$/, (_m, _b, res, _t, url) => {
+  const state = url.searchParams.get("state") ?? "open";
+  if (!INBOX_STATES.includes(state)) return validationFailed(res, "state");
+  const projectId = url.searchParams.get("project_id");
+  const scoped = inboxItems.filter((item) => projectId === null || item.project_id === projectId);
+  const counted = (value) => scoped.filter((item) => item.state === value).length;
+  const matching = scoped
+    .filter((item) => item.state === state)
+    .sort((a, b) => a.occurred_at - b.occurred_at);
+  return json(res, 200, {
+    ...page(matching, url),
+    counts: { open: counted("open"), snoozed: counted("snoozed") },
+  });
+});
+
+on("POST", /^\/api\/mission\/inbox-item\/([^/]+)\/done$/, (m, b, res) => {
+  if (!hasOnly(b, ["snoozed_until"])) return validationFailed(res, "snoozed_until");
+  const item = inboxItems.find((entry) => entry.link_update_id === decodeURIComponent(m[1]));
+  if (item === undefined)
+    return projectEnvelope(res, 404, "mission.inbox_item.not_found", "No such inbox item.");
+  const until = b.snoozed_until ?? null;
+  const now = Date.now();
+  if (until !== null && (!Number.isInteger(until) || until <= now))
+    return projectEnvelope(
+      res,
+      400,
+      "mission.inbox_item.snooze_invalid",
+      "The snooze time must lie in the future.",
+    );
+  item.state = until === null ? "done" : "snoozed";
+  item.done_at = until === null ? now : null;
+  item.snoozed_until = until;
+  return json(res, 200, item);
+});
 
 const isOpenProposal = (proposal) => proposal.approved_at === null && proposal.rejected_at === null;
 

@@ -12,7 +12,7 @@ import { boardUrlOf } from "@/lib/board-url";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import { useBoardHistory, useOverviewItem } from "./use-board-history";
-import type { OverviewState } from "./use-overview";
+import type { InboxView, OverviewState } from "./use-overview";
 
 export type BoardOverview = Pick<
   OverviewState,
@@ -25,12 +25,13 @@ export type BoardOverview = Pick<
   | "faults"
   | "updatedAt"
   | "setDialogOpen"
->;
+> & { readonly inbox?: InboxView };
 
 export interface BoardCounts {
   readonly tabs: Readonly<Record<BoardTabId, number>>;
   readonly held: Readonly<Record<BoardTabId, number>>;
   readonly view: number;
+  readonly acts: number;
   readonly all: number;
   readonly projects: Readonly<Record<string, number>>;
 }
@@ -148,19 +149,26 @@ function cardsOf(
   );
 }
 
+function isAct(item: AttentionItem): boolean {
+  return item.kind !== "inbox_item";
+}
+
 function countsOf(
   ranked: readonly AttentionItem[],
   view: readonly AttentionItem[],
   tabOf: ReadonlyMap<string, BoardTabId>,
   held: ReadonlyMap<string, readonly string[]>,
   projects: readonly Project[],
+  inboxOpen: number,
 ): BoardCounts {
   const tabs = Object.fromEntries(
     BOARD_TABS.map((tab) => {
       const cards = view.filter((item) => tabOf.get(item.id) === tab.id);
-      return [tab.id, { count: cards.length, held: heldCountOf(cards, held) }];
+      const count = tab.id === BOARD_TAB.Inbox ? inboxOpen : cards.length;
+      return [tab.id, { count, held: heldCountOf(cards, held) }];
     }),
   ) as Record<BoardTabId, { count: number; held: number }>;
+  const acts = ranked.filter(isAct);
   return {
     tabs: Object.fromEntries(BOARD_TABS.map((tab) => [tab.id, tabs[tab.id].count])) as Record<
       BoardTabId,
@@ -171,11 +179,12 @@ function countsOf(
       number
     >,
     view: view.length,
-    all: ranked.length,
+    acts: view.filter(isAct).length,
+    all: acts.length,
     projects: Object.fromEntries(
       projects.map((project) => [
         project.id,
-        ranked.filter((item) => isInProject(item, project.id)).length,
+        acts.filter((item) => isInProject(item, project.id)).length,
       ]),
     ),
   };
@@ -396,23 +405,26 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
   const selected = boardItems.find((item) => item.id === current.selectedId) ?? null;
   const tab = (selected === null ? null : tabOf.get(selected.id)) ?? current.kind ?? FIRST_TAB;
   const cards = cardsByTab[tab];
+  const inboxOpen = overview.inbox?.open ?? cardsByTab[BOARD_TAB.Inbox].length;
   const counts = useMemo(
-    () => countsOf(ranked, view, tabOf, held, projects),
-    [ranked, view, tabOf, held, projects],
+    () => countsOf(ranked, view, tabOf, held, projects, inboxOpen),
+    [ranked, view, tabOf, held, projects, inboxOpen],
   );
   const summary = useMemo(() => {
     const startTab = BOARD_TABS.find((entry) => entry.id === tabOf.get(startItem?.id ?? ""));
+    const acts = view.filter(isAct);
     return boardSummaryOf({
-      count: view.length,
-      held: heldCountOf(view, held),
+      count: acts.length,
+      held: heldCountOf(acts, held),
       start:
         startItem === null || startTab === undefined
           ? null
           : { subject: startItem.subject, tab: startTab },
       projectName: projects.find((project) => project.id === projectId)?.name ?? null,
       readFault: faults.length > 0,
+      inbox: inboxOpen,
     });
-  }, [view, held, startItem, tabOf, projects, projectId, faults]);
+  }, [view, held, startItem, tabOf, projects, projectId, faults, inboxOpen]);
 
   const index = cards.findIndex((card) => card.id === current.selectedId);
   const position = index < 0 ? null : index;

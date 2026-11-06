@@ -15,8 +15,9 @@ import type { AttentionItem } from "@/lib/attention";
 import type { DoneEntry } from "@/lib/board-done";
 import type { BoardGate } from "@/lib/board-items";
 import { emptyLineOf, tabVerbOf } from "@/lib/board-pane-text";
+import { cardGroupsOf } from "@/lib/board-groups";
 import { heldCountOf, tabStopIdOf } from "@/lib/board-selection";
-import type { BoardTab, BoardTabId } from "@/lib/board-tabs";
+import { BOARD_TAB, type BoardTab, type BoardTabId } from "@/lib/board-tabs";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import { AllClear } from "./all-clear";
@@ -36,11 +37,14 @@ interface BoardListProps {
   readonly start: AttentionItem | null;
   readonly workforce: string;
   readonly now: number;
+  readonly snoozed: number;
+  readonly hasMore: boolean;
   readonly held: ReadonlyMap<string, readonly string[]>;
   readonly gates: ReadonlyMap<string, BoardGate>;
   readonly leadLabelOf: (item: AttentionItem) => string | null;
   readonly onSelect: (itemId: string) => void;
   readonly onShowAll: () => void;
+  readonly onShowMore: () => void;
   readonly onGoToStart: () => void;
   readonly onGoToTab: (tab: BoardTabId) => void;
   readonly cardRef: (itemId: string) => (element: HTMLElement | null) => void;
@@ -60,11 +64,14 @@ export function BoardList({
   start,
   workforce,
   now,
+  snoozed,
+  hasMore,
   held,
   gates,
   leadLabelOf,
   onSelect,
   onShowAll,
+  onShowMore,
   onGoToStart,
   onGoToTab,
   cardRef,
@@ -75,6 +82,7 @@ export function BoardList({
   const filtered = projectName !== null;
   const tabStopId = tabStopIdOf(cards, selectedId);
   const emptyLine = emptyLineOf(tab, projectName);
+  const groups = cardGroupsOf(tab, cards);
 
   return (
     <TabsContent
@@ -85,25 +93,47 @@ export function BoardList({
     >
       <h3 className="sr-only">{tab.name}</h3>
       <p id={verbId} className="text-sm text-muted-foreground">
-        {tabVerbOf(tab, widthClass, filtered)}
+        {tabVerbOf(tab, widthClass, filtered, snoozed)}
       </p>
-      {cards.length > 0 && (
-        <ItemGroup data-board-list="">
-          {cards.map((card) => (
-            <BoardCard
-              key={card.id}
-              item={card}
-              now={now}
-              held={heldCountOf(held, card.id)}
-              gate={gates.get(card.id) ?? null}
-              leadLabel={leadLabelOf(card)}
-              selected={card.id === selectedId}
-              tabStop={card.id === tabStopId}
-              onSelect={onSelect}
-              titleRef={cardRef(card.id)}
-            />
-          ))}
-        </ItemGroup>
+      {groups.map((group) => (
+        <div key={group.key} className="flex min-w-0 flex-col gap-2">
+          {group.header !== null && (
+            <h4
+              className={
+                widthClass === BOARD_WIDTH.Compact
+                  ? "sticky top-[calc(var(--app-header-height)+64px)] z-[5] bg-background py-1 text-sm font-semibold"
+                  : "text-sm font-semibold"
+              }
+            >
+              {group.header}
+            </h4>
+          )}
+          <ItemGroup data-board-list="">
+            {group.cards.map((card) => (
+              <BoardCard
+                key={card.id}
+                item={card}
+                now={now}
+                held={heldCountOf(held, card.id)}
+                gate={gates.get(card.id) ?? null}
+                leadLabel={leadLabelOf(card)}
+                selected={card.id === selectedId}
+                tabStop={card.id === tabStopId}
+                onSelect={onSelect}
+                titleRef={cardRef(card.id)}
+              />
+            ))}
+          </ItemGroup>
+        </div>
+      ))}
+      {hasMore && tab.id === BOARD_TAB.Inbox && (
+        <div>
+          <TouchTarget>
+            <Button variant="outline" size="sm" onClick={onShowMore}>
+              Show more
+            </Button>
+          </TouchTarget>
+        </div>
       )}
       {cards.length === 0 && expanded && <p className="text-sm">{emptyLine}</p>}
       {cards.length === 0 && !expanded && nothingAtAll && (

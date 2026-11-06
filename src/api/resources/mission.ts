@@ -2,6 +2,10 @@ import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import { readAllPages } from "../pages";
 import type {
+  InboxItem,
+  InboxItemDoneBody,
+  InboxItemList,
+  InboxItemQuery,
   Mission,
   MissionAssessment,
   MissionAttempt,
@@ -158,6 +162,25 @@ export async function listProjectFollowups(
   return readAllPages<MissionFollowupProposal>(
     `/api/mission/project/${encodeURIComponent(projectId)}/followup`,
   );
+}
+
+export async function listInboxItems(query: InboxItemQuery): Promise<InboxItemList> {
+  const params = new URLSearchParams({ state: query.state });
+  if (query.projectId !== null) params.set("project_id", query.projectId);
+  params.set("limit", String(query.limit));
+  if (query.cursor !== null) params.set("cursor", query.cursor);
+  return request<InboxItemList>(`/api/mission/inbox-item?${params}`);
+}
+
+export async function doneInboxItem(
+  linkUpdateId: string,
+  body: InboxItemDoneBody,
+): Promise<InboxItem> {
+  return request<InboxItem>(`/api/mission/inbox-item/${encodeURIComponent(linkUpdateId)}/done`, {
+    method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
 }
 
 export async function decideFollowup(

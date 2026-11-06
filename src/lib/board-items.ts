@@ -3,6 +3,7 @@ import type { Project } from "@/api/types";
 import type { AttentionDetails, AttentionItem, ProjectSnapshot } from "./attention";
 import { type BoardTabId, boardTabOf } from "./board-tabs";
 import type { CredentialRefusedItem } from "./fix-attention";
+import { inboxReasonRankOf } from "./inbox-reasons";
 import { isTerminal } from "./node-state";
 
 export interface BoardGate {
@@ -13,6 +14,7 @@ export interface BoardGate {
 
 export function itemNodeIdsOf(item: AttentionItem): readonly string[] {
   if (item.kind === "tool_approval") return [];
+  if (item.kind === "inbox_item") return item.inbox.linked_node_ids;
   if (item.group === "fixes") return item.nodeIds;
   return [item.node.id];
 }
@@ -32,12 +34,26 @@ function dependentsOf(snapshot: ProjectSnapshot, seeds: readonly string[]): read
   return queue.slice(seeds.length);
 }
 
+function ownNodeIdsOf(
+  item: AttentionItem,
+  snapshots: readonly ProjectSnapshot[],
+): readonly string[] {
+  const own = itemNodeIdsOf(item);
+  if (item.kind !== "inbox_item") return own;
+  const terminal = new Set(
+    snapshots.flatMap((snapshot) =>
+      snapshot.nodes.filter((node) => isTerminal(node.state)).map((node) => node.id),
+    ),
+  );
+  return own.filter((id) => !terminal.has(id));
+}
+
 export function heldNodeIdsOf(
   item: AttentionItem,
   snapshots: readonly ProjectSnapshot[],
 ): readonly string[] {
   if (item.kind === "finding_review" || item.kind === "followup_proposal") return [];
-  const own = itemNodeIdsOf(item);
+  const own = ownNodeIdsOf(item, snapshots);
   const dependents = snapshots.flatMap((snapshot) =>
     dependentsOf(
       snapshot,
@@ -101,14 +117,25 @@ export function rankBoardItems(
   gates: ReadonlyMap<string, BoardGate>,
 ): readonly AttentionItem[] {
   const heldCountOf = (item: AttentionItem) => held.get(item.id)?.length ?? 0;
-  return [...items].sort(
-    (left, right) =>
+  return [...items].sort((left, right) => {
+    const inbox = Number(left.kind === "inbox_item") - Number(right.kind === "inbox_item");
+    if (inbox !== 0) return inbox;
+    if (left.kind === "inbox_item" && right.kind === "inbox_item") {
+      return (
+        inboxReasonRankOf(left.inbox.reason) - inboxReasonRankOf(right.inbox.reason) ||
+        heldCountOf(right) - heldCountOf(left) ||
+        compareAt(left.at, right.at) ||
+        left.id.localeCompare(right.id)
+      );
+    }
+    return (
       Number(gates.has(left.id)) - Number(gates.has(right.id)) ||
       heldCountOf(right) - heldCountOf(left) ||
       compareAt(left.at, right.at) ||
       left.subject.localeCompare(right.subject) ||
-      left.id.localeCompare(right.id),
-  );
+      left.id.localeCompare(right.id)
+    );
+  });
 }
 
 export function startItemOf(ranked: readonly AttentionItem[]): AttentionItem | null {

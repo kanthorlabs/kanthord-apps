@@ -254,6 +254,8 @@ function ItemActs({
           acts={projectPausedActsOf(item, context.reload, context.markActed)}
         />
       );
+    case "inbox_item":
+      return null;
     default:
       return <StaticActs store={store} acts={fixTargetActsOf(item)} />;
   }

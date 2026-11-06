@@ -305,9 +305,11 @@ describe("useBoard", () => {
       proposal: 0,
       blocked: 4,
       outside: 0,
+      inbox: 0,
     });
     expect(counts.held.blocked).toBe(4);
     expect(counts.view).toBe(6);
+    expect(counts.acts).toBe(6);
     expect(counts.all).toBe(6);
     expect(counts.projects).toEqual({ "prj-1": 5, "prj-2": 2 });
   });
@@ -329,6 +331,7 @@ describe("useBoard", () => {
       proposal: 0,
       blocked: 1,
       outside: 0,
+      inbox: 0,
     });
     expect(board.counts.view).toBe(2);
     expect(board.counts.all).toBe(6);

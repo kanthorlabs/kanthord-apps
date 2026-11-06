@@ -625,6 +625,83 @@ export const GRAPH_LINK_UPDATES = {
   ],
 };
 
+const inboxItem = (suffix, fields) => ({
+  link_update_id: `link_update_01J9ZQ4XKM3B6V8N2R5T7W0${suffix}`,
+  project_id: PROJECT.id,
+  state: "open",
+  done_at: null,
+  snoozed_until: null,
+  inbound_event_id: `inbound_event_01J9ZQ4XKM3B6V8N2R5T7W0${suffix}`,
+  trusted: true,
+  linked_node_ids: [],
+  ...fields,
+});
+
+export const INBOX_ITEMS = [
+  inboxItem("LU2", {
+    external_link: SIGNUP_LINK,
+    reason: "linked",
+    occurred_at: minutes(30),
+    actor_id: "octocat",
+    linked_node_ids: [ids.signup],
+    content: {
+      author: "octocat",
+      body: "Can you also cover the Google sign-in?\nThe issue lists it as in scope.",
+      url: "https://github.com/kanthorlabs/kanthord/issues/42#issuecomment-2002",
+      occurred_at: minutes(30),
+    },
+  }),
+  inboxItem("LU3", {
+    external_link: {
+      kind: "jira_issue",
+      resource_identity: "conversation:jira:kanthorlabs.atlassian.net:KD",
+      key: "KD-118",
+    },
+    reason: "mentioned",
+    occurred_at: minutes(95),
+    actor_id: "ulrich",
+    content: {
+      author: "ulrich",
+      body: "@you Please confirm the retention window before Friday.",
+      url: "https://kanthorlabs.atlassian.net/browse/KD-118",
+      occurred_at: minutes(95),
+    },
+  }),
+  inboxItem("LU4", {
+    project_id: PROJECT_ATLAS.id,
+    external_link: {
+      kind: "slack_thread",
+      resource_identity: "conversation:slack:T0KANTHOR",
+      channel: "atlas-dev",
+      thread_ts: "1752000000.000100",
+    },
+    reason: "participating",
+    occurred_at: minutes(180),
+    actor_id: "U0STRANGER",
+    trusted: false,
+    content: {
+      author: "stranger",
+      body: "Does the export run <b>nightly</b>?",
+      url: "https://kanthor.slack.com/archives/C0ATLAS/p1752000000000100",
+      occurred_at: minutes(180),
+    },
+  }),
+  inboxItem("LU5", {
+    external_link: SIGNUP_LINK,
+    reason: "mentioned",
+    state: "snoozed",
+    snoozed_until: now + 24 * 60 * 60_000,
+    occurred_at: minutes(600),
+    actor_id: "hubot",
+    content: {
+      author: "hubot",
+      body: "Nightly reminder: the sign-in issue stays open.",
+      url: "https://github.com/kanthorlabs/kanthord/issues/42#issuecomment-2001",
+      occurred_at: minutes(600),
+    },
+  }),
+];
+
 export const GRAPH_NODES = [
   graphNode("YA1", "onboarding.md", examine("Onboarding", [REPO, STORAGE]), {
     state: "Completed",

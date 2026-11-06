@@ -192,7 +192,7 @@ function onlyItem(items: ReturnType<typeof derive>) {
 }
 
 describe("BOARD_TABS", () => {
-  it("lists the six tabs in order with their keys", () => {
+  it("lists the seven tabs in order with their keys", () => {
     expect(BOARD_TABS.map((tab) => [tab.id, tab.name, tab.short, tab.key])).toEqual([
       ["tool", "Approve tool", "Tool", "1"],
       ["setup", "Fix setup", "Setup", "2"],
@@ -200,6 +200,7 @@ describe("BOARD_TABS", () => {
       ["proposal", "Decide proposal", "Decide", "4"],
       ["blocked", "Rule", "Rule", "5"],
       ["outside", "Act outside", "Outside", "6"],
+      ["inbox", "Inbox", "Inbox", "7"],
     ]);
   });
 
@@ -223,6 +224,10 @@ describe("BOARD_TABS", () => {
         "A node stops until you act: a closed attempt or a discarded dependency.",
       ],
       ["Act on the platform.", "KanthorD waits for an act outside, for example a merge."],
+      [
+        "Reply, act or mark done.",
+        "Someone on GitHub, Jira or Slack waits for you, or a linked node got an update.",
+      ],
     ]);
   });
 
@@ -234,6 +239,7 @@ describe("BOARD_TABS", () => {
       Proposal: "proposal",
       Rule: "blocked",
       Outside: "outside",
+      Inbox: "inbox",
     });
   });
 });

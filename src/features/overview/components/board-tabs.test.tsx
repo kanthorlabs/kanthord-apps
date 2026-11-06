@@ -10,9 +10,10 @@ import type { BoardCounts } from "../use-board";
 import { BoardTabs } from "./board-tabs";
 
 const COUNTS: BoardCounts = {
-  tabs: { tool: 1, setup: 2, paused: 3, proposal: 0, blocked: 4, outside: 5 },
-  held: { tool: 1, setup: 2, paused: 3, proposal: 0, blocked: 4, outside: 5 },
-  view: 15,
+  tabs: { tool: 1, setup: 2, paused: 3, proposal: 0, blocked: 4, outside: 5, inbox: 6 },
+  held: { tool: 1, setup: 2, paused: 3, proposal: 0, blocked: 4, outside: 5, inbox: 6 },
+  view: 21,
+  acts: 15,
   all: 15,
   projects: {},
 };
@@ -44,7 +45,7 @@ function Harness({
 }
 
 describe("BoardTabs", () => {
-  it("shows the six tabs in order with their accessible names", () => {
+  it("shows the seven tabs in order with their accessible names", () => {
     render(<Harness />);
 
     expect(screen.getAllByRole("tab").map((tab) => tab.getAttribute("aria-label"))).toEqual([
@@ -54,6 +55,7 @@ describe("BoardTabs", () => {
       "Decide proposal, 0 acts, clear",
       "Rule, 4 acts",
       "Act outside, 5 acts",
+      "Inbox, 6 acts",
     ]);
   });
 
@@ -83,14 +85,14 @@ describe("BoardTabs", () => {
     expect(tab).toHaveTextContent("4 nodes wait");
   });
 
-  it("holds the short names and the six-cell grid of the narrow strip", () => {
+  it("holds the short names and the seven-cell grid of the narrow strip", () => {
     render(<Harness />);
 
     expect(screen.getByRole("tablist")).toHaveClass(
       "@max-[760px]:grid",
-      "@max-[760px]:grid-cols-6",
+      "@max-[760px]:grid-cols-7",
     );
-    for (const short of ["Tool", "Setup", "Resume", "Decide", "Rule", "Outside"]) {
+    for (const short of ["Tool", "Setup", "Resume", "Decide", "Rule", "Outside", "Inbox"]) {
       expect(screen.getAllByText(short).length).toBeGreaterThan(0);
     }
   });
@@ -147,6 +149,7 @@ describe("BoardTabs", () => {
       "4",
       "5",
       "6",
+      "7",
     ]);
     expect(screen.getAllByRole("tab").map((tab) => tab.querySelector("kbd")?.textContent)).toEqual([
       "1",
@@ -155,6 +158,7 @@ describe("BoardTabs", () => {
       "4",
       "5",
       "6",
+      "7",
     ]);
   });
 
