@@ -387,6 +387,39 @@ function findingItemOf(sources: readonly ("reviewer" | "human")[]): AttentionIte
   );
 }
 
+function followupItemOf(count: number): AttentionItem {
+  const followups = Array.from({ length: count }, (_, index) => ({
+    id: `followup_${index}`,
+    node_id: "n1",
+    attempt: 1,
+    assessment_id: null,
+    content: { name: "Reply", requirement: "r", criterion: "c" },
+    created_node_id: null,
+    approved_at: null,
+    rejected_at: null,
+    created_at: 1,
+  }));
+  return itemOf(
+    derive([snapshot([node("n1", "Completed")], { followups })]),
+    "followup_proposal:n1",
+  );
+}
+
+describe("cardCauseOf of a follow-up proposal", () => {
+  it("counts the open follow-up proposals of the node", () => {
+    expect(cardCauseOf(followupItemOf(1))).toBe(
+      "Follow-up proposal waits for a decision · 1 proposal",
+    );
+    expect(cardCauseOf(followupItemOf(2))).toBe(
+      "Follow-up proposal waits for a decision · 2 proposals",
+    );
+  });
+
+  it("leads with Decide", () => {
+    expect(leadLabelOf(followupItemOf(1), new Map())).toBe("Decide");
+  });
+});
+
 describe("cardCauseOf", () => {
   it("counts the review findings and the findings after delivery of a node", () => {
     expect(cardCauseOf(findingItemOf(["reviewer", "reviewer"]))).toBe(

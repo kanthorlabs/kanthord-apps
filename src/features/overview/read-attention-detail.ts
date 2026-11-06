@@ -14,6 +14,7 @@ import {
   type DetailRead,
   type DetailTarget,
   type ExternalDetail,
+  type FollowupDetail,
   type OpenDetail,
   type PausedDetail,
 } from "@/lib/attention";
@@ -78,8 +79,22 @@ async function readExternal(target: DetailTarget): Promise<ExternalDetail> {
   return { kind: "external", key: detailKeyOf(node), actions, evidence, refreshFault: null };
 }
 
+async function readFollowup(target: DetailTarget): Promise<FollowupDetail> {
+  const { node, projectId } = target;
+  return {
+    kind: "followup",
+    key: detailKeyOf(node),
+    executions: await settle(
+      node.attempt === 0
+        ? Promise.resolve([])
+        : listNodeExecutions(projectId, node.id, node.attempt),
+    ),
+  };
+}
+
 export async function readAttentionDetail(target: DetailTarget): Promise<AttentionDetail> {
   if (target.kind === "blocked") return readBlocked(target);
   if (target.kind === "paused") return readPaused(target);
+  if (target.kind === "followup") return readFollowup(target);
   return target.kind === "open" ? readOpen(target) : readExternal(target);
 }

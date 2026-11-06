@@ -52,6 +52,9 @@ vi.mock("@/api/resources/mission", () => ({
   listNodeExternalActions: vi.fn(),
   unblockNode: vi.fn(),
   decideProposals: vi.fn(),
+  decideFollowup: vi.fn(),
+  listProjectFollowups: vi.fn(),
+  listNodeLinkUpdates: vi.fn(),
   overrideNode: vi.fn(),
   resumeNode: vi.fn(),
   removeDependency: vi.fn(),
@@ -84,14 +87,17 @@ import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
 import {
   checkNode,
   decideFinding,
+  decideFollowup,
   decideProposals,
   discardNode,
   listMissionNodes,
   listNodeAssessments,
   listNodeEvidence,
   listNodeExternalActions,
+  listNodeLinkUpdates,
   listNodeProposals,
   listNodeRevisions,
+  listProjectFollowups,
   listUndecidedFindings,
   overrideNode,
   readMission,
@@ -142,6 +148,7 @@ import type {
   MissionEvidence,
   MissionExternalAction,
   MissionFinding,
+  MissionFollowupProposal,
   MissionNodeChange,
   MissionNodeCheckAnswer,
   MissionNodeRecord,
@@ -520,6 +527,7 @@ interface World {
   readonly sessions?: readonly WorkbenchSessionListItem[];
   readonly environments?: Readonly<Record<string, readonly EnvironmentState[]>>;
   readonly findings?: Readonly<Record<string, readonly MissionFinding[]>>;
+  readonly followups?: Readonly<Record<string, readonly MissionFollowupProposal[]>>;
 }
 
 const HEALTHY: LivenessReport = {
@@ -556,6 +564,10 @@ function serve(world: World) {
   vi.mocked(listUndecidedFindings).mockImplementation(
     async (projectId) => world.findings?.[projectId] ?? [],
   );
+  vi.mocked(listProjectFollowups).mockImplementation(
+    async (projectId) => world.followups?.[projectId] ?? [],
+  );
+  vi.mocked(listNodeLinkUpdates).mockResolvedValue([]);
   vi.mocked(listNodeRevisions).mockResolvedValue([]);
   vi.mocked(listNodeAssessments).mockImplementation(async (nodeId) => [
     assessment(nodeId, world.rationales?.[nodeId] ?? "The criterion is not met."),
@@ -1700,6 +1712,88 @@ describe("OverviewScreen dependency items with an open attempt", () => {
   });
 });
 
+function followup(nodeId: string, name: string): MissionFollowupProposal {
+  return {
+    id: `followup_${nodeId}`,
+    node_id: nodeId,
+    attempt: 1,
+    assessment_id: null,
+    content: { name, requirement: "Reply on the issue.", criterion: "The issue holds a reply." },
+    created_node_id: null,
+    approved_at: null,
+    rejected_at: null,
+    created_at: NOW - HOUR,
+  };
+}
+
+describe("OverviewScreen follow-up proposal", () => {
+  it.each<NodeState>(["Completed", "Discarded"])(
+    "lists a %s node with an open follow-up proposal with Decide and Last trace",
+    async (state) => {
+      serve({
+        nodes: { "prj-1": [plain("n_f", "Sign-up form", state)] },
+        followups: { "prj-1": [followup("n_f", "Reply on the issue")] },
+        executions: { n_f: [ended("e1", "n_f", { trace_id: "trace_last" })] },
+      });
+
+      renderScreen();
+
+      const item = await findDetail();
+      expect(await within(item).findByRole("button", { name: "Decide" })).toBeEnabled();
+      const traces = await within(item).findAllByRole("button", { name: "Last trace" });
+      expect(traces.map((link) => link.getAttribute("href"))).toEqual(["/traces/trace_last"]);
+      expect(within(item).getByText("Reply on the issue")).toBeInTheDocument();
+      expect(listProjectFollowups).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("reads the follow-up proposals once for each project", async () => {
+    serve({
+      nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] },
+      followups: { "prj-1": [followup("n_f", "Reply on the issue")] },
+    });
+
+    renderScreen();
+
+    await findDetail();
+    expect(vi.mocked(listProjectFollowups).mock.calls.map(([projectId]) => projectId)).toEqual([
+      "prj-1",
+      "prj-2",
+    ]);
+    expect(listNodeProposals).not.toHaveBeenCalled();
+  });
+
+  it("creates the follow-up node through mission.followup.decide and leaves the fix-node call alone", async () => {
+    const user = userEvent.setup();
+    serve({
+      nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] },
+      followups: { "prj-1": [followup("n_f", "Reply on the issue")] },
+    });
+    vi.mocked(decideFollowup).mockResolvedValue({});
+    renderScreen();
+
+    const item = await findDetail();
+    await user.click(await within(item).findByRole("button", { name: "Decide" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Decide the follow-up proposal of Sign-up form?")).toBeTruthy();
+    await user.click(within(dialog).getByRole("button", { name: "Create follow-up node" }));
+
+    expect(decideFollowup).toHaveBeenCalledWith("n_f", {
+      expected_mission_version: 7,
+      approve: true,
+    });
+    expect(decideProposals).not.toHaveBeenCalled();
+  });
+
+  it("lists no item when no open follow-up proposal remains", async () => {
+    serve({ nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] } });
+
+    renderScreen();
+
+    expect((await screen.findAllByText("No decision waits for you.")).length).toBeGreaterThan(0);
+  });
+});
+
 describe("OverviewScreen proposal decision", () => {
   it("decides the open proposals of an examine node with one Decide button", async () => {
     const user = userEvent.setup();
@@ -2657,6 +2751,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
           },
         ],
         failures: [],
+        link_updates: [],
       }),
     );
 
@@ -2688,6 +2783,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
           },
         },
       ],
+      link_updates: [],
     });
     renderScreen();
 
@@ -2709,7 +2805,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
       actions: { n_o: [requested("n_o", "unresolved")] },
       evidence: { n_o: [requestEvidence("n_o", AGED)] },
     });
-    vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [] });
+    vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [], link_updates: [] });
     renderScreen();
     const item = await findDetail();
     const reads = vi.mocked(listProjects).mock.calls.length;
@@ -2734,6 +2830,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
         },
       ],
       failures: [],
+      link_updates: [],
     });
     renderScreen();
 
@@ -2778,7 +2875,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
     vi.mocked(checkNode).mockImplementation(async (nodeId) => {
       nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
-      return { results: [], failures: [] };
+      return { results: [], failures: [], link_updates: [] };
     });
     renderScreen();
 

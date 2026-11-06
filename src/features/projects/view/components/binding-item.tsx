@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { isAvailable } from "@/lib/binding-change";
+import { conversationTargetOf } from "@/lib/conversation-facts";
 import { counted } from "@/lib/counted";
 import { environmentStatusVariant } from "@/lib/environment-bar";
 import type { BindingCheckBadge, BindingVerifyState } from "../use-binding-verify";
@@ -62,6 +63,16 @@ function factsOf(entry: BindingSetEntry): readonly ReactNode[] {
         ? "worker default budget"
         : `budget ${counted(config.resource_budget.turns, "turn", "turns")}, ${config.resource_budget.wall_time_ms} ms`,
       `agent entries ${config.entries?.length ?? 0}`,
+    ];
+  }
+  if (entry.kind === "conversation") {
+    const { config } = entry;
+    return [
+      <RecordName>{config.platform}</RecordName>,
+      conversationTargetOf(config),
+      <>
+        credential <RecordName>{config.credential}</RecordName>
+      </>,
     ];
   }
   const { config } = entry;

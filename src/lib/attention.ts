@@ -7,6 +7,7 @@ import type {
   MissionEvidence,
   MissionExternalAction,
   MissionFinding,
+  MissionFollowupProposal,
   MissionNodeRecord,
   MissionProposal,
   Project,
@@ -22,6 +23,7 @@ import { approvalItemsOf, type ToolApprovalItem } from "./approval-attention";
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
 import { type FixAttentionItem, fixItemsOf } from "./fix-attention";
+import { isTerminal } from "./node-state";
 import { HUMAN_FINDING_GROUP } from "./review-findings";
 
 export type AttentionGroupId = "decisions" | "fixes" | "outside";
@@ -41,6 +43,7 @@ export interface ProjectSnapshot {
   readonly bindings: readonly WorkerBindingView[] | null;
   readonly environments: readonly EnvironmentState[] | null;
   readonly findings: readonly MissionFinding[] | null;
+  readonly followups?: readonly MissionFollowupProposal[] | null;
 }
 
 export interface AttentionContext {
@@ -82,7 +85,14 @@ export interface ExternalDetail {
   readonly refreshFault: string | null;
 }
 
-export type AttentionDetail = BlockedDetail | PausedDetail | OpenDetail | ExternalDetail;
+export interface FollowupDetail {
+  readonly kind: "followup";
+  readonly key: string;
+  readonly executions: DetailRead<readonly SchedulerExecutionRecord[]>;
+}
+
+export type AttentionDetail =
+  BlockedDetail | PausedDetail | OpenDetail | ExternalDetail | FollowupDetail;
 
 export type AttentionDetails = ReadonlyMap<string, AttentionDetail>;
 
@@ -151,6 +161,13 @@ export interface FindingReviewItem extends NodeItemBase {
   readonly findings: readonly MissionFinding[];
 }
 
+export interface FollowupItem extends NodeItemBase {
+  readonly group: "decisions";
+  readonly kind: "followup_proposal";
+  readonly cause: string;
+  readonly proposals: readonly MissionFollowupProposal[];
+}
+
 export type DecisionAttentionItem = BlockedItem | PausedItem | DependencyItem;
 
 export type OutsideAttentionItem = MergeWaitItem | DeliveryItem;
@@ -158,12 +175,13 @@ export type OutsideAttentionItem = MergeWaitItem | DeliveryItem;
 export type AttentionItem =
   | DecisionAttentionItem
   | FindingReviewItem
+  | FollowupItem
   | ToolApprovalItem
   | FixAttentionItem
   | OutsideAttentionItem;
 
 export interface DetailTarget {
-  readonly kind: "blocked" | "paused" | "open" | "external";
+  readonly kind: "blocked" | "paused" | "open" | "external" | "followup";
   readonly projectId: string;
   readonly node: MissionNodeRecord;
 }
@@ -175,6 +193,7 @@ const KIND_ORDER: readonly AttentionItem["kind"][] = [
   "paused",
   "dependency_discarded",
   "finding_review",
+  "followup_proposal",
   "tool_approval",
   "project_paused",
   "no_taker",
@@ -230,6 +249,16 @@ export function openProposalsOf(
       proposal.approved_at === null &&
       proposal.rejected_at === null &&
       proposal.attempt === node.attempt,
+  );
+}
+
+export function openFollowupsOf(
+  proposals: readonly MissionFollowupProposal[] | null | undefined,
+  nodeId: string,
+): readonly MissionFollowupProposal[] {
+  return (proposals ?? []).filter(
+    (proposal) =>
+      proposal.node_id === nodeId && proposal.approved_at === null && proposal.rejected_at === null,
   );
 }
 
@@ -431,6 +460,28 @@ function findingItemsOf(snapshot: ProjectSnapshot): readonly FindingReviewItem[]
   });
 }
 
+function followupItemsOf(snapshot: ProjectSnapshot): readonly FollowupItem[] {
+  return snapshot.nodes.filter(isRunnable).flatMap((node): readonly FollowupItem[] => {
+    const proposals = openFollowupsOf(snapshot.followups, node.id);
+    if (!isTerminal(node.state) || proposals.length === 0) return [];
+    return [
+      {
+        id: `followup_proposal:${node.id}`,
+        kind: "followup_proposal",
+        group: "decisions",
+        project: snapshot.project,
+        subject: node.content.name,
+        missionVersion: snapshot.missionVersion,
+        node,
+        nodes: snapshot.nodes,
+        at: Math.min(...proposals.map((proposal) => proposal.created_at)),
+        cause: "Follow-up proposal waits for a decision",
+        proposals,
+      },
+    ];
+  });
+}
+
 function compareAt(left: number | null, right: number | null): number {
   if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
   return left - right;
@@ -453,6 +504,7 @@ export function deriveAttention(
   return [
     ...snapshots.flatMap((snapshot) => itemsOf(snapshot, details, context.now)),
     ...snapshots.flatMap(findingItemsOf),
+    ...snapshots.flatMap(followupItemsOf),
     ...approvalItemsOf(context.sessions),
     ...fixItemsOf(snapshots, context),
   ].sort(compareItems);
@@ -469,6 +521,8 @@ export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly
         return [{ kind: "open", projectId: snapshot.project.id, node }];
       if (node.state === "External.Requested")
         return [{ kind: "external", projectId: snapshot.project.id, node }];
+      if (isTerminal(node.state) && openFollowupsOf(snapshot.followups, node.id).length > 0)
+        return [{ kind: "followup", projectId: snapshot.project.id, node }];
       return [];
     }),
   );

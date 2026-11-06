@@ -409,7 +409,7 @@ export interface MissionImportResult {
   readonly assigned_ids: readonly { readonly filename: string; readonly node_id: string }[];
 }
 
-export type BindingSetKind = "repository" | "worker" | "storage";
+export type BindingSetKind = "repository" | "worker" | "storage" | "conversation";
 
 export type RepositoryActionName = "pull_request" | "merge_push";
 
@@ -503,6 +503,24 @@ export interface SuitePassPlan {
   readonly reason: string;
 }
 
+export interface LinkTrust {
+  readonly actor_ids: readonly string[];
+}
+
+export type ConversationPlatform = "github" | "jira" | "slack";
+
+export interface ConversationBindingConfig {
+  readonly available: boolean;
+  readonly platform: ConversationPlatform;
+  readonly repository?: string;
+  readonly site?: string;
+  readonly project_key?: string;
+  readonly team_id?: string;
+  readonly credential: string;
+  readonly reply_policy?: { readonly follows: { readonly type: "assessment_passed" } };
+  readonly link_trust?: LinkTrust;
+}
+
 export interface RepositoryBindingConfig {
   readonly available: boolean;
   readonly platform: RepositoryPlatform;
@@ -520,6 +538,7 @@ export interface RepositoryBindingConfig {
   readonly prompts?: BindingPrompts;
   readonly environment?: EnvironmentDocument;
   readonly environment_secrets?: Readonly<Record<string, string>>;
+  readonly link_trust?: LinkTrust;
 }
 
 export interface WorkerAgentEntry {
@@ -573,7 +592,8 @@ export interface StorageBindingConfig {
 export type BindingSetEntry =
   | { readonly kind: "repository"; readonly config: RepositoryBindingConfig }
   | { readonly kind: "worker"; readonly config: WorkerBindingConfig }
-  | { readonly kind: "storage"; readonly config: StorageBindingConfig };
+  | { readonly kind: "storage"; readonly config: StorageBindingConfig }
+  | { readonly kind: "conversation"; readonly config: ConversationBindingConfig };
 
 export interface BindingSet {
   readonly version: number;
@@ -611,6 +631,30 @@ export type MissionActor =
       readonly inbound_event_id?: string;
     };
 
+export type ExternalLink =
+  | {
+      readonly kind: "github_issue";
+      readonly resource_identity: string;
+      readonly number: number;
+    }
+  | { readonly kind: "jira_issue"; readonly resource_identity: string; readonly key: string }
+  | {
+      readonly kind: "slack_thread";
+      readonly resource_identity: string;
+      readonly channel: string;
+      readonly thread_ts: string;
+    };
+
+export interface MissionLinkUpdate {
+  readonly id: string;
+  readonly external_link: ExternalLink;
+  readonly update_key: string;
+  readonly inbound_event_id: string;
+  readonly actor_id: string;
+  readonly occurred_at: number;
+  readonly new: boolean;
+}
+
 export interface MissionContent {
   readonly name: string;
   readonly requirement: string;
@@ -619,6 +663,7 @@ export interface MissionContent {
   readonly bindings: readonly string[];
   readonly intent: Intent;
   readonly tags: readonly string[];
+  readonly external_links?: readonly ExternalLink[];
 }
 
 export interface MissionTaskBody {
@@ -873,6 +918,34 @@ export interface MissionProposal {
   readonly created_at: number;
 }
 
+export interface MissionFollowupContent {
+  readonly name: string;
+  readonly requirement: string;
+  readonly criterion: string;
+}
+
+export interface MissionFollowupProposal {
+  readonly id: string;
+  readonly node_id: string;
+  readonly attempt: number;
+  readonly assessment_id: null;
+  readonly content: MissionFollowupContent;
+  readonly created_node_id: string | null;
+  readonly approved_at: number | null;
+  readonly rejected_at: number | null;
+  readonly created_at: number;
+}
+
+export interface MissionFollowupDecideBody {
+  readonly expected_mission_version: number;
+  readonly approve: boolean;
+  readonly requirement?: string;
+  readonly criterion?: string;
+  readonly reason?: string;
+}
+
+export type MissionFollowupDecideResult = Readonly<Record<string, unknown>>;
+
 export interface MissionProposalDecideBody {
   readonly expected_mission_version: number;
   readonly approved_proposal_ids: readonly string[];
@@ -1035,9 +1108,17 @@ export interface MissionNodeCheckFailure {
   };
 }
 
+export interface MissionLinkCheck {
+  readonly external_link: ExternalLink;
+  readonly admitted: number;
+  readonly duplicate: number;
+  readonly refused: number;
+}
+
 export interface MissionNodeCheckAnswer {
   readonly results: readonly MissionNodeCheckResult[];
   readonly failures: readonly MissionNodeCheckFailure[];
+  readonly link_updates: readonly MissionLinkCheck[];
 }
 
 export interface MissionProposalDecideResult {

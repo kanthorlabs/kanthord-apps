@@ -56,7 +56,10 @@ export interface RepositoryDraft {
   readonly sshCredential: string;
   readonly credential: string;
   readonly prompts: PromptDrafts;
-  readonly kept: Pick<RepositoryBindingConfig, "environment" | "environment_secrets">;
+  readonly kept: Pick<
+    RepositoryBindingConfig,
+    "environment" | "environment_secrets" | "link_trust"
+  >;
 }
 
 export interface WorkerDraft {
@@ -83,7 +86,15 @@ export interface StorageDraft {
   readonly credential: string;
 }
 
-export type BindingDraft = RepositoryDraft | WorkerDraft | StorageDraft;
+export interface KeptDraft {
+  readonly kind: "conversation";
+  readonly name: string;
+  readonly entry: BindingSetEntry;
+}
+
+export type CreatableBindingKind = Exclude<BindingSetKind, "conversation">;
+
+export type BindingDraft = RepositoryDraft | WorkerDraft | StorageDraft | KeptDraft;
 
 export type DraftErrors = Readonly<Record<string, string>>;
 
@@ -177,7 +188,7 @@ export function promptTextOf(draft: RepositoryDraft, target: PromptTarget): stri
   return target === "repository" ? draft.prompts.repository : draft.prompts.agents[target];
 }
 
-export function emptyDraft(kind: BindingSetKind): BindingDraft {
+export function emptyDraft(kind: CreatableBindingKind): BindingDraft {
   if (kind === "repository") {
     return {
       kind,
@@ -325,6 +336,7 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
         ...(config.environment_secrets === undefined
           ? {}
           : { environment_secrets: config.environment_secrets }),
+        ...(config.link_trust === undefined ? {} : { link_trust: config.link_trust }),
       },
     };
   }
@@ -344,7 +356,8 @@ export function draftOf(name: string, entry: BindingSetEntry): BindingDraft {
       environment: config.environment ?? "",
     };
   }
-  return { kind: "storage", name, ...entry.config };
+  if (entry.kind === "storage") return { kind: "storage", name, ...entry.config };
+  return { kind: "conversation", name, entry };
 }
 
 const TAG_PATTERN = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$/;
@@ -577,7 +590,9 @@ export function entryOfDraft(
       ? repositoryEntryOf(draft, errors)
       : draft.kind === "worker"
         ? workerEntryOf(draft, liveInstances, errors)
-        : storageEntryOf(draft, errors);
+        : draft.kind === "storage"
+          ? storageEntryOf(draft, errors)
+          : draft.entry;
   return Object.keys(errors).length === 0 ? { ok: true, entry } : { ok: false, errors };
 }
 
@@ -618,6 +633,7 @@ export function missingForSave(draft: BindingDraft): readonly string[] {
       ["Instance count", draft.instanceCount !== null && blank(draft.instanceCount)],
       ["Tags", tagsInvalid(draft.tags)],
     ]);
+  if (draft.kind === "conversation") return labelsOf([name]);
   return labelsOf([
     name,
     ["Endpoint", blank(draft.endpoint)],

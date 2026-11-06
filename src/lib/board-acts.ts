@@ -99,6 +99,7 @@ export interface CheckControl {
   readonly available: boolean;
   readonly checking: boolean;
   readonly label: string | null;
+  readonly linkLabels: readonly string[];
   readonly check: () => void;
 }
 
@@ -211,6 +212,11 @@ function checkActsOf(check: CheckControl, gate: Gate | null): readonly (BoardAct
       gate,
     ),
     check.label === null ? null : { type: "badge", id: "check_badge", label: check.label },
+    ...check.linkLabels.map((label, index): BoardAct => ({
+      type: "badge",
+      id: `check_link_${index}`,
+      label,
+    })),
   ];
 }
 
@@ -501,6 +507,30 @@ export function projectPausedActsOf(
 export function fixTargetActsOf(item: FixAttentionItem): readonly BoardAct[] {
   const target = fixTargetOf(item);
   return [{ type: "link", id: "fix_target", label: target.label, to: target.path }];
+}
+
+export interface FollowupActControls {
+  readonly decide: ActControl;
+  readonly lastTraceId: string | null;
+}
+
+export function followupActsOf(controls: FollowupActControls): readonly BoardAct[] {
+  const trace: LinkAct | null =
+    controls.lastTraceId === null
+      ? null
+      : {
+          type: "link",
+          id: "last_trace",
+          label: "Last trace",
+          to: `/traces/${encodeURIComponent(controls.lastTraceId)}`,
+        };
+  return present([
+    actOf(
+      slotOf("decide", "Decide", "outline", controls.decide.available, controls.decide.request),
+      null,
+    ),
+    trace,
+  ]);
 }
 
 export function findingReviewActsOf(item: FindingReviewItem): readonly BoardAct[] {

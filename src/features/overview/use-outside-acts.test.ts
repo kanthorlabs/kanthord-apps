@@ -84,7 +84,9 @@ const DETAIL: AttentionDetail = {
 };
 
 beforeEach(() => {
-  vi.mocked(checkNode).mockReset().mockResolvedValue({ results: [], failures: [] });
+  vi.mocked(checkNode)
+    .mockReset()
+    .mockResolvedValue({ results: [], failures: [], link_updates: [] });
 });
 
 describe("useOutsideActs", () => {

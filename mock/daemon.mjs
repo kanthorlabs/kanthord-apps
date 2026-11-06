@@ -81,6 +81,7 @@ const projectStates = new Map([
       nodes: fx.GRAPH_NODES,
       edges: fx.GRAPH_EDGES,
       proposals: fx.GRAPH_PROPOSALS,
+      followups: fx.GRAPH_FOLLOWUPS,
       findings: fx.GRAPH_FINDINGS,
       outcomes: fx.GRAPH_OUTCOMES,
       queue: fx.GRAPH_QUEUE,
@@ -94,6 +95,7 @@ const projectStates = new Map([
       nodes: fx.ATLAS_NODES,
       edges: fx.ATLAS_EDGES,
       proposals: [],
+      followups: [],
       findings: [],
       outcomes: fx.ATLAS_OUTCOMES,
       queue: fx.ATLAS_QUEUE,
@@ -108,6 +110,7 @@ const emptyProjectState = (projectId) => ({
   nodes: [],
   edges: [],
   proposals: [],
+  followups: [],
   findings: [],
   outcomes: [],
   queue: [],
@@ -1372,6 +1375,10 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
   ),
 );
 
+on("GET", /^\/api\/mission\/node\/([^/]+)\/link-update$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(fx.GRAPH_LINK_UPDATES[decodeURIComponent(m[1])] ?? [], url)),
+);
+
 const isOpenProposal = (proposal) => proposal.approved_at === null && proposal.rejected_at === null;
 
 const rejectOpenProposals = (state, proposer, now) => {
@@ -1559,6 +1566,96 @@ on("POST", /^\/api\/mission\/assessment\/([^/]+)\/decide$/, (m, b, res) => {
       accepted_at: now,
     },
   });
+});
+
+on("GET", /^\/api\/mission\/project\/([^/]+)\/followup$/, (m, _b, res, _t, url) => {
+  const state = stateOfProject(decodeURIComponent(m[1]));
+  if (state === undefined)
+    return projectEnvelope(res, 404, "mission.mission.not_found", "No such mission.");
+  return json(res, 200, page(state.followups.filter(isOpenProposal), url));
+});
+
+const followupNodeOf = (state, proposal, body) => {
+  const source = graphNodeById(proposal.node_id);
+  const stem = `followup-${proposal.id.slice("followup_".length).toLowerCase()}`;
+  return {
+    id: nodeIdOf(),
+    filename: `${stem}.md`,
+    mission_id: state.mission.id,
+    intent: "implement",
+    tags: source.content.tags,
+    tasks: [],
+    visible_revision: 1,
+    content: {
+      name: proposal.content.name,
+      requirement: body.requirement ?? proposal.content.requirement,
+      criterion: body.criterion ?? proposal.content.criterion,
+      verifications: source.content.verifications,
+      bindings: source.content.bindings,
+      intent: "implement",
+      tags: source.content.tags,
+    },
+    retired_at: null,
+    pinned_by_attempts: [],
+    state: "Available",
+    attempt: 0,
+    pinned_revision: null,
+    priority: 0,
+  };
+};
+
+on("POST", /^\/api\/mission\/node\/([^/]+)\/followup\/decide$/, (m, b, res) => {
+  if (!hasOnly(b, ["expected_mission_version", "approve", "requirement", "criterion", "reason"]))
+    return validationFailed(res, "approve");
+  if (typeof b.approve !== "boolean") return validationFailed(res, "approve");
+  if (!b.approve && (b.requirement !== undefined || b.criterion !== undefined))
+    return validationFailed(res, b.requirement !== undefined ? "requirement" : "criterion");
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  const node = graphNodeById(nodeId);
+  if (state === undefined || node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const open = state.followups.filter(
+    (proposal) => proposal.node_id === nodeId && isOpenProposal(proposal),
+  );
+  if (open.length === 0)
+    return projectEnvelope(res, 409, "mission.proposal.decided", "Node has no open proposal.", {
+      node_id: nodeId,
+    });
+  const now = Date.now();
+  if (!b.approve) {
+    for (const proposal of open) proposal.rejected_at = now;
+    return json(res, 200, { created: [], rejected_proposal_ids: open.map((entry) => entry.id) });
+  }
+  const created = open.map((proposal) => {
+    const followup = followupNodeOf(state, proposal, b);
+    createdFirstRevisions.set(followup.id, {
+      write: "node.create",
+      reason: b.reason ?? `Approve follow-up proposal ${proposal.id}`,
+      created_at: now,
+    });
+    state.nodes.push(followup);
+    mission.version += 1;
+    proposal.approved_at = now;
+    proposal.created_node_id = followup.id;
+    return {
+      mission_version: mission.version,
+      revisions: graphRevisions(followup),
+      retired_node_ids: [],
+      added_edges: [],
+      removed_edges: [],
+      open_attempts_unchanged: [],
+    };
+  });
+  return json(res, 200, { created, rejected_proposal_ids: [] });
 });
 
 const FINDING_KINDS = ["blocker", "suggestion"];
@@ -1987,6 +2084,24 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
   const node = graphNodeById(decodeURIComponent(m[1]));
   if (!hasOnly(b, ["expected_mission_version"]))
     return validationFailed(res, "expected_mission_version");
+  const links = node?.content.external_links ?? [];
+  const terminalLinked =
+    links.length > 0 && (node.state === "Completed" || node.state === "Discarded");
+  if (
+    terminalLinked &&
+    node.retired_at === null &&
+    b.expected_mission_version === state.mission.version
+  )
+    return json(res, 200, {
+      results: [],
+      failures: [],
+      link_updates: links.map((link) => ({
+        external_link: link,
+        admitted: 0,
+        duplicate: 0,
+        refused: 0,
+      })),
+    });
   const refusal = controlRefusal(res, state, node, b.expected_mission_version);
   if (refusal !== null) return refusal;
   const unresolved = externalActionsOf(node.id).filter(
@@ -2006,6 +2121,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
     return json(res, 200, {
       results: [],
       failures: unresolved.map((action) => checkFailureOf(action.request_evidence_id)),
+      link_updates: [],
     });
   const resolution = count === 1 ? "unresolved" : "expected-end";
   for (const action of unresolved) {
@@ -2022,6 +2138,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
       resolution,
     })),
     failures: [],
+    link_updates: [],
   });
 });
 

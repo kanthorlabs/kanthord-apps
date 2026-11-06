@@ -12,10 +12,15 @@ import { BindingGuardDialog } from "./binding-guard-dialog";
 import { BindingItem } from "./binding-item";
 import { BindingSheet } from "./binding-sheet";
 
-const SECTIONS: readonly { readonly kind: BindingSetKind; readonly label: string }[] = [
-  { kind: "repository", label: "Repositories" },
-  { kind: "worker", label: "Workers" },
-  { kind: "storage", label: "Storage" },
+const SECTIONS: readonly {
+  readonly kind: BindingSetKind;
+  readonly label: string;
+  readonly creatable: boolean;
+}[] = [
+  { kind: "repository", label: "Repositories", creatable: true },
+  { kind: "worker", label: "Workers", creatable: true },
+  { kind: "storage", label: "Storage", creatable: true },
+  { kind: "conversation", label: "Conversations", creatable: false },
 ];
 
 interface BindingsPanelProps {
@@ -97,6 +102,7 @@ export function BindingsPanel({
       )}
       {SECTIONS.map((section) => {
         const entries = Object.entries(current).filter(([, entry]) => entry.kind === section.kind);
+        if (!section.creatable && entries.length === 0) return null;
         return (
           <section key={section.kind} aria-label={section.label} className="flex flex-col gap-2">
             <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:justify-between">
@@ -104,15 +110,17 @@ export function BindingsPanel({
                 {section.label}{" "}
                 <span className="text-muted-foreground tabular-nums">({entries.length})</span>
               </h3>
-              <Button
-                variant="outline"
-                size="sm"
-                aria-label={`Add ${section.label.toLowerCase()} binding`}
-                onClick={() => editor.openTarget({ kind: section.kind, name: null, entry: null })}
-              >
-                <PlusIcon aria-hidden="true" data-icon="inline-start" />
-                Add
-              </Button>
+              {section.creatable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`Add ${section.label.toLowerCase()} binding`}
+                  onClick={() => editor.openTarget({ kind: section.kind, name: null, entry: null })}
+                >
+                  <PlusIcon aria-hidden="true" data-icon="inline-start" />
+                  Add
+                </Button>
+              )}
             </div>
             {entries.length === 0 ? (
               <p className="text-sm text-muted-foreground">

@@ -14,12 +14,16 @@ import type {
   MissionFindingCreateBody,
   MissionFindingDecideBody,
   MissionFindingUpdateBody,
+  MissionFollowupDecideBody,
+  MissionFollowupDecideResult,
+  MissionFollowupProposal,
   MissionHumanActBody,
   MissionImportApply,
   MissionImportPreview,
   MissionImportResult,
   MissionImportSnapshot,
   MissionJsonExport,
+  MissionLinkUpdate,
   MissionMarkdownExport,
   MissionNodeChange,
   MissionNodeCheckAnswer,
@@ -138,8 +142,36 @@ export async function listNodeExternalActions(
   );
 }
 
+export async function listNodeLinkUpdates(nodeId: string): Promise<readonly MissionLinkUpdate[]> {
+  return readAllPages<MissionLinkUpdate>(
+    `/api/mission/node/${encodeURIComponent(nodeId)}/link-update`,
+  );
+}
+
 export async function listNodeProposals(nodeId: string): Promise<readonly MissionProposal[]> {
   return readAllPages<MissionProposal>(`/api/mission/node/${encodeURIComponent(nodeId)}/proposal`);
+}
+
+export async function listProjectFollowups(
+  projectId: string,
+): Promise<readonly MissionFollowupProposal[]> {
+  return readAllPages<MissionFollowupProposal>(
+    `/api/mission/project/${encodeURIComponent(projectId)}/followup`,
+  );
+}
+
+export async function decideFollowup(
+  nodeId: string,
+  body: MissionFollowupDecideBody,
+): Promise<MissionFollowupDecideResult> {
+  return request<MissionFollowupDecideResult>(
+    `/api/mission/node/${encodeURIComponent(nodeId)}/followup/decide`,
+    {
+      method: "POST",
+      body,
+      headers: { "idempotency-key": newIdempotencyKey() },
+    },
+  );
 }
 
 export async function decideProposals(

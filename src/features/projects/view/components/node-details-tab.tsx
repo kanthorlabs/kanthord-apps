@@ -19,6 +19,7 @@ import { type ChainCooling, useProjectCooling } from "../use-project-cooling";
 import { BindingList } from "./binding-list";
 import { type Fact, FactList } from "./fact-list";
 import { NodeClaimantFacts } from "./node-claimant-facts";
+import { LinkUpdateSection } from "./link-update-section";
 import { NodeControls } from "./node-controls";
 import { NodeStructure } from "./node-structure";
 import { ProposalSection } from "./proposal-section";
@@ -209,6 +210,12 @@ export function NodeDetailsTab({
           onSelect={onSelect}
         />
       )}
+      <LinkUpdateSection
+        node={node}
+        missionVersion={missionVersion}
+        actions={actions.data}
+        onChanged={reloadAll}
+      />
       <FactList facts={factsOf(node)} />
       {claimant !== null && <NodeClaimantFacts claimant={claimant} />}
       <section aria-label="Content" className="flex flex-col gap-2">

@@ -520,6 +520,32 @@ describe("detailTargetsOf and detailOf", () => {
     ]);
   });
 
+  it("targets a terminal node with an open follow-up proposal", () => {
+    const proposal = {
+      id: "followup_1",
+      node_id: "n1",
+      attempt: 1,
+      assessment_id: null,
+      content: { name: "Reply", requirement: "r", criterion: "c" },
+      created_node_id: null,
+      approved_at: null,
+      rejected_at: null,
+      created_at: 1,
+    } as const;
+    const targets = detailTargetsOf([
+      {
+        ...snapshot("atlas", [
+          node("n1", "A", "Completed"),
+          node("n2", "B", "Discarded"),
+          node("n3", "C", "Completed"),
+        ]),
+        followups: [proposal, { ...proposal, id: "followup_2", node_id: "n3", approved_at: 5 }],
+      },
+    ]);
+
+    expect(targets.map((target) => [target.kind, target.node.id])).toEqual([["followup", "n1"]]);
+  });
+
   it("targets a Pending node with an open attempt that waits on a Discarded node", () => {
     const targets = detailTargetsOf([
       snapshot("atlas", [

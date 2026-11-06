@@ -596,6 +596,35 @@ export const GRAPH_IDS = {
 
 const ids = GRAPH_IDS;
 
+const SIGNUP_LINK = {
+  kind: "github_issue",
+  resource_identity: "conversation:github:kanthorlabs/kanthord",
+  number: 42,
+};
+
+export const GRAPH_LINK_UPDATES = {
+  [ids.signup]: [
+    {
+      id: "link_update_01J9ZQ4XKM3B6V8N2R5T7W0LU2",
+      external_link: SIGNUP_LINK,
+      update_key: "issue_comment:2002",
+      inbound_event_id: "inbound_event_01J9ZQ4XKM3B6V8N2R5T7W0IE2",
+      actor_id: "octocat",
+      occurred_at: minutes(30),
+      new: true,
+    },
+    {
+      id: "link_update_01J9ZQ4XKM3B6V8N2R5T7W0LU1",
+      external_link: SIGNUP_LINK,
+      update_key: "issue_comment:2001",
+      inbound_event_id: "inbound_event_01J9ZQ4XKM3B6V8N2R5T7W0IE1",
+      actor_id: "hubot",
+      occurred_at: minutes(300),
+      new: false,
+    },
+  ],
+};
+
 export const GRAPH_NODES = [
   graphNode("YA1", "onboarding.md", examine("Onboarding", [REPO, STORAGE]), {
     state: "Completed",
@@ -611,11 +640,16 @@ export const GRAPH_NODES = [
     attempt: 0,
     priority: 5,
   }),
-  graphNode("YA4", "signup-form.md", content("Sign-up form", [REPO]), {
-    state: "Completed",
-    attempt: 1,
-    pinned_by_attempts: [1],
-  }),
+  graphNode(
+    "YA4",
+    "signup-form.md",
+    content("Sign-up form", [REPO], { external_links: [SIGNUP_LINK] }),
+    {
+      state: "Completed",
+      attempt: 1,
+      pinned_by_attempts: [1],
+    },
+  ),
   graphNode("YA5", "email-verification.md", content("Email verification", [REPO]), {
     state: "Completed",
     attempt: 1,
@@ -1522,7 +1556,26 @@ const executionRecord = (projectId, spec, index) => ({
   root_span_id: `${spec.traceSeed}${"0".repeat(16 - spec.traceSeed.length)}`,
 });
 
+export const GRAPH_FOLLOWUPS = [
+  {
+    id: "followup_01J9ZQ4XKM3B6V8N2R5T7W0FU1",
+    node_id: ids.signup,
+    attempt: 1,
+    assessment_id: null,
+    content: {
+      name: "Reply to the reporter on the issue",
+      requirement: "Tell the reporter of the issue that the sign-up form is fixed.",
+      criterion: "The issue holds one reply that links the fix.",
+    },
+    created_node_id: null,
+    approved_at: null,
+    rejected_at: null,
+    created_at: minutes(25),
+  },
+];
+
 export const GRAPH_EXECUTIONS = [
+  ["ES1", ids.signup, "finished", 700, 650, GRAPH_BINDINGS.worker],
   ["EB2", ids.codes, "running", 30, null, GRAPH_BINDINGS.worker],
   ["EB3", ids.audit, "finished", 400, 210, GRAPH_BINDINGS.worker],
   [

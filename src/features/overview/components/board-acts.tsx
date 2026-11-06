@@ -1,5 +1,6 @@
 import { type ReactNode, useMemo, useState } from "react";
 
+import { FollowupDecisionDialog } from "@/components/followup-decision-dialog";
 import { FindingDecisionDialog } from "@/components/finding-decision-dialog";
 import { NodeDiscardDialog } from "@/components/node-discard-dialog";
 import { NodeOverrideDialog } from "@/components/node-override-dialog";
@@ -14,6 +15,7 @@ import {
   type DecisionAttentionItem,
   detailOf,
   type FindingReviewItem,
+  type FollowupItem,
   type OutsideAttentionItem,
   type ProjectSnapshot,
 } from "@/lib/attention";
@@ -23,6 +25,7 @@ import {
   environmentFailedActsOf,
   findingReviewActsOf,
   fixTargetActsOf,
+  followupActsOf,
   type GateRoute,
   outsideActsOf,
   outsideReadOf,
@@ -47,6 +50,7 @@ import { useBoardChecks } from "../use-board-checks";
 import { useBoardReadsContext } from "../use-board-reads";
 import { useBoardRotate } from "../use-board-rotate";
 import { useFindingReviewActs } from "../use-finding-review-acts";
+import { useFollowupActs } from "../use-followup-acts";
 import { useBoardToolActs } from "../use-board-tool-acts";
 import { useOutsideActs } from "../use-outside-acts";
 import { BoardRotateSheet } from "./board-rotate-sheet";
@@ -110,6 +114,29 @@ function FindingReviewActs({
       <FindingReportSheet report={report} />
     </>
   );
+}
+
+function FollowupActs({
+  store,
+  item,
+  details,
+  ...context
+}: ActsContext & {
+  readonly store: ActsStore;
+  readonly item: FollowupItem;
+  readonly details: AttentionDetails;
+}) {
+  const { decision, lastTraceId } = useFollowupActs(item, detailOf(details, item.node), context);
+  usePublished(
+    store,
+    stateOf(
+      followupActsOf({
+        decide: { available: decision.available, request: decision.request },
+        lastTraceId,
+      }),
+    ),
+  );
+  return <FollowupDecisionDialog name={item.node.content.name} decision={decision} />;
 }
 
 function OutsideActs({
@@ -209,6 +236,8 @@ function ItemActs({
       return <DecisionActs store={store} item={item} {...context} />;
     case "finding_review":
       return <FindingReviewActs store={store} item={item} {...context} />;
+    case "followup_proposal":
+      return <FollowupActs store={store} item={item} {...context} />;
     case "merge_wait":
     case "delivery_unconfirmed":
       return <OutsideActs store={store} item={item} {...context} />;
