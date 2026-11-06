@@ -33,6 +33,9 @@ function isCheckable(
   actions: readonly MissionExternalAction[] | null,
 ): boolean {
   if (node.retired_at !== null) return false;
+  if (node.state === "Completed" || node.state === "Discarded") {
+    return (node.content.external_links ?? []).length > 0;
+  }
   if (node.state !== "External.Requested" && node.state !== "Paused") return false;
   return actions !== null && unresolvedRequestsOf(actions).length > 0;
 }

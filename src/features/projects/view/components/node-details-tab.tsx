@@ -210,7 +210,12 @@ export function NodeDetailsTab({
           onSelect={onSelect}
         />
       )}
-      <LinkUpdateSection nodeId={node.id} links={node.content.external_links ?? []} />
+      <LinkUpdateSection
+        node={node}
+        missionVersion={missionVersion}
+        actions={actions.data}
+        onChanged={reloadAll}
+      />
       <FactList facts={factsOf(node)} />
       {claimant !== null && <NodeClaimantFacts claimant={claimant} />}
       <section aria-label="Content" className="flex flex-col gap-2">

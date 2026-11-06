@@ -3,14 +3,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { ExternalLink } from "@/api/types";
+import type { ExternalLink, MissionExternalAction, MissionNodeRecord } from "@/api/types";
+import { useNodeCheck } from "@/hooks/use-node-check";
 import { externalLinkOf } from "@/lib/external-link";
 import { utcDateTime } from "@/lib/format";
+import { useCallback } from "react";
 import { useNodeLinkUpdates } from "../use-node-link-updates";
 
 interface LinkUpdateSectionProps {
-  readonly nodeId: string;
-  readonly links: readonly ExternalLink[];
+  readonly node: MissionNodeRecord;
+  readonly missionVersion: number;
+  readonly actions: readonly MissionExternalAction[] | null;
+  readonly onChanged: () => void;
+}
+
+const NO_LINKS: readonly ExternalLink[] = [];
+
+function keepAsIs(): void {
+  return undefined;
 }
 
 function LinkText({ link }: { readonly link: ExternalLink }) {
@@ -23,8 +33,20 @@ function LinkText({ link }: { readonly link: ExternalLink }) {
   );
 }
 
-export function LinkUpdateSection({ nodeId, links }: LinkUpdateSectionProps) {
-  const updates = useNodeLinkUpdates(nodeId, links.length > 0);
+export function LinkUpdateSection({
+  node,
+  missionVersion,
+  actions,
+  onChanged,
+}: LinkUpdateSectionProps) {
+  const links = node.content.external_links ?? NO_LINKS;
+  const updates = useNodeLinkUpdates(node.id, links.length > 0);
+  const { reload: reloadUpdates } = updates;
+  const reloadAll = useCallback(() => {
+    reloadUpdates();
+    onChanged();
+  }, [reloadUpdates, onChanged]);
+  const check = useNodeCheck(node, missionVersion, actions, keepAsIs, reloadAll);
 
   if (links.length === 0) return null;
 
@@ -38,6 +60,26 @@ export function LinkUpdateSection({ nodeId, links }: LinkUpdateSectionProps) {
           </li>
         ))}
       </ul>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!check.available || check.checking}
+          onClick={check.check}
+        >
+          Check now
+        </Button>
+        {check.label !== null && (
+          <Badge variant="outline" role="status">
+            {check.label}
+          </Badge>
+        )}
+        {check.linkLabels.map((label) => (
+          <Badge key={label} variant="outline" role="status" className="max-w-full">
+            {label}
+          </Badge>
+        ))}
+      </div>
       <h4 className="text-sm font-medium">Link updates</h4>
       {updates.loading && <Skeleton className="h-12 w-full" />}
       {!updates.loading && updates.data === null && (

@@ -102,6 +102,7 @@ describe("BindingSheet", () => {
     mount("issues", CONVERSATION);
 
     expect(await screen.findByRole("form", { name: "Edit issues" })).toBeTruthy();
+    expect(screen.getByText("Available")).toBeTruthy();
     expect(screen.getByText("kanthorlabs/kanthord")).toBeTruthy();
     expect(screen.getByText("octocat")).toBeTruthy();
     expect(screen.getByText("github-main")).toBeTruthy();

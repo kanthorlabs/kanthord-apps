@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { checkNode } from "@/api/resources/mission";
 import type {
+  ExternalLink,
   MissionExternalAction,
   MissionNodeCheckAnswer,
   MissionNodeCheckResult,
@@ -48,6 +49,12 @@ function nodeIn(state: NodeState): MissionNodeRecord {
     depends_on: [],
   };
 }
+
+const LINK: ExternalLink = {
+  kind: "github_issue",
+  resource_identity: "conversation:github:kanthorlabs/kanthord",
+  number: 42,
+};
 
 function action(resolution: MissionExternalAction["resolution"]): MissionExternalAction {
   return {
@@ -103,6 +110,30 @@ describe("useNodeCheck", () => {
     ["Waiting", false],
   ])("answers available %s -> %s while a request is unresolved", (state, expected) => {
     expect(mount(state).result.current.available).toBe(expected);
+  });
+
+  it.each<[NodeState, boolean]>([
+    ["Completed", true],
+    ["Discarded", true],
+    ["Blocked", false],
+  ])("answers available %s -> %s for a node with a link and no actions", (state, expected) => {
+    const linked = {
+      ...nodeIn(state),
+      content: { ...nodeIn(state).content, external_links: [LINK] },
+    };
+    const { result } = renderHook(() => useNodeCheck(linked, 7, null, vi.fn(), vi.fn()));
+    expect(result.current.available).toBe(expected);
+  });
+
+  it("is unavailable for a terminal node without a link and for a retired terminal node", () => {
+    expect(mount("Completed", null).result.current.available).toBe(false);
+    const linked = {
+      ...nodeIn("Completed"),
+      content: { ...nodeIn("Completed").content, external_links: [LINK] },
+    };
+    const retired = { ...linked, retired_at: 1 };
+    const { result } = renderHook(() => useNodeCheck(retired, 7, null, vi.fn(), vi.fn()));
+    expect(result.current.available).toBe(false);
   });
 
   it("is unavailable until the actions are read and when no request is unresolved", () => {

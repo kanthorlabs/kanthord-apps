@@ -450,6 +450,39 @@ describe("NodeSheet", () => {
     expect(missionApi.listNodeLinkUpdates).toHaveBeenCalledWith("node_audit");
   });
 
+  it("shows the Check now counts of a terminal node with links", async () => {
+    const link = {
+      kind: "github_issue",
+      resource_identity: "conversation:github:kanthorlabs/kanthord",
+      number: 42,
+    } as const;
+    vi.mocked(missionApi.readMissionNode).mockResolvedValue(
+      node("node_audit", "implement", "Audit log", {
+        state: "Completed",
+        content: { ...AUDIT.content, external_links: [link] },
+      }),
+    );
+    vi.mocked(missionApi.listNodeLinkUpdates).mockResolvedValue([]);
+    vi.mocked(missionApi.checkNode).mockResolvedValue({
+      results: [],
+      failures: [],
+      link_updates: [{ external_link: link, admitted: 3, duplicate: 1, refused: 2 }],
+    });
+    renderSheet("node_audit");
+
+    const section = await screen.findByRole("region", { name: "External links" });
+    await userEvent.click(await within(section).findByRole("button", { name: "Check now" }));
+
+    expect(missionApi.checkNode).toHaveBeenCalledWith("node_audit", {
+      expected_mission_version: 3,
+    });
+    expect(
+      await within(section).findByText(
+        "kanthorlabs/kanthord#42: 3 admitted, 1 duplicate, 2 refused",
+      ),
+    ).toBeTruthy();
+  });
+
   it("links Timeline to the timeline of the node", async () => {
     renderSheet("node_audit");
 

@@ -2084,6 +2084,24 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
   const node = graphNodeById(decodeURIComponent(m[1]));
   if (!hasOnly(b, ["expected_mission_version"]))
     return validationFailed(res, "expected_mission_version");
+  const links = node?.content.external_links ?? [];
+  const terminalLinked =
+    links.length > 0 && (node.state === "Completed" || node.state === "Discarded");
+  if (
+    terminalLinked &&
+    node.retired_at === null &&
+    b.expected_mission_version === state.mission.version
+  )
+    return json(res, 200, {
+      results: [],
+      failures: [],
+      link_updates: links.map((link) => ({
+        external_link: link,
+        admitted: 0,
+        duplicate: 0,
+        refused: 0,
+      })),
+    });
   const refusal = controlRefusal(res, state, node, b.expected_mission_version);
   if (refusal !== null) return refusal;
   const unresolved = externalActionsOf(node.id).filter(
