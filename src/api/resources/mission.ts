@@ -20,6 +20,7 @@ import type {
   MissionImportResult,
   MissionImportSnapshot,
   MissionJsonExport,
+  MissionLinkUpdate,
   MissionMarkdownExport,
   MissionNodeChange,
   MissionNodeCheckAnswer,
@@ -135,6 +136,12 @@ export async function listNodeExternalActions(
   return readAllPages<MissionExternalAction>(
     `/api/mission/node/${encodeURIComponent(nodeId)}/external-action`,
     { attempt: String(attempt) },
+  );
+}
+
+export async function listNodeLinkUpdates(nodeId: string): Promise<readonly MissionLinkUpdate[]> {
+  return readAllPages<MissionLinkUpdate>(
+    `/api/mission/node/${encodeURIComponent(nodeId)}/link-update`,
   );
 }
 

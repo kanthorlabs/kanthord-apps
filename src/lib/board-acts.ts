@@ -99,6 +99,7 @@ export interface CheckControl {
   readonly available: boolean;
   readonly checking: boolean;
   readonly label: string | null;
+  readonly linkLabels: readonly string[];
   readonly check: () => void;
 }
 
@@ -211,6 +212,11 @@ function checkActsOf(check: CheckControl, gate: Gate | null): readonly (BoardAct
       gate,
     ),
     check.label === null ? null : { type: "badge", id: "check_badge", label: check.label },
+    ...check.linkLabels.map((label, index): BoardAct => ({
+      type: "badge",
+      id: `check_link_${index}`,
+      label,
+    })),
   ];
 }
 

@@ -19,6 +19,7 @@ import {
   listNodeAssessments,
   listNodeEvidence,
   listNodeFindings,
+  listNodeLinkUpdates,
   listNodeOutcomes,
   listNodeProposals,
   listUndecidedFindings,
@@ -156,6 +157,42 @@ describe("mission graph resources", () => {
 
     await readNodeRevision("node_1", 3);
     expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/revision/3");
+  });
+});
+
+describe("mission link update resources", () => {
+  it("reads every link update of a node through mission.link_update.list", async () => {
+    await serve({ items: [], next_cursor: null });
+
+    await listNodeLinkUpdates("node_1");
+    expect(seen[0]?.req.method).toBe("GET");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1/link-update?limit=1000");
+  });
+
+  it("follows the cursor of the page in the order of the read", async () => {
+    const pages = [
+      { items: [{ id: "link_update_2" }], next_cursor: "cursor_1" },
+      { items: [{ id: "link_update_1" }], next_cursor: null },
+    ];
+    const instance = createServer((req, res) => {
+      seen.push({ req, body: "" });
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(pages[seen.length - 1]));
+    });
+    server = instance;
+    await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
+    setConnection({
+      baseUrl: `http://127.0.0.1:${(instance.address() as AddressInfo).port}`,
+      token: "jwt-1",
+    });
+
+    const updates = await listNodeLinkUpdates("node_1");
+
+    expect(seen.map((item) => item.req.url)).toEqual([
+      "/api/mission/node/node_1/link-update?limit=1000",
+      "/api/mission/node/node_1/link-update?limit=1000&cursor=cursor_1",
+    ]);
+    expect(updates.map((update) => update.id)).toEqual(["link_update_2", "link_update_1"]);
   });
 });
 

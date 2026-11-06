@@ -1372,6 +1372,10 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
   ),
 );
 
+on("GET", /^\/api\/mission\/node\/([^/]+)\/link-update$/, (m, _b, res, _t, url) =>
+  json(res, 200, page(fx.GRAPH_LINK_UPDATES[decodeURIComponent(m[1])] ?? [], url)),
+);
+
 const isOpenProposal = (proposal) => proposal.approved_at === null && proposal.rejected_at === null;
 
 const rejectOpenProposals = (state, proposer, now) => {
@@ -2006,6 +2010,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
     return json(res, 200, {
       results: [],
       failures: unresolved.map((action) => checkFailureOf(action.request_evidence_id)),
+      link_updates: [],
     });
   const resolution = count === 1 ? "unresolved" : "expected-end";
   for (const action of unresolved) {
@@ -2022,6 +2027,7 @@ on("POST", /^\/api\/mission\/node\/([^/]+)\/check$/, (m, b, res) => {
       resolution,
     })),
     failures: [],
+    link_updates: [],
   });
 });
 

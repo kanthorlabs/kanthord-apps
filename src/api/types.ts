@@ -631,6 +631,30 @@ export type MissionActor =
       readonly inbound_event_id?: string;
     };
 
+export type ExternalLink =
+  | {
+      readonly kind: "github_issue";
+      readonly resource_identity: string;
+      readonly number: number;
+    }
+  | { readonly kind: "jira_issue"; readonly resource_identity: string; readonly key: string }
+  | {
+      readonly kind: "slack_thread";
+      readonly resource_identity: string;
+      readonly channel: string;
+      readonly thread_ts: string;
+    };
+
+export interface MissionLinkUpdate {
+  readonly id: string;
+  readonly external_link: ExternalLink;
+  readonly update_key: string;
+  readonly inbound_event_id: string;
+  readonly actor_id: string;
+  readonly occurred_at: number;
+  readonly new: boolean;
+}
+
 export interface MissionContent {
   readonly name: string;
   readonly requirement: string;
@@ -639,6 +663,7 @@ export interface MissionContent {
   readonly bindings: readonly string[];
   readonly intent: Intent;
   readonly tags: readonly string[];
+  readonly external_links?: readonly ExternalLink[];
 }
 
 export interface MissionTaskBody {
@@ -1055,9 +1080,17 @@ export interface MissionNodeCheckFailure {
   };
 }
 
+export interface MissionLinkCheck {
+  readonly external_link: ExternalLink;
+  readonly admitted: number;
+  readonly duplicate: number;
+  readonly refused: number;
+}
+
 export interface MissionNodeCheckAnswer {
   readonly results: readonly MissionNodeCheckResult[];
   readonly failures: readonly MissionNodeCheckFailure[];
+  readonly link_updates: readonly MissionLinkCheck[];
 }
 
 export interface MissionProposalDecideResult {

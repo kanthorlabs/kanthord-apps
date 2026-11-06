@@ -2657,6 +2657,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
           },
         ],
         failures: [],
+        link_updates: [],
       }),
     );
 
@@ -2688,6 +2689,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
           },
         },
       ],
+      link_updates: [],
     });
     renderScreen();
 
@@ -2709,7 +2711,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
       actions: { n_o: [requested("n_o", "unresolved")] },
       evidence: { n_o: [requestEvidence("n_o", AGED)] },
     });
-    vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [] });
+    vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [], link_updates: [] });
     renderScreen();
     const item = await findDetail();
     const reads = vi.mocked(listProjects).mock.calls.length;
@@ -2734,6 +2736,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
         },
       ],
       failures: [],
+      link_updates: [],
     });
     renderScreen();
 
@@ -2778,7 +2781,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
     });
     vi.mocked(checkNode).mockImplementation(async (nodeId) => {
       nodes["prj-1"] = (nodes["prj-1"] ?? []).filter((node) => node.id !== nodeId);
-      return { results: [], failures: [] };
+      return { results: [], failures: [], link_updates: [] };
     });
     renderScreen();
 

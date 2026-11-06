@@ -71,7 +71,13 @@ function controlsOf(
     resume: control,
     discard: control,
     remove: { available: availability, request: vi.fn() },
-    check: { available: availability, checking: false, label: null, check: vi.fn() },
+    check: {
+      available: availability,
+      checking: false,
+      label: null,
+      linkLabels: [],
+      check: vi.fn(),
+    },
     ready: true,
     lastTraceId: null,
     ...overrides,
@@ -97,7 +103,13 @@ function pullRequestOf(resourceIdentity: string, number: number): MissionEvidenc
   } as unknown as MissionEvidence;
 }
 
-const READY_CHECK = { available: true, checking: false, label: null, check: vi.fn() };
+const READY_CHECK = {
+  available: true,
+  checking: false,
+  label: null,
+  linkLabels: [],
+  check: vi.fn(),
+};
 
 describe("decisionActsOf", () => {
   it("orders the acts of a paused node", () => {

@@ -8,13 +8,14 @@ import type {
   MissionNodeRecord,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import { CHECKING_LABEL, checkLabelOf } from "@/lib/check-result";
+import { CHECKING_LABEL, checkLabelOf, linkLabelsOf } from "@/lib/check-result";
 import { unresolvedRequestsOf } from "@/lib/external-requests";
 
 export interface NodeCheckState {
   readonly available: boolean;
   readonly checking: boolean;
   readonly label: string | null;
+  readonly linkLabels: readonly string[];
   readonly check: () => void;
 }
 
@@ -51,6 +52,7 @@ export function useNodeCheck(
   const [checking, setChecking] = useState(false);
   const latest = useRef<() => void>(() => undefined);
   const [label, setLabel] = useState<string | null>(null);
+  const [linkLabels, setLinkLabels] = useState<readonly string[]>([]);
   const available = isCheckable(node, actions);
 
   const check = useCallback(
@@ -58,10 +60,12 @@ export function useNodeCheck(
       if (checking || !isCheckable(node, actions)) return;
       setChecking(true);
       setLabel(CHECKING_LABEL);
+      setLinkLabels([]);
       checkNode(node.id, { expected_mission_version: missionVersion }).then(
         (answer) => {
           setChecking(false);
           setLabel(checkLabelOf(answer));
+          setLinkLabels(linkLabelsOf(answer));
           for (const failure of answer.failures) {
             toast.error(`A request of ${node.content.name} could not be checked.`, {
               description: failureDescriptionOf(failure),
@@ -74,6 +78,7 @@ export function useNodeCheck(
         (cause: unknown) => {
           setChecking(false);
           setLabel(null);
+          setLinkLabels([]);
           const failure = asApiError(cause);
           const conflict = CONFLICT_MESSAGES[failure.detail];
           if (conflict === undefined) {
@@ -95,5 +100,5 @@ export function useNodeCheck(
     latest.current = check;
   });
 
-  return { available, checking, label, check };
+  return { available, checking, label, linkLabels, check };
 }

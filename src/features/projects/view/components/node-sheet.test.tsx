@@ -421,6 +421,35 @@ describe("NodeSheet", () => {
     expect(await within(sheet).findByText("platform.macos")).toBeTruthy();
   });
 
+  it("shows the external links and the link updates of a linked node", async () => {
+    const link = {
+      kind: "github_issue",
+      resource_identity: "conversation:github:kanthorlabs/kanthord",
+      number: 42,
+    } as const;
+    const linked = node("node_audit", "implement", "Audit log", {
+      state: "Completed",
+      content: { ...AUDIT.content, external_links: [link] },
+    });
+    vi.mocked(missionApi.readMissionNode).mockResolvedValue(linked);
+    vi.mocked(missionApi.listNodeLinkUpdates).mockResolvedValue([
+      {
+        id: "link_update_1",
+        external_link: link,
+        update_key: "comment:1",
+        inbound_event_id: "inbound_event_1",
+        actor_id: "octocat",
+        occurred_at: Date.UTC(2025, 0, 1, 9, 0),
+        new: true,
+      },
+    ]);
+    renderSheet("node_audit");
+
+    const section = await screen.findByRole("region", { name: "External links" });
+    expect(await within(section).findByText("New")).toBeTruthy();
+    expect(missionApi.listNodeLinkUpdates).toHaveBeenCalledWith("node_audit");
+  });
+
   it("links Timeline to the timeline of the node", async () => {
     renderSheet("node_audit");
 

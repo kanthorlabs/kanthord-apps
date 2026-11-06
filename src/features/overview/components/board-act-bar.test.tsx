@@ -276,6 +276,7 @@ describe("BoardActBar", () => {
         },
       ],
       failures: [],
+      link_updates: [],
     });
     const item = itemOf(PAUSED, "paused");
     const view = render(<Bar item={item} details={pausedDetails(PAUSED, [unresolved()])} />);
@@ -288,6 +289,38 @@ describe("BoardActBar", () => {
 
     expect(screen.queryByRole("button", { name: "Check now" })).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Merged");
+  });
+
+  it("shows the counts of each link after Check now", async () => {
+    vi.mocked(checkNode).mockResolvedValue({
+      results: [
+        {
+          evidence_id: "evidence_1",
+          requirement_key: "repo.pull_request",
+          resolution: "unresolved",
+        },
+      ],
+      failures: [],
+      link_updates: [
+        {
+          external_link: {
+            kind: "github_issue",
+            resource_identity: "conversation:github:kanthorlabs/kanthord",
+            number: 42,
+          },
+          admitted: 2,
+          duplicate: 1,
+          refused: 0,
+        },
+      ],
+    });
+    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [unresolved()])} />);
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Check now" }));
+
+    expect(
+      await screen.findByText("kanthorlabs/kanthord#42: 2 admitted, 1 duplicate, 0 refused"),
+    ).toBeInTheDocument();
   });
 
   it("shows the letter of each act in a key hint with aria-keyshortcuts", async () => {

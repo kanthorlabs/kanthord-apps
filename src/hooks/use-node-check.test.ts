@@ -71,7 +71,7 @@ function answer(
   results: readonly MissionNodeCheckResult[],
   failures: MissionNodeCheckAnswer["failures"] = [],
 ): MissionNodeCheckAnswer {
-  return { results, failures };
+  return { results, failures, link_updates: [] };
 }
 
 const MERGED: MissionNodeCheckResult = {

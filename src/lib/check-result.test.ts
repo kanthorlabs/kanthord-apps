@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  ExternalLink,
   MissionCheckResolution,
+  MissionLinkCheck,
   MissionNodeCheckFailure,
   MissionNodeCheckResult,
 } from "@/api/types";
 
-import { checkLabelOf as labelOf } from "./check-result";
+import { checkLabelOf as labelOf, linkLabelsOf } from "./check-result";
 
 function result(
   key: "pull_request" | "merge_push",
@@ -26,8 +28,9 @@ const FAILURE: MissionNodeCheckFailure = {
 function checkLabelOf(
   results: readonly MissionNodeCheckResult[],
   failures: readonly MissionNodeCheckFailure[] = [],
+  linkUpdates: readonly MissionLinkCheck[] = [],
 ) {
-  return labelOf({ results, failures });
+  return labelOf({ results, failures, link_updates: linkUpdates });
 }
 
 describe("checkLabelOf", () => {
@@ -71,5 +74,50 @@ describe("checkLabelOf", () => {
 
   it("names the results that arrived next to a failure", () => {
     expect(checkLabelOf([result("pull_request", "expected-end")], [FAILURE])).toBe("Merged");
+  });
+});
+
+const ISSUE: ExternalLink = {
+  kind: "github_issue",
+  resource_identity: "conversation:github:kanthorlabs/kanthord",
+  number: 42,
+};
+
+describe("linkLabelsOf", () => {
+  it("states the admitted, duplicate and refused counts of each link", () => {
+    expect(
+      linkLabelsOf({
+        results: [],
+        failures: [],
+        link_updates: [
+          { external_link: ISSUE, admitted: 2, duplicate: 1, refused: 0 },
+          {
+            external_link: {
+              kind: "jira_issue",
+              resource_identity: "conversation:jira:acme",
+              key: "KAN-7",
+            },
+            admitted: 0,
+            duplicate: 0,
+            refused: 3,
+          },
+        ],
+      }),
+    ).toEqual([
+      "kanthorlabs/kanthord#42: 2 admitted, 1 duplicate, 0 refused",
+      "Jira issue KAN-7: 0 admitted, 0 duplicate, 3 refused",
+    ]);
+  });
+
+  it("states nothing for an answer with no link", () => {
+    expect(linkLabelsOf({ results: [], failures: [], link_updates: [] })).toEqual([]);
+  });
+});
+
+describe("checkLabelOf of a node with links only", () => {
+  it("names no delivery when no request exists and a link answered", () => {
+    expect(
+      checkLabelOf([], [], [{ external_link: ISSUE, admitted: 1, duplicate: 0, refused: 0 }]),
+    ).toBeNull();
   });
 });
