@@ -52,6 +52,7 @@ export interface OverviewState {
   readonly held: ReadonlyMap<string, readonly string[]>;
   readonly snapshots: readonly ProjectSnapshot[];
   readonly faults: readonly ReadFault[];
+  readonly absent: readonly string[];
   readonly allClear: boolean;
   readonly details: AttentionDetails;
   readonly retryDetail: (nodeId: string) => void;
@@ -211,6 +212,11 @@ export function useOverview(): OverviewState {
     inbox.error,
   ]);
 
+  const absent = useMemo<readonly string[]>(
+    () => [...new Set([...(data?.absent ?? NO_COMPONENTS), ...(inbox.absent ? ["inbox"] : [])])],
+    [data, inbox.absent],
+  );
+
   const setDialogOpen = useCallback(
     (itemId: string, nodeId: string, open: boolean) => {
       setOpenDialogs((current) => {
@@ -271,6 +277,7 @@ export function useOverview(): OverviewState {
     held,
     snapshots: everySnapshots,
     faults,
+    absent,
     allClear:
       faults.length === 0 &&
       externalReads.pending === 0 &&

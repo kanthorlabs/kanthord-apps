@@ -1251,6 +1251,22 @@ describe("OverviewScreen states", () => {
     expect(screen.queryByRole("listitem")).toBeNull();
   });
 
+  it("notes the sources that the server does not offer and shows no read fault", async () => {
+    const absent = new ApiError("not_found", "No route.", 404, "gateway.routing.not_found");
+    serve({ nodes: { "prj-1": [plain("n_a", "A", "Pending")] } });
+    vi.mocked(listProjectFollowups).mockRejectedValue(absent);
+    vi.mocked(listInboxItems).mockRejectedValue(absent);
+
+    renderScreen();
+
+    expect(
+      await screen.findByText("Not available on this server: follow-up proposals, inbox."),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Not available on this server/)).toHaveLength(1);
+    expect(screen.queryByText(/Some records could not be read/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
   it("replaces All clear with a notice that names the missing records", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [], "prj-2": [] } });

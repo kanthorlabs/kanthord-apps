@@ -31,3 +31,7 @@ export class ApiError extends Error {
 export function isApiError(value: unknown): value is ApiError {
   return value instanceof ApiError;
 }
+
+export function isRouteAbsent(error: ApiError): boolean {
+  return error.status === 404 && error.detail === "gateway.routing.not_found";
+}
