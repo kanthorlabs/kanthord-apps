@@ -15,6 +15,7 @@ vi.mock("@/api/resources/projects", () => ({
   listProjects: vi.fn(),
   listWorkerBindings: vi.fn(),
   listBindingAgents: vi.fn(),
+  listBindings: vi.fn(),
   listProjectEnvironments: vi.fn(),
   readProject: vi.fn(),
   resumeProject: vi.fn(),
@@ -55,6 +56,8 @@ vi.mock("@/api/resources/mission", () => ({
   decideFollowup: vi.fn(),
   listProjectFollowups: vi.fn(),
   listInboxItems: vi.fn(),
+  doneInboxItem: vi.fn(),
+  pauseNode: vi.fn(),
   listNodeLinkUpdates: vi.fn(),
   overrideNode: vi.fn(),
   resumeNode: vi.fn(),
@@ -91,6 +94,7 @@ import {
   decideFollowup,
   decideProposals,
   discardNode,
+  doneInboxItem,
   listInboxItems,
   listMissionNodes,
   listNodeAssessments,
@@ -102,6 +106,7 @@ import {
   listProjectFollowups,
   listUndecidedFindings,
   overrideNode,
+  pauseNode,
   readMission,
   removeDependency,
   resumeNode,
@@ -117,6 +122,7 @@ import {
 import { readLiveness } from "@/api/resources/gateway";
 import {
   listBindingAgents,
+  listBindings,
   listProjectEnvironments,
   listProjects,
   listWorkerBindings,
@@ -4552,35 +4558,35 @@ describe("OverviewScreen history and phone", () => {
   });
 });
 
-describe("OverviewScreen inbox tab", () => {
-  function thread(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
-    return {
-      link_update_id: id,
-      project_id: "prj-1",
-      external_link: {
-        kind: "github_issue",
-        resource_identity: "conversation:github:acme/shop",
-        number: 42,
-      },
-      reason: "linked",
-      state: "open",
+function thread(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
+  return {
+    link_update_id: id,
+    project_id: "prj-1",
+    external_link: {
+      kind: "github_issue",
+      resource_identity: "conversation:github:acme/shop",
+      number: 42,
+    },
+    reason: "linked",
+    state: "open",
+    occurred_at: NOW - 2 * HOUR,
+    done_at: null,
+    snoozed_until: null,
+    inbound_event_id: `event_${id}`,
+    actor_id: "actor_1",
+    trusted: true,
+    linked_node_ids: [],
+    content: {
+      author: "ulrich",
+      body: `Body of ${id}`,
+      url: "https://github.com/acme/shop/issues/42",
       occurred_at: NOW - 2 * HOUR,
-      done_at: null,
-      snoozed_until: null,
-      inbound_event_id: `event_${id}`,
-      actor_id: "actor_1",
-      trusted: true,
-      linked_node_ids: [],
-      content: {
-        author: "ulrich",
-        body: `Body of ${id}`,
-        url: "https://github.com/acme/shop/issues/42",
-        occurred_at: NOW - 2 * HOUR,
-      },
-      ...overrides,
-    };
-  }
+    },
+    ...overrides,
+  };
+}
 
+describe("OverviewScreen inbox tab", () => {
   const THREADS: readonly InboxItem[] = [
     thread("link_update_a", { reason: "participating" }),
     thread("link_update_b", {
@@ -4757,5 +4763,348 @@ describe("OverviewScreen inbox tab", () => {
     );
     await waitFor(() => expect(screen.getByRole("tab", { name: "Inbox, 1 act" })).toBeVisible());
     expect(within(listOf()).getAllByRole("listitem")).toHaveLength(1);
+  });
+});
+
+describe("OverviewScreen inbox detail and acts", () => {
+  const RUN = plain("n_run", "Running node", "Executing");
+  const DONE = plain("n_done", "Finished node", "Completed");
+  const IDLE = plain("n_idle", "Paused node", "Paused");
+
+  function openWorld(inbox: InboxItem[], extra: Partial<Parameters<typeof serve>[0]> = {}) {
+    serve({ inbox, nodes: { "prj-1": [RUN, DONE, IDLE] }, ...extra });
+  }
+
+  function answered(item: InboxItem, state: InboxItem["state"]): InboxItem {
+    return { ...item, state };
+  }
+
+  function removeOnDone(inbox: InboxItem[], state: InboxItem["state"] = "done") {
+    vi.mocked(doneInboxItem).mockImplementation(async (id) => {
+      const at = inbox.findIndex((entry) => entry.link_update_id === id);
+      const [item] = inbox.splice(at, 1);
+      if (item === undefined) throw new Error("No item.");
+      return answered(item, state);
+    });
+  }
+
+  async function openDetail(width = EXPANDED_WIDTH) {
+    renderScreen("/?kind=inbox");
+    setWidth(width);
+    return screen.findByRole("region", NOT_LOADING);
+  }
+
+  it("shows What, Message and Impact in order, with the linked nodes", async () => {
+    openWorld([
+      thread("link_update_a", {
+        linked_node_ids: ["n_run", "n_done"],
+        content: {
+          author: "ulrich",
+          body: "Please look at <b>x</b>.",
+          url: "https://github.com/acme/shop/issues/42",
+          occurred_at: NOW,
+        },
+      }),
+    ]);
+
+    const detail = await openDetail();
+
+    expect(
+      within(detail)
+        .getAllByRole("heading", { level: 4 })
+        .map((heading) => heading.textContent),
+    ).toEqual(["What", "Message", "Impact"]);
+    expect(
+      within(detail).getByText("A thread that a linked node follows got a new update."),
+    ).toBeVisible();
+    expect(within(detail).getByText("2 nodes link to this thread.")).toBeVisible();
+    const linked: readonly (readonly [string, string])[] = [
+      ["Running node", "Executing"],
+      ["Finished node", "Completed"],
+    ];
+    for (const [name, state] of linked) {
+      const row = within(detail).getByText(name).closest("li");
+      expect(row).toHaveTextContent("in kanthord");
+      expect(row).toHaveTextContent(state);
+    }
+  });
+
+  it("shows the body as literal text, never as markup", async () => {
+    openWorld([
+      thread("link_update_a", {
+        content: {
+          author: "ulrich",
+          body: "Please look at <b>x</b>.",
+          url: "https://github.com/acme/shop/issues/42",
+          occurred_at: NOW,
+        },
+      }),
+    ]);
+
+    const detail = await openDetail();
+
+    expect(within(detail).getByText("Please look at <b>x</b>.")).toBeVisible();
+    expect(detail.querySelector("b")).toBeNull();
+    expect(
+      within(detail).getByRole("link", { name: "https://github.com/acme/shop/issues/42" }),
+    ).toHaveAttribute("href", "https://github.com/acme/shop/issues/42");
+  });
+
+  it("reads that the text is gone when the content is null", async () => {
+    openWorld([thread("link_update_a", { content: null })]);
+
+    const detail = await openDetail();
+
+    expect(within(detail).getByText("The text is no longer stored.")).toBeVisible();
+    expect(within(detail).getByText("No node links to this thread.")).toBeVisible();
+  });
+
+  it("holds kind=inbox and the item id in the URL", async () => {
+    openWorld([
+      thread("link_update_a"),
+      thread("link_update_b", {
+        occurred_at: NOW,
+        external_link: {
+          kind: "jira_issue",
+          resource_identity: "conversation:jira:x",
+          key: "KD-7",
+        },
+      }),
+    ]);
+    const user = userEvent.setup();
+    await openDetail();
+
+    await user.click(cardButton("KD-7"));
+
+    await waitFor(() => expect(searchOf().get("item")).toBe("link_update_b"));
+    expect(searchOf().get("kind")).toBe("inbox");
+  });
+
+  it("selects the first card when no item holds the id of the URL", async () => {
+    openWorld([thread("link_update_a")]);
+    renderScreen("/?kind=inbox&item=link_update_gone");
+    setWidth(EXPANDED_WIDTH);
+
+    const detail = await screen.findByRole("region", { name: /acme\/shop#42/ });
+
+    expect(within(detail).getByText("Body of link_update_a")).toBeVisible();
+    await waitFor(() => expect(searchOf().get("item")).toBe("link_update_a"));
+  });
+
+  it("lists the acts in order for a GitHub thread with a running linked node", async () => {
+    openWorld([thread("link_update_a", { linked_node_ids: ["n_run"] })]);
+
+    const detail = await openDetail();
+    const acts = await within(detail).findByRole("group", { name: "Acts" });
+
+    expect(
+      within(acts)
+        .getAllByRole("button")
+        .map((button) => button.firstChild?.textContent),
+    ).toEqual([
+      "Mark done",
+      "Snooze",
+      "Open on GitHub",
+      "Create node",
+      "Link to node",
+      "Pause Running node",
+      "Check now",
+    ]);
+  });
+
+  it("sends no snoozed_until with Mark done and moves to the next card", async () => {
+    const user = userEvent.setup();
+    const inbox = [
+      thread("link_update_a", { occurred_at: NOW - 3 * HOUR }),
+      thread("link_update_b", {
+        occurred_at: NOW - HOUR,
+        external_link: {
+          kind: "jira_issue",
+          resource_identity: "conversation:jira:x",
+          key: "KD-7",
+        },
+      }),
+    ];
+    openWorld(inbox);
+    removeOnDone(inbox);
+    const detail = await openDetail();
+    expect(within(detail).getByText("Body of link_update_a")).toBeVisible();
+
+    await user.click(await within(detail).findByRole("button", { name: "Mark done" }));
+
+    await waitFor(() => expect(doneInboxItem).toHaveBeenCalledWith("link_update_a", {}));
+    const next = await screen.findByRole("region", { name: /KD-7/ });
+    expect(within(next).getByText("Body of link_update_b")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "acme/shop#42" })).toBeNull();
+  });
+
+  it("sends the local time of Tomorrow 08:00 with Snooze", async () => {
+    const user = userEvent.setup();
+    const inbox = [thread("link_update_a")];
+    openWorld(inbox);
+    removeOnDone(inbox, "snoozed");
+    const detail = await openDetail();
+    const tomorrow = new Date();
+    const expected = new Date(
+      tomorrow.getFullYear(),
+      tomorrow.getMonth(),
+      tomorrow.getDate() + 1,
+      8,
+    ).getTime();
+
+    await user.click(await within(detail).findByRole("button", { name: "Snooze" }));
+    const dialog = await screen.findByRole("dialog", { name: /Snooze/ });
+    expect(within(dialog).getByRole("button", { name: "In 3 hours" })).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "Monday 08:00" })).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Tomorrow 08:00" }));
+
+    await waitFor(() =>
+      expect(doneInboxItem).toHaveBeenCalledWith("link_update_a", { snoozed_until: expected }),
+    );
+  });
+
+  it("keeps the card and says that a new update arrived when the answer is open", async () => {
+    const user = userEvent.setup();
+    const inbox = [thread("link_update_a")];
+    openWorld(inbox);
+    vi.mocked(doneInboxItem).mockResolvedValue({ ...(inbox[0] as InboxItem), state: "open" });
+    const detail = await openDetail();
+
+    await user.click(await within(detail).findByRole("button", { name: "Mark done" }));
+
+    expect(await within(detail).findByText("A new update arrived.")).toBeVisible();
+    expect(within(listOf()).getByRole("button", { name: "acme/shop#42" })).toBeVisible();
+    expect(within(detail).getByRole("button", { name: "Mark done" })).toBeVisible();
+  });
+
+  it("shows the failure of Mark done and keeps the card", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a")]);
+    vi.mocked(doneInboxItem).mockRejectedValue(
+      new ApiError("not_found", "No such inbox item.", 404, "mission.inbox_item.not_found"),
+    );
+    const detail = await openDetail();
+
+    await user.click(await within(detail).findByRole("button", { name: "Mark done" }));
+
+    expect(await within(detail).findByRole("alert")).toHaveTextContent("No such inbox item.");
+    expect(within(listOf()).getByRole("button", { name: "acme/shop#42" })).toBeVisible();
+  });
+
+  it("offers Pause for a running linked node only and pauses it with a reason", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a", { linked_node_ids: ["n_run", "n_done", "n_idle"] })]);
+    vi.mocked(pauseNode).mockResolvedValue({} as MissionControlResult);
+    const detail = await openDetail();
+    const acts = await within(detail).findByRole("group", { name: "Acts" });
+
+    expect(within(acts).getAllByRole("button", { name: /^Pause / })).toHaveLength(1);
+    await user.click(within(acts).getByRole("button", { name: "Pause Running node" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.type(within(dialog).getByLabelText("Reason"), "Hold the work.");
+    await user.click(within(dialog).getByRole("button", { name: "Pause node" }));
+
+    await waitFor(() =>
+      expect(pauseNode).toHaveBeenCalledWith("n_run", {
+        reason: "Hold the work.",
+        expected_mission_version: 7,
+        expected_state: "Executing",
+        expected_attempt: 1,
+      }),
+    );
+  });
+
+  it("checks a linked node with Check now", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a", { linked_node_ids: ["n_done"] })]);
+    vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [], link_updates: [] });
+    const detail = await openDetail();
+
+    await user.click(await within(detail).findByRole("button", { name: "Check now" }));
+
+    await waitFor(() =>
+      expect(checkNode).toHaveBeenCalledWith("n_done", { expected_mission_version: 7 }),
+    );
+  });
+
+  it("selects the card of the terminal node in Decide proposal with Decide follow-up", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a", { linked_node_ids: ["n_done"] })], {
+      followups: { "prj-1": [followup("n_done", "Reply on the issue")] },
+    });
+    const detail = await openDetail();
+
+    await user.click(await within(detail).findByRole("button", { name: "Decide follow-up" }));
+
+    expect(await screen.findByRole("tab", { name: /^Decide proposal,/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await waitFor(() => expect(searchOf().get("item")).toBe("followup_proposal:n_done"));
+  });
+
+  it("opens Create node with the conversation binding preselected", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a")]);
+    vi.mocked(listBindings).mockResolvedValue([
+      {
+        id: "binding_chat",
+        project_id: "prj-1",
+        name: "shop-github",
+        kind: "conversation",
+        resource_identity: "conversation:github:acme/shop",
+        revision: 1,
+        config: {},
+        created_at: 1,
+        removed_at: null,
+      },
+    ]);
+    const detail = await openDetail();
+
+    await user.click(await within(detail).findByRole("button", { name: "Create node" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Create node" });
+    expect(within(dialog).getByText("Body of link_update_a")).toBeVisible();
+    await waitFor(() =>
+      expect(within(dialog).getByRole("checkbox", { name: /shop-github/ })).toBeChecked(),
+    );
+    expect(within(dialog).getByLabelText("Requirement")).toHaveValue("");
+  });
+
+  it("opens Link to node with the open nodes of the project", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a")]);
+    vi.mocked(listBindings).mockResolvedValue([]);
+    const detail = await openDetail();
+
+    await user.click(await within(detail).findByRole("button", { name: "Link to node" }));
+
+    const dialog = await screen.findByRole("dialog", { name: /Link acme\/shop#42 to a node/ });
+    expect(within(dialog).getAllByRole("radio")).toHaveLength(2);
+  });
+});
+
+describe("OverviewScreen inbox layout at 390x844", () => {
+  it("shows seven cells in the strip and Mark done with More in the act bar", async () => {
+    const user = userEvent.setup();
+    serve({
+      inbox: [thread("link_update_a", { linked_node_ids: ["n_run"] })],
+      nodes: { "prj-1": [plain("n_run", "Running node", "Executing")] },
+    });
+    renderScreen("/?kind=inbox");
+    setWidth(390);
+
+    expect(await screen.findAllByRole("tab")).toHaveLength(7);
+    expect(screen.getByRole("tablist")).toHaveClass(
+      "@max-[760px]:grid",
+      "@max-[760px]:grid-cols-7",
+    );
+    await user.click(await within(listOf()).findByRole("button", { name: "acme/shop#42" }));
+    const sheet = await screen.findByRole("dialog");
+    const acts = await within(sheet).findByRole("group", { name: "Acts" });
+
+    expect(within(acts).getByRole("button", { name: "Mark done" })).toBeVisible();
+    expect(within(acts).getByRole("button", { name: /^More/ })).toBeVisible();
+    expect(within(acts).queryByRole("button", { name: "Snooze" })).toBeNull();
   });
 });

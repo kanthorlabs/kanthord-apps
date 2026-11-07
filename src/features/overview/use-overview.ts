@@ -32,7 +32,9 @@ export interface InboxView {
   readonly open: number;
   readonly snoozed: number;
   readonly hasMore: boolean;
+  readonly ready: boolean;
   readonly loadMore: () => void;
+  readonly close: (linkUpdateId: string) => void;
 }
 
 export interface OverviewState {
@@ -261,7 +263,9 @@ export function useOverview(): OverviewState {
       open: inbox.open,
       snoozed: inbox.snoozed,
       hasMore: inbox.hasMore,
+      ready: inbox.ready,
       loadMore: inbox.loadMore,
+      close: inbox.close,
     },
     gates,
     held,

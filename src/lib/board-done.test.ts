@@ -53,6 +53,8 @@ describe("doneEntryOf", () => {
     ["resume_project", "Resumed project Print the slip."],
     ["approve", "Approved Print the slip."],
     ["reject", "Rejected Print the slip."],
+    ["mark_done", "Marked Print the slip done."],
+    ["snooze", "Snoozed Print the slip."],
   ] as const)("words the %s act", (id, text) => {
     expect(doneEntryOf(itemOf(ATLAS, "Print the slip"), actOf(id), AT).text).toBe(text);
   });

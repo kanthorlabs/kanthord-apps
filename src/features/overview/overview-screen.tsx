@@ -288,6 +288,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
             reload={overview.refresh}
             retryDetail={overview.retryDetail}
             markActed={board.markActed}
+            closeInboxItem={overview.inbox.close}
             setDialogOpen={board.setDialogOpen}
             registerDialogCloser={board.registerDialogCloser}
             widthClass={widthClass}

@@ -17,6 +17,8 @@ export const DONE_ACT = {
   Reject: "reject",
   Rotate: "rotate",
   Onboarding: "onboarding",
+  MarkDone: "mark_done",
+  Snooze: "snooze",
 } as const;
 
 export type DoneActId = (typeof DONE_ACT)[keyof typeof DONE_ACT];
@@ -78,6 +80,10 @@ function textOf(subject: string, act: ActedAct): string {
       return `Rotated ${subject} to revision ${act.revision}.`;
     case "onboarding":
       return `Onboarding of ${subject} started.`;
+    case "mark_done":
+      return `Marked ${subject} done.`;
+    case "snooze":
+      return `Snoozed ${subject}.`;
   }
 }
 

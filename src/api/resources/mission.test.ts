@@ -36,6 +36,7 @@ import {
   resumeNode,
   unblockNode,
   updateFinding,
+  updateMissionNode,
 } from "./mission";
 
 let server: Server | null = null;
@@ -247,6 +248,35 @@ describe("mission inbox resources", () => {
     await doneInboxItem("link_update_1", { snoozed_until: 1_700_000_000_000 });
 
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ snoozed_until: 1_700_000_000_000 });
+  });
+});
+
+describe("mission node update resource", () => {
+  it("patches the node through mission.node.update with an idempotency key", async () => {
+    await serve({ mission_version: 5, revisions: [] });
+    const body = {
+      expected_mission_version: 4,
+      content: {
+        name: "Fix login",
+        requirement: "Fix it.",
+        criterion: "It works.",
+        verifications: ["pnpm test"],
+        bindings: ["binding_1"],
+        intent: "implement" as const,
+        tags: [],
+      },
+      tasks: [],
+      reason: "Link the thread.",
+    };
+
+    await updateMissionNode("node_1", body);
+
+    expect(seen[0]?.req.method).toBe("PATCH");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 });
 

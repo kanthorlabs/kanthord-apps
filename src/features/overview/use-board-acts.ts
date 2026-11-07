@@ -48,6 +48,7 @@ export interface BoardActsState {
   readonly unresolved: string | null;
   readonly lastTrace: LastTrace | null;
   readonly failure: ActFailure | null;
+  readonly notice: string | null;
   readonly findings: FindingRowActs | null;
   readonly retry: () => void;
 }
@@ -56,6 +57,7 @@ export interface ActsContext {
   readonly reload: () => void;
   readonly retryDetail: (nodeId: string) => void;
   readonly markActed: (itemId: string, act?: ActedAct) => void;
+  readonly closeInboxItem: (itemId: string) => void;
   readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean, act?: ActedAct) => void;
   readonly registerDialogCloser: (close: (() => void) | null) => void;
 }
@@ -81,6 +83,7 @@ const EMPTY: BoardActsState = {
   unresolved: null,
   lastTrace: null,
   failure: null,
+  notice: null,
   findings: null,
   retry: () => undefined,
 };

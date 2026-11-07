@@ -17,9 +17,8 @@ import type {
   FindingReviewItem,
   FollowupItem,
 } from "@/lib/attention";
-import { type InboxAttentionItem, inboxHrefOf } from "@/lib/inbox-attention";
+import { type InboxAttentionItem, inboxImpactTextOf } from "@/lib/inbox-attention";
 import { inboxReasonCauseOf } from "@/lib/inbox-reasons";
-import { utcDateTime } from "@/lib/format";
 import { changeAskedOf } from "@/lib/board-change";
 import type { HeldNode } from "@/lib/board-detail-joins";
 import {
@@ -54,6 +53,7 @@ import { causeLine } from "@/lib/trace-cause";
 import { type FindingRowActs, useBoardActs } from "../use-board-acts";
 import { type BoardReadsValue, useBoardReadsContext } from "../use-board-reads";
 import { BoardReadBlock } from "./board-read-block";
+import { InboxMessage } from "./inbox-message";
 import { CauseText } from "./cause-text";
 import { FixCauseText } from "./fix-cause-text";
 
@@ -167,32 +167,9 @@ function WhatSection({
 }
 
 function InboxMessageSection({ item }: { readonly item: InboxAttentionItem }) {
-  const { content } = item.inbox;
-  const href = content === null ? null : inboxHrefOf(content.url);
   return (
     <Section title="Message">
-      {content === null ? (
-        <p className={MUTED_TEXT}>The text is no longer stored.</p>
-      ) : (
-        <>
-          <p className="text-sm font-medium break-words">
-            {content.author} · {utcDateTime(content.occurred_at)}
-          </p>
-          <p className={`text-sm whitespace-pre-wrap ${TEXT_WIDTH}`}>{content.body}</p>
-          {href === null ? (
-            <p className={MUTED_TEXT}>{content.url}</p>
-          ) : (
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm break-all underline underline-offset-4"
-            >
-              {content.url}
-            </a>
-          )}
-        </>
-      )}
+      <InboxMessage item={item} />
     </Section>
   );
 }
@@ -493,7 +470,11 @@ export function BoardSections({
       {item.kind === "inbox_item" && <InboxMessageSection item={item} />}
       <Section title="Impact">
         {spread !== null && <p className={`text-sm ${TEXT_WIDTH}`}>{spread}</p>}
-        <p className={`text-sm ${TEXT_WIDTH}`}>{impactHeldTextOf(held.length)}</p>
+        <p className={`text-sm ${TEXT_WIDTH}`}>
+          {item.kind === "inbox_item"
+            ? inboxImpactTextOf(held.length)
+            : impactHeldTextOf(held.length)}
+        </p>
         {held.length > 0 && (
           <ul className="flex flex-col gap-1">
             {held.map(({ node, project }) => (

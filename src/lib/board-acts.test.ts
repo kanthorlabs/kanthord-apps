@@ -19,6 +19,8 @@ import {
   findingReviewActsOf,
   fixTargetActsOf,
   followupActsOf,
+  type InboxActControls,
+  inboxActsOf,
   moreCountOf,
   moreNeedsOf,
   needIdOf,
@@ -31,6 +33,7 @@ import {
   toolApprovalActsOf,
 } from "./board-acts";
 import type { BoardGate } from "./board-items";
+import type { InboxAttentionItem } from "./inbox-attention";
 import type {
   CredentialRefusedItem,
   EnvironmentFailedItem,
@@ -487,5 +490,104 @@ describe("followupActsOf", () => {
     });
 
     expect(idsOf(acts)).toEqual(["decide"]);
+  });
+});
+
+describe("inboxActsOf", () => {
+  const noop = () => undefined;
+  const node = (nodeId: string, name: string) => ({ nodeId, name, busy: false, press: noop });
+  const controls = (overrides: Partial<InboxActControls> = {}): InboxActControls => ({
+    done: { busy: false, press: noop },
+    snooze: { busy: false, request: noop },
+    create: noop,
+    link: noop,
+    pause: [],
+    check: [],
+    followups: [],
+    labels: [],
+    ...overrides,
+  });
+  const item = (link: InboxAttentionItem["inbox"]["external_link"]): InboxAttentionItem =>
+    ({
+      id: "link_update_1",
+      kind: "inbox_item",
+      group: "inbox",
+      project: PROJECT,
+      subject: "x",
+      at: 1,
+      inbox: { external_link: link },
+    }) as InboxAttentionItem;
+  const GITHUB = {
+    kind: "github_issue",
+    resource_identity: "conversation:github:acme/shop",
+    number: 42,
+  } as const;
+  const JIRA = {
+    kind: "jira_issue",
+    resource_identity: "conversation:jira:x",
+    key: "KD-1",
+  } as const;
+  const labelsOf = (acts: readonly BoardAct[]) =>
+    acts.map((act) => {
+      if (act.type === "badge") return `badge:${act.label}`;
+      return "label" in act ? act.label : act.id;
+    });
+
+  it("lists the acts in order", () => {
+    const acts = inboxActsOf(
+      item(GITHUB),
+      controls({
+        pause: [node("n1", "Api")],
+        check: [node("n1", "Api")],
+        followups: [node("n2", "Web")],
+        labels: ["Not delivered yet"],
+      }),
+    );
+
+    expect(labelsOf(acts)).toEqual([
+      "Mark done",
+      "Snooze",
+      "Open on GitHub",
+      "Create node",
+      "Link to node",
+      "Pause Api",
+      "Check now",
+      "Decide follow-up",
+      "badge:Not delivered yet",
+    ]);
+  });
+
+  it("links Open on GitHub to the issue and offers it for a GitHub thread only", () => {
+    const github = inboxActsOf(item(GITHUB), controls()).find((act) => act.id === "open_github");
+
+    expect(github).toMatchObject({
+      type: "external",
+      href: "https://github.com/acme/shop/issues/42",
+    });
+    expect(labelsOf(inboxActsOf(item(JIRA), controls()))).not.toContain("Open on GitHub");
+  });
+
+  it("names the node in the label of a check or a decision when several exist", () => {
+    const acts = inboxActsOf(
+      item(JIRA),
+      controls({ check: [node("n1", "Api"), node("n2", "Web")], followups: [node("n1", "Api")] }),
+    );
+
+    expect(acts.flatMap((act) => (act.type === "button" ? [act.ariaLabel] : []))).toEqual([
+      null,
+      null,
+      null,
+      null,
+      "Check Api now",
+      "Check Web now",
+      null,
+    ]);
+  });
+
+  it("gives the first act of the phone bar to Mark done and the rest to More", () => {
+    const phone = phoneActsOf(inboxActsOf(item(GITHUB), controls()));
+
+    expect(phone.lead?.id).toBe("mark_done");
+    expect(moreCountOf(phone)).toBe(4);
   });
 });

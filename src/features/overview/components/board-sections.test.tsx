@@ -284,6 +284,7 @@ function renderSections(
           markActed={vi.fn()}
           setDialogOpen={vi.fn()}
           registerDialogCloser={vi.fn()}
+          closeInboxItem={vi.fn()}
           widthClass={BOARD_WIDTH.Expanded}
         >
           {reads}

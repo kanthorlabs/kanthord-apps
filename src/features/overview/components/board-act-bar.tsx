@@ -170,7 +170,7 @@ function PhoneBar({
 }
 
 export function BoardActBar() {
-  const { acts, needs, read, failure } = useBoardActs();
+  const { acts, needs, read, failure, notice } = useBoardActs();
   const base = useId();
   const { widthClass, subject } = useBoardActsFrame();
   const { enabled } = useShortcutSetting();
@@ -203,6 +203,11 @@ export function BoardActBar() {
             <NeedLine key={need} need={need} id={needIds(need)} />
           ))}
         </>
+      )}
+      {notice !== null && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {notice}
+        </p>
       )}
       {failure !== null && (
         <div className="flex flex-wrap items-center gap-2">

@@ -395,6 +395,35 @@ export const BINDING_SET = {
       kind: "worker",
       config: { worker: "claude-code@1", instance_count: 1 },
     },
+    "kanthord-github": {
+      kind: "conversation",
+      config: {
+        available: true,
+        platform: "github",
+        repository: "kanthorlabs/kanthord",
+        credential: "atlas-github",
+        inbox: { actor_id: "actor_01J9ZQ4XKM3B6V8N2R5T7W0AC1", handle: "kanthord-dev" },
+      },
+    },
+    "kanthord-jira": {
+      kind: "conversation",
+      config: {
+        available: true,
+        platform: "jira",
+        site: "kanthorlabs.atlassian.net",
+        project_key: "KD",
+        credential: "atlas-jira",
+      },
+    },
+    "atlas-slack": {
+      kind: "conversation",
+      config: {
+        available: true,
+        platform: "slack",
+        team_id: "T0KANTHOR",
+        credential: "atlas-slack",
+      },
+    },
     evidence: {
       kind: "storage",
       config: {
@@ -504,6 +533,33 @@ export const GRAPH_BINDINGS = {
     resource_identity: "worker:kanthord:harness-main",
     revision: 1,
     created_at: minutes(400),
+    removed_at: null,
+  },
+  conversationGithub: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BC1",
+    name: "kanthord-github",
+    kind: "conversation",
+    resource_identity: "conversation:github:kanthorlabs/kanthord",
+    revision: 1,
+    created_at: minutes(800),
+    removed_at: null,
+  },
+  conversationJira: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BC2",
+    name: "kanthord-jira",
+    kind: "conversation",
+    resource_identity: "conversation:jira:kanthorlabs.atlassian.net:KD",
+    revision: 1,
+    created_at: minutes(790),
+    removed_at: null,
+  },
+  conversationSlack: {
+    id: "binding_01J9ZQ4XKM3B6V8N2R5T7W0BC3",
+    name: "atlas-slack",
+    kind: "conversation",
+    resource_identity: "conversation:slack:T0KANTHOR",
+    revision: 1,
+    created_at: minutes(780),
     removed_at: null,
   },
   mirror: {

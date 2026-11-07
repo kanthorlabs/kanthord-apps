@@ -37,6 +37,7 @@ import type {
   MissionNodeRecord,
   MissionNodeResumeBody,
   MissionNodeUnblockBody,
+  MissionNodeUpdate,
   MissionOutcome,
   MissionProposal,
   MissionProposalDecideBody,
@@ -339,6 +340,17 @@ export async function createMissionNode(
 ): Promise<MissionNodeChange> {
   return request<MissionNodeChange>(`/api/mission/${encodeURIComponent(missionId)}/node`, {
     method: "POST",
+    body,
+    headers: { "idempotency-key": newIdempotencyKey() },
+  });
+}
+
+export async function updateMissionNode(
+  nodeId: string,
+  body: MissionNodeUpdate,
+): Promise<MissionNodeChange> {
+  return request<MissionNodeChange>(`/api/mission/node/${encodeURIComponent(nodeId)}`, {
+    method: "PATCH",
     body,
     headers: { "idempotency-key": newIdempotencyKey() },
   });

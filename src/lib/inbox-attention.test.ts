@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type { InboxItem, Project } from "@/api/types";
+import type { InboxItem, MissionNodeRecord, NodeState, Project } from "@/api/types";
 
+import type { ProjectSnapshot } from "./attention";
 import {
   inboxHrefOf,
+  inboxImpactTextOf,
   inboxItemsOf,
   inboxLineOf,
+  inboxNodesOf,
   inboxSubjectOf,
   mergedInboxItemsOf,
 } from "./inbox-attention";
@@ -140,5 +143,75 @@ describe("inboxHrefOf", () => {
   it("answers null for another scheme or for text", () => {
     expect(inboxHrefOf("javascript:alert(1)")).toBeNull();
     expect(inboxHrefOf("not an address")).toBeNull();
+  });
+});
+
+describe("inboxNodesOf", () => {
+  function node(id: string, state: NodeState, retiredAt: number | null = null) {
+    return {
+      id,
+      state,
+      retired_at: retiredAt,
+      content: { name: `Node ${id}` },
+    } as MissionNodeRecord;
+  }
+  const snapshot = {
+    project: PROJECT,
+    missionVersion: 1,
+    nodes: [
+      node("run", "Executing"),
+      node("paused", "Paused"),
+      node("done", "Completed"),
+      node("done-plain", "Completed"),
+      node("gone", "Executing", 5),
+    ],
+    followups: [
+      {
+        id: "f1",
+        node_id: "done",
+        approved_at: null,
+        rejected_at: null,
+      },
+    ],
+  } as unknown as ProjectSnapshot;
+  const [item] = inboxItemsOf(
+    [inboxItem({ linked_node_ids: ["run", "paused", "done", "done-plain", "gone", "unknown"] })],
+    [PROJECT],
+  );
+  if (item === undefined) throw new Error("No item.");
+
+  it("lists each linked node that a snapshot holds", () => {
+    expect(inboxNodesOf(item, [snapshot]).linked.map((entry) => entry.node.id)).toEqual([
+      "run",
+      "paused",
+      "done",
+      "done-plain",
+      "gone",
+    ]);
+  });
+
+  it("offers Pause for a node that is not terminal and not Paused", () => {
+    expect(inboxNodesOf(item, [snapshot]).pausable.map((entry) => entry.id)).toEqual(["run"]);
+  });
+
+  it("offers Check now for each linked node that is not retired", () => {
+    expect(inboxNodesOf(item, [snapshot]).checkable.map((entry) => entry.id)).toEqual([
+      "run",
+      "paused",
+      "done",
+      "done-plain",
+    ]);
+  });
+
+  it("offers Decide follow-up for a terminal node with an open proposal", () => {
+    expect(inboxNodesOf(item, [snapshot]).followups.map((entry) => entry.id)).toEqual(["done"]);
+  });
+});
+
+describe("inboxImpactTextOf", () => {
+  it("counts the linked nodes", () => {
+    expect(inboxImpactTextOf(0)).toBe("No node links to this thread.");
+    expect(inboxImpactTextOf(1)).toBe("1 node links to this thread.");
+    expect(inboxImpactTextOf(3)).toBe("3 nodes link to this thread.");
   });
 });

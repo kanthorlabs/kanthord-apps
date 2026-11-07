@@ -696,7 +696,7 @@ export interface InboxItemQuery {
 }
 
 export interface InboxItemDoneBody {
-  readonly snoozed_until: number | null;
+  readonly snoozed_until?: number | null;
 }
 
 export interface MissionContent {
@@ -1067,6 +1067,7 @@ export interface MissionNodeCreateContent {
   readonly intent?: unknown;
   readonly tags?: unknown;
   readonly commit_type?: unknown;
+  readonly external_links?: readonly ExternalLink[];
 }
 
 export interface MissionNodeCreateBody {
@@ -1078,6 +1079,13 @@ export interface MissionNodeCreateBody {
 
 export interface MissionNodeCreate extends MissionNodeCreateBody {
   readonly expected_mission_version: number;
+}
+
+export interface MissionNodeUpdate {
+  readonly expected_mission_version: number;
+  readonly content: MissionContent;
+  readonly tasks: readonly MissionTaskContent[];
+  readonly reason: string;
 }
 
 export interface MissionNodeChange {

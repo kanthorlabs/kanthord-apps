@@ -1,10 +1,13 @@
-import type { ExternalLink, InboxItem, Project } from "@/api/types";
+import type { ExternalLink, InboxItem, MissionNodeRecord, Project } from "@/api/types";
 
-import type { ItemBase } from "./attention";
+import { type ItemBase, openFollowupsOf, type ProjectSnapshot } from "./attention";
+import { type HeldNode, heldNodesOf } from "./board-detail-joins";
+import { counted } from "./counted";
+import { isTerminal } from "./node-state";
 
 const GITHUB_REPOSITORY = /^conversation:github:([^/\s]+\/[^/\s]+)$/;
 const LINE_LIMIT = 120;
-const NO_TEXT = "The text is no longer stored.";
+export const NO_TEXT = "The text is no longer stored.";
 
 export interface InboxAttentionItem extends ItemBase {
   readonly group: "inbox";
@@ -58,4 +61,40 @@ export function inboxLineOf(item: InboxAttentionItem): string {
 export function inboxHrefOf(url: string): string | null {
   const parsed = URL.parse(url);
   return parsed?.protocol === "https:" || parsed?.protocol === "http:" ? parsed.href : null;
+}
+
+export interface InboxNodes {
+  readonly linked: readonly HeldNode[];
+  readonly pausable: readonly MissionNodeRecord[];
+  readonly checkable: readonly MissionNodeRecord[];
+  readonly followups: readonly MissionNodeRecord[];
+}
+
+export function inboxNodesOf(
+  item: InboxAttentionItem,
+  snapshots: readonly ProjectSnapshot[],
+): InboxNodes {
+  const linked = heldNodesOf(item.inbox.linked_node_ids, snapshots);
+  const live = linked.filter(({ node }) => node.retired_at === null);
+  const hasFollowup = ({ node, project }: HeldNode) =>
+    openFollowupsOf(
+      snapshots.find((snapshot) => snapshot.project.id === project.id)?.followups,
+      node.id,
+    ).length > 0;
+  return {
+    linked,
+    pausable: live
+      .filter(({ node }) => !isTerminal(node.state) && node.state !== "Paused")
+      .map(({ node }) => node),
+    checkable: live.map(({ node }) => node),
+    followups: live
+      .filter((entry) => isTerminal(entry.node.state) && hasFollowup(entry))
+      .map(({ node }) => node),
+  };
+}
+
+export function inboxImpactTextOf(count: number): string {
+  return count === 0
+    ? "No node links to this thread."
+    : `${counted(count, "node links", "nodes link")} to this thread.`;
 }

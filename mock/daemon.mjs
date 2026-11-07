@@ -1260,6 +1260,8 @@ const revisionPins = (node, revision) => {
   return [...new Set([...recorded, ...current, ...open])].sort((a, b) => a - b);
 };
 
+const appendedRevisions = new Map();
+
 const graphRevisions = (node) => {
   const { write, reason, created_at } = createdFirstRevisions.get(node.id) ?? importFirstRevision();
   const first = {
@@ -1282,7 +1284,7 @@ const graphRevisions = (node) => {
     ...revision,
     pinned_by_attempts: revisionPins(node, revision.revision),
   }));
-  return [first, ...later].reverse();
+  return [first, ...later, ...(appendedRevisions.get(node.id) ?? [])].reverse();
 };
 
 const byAttempt = (records, nodeId, url) => {
@@ -1512,6 +1514,56 @@ on("POST", /^\/api\/mission\/([^/]+)\/node$/, (m, b, res) => {
   return json(res, 200, {
     mission_version: mission.version,
     revisions: graphRevisions(node),
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  });
+});
+
+on("PATCH", /^\/api\/mission\/node\/([^/]+)$/, (m, b, res) => {
+  if (!hasOnly(b, ["expected_mission_version", "content", "tasks", "reason"]))
+    return validationFailed(res, "content");
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  const node = graphNodeById(nodeId);
+  if (state === undefined || node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const previous = graphRevisions(node)[0];
+  const revision = {
+    node_id: node.id,
+    filename: node.filename,
+    revision: previous.revision + 1,
+    reason: b.reason,
+    actor: fx.GRAPH_HUMAN,
+    created_at: Date.now(),
+    content: b.content,
+    tasks: b.tasks,
+    change: {
+      write: "node.update",
+      previous_revision: previous.revision,
+      changed_fields: Object.keys(b.content).filter(
+        (key) => JSON.stringify(b.content[key]) !== JSON.stringify(previous.content[key]),
+      ),
+    },
+    pinned_by_attempts: [],
+  };
+  fx.GRAPH_ORIGINAL_CONTENT[node.id] ??= structuredClone(node.content);
+  appendedRevisions.set(node.id, [...(appendedRevisions.get(node.id) ?? []), revision]);
+  node.content = b.content;
+  node.visible_revision = revision.revision;
+  mission.version += 1;
+  return json(res, 200, {
+    mission_version: mission.version,
+    revisions: [revision],
     retired_node_ids: [],
     added_edges: [],
     removed_edges: [],

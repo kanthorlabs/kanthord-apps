@@ -132,6 +132,7 @@ interface Derived {
   readonly cardsByTab: Readonly<Record<BoardTabId, readonly AttentionItem[]>>;
   readonly widthClass: BoardWidth;
   readonly updatedAt: number | null;
+  readonly inboxReady: boolean;
 }
 
 type Advance = (state: BoardState, derived: Derived) => BoardState;
@@ -255,8 +256,9 @@ const trackWidth: Advance = (state, { widthClass }) => {
   };
 };
 
-const settleStart: Advance = (state, { items, view, urlKind, tabOf, cardsByTab }) => {
+const settleStart: Advance = (state, { items, view, urlKind, tabOf, cardsByTab, inboxReady }) => {
   if (state.settled || view.length === 0) return state;
+  if (urlKind === BOARD_TAB.Inbox && !inboxReady) return state;
   if (state.selectedId !== null && !items.some((item) => item.id === state.selectedId)) {
     return { ...state, settled: true };
   }
@@ -327,6 +329,16 @@ const resolveHandoff: Advance = (
   return { ...next, ...arrival, openId: null, itemWrite };
 };
 
+const settleInbox: Advance = (state, { items, cardsByTab, inboxReady }) => {
+  if (state.kind !== BOARD_TAB.Inbox || state.selectedId === null || state.handoff !== null) {
+    return state;
+  }
+  if (!inboxReady || items.some((item) => item.id === state.selectedId)) return state;
+  const first = cardsByTab[BOARD_TAB.Inbox][0]?.id ?? null;
+  if (first === null) return state;
+  return { ...state, selectedId: first, itemWrite: { item: first } };
+};
+
 const ADVANCES: readonly Advance[] = [
   applyEntry,
   applyUrl,
@@ -335,6 +347,7 @@ const ADVANCES: readonly Advance[] = [
   trackLast,
   resolveOpen,
   resolveHandoff,
+  settleInbox,
 ];
 
 function advanceBoard(state: BoardState, derived: Derived): BoardState {
@@ -398,6 +411,7 @@ export function useBoard(overview: BoardOverview, widthClass: BoardWidth): Board
     cardsByTab,
     widthClass,
     updatedAt,
+    inboxReady: overview.inbox?.ready ?? true,
   };
   const current = advanceBoard(state, derived);
   if (current !== state) setState(current);
