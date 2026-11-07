@@ -114,6 +114,10 @@ export function proposedNameOf(detail: FollowupDetail | null, revision: number):
   return detail.revisions.data.find((read) => read.revision === revision)?.content.name ?? null;
 }
 
+export function proposedReadFailedOf(detail: FollowupDetail | null): boolean {
+  return detail?.revisions.status === "failed";
+}
+
 export function showProposalsOf(
   item: AttentionItem,
   proposals: readonly MissionProposal[],

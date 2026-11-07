@@ -42,6 +42,7 @@ import {
   impactHeldTextOf,
   noCauseTextOf,
   proposedNameOf,
+  proposedReadFailedOf,
   showProposalsOf,
   spreadOf,
 } from "@/lib/board-section-facts";
@@ -294,6 +295,9 @@ function FollowupSection({
           );
         })}
       </ul>
+      {proposedReadFailedOf(detail) && (
+        <p className="text-sm text-destructive">Could not read the proposed revision.</p>
+      )}
     </Section>
   );
 }

@@ -1785,6 +1785,20 @@ describe("OverviewScreen follow-up proposal", () => {
     },
   );
 
+  it("shows an error when the proposed revision read fails", async () => {
+    serve({
+      nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] },
+      followups: { "prj-1": [followup("n_f", 2)] },
+    });
+    vi.mocked(readNodeRevision).mockRejectedValue(new Error("revision unavailable"));
+
+    renderScreen();
+
+    const item = await findDetail();
+    expect(await within(item).findByText("Could not read the proposed revision.")).toBeVisible();
+    expect(within(item).getByText("Revision 2 of Sign-up form")).toBeInTheDocument();
+  });
+
   it("reads the follow-up proposals once for each project", async () => {
     serve({
       nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] },
