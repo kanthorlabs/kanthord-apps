@@ -1695,11 +1695,7 @@ export const GRAPH_FOLLOWUPS = [
     node_id: ids.signup,
     attempt: 1,
     assessment_id: null,
-    content: {
-      name: "Reply to the reporter on the issue",
-      requirement: "Tell the reporter of the issue that the sign-up form is fixed.",
-      criterion: "The issue holds one reply that links the fix.",
-    },
+    content: { node_revision: 1 },
     created_node_id: null,
     approved_at: null,
     rejected_at: null,

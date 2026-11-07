@@ -275,9 +275,9 @@ function FollowupSection({ item }: { readonly item: FollowupItem }) {
       <ul aria-label="Open follow-up proposals" className="flex flex-col gap-2">
         {item.proposals.map((proposal) => (
           <li key={proposal.id} className={`flex flex-col gap-0.5 text-sm ${TEXT_WIDTH}`}>
-            <span className="font-medium">{proposal.content.name}</span>
-            <span>Requirement: {proposal.content.requirement}</span>
-            <span>Criterion: {proposal.content.criterion}</span>
+            <span className="font-medium">
+              Revision {proposal.content.node_revision} of {item.node.content.name}
+            </span>
           </li>
         ))}
       </ul>

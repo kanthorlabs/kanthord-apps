@@ -999,9 +999,7 @@ export interface MissionProposal {
 }
 
 export interface MissionFollowupContent {
-  readonly name: string;
-  readonly requirement: string;
-  readonly criterion: string;
+  readonly node_revision: number;
 }
 
 export interface MissionFollowupProposal {
@@ -1015,6 +1013,8 @@ export interface MissionFollowupProposal {
   readonly rejected_at: number | null;
   readonly created_at: number;
 }
+
+export type MissionNodeProposal = MissionProposal | MissionFollowupProposal;
 
 export interface MissionFollowupDecideBody {
   readonly expected_mission_version: number;
