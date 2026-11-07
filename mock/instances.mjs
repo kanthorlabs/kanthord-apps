@@ -9,7 +9,7 @@ const SERVER_INSTANCE_LIMIT = 16;
 const NO_KEY = { publicKey: null, privateKey: null };
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-const ulidTail = () => {
+export const ulidTail = () => {
   let tail = "";
   for (let index = 0; index < 25; index += 1) {
     tail += ULID_ALPHABET[Math.floor(Math.random() * ULID_ALPHABET.length)];
@@ -17,10 +17,10 @@ const ulidTail = () => {
   return tail;
 };
 
-const fingerprintOf = (publicKey) =>
+export const fingerprintOf = (publicKey) =>
   `SHA256:${createHash("sha256").update(Buffer.from(publicKey, "base64url")).digest("base64").replace(/=+$/, "")}`;
 
-const canonicalJson = (value) =>
+export const canonicalJson = (value) =>
   JSON.stringify(Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))));
 
 const COPY_CAPABILITIES = {
@@ -56,6 +56,8 @@ export function registerInstances({
   credentials,
   agents,
   containerBlockReason,
+  liveMachine,
+  machineNames,
 }) {
   const now = Date.now();
   const instances = structuredClone(fx.WORKER_INSTANCES).map(({ connected, ...record }) => ({
@@ -299,8 +301,16 @@ export function registerInstances({
         "An instance at the server or container placement takes no public_key and no endpoint.",
       );
     }
-    if (find(name) !== undefined) {
+    if (find(name) !== undefined || machineNames().includes(name)) {
       return refuse(res, 409, "worker.instance.name_conflict", "The instance name is taken.");
+    }
+    if (atWorker !== (b.machine !== undefined) || (atWorker && liveMachine(b.machine) === null)) {
+      return refuse(
+        res,
+        400,
+        "worker.instance.machine_invalid",
+        "An instance at the worker placement names one live machine, and no other placement names one.",
+      );
     }
     const blockedReason = b.placement === "container" ? containerBlockReason() : null;
     if (blockedReason !== null) {
@@ -331,6 +341,7 @@ export function registerInstances({
       name,
       worker: b.worker,
       placement: b.placement,
+      machine: atWorker ? b.machine : null,
       revision: 1,
       public_key: key.publicKey,
       fingerprint: key.publicKey === null ? null : fingerprintOf(key.publicKey),
@@ -404,6 +415,8 @@ export function registerInstances({
 
   return {
     registrationView,
+    instancesOf: (machine) => instances.filter((instance) => instance.record.machine === machine),
+    instanceNames: () => instances.map((instance) => instance.record.name),
     liveInstance: (name) => {
       const instance = find(name);
       return instance !== undefined && live(instance) ? instance : null;

@@ -114,6 +114,7 @@ export interface WorkerInstance {
   readonly name: string;
   readonly worker: string;
   readonly placement: WorkerPlacement;
+  readonly machine: string | null;
   readonly revision: number;
   readonly public_key: string | null;
   readonly fingerprint: string | null;
@@ -166,8 +167,40 @@ export interface WorkerInstanceCreateBody {
   readonly name: string;
   readonly worker: string;
   readonly placement: WorkerPlacement;
+  readonly machine?: string;
   readonly public_key?: string;
   readonly endpoint?: string;
+}
+
+export interface WorkerMachine {
+  readonly id: string;
+  readonly name: string;
+  readonly revision: number;
+  readonly public_key: string;
+  readonly fingerprint: string;
+  readonly created_at: number;
+  readonly ended_at: number | null;
+}
+
+export interface WorkerMachineListItem extends WorkerMachine {
+  readonly instance_count: number;
+}
+
+export interface WorkerMachineInstance extends WorkerInstance {
+  readonly connection: InstanceConnection | null;
+}
+
+export interface WorkerMachineDetail extends WorkerMachine {
+  readonly instances: readonly WorkerMachineInstance[];
+}
+
+export interface WorkerMachineWriteAnswer extends WorkerMachine {
+  readonly machine_configuration?: string;
+}
+
+export interface WorkerMachineCreateBody {
+  readonly name: string;
+  readonly public_key?: string;
 }
 
 export interface WorkerInstanceArchiveBody {

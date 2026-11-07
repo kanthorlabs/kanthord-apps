@@ -120,7 +120,7 @@ export function ResetKeyDialog({
               the new value. On a container, replace the value of KANTHORD_WORKER_CONFIG.
             </p>
             <InstanceConfiguration
-              name={result.name}
+              target={{ subject: "instance", name: result.name, machine: instance.machine }}
               kind={result.kind}
               runtime={result.runtime}
               version={reset.host.version}

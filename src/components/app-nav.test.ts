@@ -46,6 +46,16 @@ describe("NAV_ITEMS", () => {
     ]);
   });
 
+  it("names Machines once in the Workforce group after Workers", () => {
+    const workforce = NAV_ITEMS.filter((item) => item.group === "Workforce").map((item) => item.to);
+
+    expect(NAV_ITEMS.filter((item) => item.to === "/machines")).toHaveLength(1);
+    expect(NAV_ITEMS.find((item) => item.to === "/machines")).toMatchObject({
+      label: "Machines",
+    });
+    expect(workforce.indexOf("/machines")).toBe(workforce.indexOf("/workers") + 1);
+  });
+
   it("labels the /repositories breadcrumb Git", () => {
     expect(ROUTE_LABELS.get("/repositories")).toBe("Git");
   });

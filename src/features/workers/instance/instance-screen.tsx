@@ -23,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
 import { nodePath } from "@/lib/node-path";
 import { instancePlacementNoteOf } from "@/lib/placement-status";
-import { workerPagePath } from "@/lib/worker-paths";
+import { machinePagePath, workerPagePath } from "@/lib/worker-paths";
 import { usePlacementStatuses } from "../worker/use-placement-statuses";
 import { ArchiveInstanceDialog } from "./components/archive-instance-dialog";
 import { CopyModelsSheet } from "./components/copy-models-sheet";
@@ -111,6 +111,16 @@ function InstanceHeader({
             {instance.worker}
           </Link>
         </dd>
+        {instance.machine !== null && (
+          <>
+            <dt className="text-muted-foreground">Machine</dt>
+            <dd className="min-w-0 break-all">
+              <Link to={machinePagePath(instance.machine)} className="underline underline-offset-4">
+                {instance.machine}
+              </Link>
+            </dd>
+          </>
+        )}
         {keyed && (
           <>
             <dt className="text-muted-foreground">Fingerprint</dt>

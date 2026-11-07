@@ -213,6 +213,7 @@ function instanceItem(name: string, connected: boolean): WorkerInstanceListItem 
     name,
     worker: "coder@1",
     placement: "worker",
+    machine: "m-01",
     revision: 1,
     public_key: "key",
     fingerprint: "SHA256:key",

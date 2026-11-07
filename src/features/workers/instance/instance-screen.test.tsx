@@ -93,6 +93,7 @@ const MAC: WorkerInstanceDetail = {
   name: "mac-studio",
   worker: "coder@1",
   placement: "worker",
+  machine: "m-01",
   revision: 1,
   public_key: "a".repeat(43),
   fingerprint: FINGERPRINT,
@@ -267,6 +268,32 @@ describe("InstanceScreen", () => {
       "href",
       "/projects/prj-a?tab=bindings",
     );
+  });
+
+  it("shows the machine of a worker instance with a link to the machine page", async () => {
+    mount();
+    const machine = await screen.findByText("Machine");
+    expect(machine.nextElementSibling).toContainElement(screen.getByRole("link", { name: "m-01" }));
+    expect(screen.getByRole("link", { name: "m-01" })).toHaveAttribute("href", "/machines/m-01");
+  });
+
+  it("delivers the machine configuration of the machine in the Reset key copy block", async () => {
+    vi.mocked(instancesApi.resetWorkerInstanceKey).mockResolvedValue({
+      ...MAC,
+      revision: 2,
+      instance_configuration: "eyJuZXciOnRydWV9",
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Reset key" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Where does it run?" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Container on this host" }));
+    await userEvent.click(within(dialog).getByRole("button", { name: "Reset key" }));
+    expect(
+      await within(dialog).findByText(
+        /--secret kanthord-machine-m-01,type=env,target=KANTHORD_MACHINE_CONFIG/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("keeps the project of the query on the link to the worker page", async () => {
@@ -992,6 +1019,16 @@ describe("InstanceScreen placement", () => {
     expect(
       screen.queryByText("Runs with no binding. Archive it to stop it."),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows no machine on a server instance", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...SERVER,
+      machine: null,
+    });
+    mount();
+    await screen.findByText("server");
+    expect(screen.queryByText("Machine")).not.toBeInTheDocument();
   });
 
   it("tells that an unlisted server instance runs with no binding", async () => {
