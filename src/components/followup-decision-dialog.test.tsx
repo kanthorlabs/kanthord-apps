@@ -1,11 +1,16 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
-import type { MissionFollowupProposal, MissionLinkUpdate, MissionNodeRecord } from "@/api/types";
+import type {
+  MissionFollowupProposal,
+  MissionLinkUpdate,
+  MissionNodeRecord,
+  MissionRevision,
+} from "@/api/types";
 import { useFollowupDecision } from "@/hooks/use-followup-decision";
 
 vi.mock("@/api/resources/mission");
@@ -46,15 +51,32 @@ const PROPOSAL: MissionFollowupProposal = {
   node_id: "node_signup",
   attempt: 1,
   assessment_id: null,
-  content: {
-    name: "Reply on the issue",
-    requirement: "Tell the reporter that the form is fixed.",
-    criterion: "The issue holds the reply.",
-  },
+  content: { node_revision: 2 },
   created_node_id: null,
   approved_at: null,
   rejected_at: null,
   created_at: 1,
+};
+
+const REVISION: MissionRevision = {
+  node_id: "node_signup",
+  filename: "signup.md",
+  revision: 2,
+  reason: "Follow-up",
+  actor: { kind: "human", account: "ulrich", name: "Ulrich" },
+  created_at: 1,
+  content: {
+    name: "Reply on the issue",
+    requirement: "Tell the reporter that the form is fixed.",
+    criterion: "The issue holds the reply.",
+    verifications: [],
+    bindings: [],
+    intent: "implement",
+    tags: [],
+  },
+  tasks: [],
+  change: { write: "node.update", previous_revision: 1, changed_fields: [] },
+  pinned_by_attempts: [],
 };
 
 const UPDATE: MissionLinkUpdate = {
@@ -96,17 +118,37 @@ describe("FollowupDecisionDialog", () => {
     vi.clearAllMocks();
     vi.mocked(missionApi.listNodeLinkUpdates).mockResolvedValue([UPDATE]);
     vi.mocked(missionApi.decideFollowup).mockResolvedValue({});
+    vi.mocked(missionApi.readNodeRevision).mockResolvedValue(REVISION);
   });
 
   it("shows the proposal, the newest link updates and the warning", async () => {
     const dialog = await openDialog();
 
     expect(dialog).toHaveTextContent("A decision cannot be undone.");
-    expect(dialog).toHaveTextContent("Reply on the issue");
-    expect(dialog).toHaveTextContent("The issue holds the reply.");
+    expect(await within(dialog).findByText("Reply on the issue")).toBeTruthy();
+    expect(dialog).toHaveTextContent("Requirement: Tell the reporter that the form is fixed.");
+    expect(dialog).toHaveTextContent("Criterion: The issue holds the reply.");
+    expect(missionApi.readNodeRevision).toHaveBeenCalledWith("node_signup", 2);
     expect(await screen.findByText("kanthorlabs/kanthord#42")).toBeTruthy();
     expect(screen.getByText("New")).toBeTruthy();
     expect(missionApi.listNodeLinkUpdates).toHaveBeenCalledWith("node_signup");
+  });
+
+  it("shows a loading text while the revision is read", async () => {
+    vi.mocked(missionApi.readNodeRevision).mockReturnValue(new Promise(() => undefined));
+    const dialog = await openDialog();
+
+    expect(within(dialog).getByText("Loading the proposed revision.")).toBeTruthy();
+  });
+
+  it("shows the error when the revision read fails", async () => {
+    vi.mocked(missionApi.readNodeRevision).mockRejectedValue(
+      new ApiError("not_found", "The revision is gone.", 404),
+    );
+    const dialog = await openDialog();
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("The revision is gone.");
+    expect(within(dialog).queryByText("Loading the proposed revision.")).toBeNull();
   });
 
   it("creates the follow-up node with the filled fields", async () => {

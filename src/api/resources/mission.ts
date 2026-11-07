@@ -34,12 +34,12 @@ import type {
   MissionNodeCheckBody,
   MissionNodeCreate,
   MissionNodeOverrideBody,
+  MissionNodeProposal,
   MissionNodeRecord,
   MissionNodeResumeBody,
   MissionNodeUnblockBody,
   MissionNodeUpdate,
   MissionOutcome,
-  MissionProposal,
   MissionProposalDecideBody,
   MissionProposalDecideResult,
   MissionRevision,
@@ -153,8 +153,10 @@ export async function listNodeLinkUpdates(nodeId: string): Promise<readonly Miss
   );
 }
 
-export async function listNodeProposals(nodeId: string): Promise<readonly MissionProposal[]> {
-  return readAllPages<MissionProposal>(`/api/mission/node/${encodeURIComponent(nodeId)}/proposal`);
+export async function listNodeProposals(nodeId: string): Promise<readonly MissionNodeProposal[]> {
+  return readAllPages<MissionNodeProposal>(
+    `/api/mission/node/${encodeURIComponent(nodeId)}/proposal`,
+  );
 }
 
 export async function listProjectFollowups(

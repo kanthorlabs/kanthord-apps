@@ -13,6 +13,7 @@ import {
   type AttentionItem,
   type BlockedDetail,
   detailKeyOf,
+  type FollowupDetail,
 } from "./attention";
 import type { EvidenceLine } from "./board-evidence";
 import {
@@ -27,6 +28,7 @@ import {
   findingWhatTextOf,
   impactHeldTextOf,
   noCauseTextOf,
+  proposedReadFailedOf,
   showProposalsOf,
   spreadOf,
 } from "./board-section-facts";
@@ -236,6 +238,23 @@ describe("blockedDetailOf", () => {
   it("returns null for a detail of another kind", () => {
     const other = { kind: "paused", key: detailKeyOf(node) } as unknown as AttentionDetail;
     expect(blockedDetailOf(blocked, new Map([[node.id, other]]))).toBeNull();
+  });
+});
+
+describe("proposedReadFailedOf", () => {
+  const followupDetail = (revisions: FollowupDetail["revisions"]): FollowupDetail =>
+    ({ kind: "followup", key: "k", revisions }) as unknown as FollowupDetail;
+
+  it("is false while the detail is unread", () => {
+    expect(proposedReadFailedOf(null)).toBe(false);
+  });
+
+  it("is false for a ready read", () => {
+    expect(proposedReadFailedOf(followupDetail({ status: "ready", data: [] }))).toBe(false);
+  });
+
+  it("is true for a failed read", () => {
+    expect(proposedReadFailedOf(followupDetail({ status: "failed", message: "x" }))).toBe(true);
   });
 });
 

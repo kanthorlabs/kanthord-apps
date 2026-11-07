@@ -396,7 +396,7 @@ function followupItemOf(count: number): AttentionItem {
     node_id: "n1",
     attempt: 1,
     assessment_id: null,
-    content: { name: "Reply", requirement: "r", criterion: "c" },
+    content: { node_revision: 2 },
     created_node_id: null,
     approved_at: null,
     rejected_at: null,

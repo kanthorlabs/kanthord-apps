@@ -1,22 +1,29 @@
 import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
-import { decideFollowup, listNodeLinkUpdates } from "@/api/resources/mission";
+import { decideFollowup, listNodeLinkUpdates, readNodeRevision } from "@/api/resources/mission";
 import type {
   MissionFollowupDecideBody,
   MissionFollowupProposal,
   MissionLinkUpdate,
   MissionNodeRecord,
+  MissionRevision,
 } from "@/api/types";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 
 const NEWEST_UPDATES = 5;
 const NO_UPDATES: readonly MissionLinkUpdate[] = [];
 
+export interface ProposedRevision {
+  readonly proposalId: string;
+  readonly revision: MissionRevision;
+}
+
 export interface FollowupDecisionState {
   readonly open: boolean;
   readonly proposals: readonly MissionFollowupProposal[];
   readonly updates: Resource<readonly MissionLinkUpdate[]>;
+  readonly revisions: Resource<readonly ProposedRevision[] | null>;
   readonly requirement: string;
   readonly criterion: string;
   readonly reason: string;
@@ -46,6 +53,17 @@ async function readNewestUpdates(nodeId: string): Promise<readonly MissionLinkUp
   return (await listNodeLinkUpdates(nodeId)).slice(0, NEWEST_UPDATES);
 }
 
+function readProposedRevisions(
+  proposals: readonly MissionFollowupProposal[],
+): Promise<readonly ProposedRevision[]> {
+  return Promise.all(
+    proposals.map(async (proposal) => ({
+      proposalId: proposal.id,
+      revision: await readNodeRevision(proposal.node_id, proposal.content.node_revision),
+    })),
+  );
+}
+
 export function useFollowupDecision(
   node: MissionNodeRecord,
   proposals: readonly MissionFollowupProposal[],
@@ -63,6 +81,14 @@ export function useFollowupDecision(
   const updates = useResource(
     () => (open ? readNewestUpdates(nodeId) : Promise.resolve(NO_UPDATES)),
     [nodeId, open],
+  );
+
+  const proposalKey = proposals
+    .map((proposal) => `${proposal.id}:${proposal.node_id}:${proposal.content.node_revision}`)
+    .join(",");
+  const revisions = useResource(
+    () => (open ? readProposedRevisions(proposals) : Promise.resolve(null)),
+    [proposalKey, open],
   );
 
   const request = useCallback(() => {
@@ -131,6 +157,7 @@ export function useFollowupDecision(
     open,
     proposals,
     updates,
+    revisions,
     requirement,
     criterion,
     reason,

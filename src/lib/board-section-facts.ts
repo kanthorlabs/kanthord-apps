@@ -10,6 +10,7 @@ import {
   type AttentionItem,
   type BlockedDetail,
   detailOf,
+  type FollowupDetail,
 } from "./attention";
 import type { DiscardReason, EvidenceLine } from "./board-evidence";
 import type { BoardGate } from "./board-items";
@@ -98,6 +99,23 @@ export function blockedDetailOf(
 ): BlockedDetail | null {
   const detail = item.kind === "blocked" ? detailOf(details, item.node) : null;
   return detail?.kind === "blocked" ? detail : null;
+}
+
+export function followupDetailOf(
+  item: AttentionItem,
+  details: AttentionDetails,
+): FollowupDetail | null {
+  const detail = item.kind === "followup_proposal" ? detailOf(details, item.node) : null;
+  return detail?.kind === "followup" ? detail : null;
+}
+
+export function proposedNameOf(detail: FollowupDetail | null, revision: number): string | null {
+  if (detail?.revisions.status !== "ready") return null;
+  return detail.revisions.data.find((read) => read.revision === revision)?.content.name ?? null;
+}
+
+export function proposedReadFailedOf(detail: FollowupDetail | null): boolean {
+  return detail?.revisions.status === "failed";
 }
 
 export function showProposalsOf(

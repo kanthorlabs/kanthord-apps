@@ -1364,20 +1364,11 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
   ),
 );
 
-on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
-  json(
-    res,
-    200,
-    page(
-      byAttempt(
-        stateOfNode(decodeURIComponent(m[1]))?.proposals ?? [],
-        decodeURIComponent(m[1]),
-        url,
-      ),
-      url,
-    ),
-  ),
-);
+on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const rows = [...(state?.proposals ?? []), ...(state?.followups.filter(isOpenProposal) ?? [])];
+  return json(res, 200, page(byAttempt(rows, decodeURIComponent(m[1]), url), url));
+});
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/link-update$/, (m, _b, res, _t, url) =>
   json(res, 200, page(fx.GRAPH_LINK_UPDATES[decodeURIComponent(m[1])] ?? [], url)),
@@ -1678,6 +1669,9 @@ on("GET", /^\/api\/mission\/project\/([^/]+)\/followup$/, (m, _b, res, _t, url) 
 const followupNodeOf = (state, proposal, body) => {
   const source = graphNodeById(proposal.node_id);
   const stem = `followup-${proposal.id.slice("followup_".length).toLowerCase()}`;
+  const proposed = graphRevisions(source).find(
+    (item) => item.revision === proposal.content.node_revision,
+  ).content;
   return {
     id: nodeIdOf(),
     filename: `${stem}.md`,
@@ -1687,9 +1681,9 @@ const followupNodeOf = (state, proposal, body) => {
     tasks: [],
     visible_revision: 1,
     content: {
-      name: proposal.content.name,
-      requirement: body.requirement ?? proposal.content.requirement,
-      criterion: body.criterion ?? proposal.content.criterion,
+      name: proposed.name,
+      requirement: body.requirement ?? proposed.requirement,
+      criterion: body.criterion ?? proposed.criterion,
       verifications: source.content.verifications,
       bindings: source.content.bindings,
       intent: "implement",
