@@ -31,5 +31,8 @@ export function conversationFactsOf(
     ...(config.link_trust === undefined
       ? []
       : [{ label: "Trusted actors", value: trustedActorsText(config.link_trust) }]),
+    ...(config.inbox === undefined
+      ? []
+      : [{ label: "Inbox", value: `${config.inbox.handle} (${config.inbox.actor_id})` }]),
   ];
 }

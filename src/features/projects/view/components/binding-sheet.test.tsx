@@ -111,6 +111,22 @@ describe("BindingSheet", () => {
     expect(onSave).toHaveBeenCalledWith("issues", CONVERSATION);
   });
 
+  it("shows the inbox config of a conversation binding and keeps it in the save", async () => {
+    const entry: BindingSetEntry = {
+      kind: "conversation",
+      config: {
+        ...CONVERSATION.config,
+        inbox: { actor_id: "actor_77", handle: "octocat-dev" },
+      },
+    };
+    mount("issues", entry);
+
+    expect(await screen.findByText("octocat-dev (actor_77)")).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
+
+    expect(onSave).toHaveBeenCalledWith("issues", entry);
+  });
+
   it("shows link_trust of a repository binding and keeps it in the save", async () => {
     mount("kanthord-repo", REPOSITORY);
 
