@@ -1,15 +1,19 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import { type PolledResource, usePolledResource } from "@/hooks/use-polled-resource";
 
-import { type OverviewSnapshot, readOverviewSnapshot } from "./read-overview-snapshot";
+import { type OverviewSnapshot, readOverviewSnapshot, retryFaults } from "./read-overview-snapshot";
 
 const SNAPSHOT_INTERVAL_MS = 15_000;
+
+export interface OverviewSnapshotResource extends PolledResource<OverviewSnapshot> {
+  readonly retry: () => void;
+}
 
 export function useOverviewSnapshot(
   hold: boolean,
   selectedProjectId: string | null,
-): PolledResource<OverviewSnapshot> {
+): OverviewSnapshotResource {
   const last = useRef<OverviewSnapshot | null>(null);
   const selected = useRef(selectedProjectId);
   const polled = usePolledResource(
@@ -21,11 +25,20 @@ export function useOverviewSnapshot(
     [],
     { intervalMs: SNAPSHOT_INTERVAL_MS, hold },
   );
-  const { refresh } = polled;
+  const { refresh, readWith } = polled;
+  const retry = useCallback(() => {
+    readWith(async () => {
+      const base = last.current;
+      if (base === null) return readOverviewSnapshot(null, selected.current);
+      const snapshot = await retryFaults(base);
+      last.current = snapshot;
+      return snapshot;
+    });
+  }, [readWith]);
   useEffect(() => {
     const before = selected.current;
     selected.current = selectedProjectId;
     if (before !== null && selectedProjectId === null) refresh();
   }, [selectedProjectId, refresh]);
-  return polled;
+  return { ...polled, retry };
 }

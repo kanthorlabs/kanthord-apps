@@ -19,6 +19,7 @@ export interface InboxState {
   readonly absent: boolean;
   readonly loadMore: () => void;
   readonly close: (linkUpdateId: string) => void;
+  readonly retry: () => void;
 }
 
 interface Reads {
@@ -45,6 +46,7 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
   const [reads, setReads] = useState<Reads>(NO_READS);
   const [closed, setClosed] = useState<ReadonlySet<string>>(NO_CLOSED);
   const [pages, setPages] = useState<Readonly<Record<string, number>>>({});
+  const [retries, setRetries] = useState(0);
   const allPages = pages[ALL_KEY] ?? 1;
   const scopedPages = projectId === null ? 1 : (pages[projectId] ?? 1);
 
@@ -67,7 +69,7 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
     return () => {
       live = false;
     };
-  }, [projectId, updatedAt, allPages, scopedPages]);
+  }, [projectId, updatedAt, allPages, scopedPages, retries]);
 
   const scoped = reads.scoped?.projectId === projectId ? reads.scoped : null;
   const scope = projectId === null ? reads.all : scoped;
@@ -75,6 +77,8 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
   const loadMore = useCallback(() => {
     setPages((current) => ({ ...current, [scopeKey]: (current[scopeKey] ?? 1) + 1 }));
   }, [scopeKey]);
+
+  const retry = useCallback(() => setRetries((current) => current + 1), []);
 
   const close = useCallback((linkUpdateId: string) => {
     setClosed((current) => new Set(current).add(linkUpdateId));
@@ -99,5 +103,6 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
     absent: reads.all?.absent === true,
     loadMore,
     close,
+    retry,
   };
 }

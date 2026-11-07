@@ -310,7 +310,13 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
               failure={overview.livenessFailure}
             />
             <FootprintAlert />
-            {readFault && <ReadFaultsAlert faults={overview.faults} onRetry={overview.refresh} />}
+            {readFault && (
+              <ReadFaultsAlert
+                faults={overview.faults}
+                onRetry={overview.retryFaults}
+                disabled={overview.snapshotRunning}
+              />
+            )}
             {overview.absent.length > 0 && <AbsentSourcesNote sources={overview.absent} />}
             {!expanded && filter}
             <BoardSummary
