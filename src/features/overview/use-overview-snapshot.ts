@@ -27,14 +27,17 @@ export function useOverviewSnapshot(
   );
   const { refresh, readWith } = polled;
   const retry = useCallback(() => {
+    const base = last.current;
+    if (base === null) {
+      refresh();
+      return;
+    }
     readWith(async () => {
-      const base = last.current;
-      if (base === null) return readOverviewSnapshot(null, selected.current);
       const snapshot = await retryFaults(base);
       last.current = snapshot;
       return snapshot;
     });
-  }, [readWith]);
+  }, [readWith, refresh]);
   useEffect(() => {
     const before = selected.current;
     selected.current = selectedProjectId;
