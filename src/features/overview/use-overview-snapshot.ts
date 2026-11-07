@@ -33,7 +33,7 @@ export function useOverviewSnapshot(
       return;
     }
     readWith(async () => {
-      const snapshot = await retryFaults(base);
+      const snapshot = await retryFaults(last.current ?? base);
       last.current = snapshot;
       return snapshot;
     });
