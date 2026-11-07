@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { instancePagePath, workerPagePath, workersPath } from "./worker-paths";
+import { instancePagePath, machinePagePath, workerPagePath, workersPath } from "./worker-paths";
 
 describe("worker paths", () => {
   it("encodes the worker name", () => {
@@ -34,5 +34,10 @@ describe("worker paths", () => {
     expect(instancePagePath("coder@1", "mac-studio")).toBe(
       "/workers/coder%401/instances/mac-studio",
     );
+  });
+
+  it("encodes the machine name", () => {
+    expect(machinePagePath("lab-01")).toBe("/machines/lab-01");
+    expect(machinePagePath("a b")).toBe("/machines/a%20b");
   });
 });

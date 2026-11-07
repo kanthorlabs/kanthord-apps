@@ -49,6 +49,7 @@ const MAC: WorkerInstanceListItem = {
   name: "mac-studio",
   worker: "coder@1",
   placement: "worker",
+  machine: "m-01",
   revision: 2,
   public_key: "a".repeat(43),
   fingerprint: "SHA256:4l0bK2qPn8YwVx3JmT7rUe6Hs1Dc9GfZaR5iLoQyWkE",

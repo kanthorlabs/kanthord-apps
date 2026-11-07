@@ -8,6 +8,8 @@ import {
   instanceAddressError,
   instanceNameError,
   isContainerKind,
+  machineCopyStepsOf,
+  machineNameError,
   SAME_HOST_ADDRESS,
   shortFingerprint,
 } from "./instance-host";
@@ -223,4 +225,146 @@ describe("shortFingerprint", () => {
       "SHA256:4l0bK2qPn8Yw…",
     );
   });
+});
+
+const INSTALL_SENTENCE =
+  "Install kanthord first, by steps 1 and 2 of the instance copy block of the host kind.";
+
+describe("machineNameError", () => {
+  it("accepts the instance name form", () => {
+    expect(machineNameError("m-01")).toBeNull();
+  });
+
+  it("names the form rule", () => {
+    expect(machineNameError("")).toBe("Enter a name.");
+    expect(machineNameError("Mac")).toBe(
+      "Start with a lowercase letter. Use only lowercase letters, digits and hyphens.",
+    );
+    expect(machineNameError(`a${"b".repeat(63)}`)).toBe("Use at most 63 characters.");
+  });
+
+  it("refuses each reserved name, including work", () => {
+    for (const name of ["server", "token", "connect", "heartbeat", "work"]) {
+      expect(machineNameError(name)).toBe(`The name ${name} is reserved. Choose another name.`);
+    }
+  });
+});
+
+describe("machineCopyStepsOf", () => {
+  it.each(["Linux (systemd)", "macOS (foreground)"] as const)(
+    "starts the %s block with the install sentence and joins the machine from standard input",
+    (kind) => {
+      const steps = machineCopyStepsOf(kind, "m-01", "28.0.1", "Podman");
+      expect(steps[0]?.text.startsWith(INSTALL_SENTENCE)).toBe(true);
+      expect(steps.some((step) => step.command === "kanthord worker machine join")).toBe(true);
+    },
+  );
+
+  it("keeps the host steps of a host without a container runtime for each runtime", () => {
+    expect(machineCopyStepsOf("Linux (systemd)", "m-01", "28.0.1", "Docker")).toEqual(
+      machineCopyStepsOf("Linux (systemd)", "m-01", "28.0.1", "Podman"),
+    );
+  });
+
+  it("stores the machine configuration of a same-host Podman container as a secret", () => {
+    const steps = machineCopyStepsOf("Container on this host", "m-01", "28.0.1", "Podman");
+    expect(steps.map((step) => step.command)).toContain(
+      "podman secret create kanthord-machine-m-01 -",
+    );
+  });
+
+  it("stores the machine configuration of a Container with Podman as a second secret of the platform", () => {
+    const steps = machineCopyStepsOf("Container", "m-01", "28.0.1", "Podman");
+    expect(steps.every((step) => step.command === null)).toBe(true);
+    expect(steps[0]?.text).toContain("second secret of the platform, beside the instance secret");
+    expect(steps[0]?.text).toContain("kanthord-machine-m-01");
+  });
+
+  it("writes one env file of mode 0600 for Docker", () => {
+    const sameHost = machineCopyStepsOf("Container on this host", "m-01", "28.0.1", "Docker");
+    expect(sameHost.map((step) => step.command)).toContain(
+      "(umask 077 && cat > kanthord-machine-m-01.env)",
+    );
+    expect(sameHost[0]?.text).toContain("KANTHORD_MACHINE_CONFIG=");
+    const stateless = machineCopyStepsOf("Container", "m-01", "28.0.1", "Docker");
+    expect(stateless[0]?.text).toContain("kanthord-machine-m-01.env");
+    expect(stateless[0]?.text).toContain("KANTHORD_MACHINE_CONFIG=<value>");
+    expect(stateless[0]?.text).toContain("mode 0600");
+  });
+
+  it("replaces the Podman secret after a machine Reset key and runs each instance container again", () => {
+    const steps = machineCopyStepsOf("Container on this host", "m-01", "28.0.1", "Podman", "reset");
+    expect(steps.map((step) => step.command)).toContain(
+      "podman secret create --replace kanthord-machine-m-01 -",
+    );
+    expect(steps.at(-1)?.text).toBe(
+      "Remove and run each instance container again with its copy block.",
+    );
+  });
+
+  it("rewrites the Docker env file after a machine Reset key and recreates each instance container", () => {
+    const steps = machineCopyStepsOf("Container on this host", "m-01", "28.0.1", "Docker", "reset");
+    expect(steps[0]?.text).toContain("Rewrite kanthord-machine-m-01.env.");
+    expect(steps.at(-1)?.text).toBe(
+      "Then recreate each instance container through the instance copy block of an instance Reset key, because the instance env file is gone.",
+    );
+  });
+
+  it("keeps the host steps of a host kind after a machine Reset key", () => {
+    expect(machineCopyStepsOf("Linux (systemd)", "m-01", "28.0.1", "Podman", "reset")).toEqual(
+      machineCopyStepsOf("Linux (systemd)", "m-01", "28.0.1", "Podman"),
+    );
+  });
+});
+
+describe("copyStepsOf with a machine", () => {
+  it("adds the machine secret to the podman run of a same-host container", () => {
+    const steps = copyStepsOf("Container on this host", "box-01", "28.0.1", "Podman", "m-01");
+    expect(steps[2]?.command).toContain(
+      "--secret kanthord-machine-m-01,type=env,target=KANTHORD_MACHINE_CONFIG",
+    );
+  });
+
+  it("names KANTHORD_MACHINE_CONFIG in the Container steps with Podman", () => {
+    const steps = copyStepsOf("Container", "box-01", "28.0.1", "Podman", "m-01");
+    expect(steps.some((step) => step.text.includes("KANTHORD_MACHINE_CONFIG"))).toBe(true);
+  });
+
+  it("adds the machine env file to docker run and deletes only the instance env file", () => {
+    const steps = copyStepsOf("Container on this host", "box-01", "28.0.1", "Docker", "m-01");
+    expect(steps[2]?.command).toContain(
+      "--env-file box-01.env --env-file kanthord-machine-m-01.env",
+    );
+    expect(steps.map((step) => step.command)).toContain("rm box-01.env");
+    expect(steps.some((step) => step.command?.includes("rm kanthord-machine-m-01.env"))).toBe(
+      false,
+    );
+  });
+
+  it("gives the Container steps with Docker a second env file and keeps it", () => {
+    const steps = copyStepsOf("Container", "box-01", "28.0.1", "Docker", "m-01");
+    const text = steps.map((step) => step.text).join("\n");
+    expect(text).toContain("--env-file kanthord-machine-m-01.env");
+    expect(text).toContain("Delete only the instance env file.");
+  });
+
+  it.each(["Linux (systemd)", "macOS (foreground)"] as const)(
+    "leaves the %s steps unchanged",
+    (kind) => {
+      expect(copyStepsOf(kind, "lan-01", "28.0.1", "Podman", "m-01")).toEqual(
+        copyStepsOf(kind, "lan-01", "28.0.1", "Podman", null),
+      );
+    },
+  );
+
+  it.each(["Podman", "Docker"] as const)(
+    "leaves the %s container steps unchanged for a null machine",
+    (runtime) => {
+      for (const kind of ["Container", "Container on this host"] as const) {
+        const steps = copyStepsOf(kind, "box-01", "28.0.1", runtime, null);
+        expect(JSON.stringify(steps)).not.toContain("kanthord-machine");
+        expect(JSON.stringify(steps)).not.toContain("KANTHORD_MACHINE_CONFIG");
+      }
+    },
+  );
 });

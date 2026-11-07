@@ -140,7 +140,11 @@ export function AddInstanceSheet({
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto px-4">
               <InstanceConfiguration
-                name={result.record.name}
+                target={{
+                  subject: "instance",
+                  name: result.record.name,
+                  machine: result.record.machine,
+                }}
                 kind={result.kind}
                 runtime={result.runtime}
                 version={create.host.version}

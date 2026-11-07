@@ -12,6 +12,7 @@ import { registerEnvironments } from "./environments.mjs";
 import { registerFootprint } from "./footprint.mjs";
 import * as fx from "./fixtures.mjs";
 import { registerInstances } from "./instances.mjs";
+import { registerMachines } from "./machines.mjs";
 import * as pr from "./prompts.mjs";
 import { registerTracking } from "./tracking.mjs";
 import { registerWorkbench } from "./workbench.mjs";
@@ -3608,7 +3609,18 @@ on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
   return json(res, 200, credential);
 });
 
-const instanceRoutes = registerInstances({
+let instanceRoutes;
+
+const machineRoutes = registerMachines({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  instancesOf: (machine) => instanceRoutes.instancesOf(machine),
+  instanceNames: () => instanceRoutes.instanceNames(),
+});
+
+instanceRoutes = registerInstances({
   on,
   json,
   envelope: projectEnvelope,
@@ -3618,6 +3630,8 @@ const instanceRoutes = registerInstances({
   agents,
   containerBlockReason: () =>
     STABLE_PLACEMENT_REASONS.includes(containerReason) ? containerReason : null,
+  liveMachine: machineRoutes.liveMachine,
+  machineNames: machineRoutes.machineNames,
 });
 
 registerWorkbench({

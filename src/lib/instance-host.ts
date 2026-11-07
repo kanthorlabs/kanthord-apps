@@ -20,6 +20,9 @@ export const SAME_HOST_ADDRESS = "http://kanthord:31415";
 const INSTANCE_NAME = /^[a-z][a-z0-9-]*$/;
 const NAME_MAX_LENGTH = 63;
 const RESERVED_NAMES: readonly string[] = ["server", "token", "connect", "heartbeat"];
+const MACHINE_RESERVED_NAMES: readonly string[] = [...RESERVED_NAMES, "work"];
+const MACHINE_INSTALL_SENTENCE =
+  "Install kanthord first, by steps 1 and 2 of the instance copy block of the host kind.";
 export const RELEASES = "https://github.com/kanthorlabs/kanthord/releases";
 
 export interface CopyStep {
@@ -51,6 +54,15 @@ export function instanceNameError(name: string): string | null {
     return "Start with a lowercase letter. Use only lowercase letters, digits and hyphens.";
   }
   if (RESERVED_NAMES.includes(name)) return `The name ${name} is reserved. Choose another name.`;
+  return null;
+}
+
+export function machineNameError(name: string): string | null {
+  const formError = instanceNameError(name);
+  if (formError !== null) return formError;
+  if (MACHINE_RESERVED_NAMES.includes(name)) {
+    return `The name ${name} is reserved. Choose another name.`;
+  }
   return null;
 }
 
@@ -162,12 +174,20 @@ function macSteps(name: string, version: string): readonly CopyStep[] {
   ];
 }
 
-function containerSteps(version: string): readonly CopyStep[] {
+function containerSteps(version: string, machine: string | null): readonly CopyStep[] {
   return [
     {
       text: "Store the instance configuration as a secret of the platform, and expose it to the container as the env value KANTHORD_WORKER_CONFIG.",
       command: null,
     },
+    ...(machine === null
+      ? []
+      : [
+          {
+            text: "Store the machine configuration as a second secret of the platform, and expose it to the container as the env value KANTHORD_MACHINE_CONFIG.",
+            command: null,
+          },
+        ]),
     {
       text: `Use the image docker.io/kanthorlabs/kanthord:${version} with the command serve worker.`,
       command: null,
@@ -191,7 +211,11 @@ function containerSteps(version: string): readonly CopyStep[] {
   ];
 }
 
-function sameHostSteps(name: string, version: string): readonly CopyStep[] {
+function sameHostSteps(name: string, version: string, machine: string | null): readonly CopyStep[] {
+  const machineSecret =
+    machine === null
+      ? ""
+      : ` --secret kanthord-machine-${machine},type=env,target=KANTHORD_MACHINE_CONFIG`;
   return [
     {
       text: "Put both containers on one network:",
@@ -203,17 +227,25 @@ function sameHostSteps(name: string, version: string): readonly CopyStep[] {
     },
     {
       text: "Start the instance. <git name> and <git email> set the identity of the commits that the agents make. --memory=4g keeps an out-of-memory kill inside this container when the host holds 1 GiB for the server plus the limit of each instance:",
-      command: `podman run -d --name kanthord-worker-${name} --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --memory=4g --no-healthcheck --secret kanthord-worker-${name},type=env,target=KANTHORD_WORKER_CONFIG -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:${version} serve worker`,
+      command: `podman run -d --name kanthord-worker-${name} --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --memory=4g --no-healthcheck --secret kanthord-worker-${name},type=env,target=KANTHORD_WORKER_CONFIG${machineSecret} -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:${version} serve worker`,
     },
   ];
 }
 
-function dockerContainerSteps(version: string): readonly CopyStep[] {
+function dockerContainerSteps(version: string, machine: string | null): readonly CopyStep[] {
   return [
     {
       text: "Write the line KANTHORD_WORKER_CONFIG=<value> to an env file of mode 0600. Give the file to docker run with --env-file, then delete the file. docker inspect shows the value to every user that can run docker.",
       command: null,
     },
+    ...(machine === null
+      ? []
+      : [
+          {
+            text: `Give docker run a second --env-file kanthord-machine-${machine}.env, the env file of the machine. Keep that file. Delete only the instance env file.`,
+            command: null,
+          },
+        ]),
     {
       text: `Use the image docker.io/kanthorlabs/kanthord:${version} with the command serve worker.`,
       command: null,
@@ -237,7 +269,12 @@ function dockerContainerSteps(version: string): readonly CopyStep[] {
   ];
 }
 
-function dockerSameHostSteps(name: string, version: string): readonly CopyStep[] {
+function dockerSameHostSteps(
+  name: string,
+  version: string,
+  machine: string | null,
+): readonly CopyStep[] {
+  const machineEnvFile = machine === null ? "" : ` --env-file kanthord-machine-${machine}.env`;
   return [
     {
       text: "Put both containers on one network:",
@@ -249,7 +286,7 @@ function dockerSameHostSteps(name: string, version: string): readonly CopyStep[]
     },
     {
       text: "Start the instance. docker run reads the env file once. docker inspect shows the value to every user that can run docker. <git name> and <git email> set the identity of the commits that the agents make. --memory=4g keeps an out-of-memory kill inside this container when the host holds 1 GiB for the server plus the limit of each instance:",
-      command: `docker run -d --name kanthord-worker-${name} --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --memory=4g --no-healthcheck --env-file ${name}.env -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:${version} serve worker`,
+      command: `docker run -d --name kanthord-worker-${name} --network kanthord-net --cap-drop=ALL --security-opt=no-new-privileges --ulimit core=0 --memory=4g --no-healthcheck --env-file ${name}.env${machineEnvFile} -e GIT_AUTHOR_NAME="<git name>" -e GIT_AUTHOR_EMAIL="<git email>" -e GIT_COMMITTER_NAME="<git name>" -e GIT_COMMITTER_EMAIL="<git email>" docker.io/kanthorlabs/kanthord:${version} serve worker`,
     },
     {
       text: "Delete the env file. The container keeps the value:",
@@ -263,13 +300,122 @@ export function copyStepsOf(
   name: string,
   version: string,
   runtime: ContainerRuntime,
+  machine: string | null = null,
 ): readonly CopyStep[] {
   if (kind === "Linux (systemd)") return linuxSteps(name, version);
   if (kind === "macOS (foreground)") return macSteps(name, version);
   if (kind === "Container") {
-    return runtime === "Docker" ? dockerContainerSteps(version) : containerSteps(version);
+    return runtime === "Docker"
+      ? dockerContainerSteps(version, machine)
+      : containerSteps(version, machine);
   }
-  return runtime === "Docker" ? dockerSameHostSteps(name, version) : sameHostSteps(name, version);
+  return runtime === "Docker"
+    ? dockerSameHostSteps(name, version, machine)
+    : sameHostSteps(name, version, machine);
+}
+
+export type MachineStage = "create" | "reset";
+
+function hostMachineSteps(version: string): readonly CopyStep[] {
+  return [
+    {
+      text: `${MACHINE_INSTALL_SENTENCE} Use the release ${version}.`,
+      command: null,
+    },
+    {
+      text: "Write the machine file. kanthord worker machine join reads the machine configuration from standard input. Paste the value, press Enter, then press Ctrl-D:",
+      command: "kanthord worker machine join",
+    },
+  ];
+}
+
+function podmanMachineSteps(
+  kind: HostKind,
+  machine: string,
+  stage: MachineStage,
+): readonly CopyStep[] {
+  const secret = `kanthord-machine-${machine}`;
+  const instancesAgain: CopyStep = {
+    text: "Remove and run each instance container again with its copy block.",
+    command: null,
+  };
+  if (kind === "Container") {
+    return stage === "create"
+      ? [
+          {
+            text: `Store the machine configuration as a second secret of the platform, beside the instance secret. Name it ${secret}.`,
+            command: null,
+          },
+        ]
+      : [
+          {
+            text: `Replace the secret ${secret} of the platform with the new machine configuration.`,
+            command: null,
+          },
+          instancesAgain,
+        ];
+  }
+  const text =
+    "podman secret create reads the machine configuration from standard input. Paste the value, press Enter, then press Ctrl-D:";
+  return stage === "create"
+    ? [
+        {
+          text: `Store the machine configuration as the Podman secret ${secret}. ${text}`,
+          command: `podman secret create ${secret} -`,
+        },
+      ]
+    : [
+        {
+          text: `Replace the secret. ${text}`,
+          command: `podman secret create --replace ${secret} -`,
+        },
+        instancesAgain,
+      ];
+}
+
+function dockerMachineSteps(
+  kind: HostKind,
+  machine: string,
+  stage: MachineStage,
+): readonly CopyStep[] {
+  const file = `kanthord-machine-${machine}.env`;
+  const reset = stage === "reset";
+  const keep = `docker inspect shows the value to every user that can run docker. Keep the file. Each instance of the machine reads it with a second --env-file.`;
+  const recreate: CopyStep = {
+    text: "Then recreate each instance container through the instance copy block of an instance Reset key, because the instance env file is gone.",
+    command: null,
+  };
+  if (kind === "Container") {
+    return [
+      {
+        text: reset
+          ? `Rewrite ${file}. Write the line KANTHORD_MACHINE_CONFIG=<value> to the file with mode 0600. ${keep}`
+          : `Write the line KANTHORD_MACHINE_CONFIG=<value> to the env file ${file} of mode 0600, once. ${keep}`,
+        command: null,
+      },
+      ...(reset ? [recreate] : []),
+    ];
+  }
+  return [
+    {
+      text: `${reset ? `Rewrite ${file}.` : `Write the machine configuration once to the env file ${file} of mode 0600.`} cat reads it from standard input. Type KANTHORD_MACHINE_CONFIG=, paste the value, press Enter, then press Ctrl-D. ${keep}`,
+      command: `(umask 077 && cat > ${file})`,
+    },
+    ...(reset ? [recreate] : []),
+  ];
+}
+
+export function machineCopyStepsOf(
+  kind: HostKind,
+  machine: string,
+  version: string,
+  runtime: ContainerRuntime,
+  stage: MachineStage = "create",
+): readonly CopyStep[] {
+  if (!isContainerKind(kind)) return hostMachineSteps(version);
+  return runtime === "Docker"
+    ? dockerMachineSteps(kind, machine, stage)
+    : podmanMachineSteps(kind, machine, stage);
 }
 
 export function shortFingerprint(fingerprint: string): string {
