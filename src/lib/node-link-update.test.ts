@@ -16,6 +16,7 @@ function node(id: string, state: NodeState, retiredAt: number | null = null): Mi
 
 const REVISION = {
   node_id: "n1",
+  filename: "fix_login.md",
   revision: 3,
   content: {
     name: "Fix login",
@@ -48,6 +49,8 @@ describe("nodeLinkUpdateOf", () => {
   it("keeps the content and the tasks of the revision and adds the link and the binding", () => {
     const update = nodeLinkUpdateOf(REVISION, LINK, "chat", 7, "Link it.");
 
+    expect(update.filename).toBe("fix_login.md");
+    expect(update.expected_revision).toBe(3);
     expect(update.expected_mission_version).toBe(7);
     expect(update.reason).toBe("Link it.");
     expect(update.tasks).toBe(REVISION.tasks);

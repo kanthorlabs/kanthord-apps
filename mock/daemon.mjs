@@ -1521,8 +1521,17 @@ on("POST", /^\/api\/mission\/([^/]+)\/node$/, (m, b, res) => {
   });
 });
 
-on("PATCH", /^\/api\/mission\/node\/([^/]+)$/, (m, b, res) => {
-  if (!hasOnly(b, ["expected_mission_version", "content", "tasks", "reason"]))
+on("PUT", /^\/api\/mission\/node\/([^/]+)$/, (m, b, res) => {
+  if (
+    !hasOnly(b, [
+      "filename",
+      "content",
+      "tasks",
+      "reason",
+      "expected_revision",
+      "expected_mission_version",
+    ])
+  )
     return validationFailed(res, "content");
   const nodeId = decodeURIComponent(m[1]);
   const state = stateOfNode(nodeId);

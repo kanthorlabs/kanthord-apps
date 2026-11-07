@@ -350,7 +350,7 @@ export async function updateMissionNode(
   body: MissionNodeUpdate,
 ): Promise<MissionNodeChange> {
   return request<MissionNodeChange>(`/api/mission/node/${encodeURIComponent(nodeId)}`, {
-    method: "PATCH",
+    method: "PUT",
     body,
     headers: { "idempotency-key": newIdempotencyKey() },
   });

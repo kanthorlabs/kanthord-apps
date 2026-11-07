@@ -35,6 +35,8 @@ export function nodeLinkUpdateOf(
   reason: string,
 ): MissionNodeUpdate {
   return {
+    filename: revision.filename,
+    expected_revision: revision.revision,
     expected_mission_version: missionVersion,
     content: {
       ...revision.content,

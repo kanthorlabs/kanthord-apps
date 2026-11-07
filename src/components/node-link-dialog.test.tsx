@@ -71,6 +71,7 @@ const NODES = [
 
 const REVISION = {
   node_id: "n_run",
+  filename: "n_run.md",
   revision: 4,
   content: {
     name: "Running node",
@@ -151,6 +152,8 @@ describe("NodeLinkDialog", () => {
     await waitFor(() => expect(onLinked).toHaveBeenCalled());
     expect(missionApi.readNodeRevision).toHaveBeenCalledWith("n_run", 4);
     expect(missionApi.updateMissionNode).toHaveBeenCalledWith("n_run", {
+      filename: "n_run.md",
+      expected_revision: 4,
       expected_mission_version: 9,
       content: {
         ...REVISION.content,

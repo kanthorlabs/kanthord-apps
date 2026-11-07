@@ -252,9 +252,11 @@ describe("mission inbox resources", () => {
 });
 
 describe("mission node update resource", () => {
-  it("patches the node through mission.node.update with an idempotency key", async () => {
+  it("puts the node through mission.node.update with an idempotency key", async () => {
     await serve({ mission_version: 5, revisions: [] });
     const body = {
+      filename: "fix_login.md",
+      expected_revision: 2,
       expected_mission_version: 4,
       content: {
         name: "Fix login",
@@ -271,7 +273,7 @@ describe("mission node update resource", () => {
 
     await updateMissionNode("node_1", body);
 
-    expect(seen[0]?.req.method).toBe("PATCH");
+    expect(seen[0]?.req.method).toBe("PUT");
     expect(seen[0]?.req.url).toBe("/api/mission/node/node_1");
     expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(

@@ -1082,6 +1082,8 @@ export interface MissionNodeCreate extends MissionNodeCreateBody {
 }
 
 export interface MissionNodeUpdate {
+  readonly filename: string;
+  readonly expected_revision: number;
   readonly expected_mission_version: number;
   readonly content: MissionContent;
   readonly tasks: readonly MissionTaskContent[];
