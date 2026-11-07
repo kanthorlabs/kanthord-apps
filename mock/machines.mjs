@@ -7,7 +7,16 @@ const MACHINE_NAME = /^[a-z][a-z0-9-]{0,62}$/;
 const RESERVED_NAMES = ["server", "token", "connect", "heartbeat", "work"];
 const PUBLIC_KEY = /^[A-Za-z0-9_-]{43}$/;
 
-export function registerMachines({ on, json, envelope, page, instancesOf, instanceNames }) {
+export function registerMachines({
+  on,
+  json,
+  envelope,
+  page,
+  credentials,
+  copiesOf,
+  instancesOf,
+  instanceNames,
+}) {
   const machines = structuredClone(fx.WORKER_MACHINES);
 
   const refuse = (res, status, code, message, details = null) =>
@@ -31,6 +40,7 @@ export function registerMachines({ on, json, envelope, page, instancesOf, instan
       ...instance.record,
       connection: instance.connection,
     })),
+    credentials: copiesOf(machine.name),
   });
 
   const writeAnswer = (res, machine, privateKey) =>
@@ -141,6 +151,9 @@ export function registerMachines({ on, json, envelope, page, instancesOf, instan
       fingerprint: fingerprintOf(publicKey),
       created_at: Date.now(),
     });
+    for (const credential of credentials) {
+      if (credential.holder === machine.name) credential.sealed_current = false;
+    }
     return writeAnswer(res, machine, privateKey);
   });
 
@@ -154,6 +167,10 @@ export function registerMachines({ on, json, envelope, page, instancesOf, instan
       });
     }
     machine.ended_at = Date.now();
+    for (const credential of credentials) {
+      if (credential.holder !== machine.name) continue;
+      for (const revision of credential.revisions) revision.ended_at ??= machine.ended_at;
+    }
     return json(res, 200, machine);
   });
 

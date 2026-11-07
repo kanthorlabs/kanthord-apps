@@ -4,17 +4,23 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as credentialsApi from "@/api/resources/credentials";
 import * as gatewayApi from "@/api/resources/gateway";
 import * as projectsApi from "@/api/resources/projects";
 import * as instancesApi from "@/api/resources/worker-instances";
 import * as machinesApi from "@/api/resources/worker-machines";
 import type {
+  CopyHealth,
+  CredentialPlatformList,
+  InstanceCredentialCopy,
+  LlmCredential,
   Project,
   WorkerInstanceDetail,
   WorkerMachineDetail,
   WorkerMachineInstance,
 } from "@/api/types";
 
+vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/gateway");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/worker-instances");
@@ -72,7 +78,118 @@ const LAB: WorkerMachineDetail = {
   created_at: Date.UTC(2026, 9, 17, 9, 0),
   ended_at: null,
   instances: [MAC, BOX],
+  credentials: [],
 };
+
+const REPORTED_AT = Date.UTC(2026, 9, 21, 8, 0);
+
+const NO_REPORT: CopyHealth = {
+  status: "unknown",
+  capability: "model call",
+  failure_reason: "held_by_instance",
+  models: null,
+  reported_at: null,
+  reported_by: null,
+};
+
+const ROUTER_COPY: InstanceCredentialCopy = {
+  name: "atlas-router",
+  holder: "lab-01",
+  revision: 2,
+  platform: "openai-compatible",
+  sealed_current: true,
+  health: {
+    status: "healthy",
+    capability: "model-list read",
+    failure_reason: null,
+    models: [{ id: "qwen3-coder", owned_by: null, created: null }],
+    reported_at: REPORTED_AT,
+    reported_by: "mac-studio",
+  },
+};
+
+const KEY_COPY: InstanceCredentialCopy = {
+  name: "lab-key",
+  holder: "lab-01",
+  revision: 1,
+  platform: "anthropic",
+  sealed_current: true,
+  health: {
+    status: "unhealthy",
+    capability: "model call",
+    failure_reason: "unauthorized",
+    models: null,
+    reported_at: REPORTED_AT,
+    reported_by: "box-1",
+  },
+};
+
+const SUB_COPY: InstanceCredentialCopy = {
+  name: "claude-sub",
+  holder: "lab-01",
+  revision: 3,
+  platform: "anthropic-subscription",
+  sealed_current: false,
+  health: NO_REPORT,
+};
+
+const LIVE_SUB_COPY: InstanceCredentialCopy = {
+  ...SUB_COPY,
+  sealed_current: true,
+  health: { ...NO_REPORT, reported_at: REPORTED_AT, reported_by: "mac-studio" },
+};
+
+const PLATFORMS: CredentialPlatformList = {
+  items: [
+    {
+      platform: "anthropic",
+      secret_shape: "api_key",
+      login_modes: [],
+      metadata_fields: [],
+      verifiable: true,
+    },
+    {
+      platform: "anthropic-subscription",
+      secret_shape: "oauth",
+      login_modes: ["browser", "copy_code"],
+      metadata_fields: [],
+      verifiable: false,
+    },
+    {
+      platform: "openai-compatible",
+      secret_shape: "api_key",
+      login_modes: [],
+      metadata_fields: ["base_url"],
+      verifiable: true,
+    },
+  ],
+};
+
+const ROUTER_CREDENTIAL: LlmCredential = {
+  name: "atlas-router",
+  platform: "openai-compatible",
+  holder: "lab-01",
+  sealed_to: LAB.fingerprint,
+  sealed_current: true,
+  revisions: [
+    {
+      id: "r-router",
+      revision: 2,
+      metadata: { base_url: "https://router.example/v1", models: [{ id: "qwen3-coder" }] },
+      created_at: 1,
+      ended_at: null,
+    },
+  ],
+  agent_providers: [],
+};
+
+function rowOf(credentials: HTMLElement, name: string): HTMLElement {
+  const row = within(credentials)
+    .getAllByRole("listitem")
+    .find((item) => item.textContent?.includes(name));
+  expect(row).toBeDefined();
+  return row!;
+}
 
 function detailOf(
   instance: WorkerMachineInstance,
@@ -103,6 +220,10 @@ beforeEach(() => {
   vi.mocked(machinesApi.readWorkerMachine).mockResolvedValue(LAB);
   vi.mocked(projectsApi.listProjects).mockResolvedValue(PROJECTS);
   vi.mocked(gatewayApi.readServerVersion).mockResolvedValue("28.0.1");
+  vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
+  vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([]);
+  vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([]);
+  vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([]);
   serveBindings({});
 });
 
@@ -393,5 +514,224 @@ describe("MachineScreen at 390 px", () => {
     expect(screen.getByRole("list", { name: "Instances" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Reset key" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Archive" })).toBeVisible();
+  });
+});
+
+describe("MachineScreen Credentials", () => {
+  function serveCopies(copies: readonly InstanceCredentialCopy[]) {
+    vi.mocked(machinesApi.readWorkerMachine).mockResolvedValue({ ...LAB, credentials: copies });
+  }
+
+  it("lists each copy with its line, its health line and the four actions", async () => {
+    serveCopies([ROUTER_COPY, KEY_COPY, LIVE_SUB_COPY]);
+    mount();
+    expect(await screen.findByRole("heading", { name: "Credentials" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add credential" })).toBeEnabled();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    expect(within(credentials).getAllByRole("listitem")).toHaveLength(3);
+    const router = rowOf(credentials, "atlas-router");
+    expect(router).toHaveTextContent("atlas-router · openai-compatible (v2)");
+    expect(router).toHaveTextContent("Reported by mac-studio at 2026-10-21 08:00 UTC.");
+    expect(router).not.toHaveTextContent("Own copy");
+    expect(await within(router).findByRole("button", { name: "Edit models" })).toBeEnabled();
+    expect(within(router).getByRole("button", { name: "Rotate" })).toBeEnabled();
+    const key = rowOf(credentials, "lab-key");
+    expect(key).toHaveTextContent(
+      "The provider refused the API key or the access token. Rotate the copy with a correct key, or sign in again. The instance checks the copy again after the write. Reported by box-1 at 2026-10-21 08:00 UTC.",
+    );
+    expect(within(key).getByRole("button", { name: "Rotate" })).toBeEnabled();
+    expect(
+      await within(rowOf(credentials, "claude-sub")).findByRole("button", {
+        name: "Sign in again",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("tells that no instance reported a copy since the server start", async () => {
+    serveCopies([{ ...ROUTER_COPY, health: NO_REPORT }]);
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    expect(rowOf(credentials, "atlas-router")).toHaveTextContent(
+      "No report from lab-01 for this revision since the server start.",
+    );
+  });
+
+  it("tells that no copy exists", async () => {
+    mount();
+    expect(await screen.findByText("No credential copies.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add credential" })).toBeEnabled();
+  });
+
+  it("offers no copy action and no Add credential on an archived machine", async () => {
+    vi.mocked(machinesApi.readWorkerMachine).mockResolvedValue({
+      ...LAB,
+      ended_at: 5,
+      credentials: [KEY_COPY],
+    });
+    mount();
+    await screen.findByRole("list", { name: "Credentials" });
+    expect(screen.queryByRole("button", { name: "Add credential" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Rotate" })).not.toBeInTheDocument();
+  });
+
+  it("adds a copy with the machine as holder", async () => {
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue({
+      ...ROUTER_CREDENTIAL,
+      name: "claude-key",
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    expect(sheet).toHaveTextContent("held by lab-01");
+    await userEvent.type(within(sheet).getByLabelText("Name"), "claude-key");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Platform" }));
+    await userEvent.click(await screen.findByRole("option", { name: "anthropic" }));
+    await userEvent.type(within(sheet).getByLabelText("API Key"), "sk-1");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create credential" }));
+    await waitFor(() =>
+      expect(credentialsApi.createCredential).toHaveBeenCalledWith("llm", {
+        name: "claude-key",
+        platform: "anthropic",
+        metadata: null,
+        secret: { key: "sk-1" },
+        holders: ["lab-01"],
+      }),
+    );
+  });
+
+  it("lists the other machines and the worker instances in Also seal to", async () => {
+    vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([
+      {
+        id: LAB.id,
+        name: "lab-01",
+        revision: 2,
+        public_key: LAB.public_key,
+        fingerprint: LAB.fingerprint,
+        created_at: 1,
+        ended_at: null,
+        instance_count: 2,
+      },
+      {
+        id: "worker_machine_02",
+        name: "rack-02",
+        revision: 1,
+        public_key: LAB.public_key,
+        fingerprint: LAB.fingerprint,
+        created_at: 1,
+        ended_at: null,
+        instance_count: 0,
+      },
+    ]);
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+      { ...MAC, binding_count: 0, holder_mismatch: false },
+    ]);
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "claude-key");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Platform" }));
+    await userEvent.click(await screen.findByRole("option", { name: "anthropic" }));
+    const machines = await within(sheet).findByRole("group", { name: "Also seal to Machines" });
+    expect(within(machines).getByRole("button", { name: "rack-02" })).toBeInTheDocument();
+    expect(within(machines).queryByRole("button", { name: "lab-01" })).not.toBeInTheDocument();
+    expect(
+      within(await within(sheet).findByRole("group", { name: "Also seal to coder@1" })).getByRole(
+        "button",
+        { name: "mac-studio" },
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("rotates a copy with the machine as holder", async () => {
+    serveCopies([KEY_COPY]);
+    vi.mocked(credentialsApi.rotateCredential).mockResolvedValue({
+      ...ROUTER_CREDENTIAL,
+      name: "lab-key",
+    });
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    await userEvent.click(await within(credentials).findByRole("button", { name: "Rotate" }));
+    const sheet = await screen.findByRole("dialog", { name: "Rotate lab-key" });
+    expect(sheet).toHaveTextContent("held by lab-01");
+    await userEvent.type(within(sheet).getByLabelText("API Key"), "sk-2");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Rotate secret" }));
+    await waitFor(() =>
+      expect(credentialsApi.rotateCredential).toHaveBeenCalledWith(
+        "llm",
+        "lab-key",
+        { expected_revision: 1, secret: { key: "sk-2" } },
+        "lab-01",
+      ),
+    );
+  });
+
+  it("edits the models of a copy with the machine as holder", async () => {
+    serveCopies([ROUTER_COPY]);
+    vi.mocked(credentialsApi.readCredential).mockResolvedValue(ROUTER_CREDENTIAL);
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    await userEvent.click(await within(credentials).findByRole("button", { name: "Edit models" }));
+    expect(credentialsApi.readCredential).toHaveBeenCalledWith("llm", "atlas-router", "lab-01");
+    expect(
+      await screen.findByRole("dialog", { name: "Edit metadata of atlas-router on lab-01" }),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the sign-in panel on a copy that is not live and signs in on the machine", async () => {
+    serveCopies([SUB_COPY]);
+    vi.mocked(credentialsApi.startCredentialLogin).mockResolvedValue({
+      session_id: "login_session_2",
+      address: "https://claude.ai/oauth/authorize",
+      code: null,
+      expires_at: 99,
+    });
+    vi.mocked(credentialsApi.readCredentialLoginStatus).mockResolvedValue({
+      session_id: "login_session_2",
+      state: "pending",
+      last_message: null,
+      failure_reason: null,
+    });
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    await userEvent.click(
+      await within(credentials).findByRole("button", { name: "Sign in again" }),
+    );
+    const sheet = await screen.findByRole("dialog", { name: "Sign in again to claude-sub" });
+    expect(sheet).toHaveTextContent("copy-code mode");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
+    await waitFor(() =>
+      expect(credentialsApi.startCredentialLogin).toHaveBeenCalledWith({
+        platform: "anthropic-subscription",
+        name: "claude-sub",
+        mode: "copy_code",
+        holder: "lab-01",
+      }),
+    );
+    expect(await within(sheet).findByLabelText("Paste code")).toBeInTheDocument();
+  });
+
+  it("explains the refusal of a sign-in when no instance of the machine is connected", async () => {
+    serveCopies([SUB_COPY]);
+    vi.mocked(credentialsApi.startCredentialLogin).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "The worker instance holds no current connection.",
+        409,
+        "credential.login.instance_unavailable",
+        { holder: "lab-01" },
+      ),
+    );
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    await userEvent.click(
+      await within(credentials).findByRole("button", { name: "Sign in again" }),
+    );
+    const sheet = await screen.findByRole("dialog", { name: "Sign in again to claude-sub" });
+    await userEvent.click(within(sheet).getByRole("button", { name: "Start sign-in" }));
+    expect(
+      await within(sheet).findByText(
+        "No instance of lab-01 is connected. Start one instance of the machine, then sign in again.",
+      ),
+    ).toBeInTheDocument();
   });
 });

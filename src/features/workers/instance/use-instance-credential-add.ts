@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { createCredential } from "@/api/resources/credentials";
 import { listWorkerInstances } from "@/api/resources/worker-instances";
+import { listWorkerMachines, readWorkerMachine } from "@/api/resources/worker-machines";
 import type { CredentialPlatformEntry } from "@/api/types";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { platformEntryOf } from "@/lib/credential-platforms";
@@ -16,18 +17,21 @@ import {
   type ModelDraft,
   type SecretDraft,
 } from "@/lib/credential-draft";
-import { holderGroupsOf, instanceCopyBodyOf } from "@/lib/instance-credential-draft";
-import { credentialMessage } from "@/features/credentials/credential-message";
+import {
+  type CopyHolder,
+  instanceCopyBodyOf,
+  type SealTargetGroup,
+  sealTargetGroupsOf,
+} from "@/lib/instance-credential-draft";
+import {
+  credentialMessage,
+  machineLoginUnavailableMessage,
+} from "@/features/credentials/credential-message";
 import {
   type CredentialLoginState,
   useCredentialLogin,
 } from "@/features/credentials/form/use-credential-login";
 import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
-
-export interface HolderGroup {
-  readonly worker: string;
-  readonly names: readonly string[];
-}
 
 export interface InstanceCredentialAddState {
   readonly open: boolean;
@@ -37,7 +41,8 @@ export interface InstanceCredentialAddState {
   readonly secret: SecretDraft;
   readonly metadata: MetadataDraft;
   readonly alsoSealTo: readonly string[];
-  readonly groups: Resource<readonly HolderGroup[]>;
+  readonly groups: Resource<readonly SealTargetGroup[]>;
+  readonly overridesMachine: string | null;
   readonly errors: DraftErrors;
   readonly failure: string | null;
   readonly submitting: boolean;
@@ -58,9 +63,11 @@ export interface InstanceCredentialAddState {
 }
 
 export function useInstanceCredentialAdd(
-  instanceName: string,
+  holder: CopyHolder,
+  machine: string | null,
   reload: () => void,
 ): InstanceCredentialAddState {
+  const { name: holderName, kind } = holder;
   const [open, setOpen] = useState(false);
   const [name, setNameValue] = useState("");
   const [platform, setPlatform] = useState<string | null>(null);
@@ -74,21 +81,40 @@ export function useInstanceCredentialAdd(
   const entry = platform === null ? null : platformEntryOf(platformList.data, platform);
   const signIn = entry?.secret_shape === "oauth";
   const modes = (entry?.login_modes ?? []).filter((mode) => mode !== "browser");
-  const groups = useResource(
-    async () => (open ? holderGroupsOf(await listWorkerInstances(null), instanceName) : []),
-    [open, instanceName],
+  const groups = useResource(async () => {
+    if (!open) return [];
+    const [machines, instances] = await Promise.all([
+      listWorkerMachines(),
+      listWorkerInstances(null),
+    ]);
+    return sealTargetGroupsOf(machines, instances, holderName);
+  }, [open, holderName]);
+  const machineRead = useResource(
+    async () => (open && machine !== null ? readWorkerMachine(machine) : null),
+    [open, machine],
   );
+  const overridesMachine =
+    machine !== null && (machineRead.data?.credentials ?? []).some((copy) => copy.name === name)
+      ? machine
+      : null;
 
   const finish = useCallback(
     (created: string) => {
       setOpen(false);
-      toast.success(`Stored ${created} for ${instanceName}.`);
+      toast.success(`Stored ${created} for ${holderName}.`);
       reload();
     },
-    [instanceName, reload],
+    [holderName, reload],
   );
 
-  const login = useCredentialLogin("llm", modes, finish, instanceName, false);
+  const login = useCredentialLogin(
+    "llm",
+    modes,
+    finish,
+    holderName,
+    false,
+    kind === "machine" ? machineLoginUnavailableMessage(holderName) : null,
+  );
   const restartLogin = login.restart;
 
   const start = useCallback(() => {
@@ -144,7 +170,7 @@ export function useInstanceCredentialAdd(
       login.start(name, entry.platform);
       return;
     }
-    const body = instanceCopyBodyOf(name, entry, secret, metadata, [instanceName, ...alsoSealTo]);
+    const body = instanceCopyBodyOf(name, entry, secret, metadata, [holderName, ...alsoSealTo]);
     if (!body.ok) {
       setErrors(body.errors);
       return;
@@ -162,7 +188,7 @@ export function useInstanceCredentialAdd(
         setFailure(credentialMessage(asApiError(cause)));
       },
     );
-  }, [submitting, entry, signIn, login, name, secret, metadata, instanceName, alsoSealTo, finish]);
+  }, [submitting, entry, signIn, login, name, secret, metadata, holderName, alsoSealTo, finish]);
 
   const missing =
     entry === null
@@ -182,6 +208,7 @@ export function useInstanceCredentialAdd(
     metadata,
     alsoSealTo,
     groups,
+    overridesMachine,
     errors,
     failure,
     submitting,

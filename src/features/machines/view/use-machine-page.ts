@@ -1,12 +1,20 @@
+import { useCallback } from "react";
+
 import { listProjects } from "@/api/resources/projects";
 import { readWorkerInstance } from "@/api/resources/worker-instances";
 import { readWorkerMachine } from "@/api/resources/worker-machines";
 import type { WorkerMachineDetail, WorkerMachineInstance } from "@/api/types";
+import { useCredentialPlatforms } from "@/features/credentials/use-credential-platforms";
+import {
+  credentialRowsOf,
+  type InstanceCredentialRow,
+} from "@/features/workers/instance/use-instance-page";
 import { type Resource, useResource } from "@/hooks/use-resource";
 
 export interface MachinePage {
   readonly machine: Resource<WorkerMachineDetail>;
   readonly liveInstances: readonly WorkerMachineInstance[];
+  readonly credentialRows: readonly InstanceCredentialRow[];
   readonly servedProjects: readonly string[];
   readonly contextError: string | null;
   readonly retryContext: () => void;
@@ -39,11 +47,22 @@ export function useMachinePage(machineName: string): MachinePage {
     () => readServedProjects(liveInstances),
     [liveInstances.map((instance) => `${instance.name}/${instance.revision}`)],
   );
+  const platforms = useCredentialPlatforms("llm");
+  const reloadServed = served.reload;
+  const reloadPlatforms = platforms.reload;
+  const retryContext = useCallback(() => {
+    reloadServed();
+    reloadPlatforms();
+  }, [reloadServed, reloadPlatforms]);
   return {
     machine,
     liveInstances,
+    credentialRows: credentialRowsOf(
+      machine.data?.credentials ?? [],
+      platforms.data?.items ?? null,
+    ),
     servedProjects: served.data ?? [],
-    contextError: served.error?.message ?? null,
-    retryContext: served.reload,
+    contextError: (served.error ?? platforms.error)?.message ?? null,
+    retryContext,
   };
 }

@@ -22,10 +22,10 @@ type TargetUpdate = (
   update: (current: InstanceCopyModelsTarget | null) => InstanceCopyModelsTarget,
 ) => void;
 
-function readTarget(instanceName: string, row: InstanceCredentialRow, setTarget: TargetUpdate) {
+function readTarget(holder: string, row: InstanceCredentialRow, setTarget: TargetUpdate) {
   const entry = row.entry;
   if (entry === null) return;
-  readCredential("llm", row.copy.name, instanceName).then(
+  readCredential("llm", row.copy.name, holder).then(
     (credential) =>
       setTarget((current) => ({
         key: (current?.key ?? 0) + 1,
@@ -34,20 +34,20 @@ function readTarget(instanceName: string, row: InstanceCredentialRow, setTarget:
         reportedModelIds: row.reportedModelIds,
       })),
     (cause: unknown) => {
-      toast.error(`Reading ${row.copy.name} on ${instanceName} failed.`, {
+      toast.error(`Reading ${row.copy.name} on ${holder} failed.`, {
         description: asApiError(cause).message,
-        action: { label: "Retry", onClick: () => readTarget(instanceName, row, setTarget) },
+        action: { label: "Retry", onClick: () => readTarget(holder, row, setTarget) },
       });
     },
   );
 }
 
-export function useInstanceCopyModels(instanceName: string): InstanceCopyModelsState {
+export function useInstanceCopyModels(holder: string): InstanceCopyModelsState {
   const [target, setTarget] = useState<InstanceCopyModelsTarget | null>(null);
 
   const start = useCallback(
-    (row: InstanceCredentialRow) => readTarget(instanceName, row, setTarget),
-    [instanceName],
+    (row: InstanceCredentialRow) => readTarget(holder, row, setTarget),
+    [holder],
   );
 
   return { target, start };

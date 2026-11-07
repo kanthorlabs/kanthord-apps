@@ -2945,6 +2945,21 @@ const metadataIsValid = (platform, metadata) => {
   );
 };
 
+const liveHolder = (name) => {
+  const instance = instanceRoutes.liveInstance(name);
+  if (instance !== null) return instance.record.placement === "worker" ? instance.record : null;
+  return machineRoutes.liveMachine(name);
+};
+
+const hasConnectedRunner = (name) => {
+  const instance = instanceRoutes.liveInstance(name);
+  const runners =
+    instance === null
+      ? instanceRoutes.instancesOf(name).filter((item) => item.record.ended_at === null)
+      : [instance];
+  return runners.some((item) => item.connection !== null);
+};
+
 const holderOf = (url) => url?.searchParams.get("holder") ?? SERVER_HOLDER;
 
 const findCredential = (res, component, encoded, holder = SERVER_HOLDER) => {
@@ -3259,14 +3274,14 @@ on("POST", credentialRoute(""), (m, b, res) => {
     return credentialEnvelope(res, 400, "credential.sealed.invalid", "Only an LLM copy is sealed.");
   }
   const unknownHolder = holders.find(
-    (holder) => holder !== SERVER_HOLDER && instanceRoutes.liveInstance(holder) === null,
+    (holder) => holder !== SERVER_HOLDER && liveHolder(holder) === null,
   );
   if (unknownHolder !== undefined) {
     return credentialEnvelope(
       res,
       400,
-      "llm.credential.instance_unknown",
-      "The holder names no live worker instance.",
+      "llm.credential.holder_unknown",
+      "The holder names no live machine and no live worker instance.",
       { holder: unknownHolder },
     );
   }
@@ -3297,12 +3312,12 @@ on("POST", credentialRoute(""), (m, b, res) => {
   if (!secretIsValid(shape, b.secret)) return refuseInvalidInput(res);
   if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
   const copies = holders.map((holder) => {
-    const instance = holder === SERVER_HOLDER ? null : instanceRoutes.liveInstance(holder);
+    const record = holder === SERVER_HOLDER ? null : liveHolder(holder);
     return {
       name: b.name,
       platform: b.platform,
       holder,
-      sealed_to: instance === null ? null : instance.record.fingerprint,
+      sealed_to: record === null ? null : record.fingerprint,
       sealed_current: true,
       revisions: [
         {
@@ -3350,36 +3365,36 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
     );
   }
   const holder = b.holder ?? SERVER_HOLDER;
-  const instance = holder === SERVER_HOLDER ? null : instanceRoutes.liveInstance(holder);
-  if (holder !== SERVER_HOLDER && instance === null) {
+  const record = holder === SERVER_HOLDER ? null : liveHolder(holder);
+  if (holder !== SERVER_HOLDER && record === null) {
     return credentialEnvelope(
       res,
       400,
-      "llm.credential.instance_unknown",
-      "The holder names no live worker instance.",
+      "llm.credential.holder_unknown",
+      "The holder names no live machine and no live worker instance.",
       { holder },
     );
   }
-  if (instance !== null && b.mode === "browser") {
+  if (record !== null && b.mode === "browser") {
     return credentialEnvelope(
       res,
       400,
       "credential.login.mode_unsupported",
-      "A worker instance signs in in copy_code or device mode only.",
+      "A machine or a worker instance signs in in copy_code or device mode only.",
     );
   }
-  if (instance !== null && instance.connection === null) {
+  if (record !== null && !hasConnectedRunner(holder)) {
     return credentialEnvelope(
       res,
       409,
       "credential.login.instance_unavailable",
-      "The worker instance holds no current connection.",
+      "No connected instance can run the sign-in.",
       { holder },
     );
   }
   const taken = credentials.find((item) => item.name === b.name && item.holder === holder);
-  if (taken !== undefined && instance !== null && refuseArchived(res, taken)) return undefined;
-  if (taken !== undefined && (instance === null || taken.sealed_current)) {
+  if (taken !== undefined && record !== null && refuseArchived(res, taken)) return undefined;
+  if (taken !== undefined && (record === null || taken.sealed_current)) {
     return credentialEnvelope(
       res,
       409,
@@ -3406,7 +3421,7 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
     platform: b.platform,
     name: b.name,
     holder,
-    sealedTo: instance === null ? null : instance.record.fingerprint,
+    sealedTo: record === null ? null : record.fingerprint,
     state: "pending",
     startedAt: now,
     expires_at: now + LOGIN_EXPIRY_MS,
@@ -3442,7 +3457,7 @@ const settleLogin = (session) => {
   );
   const keyChanged =
     session.holder !== SERVER_HOLDER &&
-    instanceRoutes.liveInstance(session.holder)?.record.fingerprint !== session.sealedTo;
+    liveHolder(session.holder)?.fingerprint !== session.sealedTo;
   const refusal = keyChanged
     ? "credential.sealed.invalid"
     : stale === undefined
@@ -3536,8 +3551,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res, _t, url) => {
   if (!metadataIsValid(credential.platform, metadata)) return refuseInvalidInput(res);
   storedSecrets.set(credential.name, b.secret);
   if (credential.holder !== SERVER_HOLDER) {
-    credential.sealed_to =
-      instanceRoutes.liveInstance(credential.holder)?.record.fingerprint ?? null;
+    credential.sealed_to = liveHolder(credential.holder)?.fingerprint ?? null;
     credential.sealed_current = credential.sealed_to !== null;
   }
   return addRevision(credential, metadata, res);
@@ -3616,6 +3630,8 @@ const machineRoutes = registerMachines({
   json,
   envelope: projectEnvelope,
   page,
+  credentials,
+  copiesOf: (holder) => instanceRoutes.copiesOf(holder),
   instancesOf: (machine) => instanceRoutes.instancesOf(machine),
   instanceNames: () => instanceRoutes.instanceNames(),
 });
