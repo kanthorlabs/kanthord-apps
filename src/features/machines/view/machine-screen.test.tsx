@@ -197,6 +197,20 @@ describe("MachineScreen Reset key", () => {
     expect(within(dialog).getByRole("button", { name: "Reset key" })).toBeDisabled();
   });
 
+  it("shows the machine copy block of the chosen host kind before the confirmation", async () => {
+    mount();
+    const dialog = await openReset();
+    expect(within(dialog).queryByText(/Deliver the machine configuration/)).not.toBeInTheDocument();
+    await chooseKind(dialog, "Container on this host");
+    expect(
+      within(dialog).getByText("podman secret create --replace kanthord-machine-lab-01 -"),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Remove and run each instance container again with its copy block."),
+    ).toBeInTheDocument();
+    expect(machinesApi.rotateWorkerMachineKey).not.toHaveBeenCalled();
+  });
+
   it("sends expected_revision and shows the new configuration once with the copy block", async () => {
     vi.mocked(machinesApi.rotateWorkerMachineKey).mockResolvedValue({
       ...LAB,

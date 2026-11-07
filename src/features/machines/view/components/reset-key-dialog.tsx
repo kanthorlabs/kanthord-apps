@@ -12,7 +12,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import type { WorkerMachineDetail, WorkerMachineInstance } from "@/api/types";
-import { InstanceConfiguration } from "@/features/workers/components/instance-configuration";
+import {
+  CopySteps,
+  InstanceConfiguration,
+} from "@/features/workers/components/instance-configuration";
 import { MachineHostFields } from "../../components/machine-host-fields";
 import type { MachineResetState } from "../use-machine-reset";
 import { InstanceNames } from "./instance-names";
@@ -62,6 +65,14 @@ export function ResetKeyDialog({
             <FieldGroup>
               <MachineHostFields host={reset.host} error={reset.error ?? undefined} />
             </FieldGroup>
+            {reset.host.kind !== null && (
+              <CopySteps
+                target={{ subject: "machine", name: machine.name, stage: "reset" }}
+                kind={reset.host.kind}
+                runtime={reset.host.runtime}
+                version={reset.host.version}
+              />
+            )}
             {reset.failure !== null && (
               <p role="alert" className="text-sm text-destructive">
                 {reset.failure}

@@ -89,6 +89,48 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
+export function CopySteps({
+  target,
+  kind,
+  runtime,
+  version,
+}: {
+  readonly target: ConfigurationTarget;
+  readonly kind: HostKind;
+  readonly runtime: ContainerRuntime;
+  readonly version: string | null;
+}) {
+  const steps = stepsOf(target, kind, version ?? VERSION_PLACEHOLDER, runtime);
+  const texts = SUBJECT_TEXTS[target.subject];
+  const stepsId = `${target.subject}-steps`;
+  return (
+    <section aria-labelledby={stepsId} className="flex min-w-0 flex-col gap-2">
+      <h3 id={stepsId} className="font-semibold">
+        {texts.stepsHeading}: {kind}
+        {isContainerKind(kind) && ` with ${runtime}`}
+      </h3>
+      <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
+        {steps.map((step) => (
+          <li key={step.text} className="min-w-0">
+            <p className="break-words">{step.text}</p>
+            {step.command !== null && (
+              <div className="mt-1 flex min-w-0 flex-col gap-1">
+                <pre className="max-h-48 overflow-auto rounded-md bg-muted p-2 font-mono text-xs break-all whitespace-pre-wrap">
+                  {step.command}
+                </pre>
+                <div className="flex justify-end">
+                  <CopyButton text={step.command} label="the command" />
+                </div>
+              </div>
+            )}
+          </li>
+        ))}
+      </ol>
+      {texts.footer !== null && <p className="text-sm text-muted-foreground">{texts.footer}</p>}
+    </section>
+  );
+}
+
 export function InstanceConfiguration({
   target,
   kind,
@@ -97,10 +139,8 @@ export function InstanceConfiguration({
   versionError,
   configuration,
 }: InstanceConfigurationProps) {
-  const steps = stepsOf(target, kind, version ?? VERSION_PLACEHOLDER, runtime);
   const texts = SUBJECT_TEXTS[target.subject];
   const configurationId = `${target.subject}-configuration`;
-  const stepsId = `${target.subject}-steps`;
   return (
     <div className="flex min-w-0 flex-col gap-4">
       {versionError !== null && (
@@ -133,30 +173,7 @@ export function InstanceConfiguration({
           {configuration}
         </pre>
       </section>
-      <section aria-labelledby={stepsId} className="flex min-w-0 flex-col gap-2">
-        <h3 id={stepsId} className="font-semibold">
-          {texts.stepsHeading}: {kind}
-          {isContainerKind(kind) && ` with ${runtime}`}
-        </h3>
-        <ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
-          {steps.map((step) => (
-            <li key={step.text} className="min-w-0">
-              <p className="break-words">{step.text}</p>
-              {step.command !== null && (
-                <div className="mt-1 flex min-w-0 flex-col gap-1">
-                  <pre className="max-h-48 overflow-auto rounded-md bg-muted p-2 font-mono text-xs break-all whitespace-pre-wrap">
-                    {step.command}
-                  </pre>
-                  <div className="flex justify-end">
-                    <CopyButton text={step.command} label="the command" />
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
-        {texts.footer !== null && <p className="text-sm text-muted-foreground">{texts.footer}</p>}
-      </section>
+      <CopySteps target={target} kind={kind} runtime={runtime} version={version} />
     </div>
   );
 }
