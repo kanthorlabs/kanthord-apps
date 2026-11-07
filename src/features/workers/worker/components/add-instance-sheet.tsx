@@ -1,3 +1,7 @@
+import { Link } from "react-router-dom";
+import { PlusIcon } from "lucide-react";
+
+import { ChoiceField } from "@/components/choice-field";
 import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -67,6 +71,42 @@ function PlacementField({ create }: { create: InstanceCreateState }) {
   );
 }
 
+function MachineField({ create }: { create: InstanceCreateState }) {
+  const error = create.errors["machine"] ?? create.machinesError ?? undefined;
+  if (!create.machinesLoading && create.machinesError === null && create.machines.length === 0) {
+    return (
+      <Field>
+        <FieldTitle>Machine</FieldTitle>
+        <FieldDescription>
+          No live machine exists. An instance at the worker placement runs on a machine. Add the
+          machine first.
+        </FieldDescription>
+        <Button
+          nativeButton={false}
+          render={<Link to="/machines/new" />}
+          variant="outline"
+          size="sm"
+          className="self-start"
+        >
+          <PlusIcon aria-hidden="true" data-icon="inline-start" />
+          Add machine
+        </Button>
+      </Field>
+    );
+  }
+  return (
+    <ChoiceField
+      id="instance-machine"
+      label="Machine"
+      value={create.machine}
+      options={create.machines}
+      error={error}
+      description="The computer that runs the instance. The instance keeps this choice."
+      onChange={create.selectMachine}
+    />
+  );
+}
+
 export function AddInstanceSheet({
   workerName,
   create,
@@ -116,6 +156,7 @@ export function AddInstanceSheet({
                   onChange={create.setName}
                 />
                 <PlacementField create={create} />
+                {create.placement === "worker" && <MachineField create={create} />}
                 {create.placement === "worker" && (
                   <HostFields host={create.host} errors={create.errors} />
                 )}

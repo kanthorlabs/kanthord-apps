@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useClipboard } from "@/hooks/use-clipboard";
 import {
   type ContainerRuntime,
-  copyStepsOf,
   type CopyStep,
+  copyStepsOf,
   type HostKind,
   isContainerKind,
   machineCopyStepsOf,

@@ -7,12 +7,14 @@ import { ApiError } from "@/api/errors";
 import * as clientApi from "@/api/client";
 import * as gatewayApi from "@/api/resources/gateway";
 import * as instancesApi from "@/api/resources/worker-instances";
+import * as machinesApi from "@/api/resources/worker-machines";
 import * as projectsApi from "@/api/resources/projects";
 import * as workersApi from "@/api/resources/workers";
 import type {
   PlacementStatus,
   WorkerCatalogEntry,
   WorkerInstanceListItem,
+  WorkerMachineListItem,
   WorkerRegistrationRecord,
 } from "@/api/types";
 
@@ -22,6 +24,7 @@ vi.mock("@/api/client", async (original) => ({
 }));
 vi.mock("@/api/resources/gateway");
 vi.mock("@/api/resources/worker-instances");
+vi.mock("@/api/resources/worker-machines");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/scheduler");
@@ -81,6 +84,17 @@ const BOX_ONE: WorkerInstanceListItem = {
   holder_mismatch: false,
 };
 
+const LAB: WorkerMachineListItem = {
+  id: "worker_machine_01J9ZQ4XKM3B6V8N2R5T7W0M01",
+  name: "lab-01",
+  revision: 1,
+  public_key: "b".repeat(43),
+  fingerprint: "SHA256:Rm4Tq9Vx2Bn7Kc1Lw5Hd8Zs3Fg6Jy0Ua2Ei4Oo7Pp1",
+  created_at: 1,
+  ended_at: null,
+  instance_count: 2,
+};
+
 function containerStatus(overrides: Partial<PlacementStatus> = {}): readonly PlacementStatus[] {
   return [
     {
@@ -103,6 +117,11 @@ async function openWorkerSheet() {
   const sheet = await openSheet();
   await userEvent.click(within(sheet).getByRole("radio", { name: "Worker" }));
   return sheet;
+}
+
+async function chooseMachine(sheet: HTMLElement, name = "lab-01") {
+  await userEvent.click(await within(sheet).findByRole("combobox", { name: "Machine" }));
+  await userEvent.click(await screen.findByRole("option", { name }));
 }
 
 function rowOf(list: HTMLElement, name: string): HTMLElement {
@@ -137,6 +156,7 @@ beforeEach(() => {
   vi.mocked(workersApi.listAllWorkerRegistrations).mockResolvedValue([]);
   vi.mocked(workersApi.listWorkerPlacements).mockResolvedValue([]);
   vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([MAC]);
+  vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([LAB]);
   vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
   vi.mocked(projectsApi.listProjects).mockResolvedValue([]);
   vi.mocked(gatewayApi.readServerVersion).mockResolvedValue("28.0.1");
@@ -641,6 +661,7 @@ describe("WorkerScreen", () => {
     });
     mount();
     const sheet = await openWorkerSheet();
+    await chooseMachine(sheet);
     expect(within(sheet).getByRole("button", { name: "Create instance" })).toBeDisabled();
     await userEvent.type(within(sheet).getByLabelText("Name"), "lan-01");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
@@ -653,6 +674,7 @@ describe("WorkerScreen", () => {
         name: "lan-01",
         worker: "coder@1",
         placement: "worker",
+        machine: "lab-01",
         endpoint: "http://192.168.1.10:31415",
       }),
     );
@@ -665,6 +687,81 @@ describe("WorkerScreen", () => {
     ).toBeInTheDocument();
     expect(within(sheet).getByText(/release 28\.0\.1/)).toBeInTheDocument();
     expect(within(sheet).queryByText(/podman secret create/)).not.toBeInTheDocument();
+  });
+
+  it("requires a live machine at the worker placement and lists the live machines", async () => {
+    vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([
+      LAB,
+      { ...LAB, name: "rack-02", ended_at: 5 },
+      { ...LAB, name: "rack-03" },
+    ]);
+    mount();
+    const sheet = await openSheet();
+    expect(within(sheet).queryByRole("combobox", { name: "Machine" })).not.toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("radio", { name: "Worker" }));
+    const machine = await within(sheet).findByRole("combobox", { name: "Machine" });
+    expect(
+      within(sheet).getByRole("radio", { name: "Worker" }).compareDocumentPosition(machine) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    await userEvent.type(within(sheet).getByLabelText("Name"), "lan-01");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Linux (systemd)" }));
+    expect(within(sheet).getByRole("button", { name: "Create instance" })).toBeDisabled();
+    expect(within(sheet).getByText("Fill Machine to create the instance.")).toBeInTheDocument();
+    await userEvent.click(machine);
+    expect(await screen.findByRole("option", { name: "lab-01" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "rack-03" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "rack-02" })).not.toBeInTheDocument();
+  });
+
+  it("offers Add machine when no live machine exists", async () => {
+    vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([]);
+    mount();
+    const sheet = await openWorkerSheet();
+    expect(await within(sheet).findByRole("button", { name: "Add machine" })).toHaveAttribute(
+      "href",
+      "/machines/new",
+    );
+    expect(within(sheet).queryByRole("combobox", { name: "Machine" })).not.toBeInTheDocument();
+  });
+
+  it("sends no machine at the server and container placements", async () => {
+    vi.mocked(instancesApi.createWorkerInstance).mockResolvedValue({
+      ...MAC,
+      name: "srv-01",
+      placement: "server",
+      machine: null,
+    });
+    mount();
+    const sheet = await openSheet();
+    await userEvent.type(within(sheet).getByLabelText("Name"), "srv-01");
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+    await waitFor(() =>
+      expect(instancesApi.createWorkerInstance).toHaveBeenCalledWith({
+        name: "srv-01",
+        worker: "coder@1",
+        placement: "server",
+      }),
+    );
+  });
+
+  it("shows the machine refusal under Machine", async () => {
+    vi.mocked(instancesApi.createWorkerInstance).mockRejectedValue(
+      new ApiError("refused", "No.", 400, "worker.instance.machine_invalid"),
+    );
+    mount();
+    const sheet = await openWorkerSheet();
+    await userEvent.type(within(sheet).getByLabelText("Name"), "lan-01");
+    await chooseMachine(sheet);
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
+    await userEvent.click(await screen.findByRole("option", { name: "Linux (systemd)" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create instance" }));
+    expect(
+      await within(sheet).findByText(
+        "The machine does not exist or is archived. Add a machine, or choose a live one.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("leaves the address empty with a hint for a loopback dashboard", async () => {
@@ -706,6 +803,7 @@ describe("WorkerScreen", () => {
     });
     mount();
     const sheet = await openWorkerSheet();
+    await chooseMachine(sheet);
     await userEvent.type(within(sheet).getByLabelText("Name"), "box-01");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "Container on this host" }));
@@ -729,6 +827,7 @@ describe("WorkerScreen", () => {
     });
     mount();
     const sheet = await openWorkerSheet();
+    await chooseMachine(sheet);
     await userEvent.type(within(sheet).getByLabelText("Name"), "box-01");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "Linux (systemd)" }));
@@ -757,6 +856,7 @@ describe("WorkerScreen", () => {
     );
     mount();
     const sheet = await openWorkerSheet();
+    await chooseMachine(sheet);
     await userEvent.type(within(sheet).getByLabelText("Name"), "server");
     await userEvent.click(within(sheet).getByRole("combobox", { name: "Where does it run?" }));
     await userEvent.click(await screen.findByRole("option", { name: "Container" }));
