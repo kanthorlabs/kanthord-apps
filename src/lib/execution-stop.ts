@@ -9,6 +9,10 @@ const REASON_LABELS: Record<ExecutionStopReason, string> = {
   budget_end: "Budget ended",
   provider_failed: "Provider failed",
   no_progress: "No progress",
+  environment_failed: "Environment failed",
+  instance_archived: "Instance archived",
+  worker_stopped: "Worker stopped",
+  human_paused: "Paused by a human",
 };
 
 const CODE_LABELS: Readonly<Record<string, string>> = {

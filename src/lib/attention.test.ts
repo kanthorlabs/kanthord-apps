@@ -657,7 +657,7 @@ describe("deriveAttention outside", () => {
   });
 
   it("lists a push as unconfirmed only after 10 minutes", () => {
-    const push = request("merge_push");
+    const push = request("push");
     const snapshots = [snapshot("atlas", [requested])];
 
     const fresh = derive(
@@ -688,7 +688,7 @@ describe("deriveAttention outside", () => {
   });
 
   it("skips a delivery without its request evidence", () => {
-    const push = request("merge_push");
+    const push = request("push");
 
     expect(derive([snapshot("atlas", [requested])], externalDetail(requested, [push], []))).toEqual(
       [],
@@ -708,7 +708,7 @@ describe("deriveAttention outside", () => {
 
   it("takes the human merge first and the oldest aged delivery otherwise", () => {
     const pr = request("pull_request");
-    const push = request("merge_push", undefined, "unresolved", "repo.merge_push");
+    const push = request("push", undefined, "unresolved", "repo.push");
     const both = derive(
       [snapshot("atlas", [requested])],
       externalDetail(requested, [push, pr], [evidenceFor(pr, 1), evidenceFor(push, 1)]),

@@ -411,7 +411,7 @@ export interface MissionImportResult {
 
 export type BindingSetKind = "repository" | "worker" | "storage" | "conversation";
 
-export type RepositoryActionName = "pull_request" | "merge_push";
+export type RepositoryActionName = "pull_request" | "push";
 
 export type RepositoryActionFollows =
   | { readonly type: "assessment_passed" }
@@ -1247,7 +1247,11 @@ export type ExecutionStopReason =
   | "assessment_absent"
   | "budget_end"
   | "provider_failed"
-  | "no_progress";
+  | "no_progress"
+  | "environment_failed"
+  | "instance_archived"
+  | "worker_stopped"
+  | "human_paused";
 
 export interface ExecutionStop {
   readonly reason: ExecutionStopReason;

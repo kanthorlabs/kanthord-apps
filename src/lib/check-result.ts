@@ -7,7 +7,7 @@ export const CHECKING_LABEL = "Checking";
 function endedLabelOf(results: readonly MissionNodeCheckResult[]): string {
   const [only] = results;
   if (results.length !== 1 || only === undefined) return "Delivered";
-  return only.requirement_key.endsWith(".merge_push") ? "Pushed" : "Merged";
+  return only.requirement_key.endsWith(".push") ? "Pushed" : "Merged";
 }
 
 export function linkLabelsOf({ link_updates: linkUpdates }: MissionNodeCheckAnswer): string[] {

@@ -81,8 +81,8 @@ describe("unresolvedRequestsOf", () => {
     expect(
       unresolvedRequestsOf([
         unresolved,
-        action("merge_push", "expected-end"),
-        action("merge_push", "other-end"),
+        action("push", "expected-end"),
+        action("push", "other-end"),
         action("pull_request", "unrequested", false),
       ]),
     ).toEqual([unresolved]);
@@ -97,7 +97,7 @@ describe("unresolvedRequestsText", () => {
   });
 
   it("names one push", () => {
-    expect(unresolvedRequestsText(3, [action("merge_push", "unresolved")], true)).toBe(
+    expect(unresolvedRequestsText(3, [action("push", "unresolved")], true)).toBe(
       "Attempt 3 has an unresolved push to the base branch. Override and discard wait for its end state. Resume the node.",
     );
   });
@@ -106,7 +106,7 @@ describe("unresolvedRequestsText", () => {
     expect(
       unresolvedRequestsText(
         1,
-        [action("pull_request", "unresolved"), action("merge_push", "unresolved")],
+        [action("pull_request", "unresolved"), action("push", "unresolved")],
         true,
       ),
     ).toBe(
@@ -121,7 +121,7 @@ describe("unresolvedRequestsText", () => {
     expect(
       unresolvedRequestsText(
         1,
-        [action("pull_request", "unresolved"), action("merge_push", "unresolved")],
+        [action("pull_request", "unresolved"), action("push", "unresolved")],
         false,
         "Discard waits",
       ),
@@ -216,13 +216,13 @@ describe("humanMergeRequestOf and deliveryRequestsOf", () => {
   it("treats a pull request that a human lands as a human merge", () => {
     const merge = action("pull_request", "unresolved");
 
-    expect(humanMergeRequestOf([action("merge_push", "unresolved"), merge])).toBe(merge);
+    expect(humanMergeRequestOf([action("push", "unresolved"), merge])).toBe(merge);
     expect(deliveryRequestsOf([merge])).toEqual([]);
   });
 
   it("treats a pull request that kanthord lands and a push as deliveries", () => {
     const landed = action("pull_request", "unresolved", true, "kanthord");
-    const push = action("merge_push", "unresolved");
+    const push = action("push", "unresolved");
 
     expect(humanMergeRequestOf([landed, push])).toBeNull();
     expect(deliveryRequestsOf([landed, push])).toEqual([landed, push]);
@@ -250,7 +250,7 @@ describe("deliveryText", () => {
 
   it("names a push with its branch and age", () => {
     expect(
-      deliveryText(action("merge_push", "unresolved"), evidenceOf(NOW - 25 * 60_000, null), NOW),
+      deliveryText(action("push", "unresolved"), evidenceOf(NOW - 25 * 60_000, null), NOW),
     ).toBe("kanthord pushed to main 25 minutes ago, and no end state arrived. Check the delivery.");
   });
 
@@ -307,7 +307,7 @@ describe("causeSentenceOf", () => {
 
   it("names the delivery that has its evidence", () => {
     const request = {
-      action: action("merge_push", "unresolved"),
+      action: action("push", "unresolved"),
       evidence: evidenceOf(NOW - 25 * 60_000, null),
     };
 
@@ -317,7 +317,7 @@ describe("causeSentenceOf", () => {
   });
 
   it("names a delivery without evidence", () => {
-    const request = { action: action("merge_push", "unresolved"), evidence: null };
+    const request = { action: action("push", "unresolved"), evidence: null };
 
     expect(causeSentenceOf(itemOf("delivery_unconfirmed", request), NOW)).toBe(
       "No end state arrived. Check the delivery.",

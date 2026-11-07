@@ -11,7 +11,7 @@ import type {
 import { checkLabelOf as labelOf, linkLabelsOf } from "./check-result";
 
 function result(
-  key: "pull_request" | "merge_push",
+  key: "pull_request" | "push",
   resolution: MissionCheckResolution,
 ): MissionNodeCheckResult {
   return { evidence_id: `evidence_${key}`, requirement_key: `repo.${key}`, resolution };
@@ -39,12 +39,12 @@ describe("checkLabelOf", () => {
   });
 
   it("names a pushed commit", () => {
-    expect(checkLabelOf([result("merge_push", "expected-end")])).toBe("Pushed");
+    expect(checkLabelOf([result("push", "expected-end")])).toBe("Pushed");
   });
 
   it("names several delivered requests", () => {
     expect(
-      checkLabelOf([result("pull_request", "expected-end"), result("merge_push", "expected-end")]),
+      checkLabelOf([result("pull_request", "expected-end"), result("push", "expected-end")]),
     ).toBe("Delivered");
   });
 
@@ -54,13 +54,13 @@ describe("checkLabelOf", () => {
 
   it("names a mix of delivered and unresolved requests as not delivered yet", () => {
     expect(
-      checkLabelOf([result("pull_request", "expected-end"), result("merge_push", "unresolved")]),
+      checkLabelOf([result("pull_request", "expected-end"), result("push", "unresolved")]),
     ).toBe("Not delivered yet");
   });
 
   it("names any other end first", () => {
     expect(
-      checkLabelOf([result("pull_request", "other-end"), result("merge_push", "expected-end")]),
+      checkLabelOf([result("pull_request", "other-end"), result("push", "expected-end")]),
     ).toBe("Ended in another state");
   });
 

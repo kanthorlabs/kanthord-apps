@@ -2740,7 +2740,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
   it("lists a push as unconfirmed after 10 minutes and names it", async () => {
     serve({
       nodes: { "prj-1": [outside("n_o", "Publish the changelog")] },
-      actions: { n_o: [requested("n_o", "unresolved", { action: "merge_push" })] },
+      actions: { n_o: [requested("n_o", "unresolved", { action: "push" })] },
       evidence: { n_o: [requestEvidence("n_o", AGED, null)] },
     });
 
@@ -2762,7 +2762,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
   it("lists no fresh delivery and shows All clear", async () => {
     serve({
       nodes: { "prj-1": [outside("n_o", "Publish the changelog")] },
-      actions: { n_o: [requested("n_o", "unresolved", { action: "merge_push" })] },
+      actions: { n_o: [requested("n_o", "unresolved", { action: "push" })] },
       evidence: { n_o: [requestEvidence("n_o", NOW - 9 * 60_000, null)] },
     });
 

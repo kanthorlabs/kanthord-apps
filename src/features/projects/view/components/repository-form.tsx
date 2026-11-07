@@ -24,7 +24,7 @@ const NO_ACTION = "none";
 const ALL_ACTIONS = [
   { value: NO_ACTION, label: "No external action" },
   { value: "pull_request", label: "Open a pull request" },
-  { value: "merge_push", label: "Merge and push" },
+  { value: "push", label: "Push" },
 ] as const;
 
 const SSH_CREDENTIAL_HINT =
