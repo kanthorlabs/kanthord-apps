@@ -519,6 +519,7 @@ export interface ConversationBindingConfig {
   readonly credential: string;
   readonly reply_policy?: { readonly follows: { readonly type: "assessment_passed" } };
   readonly link_trust?: LinkTrust;
+  readonly inbox?: { readonly actor_id: string; readonly handle: string };
 }
 
 export interface RepositoryBindingConfig {
@@ -653,6 +654,49 @@ export interface MissionLinkUpdate {
   readonly actor_id: string;
   readonly occurred_at: number;
   readonly new: boolean;
+}
+
+export type InboxReason =
+  "linked" | "review_requested" | "assigned" | "direct" | "mentioned" | "participating";
+
+export type InboxItemState = "open" | "snoozed" | "done";
+
+export interface InboxItemContent {
+  readonly author: string;
+  readonly body: string;
+  readonly url: string;
+  readonly occurred_at: number;
+}
+
+export interface InboxItem {
+  readonly link_update_id: string;
+  readonly project_id: string;
+  readonly external_link: ExternalLink;
+  readonly reason: InboxReason;
+  readonly state: InboxItemState;
+  readonly occurred_at: number;
+  readonly done_at: number | null;
+  readonly snoozed_until: number | null;
+  readonly inbound_event_id: string;
+  readonly actor_id: string;
+  readonly trusted: boolean;
+  readonly linked_node_ids: readonly string[];
+  readonly content: InboxItemContent | null;
+}
+
+export interface InboxItemList extends Page<InboxItem> {
+  readonly counts: { readonly open: number; readonly snoozed: number };
+}
+
+export interface InboxItemQuery {
+  readonly state: InboxItemState;
+  readonly projectId: string | null;
+  readonly limit: number;
+  readonly cursor: string | null;
+}
+
+export interface InboxItemDoneBody {
+  readonly snoozed_until?: number | null;
 }
 
 export interface MissionContent {
@@ -1023,6 +1067,7 @@ export interface MissionNodeCreateContent {
   readonly intent?: unknown;
   readonly tags?: unknown;
   readonly commit_type?: unknown;
+  readonly external_links?: readonly ExternalLink[];
 }
 
 export interface MissionNodeCreateBody {
@@ -1034,6 +1079,15 @@ export interface MissionNodeCreateBody {
 
 export interface MissionNodeCreate extends MissionNodeCreateBody {
   readonly expected_mission_version: number;
+}
+
+export interface MissionNodeUpdate {
+  readonly filename: string;
+  readonly expected_revision: number;
+  readonly expected_mission_version: number;
+  readonly content: MissionContent;
+  readonly tasks: readonly MissionTaskContent[];
+  readonly reason: string;
 }
 
 export interface MissionNodeChange {

@@ -35,11 +35,13 @@ function countsOf(resume: number, view: number): BoardCounts {
     proposal: 0,
     blocked: 0,
     outside: 0,
+    inbox: 0,
   };
   return {
     tabs: zero,
     held: zero,
     view,
+    acts: view,
     all: 8,
     projects: { "prj-1": 5, "prj-2": 4 },
   };

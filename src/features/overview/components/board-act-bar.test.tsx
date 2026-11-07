@@ -152,6 +152,7 @@ function Bar({
           markActed={vi.fn()}
           setDialogOpen={vi.fn()}
           registerDialogCloser={vi.fn()}
+          closeInboxItem={vi.fn()}
           widthClass={widthClass}
           gate={gate}
           jump={jump}

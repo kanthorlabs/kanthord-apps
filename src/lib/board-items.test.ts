@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   AgentSelection,
   ExecutionStop,
+  InboxItem,
   MissionFinding,
   MissionNodeRecord,
   NodeState,
@@ -31,6 +32,7 @@ import {
   rankBoardItems,
   startItemOf,
 } from "./board-items";
+import { inboxItemsOf } from "./inbox-attention";
 
 function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
   const human = overrides.source === "human";
@@ -542,5 +544,87 @@ describe("isNothingAtAll", () => {
     expect(isNothingAtAll({ ...base, projectId: "prj-1" })).toBe(false);
     expect(isNothingAtAll({ ...base, view: 1 })).toBe(false);
     expect(isNothingAtAll({ ...base, allClear: false })).toBe(false);
+  });
+});
+
+function inboxThread(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
+  return {
+    link_update_id: id,
+    project_id: "prj-1",
+    external_link: { kind: "jira_issue", resource_identity: "conversation:jira:x", key: "KD-1" },
+    reason: "linked",
+    state: "open",
+    occurred_at: 100,
+    done_at: null,
+    snoozed_until: null,
+    inbound_event_id: "event_1",
+    actor_id: "actor_1",
+    trusted: true,
+    linked_node_ids: [],
+    content: null,
+    ...overrides,
+  };
+}
+
+describe("inbox items in rankBoardItems", () => {
+  const none = new Map<string, readonly string[]>();
+  const noGates = new Map<string, BoardGate>();
+  const idsOf = (ranked: readonly AttentionItem[]) => ranked.map((item) => item.id);
+
+  it("ranks the groups by reason, then more held nodes, then the oldest, then the id", () => {
+    const items = inboxItemsOf(
+      [
+        inboxThread("z-late", { reason: "participating" }),
+        inboxThread("m-new", { occurred_at: 300 }),
+        inboxThread("m-old", { occurred_at: 100 }),
+        inboxThread("m-held", { occurred_at: 900 }),
+        inboxThread("n-tie", { occurred_at: 100 }),
+        inboxThread("a-review", { reason: "review_requested" }),
+      ],
+      [PROJECT],
+    );
+    const held = new Map([["m-held", ["x", "y"]]]);
+
+    expect(idsOf(rankBoardItems(items, held, noGates))).toEqual([
+      "m-held",
+      "m-old",
+      "n-tie",
+      "m-new",
+      "a-review",
+      "z-late",
+    ]);
+  });
+
+  it("ranks an inbox item after every item of tabs 1 to 6", () => {
+    const acts = derive([snapshot([blocked("b", "Beta", 100)])]);
+    const inbox = inboxItemsOf([inboxThread("t1", { reason: "linked" })], [PROJECT]);
+    const held = new Map([["t1", ["a", "b", "c"]]]);
+
+    const ranked = rankBoardItems([...inbox, ...acts], held, noGates);
+
+    expect(idsOf(ranked)).toEqual(["blocked:b", "t1"]);
+    expect(startItemOf(ranked)?.id).toBe("blocked:b");
+  });
+
+  it("starts at an inbox item when tabs 1 to 6 hold no card", () => {
+    const inbox = inboxItemsOf([inboxThread("t2"), inboxThread("t1")], [PROJECT]);
+
+    expect(startItemOf(rankBoardItems(inbox, none, noGates))?.id).toBe("t1");
+  });
+});
+
+describe("inbox items in heldNodeIdsOf", () => {
+  it("holds the linked nodes that are not terminal and their dependents", () => {
+    const chain = snapshot([
+      node("a", "Executing"),
+      node("b", "Pending", { depends_on: ["a"] }),
+      node("done", "Completed"),
+      node("after-done", "Pending", { depends_on: ["done"] }),
+    ]);
+    const [item] = inboxItemsOf([inboxThread("t1", { linked_node_ids: ["a", "done"] })], [PROJECT]);
+    if (item === undefined) throw new Error("No item.");
+
+    expect(heldNodeIdsOf(item, [chain])).toEqual(["a", "b"]);
+    expect(itemNodeIdsOf(item)).toEqual(["a", "done"]);
   });
 });

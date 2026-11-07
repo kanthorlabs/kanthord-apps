@@ -17,10 +17,16 @@ export function emptyLineOf(tab: BoardTab, projectName: string | null): string {
   return `Nothing waits in ${tab.name}${projectName === null ? "" : ` in ${projectName}`}.`;
 }
 
-export function tabVerbOf(tab: BoardTab, widthClass: BoardWidth, filtered: boolean): string {
+export function tabVerbOf(
+  tab: BoardTab,
+  widthClass: BoardWidth,
+  filtered: boolean,
+  snoozed: number,
+): string {
   const what = widthClass === BOARD_WIDTH.Medium ? ` ${tab.what}` : "";
   const note = filtered && tab.id === BOARD_TAB.Tool ? ` ${ALL_PROJECTS_NOTE}` : "";
-  return `${tab.verb}${what}${note}`;
+  const sleeping = tab.id === BOARD_TAB.Inbox && snoozed > 0 ? ` ${snoozed} snoozed.` : "";
+  return `${tab.verb}${what}${note}${sleeping}`;
 }
 
 export function goneTextOf(subject: string | null): string {

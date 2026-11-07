@@ -103,7 +103,7 @@ const SINGLE_KEY: ReadonlyMap<string, BoardCommand> = new Map<string, BoardComma
 ]);
 
 export const BOARD_SHORTCUTS: readonly BoardShortcut[] = [
-  { id: "tabs", keys: "1 to 6", meaning: "Show a tab" },
+  { id: "tabs", keys: "1 to 7", meaning: "Show a tab" },
   { id: "next", keys: "j", meaning: "Select the next card" },
   { id: "previous", keys: "k", meaning: "Select the previous card" },
   { id: "filter", keys: "p", meaning: "Cycle the project filter" },

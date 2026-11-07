@@ -143,7 +143,7 @@ describe("FootprintKindScreen", () => {
     mount("/footprint/environment");
 
     await userEvent.click(await screen.findByRole("combobox", { name: "Rule" }));
-    const options = screen.getAllByRole("option").map((option) => option.textContent);
+    const options = (await screen.findAllByRole("option")).map((option) => option.textContent);
     expect(options).toEqual([
       "Not bound to a project",
       "Superseded by a newer one",

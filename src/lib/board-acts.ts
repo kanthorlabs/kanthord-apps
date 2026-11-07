@@ -10,6 +10,8 @@ import {
 import type { ActedAct } from "./board-done";
 import type { BoardGate } from "./board-items";
 import { actKeysOf } from "./board-keys";
+import { externalLinkOf } from "./external-link";
+import type { InboxAttentionItem } from "./inbox-attention";
 import { readFailureText } from "./external-requests";
 import { nodePath } from "./node-path";
 import {
@@ -542,4 +544,92 @@ export function findingReviewActsOf(item: FindingReviewItem): readonly BoardAct[
       to: nodePath(item.project.id, item.node.id),
     },
   ];
+}
+
+export interface InboxNodeControl {
+  readonly nodeId: string;
+  readonly name: string;
+  readonly busy: boolean;
+  readonly press: () => void;
+}
+
+export interface InboxActControls {
+  readonly done: { readonly busy: boolean; readonly press: () => void };
+  readonly snooze: { readonly busy: boolean; readonly request: () => void };
+  readonly create: () => void;
+  readonly link: () => void;
+  readonly pause: readonly InboxNodeControl[];
+  readonly check: readonly InboxNodeControl[];
+  readonly followups: readonly InboxNodeControl[];
+  readonly labels: readonly string[];
+}
+
+function nodeActsOf(
+  prefix: string,
+  controls: readonly InboxNodeControl[],
+  label: (control: InboxNodeControl) => string,
+  ariaLabel: (control: InboxNodeControl) => string | null,
+): readonly BoardAct[] {
+  return controls.flatMap((control) => {
+    const act = actOf(
+      slotOf(`${prefix}:${control.nodeId}`, label(control), "outline", true, control.press, {
+        disabled: control.busy,
+        ariaLabel: ariaLabel(control),
+      }),
+      null,
+    );
+    return act === null ? [] : [act];
+  });
+}
+
+export function inboxActsOf(
+  item: InboxAttentionItem,
+  controls: InboxActControls,
+): readonly BoardAct[] {
+  const href = externalLinkOf(item.inbox.external_link).href;
+  const many = (list: readonly unknown[]) => list.length > 1;
+  const github: ExternalLinkAct | null =
+    item.inbox.external_link.kind === "github_issue" && href !== null
+      ? { type: "external", id: "open_github", label: "Open on GitHub", href }
+      : null;
+  return present([
+    actOf(
+      slotOf("mark_done", "Mark done", "outline", true, controls.done.press, {
+        disabled: controls.done.busy,
+      }),
+      null,
+    ),
+    actOf(
+      slotOf("snooze", "Snooze", "outline", true, controls.snooze.request, {
+        disabled: controls.snooze.busy,
+      }),
+      null,
+    ),
+    github,
+    actOf(slotOf("create_node", "Create node", "outline", true, controls.create), null),
+    actOf(slotOf("link_node", "Link to node", "outline", true, controls.link), null),
+    ...nodeActsOf(
+      "pause",
+      controls.pause,
+      (control) => `Pause ${control.name}`,
+      () => null,
+    ),
+    ...nodeActsOf(
+      "check",
+      controls.check,
+      () => "Check now",
+      (control) => (many(controls.check) ? `Check ${control.name} now` : null),
+    ),
+    ...nodeActsOf(
+      "decide_followup",
+      controls.followups,
+      () => "Decide follow-up",
+      (control) => (many(controls.followups) ? `Decide follow-up of ${control.name}` : null),
+    ),
+    ...controls.labels.map((label, index): BoardAct => ({
+      type: "badge",
+      id: `check_badge_${index}`,
+      label,
+    })),
+  ]);
 }

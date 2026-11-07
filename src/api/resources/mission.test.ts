@@ -13,8 +13,10 @@ import {
   decideFollowup,
   decideProposals,
   discardNode,
+  doneInboxItem,
   exportMissionJson,
   getFinding,
+  listInboxItems,
   listMissionDependencies,
   listMissionNodes,
   listNodeAssessments,
@@ -34,6 +36,7 @@ import {
   resumeNode,
   unblockNode,
   updateFinding,
+  updateMissionNode,
 } from "./mission";
 
 let server: Server | null = null;
@@ -195,6 +198,87 @@ describe("mission link update resources", () => {
       "/api/mission/node/node_1/link-update?limit=1000&cursor=cursor_1",
     ]);
     expect(updates.map((update) => update.id)).toEqual(["link_update_2", "link_update_1"]);
+  });
+});
+
+describe("mission inbox resources", () => {
+  const list = { items: [], next_cursor: null, counts: { open: 0, snoozed: 0 } };
+
+  it("lists the open threads through mission.inbox_item.list", async () => {
+    await serve(list);
+
+    const answer = await listInboxItems({
+      state: "open",
+      projectId: null,
+      limit: 100,
+      cursor: null,
+    });
+
+    expect(seen[0]?.req.method).toBe("GET");
+    expect(seen[0]?.req.url).toBe("/api/mission/inbox-item?state=open&limit=100");
+    expect(answer).toEqual(list);
+  });
+
+  it("sends the project id and the cursor", async () => {
+    await serve(list);
+
+    await listInboxItems({ state: "open", projectId: "project_1", limit: 100, cursor: "cursor_1" });
+
+    expect(seen[0]?.req.url).toBe(
+      "/api/mission/inbox-item?state=open&project_id=project_1&limit=100&cursor=cursor_1",
+    );
+  });
+
+  it("marks a thread done with a null snooze and an idempotency key", async () => {
+    await serve({ link_update_id: "link_update_1", state: "done" });
+
+    await doneInboxItem("link_update_1", { snoozed_until: null });
+
+    expect(seen[0]?.req.method).toBe("POST");
+    expect(seen[0]?.req.url).toBe("/api/mission/inbox-item/link_update_1/done");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ snoozed_until: null });
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
+  });
+
+  it("snoozes a thread with a time", async () => {
+    await serve({ link_update_id: "link_update_1", state: "snoozed" });
+
+    await doneInboxItem("link_update_1", { snoozed_until: 1_700_000_000_000 });
+
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual({ snoozed_until: 1_700_000_000_000 });
+  });
+});
+
+describe("mission node update resource", () => {
+  it("puts the node through mission.node.update with an idempotency key", async () => {
+    await serve({ mission_version: 5, revisions: [] });
+    const body = {
+      filename: "fix_login.md",
+      expected_revision: 2,
+      expected_mission_version: 4,
+      content: {
+        name: "Fix login",
+        requirement: "Fix it.",
+        criterion: "It works.",
+        verifications: ["pnpm test"],
+        bindings: ["binding_1"],
+        intent: "implement" as const,
+        tags: [],
+      },
+      tasks: [],
+      reason: "Link the thread.",
+    };
+
+    await updateMissionNode("node_1", body);
+
+    expect(seen[0]?.req.method).toBe("PUT");
+    expect(seen[0]?.req.url).toBe("/api/mission/node/node_1");
+    expect(JSON.parse(seen[0]?.body ?? "")).toEqual(body);
+    expect(seen[0]?.req.headers["idempotency-key"]).toMatch(
+      /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/,
+    );
   });
 });
 

@@ -227,6 +227,7 @@ function renderActs(
           markActed={vi.fn()}
           setDialogOpen={setDialogOpen}
           registerDialogCloser={registerDialogCloser}
+          closeInboxItem={vi.fn()}
           widthClass={BOARD_WIDTH.Expanded}
           gate={gate}
           jump={jump}
@@ -701,6 +702,7 @@ describe("BoardActsProvider act order", () => {
           markActed={vi.fn()}
           setDialogOpen={setDialogOpen}
           registerDialogCloser={vi.fn()}
+          closeInboxItem={vi.fn()}
           widthClass={BOARD_WIDTH.Expanded}
         >
           <BoardActBar />

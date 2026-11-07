@@ -47,7 +47,7 @@ export function BoardTabs({
           <TabsList
             variant="line"
             activateOnFocus
-            className="w-full group-data-horizontal/tabs:h-auto @max-[760px]:grid @max-[760px]:grid-cols-6"
+            className="w-full group-data-horizontal/tabs:h-auto @max-[760px]:grid @max-[760px]:grid-cols-7"
           >
             {BOARD_TABS.map((entry) => {
               const count = counts.tabs[entry.id];

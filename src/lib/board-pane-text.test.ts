@@ -15,6 +15,7 @@ import {
 
 const TOOL = BOARD_TABS.find((tab) => tab.id === BOARD_TAB.Tool)!;
 const RULE = BOARD_TABS.find((tab) => tab.id === BOARD_TAB.Rule)!;
+const INBOX = BOARD_TABS.find((tab) => tab.id === BOARD_TAB.Inbox)!;
 
 describe("ageTextOf", () => {
   it("says the age is unknown without a time", () => {
@@ -38,19 +39,27 @@ describe("emptyLineOf", () => {
 
 describe("tabVerbOf", () => {
   it("gives the verb alone on the expanded width", () => {
-    expect(tabVerbOf(RULE, BOARD_WIDTH.Expanded, false)).toBe(RULE.verb);
+    expect(tabVerbOf(RULE, BOARD_WIDTH.Expanded, false, 0)).toBe(RULE.verb);
   });
 
   it("adds what the tab holds on the medium width", () => {
-    expect(tabVerbOf(RULE, BOARD_WIDTH.Medium, false)).toBe(`${RULE.verb} ${RULE.what}`);
+    expect(tabVerbOf(RULE, BOARD_WIDTH.Medium, false, 0)).toBe(`${RULE.verb} ${RULE.what}`);
   });
 
   it("adds the all-projects note to the tool tab under a filter", () => {
-    expect(tabVerbOf(TOOL, BOARD_WIDTH.Compact, true)).toBe(`${TOOL.verb} Counts all projects.`);
+    expect(tabVerbOf(TOOL, BOARD_WIDTH.Compact, true, 0)).toBe(`${TOOL.verb} Counts all projects.`);
   });
 
   it("adds no note to another tab under a filter", () => {
-    expect(tabVerbOf(RULE, BOARD_WIDTH.Compact, true)).toBe(RULE.verb);
+    expect(tabVerbOf(RULE, BOARD_WIDTH.Compact, true, 0)).toBe(RULE.verb);
+  });
+
+  it("adds the snoozed count to the inbox tab only when it is above zero", () => {
+    expect(tabVerbOf(INBOX, BOARD_WIDTH.Expanded, false, 3)).toBe(
+      "Reply, act or mark done. 3 snoozed.",
+    );
+    expect(tabVerbOf(INBOX, BOARD_WIDTH.Expanded, false, 0)).toBe("Reply, act or mark done.");
+    expect(tabVerbOf(RULE, BOARD_WIDTH.Expanded, false, 3)).toBe(RULE.verb);
   });
 });
 

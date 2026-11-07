@@ -149,6 +149,7 @@ function renderHost(widthClass: BoardWidth, overrides: Partial<HostProps> = {}) 
           markActed={vi.fn()}
           setDialogOpen={vi.fn()}
           registerDialogCloser={vi.fn()}
+          closeInboxItem={vi.fn()}
           widthClass={widthClass}
         >
           <BoardDetailHost {...props} />

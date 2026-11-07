@@ -60,7 +60,7 @@ export function BoardFilter({
         </TouchTarget>
       </div>
       <p role="status" className="sr-only">
-        {changed ? filterMessageOf(name, tab, counts.tabs[tab.id], counts.view) : ""}
+        {changed ? filterMessageOf(name, tab, counts.tabs[tab.id], counts.acts) : ""}
       </p>
     </div>
   );

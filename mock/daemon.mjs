@@ -73,6 +73,7 @@ const agents = structuredClone(fx.AGENT_DECLARATIONS).map((agent) =>
   EMPTY ? { ...agent, enablement: null } : agent,
 );
 const workbenchSessions = EMPTY ? [] : structuredClone(fx.WORKBENCH_SESSIONS);
+const inboxItems = EMPTY ? [] : structuredClone(fx.INBOX_ITEMS);
 const projectStates = new Map([
   [
     fx.PROJECT.id,
@@ -1259,6 +1260,8 @@ const revisionPins = (node, revision) => {
   return [...new Set([...recorded, ...current, ...open])].sort((a, b) => a - b);
 };
 
+const appendedRevisions = new Map();
+
 const graphRevisions = (node) => {
   const { write, reason, created_at } = createdFirstRevisions.get(node.id) ?? importFirstRevision();
   const first = {
@@ -1281,7 +1284,7 @@ const graphRevisions = (node) => {
     ...revision,
     pinned_by_attempts: revisionPins(node, revision.revision),
   }));
-  return [first, ...later].reverse();
+  return [first, ...later, ...(appendedRevisions.get(node.id) ?? [])].reverse();
 };
 
 const byAttempt = (records, nodeId, url) => {
@@ -1379,6 +1382,43 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/link-update$/, (m, _b, res, _t, url) 
   json(res, 200, page(fx.GRAPH_LINK_UPDATES[decodeURIComponent(m[1])] ?? [], url)),
 );
 
+const INBOX_STATES = ["open", "snoozed", "done"];
+
+on("GET", /^\/api\/mission\/inbox-item$/, (_m, _b, res, _t, url) => {
+  const state = url.searchParams.get("state") ?? "open";
+  if (!INBOX_STATES.includes(state)) return validationFailed(res, "state");
+  const projectId = url.searchParams.get("project_id");
+  const scoped = inboxItems.filter((item) => projectId === null || item.project_id === projectId);
+  const counted = (value) => scoped.filter((item) => item.state === value).length;
+  const matching = scoped
+    .filter((item) => item.state === state)
+    .sort((a, b) => a.occurred_at - b.occurred_at);
+  return json(res, 200, {
+    ...page(matching, url),
+    counts: { open: counted("open"), snoozed: counted("snoozed") },
+  });
+});
+
+on("POST", /^\/api\/mission\/inbox-item\/([^/]+)\/done$/, (m, b, res) => {
+  if (!hasOnly(b, ["snoozed_until"])) return validationFailed(res, "snoozed_until");
+  const item = inboxItems.find((entry) => entry.link_update_id === decodeURIComponent(m[1]));
+  if (item === undefined)
+    return projectEnvelope(res, 404, "mission.inbox_item.not_found", "No such inbox item.");
+  const until = b.snoozed_until ?? null;
+  const now = Date.now();
+  if (until !== null && (!Number.isInteger(until) || until <= now))
+    return projectEnvelope(
+      res,
+      400,
+      "mission.inbox_item.snooze_invalid",
+      "The snooze time must lie in the future.",
+    );
+  item.state = until === null ? "done" : "snoozed";
+  item.done_at = until === null ? now : null;
+  item.snoozed_until = until;
+  return json(res, 200, item);
+});
+
 const isOpenProposal = (proposal) => proposal.approved_at === null && proposal.rejected_at === null;
 
 const rejectOpenProposals = (state, proposer, now) => {
@@ -1474,6 +1514,65 @@ on("POST", /^\/api\/mission\/([^/]+)\/node$/, (m, b, res) => {
   return json(res, 200, {
     mission_version: mission.version,
     revisions: graphRevisions(node),
+    retired_node_ids: [],
+    added_edges: [],
+    removed_edges: [],
+    open_attempts_unchanged: [],
+  });
+});
+
+on("PUT", /^\/api\/mission\/node\/([^/]+)$/, (m, b, res) => {
+  if (
+    !hasOnly(b, [
+      "filename",
+      "content",
+      "tasks",
+      "reason",
+      "expected_revision",
+      "expected_mission_version",
+    ])
+  )
+    return validationFailed(res, "content");
+  const nodeId = decodeURIComponent(m[1]);
+  const state = stateOfNode(nodeId);
+  const node = graphNodeById(nodeId);
+  if (state === undefined || node === undefined)
+    return projectEnvelope(res, 404, "mission.node.not_found", "Node not found.");
+  const { mission } = state;
+  if (b.expected_mission_version !== mission.version)
+    return projectEnvelope(
+      res,
+      409,
+      "mission.version.conflict",
+      "The expected mission version differs from the current version.",
+    );
+  const previous = graphRevisions(node)[0];
+  const revision = {
+    node_id: node.id,
+    filename: node.filename,
+    revision: previous.revision + 1,
+    reason: b.reason,
+    actor: fx.GRAPH_HUMAN,
+    created_at: Date.now(),
+    content: b.content,
+    tasks: b.tasks,
+    change: {
+      write: "node.update",
+      previous_revision: previous.revision,
+      changed_fields: Object.keys(b.content).filter(
+        (key) => JSON.stringify(b.content[key]) !== JSON.stringify(previous.content[key]),
+      ),
+    },
+    pinned_by_attempts: [],
+  };
+  fx.GRAPH_ORIGINAL_CONTENT[node.id] ??= structuredClone(node.content);
+  appendedRevisions.set(node.id, [...(appendedRevisions.get(node.id) ?? []), revision]);
+  node.content = b.content;
+  node.visible_revision = revision.revision;
+  mission.version += 1;
+  return json(res, 200, {
+    mission_version: mission.version,
+    revisions: [revision],
     retired_node_ids: [],
     added_edges: [],
     removed_edges: [],

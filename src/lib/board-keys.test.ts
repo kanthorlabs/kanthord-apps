@@ -46,7 +46,7 @@ describe("BOARD_KEYS", () => {
 });
 
 describe("boardKeyOf", () => {
-  it("answers the tab of the keys 1 to 6 in tab order", () => {
+  it("answers the tab of the keys 1 to 7 in tab order", () => {
     BOARD_TABS.forEach((tab, index) => {
       expect(boardKeyOf(press(String(index + 1)), true)).toEqual({ type: "tab", tab: tab.id });
     });
@@ -73,7 +73,7 @@ describe("boardKeyOf", () => {
 
   it("answers null for a key that no command uses", () => {
     expect(boardKeyOf(press("z"), true)).toBeNull();
-    expect(boardKeyOf(press("7"), true)).toBeNull();
+    expect(boardKeyOf(press("8"), true)).toBeNull();
   });
 
   it("answers null for a key with a modifier", () => {
@@ -84,7 +84,7 @@ describe("boardKeyOf", () => {
   });
 
   it("answers null for a single-key shortcut when the shortcuts are off", () => {
-    for (const key of ["1", "6", "j", "k", "p", "?", "r", "c"]) {
+    for (const key of ["1", "7", "j", "k", "p", "?", "r", "c"]) {
       expect(boardKeyOf(press(key), false)).toBeNull();
     }
   });

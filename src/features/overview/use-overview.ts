@@ -13,6 +13,7 @@ import {
   type ProjectSnapshot,
 } from "@/lib/attention";
 import { type BoardGate, gateOf, heldNodeIdsOf } from "@/lib/board-items";
+import { inboxItemsOf } from "@/lib/inbox-attention";
 import { unavailableComponentsOf } from "@/lib/liveness-alert";
 import {
   claimedNodeCount,
@@ -24,7 +25,17 @@ import {
 import type { ReadFault } from "./read-overview-snapshot";
 import { useAttentionDetails } from "./use-attention-details";
 import { useOverviewSetup } from "./use-overview-setup";
+import { useInbox } from "./use-inbox";
 import { useOverviewSnapshot } from "./use-overview-snapshot";
+
+export interface InboxView {
+  readonly open: number;
+  readonly snoozed: number;
+  readonly hasMore: boolean;
+  readonly ready: boolean;
+  readonly loadMore: () => void;
+  readonly close: (linkUpdateId: string) => void;
+}
 
 export interface OverviewState {
   readonly status: "loading" | "ready" | "empty" | "error";
@@ -36,6 +47,7 @@ export interface OverviewState {
   readonly unavailable: readonly string[];
   readonly livenessFailure: string | null;
   readonly boardItems: readonly AttentionItem[];
+  readonly inbox: InboxView;
   readonly gates: ReadonlyMap<string, BoardGate>;
   readonly held: ReadonlyMap<string, readonly string[]>;
   readonly snapshots: readonly ProjectSnapshot[];
@@ -117,9 +129,13 @@ export function useOverview(): OverviewState {
     }),
     [snapshot.now, setupData, data],
   );
+  const inbox = useInbox(projectId, snapshot.updatedAt);
   const boardItems = useMemo<readonly AttentionItem[]>(
-    () => deriveAttention(everySnapshots, details, context),
-    [everySnapshots, details, context],
+    () => [
+      ...deriveAttention(everySnapshots, details, context),
+      ...inboxItemsOf(inbox.items, projects),
+    ],
+    [everySnapshots, details, context, inbox.items, projects],
   );
   const gates = useMemo(
     () =>
@@ -172,8 +188,28 @@ export function useOverview(): OverviewState {
               message: setup.error.message,
             },
           ];
-    return [...scoped, ...outside, ...listFault, ...setupFaults, ...setupFailure];
-  }, [data, projectId, projects, externalReads, snapshot.error, setupData, setup.error]);
+    const inboxFailure =
+      inbox.error === null
+        ? NO_FAULTS
+        : [
+            {
+              projectId: null,
+              projectName: null,
+              source: "inbox",
+              message: inbox.error.message,
+            },
+          ];
+    return [...scoped, ...outside, ...listFault, ...setupFaults, ...setupFailure, ...inboxFailure];
+  }, [
+    data,
+    projectId,
+    projects,
+    externalReads,
+    snapshot.error,
+    setupData,
+    setup.error,
+    inbox.error,
+  ]);
 
   const setDialogOpen = useCallback(
     (itemId: string, nodeId: string, open: boolean) => {
@@ -223,6 +259,14 @@ export function useOverview(): OverviewState {
     unavailable,
     livenessFailure,
     boardItems,
+    inbox: {
+      open: inbox.open,
+      snoozed: inbox.snoozed,
+      hasMore: inbox.hasMore,
+      ready: inbox.ready,
+      loadMore: inbox.loadMore,
+      close: inbox.close,
+    },
     gates,
     held,
     snapshots: everySnapshots,

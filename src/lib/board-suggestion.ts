@@ -100,6 +100,8 @@ export function suggestionOf(
       return clientRule(
         "Approve if the change states what you want. Reject to return the call to the agent.",
       );
+    case "inbox_item":
+      return clientRule("Reply on the platform, act on a linked node, or mark the thread done.");
     default:
       return fixSuggestionOf(item);
   }

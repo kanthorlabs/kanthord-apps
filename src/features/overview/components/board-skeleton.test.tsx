@@ -16,15 +16,15 @@ describe("BoardSkeleton", () => {
     expect(screen.queryByText(/Nothing waits/)).not.toBeInTheDocument();
   });
 
-  it("holds six tabs, three cards and a detail on expanded width", () => {
+  it("holds seven tabs, three cards and a detail on expanded width", () => {
     const { container } = render(<BoardSkeleton widthClass={BOARD_WIDTH.Expanded} />);
 
-    expect(container.querySelectorAll("[data-slot='skeleton']")).toHaveLength(10);
+    expect(container.querySelectorAll("[data-slot='skeleton']")).toHaveLength(11);
   });
 
   it("holds no detail on compact width", () => {
     const { container } = render(<BoardSkeleton widthClass={BOARD_WIDTH.Compact} />);
 
-    expect(container.querySelectorAll("[data-slot='skeleton']")).toHaveLength(9);
+    expect(container.querySelectorAll("[data-slot='skeleton']")).toHaveLength(10);
   });
 });

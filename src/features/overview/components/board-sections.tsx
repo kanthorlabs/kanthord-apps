@@ -17,6 +17,8 @@ import type {
   FindingReviewItem,
   FollowupItem,
 } from "@/lib/attention";
+import { type InboxAttentionItem, inboxImpactTextOf } from "@/lib/inbox-attention";
+import { inboxReasonCauseOf } from "@/lib/inbox-reasons";
 import { changeAskedOf } from "@/lib/board-change";
 import type { HeldNode } from "@/lib/board-detail-joins";
 import {
@@ -51,6 +53,7 @@ import { causeLine } from "@/lib/trace-cause";
 import { type FindingRowActs, useBoardActs } from "../use-board-acts";
 import { type BoardReadsValue, useBoardReadsContext } from "../use-board-reads";
 import { BoardReadBlock } from "./board-read-block";
+import { InboxMessage } from "./inbox-message";
 import { CauseText } from "./cause-text";
 import { FixCauseText } from "./fix-cause-text";
 
@@ -102,6 +105,8 @@ function WhatText({ item, now }: { readonly item: AttentionItem; readonly now: n
           <RecordName>{item.agent}</RecordName> waits for your answer to {approvalFactOf(item)}.
         </>
       );
+    case "inbox_item":
+      return <>{inboxReasonCauseOf(item.inbox.reason)}</>;
     default:
       return <FixCauseText item={item} />;
   }
@@ -157,6 +162,14 @@ function WhatSection({
           }
         </BoardReadBlock>
       )}
+    </Section>
+  );
+}
+
+function InboxMessageSection({ item }: { readonly item: InboxAttentionItem }) {
+  return (
+    <Section title="Message">
+      <InboxMessage item={item} />
     </Section>
   );
 }
@@ -454,9 +467,14 @@ export function BoardSections({
         <FindingSection item={item} acts={findings} />
       )}
       {item.kind === "followup_proposal" && <FollowupSection item={item} />}
+      {item.kind === "inbox_item" && <InboxMessageSection item={item} />}
       <Section title="Impact">
         {spread !== null && <p className={`text-sm ${TEXT_WIDTH}`}>{spread}</p>}
-        <p className={`text-sm ${TEXT_WIDTH}`}>{impactHeldTextOf(held.length)}</p>
+        <p className={`text-sm ${TEXT_WIDTH}`}>
+          {item.kind === "inbox_item"
+            ? inboxImpactTextOf(held.length)
+            : impactHeldTextOf(held.length)}
+        </p>
         {held.length > 0 && (
           <ul className="flex flex-col gap-1">
             {held.map(({ node, project }) => (
@@ -469,35 +487,43 @@ export function BoardSections({
           </ul>
         )}
       </Section>
-      <Section title="Why">
-        {item.kind === "blocked" && (
-          <BoardReadBlock
-            name="the assessment"
-            read={blockedDetail?.assessment ?? null}
-            onRetry={retry}
-          >
-            {(assessment) => <Rationale assessment={assessment} />}
-          </BoardReadBlock>
-        )}
-        {item.kind === "dependency_discarded" && <DiscardReasons item={item} reads={reads} />}
-        {read !== null && !read.failed && <p className={MUTED_TEXT}>{read.text}</p>}
-        {unresolved !== null && <p className={MUTED_TEXT}>{unresolved}</p>}
-        <EnvironmentFailure item={item} environments={environments} />
-      </Section>
-      <Section title="Root cause">
-        {item.kind === "dependency_discarded" ? (
-          <p className={`text-sm ${TEXT_WIDTH}`}>No fault. A human act ended the dependency.</p>
-        ) : (
-          <BoardReadBlock name="the execution trace" read={reads.cause} onRetry={reads.retry.cause}>
-            {(trace) => <RootCauseText item={item} trace={trace} />}
-          </BoardReadBlock>
-        )}
-      </Section>
-      <EvidenceSection item={item} reads={reads} evidence={evidence} widthClass={widthClass} />
-      <Section title="Suggestion">
-        <p className={`text-sm ${TEXT_WIDTH}`}>{suggestion.text}</p>
-        <p className={MUTED_TEXT}>{suggestion.source}</p>
-      </Section>
+      {item.kind !== "inbox_item" && (
+        <>
+          <Section title="Why">
+            {item.kind === "blocked" && (
+              <BoardReadBlock
+                name="the assessment"
+                read={blockedDetail?.assessment ?? null}
+                onRetry={retry}
+              >
+                {(assessment) => <Rationale assessment={assessment} />}
+              </BoardReadBlock>
+            )}
+            {item.kind === "dependency_discarded" && <DiscardReasons item={item} reads={reads} />}
+            {read !== null && !read.failed && <p className={MUTED_TEXT}>{read.text}</p>}
+            {unresolved !== null && <p className={MUTED_TEXT}>{unresolved}</p>}
+            <EnvironmentFailure item={item} environments={environments} />
+          </Section>
+          <Section title="Root cause">
+            {item.kind === "dependency_discarded" ? (
+              <p className={`text-sm ${TEXT_WIDTH}`}>No fault. A human act ended the dependency.</p>
+            ) : (
+              <BoardReadBlock
+                name="the execution trace"
+                read={reads.cause}
+                onRetry={reads.retry.cause}
+              >
+                {(trace) => <RootCauseText item={item} trace={trace} />}
+              </BoardReadBlock>
+            )}
+          </Section>
+          <EvidenceSection item={item} reads={reads} evidence={evidence} widthClass={widthClass} />
+          <Section title="Suggestion">
+            <p className={`text-sm ${TEXT_WIDTH}`}>{suggestion.text}</p>
+            <p className={MUTED_TEXT}>{suggestion.source}</p>
+          </Section>
+        </>
+      )}
     </div>
   );
 }

@@ -21,7 +21,7 @@ export function BoardSkeleton({ widthClass }: BoardSkeletonProps) {
       }
     >
       <div className="flex min-w-0 flex-col gap-3">
-        <div className="grid grid-cols-6 gap-1">
+        <div className="grid grid-cols-7 gap-1">
           {BOARD_TABS.map((tab) => (
             <Skeleton key={tab.id} className="h-9" />
           ))}

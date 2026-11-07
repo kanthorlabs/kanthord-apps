@@ -90,7 +90,12 @@ export function BoardDetailHost({
         details={details}
         now={now}
         tabName={tab.name}
-        held={heldNodesOf(held.get(selected.id) ?? [], snapshots)}
+        held={heldNodesOf(
+          selected.kind === "inbox_item"
+            ? selected.inbox.linked_node_ids
+            : (held.get(selected.id) ?? []),
+          snapshots,
+        )}
         titleId={titleId}
         titleRef={setTitle}
       />

@@ -55,6 +55,7 @@ import { useBoardToolActs } from "../use-board-tool-acts";
 import { useOutsideActs } from "../use-outside-acts";
 import { BoardRotateSheet } from "./board-rotate-sheet";
 import { DependencyRemoveDialog } from "./dependency-remove-dialog";
+import { InboxActs } from "./inbox-acts";
 
 interface BoardActsProviderProps extends ActsContext {
   readonly widthClass: BoardWidth;
@@ -221,9 +222,11 @@ function StaticActs({
 function ItemActs({
   item,
   store,
+  jump,
   ...context
 }: ActsContext & {
   readonly store: ActsStore;
+  readonly jump?: (itemId: string) => void;
   readonly item: AttentionItem;
   readonly details: AttentionDetails;
   readonly snapshots: readonly ProjectSnapshot[];
@@ -254,6 +257,18 @@ function ItemActs({
           acts={projectPausedActsOf(item, context.reload, context.markActed)}
         />
       );
+    case "inbox_item":
+      return (
+        <InboxActs
+          store={store}
+          item={item}
+          snapshots={context.snapshots}
+          reload={context.reload}
+          markActed={context.markActed}
+          closeInboxItem={context.closeInboxItem}
+          jump={jump}
+        />
+      );
     default:
       return <StaticActs store={store} acts={fixTargetActsOf(item)} />;
   }
@@ -276,7 +291,14 @@ export function BoardActsProvider({
       <BoardFrameContext.Provider value={frame}>
         {children}
         {item !== null && (
-          <ItemActs key={item.id} store={store} item={item} route={route} {...context} />
+          <ItemActs
+            key={item.id}
+            store={store}
+            item={item}
+            route={route}
+            jump={jump}
+            {...context}
+          />
         )}
       </BoardFrameContext.Provider>
     </BoardActsContext.Provider>

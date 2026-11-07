@@ -23,10 +23,11 @@ import { approvalItemsOf, type ToolApprovalItem } from "./approval-attention";
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
 import { type FixAttentionItem, fixItemsOf } from "./fix-attention";
+import type { InboxAttentionItem } from "./inbox-attention";
 import { isTerminal } from "./node-state";
 import { HUMAN_FINDING_GROUP } from "./review-findings";
 
-export type AttentionGroupId = "decisions" | "fixes" | "outside";
+export type AttentionGroupId = "decisions" | "fixes" | "outside" | "inbox";
 
 export interface WorkerBindingView {
   readonly binding: WorkerBindingRecord;
@@ -178,7 +179,8 @@ export type AttentionItem =
   | FollowupItem
   | ToolApprovalItem
   | FixAttentionItem
-  | OutsideAttentionItem;
+  | OutsideAttentionItem
+  | InboxAttentionItem;
 
 export interface DetailTarget {
   readonly kind: "blocked" | "paused" | "open" | "external" | "followup";
@@ -202,6 +204,7 @@ const KIND_ORDER: readonly AttentionItem["kind"][] = [
   "request_rejected",
   "merge_wait",
   "delivery_unconfirmed",
+  "inbox_item",
 ];
 
 function isRunnable(node: MissionNodeRecord): boolean {
