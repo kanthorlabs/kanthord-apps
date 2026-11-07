@@ -5,6 +5,7 @@ import { createCredential } from "@/api/resources/credentials";
 import { listWorkerInstances } from "@/api/resources/worker-instances";
 import { listWorkerMachines, readWorkerMachine } from "@/api/resources/worker-machines";
 import type { CredentialPlatformEntry } from "@/api/types";
+import type { ApiError } from "@/api/errors";
 import { asApiError, type Resource, useResource } from "@/hooks/use-resource";
 import { platformEntryOf } from "@/lib/credential-platforms";
 import {
@@ -43,6 +44,8 @@ export interface InstanceCredentialAddState {
   readonly alsoSealTo: readonly string[];
   readonly groups: Resource<readonly SealTargetGroup[]>;
   readonly overridesMachine: string | null;
+  readonly machineReadError: ApiError | null;
+  readonly retryMachineRead: () => void;
   readonly errors: DraftErrors;
   readonly failure: string | null;
   readonly submitting: boolean;
@@ -209,6 +212,8 @@ export function useInstanceCredentialAdd(
     alsoSealTo,
     groups,
     overridesMachine,
+    machineReadError: machineRead.error,
+    retryMachineRead: machineRead.reload,
     errors,
     failure,
     submitting,

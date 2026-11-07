@@ -147,6 +147,20 @@ export function CredentialAddSheet({
                   description="The name that the agent providers use. A name holds one platform over every holder."
                   onChange={add.setName}
                 />
+                {add.machineReadError !== null && (
+                  <Alert variant="destructive">
+                    <AlertTitle>The copies of the machine could not be read.</AlertTitle>
+                    <AlertDescription>{add.machineReadError.message}</AlertDescription>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={add.retryMachineRead}
+                    >
+                      Retry
+                    </Button>
+                  </Alert>
+                )}
                 {add.overridesMachine !== null && (
                   <FieldDescription>
                     {`The instance uses this copy in place of the copy of machine ${add.overridesMachine}.`}

@@ -1085,6 +1085,31 @@ describe("InstanceScreen machine copies", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows a failed machine read in Add credential and retries it", async () => {
+    vi.mocked(machinesApi.readWorkerMachine).mockRejectedValueOnce(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    expect(await within(sheet).findByText("The daemon did not answer.")).toBeInTheDocument();
+    expect(
+      within(sheet).getByText("The copies of the machine could not be read."),
+    ).toBeInTheDocument();
+    vi.mocked(machinesApi.readWorkerMachine).mockResolvedValue({
+      ...MACHINE,
+      credentials: [MACHINE_COPY],
+    });
+    await userEvent.click(within(sheet).getByRole("button", { name: "Retry" }));
+    await userEvent.type(within(sheet).getByLabelText("Name"), "lab-key");
+    expect(
+      await within(sheet).findByText(
+        "The instance uses this copy in place of the copy of machine m-01.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByText("The daemon did not answer.")).not.toBeInTheDocument();
+  });
+
   it("lists the live machines first and then the live worker instances by worker in Also seal to", async () => {
     vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([
       machineItemOf("rack-02", null),
