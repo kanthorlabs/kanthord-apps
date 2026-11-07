@@ -178,7 +178,7 @@ describe("CredentialsScreen", () => {
     [
       "llm",
       "/llm",
-      "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform. Instance credentials live on the worker pages.",
+      "An LLM credential holds the secret of a model platform. An agent provider uses it to call the models of that platform. Machine and instance credentials live on the machine and worker pages.",
     ],
     [
       "repository",

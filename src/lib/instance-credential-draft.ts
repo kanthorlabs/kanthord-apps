@@ -49,3 +49,43 @@ export function holderGroupsOf(
     }))
     .filter((group) => group.names.length > 0);
 }
+
+export interface SealTargetGroup {
+  readonly label: string;
+  readonly names: readonly string[];
+}
+
+export function sealTargetGroupsOf(
+  machines: readonly { readonly name: string; readonly ended_at: number | null }[],
+  instances: readonly {
+    readonly name: string;
+    readonly worker: string;
+    readonly placement: string;
+    readonly ended_at: number | null;
+  }[],
+  exclude: string,
+): readonly SealTargetGroup[] {
+  const machineNames = machines
+    .filter((machine) => machine.ended_at === null && machine.name !== exclude)
+    .map((machine) => machine.name)
+    .sort();
+  const workers = holderGroupsOf(
+    instances.filter((instance) => instance.ended_at === null && instance.placement === "worker"),
+    exclude,
+  ).map((group) => ({ label: group.worker, names: group.names }));
+  return machineNames.length === 0
+    ? workers
+    : [{ label: "Machines", names: machineNames }, ...workers];
+}
+
+export interface CopyHolder {
+  readonly name: string;
+  readonly kind: "instance" | "machine";
+}
+
+export function copySignInNote(kind: CopyHolder["kind"], copyCode: boolean): string {
+  const mode = copyCode ? "copy-code" : "device-code";
+  return kind === "machine"
+    ? `An instance of the machine runs this sign-in in ${mode} mode and seals the result to the key of the machine. An instance of the machine must be connected.`
+    : `The instance runs this sign-in in ${mode} mode and seals the result to its own key. The instance must be connected.`;
+}

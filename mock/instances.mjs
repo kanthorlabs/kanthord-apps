@@ -40,6 +40,7 @@ const unreportedHealth = (platform) => ({
   failure_reason: "held_by_instance",
   models: null,
   reported_at: null,
+  reported_by: null,
 });
 
 const connectionOf = (name, now) =>
@@ -119,20 +120,32 @@ export function registerInstances({
       failure_reason: report.failure_reason,
       models: report.models,
       reported_at: report.reported_at,
+      reported_by: report.reported_by,
     };
   };
 
-  const copiesOf = (name) =>
+  const ownCopiesOf = (name) =>
     credentials
       .filter((credential) => credential.holder === name)
       .filter((credential) => credential.revisions.some((revision) => revision.ended_at === null))
       .map((credential) => ({
         name: credential.name,
+        holder: credential.holder,
         revision: credential.revisions.find((revision) => revision.ended_at === null).revision,
         platform: credential.platform,
         sealed_current: credential.sealed_current,
       }))
       .map((copy) => ({ ...copy, health: healthOf(name, copy) }));
+
+  const usedCopiesOf = (instance) => {
+    const own = ownCopiesOf(instance.record.name);
+    const machine = instance.record.machine;
+    if (machine === null || instance.record.placement !== "worker") return own;
+    const shared = ownCopiesOf(machine).filter(
+      (copy) => !own.some((item) => item.name === copy.name),
+    );
+    return [...own, ...shared];
+  };
 
   const listingConfigsOf = (instance) =>
     bindingSets().flatMap(([, set]) =>
@@ -154,7 +167,7 @@ export function registerInstances({
   };
 
   const holderMismatch = (instance) => {
-    const held = copiesOf(instance.record.name)
+    const held = usedCopiesOf(instance)
       .filter((copy) => copy.sealed_current)
       .map((copy) => copy.name);
     if (instance.record.placement !== "worker") return false;
@@ -182,7 +195,7 @@ export function registerInstances({
     connection: instance.connection,
     bindings: bindingsOf(instance.record.name),
     registrations: live(instance) ? registrationsOf(instance.record.name) : [],
-    credentials: copiesOf(instance.record.name),
+    credentials: usedCopiesOf(instance),
   });
 
   const keyOrRefuse = (res, body) => {
@@ -415,6 +428,7 @@ export function registerInstances({
 
   return {
     registrationView,
+    copiesOf: ownCopiesOf,
     instancesOf: (machine) => instances.filter((instance) => instance.record.machine === machine),
     instanceNames: () => instances.map((instance) => instance.record.name),
     liveInstance: (name) => {

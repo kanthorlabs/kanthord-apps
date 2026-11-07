@@ -1,4 +1,4 @@
-import { ArchiveIcon, KeyRoundIcon } from "lucide-react";
+import { ArchiveIcon, KeyRoundIcon, PlusIcon } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import type { WorkerMachineDetail, WorkerMachineInstance } from "@/api/types";
@@ -11,8 +11,18 @@ import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CopyModelsSheet } from "@/features/workers/instance/components/copy-models-sheet";
+import { CredentialAddSheet } from "@/features/workers/instance/components/credential-add-sheet";
+import { CredentialRotateSheet } from "@/features/workers/instance/components/credential-rotate-sheet";
+import { CredentialRows } from "@/features/workers/instance/components/credential-rows";
+import { SignInAgainSheet } from "@/features/workers/instance/components/sign-in-again-sheet";
+import { useInstanceCopyModels } from "@/features/workers/instance/use-instance-copy-models";
+import { useInstanceCredentialAdd } from "@/features/workers/instance/use-instance-credential-add";
+import { useInstanceCredentialRotate } from "@/features/workers/instance/use-instance-credential-rotate";
+import { useInstanceSignIn } from "@/features/workers/instance/use-instance-sign-in";
 import { utcDateTime } from "@/lib/format";
 import { shortFingerprint } from "@/lib/instance-host";
+import type { CopyHolder } from "@/lib/instance-credential-draft";
 import { instancePagePath } from "@/lib/worker-paths";
 import { ArchiveMachineDialog } from "./components/archive-machine-dialog";
 import { InstanceNames } from "./components/instance-names";
@@ -100,7 +110,9 @@ function ContextFailure({ page }: { page: MachinePage }) {
   if (page.contextError === null) return null;
   return (
     <Alert variant="destructive">
-      <AlertTitle>The projects of the instances were not read.</AlertTitle>
+      <AlertTitle>
+        The projects of the instances or the credential platforms were not read.
+      </AlertTitle>
       <AlertDescription>
         <span>{page.contextError}</span>
         <Button type="button" size="sm" variant="outline" onClick={page.retryContext}>
@@ -117,6 +129,11 @@ function MachineDetail({ machine, page }: { machine: WorkerMachineDetail; page: 
   const live = page.liveInstances;
   const reset = useMachineReset(machine, reload);
   const archive = useMachineArchive(machine, reload);
+  const holder: CopyHolder = { name: machine.name, kind: "machine" };
+  const add = useInstanceCredentialAdd(holder, null, reload);
+  const rotate = useInstanceCredentialRotate(machine.name, reload);
+  const models = useInstanceCopyModels(machine.name);
+  const signIn = useInstanceSignIn(holder, reload);
   const archiveIcon = <ArchiveIcon aria-hidden="true" data-icon="inline-start" />;
 
   return (
@@ -129,6 +146,32 @@ function MachineDetail({ machine, page }: { machine: WorkerMachineDetail; page: 
           Instances
         </h3>
         <InstanceRows instances={machine.instances} />
+      </section>
+      <section aria-labelledby="machine-credentials" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <h3 id="machine-credentials" className="font-semibold">
+            Credentials
+          </h3>
+          {!archived && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="self-start md:self-auto"
+              onClick={add.start}
+            >
+              <PlusIcon aria-hidden="true" data-icon="inline-start" />
+              Add credential
+            </Button>
+          )}
+        </div>
+        <CredentialRows
+          rows={page.credentialRows}
+          holder={holder}
+          archived={archived}
+          rotate={rotate}
+          models={models}
+          signIn={signIn}
+        />
       </section>
       {!archived && (
         <section
@@ -172,6 +215,12 @@ function MachineDetail({ machine, page }: { machine: WorkerMachineDetail; page: 
       )}
       <ResetKeyDialog machine={machine} instances={live} reset={reset} />
       <ArchiveMachineDialog name={machine.name} archive={archive} />
+      <CredentialAddSheet holder={holder} add={add} />
+      <CredentialRotateSheet holder={machine.name} rotate={rotate} />
+      <SignInAgainSheet holder={holder} signIn={signIn} />
+      {models.target !== null && (
+        <CopyModelsSheet key={models.target.key} target={models.target} reload={reload} />
+      )}
     </div>
   );
 }

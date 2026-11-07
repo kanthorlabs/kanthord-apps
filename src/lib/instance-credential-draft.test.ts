@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { CredentialPlatformEntry } from "@/api/types";
 import { EMPTY_METADATA, EMPTY_MODEL, EMPTY_SECRET } from "./credential-draft";
-import { holderGroupsOf, instanceCopyBodyOf } from "./instance-credential-draft";
+import {
+  holderGroupsOf,
+  instanceCopyBodyOf,
+  sealTargetGroupsOf,
+} from "./instance-credential-draft";
 
 const ANTHROPIC: CredentialPlatformEntry = {
   platform: "anthropic",
@@ -92,5 +96,48 @@ describe("holderGroupsOf", () => {
       { worker: "coder@1", names: ["build-01"] },
       { worker: "reviewer@1", names: ["review-01"] },
     ]);
+  });
+});
+
+describe("sealTargetGroupsOf", () => {
+  const instance = (name: string, worker: string, placement: string, ended_at: number | null) => ({
+    name,
+    worker,
+    placement,
+    ended_at,
+  });
+
+  it("lists the live machines first and then the live worker instances by worker", () => {
+    expect(
+      sealTargetGroupsOf(
+        [
+          { name: "rack-02", ended_at: null },
+          { name: "gone-01", ended_at: 3 },
+          { name: "lab-01", ended_at: null },
+        ],
+        [
+          instance("mac-studio", "coder@1", "worker", null),
+          instance("build-01", "coder@1", "worker", null),
+          instance("srv-01", "coder@1", "server", null),
+          instance("old-01", "coder@1", "worker", 4),
+          instance("review-01", "reviewer@1", "worker", null),
+        ],
+        "mac-studio",
+      ),
+    ).toEqual([
+      { label: "Machines", names: ["lab-01", "rack-02"] },
+      { label: "coder@1", names: ["build-01"] },
+      { label: "reviewer@1", names: ["review-01"] },
+    ]);
+  });
+
+  it("omits the group Machines when no other live machine exists", () => {
+    expect(
+      sealTargetGroupsOf(
+        [{ name: "lab-01", ended_at: null }],
+        [instance("review-01", "reviewer@1", "worker", null)],
+        "lab-01",
+      ),
+    ).toEqual([{ label: "reviewer@1", names: ["review-01"] }]);
   });
 });

@@ -10,13 +10,14 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { LoginSession } from "@/features/credentials/form/components/login-session";
+import { type CopyHolder, copySignInNote } from "@/lib/instance-credential-draft";
 import type { InstanceSignInState } from "../use-instance-sign-in";
 
 export function SignInAgainSheet({
-  instanceName,
+  holder,
   signIn,
 }: {
-  instanceName: string;
+  holder: CopyHolder;
   signIn: InstanceSignInState;
 }) {
   const copy = signIn.copy;
@@ -31,7 +32,7 @@ export function SignInAgainSheet({
           <SheetTitle>Sign in again to {copy?.name}</SheetTitle>
           <SheetDescription>
             The sign-in becomes the next revision of the copy held by{" "}
-            <RecordName>{instanceName}</RecordName>, sealed to its current key.
+            <RecordName>{holder.name}</RecordName>, sealed to its current key.
           </SheetDescription>
         </SheetHeader>
         {session !== null ? (
@@ -56,8 +57,7 @@ export function SignInAgainSheet({
                 </Alert>
               )}
               <p className="text-sm text-muted-foreground">
-                The instance runs this sign-in in {signIn.copyCode ? "copy-code" : "device-code"}{" "}
-                mode and seals the result to its own key. The instance must be connected.
+                {copySignInNote(holder.kind, signIn.copyCode)}
               </p>
             </div>
             <SheetFooter>

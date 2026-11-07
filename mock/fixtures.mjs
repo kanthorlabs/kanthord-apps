@@ -2488,6 +2488,29 @@ export const PROJECT_BINDING_SETS = {
 
 export const INSTANCE_CREDENTIAL_COPIES = [
   {
+    name: "lab-anthropic",
+    platform: "anthropic",
+    holder: "lab-01",
+    sealed_to: "SHA256:Rm4Tq9Vx2Bn7Kc1Lw5Hd8Zs3Fg6Jy0Ua2Ei4Oo7Pp1",
+    sealed_current: true,
+    revisions: [credentialRevision("0086", 1, null, Date.UTC(2026, 9, 18, 10, 0))],
+  },
+  {
+    name: "atlas-router",
+    platform: "openai-compatible",
+    holder: "lab-01",
+    sealed_to: "SHA256:Rm4Tq9Vx2Bn7Kc1Lw5Hd8Zs3Fg6Jy0Ua2Ei4Oo7Pp1",
+    sealed_current: true,
+    revisions: [
+      credentialRevision(
+        "0087",
+        1,
+        { base_url: ROUTER_URL, models: [{ id: "qwen3-coder", max_tokens: 8192 }] },
+        Date.UTC(2026, 9, 18, 10, 5),
+      ),
+    ],
+  },
+  {
     name: "atlas-router",
     platform: "openai-compatible",
     holder: "mac-studio",
@@ -2564,6 +2587,7 @@ export const INSTANCE_COPY_REPORTS = [
       { id: "glm-4.6", owned_by: null, created: null },
     ],
     reported_at: Date.UTC(2026, 9, 21, 7, 55),
+    reported_by: "mac-studio",
   },
   {
     holder: "mac-studio",
@@ -2574,5 +2598,28 @@ export const INSTANCE_COPY_REPORTS = [
     failure_reason: "unauthorized",
     models: null,
     reported_at: Date.UTC(2026, 9, 21, 7, 56),
+    reported_by: "mac-studio",
+  },
+  {
+    holder: "lab-01",
+    name: "lab-anthropic",
+    revision: 1,
+    status: "healthy",
+    capability: "model call",
+    failure_reason: null,
+    models: null,
+    reported_at: Date.UTC(2026, 9, 21, 7, 58),
+    reported_by: "build-01",
+  },
+  {
+    holder: "lab-01",
+    name: "atlas-router",
+    revision: 1,
+    status: "healthy",
+    capability: "model-list read",
+    failure_reason: null,
+    models: [{ id: "qwen3-coder", owned_by: "atlas-router", created: 1760000000 }],
+    reported_at: Date.UTC(2026, 9, 21, 7, 59),
+    reported_by: "mac-studio",
   },
 ];

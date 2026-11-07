@@ -9,6 +9,7 @@ import * as clientApi from "@/api/client";
 import * as credentialsApi from "@/api/resources/credentials";
 import * as gatewayApi from "@/api/resources/gateway";
 import * as instancesApi from "@/api/resources/worker-instances";
+import * as machinesApi from "@/api/resources/worker-machines";
 import * as missionApi from "@/api/resources/mission";
 import * as projectsApi from "@/api/resources/projects";
 import * as schedulerApi from "@/api/resources/scheduler";
@@ -18,12 +19,15 @@ import type {
   CopyHealth,
   Credential,
   CredentialPlatformList,
+  InstanceCredentialCopy,
   LlmCredential,
   MissionNodeRecord,
   Project,
   SchedulerExecutionRecord,
   WorkerInstanceDetail,
   WorkerInstanceListItem,
+  WorkerMachineDetail,
+  WorkerMachineListItem,
 } from "@/api/types";
 
 vi.mock("@/api/client", async (original) => ({
@@ -33,6 +37,7 @@ vi.mock("@/api/client", async (original) => ({
 vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/gateway");
 vi.mock("@/api/resources/worker-instances");
+vi.mock("@/api/resources/worker-machines");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
 vi.mock("@/api/resources/scheduler");
@@ -75,6 +80,7 @@ const NO_REPORT: CopyHealth = {
   failure_reason: "held_by_instance",
   models: null,
   reported_at: null,
+  reported_by: null,
 };
 
 const ROUTER_HEALTH: CopyHealth = {
@@ -86,6 +92,7 @@ const ROUTER_HEALTH: CopyHealth = {
     { id: "glm-4.6", owned_by: null, created: null },
   ],
   reported_at: REPORTED_AT,
+  reported_by: "mac-studio",
 };
 
 const MAC: WorkerInstanceDetail = {
@@ -108,6 +115,7 @@ const MAC: WorkerInstanceDetail = {
   credentials: [
     {
       name: "atlas-router",
+      holder: "mac-studio",
       revision: 1,
       platform: "openai-compatible",
       sealed_current: true,
@@ -115,6 +123,7 @@ const MAC: WorkerInstanceDetail = {
     },
     {
       name: "claude-sub",
+      holder: "mac-studio",
       revision: 1,
       platform: "anthropic-subscription",
       sealed_current: true,
@@ -124,10 +133,12 @@ const MAC: WorkerInstanceDetail = {
         failure_reason: "unauthorized",
         models: null,
         reported_at: REPORTED_AT,
+        reported_by: "mac-studio",
       },
     },
     {
       name: "old-key",
+      holder: "mac-studio",
       revision: 3,
       platform: "anthropic",
       sealed_current: false,
@@ -176,6 +187,52 @@ const OTHERS: WorkerInstanceListItem[] = [
     holder_mismatch: false,
   },
 ];
+
+const MACHINE_COPY: InstanceCredentialCopy = {
+  name: "lab-key",
+  holder: "m-01",
+  revision: 2,
+  platform: "anthropic",
+  sealed_current: true,
+  health: {
+    status: "unhealthy",
+    capability: "model call",
+    failure_reason: "unauthorized",
+    models: null,
+    reported_at: REPORTED_AT,
+    reported_by: "build-01",
+  },
+};
+
+const SHARED: WorkerInstanceDetail = {
+  ...MAC,
+  credentials: [MAC.credentials[0]!, MACHINE_COPY],
+};
+
+const MACHINE: WorkerMachineDetail = {
+  id: "worker_machine_01J9ZQ4XKM3B6V8N2R5T7W0M01",
+  name: "m-01",
+  revision: 1,
+  public_key: "b".repeat(43),
+  fingerprint: "SHA256:Rm4Tq9Vx2Bn7Kc1Lw5Hd8Zs3Fg6Jy0Ua2Ei4Oo7Pp1",
+  created_at: 1,
+  ended_at: null,
+  instances: [],
+  credentials: [],
+};
+
+function machineItemOf(name: string, ended_at: number | null): WorkerMachineListItem {
+  return {
+    id: MACHINE.id,
+    name,
+    revision: MACHINE.revision,
+    public_key: MACHINE.public_key,
+    fingerprint: MACHINE.fingerprint,
+    created_at: MACHINE.created_at,
+    ended_at,
+    instance_count: 0,
+  };
+}
 
 function copyOf(holder: string, revision: number): Credential {
   return {
@@ -239,6 +296,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(MAC);
   vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue(OTHERS);
+  vi.mocked(machinesApi.readWorkerMachine).mockResolvedValue(MACHINE);
+  vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([]);
   vi.mocked(projectsApi.listProjects).mockResolvedValue(PROJECTS);
   vi.mocked(projectsApi.listWorkerBindings).mockResolvedValue([]);
   vi.mocked(credentialsApi.listCredentialPlatforms).mockResolvedValue(PLATFORMS);
@@ -480,6 +539,7 @@ describe("InstanceScreen", () => {
       credentials: [
         {
           name: "atlas-router",
+          holder: "mac-studio",
           revision: 2,
           platform: "openai-compatible",
           sealed_current: true,
@@ -976,6 +1036,162 @@ describe("InstanceScreen", () => {
   });
 });
 
+describe("InstanceScreen machine copies", () => {
+  it("lists an own copy as Own copy and a machine copy as shared with no action of its own", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(SHARED);
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    const own = rowOf(credentials, "atlas-router");
+    expect(own).toHaveTextContent("Own copy");
+    expect(own).not.toHaveTextContent("Shared from machine");
+    expect(await within(own).findByRole("button", { name: "Rotate" })).toBeInTheDocument();
+    const shared = rowOf(credentials, "lab-key");
+    expect(shared).toHaveTextContent("lab-key · anthropic (v2)");
+    expect(shared).toHaveTextContent("Shared from machine m-01");
+    expect(shared).not.toHaveTextContent("Own copy");
+    expect(within(shared).getByRole("link", { name: "m-01" })).toHaveAttribute(
+      "href",
+      "/machines/m-01",
+    );
+    expect(within(shared).queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("reads the reporter of the health line from the report", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(SHARED);
+    mount();
+    const credentials = await screen.findByRole("list", { name: "Credentials" });
+    expect(rowOf(credentials, "lab-key")).toHaveTextContent(
+      "The provider refused the API key or the access token. Rotate the copy with a correct key, or sign in again. The instance checks the copy again after the write. Reported by build-01 at 2026-10-21 08:00 UTC.",
+    );
+  });
+
+  it("states that Add credential overrides a machine copy of the same name", async () => {
+    vi.mocked(machinesApi.readWorkerMachine).mockResolvedValue({
+      ...MACHINE,
+      credentials: [MACHINE_COPY],
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "other-key");
+    expect(machinesApi.readWorkerMachine).toHaveBeenCalledWith("m-01");
+    expect(within(sheet).queryByText(/in place of the copy of machine/)).not.toBeInTheDocument();
+    await userEvent.clear(within(sheet).getByLabelText("Name"));
+    await userEvent.type(within(sheet).getByLabelText("Name"), "lab-key");
+    expect(
+      await within(sheet).findByText(
+        "The instance uses this copy in place of the copy of machine m-01.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a failed machine read in Add credential and retries it", async () => {
+    vi.mocked(machinesApi.readWorkerMachine).mockRejectedValueOnce(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    expect(await within(sheet).findByText("The daemon did not answer.")).toBeInTheDocument();
+    expect(
+      within(sheet).getByText("The copies of the machine could not be read."),
+    ).toBeInTheDocument();
+    vi.mocked(machinesApi.readWorkerMachine).mockResolvedValue({
+      ...MACHINE,
+      credentials: [MACHINE_COPY],
+    });
+    await userEvent.click(within(sheet).getByRole("button", { name: "Retry" }));
+    await userEvent.type(within(sheet).getByLabelText("Name"), "lab-key");
+    expect(
+      await within(sheet).findByText(
+        "The instance uses this copy in place of the copy of machine m-01.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(sheet).queryByText("The daemon did not answer.")).not.toBeInTheDocument();
+  });
+
+  it("lists the live machines first and then the live worker instances by worker in Also seal to", async () => {
+    vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([
+      machineItemOf("rack-02", null),
+      machineItemOf("gone-01", 9),
+      machineItemOf("lab-01", null),
+    ]);
+    vi.mocked(instancesApi.listWorkerInstances).mockResolvedValue([
+      ...OTHERS,
+      { ...OTHERS[1]!, name: "srv-01", placement: "server", machine: null },
+      { ...OTHERS[1]!, name: "old-01", ended_at: 9 },
+    ]);
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "claude-key");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Platform" }));
+    await userEvent.click(await screen.findByRole("option", { name: "anthropic" }));
+    const machines = await within(sheet).findByRole("group", { name: "Also seal to Machines" });
+    expect(
+      within(machines)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["lab-01", "rack-02"]);
+    const groups = within(sheet)
+      .getAllByRole("group")
+      .map((group) => group.getAttribute("aria-labelledby"))
+      .filter((labelledBy) => labelledBy?.startsWith("credential-also-seal-to "));
+    expect(groups).toEqual([
+      "credential-also-seal-to credential-also-seal-to-Machines",
+      "credential-also-seal-to credential-also-seal-to-reviewer@1",
+    ]);
+    expect(within(sheet).queryByRole("button", { name: "srv-01" })).not.toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: "old-01" })).not.toBeInTheDocument();
+  });
+
+  it("seals a new copy to a selected machine", async () => {
+    vi.mocked(machinesApi.listWorkerMachines).mockResolvedValue([machineItemOf("lab-01", null)]);
+    vi.mocked(credentialsApi.createCredential).mockResolvedValue(copyOf("mac-studio", 1));
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Add credential" }));
+    const sheet = await screen.findByRole("dialog", { name: "Add credential" });
+    await userEvent.type(within(sheet).getByLabelText("Name"), "claude-key");
+    await userEvent.click(within(sheet).getByRole("combobox", { name: "Platform" }));
+    await userEvent.click(await screen.findByRole("option", { name: "anthropic" }));
+    await userEvent.type(within(sheet).getByLabelText("API Key"), "sk-1");
+    await userEvent.click(await within(sheet).findByRole("button", { name: "lab-01" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Create credential" }));
+    await waitFor(() =>
+      expect(credentialsApi.createCredential).toHaveBeenCalledWith("llm", {
+        name: "claude-key",
+        platform: "anthropic",
+        metadata: null,
+        secret: { key: "sk-1" },
+        holders: ["mac-studio", "lab-01"],
+      }),
+    );
+  });
+
+  it("lists only the own copies in the Reset key dialog", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue(SHARED);
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Reset key" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("atlas-router")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/lab-key/)).not.toBeInTheDocument();
+  });
+
+  it("lists no copy in the Reset key dialog when the instance holds only machine copies", async () => {
+    vi.mocked(instancesApi.readWorkerInstance).mockResolvedValue({
+      ...MAC,
+      credentials: [MACHINE_COPY],
+    });
+    mount();
+    await userEvent.click(await screen.findByRole("button", { name: "Reset key" }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).queryByText(/lab-key/)).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Credential copies").nextElementSibling).toHaveTextContent(
+      "none",
+    );
+  });
+});
+
 describe("InstanceScreen placement", () => {
   const SERVER: WorkerInstanceDetail = {
     ...MAC,
@@ -1157,6 +1373,7 @@ describe("InstanceScreen polling", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const copy = {
       name: "atlas-router",
+      holder: "mac-studio",
       revision: 2,
       platform: "openai-compatible",
       sealed_current: true,

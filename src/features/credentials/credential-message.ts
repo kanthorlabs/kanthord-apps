@@ -5,6 +5,11 @@ import { placementReasonText } from "@/lib/placement-status";
 export const REVISION_CONFLICT = "credential.revision.conflict";
 export const INSTANCE_SHARED = "project.bindings.worker.instance_shared";
 export const ANOTHER_PROJECT = "another project";
+export const LOGIN_INSTANCE_UNAVAILABLE = "credential.login.instance_unavailable";
+
+export function machineLoginUnavailableMessage(machine: string): string {
+  return `No instance of ${machine} is connected. Start one instance of the machine, then sign in again.`;
+}
 
 const MESSAGES: Readonly<Record<string, string>> = {
   [REVISION_CONFLICT]:

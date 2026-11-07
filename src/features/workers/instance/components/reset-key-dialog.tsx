@@ -26,6 +26,7 @@ function BlastRadius({
   const executions = instance.registrations.flatMap((registration) =>
     registration.execution_id === undefined ? [] : [registration.execution_id],
   );
+  const ownCopies = instance.credentials.filter((copy) => copy.holder === instance.name);
   const rows = [
     {
       label: "Bindings",
@@ -47,10 +48,7 @@ function BlastRadius({
     { label: "Live executions", value: executions.length === 0 ? "none" : executions.join(", ") },
     {
       label: "Credential copies",
-      value:
-        instance.credentials.length === 0
-          ? "none"
-          : instance.credentials.map((copy) => copy.name).join(", "),
+      value: ownCopies.length === 0 ? "none" : ownCopies.map((copy) => copy.name).join(", "),
     },
   ];
   return (

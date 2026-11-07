@@ -142,10 +142,12 @@ export interface ReportedModel {
 export interface CopyHealth extends HealthEntry {
   readonly models: readonly ReportedModel[] | null;
   readonly reported_at: number | null;
+  readonly reported_by: string | null;
 }
 
 export interface InstanceCredentialCopy {
   readonly name: string;
+  readonly holder: string;
   readonly revision: number;
   readonly platform: CredentialPlatform;
   readonly sealed_current: boolean;
@@ -192,6 +194,7 @@ export interface WorkerMachineInstance extends WorkerInstance {
 
 export interface WorkerMachineDetail extends WorkerMachine {
   readonly instances: readonly WorkerMachineInstance[];
+  readonly credentials: readonly InstanceCredentialCopy[];
 }
 
 export interface WorkerMachineWriteAnswer extends WorkerMachine {
