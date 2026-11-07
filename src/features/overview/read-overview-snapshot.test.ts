@@ -168,6 +168,32 @@ describe("readOverviewSnapshot follow-up proposals", () => {
     expect(snapshot.reads[0]?.absent).toEqual(["follow-up proposals"]);
   });
 
+  it("drops the earlier follow-ups when a later read finds the route absent", async () => {
+    vi.mocked(listProjectFollowups).mockResolvedValue([
+      {
+        id: "followup_n1",
+        node_id: "n1",
+        attempt: 1,
+        assessment_id: null,
+        content: { name: "Reply on the issue", requirement: "r", criterion: "c" },
+        created_node_id: null,
+        approved_at: null,
+        rejected_at: null,
+        created_at: 1,
+      },
+    ]);
+    const previous = await readOverviewSnapshot(null, null);
+    expect(previous.reads[0]?.followups).toHaveLength(1);
+    vi.mocked(listProjectFollowups).mockRejectedValue(
+      new ApiError("not_found", "No route.", 404, "gateway.routing.not_found"),
+    );
+
+    const snapshot = await readOverviewSnapshot(previous, null);
+
+    expect(snapshot.reads[0]?.followups).toBeNull();
+    expect(snapshot.absent).toEqual(["follow-up proposals"]);
+  });
+
   it("names a fault when the follow-up read answers 500", async () => {
     vi.mocked(listProjectFollowups).mockRejectedValue(
       new ApiError("malformed", "Broken.", 500, "gateway.internal"),

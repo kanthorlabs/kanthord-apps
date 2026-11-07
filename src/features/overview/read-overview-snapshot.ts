@@ -69,7 +69,7 @@ export async function settle<T>(
     return { data: await read(), fault: null, absent: false };
   } catch (cause: unknown) {
     const error = asApiError(cause);
-    if (isRouteAbsent(error)) return { data: kept, fault: null, absent: true };
+    if (isRouteAbsent(error)) return { data: null, fault: null, absent: true };
     return {
       data: kept,
       absent: false,
