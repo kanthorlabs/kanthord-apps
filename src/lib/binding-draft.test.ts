@@ -115,7 +115,7 @@ describe("draftOf and entryOfDraft", () => {
     expect(entryOfDraft(draftOf("repo", entry), [])).toEqual({ ok: true, entry });
   });
 
-  it("writes no landing for a merge_push action", () => {
+  it("writes no landing for a push action", () => {
     if (REPO.kind !== "repository") throw new Error("fixture");
     const entry: BindingSetEntry = {
       kind: "repository",
@@ -134,12 +134,12 @@ describe("draftOf and entryOfDraft", () => {
     const draft = draftOf("repo", entry);
     if (draft.kind !== "repository") throw new Error("fixture");
 
-    const result = entryOfDraft({ ...draft, actionName: "merge_push" }, []);
+    const result = entryOfDraft({ ...draft, actionName: "push" }, []);
 
     expect(result.ok && result.entry.kind === "repository" && result.entry.config.strategy).toEqual(
       {
         base_branch: "main",
-        action: { name: "merge_push", follows: { type: "assessment_passed" } },
+        action: { name: "push", follows: { type: "assessment_passed" } },
       },
     );
   });
@@ -369,7 +369,7 @@ describe("entryOfDraft", () => {
   });
 
   it("allows blank credential when action is not pull_request", () => {
-    const draft = { ...draftOf("repo", REPO), actionName: "merge_push" as const, credential: "" };
+    const draft = { ...draftOf("repo", REPO), actionName: "push" as const, credential: "" };
     expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });
   });
 
@@ -390,7 +390,7 @@ describe("entryOfDraft", () => {
       ...draftOf("repo", REPO),
       platform: "gitlab" as const,
       address: "git@gitlab.com:kanthorlabs/kanthord.git",
-      actionName: "merge_push" as const,
+      actionName: "push" as const,
       credential: "",
     };
     expect(entryOfDraft(draft, [])).toMatchObject({ ok: true });

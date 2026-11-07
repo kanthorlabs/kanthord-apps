@@ -338,7 +338,7 @@ describe("boardTabOf", () => {
   describe("an outside item", () => {
     const requested = node("n1", "External.Requested");
 
-    function request(action: "pull_request" | "merge_push"): MissionExternalAction {
+    function request(action: "pull_request" | "push"): MissionExternalAction {
       return {
         node_id: "n1",
         attempt: 2,
@@ -394,7 +394,7 @@ describe("boardTabOf", () => {
         provenance: { kind: "human", account: "a", name: "A" },
         created_at: 1,
       };
-      const details = detailOf(request("merge_push"), [old]);
+      const details = detailOf(request("push"), [old]);
 
       const item = onlyItem(derive([snapshot([requested])], details));
 

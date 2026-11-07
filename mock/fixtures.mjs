@@ -1873,9 +1873,9 @@ GRAPH_ATTEMPTS[ATLAS_RELEASE_NOTES_ID] = [
     start_point: "base_branch",
     required_external_actions: [
       {
-        key: "kanthord-repo.merge_push",
+        key: "kanthord-repo.push",
         binding_id: REPO,
-        action: "merge_push",
+        action: "push",
         expected_end_state: "base_branch_pushed",
         follows: null,
         configuration: { base_branch: "main", landing: "kanthord" },
@@ -1909,7 +1909,7 @@ GRAPH_EVIDENCE.push({
   ],
   provenance: execution("EF1", "reviewer-main #1"),
   created_at: minutes(40),
-  requirement_key: "kanthord-repo.merge_push",
+  requirement_key: "kanthord-repo.push",
 });
 
 export const ATLAS_EDGES = [

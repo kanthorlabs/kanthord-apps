@@ -11,7 +11,7 @@ import { relativeAge } from "./relative-age";
 
 const ACTION_LABELS: Readonly<Record<RepositoryActionName, string>> = {
   pull_request: "pull request",
-  merge_push: "push to the base branch",
+  push: "push to the base branch",
 };
 
 export function hasOpenAttempt(node: MissionNodeRecord): boolean {
@@ -105,7 +105,7 @@ export function deliveryText(
   const age = relativeAge(evidence.created_at, now);
   const request = pullRequestOf(evidence);
   const done =
-    action.action.action === "merge_push"
+    action.action.action === "push"
       ? `kanthord pushed to ${action.action.configuration.base_branch}`
       : `kanthord requested the merge of ${
           request === null ? "the pull request" : `pull request #${request.number}`
