@@ -1,13 +1,16 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/api/errors";
+import { listInboxItems } from "@/api/resources/mission";
 import type { MissionNodeRecord, Project, WorkbenchSessionListItem } from "@/api/types";
 import type { PolledResource } from "@/hooks/use-polled-resource";
 
 import type { OverviewSnapshot, ProjectRead } from "./read-overview-snapshot";
 
+vi.mock("@/api/resources/mission", () => ({ listInboxItems: vi.fn() }));
 vi.mock("./use-overview-snapshot", () => ({ useOverviewSnapshot: vi.fn() }));
 vi.mock("./use-overview-setup", () => ({
   useOverviewSetup: () => ({
@@ -93,6 +96,7 @@ function readOf(project: Project, nodeId: string, jobs = 0): ProjectRead {
     executions: [],
     environments: [],
     findings: [],
+    absent: [],
   };
 }
 
@@ -101,6 +105,7 @@ const SNAPSHOT: OverviewSnapshot = {
   reads: [readOf(ATLAS, "a1", 2), readOf(BETA, "b1", 1)],
   sessions: [SESSION],
   faults: [],
+  absent: [],
 };
 
 function render(entry: string) {
@@ -144,5 +149,31 @@ describe("useOverview board state", () => {
 
     expect(held.get("blocked:a1")).toEqual(["a1"]);
     expect(held.get("tool_approval:s1")).toEqual([]);
+  });
+});
+
+describe("useOverview inbox absence", () => {
+  const ABSENT = new ApiError("not_found", "No route.", 404, "gateway.routing.not_found");
+
+  it("lists an absent inbox in absent and gives no inbox fault", async () => {
+    vi.mocked(listInboxItems).mockRejectedValue(ABSENT);
+
+    const hook = render("/");
+
+    await waitFor(() => expect(hook.result.current.inbox.ready).toBe(true), { timeout: 2000 });
+    expect(hook.result.current.absent).toEqual(["inbox"]);
+    expect(hook.result.current.faults.map((fault) => fault.source)).not.toContain("inbox");
+  });
+
+  it("keeps the inbox fault when the inbox answers 500", async () => {
+    vi.mocked(listInboxItems).mockRejectedValue(
+      new ApiError("malformed", "Broken.", 500, "gateway.internal"),
+    );
+
+    const hook = render("/");
+
+    await waitFor(() => expect(hook.result.current.inbox.ready).toBe(true), { timeout: 2000 });
+    expect(hook.result.current.absent).toEqual([]);
+    expect(hook.result.current.faults.map((fault) => fault.source)).toContain("inbox");
   });
 });

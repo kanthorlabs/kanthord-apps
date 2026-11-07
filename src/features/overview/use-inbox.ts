@@ -16,6 +16,7 @@ export interface InboxState {
   readonly hasMore: boolean;
   readonly ready: boolean;
   readonly error: ApiError | null;
+  readonly absent: boolean;
   readonly loadMore: () => void;
   readonly close: (linkUpdateId: string) => void;
 }
@@ -95,6 +96,7 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
     hasMore: (scope?.nextCursor ?? null) !== null,
     ready: reads.all !== null || reads.error !== null,
     error: reads.error,
+    absent: reads.all?.absent === true,
     loadMore,
     close,
   };

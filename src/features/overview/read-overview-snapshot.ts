@@ -8,6 +8,7 @@ import { listProjectEnvironments, listProjects } from "@/api/resources/projects"
 import { listProjectExecutionPage, listQueueJobs } from "@/api/resources/scheduler";
 import { listWorkbenchSessions } from "@/api/resources/workbench";
 import { listWorkerRegistrations } from "@/api/resources/workers";
+import { isRouteAbsent } from "@/api/errors";
 import type {
   EnvironmentState,
   Mission,
@@ -34,6 +35,7 @@ export interface ProjectRead {
   readonly environments: readonly EnvironmentState[] | null;
   readonly findings: readonly MissionFinding[] | null;
   readonly followups?: readonly MissionFollowupProposal[] | null;
+  readonly absent: readonly string[];
 }
 
 export interface ReadFault {
@@ -48,11 +50,13 @@ export interface OverviewSnapshot {
   readonly reads: readonly ProjectRead[];
   readonly sessions: readonly WorkbenchSessionListItem[] | null;
   readonly faults: readonly ReadFault[];
+  readonly absent: readonly string[];
 }
 
 export interface Settled<T> {
   readonly data: T | null;
   readonly fault: ReadFault | null;
+  readonly absent: boolean;
 }
 
 export async function settle<T>(
@@ -62,18 +66,25 @@ export async function settle<T>(
   kept: T | null,
 ): Promise<Settled<T>> {
   try {
-    return { data: await read(), fault: null };
+    return { data: await read(), fault: null, absent: false };
   } catch (cause: unknown) {
+    const error = asApiError(cause);
+    if (isRouteAbsent(error)) return { data: null, fault: null, absent: true };
     return {
       data: kept,
+      absent: false,
       fault: {
         projectId: project?.id ?? null,
         projectName: project?.name ?? null,
         source,
-        message: asApiError(cause).message,
+        message: error.message,
       },
     };
   }
+}
+
+function absentSourcesOf(sources: Readonly<Record<string, Settled<unknown>>>): readonly string[] {
+  return Object.entries(sources).flatMap(([source, settled]) => (settled.absent ? [source] : []));
 }
 
 async function readNodes(
@@ -81,7 +92,7 @@ async function readNodes(
   mission: Mission | null,
   previous: ProjectRead | null,
 ): Promise<Settled<readonly MissionNodeRecord[]>> {
-  if (mission === null) return { data: previous?.nodes ?? null, fault: null };
+  if (mission === null) return { data: previous?.nodes ?? null, fault: null, absent: false };
   return settle(project, "node list", () => listMissionNodes(mission.id), previous?.nodes ?? null);
 }
 
@@ -90,7 +101,7 @@ async function readFindings(
   mission: Mission | null,
   previous: ProjectRead | null,
 ): Promise<Settled<readonly MissionFinding[]>> {
-  if (mission === null) return { data: previous?.findings ?? null, fault: null };
+  if (mission === null) return { data: previous?.findings ?? null, fault: null, absent: false };
   return settle(
     project,
     "undecided findings",
@@ -104,7 +115,7 @@ async function readFollowups(
   mission: Mission | null,
   previous: ProjectRead | null,
 ): Promise<Settled<readonly MissionFollowupProposal[]>> {
-  if (mission === null) return { data: previous?.followups ?? null, fault: null };
+  if (mission === null) return { data: previous?.followups ?? null, fault: null, absent: false };
   return settle(
     project,
     "follow-up proposals",
@@ -159,6 +170,16 @@ async function readProject(
       environments: environments.data,
       findings: findings.data,
       followups: followups.data,
+      absent: absentSourcesOf({
+        mission,
+        "node list": nodes,
+        "undecided findings": findings,
+        "follow-up proposals": followups,
+        queue: jobs,
+        "worker registrations": registrations,
+        executions,
+        "environment list": environments,
+      }),
     },
     faults: [
       mission.fault,
@@ -201,6 +222,12 @@ export async function readOverviewSnapshot(
     faults: [
       ...results.flatMap((result) => result.faults),
       ...(sessions.fault === null ? [] : [sessions.fault]),
+    ],
+    absent: [
+      ...new Set([
+        ...results.flatMap((result) => result.read.absent),
+        ...absentSourcesOf({ "workbench sessions": sessions }),
+      ]),
     ],
   };
 }
