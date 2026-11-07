@@ -186,6 +186,81 @@ describe("usePolledResource", () => {
     expect(read).toHaveBeenCalledTimes(2);
   });
 
+  it("reads with the given read once, stores its answer and keeps updatedAt", async () => {
+    const read = vi.fn().mockResolvedValue("a");
+    const view = render(read);
+    await advance(0);
+    const updatedAt = view.result.current.updatedAt;
+    await advance(1_000);
+    const given = vi.fn().mockResolvedValue("b");
+
+    await act(async () => view.result.current.readWith(given));
+
+    expect(given).toHaveBeenCalledTimes(1);
+    expect(given).toHaveBeenCalledWith("a");
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(view.result.current.data).toBe("b");
+    expect(view.result.current.error).toBeNull();
+    expect(view.result.current.updatedAt).toBe(updatedAt);
+  });
+
+  it("stores the error of the given read and keeps the data", async () => {
+    const failure = new ApiError("unavailable", "The daemon is down.", 503);
+    const view = render(vi.fn().mockResolvedValue("a"));
+    await advance(0);
+
+    await act(async () => view.result.current.readWith(() => Promise.reject(failure)));
+
+    expect(view.result.current.error).toBe(failure);
+    expect(view.result.current.data).toBe("a");
+  });
+
+  it("waits for a running read before the given read and shows running", async () => {
+    let finish: (value: string) => void = () => {};
+    const read = vi.fn().mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const given = vi.fn().mockResolvedValue("b");
+    const view = render(read);
+    expect(view.result.current.running).toBe(true);
+
+    act(() => view.result.current.readWith(given));
+    expect(given).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finish("a");
+    });
+
+    expect(given).toHaveBeenCalledTimes(1);
+    expect(view.result.current.data).toBe("b");
+    expect(view.result.current.running).toBe(false);
+  });
+
+  it("shows running during the given read", async () => {
+    let finish: (value: string) => void = () => {};
+    const view = render(vi.fn().mockResolvedValue("a"));
+    await advance(0);
+    expect(view.result.current.running).toBe(false);
+
+    act(() =>
+      view.result.current.readWith(
+        () =>
+          new Promise<string>((resolve) => {
+            finish = resolve;
+          }),
+      ),
+    );
+    expect(view.result.current.running).toBe(true);
+
+    await act(async () => {
+      finish("b");
+    });
+    expect(view.result.current.running).toBe(false);
+  });
+
   it("drops the data of the previous scope", async () => {
     const read = vi.fn().mockResolvedValueOnce("a").mockResolvedValueOnce("b");
     const view = render(read);

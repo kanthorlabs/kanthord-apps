@@ -60,6 +60,8 @@ export interface OverviewState {
   readonly updatedAt: number | null;
   readonly now: number;
   readonly refresh: () => void;
+  readonly retryFaults: () => void;
+  readonly snapshotRunning: boolean;
 }
 
 const NO_FAULTS: readonly ReadFault[] = [];
@@ -246,6 +248,35 @@ export function useOverview(): OverviewState {
     refreshSetup();
   }, [refreshSnapshot, refreshSetup]);
 
+  const { retry: retrySnapshot } = snapshot;
+  const { retry: retryInbox } = inbox;
+  const projectListFailed = snapshot.error !== null && data !== null;
+  const snapshotFailed = (data?.faults.length ?? 0) > 0;
+  const inboxFailed = inbox.error !== null;
+  const setupFailed = setup.error !== null || (setupData?.faults.length ?? 0) > 0;
+  const failedDetails = externalReads.failures;
+  const retryFaults = useCallback(() => {
+    if (projectListFailed) {
+      refresh();
+      return;
+    }
+    if (snapshotFailed) retrySnapshot();
+    if (inboxFailed) retryInbox();
+    if (setupFailed) refreshSetup();
+    for (const { target } of failedDetails) refreshDetail(target.node.id);
+  }, [
+    projectListFailed,
+    snapshotFailed,
+    inboxFailed,
+    setupFailed,
+    failedDetails,
+    refresh,
+    retrySnapshot,
+    retryInbox,
+    refreshSetup,
+    refreshDetail,
+  ]);
+
   const status =
     data !== null
       ? data.projects.length === 0
@@ -291,5 +322,7 @@ export function useOverview(): OverviewState {
     updatedAt: snapshot.updatedAt,
     now: snapshot.now,
     refresh,
+    retryFaults,
+    snapshotRunning: snapshot.running,
   };
 }

@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -6,9 +6,10 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { listInboxItems } from "@/api/resources/mission";
 import type { MissionNodeRecord, Project, WorkbenchSessionListItem } from "@/api/types";
-import type { PolledResource } from "@/hooks/use-polled-resource";
-
 import type { OverviewSnapshot, ProjectRead } from "./read-overview-snapshot";
+import type { OverviewSnapshotResource } from "./use-overview-snapshot";
+
+const refreshDetail = vi.hoisted(() => vi.fn());
 
 vi.mock("@/api/resources/mission", () => ({ listInboxItems: vi.fn() }));
 vi.mock("./use-overview-snapshot", () => ({ useOverviewSnapshot: vi.fn() }));
@@ -23,7 +24,7 @@ vi.mock("./use-overview-setup", () => ({
   }),
 }));
 vi.mock("./use-attention-details", () => ({
-  useAttentionDetails: () => ({ details: new Map(), refresh: () => undefined }),
+  useAttentionDetails: () => ({ details: new Map(), refresh: refreshDetail }),
 }));
 
 import { useOverviewSnapshot } from "./use-overview-snapshot";
@@ -108,14 +109,18 @@ const SNAPSHOT: OverviewSnapshot = {
   absent: [],
 };
 
-function render(entry: string) {
-  const polled: PolledResource<OverviewSnapshot> = {
+function render(entry: string, overrides: Partial<OverviewSnapshotResource> = {}) {
+  const polled: OverviewSnapshotResource = {
     data: SNAPSHOT,
     error: null,
     loading: false,
     updatedAt: 1,
     now: 10_000_000,
+    running: false,
     refresh: () => undefined,
+    readWith: () => undefined,
+    retry: () => undefined,
+    ...overrides,
   };
   vi.mocked(useOverviewSnapshot).mockReturnValue(polled);
   const wrapper = ({ children }: { children: ReactNode }) =>
@@ -175,5 +180,85 @@ describe("useOverview inbox absence", () => {
     await waitFor(() => expect(hook.result.current.inbox.ready).toBe(true), { timeout: 2000 });
     expect(hook.result.current.absent).toEqual([]);
     expect(hook.result.current.faults.map((fault) => fault.source)).toContain("inbox");
+  });
+});
+
+describe("useOverview retryFaults", () => {
+  const QUEUE_FAULT = {
+    projectId: "prj-1",
+    projectName: "atlas",
+    source: "queue",
+    message: "No answer.",
+  };
+
+  it("runs the full read when the project list failed", () => {
+    const refresh = vi.fn();
+    const retry = vi.fn();
+    const failure = new ApiError("unreachable", "No answer.", 0);
+
+    const hook = render("/", {
+      error: failure,
+      refresh,
+      retry,
+      data: { ...SNAPSHOT, faults: [QUEUE_FAULT] },
+    });
+    act(() => hook.result.current.retryFaults());
+
+    expect(hook.result.current.faults.map((fault) => fault.source)).toContain("project list");
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("reads the inbox again and not the snapshot when the inbox failed", async () => {
+    vi.mocked(listInboxItems).mockReset();
+    vi.mocked(listInboxItems).mockRejectedValue(
+      new ApiError("malformed", "Broken.", 500, "gateway.internal"),
+    );
+    const refresh = vi.fn();
+    const retry = vi.fn();
+    const hook = render("/", { refresh, retry });
+    await waitFor(
+      () => expect(hook.result.current.faults.map((f) => f.source)).toEqual(["inbox"]),
+      {
+        timeout: 2000,
+      },
+    );
+    const reads = vi.mocked(listInboxItems).mock.calls.length;
+    vi.mocked(listInboxItems).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+      counts: { open: 0, snoozed: 0 },
+    });
+
+    act(() => hook.result.current.retryFaults());
+
+    await waitFor(() => expect(hook.result.current.faults).toEqual([]), { timeout: 2000 });
+    expect(vi.mocked(listInboxItems).mock.calls.length).toBeGreaterThan(reads);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("retries only the snapshot when a queue read failed", async () => {
+    vi.mocked(listInboxItems).mockReset();
+    vi.mocked(listInboxItems).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+      counts: { open: 0, snoozed: 0 },
+    });
+    refreshDetail.mockClear();
+    const refresh = vi.fn();
+    const retry = vi.fn();
+    const hook = render("/", { refresh, retry, data: { ...SNAPSHOT, faults: [QUEUE_FAULT] } });
+    await waitFor(() => expect(hook.result.current.inbox.ready).toBe(true), { timeout: 2000 });
+    const reads = vi.mocked(listInboxItems).mock.calls.length;
+    const { updatedAt } = hook.result.current;
+
+    act(() => hook.result.current.retryFaults());
+
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(refreshDetail).not.toHaveBeenCalled();
+    expect(vi.mocked(listInboxItems).mock.calls.length).toBe(reads);
+    expect(hook.result.current.updatedAt).toBe(updatedAt);
   });
 });
