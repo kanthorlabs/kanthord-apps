@@ -4700,8 +4700,10 @@ describe("OverviewScreen inbox tab", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByText(/Start here:/)).toHaveTextContent(
-      "1 act waits for you. 1 node waits on them. Start here: Audit log for account changes in Rule. 4 threads wait in Inbox.",
+    await waitFor(() =>
+      expect(screen.getByText(/Start here:/)).toHaveTextContent(
+        "1 act waits for you. 1 node waits on them. Start here: Audit log for account changes in Rule. 4 threads wait in Inbox.",
+      ),
     );
   });
 
