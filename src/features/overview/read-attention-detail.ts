@@ -3,6 +3,7 @@ import {
   listNodeEvidence,
   listNodeExternalActions,
   listNodeProposals,
+  readNodeRevision,
 } from "@/api/resources/mission";
 import { listNodeExecutions } from "@/api/resources/scheduler";
 import type { MissionAssessment, MissionProposal } from "@/api/types";
@@ -86,6 +87,11 @@ async function readFollowup(target: DetailTarget): Promise<FollowupDetail> {
   return {
     kind: "followup",
     key: detailKeyOf(node),
+    revisions: await settle(
+      Promise.all(
+        (target.proposedRevisions ?? []).map((revision) => readNodeRevision(node.id, revision)),
+      ),
+    ),
     executions: await settle(
       node.attempt === 0
         ? Promise.resolve([])

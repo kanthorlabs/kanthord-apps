@@ -65,6 +65,7 @@ vi.mock("@/api/resources/mission", () => ({
   discardNode: vi.fn(),
   listUndecidedFindings: vi.fn(),
   listNodeRevisions: vi.fn(),
+  readNodeRevision: vi.fn(),
   decideFinding: vi.fn(),
   createFinding: vi.fn(),
   updateFinding: vi.fn(),
@@ -108,6 +109,7 @@ import {
   overrideNode,
   pauseNode,
   readMission,
+  readNodeRevision,
   removeDependency,
   resumeNode,
   unblockNode,
@@ -163,6 +165,7 @@ import type {
   MissionNodeRecord,
   MissionProposal,
   MissionProposalDecideResult,
+  MissionRevision,
   NodeState,
   Project,
   RepositoryActionName,
@@ -594,6 +597,14 @@ function serve(world: World) {
   });
   vi.mocked(listNodeLinkUpdates).mockResolvedValue([]);
   vi.mocked(listNodeRevisions).mockResolvedValue([]);
+  vi.mocked(readNodeRevision).mockImplementation(
+    async (nodeId, revision) =>
+      ({
+        node_id: nodeId,
+        revision,
+        content: { name: `Sign-up form, revision ${revision}` },
+      }) as unknown as MissionRevision,
+  );
   vi.mocked(listNodeAssessments).mockImplementation(async (nodeId) => [
     assessment(nodeId, world.rationales?.[nodeId] ?? "The criterion is not met."),
   ]);
@@ -1768,6 +1779,8 @@ describe("OverviewScreen follow-up proposal", () => {
       const traces = await within(item).findAllByRole("button", { name: "Last trace" });
       expect(traces.map((link) => link.getAttribute("href"))).toEqual(["/traces/trace_last"]);
       expect(within(item).getByText("Revision 2 of Sign-up form")).toBeInTheDocument();
+      expect(await within(item).findByText("Sign-up form, revision 2")).toBeInTheDocument();
+      expect(readNodeRevision).toHaveBeenCalledWith("n_f", 2);
       expect(listProjectFollowups).toHaveBeenCalledTimes(2);
     },
   );

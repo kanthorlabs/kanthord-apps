@@ -38,8 +38,10 @@ import {
   evidenceWindowOf,
   failureLimitOf,
   findingWhatTextOf,
+  followupDetailOf,
   impactHeldTextOf,
   noCauseTextOf,
+  proposedNameOf,
   showProposalsOf,
   spreadOf,
 } from "@/lib/board-section-facts";
@@ -269,17 +271,28 @@ function FindingSection({
   );
 }
 
-function FollowupSection({ item }: { readonly item: FollowupItem }) {
+function FollowupSection({
+  item,
+  details,
+}: {
+  readonly item: FollowupItem;
+  readonly details: AttentionDetails;
+}) {
+  const detail = followupDetailOf(item, details);
   return (
     <Section title="Follow-up proposal">
       <ul aria-label="Open follow-up proposals" className="flex flex-col gap-2">
-        {item.proposals.map((proposal) => (
-          <li key={proposal.id} className={`flex flex-col gap-0.5 text-sm ${TEXT_WIDTH}`}>
-            <span className="font-medium">
-              Revision {proposal.content.node_revision} of {item.node.content.name}
-            </span>
-          </li>
-        ))}
+        {item.proposals.map((proposal) => {
+          const name = proposedNameOf(detail, proposal.content.node_revision);
+          return (
+            <li key={proposal.id} className={`flex flex-col gap-0.5 text-sm ${TEXT_WIDTH}`}>
+              <span className="font-medium">
+                Revision {proposal.content.node_revision} of {item.node.content.name}
+              </span>
+              {name !== null && <span>{name}</span>}
+            </li>
+          );
+        })}
       </ul>
     </Section>
   );
@@ -466,7 +479,7 @@ export function BoardSections({
       {item.kind === "finding_review" && findings !== null && (
         <FindingSection item={item} acts={findings} />
       )}
-      {item.kind === "followup_proposal" && <FollowupSection item={item} />}
+      {item.kind === "followup_proposal" && <FollowupSection item={item} details={details} />}
       {item.kind === "inbox_item" && <InboxMessageSection item={item} />}
       <Section title="Impact">
         {spread !== null && <p className={`text-sm ${TEXT_WIDTH}`}>{spread}</p>}
