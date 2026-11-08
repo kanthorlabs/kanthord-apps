@@ -31,6 +31,7 @@ const DETAIL: WorkerInstanceDetail = {
   name: "mac-studio",
   worker: "coder@1",
   placement: "worker",
+  machine: "m-01",
   revision: 3,
   public_key: "k",
   fingerprint: "f",

@@ -110,7 +110,7 @@ function serveOAuthCopies() {
 }
 
 function holderLine(holder: string) {
-  const text = `${holder} keeps its own secret. Sign in again on its worker instance page.`;
+  const text = `${holder} keeps its own secret. Sign in again on its machine page or its worker instance page.`;
   return (_content: string, element: Element | null) =>
     element?.tagName === "P" && element.textContent === text;
 }
@@ -354,11 +354,29 @@ describe("BoardRotateSheet", () => {
 
     expect(within(sheet).getByText(holderLine("mac-studio"))).toBeVisible();
     expect(within(sheet).getByText(holderLine("linux-box"))).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: "Open machines" })).toHaveAttribute(
+      "href",
+      "/machines",
+    );
     expect(within(sheet).getByRole("button", { name: "Open workers" })).toHaveAttribute(
       "href",
       "/workers",
     );
     expect(within(sheet).queryByText(/seals it to the current key of each holder/)).toBeNull();
+  });
+
+  it("ends the holder lines with Open machines and then Open workers", async () => {
+    serveOAuthCopies();
+    render(<Harness />);
+    const sheet = await openSheet();
+
+    const lines = within(sheet).getAllByText(/keeps its own secret/);
+    const links = within(sheet).getAllByRole("button", { name: /^Open (machines|workers)$/ });
+    expect(links.map((link) => link.textContent)).toEqual(["Open machines", "Open workers"]);
+    expect(
+      lines[lines.length - 1]!.compareDocumentPosition(links[0]!) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("shows the seal sentence and no holder line for an API key credential", async () => {
@@ -368,6 +386,7 @@ describe("BoardRotateSheet", () => {
     expect(within(sheet).getByText(/seals it to the current key of each holder/)).toBeVisible();
     expect(within(sheet).queryByText(/keeps its own secret/)).toBeNull();
     expect(within(sheet).queryByRole("button", { name: "Open workers" })).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Open machines" })).toBeNull();
   });
 
   it("gates Rotate until the platforms answer", async () => {
@@ -404,14 +423,17 @@ describe("BoardRotateSheet", () => {
     expect(latest.parentElement).toHaveClass("[&>*]:min-h-11", "lg:[&>*]:min-h-0");
   });
 
-  it("gives Open workers a 44 px minimum height below 1024 px", async () => {
-    serveOAuthCopies();
-    render(<Harness />);
-    const sheet = await openSheet();
+  it.each(["Open machines", "Open workers"])(
+    "gives %s a 44 px minimum height below 1024 px",
+    async (name) => {
+      serveOAuthCopies();
+      render(<Harness />);
+      const sheet = await openSheet();
 
-    const workers = within(sheet).getByRole("button", { name: "Open workers" });
-    expect(workers.parentElement).toHaveClass("[&>*]:min-h-11", "lg:[&>*]:min-h-0");
-  });
+      const link = within(sheet).getByRole("button", { name });
+      expect(link.parentElement).toHaveClass("[&>*]:min-h-11", "lg:[&>*]:min-h-0");
+    },
+  );
 
   it("shows no Close button in the sheet", async () => {
     render(<Harness />);
@@ -454,6 +476,7 @@ describe("BoardRotateSheet", () => {
 
     expect(within(sheet).queryByText(/keeps its own secret/)).toBeNull();
     expect(within(sheet).queryByRole("button", { name: "Open workers" })).toBeNull();
+    expect(within(sheet).queryByRole("button", { name: "Open machines" })).toBeNull();
     expect(within(sheet).queryByText("Also rotate on")).toBeNull();
     expect(within(sheet).queryByText(/seals it to the current key of each holder/)).toBeNull();
     await userEvent.type(within(sheet).getByLabelText("Refresh Token"), "rt-2");

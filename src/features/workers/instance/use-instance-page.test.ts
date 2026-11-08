@@ -18,6 +18,7 @@ const DETAIL: WorkerInstanceDetail = {
   name: "mac-studio",
   worker: "coder@1",
   placement: "worker",
+  machine: "m-01",
   revision: 1,
   public_key: "k",
   fingerprint: "SHA256:f",
@@ -95,6 +96,7 @@ const ROUTER_ENTRY: CredentialPlatformEntry = {
 
 const ROUTER_COPY: InstanceCredentialCopy = {
   name: "atlas-router",
+  holder: "mac-studio",
   revision: 2,
   platform: "openai-compatible",
   sealed_current: true,
@@ -104,6 +106,7 @@ const ROUTER_COPY: InstanceCredentialCopy = {
     failure_reason: "rate_limited",
     models: [{ id: "qwen3-coder", owned_by: null, created: null }],
     reported_at: 7,
+    reported_by: "mac-studio",
   },
 };
 
@@ -135,6 +138,7 @@ describe("credentialRowsOf", () => {
         failure_reason: "held_by_instance",
         models: null,
         reported_at: null,
+        reported_by: null,
       },
     };
     const [fresh, stale] = credentialRowsOf(

@@ -19,7 +19,7 @@ import { asApiError } from "@/hooks/use-resource";
 import { loginModeOf } from "@/lib/credential-draft";
 import { credentialDetailPath } from "@/lib/credential-sections";
 import { returnToOf } from "@/lib/return-to";
-import { credentialMessage } from "../credential-message";
+import { credentialMessage, LOGIN_INSTANCE_UNAVAILABLE } from "../credential-message";
 
 export const LOGIN_POLL_MS = 2000;
 
@@ -52,12 +52,20 @@ function failureMessage(cause: unknown): string {
   return credentialMessage(asApiError(cause));
 }
 
+function startFailureMessage(cause: unknown, unavailable: string | null): string {
+  const error = asApiError(cause);
+  return error.detail === LOGIN_INSTANCE_UNAVAILABLE && unavailable !== null
+    ? unavailable
+    : credentialMessage(error);
+}
+
 export function useCredentialLogin(
   component: CredentialComponent,
   modes: readonly CredentialLoginMode[],
   onCreated?: (name: string) => void,
   holder: string | null = null,
   announce = true,
+  unavailable: string | null = null,
 ): CredentialLoginState {
   const navigate = useNavigate();
   const returnTo = returnToOf(useLocation().state);
@@ -131,11 +139,11 @@ export function useCredentialLogin(
         },
         (cause: unknown) => {
           setStarting(false);
-          setStartError(failureMessage(cause));
+          setStartError(startFailureMessage(cause, unavailable));
         },
       );
     },
-    [starting, mode, holder],
+    [starting, mode, holder, unavailable],
   );
 
   const clearStartError = useCallback(() => setStartError(null), []);

@@ -100,19 +100,31 @@ export function BoardRotateSheet({ rotate }: { readonly rotate: BoardRotate }) {
                 {rotate.keptHolders.map((holder) => (
                   <p key={holder} className="text-sm">
                     <RecordName>{holder}</RecordName> keeps its own secret. Sign in again on its
-                    worker instance page.
+                    machine page or its worker instance page.
                   </p>
                 ))}
-                <TouchTarget>
-                  <Button
-                    nativeButton={false}
-                    variant="outline"
-                    size="sm"
-                    render={<Link to="/workers" />}
-                  >
-                    Open workers
-                  </Button>
-                </TouchTarget>
+                <div className="flex flex-wrap gap-2">
+                  <TouchTarget>
+                    <Button
+                      nativeButton={false}
+                      variant="outline"
+                      size="sm"
+                      render={<Link to="/machines" />}
+                    >
+                      Open machines
+                    </Button>
+                  </TouchTarget>
+                  <TouchTarget>
+                    <Button
+                      nativeButton={false}
+                      variant="outline"
+                      size="sm"
+                      render={<Link to="/workers" />}
+                    >
+                      Open workers
+                    </Button>
+                  </TouchTarget>
+                </div>
               </div>
             )}
           </div>

@@ -50,7 +50,7 @@ export function rotateTargetsOf(
 }
 
 export function useInstanceCredentialRotate(
-  instanceName: string,
+  holder: string,
   reload: () => void,
 ): InstanceCredentialRotateState {
   const [copy, setCopy] = useState<InstanceCredentialCopy | null>(null);
@@ -61,10 +61,8 @@ export function useInstanceCredentialRotate(
   const [submitting, setSubmitting] = useState(false);
   const others = useResource(
     async () =>
-      copy === null
-        ? []
-        : rotateTargetsOf(await listAllCredentials("llm"), copy.name, instanceName),
-    [copy?.name, instanceName],
+      copy === null ? [] : rotateTargetsOf(await listAllCredentials("llm"), copy.name, holder),
+    [copy?.name, holder],
   );
 
   const start = useCallback((next: InstanceCredentialCopy) => {
@@ -87,7 +85,7 @@ export function useInstanceCredentialRotate(
       return;
     }
     const targets: readonly RotateTarget[] = [
-      { holder: instanceName, expectedRevision: copy.revision },
+      { holder, expectedRevision: copy.revision },
       ...(others.data ?? []).filter((target) => alsoRotateOn.includes(target.holder)),
     ];
     setErrors({});
@@ -119,7 +117,7 @@ export function useInstanceCredentialRotate(
       }
       setOutcome(lines);
     });
-  }, [submitting, copy, secret, instanceName, others.data, alsoRotateOn, reload]);
+  }, [submitting, copy, secret, holder, others.data, alsoRotateOn, reload]);
 
   return {
     copy,

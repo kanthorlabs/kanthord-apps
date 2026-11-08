@@ -3,6 +3,7 @@ import {
   listNodeEvidence,
   listNodeExternalActions,
   listNodeProposals,
+  readNodeRevision,
 } from "@/api/resources/mission";
 import { listNodeExecutions } from "@/api/resources/scheduler";
 import type { MissionAssessment, MissionProposal } from "@/api/types";
@@ -18,6 +19,7 @@ import {
   type OpenDetail,
   type PausedDetail,
 } from "@/lib/attention";
+import { isFixProposal } from "@/lib/proposal-kind";
 
 async function settle<T>(read: Promise<T>): Promise<DetailRead<T>> {
   try {
@@ -35,7 +37,8 @@ async function readAssessment(target: DetailTarget): Promise<MissionAssessment |
 }
 
 async function readProposals(target: DetailTarget): Promise<readonly MissionProposal[]> {
-  return target.node.intent === "examine" ? listNodeProposals(target.node.id) : [];
+  if (target.node.intent !== "examine") return [];
+  return (await listNodeProposals(target.node.id)).filter(isFixProposal);
 }
 
 async function readBlocked(target: DetailTarget): Promise<BlockedDetail> {
@@ -84,6 +87,11 @@ async function readFollowup(target: DetailTarget): Promise<FollowupDetail> {
   return {
     kind: "followup",
     key: detailKeyOf(node),
+    revisions: await settle(
+      Promise.all(
+        (target.proposedRevisions ?? []).map((revision) => readNodeRevision(node.id, revision)),
+      ),
+    ),
     executions: await settle(
       node.attempt === 0
         ? Promise.resolve([])

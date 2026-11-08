@@ -176,7 +176,7 @@ describe("readOverviewSnapshot follow-up proposals", () => {
         node_id: "n1",
         attempt: 1,
         assessment_id: null,
-        content: { name: "Reply on the issue", requirement: "r", criterion: "c" },
+        content: { node_revision: 1 },
         created_node_id: null,
         approved_at: null,
         rejected_at: null,

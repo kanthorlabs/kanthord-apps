@@ -38,14 +38,22 @@ export function FollowupDecisionDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <ul aria-label="Open follow-up proposals" className="flex flex-col gap-2">
-          {decision.proposals.map((proposal) => (
-            <li key={proposal.id} className="flex flex-col gap-0.5 text-sm break-words">
-              <span className="font-medium">{proposal.content.name}</span>
-              <span>Requirement: {proposal.content.requirement}</span>
-              <span>Criterion: {proposal.content.criterion}</span>
+          {(decision.revisions.data ?? []).map(({ proposalId, revision }) => (
+            <li key={proposalId} className="flex flex-col gap-0.5 text-sm break-words">
+              <span className="font-medium">{revision.content.name}</span>
+              <span>Requirement: {revision.content.requirement}</span>
+              <span>Criterion: {revision.content.criterion}</span>
             </li>
           ))}
         </ul>
+        {decision.revisions.error !== null && (
+          <p role="alert" className="text-sm text-destructive">
+            {decision.revisions.error.message}
+          </p>
+        )}
+        {decision.revisions.data === null && decision.revisions.error === null && (
+          <p className="text-sm text-muted-foreground">Loading the proposed revision.</p>
+        )}
         <section aria-label="Newest link updates" className="flex flex-col gap-1">
           <h4 className="text-sm font-medium">Newest link updates</h4>
           {decision.updates.error !== null && (

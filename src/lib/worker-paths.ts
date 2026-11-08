@@ -19,3 +19,7 @@ export function instancePagePath(
 ): string {
   return `/workers/${encodeURIComponent(workerName)}/instances/${encodeURIComponent(instanceName)}${projectQuery(projectId)}`;
 }
+
+export function machinePagePath(machineName: string): string {
+  return `/machines/${encodeURIComponent(machineName)}`;
+}

@@ -12,6 +12,7 @@ import { registerEnvironments } from "./environments.mjs";
 import { registerFootprint } from "./footprint.mjs";
 import * as fx from "./fixtures.mjs";
 import { registerInstances } from "./instances.mjs";
+import { registerMachines } from "./machines.mjs";
 import * as pr from "./prompts.mjs";
 import { registerTracking } from "./tracking.mjs";
 import { registerWorkbench } from "./workbench.mjs";
@@ -1363,20 +1364,11 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/outcome$/, (m, _b, res, _t, url) =>
   ),
 );
 
-on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) =>
-  json(
-    res,
-    200,
-    page(
-      byAttempt(
-        stateOfNode(decodeURIComponent(m[1]))?.proposals ?? [],
-        decodeURIComponent(m[1]),
-        url,
-      ),
-      url,
-    ),
-  ),
-);
+on("GET", /^\/api\/mission\/node\/([^/]+)\/proposal$/, (m, _b, res, _t, url) => {
+  const state = stateOfNode(decodeURIComponent(m[1]));
+  const rows = [...(state?.proposals ?? []), ...(state?.followups.filter(isOpenProposal) ?? [])];
+  return json(res, 200, page(byAttempt(rows, decodeURIComponent(m[1]), url), url));
+});
 
 on("GET", /^\/api\/mission\/node\/([^/]+)\/link-update$/, (m, _b, res, _t, url) =>
   json(res, 200, page(fx.GRAPH_LINK_UPDATES[decodeURIComponent(m[1])] ?? [], url)),
@@ -1677,6 +1669,9 @@ on("GET", /^\/api\/mission\/project\/([^/]+)\/followup$/, (m, _b, res, _t, url) 
 const followupNodeOf = (state, proposal, body) => {
   const source = graphNodeById(proposal.node_id);
   const stem = `followup-${proposal.id.slice("followup_".length).toLowerCase()}`;
+  const proposed = graphRevisions(source).find(
+    (item) => item.revision === proposal.content.node_revision,
+  ).content;
   return {
     id: nodeIdOf(),
     filename: `${stem}.md`,
@@ -1686,9 +1681,9 @@ const followupNodeOf = (state, proposal, body) => {
     tasks: [],
     visible_revision: 1,
     content: {
-      name: proposal.content.name,
-      requirement: body.requirement ?? proposal.content.requirement,
-      criterion: body.criterion ?? proposal.content.criterion,
+      name: proposed.name,
+      requirement: body.requirement ?? proposed.requirement,
+      criterion: body.criterion ?? proposed.criterion,
       verifications: source.content.verifications,
       bindings: source.content.bindings,
       intent: "implement",
@@ -2944,6 +2939,21 @@ const metadataIsValid = (platform, metadata) => {
   );
 };
 
+const liveHolder = (name) => {
+  const instance = instanceRoutes.liveInstance(name);
+  if (instance !== null) return instance.record.placement === "worker" ? instance.record : null;
+  return machineRoutes.liveMachine(name);
+};
+
+const hasConnectedRunner = (name) => {
+  const instance = instanceRoutes.liveInstance(name);
+  const runners =
+    instance === null
+      ? instanceRoutes.instancesOf(name).filter((item) => item.record.ended_at === null)
+      : [instance];
+  return runners.some((item) => item.connection !== null);
+};
+
 const holderOf = (url) => url?.searchParams.get("holder") ?? SERVER_HOLDER;
 
 const findCredential = (res, component, encoded, holder = SERVER_HOLDER) => {
@@ -3258,14 +3268,14 @@ on("POST", credentialRoute(""), (m, b, res) => {
     return credentialEnvelope(res, 400, "credential.sealed.invalid", "Only an LLM copy is sealed.");
   }
   const unknownHolder = holders.find(
-    (holder) => holder !== SERVER_HOLDER && instanceRoutes.liveInstance(holder) === null,
+    (holder) => holder !== SERVER_HOLDER && liveHolder(holder) === null,
   );
   if (unknownHolder !== undefined) {
     return credentialEnvelope(
       res,
       400,
-      "llm.credential.instance_unknown",
-      "The holder names no live worker instance.",
+      "llm.credential.holder_unknown",
+      "The holder names no live machine and no live worker instance.",
       { holder: unknownHolder },
     );
   }
@@ -3296,12 +3306,12 @@ on("POST", credentialRoute(""), (m, b, res) => {
   if (!secretIsValid(shape, b.secret)) return refuseInvalidInput(res);
   if (!metadataIsValid(b.platform, b.metadata)) return refuseInvalidInput(res);
   const copies = holders.map((holder) => {
-    const instance = holder === SERVER_HOLDER ? null : instanceRoutes.liveInstance(holder);
+    const record = holder === SERVER_HOLDER ? null : liveHolder(holder);
     return {
       name: b.name,
       platform: b.platform,
       holder,
-      sealed_to: instance === null ? null : instance.record.fingerprint,
+      sealed_to: record === null ? null : record.fingerprint,
       sealed_current: true,
       revisions: [
         {
@@ -3349,36 +3359,36 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
     );
   }
   const holder = b.holder ?? SERVER_HOLDER;
-  const instance = holder === SERVER_HOLDER ? null : instanceRoutes.liveInstance(holder);
-  if (holder !== SERVER_HOLDER && instance === null) {
+  const record = holder === SERVER_HOLDER ? null : liveHolder(holder);
+  if (holder !== SERVER_HOLDER && record === null) {
     return credentialEnvelope(
       res,
       400,
-      "llm.credential.instance_unknown",
-      "The holder names no live worker instance.",
+      "llm.credential.holder_unknown",
+      "The holder names no live machine and no live worker instance.",
       { holder },
     );
   }
-  if (instance !== null && b.mode === "browser") {
+  if (record !== null && b.mode === "browser") {
     return credentialEnvelope(
       res,
       400,
       "credential.login.mode_unsupported",
-      "A worker instance signs in in copy_code or device mode only.",
+      "A machine or a worker instance signs in in copy_code or device mode only.",
     );
   }
-  if (instance !== null && instance.connection === null) {
+  if (record !== null && !hasConnectedRunner(holder)) {
     return credentialEnvelope(
       res,
       409,
       "credential.login.instance_unavailable",
-      "The worker instance holds no current connection.",
+      "No connected instance can run the sign-in.",
       { holder },
     );
   }
   const taken = credentials.find((item) => item.name === b.name && item.holder === holder);
-  if (taken !== undefined && instance !== null && refuseArchived(res, taken)) return undefined;
-  if (taken !== undefined && (instance === null || taken.sealed_current)) {
+  if (taken !== undefined && record !== null && refuseArchived(res, taken)) return undefined;
+  if (taken !== undefined && (record === null || taken.sealed_current)) {
     return credentialEnvelope(
       res,
       409,
@@ -3405,7 +3415,7 @@ on("POST", /^\/api\/llm\/credential\/login$/, (_m, b, res) => {
     platform: b.platform,
     name: b.name,
     holder,
-    sealedTo: instance === null ? null : instance.record.fingerprint,
+    sealedTo: record === null ? null : record.fingerprint,
     state: "pending",
     startedAt: now,
     expires_at: now + LOGIN_EXPIRY_MS,
@@ -3441,7 +3451,7 @@ const settleLogin = (session) => {
   );
   const keyChanged =
     session.holder !== SERVER_HOLDER &&
-    instanceRoutes.liveInstance(session.holder)?.record.fingerprint !== session.sealedTo;
+    liveHolder(session.holder)?.fingerprint !== session.sealedTo;
   const refusal = keyChanged
     ? "credential.sealed.invalid"
     : stale === undefined
@@ -3535,8 +3545,7 @@ on("POST", credentialRoute("\\/([^/]+)\\/revision"), (m, b, res, _t, url) => {
   if (!metadataIsValid(credential.platform, metadata)) return refuseInvalidInput(res);
   storedSecrets.set(credential.name, b.secret);
   if (credential.holder !== SERVER_HOLDER) {
-    credential.sealed_to =
-      instanceRoutes.liveInstance(credential.holder)?.record.fingerprint ?? null;
+    credential.sealed_to = liveHolder(credential.holder)?.fingerprint ?? null;
     credential.sealed_current = credential.sealed_to !== null;
   }
   return addRevision(credential, metadata, res);
@@ -3608,7 +3617,20 @@ on("POST", credentialRoute("\\/([^/]+)\\/archive"), (m, _b, res) => {
   return json(res, 200, credential);
 });
 
-const instanceRoutes = registerInstances({
+let instanceRoutes;
+
+const machineRoutes = registerMachines({
+  on,
+  json,
+  envelope: projectEnvelope,
+  page,
+  credentials,
+  copiesOf: (holder) => instanceRoutes.copiesOf(holder),
+  instancesOf: (machine) => instanceRoutes.instancesOf(machine),
+  instanceNames: () => instanceRoutes.instanceNames(),
+});
+
+instanceRoutes = registerInstances({
   on,
   json,
   envelope: projectEnvelope,
@@ -3618,6 +3640,8 @@ const instanceRoutes = registerInstances({
   agents,
   containerBlockReason: () =>
     STABLE_PLACEMENT_REASONS.includes(containerReason) ? containerReason : null,
+  liveMachine: machineRoutes.liveMachine,
+  machineNames: machineRoutes.machineNames,
 });
 
 registerWorkbench({
