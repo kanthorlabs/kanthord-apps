@@ -21,18 +21,17 @@ import { SecretFields } from "@/features/credentials/components/secret-fields";
 import { LoginSession } from "@/features/credentials/form/components/login-session";
 import { missingHint } from "@/lib/missing-fields";
 import { OPENAI_COMPATIBLE } from "@/lib/credential-draft";
+import { type CopyHolder, copySignInNote } from "@/lib/instance-credential-draft";
 import type { InstanceCredentialAddState } from "../use-instance-credential-add";
 import { HolderToggle } from "./holder-toggle";
 
-function CopyFields({ add }: { add: InstanceCredentialAddState }) {
+function CopyFields({ add, kind }: { add: InstanceCredentialAddState; kind: CopyHolder["kind"] }) {
   const entry = add.entry;
   if (entry === null) return null;
   if (add.signIn) {
     return (
       <FieldDescription className="md:col-span-2">
-        The instance runs this sign-in in{" "}
-        {entry.login_modes.includes("copy_code") ? "copy-code" : "device-code"} mode and seals the
-        result to its own key. The instance must be connected.
+        {copySignInNote(kind, entry.login_modes.includes("copy_code"))}
       </FieldDescription>
     );
   }
@@ -85,11 +84,8 @@ function CopyFields({ add }: { add: InstanceCredentialAddState }) {
       <HolderToggle
         id="credential-also-seal-to"
         label="Also seal to"
-        description="The server seals one copy for each selected instance and keeps no plaintext."
-        groups={(add.groups.data ?? []).map((group) => ({
-          label: group.worker,
-          names: group.names,
-        }))}
+        description="The server seals one copy for each selected holder and keeps no plaintext."
+        groups={add.groups.data ?? []}
         value={add.alsoSealTo}
         onChange={add.setAlsoSealTo}
       />
@@ -98,10 +94,10 @@ function CopyFields({ add }: { add: InstanceCredentialAddState }) {
 }
 
 export function CredentialAddSheet({
-  instanceName,
+  holder,
   add,
 }: {
-  instanceName: string;
+  holder: CopyHolder;
   add: InstanceCredentialAddState;
 }) {
   const session = add.login.session;
@@ -115,8 +111,8 @@ export function CredentialAddSheet({
         <SheetHeader>
           <SheetTitle>Add credential</SheetTitle>
           <SheetDescription>
-            An LLM credential copy held by <RecordName>{instanceName}</RecordName>. The server
-            stores only the copy sealed to the key of the instance.
+            An LLM credential copy held by <RecordName>{holder.name}</RecordName>. The server stores
+            only the copy sealed to the key of the {holder.kind}.
           </SheetDescription>
         </SheetHeader>
         {session !== null ? (
@@ -151,6 +147,25 @@ export function CredentialAddSheet({
                   description="The name that the agent providers use. A name holds one platform over every holder."
                   onChange={add.setName}
                 />
+                {add.machineReadError !== null && (
+                  <Alert variant="destructive">
+                    <AlertTitle>The copies of the machine could not be read.</AlertTitle>
+                    <AlertDescription>{add.machineReadError.message}</AlertDescription>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={add.retryMachineRead}
+                    >
+                      Retry
+                    </Button>
+                  </Alert>
+                )}
+                {add.overridesMachine !== null && (
+                  <FieldDescription>
+                    {`The instance uses this copy in place of the copy of machine ${add.overridesMachine}.`}
+                  </FieldDescription>
+                )}
                 <Field>
                   <FieldLabel htmlFor="instance-credential-platform">Platform</FieldLabel>
                   <PlatformCombobox
@@ -160,7 +175,7 @@ export function CredentialAddSheet({
                     onValueChange={add.selectPlatform}
                   />
                 </Field>
-                <CopyFields add={add} />
+                <CopyFields add={add} kind={holder.kind} />
               </FieldGroup>
             </div>
             <SheetFooter>

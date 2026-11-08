@@ -131,6 +131,7 @@ function instance(
     name,
     worker: "coder@1",
     placement,
+    machine: null,
     revision: 1,
     public_key: "key",
     fingerprint: "SHA256:key",

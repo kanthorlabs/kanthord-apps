@@ -15,10 +15,10 @@ import type { InstanceCredentialRotateState } from "../use-instance-credential-r
 import { HolderToggle } from "./holder-toggle";
 
 export function CredentialRotateSheet({
-  instanceName,
+  holder,
   rotate,
 }: {
-  instanceName: string;
+  holder: string;
   rotate: InstanceCredentialRotateState;
 }) {
   const copy = rotate.copy;
@@ -29,7 +29,7 @@ export function CredentialRotateSheet({
           <SheetTitle>Rotate {copy?.name}</SheetTitle>
           <SheetDescription>
             The new secret becomes the next revision of the copy held by{" "}
-            <RecordName>{instanceName}</RecordName>. The server seals it to the current key of each
+            <RecordName>{holder}</RecordName>. The server seals it to the current key of each
             holder.
           </SheetDescription>
         </SheetHeader>

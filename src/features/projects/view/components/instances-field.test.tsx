@@ -16,6 +16,7 @@ function instanceItem(name: string, placement: WorkerPlacement): WorkerInstanceL
     name,
     worker: "coder@1",
     placement,
+    machine: null,
     revision: 1,
     public_key: null,
     fingerprint: null,

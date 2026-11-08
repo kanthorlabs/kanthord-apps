@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   ListOrdered,
   MessagesSquare,
+  Server,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -35,6 +36,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { to: "/timeline", label: "Timeline", icon: History, group: "Work" },
   { to: "/analytics", label: "Analytics", icon: ChartColumn, group: "Work" },
   { to: "/workers", label: "Workers", icon: Boxes, group: "Workforce" },
+  { to: "/machines", label: "Machines", icon: Server, group: "Workforce" },
   { to: "/agents", label: "Agents", icon: Bot, group: "Workforce" },
   { to: "/workbench", label: "Workbench", icon: MessagesSquare, group: "Workforce" },
   { to: "/llm", label: "LLM", icon: BrainCircuit, group: "Credentials" },

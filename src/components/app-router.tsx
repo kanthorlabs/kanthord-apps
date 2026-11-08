@@ -9,6 +9,9 @@ import { CredentialScreen } from "@/features/credentials/view/credential-screen"
 import { FootprintScreen } from "@/features/footprint/list/footprint-screen";
 import { FootprintCleanupScreen } from "@/features/footprint/view/footprint-cleanup-screen";
 import { FootprintKindScreen } from "@/features/footprint/view/footprint-kind-screen";
+import { MachineFormScreen } from "@/features/machines/form/machine-form-screen";
+import { MachinesScreen } from "@/features/machines/list/machines-screen";
+import { MachineScreen } from "@/features/machines/view/machine-screen";
 import { OnboardingScreen } from "@/features/onboarding/onboarding-screen";
 import { ProjectFormScreen } from "@/features/projects/form/project-form-screen";
 import { ProjectsScreen } from "@/features/projects/list/projects-screen";
@@ -58,6 +61,9 @@ export function AppRouter() {
               path="workers/:workerName/instances/:instanceName"
               element={<InstanceScreen />}
             />
+            <Route path="machines" element={<MachinesScreen />} />
+            <Route path="machines/new" element={<MachineFormScreen />} />
+            <Route path="machines/:machineName" element={<MachineScreen />} />
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
             <Route path="workbench" element={<SessionsScreen />} />

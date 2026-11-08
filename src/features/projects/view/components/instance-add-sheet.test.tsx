@@ -32,6 +32,7 @@ function answerOf(name: string, placement: "server" | "container"): WorkerInstan
     name,
     worker: "coder@1",
     placement,
+    machine: null,
     revision: 1,
     public_key: null,
     fingerprint: null,

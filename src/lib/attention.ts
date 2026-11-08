@@ -10,6 +10,7 @@ import type {
   MissionFollowupProposal,
   MissionNodeRecord,
   MissionProposal,
+  MissionRevision,
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
@@ -89,6 +90,7 @@ export interface ExternalDetail {
 export interface FollowupDetail {
   readonly kind: "followup";
   readonly key: string;
+  readonly revisions: DetailRead<readonly MissionRevision[]>;
   readonly executions: DetailRead<readonly SchedulerExecutionRecord[]>;
 }
 
@@ -186,6 +188,7 @@ export interface DetailTarget {
   readonly kind: "blocked" | "paused" | "open" | "external" | "followup";
   readonly projectId: string;
   readonly node: MissionNodeRecord;
+  readonly proposedRevisions?: readonly number[];
 }
 
 const DELIVERY_GRACE_MS = 10 * 60_000;
@@ -524,8 +527,16 @@ export function detailTargetsOf(snapshots: readonly ProjectSnapshot[]): readonly
         return [{ kind: "open", projectId: snapshot.project.id, node }];
       if (node.state === "External.Requested")
         return [{ kind: "external", projectId: snapshot.project.id, node }];
-      if (isTerminal(node.state) && openFollowupsOf(snapshot.followups, node.id).length > 0)
-        return [{ kind: "followup", projectId: snapshot.project.id, node }];
+      const followups = openFollowupsOf(snapshot.followups, node.id);
+      if (isTerminal(node.state) && followups.length > 0)
+        return [
+          {
+            kind: "followup",
+            projectId: snapshot.project.id,
+            node,
+            proposedRevisions: followups.map((followup) => followup.content.node_revision),
+          },
+        ];
       return [];
     }),
   );

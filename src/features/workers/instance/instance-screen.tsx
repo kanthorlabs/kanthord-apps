@@ -1,11 +1,4 @@
-import {
-  ArchiveIcon,
-  KeyRoundIcon,
-  ListPlusIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  UnlinkIcon,
-} from "lucide-react";
+import { ArchiveIcon, KeyRoundIcon, PlusIcon, UnlinkIcon } from "lucide-react";
 import { type ReactNode, type RefObject, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
@@ -22,37 +15,31 @@ import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { utcDateTime } from "@/lib/format";
 import { nodePath } from "@/lib/node-path";
+import type { CopyHolder } from "@/lib/instance-credential-draft";
 import { instancePlacementNoteOf } from "@/lib/placement-status";
-import { workerPagePath } from "@/lib/worker-paths";
+import { machinePagePath, workerPagePath } from "@/lib/worker-paths";
 import { usePlacementStatuses } from "../worker/use-placement-statuses";
 import { ArchiveInstanceDialog } from "./components/archive-instance-dialog";
 import { CopyModelsSheet } from "./components/copy-models-sheet";
 import { CredentialAddSheet } from "./components/credential-add-sheet";
 import { CredentialRotateSheet } from "./components/credential-rotate-sheet";
+import { CredentialRows } from "./components/credential-rows";
 import { DetachInstanceDialog } from "./components/detach-instance-dialog";
 import { ResetKeyDialog } from "./components/reset-key-dialog";
 import { SignInAgainSheet } from "./components/sign-in-again-sheet";
 import { type InstanceArchiveState, useInstanceArchive } from "./use-instance-archive";
-import { type InstanceCopyModelsState, useInstanceCopyModels } from "./use-instance-copy-models";
+import { useInstanceCopyModels } from "./use-instance-copy-models";
 import { useInstanceCredentialAdd } from "./use-instance-credential-add";
 import { type InstanceDetachState, useInstanceDetach } from "./use-instance-detach";
-import {
-  type InstanceCredentialRotateState,
-  useInstanceCredentialRotate,
-} from "./use-instance-credential-rotate";
+import { useInstanceCredentialRotate } from "./use-instance-credential-rotate";
 import {
   type InstanceBindingRow,
-  type InstanceCopyHealthLine,
-  type InstanceCredentialRow,
   type InstancePage,
   type InstanceRegistrationRow,
   useInstancePage,
 } from "./use-instance-page";
 import { useInstanceReset } from "./use-instance-reset";
-import { type InstanceSignInState, useInstanceSignIn } from "./use-instance-sign-in";
-
-const SIGN_IN_AGAIN_LIVE =
-  "The copy is live. The server refuses a new sign-in while the copy is sealed to the current key of the instance.";
+import { useInstanceSignIn } from "./use-instance-sign-in";
 
 function SectionHeading({ id, title, action }: { id: string; title: string; action?: ReactNode }) {
   return (
@@ -111,6 +98,16 @@ function InstanceHeader({
             {instance.worker}
           </Link>
         </dd>
+        {instance.machine !== null && (
+          <>
+            <dt className="text-muted-foreground">Machine</dt>
+            <dd className="min-w-0 break-all">
+              <Link to={machinePagePath(instance.machine)} className="underline underline-offset-4">
+                {instance.machine}
+              </Link>
+            </dd>
+          </>
+        )}
         {keyed && (
           <>
             <dt className="text-muted-foreground">Fingerprint</dt>
@@ -301,124 +298,6 @@ function RegistrationRows({
   );
 }
 
-function CopyHealthLine({
-  health,
-  instanceName,
-}: {
-  health: InstanceCopyHealthLine;
-  instanceName: string;
-}) {
-  if (health.reportedAt === null) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No report from <RecordName>{instanceName}</RecordName> for this revision since the server
-        start.
-      </p>
-    );
-  }
-  return (
-    <p className="text-sm">
-      {health.hint !== null && `${health.hint} `}Reported by <RecordName>{instanceName}</RecordName>{" "}
-      at {utcDateTime(health.reportedAt)}.
-    </p>
-  );
-}
-
-function CopyAction({
-  row,
-  rotate,
-  models,
-  signIn,
-}: {
-  row: InstanceCredentialRow;
-  rotate: InstanceCredentialRotateState;
-  models: InstanceCopyModelsState;
-  signIn: InstanceSignInState;
-}) {
-  if (row.shape === "oauth") {
-    const icon = <KeyRoundIcon aria-hidden="true" data-icon="inline-start" />;
-    if (row.copy.sealed_current) {
-      return <DisabledAction label="Sign in again" reason={SIGN_IN_AGAIN_LIVE} icon={icon} />;
-    }
-    return (
-      <Button variant="outline" size="sm" onClick={() => signIn.start(row)}>
-        {icon}
-        Sign in again
-      </Button>
-    );
-  }
-  if (row.shape !== "api_key") return null;
-  return (
-    <>
-      {row.modelsEditable && (
-        <Button variant="outline" size="sm" onClick={() => models.start(row)}>
-          <ListPlusIcon aria-hidden="true" data-icon="inline-start" />
-          Edit models
-        </Button>
-      )}
-      <Button variant="outline" size="sm" onClick={() => rotate.start(row.copy)}>
-        <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
-        Rotate
-      </Button>
-    </>
-  );
-}
-
-function CredentialRows({
-  rows,
-  instanceName,
-  archived,
-  rotate,
-  models,
-  signIn,
-}: {
-  rows: readonly InstanceCredentialRow[];
-  instanceName: string;
-  archived: boolean;
-  rotate: InstanceCredentialRotateState;
-  models: InstanceCopyModelsState;
-  signIn: InstanceSignInState;
-}) {
-  if (rows.length === 0) return <EmptyLine title="No credential copies." />;
-  return (
-    <ItemGroup aria-label="Credentials" className="gap-2">
-      {rows.map((row) => {
-        const copy = row.copy;
-        return (
-          <DataListItem
-            key={copy.name}
-            title={
-              <>
-                <span className="font-mono break-all">{copy.name}</span> · {copy.platform}{" "}
-                <span className="text-muted-foreground tabular-nums">(v{copy.revision})</span>
-              </>
-            }
-            status={
-              row.health === null ? (
-                <Badge variant="destructive">Re-enter</Badge>
-              ) : (
-                <Badge variant={row.health.variant}>{row.health.label}</Badge>
-              )
-            }
-            notice={
-              row.health === null ? (
-                <p className="text-sm">Re-enter: sealed to an ended key.</p>
-              ) : (
-                <CopyHealthLine health={row.health} instanceName={instanceName} />
-              )
-            }
-            actions={
-              archived ? undefined : (
-                <CopyAction row={row} rotate={rotate} models={models} signIn={signIn} />
-              )
-            }
-          />
-        );
-      })}
-    </ItemGroup>
-  );
-}
-
 function ArchiveButton({
   archive,
   control,
@@ -492,10 +371,11 @@ function InstanceDetail({
     reload,
     archiveControl,
   );
-  const add = useInstanceCredentialAdd(instance.name, reload);
+  const holder: CopyHolder = { name: instance.name, kind: "instance" };
+  const add = useInstanceCredentialAdd(holder, instance.machine, reload);
   const rotate = useInstanceCredentialRotate(instance.name, reload);
   const models = useInstanceCopyModels(instance.name);
-  const signIn = useInstanceSignIn(instance.name, reload);
+  const signIn = useInstanceSignIn(holder, reload);
   const detach = useInstanceDetach(reload);
 
   return (
@@ -539,7 +419,7 @@ function InstanceDetail({
           />
           <CredentialRows
             rows={page.credentialRows}
-            instanceName={instance.name}
+            holder={holder}
             archived={archived}
             rotate={rotate}
             models={models}
@@ -581,9 +461,9 @@ function InstanceDetail({
       <DetachInstanceDialog detach={detach} />
       {page.keyed && (
         <>
-          <CredentialAddSheet instanceName={instance.name} add={add} />
-          <CredentialRotateSheet instanceName={instance.name} rotate={rotate} />
-          <SignInAgainSheet instanceName={instance.name} signIn={signIn} />
+          <CredentialAddSheet holder={holder} add={add} />
+          <CredentialRotateSheet holder={instance.name} rotate={rotate} />
+          <SignInAgainSheet holder={holder} signIn={signIn} />
         </>
       )}
       {models.target !== null && (

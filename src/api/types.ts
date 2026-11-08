@@ -114,6 +114,7 @@ export interface WorkerInstance {
   readonly name: string;
   readonly worker: string;
   readonly placement: WorkerPlacement;
+  readonly machine: string | null;
   readonly revision: number;
   readonly public_key: string | null;
   readonly fingerprint: string | null;
@@ -141,10 +142,12 @@ export interface ReportedModel {
 export interface CopyHealth extends HealthEntry {
   readonly models: readonly ReportedModel[] | null;
   readonly reported_at: number | null;
+  readonly reported_by: string | null;
 }
 
 export interface InstanceCredentialCopy {
   readonly name: string;
+  readonly holder: string;
   readonly revision: number;
   readonly platform: CredentialPlatform;
   readonly sealed_current: boolean;
@@ -166,8 +169,41 @@ export interface WorkerInstanceCreateBody {
   readonly name: string;
   readonly worker: string;
   readonly placement: WorkerPlacement;
+  readonly machine?: string;
   readonly public_key?: string;
   readonly endpoint?: string;
+}
+
+export interface WorkerMachine {
+  readonly id: string;
+  readonly name: string;
+  readonly revision: number;
+  readonly public_key: string;
+  readonly fingerprint: string;
+  readonly created_at: number;
+  readonly ended_at: number | null;
+}
+
+export interface WorkerMachineListItem extends WorkerMachine {
+  readonly instance_count: number;
+}
+
+export interface WorkerMachineInstance extends WorkerInstance {
+  readonly connection: InstanceConnection | null;
+}
+
+export interface WorkerMachineDetail extends WorkerMachine {
+  readonly instances: readonly WorkerMachineInstance[];
+  readonly credentials: readonly InstanceCredentialCopy[];
+}
+
+export interface WorkerMachineWriteAnswer extends WorkerMachine {
+  readonly machine_configuration?: string;
+}
+
+export interface WorkerMachineCreateBody {
+  readonly name: string;
+  readonly public_key?: string;
 }
 
 export interface WorkerInstanceArchiveBody {
@@ -963,9 +999,7 @@ export interface MissionProposal {
 }
 
 export interface MissionFollowupContent {
-  readonly name: string;
-  readonly requirement: string;
-  readonly criterion: string;
+  readonly node_revision: number;
 }
 
 export interface MissionFollowupProposal {
@@ -979,6 +1013,8 @@ export interface MissionFollowupProposal {
   readonly rejected_at: number | null;
   readonly created_at: number;
 }
+
+export type MissionNodeProposal = MissionProposal | MissionFollowupProposal;
 
 export interface MissionFollowupDecideBody {
   readonly expected_mission_version: number;

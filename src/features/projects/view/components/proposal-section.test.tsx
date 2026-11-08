@@ -7,6 +7,7 @@ import { ApiError } from "@/api/errors";
 import * as missionApi from "@/api/resources/mission";
 import type {
   Intent,
+  MissionFollowupProposal,
   MissionNodeRecord,
   MissionProposal,
   MissionProposalDecideResult,
@@ -120,6 +121,18 @@ const APPROVED: MissionProposal = {
   approved_at: 1,
 };
 
+const FOLLOWUP: MissionFollowupProposal = {
+  id: "followup_open",
+  node_id: "node_team",
+  attempt: 2,
+  assessment_id: null,
+  content: { node_revision: 3 },
+  created_node_id: null,
+  approved_at: null,
+  rejected_at: null,
+  created_at: 0,
+};
+
 const CHANGE = {
   revisions: [],
   retired_node_ids: [],
@@ -190,6 +203,24 @@ describe("ProposalSection", () => {
 
   it("renders nothing for an examine node without proposals", async () => {
     vi.mocked(missionApi.listNodeProposals).mockResolvedValue([]);
+    mount();
+
+    await vi.waitFor(() => expect(missionApi.listNodeProposals).toHaveBeenCalledWith("node_team"));
+    expect(screen.queryByRole("region", { name: "Fix proposals" })).toBeNull();
+  });
+
+  it("shows the fix proposals of a mixed list and no follow-up row", async () => {
+    vi.mocked(missionApi.listNodeProposals).mockResolvedValue([FOLLOWUP, OPEN]);
+    mount();
+
+    const items = await screen.findAllByRole("listitem");
+    expect(items).toHaveLength(1);
+    expect(within(items[0]!).getByText("Fix the invite link reuse")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Decide" })).toBeEnabled();
+  });
+
+  it("renders nothing for a list that holds only a follow-up proposal", async () => {
+    vi.mocked(missionApi.listNodeProposals).mockResolvedValue([FOLLOWUP]);
     mount();
 
     await vi.waitFor(() => expect(missionApi.listNodeProposals).toHaveBeenCalledWith("node_team"));

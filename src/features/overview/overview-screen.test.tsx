@@ -65,6 +65,7 @@ vi.mock("@/api/resources/mission", () => ({
   discardNode: vi.fn(),
   listUndecidedFindings: vi.fn(),
   listNodeRevisions: vi.fn(),
+  readNodeRevision: vi.fn(),
   decideFinding: vi.fn(),
   createFinding: vi.fn(),
   updateFinding: vi.fn(),
@@ -108,6 +109,7 @@ import {
   overrideNode,
   pauseNode,
   readMission,
+  readNodeRevision,
   removeDependency,
   resumeNode,
   unblockNode,
@@ -163,6 +165,7 @@ import type {
   MissionNodeRecord,
   MissionProposal,
   MissionProposalDecideResult,
+  MissionRevision,
   NodeState,
   Project,
   RepositoryActionName,
@@ -594,6 +597,14 @@ function serve(world: World) {
   });
   vi.mocked(listNodeLinkUpdates).mockResolvedValue([]);
   vi.mocked(listNodeRevisions).mockResolvedValue([]);
+  vi.mocked(readNodeRevision).mockImplementation(
+    async (nodeId, revision) =>
+      ({
+        node_id: nodeId,
+        revision,
+        content: { name: `Sign-up form, revision ${revision}` },
+      }) as unknown as MissionRevision,
+  );
   vi.mocked(listNodeAssessments).mockImplementation(async (nodeId) => [
     assessment(nodeId, world.rationales?.[nodeId] ?? "The criterion is not met."),
   ]);
@@ -1810,13 +1821,13 @@ describe("OverviewScreen dependency items with an open attempt", () => {
   });
 });
 
-function followup(nodeId: string, name: string): MissionFollowupProposal {
+function followup(nodeId: string, nodeRevision: number): MissionFollowupProposal {
   return {
     id: `followup_${nodeId}`,
     node_id: nodeId,
     attempt: 1,
     assessment_id: null,
-    content: { name, requirement: "Reply on the issue.", criterion: "The issue holds a reply." },
+    content: { node_revision: nodeRevision },
     created_node_id: null,
     approved_at: null,
     rejected_at: null,
@@ -1830,7 +1841,7 @@ describe("OverviewScreen follow-up proposal", () => {
     async (state) => {
       serve({
         nodes: { "prj-1": [plain("n_f", "Sign-up form", state)] },
-        followups: { "prj-1": [followup("n_f", "Reply on the issue")] },
+        followups: { "prj-1": [followup("n_f", 2)] },
         executions: { n_f: [ended("e1", "n_f", { trace_id: "trace_last" })] },
       });
 
@@ -1840,15 +1851,31 @@ describe("OverviewScreen follow-up proposal", () => {
       expect(await within(item).findByRole("button", { name: "Decide" })).toBeEnabled();
       const traces = await within(item).findAllByRole("button", { name: "Last trace" });
       expect(traces.map((link) => link.getAttribute("href"))).toEqual(["/traces/trace_last"]);
-      expect(within(item).getByText("Reply on the issue")).toBeInTheDocument();
+      expect(within(item).getByText("Revision 2 of Sign-up form")).toBeInTheDocument();
+      expect(await within(item).findByText("Sign-up form, revision 2")).toBeInTheDocument();
+      expect(readNodeRevision).toHaveBeenCalledWith("n_f", 2);
       expect(listProjectFollowups).toHaveBeenCalledTimes(2);
     },
   );
 
+  it("shows an error when the proposed revision read fails", async () => {
+    serve({
+      nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] },
+      followups: { "prj-1": [followup("n_f", 2)] },
+    });
+    vi.mocked(readNodeRevision).mockRejectedValue(new Error("revision unavailable"));
+
+    renderScreen();
+
+    const item = await findDetail();
+    expect(await within(item).findByText("Could not read the proposed revision.")).toBeVisible();
+    expect(within(item).getByText("Revision 2 of Sign-up form")).toBeInTheDocument();
+  });
+
   it("reads the follow-up proposals once for each project", async () => {
     serve({
       nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] },
-      followups: { "prj-1": [followup("n_f", "Reply on the issue")] },
+      followups: { "prj-1": [followup("n_f", 2)] },
     });
 
     renderScreen();
@@ -1865,7 +1892,7 @@ describe("OverviewScreen follow-up proposal", () => {
     const user = userEvent.setup();
     serve({
       nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] },
-      followups: { "prj-1": [followup("n_f", "Reply on the issue")] },
+      followups: { "prj-1": [followup("n_f", 2)] },
     });
     vi.mocked(decideFollowup).mockResolvedValue({});
     renderScreen();
@@ -5105,7 +5132,7 @@ describe("OverviewScreen inbox detail and acts", () => {
   it("selects the card of the terminal node in Decide proposal with Decide follow-up", async () => {
     const user = userEvent.setup();
     openWorld([thread("link_update_a", { linked_node_ids: ["n_done"] })], {
-      followups: { "prj-1": [followup("n_done", "Reply on the issue")] },
+      followups: { "prj-1": [followup("n_done", 2)] },
     });
     const detail = await openDetail();
 

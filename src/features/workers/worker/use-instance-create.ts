@@ -2,14 +2,16 @@ import { useCallback, useMemo, useState } from "react";
 
 import { isApiError } from "@/api/errors";
 import { createWorkerInstance } from "@/api/resources/worker-instances";
+import { listWorkerMachines } from "@/api/resources/worker-machines";
 import type {
   PlacementReason,
   WorkerInstanceCreateBody,
   WorkerInstanceWriteAnswer,
   WorkerPlacement,
 } from "@/api/types";
-import { asApiError } from "@/hooks/use-resource";
+import { asApiError, useResource } from "@/hooks/use-resource";
 import { type ContainerRuntime, type HostKind, instanceNameError } from "@/lib/instance-host";
+import { MACHINE_INVALID, machineMessage } from "@/features/machines/machine-message";
 import { placementChoicesOf, placementReasonText } from "@/lib/placement-status";
 import { type HostAddressState, useHostAddress } from "../use-host-address";
 import { type PlacementCard, placementCardsOf } from "./placement-cards";
@@ -39,6 +41,10 @@ export interface InstanceCreateState {
   readonly name: string;
   readonly placement: WorkerPlacement;
   readonly cards: readonly PlacementCard[];
+  readonly machine: string;
+  readonly machines: readonly string[];
+  readonly machinesLoading: boolean;
+  readonly machinesError: string | null;
   readonly host: HostAddressState;
   readonly errors: Readonly<Record<string, string>>;
   readonly failure: string | null;
@@ -50,6 +56,7 @@ export interface InstanceCreateState {
   readonly dismiss: () => void;
   readonly setName: (name: string) => void;
   readonly selectPlacement: (value: unknown) => void;
+  readonly selectMachine: (value: string | null) => void;
   readonly submit: () => void;
 }
 
@@ -93,6 +100,7 @@ function fieldErrorOf(
     };
   }
   if (cause.detail === NAME_INVALID) return { name: cause.message };
+  if (cause.detail === MACHINE_INVALID) return { machine: machineMessage(cause) };
   return null;
 }
 
@@ -100,12 +108,22 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
   const [open, setOpen] = useState(false);
   const [name, setNameValue] = useState("");
   const [placement, setPlacement] = useState<WorkerPlacement>("server");
+  const [machine, setMachine] = useState("");
   const [opening, setOpening] = useState(0);
   const [errors, setErrors] = useState<Readonly<Record<string, string>>>({});
   const [failure, setFailure] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<InstanceCreateResult | null>(null);
   const host = useHostAddress(open);
+  const liveMachines = useResource(
+    () => (open ? listWorkerMachines() : Promise.resolve([])),
+    [open, opening],
+  );
+  const machines = useMemo(
+    () =>
+      (liveMachines.data ?? []).filter((item) => item.ended_at === null).map((item) => item.name),
+    [liveMachines.data],
+  );
   const resetHost = host.reset;
   const statuses = usePlacementStatuses(opening);
   const choices = useMemo(() => placementChoicesOf(statuses), [statuses]);
@@ -118,6 +136,7 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
   const start = useCallback(() => {
     setNameValue("");
     setPlacement("server");
+    setMachine("");
     setOpening((count) => count + 1);
     setErrors({});
     setFailure(null);
@@ -158,6 +177,14 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
     [cards],
   );
 
+  const selectMachine = useCallback((value: string | null) => {
+    setMachine(value ?? "");
+    setErrors((current) => {
+      const { machine: _dropped, ...rest } = current;
+      return rest;
+    });
+  }, []);
+
   const submit = useCallback(() => {
     if (submitting) return;
     const atWorker = placement === "worker";
@@ -167,6 +194,7 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
     const next: Record<string, string> = {};
     if (nameError !== null) next["name"] = nameError;
     if (card?.disabled) next["placement"] = card.description;
+    if (atWorker && machine === "") next["machine"] = "Choose the machine that runs the instance.";
     if (atWorker && host.kind === null) next["kind"] = "Choose where the instance runs.";
     if (atWorker && addressError !== null) next["address"] = addressError;
     setErrors(next);
@@ -176,7 +204,7 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
     const reasonText = (reason: PlacementReason) =>
       placementReasonText(reason, containerDetail, choices.runtime);
     const body: WorkerInstanceCreateBody = atWorker
-      ? { name, worker: workerName, placement, endpoint: host.address.trim() }
+      ? { name, worker: workerName, placement, machine, endpoint: host.address.trim() }
       : { name, worker: workerName, placement };
     setSubmitting(true);
     setFailure(null);
@@ -203,11 +231,23 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
         else setFailure(asApiError(cause).message);
       },
     );
-  }, [submitting, placement, name, host, cards, choices, containerDetail, workerName, onCreated]);
+  }, [
+    submitting,
+    placement,
+    name,
+    machine,
+    host,
+    cards,
+    choices,
+    containerDetail,
+    workerName,
+    onCreated,
+  ]);
 
   const atWorker = placement === "worker";
   const missing = [
     ...(name.length === 0 ? ["Name"] : []),
+    ...(atWorker && machine === "" ? ["Machine"] : []),
     ...(atWorker && host.kind === null ? ["Where does it run?"] : []),
     ...(atWorker && host.kind !== null && host.address.trim().length === 0 ? ["Address"] : []),
   ];
@@ -217,6 +257,10 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
     name,
     placement,
     cards,
+    machine,
+    machines,
+    machinesLoading: liveMachines.loading,
+    machinesError: liveMachines.error?.message ?? null,
     host,
     errors,
     failure,
@@ -228,6 +272,7 @@ export function useInstanceCreate(workerName: string, onCreated: () => void): In
     dismiss,
     setName,
     selectPlacement,
+    selectMachine,
     submit,
   };
 }
