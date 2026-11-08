@@ -2359,7 +2359,7 @@ describe("BindingsPanel", () => {
           "absent",
           { name: "pull_request", follows: FOLLOWS, landing: "kanthord" },
         ],
-        ["a merge_push action", "absent", { name: "merge_push", follows: FOLLOWS }],
+        ["a push action", "absent", { name: "push", follows: FOLLOWS }],
         ["no action", "absent", undefined],
       ] as const)("shows no proposal for %s", async (_name, suitePass, action) => {
         const region = await openSection(suitePass, action);

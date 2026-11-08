@@ -31,6 +31,7 @@ import { BoardSkeleton } from "./components/board-skeleton";
 import { BoardSummary } from "./components/board-summary";
 import { BoardTabs } from "./components/board-tabs";
 import { FootprintAlert } from "./components/footprint-alert";
+import { AbsentSourcesNote } from "./components/absent-sources-note";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
 import { useBoard } from "./use-board";
@@ -309,7 +310,14 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
               failure={overview.livenessFailure}
             />
             <FootprintAlert />
-            {readFault && <ReadFaultsAlert faults={overview.faults} onRetry={overview.refresh} />}
+            {readFault && (
+              <ReadFaultsAlert
+                faults={overview.faults}
+                onRetry={overview.retryFaults}
+                disabled={overview.snapshotRunning}
+              />
+            )}
+            {overview.absent.length > 0 && <AbsentSourcesNote sources={overview.absent} />}
             {!expanded && filter}
             <BoardSummary
               summary={board.summary}

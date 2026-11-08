@@ -16,7 +16,9 @@ export interface PolledResource<T> {
   readonly loading: boolean;
   readonly updatedAt: number | null;
   readonly now: number;
+  readonly running: boolean;
   readonly refresh: () => void;
+  readWith(read: (previous: T | null) => Promise<T>): void;
 }
 
 interface State<T> {
@@ -26,15 +28,22 @@ interface State<T> {
   readonly settled: boolean;
   readonly updatedAt: number | null;
   readonly now: number;
+  readonly running: boolean;
 }
 
-interface Controls {
+interface Job<T> {
+  readonly read: (previous: T | null) => Promise<T>;
+  readonly keepsUpdatedAt: boolean;
+}
+
+interface Controls<T> {
   readonly refresh: () => void;
+  readonly readWith: (read: (previous: T | null) => Promise<T>) => void;
   readonly resume: () => void;
 }
 
 function initial<T>(key: string): State<T> {
-  return { key, data: null, error: null, settled: false, updatedAt: null, now: 0 };
+  return { key, data: null, error: null, settled: false, updatedAt: null, now: 0, running: false };
 }
 
 function scopedTo<T>(state: State<T>, key: string): State<T> {
@@ -52,27 +61,32 @@ export function usePolledResource<T>(
   const readRef = useRef(read);
   const holdRef = useRef(hold);
   const heldBefore = useRef(hold);
-  const controls = useRef<Controls | null>(null);
+  const dataRef = useRef<T | null>(null);
+  const controls = useRef<Controls<T> | null>(null);
 
   useEffect(() => {
     readRef.current = read;
     holdRef.current = hold;
+    dataRef.current = state.data;
   });
 
   useEffect(() => {
     let live = true;
     let running = false;
-    let queued = false;
+    let queued: Job<T> | null = null;
     let settledAt = 0;
 
-    const begin = (queueWhenRunning: boolean) => {
+    const polled = (): Job<T> => ({ read: () => readRef.current(), keepsUpdatedAt: false });
+
+    const begin = (job: Job<T>, queueWhenRunning: boolean) => {
       if (running) {
-        if (queueWhenRunning) queued = true;
+        if (queueWhenRunning && (queued === null || !job.keepsUpdatedAt)) queued = job;
         return;
       }
       running = true;
-      readRef
-        .current()
+      setStored((current) => ({ ...scopedTo(current, key), running: true }));
+      job
+        .read(dataRef.current)
         .then(
           (value) => {
             if (live) {
@@ -82,7 +96,7 @@ export function usePolledResource<T>(
                 data: value,
                 error: null,
                 settled: true,
-                updatedAt: now,
+                updatedAt: job.keepsUpdatedAt ? scopedTo(current, key).updatedAt : now,
                 now,
               }));
             }
@@ -102,21 +116,27 @@ export function usePolledResource<T>(
         .finally(() => {
           running = false;
           settledAt = Date.now();
-          if (!queued || !live) return;
-          queued = false;
-          begin(false);
+          if (live) setStored((current) => ({ ...scopedTo(current, key), running: false }));
+          if (queued === null || !live) return;
+          const next = queued;
+          queued = null;
+          begin(next, false);
         });
     };
 
     const visible = () => document.visibilityState === "visible";
     const resume = () => {
-      if (visible() && !holdRef.current) begin(false);
+      if (visible() && !holdRef.current) begin(polled(), false);
     };
     const onFocus = () => {
       if (Date.now() - settledAt >= FOCUS_MIN_AGE_MS) resume();
     };
 
-    controls.current = { refresh: () => begin(true), resume };
+    controls.current = {
+      refresh: () => begin(polled(), true),
+      readWith: (read) => begin({ read, keepsUpdatedAt: true }, true),
+      resume,
+    };
     const timer = setInterval(resume, intervalMs);
     document.addEventListener("visibilitychange", resume);
     window.addEventListener("focus", onFocus);
@@ -137,6 +157,10 @@ export function usePolledResource<T>(
   }, [hold]);
 
   const refresh = useCallback(() => controls.current?.refresh(), []);
+  const readWith = useCallback(
+    (read: (previous: T | null) => Promise<T>) => controls.current?.readWith(read),
+    [],
+  );
 
   return {
     data: state.data,
@@ -144,6 +168,8 @@ export function usePolledResource<T>(
     loading: !state.settled,
     updatedAt: state.updatedAt,
     now: state.now,
+    running: state.running,
     refresh,
+    readWith,
   };
 }

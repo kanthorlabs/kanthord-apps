@@ -9,9 +9,10 @@ import type { ReadFault } from "../read-overview-snapshot";
 interface ReadFaultsAlertProps {
   readonly faults: readonly ReadFault[];
   readonly onRetry: () => void;
+  readonly disabled?: boolean;
 }
 
-export function ReadFaultsAlert({ faults, onRetry }: ReadFaultsAlertProps) {
+export function ReadFaultsAlert({ faults, onRetry, disabled = false }: ReadFaultsAlertProps) {
   return (
     <Alert variant="destructive">
       <AlertDescription className="break-words">
@@ -30,7 +31,7 @@ export function ReadFaultsAlert({ faults, onRetry }: ReadFaultsAlertProps) {
         . The list can miss items.
       </AlertDescription>
       <div className="mt-2 flex md:justify-end">
-        <Button variant="outline" size="sm" onClick={onRetry}>
+        <Button variant="outline" size="sm" disabled={disabled} onClick={onRetry}>
           Retry
         </Button>
       </div>

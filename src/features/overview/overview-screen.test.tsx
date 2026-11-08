@@ -1262,6 +1262,22 @@ describe("OverviewScreen states", () => {
     expect(screen.queryByRole("listitem")).toBeNull();
   });
 
+  it("notes the sources that the server does not offer and shows no read fault", async () => {
+    const absent = new ApiError("not_found", "No route.", 404, "gateway.routing.not_found");
+    serve({ nodes: { "prj-1": [plain("n_a", "A", "Pending")] } });
+    vi.mocked(listProjectFollowups).mockRejectedValue(absent);
+    vi.mocked(listInboxItems).mockRejectedValue(absent);
+
+    renderScreen();
+
+    expect(
+      await screen.findByText("Not available on this server: follow-up proposals, inbox."),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/Not available on this server/)).toHaveLength(1);
+    expect(screen.queryByText(/Some records could not be read/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
   it("replaces All clear with a notice that names the missing records", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [], "prj-2": [] } });
@@ -1290,6 +1306,63 @@ describe("OverviewScreen states", () => {
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("All clear")).toBeInTheDocument();
+  });
+
+  it("reads only the failed queue on Retry and not the whole overview", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [], "prj-2": [] } });
+    vi.mocked(listQueueJobs).mockImplementation(async (projectId) => {
+      if (projectId === "prj-2") throw new ApiError("unreachable", "The daemon did not answer.", 0);
+      return [];
+    });
+    renderScreen();
+    expect(
+      await screen.findByText(textContent(/Some records could not be read: atlas queue/)),
+    ).toBeInTheDocument();
+    vi.mocked(listQueueJobs).mockImplementation(async () => []);
+    for (const read of [listProjects, readMission, listMissionNodes, listWorkbenchSessions]) {
+      vi.mocked(read).mockClear();
+    }
+    vi.mocked(listQueueJobs).mockClear();
+    vi.mocked(listInboxItems).mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(listQueueJobs).toHaveBeenCalledTimes(1);
+    expect(listQueueJobs).toHaveBeenCalledWith("prj-2");
+    expect(listProjects).not.toHaveBeenCalled();
+    expect(readMission).not.toHaveBeenCalled();
+    expect(listMissionNodes).not.toHaveBeenCalled();
+    expect(listWorkbenchSessions).not.toHaveBeenCalled();
+    expect(listInboxItems).not.toHaveBeenCalled();
+  });
+
+  it("disables Retry while the retry runs", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [], "prj-2": [] } });
+    vi.mocked(listQueueJobs).mockImplementation(async (projectId) => {
+      if (projectId === "prj-2") throw new ApiError("unreachable", "The daemon did not answer.", 0);
+      return [];
+    });
+    renderScreen();
+    expect(
+      await screen.findByText(textContent(/Some records could not be read: atlas queue/)),
+    ).toBeInTheDocument();
+    let finish: () => void = () => undefined;
+    vi.mocked(listQueueJobs).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve([]);
+        }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(screen.getByRole("button", { name: "Retry" })).toBeDisabled();
+    await act(async () => finish());
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
   });
 
   it("sets a 44 px minimum height below 1024 px on the Refresh button", async () => {
@@ -2694,7 +2767,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
   it("lists a push as unconfirmed after 10 minutes and names it", async () => {
     serve({
       nodes: { "prj-1": [outside("n_o", "Publish the changelog")] },
-      actions: { n_o: [requested("n_o", "unresolved", { action: "merge_push" })] },
+      actions: { n_o: [requested("n_o", "unresolved", { action: "push" })] },
       evidence: { n_o: [requestEvidence("n_o", AGED, null)] },
     });
 
@@ -2716,7 +2789,7 @@ describe("OverviewScreen waiting outside kanthord", () => {
   it("lists no fresh delivery and shows All clear", async () => {
     serve({
       nodes: { "prj-1": [outside("n_o", "Publish the changelog")] },
-      actions: { n_o: [requested("n_o", "unresolved", { action: "merge_push" })] },
+      actions: { n_o: [requested("n_o", "unresolved", { action: "push" })] },
       evidence: { n_o: [requestEvidence("n_o", NOW - 9 * 60_000, null)] },
     });
 
@@ -4711,8 +4784,10 @@ describe("OverviewScreen inbox tab", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByText(/Start here:/)).toHaveTextContent(
-      "1 act waits for you. 1 node waits on them. Start here: Audit log for account changes in Rule. 4 threads wait in Inbox.",
+    await waitFor(() =>
+      expect(screen.getByText(/Start here:/)).toHaveTextContent(
+        "1 act waits for you. 1 node waits on them. Start here: Audit log for account changes in Rule. 4 threads wait in Inbox.",
+      ),
     );
   });
 

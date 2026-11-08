@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { SchedulerExecutionRecord } from "@/api/types";
+import type { ExecutionStopReason, SchedulerExecutionRecord } from "@/api/types";
 
 import {
   endLabel,
@@ -42,6 +42,29 @@ function execution(
 }
 
 describe("stopLabel", () => {
+  const LABELS: Readonly<Record<ExecutionStopReason, string>> = {
+    operation_failed: "Operation failed",
+    judgement_invalid: "Judgement invalid",
+    report_absent: "Report absent",
+    action_unsettled: "Action unsettled",
+    assessment_absent: "Assessment absent",
+    budget_end: "Budget ended",
+    provider_failed: "Provider failed",
+    no_progress: "No progress",
+    environment_failed: "Environment failed",
+    instance_archived: "Instance archived",
+    worker_stopped: "Worker stopped",
+    human_paused: "Paused by a human",
+  };
+
+  it.each(Object.entries(LABELS))("labels the reason %s as %s", (reason, label) => {
+    expect(stopLabel({ reason: reason as ExecutionStopReason, code: null })).toBe(label);
+  });
+
+  it.each(Object.keys(LABELS))("renders no empty label for %s", (reason) => {
+    expect(stopLabel({ reason: reason as ExecutionStopReason, code: null })).not.toBe("");
+  });
+
   it("names the reason and the code of a provider failure", () => {
     expect(stopLabel({ reason: "provider_failed", code: "rate_limited" })).toBe(
       "Provider failed: rate limited",
