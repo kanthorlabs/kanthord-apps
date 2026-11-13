@@ -15,10 +15,10 @@ import { Button } from "@/components/ui/button";
 vi.mock("@/api/resources/credentials");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workers");
-vi.mock("@/features/overview/overview-screen", () => ({
-  OverviewScreen: ({ onResume }: { onResume?: () => void }) => (
+vi.mock("@/features/home/home-screen", () => ({
+  HomeScreen: ({ onResume }: { onResume?: () => void }) => (
     <>
-      <p>Overview body</p>
+      <p>Home body</p>
       {onResume !== undefined && <Button onClick={onResume}>Resume onboarding</Button>}
     </>
   ),
@@ -151,7 +151,7 @@ describe("OnboardingScreen", () => {
     ]);
     expect(within(stepOf("LLM credential")).getByText("Next")).toBeTruthy();
     expect(within(stepOf("SSH key")).getByText("Open")).toBeTruthy();
-    expect(screen.queryByText("Overview body")).toBeNull();
+    expect(screen.queryByText("Home body")).toBeNull();
   });
 
   it("opens the LLM form with the return path of Onboarding", async () => {
@@ -193,7 +193,7 @@ describe("OnboardingScreen", () => {
     expect(within(stepOf("Enabled agents")).getByText("Next")).toBeTruthy();
   });
 
-  it("titles the page and the breadcrumb Onboarding, then Overview after the skip", async () => {
+  it("titles the page and the breadcrumb Onboarding, then Home after the skip", async () => {
     serveEmpty();
     mount();
 
@@ -204,30 +204,30 @@ describe("OnboardingScreen", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Skip onboarding" }));
 
-    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeTruthy();
     expect(
-      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Overview"),
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Home"),
     ).toHaveAttribute("aria-current", "page");
   });
 
-  it("titles the page and the breadcrumb Overview when every step is done", async () => {
+  it("titles the page and the breadcrumb Home when every step is done", async () => {
     serveFull();
     mount();
 
-    await screen.findByText("Overview body");
-    expect(screen.getByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    await screen.findByText("Home body");
+    expect(screen.getByRole("heading", { level: 1, name: "Home" })).toBeTruthy();
     expect(
-      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Overview"),
+      within(screen.getByRole("navigation", { name: "breadcrumb" })).getByText("Home"),
     ).toHaveAttribute("aria-current", "page");
   });
 
-  it("skips to Overview and resumes Onboarding from it", async () => {
+  it("skips to Home and resumes Onboarding from it", async () => {
     serveEmpty();
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Skip onboarding" }));
 
-    expect(screen.getByText("Overview body")).toBeTruthy();
+    expect(screen.getByText("Home body")).toBeTruthy();
     expect(window.localStorage.getItem("kanthord.onboarding.skipped")).not.toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: "Resume onboarding" }));
@@ -237,22 +237,22 @@ describe("OnboardingScreen", () => {
     expect(window.localStorage.getItem("kanthord.onboarding.skipped")).toBeNull();
   });
 
-  it("shows Overview without the resume link when every step is done", async () => {
+  it("shows Home without the resume link when every step is done", async () => {
     serveFull();
     mount();
 
-    expect(await screen.findByText("Overview body")).toBeTruthy();
+    expect(await screen.findByText("Home body")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Resume onboarding" })).toBeNull();
   });
 
-  it("shows Overview on a set-up install when a read failed", async () => {
+  it("shows Home on a set-up install when a read failed", async () => {
     serveFull();
     vi.mocked(workersApi.listAgents).mockRejectedValue(
       new ApiError("unreachable", "The daemon did not answer.", 0),
     );
     mount();
 
-    expect(await screen.findByText("Overview body")).toBeTruthy();
+    expect(await screen.findByText("Home body")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Resume onboarding" })).toBeNull();
   });
 

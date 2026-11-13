@@ -98,11 +98,11 @@ function PaneEmpty({
   );
 }
 
-interface OverviewScreenProps {
+interface HomeScreenProps {
   readonly onResume?: () => void;
 }
 
-export function OverviewScreen({ onResume }: OverviewScreenProps) {
+export function HomeScreen({ onResume }: HomeScreenProps) {
   const overview = useOverview();
   const frame = useRef<HTMLDivElement>(null);
   const widthClass = useBoardWidth(frame);
@@ -218,7 +218,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
       }
     >
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
-        <h2 className="text-lg font-semibold">Overview</h2>
+        <h2 className="text-lg font-semibold">Home</h2>
         {onResume !== undefined && (
           <Button variant="link" size="sm" className="self-start" onClick={onResume}>
             Resume onboarding
@@ -270,7 +270,7 @@ export function OverviewScreen({ onResume }: OverviewScreenProps) {
 
       {overview.status === "error" && overview.error !== null && (
         <Alert variant="destructive">
-          <AlertTitle>The overview could not be read.</AlertTitle>
+          <AlertTitle>Home could not be read.</AlertTitle>
           <AlertDescription>{overview.error.message}</AlertDescription>
           <div className="mt-2 flex md:justify-end">
             <Button variant="outline" size="sm" onClick={overview.refresh}>

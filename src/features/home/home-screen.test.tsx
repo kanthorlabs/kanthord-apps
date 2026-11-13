@@ -180,7 +180,7 @@ import type {
 import { newUlid } from "@/lib/ulid";
 
 import { textContent } from "../../../test/text-content";
-import { OverviewScreen } from "./overview-screen";
+import { HomeScreen } from "./home-screen";
 
 function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
   const human = overrides.source === "human";
@@ -692,7 +692,7 @@ function Location() {
 function renderScreen(entry = "/", onResume?: () => void) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
-      <OverviewScreen onResume={onResume} />
+      <HomeScreen onResume={onResume} />
       <Location />
     </MemoryRouter>,
   );
@@ -798,7 +798,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("OverviewScreen onboarding link", () => {
+describe("HomeScreen onboarding link", () => {
   it("offers Resume onboarding while a setup step is open", async () => {
     serve({});
     const onResume = vi.fn();
@@ -828,12 +828,12 @@ describe("OverviewScreen onboarding link", () => {
 
     renderScreen();
 
-    expect(await screen.findByRole("heading", { name: "Overview" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Home" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Resume onboarding" })).toBeNull();
   });
 });
 
-describe("OverviewScreen board", () => {
+describe("HomeScreen board", () => {
   const world = () => ({
     nodes: {
       "prj-1": [blocked("n_a", "Audit log for account changes")],
@@ -852,7 +852,7 @@ describe("OverviewScreen board", () => {
     renderScreen();
 
     expect(await screen.findAllByRole("tab")).toHaveLength(7);
-    expect(screen.getByRole("heading", { level: 2, name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Home" })).toBeInTheDocument();
     const filter = screen.getByRole("group", { name: "Show the acts of" });
     expect(
       within(filter)
@@ -985,7 +985,7 @@ describe("OverviewScreen board", () => {
   });
 });
 
-describe("OverviewScreen scope", () => {
+describe("HomeScreen scope", () => {
   it("offers All first and shows both projects by default", async () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "A")], "prj-2": [blocked("n_b", "B")] } });
 
@@ -1052,7 +1052,7 @@ describe("OverviewScreen scope", () => {
   });
 });
 
-describe("OverviewScreen assessment", () => {
+describe("HomeScreen assessment", () => {
   it("reads the rationale and shows it as a quote of its actor", async () => {
     serve({
       nodes: {
@@ -1115,7 +1115,7 @@ describe("OverviewScreen assessment", () => {
   });
 });
 
-describe("OverviewScreen acts", () => {
+describe("HomeScreen acts", () => {
   it("offers Unblock and Discard for an implement node at once", async () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
     renderScreen();
@@ -1251,7 +1251,7 @@ describe("OverviewScreen acts", () => {
   });
 });
 
-describe("OverviewScreen states", () => {
+describe("HomeScreen states", () => {
   it("shows All clear when no node waits and every read succeeded", async () => {
     serve({ nodes: { "prj-1": [plain("n_a", "A", "Pending")] } });
 
@@ -1396,7 +1396,7 @@ describe("OverviewScreen states", () => {
 
     renderScreen();
 
-    expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Home" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Loading the board" })).toHaveAttribute(
       "aria-busy",
       "true",
@@ -1414,7 +1414,7 @@ describe("OverviewScreen states", () => {
     );
     renderScreen();
 
-    expect(await screen.findByText("The overview could not be read.")).toBeInTheDocument();
+    expect(await screen.findByText("Home could not be read.")).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Retry" }));
@@ -1423,7 +1423,7 @@ describe("OverviewScreen states", () => {
   });
 });
 
-describe("OverviewScreen paused items", () => {
+describe("HomeScreen paused items", () => {
   it("names the Failure limit with the stop of the last execution", async () => {
     serve({
       nodes: { "prj-1": [paused("n_p", "Compute the shipping rates")] },
@@ -1686,7 +1686,7 @@ describe("OverviewScreen paused items", () => {
   });
 });
 
-describe("OverviewScreen dependency items", () => {
+describe("HomeScreen dependency items", () => {
   const world = {
     nodes: {
       "prj-2": [
@@ -1740,7 +1740,7 @@ describe("OverviewScreen dependency items", () => {
   });
 });
 
-describe("OverviewScreen dependency items with an open attempt", () => {
+describe("HomeScreen dependency items with an open attempt", () => {
   function started(): MissionNodeRecord {
     return { ...pending("n_c", "Redirect the legacy links", ["n_b"]), attempt: 2 };
   }
@@ -1835,7 +1835,7 @@ function followup(nodeId: string, nodeRevision: number): MissionFollowupProposal
   };
 }
 
-describe("OverviewScreen follow-up proposal", () => {
+describe("HomeScreen follow-up proposal", () => {
   it.each<NodeState>(["Completed", "Discarded"])(
     "lists a %s node with an open follow-up proposal with Decide and Last trace",
     async (state) => {
@@ -1919,7 +1919,7 @@ describe("OverviewScreen follow-up proposal", () => {
   });
 });
 
-describe("OverviewScreen proposal decision", () => {
+describe("HomeScreen proposal decision", () => {
   it("decides the open proposals of an examine node with one Decide button", async () => {
     const user = userEvent.setup();
     serve({
@@ -1998,7 +1998,7 @@ function finding(
   });
 }
 
-describe("OverviewScreen review findings", () => {
+describe("HomeScreen review findings", () => {
   it("lists the undecided findings of a node in Decide proposal", async () => {
     serve({
       nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] },
@@ -2067,7 +2067,7 @@ describe("OverviewScreen review findings", () => {
   });
 });
 
-describe("OverviewScreen review finding decisions", () => {
+describe("HomeScreen review finding decisions", () => {
   function serveDecisions(initial: readonly MissionFinding[]) {
     const findings: Record<string, readonly MissionFinding[]> = { "prj-1": initial };
     serve({ nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] }, findings });
@@ -2159,7 +2159,7 @@ describe("OverviewScreen review finding decisions", () => {
   });
 });
 
-describe("OverviewScreen next card", () => {
+describe("HomeScreen next card", () => {
   function threeBlocked(): Record<string, MissionNodeRecord[]> {
     return {
       "prj-1": [
@@ -2296,7 +2296,7 @@ describe("OverviewScreen next card", () => {
   });
 });
 
-describe("OverviewScreen polling", () => {
+describe("HomeScreen polling", () => {
   it("holds the poll while a dialog is open and reads at once after it closes", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -2332,7 +2332,7 @@ describe("OverviewScreen polling", () => {
   });
 });
 
-describe("OverviewScreen override", () => {
+describe("HomeScreen override", () => {
   it("overrides a Blocked node with the result success", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
@@ -2439,7 +2439,7 @@ describe("OverviewScreen override", () => {
   });
 });
 
-describe("OverviewScreen resume", () => {
+describe("HomeScreen resume", () => {
   it("resumes a Paused node to Available at the Failure limit", async () => {
     const user = userEvent.setup();
     serve({
@@ -2586,7 +2586,7 @@ describe("OverviewScreen resume", () => {
   });
 });
 
-describe("OverviewScreen dependency removal", () => {
+describe("HomeScreen dependency removal", () => {
   it("removes the dependency on a Discarded node after the reason", async () => {
     const user = userEvent.setup();
     serve({
@@ -2656,7 +2656,7 @@ describe("OverviewScreen dependency removal", () => {
   });
 });
 
-describe("OverviewScreen dialog focus", () => {
+describe("HomeScreen dialog focus", () => {
   async function expectReasonFocused() {
     const dialog = await screen.findByRole("alertdialog");
     await waitFor(() => expect(within(dialog).getByLabelText("Reason")).toHaveFocus());
@@ -2727,7 +2727,7 @@ describe("OverviewScreen dialog focus", () => {
   });
 });
 
-describe("OverviewScreen waiting outside kanthord", () => {
+describe("HomeScreen waiting outside kanthord", () => {
   let AGED = 0;
 
   beforeEach(() => {
@@ -3109,7 +3109,7 @@ function providerStop(
   });
 }
 
-describe("OverviewScreen fixes", () => {
+describe("HomeScreen fixes", () => {
   it("lists a failed environment and opens its project", async () => {
     serve({ environments: { "prj-1": [failedEnvironment()] } });
     renderScreen();
@@ -3666,7 +3666,7 @@ describe("OverviewScreen fixes", () => {
   });
 });
 
-describe("OverviewScreen system health", () => {
+describe("HomeScreen system health", () => {
   it("names each unavailable component", async () => {
     serve({
       liveness: {
@@ -3730,7 +3730,7 @@ function session(
   };
 }
 
-describe("OverviewScreen tool approvals", () => {
+describe("HomeScreen tool approvals", () => {
   it("lists a session that waits for an approval with its agent, operation and age", async () => {
     serve({ sessions: [session("workbench_session_A")] });
 
@@ -3851,7 +3851,7 @@ describe("OverviewScreen tool approvals", () => {
   });
 });
 
-describe("OverviewScreen widths", () => {
+describe("HomeScreen widths", () => {
   function threeBlocked(): Record<string, MissionNodeRecord[]> {
     return {
       "prj-1": [
@@ -4050,7 +4050,7 @@ describe("OverviewScreen widths", () => {
   });
 });
 
-describe("OverviewScreen keyboard", () => {
+describe("HomeScreen keyboard", () => {
   function threeBlocked(): Record<string, MissionNodeRecord[]> {
     return {
       "prj-1": [
@@ -4273,7 +4273,7 @@ describe("OverviewScreen keyboard", () => {
   });
 });
 
-describe("OverviewScreen history and phone", () => {
+describe("HomeScreen history and phone", () => {
   function threeBlocked(): Record<string, MissionNodeRecord[]> {
     return {
       "prj-1": [
@@ -4308,7 +4308,7 @@ describe("OverviewScreen history and phone", () => {
             path="/"
             element={
               <>
-                <OverviewScreen />
+                <HomeScreen />
                 <Location />
               </>
             }
@@ -4686,7 +4686,7 @@ function thread(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
   };
 }
 
-describe("OverviewScreen inbox tab", () => {
+describe("HomeScreen inbox tab", () => {
   const THREADS: readonly InboxItem[] = [
     thread("link_update_a", { reason: "participating" }),
     thread("link_update_b", {
@@ -4868,7 +4868,7 @@ describe("OverviewScreen inbox tab", () => {
   });
 });
 
-describe("OverviewScreen inbox detail and acts", () => {
+describe("HomeScreen inbox detail and acts", () => {
   const RUN = plain("n_run", "Running node", "Executing");
   const DONE = plain("n_done", "Finished node", "Completed");
   const IDLE = plain("n_idle", "Paused node", "Paused");
@@ -5186,7 +5186,7 @@ describe("OverviewScreen inbox detail and acts", () => {
   });
 });
 
-describe("OverviewScreen inbox layout at 390x844", () => {
+describe("HomeScreen inbox layout at 390x844", () => {
   it("shows seven cells in the strip and Mark done with More in the act bar", async () => {
     const user = userEvent.setup();
     serve({

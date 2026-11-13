@@ -559,7 +559,7 @@ describe("SchedulerScreen Next", () => {
     expect(await screen.findByRole("link", { name: "node_retired" })).toBeInTheDocument();
   });
 
-  it("explains an empty queue and links to Overview", async () => {
+  it("explains an empty queue and links to Home", async () => {
     serve({});
 
     renderScreen();
@@ -568,11 +568,11 @@ describe("SchedulerScreen Next", () => {
     expect(
       screen.getByText(
         textContent(
-          "A Pending, Blocked or Paused node holds no job. Overview lists the nodes that wait for you.",
+          "A Pending, Blocked or Paused node holds no job. Home lists the nodes that wait for you.",
         ),
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/");
   });
 });
 

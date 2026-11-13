@@ -17,7 +17,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ReadFaultsAlert } from "@/features/overview/components/read-faults-alert";
+import { ReadFaultsAlert } from "@/features/home/components/read-faults-alert";
 import { stepStateLabel, stepStateVariant } from "@/lib/onboarding";
 import { type ReadinessItem, useProjectReadiness } from "../use-project-readiness";
 
