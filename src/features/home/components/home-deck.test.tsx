@@ -259,7 +259,7 @@ function Harness({ overview }: { readonly overview: OverviewState }) {
   });
   return (
     <MemoryRouter>
-      <HomeDeck deck={deck} overview={overview} />
+      <HomeDeck deck={deck} overview={overview} askYumi={() => null} />
     </MemoryRouter>
   );
 }

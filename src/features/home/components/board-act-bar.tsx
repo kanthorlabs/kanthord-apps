@@ -6,6 +6,7 @@ import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
 import { type BoardAct, moreCountOf, moreNeedsOf, needIdOf, phoneActsOf } from "@/lib/board-acts";
 
+import { useAskYumiActs } from "../use-ask-yumi-acts";
 import { useBoardActs, useBoardActsFrame } from "../use-board-acts";
 import { BoardMoreSheet } from "./board-more-sheet";
 import { CheckBadge } from "./check-badge";
@@ -118,11 +119,16 @@ function PhoneBar({
   );
 }
 
-export function BoardActBar() {
-  const { acts, needs, read, failure, notice } = useBoardActs();
+interface BoardActBarProps {
+  readonly askYumi: (() => void) | null;
+}
+
+export function BoardActBar({ askYumi }: BoardActBarProps) {
+  const { acts: published, needs, read, failure, notice } = useBoardActs();
   const base = useId();
-  const { subject } = useBoardActsFrame();
-  if (acts.length === 0) return null;
+  const { subject, kind } = useBoardActsFrame();
+  const acts = useAskYumiActs(published, kind, askYumi);
+  if (published.length === 0) return null;
   const needIds: NeedIds = (need) => needIdOf(base, needs, need);
 
   return (

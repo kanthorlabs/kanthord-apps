@@ -22,6 +22,7 @@ import { HomeSkeleton } from "./components/home-skeleton";
 import { QueueLine } from "./components/queue-line";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
+import { useAskYumi } from "./use-ask-yumi";
 import { useHome } from "./use-home";
 import { useHomeDeck } from "./use-home-deck";
 import { useOverview } from "./use-overview";
@@ -44,6 +45,7 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
     readFault,
   });
   const home = useHome(overview.status === "ready");
+  const askYumi = useAskYumi(home);
   const deckRef = useRef<HTMLDivElement>(null);
   const queued = queueEntryOf(deck.order, home.sessionId);
   const showQueued = (itemId: string) => {
@@ -124,7 +126,7 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
                 />
               )}
               {overview.absent.length > 0 && <AbsentSourcesNote sources={overview.absent} />}
-              <HomeDeck deck={deck} overview={overview} focusRef={deckRef} />
+              <HomeDeck deck={deck} overview={overview} focusRef={deckRef} askYumi={askYumi} />
             </>
           }
         />

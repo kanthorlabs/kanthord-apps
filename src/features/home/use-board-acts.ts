@@ -9,7 +9,12 @@ import {
 } from "react";
 
 import type { EffectiveCause, MissionProposal } from "@/api/types";
-import { type AttentionDetails, type DecisionAttentionItem, detailOf } from "@/lib/attention";
+import {
+  type AttentionDetails,
+  type AttentionItem,
+  type DecisionAttentionItem,
+  detailOf,
+} from "@/lib/attention";
 import {
   type BoardAct,
   decisionActsOf,
@@ -50,6 +55,7 @@ export interface ActsContext {
 
 interface ActsFrame {
   readonly subject: string;
+  readonly kind: AttentionItem["kind"] | null;
 }
 
 export interface ActsStore {
@@ -92,7 +98,7 @@ export function createActsStore(): ActsStore {
 
 export const BoardActsContext = createContext<ActsStore>(createActsStore());
 
-export const BoardFrameContext = createContext<ActsFrame>({ subject: "" });
+export const BoardFrameContext = createContext<ActsFrame>({ subject: "", kind: null });
 
 export function useBoardActs(): BoardActsState {
   const store = useContext(BoardActsContext);

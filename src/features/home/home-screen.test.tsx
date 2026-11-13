@@ -1387,3 +1387,184 @@ describe("HomeScreen missing Yumi configuration", () => {
     expect(sendWorkbenchMessage).not.toHaveBeenCalled();
   });
 });
+
+describe("HomeScreen Ask Yumi", () => {
+  async function openMore(user: ReturnType<typeof userEvent.setup>, primary: HTMLElement) {
+    await user.click(within(primary).getByRole("button", { name: /^More/ }));
+    return screen.findByRole("dialog", { name: /^More acts on / });
+  }
+
+  function waitingNode(): MissionNodeRecord {
+    return { ...paused("n_w", "Await a taker"), state: "Waiting" };
+  }
+
+  function stuckJob(): SchedulerJob {
+    return {
+      job_id: "job_1",
+      project_id: "prj-1",
+      node_id: "n_w",
+      priority: 0,
+      queued_at: NOW - 5 * HOUR,
+    };
+  }
+
+  it("sits in More of a blocked card", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: Audit log/);
+
+    expect(within(primary).queryByRole("button", { name: "Ask Yumi" })).toBeNull();
+    const more = await openMore(user, primary);
+    expect(within(more).getByRole("button", { name: "Ask Yumi" })).toBeVisible();
+  });
+
+  it("sits in More of a no_taker card", async () => {
+    const user = userEvent.setup();
+    serve({
+      yumi: "on",
+      nodes: { "prj-1": [waitingNode()] },
+      jobs: { "prj-1": [stuckJob()] },
+      bindings: { "prj-1": [] },
+    });
+    renderScreen();
+
+    const primary = await findPrimary(/jobs in state Waiting/);
+
+    expect(within(primary).queryByRole("button", { name: "Ask Yumi" })).toBeNull();
+    const more = await openMore(user, primary);
+    expect(within(more).getByRole("button", { name: "Ask Yumi" })).toBeVisible();
+  });
+
+  it("is the lead act of an environment_failed card", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", environments: { "prj-1": [failedEnvironment()] } });
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: engine/);
+
+    expect(within(primary).getByRole("button", { name: "Ask Yumi" })).toBeVisible();
+    expect(within(primary).queryByRole("button", { name: "Open project" })).toBeNull();
+    const more = await openMore(user, primary);
+    expect(within(more).getByRole("button", { name: "Open project" })).toBeVisible();
+    expect(within(more).getByRole("button", { name: "Run onboarding again" })).toBeVisible();
+  });
+
+  it("leaves an environment_failed card with Open project while Yumi is not enabled", async () => {
+    serve({ environments: { "prj-1": [failedEnvironment()] } });
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: engine/);
+
+    expect(within(primary).getByRole("button", { name: "Open project" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Ask Yumi" })).toBeNull();
+  });
+
+  it("does not show while Yumi is not enabled", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    renderScreen();
+
+    const more = await openMore(user, await findPrimary(/^Primary: Audit log/));
+
+    expect(within(more).queryByRole("button", { name: "Ask Yumi" })).toBeNull();
+  });
+
+  it("does not show on a tool_approval card", async () => {
+    serve({
+      yumi: "on",
+      sessions: [opsSession("workbench_session_Y1"), session("workbench_session_A")],
+    });
+    vi.mocked(readWorkbenchEvents).mockImplementation(async (id, _after, version) =>
+      id === "workbench_session_A"
+        ? {
+            entries: [],
+            snapshot: {
+              ...IDLE_SNAPSHOT,
+              pending_approval: {
+                tool_call_id: "call_1",
+                operation_id: "project.create",
+                input: { name: "account-recovery" },
+              },
+            },
+            version: 1,
+          }
+        : version === null
+          ? { entries: [], snapshot: IDLE_SNAPSHOT, version: 1 }
+          : new Promise(() => undefined),
+    );
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: Create the project account-recovery/);
+
+    expect(await within(primary).findByRole("button", { name: "Approve" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Ask Yumi" })).toBeNull();
+    const more = within(primary).queryByRole("button", { name: /^More/ });
+    if (more !== null) {
+      await userEvent.click(more);
+      expect(
+        within(await screen.findByRole("dialog")).queryByRole("button", { name: "Ask Yumi" }),
+      ).toBeNull();
+    }
+  });
+
+  it("does not show on an Inbox card", async () => {
+    serve({ yumi: "on", inbox: [thread("link_update_a")] });
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: /);
+
+    expect(within(primary).getAllByText(/Body of link_update_a/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Ask Yumi" })).toBeNull();
+    const more = within(primary).queryByRole("button", { name: /^More/ });
+    if (more !== null) {
+      await userEvent.click(more);
+      expect(
+        within(await screen.findByRole("dialog")).queryByRole("button", { name: "Ask Yumi" }),
+      ).toBeNull();
+    }
+  });
+
+  it("sends the case request to a new conversation, not to the Home chat, and keeps the card", async () => {
+    const user = userEvent.setup();
+    const tab = { closed: false, location: { replace: vi.fn() }, focus: vi.fn(), close: vi.fn() };
+    const open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
+    serve({
+      yumi: "on",
+      sessions: [opsSession("workbench_session_Y1")],
+      nodes: { "prj-1": [blocked("n_case", "Case audit")] },
+    });
+    vi.mocked(createWorkbenchSession).mockResolvedValue(
+      conversation("workbench_session_CASE", "x"),
+    );
+    vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      session_id: "workbench_session_CASE",
+      run_active: true,
+    });
+    renderScreen();
+    const primary = await findPrimary(/^Primary: Case audit/);
+    await screen.findByText(GENERAL, { selector: "div" });
+
+    const more = await openMore(user, primary);
+    await user.click(within(more).getByRole("button", { name: "Ask Yumi" }));
+
+    await waitFor(() => expect(sendWorkbenchMessage).toHaveBeenCalledTimes(1));
+    expect(open).toHaveBeenCalledWith("", expect.stringMatching(/^kanthord-case-blocked:/));
+    expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
+    expect(createWorkbenchSession).toHaveBeenCalledWith({
+      agent_name: "ops@1",
+      ...YUMI_CONFIGURATION,
+    });
+    const [sessionId, request] = vi.mocked(sendWorkbenchMessage).mock.calls[0]!;
+    expect(sessionId).toBe("workbench_session_CASE");
+    expect(request).toMatch(/^Case: node `n_case` \(Blocked\)\. /);
+    expect(request).not.toContain("Case audit");
+    await waitFor(() =>
+      expect(tab.location.replace).toHaveBeenCalledWith("/workbench/workbench_session_CASE"),
+    );
+    await user.keyboard("{Escape}");
+    expect(await findPrimary(/^Primary: Case audit/)).toBeVisible();
+    open.mockRestore();
+  });
+});

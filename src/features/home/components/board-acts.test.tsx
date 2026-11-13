@@ -232,7 +232,7 @@ function renderActs(
           gate={gate}
           jump={jump}
         >
-          <BoardActBar />
+          <BoardActBar askYumi={null} />
           <Probe />
         </BoardActsProvider>
       </BoardReadsProvider>
@@ -709,7 +709,7 @@ describe("BoardActsProvider act order", () => {
           registerDialogCloser={vi.fn()}
           closeInboxItem={vi.fn()}
         >
-          <BoardActBar />
+          <BoardActBar askYumi={null} />
         </BoardActsProvider>
       </BoardReadsProvider>,
     );

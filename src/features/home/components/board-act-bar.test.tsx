@@ -152,7 +152,7 @@ function Bar({
           gate={gate}
           jump={jump}
         >
-          <BoardActBar />
+          <BoardActBar askYumi={null} />
         </BoardActsProvider>
       </BoardReadsProvider>
     </MemoryRouter>

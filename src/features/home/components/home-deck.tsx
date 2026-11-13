@@ -11,6 +11,7 @@ import { DeckCard } from "./deck-card";
 import { DeckList } from "./deck-list";
 import { DeckStack } from "./deck-stack";
 import { DeckSummary } from "./deck-summary";
+import type { AskYumiFor } from "../use-ask-yumi";
 import { BoardReadsProvider } from "../use-board-reads";
 import type { HomeDeck as HomeDeckState } from "../use-home-deck";
 import type { OverviewState } from "../use-overview";
@@ -19,12 +20,13 @@ interface HomeDeckProps {
   readonly deck: HomeDeckState;
   readonly overview: OverviewState;
   readonly focusRef?: Ref<HTMLDivElement>;
+  readonly askYumi: AskYumiFor;
 }
 
 const NO_REF = () => undefined;
 const NO_CLOSER = () => undefined;
 
-export function HomeDeck({ deck, overview, focusRef }: HomeDeckProps) {
+export function HomeDeck({ deck, overview, focusRef, askYumi }: HomeDeckProps) {
   const listId = useId();
   const { primary } = deck;
   const workforce = workforceText(overview.running, overview.waiting);
@@ -99,6 +101,7 @@ export function HomeDeck({ deck, overview, focusRef }: HomeDeckProps) {
                     now={overview.now}
                     held={overview.held.get(primary.id)?.length ?? 0}
                     gone={deck.gone}
+                    askYumi={askYumi(primary)}
                   />
                 </DeckStack>
               </BoardActsProvider>

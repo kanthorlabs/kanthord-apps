@@ -1,6 +1,7 @@
 import { approvalChatPathOf, type ToolApprovalItem } from "./approval-attention";
 import {
   type AttentionDetails,
+  type AttentionItem,
   type DecisionAttentionItem,
   detailOf,
   type DiscardedDependency,
@@ -159,6 +160,7 @@ interface Gate {
 }
 
 const DISCARD = "discard";
+const ASK_YUMI = "ask_yumi";
 const GITHUB_IDENTITY = /^repository:github:(.+)$/;
 
 function slotOf(
@@ -231,8 +233,9 @@ export function needsOf(acts: readonly BoardAct[]): readonly string[] {
 export function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
   const badges = acts.filter((act) => act.type === "badge");
   const actions = acts.filter((act) => act.type !== "badge");
-  const lead =
-    actions.find((act) => act.type !== "gated" && act.id !== DISCARD) ?? actions[0] ?? null;
+  const leadable = (act: BoardAct) =>
+    act.type !== "gated" && act.id !== DISCARD && (act.id !== ASK_YUMI || act === actions[0]);
+  const lead = actions.find(leadable) ?? actions[0] ?? null;
   const others = actions.filter((act) => act !== lead);
   return {
     lead,
@@ -240,6 +243,27 @@ export function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
     last: others.find((act) => act.id === DISCARD) ?? null,
     badges,
   };
+}
+
+export function withAskYumi(
+  acts: readonly BoardAct[],
+  kind: AttentionItem["kind"],
+  press: (() => void) | null,
+): readonly BoardAct[] {
+  if (press === null) return acts;
+  const ask: BoardAct = {
+    type: "button",
+    id: ASK_YUMI,
+    label: "Ask Yumi",
+    ariaLabel: null,
+    variant: "outline",
+    disabled: false,
+    press,
+  };
+  if (kind === "environment_failed") return [ask, ...acts];
+  const discard = acts.findIndex((act) => act.id === DISCARD);
+  if (discard < 0) return [...acts, ask];
+  return [...acts.slice(0, discard), ask, ...acts.slice(discard)];
 }
 
 export function moreCountOf({ others, last }: PhoneActs): number {

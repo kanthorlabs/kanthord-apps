@@ -23,9 +23,10 @@ interface DeckCardProps {
   readonly now: number;
   readonly held: number;
   readonly gone: boolean;
+  readonly askYumi: (() => void) | null;
 }
 
-export function DeckCard({ item, rank, details, now, held, gone }: DeckCardProps) {
+export function DeckCard({ item, rank, details, now, held, gone, askYumi }: DeckCardProps) {
   const reads = useBoardReadsContext();
   const text = deckCardTextOf(item, details, now, held);
 
@@ -63,7 +64,7 @@ export function DeckCard({ item, rank, details, now, held, gone }: DeckCardProps
       {!gone && (
         <CardFooter>
           <div className="min-w-0 flex-1">
-            <BoardActBar />
+            <BoardActBar askYumi={askYumi} />
           </div>
         </CardFooter>
       )}

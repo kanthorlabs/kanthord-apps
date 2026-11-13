@@ -283,7 +283,8 @@ export function BoardActsProvider({
   const [store] = useState(createActsStore);
   const route = gate === null || jump === undefined ? null : { gate, jump };
   const subject = item?.subject ?? "";
-  const frame = useMemo(() => ({ subject }), [subject]);
+  const kind = item?.kind ?? null;
+  const frame = useMemo(() => ({ subject, kind }), [subject, kind]);
   return (
     <BoardActsContext.Provider value={store}>
       <BoardFrameContext.Provider value={frame}>
