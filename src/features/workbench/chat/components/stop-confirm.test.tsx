@@ -61,7 +61,8 @@ describe("StopConfirm", () => {
 
     const stop = within(dialog).getByRole("button", { name: "Stop" });
     expect(stop).toHaveClass("bg-destructive", "border-destructive", "text-destructive-foreground");
-    expect(stop).not.toHaveClass("bg-destructive/10", "text-destructive");
+    expect(stop).not.toHaveClass("bg-destructive/10");
+    expect(stop).not.toHaveClass("text-destructive");
     expect(dialog).toHaveClass("border-destructive", "bg-destructive/10");
   });
 });
