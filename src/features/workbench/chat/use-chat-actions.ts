@@ -14,7 +14,7 @@ import type { SnapshotPatch } from "./use-session-events";
 const QUEUED_NOT_FOUND = "workbench.session.queued_message_not_found";
 const ALREADY_STARTED = "The message already started.";
 
-type Refill = (texts: readonly string[]) => void;
+type Refill = (texts: readonly string[], cleared?: boolean) => void;
 
 const NO_REFILL: Refill = () => undefined;
 
@@ -66,7 +66,10 @@ export function useChatActions(
   }, []);
 
   const refillCleared = useCallback((cleared: readonly WorkbenchQueuedMessage[]) => {
-    refillRef.current(cleared.map((message) => message.text));
+    refillRef.current(
+      cleared.map((message) => message.text),
+      true,
+    );
   }, []);
 
   const perform = useCallback(

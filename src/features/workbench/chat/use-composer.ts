@@ -12,6 +12,11 @@ import {
 const NEW_TAKES_NO_TEXT = "/new takes no text yet";
 const NEWLINE = "\n";
 
+function clearedHint(count: number): string {
+  const noun = count === 1 ? "cleared message is" : "cleared messages are";
+  return `${count} ${noun} back in your draft`;
+}
+
 export interface ComposerOptions {
   readonly agentName: string;
   readonly onNew: () => void;
@@ -28,7 +33,7 @@ export interface ComposerState {
   readonly hint: string | null;
   readonly setDraft: (draft: string) => void;
   readonly submit: (delivery?: WorkbenchMessageDelivery) => void;
-  readonly refill: (texts: readonly string[]) => void;
+  readonly refill: (texts: readonly string[], cleared?: boolean) => void;
   readonly focus: () => void;
   readonly blur: () => void;
   readonly pick: (command: SlashCommand) => void;
@@ -58,22 +63,31 @@ export function useComposer(
     setHint(null);
   }, []);
 
-  const refill = useCallback((texts: readonly string[]) => {
-    if (texts.length === 0) return;
+  const prepend = useCallback((texts: readonly string[]) => {
     const joined = texts.join(NEWLINE);
     setDraftValue((current) => (current === "" ? joined : `${joined}${NEWLINE}${current}`));
   }, []);
+
+  const refill = useCallback(
+    (texts: readonly string[], cleared = false) => {
+      if (texts.length === 0) return;
+      prepend(texts);
+      if (cleared) setHint(clearedHint(texts.length));
+    },
+    [prepend],
+  );
 
   const sendText = useCallback(
     (value: string, delivery: WorkbenchMessageDelivery) => {
       const previous = draft;
       setDraftValue("");
       setDismissed(true);
+      setHint(null);
       void send(value, delivery).then((sent) => {
-        if (!sent && previous !== "") refill([previous]);
+        if (!sent && previous !== "") prepend([previous]);
       });
     },
-    [send, draft, refill],
+    [send, draft, prepend],
   );
 
   const runNew = useCallback(() => {

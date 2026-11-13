@@ -534,6 +534,45 @@ describe("Composer", () => {
       expect(box()).toHaveValue("first queued\nsecond queued\n/new");
     });
 
+    it("says in the hint line that the cleared messages are back and drops it on the next edit", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: QUEUE,
+      });
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
+      );
+
+      const hint = await screen.findByText("2 cleared messages are back in your draft");
+      expect(hint).toHaveAttribute("role", "status");
+      await userEvent.type(box(), "!");
+      expect(screen.queryByText("2 cleared messages are back in your draft")).toBeNull();
+    });
+
+    it("says message in the singular when one cleared message is back", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: [QUEUE[0]!],
+      });
+      withQueue([QUEUE[0]!]);
+      await screen.findByRole("button", { name: /1 queued/ });
+
+      await clickStop();
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
+      );
+
+      expect(
+        await screen.findByText("1 cleared message is back in your draft"),
+      ).toBeInTheDocument();
+    });
+
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
