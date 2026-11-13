@@ -40,4 +40,13 @@ describe("readInboxScope", () => {
 
     await expect(readInboxScope(null)).rejects.toThrow("the same cursor twice");
   });
+
+  it("rejects a read that passes the page bound", async () => {
+    vi.mocked(listInboxItems).mockImplementation(async ({ cursor }) =>
+      pageOf(0, String(Number(cursor ?? 0) + 1)),
+    );
+
+    await expect(readInboxScope(null)).rejects.toThrow("more than 100000 open threads");
+    expect(listInboxItems).toHaveBeenCalledTimes(1000);
+  });
 });
