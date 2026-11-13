@@ -6,7 +6,7 @@ import type { Project } from "@/api/types";
 import type { AttentionItem } from "@/lib/attention";
 import type { FixAttentionItem } from "@/lib/fix-attention";
 
-import { DECK_EXIT_MS, DECK_GONE_MS, type HomeDeckInput, useHomeDeck } from "./use-home-deck";
+import { DECK_EXIT_MS, type HomeDeckInput, useHomeDeck } from "./use-home-deck";
 
 const PROJECT: Project = {
   id: "prj-1",
@@ -168,7 +168,7 @@ describe("useHomeDeck exit", () => {
 
     expect(result.current.gone).toBe(true);
     expect(result.current.primary?.id).toBe("b");
-    advance(DECK_GONE_MS - 1);
+    advance(1499);
     expect(result.current.gone).toBe(true);
     advance(1);
 

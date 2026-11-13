@@ -8,7 +8,7 @@ import {
   type SlashCommand,
 } from "./slash-commands";
 
-export const NEW_TAKES_NO_TEXT = "/new takes no text yet";
+const NEW_TAKES_NO_TEXT = "/new takes no text yet";
 
 export interface ComposerOptions {
   readonly agentName: string;

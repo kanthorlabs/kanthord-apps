@@ -25,7 +25,6 @@ export interface CaseAsk {
 }
 
 export interface CaseTabs {
-  readonly tabs: ReadonlyMap<string, CaseTab>;
   readonly askYumi: (ask: CaseAsk) => void;
 }
 
@@ -115,5 +114,5 @@ export function createCaseTabs(): CaseTabs {
     void begin(tab, ask, ask.configuration);
   }
 
-  return { tabs, askYumi };
+  return { askYumi };
 }

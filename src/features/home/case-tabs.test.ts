@@ -79,8 +79,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function settled(tabs: ReturnType<typeof createCaseTabs>, key = KEY) {
-  await vi.waitFor(() => expect(tabs.tabs.get(key)?.sent).toBe(true));
+async function settled(replaces = 1) {
+  await vi.waitFor(() => expect(tab.location.replace).toHaveBeenCalledTimes(replaces));
 }
 
 describe("createCaseTabs", () => {
@@ -106,7 +106,7 @@ describe("createCaseTabs", () => {
     const tabs = createCaseTabs();
 
     tabs.askYumi(askOf());
-    await settled(tabs);
+    await settled();
 
     expect(createWorkbenchSession).toHaveBeenCalledWith({ agent_name: "ops@1", ...CONFIGURATION });
     expect(sendWorkbenchMessage).toHaveBeenCalledWith("session_1", REQUEST);
@@ -117,7 +117,6 @@ describe("createCaseTabs", () => {
     expect(vi.mocked(sendWorkbenchMessage).mock.invocationCallOrder[0]).toBeLessThan(
       tab.location.replace.mock.invocationCallOrder[0]!,
     );
-    expect(tabs.tabs.get(KEY)).toEqual({ tab, sessionId: "session_1", sent: true });
   });
 
   it("joins the base path and the conversation path with one slash", async () => {
@@ -125,7 +124,7 @@ describe("createCaseTabs", () => {
     const tabs = createCaseTabs();
 
     tabs.askYumi(askOf());
-    await settled(tabs);
+    await settled();
 
     expect(tab.location.replace).toHaveBeenCalledWith("/s/kanthord/workbench/session_1");
   });
@@ -135,7 +134,7 @@ describe("createCaseTabs", () => {
 
     tabs.askYumi(askOf());
     tabs.askYumi(askOf());
-    await settled(tabs);
+    await settled();
     tabs.askYumi(askOf());
 
     expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
@@ -145,7 +144,7 @@ describe("createCaseTabs", () => {
   it("opens the same name, focuses it and calls no resource after a sent request", async () => {
     const tabs = createCaseTabs();
     tabs.askYumi(askOf());
-    await settled(tabs);
+    await settled();
     vi.mocked(createWorkbenchSession).mockClear();
     vi.mocked(sendWorkbenchMessage).mockClear();
 
@@ -161,7 +160,7 @@ describe("createCaseTabs", () => {
   it("reopens a closed tab at the same conversation and sends nothing", async () => {
     const tabs = createCaseTabs();
     tabs.askYumi(askOf());
-    await settled(tabs);
+    await settled();
     vi.mocked(sendWorkbenchMessage).mockClear();
     tab.closed = true;
     const reopened = fakeTab();
@@ -172,12 +171,11 @@ describe("createCaseTabs", () => {
     expect(open).toHaveBeenLastCalledWith("", NAME);
     expect(reopened.location.replace).toHaveBeenCalledWith("/workbench/session_1");
     expect(reopened.focus).toHaveBeenCalledTimes(1);
-    expect(tabs.tabs.get(KEY)?.tab).toBe(reopened);
     expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
     expect(sendWorkbenchMessage).not.toHaveBeenCalled();
   });
 
-  it("stores nothing and shows a toast when the tab is blocked", () => {
+  it("shows a toast and creates nothing when the tab is blocked", () => {
     open.mockReturnValue(null);
     const tabs = createCaseTabs();
     const notices = toasts();
@@ -186,10 +184,9 @@ describe("createCaseTabs", () => {
 
     expect(notices.blocked).toHaveBeenCalledTimes(1);
     expect(createWorkbenchSession).not.toHaveBeenCalled();
-    expect(tabs.tabs.size).toBe(0);
   });
 
-  it("closes the tab and stores nothing when the configuration is missing", () => {
+  it("closes the tab and creates nothing when the configuration is missing", () => {
     const tabs = createCaseTabs();
     const notices = toasts();
 
@@ -198,10 +195,9 @@ describe("createCaseTabs", () => {
     expect(tab.close).toHaveBeenCalledTimes(1);
     expect(notices.missingConfiguration).toHaveBeenCalledTimes(1);
     expect(createWorkbenchSession).not.toHaveBeenCalled();
-    expect(tabs.tabs.size).toBe(0);
   });
 
-  it("closes the tab and stores nothing when create fails", async () => {
+  it("closes the tab and sends nothing when create fails", async () => {
     vi.mocked(createWorkbenchSession).mockRejectedValue(
       new ApiError("unavailable", "The daemon is down.", 503),
     );
@@ -215,7 +211,6 @@ describe("createCaseTabs", () => {
     );
     expect(tab.close).toHaveBeenCalledTimes(1);
     expect(sendWorkbenchMessage).not.toHaveBeenCalled();
-    expect(tabs.tabs.size).toBe(0);
   });
 
   it("keeps the session after a message failure and sends once to it on Retry", async () => {
@@ -229,12 +224,11 @@ describe("createCaseTabs", () => {
     await vi.waitFor(() => expect(notices.unsent).toHaveBeenCalledTimes(1));
 
     expect(notices.unsent).toHaveBeenCalledWith("The daemon is down.", expect.any(Function));
-    expect(tabs.tabs.get(KEY)).toEqual({ tab, sessionId: "session_1", sent: false });
     expect(tab.location.replace).toHaveBeenCalledTimes(1);
     expect(tab.location.replace).toHaveBeenCalledWith("/workbench/session_1");
     const retry = notices.unsent.mock.calls[0]![1] as () => void;
     retry();
-    await settled(tabs);
+    await settled(2);
 
     expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
     expect(sendWorkbenchMessage).toHaveBeenCalledTimes(2);
@@ -252,21 +246,20 @@ describe("createCaseTabs", () => {
     await vi.waitFor(() => expect(notices.unsent).toHaveBeenCalledTimes(1));
 
     tabs.askYumi(askOf({ toasts: notices }));
-    await settled(tabs);
+    await settled(2);
 
     expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
     expect(sendWorkbenchMessage).toHaveBeenCalledTimes(2);
     expect(sendWorkbenchMessage).toHaveBeenLastCalledWith("session_1", REQUEST);
-    expect(tab.location.replace).toHaveBeenCalledTimes(2);
   });
 
   it("keeps one registry for each instance", async () => {
     const first = createCaseTabs();
     first.askYumi(askOf());
-    await settled(first);
+    await settled();
 
-    const second = createCaseTabs();
+    createCaseTabs().askYumi(askOf());
 
-    expect(second.tabs.size).toBe(0);
+    await vi.waitFor(() => expect(createWorkbenchSession).toHaveBeenCalledTimes(2));
   });
 });

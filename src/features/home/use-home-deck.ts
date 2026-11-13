@@ -23,7 +23,7 @@ import { type DeckSwipe, useDeckSwipe } from "./use-deck-swipe";
 import type { OverviewState } from "./use-overview";
 
 export const DECK_EXIT_MS = 220;
-export const DECK_GONE_MS = 1500;
+const DECK_GONE_MS = 1500;
 const MAX_TILTED = 3;
 
 export interface HomeDeckInput {

@@ -34,7 +34,7 @@ export interface HomeState {
 
 const NEW_VIEW: HomeView = { kind: "new" };
 
-export function yumiConfigurationOf(enablement: AgentEnablement | null): ConfigurationResult {
+function yumiConfigurationOf(enablement: AgentEnablement | null): ConfigurationResult {
   return configurationOf(draftOf(enablement));
 }
 

@@ -8,7 +8,7 @@ import type {
 } from "@/lib/attention";
 import type { FixAttentionItem } from "@/lib/fix-attention";
 
-export const CASE_REQUEST_PREFIX = "Case: ";
+const CASE_REQUEST_PREFIX = "Case: ";
 
 type NodeCaseItem = DecisionAttentionItem | FindingReviewItem | FollowupItem | OutsideAttentionItem;
 
@@ -19,7 +19,7 @@ interface FixAsk<K extends FixKind> {
   readonly ask: string;
 }
 
-export const CASE_ASKS: Readonly<Record<NodeCaseItem["kind"], string>> = {
+const CASE_ASKS: Readonly<Record<NodeCaseItem["kind"], string>> = {
   blocked: "Explain why it is blocked and recommend how to unblock it.",
   paused: "Explain why it is paused and recommend whether to resume it.",
   dependency_discarded: "A dependency of it was discarded. Recommend how to continue.",
@@ -29,7 +29,7 @@ export const CASE_ASKS: Readonly<Record<NodeCaseItem["kind"], string>> = {
   delivery_unconfirmed: "Its delivery is not confirmed. Report what the confirmation needs.",
 };
 
-export const FIX_ASKS: { readonly [K in FixKind]: FixAsk<K> } = {
+const FIX_ASKS: { readonly [K in FixKind]: FixAsk<K> } = {
   project_paused: {
     subject: (item) => `project \`${item.project.id}\``,
     ask: "Explain why it is paused and recommend whether to resume it.",
@@ -65,11 +65,11 @@ export const FIX_ASKS: { readonly [K in FixKind]: FixAsk<K> } = {
   },
 };
 
-export function nodeCaseRequestOf(item: NodeCaseItem): string {
+function nodeCaseRequestOf(item: NodeCaseItem): string {
   return `${CASE_REQUEST_PREFIX}node \`${item.node.id}\` (${item.node.state}). ${CASE_ASKS[item.kind]}`;
 }
 
-export function fixCaseRequestOf(item: FixAttentionItem): string | null {
+function fixCaseRequestOf(item: FixAttentionItem): string | null {
   const entry = FIX_ASKS[item.kind] as FixAsk<FixKind>;
   const subject = entry.subject(item);
   if (subject === null) return null;

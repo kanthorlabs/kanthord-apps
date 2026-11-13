@@ -15,7 +15,7 @@ import { listWorkbenchSessions } from "@/api/resources/workbench";
 import { listAgents } from "@/api/resources/workers";
 import type { AgentEnablement, AgentSummary, WorkbenchSessionListItem } from "@/api/types";
 
-import { useHome, yumiConfigurationOf } from "./use-home";
+import { useHome } from "./use-home";
 
 const CONFIGURATION = {
   agent_provider: "atlas-llm",
@@ -129,6 +129,22 @@ describe("useHome", () => {
     expect(result.current.sessionId).toBeNull();
   });
 
+  it("answers the default configuration of the enablement", async () => {
+    serve(enablement());
+
+    const { result } = await ready();
+
+    expect(result.current.configuration).toEqual({ ok: true, configuration: CONFIGURATION });
+  });
+
+  it("answers no configuration with no enablement", async () => {
+    serve(null);
+
+    const { result } = await ready();
+
+    expect(result.current.configuration.ok).toBe(false);
+  });
+
   it("reports the missing Yumi configuration", async () => {
     serve(enablement({ agent_provider: "" }));
 
@@ -182,15 +198,5 @@ describe("useHome", () => {
     act(() => hook.result.current.retry());
 
     await waitFor(() => expect(hook.result.current.status).toBe("ready"));
-  });
-});
-
-describe("yumiConfigurationOf", () => {
-  it("answers the default configuration of an enablement", () => {
-    expect(yumiConfigurationOf(enablement())).toEqual({ ok: true, configuration: CONFIGURATION });
-  });
-
-  it("answers a failure with no enablement", () => {
-    expect(yumiConfigurationOf(null).ok).toBe(false);
   });
 });

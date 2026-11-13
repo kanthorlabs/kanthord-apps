@@ -11,7 +11,7 @@ import { type BoardSummary, boardSummaryOf, cardCauseOf, heldText } from "./boar
 import { counted } from "./counted";
 import { durationText, utcShortDateTime } from "./format";
 
-export const DECK_FIRST_KINDS: readonly AttentionItem["kind"][] = ["tool_approval"];
+const DECK_FIRST_KINDS: readonly AttentionItem["kind"][] = ["tool_approval"];
 export const DECK_PAGE_SIZE = 50;
 export const DECK_GONE_TEXT = "The selected item no longer waits.";
 
