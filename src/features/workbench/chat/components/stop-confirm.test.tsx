@@ -7,14 +7,17 @@ import { StopConfirm, type StopConfirmProps } from "./stop-confirm";
 function mount(props: Partial<StopConfirmProps> = {}) {
   const handlers = { onStop: vi.fn(), onStopAndSend: vi.fn(), onCancel: vi.fn() };
   render(<StopConfirm count={2} hasDraft={false} busy={false} {...handlers} {...props} />);
-  return { ...handlers, dialog: screen.getByRole("alertdialog", { name: "Stop the run?" }) };
+  return {
+    ...handlers,
+    dialog: screen.getByRole("alertdialog", { name: /^Stop the run and clear \d+ queued\?$/ }),
+  };
 }
 
 describe("StopConfirm", () => {
   it("names the queued count in the plural and offers Stop and Cancel", async () => {
     const { dialog, onStop, onCancel } = mount();
 
-    expect(within(dialog).getByText("Stop the run?")).toBeInTheDocument();
+    expect(within(dialog).getByText("Stop the run and clear 2 queued?")).toBeInTheDocument();
     expect(
       within(dialog).getByText("Your 2 queued messages return to the composer."),
     ).toBeInTheDocument();
@@ -34,20 +37,21 @@ describe("StopConfirm", () => {
     ).toBeInTheDocument();
   });
 
-  it("adds the draft line and Stop & send draft with a draft", async () => {
-    const { dialog, onStopAndSend } = mount({ hasDraft: true });
+  it("shows the draft line and one Stop & send draft button instead of Stop with a draft", async () => {
+    const { dialog, onStop, onStopAndSend } = mount({ hasDraft: true });
 
     expect(within(dialog).getByText("Your draft sends next.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Stop" })).toBeNull();
     await userEvent.click(within(dialog).getByRole("button", { name: "Stop & send draft" }));
 
     expect(onStopAndSend).toHaveBeenCalledTimes(1);
+    expect(onStop).not.toHaveBeenCalled();
   });
 
-  it("disables both stop buttons while an action is in flight", () => {
-    const { dialog } = mount({ hasDraft: true, busy: true });
+  it("disables the stop button while an action is in flight", () => {
+    const { dialog } = mount({ busy: true });
 
     expect(within(dialog).getByRole("button", { name: "Stop" })).toBeDisabled();
-    expect(within(dialog).getByRole("button", { name: "Stop & send draft" })).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeEnabled();
   });
 });

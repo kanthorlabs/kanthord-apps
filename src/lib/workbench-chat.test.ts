@@ -5,7 +5,7 @@ import {
   agentWorking,
   chatItemsOf,
   runErrorTargetId,
-  runLineIndexOf,
+  runRequestOf,
   summaryOf,
   workbenchPathsIn,
 } from "./workbench-chat";
@@ -265,46 +265,18 @@ describe("runErrorTargetId", () => {
   });
 });
 
-describe("runLineIndexOf", () => {
+describe("runRequestOf", () => {
   const FIRST = message("e1", { role: "user", content: "First" });
   const CALLED = message("e2", { role: "assistant", content: [CALL] });
-  const RESULT = message("e3", {
-    role: "toolResult",
-    toolCallId: "call_1",
-    toolName: "mission.node.list",
-    content: [{ type: "text", text: "{}" }],
-    isError: false,
+  const SECOND = message("e3", { role: "user", content: "Second" });
+
+  it("names the latest user item", () => {
+    const items = chatItemsOf([FIRST, CALLED, SECOND], IDLE);
+
+    expect(runRequestOf(items)).toMatchObject({ kind: "user", id: "e3", text: "Second" });
   });
 
-  it("names the end after a finished assistant item", () => {
-    const items = chatItemsOf(
-      [FIRST, message("e2", { role: "assistant", content: [{ type: "text", text: "Hi" }] })],
-      { ...IDLE, run_active: true },
-    );
-
-    expect(runLineIndexOf(items)).toBe(items.length);
-  });
-
-  it("names the end after a finished tool result", () => {
-    const items = chatItemsOf([FIRST, CALLED, RESULT], { ...IDLE, run_active: true });
-
-    expect(runLineIndexOf(items)).toBe(items.length);
-  });
-
-  it("names the end after a tool call that ended with no result", () => {
-    const items = chatItemsOf([FIRST, CALLED], IDLE);
-
-    expect(items.at(-1)).toMatchObject({ kind: "tool-call", state: "no-result" });
-    expect(runLineIndexOf(items)).toBe(items.length);
-  });
-
-  it("names the last user item while a tool call runs", () => {
-    const items = chatItemsOf([FIRST, CALLED], {
-      ...IDLE,
-      run_active: true,
-      pending_tool_calls: ["call_1"],
-    });
-
-    expect(runLineIndexOf(items)).toBe(0);
+  it("names no request before a user item exists", () => {
+    expect(runRequestOf([])).toBeNull();
   });
 });

@@ -402,7 +402,7 @@ describe("Composer", () => {
       ],
     });
 
-    await waitFor(() => expect(box).toHaveValue("first\n\nsecond\n\nlater"));
+    await waitFor(() => expect(box).toHaveValue("first\nsecond\nlater"));
   });
 
   describe("Stop", () => {
@@ -456,7 +456,7 @@ describe("Composer", () => {
       await clickStop();
 
       const confirm = screen.getByRole("alertdialog");
-      expect(within(confirm).getByText("Stop the run?")).toBeInTheDocument();
+      expect(within(confirm).getByText("Stop the run and clear 2 queued?")).toBeInTheDocument();
       expect(
         within(confirm).getByText("Your 2 queued messages return to the composer."),
       ).toBeInTheDocument();
@@ -478,6 +478,7 @@ describe("Composer", () => {
       ).toBeInTheDocument();
       expect(within(confirm).getByText("Your draft sends next.")).toBeInTheDocument();
       expect(within(confirm).getByRole("button", { name: "Stop & send draft" })).toBeEnabled();
+      expect(within(confirm).queryByRole("button", { name: "Stop" })).toBeNull();
     });
 
     it("hides Stop & send draft and the draft line when the draft is a /new command", async () => {
@@ -536,7 +537,8 @@ describe("Composer", () => {
       });
       withQueue(QUEUE);
       await screen.findByRole("button", { name: /2 queued/ });
-      await userEvent.type(box(), "my draft");
+      await userEvent.type(box(), "/new");
+      await userEvent.keyboard("{Escape}");
       await clickStop();
 
       await userEvent.click(
@@ -546,7 +548,7 @@ describe("Composer", () => {
       expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
       await waitFor(() => expect(screen.queryByRole("button", { name: /queued/ })).toBeNull());
       expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(box()).toHaveValue("first queued\n\nsecond queued\n\nmy draft");
+      expect(box()).toHaveValue("first queued\nsecond queued\n/new");
     });
 
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
@@ -573,7 +575,7 @@ describe("Composer", () => {
       const line = await screen.findByRole("button", { name: /1 queued/ });
       expect(line).toHaveTextContent("my draft");
       expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(box()).toHaveValue("first queued\n\nsecond queued");
+      expect(box()).toHaveValue("first queued\nsecond queued");
     });
   });
 
@@ -635,6 +637,22 @@ describe("Composer", () => {
       await userEvent.type(box(), "/brief now");
 
       expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+    });
+
+    it("keeps the list closed after a send and opens it on a typed slash and on a new focus", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("ops@1");
+      await userEvent.type(box(), "hello{Enter}");
+
+      await waitFor(() => expect(box()).toHaveValue(""));
+      expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+
+      await userEvent.type(box(), "/");
+      expect(await screen.findByRole("listbox", { name: "Commands" })).toBeInTheDocument();
+      await userEvent.clear(box());
+      await userEvent.tab();
+      await userEvent.click(box());
+      expect(await screen.findByRole("listbox", { name: "Commands" })).toBeInTheDocument();
     });
 
     it("shows the name and the description of each command", async () => {

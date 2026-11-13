@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
-import { agentWorking, chatItemsOf } from "@/lib/workbench-chat";
+import { agentWorking, chatItemsOf, runRequestOf } from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
@@ -79,7 +79,7 @@ export function ChatView({
   });
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   const working = agentWorking(items, snapshot);
-  const elapsed = useElapsedSeconds(snapshot.run_active);
+  const elapsed = useElapsedSeconds(snapshot.run_active, runRequestOf(items)?.id ?? null);
   useScrollToEnd(items, snapshot.pending_approval);
   const approvalFailure =
     actions.failure?.cause === "approve" &&

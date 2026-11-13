@@ -281,6 +281,24 @@ describe("ChatView", () => {
     ).toBeEnabled();
   });
 
+  it("restarts the working counter when the next run starts with no idle state between", async () => {
+    const realNow = Date.now();
+    let offset = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => realNow + offset);
+    const polls = pollQueue();
+    mount(session([message("e1", { role: "user", content: "First" })], true));
+    await polls.answer({ snapshot: { run_active: true } });
+    offset = 85_000;
+    expect(await screen.findByText("85s", undefined, { timeout: 3000 })).toBeTruthy();
+
+    await polls.answer({
+      entries: [message("e2", { role: "user", content: "Replacement" })],
+      snapshot: { run_active: true },
+    });
+
+    expect(await screen.findByText("0s")).toBeTruthy();
+  });
+
   it("shows the error message of a failed run", async () => {
     const polls = pollQueue();
     mount(session());

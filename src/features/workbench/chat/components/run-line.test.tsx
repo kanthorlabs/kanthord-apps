@@ -102,14 +102,22 @@ describe("RunLine", () => {
 });
 
 describe("ChatTranscript run line", () => {
-  it("sits under the latest request and not under an earlier one", () => {
+  it("sits under the request before the run holds an agent item", () => {
+    transcript([FIRST, ANSWER, SECOND], true);
+
+    const order = orderOf();
+    expect(order.at(-2)).toContain("Second request");
+    expect(order.at(-1)).toContain("Running");
+    expect(order.filter((text) => text.includes("Stop"))).toHaveLength(1);
+  });
+
+  it("sits after the latest agent item of the run", () => {
     transcript([FIRST, ANSWER, SECOND, CALL], true);
 
     const order = orderOf();
-    const second = order.findIndex((text) => text.includes("Second request"));
-    expect(order[second + 1]).toContain("Running");
+    expect(order.at(-2)).toContain("mission.node.list");
+    expect(order.at(-1)).toContain("Running");
     expect(order.filter((text) => text.includes("Stop"))).toHaveLength(1);
-    expect(order.findIndex((text) => text.includes("First request"))).toBeLessThan(second);
   });
 
   it("sits at the end of the transcript before the request entry of the run exists", () => {
@@ -120,13 +128,13 @@ describe("ChatTranscript run line", () => {
     expect(order.at(-2)).toContain("First answer");
   });
 
-  it("sits at the end of the transcript after a run that ended on a tool call", () => {
+  it("sits after a call that ended with no result", () => {
     const finished: ChatItem = { ...CALL, state: "no-result" };
     transcript([FIRST, ANSWER, SECOND, finished], true);
 
     const order = orderOf();
     expect(order.at(-1)).toContain("Running");
-    expect(order.at(-2)).not.toContain("Running");
+    expect(order.at(-2)).toContain("No Result");
   });
 
   it("shows no run line for a finished run", () => {
