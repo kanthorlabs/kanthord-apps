@@ -29,7 +29,7 @@ export interface NavItem {
 export const NAV_GROUPS = ["Work", "Workforce", "Credentials", "System"] as const;
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { to: "/", label: "Overview", icon: LayoutDashboard, group: "Work" },
+  { to: "/", label: "Home", icon: LayoutDashboard, group: "Work" },
   { to: "/projects", label: "Projects", icon: FolderKanban, group: "Work" },
   { to: "/scheduler", label: "Scheduler", icon: ListOrdered, group: "Work" },
   { to: "/traces", label: "Traces", icon: Activity, group: "Work" },

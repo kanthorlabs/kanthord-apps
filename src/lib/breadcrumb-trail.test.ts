@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { breadcrumbTrail, crumbHref } from "./breadcrumb-trail";
 
 const LABELS: Readonly<Record<string, string>> = {
-  "/": "Overview",
+  "/": "Home",
   "/projects": "Projects",
   "/projects/project_1": "kanthord",
 };
@@ -12,7 +12,11 @@ const labelOf = (path: string) => LABELS[path];
 
 describe("breadcrumbTrail", () => {
   it("names the root", () => {
-    expect(breadcrumbTrail("/", labelOf)).toEqual([{ path: "/", label: "Overview" }]);
+    expect(breadcrumbTrail("/", labelOf)).toEqual([{ path: "/", label: "Home" }]);
+  });
+
+  it("falls back to Home when no label is registered for the root", () => {
+    expect(breadcrumbTrail("/", () => undefined)).toEqual([{ path: "/", label: "Home" }]);
   });
 
   it("builds one crumb per segment with the registered labels", () => {

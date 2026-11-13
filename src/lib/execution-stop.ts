@@ -59,11 +59,6 @@ export function endLabel(execution: SchedulerExecutionRecord): string {
   return execution.claim_state === "lost" ? "lost" : "no stop";
 }
 
-export function stopSentence(stop: ExecutionStop): string {
-  const reason = REASON_LABELS[stop.reason].toLowerCase();
-  return stop.code === null ? reason : `${reason} (${codeLabel(stop.code)})`;
-}
-
 export type PauseCause = "failure-limit" | "further-work-limit" | "human";
 
 export const PAUSE_CAUSE_LABELS: Readonly<Record<PauseCause, string>> = {
@@ -96,18 +91,4 @@ export function pauseCauseOf(executions: readonly SchedulerExecutionRecord[]): P
     return { cause: "failure-limit", execution: latest, endedAt: latestEnd };
   }
   return { cause: "human", execution: latest, endedAt: latestEnd };
-}
-
-export function pauseSentence(pause: PauseDerivation): string {
-  const stop = pause.execution?.stop ?? null;
-  if (pause.cause === "failure-limit") {
-    const ended = `The last execution ended: ${stop === null ? "lost" : stopSentence(stop)}.`;
-    return stop?.detail === undefined ? ended : `${ended} Cause: ${stop.detail}`;
-  }
-  if (pause.cause === "further-work-limit" && stop !== null) {
-    return `The last execution ended at its budget${
-      stop.code === null ? "" : ` (${codeLabel(stop.code)})`
-    }.`;
-  }
-  return "No execution limit explains the pause.";
 }

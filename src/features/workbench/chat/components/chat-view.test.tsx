@@ -1,5 +1,7 @@
+import type { ComponentProps } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -86,14 +88,21 @@ function pollQueue() {
   };
 }
 
-function mount(held: WorkbenchSession, agentDisplayName = "SWE") {
+function mount(
+  held: WorkbenchSession,
+  agentDisplayName = "SWE",
+  slots: Partial<ComponentProps<typeof ChatView>> = {},
+) {
   return render(
-    <ChatView
-      session={held}
-      enablement={ENABLEMENT}
-      ownerName="Ulrich"
-      agentDisplayName={agentDisplayName}
-    />,
+    <MemoryRouter>
+      <ChatView
+        session={held}
+        enablement={ENABLEMENT}
+        ownerName="Ulrich"
+        agentDisplayName={agentDisplayName}
+        {...slots}
+      />
+    </MemoryRouter>,
   );
 }
 
@@ -109,6 +118,33 @@ beforeEach(() => {
 });
 
 describe("ChatView", () => {
+  it("shows the command name of an owner bubble with the fixed text of /brief", () => {
+    pollQueue();
+    mount(
+      session([
+        message("e1", {
+          role: "user",
+          content: "Report the system status and the actions that need me.",
+        }),
+      ]),
+    );
+
+    const text = screen.getByText("Report the system status and the actions that need me.");
+    const name = screen.getByText("/brief");
+    expect(name.parentElement).toBe(text.parentElement);
+    expect(name.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(name).toHaveClass("block");
+    expect(text).toHaveClass("block");
+  });
+
+  it("shows any other owner bubble as its text only", () => {
+    pollQueue();
+    mount(session([message("e1", { role: "user", content: "What needs me?" })]));
+
+    expect(screen.getByText("What needs me?")).toBeInTheDocument();
+    expect(screen.queryByText("/brief")).toBeNull();
+  });
+
   it("renders user messages, assistant text, tool calls and tool results", () => {
     pollQueue();
     mount(
@@ -195,7 +231,7 @@ describe("ChatView", () => {
 
     expect(screen.getByText("Idle")).toBeTruthy();
     expect(screen.getByText("No messages. Write the first one below.")).toBeTruthy();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
   });
 
@@ -239,8 +275,8 @@ describe("ChatView", () => {
 
     expect(await screen.findByText("Running")).toBeTruthy();
     expect(screen.getByText("The agent is working")).toBeTruthy();
-    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "next step");
-    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("next step");
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "next step");
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("next step");
     expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
 
     await userEvent.click(screen.getByRole("button", { name: "Stop" }));
@@ -248,7 +284,7 @@ describe("ChatView", () => {
     expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
     await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
     expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
-    expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
   });
 
   it("shows the error message of a failed run", async () => {
@@ -289,6 +325,35 @@ describe("ChatView", () => {
     await waitFor(() =>
       expect(screen.queryByRole("group", { name: "Approval Required" })).toBeNull(),
     );
+  });
+
+  it("renders the approval line in place of the approval card", async () => {
+    const polls = pollQueue();
+    mount(session([], true), "SWE", { approvalLine: <p>Queued as #1</p> });
+
+    await polls.answer({
+      snapshot: {
+        run_active: true,
+        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+      },
+    });
+
+    expect(await screen.findByText("Queued as #1")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Approval Required" })).toBeNull();
+  });
+
+  it("renders the stream end after the stream and before the composer", async () => {
+    pollQueue();
+    mount(session([message("e1", { role: "user", content: "Hello" })]), "SWE", {
+      streamEnd: <p>Stream end</p>,
+    });
+
+    const end = await screen.findByText("Stream end");
+    const composer = screen.getByRole("form", { name: "Composer" });
+    expect(
+      screen.getByText("Hello").compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(end.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("closes the approval card when the stream clears the approval and no click happens", async () => {
@@ -365,12 +430,12 @@ describe("ChatView", () => {
     });
     mount(session());
 
-    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "List the nodes");
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "List the nodes");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
     expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "List the nodes");
     expect(await screen.findByText("Running")).toBeTruthy();
-    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("");
   });
 
   it("keeps the draft and names the refusal when the send fails", async () => {
@@ -380,11 +445,11 @@ describe("ChatView", () => {
     );
     mount(session());
 
-    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "again");
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "again");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
     expect(await screen.findByText("The workbench session holds an active run.")).toBeTruthy();
-    expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("again");
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("again");
   });
 
   it("says that the connection failed while the long poll retries", async () => {
@@ -505,7 +570,7 @@ describe("ChatView", () => {
     );
     mount(session());
 
-    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "again");
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "again");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
     const error = await screen.findByRole("alert");

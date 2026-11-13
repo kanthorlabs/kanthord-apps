@@ -8,8 +8,6 @@ interface DisabledActionProps {
   readonly reason: ReactNode;
   readonly icon?: ReactNode;
   readonly ariaLabel?: string;
-  readonly keyShortcuts?: string;
-  readonly hint?: ReactNode;
   readonly describedBy?: string;
   readonly ref?: Ref<HTMLButtonElement>;
 }
@@ -19,8 +17,6 @@ export function DisabledAction({
   reason,
   icon,
   ariaLabel,
-  keyShortcuts,
-  hint,
   describedBy,
   ref,
 }: DisabledActionProps) {
@@ -34,7 +30,6 @@ export function DisabledAction({
             variant="outline"
             size="sm"
             aria-label={ariaLabel}
-            aria-keyshortcuts={keyShortcuts}
             aria-describedby={describedBy}
             disabled
             focusableWhenDisabled
@@ -45,7 +40,6 @@ export function DisabledAction({
       >
         {icon}
         {label}
-        {hint}
       </TooltipTrigger>
       <TooltipContent>
         <p>{reason}</p>

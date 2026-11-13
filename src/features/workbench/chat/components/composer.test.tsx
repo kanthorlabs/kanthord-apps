@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -53,21 +54,29 @@ async function choose(label: string, option: string) {
   await userEvent.click(await screen.findByRole("option", { name: option }));
 }
 
-function mount() {
+function Where() {
+  const { pathname, search } = useLocation();
+  return <output aria-label="Location">{`${pathname}${search}`}</output>;
+}
+
+function mount(agentName = "swe@1", runActive = false) {
   return render(
-    <ChatView
-      session={{
-        id: SESSION_ID,
-        agent_name: "swe@1",
-        configuration: CONFIGURATION,
-        entries: [],
-        run_active: false,
-        resume_command: "pi --session ~/session.jsonl",
-      }}
-      enablement={ENABLEMENT}
-      ownerName="Ulrich"
-      agentDisplayName="SWE"
-    />,
+    <MemoryRouter initialEntries={[`/workbench/${SESSION_ID}`]}>
+      <Where />
+      <ChatView
+        session={{
+          id: SESSION_ID,
+          agent_name: agentName,
+          configuration: CONFIGURATION,
+          entries: [],
+          run_active: runActive,
+          resume_command: "pi --session ~/session.jsonl",
+        }}
+        enablement={ENABLEMENT}
+        ownerName="Ulrich"
+        agentDisplayName="SWE"
+      />
+    </MemoryRouter>,
   );
 }
 
@@ -258,7 +267,7 @@ describe("Composer", () => {
     });
     mount();
 
-    const box = screen.getByRole("textbox", { name: "Message" });
+    const box = screen.getByRole("combobox", { name: "Message" });
     await userEvent.type(box, "first{Shift>}{Enter}{/Shift}second");
     expect(box).toHaveValue("first\nsecond");
     await userEvent.type(box, "{Enter}");
@@ -270,5 +279,182 @@ describe("Composer", () => {
     mount();
 
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
+  describe("slash commands", () => {
+    const BRIEF_TEXT = "Report the system status and the actions that need me.";
+    const HEALTH_TEXT = "Check the health of the gateway and the providers.";
+    const SENT = { session_id: SESSION_ID, run_active: true } as const;
+
+    function box() {
+      return screen.getByRole("combobox", { name: "Message" });
+    }
+
+    function commandNames(): string[] {
+      return screen
+        .getAllByRole("option")
+        .map((option) => within(option).getByText(/^\/\w+$/).textContent ?? "");
+    }
+
+    it("opens the command list on focus of the empty composer and closes it on Esc", async () => {
+      mount("ops@1");
+      expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+
+      await userEvent.click(box());
+
+      expect(await screen.findByRole("listbox", { name: "Commands" })).toBeInTheDocument();
+      expect(box()).toHaveAttribute("aria-expanded", "true");
+      expect(box()).toHaveAttribute(
+        "aria-controls",
+        screen.getByRole("listbox", { name: "Commands" }).id,
+      );
+      await userEvent.keyboard("{Escape}");
+      expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+    });
+
+    it("opens the command list when the draft starts with a slash and closes it on blur", async () => {
+      mount("ops@1");
+
+      await userEvent.type(box(), "/");
+
+      expect(await screen.findByRole("listbox", { name: "Commands" })).toBeInTheDocument();
+      await userEvent.tab();
+      expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+    });
+
+    it("closes the list when the draft no longer matches", async () => {
+      mount("ops@1");
+
+      await userEvent.type(box(), "/brief now");
+
+      expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+    });
+
+    it("shows the name and the description of each command", async () => {
+      mount("ops@1");
+      await userEvent.click(box());
+
+      expect(await screen.findByRole("option", { name: /\/brief/ })).toHaveTextContent(
+        "Report status and the actions that need you",
+      );
+      expect(screen.getByRole("option", { name: /\/health/ })).toHaveTextContent(
+        "Check provider health (slow probe)",
+      );
+      expect(screen.getByRole("option", { name: /\/new/ })).toHaveTextContent("New conversation");
+    });
+
+    it("lists /brief, /health and /new in an ops@1 conversation", async () => {
+      mount("ops@1");
+      await userEvent.click(box());
+
+      await screen.findByRole("listbox", { name: "Commands" });
+      expect(screen.getAllByRole("option")).toHaveLength(3);
+      expect(commandNames()).toEqual(["/brief", "/health", "/new"]);
+    });
+
+    it("lists only /new in a swe@1 conversation", async () => {
+      mount("swe@1");
+      await userEvent.click(box());
+
+      await screen.findByRole("listbox", { name: "Commands" });
+      expect(commandNames()).toEqual(["/new"]);
+    });
+
+    it("sends the fixed text of /brief once after ArrowDown and Enter", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("ops@1");
+      await userEvent.click(box());
+      await screen.findByRole("listbox", { name: "Commands" });
+
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledTimes(1);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, BRIEF_TEXT);
+    });
+
+    it("sends the fixed text of /health once on a click", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("ops@1");
+      await userEvent.click(box());
+
+      await userEvent.click(await screen.findByRole("option", { name: /\/health/ }));
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledTimes(1);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, HEALTH_TEXT);
+    });
+
+    it("sends the fixed text of the typed /health once", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("ops@1");
+
+      await userEvent.type(box(), "/health");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledTimes(1);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, HEALTH_TEXT);
+    });
+
+    it("sends the typed /brief as plain text in a swe@1 conversation", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("swe@1");
+
+      await userEvent.type(box(), "/brief");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "/brief");
+    });
+
+    it("opens the new-session route with the agent and the configuration on /new alone", async () => {
+      mount("swe@1");
+
+      await userEvent.type(box(), "/new");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(
+        `/workbench/new?${new URLSearchParams({
+          agent_name: "swe@1",
+          agent_provider: CONFIGURATION.agent_provider,
+          model_identifier: CONFIGURATION.model_identifier,
+          reasoning_effort: CONFIGURATION.reasoning_effort,
+        })}`,
+      );
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+    });
+
+    it("opens the new-session route when the human picks /new", async () => {
+      mount("swe@1");
+      await userEvent.click(box());
+
+      await userEvent.click(await screen.findByRole("option", { name: /\/new/ }));
+
+      expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(
+        "/workbench/new?agent_name=swe%401",
+      );
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+    });
+
+    it("shows the hint and sends nothing on /new with text", async () => {
+      mount("swe@1");
+
+      await userEvent.type(box(), "/new x");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(screen.getByText("/new takes no text yet")).toBeInTheDocument();
+      expect(box()).toHaveValue("/new x");
+      expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(
+        `/workbench/${SESSION_ID}`,
+      );
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+    });
+
+    it("shows no list on focus while the composer is disabled", async () => {
+      mount("ops@1", true);
+
+      await userEvent.click(box());
+
+      expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+    });
   });
 });

@@ -1,0 +1,296 @@
+import { useCallback, useMemo, useState } from "react";
+
+import type { ApiError } from "@/api/errors";
+import type { Project } from "@/api/types";
+import {
+  type AttentionContext,
+  type AttentionDetails,
+  type AttentionItem,
+  deriveAttention,
+  detailOf,
+  detailTargetsOf,
+  externalReadStateOf,
+  type ProjectSnapshot,
+} from "@/lib/attention";
+import { type BoardGate, gateOf, heldNodeIdsOf } from "@/lib/board-items";
+import { inboxItemsOf } from "@/lib/inbox-attention";
+import { unavailableComponentsOf } from "@/lib/liveness-alert";
+import {
+  claimedNodeCount,
+  type CoolingFact,
+  coolingFactsOf,
+  projectsWithoutSetup,
+} from "@/lib/overview-summary";
+
+import type { ReadFault } from "./read-overview-snapshot";
+import { useAttentionDetails } from "./use-attention-details";
+import { useOverviewSetup } from "./use-overview-setup";
+import { useInbox } from "./use-inbox";
+import { useOverviewSnapshot } from "./use-overview-snapshot";
+
+interface InboxView {
+  readonly open: number;
+  readonly ready: boolean;
+  readonly close: (linkUpdateId: string) => void;
+}
+
+export interface OverviewState {
+  readonly status: "loading" | "ready" | "empty" | "error";
+  readonly loaded: boolean;
+  readonly error: ApiError | null;
+  readonly projects: readonly Project[];
+  readonly running: number;
+  readonly waiting: number;
+  readonly cooling: readonly CoolingFact[];
+  readonly unavailable: readonly string[];
+  readonly livenessFailure: string | null;
+  readonly boardItems: readonly AttentionItem[];
+  readonly inbox: InboxView;
+  readonly gates: ReadonlyMap<string, BoardGate>;
+  readonly held: ReadonlyMap<string, readonly string[]>;
+  readonly snapshots: readonly ProjectSnapshot[];
+  readonly faults: readonly ReadFault[];
+  readonly absent: readonly string[];
+  readonly allClear: boolean;
+  readonly details: AttentionDetails;
+  readonly retryDetail: (nodeId: string) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean) => void;
+  readonly updatedAt: number | null;
+  readonly now: number;
+  readonly refresh: () => void;
+  readonly retryFaults: () => void;
+  readonly snapshotRunning: boolean;
+}
+
+const NO_FAULTS: readonly ReadFault[] = [];
+const NO_COMPONENTS: readonly string[] = [];
+
+export function useOverview(): OverviewState {
+  const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
+  const hold = openDialogs.size > 0;
+  const snapshot = useOverviewSnapshot(hold);
+  const setup = useOverviewSetup(hold);
+
+  const data = snapshot.data;
+  const projects = useMemo(() => data?.projects ?? [], [data]);
+  const reads = useMemo(() => data?.reads ?? [], [data]);
+
+  const setupData = setup.data;
+
+  const snapshots = useMemo<readonly ProjectSnapshot[]>(
+    () =>
+      reads.flatMap((read) =>
+        read.mission === null || read.nodes === null
+          ? []
+          : [
+              {
+                project: read.project,
+                missionVersion: read.mission.version,
+                nodes: read.nodes,
+                jobs: read.jobs,
+                registrations: read.registrations,
+                executions: read.executions,
+                environments: read.environments,
+                findings: read.findings,
+                followups: read.followups ?? null,
+                bindings:
+                  setupData?.projects.find((entry) => entry.project.id === read.project.id)
+                    ?.bindings ?? null,
+              },
+            ],
+      ),
+    [reads, setupData],
+  );
+
+  const targets = useMemo(() => detailTargetsOf(snapshots), [snapshots]);
+  const { details, refresh: refreshDetail } = useAttentionDetails(targets, snapshot.updatedAt);
+  const context = useMemo<AttentionContext>(
+    () => ({
+      now: snapshot.now,
+      catalog: setupData?.catalog ?? null,
+      credentials: setupData?.credentials ?? null,
+      sessions: data?.sessions ?? null,
+    }),
+    [snapshot.now, setupData, data],
+  );
+  const inbox = useInbox(snapshot.updatedAt);
+  const boardItems = useMemo<readonly AttentionItem[]>(
+    () => [...deriveAttention(snapshots, details, context), ...inboxItemsOf(inbox.items, projects)],
+    [snapshots, details, context, inbox.items, projects],
+  );
+  const gates = useMemo(
+    () =>
+      new Map(
+        boardItems.flatMap((item): readonly (readonly [string, BoardGate])[] => {
+          const gate = gateOf(item, boardItems);
+          return gate === null ? [] : [[item.id, gate]];
+        }),
+      ),
+    [boardItems],
+  );
+  const held = useMemo(
+    () => new Map(boardItems.map((item) => [item.id, heldNodeIdsOf(item, snapshots)])),
+    [boardItems, snapshots],
+  );
+  const externalReads = useMemo(() => externalReadStateOf(targets, details), [targets, details]);
+
+  const faults = useMemo<readonly ReadFault[]>(() => {
+    const scoped = data?.faults ?? NO_FAULTS;
+    const outside = externalReads.failures.map(({ target, message }) => ({
+      projectId: target.projectId,
+      projectName: projects.find((project) => project.id === target.projectId)?.name ?? null,
+      source: `external actions of ${target.node.content.name}`,
+      message,
+    }));
+    const listFault =
+      snapshot.error === null || data === null
+        ? NO_FAULTS
+        : [
+            {
+              projectId: null,
+              projectName: null,
+              source: "project list",
+              message: snapshot.error.message,
+            },
+          ];
+    const setupFaults = setupData?.faults ?? NO_FAULTS;
+    const setupFailure =
+      setup.error === null
+        ? NO_FAULTS
+        : [
+            {
+              projectId: null,
+              projectName: null,
+              source: "worker setup",
+              message: setup.error.message,
+            },
+          ];
+    const inboxFailure =
+      inbox.error === null
+        ? NO_FAULTS
+        : [
+            {
+              projectId: null,
+              projectName: null,
+              source: "inbox",
+              message: inbox.error.message,
+            },
+          ];
+    return [...scoped, ...outside, ...listFault, ...setupFaults, ...setupFailure, ...inboxFailure];
+  }, [data, projects, externalReads, snapshot.error, setupData, setup.error, inbox.error]);
+
+  const absent = useMemo<readonly string[]>(
+    () => [...new Set([...(data?.absent ?? NO_COMPONENTS), ...(inbox.absent ? ["inbox"] : [])])],
+    [data, inbox.absent],
+  );
+
+  const setDialogOpen = useCallback(
+    (itemId: string, nodeId: string, open: boolean) => {
+      setOpenDialogs((current) => {
+        if (current.has(itemId) === open) return current;
+        const next = new Set(current);
+        if (open) next.add(itemId);
+        else next.delete(itemId);
+        return next;
+      });
+      if (open) refreshDetail(nodeId);
+    },
+    [refreshDetail],
+  );
+
+  const cooling = useMemo(() => coolingFactsOf(snapshots), [snapshots]);
+  const unavailable = useMemo(
+    () =>
+      setupData?.liveness == null ? NO_COMPONENTS : unavailableComponentsOf(setupData.liveness),
+    [setupData],
+  );
+  const livenessFailure = setupData?.livenessFailure ?? null;
+
+  const { refresh: refreshSnapshot } = snapshot;
+  const { refresh: refreshSetup } = setup;
+  const refresh = useCallback(() => {
+    refreshSnapshot();
+    refreshSetup();
+  }, [refreshSnapshot, refreshSetup]);
+
+  const { retry: retrySnapshot } = snapshot;
+  const { retry: retryInbox } = inbox;
+  const projectListFailed = snapshot.error !== null && data !== null;
+  const snapshotFailed = (data?.faults.length ?? 0) > 0;
+  const inboxFailed = inbox.error !== null;
+  const setupFailed = setup.error !== null || (setupData?.faults.length ?? 0) > 0;
+  const failedDetails = externalReads.failures;
+  const retryFaults = useCallback(() => {
+    if (projectListFailed) {
+      refresh();
+      return;
+    }
+    if (snapshotFailed) retrySnapshot();
+    if (inboxFailed) retryInbox();
+    if (setupFailed) refreshSetup();
+    for (const { target } of failedDetails) refreshDetail(target.node.id);
+  }, [
+    projectListFailed,
+    snapshotFailed,
+    inboxFailed,
+    setupFailed,
+    failedDetails,
+    refresh,
+    retrySnapshot,
+    retryInbox,
+    refreshSetup,
+    refreshDetail,
+  ]);
+
+  const status =
+    data !== null
+      ? data.projects.length === 0
+        ? "empty"
+        : "ready"
+      : snapshot.loading
+        ? "loading"
+        : "error";
+
+  const loaded =
+    inbox.ready &&
+    (setupData !== null || setup.error !== null) &&
+    targets.every((target) => detailOf(details, target.node) !== null);
+
+  return {
+    status,
+    loaded,
+    error: snapshot.error,
+    projects,
+    running: snapshots.reduce((total, entry) => total + claimedNodeCount(entry.nodes), 0),
+    waiting: reads.reduce((total, read) => total + (read.jobs?.length ?? 0), 0),
+    cooling,
+    unavailable,
+    livenessFailure,
+    boardItems,
+    inbox: {
+      open: inbox.open,
+      ready: inbox.ready,
+      close: inbox.close,
+    },
+    gates,
+    held,
+    snapshots,
+    faults,
+    absent,
+    allClear:
+      faults.length === 0 &&
+      externalReads.pending === 0 &&
+      setupData !== null &&
+      projectsWithoutSetup(snapshots, setupData.projects) === 0 &&
+      livenessFailure === null &&
+      boardItems.length === 0,
+    details,
+    retryDetail: refreshDetail,
+    setDialogOpen,
+    updatedAt: snapshot.updatedAt,
+    now: snapshot.now,
+    refresh,
+    retryFaults,
+    snapshotRunning: snapshot.running,
+  };
+}

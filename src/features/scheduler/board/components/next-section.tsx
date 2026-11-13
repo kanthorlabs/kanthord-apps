@@ -108,7 +108,7 @@ export function NextSection({ queue, showProjects, now }: NextSectionProps) {
           <EmptyHeader>
             <EmptyTitle>No job waits.</EmptyTitle>
             <EmptyDescription>
-              A Pending, Blocked or Paused node holds no job. <Link to="/">Overview</Link> lists the
+              A Pending, Blocked or Paused node holds no job. <Link to="/">Home</Link> lists the
               nodes that wait for you.
             </EmptyDescription>
           </EmptyHeader>

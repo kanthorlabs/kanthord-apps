@@ -4,10 +4,9 @@ import type {
   FindingReviewItem,
   OutsideAttentionItem,
 } from "./attention";
-import { BOARD_TAB, type BoardTab, boardTabOf, openProposalsReadOf } from "./board-tabs";
+import { type BoardTab, openProposalsReadOf } from "./board-tabs";
 import { counted } from "./counted";
 import { codeLabel, stopLabel } from "./execution-stop";
-import { fixTargetOf } from "./fix-attention";
 import { inboxLineOf } from "./inbox-attention";
 import { inboxReasonLabelOf } from "./inbox-reasons";
 import { HUMAN_FINDING_GROUP } from "./review-findings";
@@ -104,100 +103,29 @@ export interface BoardSummaryInput {
   readonly count: number;
   readonly held: number;
   readonly start: { readonly subject: string; readonly tab: BoardTab } | null;
-  readonly projectName: string | null;
   readonly readFault: boolean;
   readonly inbox: number;
 }
 
 export interface BoardSummary {
   readonly long: string;
-  readonly short: string;
 }
 
 function emptySummaryTextOf(input: BoardSummaryInput): string {
-  if (input.projectName !== null) return `Nothing waits for you in ${input.projectName}.`;
   if (input.readFault) return "No act found. Some records could not be read.";
   return "No decision waits for you.";
 }
 
 export function boardSummaryOf(input: BoardSummaryInput): BoardSummary {
-  const { count, held, start, projectName } = input;
-  if (start === null) {
-    const text = emptySummaryTextOf(input);
-    return { long: text, short: text };
-  }
-  const scope = projectName === null ? "" : ` in ${projectName}`;
+  const { count, held, start } = input;
+  if (start === null) return { long: emptySummaryTextOf(input) };
   const acts = counted(count, "act waits", "acts wait");
   const nodes = counted(held, "node waits", "nodes wait");
   const threads =
     input.inbox > 0 ? ` ${counted(input.inbox, "thread waits", "threads wait")} in Inbox.` : "";
-  const inbox = input.inbox > 0 ? `${FACT_SEPARATOR}${input.inbox} inbox` : "";
   return {
-    long: `${acts} for you${scope}. ${nodes} on them. Start here: ${start.subject} in ${start.tab.name}.${threads}`,
-    short: `${counted(count, "act", "acts")}${FACT_SEPARATOR}${nodes}${FACT_SEPARATOR}Start: ${start.subject}${inbox}`,
+    long: `${acts} for you. ${nodes} on them. Start here: ${start.subject} in ${start.tab.name}.${threads}`,
   };
-}
-
-function isAllProjectsTab(tab: BoardTab, allProjects: boolean): boolean {
-  return allProjects && tab.id === BOARD_TAB.Tool;
-}
-
-export function tabLabelOf(tab: BoardTab, count: number, allProjects: boolean): string {
-  const scope = isAllProjectsTab(tab, allProjects) ? ", all projects" : "";
-  const clear = count === 0 ? ", clear" : "";
-  return `${tab.name}, ${counted(count, "act", "acts")}${scope}${clear}`;
-}
-
-export function tabSubOf(tab: BoardTab, held: number, count: number, allProjects: boolean): string {
-  const text = count === 0 ? "clear" : heldText(held);
-  return isAllProjectsTab(tab, allProjects) ? `all projects${FACT_SEPARATOR}${text}` : text;
-}
-
-export function positionText(index: number, total: number): string {
-  return `${index + 1} of ${total}`;
-}
-
-const GONE_ANNOUNCEMENT = "The selected item no longer waits.";
-
-export interface AnnouncementInput {
-  readonly gone: boolean;
-  readonly expanded: boolean;
-  readonly open: boolean;
-  readonly subject: string | null;
-  readonly position: number | null;
-  readonly total: number;
-}
-
-export function announcementOf(input: AnnouncementInput): string {
-  if (input.gone) return GONE_ANNOUNCEMENT;
-  const { expanded, open, subject, position, total } = input;
-  if (expanded || !open || subject === null || position === null) return "";
-  return `${subject}, ${positionText(position, total)}.`;
-}
-
-export function leadLabelOf(item: AttentionItem, details: AttentionDetails): string | null {
-  switch (item.kind) {
-    case "paused":
-      return "Resume";
-    case "blocked":
-      return boardTabOf(item, details) === BOARD_TAB.Proposal ? "Decide" : "Unblock";
-    case "dependency_discarded":
-      return "Remove dependency";
-    case "finding_review":
-    case "followup_proposal":
-      return "Decide";
-    case "merge_wait":
-    case "delivery_unconfirmed":
-      return "Check now";
-    case "tool_approval":
-      return "Open chat";
-    case "inbox_item":
-      return "Mark done";
-    case "project_paused":
-      return "Resume project";
-    default:
-      return fixTargetOf(item).label;
-  }
 }
 
 function lowerCauseOf(

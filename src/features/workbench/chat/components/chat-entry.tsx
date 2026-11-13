@@ -7,6 +7,7 @@ import { AgentAvatar } from "./agent-avatar";
 import { AgentText } from "./agent-text";
 import { BubbleAuthor } from "./bubble-author";
 import { InlineError } from "./inline-error";
+import { commandOfText } from "../slash-commands";
 import { ToolRow } from "./tool-row";
 
 const CALL_STATE_LABEL = { running: "Running", "awaiting-approval": "Awaiting Approval" } as const;
@@ -26,6 +27,7 @@ interface UserMessageProps {
 
 function UserMessage({ text, author, timestamp, error }: UserMessageProps) {
   const errorId = useId();
+  const command = commandOfText(text);
   return (
     <div className="flex max-w-[85%] min-w-0 flex-col items-end gap-1 self-end">
       <BubbleAuthor name={author} timestamp={timestamp} />
@@ -37,7 +39,14 @@ function UserMessage({ text, author, timestamp, error }: UserMessageProps) {
             : "rounded-lg border border-destructive bg-secondary px-3 py-2 text-sm break-words whitespace-pre-wrap text-secondary-foreground"
         }
       >
-        {text}
+        {command === null ? (
+          text
+        ) : (
+          <>
+            <span className="block font-mono">{command.name}</span>
+            <span className="block">{text}</span>
+          </>
+        )}
       </div>
       {error !== null && <InlineError id={errorId} code={null} message={error} />}
     </div>

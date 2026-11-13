@@ -33,6 +33,12 @@ export function newSessionPath(agentName: string, configuration: WorkbenchConfig
   })}`;
 }
 
+export function invalidFieldsText(errors: Readonly<Record<string, string>>): string {
+  return Object.keys(errors)
+    .map((key) => FIELD_LABELS[key] ?? key)
+    .join(", ");
+}
+
 export function newSessionRequestOf(params: URLSearchParams): NewSessionRequest {
   const agentName = params.get("agent_name") ?? "";
   if (agentName === "") return { ok: false, message: "The address of this page names no agent." };
@@ -42,10 +48,9 @@ export function newSessionRequestOf(params: URLSearchParams): NewSessionRequest 
     reasoningEffort: reasoningEffortOf(params.get("reasoning_effort")),
   });
   if (result.ok) return { ok: true, agentName, configuration: result.configuration };
-  const fields = Object.keys(result.errors).map((key) => FIELD_LABELS[key] ?? key);
   return {
     ok: false,
-    message: `The address of this page holds no valid ${fields.join(", ")}.`,
+    message: `The address of this page holds no valid ${invalidFieldsText(result.errors)}.`,
   };
 }
 

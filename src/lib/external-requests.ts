@@ -1,13 +1,6 @@
-import type {
-  MissionEvidence,
-  MissionExternalAction,
-  MissionNodeRecord,
-  RepositoryActionName,
-} from "@/api/types";
+import type { MissionExternalAction, MissionNodeRecord, RepositoryActionName } from "@/api/types";
 
-import type { OutsideAttentionItem } from "./attention";
 import { isTerminal } from "./node-state";
-import { relativeAge } from "./relative-age";
 
 const ACTION_LABELS: Readonly<Record<RepositoryActionName, string>> = {
   pull_request: "pull request",
@@ -70,52 +63,4 @@ export function readFailureText(
 ): string {
   const subject = withExecutions ? "executions or the external actions" : "external actions";
   return `The ${subject} of attempt ${attempt} could not be read: ${message.replace(/\.$/, "")}. ${waiting}`;
-}
-
-function pullRequestOf(
-  evidence: MissionEvidence | null,
-): { readonly number: number; readonly repository: string } | null {
-  for (const asset of evidence?.assets ?? []) {
-    if (asset.kind === "platform" && asset.address.kind === "pull_request") {
-      return { number: asset.address.number, repository: asset.address.resource_identity };
-    }
-  }
-  return null;
-}
-
-function repositoryLabel(resourceIdentity: string): string {
-  const github = /^repository:github:(.+)$/.exec(resourceIdentity);
-  return github?.[1] === undefined ? resourceIdentity : `github.com/${github[1]}`;
-}
-
-export function mergeWaitText(evidence: MissionEvidence | null): string {
-  const request = pullRequestOf(evidence);
-  const subject =
-    request === null
-      ? "A pull request"
-      : `Pull request #${request.number} on ${repositoryLabel(request.repository)}`;
-  return `${subject} waits for a merge. Merge it, then check.`;
-}
-
-export function deliveryText(
-  action: MissionExternalAction,
-  evidence: MissionEvidence,
-  now: number,
-): string {
-  const age = relativeAge(evidence.created_at, now);
-  const request = pullRequestOf(evidence);
-  const done =
-    action.action.action === "push"
-      ? `kanthord pushed to ${action.action.configuration.base_branch}`
-      : `kanthord requested the merge of ${
-          request === null ? "the pull request" : `pull request #${request.number}`
-        }`;
-  return `${done} ${age}, and no end state arrived. Check the delivery.`;
-}
-
-export function causeSentenceOf(item: OutsideAttentionItem, now: number): string {
-  if (item.kind === "merge_wait") return mergeWaitText(item.request.evidence);
-  return item.request.evidence === null
-    ? "No end state arrived. Check the delivery."
-    : deliveryText(item.request.action, item.request.evidence, now);
 }

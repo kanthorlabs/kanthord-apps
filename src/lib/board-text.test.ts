@@ -29,16 +29,11 @@ import {
 import { BOARD_TABS } from "./board-tabs";
 import { inboxItemsOf } from "./inbox-attention";
 import {
-  announcementOf,
   boardSummaryOf,
   cardCauseOf,
   cardLabelOf,
   detailTitleOf,
   heldText,
-  leadLabelOf,
-  positionText,
-  tabLabelOf,
-  tabSubOf,
   workforceText,
 } from "./board-text";
 
@@ -417,10 +412,6 @@ describe("cardCauseOf of a follow-up proposal", () => {
       "Follow-up proposal waits for a decision · 2 proposals",
     );
   });
-
-  it("leads with Decide", () => {
-    expect(leadLabelOf(followupItemOf(1), new Map())).toBe("Decide");
-  });
 });
 
 describe("cardCauseOf", () => {
@@ -619,45 +610,15 @@ describe("boardSummaryOf", () => {
   const start = { subject: "Retention rule", tab: setup };
 
   it("states the acts, the held nodes and the start", () => {
-    expect(
-      boardSummaryOf({ count: 3, held: 5, start, projectName: null, readFault: false, inbox: 0 }),
-    ).toEqual({
+    expect(boardSummaryOf({ count: 3, held: 5, start, readFault: false, inbox: 0 })).toEqual({
       long: "3 acts wait for you. 5 nodes wait on them. Start here: Retention rule in Fix setup.",
-      short: "3 acts · 5 nodes wait · Start: Retention rule",
     });
-  });
-
-  it("names the project of a filter", () => {
-    expect(
-      boardSummaryOf({ count: 3, held: 5, start, projectName: "atlas", readFault: false, inbox: 0 })
-        .long,
-    ).toBe(
-      "3 acts wait for you in atlas. 5 nodes wait on them. Start here: Retention rule in Fix setup.",
-    );
   });
 
   it("uses the singular for one act and one node", () => {
-    expect(
-      boardSummaryOf({ count: 1, held: 1, start, projectName: null, readFault: false, inbox: 0 }),
-    ).toEqual({
+    expect(boardSummaryOf({ count: 1, held: 1, start, readFault: false, inbox: 0 })).toEqual({
       long: "1 act waits for you. 1 node waits on them. Start here: Retention rule in Fix setup.",
-      short: "1 act · 1 node waits · Start: Retention rule",
     });
-  });
-
-  it("states that nothing waits in the project of a filter", () => {
-    const text = "Nothing waits for you in atlas.";
-
-    expect(
-      boardSummaryOf({
-        count: 0,
-        held: 0,
-        start: null,
-        projectName: "atlas",
-        readFault: true,
-        inbox: 0,
-      }),
-    ).toEqual({ long: text, short: text });
   });
 
   it("states the read fault when no card exists", () => {
@@ -668,11 +629,10 @@ describe("boardSummaryOf", () => {
         count: 0,
         held: 0,
         start: null,
-        projectName: null,
         readFault: true,
         inbox: 0,
       }),
-    ).toEqual({ long: text, short: text });
+    ).toEqual({ long: text });
   });
 
   it("states that no decision waits", () => {
@@ -683,46 +643,10 @@ describe("boardSummaryOf", () => {
         count: 0,
         held: 0,
         start: null,
-        projectName: null,
         readFault: false,
         inbox: 0,
       }),
-    ).toEqual({ long: text, short: text });
-  });
-});
-
-describe("tab texts", () => {
-  const [tool, setup] = BOARD_TABS;
-  if (tool === undefined || setup === undefined) throw new Error("No tab.");
-
-  it("labels a tab with its name and its acts", () => {
-    expect(tabLabelOf(setup, 3, false)).toBe("Fix setup, 3 acts");
-    expect(tabLabelOf(setup, 1, false)).toBe("Fix setup, 1 act");
-    expect(tabLabelOf(setup, 0, false)).toBe("Fix setup, 0 acts, clear");
-  });
-
-  it("labels the tool tab under a filter with all projects", () => {
-    expect(tabLabelOf(tool, 2, true)).toBe("Approve tool, 2 acts, all projects");
-    expect(tabLabelOf(tool, 0, true)).toBe("Approve tool, 0 acts, all projects, clear");
-    expect(tabLabelOf(setup, 2, true)).toBe("Fix setup, 2 acts");
-  });
-
-  it("states clear for zero and the held text otherwise", () => {
-    expect(tabSubOf(setup, 0, 0, false)).toBe("clear");
-    expect(tabSubOf(setup, 1, 1, false)).toBe("1 node waits");
-    expect(tabSubOf(setup, 4, 2, false)).toBe("4 nodes wait");
-    expect(tabSubOf(setup, 0, 2, false)).toBe("No node waits");
-  });
-
-  it("starts the sub text of the tool tab under a filter with all projects", () => {
-    expect(tabSubOf(tool, 0, 2, true)).toBe("all projects · No node waits");
-    expect(tabSubOf(tool, 0, 0, true)).toBe("all projects · clear");
-    expect(tabSubOf(setup, 3, 2, true)).toBe("3 nodes wait");
-  });
-
-  it("states the position of a card", () => {
-    expect(positionText(0, 5)).toBe("1 of 5");
-    expect(positionText(4, 5)).toBe("5 of 5");
+    ).toEqual({ long: text });
   });
 });
 
@@ -827,93 +751,6 @@ describe("detailTitleOf", () => {
   });
 });
 
-describe("leadLabelOf", () => {
-  const none: AttentionDetails = new Map();
-
-  it("leads a paused node with Resume", () => {
-    expect(leadLabelOf(pausedItemWith(null), none)).toBe("Resume");
-  });
-
-  it("leads a blocked node with Decide in the proposal tab and Unblock otherwise", () => {
-    const examine = blockedNode("e", "Review", { intent: "examine" });
-    const details = blockedDetails(examine, [proposal("e", "p1")]);
-    const proposed = itemOf(derive([snapshot([examine])], details), "blocked:e");
-    const rule = itemOf(derive([snapshot([blockedNode("a", "Add reset")])]), "blocked:a");
-
-    expect(leadLabelOf(proposed, details)).toBe("Decide");
-    expect(leadLabelOf(rule, none)).toBe("Unblock");
-  });
-
-  it("leads a discarded dependency with Remove dependency", () => {
-    const items = derive([
-      snapshot([node("a", "Pending", { depends_on: ["b"] }), node("b", "Discarded")]),
-    ]);
-
-    expect(leadLabelOf(itemOf(items, "dependency_discarded:a"), none)).toBe("Remove dependency");
-  });
-
-  it("leads a finding item with Decide", () => {
-    expect(leadLabelOf(findingItemOf(["reviewer"]), none)).toBe("Decide");
-  });
-
-  it("leads an outside item with Check now", () => {
-    expect(leadLabelOf(outsideItem("merge_wait", 42).item, none)).toBe("Check now");
-    expect(leadLabelOf(outsideItem("delivery_unconfirmed", 7).item, none)).toBe("Check now");
-  });
-
-  it("leads a tool approval with Open chat", () => {
-    const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1");
-
-    expect(leadLabelOf(item, none)).toBe("Open chat");
-  });
-
-  it("leads a paused project with Resume project", () => {
-    const items = derive([snapshot([], { project: { ...PROJECT, paused_at: 5 } })]);
-
-    expect(leadLabelOf(itemOf(items, "project_paused:prj-1"), none)).toBe("Resume project");
-  });
-
-  it("leads a refused credential with its fix link", () => {
-    const items = derive([
-      snapshot([node("n1", "Paused")], {
-        executions: [execution("n1", { reason: "provider_failed", code: "unauthorized" })],
-      }),
-    ]);
-
-    expect(leadLabelOf(itemOf(items, "credential_refused:openai-main"), none)).toBe(
-      "Open credential",
-    );
-  });
-});
-
-describe("announcementOf", () => {
-  const input = {
-    gone: false,
-    expanded: false,
-    open: true,
-    subject: "Add reset",
-    position: 1,
-    total: 4,
-  };
-
-  it("announces the open card with its position", () => {
-    expect(announcementOf(input)).toBe("Add reset, 2 of 4.");
-  });
-
-  it("announces a gone item first", () => {
-    expect(announcementOf({ ...input, gone: true, expanded: true })).toBe(
-      "The selected item no longer waits.",
-    );
-  });
-
-  it("announces nothing in the pane, with no open card or with no position", () => {
-    expect(announcementOf({ ...input, expanded: true })).toBe("");
-    expect(announcementOf({ ...input, open: false })).toBe("");
-    expect(announcementOf({ ...input, position: null })).toBe("");
-    expect(announcementOf({ ...input, subject: null })).toBe("");
-  });
-});
-
 describe("inbox card texts", () => {
   const thread: InboxItem = {
     link_update_id: "link_update_1",
@@ -949,10 +786,6 @@ describe("inbox card texts", () => {
     expect(cardLabelOf(itemOf())).toBeNull();
   });
 
-  it("leads with Mark done", () => {
-    expect(leadLabelOf(itemOf(), new Map())).toBe("Mark done");
-  });
-
   it("titles the detail with the subject", () => {
     expect(detailTitleOf(itemOf(), new Map())).toBe("acme/shop#42");
   });
@@ -963,19 +796,15 @@ describe("boardSummaryOf with inbox threads", () => {
   if (tool === undefined) throw new Error("No tab.");
   const start = { subject: "Retention rule", tab: tool };
 
-  it("adds the threads to the long text and the inbox count to the short text", () => {
-    expect(
-      boardSummaryOf({ count: 3, held: 5, start, projectName: null, readFault: false, inbox: 4 }),
-    ).toEqual({
+  it("adds the threads to the text", () => {
+    expect(boardSummaryOf({ count: 3, held: 5, start, readFault: false, inbox: 4 })).toEqual({
       long: "3 acts wait for you. 5 nodes wait on them. Start here: Retention rule in Approve tool. 4 threads wait in Inbox.",
-      short: "3 acts · 5 nodes wait · Start: Retention rule · 4 inbox",
     });
   });
 
   it("uses the singular for one thread", () => {
-    expect(
-      boardSummaryOf({ count: 1, held: 0, start, projectName: null, readFault: false, inbox: 1 })
-        .long,
-    ).toContain("1 thread waits in Inbox.");
+    expect(boardSummaryOf({ count: 1, held: 0, start, readFault: false, inbox: 1 }).long).toContain(
+      "1 thread waits in Inbox.",
+    );
   });
 });

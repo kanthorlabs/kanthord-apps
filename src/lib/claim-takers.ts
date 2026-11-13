@@ -80,7 +80,7 @@ export function uncoveredJobsOf(
   return [...groups.values()];
 }
 
-export type TakerSituation = "no_instance" | "no_registration" | "external_harness";
+type TakerSituation = "no_instance" | "no_registration" | "external_harness";
 
 export type TakerHint =
   | { readonly kind: "none" }

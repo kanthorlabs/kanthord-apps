@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { agentWorking, chatItemsOf } from "@/lib/workbench-chat";
-import type { FirstSendFailure } from "@/lib/workbench-new-session";
+import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
@@ -23,6 +24,9 @@ interface ChatViewProps {
   readonly ownerName: string;
   readonly agentDisplayName: string;
   readonly firstSendFailure?: FirstSendFailure | null;
+  readonly streamEnd?: ReactNode;
+  readonly approvalLine?: ReactNode | null;
+  readonly onNew?: () => void;
 }
 
 export function ChatView({
@@ -31,6 +35,9 @@ export function ChatView({
   ownerName,
   agentDisplayName,
   firstSendFailure = null,
+  streamEnd = null,
+  approvalLine = null,
+  onNew,
 }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.run_active);
   const actions = useChatActions(
@@ -47,11 +54,17 @@ export function ChatView({
     enablement,
   );
   const { snapshot } = events;
-  const composer = useComposer(
-    snapshot.run_active || actions.busy,
-    actions.send,
-    firstSendFailure?.draft,
+  const navigate = useNavigate();
+  const currentConfiguration = configuration.configuration;
+  const openNewChat = useCallback(
+    () => navigate(newSessionPath(session.agent_name, currentConfiguration)),
+    [navigate, session.agent_name, currentConfiguration],
   );
+  const composer = useComposer(snapshot.run_active || actions.busy, actions.send, {
+    agentName: session.agent_name,
+    onNew: onNew ?? openNewChat,
+    initialDraft: firstSendFailure?.draft,
+  });
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active);
@@ -88,23 +101,25 @@ export function ChatView({
           runError={snapshot.error_message}
         />
         {working && <AgentWorking seconds={elapsed} />}
-        {snapshot.pending_approval !== null && (
-          <ApprovalCard
-            approval={snapshot.pending_approval}
-            busy={actions.busy}
-            failure={approvalFailure}
-            onDecide={(approved) => {
-              if (snapshot.pending_approval !== null) {
-                actions.approve(snapshot.pending_approval.tool_call_id, approved);
-              }
-            }}
-          />
-        )}
+        {snapshot.pending_approval !== null &&
+          (approvalLine ?? (
+            <ApprovalCard
+              approval={snapshot.pending_approval}
+              busy={actions.busy}
+              failure={approvalFailure}
+              onDecide={(approved) => {
+                if (snapshot.pending_approval !== null) {
+                  actions.approve(snapshot.pending_approval.tool_call_id, approved);
+                }
+              }}
+            />
+          ))}
         {events.failure !== null && (
           <p role="status" className="text-sm text-muted-foreground">
             The connection to the session failed: {events.failure} Trying again.
           </p>
         )}
+        {streamEnd}
       </div>
       <div className="sticky bottom-0 bg-background pt-2">
         <Composer

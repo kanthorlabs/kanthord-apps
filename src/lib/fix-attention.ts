@@ -43,7 +43,7 @@ export interface EnvironmentPendingItem extends FixBase {
   readonly reason: string;
 }
 
-export interface NoTakerItem extends FixBase {
+interface NoTakerItem extends FixBase {
   readonly kind: "no_taker";
   readonly state: NodeState;
   readonly intent: Intent;
@@ -57,12 +57,12 @@ interface SpreadBase extends FixBase {
   readonly projectCount: number;
 }
 
-export interface InvalidBinding {
+interface InvalidBinding {
   readonly binding: string;
   readonly project: string;
 }
 
-export interface AgentInvalidItem extends SpreadBase {
+interface AgentInvalidItem extends SpreadBase {
   readonly kind: "agent_invalid";
   readonly agent: string;
   readonly bindings: readonly InvalidBinding[];
@@ -466,22 +466,4 @@ export function fixTargetOf(item: FixAttentionItem): FixTarget {
     return { path: `/llm/${encodeURIComponent(item.credential)}`, label: "Open credential" };
   }
   return { path: `/agents/${encodeURIComponent(item.agent)}`, label: "Open agent" };
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? "" : "s"}`;
-}
-
-export function spreadTextOf(item: FixAttentionItem): string | null {
-  if (
-    item.kind === "project_paused" ||
-    item.kind === "environment_failed" ||
-    item.kind === "environment_pending" ||
-    item.kind === "no_taker"
-  ) {
-    return null;
-  }
-  if (item.count === 1 && item.projectCount === 1) return null;
-  const noun = item.kind === "agent_invalid" ? "binding" : "node";
-  return `${plural(item.count, noun)} in ${plural(item.projectCount, "project")}`;
 }

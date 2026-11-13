@@ -229,7 +229,7 @@ describe("ChatScreen", () => {
       mountNew();
 
       expect(await screen.findByText(/Hello, I am Yumi\./)).toBeTruthy();
-      expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
+      expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
       expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("qwen3-coder");
       expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
     });
@@ -242,7 +242,7 @@ describe("ChatScreen", () => {
       });
       mountNew();
 
-      await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "List nodes");
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "List nodes");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
       expect(await screen.findByText(`Path /workbench/${SESSION_ID}`)).toBeTruthy();
@@ -257,6 +257,29 @@ describe("ChatScreen", () => {
         vi.mocked(workbenchApi.createWorkbenchSession).mock.invocationCallOrder[0],
       ).toBeLessThan(vi.mocked(workbenchApi.sendWorkbenchMessage).mock.invocationCallOrder[0]!);
       expect(await screen.findByText("List the open nodes")).toBeTruthy();
+    });
+
+    it("keeps the route and calls no resource on /new alone", async () => {
+      mountNew();
+
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "/new");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(screen.getByText("Path /workbench/new")).toBeTruthy();
+      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+    });
+
+    it("shows the hint and calls no resource on /new with text", async () => {
+      mountNew();
+
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "/new x");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(screen.getByText("/new takes no text yet")).toBeTruthy();
+      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("/new x");
+      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
     });
 
     it("writes nothing when the owner leaves with no message", async () => {
@@ -278,11 +301,11 @@ describe("ChatScreen", () => {
       );
       mountNew();
 
-      await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "List nodes");
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "List nodes");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
       expect(await screen.findByText(`Path /workbench/${SESSION_ID}`)).toBeTruthy();
-      expect(await screen.findByRole("textbox", { name: "Message" })).toHaveValue("List nodes");
+      expect(await screen.findByRole("combobox", { name: "Message" })).toHaveValue("List nodes");
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "conflict The workbench session holds an active run.",
       );
@@ -294,12 +317,12 @@ describe("ChatScreen", () => {
       );
       mountNew();
 
-      await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "List nodes");
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "List nodes");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("refused The model is unknown.");
       expect(screen.getByText("Path /workbench/new")).toBeTruthy();
-      expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("List nodes");
+      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("List nodes");
       expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
     });
 
@@ -309,7 +332,7 @@ describe("ChatScreen", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "The address of this page holds no valid agent provider, model, reasoning effort.",
       );
-      expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
+      expect(screen.queryByRole("combobox", { name: "Message" })).toBeNull();
       expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
     });
   });

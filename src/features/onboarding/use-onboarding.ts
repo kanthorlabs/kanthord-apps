@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import type { ReadFault } from "@/features/overview/read-overview-snapshot";
+import type { ReadFault } from "@/features/home/read-overview-snapshot";
 import { useResource } from "@/hooks/use-resource";
 import { hasOpenStep, type OnboardingStep, onboardingStepsOf } from "@/lib/onboarding";
 

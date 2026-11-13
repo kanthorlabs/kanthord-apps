@@ -26,7 +26,7 @@ export function breadcrumbTrail(
   labelOf: (path: string) => string | undefined,
 ): readonly Crumb[] {
   const segments = pathname.split("/").filter((segment) => segment.length > 0);
-  if (segments.length === 0) return [{ path: "/", label: labelOf("/") ?? "Overview" }];
+  if (segments.length === 0) return [{ path: "/", label: labelOf("/") ?? "Home" }];
   return segments.map((segment, index) => {
     const path = `/${segments.slice(0, index + 1).join("/")}`;
     return { path, label: labelOf(path) ?? segmentLabel(segment) };

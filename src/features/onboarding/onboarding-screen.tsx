@@ -2,8 +2,8 @@ import { useCrumbLabel } from "@/components/crumb-labels";
 import { Button } from "@/components/ui/button";
 import { ItemGroup } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ReadFaultsAlert } from "@/features/overview/components/read-faults-alert";
-import { OverviewScreen } from "@/features/overview/overview-screen";
+import { ReadFaultsAlert } from "@/features/home/components/read-faults-alert";
+import { HomeScreen } from "@/features/home/home-screen";
 
 import { OnboardingStep } from "./components/onboarding-step";
 import { useOnboarding } from "./use-onboarding";
@@ -22,7 +22,7 @@ export function OnboardingScreen() {
   }
 
   if (onboarding.view === "overview") {
-    return <OverviewScreen onResume={onboarding.resumable ? onboarding.resume : undefined} />;
+    return <HomeScreen onResume={onboarding.resumable ? onboarding.resume : undefined} />;
   }
 
   return (

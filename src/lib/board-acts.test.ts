@@ -29,8 +29,8 @@ import {
   outsideReadOf,
   phoneActsOf,
   projectPausedActsOf,
-  shortcutKeysOf,
   toolApprovalActsOf,
+  withAskYumi,
 } from "./board-acts";
 import type { BoardGate } from "./board-items";
 import type { InboxAttentionItem } from "./inbox-attention";
@@ -221,12 +221,24 @@ describe("decisionActsOf", () => {
 });
 
 describe("findingReviewActsOf", () => {
-  it("links the node sheet of the finding item", () => {
+  it("leads with Decide, then links the node sheet of the finding item", () => {
     const item = { project: PROJECT, node: { id: "node_1" } } as unknown as FindingReviewItem;
+    const decide = vi.fn();
 
-    expect(findingReviewActsOf(item)).toEqual([
-      { type: "link", id: "open_node", label: "Open node", to: "/projects/prj-1?node=node_1" },
+    const acts = findingReviewActsOf(item, decide);
+
+    expect(acts.map((act) => [act.type, act.id])).toEqual([
+      ["button", "decide"],
+      ["link", "open_node"],
     ]);
+    expect(acts[1]).toEqual({
+      type: "link",
+      id: "open_node",
+      label: "Open node",
+      to: "/projects/prj-1?node=node_1",
+    });
+    if (acts[0]?.type === "button") acts[0].press();
+    expect(decide).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -463,12 +475,6 @@ describe("phone more sheet", () => {
   it("builds the id of a need from its place in the list", () => {
     expect(needIdOf("base", ["a", "b"], "b")).toBe("base-need-1");
   });
-
-  it("gives the shortcut keys of the acts only when shortcuts are on", () => {
-    const acts = [button("discard")];
-    expect(shortcutKeysOf(acts, true).get("discard")).toBe("x");
-    expect(shortcutKeysOf(acts, false).size).toBe(0);
-  });
 });
 
 describe("followupActsOf", () => {
@@ -589,5 +595,62 @@ describe("inboxActsOf", () => {
 
     expect(phone.lead?.id).toBe("mark_done");
     expect(moreCountOf(phone)).toBe(4);
+  });
+});
+
+describe("withAskYumi", () => {
+  const environment = {
+    kind: "environment_failed",
+    project: PROJECT,
+  } as unknown as EnvironmentFailedItem;
+
+  it("leaves the acts unchanged with no press", () => {
+    const acts = decisionActsOf(decisionOf("paused"), controlsOf(), null);
+
+    expect(withAskYumi(acts, "paused", null)).toBe(acts);
+  });
+
+  it("puts Ask Yumi first for environment_failed so that it is the lead act", () => {
+    const acts = environmentFailedActsOf(environment, { running: false, run: vi.fn() });
+    const press = vi.fn();
+
+    const withAsk = withAskYumi(acts, "environment_failed", press);
+    const phone = phoneActsOf(withAsk);
+
+    expect(idsOf(withAsk)).toEqual(["ask_yumi", "open", "onboarding"]);
+    expect(withAsk[0]).toMatchObject({ type: "button", label: "Ask Yumi", press });
+    expect(phone.lead?.id).toBe("ask_yumi");
+    expect(idsOf(phone.others)).toEqual(["open", "onboarding"]);
+  });
+
+  it("puts Ask Yumi before Discard for paused so that it sits in More", () => {
+    const acts = decisionActsOf(decisionOf("paused"), controlsOf(), null);
+
+    const withAsk = withAskYumi(acts, "paused", vi.fn());
+    const phone = phoneActsOf(withAsk);
+
+    expect(idsOf(withAsk)).toEqual(["resume", "override", "check", "ask_yumi", "discard"]);
+    expect(phone.lead?.id).toBe("resume");
+    expect(idsOf(phone.others)).toContain("ask_yumi");
+    expect(phone.last?.id).toBe("discard");
+  });
+
+  it("appends Ask Yumi after the acts of a kind with no Discard", () => {
+    const item = { kind: "no_taker", project: PROJECT } as unknown as FixAttentionItem;
+
+    const withAsk = withAskYumi(fixTargetActsOf(item), "no_taker", vi.fn());
+
+    expect(idsOf(withAsk)).toEqual(["fix_target", "ask_yumi"]);
+    expect(phoneActsOf(withAsk).lead?.id).toBe("fix_target");
+  });
+
+  it("keeps a gated act as the lead when Ask Yumi is the only enabled act before Discard", () => {
+    const gated = decisionActsOf(decisionOf("paused"), controlsOf({ ready: false }), null);
+    const acts = gated.filter((act) => act.type === "gated" || act.id === "discard");
+
+    const phone = phoneActsOf(withAskYumi(acts, "paused", vi.fn()));
+
+    expect(phone.lead?.type).toBe("gated");
+    expect(idsOf(phone.others)).toContain("ask_yumi");
   });
 });

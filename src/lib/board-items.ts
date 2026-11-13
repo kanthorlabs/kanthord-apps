@@ -1,7 +1,6 @@
 import type { Project } from "@/api/types";
 
-import type { AttentionDetails, AttentionItem, ProjectSnapshot } from "./attention";
-import { type BoardTabId, boardTabOf } from "./board-tabs";
+import type { AttentionItem, ProjectSnapshot } from "./attention";
 import type { CredentialRefusedItem } from "./fix-attention";
 import { inboxReasonRankOf } from "./inbox-reasons";
 import { isTerminal } from "./node-state";
@@ -78,11 +77,6 @@ export function boardProjectsOf(item: AttentionItem): readonly Project[] {
   return [item.project];
 }
 
-export function isInProject(item: AttentionItem, projectId: string): boolean {
-  if (item.kind === "tool_approval") return true;
-  return boardProjectsOf(item).some((project) => project.id === projectId);
-}
-
 function isCredentialRefused(item: AttentionItem): item is CredentialRefusedItem {
   return item.kind === "credential_refused";
 }
@@ -106,7 +100,7 @@ export function gateOf(item: AttentionItem, items: readonly AttentionItem[]): Bo
   };
 }
 
-function compareAt(left: number | null, right: number | null): number {
+export function compareAt(left: number | null, right: number | null): number {
   if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
   return left - right;
 }
@@ -136,29 +130,4 @@ export function rankBoardItems(
       left.id.localeCompare(right.id)
     );
   });
-}
-
-export function startItemOf(ranked: readonly AttentionItem[]): AttentionItem | null {
-  return ranked[0] ?? null;
-}
-
-export function hiddenByFilterOf(
-  items: readonly AttentionItem[],
-  details: AttentionDetails,
-  tab: BoardTabId,
-  projectId: string | null,
-): boolean {
-  if (projectId === null) return false;
-  return items.some((item) => boardTabOf(item, details) === tab && !isInProject(item, projectId));
-}
-
-export interface NothingAtAllInput {
-  readonly projectId: string | null;
-  readonly view: number;
-  readonly allClear: boolean;
-  readonly readFault: boolean;
-}
-
-export function isNothingAtAll(input: NothingAtAllInput): boolean {
-  return input.projectId === null && input.view === 0 && (input.allClear || input.readFault);
 }

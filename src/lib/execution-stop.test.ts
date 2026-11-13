@@ -2,15 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ExecutionStopReason, SchedulerExecutionRecord } from "@/api/types";
 
-import {
-  endLabel,
-  endTimeOf,
-  lastEndOf,
-  pauseCauseOf,
-  pauseSentence,
-  stopLabel,
-  stopSentence,
-} from "./execution-stop";
+import { endLabel, endTimeOf, lastEndOf, pauseCauseOf, stopLabel } from "./execution-stop";
 
 function execution(
   id: string,
@@ -128,15 +120,6 @@ describe("endTimeOf", () => {
   });
 });
 
-describe("stopSentence", () => {
-  it("names the reason and the code in a sentence", () => {
-    expect(stopSentence({ reason: "provider_failed", code: "rate_limited" })).toBe(
-      "provider failed (rate limited)",
-    );
-    expect(stopSentence({ reason: "no_progress", code: null })).toBe("no progress");
-  });
-});
-
 describe("lastEndOf", () => {
   it("takes the execution that ended last, lost or clean, and names its end", () => {
     const failed = execution("e1", {
@@ -153,46 +136,6 @@ describe("lastEndOf", () => {
     expect(endLabel(failed)).toBe("Provider failed: rate limited");
     expect(endLabel(lost)).toBe("lost");
     expect(endLabel(clean)).toBe("no stop");
-  });
-});
-
-describe("pauseSentence", () => {
-  it("adds the cause text of the last stop at the Failure limit", () => {
-    const stopped = execution("e1", {
-      stop: { reason: "provider_failed", code: "unauthorized", detail: "401 invalid x-api-key" },
-    });
-
-    expect(pauseSentence(pauseCauseOf([stopped]))).toBe(
-      "The last execution ended: provider failed (unauthorized). Cause: 401 invalid x-api-key",
-    );
-  });
-
-  it("names the stop of the last execution at the Failure limit", () => {
-    const stopped = execution("e1", { stop: { reason: "provider_failed", code: "rate_limited" } });
-
-    expect(pauseSentence(pauseCauseOf([stopped]))).toBe(
-      "The last execution ended: provider failed (rate limited).",
-    );
-  });
-
-  it("names a lost execution at the Failure limit", () => {
-    const lost = execution("e1", { claim_state: "lost", ended_at: null });
-
-    expect(pauseSentence(pauseCauseOf([lost]))).toBe("The last execution ended: lost.");
-  });
-
-  it("names the budget code at the Further-work limit", () => {
-    const budget = execution("e1", { stop: { reason: "budget_end", code: "turns" } });
-    const bare = execution("e2", { stop: { reason: "budget_end", code: null } });
-
-    expect(pauseSentence(pauseCauseOf([budget]))).toBe(
-      "The last execution ended at its budget (turns).",
-    );
-    expect(pauseSentence(pauseCauseOf([bare]))).toBe("The last execution ended at its budget.");
-  });
-
-  it("states that no limit explains a pause by a human", () => {
-    expect(pauseSentence(pauseCauseOf([]))).toBe("No execution limit explains the pause.");
   });
 });
 

@@ -12,7 +12,7 @@ export interface FlowSliceParams {
   readonly worker_name: string | null;
 }
 
-export type FlowDrillTarget = "Traces" | "Timeline" | "Scheduler" | "Overview";
+export type FlowDrillTarget = "Traces" | "Timeline" | "Scheduler" | "Home";
 
 type DrillParams = Readonly<Record<string, string | number | null | undefined>>;
 type PathOf = (slice: FlowSliceParams, span: FlowSpan) => string;
@@ -20,7 +20,7 @@ type PathOf = (slice: FlowSliceParams, span: FlowSpan) => string;
 const TRACES = "/traces";
 const TIMELINE = "/timeline";
 const SCHEDULER = "/scheduler";
-const OVERVIEW = "/";
+const HOME = "/";
 const ANALYTICS = "/analytics";
 const FLOW_DATA_ANCHOR = "#flow-data";
 
@@ -28,7 +28,7 @@ const TARGET_LABELS: Readonly<Record<string, FlowDrillTarget>> = {
   [TRACES]: "Traces",
   [TIMELINE]: "Timeline",
   [SCHEDULER]: "Scheduler",
-  [OVERVIEW]: "Overview",
+  [HOME]: "Home",
 };
 
 export function drillPath(path: string, params: DrillParams): string {
@@ -85,7 +85,7 @@ const SIGNAL_PATHS: Readonly<Record<string, PathOf>> = {
   "executing.tool_error": tracesOf({ error_type: "tool_error" }, false),
   "release_gate.leak": tracesOf({ state: "error", q: "operation_failed" }, true),
   "outcome.rework": (slice, span) => drillPath(TIMELINE, { project_id: slice.project_id, ...span }),
-  "outcome.blocked": () => OVERVIEW,
+  "outcome.blocked": () => HOME,
   "tile.cost_per_success": tracesOf({ sort: "cost_usd" }, false),
   "tile.total_cost": tracesOf({ sort: "cost_usd" }, false),
   "tile.rejected_review_cost": tracesOf({ sort: "cost_usd" }, false),

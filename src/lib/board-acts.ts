@@ -1,6 +1,7 @@
 import { approvalChatPathOf, type ToolApprovalItem } from "./approval-attention";
 import {
   type AttentionDetails,
+  type AttentionItem,
   type DecisionAttentionItem,
   detailOf,
   type DiscardedDependency,
@@ -9,7 +10,6 @@ import {
 } from "./attention";
 import type { ActedAct } from "./board-done";
 import type { BoardGate } from "./board-items";
-import { actKeysOf } from "./board-keys";
 import { externalLinkOf } from "./external-link";
 import type { InboxAttentionItem } from "./inbox-attention";
 import { readFailureText } from "./external-requests";
@@ -160,7 +160,7 @@ interface Gate {
 }
 
 const DISCARD = "discard";
-const NO_KEYS: ReadonlyMap<string, string> = new Map();
+const ASK_YUMI = "ask_yumi";
 const GITHUB_IDENTITY = /^repository:github:(.+)$/;
 
 function slotOf(
@@ -233,8 +233,9 @@ export function needsOf(acts: readonly BoardAct[]): readonly string[] {
 export function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
   const badges = acts.filter((act) => act.type === "badge");
   const actions = acts.filter((act) => act.type !== "badge");
-  const lead =
-    actions.find((act) => act.type !== "gated" && act.id !== DISCARD) ?? actions[0] ?? null;
+  const leadable = (act: BoardAct) =>
+    act.type !== "gated" && act.id !== DISCARD && (act.id !== ASK_YUMI || act === actions[0]);
+  const lead = actions.find(leadable) ?? actions[0] ?? null;
   const others = actions.filter((act) => act !== lead);
   return {
     lead,
@@ -242,6 +243,27 @@ export function phoneActsOf(acts: readonly BoardAct[]): PhoneActs {
     last: others.find((act) => act.id === DISCARD) ?? null,
     badges,
   };
+}
+
+export function withAskYumi(
+  acts: readonly BoardAct[],
+  kind: AttentionItem["kind"],
+  press: (() => void) | null,
+): readonly BoardAct[] {
+  if (press === null) return acts;
+  const ask: BoardAct = {
+    type: "button",
+    id: ASK_YUMI,
+    label: "Ask Yumi",
+    ariaLabel: null,
+    variant: "outline",
+    disabled: false,
+    press,
+  };
+  if (kind === "environment_failed") return [ask, ...acts];
+  const discard = acts.findIndex((act) => act.id === DISCARD);
+  if (discard < 0) return [...acts, ask];
+  return [...acts.slice(0, discard), ask, ...acts.slice(discard)];
 }
 
 export function moreCountOf({ others, last }: PhoneActs): number {
@@ -254,13 +276,6 @@ export function moreNeedsOf({ others, last }: PhoneActs): readonly string[] {
 
 export function needIdOf(base: string, needs: readonly string[], need: string): string {
   return `${base}-need-${needs.indexOf(need)}`;
-}
-
-export function shortcutKeysOf(
-  acts: readonly BoardAct[],
-  enabled: boolean,
-): ReadonlyMap<string, string> {
-  return enabled ? actKeysOf(acts.map((act) => act.id)) : NO_KEYS;
 }
 
 function decisionGateOf(item: DecisionAttentionItem, ready: boolean): Gate | null {
@@ -535,8 +550,20 @@ export function followupActsOf(controls: FollowupActControls): readonly BoardAct
   ]);
 }
 
-export function findingReviewActsOf(item: FindingReviewItem): readonly BoardAct[] {
+export function findingReviewActsOf(
+  item: FindingReviewItem,
+  decide: () => void,
+): readonly BoardAct[] {
   return [
+    {
+      type: "button",
+      id: "decide",
+      label: "Decide",
+      ariaLabel: null,
+      variant: "outline",
+      disabled: false,
+      press: decide,
+    },
     {
       type: "link",
       id: "open_node",
