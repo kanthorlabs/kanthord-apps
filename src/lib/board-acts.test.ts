@@ -29,7 +29,6 @@ import {
   outsideReadOf,
   phoneActsOf,
   projectPausedActsOf,
-  shortcutKeysOf,
   toolApprovalActsOf,
 } from "./board-acts";
 import type { BoardGate } from "./board-items";
@@ -474,12 +473,6 @@ describe("phone more sheet", () => {
 
   it("builds the id of a need from its place in the list", () => {
     expect(needIdOf("base", ["a", "b"], "b")).toBe("base-need-1");
-  });
-
-  it("gives the shortcut keys of the acts only when shortcuts are on", () => {
-    const acts = [button("discard")];
-    expect(shortcutKeysOf(acts, true).get("discard")).toBe("x");
-    expect(shortcutKeysOf(acts, false).size).toBe(0);
   });
 });
 

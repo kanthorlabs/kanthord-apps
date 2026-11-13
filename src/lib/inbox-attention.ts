@@ -2,7 +2,6 @@ import type { ExternalLink, InboxItem, MissionNodeRecord, Project } from "@/api/
 
 import { type ItemBase, openFollowupsOf, type ProjectSnapshot } from "./attention";
 import { type HeldNode, heldNodesOf } from "./board-detail-joins";
-import { counted } from "./counted";
 import { isTerminal } from "./node-state";
 
 const GITHUB_REPOSITORY = /^conversation:github:([^/\s]+\/[^/\s]+)$/;
@@ -42,12 +41,6 @@ export function inboxItemsOf(
       },
     ];
   });
-}
-
-export function mergedInboxItemsOf(lists: readonly (readonly InboxItem[])[]): readonly InboxItem[] {
-  const merged = new Map<string, InboxItem>();
-  for (const item of lists.flat()) merged.set(item.link_update_id, item);
-  return [...merged.values()];
 }
 
 export function inboxLineOf(item: InboxAttentionItem): string {
@@ -91,10 +84,4 @@ export function inboxNodesOf(
       .filter((entry) => isTerminal(entry.node.state) && hasFollowup(entry))
       .map(({ node }) => node),
   };
-}
-
-export function inboxImpactTextOf(count: number): string {
-  return count === 0
-    ? "No node links to this thread."
-    : `${counted(count, "node links", "nodes link")} to this thread.`;
 }

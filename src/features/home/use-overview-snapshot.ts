@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 
 import { type PolledResource, usePolledResource } from "@/hooks/use-polled-resource";
 
@@ -10,15 +10,11 @@ export interface OverviewSnapshotResource extends PolledResource<OverviewSnapsho
   readonly retry: () => void;
 }
 
-export function useOverviewSnapshot(
-  hold: boolean,
-  selectedProjectId: string | null,
-): OverviewSnapshotResource {
+export function useOverviewSnapshot(hold: boolean): OverviewSnapshotResource {
   const last = useRef<OverviewSnapshot | null>(null);
-  const selected = useRef(selectedProjectId);
   const polled = usePolledResource(
     async () => {
-      const snapshot = await readOverviewSnapshot(last.current, selected.current);
+      const snapshot = await readOverviewSnapshot(last.current, null);
       last.current = snapshot;
       return snapshot;
     },
@@ -38,10 +34,5 @@ export function useOverviewSnapshot(
       return snapshot;
     });
   }, [readWith, refresh]);
-  useEffect(() => {
-    const before = selected.current;
-    selected.current = selectedProjectId;
-    if (before !== null && selectedProjectId === null) refresh();
-  }, [selectedProjectId, refresh]);
   return { ...polled, retry };
 }

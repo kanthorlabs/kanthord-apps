@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { EnvironmentState, MissionNodeRecord, Project } from "@/api/types";
 
-import type { AttentionItem, ProjectSnapshot } from "./attention";
-import { environmentsOf, heldNodesOf } from "./board-detail-joins";
+import type { ProjectSnapshot } from "./attention";
+import { heldNodesOf } from "./board-detail-joins";
 
 const PROJECT: Project = {
   id: "prj-1",
@@ -15,8 +15,6 @@ const PROJECT: Project = {
 };
 
 const OTHER: Project = { ...PROJECT, id: "prj-2", name: "beta" };
-
-const ENVIRONMENT = { binding_id: "binding_1" } as unknown as EnvironmentState;
 
 function nodeOf(id: string): MissionNodeRecord {
   return { id } as unknown as MissionNodeRecord;
@@ -40,10 +38,6 @@ function snapshotOf(
   };
 }
 
-function itemOf(project: Project): AttentionItem {
-  return { kind: "blocked", group: "decisions", project } as unknown as AttentionItem;
-}
-
 describe("heldNodesOf", () => {
   const snapshots = [
     snapshotOf(PROJECT, [nodeOf("a")], null),
@@ -65,25 +59,5 @@ describe("heldNodesOf", () => {
 
   it("returns nothing for no ids", () => {
     expect(heldNodesOf([], snapshots)).toEqual([]);
-  });
-});
-
-describe("environmentsOf", () => {
-  it("returns the environments of the project of the item", () => {
-    const snapshots = [snapshotOf(PROJECT, [], null), snapshotOf(OTHER, [], [ENVIRONMENT])];
-    expect(environmentsOf(itemOf(OTHER), snapshots)).toEqual([ENVIRONMENT]);
-  });
-
-  it("returns null when the snapshot of the project is missing", () => {
-    expect(environmentsOf(itemOf(OTHER), [snapshotOf(PROJECT, [], [ENVIRONMENT])])).toBeNull();
-  });
-
-  it("returns null when the snapshot has no environments read", () => {
-    expect(environmentsOf(itemOf(PROJECT), [snapshotOf(PROJECT, [], null)])).toBeNull();
-  });
-
-  it("returns null for an item without a project", () => {
-    const item = { kind: "tool_approval" } as unknown as AttentionItem;
-    expect(environmentsOf(item, [snapshotOf(PROJECT, [], [ENVIRONMENT])])).toBeNull();
   });
 });

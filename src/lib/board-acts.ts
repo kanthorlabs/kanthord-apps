@@ -9,7 +9,6 @@ import {
 } from "./attention";
 import type { ActedAct } from "./board-done";
 import type { BoardGate } from "./board-items";
-import { actKeysOf } from "./board-keys";
 import { externalLinkOf } from "./external-link";
 import type { InboxAttentionItem } from "./inbox-attention";
 import { readFailureText } from "./external-requests";
@@ -160,7 +159,6 @@ interface Gate {
 }
 
 const DISCARD = "discard";
-const NO_KEYS: ReadonlyMap<string, string> = new Map();
 const GITHUB_IDENTITY = /^repository:github:(.+)$/;
 
 function slotOf(
@@ -254,13 +252,6 @@ export function moreNeedsOf({ others, last }: PhoneActs): readonly string[] {
 
 export function needIdOf(base: string, needs: readonly string[], need: string): string {
   return `${base}-need-${needs.indexOf(need)}`;
-}
-
-export function shortcutKeysOf(
-  acts: readonly BoardAct[],
-  enabled: boolean,
-): ReadonlyMap<string, string> {
-  return enabled ? actKeysOf(acts.map((act) => act.id)) : NO_KEYS;
 }
 
 function decisionGateOf(item: DecisionAttentionItem, ready: boolean): Gate | null {

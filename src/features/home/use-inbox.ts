@@ -3,11 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiError } from "@/api/errors";
 import type { InboxItem } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import { mergedInboxItemsOf } from "@/lib/inbox-attention";
 
 import { type InboxScope, readInboxScope } from "./read-inbox";
-
-const ALL_KEY = "all";
 
 export interface InboxState {
   readonly items: readonly InboxItem[];
@@ -23,44 +20,33 @@ export interface InboxState {
 }
 
 interface Reads {
-  readonly all: InboxScope | null;
-  readonly scoped: InboxScope | null;
+  readonly scope: InboxScope | null;
   readonly error: ApiError | null;
 }
 
-const NO_READS: Reads = { all: null, scoped: null, error: null };
+const NO_READS: Reads = { scope: null, error: null };
 const NO_CLOSED: ReadonlySet<string> = new Set();
 
-function stillReturned(
-  closed: ReadonlySet<string>,
-  scopes: readonly (InboxScope | null)[],
-): ReadonlySet<string> {
-  const returned = new Set(
-    scopes.flatMap((scope) => (scope?.items ?? []).map((item) => item.link_update_id)),
-  );
+function stillReturned(closed: ReadonlySet<string>, scope: InboxScope): ReadonlySet<string> {
+  const returned = new Set(scope.items.map((item) => item.link_update_id));
   const kept = [...closed].filter((id) => returned.has(id));
   return kept.length === closed.size ? closed : new Set(kept);
 }
 
-export function useInbox(projectId: string | null, updatedAt: number | null): InboxState {
+export function useInbox(updatedAt: number | null): InboxState {
   const [reads, setReads] = useState<Reads>(NO_READS);
   const [closed, setClosed] = useState<ReadonlySet<string>>(NO_CLOSED);
-  const [pages, setPages] = useState<Readonly<Record<string, number>>>({});
+  const [pages, setPages] = useState(1);
   const [retries, setRetries] = useState(0);
-  const allPages = pages[ALL_KEY] ?? 1;
-  const scopedPages = projectId === null ? 1 : (pages[projectId] ?? 1);
 
   useEffect(() => {
     if (updatedAt === null) return;
     let live = true;
-    Promise.all([
-      readInboxScope(null, allPages),
-      projectId === null ? null : readInboxScope(projectId, scopedPages),
-    ]).then(
-      ([all, scoped]) => {
+    readInboxScope(null, pages).then(
+      (scope) => {
         if (!live) return;
-        setReads({ all, scoped, error: null });
-        setClosed((current) => stillReturned(current, [all, scoped]));
+        setReads({ scope, error: null });
+        setClosed((current) => stillReturned(current, scope));
       },
       (cause: unknown) => {
         if (live) setReads((current) => ({ ...current, error: asApiError(cause) }));
@@ -69,14 +55,10 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
     return () => {
       live = false;
     };
-  }, [projectId, updatedAt, allPages, scopedPages, retries]);
+  }, [updatedAt, pages, retries]);
 
-  const scoped = reads.scoped?.projectId === projectId ? reads.scoped : null;
-  const scope = projectId === null ? reads.all : scoped;
-  const scopeKey = projectId ?? ALL_KEY;
-  const loadMore = useCallback(() => {
-    setPages((current) => ({ ...current, [scopeKey]: (current[scopeKey] ?? 1) + 1 }));
-  }, [scopeKey]);
+  const { scope } = reads;
+  const loadMore = useCallback(() => setPages((current) => current + 1), []);
 
   const retry = useCallback(() => setRetries((current) => current + 1), []);
 
@@ -85,11 +67,8 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
   }, []);
 
   const items = useMemo(
-    () =>
-      mergedInboxItemsOf([reads.all?.items ?? [], scoped?.items ?? []]).filter(
-        (item) => !closed.has(item.link_update_id),
-      ),
-    [reads.all, scoped, closed],
+    () => (scope?.items ?? []).filter((item) => !closed.has(item.link_update_id)),
+    [scope, closed],
   );
   const hidden = (scope?.items ?? []).filter((item) => closed.has(item.link_update_id)).length;
 
@@ -98,9 +77,9 @@ export function useInbox(projectId: string | null, updatedAt: number | null): In
     open: Math.max(0, (scope?.open ?? 0) - hidden),
     snoozed: scope?.snoozed ?? 0,
     hasMore: (scope?.nextCursor ?? null) !== null,
-    ready: reads.all !== null || reads.error !== null,
+    ready: scope !== null || reads.error !== null,
     error: reads.error,
-    absent: reads.all?.absent === true,
+    absent: scope?.absent === true,
     loadMore,
     close,
     retry,

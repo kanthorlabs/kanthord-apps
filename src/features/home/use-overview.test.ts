@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { listInboxItems } from "@/api/resources/mission";
 import type { MissionNodeRecord, Project, WorkbenchSessionListItem } from "@/api/types";
+
 import type { OverviewSnapshot, ProjectRead } from "./read-overview-snapshot";
 import type { OverviewSnapshotResource } from "./use-overview-snapshot";
 
@@ -140,13 +141,12 @@ describe("useOverview board state", () => {
     expect(snapshots.map((entry) => entry.project.id)).toEqual(["prj-1", "prj-2"]);
   });
 
-  it("keeps the board items and the sessions under a project filter and scopes the workforce fact", () => {
+  it("reads every project and ignores a project query", () => {
     const state = render("/?project=prj-2").result.current;
 
     expect(idsOf(state.boardItems)).toEqual(["blocked:a1", "blocked:b1", "tool_approval:s1"]);
     expect(state.snapshots).toHaveLength(2);
-    expect(state.waiting).toBe(1);
-    expect(render("/").result.current.waiting).toBe(3);
+    expect(state.waiting).toBe(3);
   });
 
   it("answers the held nodes of each board item", () => {

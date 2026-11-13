@@ -132,7 +132,7 @@ export function boardTabOf(item: AttentionItem, details: AttentionDetails): Boar
   }
 }
 
-export function boardTabById(id: string): BoardTab | undefined {
+function boardTabById(id: string): BoardTab | undefined {
   return BOARD_TABS.find((entry) => entry.id === id);
 }
 

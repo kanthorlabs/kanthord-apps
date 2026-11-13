@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { WorkbenchSessionListItem } from "@/api/types";
 
-import { approvalChatPathOf, approvalFactOf, approvalItemsOf } from "./approval-attention";
+import { approvalChatPathOf, approvalItemsOf } from "./approval-attention";
 
 function session(patch: Partial<WorkbenchSessionListItem> = {}): WorkbenchSessionListItem {
   return {
@@ -69,12 +69,6 @@ describe("approvalItemsOf", () => {
 });
 
 describe("approval texts", () => {
-  it("states the operation as a fact", () => {
-    const [item] = approvalItemsOf([session()]);
-
-    expect(item && approvalFactOf(item)).toBe("operation project.create");
-  });
-
   it("opens the chat of the session", () => {
     const [item] = approvalItemsOf([session()]);
 

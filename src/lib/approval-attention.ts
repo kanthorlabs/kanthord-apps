@@ -36,10 +36,6 @@ export function approvalItemsOf(
   );
 }
 
-export function approvalFactOf(item: ToolApprovalItem): string {
-  return `operation ${item.operationId}`;
-}
-
 export function approvalChatPathOf(item: ToolApprovalItem): string {
   return workbenchSessionPath(item.sessionId);
 }

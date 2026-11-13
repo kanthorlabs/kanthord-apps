@@ -18,7 +18,7 @@ import type {
 } from "@/api/types";
 
 import type { AttentionContext, ProjectSnapshot, WorkerBindingView } from "./attention";
-import { fixItemsOf, fixTargetOf, spreadTextOf } from "./fix-attention";
+import { fixItemsOf, fixTargetOf } from "./fix-attention";
 import { newUlid } from "./ulid";
 
 const NOW = 1_000_000_000_000;
@@ -916,41 +916,6 @@ describe("fixItemsOf request_rejected", () => {
   });
 });
 
-describe("spreadTextOf", () => {
-  const END = NOW - 10 * MINUTE;
-  const work = node("n1", "Waiting");
-
-  function rejectedIn(projects: readonly Project[]) {
-    return fixItemsOf(
-      projects.map((project) =>
-        snapshot({
-          project,
-          nodes: [work],
-          executions: [execution("execution_1", "n1", END, BAD_REQUEST)],
-        }),
-      ),
-      context(),
-    );
-  }
-
-  it("states the count of nodes and projects", () => {
-    const second = { ...PROJECT, id: "prj-2", name: "beta" };
-    const third = { ...PROJECT, id: "prj-3", name: "gamma" };
-
-    expect(spreadTextOf(rejectedIn([PROJECT, second, third])[0]!)).toBe("3 nodes in 3 projects");
-  });
-
-  it("states nothing for one node in one project", () => {
-    expect(spreadTextOf(rejectedIn([PROJECT])[0]!)).toBeNull();
-  });
-
-  it("states nothing for a paused project", () => {
-    const [item] = fixItemsOf([snapshot({ project: { ...PROJECT, paused_at: 5 } })], context());
-
-    expect(spreadTextOf(item!)).toBeNull();
-  });
-});
-
 describe("fixTargetOf", () => {
   const [paused] = fixItemsOf([snapshot({ project: { ...PROJECT, paused_at: 1 } })], context());
   const [noTaker] = fixItemsOf(
@@ -1095,7 +1060,7 @@ describe("fixItemsOf environment_failed", () => {
     expect(fixItemsOf([snapshot({ environments: null })], context())).toEqual([]);
   });
 
-  it("targets the project page and has no spread text", () => {
+  it("targets the project page", () => {
     const [item] = fixItemsOf(
       [snapshot({ environments: [environment("failed", 1000)] })],
       context(),
@@ -1103,7 +1068,6 @@ describe("fixItemsOf environment_failed", () => {
     if (item === undefined) throw new Error("No item.");
 
     expect(fixTargetOf(item)).toEqual({ path: "/projects/prj-1", label: "Open project" });
-    expect(spreadTextOf(item)).toBeNull();
   });
 });
 
@@ -1203,7 +1167,7 @@ describe("fixItemsOf environment_pending", () => {
     expect(fixItemsOf([snapshot({ environments: states })], context())).toEqual([]);
   });
 
-  it("targets the project page and has no spread text", () => {
+  it("targets the project page", () => {
     const [item] = fixItemsOf(
       [snapshot({ environments: [waiting(SSH_REASON, NOW - 60 * MINUTE)] })],
       context(),
@@ -1211,6 +1175,5 @@ describe("fixItemsOf environment_pending", () => {
     if (item === undefined) throw new Error("No item.");
 
     expect(fixTargetOf(item)).toEqual({ path: "/projects/prj-1", label: "Open project" });
-    expect(spreadTextOf(item)).toBeNull();
   });
 });

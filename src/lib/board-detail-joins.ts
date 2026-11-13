@@ -1,7 +1,6 @@
-import type { EnvironmentState, MissionNodeRecord, Project } from "@/api/types";
+import type { MissionNodeRecord, Project } from "@/api/types";
 
-import type { AttentionItem, ProjectSnapshot } from "./attention";
-import { boardProjectsOf } from "./board-items";
+import type { ProjectSnapshot } from "./attention";
 
 export interface HeldNode {
   readonly node: MissionNodeRecord;
@@ -19,13 +18,4 @@ export function heldNodesOf(
     }
     return [];
   });
-}
-
-export function environmentsOf(
-  item: AttentionItem,
-  snapshots: readonly ProjectSnapshot[],
-): readonly EnvironmentState[] | null {
-  const project = boardProjectsOf(item)[0];
-  if (project === undefined) return null;
-  return snapshots.find((snapshot) => snapshot.project.id === project.id)?.environments ?? null;
 }

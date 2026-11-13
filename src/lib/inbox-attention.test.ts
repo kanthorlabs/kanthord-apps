@@ -5,12 +5,10 @@ import type { InboxItem, MissionNodeRecord, NodeState, Project } from "@/api/typ
 import type { ProjectSnapshot } from "./attention";
 import {
   inboxHrefOf,
-  inboxImpactTextOf,
   inboxItemsOf,
   inboxLineOf,
   inboxNodesOf,
   inboxSubjectOf,
-  mergedInboxItemsOf,
 } from "./inbox-attention";
 
 const PROJECT: Project = {
@@ -119,20 +117,6 @@ describe("inboxLineOf", () => {
   });
 });
 
-describe("mergedInboxItemsOf", () => {
-  it("keeps each thread once, the later list first in precedence", () => {
-    const merged = mergedInboxItemsOf([
-      [inboxItem(), inboxItem({ link_update_id: "link_update_2" })],
-      [inboxItem({ trusted: false })],
-    ]);
-
-    expect(merged.map((item) => [item.link_update_id, item.trusted])).toEqual([
-      ["link_update_1", false],
-      ["link_update_2", true],
-    ]);
-  });
-});
-
 describe("inboxHrefOf", () => {
   it("answers an http or https address", () => {
     expect(inboxHrefOf("https://github.com/acme/shop/issues/42")).toBe(
@@ -205,13 +189,5 @@ describe("inboxNodesOf", () => {
 
   it("offers Decide follow-up for a terminal node with an open proposal", () => {
     expect(inboxNodesOf(item, [snapshot]).followups.map((entry) => entry.id)).toEqual(["done"]);
-  });
-});
-
-describe("inboxImpactTextOf", () => {
-  it("counts the linked nodes", () => {
-    expect(inboxImpactTextOf(0)).toBe("No node links to this thread.");
-    expect(inboxImpactTextOf(1)).toBe("1 node links to this thread.");
-    expect(inboxImpactTextOf(3)).toBe("3 nodes link to this thread.");
   });
 });

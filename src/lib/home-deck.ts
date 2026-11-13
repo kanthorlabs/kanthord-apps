@@ -106,7 +106,6 @@ export function deckSummaryOf(
       first === undefined
         ? null
         : { subject: first.subject, tab: boardTabNamed(boardTabOf(first, input.details)) },
-    projectName: null,
     readFault: input.readFault,
     inbox: input.inbox,
   });

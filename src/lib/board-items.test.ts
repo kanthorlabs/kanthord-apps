@@ -24,13 +24,9 @@ import {
   boardProjectsOf,
   gateOf,
   heldNodeIdsOf,
-  hiddenByFilterOf,
-  isInProject,
-  isNothingAtAll,
   itemNodeIdsOf,
   pausedNodeCountOf,
   rankBoardItems,
-  startItemOf,
 } from "./board-items";
 import { inboxItemsOf } from "./inbox-attention";
 
@@ -330,7 +326,7 @@ describe("heldNodeIdsOf", () => {
   });
 });
 
-describe("boardProjectsOf and isInProject", () => {
+describe("boardProjectsOf", () => {
   const second = snapshot([node("n2", "Paused")], { project: OTHER });
   const first = snapshot([node("n1", "Paused")], {
     executions: [execution("n1", UNAUTHORIZED)],
@@ -345,25 +341,18 @@ describe("boardProjectsOf and isInProject", () => {
     const item = itemOf(items, "credential_refused:openai-main");
 
     expect(boardProjectsOf(item)).toEqual([PROJECT, OTHER]);
-    expect(isInProject(item, "prj-1")).toBe(true);
-    expect(isInProject(item, "prj-2")).toBe(true);
-    expect(isInProject(item, "prj-3")).toBe(false);
   });
 
   it("answers the project of a node item", () => {
     const item = itemOf(items, "paused:n2");
 
     expect(boardProjectsOf(item)).toEqual([OTHER]);
-    expect(isInProject(item, "prj-2")).toBe(true);
-    expect(isInProject(item, "prj-1")).toBe(false);
   });
 
   it("answers no project and every filter for a tool approval", () => {
     const item = itemOf(items, "tool_approval:s1");
 
     expect(boardProjectsOf(item)).toEqual([]);
-    expect(isInProject(item, "prj-1")).toBe(true);
-    expect(isInProject(item, "prj-9")).toBe(true);
   });
 });
 
@@ -505,46 +494,6 @@ describe("rankBoardItems and startItemOf", () => {
 
     expect(idsOf(items)).toEqual(before);
   });
-
-  it("starts at the first ranked item, or at null", () => {
-    expect(startItemOf(rankBoardItems(items, none, noGates))?.id).toBe("blocked:b");
-    expect(startItemOf([])).toBeNull();
-  });
-});
-
-describe("hiddenByFilterOf", () => {
-  const second = snapshot([node("n2", "Paused")], { project: OTHER });
-  const first = snapshot([node("n1", "Paused")]);
-  const none: AttentionDetails = new Map();
-  const items = derive([first, second], none, [SESSION]);
-
-  it("hides nothing without a filter", () => {
-    expect(hiddenByFilterOf(items, none, "paused", null)).toBe(false);
-  });
-
-  it("hides the cards of another project in the tab", () => {
-    expect(hiddenByFilterOf(items, none, "paused", "prj-1")).toBe(true);
-    expect(hiddenByFilterOf(items, none, "outside", "prj-1")).toBe(false);
-  });
-
-  it("hides no tool approval", () => {
-    expect(hiddenByFilterOf(items, none, "tool", "prj-9")).toBe(false);
-  });
-});
-
-describe("isNothingAtAll", () => {
-  const base = { projectId: null, view: 0, allClear: true, readFault: false };
-
-  it("holds with no card, no filter and an all clear", () => {
-    expect(isNothingAtAll(base)).toBe(true);
-    expect(isNothingAtAll({ ...base, allClear: false, readFault: true })).toBe(true);
-  });
-
-  it("fails under a filter, with a card or with neither all clear nor fault", () => {
-    expect(isNothingAtAll({ ...base, projectId: "prj-1" })).toBe(false);
-    expect(isNothingAtAll({ ...base, view: 1 })).toBe(false);
-    expect(isNothingAtAll({ ...base, allClear: false })).toBe(false);
-  });
 });
 
 function inboxThread(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
@@ -567,7 +516,6 @@ function inboxThread(id: string, overrides: Partial<InboxItem> = {}): InboxItem 
 }
 
 describe("inbox items in rankBoardItems", () => {
-  const none = new Map<string, readonly string[]>();
   const noGates = new Map<string, BoardGate>();
   const idsOf = (ranked: readonly AttentionItem[]) => ranked.map((item) => item.id);
 
@@ -593,23 +541,6 @@ describe("inbox items in rankBoardItems", () => {
       "a-review",
       "z-late",
     ]);
-  });
-
-  it("ranks an inbox item after every item of tabs 1 to 6", () => {
-    const acts = derive([snapshot([blocked("b", "Beta", 100)])]);
-    const inbox = inboxItemsOf([inboxThread("t1", { reason: "linked" })], [PROJECT]);
-    const held = new Map([["t1", ["a", "b", "c"]]]);
-
-    const ranked = rankBoardItems([...inbox, ...acts], held, noGates);
-
-    expect(idsOf(ranked)).toEqual(["blocked:b", "t1"]);
-    expect(startItemOf(ranked)?.id).toBe("blocked:b");
-  });
-
-  it("starts at an inbox item when tabs 1 to 6 hold no card", () => {
-    const inbox = inboxItemsOf([inboxThread("t2"), inboxThread("t1")], [PROJECT]);
-
-    expect(startItemOf(rankBoardItems(inbox, none, noGates))?.id).toBe("t1");
   });
 });
 

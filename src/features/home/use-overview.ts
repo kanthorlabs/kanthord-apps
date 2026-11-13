@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 
 import type { ApiError } from "@/api/errors";
 import type { Project } from "@/api/types";
-import { useScopedProject } from "@/hooks/use-scoped-project";
 import {
   type AttentionContext,
   type AttentionDetails,
@@ -28,7 +27,7 @@ import { useOverviewSetup } from "./use-overview-setup";
 import { useInbox } from "./use-inbox";
 import { useOverviewSnapshot } from "./use-overview-snapshot";
 
-export interface InboxView {
+interface InboxView {
   readonly open: number;
   readonly snoozed: number;
   readonly hasMore: boolean;
@@ -68,26 +67,20 @@ const NO_FAULTS: readonly ReadFault[] = [];
 const NO_COMPONENTS: readonly string[] = [];
 
 export function useOverview(): OverviewState {
-  const { projectId: requested } = useScopedProject();
   const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
   const hold = openDialogs.size > 0;
-  const snapshot = useOverviewSnapshot(hold, null);
+  const snapshot = useOverviewSnapshot(hold);
   const setup = useOverviewSetup(hold);
 
   const data = snapshot.data;
   const projects = useMemo(() => data?.projects ?? [], [data]);
-  const projectId = projects.some((project) => project.id === requested) ? requested : null;
-
-  const reads = useMemo(
-    () => (data?.reads ?? []).filter((read) => projectId === null || read.project.id === projectId),
-    [data, projectId],
-  );
+  const reads = useMemo(() => data?.reads ?? [], [data]);
 
   const setupData = setup.data;
 
-  const everySnapshots = useMemo<readonly ProjectSnapshot[]>(
+  const snapshots = useMemo<readonly ProjectSnapshot[]>(
     () =>
-      (data?.reads ?? []).flatMap((read) =>
+      reads.flatMap((read) =>
         read.mission === null || read.nodes === null
           ? []
           : [
@@ -107,22 +100,11 @@ export function useOverview(): OverviewState {
               },
             ],
       ),
-    [data, setupData],
-  );
-  const snapshots = useMemo(
-    () =>
-      projectId === null
-        ? everySnapshots
-        : everySnapshots.filter((entry) => entry.project.id === projectId),
-    [everySnapshots, projectId],
+    [reads, setupData],
   );
 
-  const everyTargets = useMemo(() => detailTargetsOf(everySnapshots), [everySnapshots]);
-  const targets = useMemo(
-    () => (projectId === null ? everyTargets : detailTargetsOf(snapshots)),
-    [everyTargets, snapshots, projectId],
-  );
-  const { details, refresh: refreshDetail } = useAttentionDetails(everyTargets, snapshot.updatedAt);
+  const targets = useMemo(() => detailTargetsOf(snapshots), [snapshots]);
+  const { details, refresh: refreshDetail } = useAttentionDetails(targets, snapshot.updatedAt);
   const context = useMemo<AttentionContext>(
     () => ({
       now: snapshot.now,
@@ -132,13 +114,10 @@ export function useOverview(): OverviewState {
     }),
     [snapshot.now, setupData, data],
   );
-  const inbox = useInbox(projectId, snapshot.updatedAt);
+  const inbox = useInbox(snapshot.updatedAt);
   const boardItems = useMemo<readonly AttentionItem[]>(
-    () => [
-      ...deriveAttention(everySnapshots, details, context),
-      ...inboxItemsOf(inbox.items, projects),
-    ],
-    [everySnapshots, details, context, inbox.items, projects],
+    () => [...deriveAttention(snapshots, details, context), ...inboxItemsOf(inbox.items, projects)],
+    [snapshots, details, context, inbox.items, projects],
   );
   const gates = useMemo(
     () =>
@@ -151,15 +130,13 @@ export function useOverview(): OverviewState {
     [boardItems],
   );
   const held = useMemo(
-    () => new Map(boardItems.map((item) => [item.id, heldNodeIdsOf(item, everySnapshots)])),
-    [boardItems, everySnapshots],
+    () => new Map(boardItems.map((item) => [item.id, heldNodeIdsOf(item, snapshots)])),
+    [boardItems, snapshots],
   );
   const externalReads = useMemo(() => externalReadStateOf(targets, details), [targets, details]);
 
   const faults = useMemo<readonly ReadFault[]>(() => {
-    const scoped = (data?.faults ?? NO_FAULTS).filter(
-      (fault) => projectId === null || fault.projectId === null || fault.projectId === projectId,
-    );
+    const scoped = data?.faults ?? NO_FAULTS;
     const outside = externalReads.failures.map(({ target, message }) => ({
       projectId: target.projectId,
       projectName: projects.find((project) => project.id === target.projectId)?.name ?? null,
@@ -177,9 +154,7 @@ export function useOverview(): OverviewState {
               message: snapshot.error.message,
             },
           ];
-    const setupFaults = (setupData?.faults ?? NO_FAULTS).filter(
-      (fault) => projectId === null || fault.projectId === null || fault.projectId === projectId,
-    );
+    const setupFaults = setupData?.faults ?? NO_FAULTS;
     const setupFailure =
       setup.error === null
         ? NO_FAULTS
@@ -203,16 +178,7 @@ export function useOverview(): OverviewState {
             },
           ];
     return [...scoped, ...outside, ...listFault, ...setupFaults, ...setupFailure, ...inboxFailure];
-  }, [
-    data,
-    projectId,
-    projects,
-    externalReads,
-    snapshot.error,
-    setupData,
-    setup.error,
-    inbox.error,
-  ]);
+  }, [data, projects, externalReads, snapshot.error, setupData, setup.error, inbox.error]);
 
   const absent = useMemo<readonly string[]>(
     () => [...new Set([...(data?.absent ?? NO_COMPONENTS), ...(inbox.absent ? ["inbox"] : [])])],
@@ -306,7 +272,7 @@ export function useOverview(): OverviewState {
     },
     gates,
     held,
-    snapshots: everySnapshots,
+    snapshots,
     faults,
     absent,
     allClear:
