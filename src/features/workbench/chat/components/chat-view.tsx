@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
-import { agentWorking, chatItemsOf, runRequestOf } from "@/lib/workbench-chat";
+import { type ActionCardItem, agentWorking, chatItemsOf, runRequestOf } from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
@@ -29,6 +29,7 @@ interface ChatViewProps {
   readonly firstSendFailure?: FirstSendFailure | null;
   readonly streamEnd?: ReactNode;
   readonly approvalLine?: ReactNode | null;
+  readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly onNew?: () => void;
 }
 
@@ -40,6 +41,7 @@ export function ChatView({
   firstSendFailure = null,
   streamEnd = null,
   approvalLine = null,
+  actionLineOf,
   onNew,
 }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.run_active);
@@ -116,6 +118,8 @@ export function ChatView({
           items={items}
           authors={{ ownerName, agentName: session.agent_name, agentDisplayName }}
           runError={snapshot.error_message}
+          actionLineOf={actionLineOf}
+          canRun
           runLine={
             <RunLine
               runActive={snapshot.run_active}

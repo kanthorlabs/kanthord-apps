@@ -1497,6 +1497,74 @@ describe("HomeScreen queue line", () => {
   });
 });
 
+function offerConversation(targetId: string, operationId: string): WorkbenchSession {
+  const base = conversation("workbench_session_Y1", GENERAL);
+  return {
+    ...base,
+    entries: [
+      ...base.entries,
+      {
+        type: "custom",
+        id: "entry_offer",
+        parentId: null,
+        timestamp: "2026-10-05T09:00:01.000Z",
+        customType: "kanthord.workbench.record",
+        data: {
+          kind: "action_offer",
+          tool_call_id: "call_offer",
+          operation_id: operationId,
+          target_id: targetId,
+          seen: { state: "Blocked", attempt: 2 },
+        },
+      },
+    ],
+  };
+}
+
+describe("HomeScreen action card", () => {
+  it("shows the queue line of a card whose target holds a deck item and no card", async () => {
+    const user = userEvent.setup();
+    serve({
+      yumi: "on",
+      sessions: [opsSession("workbench_session_Y1")],
+      nodes: {
+        "prj-1": [
+          blocked("node_first", "Audit log", { createdAt: NOW - 5 * HOUR }),
+          blocked("node_42", "Sign-up form", { createdAt: NOW - HOUR }),
+        ],
+      },
+    });
+    vi.mocked(readWorkbenchSession).mockResolvedValue(
+      offerConversation("node_42", "mission.node.unblock"),
+    );
+    renderScreen();
+
+    const line = await screen.findByText(/in your queue\.$/, { selector: "span" });
+    expect(line.parentElement).toHaveTextContent("is #2 in your queue.");
+    expect(screen.queryByRole("button", { name: "Unblock node_42" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show #2 in the deck" }));
+
+    const primary = await findPrimary(/^Primary: /);
+    expect(within(primary).getByText("#2")).toBeVisible();
+  });
+
+  it("shows the action card for a target that holds no deck item", async () => {
+    serve({
+      yumi: "on",
+      sessions: [opsSession("workbench_session_Y1")],
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+    });
+    vi.mocked(readWorkbenchSession).mockResolvedValue(
+      offerConversation("node_42", "mission.node.unblock"),
+    );
+
+    renderScreen();
+
+    expect(await screen.findByRole("button", { name: "Unblock node_42" })).toBeEnabled();
+    expect(screen.queryByText(/in your queue\./)).toBeNull();
+  });
+});
+
 describe("HomeScreen Yumi off", () => {
   it("offers Enable Yumi, a disabled composer and a working deck", async () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });

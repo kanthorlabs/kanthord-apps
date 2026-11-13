@@ -17,6 +17,7 @@ import {
   heldCountOf,
   heldOnTextOf,
   isAct,
+  offerQueueEntryOf,
   queueEntryOf,
   waitingTextOf,
 } from "./home-deck";
@@ -312,5 +313,35 @@ describe("queueEntryOf", () => {
   it("answers null when the deck holds no approval of the conversation", () => {
     expect(queueEntryOf([approval("s1", 1)], "s9")).toBeNull();
     expect(queueEntryOf([approval("s1", 1)], null)).toBeNull();
+  });
+});
+
+describe("offerQueueEntryOf", () => {
+  const nodeItem = { id: "blocked:node_42", subject: "Sign-up", node: { id: "node_42" } };
+  const projectItem = { id: "project_paused:prj-1", subject: "atlas" };
+  const order = [projectItem, nodeItem] as unknown as readonly AttentionItem[];
+
+  it("matches a node card on the node of a deck item", () => {
+    expect(
+      offerQueueEntryOf(order, { operation_id: "mission.node.unblock", target_id: "node_42" }),
+    ).toEqual({ id: "blocked:node_42", subject: "Sign-up", rank: 2 });
+  });
+
+  it("matches a project card on the paused project item", () => {
+    expect(
+      offerQueueEntryOf(order, { operation_id: "project.resume", target_id: "prj-1" }),
+    ).toEqual({ id: "project_paused:prj-1", subject: "atlas", rank: 1 });
+  });
+
+  it("answers null for a target with no deck item or an unknown operation", () => {
+    expect(
+      offerQueueEntryOf(order, { operation_id: "mission.node.pause", target_id: "node_9" }),
+    ).toBeNull();
+    expect(
+      offerQueueEntryOf(order, { operation_id: "project.pause", target_id: "node_42" }),
+    ).toBeNull();
+    expect(
+      offerQueueEntryOf(order, { operation_id: "other.act", target_id: "node_42" }),
+    ).toBeNull();
   });
 });

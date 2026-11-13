@@ -12,7 +12,8 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 
-import { queueEntryOf } from "@/lib/home-deck";
+import { offerQueueEntryOf, queueEntryOf } from "@/lib/home-deck";
+import type { ActionCardItem } from "@/lib/workbench-chat";
 
 import { AbsentSourcesNote } from "./components/absent-sources-note";
 import { FootprintAlert } from "./components/footprint-alert";
@@ -53,6 +54,11 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
   const showQueued = (itemId: string) => {
     deck.select(itemId);
     deckRef.current?.focus();
+  };
+
+  const actionLineOf = (item: ActionCardItem) => {
+    const entry = offerQueueEntryOf(deck.order, item.offer);
+    return entry === null ? null : <QueueLine entry={entry} onShow={showQueued} />;
   };
 
   const streamEnd = (
@@ -132,6 +138,7 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
       <HomeChat
         home={home}
         approvalLine={queued === null ? null : <QueueLine entry={queued} onShow={showQueued} />}
+        actionLineOf={actionLineOf}
         streamEnd={streamEnd}
       />
     </div>

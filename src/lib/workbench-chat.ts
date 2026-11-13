@@ -56,6 +56,8 @@ export type ChatItem =
       readonly state: ActionCardState;
     };
 
+export type ActionCardItem = Extract<ChatItem, { kind: "action-card" }>;
+
 type Block = Readonly<Record<string, unknown>>;
 
 const SUMMARY_LIMIT = 80;
