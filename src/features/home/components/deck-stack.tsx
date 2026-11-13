@@ -40,7 +40,9 @@ export function DeckStack({ deck, children }: DeckStackProps) {
     : "translate-x-0 opacity-100";
 
   return (
-    <div className={deck.tilted > 0 ? "grid overflow-x-clip pb-14" : "grid overflow-x-clip"}>
+    <div
+      className={`isolate grid grid-cols-[minmax(0,1fr)] overflow-x-clip ${deck.tilted > 0 ? "pb-14" : ""}`}
+    >
       {tilts.map((tilt, index) => (
         <div
           key={tilt}

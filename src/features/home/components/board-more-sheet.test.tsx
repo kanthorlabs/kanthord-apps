@@ -1,21 +1,33 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Button } from "@/components/ui/button";
 
 import { BoardMoreSheet } from "./board-more-sheet";
 
-function renderSheet(last = true) {
+function renderSheet(last = true, onAct = vi.fn()) {
   render(
     <>
       <BoardMoreSheet
         subject="Print the slip"
         count={last ? 3 : 2}
-        last={last ? <Button variant="destructive">Discard</Button> : null}
+        last={
+          last ? (
+            <Button variant="destructive" onClick={onAct}>
+              Discard
+            </Button>
+          ) : null
+        }
       >
-        <Button variant="outline">Override</Button>
+        <Button variant="outline" onClick={onAct}>
+          Override
+        </Button>
+        <Button variant="outline" aria-disabled="true">
+          Gated
+        </Button>
         <Button variant="outline">Last trace</Button>
+        <a href="#trace">Open trace</a>
       </BoardMoreSheet>
     </>,
   );
@@ -40,7 +52,7 @@ describe("BoardMoreSheet", () => {
     const names = within(dialog)
       .getAllByRole("button")
       .map((button) => button.textContent);
-    expect(names).toEqual(["Override", "Last trace", "Discard", "Cancel"]);
+    expect(names).toEqual(["Override", "Gated", "Last trace", "Discard", "Cancel"]);
     expect(within(dialog).getByRole("separator")).toBeInTheDocument();
   });
 
@@ -78,5 +90,67 @@ describe("BoardMoreSheet", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(more).toHaveFocus();
+  });
+
+  it("closes when an act in the sheet runs", async () => {
+    const user = userEvent.setup();
+    const onAct = vi.fn();
+    renderSheet(true, onAct);
+    await user.click(screen.getByRole("button", { name: "More (3)" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "Override" }));
+
+    expect(onAct).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("closes when the last act in the sheet runs", async () => {
+    const user = userEvent.setup();
+    const onAct = vi.fn();
+    renderSheet(true, onAct);
+    await user.click(screen.getByRole("button", { name: "More (3)" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "Discard" }));
+
+    expect(onAct).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("stays open when a click lands on a gated act", async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByRole("button", { name: "More (3)" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("button", { name: "Gated" }));
+
+    expect(screen.getByRole("dialog")).toBeVisible();
+  });
+
+  it("closes when a link in the sheet is clicked", async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByRole("button", { name: "More (3)" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("link", { name: "Open trace" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("closes when Enter runs an act in the sheet", async () => {
+    const user = userEvent.setup();
+    const onAct = vi.fn();
+    renderSheet(true, onAct);
+    await user.click(screen.getByRole("button", { name: "More (3)" }));
+    const dialog = await screen.findByRole("dialog");
+    within(dialog).getByRole("button", { name: "Override" }).focus();
+
+    await user.keyboard("{Enter}");
+
+    expect(onAct).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

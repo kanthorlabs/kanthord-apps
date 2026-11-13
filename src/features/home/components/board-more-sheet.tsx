@@ -13,6 +13,8 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
+import { useSheetClose } from "../use-sheet-close";
+
 interface BoardMoreSheetProps {
   readonly subject: string;
   readonly count: number;
@@ -21,13 +23,18 @@ interface BoardMoreSheetProps {
 }
 
 export function BoardMoreSheet({ subject, count, children, last }: BoardMoreSheetProps) {
+  const { open, setOpen, closeOnAct } = useSheetClose();
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={setOpen}>
       <TouchTarget>
         <SheetTrigger render={<Button variant="outline" size="sm" />}>More ({count})</SheetTrigger>
       </TouchTarget>
       <SheetContent side="bottom" showCloseButton={false}>
-        <div className="flex flex-col gap-4 pb-[env(safe-area-inset-bottom)]">
+        <div
+          role="presentation"
+          className="flex flex-col gap-4 pb-[env(safe-area-inset-bottom)]"
+          onClick={closeOnAct}
+        >
           <SheetHeader>
             <SheetTitle>More acts on {subject}</SheetTitle>
           </SheetHeader>
