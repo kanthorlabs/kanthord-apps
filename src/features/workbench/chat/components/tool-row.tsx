@@ -41,13 +41,14 @@ export function ToolRow({ label, name, status, detail, error }: ToolRowProps) {
           >
             <ChevronRightIcon aria-hidden="true" data-icon="inline-start" />
             <span className="shrink-0 text-muted-foreground">{label}</span>
-            <span className="shrink-0 font-mono">{name}</span>
+            <span className="min-w-0 truncate font-mono">{name}</span>
             {status}
-            <span className="min-w-0 truncate font-mono text-xs text-muted-foreground">
+            <span className="min-w-0 grow basis-0 truncate text-left font-mono text-xs text-muted-foreground">
               {summaryOf(detail)}
             </span>
           </CollapsibleTrigger>
           <RevealPanel>
+            <p className="px-3 pb-1 font-mono text-xs break-all">{name}</p>
             <ToolDetail detail={detail} />
           </RevealPanel>
         </Collapsible>
