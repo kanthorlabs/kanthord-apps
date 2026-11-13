@@ -179,6 +179,7 @@ describe("ChatScreen", () => {
 
     const line = await screen.findByRole("group", { name: "Run line" });
     expect(line.previousElementSibling).toHaveTextContent("List the open nodes");
+    expect(within(line).getByText("· List the open nodes")).toBeInTheDocument();
     await userEvent.click(within(line).getByRole("button", { name: "Stop" }));
 
     expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);

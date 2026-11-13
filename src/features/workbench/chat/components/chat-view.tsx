@@ -119,6 +119,8 @@ export function ChatView({
           runLine={
             <RunLine
               runActive={snapshot.run_active}
+              request={runRequestOf(items)}
+              ownerName={ownerName}
               busy={actions.busy}
               onStop={stopConfirm.stop}
             />

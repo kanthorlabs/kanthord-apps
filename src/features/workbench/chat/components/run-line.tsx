@@ -1,12 +1,16 @@
 import { Button } from "@/components/ui/button";
+import { utcDateTime } from "@/lib/format";
+import type { ChatItem } from "@/lib/workbench-chat";
 
 interface RunLineProps {
   readonly runActive: boolean;
+  readonly request: Extract<ChatItem, { kind: "user" }> | null;
+  readonly ownerName: string;
   readonly busy: boolean;
   readonly onStop: () => void;
 }
 
-export function RunLine({ runActive, busy, onStop }: RunLineProps) {
+export function RunLine({ runActive, request, ownerName, busy, onStop }: RunLineProps) {
   if (!runActive) return null;
   return (
     <div
@@ -16,7 +20,21 @@ export function RunLine({ runActive, busy, onStop }: RunLineProps) {
     >
       <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
       <span>Running</span>
-      <Button variant="destructive" size="xs" disabled={busy} onClick={onStop}>
+      {request !== null && (
+        <span
+          title={`This run: started by ${ownerName} at ${utcDateTime(request.timestamp)}`}
+          className="min-w-0 truncate"
+        >
+          · {request.text}
+        </span>
+      )}
+      <Button
+        variant="destructive"
+        size="xs"
+        className="ml-auto shrink-0"
+        disabled={busy}
+        onClick={onStop}
+      >
         Stop
       </Button>
     </div>
