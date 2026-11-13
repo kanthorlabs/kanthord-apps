@@ -68,6 +68,15 @@ function agents(enablement: AgentEnablement | null): readonly AgentSummary[] {
   ];
 }
 
+const OPS: AgentSummary = {
+  agentName: "ops@1",
+  displayName: "Yumi",
+  workerNames: [],
+  consumers: ["workbench"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3 },
+  enablement: { ...ENABLEMENT, agent_name: "ops@1" },
+};
+
 const OLD: WorkbenchSessionListItem = {
   id: "workbench_session_OLD",
   agent_name: "swe@1",
@@ -122,7 +131,7 @@ async function openDialog() {
   await screen.findByText("No sessions of swe@1. Start the first one with New Session.");
   await userEvent.click(screen.getByRole("button", { name: "New Session" }));
   const dialog = await screen.findByRole("dialog");
-  await choose(dialog, "Agent", "swe@1");
+  await choose(dialog, "Agent", "SWE (swe@1)");
   return dialog;
 }
 
@@ -168,8 +177,40 @@ describe("SessionsScreen", () => {
     expect(within(dialog).getByText("Pick an agent to start a session.")).toBeTruthy();
     expect(within(dialog).getByRole("button", { name: "Start Session" })).toBeDisabled();
     await userEvent.click(within(dialog).getByRole("combobox", { name: "Agent" }));
-    expect(await screen.findByRole("option", { name: "swe@1" })).toBeTruthy();
-    expect(screen.queryByRole("option", { name: "re@1" })).toBeNull();
+    expect(await screen.findByRole("option", { name: "SWE (swe@1)" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "RE (re@1)" })).toBeNull();
+  });
+
+  it("offers an enabled ops@1 as Yumi (ops@1)", async () => {
+    serve([OLD]);
+    vi.mocked(workersApi.listAgents).mockResolvedValue([...agents(ENABLEMENT), OPS]);
+    mount("/workbench");
+
+    await screen.findByRole("list", { name: "Sessions" });
+    await userEvent.click(screen.getByRole("button", { name: "New Session" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Agent" }));
+
+    expect(await screen.findByRole("option", { name: "Yumi (ops@1)" })).toBeTruthy();
+  });
+
+  it("does not offer an enabled agent that no Workbench runs", async () => {
+    serve([OLD]);
+    vi.mocked(workersApi.listAgents).mockResolvedValue([
+      ...agents(ENABLEMENT),
+      { ...OPS, agentName: "pe@1", displayName: "PE", consumers: ["worker"] },
+      { ...OPS, agentName: "guard@1", displayName: "Guard", consumers: [] },
+    ]);
+    mount("/workbench");
+
+    await screen.findByRole("list", { name: "Sessions" });
+    await userEvent.click(screen.getByRole("button", { name: "New Session" }));
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.click(within(dialog).getByRole("combobox", { name: "Agent" }));
+
+    expect(await screen.findByRole("option", { name: "SWE (swe@1)" })).toBeTruthy();
+    expect(screen.queryByRole("option", { name: "PE (pe@1)" })).toBeNull();
+    expect(screen.queryByRole("option", { name: "Guard (guard@1)" })).toBeNull();
   });
 
   it("names the agent providers of the enablement and links to the agent page", async () => {

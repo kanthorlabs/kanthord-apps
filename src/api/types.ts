@@ -285,11 +285,13 @@ export interface AgentSummary {
 
 export type AgentToolSource = "builtin" | "kanthord-mcp" | "host" | "operation";
 
+export type AgentGuardClass = "read" | "card";
+
 export interface AgentTool {
   readonly name: string;
   readonly source: AgentToolSource;
   readonly description: string;
-  readonly guard_class: "read" | "card" | null;
+  readonly guard_class: AgentGuardClass | null;
   readonly input_schema: Readonly<Record<string, unknown>>;
 }
 

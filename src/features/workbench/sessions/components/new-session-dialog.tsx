@@ -43,6 +43,7 @@ export function NewSessionDialog({
             label="Agent"
             value={choice.agentName ?? ""}
             options={choice.agentOptions}
+            optionLabels={choice.agentLabels}
             error={undefined}
             onChange={choice.selectAgent}
           />

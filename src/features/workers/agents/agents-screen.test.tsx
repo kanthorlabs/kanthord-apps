@@ -45,6 +45,15 @@ const RE: AgentSummary = {
   enablement: null,
 };
 
+const OPS: AgentSummary = {
+  agentName: "ops@1",
+  displayName: "Yumi",
+  workerNames: [],
+  consumers: ["workbench"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3 },
+  enablement: null,
+};
+
 function Opened() {
   const { sessionId } = useParams<{ sessionId: string }>();
   return <p>Opened {sessionId}</p>;
@@ -70,9 +79,33 @@ describe("AgentsScreen", () => {
       "listitem",
     );
     expect(items).toHaveLength(2);
-    expect(within(items[0]!).getByText("re@1")).toBeTruthy();
+    expect(within(items[0]!).getByText("RE (re@1)")).toBeTruthy();
     expect(within(items[0]!).getByText("not enabled")).toBeTruthy();
     expect(within(items[0]!).getByText("reviewer@1")).toBeTruthy();
+  });
+
+  it("lists ops@1 as Yumi (ops@1)", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([OPS]);
+    mount();
+
+    expect(await screen.findByRole("link", { name: "Yumi (ops@1)" })).toHaveAttribute(
+      "href",
+      "/agents/ops%401",
+    );
+  });
+
+  it("shows the non-zero tool counts of a row and No tools for an agent with none", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([
+      { ...SWE, toolCounts: { builtin: 7, "kanthord-mcp": 0, host: 1, operation: 7 } },
+      RE,
+    ]);
+    mount();
+
+    const items = within(await screen.findByRole("list", { name: "Agents" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(items[0]!).getByText("7 builtin, 1 host, 7 operation")).toBeTruthy();
+    expect(within(items[1]!).getByText("No tools")).toBeTruthy();
   });
 
   it("links the Enable button of a not enabled agent to the enablement form", async () => {
@@ -96,7 +129,10 @@ describe("AgentsScreen", () => {
     expect(await screen.findByText("enabled")).toBeTruthy();
     expect(screen.getByText("atlas-llm, openai-org")).toBeTruthy();
     expect(screen.getByText(/qwen3-coder/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "swe@1" })).toHaveAttribute("href", "/agents/swe%401");
+    expect(screen.getByRole("link", { name: "SWE (swe@1)" })).toHaveAttribute(
+      "href",
+      "/agents/swe%401",
+    );
   });
 
   it("starts a session of an enabled agent from its row and opens the chat", async () => {

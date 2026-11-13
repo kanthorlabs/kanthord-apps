@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { agentReadFailure } from "@/api/agent-read-failure";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
+import { GUARD_CLASS_FACTS } from "@/lib/agent-tools";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
 import { AgentPromptCard } from "./components/agent-prompt-card";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
@@ -173,6 +175,57 @@ function EnablementSection({ agentName, enablement, reload }: EnablementSectionP
   );
 }
 
+function ToolChip({ tool }: { tool: AgentTool }) {
+  const [open, setOpen] = useState(false);
+  const guard = tool.guard_class === null ? null : GUARD_CLASS_FACTS[tool.guard_class];
+
+  const body = (
+    <>
+      <ItemContent className="min-w-0">
+        <ItemTitle>
+          <span className="font-mono">{tool.name}</span>
+        </ItemTitle>
+        {guard !== null && (
+          <>
+            {tool.description !== "" && <p className="text-sm">{tool.description}</p>}
+            <p className="text-sm text-muted-foreground">{guard.undo}</p>
+          </>
+        )}
+      </ItemContent>
+      {tool.guard_class !== null && guard !== null && (
+        <Badge variant={guard.variant}>{tool.guard_class}</Badge>
+      )}
+      <Badge variant="outline">{tool.source}</Badge>
+    </>
+  );
+
+  if (guard === null) {
+    return (
+      <Item variant="outline" size="sm" role="listitem">
+        {body}
+      </Item>
+    );
+  }
+
+  return (
+    <Tooltip open={open} onOpenChange={setOpen}>
+      <TooltipTrigger
+        render={<Item variant="outline" size="sm" role="listitem" tabIndex={0} />}
+        closeOnClick={false}
+        onPointerUp={() => setOpen(true)}
+      >
+        {body}
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className="flex flex-col gap-1">
+          {tool.description !== "" && <p>{tool.description}</p>}
+          <p>{guard.undo}</p>
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function ToolsSection({ tools }: { tools: readonly AgentTool[] }) {
   return (
     <Card>
@@ -182,14 +235,7 @@ function ToolsSection({ tools }: { tools: readonly AgentTool[] }) {
       <CardContent>
         <ItemGroup aria-label="Tools" className="gap-2">
           {tools.map((tool) => (
-            <Item key={tool.name} variant="outline" size="sm" role="listitem">
-              <ItemContent className="min-w-0">
-                <ItemTitle>
-                  <span className="font-mono">{tool.name}</span>
-                </ItemTitle>
-              </ItemContent>
-              <Badge variant="outline">{tool.source}</Badge>
-            </Item>
+            <ToolChip key={tool.name} tool={tool} />
           ))}
         </ItemGroup>
       </CardContent>
