@@ -456,7 +456,7 @@ describe("Composer", () => {
       await clickStop();
 
       const confirm = screen.getByRole("alertdialog");
-      expect(within(confirm).getByText("Stop the run?")).toBeInTheDocument();
+      expect(within(confirm).getByText("Stop the run and clear 2 queued?")).toBeInTheDocument();
       expect(
         within(confirm).getByText("Your 2 queued messages return to the composer."),
       ).toBeInTheDocument();

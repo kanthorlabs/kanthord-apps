@@ -116,15 +116,13 @@ export function ChatView({
           items={items}
           authors={{ ownerName, agentName: session.agent_name, agentDisplayName }}
           runError={snapshot.error_message}
-          runLine={(request) => (
+          runLine={
             <RunLine
               runActive={snapshot.run_active}
               busy={actions.busy}
-              ownerName={ownerName}
-              request={request}
               onStop={stopConfirm.stop}
             />
-          )}
+          }
         />
         {working && <AgentWorking seconds={elapsed} />}
         {snapshot.pending_approval !== null &&

@@ -1,23 +1,19 @@
 import type { ReactNode } from "react";
 
-import { runErrorTargetId, runRequestOf } from "@/lib/workbench-chat";
+import { runErrorTargetId } from "@/lib/workbench-chat";
 import type { ChatItem } from "@/lib/workbench-chat";
 import { type ChatAuthors, ChatEntry } from "./chat-entry";
 import { InlineError } from "./inline-error";
-import type { RunRequest } from "./run-line";
 
 interface ChatTranscriptProps {
   readonly items: readonly ChatItem[];
   readonly authors: ChatAuthors;
   readonly runError: string | null;
-  readonly runLine: (request: RunRequest | null) => ReactNode;
+  readonly runLine: ReactNode;
 }
 
 export function ChatTranscript({ items, authors, runError, runLine }: ChatTranscriptProps) {
   const targetId = runError === null ? null : runErrorTargetId(items);
-  const requestItem = runRequestOf(items);
-  const request =
-    requestItem === null ? null : { text: requestItem.text, timestamp: requestItem.timestamp };
   return (
     <div role="log" aria-label="Transcript" className="flex min-w-0 flex-col gap-3">
       {items.length === 0 && (
@@ -31,7 +27,7 @@ export function ChatTranscript({ items, authors, runError, runLine }: ChatTransc
           runError={item.id === targetId ? runError : null}
         />
       ))}
-      {runLine(request)}
+      {runLine}
       {runError !== null && targetId === null && <InlineError code={null} message={runError} />}
     </div>
   );

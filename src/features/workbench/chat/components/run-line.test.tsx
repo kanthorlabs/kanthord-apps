@@ -33,15 +33,14 @@ function transcript(items: readonly ChatItem[], runActive: boolean) {
       items={items}
       authors={AUTHORS}
       runError={null}
-      runLine={(request) => (
+      runLine={
         <RunLine
           runActive={runActive}
           busy={false}
-          ownerName="Ulrich"
-          request={request}
+
           onStop={vi.fn()}
         />
-      )}
+      }
     />,
   );
 }
@@ -54,7 +53,7 @@ function orderOf(): string[] {
 describe("RunLine", () => {
   it("shows Running and Stop while a run is active", async () => {
     const onStop = vi.fn();
-    render(<RunLine runActive busy={false} ownerName="Ulrich" request={null} onStop={onStop} />);
+    render(<RunLine runActive busy={false} onStop={onStop} />);
 
     const line = screen.getByRole("group", { name: "Run line" });
     expect(within(line).getByText("Running")).toBeInTheDocument();
@@ -64,38 +63,13 @@ describe("RunLine", () => {
   });
 
   it("shows nothing when no run is active", () => {
-    render(
-      <RunLine runActive={false} busy={false} ownerName="Ulrich" request={null} onStop={vi.fn()} />,
-    );
+    render(<RunLine runActive={false} busy={false} onStop={vi.fn()} />);
 
     expect(screen.queryByRole("group", { name: "Run line" })).toBeNull();
   });
 
-  it("shows the request of the run and who started it in the title", () => {
-    render(
-      <RunLine
-        runActive
-        busy={false}
-        ownerName="Ulrich"
-        request={{ text: "List   the open\nnodes", timestamp: AT }}
-        onStop={vi.fn()}
-      />,
-    );
-
-    const line = screen.getByRole("group", { name: "Run line" });
-    expect(within(line).getByTitle(/^This run: started by Ulrich at /)).toHaveTextContent(
-      "· List the open nodes",
-    );
-  });
-
-  it("shows no request text before the request entry exists", () => {
-    render(<RunLine runActive busy={false} ownerName="Ulrich" request={null} onStop={vi.fn()} />);
-
-    expect(screen.getByRole("group", { name: "Run line" })).toHaveTextContent(/^RunningStop$/);
-  });
-
   it("disables Stop while an action is in flight", () => {
-    render(<RunLine runActive busy ownerName="Ulrich" request={null} onStop={vi.fn()} />);
+    render(<RunLine runActive busy onStop={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
   });
