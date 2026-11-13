@@ -373,13 +373,47 @@ describe("HomeDeck stack", () => {
     expect(grid.className).toContain("grid-cols-[minmax(0,1fr)]");
   });
 
-  it("keeps the secondary strip at its own height so its rotation stays inside the page", () => {
+  it("fills the grid area with the secondary like the blank cards", () => {
     mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta"), fix("c", 3), fix("d", 4)]));
 
     const { secondary, middle } = backCards();
 
-    expect(secondary.className).toContain("self-start");
+    expect(secondary.className).not.toContain("self-start");
     expect(middle.className).not.toContain("self-start");
+  });
+
+  it("adds the peek space only when back cards show", () => {
+    mount(overviewOf([fix("a", 1, "Alpha")]));
+
+    const { grid, count } = backCards();
+
+    expect(count).toBe(0);
+    expect(grid.className).not.toMatch(/(?:^|\s)(?:sm:)?p[tb]-/);
+  });
+
+  it("adds the peek space above and below the stack with back cards", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta")]));
+
+    const { grid } = backCards();
+
+    expect(grid.className).toContain("pt-[34px]");
+    expect(grid.className).toContain("sm:pt-10");
+    expect(grid.className).toContain("pb-2");
+    expect(grid.className).toContain("sm:pb-[26px]");
+  });
+
+  it("keeps the strip text and the tab pill in one row with the subject truncating first", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), APPROVAL]));
+
+    const { secondary } = backCards();
+    const pill = within(secondary).getByText("Setup");
+    const subject = within(secondary).getByText(/^Next #2/);
+
+    expect(pill.parentElement).toBe(subject.parentElement);
+    expect(subject.parentElement).toHaveClass("flex-row");
+    expect(subject).toHaveClass("min-w-0", "truncate");
+    expect(subject).not.toHaveClass("flex-1");
+    expect(pill).toHaveClass("shrink-0");
   });
 
   it("shows the short tab pill in the secondary strip", () => {

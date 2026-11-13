@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Project } from "@/api/types";
 import type { AttentionItem } from "@/lib/attention";
+import { deckRowTextOf } from "@/lib/deck-card";
 import type { FixAttentionItem } from "@/lib/fix-attention";
 
 import { DECK_EXIT_MS, type HomeDeckInput, useHomeDeck } from "./use-home-deck";
@@ -330,6 +331,15 @@ describe("useHomeDeck swipe", () => {
     act(() => result.current.swipe.onPointerUp(touch(100, 100)));
 
     expect(result.current.primary?.id).toBe("a");
+  });
+});
+
+describe("useHomeDeck secondary tab", () => {
+  it("carries the short tab text of the secondary item", () => {
+    const { result } = mount([fix("a", 100), fix("b", 200)]);
+
+    expect(result.current.secondary?.tab).toBe(deckRowTextOf(fix("b", 200), DETAILS, 1_000).tab);
+    expect(result.current.secondary?.tab).not.toBe("");
   });
 });
 
