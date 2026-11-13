@@ -334,6 +334,54 @@ describe("HomeDeck primary and secondary", () => {
   });
 });
 
+describe("HomeDeck stack", () => {
+  function backCards() {
+    const primary = screen.getByRole("group", { name: /^Primary:/ });
+    const grid = primary.closest(".grid") as HTMLElement;
+    const cards = Array.from(grid.children).filter((child) => !child.contains(primary));
+    const [secondary, middle, last] = cards as [HTMLElement, HTMLElement, HTMLElement];
+    return { grid, count: cards.length, secondary, middle, last };
+  }
+
+  function zOf(card: HTMLElement): number {
+    return Number(/(?:^|\s)z-(\d+)/.exec(card.className)?.[1]);
+  }
+
+  function liftOf(card: HTMLElement): number {
+    return Number(/(?:^|\s)\[transform:translateY\(-(\d+)px\)/.exec(card.className)?.[1]);
+  }
+
+  it("stacks the secondary highest with the largest upward offset", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta"), fix("c", 3), fix("d", 4)]));
+
+    const { count, secondary, middle, last } = backCards();
+
+    expect(count).toBe(3);
+    expect(secondary).toHaveTextContent("Next #2 Beta");
+    expect(zOf(secondary)).toBeGreaterThan(zOf(middle));
+    expect(zOf(middle)).toBeGreaterThan(zOf(last));
+    expect(liftOf(secondary)).toBeGreaterThan(liftOf(middle));
+    expect(liftOf(secondary)).toBeGreaterThan(liftOf(last));
+  });
+
+  it("does not clip the deck grid on the x axis", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta")]));
+
+    const { grid } = backCards();
+
+    expect(grid.className).not.toContain("overflow-x-clip");
+    expect(grid.className).toContain("grid-cols-[minmax(0,1fr)]");
+  });
+
+  it("shows the short tab pill in the secondary strip", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), APPROVAL]));
+
+    const { secondary } = backCards();
+
+    expect(within(secondary).getByText("Setup")).toBeVisible();
+  });
+});
+
 describe("HomeDeck steps", () => {
   it("disables Previous at 1 and Next at N", async () => {
     const user = userEvent.setup();

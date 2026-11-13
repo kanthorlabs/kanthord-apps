@@ -93,7 +93,7 @@ export function HomeDeck({ deck, overview, focusRef, askYumi }: HomeDeckProps) {
                 gate={selectedGateOf(overview.gates, acting)}
                 jump={deck.select}
               >
-                <DeckStack deck={deck}>
+                <DeckStack deck={deck} details={overview.details}>
                   <DeckCard
                     item={primary}
                     rank={deck.rank}
