@@ -95,6 +95,66 @@ describe("chatItemsOf", () => {
     ]);
   });
 
+  it("marks a call with no result as no-result when no run is active", () => {
+    const entries = [message("e2", { role: "assistant", content: [CALL] })];
+
+    const items = chatItemsOf(entries, IDLE);
+
+    expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual(["no-result"]);
+  });
+
+  it("keeps no-result for the call that a user entry follows during a new active run", () => {
+    const entries = [
+      message("e2", { role: "assistant", content: [CALL] }),
+      message("e3", { role: "user", content: "Again" }),
+    ];
+
+    const items = chatItemsOf(entries, { ...IDLE, run_active: true });
+
+    expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual([
+      "no-result",
+      false,
+    ]);
+  });
+
+  it("keeps a pending call running while the run is active", () => {
+    const entries = [message("e2", { role: "assistant", content: [CALL] })];
+
+    const items = chatItemsOf(entries, {
+      ...IDLE,
+      run_active: true,
+      pending_tool_calls: ["call_1"],
+    });
+
+    expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual(["running"]);
+  });
+
+  it("renders an expired approval result as an error result", () => {
+    const text =
+      "The approval wait ended with no human decision. The call did not run. Do not call it again unless the human asks again.";
+    const entries = [
+      message("e2", { role: "assistant", content: [CALL] }),
+      message("e3", {
+        role: "toolResult",
+        toolCallId: "call_1",
+        toolName: "mission.node.list",
+        isError: true,
+        content: [{ type: "text", text }],
+      }),
+    ];
+
+    const items = chatItemsOf(entries, IDLE);
+
+    expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual(["done", false]);
+    expect(items.at(-1)).toEqual({
+      kind: "tool-result",
+      id: "e3",
+      name: "mission.node.list",
+      text,
+      isError: true,
+    });
+  });
+
   it("appends the streaming partial message after the entries", () => {
     const items = chatItemsOf([message("e1", { role: "user", content: "Hi" })], {
       ...IDLE,

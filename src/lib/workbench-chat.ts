@@ -19,7 +19,7 @@ export type ChatItem =
       readonly id: string;
       readonly name: string;
       readonly input: string;
-      readonly state: "done" | "running" | "awaiting-approval";
+      readonly state: "done" | "running" | "awaiting-approval" | "no-result";
     }
   | {
       readonly kind: "tool-result";
@@ -59,12 +59,33 @@ export function summaryOf(text: string): string {
   return line.length > SUMMARY_LIMIT ? `${line.slice(0, SUMMARY_LIMIT)}…` : line;
 }
 
+interface ResultContext {
+  readonly resultIds: ReadonlySet<string>;
+  readonly lastUserIndex: number;
+}
+
+function callState(
+  callId: string,
+  index: number,
+  snapshot: WorkbenchRunSnapshot,
+  streaming: boolean,
+  context: ResultContext,
+): Extract<ChatItem, { kind: "tool-call" }>["state"] {
+  if (snapshot.pending_approval?.tool_call_id === callId) return "awaiting-approval";
+  if (streaming || snapshot.pending_tool_calls.includes(callId)) return "running";
+  if (context.resultIds.has(callId)) return "done";
+  if (!snapshot.run_active || context.lastUserIndex > index) return "no-result";
+  return "done";
+}
+
 function assistantItems(
   id: string,
   message: Block,
   snapshot: WorkbenchRunSnapshot,
   streaming: boolean,
   timestamp: number | null,
+  index: number,
+  context: ResultContext,
 ): readonly ChatItem[] {
   const blocks = blocksOf(message["content"]);
   const text = textOf(blocks);
@@ -73,14 +94,12 @@ function assistantItems(
   for (const block of blocks) {
     if (block["type"] !== "toolCall") continue;
     const callId = stringOf(block["id"]);
-    const awaiting = snapshot.pending_approval?.tool_call_id === callId;
-    const running = streaming || snapshot.pending_tool_calls.includes(callId);
     items.push({
       kind: "tool-call",
       id: `${id}:${callId}`,
       name: stringOf(block["name"]),
       input: JSON.stringify(block["arguments"] ?? {}, null, 2),
-      state: awaiting ? "awaiting-approval" : running ? "running" : "done",
+      state: callState(callId, index, snapshot, streaming, context),
     });
   }
   return items;
@@ -88,7 +107,9 @@ function assistantItems(
 
 function entryItems(
   entry: WorkbenchSessionEntry,
+  index: number,
   snapshot: WorkbenchRunSnapshot,
+  context: ResultContext,
 ): readonly ChatItem[] {
   const message = entry["message"];
   if (entry.type !== "message" || !isRecord(message)) return [];
@@ -104,7 +125,15 @@ function entryItems(
     ];
   }
   if (role === "assistant") {
-    return assistantItems(entry.id, message, snapshot, false, Date.parse(entry.timestamp));
+    return assistantItems(
+      entry.id,
+      message,
+      snapshot,
+      false,
+      Date.parse(entry.timestamp),
+      index,
+      context,
+    );
   }
   if (role === "toolResult") {
     return [
@@ -120,14 +149,30 @@ function entryItems(
   return [];
 }
 
+function resultContextOf(entries: readonly WorkbenchSessionEntry[]): ResultContext {
+  const resultIds = new Set<string>();
+  let lastUserIndex = -1;
+  entries.forEach((entry, index) => {
+    const message = entry["message"];
+    if (entry.type !== "message" || !isRecord(message)) return;
+    if (message["role"] === "user") lastUserIndex = index;
+    if (message["role"] === "toolResult") resultIds.add(stringOf(message["toolCallId"]));
+  });
+  return { resultIds, lastUserIndex };
+}
+
 export function chatItemsOf(
   entries: readonly WorkbenchSessionEntry[],
   snapshot: WorkbenchRunSnapshot,
 ): readonly ChatItem[] {
-  const items = entries.flatMap((entry) => entryItems(entry, snapshot));
+  const context = resultContextOf(entries);
+  const items = entries.flatMap((entry, index) => entryItems(entry, index, snapshot, context));
   const streaming = snapshot.streaming_message;
   if (streaming === null || streaming["role"] !== "assistant") return items;
-  return [...items, ...assistantItems("streaming", streaming, snapshot, true, null)];
+  return [
+    ...items,
+    ...assistantItems("streaming", streaming, snapshot, true, null, entries.length, context),
+  ];
 }
 
 export function agentWorking(items: readonly ChatItem[], snapshot: WorkbenchRunSnapshot): boolean {
