@@ -28,7 +28,7 @@ const STATE_LINES: Readonly<Partial<Record<ActionCardState, string>>> = {
   unknown: "This act has no card in this dashboard version.",
 };
 const BUTTON_LAYOUT =
-  "h-auto min-h-9 min-w-0 max-w-full shrink py-1.5 text-left whitespace-normal break-all";
+  "h-auto min-h-9 min-w-0 max-w-full shrink py-1.5 text-left whitespace-normal wrap-anywhere";
 const DANGER_FILL = "bg-destructive text-destructive-foreground hover:bg-destructive/90";
 
 function cardErrorOf(
@@ -89,7 +89,7 @@ export function ActionCard({
         </div>
         <ul className="list-disc pl-[18px] text-[12.5px]">
           {actionFactsOf(offer).map((fact) => (
-            <li key={fact} className="break-all">
+            <li key={fact} className="wrap-anywhere">
               {fact}
             </li>
           ))}
