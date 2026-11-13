@@ -221,12 +221,24 @@ describe("decisionActsOf", () => {
 });
 
 describe("findingReviewActsOf", () => {
-  it("links the node sheet of the finding item", () => {
+  it("leads with Decide, then links the node sheet of the finding item", () => {
     const item = { project: PROJECT, node: { id: "node_1" } } as unknown as FindingReviewItem;
+    const decide = vi.fn();
 
-    expect(findingReviewActsOf(item)).toEqual([
-      { type: "link", id: "open_node", label: "Open node", to: "/projects/prj-1?node=node_1" },
+    const acts = findingReviewActsOf(item, decide);
+
+    expect(acts.map((act) => [act.type, act.id])).toEqual([
+      ["button", "decide"],
+      ["link", "open_node"],
     ]);
+    expect(acts[1]).toEqual({
+      type: "link",
+      id: "open_node",
+      label: "Open node",
+      to: "/projects/prj-1?node=node_1",
+    });
+    if (acts[0]?.type === "button") acts[0].press();
+    expect(decide).toHaveBeenCalledTimes(1);
   });
 });
 

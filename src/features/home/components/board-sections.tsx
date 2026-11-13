@@ -6,20 +6,16 @@ import { RecordName } from "@/components/record-name";
 import { TouchTarget } from "@/components/touch-target";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ItemGroup } from "@/components/ui/item";
-import { FindingItem } from "@/components/finding-item";
 import { approvalFactOf } from "@/lib/approval-attention";
 import type {
   AttentionDetails,
   AttentionItem,
   BlockedDetail,
   DependencyItem,
-  FindingReviewItem,
   FollowupItem,
 } from "@/lib/attention";
 import { type InboxAttentionItem, inboxImpactTextOf } from "@/lib/inbox-attention";
 import { inboxReasonCauseOf } from "@/lib/inbox-reasons";
-import { changeAskedOf } from "@/lib/board-change";
 import type { HeldNode } from "@/lib/board-detail-joins";
 import {
   type BoardEvidence,
@@ -30,7 +26,6 @@ import {
 import type { BoardGate } from "@/lib/board-items";
 import {
   blockedDetailOf,
-  boardFindingGroupsOf,
   boardSuggestionOf,
   discardReasonTextOf,
   environmentFailureOf,
@@ -50,12 +45,12 @@ import { actorNameOf } from "@/lib/board-suggestion";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 import { causeSentenceOf } from "@/lib/external-requests";
 import { badgeVariantOf } from "@/lib/node-state";
-import { taskNameOf } from "@/lib/review-findings";
 import { causeLine } from "@/lib/trace-cause";
 
-import { type FindingRowActs, useBoardActs } from "../use-board-acts";
+import { useBoardActs } from "../use-board-acts";
 import { type BoardReadsValue, useBoardReadsContext } from "../use-board-reads";
 import { BoardReadBlock } from "./board-read-block";
+import { ChangeAskedSection } from "./change-asked";
 import { InboxMessage } from "./inbox-message";
 import { CauseText } from "./cause-text";
 import { FixCauseText } from "./fix-cause-text";
@@ -177,37 +172,6 @@ function InboxMessageSection({ item }: { readonly item: InboxAttentionItem }) {
   );
 }
 
-function ChangeAskedSection({ reads }: { readonly reads: BoardReadsValue }) {
-  return (
-    <Section title="Change asked">
-      <BoardReadBlock name="the session" read={reads.session} onRetry={reads.retry.session}>
-        {(pending) => {
-          const change = changeAskedOf(pending);
-          if (change === null)
-            return <p className={`text-sm ${TEXT_WIDTH}`}>The call no longer waits.</p>;
-          return (
-            <div className="flex flex-col gap-2">
-              <p className={`text-sm ${TEXT_WIDTH}`}>
-                Operation <RecordName>{change.operationId}</RecordName>
-              </p>
-              {change.rows.map((row) => (
-                <div key={row.field} className="flex flex-col gap-1">
-                  <p className="text-sm font-medium break-words">{row.label}</p>
-                  {row.json ? (
-                    <pre className={LOG_BLOCK}>{row.text}</pre>
-                  ) : (
-                    <p className={`text-sm ${TEXT_WIDTH}`}>{row.text}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          );
-        }}
-      </BoardReadBlock>
-    </Section>
-  );
-}
-
 function ProposalSection({
   proposals,
   read,
@@ -238,36 +202,6 @@ function ProposalSection({
           ))
         }
       </BoardReadBlock>
-    </Section>
-  );
-}
-
-function FindingSection({
-  item,
-  acts,
-}: {
-  readonly item: FindingReviewItem;
-  readonly acts: FindingRowActs;
-}) {
-  return (
-    <Section title="Findings">
-      {boardFindingGroupsOf(item.findings).map((group) => (
-        <div key={group.key} className="flex flex-col gap-2">
-          <h5 className="text-sm text-muted-foreground">{group.title}</h5>
-          <ItemGroup aria-label={group.title}>
-            {group.findings.map((finding) => (
-              <FindingItem
-                key={finding.id}
-                finding={finding}
-                taskName={taskNameOf(finding, item.node.tasks)}
-                assessments={acts.assessments}
-                onDecide={acts.decide}
-                onEdit={acts.edit}
-              />
-            ))}
-          </ItemGroup>
-        </div>
-      ))}
     </Section>
   );
 }
@@ -464,7 +398,7 @@ export function BoardSections({
   environments,
   gate,
 }: BoardSectionsProps) {
-  const { read, proposals, unresolved, retry, findings } = useBoardActs();
+  const { read, proposals, unresolved, retry } = useBoardActs();
   const reads = useBoardReadsContext();
   const spread = spreadOf(item);
   const blockedDetail = blockedDetailOf(item, details);
@@ -479,9 +413,6 @@ export function BoardSections({
       {item.kind === "tool_approval" && <ChangeAskedSection reads={reads} />}
       {showProposals && (
         <ProposalSection proposals={proposals} read={proposalsRead} onRetry={retry} />
-      )}
-      {item.kind === "finding_review" && findings !== null && (
-        <FindingSection item={item} acts={findings} />
       )}
       {item.kind === "followup_proposal" && <FollowupSection item={item} details={details} />}
       {item.kind === "inbox_item" && <InboxMessageSection item={item} />}

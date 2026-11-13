@@ -33,7 +33,6 @@ import {
   toolApprovalActsOf,
 } from "@/lib/board-acts";
 import { type BoardGate, pausedNodeCountOf } from "@/lib/board-items";
-import type { BoardWidth } from "@/lib/board-width";
 import type { CredentialRefusedItem, EnvironmentFailedItem } from "@/lib/fix-attention";
 
 import {
@@ -55,10 +54,10 @@ import { useBoardToolActs } from "../use-board-tool-acts";
 import { useOutsideActs } from "../use-outside-acts";
 import { BoardRotateSheet } from "./board-rotate-sheet";
 import { DependencyRemoveDialog } from "./dependency-remove-dialog";
+import { FindingDecideSheet } from "./finding-decide-sheet";
 import { InboxActs } from "./inbox-acts";
 
 interface BoardActsProviderProps extends ActsContext {
-  readonly widthClass: BoardWidth;
   readonly snapshots: readonly ProjectSnapshot[];
   readonly gate?: BoardGate | null;
   readonly jump?: (itemId: string) => void;
@@ -99,18 +98,18 @@ function FindingReviewActs({
   ...context
 }: ActsContext & { readonly store: ActsStore; readonly item: FindingReviewItem }) {
   const { decision, report } = useFindingReviewActs(item, context);
-  usePublished(
-    store,
-    stateOf(findingReviewActsOf(item), {
-      findings: {
-        assessments: report.assessments,
-        decide: decision.request,
-        edit: report.requestEdit,
-      },
-    }),
-  );
+  const [deciding, setDeciding] = useState(false);
+  usePublished(store, stateOf(findingReviewActsOf(item, () => setDeciding(true))));
   return (
     <>
+      <FindingDecideSheet
+        item={item}
+        open={deciding}
+        assessments={report.assessments}
+        onOpenChange={setDeciding}
+        onDecide={decision.request}
+        onEdit={report.requestEdit}
+      />
       <FindingDecisionDialog decision={decision} />
       <FindingReportSheet report={report} />
     </>
@@ -276,7 +275,6 @@ function ItemActs({
 
 export function BoardActsProvider({
   item,
-  widthClass,
   gate = null,
   jump,
   children,
@@ -285,7 +283,7 @@ export function BoardActsProvider({
   const [store] = useState(createActsStore);
   const route = gate === null || jump === undefined ? null : { gate, jump };
   const subject = item?.subject ?? "";
-  const frame = useMemo(() => ({ widthClass, subject }), [widthClass, subject]);
+  const frame = useMemo(() => ({ subject }), [subject]);
   return (
     <BoardActsContext.Provider value={store}>
       <BoardFrameContext.Provider value={frame}>

@@ -23,8 +23,6 @@ import {
 } from "@/lib/attention";
 import type { BoardGate } from "@/lib/board-items";
 
-import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
-
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/tracking");
 vi.mock("@/api/resources/workbench");
@@ -132,12 +130,10 @@ const jump = vi.fn();
 function Bar({
   item,
   details,
-  widthClass = BOARD_WIDTH.Expanded,
   gate = null,
 }: {
   item: AttentionItem;
   details: AttentionDetails;
-  widthClass?: BoardWidth;
   gate?: BoardGate | null;
 }) {
   return (
@@ -153,7 +149,6 @@ function Bar({
           setDialogOpen={vi.fn()}
           registerDialogCloser={vi.fn()}
           closeInboxItem={vi.fn()}
-          widthClass={widthClass}
           gate={gate}
           jump={jump}
         >
@@ -205,20 +200,54 @@ beforeEach(() => {
   } as Awaited<ReturnType<typeof readWorkbenchEvents>>);
 });
 
+async function openMore(name: string | RegExp = /^More/) {
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name }));
+  const sheet = await screen.findByRole("dialog", { name: "More acts on Team" });
+  return { user, sheet };
+}
+
 describe("BoardActBar", () => {
-  it("shows Last trace before Discard and Discard last in one row", async () => {
+  it("shows the lead act and More with the count of the other acts", async () => {
+    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
+    await screen.findByRole("button", { name: "More (3)" });
+
+    expect(names()).toEqual(["Resume", "More (3)"]);
+    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
+  });
+
+  it("opens the other acts in a bottom sheet with Discard last", async () => {
     render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
 
-    expect(await screen.findByRole("button", { name: "Last trace" })).toHaveAttribute(
+    const { sheet } = await openMore();
+
+    expect(sheet).toHaveAttribute("data-side", "bottom");
+    expect(
+      within(sheet)
+        .getAllByRole("button")
+        .map((control) => labelOf(control)),
+    ).toEqual(["Override", "Last trace", "Discard", "Cancel"]);
+    expect(within(sheet).getByRole("button", { name: "Last trace" })).toHaveAttribute(
       "href",
       "/traces/trace_e1",
     );
-    expect(names()).toEqual(["Resume", "Override", "Last trace", "Discard"]);
+    expect(within(sheet).getByRole("separator")).toBeInTheDocument();
+  });
+
+  it("closes only the bottom sheet with Esc and returns the focus to More", async () => {
+    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
+    const more = await screen.findByRole("button", { name: "More (3)" });
+    const { user } = await openMore();
+
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(more).toHaveFocus();
   });
 
   it("pads the bar by the bottom safe area", async () => {
     render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
-    await screen.findByRole("button", { name: "Last trace" });
+    await screen.findByRole("button", { name: "More (3)" });
 
     expect(screen.getByRole("group", { name: "Acts" })).toHaveClass(
       "pb-[env(safe-area-inset-bottom)]",
@@ -227,23 +256,49 @@ describe("BoardActBar", () => {
 
   it("keeps Override as outline and Discard as destructive", async () => {
     render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
-    await screen.findByRole("button", { name: "Last trace" });
 
-    expect(screen.getByRole("button", { name: "Override" })).toHaveClass("bg-background");
-    expect(screen.getByRole("button", { name: "Discard" })).toHaveClass("bg-destructive/10");
+    const { sheet } = await openMore();
+
+    expect(within(sheet).getByRole("button", { name: "Override" })).toHaveClass("bg-background");
+    expect(within(sheet).getByRole("button", { name: "Discard" })).toHaveClass("bg-destructive/10");
   });
 
-  it("shows the need line under the row", () => {
+  it("skips the gated acts and Discard for the lead act", () => {
     const target = node("examine", "Blocked");
     render(<Bar item={itemOf(target, "blocked")} details={new Map()} />);
 
-    const row = screen.getByRole("button", { name: "Discard" });
-    const need = screen.getByText("Discard needs: the proposals read.");
-
-    expect(row.compareDocumentPosition(need) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(names()[0]).toBe("Override");
+    expect(screen.getByRole("button", { name: "Override" })).not.toHaveAttribute("aria-disabled");
+    expect(screen.queryByText("Decide needs: the proposals read.")).toBeNull();
   });
 
-  it("keeps the need line and adds the failure text with Retry when the read fails", async () => {
+  it("names the need of a gated act in More", async () => {
+    const target = node("examine", "Blocked");
+    render(<Bar item={itemOf(target, "blocked")} details={new Map()} />);
+
+    const { sheet } = await openMore();
+
+    expect(within(sheet).getByRole("button", { name: "Discard" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(within(sheet).getByText("Discard needs: the proposals read.")).toBeVisible();
+  });
+
+  it("falls back to the primary act and shows only its need line under the row", () => {
+    render(<Bar item={itemOf(PAUSED, "paused")} details={new Map()} />);
+
+    expect(names()[0]).toBe("Resume");
+    expect(screen.getByRole("button", { name: "Resume" })).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.getByText("Resume needs: the executions and external actions read."),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Discard needs: the executions and external actions read."),
+    ).toBeNull();
+  });
+
+  it("keeps the failure text with Retry under the row", async () => {
     const target = node("examine", "Blocked");
     const failed: AttentionDetail = {
       kind: "blocked",
@@ -253,7 +308,6 @@ describe("BoardActBar", () => {
     };
     render(<Bar item={itemOf(target, "blocked")} details={new Map([[target.id, failed]])} />);
 
-    expect(screen.getByText("Decide needs: the proposals read.")).toBeVisible();
     expect(screen.getByText(/The fix proposals could not be read: No answer\./)).toBeVisible();
     await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
 
@@ -281,14 +335,15 @@ describe("BoardActBar", () => {
     });
     const item = itemOf(PAUSED, "paused");
     const view = render(<Bar item={item} details={pausedDetails(PAUSED, [unresolved()])} />);
+    const { user, sheet } = await openMore();
 
-    await userEvent.setup().click(await screen.findByRole("button", { name: "Check now" }));
+    await user.click(within(sheet).getByRole("button", { name: "Check now" }));
+    await user.keyboard("{Escape}");
 
     expect(await screen.findByRole("status")).toHaveTextContent("Merged");
 
     view.rerender(<Bar item={item} details={pausedDetails(PAUSED, [])} />);
 
-    expect(screen.queryByRole("button", { name: "Check now" })).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Merged");
   });
 
@@ -316,131 +371,61 @@ describe("BoardActBar", () => {
       ],
     });
     render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [unresolved()])} />);
+    const { user, sheet } = await openMore();
 
-    await userEvent.setup().click(await screen.findByRole("button", { name: "Check now" }));
+    await user.click(within(sheet).getByRole("button", { name: "Check now" }));
+    await user.keyboard("{Escape}");
 
     expect(
       await screen.findByText("kanthorlabs/kanthord#42: 2 admitted, 1 duplicate, 0 refused"),
     ).toBeInTheDocument();
   });
 
-  it("shows the letter of each act in a key hint with aria-keyshortcuts", async () => {
-    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
-    await screen.findByRole("button", { name: "Last trace" });
-
-    const keyed = within(screen.getByRole("group", { name: "Acts" }))
-      .getAllByRole("button")
-      .map((control) => [
-        labelOf(control),
-        control.getAttribute("aria-keyshortcuts"),
-        control.querySelector("kbd")?.textContent,
-      ]);
-
-    expect(keyed).toEqual([
-      ["Resume", "r", "r"],
-      ["Override", "v", "v"],
-      ["Last trace", "t", "t"],
-      ["Discard", "x", "x"],
-    ]);
-  });
-
-  it("keeps the accessible name free of the key hint", async () => {
+  it("shows no key hint and no aria-keyshortcuts", async () => {
     render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
 
-    expect(await screen.findByRole("button", { name: "Resume" })).toBeVisible();
-  });
+    const lead = within(screen.getByRole("group", { name: "Acts" })).getAllByRole("button");
+    const { sheet } = await openMore();
 
-  it("carries the key on an act that waits for a read", () => {
-    const target = node("examine", "Blocked");
-    render(<Bar item={itemOf(target, "blocked")} details={new Map()} />);
-
-    const gated = screen.getByRole("button", { name: "Discard" });
-
-    expect(gated).toHaveAttribute("aria-disabled", "true");
-    expect(gated).toHaveAttribute("aria-keyshortcuts", "x");
-    expect(gated.querySelector("kbd")).toHaveTextContent("x");
-  });
-
-  it("hides the key hints and the aria-keyshortcuts with the shortcuts off", async () => {
-    window.localStorage.setItem("kd-board-shortcuts", "off");
-    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} />);
-    await screen.findByRole("button", { name: "Last trace" });
-
-    for (const control of within(screen.getByRole("group", { name: "Acts" })).getAllByRole(
-      "button",
-    )) {
+    for (const control of [...lead, ...within(sheet).getAllByRole("button")]) {
       expect(control).not.toHaveAttribute("aria-keyshortcuts");
       expect(control.querySelector("kbd")).toBeNull();
     }
   });
-
-  it("gives a shared letter to the first act only", () => {
-    const target = node("implement", "Paused");
-    render(
-      <Bar
-        item={
-          {
-            ...itemOf(target, "paused"),
-            kind: "dependency_discarded",
-            discarded: [
-              { id: "dep_a", name: "Alpha" },
-              { id: "dep_b", name: "Beta" },
-            ],
-          } as unknown as DecisionAttentionItem
-        }
-        details={new Map()}
-      />,
-    );
-
-    const removals = screen.getAllByRole("button", { name: /^Remove dependency on/ });
-
-    expect(removals.map((control) => control.getAttribute("aria-keyshortcuts"))).toEqual([
-      "m",
-      null,
-    ]);
-  });
 });
 
 describe("BoardActBar gated Resume", () => {
-  function gatedBar(widthClass: BoardWidth = BOARD_WIDTH.Expanded) {
-    render(
-      <Bar
-        item={itemOf(PAUSED, "paused")}
-        details={pausedDetails(PAUSED, [])}
-        gate={GATE}
-        widthClass={widthClass}
-      />,
-    );
+  function gatedBar() {
+    render(<Bar item={itemOf(PAUSED, "paused")} details={pausedDetails(PAUSED, [])} gate={GATE} />);
   }
 
-  it("leads with Resume gated, then Go to the credential, in the act order", async () => {
+  it("leads with Go to the credential and keeps Resume in More", async () => {
     gatedBar();
-    await screen.findByRole("button", { name: "Last trace" });
+    await screen.findByRole("button", { name: "More (4)" });
 
-    expect(names()).toEqual(["Resume", "Go to openai-main", "Override", "Last trace", "Discard"]);
+    expect(names()).toEqual(["Go to openai-main", "More (4)"]);
   });
 
-  it("renders Resume through DisabledAction with its key, its hint and its need line", async () => {
+  it("renders Resume through DisabledAction with its need line in More", async () => {
     gatedBar();
-    const resume = await screen.findByRole("button", { name: "Resume" });
-    const need = screen.getByText("Resume needs: Rotate openai-main in Fix setup.");
+    const { sheet } = await openMore();
+    const resume = within(sheet).getByRole("button", { name: "Resume" });
+    const need = within(sheet).getByText("Resume needs: Rotate openai-main in Fix setup.");
 
     expect(resume).toHaveAttribute("aria-disabled", "true");
-    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
-    expect(resume.querySelector("kbd")).toHaveTextContent("r");
     expect(resume).toHaveAttribute("aria-describedby", need.id);
     expect(resume).toHaveAccessibleDescription("Resume needs: Rotate openai-main in Fix setup.");
     expect(need).toBeVisible();
-    expect(resume.compareDocumentPosition(need) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("keeps Resume focusable and shows the gate need as its reason after a press", async () => {
     gatedBar();
-    const resume = await screen.findByRole("button", { name: "Resume" });
+    const { user, sheet } = await openMore();
+    const resume = within(sheet).getByRole("button", { name: "Resume" });
 
     resume.focus();
     expect(resume).toHaveFocus();
-    await userEvent.setup().click(resume);
+    await user.click(resume);
 
     expect(await screen.findByText("Rotate openai-main in Fix setup.")).toBeVisible();
   });
@@ -451,21 +436,6 @@ describe("BoardActBar gated Resume", () => {
     await userEvent.setup().click(await screen.findByRole("button", { name: "Go to openai-main" }));
 
     expect(jump).toHaveBeenCalledWith("credential_refused:openai-main");
-  });
-
-  it("leads the phone bar with Go to and names the Resume need in More", async () => {
-    gatedBar(BOARD_WIDTH.Compact);
-    const user = userEvent.setup();
-
-    expect(names()[0]).toBe("Go to openai-main");
-    expect(screen.queryByText(/^Resume needs:/)).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("button", { name: /^More/ }));
-
-    const sheet = await screen.findByRole("dialog", { name: "More acts on Team" });
-    const resume = within(sheet).getByRole("button", { name: "Resume" });
-    const need = within(sheet).getByText("Resume needs: Rotate openai-main in Fix setup.");
-
-    expect(resume).toHaveAttribute("aria-describedby", need.id);
   });
 });
 
@@ -489,7 +459,7 @@ describe("BoardActBar failure line", () => {
     expect(alert).toHaveTextContent("Approving Create project failed. The daemon did not answer.");
     expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Approve" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Reject" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "More (2)" })).toBeVisible();
   });
 
   it("sends again on Retry and clears the line", async () => {
@@ -510,121 +480,5 @@ describe("BoardActBar failure line", () => {
     render(<Bar item={APPROVAL} details={new Map()} />);
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  });
-
-  it("keeps the line under the row on compact width", async () => {
-    vi.mocked(approveWorkbenchCall).mockRejectedValue(new ApiError("unavailable", "Down.", 503));
-    render(<Bar item={APPROVAL} details={new Map()} widthClass={BOARD_WIDTH.Compact} />);
-    const user = userEvent.setup();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
-
-    await user.click(screen.getByRole("button", { name: "Approve" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Approving Create project failed. Down.",
-    );
-    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
-  });
-});
-
-describe("BoardActBar on compact width", () => {
-  const PHONE = BOARD_WIDTH.Compact;
-
-  it("shows the lead act and More with the count of the other acts", async () => {
-    render(
-      <Bar
-        item={itemOf(PAUSED, "paused")}
-        details={pausedDetails(PAUSED, [])}
-        widthClass={PHONE}
-      />,
-    );
-    await screen.findByRole("button", { name: "More (3)" });
-
-    expect(names()).toEqual(["Resume", "More (3)"]);
-    expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
-  });
-
-  it("opens the other acts in a bottom sheet with Discard last", async () => {
-    const user = userEvent.setup();
-    render(
-      <Bar
-        item={itemOf(PAUSED, "paused")}
-        details={pausedDetails(PAUSED, [])}
-        widthClass={PHONE}
-      />,
-    );
-
-    await user.click(await screen.findByRole("button", { name: "More (3)" }));
-
-    const sheet = await screen.findByRole("dialog", { name: "More acts on Team" });
-    expect(sheet).toHaveAttribute("data-side", "bottom");
-    expect(
-      within(sheet)
-        .getAllByRole("button")
-        .map((control) => labelOf(control)),
-    ).toEqual(["Override", "Last trace", "Discard", "Cancel"]);
-    expect(within(sheet).getByRole("separator")).toBeInTheDocument();
-  });
-
-  it("closes only the bottom sheet with Esc and returns the focus to More", async () => {
-    const user = userEvent.setup();
-    render(
-      <Bar
-        item={itemOf(PAUSED, "paused")}
-        details={pausedDetails(PAUSED, [])}
-        widthClass={PHONE}
-      />,
-    );
-    const more = await screen.findByRole("button", { name: "More (3)" });
-    await user.click(more);
-    await screen.findByRole("dialog");
-
-    await user.keyboard("{Escape}");
-
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(more).toHaveFocus();
-  });
-
-  it("skips the gated acts and Discard for the lead act", () => {
-    const target = node("examine", "Blocked");
-    render(<Bar item={itemOf(target, "blocked")} details={new Map()} widthClass={PHONE} />);
-
-    expect(names()[0]).toBe("Override");
-    expect(screen.getByRole("button", { name: "Override" })).not.toHaveAttribute("aria-disabled");
-    expect(screen.queryByText("Decide needs: the proposals read.")).toBeNull();
-  });
-
-  it("falls back to the primary act and shows only its need line under the row", () => {
-    render(<Bar item={itemOf(PAUSED, "paused")} details={new Map()} widthClass={PHONE} />);
-
-    expect(names()[0]).toBe("Resume");
-    expect(screen.getByRole("button", { name: "Resume" })).toHaveAttribute("aria-disabled", "true");
-    expect(
-      screen.getByText("Resume needs: the executions and external actions read."),
-    ).toBeVisible();
-    expect(
-      screen.queryByText("Discard needs: the executions and external actions read."),
-    ).toBeNull();
-  });
-
-  it("keeps the failure text with Retry under the row", async () => {
-    const target = node("examine", "Blocked");
-    const failed: AttentionDetail = {
-      kind: "blocked",
-      key: detailKeyOf(target),
-      assessment: { status: "ready", data: null },
-      proposals: { status: "failed", message: "No answer." },
-    };
-    render(
-      <Bar
-        item={itemOf(target, "blocked")}
-        details={new Map([[target.id, failed]])}
-        widthClass={PHONE}
-      />,
-    );
-
-    await userEvent.setup().click(screen.getByRole("button", { name: "Retry" }));
-
-    expect(retryDetail).toHaveBeenCalledWith("node_1");
   });
 });

@@ -535,8 +535,20 @@ export function followupActsOf(controls: FollowupActControls): readonly BoardAct
   ]);
 }
 
-export function findingReviewActsOf(item: FindingReviewItem): readonly BoardAct[] {
+export function findingReviewActsOf(
+  item: FindingReviewItem,
+  decide: () => void,
+): readonly BoardAct[] {
   return [
+    {
+      type: "button",
+      id: "decide",
+      label: "Decide",
+      ariaLabel: null,
+      variant: "outline",
+      disabled: false,
+      press: decide,
+    },
     {
       type: "link",
       id: "open_node",

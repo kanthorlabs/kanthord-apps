@@ -292,7 +292,6 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
             closeInboxItem={overview.inbox.close}
             setDialogOpen={board.setDialogOpen}
             registerDialogCloser={board.registerDialogCloser}
-            widthClass={widthClass}
             gate={selectedGateOf(overview.gates, board.selected)}
             jump={board.jump}
           >

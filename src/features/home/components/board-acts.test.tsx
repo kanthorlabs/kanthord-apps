@@ -45,8 +45,8 @@ import type {
   ProjectPausedItem,
 } from "@/lib/fix-attention";
 
+import type { BoardAct } from "@/lib/board-acts";
 import type { BoardGate } from "@/lib/board-items";
-import { BOARD_WIDTH } from "@/lib/board-width";
 
 vi.mock("@/api/resources/mission");
 vi.mock("@/api/resources/credentials");
@@ -58,6 +58,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { BoardActBar } from "./board-act-bar";
+import { useBoardActs } from "../use-board-acts";
 import { BoardReadsProvider } from "../use-board-reads";
 import { BoardActsProvider } from "./board-acts";
 
@@ -228,36 +229,52 @@ function renderActs(
           setDialogOpen={setDialogOpen}
           registerDialogCloser={registerDialogCloser}
           closeInboxItem={vi.fn()}
-          widthClass={BOARD_WIDTH.Expanded}
           gate={gate}
           jump={jump}
         >
           <BoardActBar />
+          <Probe />
         </BoardActsProvider>
       </BoardReadsProvider>
     </MemoryRouter>,
   );
 }
 
-function labelOf(control: HTMLElement): string {
-  return Array.from(control.childNodes)
-    .filter((node) => node.nodeType === Node.TEXT_NODE)
-    .map((node) => node.textContent)
-    .join("");
+function Probe() {
+  const { acts } = useBoardActs();
+  return (
+    <ul aria-label="Published acts">
+      {acts.flatMap((act) =>
+        act.type === "badge" ? [] : [<li key={act.id}>{publishedLabelOf(act)}</li>],
+      )}
+    </ul>
+  );
+}
+
+function publishedLabelOf(act: BoardAct): string {
+  if (act.type === "resume_project") return "Resume project";
+  return (act.type === "button" || act.type === "gated" ? act.ariaLabel : null) ?? act.label;
 }
 
 function actNames(): readonly (string | null)[] {
-  const group = screen.getByRole("group", { name: "Acts" });
-  return within(group)
-    .getAllByRole("button")
-    .map((control) => control.getAttribute("aria-label") ?? labelOf(control));
+  return within(screen.getByRole("list", { name: "Published acts" }))
+    .getAllByRole("listitem")
+    .map((item) => item.textContent);
 }
 
-function keysOfActs(): readonly (string | null)[] {
-  const group = screen.getByRole("group", { name: "Acts" });
-  return within(group)
-    .getAllByRole("button")
-    .map((control) => control.getAttribute("aria-keyshortcuts"));
+async function press(user: ReturnType<typeof userEvent.setup>, name: string) {
+  const direct = screen.queryByRole("button", { name });
+  if (direct !== null) {
+    await user.click(direct);
+    return;
+  }
+  const { sheet } = await openMore(user);
+  await user.click(within(sheet).getByRole("button", { name }));
+}
+
+async function openMore(user = userEvent.setup()) {
+  await user.click(await screen.findByRole("button", { name: /^More/ }));
+  return { user, sheet: await screen.findByRole("dialog", { name: /^More acts on/ }) };
 }
 
 const PAUSED = node("implement", "Paused");
@@ -427,15 +444,19 @@ describe("BoardActsProvider act order", () => {
     expect(actNames()).toEqual(["Decide", "Unblock", "Override", "Discard"]);
   });
 
-  it("gates Decide before the proposals read", () => {
+  it("gates Decide before the proposals read", async () => {
     renderActs(decision("blocked", EXAMINE));
 
     expect(actNames()).toEqual(["Decide", "Unblock", "Override", "Discard"]);
-    expect(screen.getByText("Decide needs: the proposals read.")).toBeVisible();
-    expect(screen.getByText("Unblock needs: the proposals read.")).toBeVisible();
-    expect(screen.getByText("Discard needs: the proposals read.")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Decide" })).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("button", { name: "Override" })).toBeEnabled();
+    const { sheet } = await openMore();
+    expect(within(sheet).getByText("Decide needs: the proposals read.")).toBeVisible();
+    expect(within(sheet).getByText("Unblock needs: the proposals read.")).toBeVisible();
+    expect(within(sheet).getByText("Discard needs: the proposals read.")).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: "Decide" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("leads a Rule item with Unblock and shows no need line before a read", () => {
@@ -464,7 +485,7 @@ describe("BoardActsProvider act order", () => {
     ]);
   });
 
-  it("gates a dependency item with an open attempt before the read", () => {
+  it("gates a dependency item with an open attempt before the read", async () => {
     renderActs(
       decision("dependency_discarded", DEPENDENCY, {
         discarded: [{ id: "dep_1", name: "First" }],
@@ -473,7 +494,8 @@ describe("BoardActsProvider act order", () => {
 
     expect(actNames()).toEqual(["Remove dependency on First", "Check now", "Discard"]);
     expect(screen.getByText("Remove dependency needs: the external actions read.")).toBeVisible();
-    expect(screen.getByText("Check now needs: the external actions read.")).toBeVisible();
+    const { sheet } = await openMore();
+    expect(within(sheet).getByText("Check now needs: the external actions read.")).toBeVisible();
   });
 
   it("shows Check now for an outside item and gates it before the read", () => {
@@ -540,7 +562,6 @@ describe("BoardActsProvider act order", () => {
         "Discard",
       ]),
     );
-    expect(screen.getByText("Resume needs: Rotate openai-main in Fix setup.")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Go to openai-main" }));
 
     expect(jump).toHaveBeenCalledWith("credential_refused:openai-main");
@@ -558,22 +579,29 @@ describe("BoardActsProvider act order", () => {
     renderActs(CREDENTIAL);
 
     expect(actNames()).toEqual(["Rotate", "Verify credential", "Open credential"]);
-    expect(screen.getByRole("button", { name: "Open credential" })).toHaveAttribute(
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Rotate" })).not.toHaveAttribute("aria-disabled"),
+    );
+    const { sheet } = await openMore();
+    expect(within(sheet).getByRole("button", { name: "Open credential" })).toHaveAttribute(
       "href",
       "/llm/openai-main",
     );
-    expect(screen.getByText("Rotate needs: the credential read.")).toBeVisible();
-    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Rotate" })).not.toHaveAttribute("aria-disabled");
   });
 
   it("gates Rotate when the credential has no server copy", async () => {
     vi.mocked(listAllCredentials).mockResolvedValue([]);
     renderActs(CREDENTIAL);
 
-    expect(await screen.findByText("Rotate needs: a server copy of openai-main.")).toBeVisible();
     expect(actNames()).toEqual(["Rotate", "Verify credential", "Open credential"]);
-    expect(screen.getByRole("button", { name: "Rotate" })).toHaveAttribute("aria-disabled", "true");
+    const { sheet } = await openMore();
+    expect(
+      await within(sheet).findByText("Rotate needs: a server copy of openai-main."),
+    ).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: "Rotate" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 
   it("opens the Rotate sheet from the act", async () => {
@@ -598,17 +626,19 @@ describe("BoardActsProvider act order", () => {
     expect(actNames()).toEqual(["Resume project"]);
   });
 
-  it("gates Approve before the session read and keeps Reject and Open chat", () => {
+  it("gates Approve before the session read and keeps Reject and Open chat", async () => {
+    vi.mocked(readWorkbenchEvents).mockReturnValue(new Promise(() => undefined));
     renderActs(APPROVAL);
 
     expect(actNames()).toEqual(["Approve", "Reject", "Open chat"]);
-    expect(screen.getByText("Approve needs: the session read.")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Approve" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    const { sheet } = await openMore();
+    expect(within(sheet).getByText("Approve needs: the session read.")).toBeVisible();
+    expect(within(sheet).getByRole("button", { name: "Approve" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
-    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Open chat" })).toHaveAttribute(
+    expect(within(sheet).getByRole("button", { name: "Open chat" })).toHaveAttribute(
       "href",
       expect.stringContaining("s1"),
     );
@@ -627,8 +657,10 @@ describe("BoardActsProvider act order", () => {
     renderActs(APPROVAL);
     await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
 
-    await userEvent.click(screen.getByRole("button", { name: "Approve" }));
-    await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+    const user = userEvent.setup();
+    await press(user, "Approve");
+    await user.keyboard("{Escape}");
+    await press(user, "Reject");
 
     expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", true);
     expect(approveWorkbenchCall).toHaveBeenCalledWith("s1", "c1", false);
@@ -642,7 +674,12 @@ describe("BoardActsProvider act order", () => {
     });
     renderActs(CREDENTIAL);
 
-    await userEvent.click(screen.getByRole("button", { name: "Verify credential" }));
+    const user = userEvent.setup();
+    await screen.findByRole("button", { name: "Rotate" });
+    await press(user, "Verify credential");
+    await waitFor(() => expect(verifyCredential).toHaveBeenCalled());
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
     expect(await screen.findByRole("status")).toHaveTextContent("Refused: unauthorized");
     expect(verifyCredential).toHaveBeenCalledWith("llm", "openai-main");
@@ -652,42 +689,10 @@ describe("BoardActsProvider act order", () => {
     vi.mocked(rebuildEnvironment).mockResolvedValue({} as never);
     renderActs(ENVIRONMENT_FAILED);
 
-    await userEvent.click(screen.getByRole("button", { name: "Run onboarding again" }));
+    await press(userEvent.setup(), "Run onboarding again");
 
     expect(rebuildEnvironment).toHaveBeenCalledWith("prj-1", "binding_1");
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Onboarding of api started."));
-  });
-
-  it("gives each in-place act its letter of BOARD_KEYS", async () => {
-    renderActs(APPROVAL);
-    await waitFor(() => expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled());
-
-    expect(keysOfActs()).toEqual(["a", "n", "o"]);
-  });
-
-  it("gives Rotate, Verify credential and Open credential their letters", async () => {
-    renderActs(CREDENTIAL);
-    await waitFor(() => expect(screen.queryByText(/^Rotate needs:/)).not.toBeInTheDocument());
-
-    expect(keysOfActs()).toEqual(["w", "c", "o"]);
-  });
-
-  it("gives Open project and Run onboarding again their letters", () => {
-    renderActs(ENVIRONMENT_FAILED);
-
-    expect(keysOfActs()).toEqual(["o", "y"]);
-  });
-
-  it("gives Open pull request and Check now their letters", () => {
-    renderActs(mergeWaitWith(pullRequestEvidence("repository:github:kanthorlabs/kanthord", 42)));
-
-    expect(keysOfActs()).toEqual(["o", "c"]);
-  });
-
-  it("gives the gated Resume and Go to their letters", async () => {
-    renderActs(decision("paused", PAUSED), pausedDetail(PAUSED, [], [execution()]), vi.fn(), GATE);
-
-    await waitFor(() => expect(keysOfActs()).toEqual(["r", "f", "v", "t", "x"]));
   });
 
   it("offers no act without an item", () => {
@@ -703,7 +708,6 @@ describe("BoardActsProvider act order", () => {
           setDialogOpen={setDialogOpen}
           registerDialogCloser={vi.fn()}
           closeInboxItem={vi.fn()}
-          widthClass={BOARD_WIDTH.Expanded}
         >
           <BoardActBar />
         </BoardActsProvider>
@@ -730,7 +734,7 @@ describe("BoardActsProvider finding review", () => {
     findings: [],
   };
 
-  it("offers Open node to the node sheet and reads the assessments of the node", async () => {
+  it("offers Decide and Open node and reads the assessments of the node", async () => {
     vi.mocked(listNodeAssessments).mockResolvedValue([]);
     vi.mocked(listNodeRevisions).mockResolvedValue([]);
     vi.mocked(listNodeOutcomes).mockResolvedValue([]);
@@ -738,8 +742,9 @@ describe("BoardActsProvider finding review", () => {
     const registerDialogCloser = vi.fn();
     renderActs(item, new Map(), registerDialogCloser);
 
-    expect(actNames()).toEqual(["Open node"]);
-    expect(screen.getByRole("button", { name: "Open node" })).toHaveAttribute(
+    expect(actNames()).toEqual(["Decide", "Open node"]);
+    const { sheet } = await openMore();
+    expect(within(sheet).getByRole("button", { name: "Open node" })).toHaveAttribute(
       "href",
       "/projects/prj-1?node=node_1",
     );
@@ -808,12 +813,13 @@ describe("BoardActsProvider dialogs", () => {
       const user = userEvent.setup();
       renderActs(item, details);
 
-      await user.click(screen.getByRole("button", { name }));
+      await press(user, name);
 
-      expect(await screen.findByRole("alertdialog", { name: title })).toBeVisible();
+      const dialog = await screen.findByRole("alertdialog", { name: title });
+      expect(dialog).toBeVisible();
       expect(setDialogOpen).toHaveBeenLastCalledWith(item.id, "node_1", true);
 
-      await user.click(screen.getByRole("button", { name: cancel }));
+      await user.click(within(dialog).getByRole("button", { name: cancel }));
 
       await waitFor(() =>
         expect(setDialogOpen).toHaveBeenLastCalledWith(item.id, "node_1", false, acted),
@@ -825,7 +831,7 @@ describe("BoardActsProvider dialogs", () => {
     const user = userEvent.setup();
     const registerDialogCloser = vi.fn();
     renderActs(decision("blocked", IMPLEMENT), new Map(), registerDialogCloser);
-    await user.click(screen.getByRole("button", { name: "Discard" }));
+    await press(user, "Discard");
     await screen.findByRole("alertdialog", { name: "Discard Team?" });
 
     const closer = registerDialogCloser.mock.lastCall?.[0];

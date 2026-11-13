@@ -8,13 +8,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import type {
-  EffectiveCause,
-  MissionAssessment,
-  MissionFinding,
-  MissionFindingDecision,
-  MissionProposal,
-} from "@/api/types";
+import type { EffectiveCause, MissionProposal } from "@/api/types";
 import { type AttentionDetails, type DecisionAttentionItem, detailOf } from "@/lib/attention";
 import {
   type BoardAct,
@@ -24,7 +18,6 @@ import {
   type ReadNote,
 } from "@/lib/board-acts";
 import type { ActedAct } from "@/lib/board-done";
-import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
 
 import type { ActFailure } from "./use-board-tool-acts";
 import { type DecisionActs, useDecisionActs } from "./use-decision-acts";
@@ -32,12 +25,6 @@ import { type DecisionActs, useDecisionActs } from "./use-decision-acts";
 interface LastTrace {
   readonly id: string;
   readonly cause: EffectiveCause | null;
-}
-
-export interface FindingRowActs {
-  readonly assessments: readonly MissionAssessment[];
-  readonly decide: (finding: MissionFinding, decision: MissionFindingDecision) => void;
-  readonly edit: (finding: MissionFinding) => void;
 }
 
 export interface BoardActsState {
@@ -49,7 +36,6 @@ export interface BoardActsState {
   readonly lastTrace: LastTrace | null;
   readonly failure: ActFailure | null;
   readonly notice: string | null;
-  readonly findings: FindingRowActs | null;
   readonly retry: () => void;
 }
 
@@ -63,7 +49,6 @@ export interface ActsContext {
 }
 
 interface ActsFrame {
-  readonly widthClass: BoardWidth;
   readonly subject: string;
 }
 
@@ -84,7 +69,6 @@ const EMPTY: BoardActsState = {
   lastTrace: null,
   failure: null,
   notice: null,
-  findings: null,
   retry: () => undefined,
 };
 
@@ -108,10 +92,7 @@ export function createActsStore(): ActsStore {
 
 export const BoardActsContext = createContext<ActsStore>(createActsStore());
 
-export const BoardFrameContext = createContext<ActsFrame>({
-  widthClass: BOARD_WIDTH.Expanded,
-  subject: "",
-});
+export const BoardFrameContext = createContext<ActsFrame>({ subject: "" });
 
 export function useBoardActs(): BoardActsState {
   const store = useContext(BoardActsContext);

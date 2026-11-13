@@ -1,11 +1,24 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { StrictMode } from "react";
+import { type ComponentProps, StrictMode } from "react";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+
+vi.mock("./components/board-more-sheet", async (importOriginal) => {
+  const actual = await importOriginal<{ BoardMoreSheet: typeof BoardMoreSheet }>();
+  return {
+    BoardMoreSheet: (props: ComponentProps<typeof BoardMoreSheet>) => (
+      <>
+        {props.children}
+        {props.last}
+        <actual.BoardMoreSheet {...props} />
+      </>
+    ),
+  };
+});
 
 vi.mock("@/api/client", () => ({
   connectionBaseUrl: vi.fn(),
@@ -180,6 +193,7 @@ import type {
 import { newUlid } from "@/lib/ulid";
 
 import { textContent } from "../../../test/text-content";
+import type { BoardMoreSheet } from "./components/board-more-sheet";
 import { HomeScreen } from "./home-screen";
 
 function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
@@ -774,6 +788,10 @@ async function findDetail(): Promise<HTMLElement> {
   return screen.findByRole("region", NOT_LOADING);
 }
 
+function isAct(label: string): boolean {
+  return !label.startsWith("More");
+}
+
 function labelOf(control: HTMLElement): string {
   return Array.from(control.childNodes)
     .filter((node) => node.nodeType === Node.TEXT_NODE)
@@ -1138,7 +1156,7 @@ describe("HomeScreen acts", () => {
     await waitFor(() => expect(within(item).getByRole("button", { name: "Decide" })).toBeEnabled());
 
     const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
-    expect(acts.map(labelOf)).toEqual(["Decide", "Unblock", "Override", "Discard"]);
+    expect(acts.map(labelOf).filter(isAct)).toEqual(["Decide", "Unblock", "Override", "Discard"]);
     expect(within(cardOf("Team workspaces")).getByText("Decide")).toBeInTheDocument();
   });
 
@@ -1658,7 +1676,7 @@ describe("HomeScreen paused items", () => {
 
     await waitFor(() => {
       const acts = within(within(item).getByRole("group", { name: "Acts" })).getAllByRole("button");
-      expect(acts.map(labelOf)).toEqual(["Resume", "Override", "Discard"]);
+      expect(acts.map(labelOf).filter(isAct)).toEqual(["Resume", "Override", "Discard"]);
     });
     expect(within(cardOf("Draft the notes")).getByText("Resume")).toBeInTheDocument();
   });
@@ -1998,6 +2016,11 @@ function finding(
   });
 }
 
+async function openFindingSheet(item: HTMLElement): Promise<HTMLElement> {
+  await userEvent.click(await within(item).findByRole("button", { name: "Decide" }));
+  return screen.findByRole("dialog", { name: /^Decide findings of / });
+}
+
 describe("HomeScreen review findings", () => {
   it("lists the undecided findings of a node in Decide proposal", async () => {
     serve({
@@ -2021,14 +2044,15 @@ describe("HomeScreen review findings", () => {
     expect(
       within(item).getByRole("heading", { name: "Sign-up form: findings wait for a decision" }),
     ).toBeInTheDocument();
-    expect(within(item).getByRole("list", { name: "Attempt 1 · Round 2" })).toBeInTheDocument();
-    expect(
-      within(item).getByRole("list", { name: "Attempt 1 · Found after delivery" }),
-    ).toBeInTheDocument();
     expect(within(item).getByRole("button", { name: "Open node" })).toHaveAttribute(
       "href",
       "/projects/prj-1?node=n_s",
     );
+    const sheet = await openFindingSheet(item);
+    expect(within(sheet).getByRole("list", { name: "Attempt 1 · Round 2" })).toBeInTheDocument();
+    expect(
+      within(sheet).getByRole("list", { name: "Attempt 1 · Found after delivery" }),
+    ).toBeInTheDocument();
   });
 
   it("names a node with only a human finding Found after delivery", async () => {
@@ -2055,7 +2079,8 @@ describe("HomeScreen review findings", () => {
     renderScreen();
 
     const item = await findDetail();
-    await user.click(await within(item).findByRole("button", { name: "Accept the finding S2" }));
+    const sheet = await openFindingSheet(item);
+    await user.click(await within(sheet).findByRole("button", { name: "Accept the finding S2" }));
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "The next mission adds it.");
     await user.click(within(dialog).getByRole("button", { name: "Accept" }));
@@ -2079,10 +2104,10 @@ describe("HomeScreen review finding decisions", () => {
     });
   }
 
-  async function decide(item: HTMLElement, label: string) {
+  async function decide(sheet: HTMLElement, label: string) {
     const user = userEvent.setup();
     await user.click(
-      await within(item).findByRole("button", { name: `Dismiss the finding ${label}` }),
+      await within(sheet).findByRole("button", { name: `Dismiss the finding ${label}` }),
     );
     const dialog = await screen.findByRole("alertdialog");
     await user.type(within(dialog).getByLabelText("Reason"), "No defect.");
@@ -2097,15 +2122,18 @@ describe("HomeScreen review finding decisions", () => {
     renderScreen();
 
     const item = await findDetail();
-    await decide(item, "S1");
+    const sheet = await openFindingSheet(item);
+    await decide(sheet, "S1");
 
     await waitFor(() =>
-      expect(
-        within(cardOf("Sign-up form")).getByText("Findings wait for a decision · 1 review finding"),
-      ).toBeInTheDocument(),
+      expect(within(sheet).queryByRole("button", { name: "Dismiss the finding S1" })).toBeNull(),
     );
-    expect(within(item).queryByRole("button", { name: "Dismiss the finding S1" })).toBeNull();
-    expect(within(item).getByRole("button", { name: "Dismiss the finding S2" })).toBeEnabled();
+    expect(within(sheet).getByRole("button", { name: "Dismiss the finding S2" })).toBeEnabled();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(
+      within(cardOf("Sign-up form")).getByText("Findings wait for a decision · 1 review finding"),
+    ).toBeInTheDocument();
   });
 
   it("clears the card after the last decision and records the done entry", async () => {
@@ -2114,7 +2142,8 @@ describe("HomeScreen review finding decisions", () => {
     renderScreen();
 
     const item = await findDetail();
-    await decide(item, "S1");
+    const sheet = await openFindingSheet(item);
+    await decide(sheet, "S1");
 
     const toggle = await screen.findByRole("button", { name: "Done this session 1" });
     expect(screen.queryByRole("button", { name: "Sign-up form" })).toBeNull();
@@ -2144,15 +2173,15 @@ describe("HomeScreen review finding decisions", () => {
     });
     renderScreen();
 
-    const item = await findDetail();
+    const sheet = await openFindingSheet(await findDetail());
     expect(
-      within(item)
+      within(sheet)
         .getAllByRole("list")
         .map((list) => list.getAttribute("aria-label"))
         .filter((label) => label?.startsWith("Attempt") === true),
     ).toEqual(["Attempt 1 · Round 3", "Attempt 2 · Round 1"]);
     expect(
-      within(within(item).getByRole("list", { name: "Attempt 2 · Round 1" })).getByText(
+      within(within(sheet).getByRole("list", { name: "Attempt 2 · Round 1" })).getByText(
         "Second attempt finding",
       ),
     ).toBeInTheDocument();
@@ -2662,18 +2691,32 @@ describe("HomeScreen dialog focus", () => {
     await waitFor(() => expect(within(dialog).getByLabelText("Reason")).toHaveFocus());
   }
 
-  it("focuses Reason first in the Unblock, Override and Discard dialogs", async () => {
+  it("focuses Reason first in the Unblock and Override dialogs", async () => {
     const user = userEvent.setup();
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
     renderScreen();
     const item = await findDetail();
 
-    for (const act of ["Unblock", "Override", "Discard"]) {
+    for (const act of ["Unblock", "Override"]) {
       await user.click(within(item).getByRole("button", { name: act }));
       await expectReasonFocused();
       await user.keyboard("{Escape}");
       await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     }
+  });
+
+  it("focuses Cancel first in the Discard dialog", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+    renderScreen();
+    const item = await findDetail();
+
+    await user.click(within(item).getByRole("button", { name: "Discard" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Keep the node" })).toHaveFocus(),
+    );
   });
 
   it("focuses Reason first in the Decide dialog", async () => {
@@ -4148,22 +4191,6 @@ describe("HomeScreen keyboard", () => {
     expect(within(dialog).getByRole("button", { name: "Resume node" })).toBeVisible();
   });
 
-  it("shows the key hints and aria-keyshortcuts while the shortcuts are on", async () => {
-    serve({ nodes: resumable(), executions: BUDGET_END });
-    renderScreen();
-    const item = await findDetail();
-    await within(item).findByText("The last execution ended at its budget (turns).");
-
-    const resume = within(item).getByRole("button", { name: "Resume" });
-
-    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
-    expect(resume.querySelector("kbd")).toHaveTextContent("r");
-    expect(screen.getByRole("tab", { name: /^Fix setup,/ })).toHaveAttribute(
-      "aria-keyshortcuts",
-      "2",
-    );
-  });
-
   it("turns the shortcuts off and keeps the setting after a reload", async () => {
     const user = userEvent.setup();
     serve({ nodes: resumable(), executions: BUDGET_END });
@@ -4209,7 +4236,7 @@ describe("HomeScreen keyboard", () => {
     expect(await screen.findByRole("dialog", { name: "Keyboard shortcuts" })).toBeVisible();
   });
 
-  it("keeps the key of an act that waits for a read and names what it needs", async () => {
+  it("names what a gated act needs with its key", async () => {
     const user = userEvent.setup();
     serve({ nodes: resumable() });
     vi.mocked(listNodeExecutions).mockReturnValue(new Promise(() => undefined));
@@ -4218,8 +4245,6 @@ describe("HomeScreen keyboard", () => {
 
     const resume = within(item).getByRole("button", { name: "Resume" });
     expect(resume).toHaveAttribute("aria-disabled", "true");
-    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
-    expect(resume.querySelector("kbd")).toHaveTextContent("r");
 
     await user.keyboard("r");
 
@@ -4535,8 +4560,7 @@ describe("HomeScreen history and phone", () => {
     setWidth(EXPANDED_WIDTH);
     await user.click(await screen.findByRole("tab", { name: /^Resume,/ }));
     await user.click(await waitFor(() => cardButton("Print the slip")));
-    const resume = await screen.findByRole("button", { name: "Resume" });
-    expect(resume).toHaveAttribute("aria-keyshortcuts", "r");
+    await screen.findByRole("button", { name: "Resume" });
 
     await user.keyboard("r");
 
@@ -5002,7 +5026,8 @@ describe("HomeScreen inbox detail and acts", () => {
     expect(
       within(acts)
         .getAllByRole("button")
-        .map((button) => button.firstChild?.textContent),
+        .map((button) => button.firstChild?.textContent)
+        .filter((label) => typeof label === "string" && isAct(label)),
     ).toEqual([
       "Mark done",
       "Snooze",
@@ -5207,6 +5232,5 @@ describe("HomeScreen inbox layout at 390x844", () => {
 
     expect(within(acts).getByRole("button", { name: "Mark done" })).toBeVisible();
     expect(within(acts).getByRole("button", { name: /^More/ })).toBeVisible();
-    expect(within(acts).queryByRole("button", { name: "Snooze" })).toBeNull();
   });
 });

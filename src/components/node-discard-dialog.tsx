@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,9 +15,11 @@ import { Textarea } from "@/components/ui/textarea";
 import type { NodeDiscardState } from "@/hooks/use-node-discard";
 
 export function NodeDiscardDialog({ name, discard }: { name: string; discard: NodeDiscardState }) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
   return (
     <AlertDialog open={discard.open} onOpenChange={(open) => !open && discard.cancel()}>
-      <AlertDialogContent>
+      <AlertDialogContent initialFocus={cancelRef}>
         <AlertDialogHeader>
           <AlertDialogTitle>Discard {name}?</AlertDialogTitle>
           <AlertDialogDescription>{discard.consequence}</AlertDialogDescription>
@@ -42,7 +46,9 @@ export function NodeDiscardDialog({ name, discard }: { name: string; discard: No
           </p>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={discard.discarding}>Keep the node</AlertDialogCancel>
+          <AlertDialogCancel ref={cancelRef} disabled={discard.discarding}>
+            Keep the node
+          </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={discard.discarding || !discard.available || discard.missing !== null}
