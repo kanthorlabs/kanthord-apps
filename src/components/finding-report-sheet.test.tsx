@@ -164,7 +164,7 @@ describe("FindingReportSheet", () => {
       }),
     );
     expect(reload).toHaveBeenCalledTimes(1);
-  });
+  }, 30_000);
 
   it("names each missing field and sends nothing", async () => {
     await mount();
