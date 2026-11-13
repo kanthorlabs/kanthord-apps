@@ -43,7 +43,7 @@ export function Composer({
       }}
     >
       {composer.listOpen && (
-        <Card size="sm" className="absolute right-0 bottom-full left-0 z-10 mb-2 py-1">
+        <Card size="sm" className="absolute right-0 bottom-full left-0 z-40 mb-2 py-1">
           <ItemGroup
             id={listId}
             role="listbox"

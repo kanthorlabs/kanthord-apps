@@ -484,6 +484,7 @@ describe("HomeDeck acts", () => {
 
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("Discard Pausable?")).toBeVisible();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /^More acts/ })).toBeNull());
     await waitFor(() =>
       expect(within(dialog).getByRole("button", { name: "Keep the node" })).toHaveFocus(),
     );

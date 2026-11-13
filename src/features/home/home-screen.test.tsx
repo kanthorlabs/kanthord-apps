@@ -769,6 +769,15 @@ function renderScreen(entry = "/", onResume?: () => void) {
   );
 }
 
+function stackLevelOf(element: HTMLElement): number {
+  const level = /(?:^|\s)z-(\d+)(?:\s|$)/;
+  for (let node: HTMLElement | null = element; node !== null; node = node.parentElement) {
+    const match = level.exec(node.className);
+    if (match !== null) return Number(match[1]);
+  }
+  return 0;
+}
+
 async function findPrimary(name: RegExp | string = /^Primary: /): Promise<HTMLElement> {
   const primary = await screen.findByRole("group", { name });
   await waitFor(() => expect(within(primary).getAllByRole("button").length).toBeGreaterThan(0));
@@ -809,6 +818,39 @@ describe("HomeScreen layout", () => {
       screen.getByRole("form", { name: "Composer" }),
     );
     expect(column).toHaveClass("max-w-[760px]", "mx-auto", "w-full");
+  });
+
+  it("gives the deck grid one column that the card cannot outgrow", async () => {
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+
+    renderScreen();
+
+    const primary = await findPrimary();
+    expect(primary.closest(".z-30")?.parentElement).toHaveClass("grid-cols-[minmax(0,1fr)]");
+  });
+
+  it("stacks the command list above the deck and picks /brief", async () => {
+    const user = userEvent.setup();
+    serve({
+      yumi: "on",
+      sessions: [opsSession("workbench_session_Y1")],
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+    });
+    vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      session_id: "workbench_session_Y1",
+      run_active: true,
+    });
+    renderScreen();
+    const primary = await findPrimary();
+
+    await user.click(await composerBox());
+    const list = await screen.findByRole("listbox", { name: "Commands" });
+
+    expect(stackLevelOf(list)).toBeGreaterThan(stackLevelOf(primary));
+    await user.click(within(list).getByRole("option", { name: /\/brief/ }));
+    await waitFor(() =>
+      expect(sendWorkbenchMessage).toHaveBeenCalledWith(expect.any(String), BRIEF_TEXT),
+    );
   });
 
   it("offers Resume onboarding while a setup step is open", async () => {

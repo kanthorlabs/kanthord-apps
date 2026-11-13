@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
@@ -20,14 +20,26 @@ interface BoardMoreSheetProps {
   readonly last: ReactNode;
 }
 
-export function BoardMoreSheet({ subject, count, children, last }: BoardMoreSheetProps) {
+function pressedAct(event: MouseEvent<HTMLElement>): boolean {
   return (
-    <Sheet>
+    event.target instanceof Element &&
+    event.target.closest("button:enabled:not([aria-disabled=true]), a") !== null
+  );
+}
+
+export function BoardMoreSheet({ subject, count, children, last }: BoardMoreSheetProps) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
       <TouchTarget>
         <SheetTrigger render={<Button variant="outline" size="sm" />}>More ({count})</SheetTrigger>
       </TouchTarget>
       <SheetContent side="bottom" showCloseButton={false}>
-        <div className="flex flex-col gap-4 pb-[env(safe-area-inset-bottom)]">
+        <div
+          role="presentation"
+          className="flex flex-col gap-4 pb-[env(safe-area-inset-bottom)]"
+          onClick={(event) => pressedAct(event) && setOpen(false)}
+        >
           <SheetHeader>
             <SheetTitle>More acts on {subject}</SheetTitle>
           </SheetHeader>
