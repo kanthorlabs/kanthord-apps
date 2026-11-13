@@ -264,6 +264,8 @@ describe("Composer", () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
       session_id: SESSION_ID,
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     mount();
 
@@ -284,7 +286,12 @@ describe("Composer", () => {
   describe("slash commands", () => {
     const BRIEF_TEXT = "Report the system status and the actions that need me.";
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
-    const SENT = { session_id: SESSION_ID, run_active: true } as const;
+    const SENT = {
+      session_id: SESSION_ID,
+      run_active: true,
+      queued_message_id: null,
+      cleared: [],
+    } as const;
 
     function box() {
       return screen.getByRole("combobox", { name: "Message" });

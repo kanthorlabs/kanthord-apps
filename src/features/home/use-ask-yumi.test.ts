@@ -85,7 +85,12 @@ beforeEach(() => {
   tab = { closed: false, location: { replace: vi.fn() }, focus: vi.fn(), close: vi.fn() };
   open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
   vi.mocked(createWorkbenchSession).mockResolvedValue(session("session_1"));
-  vi.mocked(sendWorkbenchMessage).mockResolvedValue({ session_id: "session_1", run_active: true });
+  vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+    session_id: "session_1",
+    run_active: true,
+    queued_message_id: null,
+    cleared: [],
+  });
 });
 
 afterEach(() => {

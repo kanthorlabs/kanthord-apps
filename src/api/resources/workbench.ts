@@ -5,6 +5,8 @@ import type {
   WorkbenchApprovalAnswer,
   WorkbenchConfiguration,
   WorkbenchMessageAnswer,
+  WorkbenchMessageDelivery,
+  WorkbenchQueueRemoveAnswer,
   WorkbenchSession,
   WorkbenchSessionCreateBody,
   WorkbenchSessionEvents,
@@ -59,8 +61,19 @@ export async function configureWorkbenchSession(
 export async function sendWorkbenchMessage(
   sessionId: string,
   text: string,
+  delivery: WorkbenchMessageDelivery = "queue",
 ): Promise<WorkbenchMessageAnswer> {
-  return post<WorkbenchMessageAnswer>(`${sessionPath(sessionId)}/message`, { text });
+  return post<WorkbenchMessageAnswer>(`${sessionPath(sessionId)}/message`, { text, delivery });
+}
+
+export async function removeQueuedWorkbenchMessage(
+  sessionId: string,
+  queuedMessageId: string,
+): Promise<WorkbenchQueueRemoveAnswer> {
+  return request<WorkbenchQueueRemoveAnswer>(
+    `${sessionPath(sessionId)}/queue/${encodeURIComponent(queuedMessageId)}`,
+    { method: "DELETE", headers: idempotencyHeader() },
+  );
 }
 
 export async function abortWorkbenchRun(sessionId: string): Promise<WorkbenchAbortAnswer> {

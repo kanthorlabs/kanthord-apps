@@ -35,6 +35,7 @@ function idleSnapshot(runActive: boolean): WorkbenchRunSnapshot {
     streaming_message: null,
     pending_tool_calls: [],
     pending_approval: null,
+    queue: [],
     run_active: runActive,
     error_message: null,
   };

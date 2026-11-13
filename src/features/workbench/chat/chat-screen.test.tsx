@@ -239,6 +239,8 @@ describe("ChatScreen", () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
         run_active: true,
+        queued_message_id: null,
+        cleared: [],
       });
       mountNew();
 

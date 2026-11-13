@@ -26,6 +26,7 @@ const IDLE: WorkbenchRunSnapshot = {
   streaming_message: null,
   pending_tool_calls: [],
   pending_approval: null,
+  queue: [],
   run_active: false,
   error_message: null,
 };
@@ -269,6 +270,7 @@ describe("ChatView", () => {
     vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
       session_id: SESSION_ID,
       run_active: false,
+      cleared: [],
     });
     mount(session([], true));
     await polls.answer({ snapshot: { run_active: true } });
@@ -427,6 +429,8 @@ describe("ChatView", () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
       session_id: SESSION_ID,
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     mount(session());
 

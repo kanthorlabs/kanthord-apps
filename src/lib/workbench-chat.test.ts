@@ -13,6 +13,7 @@ const IDLE: WorkbenchRunSnapshot = {
   streaming_message: null,
   pending_tool_calls: [],
   pending_approval: null,
+  queue: [],
   run_active: false,
   error_message: null,
 };

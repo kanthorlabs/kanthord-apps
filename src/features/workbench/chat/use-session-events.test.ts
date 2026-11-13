@@ -13,6 +13,7 @@ const IDLE: WorkbenchRunSnapshot = {
   streaming_message: null,
   pending_tool_calls: [],
   pending_approval: null,
+  queue: [],
   run_active: false,
   error_message: null,
 };
@@ -164,6 +165,15 @@ describe("useSessionEvents", () => {
 
     expect(signal?.aborted).toBe(true);
     expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds an idle snapshot with an empty queue before the first answer", () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
+
+    const { result } = renderHook(() => useSessionEvents("session-1", [], false));
+
+    expect(result.current.snapshot).toEqual(IDLE);
+    expect(result.current.snapshot.queue).toEqual([]);
   });
 
   it("patches the snapshot until the next answer replaces it", () => {

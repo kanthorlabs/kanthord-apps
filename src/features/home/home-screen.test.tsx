@@ -524,6 +524,7 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
   streaming_message: null,
   pending_tool_calls: [],
   pending_approval: null,
+  queue: [],
   run_active: false,
   error_message: null,
 };
@@ -830,6 +831,8 @@ describe("HomeScreen layout", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y1",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
     const primary = await findPrimary();
@@ -1145,6 +1148,7 @@ describe("HomeScreen tool approval", () => {
           operation_id: "project.create",
           input: { name: "account-recovery" },
         },
+        queue: [],
         run_active: false,
         error_message: null,
       },
@@ -1298,6 +1302,7 @@ function pendingApproval() {
       operation_id: "project.create",
       input: { name: "account-recovery" },
     },
+    queue: [],
     run_active: true,
   });
 }
@@ -1314,6 +1319,8 @@ describe("HomeScreen Yumi chat", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y2",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
     expect(await screen.findByText(GENERAL)).toBeVisible();
@@ -1367,6 +1374,8 @@ describe("HomeScreen Yumi chat", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y1",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
 
@@ -1676,6 +1685,8 @@ describe("HomeScreen Ask Yumi", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_CASE",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
     const primary = await findPrimary(/^Primary: Case audit/);
