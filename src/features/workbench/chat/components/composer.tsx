@@ -1,4 +1,7 @@
 import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import { useId } from "react";
+
+import { Card } from "@/components/ui/card";
 
 import {
   InputGroup,
@@ -6,6 +9,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from "@/components/ui/input-group";
+import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import type { ChatConfigurationState } from "../use-chat-configuration";
 import type { ComposerState } from "../use-composer";
 import { ComposerPicker } from "./composer-picker";
@@ -18,26 +22,63 @@ interface ComposerProps {
 }
 
 export function Composer({ composer, configuration, runActive, onStop }: ComposerProps) {
+  const listId = useId();
+  const optionId = (id: string) => `${listId}-${id}`;
   return (
     <form
       aria-label="Composer"
+      className="relative"
       onSubmit={(event) => {
         event.preventDefault();
         composer.submit();
       }}
     >
+      {composer.listOpen && (
+        <Card size="sm" className="absolute right-0 bottom-full left-0 z-10 mb-2 py-1">
+          <ItemGroup
+            id={listId}
+            role="listbox"
+            aria-label="Commands"
+            className="gap-0"
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {composer.commands.map((command) => (
+              <Item
+                key={command.id}
+                id={optionId(command.id)}
+                role="option"
+                size="xs"
+                aria-selected={composer.activeCommand?.id === command.id}
+                data-active={composer.activeCommand?.id === command.id}
+                className="cursor-pointer data-[active=true]:bg-muted"
+                onClick={() => composer.pick(command)}
+              >
+                <ItemContent>
+                  <ItemTitle className="font-mono">{command.name}</ItemTitle>
+                  <ItemDescription>{command.description}</ItemDescription>
+                </ItemContent>
+              </Item>
+            ))}
+          </ItemGroup>
+        </Card>
+      )}
       <InputGroup>
         <InputGroupTextarea
+          role="combobox"
           aria-label="Message"
+          aria-expanded={composer.listOpen}
+          aria-controls={composer.listOpen ? listId : undefined}
+          aria-activedescendant={
+            composer.activeCommand === null ? undefined : optionId(composer.activeCommand.id)
+          }
+          aria-autocomplete="list"
           placeholder="Message the agent"
           rows={2}
           value={composer.draft}
           onChange={(event) => composer.setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
-            event.preventDefault();
-            composer.submit();
-          }}
+          onFocus={composer.focus}
+          onBlur={composer.blur}
+          onKeyDown={composer.handleKey}
         />
         <InputGroupAddon align="block-end" className="flex-wrap gap-2">
           <ComposerPicker
@@ -80,6 +121,11 @@ export function Composer({ composer, configuration, runActive, onStop }: Compose
           </div>
         </InputGroupAddon>
       </InputGroup>
+      {composer.hint !== null && (
+        <p role="status" className="mt-1 text-sm text-muted-foreground">
+          {composer.hint}
+        </p>
+      )}
     </form>
   );
 }

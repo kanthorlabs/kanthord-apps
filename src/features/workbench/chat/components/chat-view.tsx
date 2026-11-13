@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { agentWorking, chatItemsOf } from "@/lib/workbench-chat";
-import type { FirstSendFailure } from "@/lib/workbench-new-session";
+import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
@@ -47,11 +48,17 @@ export function ChatView({
     enablement,
   );
   const { snapshot } = events;
-  const composer = useComposer(
-    snapshot.run_active || actions.busy,
-    actions.send,
-    firstSendFailure?.draft,
+  const navigate = useNavigate();
+  const currentConfiguration = configuration.configuration;
+  const openNewChat = useCallback(
+    () => navigate(newSessionPath(session.agent_name, currentConfiguration)),
+    [navigate, session.agent_name, currentConfiguration],
   );
+  const composer = useComposer(snapshot.run_active || actions.busy, actions.send, {
+    agentName: session.agent_name,
+    onNew: openNewChat,
+    initialDraft: firstSendFailure?.draft,
+  });
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active);

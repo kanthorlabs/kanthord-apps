@@ -34,7 +34,7 @@ export function NewSessionChat({
   configuration,
 }: NewSessionChatProps) {
   const first = useFirstSend(agentName, configuration);
-  const composer = useComposer(first.busy, first.send);
+  const composer = useComposer(first.busy, first.send, { agentName, onNew: NO_CHANGE });
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
