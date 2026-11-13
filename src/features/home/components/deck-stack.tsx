@@ -41,11 +41,7 @@ export function DeckStack({ deck, children }: DeckStackProps) {
 
   return (
     <div
-      className={
-        deck.tilted > 0
-          ? "isolate grid grid-cols-[minmax(0,1fr)] overflow-x-clip pb-14"
-          : "isolate grid grid-cols-[minmax(0,1fr)] overflow-x-clip"
-      }
+      className={`isolate grid grid-cols-[minmax(0,1fr)] overflow-x-clip ${deck.tilted > 0 ? "pb-14" : ""}`}
     >
       {tilts.map((tilt, index) => (
         <div

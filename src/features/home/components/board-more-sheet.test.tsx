@@ -27,6 +27,7 @@ function renderSheet(last = true, onAct = vi.fn()) {
           Gated
         </Button>
         <Button variant="outline">Last trace</Button>
+        <a href="#trace">Open trace</a>
       </BoardMoreSheet>
     </>,
   );
@@ -126,5 +127,30 @@ describe("BoardMoreSheet", () => {
     await user.click(within(dialog).getByRole("button", { name: "Gated" }));
 
     expect(screen.getByRole("dialog")).toBeVisible();
+  });
+
+  it("closes when a link in the sheet is clicked", async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByRole("button", { name: "More (3)" }));
+    const dialog = await screen.findByRole("dialog");
+
+    await user.click(within(dialog).getByRole("link", { name: "Open trace" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("closes when Enter runs an act in the sheet", async () => {
+    const user = userEvent.setup();
+    const onAct = vi.fn();
+    renderSheet(true, onAct);
+    await user.click(screen.getByRole("button", { name: "More (3)" }));
+    const dialog = await screen.findByRole("dialog");
+    within(dialog).getByRole("button", { name: "Override" }).focus();
+
+    await user.keyboard("{Enter}");
+
+    expect(onAct).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });
