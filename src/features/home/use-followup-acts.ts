@@ -5,6 +5,8 @@ import { type FollowupDecisionState, useFollowupDecision } from "@/hooks/use-fol
 import type { AttentionDetail, FollowupItem } from "@/lib/attention";
 import { type ActedAct, DONE_ACT } from "@/lib/board-done";
 
+import { useCancelMark } from "./use-cancel-mark";
+
 export interface FollowupActs {
   readonly decision: FollowupDecisionState;
   readonly lastTraceId: string | null;
@@ -33,16 +35,21 @@ export function useFollowupActs(
   detail: AttentionDetail | null,
   { reload, setDialogOpen, registerDialogCloser }: FollowupContext,
 ): FollowupActs {
-  const decision = useFollowupDecision(item.node, item.proposals, item.missionVersion, reload);
+  const mark = useCancelMark();
+  const decision = mark.track(
+    useFollowupDecision(item.node, item.proposals, item.missionVersion, reload),
+  );
   const itemId = item.id;
   const nodeId = item.node.id;
   const { open } = decision;
+  const { reset, take } = mark;
 
   useEffect(() => {
     if (!open) return undefined;
+    reset();
     setDialogOpen(itemId, nodeId, true);
-    return () => setDialogOpen(itemId, nodeId, false, DECIDE_FOLLOWUP);
-  }, [itemId, nodeId, open, setDialogOpen]);
+    return () => setDialogOpen(itemId, nodeId, false, take() ? undefined : DECIDE_FOLLOWUP);
+  }, [itemId, nodeId, open, setDialogOpen, reset, take]);
 
   useEffect(() => {
     registerDialogCloser(() => {

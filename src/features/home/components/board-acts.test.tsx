@@ -756,37 +756,15 @@ describe("BoardActsProvider finding review", () => {
 
 describe("BoardActsProvider dialogs", () => {
   it.each([
-    [
-      "Unblock",
-      decision("blocked", IMPLEMENT),
-      new Map(),
-      "Unblock Team?",
-      "Keep it blocked",
-      { id: "unblock" },
-    ],
-    [
-      "Override",
-      decision("blocked", IMPLEMENT),
-      new Map(),
-      "Override Team?",
-      "Keep the node",
-      { id: "override" },
-    ],
-    [
-      "Discard",
-      decision("blocked", IMPLEMENT),
-      new Map(),
-      "Discard Team?",
-      "Keep the node",
-      { id: "discard" },
-    ],
+    ["Unblock", decision("blocked", IMPLEMENT), new Map(), "Unblock Team?", "Keep it blocked"],
+    ["Override", decision("blocked", IMPLEMENT), new Map(), "Override Team?", "Keep the node"],
+    ["Discard", decision("blocked", IMPLEMENT), new Map(), "Discard Team?", "Keep the node"],
     [
       "Decide",
       decision("blocked", EXAMINE),
       blockedDetail(EXAMINE),
       "Decide the proposals of Team?",
       "Keep the proposals",
-      { id: "decide" },
     ],
     [
       "Resume",
@@ -794,7 +772,6 @@ describe("BoardActsProvider dialogs", () => {
       pausedDetail(PAUSED, []),
       "Resume Team?",
       "Keep it paused",
-      { id: "resume" },
     ],
     [
       "Remove dependency on First",
@@ -804,11 +781,10 @@ describe("BoardActsProvider dialogs", () => {
       openDetail(DEPENDENCY),
       "Remove the dependency of Team on First?",
       "Keep the dependency",
-      { id: "remove_dependency", dependency: "First" },
     ],
   ])(
-    "opens the dialog of %s and reports the open and the close with the act",
-    async (name, item, details, title, cancel, acted) => {
+    "opens the dialog of %s and reports the open and the close without an act on Cancel",
+    async (name, item, details, title, cancel) => {
       setDialogOpen.mockClear();
       const user = userEvent.setup();
       renderActs(item, details);
@@ -822,7 +798,7 @@ describe("BoardActsProvider dialogs", () => {
       await user.click(within(dialog).getByRole("button", { name: cancel }));
 
       await waitFor(() =>
-        expect(setDialogOpen).toHaveBeenLastCalledWith(item.id, "node_1", false, acted),
+        expect(setDialogOpen).toHaveBeenLastCalledWith(item.id, "node_1", false, undefined),
       );
     },
   );

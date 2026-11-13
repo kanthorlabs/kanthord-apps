@@ -25,6 +25,7 @@ import {
 import type { ActedAct } from "@/lib/board-done";
 
 import type { ActFailure } from "./use-board-tool-acts";
+import { useCancelMark } from "./use-cancel-mark";
 import { type DecisionActs, useDecisionActs } from "./use-decision-acts";
 
 interface LastTrace {
@@ -158,23 +159,34 @@ export function useDecisionBoardActs(
 ): DecisionActs {
   const { node } = item;
   const lastOpen = useRef<ActedAct | null>(null);
+  const { track, reset, take } = useCancelMark();
   const trackedDialogOpen = useCallback(
     (itemId: string, nodeId: string, open: boolean) => {
       if (open) {
+        reset();
         setDialogOpen(itemId, nodeId, true);
         return;
       }
-      const act = lastOpen.current ?? undefined;
+      const act = take() ? undefined : (lastOpen.current ?? undefined);
       lastOpen.current = null;
       setDialogOpen(itemId, nodeId, false, act);
     },
-    [setDialogOpen],
+    [setDialogOpen, reset, take],
   );
-  const acts = useDecisionActs(item, detailOf(details, node), {
+  const raw = useDecisionActs(item, detailOf(details, node), {
     reload,
     markActed,
     setDialogOpen: trackedDialogOpen,
   });
+  const acts: DecisionActs = {
+    ...raw,
+    unblock: track(raw.unblock),
+    decide: track(raw.decide),
+    override: track(raw.override),
+    resume: track(raw.resume),
+    remove: track(raw.remove),
+    discard: track(raw.discard),
+  };
   const openAct = openActOf(acts);
   useEffect(() => {
     if (openAct !== null) lastOpen.current = openAct;

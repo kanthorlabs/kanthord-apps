@@ -96,7 +96,7 @@ beforeEach(() => {
 });
 
 describe("useFindingReviewActs", () => {
-  it("holds the board while the decision dialog is open and names the act at the close", () => {
+  it("holds the board while the decision dialog is open and names no act at Cancel", () => {
     const { result, context } = renderActs();
 
     act(() => result.current.decision.request(REVIEW, "dismissed"));
@@ -107,7 +107,25 @@ describe("useFindingReviewActs", () => {
       "finding_review:node_1",
       "node_1",
       false,
-      { id: "decide_finding" },
+      undefined,
+    );
+  });
+
+  it("names the act at the close of a successful decision", async () => {
+    vi.mocked(decideFinding).mockResolvedValue({ ...REVIEW, decision: "dismissed" });
+    const { result, context } = renderActs();
+
+    act(() => result.current.decision.request(REVIEW, "dismissed"));
+    act(() => result.current.decision.setReason("No defect."));
+    act(() => result.current.decision.confirm());
+
+    await waitFor(() =>
+      expect(context.setDialogOpen).toHaveBeenLastCalledWith(
+        "finding_review:node_1",
+        "node_1",
+        false,
+        { id: "decide_finding" },
+      ),
     );
   });
 

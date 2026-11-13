@@ -1876,6 +1876,58 @@ describe("HomeScreen settled exit after a decision act", () => {
   });
 });
 
+describe("HomeScreen Cancel then an outside removal", () => {
+  it("shows the gone text after Cancel of Unblock", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = { "prj-1": [blocked("n_a", "Audit log")] };
+    serve({ nodes });
+    renderScreen();
+
+    const primary = await findPrimary();
+    await user.click(await within(primary).findByRole("button", { name: "Unblock" }));
+    await screen.findByRole("alertdialog");
+    nodes["prj-1"] = [];
+    await user.click(screen.getByRole("button", { name: "Keep it blocked" }));
+
+    expect(await screen.findByText(GONE_TEXT)).toBeVisible();
+    expect(screen.queryByText(/^Done:/)).toBeNull();
+  });
+
+  it("shows the gone text after Cancel of Discard", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = { "prj-1": [blocked("n_a", "Audit log")] };
+    serve({ nodes });
+    renderScreen();
+
+    await findPrimary();
+    await press(user, "Discard");
+    await screen.findByRole("alertdialog");
+    nodes["prj-1"] = [];
+    await user.click(screen.getByRole("button", { name: "Keep the node" }));
+
+    expect(await screen.findByText(GONE_TEXT)).toBeVisible();
+    expect(screen.queryByText(/^Done:/)).toBeNull();
+  });
+
+  it("shows the gone text after Cancel of Decide of the follow-up proposal", async () => {
+    const user = userEvent.setup();
+    const followups: Record<string, readonly MissionFollowupProposal[]> = {
+      "prj-1": [followup("n_f", 2)],
+    };
+    serve({ nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] }, followups });
+    renderScreen();
+
+    const primary = await findPrimary();
+    await user.click(await within(primary).findByRole("button", { name: "Decide" }));
+    await screen.findByRole("alertdialog");
+    followups["prj-1"] = [];
+    await user.click(screen.getByRole("button", { name: "Keep the proposal" }));
+
+    expect(await screen.findByText(GONE_TEXT)).toBeVisible();
+    expect(screen.queryByText(/^Done:/)).toBeNull();
+  });
+});
+
 describe("HomeScreen Discard flow", () => {
   it("discards after the reason and reads Home again", async () => {
     const user = userEvent.setup();
