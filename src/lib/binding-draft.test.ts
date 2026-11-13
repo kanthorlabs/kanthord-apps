@@ -68,7 +68,7 @@ describe("draftOf and entryOfDraft", () => {
         prompts: {
           instruction_file: "AGENTS.md",
           repository: "Write each name in snake_case.",
-          agents: { "swe@1": "Use pnpm.", "env@1": "Pin the node image." },
+          agents: { "swe@1": "Use pnpm.", "pe@1": "Pin the node image." },
         },
       },
     };
@@ -76,7 +76,7 @@ describe("draftOf and entryOfDraft", () => {
     expect(draft.kind === "repository" && draft.prompts).toEqual({
       instructionFile: "AGENTS.md",
       repository: "Write each name in snake_case.",
-      agents: { "swe@1": "Use pnpm.", "re@1": "", "env@1": "Pin the node image." },
+      agents: { "swe@1": "Use pnpm.", "re@1": "", "pe@1": "Pin the node image." },
     });
     expect(entryOfDraft(draft, [])).toEqual({ ok: true, entry });
   });
@@ -190,7 +190,7 @@ describe("draftOf and entryOfDraft", () => {
     expect(next.prompts).toEqual({
       instructionFile: "",
       repository: "Rule.",
-      agents: { "swe@1": "Use pnpm.", "re@1": "", "env@1": "" },
+      agents: { "swe@1": "Use pnpm.", "re@1": "", "pe@1": "" },
     });
     expect(draft.prompts.agents["swe@1"]).toBe("");
   });

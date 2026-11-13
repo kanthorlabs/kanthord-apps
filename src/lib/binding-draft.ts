@@ -164,7 +164,7 @@ function promptDraftsOf(prompts: BindingPrompts | undefined): PromptDrafts {
     agents: {
       "swe@1": prompts?.agents?.["swe@1"] ?? "",
       "re@1": prompts?.agents?.["re@1"] ?? "",
-      "env@1": prompts?.agents?.["env@1"] ?? "",
+      "pe@1": prompts?.agents?.["pe@1"] ?? "",
     },
   };
 }

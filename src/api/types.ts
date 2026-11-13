@@ -455,7 +455,7 @@ export type RepositoryActionFollows =
 
 export type RepositoryPlatform = "github" | "gitlab" | "bitbucket";
 
-export const BINDING_PROMPT_AGENTS = ["swe@1", "re@1", "env@1"] as const;
+export const BINDING_PROMPT_AGENTS = ["swe@1", "re@1", "pe@1"] as const;
 
 export type BindingPromptAgent = (typeof BINDING_PROMPT_AGENTS)[number];
 

@@ -955,7 +955,7 @@ describe("BindingsPanel", () => {
       "Repository prompt",
       "Binding prompt · swe@1",
       "Binding prompt · re@1",
-      "Binding prompt · env@1",
+      "Binding prompt · pe@1",
     ]);
   });
 
@@ -1207,7 +1207,7 @@ describe("BindingsPanel", () => {
   it("shows a stored Binding prompt as set and keeps it in the written binding", async () => {
     const stored: BindingSetEntry = {
       kind: "repository",
-      config: { ...REPO.config, prompts: { agents: { "env@1": "Pin the node image." } } },
+      config: { ...REPO.config, prompts: { agents: { "pe@1": "Pin the node image." } } },
     };
     vi.mocked(projectsApi.readBindingSet).mockResolvedValue({
       ...SET,
@@ -1216,7 +1216,7 @@ describe("BindingsPanel", () => {
     mount();
 
     await userEvent.click(await screen.findByRole("button", { name: "Edit kanthord-repo" }));
-    const env = screen.getByRole("button", { name: "Binding prompt · env@1" });
+    const env = screen.getByRole("button", { name: "Binding prompt · pe@1" });
     await userEvent.click(env);
     expect(await screen.findByText("Pin the node image.")).toBeTruthy();
     await userEvent.click(screen.getByRole("button", { name: "Save binding" }));
@@ -2196,7 +2196,7 @@ describe("BindingsPanel", () => {
 
     describe("repair", () => {
       const ENV_ENABLEMENT = {
-        agent_name: "env@1",
+        agent_name: "pe@1",
         state: "enabled" as const,
         agent_providers: [],
         default_configuration: {
@@ -2214,10 +2214,10 @@ describe("BindingsPanel", () => {
         return screen.findByRole("region", { name: "Environment" });
       }
 
-      it("shows the repair line and a spinner while env@1 repairs", async () => {
+      it("shows the repair line and a spinner while pe@1 repairs", async () => {
         const region = await openSection({ ...FAILED, repairing: true, repairs: 1 });
 
-        expect(within(region).getByText("Repairing with env@1 · repair 1 of 3")).toBeTruthy();
+        expect(within(region).getByText("Repairing with pe@1 · repair 1 of 3")).toBeTruthy();
         expect(within(region).getByRole("status", { name: "Loading" })).toBeTruthy();
       });
 
@@ -2235,29 +2235,29 @@ describe("BindingsPanel", () => {
         expect(within(region).queryByText("Repairs")).toBeNull();
       });
 
-      it("shows the hint and the link when env@1 has no enablement", async () => {
+      it("shows the hint and the link when pe@1 has no enablement", async () => {
         vi.mocked(workersApi.readAgentEnablement).mockRejectedValue(
           new ApiError("not_found", "No such enablement.", 404, "agent.enablement.not_found"),
         );
         const region = await openSection(FAILED);
 
         expect(
-          await within(region).findByText("Enable env@1 to let KanthorD repair it."),
+          await within(region).findByText("Enable pe@1 to let KanthorD repair it."),
         ).toBeTruthy();
-        expect(within(region).getByRole("button", { name: "Enable env@1" })).toHaveAttribute(
+        expect(within(region).getByRole("button", { name: "Enable pe@1" })).toHaveAttribute(
           "href",
-          "/agents/env@1#enablement",
+          "/agents/pe@1#enablement",
         );
-        expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("env@1");
+        expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("pe@1");
       });
 
-      it("shows no hint when env@1 is enabled", async () => {
+      it("shows no hint when pe@1 is enabled", async () => {
         vi.mocked(workersApi.readAgentEnablement).mockResolvedValue(ENV_ENABLEMENT);
         const region = await openSection(FAILED);
 
-        await waitFor(() => expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("env@1"));
-        expect(within(region).queryByText("Enable env@1 to let KanthorD repair it.")).toBeNull();
-        expect(within(region).queryByRole("button", { name: "Enable env@1" })).toBeNull();
+        await waitFor(() => expect(workersApi.readAgentEnablement).toHaveBeenCalledWith("pe@1"));
+        expect(within(region).queryByText("Enable pe@1 to let KanthorD repair it.")).toBeNull();
+        expect(within(region).queryByRole("button", { name: "Enable pe@1" })).toBeNull();
       });
     });
 

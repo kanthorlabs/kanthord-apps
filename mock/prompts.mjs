@@ -6,7 +6,7 @@ export const INSTRUCTION_FILE_TEXT = `# Repository rules
 
 - Every screen offers the same information at 390 px and at 1280 px.
 - A test sits beside its unit under src/.`;
-export const PROMPT_AGENTS = ["swe@1", "re@1", "env@1"];
+export const PROMPT_AGENTS = ["swe@1", "re@1", "pe@1"];
 export const PROMPT_TEXT_MAX_BYTES = 32768;
 export const PATH_MAX_BYTES = 255;
 

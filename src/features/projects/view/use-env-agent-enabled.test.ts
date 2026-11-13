@@ -10,7 +10,7 @@ vi.mock("@/api/resources/workers", () => ({ readAgentEnablement: vi.fn() }));
 
 function enablement(state: AgentEnablementState): AgentEnablement {
   return {
-    agent_name: "env@1",
+    agent_name: "pe@1",
     state,
     agent_providers: [],
     default_configuration: {
@@ -34,7 +34,7 @@ describe("useEnvAgentEnabled", () => {
     const { result } = renderHook(() => useEnvAgentEnabled());
 
     expect(result.current).toBeNull();
-    expect(readAgentEnablement).toHaveBeenCalledWith("env@1");
+    expect(readAgentEnablement).toHaveBeenCalledWith("pe@1");
   });
 
   it("answers true for the state enabled", async () => {
