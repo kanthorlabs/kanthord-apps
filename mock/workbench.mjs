@@ -208,6 +208,20 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     return cleared;
   };
 
+  const enqueue = (session, text) => {
+    entrySequence += 1;
+    const item = { id: `workbench_queued_message_${entrySequence}`, text };
+    stateOf(session).queue.push(item);
+    notify(session);
+    return item;
+  };
+
+  const interruptRun = (session) => {
+    const run = stateOf(session).run;
+    run.cancelled = true;
+    run.cancel?.();
+  };
+
   const cancelRun = (session) => {
     const state = stateOf(session);
     const run = state.run;
@@ -357,9 +371,9 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     }
     if (body.delivery === "replace") {
       const cleared = clearQueue(session);
-      cancelRun(session);
-      startRun(session, body.text);
-      return answer(null, cleared);
+      const item = enqueue(session, body.text);
+      interruptRun(session);
+      return answer(item.id, cleared);
     }
     if (state.queue.length >= QUEUE_LIMIT) {
       return envelope(
@@ -369,10 +383,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         "The workbench session queue is full.",
       );
     }
-    entrySequence += 1;
-    const item = { id: `workbench_queued_message_${entrySequence}`, text: body.text };
-    state.queue.push(item);
-    notify(session);
+    const item = enqueue(session, body.text);
     return answer(item.id, []);
   });
 

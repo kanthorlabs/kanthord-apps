@@ -1,15 +1,24 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import {
   abortWorkbenchRun,
   approveWorkbenchCall,
+  removeQueuedWorkbenchMessage,
   sendWorkbenchMessage,
 } from "@/api/resources/workbench";
-import type { WorkbenchMessageDelivery } from "@/api/types";
+import type { ApiError } from "@/api/errors";
+import type { WorkbenchMessageDelivery, WorkbenchQueuedMessage } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import type { SnapshotPatch } from "./use-session-events";
 
-export type ChatActionCause = "send" | "abort" | "approve";
+const QUEUED_NOT_FOUND = "workbench.session.queued_message_not_found";
+const ALREADY_STARTED = "The message already started.";
+
+type Refill = (texts: readonly string[], hint?: string) => void;
+
+const NO_REFILL: Refill = () => undefined;
+
+export type ChatActionCause = "send" | "abort" | "approve" | "queue";
 
 export interface ChatActionFailure {
   readonly cause: ChatActionCause;
@@ -24,16 +33,51 @@ export interface ChatActionsState {
   readonly send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>;
   readonly abort: () => void;
   readonly approve: (toolCallId: string, approved: boolean) => void;
+  readonly remove: (item: WorkbenchQueuedMessage) => void;
+  readonly edit: (item: WorkbenchQueuedMessage) => void;
+  readonly bindRefill: (refill: Refill) => () => void;
+}
+
+function clearedHint(count: number): string | undefined {
+  if (count === 0) return undefined;
+  return count === 1
+    ? "1 cleared message is back in your draft"
+    : `${count} cleared messages are back in your draft`;
+}
+
+function failureOf(
+  cause: ChatActionCause,
+  error: ApiError,
+  toolCallId: string | undefined,
+): ChatActionFailure {
+  if (cause === "queue" && error.detail === QUEUED_NOT_FOUND) {
+    return { cause, code: QUEUED_NOT_FOUND, message: ALREADY_STARTED };
+  }
+  return { cause, toolCallId, code: error.code, message: error.message };
 }
 
 export function useChatActions(
   sessionId: string,
   patchSnapshot: (patch: SnapshotPatch) => void,
-  refill: (texts: readonly string[]) => void,
   initialFailure: ChatActionFailure | null = null,
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
+  const refillRef = useRef<Refill>(NO_REFILL);
+
+  const bindRefill = useCallback((refill: Refill) => {
+    refillRef.current = refill;
+    return () => {
+      refillRef.current = NO_REFILL;
+    };
+  }, []);
+
+  const refillCleared = useCallback((cleared: readonly WorkbenchQueuedMessage[]) => {
+    refillRef.current(
+      cleared.map((message) => message.text),
+      clearedHint(cleared.length),
+    );
+  }, []);
 
   const perform = useCallback(
     async <T>(
@@ -48,8 +92,7 @@ export function useChatActions(
         onDone(await action());
         return true;
       } catch (failed) {
-        const error = asApiError(failed);
-        setFailure({ cause, toolCallId, code: error.code, message: error.message });
+        setFailure(failureOf(cause, asApiError(failed), toolCallId));
         return false;
       } finally {
         setBusy(false);
@@ -64,7 +107,7 @@ export function useChatActions(
         "send",
         () => sendWorkbenchMessage(sessionId, text, delivery),
         (answer) => {
-          refill(answer.cleared.map((cleared) => cleared.text));
+          refillCleared(answer.cleared);
           if (answer.queued_message_id === null) {
             patchSnapshot({ run_active: true, error_message: null, queue: [] });
             return;
@@ -77,7 +120,7 @@ export function useChatActions(
           patchSnapshot((current) => ({ queue: [...current.queue, queued] }));
         },
       ),
-    [perform, sessionId, patchSnapshot, refill],
+    [perform, sessionId, patchSnapshot, refillCleared],
   );
 
   const abort = useCallback(() => {
@@ -85,11 +128,11 @@ export function useChatActions(
       "abort",
       () => abortWorkbenchRun(sessionId),
       (answer) => {
-        refill(answer.cleared.map((cleared) => cleared.text));
+        refillCleared(answer.cleared);
         patchSnapshot({ run_active: false, pending_approval: null, queue: [] });
       },
     );
-  }, [perform, sessionId, patchSnapshot, refill]);
+  }, [perform, sessionId, patchSnapshot, refillCleared]);
 
   const approve = useCallback(
     (toolCallId: string, approved: boolean) => {
@@ -103,5 +146,24 @@ export function useChatActions(
     [perform, sessionId, patchSnapshot],
   );
 
-  return { failure, busy, send, abort, approve };
+  const dequeue = useCallback(
+    (item: WorkbenchQueuedMessage, returnToComposer: boolean) => {
+      void perform(
+        "queue",
+        () => removeQueuedWorkbenchMessage(sessionId, item.id),
+        () => {
+          patchSnapshot((current) => ({
+            queue: current.queue.filter((held) => held.id !== item.id),
+          }));
+          if (returnToComposer) refillRef.current([item.text]);
+        },
+      );
+    },
+    [perform, sessionId, patchSnapshot],
+  );
+
+  const remove = useCallback((item: WorkbenchQueuedMessage) => dequeue(item, false), [dequeue]);
+  const edit = useCallback((item: WorkbenchQueuedMessage) => dequeue(item, true), [dequeue]);
+
+  return { failure, busy, send, abort, approve, remove, edit, bindRefill };
 }

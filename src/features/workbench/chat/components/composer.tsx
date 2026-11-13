@@ -13,7 +13,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/comp
 import type { ChatConfigurationState } from "../use-chat-configuration";
 import type { ComposerState } from "../use-composer";
 import { ComposerPicker } from "./composer-picker";
-import { StopConfirm, type StopConfirmProps } from "./run-line";
+import { StopConfirm, type StopConfirmProps } from "./stop-confirm";
 
 const RUNNING_PLACEHOLDER = "Message · sends after this run";
 
@@ -27,7 +27,7 @@ interface ComposerProps {
   readonly agentDisplayName: string;
   readonly runActive: boolean;
   readonly queued: boolean;
-  readonly stopConfirm?: Omit<StopConfirmProps, "hasDraft"> | null;
+  readonly stopConfirm?: StopConfirmProps | null;
   readonly placeholder?: string;
   readonly inputDisabled?: boolean;
 }
@@ -85,9 +85,7 @@ export function Composer({
           </ItemGroup>
         </Card>
       )}
-      {stopConfirm !== null && (
-        <StopConfirm {...stopConfirm} hasDraft={composer.draft.trim() !== ""} />
-      )}
+      {stopConfirm !== null && <StopConfirm {...stopConfirm} />}
       <InputGroup>
         <div className="flex w-full items-end gap-2 pr-2">
           <InputGroupTextarea

@@ -175,9 +175,15 @@ export function chatItemsOf(
   ];
 }
 
+function isFinished(item: ChatItem): boolean {
+  if (item.kind === "assistant") return !item.streaming;
+  if (item.kind === "tool-call") return item.state === "done" || item.state === "no-result";
+  return item.kind === "tool-result";
+}
+
 export function runLineIndexOf(items: readonly ChatItem[]): number {
   const last = items.at(-1);
-  if (last === undefined || (last.kind === "assistant" && !last.streaming)) return items.length;
+  if (last === undefined || isFinished(last)) return items.length;
   const lastUser = items.map((item) => item.kind).lastIndexOf("user");
   return lastUser === -1 ? items.length : lastUser;
 }

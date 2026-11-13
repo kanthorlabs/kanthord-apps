@@ -28,7 +28,7 @@ export interface ComposerState {
   readonly hint: string | null;
   readonly setDraft: (draft: string) => void;
   readonly submit: (delivery?: WorkbenchMessageDelivery) => void;
-  readonly refill: (texts: readonly string[]) => void;
+  readonly refill: (texts: readonly string[], hint?: string) => void;
   readonly focus: () => void;
   readonly blur: () => void;
   readonly pick: (command: SlashCommand) => void;
@@ -58,10 +58,11 @@ export function useComposer(
     setHint(null);
   }, []);
 
-  const refill = useCallback((texts: readonly string[]) => {
+  const refill = useCallback((texts: readonly string[], notice?: string) => {
     if (texts.length === 0) return;
     const joined = texts.join(BLANK_LINE);
     setDraftValue((current) => (current === "" ? joined : `${joined}${BLANK_LINE}${current}`));
+    if (notice !== undefined) setHint(notice);
   }, []);
 
   const sendText = useCallback(

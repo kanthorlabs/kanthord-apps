@@ -5,6 +5,7 @@ import {
   agentWorking,
   chatItemsOf,
   runErrorTargetId,
+  runLineIndexOf,
   summaryOf,
   workbenchPathsIn,
 } from "./workbench-chat";
@@ -261,5 +262,49 @@ describe("runErrorTargetId", () => {
 
   it("names nothing when no user item exists", () => {
     expect(runErrorTargetId([])).toBeNull();
+  });
+});
+
+describe("runLineIndexOf", () => {
+  const FIRST = message("e1", { role: "user", content: "First" });
+  const CALLED = message("e2", { role: "assistant", content: [CALL] });
+  const RESULT = message("e3", {
+    role: "toolResult",
+    toolCallId: "call_1",
+    toolName: "mission.node.list",
+    content: [{ type: "text", text: "{}" }],
+    isError: false,
+  });
+
+  it("names the end after a finished assistant item", () => {
+    const items = chatItemsOf(
+      [FIRST, message("e2", { role: "assistant", content: [{ type: "text", text: "Hi" }] })],
+      { ...IDLE, run_active: true },
+    );
+
+    expect(runLineIndexOf(items)).toBe(items.length);
+  });
+
+  it("names the end after a finished tool result", () => {
+    const items = chatItemsOf([FIRST, CALLED, RESULT], { ...IDLE, run_active: true });
+
+    expect(runLineIndexOf(items)).toBe(items.length);
+  });
+
+  it("names the end after a tool call that ended with no result", () => {
+    const items = chatItemsOf([FIRST, CALLED], IDLE);
+
+    expect(items.at(-1)).toMatchObject({ kind: "tool-call", state: "no-result" });
+    expect(runLineIndexOf(items)).toBe(items.length);
+  });
+
+  it("names the last user item while a tool call runs", () => {
+    const items = chatItemsOf([FIRST, CALLED], {
+      ...IDLE,
+      run_active: true,
+      pending_tool_calls: ["call_1"],
+    });
+
+    expect(runLineIndexOf(items)).toBe(0);
   });
 });

@@ -1,76 +1,41 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { utcDateTime } from "@/lib/format";
+import { summaryOf } from "@/lib/workbench-chat";
+
+export interface RunRequest {
+  readonly text: string;
+  readonly timestamp: number;
+}
 
 interface RunLineProps {
   readonly runActive: boolean;
   readonly busy: boolean;
+  readonly ownerName: string;
+  readonly request: RunRequest | null;
   readonly onStop: () => void;
 }
 
-export function RunLine({ runActive, busy, onStop }: RunLineProps) {
+export function RunLine({ runActive, busy, ownerName, request, onStop }: RunLineProps) {
   if (!runActive) return null;
   return (
     <div
       role="group"
       aria-label="Run line"
-      className="flex items-center gap-2 text-sm text-muted-foreground"
+      className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground"
     >
+      <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
       <span>Running</span>
-      <Button variant="outline" size="sm" disabled={busy} onClick={onStop}>
+      {request !== null && (
+        <span
+          title={`This run: started by ${ownerName} at ${utcDateTime(request.timestamp)}`}
+          className="min-w-0 truncate"
+        >
+          · {summaryOf(request.text)}
+        </span>
+      )}
+      <Button variant="destructive" size="xs" disabled={busy} onClick={onStop}>
         Stop
       </Button>
     </div>
-  );
-}
-
-export interface StopConfirmProps {
-  readonly count: number;
-  readonly hasDraft: boolean;
-  readonly busy: boolean;
-  readonly onStop: () => void;
-  readonly onStopAndSend: () => void;
-  readonly onCancel: () => void;
-}
-
-function queuedLine(count: number): string {
-  return count === 1
-    ? "Your 1 queued message returns to the composer."
-    : `Your ${count} queued messages return to the composer.`;
-}
-
-export function StopConfirm({
-  count,
-  hasDraft,
-  busy,
-  onStop,
-  onStopAndSend,
-  onCancel,
-}: StopConfirmProps) {
-  return (
-    <Card size="sm" role="alertdialog" aria-label="Stop the run?" className="mb-2 ring-destructive">
-      <CardHeader>
-        <h3 className="leading-none font-semibold text-destructive">Stop the run?</h3>
-      </CardHeader>
-      <CardContent className="text-sm">
-        <p>
-          <span>{queuedLine(count)}</span>
-          {hasDraft && " "}
-          {hasDraft && <span>Your draft sends next.</span>}
-        </p>
-      </CardContent>
-      <CardFooter className="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        {hasDraft && (
-          <Button type="button" variant="destructive" disabled={busy} onClick={onStopAndSend}>
-            Stop &amp; send draft
-          </Button>
-        )}
-        <Button type="button" variant="destructive" disabled={busy} onClick={onStop}>
-          Stop
-        </Button>
-      </CardFooter>
-    </Card>
   );
 }

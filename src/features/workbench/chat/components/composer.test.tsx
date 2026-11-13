@@ -480,6 +480,36 @@ describe("Composer", () => {
       expect(within(confirm).getByRole("button", { name: "Stop & send draft" })).toBeEnabled();
     });
 
+    it("hides Stop & send draft and the draft line when the draft is a /new command", async () => {
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "/new");
+      await userEvent.keyboard("{Escape}");
+      await clickStop();
+
+      const confirm = screen.getByRole("alertdialog");
+      expect(within(confirm).queryByRole("button", { name: "Stop & send draft" })).toBeNull();
+      expect(within(confirm).queryByText("Your draft sends next.")).toBeNull();
+      expect(within(confirm).getByRole("button", { name: "Stop" })).toBeEnabled();
+    });
+
+    it("says how many cleared messages are back in the draft after Stop", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: QUEUE,
+      });
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
+      );
+
+      expect(await screen.findByText("2 cleared messages are back in your draft")).toBeVisible();
+    });
+
     it("keeps the run, the queue and the draft on Cancel", async () => {
       withQueue(QUEUE);
       await screen.findByRole("button", { name: /2 queued/ });
