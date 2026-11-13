@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useCallback, useMemo, useState } from "react";
 
+import type { WorkbenchMessageDelivery } from "@/api/types";
 import {
   commandListOf,
   isCommandAvailable,
@@ -9,6 +10,7 @@ import {
 } from "./slash-commands";
 
 const NEW_TAKES_NO_TEXT = "/new takes no text yet";
+const BLANK_LINE = "\n\n";
 
 export interface ComposerOptions {
   readonly agentName: string;
@@ -25,7 +27,8 @@ export interface ComposerState {
   readonly activeCommand: SlashCommand | null;
   readonly hint: string | null;
   readonly setDraft: (draft: string) => void;
-  readonly submit: () => void;
+  readonly submit: (delivery?: WorkbenchMessageDelivery) => void;
+  readonly refill: (texts: readonly string[]) => void;
   readonly focus: () => void;
   readonly blur: () => void;
   readonly pick: (command: SlashCommand) => void;
@@ -34,7 +37,7 @@ export interface ComposerState {
 
 export function useComposer(
   disabled: boolean,
-  send: (text: string) => Promise<boolean>,
+  send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>,
   { agentName, onNew, initialDraft = "" }: ComposerOptions,
 ): ComposerState {
   const [draft, setDraftValue] = useState(initialDraft);
@@ -55,13 +58,21 @@ export function useComposer(
     setHint(null);
   }, []);
 
+  const refill = useCallback((texts: readonly string[]) => {
+    if (texts.length === 0) return;
+    const joined = texts.join(BLANK_LINE);
+    setDraftValue((current) => (current === "" ? joined : `${joined}${BLANK_LINE}${current}`));
+  }, []);
+
   const sendText = useCallback(
-    (value: string) => {
-      void send(value).then((sent) => {
-        if (sent) setDraftValue("");
+    (value: string, delivery: WorkbenchMessageDelivery) => {
+      const previous = draft;
+      setDraftValue("");
+      void send(value, delivery).then((sent) => {
+        if (!sent && previous !== "") refill([previous]);
       });
     },
-    [send],
+    [send, draft, refill],
   );
 
   const runNew = useCallback(() => {
@@ -77,29 +88,32 @@ export function useComposer(
         runNew();
         return;
       }
-      sendText(command.text);
+      sendText(command.text, "queue");
     },
     [disabled, runNew, sendText],
   );
 
-  const submit = useCallback(() => {
-    if (!canSend) return;
-    const parsed = parseSlashCommand(draft);
-    const command = SLASH_COMMANDS.find((entry) => entry.id === parsed?.command);
-    if (parsed === null || command === undefined || !isCommandAvailable(command, agentName)) {
-      sendText(text);
-      return;
-    }
-    if (command.text !== null) {
-      sendText(command.text);
-      return;
-    }
-    if (parsed.text !== null) {
-      setHint(NEW_TAKES_NO_TEXT);
-      return;
-    }
-    runNew();
-  }, [canSend, draft, agentName, text, sendText, runNew]);
+  const submit = useCallback(
+    (delivery: WorkbenchMessageDelivery = "queue") => {
+      if (!canSend) return;
+      const parsed = parseSlashCommand(draft);
+      const command = SLASH_COMMANDS.find((entry) => entry.id === parsed?.command);
+      if (parsed === null || command === undefined || !isCommandAvailable(command, agentName)) {
+        sendText(text, delivery);
+        return;
+      }
+      if (command.text !== null) {
+        sendText(command.text, delivery);
+        return;
+      }
+      if (parsed.text !== null) {
+        setHint(NEW_TAKES_NO_TEXT);
+        return;
+      }
+      runNew();
+    },
+    [canSend, draft, agentName, text, sendText, runNew],
+  );
 
   const focus = useCallback(() => {
     setFocused(true);
@@ -149,6 +163,7 @@ export function useComposer(
     hint,
     setDraft,
     submit,
+    refill,
     focus,
     blur,
     pick,

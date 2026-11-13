@@ -846,7 +846,7 @@ describe("HomeScreen layout", () => {
     expect(deckGrid?.compareDocumentPosition(list)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await user.click(within(list).getByRole("option", { name: /\/brief/ }));
     await waitFor(() =>
-      expect(sendWorkbenchMessage).toHaveBeenCalledWith(expect.any(String), BRIEF_TEXT),
+      expect(sendWorkbenchMessage).toHaveBeenCalledWith(expect.any(String), BRIEF_TEXT, "queue"),
     );
   });
 
@@ -1383,7 +1383,7 @@ describe("HomeScreen Yumi chat", () => {
     await user.click(await screen.findByRole("option", { name: /\/brief/ }));
 
     await waitFor(() => expect(sendWorkbenchMessage).toHaveBeenCalledTimes(1));
-    expect(sendWorkbenchMessage).toHaveBeenCalledWith("workbench_session_Y1", BRIEF_TEXT);
+    expect(sendWorkbenchMessage).toHaveBeenCalledWith("workbench_session_Y1", BRIEF_TEXT, "queue");
     expect(screen.queryByRole("button", { name: "Brief me" })).toBeNull();
   });
 

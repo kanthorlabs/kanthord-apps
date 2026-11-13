@@ -5,8 +5,9 @@ import {
   approveWorkbenchCall,
   sendWorkbenchMessage,
 } from "@/api/resources/workbench";
-import type { WorkbenchRunSnapshot } from "@/api/types";
+import type { WorkbenchMessageDelivery } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
+import type { SnapshotPatch } from "./use-session-events";
 
 export type ChatActionCause = "send" | "abort" | "approve";
 
@@ -20,31 +21,31 @@ export interface ChatActionFailure {
 export interface ChatActionsState {
   readonly failure: ChatActionFailure | null;
   readonly busy: boolean;
-  readonly send: (text: string) => Promise<boolean>;
+  readonly send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>;
   readonly abort: () => void;
   readonly approve: (toolCallId: string, approved: boolean) => void;
 }
 
 export function useChatActions(
   sessionId: string,
-  patchSnapshot: (patch: Partial<WorkbenchRunSnapshot>) => void,
+  patchSnapshot: (patch: SnapshotPatch) => void,
+  refill: (texts: readonly string[]) => void,
   initialFailure: ChatActionFailure | null = null,
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
 
   const perform = useCallback(
-    async (
+    async <T>(
       cause: ChatActionCause,
-      action: () => Promise<unknown>,
-      onDone: () => void,
+      action: () => Promise<T>,
+      onDone: (answer: T) => void,
       toolCallId?: string,
     ): Promise<boolean> => {
       setFailure(null);
       setBusy(true);
       try {
-        await action();
-        onDone();
+        onDone(await action());
         return true;
       } catch (failed) {
         const error = asApiError(failed);
@@ -58,22 +59,33 @@ export function useChatActions(
   );
 
   const send = useCallback(
-    (text: string) =>
+    (text: string, delivery: WorkbenchMessageDelivery) =>
       perform(
         "send",
-        () => sendWorkbenchMessage(sessionId, text),
-        () => patchSnapshot({ run_active: true, error_message: null }),
+        () => sendWorkbenchMessage(sessionId, text, delivery),
+        (answer) => {
+          refill(answer.cleared.map((cleared) => cleared.text));
+          if (answer.queued_message_id === null) {
+            patchSnapshot({ run_active: true, error_message: null, queue: [] });
+            return;
+          }
+          const queued = { id: answer.queued_message_id, text };
+          patchSnapshot((current) => ({ queue: [...current.queue, queued] }));
+        },
       ),
-    [perform, sessionId, patchSnapshot],
+    [perform, sessionId, patchSnapshot, refill],
   );
 
   const abort = useCallback(() => {
     void perform(
       "abort",
       () => abortWorkbenchRun(sessionId),
-      () => patchSnapshot({ run_active: false, pending_approval: null }),
+      (answer) => {
+        refill(answer.cleared.map((cleared) => cleared.text));
+        patchSnapshot({ run_active: false, pending_approval: null, queue: [] });
+      },
     );
-  }, [perform, sessionId, patchSnapshot]);
+  }, [perform, sessionId, patchSnapshot, refill]);
 
   const approve = useCallback(
     (toolCallId: string, approved: boolean) => {

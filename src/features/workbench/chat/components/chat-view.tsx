@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
@@ -17,6 +17,8 @@ import { ChatTranscript } from "./chat-transcript";
 import { InlineError } from "./inline-error";
 import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
+
+const NO_REFILL = () => undefined;
 
 interface ChatViewProps {
   readonly session: WorkbenchSession;
@@ -40,9 +42,12 @@ export function ChatView({
   onNew,
 }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.run_active);
+  const refillRef = useRef<(texts: readonly string[]) => void>(NO_REFILL);
+  const refill = useCallback((texts: readonly string[]) => refillRef.current(texts), []);
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
+    refill,
     firstSendFailure === null
       ? null
       : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
@@ -60,11 +65,14 @@ export function ChatView({
     () => navigate(newSessionPath(session.agent_name, currentConfiguration)),
     [navigate, session.agent_name, currentConfiguration],
   );
-  const composer = useComposer(snapshot.run_active || actions.busy, actions.send, {
+  const composer = useComposer(actions.busy, actions.send, {
     agentName: session.agent_name,
     onNew: onNew ?? openNewChat,
     initialDraft: firstSendFailure?.draft,
   });
+  useEffect(() => {
+    refillRef.current = composer.refill;
+  }, [composer.refill]);
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active);
@@ -125,8 +133,9 @@ export function ChatView({
         <Composer
           composer={composer}
           configuration={configuration}
+          agentDisplayName={agentDisplayName}
           runActive={snapshot.run_active}
-          onStop={actions.abort}
+          queued={snapshot.queue.length > 0}
         />
         {composerFailures.map((failure) => (
           <InlineError key={failure.message} code={failure.code} message={failure.message} />

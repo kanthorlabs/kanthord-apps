@@ -9,11 +9,15 @@ export const EVENTS_BACKOFF_MS = 1000;
 
 const FINAL_FAILURES: readonly ApiErrorCode[] = ["unauthorized", "forbidden", "not_found"];
 
+export type SnapshotPatch =
+  | Partial<WorkbenchRunSnapshot>
+  | ((current: WorkbenchRunSnapshot) => Partial<WorkbenchRunSnapshot>);
+
 export interface SessionEventsState {
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly snapshot: WorkbenchRunSnapshot;
   readonly failure: string | null;
-  readonly patchSnapshot: (patch: Partial<WorkbenchRunSnapshot>) => void;
+  readonly patchSnapshot: (patch: SnapshotPatch) => void;
 }
 
 function pause(ms: number, signal: AbortSignal): Promise<void> {
@@ -88,7 +92,11 @@ export function useSessionEvents(
   }, [sessionId, initialEntries]);
 
   const patchSnapshot = useCallback(
-    (patch: Partial<WorkbenchRunSnapshot>) => setSnapshot((current) => ({ ...current, ...patch })),
+    (patch: SnapshotPatch) =>
+      setSnapshot((current) => ({
+        ...current,
+        ...(typeof patch === "function" ? patch(current) : patch),
+      })),
     [],
   );
 
