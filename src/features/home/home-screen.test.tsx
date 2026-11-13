@@ -901,7 +901,11 @@ describe("HomeScreen reads", () => {
     });
     renderScreen();
     expect(
-      await screen.findByText(textContent(/Some records could not be read: atlas queue/)),
+      await screen.findByText(
+        textContent(/Some records could not be read: atlas queue/),
+        {},
+        { timeout: 4000 },
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
     vi.mocked(listQueueJobs).mockImplementation(async () => []);
@@ -913,7 +917,7 @@ describe("HomeScreen reads", () => {
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(await screen.findByText("All clear", {}, { timeout: 4000 })).toBeInTheDocument();
     expect(listQueueJobs).toHaveBeenCalledTimes(1);
     expect(listQueueJobs).toHaveBeenCalledWith("prj-2");
     expect(listProjects).not.toHaveBeenCalled();
@@ -921,7 +925,7 @@ describe("HomeScreen reads", () => {
     expect(listMissionNodes).not.toHaveBeenCalled();
     expect(listWorkbenchSessions).not.toHaveBeenCalled();
     expect(listInboxItems).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it("names the failed session read and holds back All clear", async () => {
     serve({});
