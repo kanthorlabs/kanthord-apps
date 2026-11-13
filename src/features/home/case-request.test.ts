@@ -171,7 +171,6 @@ describe("caseRequestOf of a Fix item", () => {
     const item = { ...fixItemOf("agent_invalid"), bindings: [] } as unknown as FixAttentionItem;
 
     expect(caseRequestOf(item)).toBeNull();
-    expect(caseRequestOf(item)).toBeNull();
   });
 });
 
