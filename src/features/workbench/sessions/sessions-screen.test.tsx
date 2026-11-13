@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -10,7 +10,6 @@ import type {
   AgentEnablement,
   AgentModel,
   AgentSummary,
-  WorkbenchSession,
   WorkbenchSessionListItem,
 } from "@/api/types";
 
@@ -100,6 +99,11 @@ const NEW: WorkbenchSessionListItem = {
   pending_approval: null,
 };
 
+function NewRoute() {
+  const { search } = useLocation();
+  return <p>New {search}</p>;
+}
+
 function Opened() {
   const { sessionId } = useParams<{ sessionId: string }>();
   return <p>Opened {sessionId}</p>;
@@ -110,6 +114,7 @@ function mount(entry = "/workbench?agentName=swe%401") {
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route path="/workbench" element={<SessionsScreen />} />
+        <Route path="/workbench/new" element={<NewRoute />} />
         <Route path="/workbench/:sessionId" element={<Opened />} />
       </Routes>
     </MemoryRouter>,
@@ -296,17 +301,8 @@ describe("SessionsScreen", () => {
     ).toBeTruthy();
   });
 
-  it("starts a session with the confirmed default configuration", async () => {
+  it("opens the new-session route with the confirmed default configuration", async () => {
     serve([]);
-    const created: WorkbenchSession = {
-      id: "workbench_session_CREATED",
-      agent_name: "swe@1",
-      configuration: ENABLEMENT.default_configuration,
-      entries: [],
-      run_active: false,
-      resume_command: "pi --session ~/session.jsonl",
-    };
-    vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();
 
     const dialog = await openDialog();
@@ -321,11 +317,12 @@ describe("SessionsScreen", () => {
     );
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
-    expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
+    const route = await screen.findByText(/^New \?/);
+    const query = new URLSearchParams(route.textContent?.replace(/^New /, ""));
+    expect(Object.fromEntries(query)).toEqual({
       agent_name: "swe@1",
       ...ENABLEMENT.default_configuration,
     });
-    expect(await screen.findByText("Opened workbench_session_CREATED")).toBeTruthy();
   });
 
   it("filters the models by the text that the human types", async () => {
@@ -341,16 +338,8 @@ describe("SessionsScreen", () => {
     expect(screen.queryByRole("option", { name: "qwen3-coder" })).toBeNull();
   });
 
-  it("sends the configuration that the human changed", async () => {
+  it("puts the configuration that the human changed in the query", async () => {
     serve([]);
-    vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue({
-      id: "workbench_session_CREATED",
-      agent_name: "swe@1",
-      configuration: ENABLEMENT.default_configuration,
-      entries: [],
-      run_active: false,
-      resume_command: "pi --session ~/session.jsonl",
-    });
     mount();
 
     const dialog = await openDialog();
@@ -358,7 +347,9 @@ describe("SessionsScreen", () => {
     await choose(dialog, "Reasoning Effort", "high");
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
-    expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
+    const route = await screen.findByText(/^New \?/);
+    const query = new URLSearchParams(route.textContent?.replace(/^New /, ""));
+    expect(Object.fromEntries(query)).toEqual({
       agent_name: "swe@1",
       agent_provider: "openai-org",
       model_identifier: "gpt-5",
@@ -500,17 +491,19 @@ describe("SessionsScreen", () => {
     );
   });
 
-  it("shows the refusal of the server and keeps the dialog open", async () => {
+  it("makes no API call at submit", async () => {
     serve([]);
-    vi.mocked(workbenchApi.createWorkbenchSession).mockRejectedValue(
-      new ApiError("refused", "The model is unknown.", 422),
-    );
     mount();
 
     const dialog = await openDialog();
+    await waitFor(() => expect(workersApi.listAgentProviderModels).toHaveBeenCalled());
+    const reads = vi.mocked(workersApi.listAgentProviderModels).mock.calls.length;
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
-    expect(await within(dialog).findByText("The model is unknown.")).toBeTruthy();
+    await screen.findByText(/^New \?/);
+    expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+    expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+    expect(vi.mocked(workersApi.listAgentProviderModels).mock.calls).toHaveLength(reads);
   });
 
   it("closes the dialog on Cancel", async () => {

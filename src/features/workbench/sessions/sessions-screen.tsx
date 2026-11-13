@@ -7,6 +7,7 @@ import { DataListItem } from "@/components/data-list-item";
 import { Badge } from "@/components/ui/badge";
 import { counted } from "@/lib/counted";
 import { utcDateTime } from "@/lib/format";
+import { newSessionPath } from "@/lib/workbench-new-session";
 import { sessionTitle, workbenchSessionPath } from "@/lib/workbench-sessions";
 import { AgentFilter } from "./components/agent-filter";
 import { NewSessionButton } from "./components/new-session-button";
@@ -68,7 +69,7 @@ export function SessionsScreen() {
           agents={agents}
           initialAgentName={null}
           onClose={() => setStarting(false)}
-          onCreated={(session) => navigate(workbenchSessionPath(session.id))}
+          onStart={(agentName, configuration) => navigate(newSessionPath(agentName, configuration))}
         />
       )}
       <DataList

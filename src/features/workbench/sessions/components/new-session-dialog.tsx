@@ -1,4 +1,4 @@
-import type { AgentSummary, WorkbenchSession } from "@/api/types";
+import type { AgentSummary, WorkbenchConfiguration } from "@/api/types";
 import { ChoiceField } from "@/components/choice-field";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,16 +16,17 @@ interface NewSessionDialogProps {
   readonly agents: readonly AgentSummary[];
   readonly initialAgentName: string | null;
   readonly onClose: () => void;
-  readonly onCreated: (session: WorkbenchSession) => void;
+  readonly onStart: (agentName: string, configuration: WorkbenchConfiguration) => void;
 }
 
 export function NewSessionDialog({
   agents,
   initialAgentName,
   onClose,
-  onCreated,
+  onStart,
 }: NewSessionDialogProps) {
   const choice = useNewSession(agents, initialAgentName);
+  const { agentName } = choice;
 
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
@@ -53,13 +54,13 @@ export function NewSessionDialog({
             </FieldDescription>
           )}
         </FieldGroup>
-        {choice.agentName !== null && choice.enablement !== null ? (
+        {agentName !== null && choice.enablement !== null ? (
           <SessionConfigurationForm
-            key={choice.agentName}
-            agentName={choice.agentName}
+            key={agentName}
+            agentName={agentName}
             enablement={choice.enablement}
             onClose={onClose}
-            onCreated={onCreated}
+            onStart={(configuration) => onStart(agentName, configuration)}
           />
         ) : (
           <FieldGroup className="md:grid md:grid-cols-2">

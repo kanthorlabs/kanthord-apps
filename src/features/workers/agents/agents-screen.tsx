@@ -10,7 +10,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { agentLabel } from "@/lib/agent-label";
 import { toolCountsLine } from "@/lib/agent-tools";
-import { newSessionUnavailableReason, workbenchSessionPath } from "@/lib/workbench-sessions";
+import { newSessionPath } from "@/lib/workbench-new-session";
+import { newSessionUnavailableReason } from "@/lib/workbench-sessions";
 import { NewSessionButton } from "@/features/workbench/sessions/components/new-session-button";
 import { NewSessionDialog } from "@/features/workbench/sessions/components/new-session-dialog";
 import { ENABLEMENT_HASH } from "../agent/use-enablement-create";
@@ -55,7 +56,7 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           agents={[agent]}
           initialAgentName={agentName}
           onClose={() => setStarting(false)}
-          onCreated={(session) => navigate(workbenchSessionPath(session.id))}
+          onStart={(agentName, configuration) => navigate(newSessionPath(agentName, configuration))}
         />
       )}
       <ItemContent className="min-w-0 gap-3">

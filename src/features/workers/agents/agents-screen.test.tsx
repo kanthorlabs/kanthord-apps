@@ -1,12 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentSummary, WorkbenchSession } from "@/api/types";
+import type { AgentSummary } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
@@ -54,9 +54,9 @@ const OPS: AgentSummary = {
   enablement: null,
 };
 
-function Opened() {
-  const { sessionId } = useParams<{ sessionId: string }>();
-  return <p>Opened {sessionId}</p>;
+function NewRoute() {
+  const { search } = useLocation();
+  return <p>New {search}</p>;
 }
 
 function mount() {
@@ -64,7 +64,7 @@ function mount() {
     <MemoryRouter initialEntries={["/agents"]}>
       <Routes>
         <Route path="/agents" element={<AgentsScreen />} />
-        <Route path="/workbench/:sessionId" element={<Opened />} />
+        <Route path="/workbench/new" element={<NewRoute />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -135,20 +135,11 @@ describe("AgentsScreen", () => {
     );
   });
 
-  it("starts a session of an enabled agent from its row and opens the chat", async () => {
+  it("starts a session of an enabled agent from its row and opens the new-session route", async () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue([RE, SWE]);
     vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
       { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
     ]);
-    const created: WorkbenchSession = {
-      id: "workbench_session_CREATED",
-      agent_name: "swe@1",
-      configuration: SWE.enablement!.default_configuration,
-      entries: [],
-      run_active: false,
-      resume_command: "pi --session ~/session.jsonl",
-    };
-    vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(created);
     mount();
 
     expect(await screen.findByRole("button", { name: "New session with re@1" })).toHaveAttribute(
@@ -159,11 +150,11 @@ describe("AgentsScreen", () => {
     const dialog = await screen.findByRole("dialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Start Session" }));
 
-    expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
-      agent_name: "swe@1",
-      ...SWE.enablement!.default_configuration,
-    });
-    expect(await screen.findByText("Opened workbench_session_CREATED")).toBeTruthy();
+    const route = await screen.findByText(/^New \?/);
+    expect(
+      Object.fromEntries(new URLSearchParams(route.textContent?.replace(/^New /, ""))),
+    ).toEqual({ agent_name: "swe@1", ...SWE.enablement!.default_configuration });
+    expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
   });
 
   it("reports a failed read", async () => {

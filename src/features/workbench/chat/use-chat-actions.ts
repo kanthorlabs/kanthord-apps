@@ -27,8 +27,9 @@ export interface ChatActionsState {
 export function useChatActions(
   sessionId: string,
   patchSnapshot: (patch: Partial<WorkbenchRunSnapshot>) => void,
+  initialFailure: ChatActionFailure | null = null,
 ): ChatActionsState {
-  const [failure, setFailure] = useState<ChatActionFailure | null>(null);
+  const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
 
   const perform = useCallback(

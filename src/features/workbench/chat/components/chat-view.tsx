@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { agentWorking, chatItemsOf } from "@/lib/workbench-chat";
+import type { FirstSendFailure } from "@/lib/workbench-new-session";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
@@ -21,11 +22,24 @@ interface ChatViewProps {
   readonly enablement: AgentEnablement | null;
   readonly ownerName: string;
   readonly agentDisplayName: string;
+  readonly firstSendFailure?: FirstSendFailure | null;
 }
 
-export function ChatView({ session, enablement, ownerName, agentDisplayName }: ChatViewProps) {
+export function ChatView({
+  session,
+  enablement,
+  ownerName,
+  agentDisplayName,
+  firstSendFailure = null,
+}: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.run_active);
-  const actions = useChatActions(session.id, events.patchSnapshot);
+  const actions = useChatActions(
+    session.id,
+    events.patchSnapshot,
+    firstSendFailure === null
+      ? null
+      : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
+  );
   const configuration = useChatConfiguration(
     session.id,
     session.agent_name,
@@ -33,7 +47,11 @@ export function ChatView({ session, enablement, ownerName, agentDisplayName }: C
     enablement,
   );
   const { snapshot } = events;
-  const composer = useComposer(snapshot.run_active || actions.busy, actions.send);
+  const composer = useComposer(
+    snapshot.run_active || actions.busy,
+    actions.send,
+    firstSendFailure?.draft,
+  );
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active);
