@@ -13,6 +13,7 @@ import {
   listWorkbenchSessions,
   readWorkbenchEvents,
   readWorkbenchSession,
+  removeQueuedWorkbenchMessage,
   sendWorkbenchMessage,
 } from "./workbench";
 
@@ -153,15 +154,28 @@ describe("configureWorkbenchSession", () => {
 });
 
 describe("sendWorkbenchMessage", () => {
-  it("posts the text", async () => {
-    await serve({
-      [`POST ${PATH}/message`]: { status: 202, body: { session_id: SESSION_ID, run_active: true } },
-    });
+  const ACCEPTED = {
+    session_id: SESSION_ID,
+    run_active: true,
+    queued_message_id: null,
+    cleared: [],
+  };
+
+  it("posts the text with the queue delivery by default", async () => {
+    await serve({ [`POST ${PATH}/message`]: { status: 202, body: ACCEPTED } });
 
     await sendWorkbenchMessage(SESSION_ID, "List the nodes");
 
-    expect(JSON.parse(seen[0]!.body)).toEqual({ text: "List the nodes" });
+    expect(JSON.parse(seen[0]!.body)).toEqual({ text: "List the nodes", delivery: "queue" });
     expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("posts the replace delivery on request", async () => {
+    await serve({ [`POST ${PATH}/message`]: { status: 202, body: ACCEPTED } });
+
+    await sendWorkbenchMessage(SESSION_ID, "Instead", "replace");
+
+    expect(JSON.parse(seen[0]!.body)).toEqual({ text: "Instead", delivery: "replace" });
   });
 
   it("rejects an active run with the code of the owning service", async () => {
@@ -186,10 +200,26 @@ describe("sendWorkbenchMessage", () => {
   });
 });
 
+describe("removeQueuedWorkbenchMessage", () => {
+  it("sends DELETE to the queue path with an idempotency key", async () => {
+    await serve({
+      [`DELETE ${PATH}/queue/queued_1`]: {
+        body: { session_id: SESSION_ID, queued_message_id: "queued_1" },
+      },
+    });
+
+    const answer = await removeQueuedWorkbenchMessage(SESSION_ID, "queued_1");
+
+    expect(answer.queued_message_id).toBe("queued_1");
+    expect(seen[0]!.method).toBe("DELETE");
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
 describe("abortWorkbenchRun", () => {
   it("posts no body", async () => {
     await serve({
-      [`POST ${PATH}/abort`]: { body: { session_id: SESSION_ID, run_active: false } },
+      [`POST ${PATH}/abort`]: { body: { session_id: SESSION_ID, run_active: false, cleared: [] } },
     });
 
     expect((await abortWorkbenchRun(SESSION_ID)).run_active).toBe(false);

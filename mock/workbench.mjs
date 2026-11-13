@@ -2,6 +2,7 @@ const WAIT_WINDOW_MS = 25000;
 const WORD_DELAY_MS = 150;
 const STEP_DELAY_MS = 400;
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const QUEUE_LIMIT = 10;
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const sessionId = () => {
@@ -30,6 +31,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         streaming_message: null,
         pending_tool_calls: [],
         pending_approval: null,
+        queue: [],
         error_message: null,
         waiters: new Set(),
         version: 0,
@@ -44,6 +46,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       streaming_message: state.streaming_message,
       pending_tool_calls: [...state.pending_tool_calls],
       pending_approval: state.pending_approval,
+      queue: state.queue.map((item) => ({ ...item })),
       run_active: state.run !== null,
       error_message: state.error_message,
     };
@@ -177,8 +180,54 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     }
   };
 
-  const finish = (session) => {
+  const startRun = (session, text) => {
     const state = stateOf(session);
+    const run = { cancelled: false, cancel: null, decide: null };
+    state.run = run;
+    state.error_message = null;
+    append(session, "message", { message: { role: "user", content: text } });
+    play(session, run, text).finally(() => finish(session, run));
+  };
+
+  const finish = (session, run) => {
+    const state = stateOf(session);
+    if (state.run !== run) return;
+    state.run = null;
+    state.streaming_message = null;
+    state.pending_tool_calls = [];
+    state.pending_approval = null;
+    const next = state.queue.shift();
+    if (next === undefined) return notify(session);
+    startRun(session, next.text);
+  };
+
+  const clearQueue = (session) => {
+    const state = stateOf(session);
+    const cleared = state.queue.splice(0);
+    notify(session);
+    return cleared;
+  };
+
+  const enqueue = (session, text) => {
+    entrySequence += 1;
+    const item = { id: `workbench_queued_message_${entrySequence}`, text };
+    stateOf(session).queue.push(item);
+    notify(session);
+    return item;
+  };
+
+  const interruptRun = (session) => {
+    const run = stateOf(session).run;
+    run.cancelled = true;
+    run.cancel?.();
+  };
+
+  const cancelRun = (session) => {
+    const state = stateOf(session);
+    const run = state.run;
+    if (run === null) return;
+    run.cancelled = true;
+    run.cancel?.();
     state.run = null;
     state.streaming_message = null;
     state.pending_tool_calls = [];
@@ -186,11 +235,9 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     notify(session);
   };
 
-  const resumeApproval = async (session) => {
+  const resumeApproval = async (session, run) => {
     const { approval } = session;
-    const state = stateOf(session);
-    const run = { cancelled: false, cancel: null, decide: null };
-    state.run = run;
+    stateOf(session).run = run;
     const approved = await awaitApproval(session, run, approval);
     const call = { id: approval.tool_call_id, name: approval.operation_id };
     await answerApproval(session, run, call, approved);
@@ -204,7 +251,9 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   };
 
   for (const session of sessions) {
-    if (session.approval !== undefined) resumeApproval(session).finally(() => finish(session));
+    if (session.approval === undefined) continue;
+    const run = { cancelled: false, cancel: null, decide: null };
+    resumeApproval(session, run).finally(() => finish(session, run));
   }
 
   const find = (res, id) => {
@@ -309,31 +358,60 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     const session = find(res, m[1]);
     if (session === undefined) return;
     const state = stateOf(session);
-    if (state.run !== null) {
+    const answer = (queuedMessageId, cleared) =>
+      json(res, 202, {
+        session_id: session.id,
+        run_active: true,
+        queued_message_id: queuedMessageId,
+        cleared,
+      });
+    if (state.run === null) {
+      startRun(session, body.text);
+      return answer(null, []);
+    }
+    if (body.delivery === "replace") {
+      const cleared = clearQueue(session);
+      const item = enqueue(session, body.text);
+      interruptRun(session);
+      return answer(item.id, cleared);
+    }
+    if (state.queue.length >= QUEUE_LIMIT) {
       return envelope(
         res,
         409,
-        "workbench.session.run_active",
-        "The workbench session holds an active run.",
+        "workbench.session.queue_full",
+        "The workbench session queue is full.",
       );
     }
-    const run = { cancelled: false, cancel: null, decide: null };
-    state.run = run;
-    state.error_message = null;
-    append(session, "message", { message: { role: "user", content: body.text } });
-    play(session, run, body.text).finally(() => finish(session));
-    return json(res, 202, { session_id: session.id, run_active: true });
+    const item = enqueue(session, body.text);
+    return answer(item.id, []);
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/abort$/, (m, _b, res) => {
     const session = find(res, m[1]);
     if (session === undefined) return;
-    const run = stateOf(session).run;
-    if (run !== null) {
-      run.cancelled = true;
-      run.cancel?.();
+    const cleared = clearQueue(session);
+    cancelRun(session);
+    return json(res, 200, { session_id: session.id, run_active: false, cleared });
+  });
+
+  on("DELETE", /^\/api\/workbench\/session\/([^/]+)\/queue\/([^/]+)$/, (m, _b, res) => {
+    const session = find(res, m[1]);
+    if (session === undefined) return;
+    const queue = stateOf(session).queue;
+    const queuedMessageId = decodeURIComponent(m[2]);
+    const index = queue.findIndex((item) => item.id === queuedMessageId);
+    if (index === -1) {
+      return envelope(
+        res,
+        404,
+        "workbench.session.queued_message_not_found",
+        "The workbench session holds no queued message with that id.",
+      );
     }
-    return json(res, 200, { session_id: session.id, run_active: false });
+    queue.splice(index, 1);
+    notify(session);
+    return json(res, 200, { session_id: session.id, queued_message_id: queuedMessageId });
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/approve$/, (m, body, res) => {

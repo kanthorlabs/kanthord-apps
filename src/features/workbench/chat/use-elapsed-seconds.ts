@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const TICK_MS = 1000;
 
-export function useElapsedSeconds(active: boolean): number {
+export function useElapsedSeconds(active: boolean, runKey: string | null): number {
   const [seconds, setSeconds] = useState(0);
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export function useElapsedSeconds(active: boolean): number {
       clearInterval(timer);
       setSeconds(0);
     };
-  }, [active]);
+  }, [active, runKey]);
 
   return active ? seconds : 0;
 }

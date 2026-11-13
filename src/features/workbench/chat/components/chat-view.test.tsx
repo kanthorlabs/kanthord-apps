@@ -26,6 +26,7 @@ const IDLE: WorkbenchRunSnapshot = {
   streaming_message: null,
   pending_tool_calls: [],
   pending_approval: null,
+  queue: [],
   run_active: false,
   error_message: null,
 };
@@ -264,27 +265,38 @@ describe("ChatView", () => {
     );
   });
 
-  it("keeps the draft editable and swaps Send for Stop while a run is active", async () => {
+  it("keeps the draft editable and keeps Send while a run is active", async () => {
     const polls = pollQueue();
-    vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
-      session_id: SESSION_ID,
-      run_active: false,
-    });
     mount(session([], true));
     await polls.answer({ snapshot: { run_active: true } });
 
-    expect(await screen.findByText("Running")).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Run line" })).toBeTruthy();
     expect(screen.getByText("The agent is working")).toBeTruthy();
     await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "next step");
+
     expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("next step");
-    expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
-
-    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
-
-    expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Stop" })).toBeNull());
     expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
-    expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
+    expect(
+      within(screen.getByRole("group", { name: "Run line" })).getByRole("button", { name: "Stop" }),
+    ).toBeEnabled();
+  });
+
+  it("restarts the working counter when the next run starts with no idle state between", async () => {
+    const realNow = Date.now();
+    let offset = 0;
+    vi.spyOn(Date, "now").mockImplementation(() => realNow + offset);
+    const polls = pollQueue();
+    mount(session([message("e1", { role: "user", content: "First" })], true));
+    await polls.answer({ snapshot: { run_active: true } });
+    offset = 85_000;
+    expect(await screen.findByText("85s", undefined, { timeout: 3000 })).toBeTruthy();
+
+    await polls.answer({
+      entries: [message("e2", { role: "user", content: "Replacement" })],
+      snapshot: { run_active: true },
+    });
+
+    expect(await screen.findByText("0s")).toBeTruthy();
   });
 
   it("shows the error message of a failed run", async () => {
@@ -427,15 +439,117 @@ describe("ChatView", () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
       session_id: SESSION_ID,
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     mount(session());
 
     await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "List the nodes");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "List the nodes");
-    expect(await screen.findByText("Running")).toBeTruthy();
+    expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+      SESSION_ID,
+      "List the nodes",
+      "queue",
+    );
+    expect(await screen.findByRole("group", { name: "Run line" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("");
+  });
+
+  describe("after a send", () => {
+    const FAILED_RUN = "The model provider refused the request.";
+
+    async function mountWithFailedRun() {
+      const polls = pollQueue();
+      mount(session([message("e1", { role: "user", content: "Hi" })]));
+      await polls.answer({
+        entries: [],
+        snapshot: { error_message: FAILED_RUN },
+      });
+      await screen.findByText(FAILED_RUN);
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "next");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    }
+
+    it("adds a queued message to the snapshot queue before the next poll", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: "queued_1",
+        cleared: [],
+      });
+      mount(session());
+      expect(screen.getByRole("combobox", { name: "Model" })).toBeEnabled();
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "later");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      await waitFor(() => expect(screen.getByRole("combobox", { name: "Model" })).toBeDisabled());
+      expect(screen.queryByText("Running")).toBeNull();
+    });
+
+    it("shows the row of a queued message before the next poll", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: "queued_1",
+        cleared: [],
+      });
+      mount(session([], true));
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "later{Enter}");
+
+      const line = await screen.findByRole("button", { name: /1 queued/ });
+      expect(line).toHaveTextContent("later");
+      await userEvent.click(line);
+      expect(await screen.findByRole("button", { name: "Remove" })).toBeEnabled();
+    });
+
+    it("keeps the error message when the message is queued", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: "queued_1",
+        cleared: [],
+      });
+
+      await mountWithFailedRun();
+
+      await waitFor(() => expect(screen.getByRole("combobox", { name: "Model" })).toBeDisabled());
+      expect(screen.getByText(FAILED_RUN)).toBeTruthy();
+    });
+
+    it("clears the error message when the send starts a run", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: null,
+        cleared: [],
+      });
+
+      await mountWithFailedRun();
+
+      await waitFor(() => expect(screen.queryByText(FAILED_RUN)).toBeNull());
+    });
+
+    it("puts the cleared texts back into the composer", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: null,
+        cleared: [{ id: "queued_1", text: "queued one" }],
+      });
+      mount(session([], true));
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "instead{Enter}");
+
+      await waitFor(() =>
+        expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("queued one"),
+      );
+    });
   });
 
   it("keeps the draft and names the refusal when the send fails", async () => {

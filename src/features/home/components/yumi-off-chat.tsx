@@ -35,8 +35,9 @@ export function YumiOffChat({ children }: YumiOffChatProps) {
         <Composer
           composer={composer}
           configuration={null}
+          agentDisplayName="Yumi"
           runActive={false}
-          onStop={NO_CHANGE}
+          queued={false}
           placeholder="Enable Yumi to chat here."
           inputDisabled
         />

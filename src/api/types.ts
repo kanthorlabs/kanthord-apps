@@ -1635,10 +1635,18 @@ export interface WorkbenchPendingApproval extends WorkbenchPendingApprovalSummar
   readonly input: Readonly<Record<string, unknown>>;
 }
 
+export interface WorkbenchQueuedMessage {
+  readonly id: string;
+  readonly text: string;
+}
+
+export type WorkbenchMessageDelivery = "queue" | "replace";
+
 export interface WorkbenchRunSnapshot {
   readonly streaming_message: Readonly<Record<string, unknown>> | null;
   readonly pending_tool_calls: readonly string[];
   readonly pending_approval: WorkbenchPendingApproval | null;
+  readonly queue: readonly WorkbenchQueuedMessage[];
   readonly run_active: boolean;
   readonly error_message: string | null;
 }
@@ -1652,11 +1660,19 @@ export interface WorkbenchSessionEvents {
 export interface WorkbenchMessageAnswer {
   readonly session_id: string;
   readonly run_active: true;
+  readonly queued_message_id: string | null;
+  readonly cleared: readonly WorkbenchQueuedMessage[];
 }
 
 export interface WorkbenchAbortAnswer {
   readonly session_id: string;
   readonly run_active: false;
+  readonly cleared: readonly WorkbenchQueuedMessage[];
+}
+
+export interface WorkbenchQueueRemoveAnswer {
+  readonly session_id: string;
+  readonly queued_message_id: string;
 }
 
 export interface WorkbenchApprovalAnswer {

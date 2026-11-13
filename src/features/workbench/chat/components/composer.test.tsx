@@ -6,7 +6,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentEnablement, AgentModel, WorkbenchConfiguration } from "@/api/types";
+import type {
+  AgentEnablement,
+  AgentModel,
+  WorkbenchConfiguration,
+  WorkbenchMessageAnswer,
+} from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
@@ -264,6 +269,8 @@ describe("Composer", () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
       session_id: SESSION_ID,
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     mount();
 
@@ -272,7 +279,326 @@ describe("Composer", () => {
     expect(box).toHaveValue("first\nsecond");
     await userEvent.type(box, "{Enter}");
 
-    expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "first\nsecond");
+    expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+      SESSION_ID,
+      "first\nsecond",
+      "queue",
+    );
+  });
+
+  describe("during a run", () => {
+    const ACCEPTED = {
+      session_id: SESSION_ID,
+      run_active: true,
+      queued_message_id: "queued_1",
+      cleared: [],
+    } as const;
+
+    it("queues the message with Enter", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(ACCEPTED);
+      mount("swe@1", true);
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "next{Enter}");
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "next", "queue");
+    });
+
+    it("queues the message with the Send button", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(ACCEPTED);
+      mount("swe@1", true);
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "next");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "next", "queue");
+    });
+
+    it("shows Stop on the run line and not in the composer", () => {
+      mount("swe@1", true);
+
+      const composerForm = screen.getByRole("form", { name: "Composer" });
+      expect(within(composerForm).queryByRole("button", { name: "Stop" })).toBeNull();
+      expect(
+        within(screen.getByRole("group", { name: "Run line" })).getByRole("button", {
+          name: "Stop",
+        }),
+      ).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    });
+
+    it("disables the three pickers", () => {
+      mount("swe@1", true);
+
+      for (const name of ["Agent Provider", "Model", "Reasoning Effort"]) {
+        expect(screen.getByRole("combobox", { name })).toBeDisabled();
+      }
+    });
+
+    it("shows the slash hint and no state text on the hint line", async () => {
+      mount("swe@1", true);
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "/new x");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      const hint = screen.getByText("/new takes no text yet");
+      expect(hint).toHaveAttribute("role", "status");
+      expect(hint.textContent).toBe("/new takes no text yet");
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  it("disables the three pickers while the queue holds a message and no run is active", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents).mockResolvedValueOnce({
+      entries: [],
+      snapshot: {
+        streaming_message: null,
+        pending_tool_calls: [],
+        pending_approval: null,
+        queue: [{ id: "queued_1", text: "later" }],
+        run_active: false,
+        error_message: null,
+      },
+      version: 1,
+    });
+    mount();
+
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "Model" })).toBeDisabled());
+    expect(screen.getByRole("combobox", { name: "Agent Provider" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Reasoning Effort" })).toBeDisabled();
+  });
+
+  it("names the agent in the idle placeholder and the run in the running placeholder", () => {
+    const idle = mount();
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveAttribute(
+      "placeholder",
+      "Message SWE · / for commands",
+    );
+    idle.unmount();
+
+    mount("swe@1", true);
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveAttribute(
+      "placeholder",
+      "Message · sends after this run",
+    );
+  });
+
+  it("puts the cleared texts before the current draft, joined by one newline", async () => {
+    let answer: (value: WorkbenchMessageAnswer) => void = () => undefined;
+    vi.mocked(workbenchApi.sendWorkbenchMessage).mockReturnValue(
+      new Promise((resolve) => (answer = resolve)),
+    );
+    mount("swe@1", true);
+    const box = screen.getByRole("combobox", { name: "Message" });
+    await userEvent.type(box, "sent{Enter}");
+    await userEvent.type(box, "later");
+
+    answer({
+      session_id: SESSION_ID,
+      run_active: true,
+      queued_message_id: null,
+      cleared: [
+        { id: "queued_1", text: "first" },
+        { id: "queued_2", text: "second" },
+      ],
+    });
+
+    await waitFor(() => expect(box).toHaveValue("first\nsecond\nlater"));
+  });
+
+  describe("Stop", () => {
+    const QUEUE = [
+      { id: "queued_1", text: "first queued" },
+      { id: "queued_2", text: "second queued" },
+    ];
+
+    function withQueue(queue: readonly { id: string; text: string }[]) {
+      vi.mocked(workbenchApi.readWorkbenchEvents).mockResolvedValueOnce({
+        entries: [],
+        snapshot: {
+          streaming_message: null,
+          pending_tool_calls: [],
+          pending_approval: null,
+          queue,
+          run_active: true,
+          error_message: null,
+        },
+        version: 1,
+      });
+      mount("swe@1", true);
+    }
+
+    async function clickStop() {
+      const runLine = screen.getByRole("group", { name: "Run line" });
+      await userEvent.click(within(runLine).getByRole("button", { name: "Stop" }));
+    }
+
+    const box = () => screen.getByRole("combobox", { name: "Message" });
+
+    it("sends abort with no confirm when the queue is empty", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: [],
+      });
+      mount("swe@1", true);
+
+      await clickStop();
+
+      expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      await waitFor(() => expect(screen.queryByRole("group", { name: "Run line" })).toBeNull());
+    });
+
+    it("shows the confirm with the count when the queue holds messages", async () => {
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+
+      await clickStop();
+
+      const confirm = screen.getByRole("alertdialog");
+      expect(within(confirm).getByText("Stop the run and clear 2 queued?")).toBeInTheDocument();
+      expect(
+        within(confirm).getByText("Your 2 queued messages return to the composer."),
+      ).toBeInTheDocument();
+      expect(within(confirm).queryByText("Your draft sends next.")).toBeNull();
+      expect(within(confirm).queryByRole("button", { name: "Stop & send draft" })).toBeNull();
+      expect(workbenchApi.abortWorkbenchRun).not.toHaveBeenCalled();
+    });
+
+    it("says message in the singular and adds the draft line with a draft", async () => {
+      withQueue([QUEUE[0]!]);
+      await screen.findByRole("button", { name: /1 queued/ });
+      await userEvent.type(box(), "my draft");
+
+      await clickStop();
+
+      const confirm = screen.getByRole("alertdialog");
+      expect(
+        within(confirm).getByText("Your 1 queued message returns to the composer."),
+      ).toBeInTheDocument();
+      expect(within(confirm).getByText("Your draft sends next.")).toBeInTheDocument();
+      expect(within(confirm).getByRole("button", { name: "Stop & send draft" })).toBeEnabled();
+      expect(within(confirm).queryByRole("button", { name: "Stop" })).toBeNull();
+    });
+
+    it("hides Stop & send draft and the draft line when the draft is a /new command", async () => {
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "/new");
+      await userEvent.keyboard("{Escape}");
+      await clickStop();
+
+      const confirm = screen.getByRole("alertdialog");
+      expect(within(confirm).queryByRole("button", { name: "Stop & send draft" })).toBeNull();
+      expect(within(confirm).queryByText("Your draft sends next.")).toBeNull();
+      expect(within(confirm).getByRole("button", { name: "Stop" })).toBeEnabled();
+    });
+
+    it("keeps the run, the queue and the draft on Cancel", async () => {
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "my draft");
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel" }),
+      );
+
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(workbenchApi.abortWorkbenchRun).not.toHaveBeenCalled();
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      expect(screen.getByRole("group", { name: "Run line" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /2 queued/ })).toBeInTheDocument();
+      expect(box()).toHaveValue("my draft");
+    });
+
+    it("aborts, empties the queue list and refills the cleared texts before the draft", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: QUEUE,
+      });
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "/new");
+      await userEvent.keyboard("{Escape}");
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
+      );
+
+      expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
+      await waitFor(() => expect(screen.queryByRole("button", { name: /queued/ })).toBeNull());
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(box()).toHaveValue("first queued\nsecond queued\n/new");
+    });
+
+    it("says in the hint line that the cleared messages are back and drops it on the next edit", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: QUEUE,
+      });
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
+      );
+
+      const hint = await screen.findByText("2 cleared messages are back in your draft");
+      expect(hint).toHaveAttribute("role", "status");
+      await userEvent.type(box(), "!");
+      expect(screen.queryByText("2 cleared messages are back in your draft")).toBeNull();
+    });
+
+    it("says message in the singular when one cleared message is back", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: [QUEUE[0]!],
+      });
+      withQueue([QUEUE[0]!]);
+      await screen.findByRole("button", { name: /1 queued/ });
+
+      await clickStop();
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
+      );
+
+      expect(
+        await screen.findByText("1 cleared message is back in your draft"),
+      ).toBeInTheDocument();
+    });
+
+    it("sends the draft with replace and leaves only the draft in the queue list", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: "queued_9",
+        cleared: QUEUE,
+      });
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "my draft");
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop & send draft" }),
+      );
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+        SESSION_ID,
+        "my draft",
+        "replace",
+      );
+      const line = await screen.findByRole("button", { name: /1 queued/ });
+      expect(line).toHaveTextContent("my draft");
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(box()).toHaveValue("first queued\nsecond queued");
+    });
   });
 
   it("keeps Send disabled for an empty message", () => {
@@ -284,7 +610,12 @@ describe("Composer", () => {
   describe("slash commands", () => {
     const BRIEF_TEXT = "Report the system status and the actions that need me.";
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
-    const SENT = { session_id: SESSION_ID, run_active: true } as const;
+    const SENT = {
+      session_id: SESSION_ID,
+      run_active: true,
+      queued_message_id: null,
+      cleared: [],
+    } as const;
 
     function box() {
       return screen.getByRole("combobox", { name: "Message" });
@@ -330,6 +661,22 @@ describe("Composer", () => {
       expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
     });
 
+    it("keeps the list closed after a send and opens it on a typed slash and on a new focus", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("ops@1");
+      await userEvent.type(box(), "hello{Enter}");
+
+      await waitFor(() => expect(box()).toHaveValue(""));
+      expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+
+      await userEvent.type(box(), "/");
+      expect(await screen.findByRole("listbox", { name: "Commands" })).toBeInTheDocument();
+      await userEvent.clear(box());
+      await userEvent.tab();
+      await userEvent.click(box());
+      expect(await screen.findByRole("listbox", { name: "Commands" })).toBeInTheDocument();
+    });
+
     it("shows the name and the description of each command", async () => {
       mount("ops@1");
       await userEvent.click(box());
@@ -369,7 +716,11 @@ describe("Composer", () => {
       await userEvent.keyboard("{ArrowDown}{Enter}");
 
       expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledTimes(1);
-      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, BRIEF_TEXT);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+        SESSION_ID,
+        BRIEF_TEXT,
+        "queue",
+      );
     });
 
     it("sends the fixed text of /health once on a click", async () => {
@@ -380,7 +731,11 @@ describe("Composer", () => {
       await userEvent.click(await screen.findByRole("option", { name: /\/health/ }));
 
       expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledTimes(1);
-      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, HEALTH_TEXT);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+        SESSION_ID,
+        HEALTH_TEXT,
+        "queue",
+      );
     });
 
     it("sends the fixed text of the typed /health once", async () => {
@@ -391,7 +746,11 @@ describe("Composer", () => {
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
       expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledTimes(1);
-      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, HEALTH_TEXT);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+        SESSION_ID,
+        HEALTH_TEXT,
+        "queue",
+      );
     });
 
     it("sends the typed /brief as plain text in a swe@1 conversation", async () => {
@@ -401,7 +760,7 @@ describe("Composer", () => {
       await userEvent.type(box(), "/brief");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
-      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "/brief");
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "/brief", "queue");
     });
 
     it("opens the new-session route with the agent and the configuration on /new alone", async () => {
@@ -449,10 +808,12 @@ describe("Composer", () => {
       expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
     });
 
-    it("shows no list on focus while the composer is disabled", async () => {
-      mount("ops@1", true);
+    it("shows no list on focus while a send is in flight", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockReturnValue(new Promise(() => undefined));
+      mount("ops@1");
+      await userEvent.type(box(), "hello{Enter}");
 
-      await userEvent.click(box());
+      await userEvent.type(box(), "/");
 
       expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
     });

@@ -74,8 +74,9 @@ export function NewSessionChat({
         <Composer
           composer={composer}
           configuration={fixedConfiguration(configuration)}
+          agentDisplayName={agentDisplayName}
           runActive={false}
-          onStop={NO_CHANGE}
+          queued={false}
           inputDisabled={configuration === null}
         />
         {configurationError !== null && <InlineError code={null} message={configurationError} />}

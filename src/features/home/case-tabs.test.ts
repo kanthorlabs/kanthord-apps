@@ -72,7 +72,12 @@ beforeEach(() => {
   vi.stubGlobal("window", { open });
   vi.mocked(basePath).mockReturnValue("/");
   vi.mocked(createWorkbenchSession).mockResolvedValue(session("session_1"));
-  vi.mocked(sendWorkbenchMessage).mockResolvedValue({ session_id: "session_1", run_active: true });
+  vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+    session_id: "session_1",
+    run_active: true,
+    queued_message_id: null,
+    cleared: [],
+  });
 });
 
 afterEach(() => {

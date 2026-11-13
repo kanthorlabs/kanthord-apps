@@ -10,7 +10,13 @@ import { InlineError } from "./inline-error";
 import { commandOfText } from "../slash-commands";
 import { ToolRow } from "./tool-row";
 
-const CALL_STATE_LABEL = { running: "Running", "awaiting-approval": "Awaiting Approval" } as const;
+const CALL_STATE_LABEL = {
+  running: "Running",
+  "awaiting-approval": "Awaiting Approval",
+  "no-result": "No Result",
+} as const;
+
+const NO_RESULT_LINE = "No result. The run ended before this call finished.";
 
 export interface ChatAuthors {
   readonly ownerName: string;
@@ -85,7 +91,7 @@ export function ChatEntry({ item, authors, runError }: ChatEntryProps) {
   }
 
   if (item.kind === "tool-call") {
-    return (
+    const row = (
       <ToolRow
         label="Tool Call"
         name={item.name}
@@ -96,6 +102,13 @@ export function ChatEntry({ item, authors, runError }: ChatEntryProps) {
           )
         }
       />
+    );
+    if (item.state !== "no-result") return row;
+    return (
+      <div className="flex min-w-0 flex-col gap-1">
+        {row}
+        <p className="px-3 text-xs text-muted-foreground">{NO_RESULT_LINE}</p>
+      </div>
     );
   }
 

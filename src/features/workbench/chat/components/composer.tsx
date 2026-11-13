@@ -1,4 +1,4 @@
-import { ArrowUpIcon, SquareIcon } from "lucide-react";
+import { ArrowUpIcon } from "lucide-react";
 import { useId } from "react";
 
 import { Card } from "@/components/ui/card";
@@ -13,12 +13,21 @@ import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/comp
 import type { ChatConfigurationState } from "../use-chat-configuration";
 import type { ComposerState } from "../use-composer";
 import { ComposerPicker } from "./composer-picker";
+import { StopConfirm, type StopConfirmProps } from "./stop-confirm";
+
+const RUNNING_PLACEHOLDER = "Message · sends after this run";
+
+function idlePlaceholder(agentDisplayName: string): string {
+  return `Message ${agentDisplayName} · / for commands`;
+}
 
 interface ComposerProps {
   readonly composer: ComposerState;
   readonly configuration: ChatConfigurationState | null;
+  readonly agentDisplayName: string;
   readonly runActive: boolean;
-  readonly onStop: () => void;
+  readonly queued: boolean;
+  readonly stopConfirm?: StopConfirmProps | null;
   readonly placeholder?: string;
   readonly inputDisabled?: boolean;
 }
@@ -26,12 +35,17 @@ interface ComposerProps {
 export function Composer({
   composer,
   configuration,
+  agentDisplayName,
   runActive,
-  onStop,
-  placeholder = "Message the agent",
+  queued,
+  stopConfirm = null,
+  placeholder,
   inputDisabled = false,
 }: ComposerProps) {
   const listId = useId();
+  const pickersDisabled = runActive || queued;
+  const inputPlaceholder =
+    placeholder ?? (runActive ? RUNNING_PLACEHOLDER : idlePlaceholder(agentDisplayName));
   const optionId = (id: string) => `${listId}-${id}`;
   return (
     <form
@@ -71,75 +85,67 @@ export function Composer({
           </ItemGroup>
         </Card>
       )}
+      {stopConfirm !== null && <StopConfirm {...stopConfirm} />}
       <InputGroup>
-        <InputGroupTextarea
-          role="combobox"
-          aria-label="Message"
-          aria-expanded={composer.listOpen}
-          aria-controls={composer.listOpen ? listId : undefined}
-          aria-activedescendant={
-            composer.activeCommand === null ? undefined : optionId(composer.activeCommand.id)
-          }
-          aria-autocomplete="list"
-          placeholder={placeholder}
-          disabled={inputDisabled}
-          rows={2}
-          value={composer.draft}
-          onChange={(event) => composer.setDraft(event.target.value)}
-          onFocus={composer.focus}
-          onBlur={composer.blur}
-          onKeyDown={composer.handleKey}
-        />
-        <InputGroupAddon align="block-end" className="flex-wrap gap-2">
-          {configuration !== null && (
-            <>
-              <ComposerPicker
-                label="Agent Provider"
-                value={configuration.configuration.agent_provider}
-                options={configuration.agentProviders}
-                disabled={configuration.pending}
-                onChange={configuration.selectAgentProvider}
-              />
-              <ComposerPicker
-                label="Model"
-                value={configuration.configuration.model_identifier}
-                options={configuration.models}
-                disabled={configuration.pending}
-                onChange={configuration.selectModel}
-              />
-              <ComposerPicker
-                label="Reasoning Effort"
-                value={configuration.configuration.reasoning_effort}
-                options={configuration.reasoningEfforts}
-                disabled={configuration.pending}
-                onChange={configuration.selectReasoningEffort}
-              />
-            </>
-          )}
-          <div className="ml-auto flex">
-            {runActive ? (
-              <InputGroupButton variant="default" size="icon-sm" aria-label="Stop" onClick={onStop}>
-                <SquareIcon aria-hidden="true" />
-              </InputGroupButton>
-            ) : (
-              <InputGroupButton
-                type="submit"
-                variant="default"
-                size="icon-sm"
-                aria-label="Send"
-                disabled={!composer.canSend}
-              >
-                <ArrowUpIcon aria-hidden="true" />
-              </InputGroupButton>
-            )}
-          </div>
-        </InputGroupAddon>
+        <div className="flex w-full items-end gap-2 pr-2">
+          <InputGroupTextarea
+            role="combobox"
+            aria-label="Message"
+            aria-expanded={composer.listOpen}
+            aria-controls={composer.listOpen ? listId : undefined}
+            aria-activedescendant={
+              composer.activeCommand === null ? undefined : optionId(composer.activeCommand.id)
+            }
+            aria-autocomplete="list"
+            placeholder={inputPlaceholder}
+            disabled={inputDisabled}
+            rows={2}
+            value={composer.draft}
+            onChange={(event) => composer.setDraft(event.target.value)}
+            onFocus={composer.focus}
+            onBlur={composer.blur}
+            onKeyDown={composer.handleKey}
+          />
+          <InputGroupButton
+            type="submit"
+            variant="default"
+            size="icon-sm"
+            aria-label="Send"
+            className="mb-2"
+            disabled={!composer.canSend}
+          >
+            <ArrowUpIcon aria-hidden="true" />
+          </InputGroupButton>
+        </div>
+        {configuration !== null && (
+          <InputGroupAddon align="block-end" className="flex-wrap gap-2">
+            <ComposerPicker
+              label="Agent Provider"
+              value={configuration.configuration.agent_provider}
+              options={configuration.agentProviders}
+              disabled={configuration.pending || pickersDisabled}
+              onChange={configuration.selectAgentProvider}
+            />
+            <ComposerPicker
+              label="Model"
+              value={configuration.configuration.model_identifier}
+              options={configuration.models}
+              disabled={configuration.pending || pickersDisabled}
+              onChange={configuration.selectModel}
+            />
+            <ComposerPicker
+              label="Reasoning Effort"
+              value={configuration.configuration.reasoning_effort}
+              options={configuration.reasoningEfforts}
+              disabled={configuration.pending || pickersDisabled}
+              onChange={configuration.selectReasoningEffort}
+            />
+          </InputGroupAddon>
+        )}
       </InputGroup>
-      {composer.hint !== null && (
-        <p role="status" className="mt-1 text-sm text-muted-foreground">
-          {composer.hint}
-        </p>
-      )}
+      <p role="status" className="mt-1 min-h-5 text-sm text-muted-foreground">
+        {composer.hint}
+      </p>
     </form>
   );
 }

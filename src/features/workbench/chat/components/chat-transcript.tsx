@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { runErrorTargetId } from "@/lib/workbench-chat";
 import type { ChatItem } from "@/lib/workbench-chat";
 import { type ChatAuthors, ChatEntry } from "./chat-entry";
@@ -7,9 +9,10 @@ interface ChatTranscriptProps {
   readonly items: readonly ChatItem[];
   readonly authors: ChatAuthors;
   readonly runError: string | null;
+  readonly runLine: ReactNode;
 }
 
-export function ChatTranscript({ items, authors, runError }: ChatTranscriptProps) {
+export function ChatTranscript({ items, authors, runError, runLine }: ChatTranscriptProps) {
   const targetId = runError === null ? null : runErrorTargetId(items);
   return (
     <div role="log" aria-label="Transcript" className="flex min-w-0 flex-col gap-3">
@@ -24,6 +27,7 @@ export function ChatTranscript({ items, authors, runError }: ChatTranscriptProps
           runError={item.id === targetId ? runError : null}
         />
       ))}
+      {runLine}
       {runError !== null && targetId === null && <InlineError code={null} message={runError} />}
     </div>
   );

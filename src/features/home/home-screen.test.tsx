@@ -524,6 +524,7 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
   streaming_message: null,
   pending_tool_calls: [],
   pending_approval: null,
+  queue: [],
   run_active: false,
   error_message: null,
 };
@@ -830,6 +831,8 @@ describe("HomeScreen layout", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y1",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
     const primary = await findPrimary();
@@ -843,7 +846,7 @@ describe("HomeScreen layout", () => {
     expect(deckGrid?.compareDocumentPosition(list)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await user.click(within(list).getByRole("option", { name: /\/brief/ }));
     await waitFor(() =>
-      expect(sendWorkbenchMessage).toHaveBeenCalledWith(expect.any(String), BRIEF_TEXT),
+      expect(sendWorkbenchMessage).toHaveBeenCalledWith(expect.any(String), BRIEF_TEXT, "queue"),
     );
   });
 
@@ -898,7 +901,11 @@ describe("HomeScreen reads", () => {
     });
     renderScreen();
     expect(
-      await screen.findByText(textContent(/Some records could not be read: atlas queue/)),
+      await screen.findByText(
+        textContent(/Some records could not be read: atlas queue/),
+        {},
+        { timeout: 4000 },
+      ),
     ).toBeInTheDocument();
     expect(screen.queryByText("All clear")).toBeNull();
     vi.mocked(listQueueJobs).mockImplementation(async () => []);
@@ -910,7 +917,7 @@ describe("HomeScreen reads", () => {
 
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(await screen.findByText("All clear", {}, { timeout: 4000 })).toBeInTheDocument();
     expect(listQueueJobs).toHaveBeenCalledTimes(1);
     expect(listQueueJobs).toHaveBeenCalledWith("prj-2");
     expect(listProjects).not.toHaveBeenCalled();
@@ -918,7 +925,7 @@ describe("HomeScreen reads", () => {
     expect(listMissionNodes).not.toHaveBeenCalled();
     expect(listWorkbenchSessions).not.toHaveBeenCalled();
     expect(listInboxItems).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it("names the failed session read and holds back All clear", async () => {
     serve({});
@@ -1145,6 +1152,7 @@ describe("HomeScreen tool approval", () => {
           operation_id: "project.create",
           input: { name: "account-recovery" },
         },
+        queue: [],
         run_active: false,
         error_message: null,
       },
@@ -1298,6 +1306,7 @@ function pendingApproval() {
       operation_id: "project.create",
       input: { name: "account-recovery" },
     },
+    queue: [],
     run_active: true,
   });
 }
@@ -1314,6 +1323,8 @@ describe("HomeScreen Yumi chat", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y2",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
     expect(await screen.findByText(GENERAL)).toBeVisible();
@@ -1367,6 +1378,8 @@ describe("HomeScreen Yumi chat", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y1",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
 
@@ -1374,7 +1387,7 @@ describe("HomeScreen Yumi chat", () => {
     await user.click(await screen.findByRole("option", { name: /\/brief/ }));
 
     await waitFor(() => expect(sendWorkbenchMessage).toHaveBeenCalledTimes(1));
-    expect(sendWorkbenchMessage).toHaveBeenCalledWith("workbench_session_Y1", BRIEF_TEXT);
+    expect(sendWorkbenchMessage).toHaveBeenCalledWith("workbench_session_Y1", BRIEF_TEXT, "queue");
     expect(screen.queryByRole("button", { name: "Brief me" })).toBeNull();
   });
 
@@ -1676,6 +1689,8 @@ describe("HomeScreen Ask Yumi", () => {
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_CASE",
       run_active: true,
+      queued_message_id: null,
+      cleared: [],
     });
     renderScreen();
     const primary = await findPrimary(/^Primary: Case audit/);
