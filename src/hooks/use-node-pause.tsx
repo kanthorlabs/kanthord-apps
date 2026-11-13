@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { pauseNode } from "@/api/resources/mission";
 import type { MissionNodeRecord, NodeState } from "@/api/types";
 import { RecordName } from "@/components/record-name";
+import { ACT_DONE, actFailureOf, type ActResult } from "@/hooks/act-result";
 import { asApiError } from "@/hooks/use-resource";
 
 export interface NodePauseState {
@@ -75,6 +76,7 @@ export function useNodePause(
   node: MissionNodeRecord,
   missionVersion: number,
   reload: () => void,
+  onSettled?: (result: ActResult) => void,
 ): NodePauseState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -117,6 +119,7 @@ export function useNodePause(
         });
         setOpen(false);
         reload();
+        onSettled?.(ACT_DONE);
       },
       (cause: unknown) => {
         setPausing(false);
@@ -125,9 +128,10 @@ export function useNodePause(
         setError(message);
         toast.error(`Pausing ${node.content.name} failed.`, { description: message });
         reload();
+        onSettled?.(actFailureOf(failure));
       },
     );
-  }, [pausing, open, trimmed, node, missionVersion, reload]);
+  }, [pausing, open, trimmed, node, missionVersion, reload, onSettled]);
 
   return {
     available,

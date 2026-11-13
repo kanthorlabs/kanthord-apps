@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { resumeNode } from "@/api/resources/mission";
 import type { MissionExternalAction, MissionNodeRecord } from "@/api/types";
 import { RecordName } from "@/components/record-name";
+import { ACT_DONE, actFailureOf, type ActResult } from "@/hooks/act-result";
 import { asApiError } from "@/hooks/use-resource";
 import type { PauseCause } from "@/lib/execution-stop";
 import {
@@ -123,6 +124,7 @@ export function useNodeResume(
   actions: readonly MissionExternalAction[] | null,
   cause: PauseCause | null,
   reload: () => void,
+  onSettled?: (result: ActResult) => void,
 ): NodeResumeState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -173,6 +175,7 @@ export function useNodeResume(
         });
         setOpen(false);
         reload();
+        onSettled?.(ACT_DONE);
       },
       (cause: unknown) => {
         setResuming(false);
@@ -181,6 +184,7 @@ export function useNodeResume(
         setError(message);
         toast.error(`Resuming ${node.content.name} failed.`, { description: message });
         reload();
+        onSettled?.(actFailureOf(failure));
       },
     );
   };

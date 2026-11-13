@@ -297,4 +297,46 @@ describe("useNodeCheck", () => {
       action: { label: "Retry", onClick: expect.any(Function) },
     });
   });
+
+  it("calls onSettled once with ok after the check answers", async () => {
+    checkMock.mockResolvedValue(answer([MERGED], []));
+    const onSettled = vi.fn();
+    const { result } = renderHook(() =>
+      useNodeCheck(
+        nodeIn("External.Requested"),
+        7,
+        [action("unresolved")],
+        vi.fn(),
+        vi.fn(),
+        onSettled,
+      ),
+    );
+
+    await act(async () => result.current.check());
+
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it("calls onSettled once with the owning code of a 409, not the transport class", async () => {
+    checkMock.mockRejectedValue(
+      new ApiError("conflict", "Stale.", 409, "mission.version.conflict"),
+    );
+    const onSettled = vi.fn();
+    const { result } = renderHook(() =>
+      useNodeCheck(
+        nodeIn("External.Requested"),
+        7,
+        [action("unresolved")],
+        vi.fn(),
+        vi.fn(),
+        onSettled,
+      ),
+    );
+
+    await act(async () => result.current.check());
+
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ ok: false, code: "mission.version.conflict" });
+  });
 });

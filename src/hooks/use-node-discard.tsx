@@ -10,6 +10,7 @@ import type {
 } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { proposalRejectionNoticeOf } from "@/hooks/proposal-rejection-notice";
+import { ACT_DONE, actFailureOf, type ActResult } from "@/hooks/act-result";
 import { asApiError } from "@/hooks/use-resource";
 import { requestsClearOf } from "@/lib/external-requests";
 
@@ -105,6 +106,7 @@ export function useNodeDiscard(
   proposals: readonly MissionProposal[],
   actions: readonly MissionExternalAction[] | null,
   reload: () => void,
+  onSettled?: (result: ActResult) => void,
 ): NodeDiscardState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -148,6 +150,7 @@ export function useNodeDiscard(
         });
         setOpen(false);
         reload();
+        onSettled?.(ACT_DONE);
       },
       (cause: unknown) => {
         setDiscarding(false);
@@ -156,9 +159,10 @@ export function useNodeDiscard(
         setError(message);
         toast.error(`Discarding ${node.content.name} failed.`, { description: message });
         reload();
+        onSettled?.(actFailureOf(failure));
       },
     );
-  }, [discarding, open, trimmed, node, actions, missionVersion, reload]);
+  }, [discarding, open, trimmed, node, actions, missionVersion, reload, onSettled]);
 
   return {
     available,
