@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkbenchActionOffer } from "@/api/types";
-import { actionFactsOf, actionVerbOf, isDangerOperation } from "./workbench-action";
+import {
+  actionFactsOf,
+  actionVerbOf,
+  isDangerOperation,
+  nodeChangeLineOf,
+  projectChangeLineOf,
+} from "./workbench-action";
 import { ACTION_VERBS } from "./workbench-chat";
 
 function offer(
@@ -61,4 +67,54 @@ describe("isDangerOperation", () => {
       expect(isDangerOperation(id)).toBe(false);
     },
   );
+});
+
+describe("nodeChangeLineOf", () => {
+  const seen = offer("mission.node.discard", { state: "Blocked", attempt: 2 });
+
+  it("answers null when the state and the attempt match", () => {
+    expect(nodeChangeLineOf(seen, { state: "Blocked", attempt: 2 })).toBeNull();
+  });
+
+  it("names the read state when the state differs", () => {
+    expect(nodeChangeLineOf(seen, { state: "Executing", attempt: 2 })).toBe(
+      "node_42 changed since the card: it is now Executing (attempt 2). Nothing ran.",
+    );
+  });
+
+  it("names the read attempt when only the attempt differs", () => {
+    expect(nodeChangeLineOf(seen, { state: "Blocked", attempt: 3 })).toBe(
+      "node_42 changed since the card: it is now Blocked (attempt 3). Nothing ran.",
+    );
+  });
+
+  it("reports a change when the offer holds no node state", () => {
+    const projectSeen = offer("mission.node.discard", { paused: true });
+
+    expect(nodeChangeLineOf(projectSeen, { state: "Blocked", attempt: 2 })).toBe(
+      "node_42 changed since the card: it is now Blocked (attempt 2). Nothing ran.",
+    );
+  });
+});
+
+describe("projectChangeLineOf", () => {
+  const seenPaused = offer("project.resume", { paused: true }, "prj-1");
+
+  it("answers null when the pause matches", () => {
+    expect(projectChangeLineOf(seenPaused, { paused_at: 5 })).toBeNull();
+  });
+
+  it("names the active state when the project resumed", () => {
+    expect(projectChangeLineOf(seenPaused, { paused_at: null })).toBe(
+      "prj-1 changed since the card: it is now active. Nothing ran.",
+    );
+  });
+
+  it("names the paused state when the project paused", () => {
+    const seenActive = offer("project.pause", { paused: false }, "prj-1");
+
+    expect(projectChangeLineOf(seenActive, { paused_at: 5 })).toBe(
+      "prj-1 changed since the card: it is now paused. Nothing ran.",
+    );
+  });
 });

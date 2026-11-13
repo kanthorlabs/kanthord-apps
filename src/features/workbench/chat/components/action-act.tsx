@@ -7,16 +7,20 @@ import { NodeUnblockDialog } from "@/components/node-unblock-dialog";
 import { ProjectPauseDialog } from "@/components/project-pause-dialog";
 import { useNodeRecord } from "@/features/projects/view/use-node-record";
 import { useProjectDetail } from "@/features/projects/view/use-project-detail";
+import type { ApiError } from "@/api/errors";
 import type { ActResult } from "@/hooks/act-result";
 import { nodeChangeLineOf, projectChangeLineOf } from "@/lib/workbench-action";
+import { useActLine } from "../use-act-line";
+import { useDialogClosed } from "../use-dialog-closed";
 import { useNodeAct } from "../use-node-act";
 import { useNodeProject } from "../use-node-project";
 import { useProjectAct } from "../use-project-act";
-import { InlineError } from "./inline-error";
 
 interface ActionActProps {
   readonly offer: WorkbenchActionOffer;
   readonly onSettled: (result: ActResult) => void;
+  readonly onLine: (line: string) => void;
+  readonly onDialogClosed: () => void;
 }
 
 interface NodeActRunProps extends ActionActProps {
@@ -28,6 +32,10 @@ interface ProjectActRunProps extends ActionActProps {
   readonly project: Project;
 }
 
+function readFailureLine(offer: WorkbenchActionOffer, failure: ApiError): string {
+  return `${offer.target_id} was not read: ${failure.message}`;
+}
+
 function StatusLine({ text }: { readonly text: string }) {
   return (
     <p role="status" className="min-w-0 text-sm break-words text-muted-foreground">
@@ -36,7 +44,14 @@ function StatusLine({ text }: { readonly text: string }) {
   );
 }
 
-function NodeActRun({ offer, onSettled, node, projectId }: NodeActRunProps) {
+function NodeActRun({
+  offer,
+  onSettled,
+  onLine,
+  onDialogClosed,
+  node,
+  projectId,
+}: NodeActRunProps) {
   const { phase, failure, controls, check } = useNodeAct(
     offer.operation_id,
     node,
@@ -44,12 +59,18 @@ function NodeActRun({ offer, onSettled, node, projectId }: NodeActRunProps) {
     onSettled,
   );
   const name = node.content.name;
+  useActLine(failure === null ? null : readFailureLine(offer, failure), onLine);
+  useDialogClosed(
+    controls.pause.open ||
+      controls.unblock.open ||
+      controls.resume.open ||
+      controls.override.open ||
+      controls.discard.open,
+    onDialogClosed,
+  );
   return (
     <>
       {phase === "reading" && <StatusLine text={`Reading ${offer.target_id}.`} />}
-      {failure !== null && (
-        <InlineError code={null} message={`${offer.target_id} was not read: ${failure.message}`} />
-      )}
       {phase === "unavailable" && (
         <StatusLine text={`Not available: ${offer.target_id} is ${node.state}.`} />
       )}
@@ -63,25 +84,32 @@ function NodeActRun({ offer, onSettled, node, projectId }: NodeActRunProps) {
   );
 }
 
-function NodeAct({ offer, onSettled }: ActionActProps) {
+function NodeAct({ offer, onSettled, onLine, onDialogClosed }: ActionActProps) {
   const record = useNodeRecord(offer.target_id);
   const node = record.data;
   const project = useNodeProject(node?.mission_id ?? null);
   const failure = record.error ?? project.error;
-  if (failure !== null) {
-    return (
-      <InlineError code={null} message={`${offer.target_id} was not read: ${failure.message}`} />
-    );
-  }
+  const changed = node === null ? null : nodeChangeLineOf(offer, node);
+  const line = failure === null ? changed : readFailureLine(offer, failure);
+  useActLine(line, onLine);
+  if (line !== null) return null;
   if (node === null || project.data === null)
     return <StatusLine text={`Reading ${offer.target_id}.`} />;
-  const changed = nodeChangeLineOf(offer, node);
-  if (changed !== null) return <StatusLine text={changed} />;
-  return <NodeActRun offer={offer} onSettled={onSettled} node={node} projectId={project.data} />;
+  return (
+    <NodeActRun
+      offer={offer}
+      onSettled={onSettled}
+      onLine={onLine}
+      onDialogClosed={onDialogClosed}
+      node={node}
+      projectId={project.data}
+    />
+  );
 }
 
-function ProjectActRun({ offer, onSettled, project }: ProjectActRunProps) {
+function ProjectActRun({ offer, onSettled, onDialogClosed, project }: ProjectActRunProps) {
   const { available, pause } = useProjectAct(offer.operation_id, project, onSettled);
+  useDialogClosed(pause.confirming, onDialogClosed);
   return (
     <>
       {!available && (
@@ -94,22 +122,25 @@ function ProjectActRun({ offer, onSettled, project }: ProjectActRunProps) {
   );
 }
 
-function ProjectAct({ offer, onSettled }: ActionActProps) {
+function ProjectAct({ offer, onSettled, onLine, onDialogClosed }: ActionActProps) {
   const read = useProjectDetail(offer.target_id);
-  if (read.error !== null) {
-    return (
-      <InlineError code={null} message={`${offer.target_id} was not read: ${read.error.message}`} />
-    );
-  }
+  const changed = read.data === null ? null : projectChangeLineOf(offer, read.data);
+  const line = read.error === null ? changed : readFailureLine(offer, read.error);
+  useActLine(line, onLine);
+  if (line !== null) return null;
   if (read.data === null) return <StatusLine text={`Reading ${offer.target_id}.`} />;
-  const changed = projectChangeLineOf(offer, read.data);
-  if (changed !== null) return <StatusLine text={changed} />;
-  return <ProjectActRun offer={offer} onSettled={onSettled} project={read.data} />;
+  return (
+    <ProjectActRun
+      offer={offer}
+      onSettled={onSettled}
+      onLine={onLine}
+      onDialogClosed={onDialogClosed}
+      project={read.data}
+    />
+  );
 }
 
-export function ActionAct({ offer, onSettled }: ActionActProps) {
-  if (offer.operation_id.startsWith("project.")) {
-    return <ProjectAct offer={offer} onSettled={onSettled} />;
-  }
-  return <NodeAct offer={offer} onSettled={onSettled} />;
+export function ActionAct(props: ActionActProps) {
+  if (props.offer.operation_id.startsWith("project.")) return <ProjectAct {...props} />;
+  return <NodeAct {...props} />;
 }

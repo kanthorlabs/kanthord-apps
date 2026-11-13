@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { type Ref, useId } from "react";
 
 import type { ApiError } from "@/api/errors";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ interface ActionCardProps {
   readonly canRun: boolean;
   readonly onRun: () => void;
   readonly reportFailure?: ApiError | null;
+  readonly actLine?: string | null;
+  readonly groupRef?: Ref<HTMLDivElement>;
 }
 
 interface CardError {
@@ -28,7 +30,14 @@ const STATE_LINES: Readonly<Partial<Record<ActionCardState, string>>> = {
 const BUTTON_LAYOUT = "h-auto min-h-9 py-1.5 text-left whitespace-normal break-all";
 const DANGER_FILL = "bg-destructive text-destructive-foreground hover:bg-destructive/90";
 
-export function ActionCard({ item, canRun, onRun, reportFailure = null }: ActionCardProps) {
+export function ActionCard({
+  item,
+  canRun,
+  onRun,
+  reportFailure = null,
+  actLine = null,
+  groupRef,
+}: ActionCardProps) {
   const errorId = useId();
   const { offer, state } = item;
   const verb = actionVerbOf(offer.operation_id);
@@ -41,19 +50,23 @@ export function ActionCard({ item, canRun, onRun, reportFailure = null }: Action
           code: reportFailure.detail === "" ? null : reportFailure.detail,
           message: NOT_RECORDED_LINE,
         }
-      : failed === null
-        ? null
-        : { code: failed.error_code, message: FAILED_LINE };
+      : actLine !== null
+        ? { code: null, message: actLine }
+        : failed === null
+          ? null
+          : { code: failed.error_code, message: FAILED_LINE };
   const stateLine = STATE_LINES[state];
   const showButton = canRun && verb !== null && (state === "live" || state === "waiting");
   const border = danger || failure !== null ? "border-destructive" : "border-primary";
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div
+        ref={groupRef}
         role="group"
         aria-label="Action"
+        tabIndex={-1}
         aria-describedby={failure === null ? undefined : errorId}
-        className={`flex max-w-[92%] min-w-0 flex-col gap-1.5 rounded-md border bg-card px-3 py-2.5 text-card-foreground ${border}`}
+        className={`flex max-w-[92%] min-w-0 flex-col gap-1.5 rounded-md border outline-none bg-card px-3 py-2.5 text-card-foreground ${border}`}
       >
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span className="rounded-full bg-primary/10 px-2 py-px text-[11.5px] text-primary">

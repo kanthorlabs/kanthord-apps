@@ -1,14 +1,17 @@
 import type { MissionNodeRecord, Project, WorkbenchActionOffer } from "@/api/types";
 import { ACTION_VERBS } from "./workbench-chat";
 
+function changedLineOf(offer: WorkbenchActionOffer, now: string): string {
+  return `${offer.target_id} changed since the card: it is now ${now}. Nothing ran.`;
+}
+
 export function nodeChangeLineOf(
   offer: WorkbenchActionOffer,
   node: Pick<MissionNodeRecord, "state" | "attempt">,
 ): string | null {
-  const { seen, target_id } = offer;
-  if (!("state" in seen)) return `${target_id} changed since this offer.`;
-  if (seen.state === node.state && seen.attempt === node.attempt) return null;
-  return `${target_id} changed since this offer: ${seen.state}, attempt ${seen.attempt} → ${node.state}, attempt ${node.attempt}.`;
+  const { seen } = offer;
+  if ("state" in seen && seen.state === node.state && seen.attempt === node.attempt) return null;
+  return changedLineOf(offer, `${node.state} (attempt ${node.attempt})`);
 }
 
 export function projectChangeLineOf(
@@ -16,8 +19,9 @@ export function projectChangeLineOf(
   project: Pick<Project, "paused_at">,
 ): string | null {
   const { seen } = offer;
-  if ("paused" in seen && seen.paused === (project.paused_at !== null)) return null;
-  return `${offer.target_id} changed since this offer.`;
+  const paused = project.paused_at !== null;
+  if ("paused" in seen && seen.paused === paused) return null;
+  return changedLineOf(offer, paused ? "paused" : "active");
 }
 
 const DANGER_OPERATIONS: readonly string[] = ["mission.node.discard", "mission.node.override"];

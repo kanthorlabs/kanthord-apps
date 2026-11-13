@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type { ActionCardItem } from "@/lib/workbench-chat";
 import { useActionReport } from "../use-action-report";
@@ -13,6 +13,8 @@ interface ActionCardEntryProps {
 
 export function ActionCardEntry({ item, sessionId, canRun }: ActionCardEntryProps) {
   const [run, setRun] = useState(0);
+  const [actLine, setActLine] = useState<string | null>(null);
+  const groupRef = useRef<HTMLDivElement>(null);
   const report = useActionReport(sessionId, item.offer.tool_call_id);
   const { reset } = report;
   return (
@@ -21,12 +23,23 @@ export function ActionCardEntry({ item, sessionId, canRun }: ActionCardEntryProp
         item={item}
         canRun={canRun}
         reportFailure={report.failure}
+        actLine={actLine}
+        groupRef={groupRef}
         onRun={() => {
           reset();
+          setActLine(null);
           setRun((count) => count + 1);
         }}
       />
-      {run > 0 && <ActionAct key={run} offer={item.offer} onSettled={report.settle} />}
+      {run > 0 && (
+        <ActionAct
+          key={run}
+          offer={item.offer}
+          onSettled={report.settle}
+          onLine={setActLine}
+          onDialogClosed={() => groupRef.current?.focus()}
+        />
+      )}
     </div>
   );
 }

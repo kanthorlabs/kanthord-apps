@@ -157,11 +157,12 @@ describe("ActionAct on a node", () => {
 
     await user.click(screen.getByRole("button", { name: "Discard node_42" }));
 
-    expect(
-      await screen.findByText(
-        "node_42 changed since this offer: Executing, attempt 3 → Blocked, attempt 3.",
-      ),
-    ).toBeVisible();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /^node_42 changed since the card: it is now Blocked \(attempt 3\)\. Nothing ran\.$/,
+    );
+    expect(screen.getByRole("group", { name: "Action" })).toHaveAccessibleDescription(
+      "node_42 changed since the card: it is now Blocked (attempt 3). Nothing ran.",
+    );
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(discardNode).not.toHaveBeenCalled();
     expect(reportWorkbenchAction).not.toHaveBeenCalled();
@@ -173,7 +174,9 @@ describe("ActionAct on a node", () => {
 
     await user.click(screen.getByRole("button", { name: "Discard node_42" }));
 
-    expect(await screen.findByText(/→ Executing, attempt 4\.$/)).toBeVisible();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "it is now Executing (attempt 4). Nothing ran.",
+    );
     expect(discardNode).not.toHaveBeenCalled();
   });
 
@@ -201,6 +204,7 @@ describe("ActionAct on a node", () => {
       expected_state: "Executing",
       expected_attempt: 3,
     });
+    await waitFor(() => expect(screen.getByRole("group", { name: "Action" })).toHaveFocus());
   });
 
   it("opens the discard dialog when the mission read of an unrelated project fails", async () => {
@@ -246,6 +250,7 @@ describe("ActionAct on a node", () => {
     await user.click(await screen.findByRole("button", { name: "Keep the node" }));
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("group", { name: "Action" })).toHaveFocus());
     expect(discardNode).not.toHaveBeenCalled();
     expect(reportWorkbenchAction).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Discard node_42" })).toBeEnabled();
@@ -362,7 +367,9 @@ describe("ActionAct on a project", () => {
 
     await user.click(screen.getByRole("button", { name: "Pause prj-1" }));
 
-    expect(await screen.findByText("prj-1 changed since this offer.")).toBeVisible();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /^prj-1 changed since the card: it is now paused\. Nothing ran\.$/,
+    );
     expect(pauseProject).not.toHaveBeenCalled();
   });
 
@@ -394,6 +401,7 @@ describe("ActionAct on a project", () => {
     await user.click(await screen.findByRole("button", { name: "Keep the project active" }));
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("group", { name: "Action" })).toHaveFocus());
     expect(pauseProject).not.toHaveBeenCalled();
     expect(reportWorkbenchAction).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Pause prj-1" })).toBeEnabled();
