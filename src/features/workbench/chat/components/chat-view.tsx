@@ -17,6 +17,7 @@ import { ChatTranscript } from "./chat-transcript";
 import { InlineError } from "./inline-error";
 import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
+import { QueuedMessages } from "./queued-messages";
 
 const NO_REFILL = () => undefined;
 
@@ -130,6 +131,12 @@ export function ChatView({
         {streamEnd}
       </div>
       <div className="sticky bottom-0 bg-background pt-2">
+        <QueuedMessages
+          sessionId={session.id}
+          queue={snapshot.queue}
+          patchSnapshot={events.patchSnapshot}
+          refill={composer.refill}
+        />
         <Composer
           composer={composer}
           configuration={configuration}

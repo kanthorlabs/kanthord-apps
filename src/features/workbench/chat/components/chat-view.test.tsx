@@ -469,6 +469,24 @@ describe("ChatView", () => {
       expect(screen.queryByText("Running")).toBeNull();
     });
 
+    it("shows the row of a queued message before the next poll", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: "queued_1",
+        cleared: [],
+      });
+      mount(session([], true));
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "later{Enter}");
+
+      const line = await screen.findByRole("button", { name: /1 queued/ });
+      expect(line).toHaveTextContent("later");
+      await userEvent.click(line);
+      expect(await screen.findByRole("button", { name: "Remove" })).toBeEnabled();
+    });
+
     it("keeps the error message when the message is queued", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
