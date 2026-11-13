@@ -43,7 +43,7 @@ export function StopConfirm({
           <Button
             type="button"
             variant="destructive"
-            className="border-destructive bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
+            className="border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
             disabled={busy}
             onClick={hasDraft ? onStopAndSend : onStop}
           >
