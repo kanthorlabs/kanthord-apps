@@ -334,6 +334,97 @@ describe("HomeDeck primary and secondary", () => {
   });
 });
 
+describe("HomeDeck stack", () => {
+  function backCards() {
+    const primary = screen.getByRole("group", { name: /^Primary:/ });
+    const grid = primary.closest(".grid") as HTMLElement;
+    const cards = Array.from(grid.children).filter((child) => !child.contains(primary));
+    const [secondary, middle, last] = cards as [HTMLElement, HTMLElement, HTMLElement];
+    return { grid, count: cards.length, secondary, middle, last };
+  }
+
+  function zOf(card: HTMLElement): number {
+    return Number(/(?:^|\s)z-(\d+)/.exec(card.className)?.[1]);
+  }
+
+  function liftOf(card: HTMLElement): number {
+    return Number(/(?:^|\s)\[transform:translateY\(-(\d+)px\)/.exec(card.className)?.[1]);
+  }
+
+  it("stacks the secondary highest with the largest upward offset", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta"), fix("c", 3), fix("d", 4)]));
+
+    const { count, secondary, middle, last } = backCards();
+
+    expect(count).toBe(3);
+    expect(secondary).toHaveTextContent("Next #2 Beta");
+    expect(zOf(secondary)).toBeGreaterThan(zOf(middle));
+    expect(zOf(middle)).toBeGreaterThan(zOf(last));
+    expect(liftOf(secondary)).toBeGreaterThan(liftOf(middle));
+    expect(liftOf(secondary)).toBeGreaterThan(liftOf(last));
+  });
+
+  it("does not clip the deck grid on the x axis", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta")]));
+
+    const { grid } = backCards();
+
+    expect(grid.className).not.toContain("overflow-x-clip");
+    expect(grid.className).toContain("grid-cols-[minmax(0,1fr)]");
+  });
+
+  it("fills the grid area with the secondary like the blank cards", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta"), fix("c", 3), fix("d", 4)]));
+
+    const { secondary, middle } = backCards();
+
+    expect(secondary.className).not.toContain("self-start");
+    expect(middle.className).not.toContain("self-start");
+  });
+
+  it("adds the peek space only when back cards show", () => {
+    mount(overviewOf([fix("a", 1, "Alpha")]));
+
+    const { grid, count } = backCards();
+
+    expect(count).toBe(0);
+    expect(grid.className).not.toMatch(/(?:^|\s)(?:sm:)?p[tb]-/);
+  });
+
+  it("adds the peek space above and below the stack with back cards", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta")]));
+
+    const { grid } = backCards();
+
+    expect(grid.className).toContain("pt-[34px]");
+    expect(grid.className).toContain("sm:pt-10");
+    expect(grid.className).toContain("pb-2");
+    expect(grid.className).toContain("sm:pb-[26px]");
+  });
+
+  it("keeps the strip text and the tab pill in one row with the subject truncating first", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), APPROVAL]));
+
+    const { secondary } = backCards();
+    const pill = within(secondary).getByText("Setup");
+    const subject = within(secondary).getByText(/^Next #2/);
+
+    expect(pill.parentElement).toBe(subject.parentElement);
+    expect(subject.parentElement).toHaveClass("flex-row");
+    expect(subject).toHaveClass("min-w-0", "truncate");
+    expect(subject).not.toHaveClass("flex-1");
+    expect(pill).toHaveClass("shrink-0");
+  });
+
+  it("shows the short tab pill in the secondary strip", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), APPROVAL]));
+
+    const { secondary } = backCards();
+
+    expect(within(secondary).getByText("Setup")).toBeVisible();
+  });
+});
+
 describe("HomeDeck steps", () => {
   it("disables Previous at 1 and Next at N", async () => {
     const user = userEvent.setup();
