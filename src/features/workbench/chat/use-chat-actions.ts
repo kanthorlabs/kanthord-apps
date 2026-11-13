@@ -12,6 +12,7 @@ export type ChatActionCause = "send" | "abort" | "approve";
 
 export interface ChatActionFailure {
   readonly cause: ChatActionCause;
+  readonly toolCallId?: string;
   readonly code: string;
   readonly message: string;
 }
@@ -37,6 +38,7 @@ export function useChatActions(
       cause: ChatActionCause,
       action: () => Promise<unknown>,
       onDone: () => void,
+      toolCallId?: string,
     ): Promise<boolean> => {
       setFailure(null);
       setBusy(true);
@@ -46,7 +48,7 @@ export function useChatActions(
         return true;
       } catch (failed) {
         const error = asApiError(failed);
-        setFailure({ cause, code: error.code, message: error.message });
+        setFailure({ cause, toolCallId, code: error.code, message: error.message });
         return false;
       } finally {
         setBusy(false);
@@ -79,6 +81,7 @@ export function useChatActions(
         "approve",
         () => approveWorkbenchCall(sessionId, toolCallId, approved),
         () => patchSnapshot({ pending_approval: null }),
+        toolCallId,
       );
     },
     [perform, sessionId, patchSnapshot],

@@ -69,7 +69,11 @@ export function ChatView({
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active);
   useScrollToEnd(items, snapshot.pending_approval);
-  const approvalFailure = actions.failure?.cause === "approve" ? actions.failure : null;
+  const approvalFailure =
+    actions.failure?.cause === "approve" &&
+    actions.failure.toolCallId === snapshot.pending_approval?.tool_call_id
+      ? actions.failure
+      : null;
   const composerFailures = [
     actions.failure !== null && actions.failure.cause !== "approve" ? actions.failure : null,
     configuration.failure === null ? null : { code: null, message: configuration.failure },
