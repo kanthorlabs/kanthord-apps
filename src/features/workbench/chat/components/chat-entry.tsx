@@ -1,8 +1,9 @@
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { toolResultText } from "@/lib/health-names";
-import type { ChatItem } from "@/lib/workbench-chat";
+import type { ActionCardItem, ChatItem } from "@/lib/workbench-chat";
+import { ActionCardEntry } from "./action-card-entry";
 import { AgentAvatar } from "./agent-avatar";
 import { AgentText } from "./agent-text";
 import { BubbleAuthor } from "./bubble-author";
@@ -63,9 +64,19 @@ interface ChatEntryProps {
   readonly item: ChatItem;
   readonly authors: ChatAuthors;
   readonly runError: string | null;
+  readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
+  readonly sessionId: string;
+  readonly canRun?: boolean;
 }
 
-export function ChatEntry({ item, authors, runError }: ChatEntryProps) {
+export function ChatEntry({
+  item,
+  authors,
+  runError,
+  actionLineOf,
+  sessionId,
+  canRun = false,
+}: ChatEntryProps) {
   if (item.kind === "user") {
     return (
       <UserMessage
@@ -110,6 +121,12 @@ export function ChatEntry({ item, authors, runError }: ChatEntryProps) {
         <p className="px-3 text-xs text-muted-foreground">{NO_RESULT_LINE}</p>
       </div>
     );
+  }
+
+  if (item.kind === "action-card") {
+    const line = actionLineOf?.(item) ?? null;
+    if (line !== null) return <>{line}</>;
+    return <ActionCardEntry item={item} sessionId={sessionId} canRun={canRun} />;
   }
 
   const detail = toolResultText(item.name, item.text);

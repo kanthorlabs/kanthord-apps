@@ -34,6 +34,7 @@ function transcript(items: readonly ChatItem[], runActive: boolean) {
       items={items}
       authors={AUTHORS}
       runError={null}
+      sessionId="workbench_session_1"
       runLine={
         <RunLine
           runActive={runActive}

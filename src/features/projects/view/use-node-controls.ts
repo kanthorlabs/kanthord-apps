@@ -4,6 +4,7 @@ import type {
   MissionProposal,
   SchedulerExecutionRecord,
 } from "@/api/types";
+import type { ActResult } from "@/hooks/act-result";
 import { type NodeDiscardState, useNodeDiscard } from "@/hooks/use-node-discard";
 import { type NodeOverrideState, useNodeOverride } from "@/hooks/use-node-override";
 import { type NodePauseState, useNodePause } from "@/hooks/use-node-pause";
@@ -26,6 +27,7 @@ export interface NodeControlsInput {
   readonly actions: Resource<readonly MissionExternalAction[]>;
   readonly executions: Resource<readonly SchedulerExecutionRecord[]>;
   readonly onChanged: () => void;
+  readonly onSettled?: (result: ActResult) => void;
 }
 
 export interface NodeControlsState {
@@ -80,16 +82,17 @@ export function useNodeControls({
   actions,
   executions,
   onChanged,
+  onSettled,
 }: NodeControlsInput): NodeControlsState {
   const awaited = awaitedOf(node, actions, executions);
   const answered = awaited.every((read) => read.data !== null);
   const guard = answered ? actions.data : null;
   const cause = executions.data === null ? null : pauseCauseOf(executions.data).cause;
-  const pause = useNodePause(node, missionVersion, onChanged);
-  const unblock = useNodeUnblock(node, missionVersion, proposals, onChanged);
-  const resume = useNodeResume(node, missionVersion, nodes, guard, cause, onChanged);
-  const override = useNodeOverride(node, missionVersion, proposals, guard, onChanged);
-  const discard = useNodeDiscard(node, missionVersion, proposals, guard, onChanged);
+  const pause = useNodePause(node, missionVersion, onChanged, onSettled);
+  const unblock = useNodeUnblock(node, missionVersion, proposals, onChanged, onSettled);
+  const resume = useNodeResume(node, missionVersion, nodes, guard, cause, onChanged, onSettled);
+  const override = useNodeOverride(node, missionVersion, proposals, guard, onChanged, onSettled);
+  const discard = useNodeDiscard(node, missionVersion, proposals, guard, onChanged, onSettled);
   const guardLine = guardLineOf(node, actions, executions);
   const failed = hasOpenAttempt(node) && !answered && !awaited.some((read) => read.loading);
 

@@ -268,4 +268,42 @@ describe("useNodeDiscard", () => {
     expect(result.current.open).toBe(true);
     expect(reload).toHaveBeenCalledTimes(1);
   });
+
+  it("calls onSettled once with ok after the call succeeds", async () => {
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useNodeDiscard(IMPLEMENT, 7, [], [], vi.fn(), onSettled));
+
+    act(() => result.current.request());
+    act(() => result.current.setReason("Because"));
+    await act(async () => result.current.confirm());
+
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it("calls onSettled once with the owning code of a 409, not the transport class", async () => {
+    discardMock.mockRejectedValue(
+      new ApiError("conflict", "Conflict.", 409, "mission.node.state_conflict"),
+    );
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useNodeDiscard(IMPLEMENT, 7, [], [], vi.fn(), onSettled));
+
+    act(() => result.current.request());
+    act(() => result.current.setReason("Because"));
+    await act(async () => result.current.confirm());
+
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ ok: false, code: "mission.node.state_conflict" });
+  });
+
+  it("calls no onSettled when the dialog is cancelled", async () => {
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useNodeDiscard(IMPLEMENT, 7, [], [], vi.fn(), onSettled));
+
+    act(() => result.current.request());
+    act(() => result.current.cancel());
+    await act(async () => undefined);
+
+    expect(onSettled).not.toHaveBeenCalled();
+  });
 });

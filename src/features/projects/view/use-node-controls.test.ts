@@ -1,7 +1,8 @@
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import { discardNode } from "@/api/resources/mission";
 import type {
   MissionExternalAction,
   MissionNodeRecord,
@@ -204,5 +205,32 @@ describe("useNodeControls", () => {
   it("hides the section of a node that offers nothing", () => {
     expect(mount(node("Completed"), NONE, NO_RUNS).visible).toBe(false);
     expect(mount(node("Executing"), NONE, NO_RUNS).visible).toBe(true);
+  });
+});
+
+describe("useNodeControls onSettled", () => {
+  it("passes onSettled to the discard hook", async () => {
+    vi.mocked(discardNode).mockResolvedValue({} as never);
+    const onSettled = vi.fn();
+    const target = node("Executing");
+    const { result } = renderHook(() =>
+      useNodeControls({
+        node: target,
+        nodes: [target],
+        missionVersion: 9,
+        proposals: [],
+        actions: NONE,
+        executions: NO_RUNS,
+        onChanged: vi.fn(),
+        onSettled,
+      }),
+    );
+
+    act(() => result.current.discard.request());
+    act(() => result.current.discard.setReason("Out of scope"));
+    await act(async () => result.current.discard.confirm());
+
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ ok: true });
   });
 });

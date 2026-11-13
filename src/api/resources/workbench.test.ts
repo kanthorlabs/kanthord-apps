@@ -14,6 +14,7 @@ import {
   readWorkbenchEvents,
   readWorkbenchSession,
   removeQueuedWorkbenchMessage,
+  reportWorkbenchAction,
   sendWorkbenchMessage,
 } from "./workbench";
 
@@ -239,6 +240,42 @@ describe("approveWorkbenchCall", () => {
     await approveWorkbenchCall(SESSION_ID, "call_1", false);
 
     expect(JSON.parse(seen[0]!.body)).toEqual({ tool_call_id: "call_1", approved: false });
+  });
+});
+
+describe("reportWorkbenchAction", () => {
+  const REPORT_PATH = `${PATH}/action/call%2F1/report`;
+  const BODY = { outcome: "failed", error_code: "mission.node.state_conflict" } as const;
+
+  it("posts the outcome to the encoded path with an idempotency key", async () => {
+    const answer = { session_id: SESSION_ID, tool_call_id: "call/1", outcome: "failed" };
+    await serve({ [`POST ${REPORT_PATH}`]: { body: answer } });
+
+    expect(await reportWorkbenchAction(SESSION_ID, "call/1", BODY)).toEqual(answer);
+    expect(JSON.parse(seen[0]!.body)).toEqual(BODY);
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("rejects a settled action with the code of the owning service", async () => {
+    await serve({
+      [`POST ${REPORT_PATH}`]: {
+        status: 409,
+        body: {
+          error: {
+            code: "workbench.session.action_settled",
+            message: "The action is settled.",
+          },
+        },
+      },
+    });
+
+    const failure = await reportWorkbenchAction(SESSION_ID, "call/1", BODY).catch(
+      (cause: unknown) => cause,
+    );
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).code).toBe("conflict");
+    expect((failure as ApiError).detail).toBe("workbench.session.action_settled");
   });
 });
 

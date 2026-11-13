@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { pauseProject, readProject, resumeProject } from "@/api/resources/projects";
 import type { Project } from "@/api/types";
+import { ACT_DONE, actFailureOf, type ActResult } from "@/hooks/act-result";
 import { asApiError } from "@/hooks/use-resource";
 
 export interface ProjectPause {
@@ -19,7 +20,11 @@ function staleText(name: string, paused: boolean): string {
   return `${name} is already ${state}. The view now shows its current state.`;
 }
 
-export function useProjectPause(project: Project, onChanged: () => void): ProjectPause {
+export function useProjectPause(
+  project: Project,
+  onChanged: () => void,
+  onSettled?: (result: ActResult) => void,
+): ProjectPause {
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const paused = project.paused_at !== null;
@@ -40,18 +45,21 @@ export function useProjectPause(project: Project, onChanged: () => void): Projec
             });
           }
           onChanged();
+          onSettled?.(ACT_DONE);
         },
         (cause: unknown) => {
           setBusy(false);
           setConfirming(false);
+          const failure = asApiError(cause);
           toast.error(paused ? "Resuming the project failed." : "Pausing the project failed.", {
-            description: asApiError(cause).message,
+            description: failure.message,
             action: { label: "Retry", onClick: retry },
           });
+          onSettled?.(actFailureOf(failure));
         },
       );
     },
-    [paused, project.id, project.name, onChanged],
+    [paused, project.id, project.name, onChanged, onSettled],
   );
 
   const checkAndWrite = useCallback(

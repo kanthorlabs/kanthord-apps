@@ -1,3 +1,4 @@
+import type { WorkbenchActionOffer } from "@/api/types";
 import type { AttentionDetails, AttentionItem } from "./attention";
 import { type BoardGate, boardProjectsOf, compareAt, rankBoardItems } from "./board-items";
 import {
@@ -51,6 +52,21 @@ export function queueEntryOf(
 ): DeckQueueEntry | null {
   if (sessionId === null) return null;
   const index = order.findIndex((item) => item.id === `tool_approval:${sessionId}`);
+  const item = order[index];
+  return item === undefined ? null : { id: item.id, subject: item.subject, rank: index + 1 };
+}
+
+export function offerQueueEntryOf(
+  order: readonly AttentionItem[],
+  offer: Pick<WorkbenchActionOffer, "operation_id" | "target_id">,
+): DeckQueueEntry | null {
+  const isNode = offer.operation_id.startsWith("mission.node.");
+  const isProject = offer.operation_id.startsWith("project.");
+  const index = order.findIndex((item) =>
+    isProject
+      ? item.id === `project_paused:${offer.target_id}`
+      : isNode && "node" in item && item.node.id === offer.target_id,
+  );
   const item = order[index];
   return item === undefined ? null : { id: item.id, subject: item.subject, rank: index + 1 };
 }

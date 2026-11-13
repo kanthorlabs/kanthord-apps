@@ -174,4 +174,59 @@ describe("useProjectPause", () => {
     });
     expect(onChanged).not.toHaveBeenCalled();
   });
+
+  it("calls onSettled once with ok after the pause is written", async () => {
+    vi.mocked(readProject).mockReset().mockResolvedValue(project(null));
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useProjectPause(project(null), vi.fn(), onSettled));
+
+    act(() => result.current.toggle());
+    await act(async () => result.current.confirm());
+
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ ok: true });
+  });
+
+  it("calls onSettled once with the owning code of a 409, not the transport class", async () => {
+    vi.mocked(readProject).mockReset().mockResolvedValue(project(null));
+    vi.mocked(pauseProject).mockRejectedValue(
+      new ApiError("conflict", "Conflict.", 409, "project.state_conflict"),
+    );
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useProjectPause(project(null), vi.fn(), onSettled));
+
+    act(() => result.current.toggle());
+    await act(async () => result.current.confirm());
+
+    expect(onSettled).toHaveBeenCalledTimes(1);
+    expect(onSettled).toHaveBeenCalledWith({ ok: false, code: "project.state_conflict" });
+  });
+
+  it("calls no onSettled when the dialog is cancelled", async () => {
+    const onSettled = vi.fn();
+    const { result } = renderHook(() => useProjectPause(project(null), vi.fn(), onSettled));
+
+    act(() => result.current.toggle());
+    act(() => result.current.cancel());
+    await act(async () => undefined);
+
+    expect(onSettled).not.toHaveBeenCalled();
+  });
+
+  it("calls no onSettled for a stale read or a failed read", async () => {
+    const onSettled = vi.fn();
+    vi.mocked(readProject).mockReset().mockResolvedValue(project(5));
+    const stale = renderHook(() => useProjectPause(project(null), vi.fn(), onSettled));
+    act(() => stale.result.current.toggle());
+    await act(async () => stale.result.current.confirm());
+    vi.mocked(readProject)
+      .mockReset()
+      .mockRejectedValue(new ApiError("unreachable", "No answer.", 0));
+    const failed = renderHook(() => useProjectPause(project(null), vi.fn(), onSettled));
+    act(() => failed.result.current.toggle());
+    await act(async () => failed.result.current.confirm());
+
+    expect(pauseProject).not.toHaveBeenCalled();
+    expect(onSettled).not.toHaveBeenCalled();
+  });
 });

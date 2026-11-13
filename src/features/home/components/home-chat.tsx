@@ -6,6 +6,7 @@ import { InlineError } from "@/features/workbench/chat/components/inline-error";
 import { NewSessionChat } from "@/features/workbench/chat/components/new-session-chat";
 import { SessionChat } from "@/features/workbench/chat/components/session-chat";
 
+import type { ActionCardItem } from "@/lib/workbench-chat";
 import { YUMI_AGENT } from "@/lib/workbench-sessions";
 
 import type { HomeState } from "../use-home";
@@ -15,9 +16,10 @@ interface HomeChatProps {
   readonly home: HomeState;
   readonly streamEnd: ReactNode;
   readonly approvalLine: ReactNode | null;
+  readonly actionLineOf: (item: ActionCardItem) => ReactNode | null;
 }
 
-export function HomeChat({ home, streamEnd, approvalLine }: HomeChatProps) {
+export function HomeChat({ home, streamEnd, approvalLine, actionLineOf }: HomeChatProps) {
   const { view } = home;
 
   if (home.status === "loading") {
@@ -66,6 +68,7 @@ export function HomeChat({ home, streamEnd, approvalLine }: HomeChatProps) {
       firstSendFailure={view.failure}
       streamEnd={streamEnd}
       approvalLine={approvalLine}
+      actionLineOf={actionLineOf}
       onNew={home.newChat}
     />
   );

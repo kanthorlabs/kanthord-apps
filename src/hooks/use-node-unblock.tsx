@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { unblockNode } from "@/api/resources/mission";
 import type { MissionNodeRecord, MissionProposal } from "@/api/types";
 import { RecordName } from "@/components/record-name";
+import { ACT_DONE, actFailureOf, type ActResult } from "@/hooks/act-result";
 import { asApiError } from "@/hooks/use-resource";
 import { proposalRejectionNoticeOf } from "@/hooks/proposal-rejection-notice";
 
@@ -72,6 +73,7 @@ export function useNodeUnblock(
   missionVersion: number,
   proposals: readonly MissionProposal[],
   reload: () => void,
+  onSettled?: (result: ActResult) => void,
 ): NodeUnblockState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -120,6 +122,7 @@ export function useNodeUnblock(
         });
         setOpen(false);
         reload();
+        onSettled?.(ACT_DONE);
       },
       (cause: unknown) => {
         setUnblocking(false);
@@ -128,9 +131,10 @@ export function useNodeUnblock(
         setError(message);
         toast.error(`Unblocking ${node.content.name} failed.`, { description: message });
         reload();
+        onSettled?.(actFailureOf(failure));
       },
     );
-  }, [unblocking, open, node, reason, fromBase, missionVersion, reload]);
+  }, [unblocking, open, node, reason, fromBase, missionVersion, reload, onSettled]);
 
   return {
     available,

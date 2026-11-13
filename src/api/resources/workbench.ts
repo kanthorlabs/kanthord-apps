@@ -2,6 +2,8 @@ import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { request } from "../client";
 import type {
   WorkbenchAbortAnswer,
+  WorkbenchActionReportAnswer,
+  WorkbenchActionReportBody,
   WorkbenchApprovalAnswer,
   WorkbenchConfiguration,
   WorkbenchMessageAnswer,
@@ -89,6 +91,17 @@ export async function approveWorkbenchCall(
     tool_call_id: toolCallId,
     approved,
   });
+}
+
+export async function reportWorkbenchAction(
+  sessionId: string,
+  toolCallId: string,
+  body: WorkbenchActionReportBody,
+): Promise<WorkbenchActionReportAnswer> {
+  return post<WorkbenchActionReportAnswer>(
+    `${sessionPath(sessionId)}/action/${encodeURIComponent(toolCallId)}/report`,
+    body,
+  );
 }
 
 export async function readWorkbenchEvents(

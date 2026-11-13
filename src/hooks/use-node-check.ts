@@ -7,6 +7,7 @@ import type {
   MissionNodeCheckFailure,
   MissionNodeRecord,
 } from "@/api/types";
+import { ACT_DONE, actFailureOf, type ActResult } from "@/hooks/act-result";
 import { asApiError } from "@/hooks/use-resource";
 import { CHECKING_LABEL, checkLabelOf, linkLabelsOf } from "@/lib/check-result";
 import { unresolvedRequestsOf } from "@/lib/external-requests";
@@ -51,6 +52,7 @@ export function useNodeCheck(
   actions: readonly MissionExternalAction[] | null,
   markActed: () => void,
   reload: () => void,
+  onSettled?: (result: ActResult) => void,
 ): NodeCheckState {
   const [checking, setChecking] = useState(false);
   const latest = useRef<() => void>(() => undefined);
@@ -77,6 +79,7 @@ export function useNodeCheck(
           }
           markActed();
           reload();
+          onSettled?.(ACT_DONE);
         },
         (cause: unknown) => {
           setChecking(false);
@@ -89,14 +92,16 @@ export function useNodeCheck(
               description: failure.message,
               action: { label: "Retry", onClick: () => latest.current() },
             });
+            onSettled?.(actFailureOf(failure));
             return;
           }
           toast.error(conflict);
           reload();
+          onSettled?.(actFailureOf(failure));
         },
       );
     },
-    [checking, node, actions, missionVersion, reload, markActed],
+    [checking, node, actions, missionVersion, reload, markActed, onSettled],
   );
 
   useEffect(() => {

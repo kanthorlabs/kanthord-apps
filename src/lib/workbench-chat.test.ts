@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
 import {
+  ACTION_VERBS,
   agentWorking,
   chatItemsOf,
   runErrorTargetId,
@@ -278,5 +279,192 @@ describe("runRequestOf", () => {
 
   it("names no request before a user item exists", () => {
     expect(runRequestOf([])).toBeNull();
+  });
+});
+
+function record(id: string, data: Record<string, unknown>, extra = {}): WorkbenchSessionEntry {
+  return {
+    type: "custom",
+    id,
+    parentId: null,
+    timestamp: "2026-10-05T09:00:00.000Z",
+    customType: "kanthord.workbench.record",
+    data,
+    ...extra,
+  };
+}
+
+function offer(toolCallId: string, operationId = "mission.node.discard") {
+  return {
+    kind: "action_offer",
+    tool_call_id: toolCallId,
+    operation_id: operationId,
+    target_id: "node_1",
+    seen: { state: "Blocked", attempt: 2 },
+  };
+}
+
+function actionResult(
+  id: string,
+  toolCallId: string,
+  outcome: "done" | "failed",
+  errorCode: string | null,
+): WorkbenchSessionEntry {
+  return {
+    type: "custom_message",
+    id,
+    parentId: null,
+    timestamp: "2026-10-05T09:00:00.000Z",
+    customType: "kanthord.workbench.action_result",
+    display: false,
+    details: {
+      tool_call_id: toolCallId,
+      operation_id: "mission.node.discard",
+      target_id: "node_1",
+      outcome,
+      error_code: errorCode,
+    },
+  };
+}
+
+const OFFER_CALL = { type: "toolCall", id: "call_a", name: "offer_action", arguments: {} };
+
+function cardsOf(entries: readonly WorkbenchSessionEntry[], snapshot = IDLE) {
+  return chatItemsOf(entries, snapshot).filter((item) => item.kind === "action-card");
+}
+
+describe("ACTION_VERBS", () => {
+  it("holds exactly the eight card ids", () => {
+    expect(ACTION_VERBS).toEqual({
+      "mission.node.resume": "Resume",
+      "mission.node.unblock": "Unblock",
+      "mission.node.check": "Check",
+      "mission.node.discard": "Discard",
+      "mission.node.override": "Override",
+      "mission.node.pause": "Pause",
+      "project.pause": "Pause",
+      "project.resume": "Resume",
+    });
+  });
+});
+
+describe("chatItemsOf action card", () => {
+  it("maps the record to one card and hides the offer_action call and its result", () => {
+    const items = chatItemsOf(
+      [
+        message("e1", { role: "assistant", content: [OFFER_CALL] }),
+        record("e2", offer("call_a")),
+        message("e3", {
+          role: "toolResult",
+          toolCallId: "call_a",
+          toolName: "offer_action",
+          isError: false,
+          content: [{ type: "text", text: "offered" }],
+        }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([
+      {
+        kind: "action-card",
+        id: "e2",
+        offer: offer("call_a"),
+        results: [],
+        state: "live",
+      },
+    ]);
+  });
+
+  it("merges the results of one tool call id into the card in entry order", () => {
+    const cards = cardsOf([
+      record("e1", offer("call_a")),
+      actionResult("e2", "call_a", "failed", "mission.node.state_conflict"),
+      actionResult("e3", "call_b", "done", null),
+      actionResult("e4", "call_a", "failed", "mission.node.not_found"),
+    ]);
+
+    expect(cards.map((card) => card.results.map((result) => result.error_code))).toEqual([
+      ["mission.node.state_conflict", "mission.node.not_found"],
+    ]);
+  });
+
+  it("gives done for a done result", () => {
+    const cards = cardsOf([
+      record("e1", offer("call_a")),
+      actionResult("e2", "call_a", "done", null),
+    ]);
+
+    expect(cards.map((card) => card.state)).toEqual(["done"]);
+  });
+
+  it("gives superseded for a later user message", () => {
+    const cards = cardsOf([
+      record("e1", offer("call_a")),
+      message("e2", { role: "user", content: "Next" }),
+    ]);
+
+    expect(cards.map((card) => card.state)).toEqual(["superseded"]);
+  });
+
+  it("gives superseded to the first card when a later offer exists", () => {
+    const cards = cardsOf([record("e1", offer("call_a")), record("e2", offer("call_b"))]);
+
+    expect(cards.map((card) => card.state)).toEqual(["superseded", "live"]);
+  });
+
+  it("keeps the card live after an assistant text", () => {
+    const cards = cardsOf([
+      record("e1", offer("call_a")),
+      message("e2", { role: "assistant", content: [{ type: "text", text: "Done." }] }),
+    ]);
+
+    expect(cards.map((card) => card.state)).toEqual(["live"]);
+  });
+
+  it("gives waiting while the run is active", () => {
+    const cards = cardsOf([record("e1", offer("call_a"))], { ...IDLE, run_active: true });
+
+    expect(cards.map((card) => card.state)).toEqual(["waiting"]);
+  });
+
+  it("gives unknown for an operation id with no verb", () => {
+    const cards = cardsOf([record("e1", offer("call_a", "mission.node.explode"))]);
+
+    expect(cards.map((card) => card.state)).toEqual(["unknown"]);
+  });
+
+  it("keeps the card live and the result after a failed result", () => {
+    const cards = cardsOf([
+      record("e1", offer("call_a")),
+      actionResult("e2", "call_a", "failed", "mission.node.state_conflict"),
+    ]);
+
+    expect(cards.map((card) => [card.state, card.results.at(-1)?.error_code])).toEqual([
+      ["live", "mission.node.state_conflict"],
+    ]);
+  });
+
+  it("accepts the project seen shape", () => {
+    const cards = cardsOf([
+      record("e1", { ...offer("call_a", "project.pause"), seen: { paused: false } }),
+    ]);
+
+    expect(cards.map((card) => card.offer.seen)).toEqual([{ paused: false }]);
+  });
+
+  it("renders nothing for a record with an extra key or an unknown kind", () => {
+    const items = chatItemsOf(
+      [
+        record("e1", { ...offer("call_a"), text: "Click me" }),
+        record("e2", { ...offer("call_b"), kind: "other" }),
+        record("e3", { ...offer("call_c"), seen: { state: "Blocked", attempt: 1, extra: 1 } }),
+        record("e4", { ...offer("call_d"), seen: { state: "Nowhere", attempt: 1 } }),
+        record("e5", offer("call_e"), { customType: "other.record" }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
   });
 });

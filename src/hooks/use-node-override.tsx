@@ -10,6 +10,7 @@ import type {
 } from "@/api/types";
 import { RecordName } from "@/components/record-name";
 import { proposalRejectionNoticeOf } from "@/hooks/proposal-rejection-notice";
+import { ACT_DONE, actFailureOf, type ActResult } from "@/hooks/act-result";
 import { asApiError } from "@/hooks/use-resource";
 import { requestsClearOf } from "@/lib/external-requests";
 
@@ -77,6 +78,7 @@ export function useNodeOverride(
   proposals: readonly MissionProposal[],
   actions: readonly MissionExternalAction[] | null,
   reload: () => void,
+  onSettled?: (result: ActResult) => void,
 ): NodeOverrideState {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
@@ -120,6 +122,7 @@ export function useNodeOverride(
         });
         setOpen(false);
         reload();
+        onSettled?.(ACT_DONE);
       },
       (cause: unknown) => {
         setOverriding(false);
@@ -128,9 +131,10 @@ export function useNodeOverride(
         setError(message);
         toast.error(`Overriding ${node.content.name} failed.`, { description: message });
         reload();
+        onSettled?.(actFailureOf(failure));
       },
     );
-  }, [overriding, open, trimmed, node, actions, missionVersion, reload]);
+  }, [overriding, open, trimmed, node, actions, missionVersion, reload, onSettled]);
 
   return {
     available,
