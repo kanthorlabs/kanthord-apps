@@ -7,6 +7,7 @@ import {
   isDangerOperation,
   nodeChangeLineOf,
   projectChangeLineOf,
+  readFailureLineOf,
 } from "./workbench-action";
 import { ACTION_VERBS } from "./workbench-chat";
 
@@ -115,6 +116,14 @@ describe("projectChangeLineOf", () => {
 
     expect(projectChangeLineOf(seenActive, { paused_at: 5 })).toBe(
       "prj-1 changed since the card: it is now paused. Nothing ran.",
+    );
+  });
+});
+
+describe("readFailureLineOf", () => {
+  it("names the target and the read failure", () => {
+    expect(readFailureLineOf(offer("mission.node.discard", { paused: true }), "Down.")).toBe(
+      "node_42 was not read: Down.",
     );
   });
 });

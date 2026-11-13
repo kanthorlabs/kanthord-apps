@@ -5,6 +5,10 @@ function changedLineOf(offer: WorkbenchActionOffer, now: string): string {
   return `${offer.target_id} changed since the card: it is now ${now}. Nothing ran.`;
 }
 
+export function readFailureLineOf(offer: WorkbenchActionOffer, message: string): string {
+  return `${offer.target_id} was not read: ${message}`;
+}
+
 export function nodeChangeLineOf(
   offer: WorkbenchActionOffer,
   node: Pick<MissionNodeRecord, "state" | "attempt">,
