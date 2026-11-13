@@ -5,6 +5,7 @@ import type { BoardGate } from "@/lib/board-items";
 import type { ActedAct } from "@/lib/board-done";
 import type { BoardTabId } from "@/lib/board-tabs";
 import type { BoardSummary } from "@/lib/board-text";
+import { deckRowTextOf } from "@/lib/deck-card";
 import {
   DECK_PAGE_SIZE,
   deckCountTextOf,
@@ -71,6 +72,7 @@ interface DeckState {
 export interface DeckSecondary {
   readonly item: AttentionItem;
   readonly rank: number;
+  readonly tab: string;
   readonly isNew: boolean;
 }
 
@@ -229,6 +231,7 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
     held,
     gates,
     details,
+    now,
     status,
     loaded,
     inbox,
@@ -398,7 +401,12 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
     secondary:
       next === undefined
         ? null
-        : { item: next, rank: index + 2, isNew: current.fresh.has(next.id) },
+        : {
+            item: next,
+            rank: index + 2,
+            tab: deckRowTextOf(next, details, now).tab,
+            isNew: current.fresh.has(next.id),
+          },
     tilted: index < 0 ? 0 : Math.min(MAX_TILTED, order.length - 1 - index),
     gone: exit?.phase === "gone",
     leaving: exit?.phase === "leave",
