@@ -3,7 +3,7 @@ import { type ReactNode, useId } from "react";
 import { Badge } from "@/components/ui/badge";
 import { toolResultText } from "@/lib/health-names";
 import type { ActionCardItem, ChatItem } from "@/lib/workbench-chat";
-import { ActionCard } from "./action-card";
+import { ActionCardEntry } from "./action-card-entry";
 import { AgentAvatar } from "./agent-avatar";
 import { AgentText } from "./agent-text";
 import { BubbleAuthor } from "./bubble-author";
@@ -65,8 +65,8 @@ interface ChatEntryProps {
   readonly authors: ChatAuthors;
   readonly runError: string | null;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
+  readonly sessionId: string;
   readonly canRun?: boolean;
-  readonly onRunAction?: (item: ActionCardItem) => void;
 }
 
 export function ChatEntry({
@@ -74,8 +74,8 @@ export function ChatEntry({
   authors,
   runError,
   actionLineOf,
+  sessionId,
   canRun = false,
-  onRunAction,
 }: ChatEntryProps) {
   if (item.kind === "user") {
     return (
@@ -126,7 +126,7 @@ export function ChatEntry({
   if (item.kind === "action-card") {
     const line = actionLineOf?.(item) ?? null;
     if (line !== null) return <>{line}</>;
-    return <ActionCard item={item} canRun={canRun} onRun={() => onRunAction?.(item)} />;
+    return <ActionCardEntry item={item} sessionId={sessionId} canRun={canRun} />;
   }
 
   const detail = toolResultText(item.name, item.text);

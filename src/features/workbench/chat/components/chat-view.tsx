@@ -119,6 +119,7 @@ export function ChatView({
           authors={{ ownerName, agentName: session.agent_name, agentDisplayName }}
           runError={snapshot.error_message}
           actionLineOf={actionLineOf}
+          sessionId={session.id}
           canRun
           runLine={
             <RunLine

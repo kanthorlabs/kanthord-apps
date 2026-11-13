@@ -18,6 +18,7 @@ describe("ChatEntry", () => {
         }}
         authors={AUTHORS}
         runError={null}
+        sessionId="workbench_session_1"
       />,
     );
 

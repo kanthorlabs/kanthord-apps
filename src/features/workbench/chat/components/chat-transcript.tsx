@@ -11,8 +11,8 @@ interface ChatTranscriptProps {
   readonly runError: string | null;
   readonly runLine: ReactNode;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
+  readonly sessionId: string;
   readonly canRun?: boolean;
-  readonly onRunAction?: (item: ActionCardItem) => void;
 }
 
 export function ChatTranscript({
@@ -21,8 +21,8 @@ export function ChatTranscript({
   runError,
   runLine,
   actionLineOf,
+  sessionId,
   canRun,
-  onRunAction,
 }: ChatTranscriptProps) {
   const targetId = runError === null ? null : runErrorTargetId(items);
   return (
@@ -37,8 +37,8 @@ export function ChatTranscript({
           authors={authors}
           runError={item.id === targetId ? runError : null}
           actionLineOf={actionLineOf}
+          sessionId={sessionId}
           canRun={canRun}
-          onRunAction={onRunAction}
         />
       ))}
       {runLine}

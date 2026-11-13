@@ -1,5 +1,6 @@
 import { useId } from "react";
 
+import type { ApiError } from "@/api/errors";
 import type { WorkbenchActionOffer } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -10,10 +11,17 @@ interface ActionCardProps {
   readonly item: ActionCardItem;
   readonly canRun: boolean;
   readonly onRun: () => void;
+  readonly reportFailure?: ApiError | null;
+}
+
+interface CardError {
+  readonly code: string | null;
+  readonly message: string;
 }
 
 const DANGER_OPERATIONS: readonly string[] = ["mission.node.discard", "mission.node.override"];
 const FAILED_LINE = "The act failed.";
+const NOT_RECORDED_LINE = "The result was not recorded.";
 const STATE_LINES: Readonly<Partial<Record<ActionCardState, string>>> = {
   done: "Done by the owner",
   superseded: "Superseded by a later message",
@@ -31,12 +39,21 @@ function seenLineOf(seen: WorkbenchActionOffer["seen"]): string {
   return `Offered when the project was ${seen.paused ? "paused" : "active"}`;
 }
 
-export function ActionCard({ item, canRun, onRun }: ActionCardProps) {
+export function ActionCard({ item, canRun, onRun, reportFailure = null }: ActionCardProps) {
   const errorId = useId();
   const { offer, state } = item;
   const verb = verbOf(offer.operation_id);
   const latest = item.results.at(-1);
-  const failure = state === "live" && latest?.outcome === "failed" ? latest : null;
+  const failed = state === "live" && latest?.outcome === "failed" ? latest : null;
+  const failure: CardError | null =
+    reportFailure !== null
+      ? {
+          code: reportFailure.detail === "" ? null : reportFailure.detail,
+          message: NOT_RECORDED_LINE,
+        }
+      : failed === null
+        ? null
+        : { code: failed.error_code, message: FAILED_LINE };
   const stateLine = STATE_LINES[state];
   const showButton = canRun && verb !== null && (state === "live" || state === "waiting");
   return (
@@ -70,7 +87,7 @@ export function ActionCard({ item, canRun, onRun }: ActionCardProps) {
         </Card>
       </div>
       {failure !== null && (
-        <InlineError id={errorId} code={failure.error_code} message={FAILED_LINE} />
+        <InlineError id={errorId} code={failure.code} message={failure.message} />
       )}
     </div>
   );
