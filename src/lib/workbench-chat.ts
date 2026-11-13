@@ -118,3 +118,27 @@ export function agentWorking(items: readonly ChatItem[], snapshot: WorkbenchRunS
   const last = items.at(-1);
   return !(last?.kind === "assistant" && last.streaming);
 }
+
+export interface WorkbenchPathMatch {
+  readonly start: number;
+  readonly end: number;
+  readonly path: string;
+}
+
+const PATH_SEGMENT = String.raw`[\w~-]+(?:\.[\w~-]+)*`;
+const WORKBENCH_PATH = new RegExp(
+  String.raw`(?<![\w/:.~-])/${PATH_SEGMENT}(?:/${PATH_SEGMENT})+`,
+  "g",
+);
+
+export function workbenchPathsIn(text: string): readonly WorkbenchPathMatch[] {
+  return [...text.matchAll(WORKBENCH_PATH)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    path: match[0],
+  }));
+}
+
+export function runErrorTargetId(items: readonly ChatItem[]): string | null {
+  return items.filter((item) => item.kind === "user").at(-1)?.id ?? null;
+}

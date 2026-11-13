@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
@@ -89,6 +89,10 @@ function pollQueue() {
 function mount(held: WorkbenchSession) {
   return render(<ChatView session={held} enablement={ENABLEMENT} />);
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -340,5 +344,140 @@ describe("ChatView", () => {
     mount(session());
 
     expect(await screen.findByText(/The daemon did not answer\. Trying again\./)).toBeTruthy();
+  });
+
+  it("renders a Workbench path in agent text as a link", () => {
+    pollQueue();
+    mount(
+      session([
+        message("e1", {
+          role: "assistant",
+          content: [{ type: "text", text: "Open /missions/checkout/nodes/node_42 first." }],
+        }),
+      ]),
+    );
+
+    expect(screen.getByRole("link", { name: "/missions/checkout/nodes/node_42" })).toHaveAttribute(
+      "href",
+      `${window.location.origin}/missions/checkout/nodes/node_42`,
+    );
+  });
+
+  it("opens a path link in a new tab and keeps the opener", async () => {
+    pollQueue();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    mount(
+      session([
+        message("e1", {
+          role: "assistant",
+          content: [{ type: "text", text: "Open /missions/checkout/nodes/node_42 first." }],
+        }),
+      ]),
+    );
+
+    await userEvent.click(screen.getByRole("link", { name: "/missions/checkout/nodes/node_42" }));
+
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(open).toHaveBeenCalledWith(
+      `${window.location.origin}/missions/checkout/nodes/node_42`,
+      "_blank",
+    );
+  });
+
+  it("keeps a slash command in agent text as plain text", () => {
+    pollQueue();
+    mount(
+      session([
+        message("e1", {
+          role: "assistant",
+          content: [{ type: "text", text: "Type /brief or /health or /new to go on." }],
+        }),
+      ]),
+    );
+
+    expect(screen.getByText("Type /brief or /health or /new to go on.")).toBeTruthy();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("shows the error of a failed tool result directly under its row, in full", () => {
+    pollQueue();
+    const text = "The node node_42 refused the change because ".concat(
+      "it holds a live claim. ".repeat(8),
+    );
+    mount(
+      session([
+        message("e1", {
+          role: "toolResult",
+          toolCallId: "call_1",
+          toolName: "node.update",
+          isError: true,
+          content: [{ type: "text", text }],
+        }),
+      ]),
+    );
+
+    const row = screen.getByRole("button", { name: "Tool Result node.update" });
+    const error = screen.getByRole("alert");
+    expect(error.previousElementSibling).toContainElement(row);
+    expect(error).toHaveTextContent(text.trim());
+    expect(row).toHaveAccessibleDescription(text.trim());
+  });
+
+  it("shows the error code first and then the message under the approval card that failed", async () => {
+    const polls = pollQueue();
+    vi.mocked(workbenchApi.approveWorkbenchCall).mockRejectedValue(
+      new ApiError("conflict", "The call is no longer pending.", 409),
+    );
+    mount(session([], true));
+    await polls.answer({
+      snapshot: {
+        run_active: true,
+        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+      },
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+
+    const card = await screen.findByRole("group", { name: "Approval Required" });
+    const error = await screen.findByRole("alert");
+    expect(error.previousElementSibling).toContainElement(card);
+    expect(error).toHaveTextContent("conflict The call is no longer pending.");
+    expect(card).toHaveAccessibleDescription("conflict The call is no longer pending.");
+  });
+
+  it("shows the error code first and then the message directly under the composer", async () => {
+    pollQueue();
+    vi.mocked(workbenchApi.sendWorkbenchMessage).mockRejectedValue(
+      new ApiError("conflict", "The workbench session holds an active run.", 409),
+    );
+    mount(session());
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "again");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const error = await screen.findByRole("alert");
+    expect(error.previousElementSibling).toBe(screen.getByRole("form", { name: "Composer" }));
+    expect(error).toHaveTextContent("conflict The workbench session holds an active run.");
+  });
+
+  it("shows a run error under the message that started the run", async () => {
+    const polls = pollQueue();
+    mount(
+      session([
+        message("e1", { role: "user", content: "Plan the release" }),
+        message("e2", { role: "assistant", content: [{ type: "text", text: "Planning." }] }),
+        message("e3", { role: "user", content: "Start the run" }),
+      ]),
+    );
+
+    await polls.answer({ snapshot: { error_message: "The model provider refused the request." } });
+
+    const error = await screen.findByRole("alert");
+    const bubble = screen.getByText("Start the run");
+    expect(error.previousElementSibling).toBe(bubble);
+    expect(bubble).toHaveAccessibleDescription("The model provider refused the request.");
+    expect(screen.getByText("Plan the release")).not.toHaveAccessibleDescription(
+      "The model provider refused the request.",
+    );
   });
 });
