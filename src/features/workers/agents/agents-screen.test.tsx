@@ -157,6 +157,22 @@ describe("AgentsScreen", () => {
     expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
   });
 
+  it("disables the New Session button of an enabled agent that does not serve the Workbench", async () => {
+    const PE: AgentSummary = {
+      ...SWE,
+      agentName: "pe@1",
+      displayName: "PE",
+      consumers: ["worker"],
+    };
+    vi.mocked(workersApi.listAgents).mockResolvedValue([PE]);
+    mount();
+
+    expect(await screen.findByRole("button", { name: "New session with pe@1" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+  });
+
   it("reports a failed read", async () => {
     vi.mocked(workersApi.listAgents).mockRejectedValue(
       new ApiError("unavailable", "The daemon did not answer.", 503),

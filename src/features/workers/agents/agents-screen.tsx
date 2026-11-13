@@ -18,7 +18,7 @@ import { ENABLEMENT_HASH } from "../agent/use-enablement-create";
 import { useAgents } from "./use-agents";
 
 function AgentItem({ agent }: { agent: AgentSummary }) {
-  const { agentName, workerNames, toolCounts, enablement } = agent;
+  const { agentName, workerNames, toolCounts, enablement, consumers } = agent;
   const navigate = useNavigate();
   const [starting, setStarting] = useState(false);
 
@@ -47,7 +47,7 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
         <NewSessionButton
           size="sm"
           label={`New session with ${agentName}`}
-          unavailableReason={newSessionUnavailableReason(enablement?.state ?? null)}
+          unavailableReason={newSessionUnavailableReason(enablement?.state ?? null, consumers)}
           onStart={() => setStarting(true)}
         />
       </ItemHeader>

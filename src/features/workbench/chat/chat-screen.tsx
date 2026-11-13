@@ -51,6 +51,7 @@ function NewSessionScreen() {
 
 function SessionScreen({ sessionId }: { sessionId: string }) {
   const { session } = useSession();
+  if (session === null) throw new Error("The chat requires a signed-in session");
   const { state } = useLocation();
   const { data: view, error, loading, reload } = useWorkbenchSession(sessionId);
 
@@ -72,7 +73,7 @@ function SessionScreen({ sessionId }: { sessionId: string }) {
       key={view.session.id}
       session={view.session}
       enablement={view.enablement}
-      ownerName={session?.identity.name ?? "You"}
+      ownerName={session.identity.name}
       agentDisplayName={view.agentDisplayName}
       firstSendFailure={firstSendFailureOf(state)}
     />
