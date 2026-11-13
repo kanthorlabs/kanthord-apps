@@ -291,6 +291,52 @@ describe("ChatView", () => {
     );
   });
 
+  it("closes the approval card when the stream clears the approval and no click happens", async () => {
+    const polls = pollQueue();
+    mount(session([], true));
+    await polls.answer({
+      snapshot: {
+        run_active: true,
+        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+      },
+    });
+    await screen.findByRole("group", { name: "Approval Required" });
+
+    await polls.answer({ snapshot: { run_active: true, pending_approval: null } });
+
+    await waitFor(() =>
+      expect(screen.queryByRole("group", { name: "Approval Required" })).toBeNull(),
+    );
+    expect(workbenchApi.approveWorkbenchCall).not.toHaveBeenCalled();
+  });
+
+  it("replaces the approval card when the stream names another tool call", async () => {
+    const polls = pollQueue();
+    vi.mocked(workbenchApi.approveWorkbenchCall).mockRejectedValue(
+      new ApiError("conflict", "The call is no longer pending.", 409),
+    );
+    mount(session([], true));
+    await polls.answer({
+      snapshot: {
+        run_active: true,
+        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+      },
+    });
+    await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
+    await screen.findByRole("alert");
+
+    await polls.answer({
+      snapshot: {
+        run_active: true,
+        pending_approval: { tool_call_id: "call_3", operation_id: "project.update", input: {} },
+      },
+    });
+
+    expect(await screen.findByText("project.update")).toBeTruthy();
+    expect(screen.queryByText("project.create")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("rejects a pending approval", async () => {
     const polls = pollQueue();
     vi.mocked(workbenchApi.approveWorkbenchCall).mockResolvedValue({
