@@ -27,7 +27,8 @@ const STATE_LINES: Readonly<Partial<Record<ActionCardState, string>>> = {
   superseded: "Superseded by a later message",
   unknown: "This act has no card in this dashboard version.",
 };
-const BUTTON_LAYOUT = "h-auto min-h-9 py-1.5 text-left whitespace-normal break-all";
+const BUTTON_LAYOUT =
+  "h-auto min-h-9 min-w-0 max-w-full shrink py-1.5 text-left whitespace-normal break-all";
 const DANGER_FILL = "bg-destructive text-destructive-foreground hover:bg-destructive/90";
 
 function cardErrorOf(
