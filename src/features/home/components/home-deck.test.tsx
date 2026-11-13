@@ -373,6 +373,15 @@ describe("HomeDeck stack", () => {
     expect(grid.className).toContain("grid-cols-[minmax(0,1fr)]");
   });
 
+  it("keeps the secondary strip at its own height so its rotation stays inside the page", () => {
+    mount(overviewOf([fix("a", 1, "Alpha"), fix("b", 2, "Beta"), fix("c", 3), fix("d", 4)]));
+
+    const { secondary, middle } = backCards();
+
+    expect(secondary.className).toContain("self-start");
+    expect(middle.className).not.toContain("self-start");
+  });
+
   it("shows the short tab pill in the secondary strip", () => {
     mount(overviewOf([fix("a", 1, "Alpha"), APPROVAL]));
 

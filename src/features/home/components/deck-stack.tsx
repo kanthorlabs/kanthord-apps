@@ -54,7 +54,7 @@ export function DeckStack({ deck, details, children }: DeckStackProps) {
         <div
           key={tilt}
           aria-hidden={index === 0 ? undefined : true}
-          className={`col-start-1 row-start-1 flex ${tilt}`}
+          className={`col-start-1 row-start-1 flex ${index === 0 ? "self-start" : ""} ${tilt}`}
         >
           {index === 0 ? (
             <Secondary deck={deck} details={details} />
