@@ -18,11 +18,7 @@ interface DeckStackProps {
   readonly children: ReactNode;
 }
 
-interface SecondaryProps {
-  readonly deck: HomeDeck;
-}
-
-function Secondary({ deck }: SecondaryProps) {
+function Secondary({ deck }: { readonly deck: HomeDeck }) {
   const { secondary } = deck;
   if (secondary === null) return null;
   return (
