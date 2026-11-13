@@ -47,7 +47,7 @@ const SESSION: WorkbenchSession = {
         tool_call_id: "call_1",
         operation_id: "project.pause",
         target_id: "prj-1",
-        seen: { paused: false },
+        seen: { name: "Billing", paused: false },
       },
     },
   ],

@@ -40,20 +40,24 @@ describe("actionVerbOf", () => {
 
 describe("actionFactsOf", () => {
   it("lists the node and its seen state and attempt", () => {
-    expect(actionFactsOf(offer("mission.node.discard", { state: "Blocked", attempt: 2 }))).toEqual([
-      "node: node_42",
-      "state: Blocked · attempt 2",
-    ]);
+    expect(
+      actionFactsOf(
+        offer("mission.node.discard", {
+          name: "Add retry to payment client",
+          state: "Blocked",
+          attempt: 2,
+        }),
+      ),
+    ).toEqual(["node: Add retry to payment client (node_42)", "state: Blocked · attempt 2"]);
   });
 
   it.each([
     [true, "state: paused"],
     [false, "state: active"],
   ])("lists the project and its state for paused %s", (paused, line) => {
-    expect(actionFactsOf(offer("project.resume", { paused }, "project_7"))).toEqual([
-      "project: project_7",
-      line,
-    ]);
+    expect(
+      actionFactsOf(offer("project.resume", { name: "Billing", paused }, "project_7")),
+    ).toEqual(["project: Billing (project_7)", line]);
   });
 });
 
@@ -71,7 +75,11 @@ describe("isDangerOperation", () => {
 });
 
 describe("nodeChangeLineOf", () => {
-  const seen = offer("mission.node.discard", { state: "Blocked", attempt: 2 });
+  const seen = offer("mission.node.discard", {
+    name: "Add retry to payment client",
+    state: "Blocked",
+    attempt: 2,
+  });
 
   it("answers null when the state and the attempt match", () => {
     expect(nodeChangeLineOf(seen, { state: "Blocked", attempt: 2 })).toBeNull();
@@ -90,7 +98,7 @@ describe("nodeChangeLineOf", () => {
   });
 
   it("reports a change when the offer holds no node state", () => {
-    const projectSeen = offer("mission.node.discard", { paused: true });
+    const projectSeen = offer("mission.node.discard", { name: "Billing", paused: true });
 
     expect(nodeChangeLineOf(projectSeen, { state: "Blocked", attempt: 2 })).toBe(
       "node_42 changed since the card: it is now Blocked (attempt 2). Nothing ran.",
@@ -99,7 +107,7 @@ describe("nodeChangeLineOf", () => {
 });
 
 describe("projectChangeLineOf", () => {
-  const seenPaused = offer("project.resume", { paused: true }, "prj-1");
+  const seenPaused = offer("project.resume", { name: "Billing", paused: true }, "prj-1");
 
   it("answers null when the pause matches", () => {
     expect(projectChangeLineOf(seenPaused, { paused_at: 5 })).toBeNull();
@@ -112,7 +120,7 @@ describe("projectChangeLineOf", () => {
   });
 
   it("names the paused state when the project paused", () => {
-    const seenActive = offer("project.pause", { paused: false }, "prj-1");
+    const seenActive = offer("project.pause", { name: "Billing", paused: false }, "prj-1");
 
     expect(projectChangeLineOf(seenActive, { paused_at: 5 })).toBe(
       "prj-1 changed since the card: it is now paused. Nothing ran.",
@@ -122,8 +130,8 @@ describe("projectChangeLineOf", () => {
 
 describe("readFailureLineOf", () => {
   it("names the target and the read failure", () => {
-    expect(readFailureLineOf(offer("mission.node.discard", { paused: true }), "Down.")).toBe(
-      "node_42 was not read: Down.",
-    );
+    expect(
+      readFailureLineOf(offer("mission.node.discard", { name: "Billing", paused: true }), "Down."),
+    ).toBe("node_42 was not read: Down.");
   });
 });

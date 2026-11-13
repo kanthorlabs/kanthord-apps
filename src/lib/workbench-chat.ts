@@ -65,8 +65,8 @@ const OFFER_TOOL = "offer_action";
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
-const NODE_SEEN_KEYS = ["state", "attempt"];
-const PROJECT_SEEN_KEYS = ["paused"];
+const NODE_SEEN_KEYS = ["name", "state", "attempt"];
+const PROJECT_SEEN_KEYS = ["name", "paused"];
 
 function isRecord(value: unknown): value is Block {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -101,13 +101,15 @@ function hasExactKeys(value: Block, keys: readonly string[]): boolean {
 
 function seenOf(value: unknown): WorkbenchActionOffer["seen"] | null {
   if (!isRecord(value)) return null;
+  const name = value["name"];
+  if (typeof name !== "string") return null;
   if (hasExactKeys(value, PROJECT_SEEN_KEYS)) {
-    return typeof value["paused"] === "boolean" ? { paused: value["paused"] } : null;
+    return typeof value["paused"] === "boolean" ? { name, paused: value["paused"] } : null;
   }
   if (!hasExactKeys(value, NODE_SEEN_KEYS)) return null;
   const state = NODE_STATES.find((candidate) => candidate === value["state"]);
   const attempt = value["attempt"];
-  return state !== undefined && typeof attempt === "number" ? { state, attempt } : null;
+  return state !== undefined && typeof attempt === "number" ? { name, state, attempt } : null;
 }
 
 function offerOf(entry: WorkbenchSessionEntry): WorkbenchActionOffer | null {
