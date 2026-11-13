@@ -769,15 +769,6 @@ function renderScreen(entry = "/", onResume?: () => void) {
   );
 }
 
-function stackLevelOf(element: HTMLElement): number {
-  const level = /(?:^|\s)z-(\d+)(?:\s|$)/;
-  for (let node: HTMLElement | null = element; node !== null; node = node.parentElement) {
-    const match = level.exec(node.className);
-    if (match !== null) return Number(match[1]);
-  }
-  return 0;
-}
-
 async function findPrimary(name: RegExp | string = /^Primary: /): Promise<HTMLElement> {
   const primary = await screen.findByRole("group", { name });
   await waitFor(() => expect(within(primary).getAllByRole("button").length).toBeGreaterThan(0));
@@ -846,7 +837,10 @@ describe("HomeScreen layout", () => {
     await user.click(await composerBox());
     const list = await screen.findByRole("listbox", { name: "Commands" });
 
-    expect(stackLevelOf(list)).toBeGreaterThan(stackLevelOf(primary));
+    const deckGrid = primary.closest(".z-30")?.parentElement;
+    expect(deckGrid).toHaveClass("isolate");
+    expect(deckGrid).not.toContainElement(list);
+    expect(deckGrid?.compareDocumentPosition(list)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     await user.click(within(list).getByRole("option", { name: /\/brief/ }));
     await waitFor(() =>
       expect(sendWorkbenchMessage).toHaveBeenCalledWith(expect.any(String), BRIEF_TEXT),
