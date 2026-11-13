@@ -86,8 +86,15 @@ function pollQueue() {
   };
 }
 
-function mount(held: WorkbenchSession) {
-  return render(<ChatView session={held} enablement={ENABLEMENT} />);
+function mount(held: WorkbenchSession, agentDisplayName = "SWE") {
+  return render(
+    <ChatView
+      session={held}
+      enablement={ENABLEMENT}
+      ownerName="Ulrich"
+      agentDisplayName={agentDisplayName}
+    />,
+  );
 }
 
 afterEach(() => {
@@ -479,5 +486,50 @@ describe("ChatView", () => {
     expect(screen.getByText("Plan the release")).not.toHaveAccessibleDescription(
       "The model provider refused the request.",
     );
+  });
+
+  it("shows the display name, the entry time and an avatar on an agent bubble", () => {
+    pollQueue();
+    mount(
+      {
+        ...session([
+          message("e1", { role: "assistant", content: [{ type: "text", text: "Hello." }] }),
+        ]),
+        agent_name: "ops@1",
+      },
+      "Yumi",
+    );
+
+    expect(screen.getByText("Yumi")).toBeTruthy();
+    expect(screen.getByText("2026-10-05 09:00 UTC")).toHaveAttribute(
+      "datetime",
+      "2026-10-05T09:00:00.000Z",
+    );
+    expect(screen.getByRole("img", { name: "Yumi avatar" })).toBeTruthy();
+  });
+
+  it("shows the owner name and the entry time on an owner bubble", () => {
+    pollQueue();
+    mount(session([message("e1", { role: "user", content: "List the nodes" })]));
+
+    expect(screen.getByText("Ulrich")).toBeTruthy();
+    expect(screen.getByText("2026-10-05 09:00 UTC")).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
+  });
+
+  it("shows no time on a streaming agent bubble until its entry arrives", async () => {
+    const polls = pollQueue();
+    mount(session([message("e1", { role: "user", content: "Hi" })], true));
+
+    await polls.answer({
+      snapshot: {
+        run_active: true,
+        streaming_message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
+      },
+    });
+
+    expect(await screen.findByText("Hel")).toBeTruthy();
+    expect(screen.getByText("SWE")).toBeTruthy();
+    expect(screen.getAllByText(/UTC$/)).toHaveLength(1);
   });
 });

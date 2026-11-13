@@ -19,9 +19,11 @@ import { Composer } from "./composer";
 interface ChatViewProps {
   readonly session: WorkbenchSession;
   readonly enablement: AgentEnablement | null;
+  readonly ownerName: string;
+  readonly agentDisplayName: string;
 }
 
-export function ChatView({ session, enablement }: ChatViewProps) {
+export function ChatView({ session, enablement, ownerName, agentDisplayName }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.run_active);
   const actions = useChatActions(session.id, events.patchSnapshot);
   const configuration = useChatConfiguration(
@@ -58,7 +60,11 @@ export function ChatView({ session, enablement }: ChatViewProps) {
         <ResumeCommandButton command={session.resume_command} />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-4">
-        <ChatTranscript items={items} runError={snapshot.error_message} />
+        <ChatTranscript
+          items={items}
+          authors={{ ownerName, agentName: session.agent_name, agentDisplayName }}
+          runError={snapshot.error_message}
+        />
         {working && <AgentWorking seconds={elapsed} />}
         {snapshot.pending_approval !== null && (
           <ApprovalCard

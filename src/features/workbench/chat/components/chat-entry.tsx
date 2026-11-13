@@ -3,16 +3,32 @@ import { useId } from "react";
 import { Badge } from "@/components/ui/badge";
 import { toolResultText } from "@/lib/health-names";
 import type { ChatItem } from "@/lib/workbench-chat";
+import { AgentAvatar } from "./agent-avatar";
 import { AgentText } from "./agent-text";
+import { BubbleAuthor } from "./bubble-author";
 import { InlineError } from "./inline-error";
 import { ToolRow } from "./tool-row";
 
 const CALL_STATE_LABEL = { running: "Running", "awaiting-approval": "Awaiting Approval" } as const;
 
-function UserMessage({ text, error }: { text: string; error: string | null }) {
+export interface ChatAuthors {
+  readonly ownerName: string;
+  readonly agentName: string;
+  readonly agentDisplayName: string;
+}
+
+interface UserMessageProps {
+  readonly text: string;
+  readonly author: string;
+  readonly timestamp: number;
+  readonly error: string | null;
+}
+
+function UserMessage({ text, author, timestamp, error }: UserMessageProps) {
   const errorId = useId();
   return (
     <div className="flex max-w-[85%] min-w-0 flex-col items-end gap-1 self-end">
+      <BubbleAuthor name={author} timestamp={timestamp} />
       <div
         aria-describedby={error === null ? undefined : errorId}
         className={
@@ -30,20 +46,31 @@ function UserMessage({ text, error }: { text: string; error: string | null }) {
 
 interface ChatEntryProps {
   readonly item: ChatItem;
+  readonly authors: ChatAuthors;
   readonly runError: string | null;
 }
 
-export function ChatEntry({ item, runError }: ChatEntryProps) {
-  if (item.kind === "user") return <UserMessage text={item.text} error={runError} />;
+export function ChatEntry({ item, authors, runError }: ChatEntryProps) {
+  if (item.kind === "user") {
+    return (
+      <UserMessage
+        text={item.text}
+        author={authors.ownerName}
+        timestamp={item.timestamp}
+        error={runError}
+      />
+    );
+  }
 
   if (item.kind === "assistant") {
     return (
-      <div
-        aria-busy={item.streaming}
-        className="flex min-w-0 flex-col items-start gap-1 break-words"
-      >
-        <AgentText text={item.text} />
-        {item.streaming && <Badge variant="outline">Streaming</Badge>}
+      <div aria-busy={item.streaming} className="flex min-w-0 items-start gap-2">
+        <AgentAvatar agentName={authors.agentName} displayName={authors.agentDisplayName} />
+        <div className="flex min-w-0 flex-col items-start gap-1 break-words">
+          <BubbleAuthor name={authors.agentDisplayName} timestamp={item.timestamp} />
+          <AgentText text={item.text} />
+          {item.streaming && <Badge variant="outline">Streaming</Badge>}
+        </div>
       </div>
     );
   }

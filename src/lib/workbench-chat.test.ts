@@ -27,6 +27,8 @@ function message(id: string, body: Record<string, unknown>): WorkbenchSessionEnt
   };
 }
 
+const AT = Date.parse("2026-10-05T09:00:00.000Z");
+
 const CALL = { type: "toolCall", id: "call_1", name: "mission.node.list", arguments: { a: 1 } };
 
 describe("chatItemsOf", () => {
@@ -47,8 +49,8 @@ describe("chatItemsOf", () => {
     );
 
     expect(items).toEqual([
-      { kind: "user", id: "e1", text: "List the nodes" },
-      { kind: "assistant", id: "e2", text: "Reading.", streaming: false },
+      { kind: "user", id: "e1", text: "List the nodes", timestamp: AT },
+      { kind: "assistant", id: "e2", text: "Reading.", streaming: false, timestamp: AT },
       {
         kind: "tool-call",
         id: "e2:call_1",
@@ -105,6 +107,7 @@ describe("chatItemsOf", () => {
       id: "streaming",
       text: "Hel",
       streaming: true,
+      timestamp: null,
     });
   });
 });
@@ -117,8 +120,14 @@ describe("summaryOf", () => {
 });
 
 describe("agentWorking", () => {
-  const user = { kind: "user", id: "e1", text: "Hi" } as const;
-  const streamed = { kind: "assistant", id: "s", text: "Hel", streaming: true } as const;
+  const user = { kind: "user", id: "e1", text: "Hi", timestamp: AT } as const;
+  const streamed = {
+    kind: "assistant",
+    id: "s",
+    text: "Hel",
+    streaming: true,
+    timestamp: null,
+  } as const;
 
   it("shows the agent at work while a run is active and no text streams", () => {
     expect(agentWorking([user], { ...IDLE, run_active: true })).toBe(true);

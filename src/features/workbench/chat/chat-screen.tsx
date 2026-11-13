@@ -2,11 +2,13 @@ import { useParams } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSession } from "@/features/auth/session/session-context";
 import { ChatView } from "./components/chat-view";
 import { useWorkbenchSession } from "./use-workbench-session";
 
 export function ChatScreen() {
   const { sessionId = "" } = useParams<{ sessionId: string }>();
+  const { session } = useSession();
   const { data: view, error, loading, reload } = useWorkbenchSession(sessionId);
 
   if (loading) {
@@ -29,5 +31,13 @@ export function ChatScreen() {
     );
   }
 
-  return <ChatView key={view.session.id} session={view.session} enablement={view.enablement} />;
+  return (
+    <ChatView
+      key={view.session.id}
+      session={view.session}
+      enablement={view.enablement}
+      ownerName={session?.identity.name ?? "You"}
+      agentDisplayName={view.agentDisplayName}
+    />
+  );
 }

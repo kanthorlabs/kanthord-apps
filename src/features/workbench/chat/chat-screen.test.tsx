@@ -10,6 +10,15 @@ import type { AgentDeclaration, WorkbenchSession } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
+vi.mock("@/features/auth/session/session-context", () => ({
+  useSession: () => ({
+    session: {
+      instance: { id: "i-local", name: "local", baseUrl: "http://localhost:31415" },
+      token: "jwt-1",
+      identity: { kind: "human", sub: "kanthorlabs", name: "Ulrich" },
+    },
+  }),
+}));
 
 import { ChatScreen } from "./chat-screen";
 
@@ -89,6 +98,16 @@ beforeEach(() => {
     () => new Promise(() => undefined),
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue(AGENT);
+  vi.mocked(workersApi.listAgents).mockResolvedValue([
+    {
+      agentName: "swe@1",
+      displayName: "SWE",
+      workerNames: ["coder@1"],
+      consumers: ["workbench", "worker"],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+      enablement: null,
+    },
+  ]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "gpt-5", reasoning_efforts: ["off"] },
   ]);
@@ -109,6 +128,27 @@ describe("ChatScreen", () => {
         expect.anything(),
       ),
     );
+  });
+
+  it("names the owner from the session and the agent from the agent list", async () => {
+    vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+      ...SESSION,
+      entries: [
+        ...SESSION.entries,
+        {
+          type: "message",
+          id: "e2",
+          parentId: "e1",
+          timestamp: "2026-10-05T09:01:00.000Z",
+          message: { role: "assistant", content: [{ type: "text", text: "Two nodes." }] },
+        },
+      ],
+    });
+    mount();
+
+    expect(await screen.findByText("Ulrich")).toBeTruthy();
+    expect(screen.getByText("SWE")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "SWE avatar" })).toBeTruthy();
   });
 
   it("offers the agent providers of the enablement of the agent", async () => {
