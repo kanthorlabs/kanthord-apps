@@ -1617,6 +1617,44 @@ export interface WorkbenchSessionEntry {
   readonly [field: string]: unknown;
 }
 
+export type WorkbenchActionOperation =
+  | "mission.node.resume"
+  | "mission.node.unblock"
+  | "mission.node.check"
+  | "mission.node.discard"
+  | "mission.node.override"
+  | "mission.node.pause"
+  | "project.pause"
+  | "project.resume";
+
+export interface WorkbenchActionOffer {
+  readonly kind: "action_offer";
+  readonly tool_call_id: string;
+  readonly operation_id: string;
+  readonly target_id: string;
+  readonly seen:
+    { readonly state: NodeState; readonly attempt: number } | { readonly paused: boolean };
+}
+
+export interface WorkbenchActionResult {
+  readonly tool_call_id: string;
+  readonly operation_id: string;
+  readonly target_id: string;
+  readonly outcome: "done" | "failed";
+  readonly error_code: string | null;
+}
+
+export interface WorkbenchActionReportBody {
+  readonly outcome: "done" | "failed";
+  readonly error_code: string | null;
+}
+
+export interface WorkbenchActionReportAnswer {
+  readonly session_id: string;
+  readonly tool_call_id: string;
+  readonly outcome: "done" | "failed";
+}
+
 export interface WorkbenchSession {
   readonly id: string;
   readonly agent_name: string;

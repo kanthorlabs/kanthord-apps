@@ -3,6 +3,9 @@ const WORD_DELAY_MS = 150;
 const STEP_DELAY_MS = 400;
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const QUEUE_LIMIT = 10;
+const OFFER_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2";
+const RECORD_TYPE = "kanthord.workbench.record";
+const RESULT_TYPE = "kanthord.workbench.action_result";
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const sessionId = () => {
@@ -156,7 +159,22 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       state.error_message = "The model provider refused the request.";
       return;
     }
-    if (/\b(create|approve|mutation)\b/i.test(text)) {
+    if (/\bdiscard\b/i.test(text)) {
+      call.name = "offer_action";
+      call.arguments = { operation_id: "mission.node.discard", target_id: OFFER_NODE_ID };
+      announce(session, call);
+      append(session, "custom", {
+        customType: RECORD_TYPE,
+        data: {
+          kind: "action_offer",
+          tool_call_id: call.id,
+          operation_id: "mission.node.discard",
+          target_id: OFFER_NODE_ID,
+          seen: { state: "Blocked", attempt: 1 },
+        },
+      });
+      await settle(session, run, call, { isError: false, text: '{"offered":true}' });
+    } else if (/\b(create|approve|mutation)\b/i.test(text)) {
       call.name = "project.create";
       call.arguments = { name: "account-recovery" };
       announce(session, call);
@@ -431,6 +449,51 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       session_id: session.id,
       tool_call_id: body.tool_call_id,
       approved: body.approved === true,
+    });
+  });
+
+  on("POST", /^\/api\/workbench\/session\/([^/]+)\/action\/([^/]+)\/report$/, (m, body, res) => {
+    const session = find(res, m[1]);
+    if (session === undefined) return;
+    const toolCallId = decodeURIComponent(m[2]);
+    const offer = session.entries.find(
+      (entry) =>
+        entry.customType === RECORD_TYPE &&
+        entry.data?.kind === "action_offer" &&
+        entry.data.tool_call_id === toolCallId,
+    );
+    if (offer === undefined) {
+      return envelope(
+        res,
+        404,
+        "workbench.session.action_not_found",
+        "The session holds no action offer with that call id.",
+      );
+    }
+    const settled = session.entries.some(
+      (entry) =>
+        entry.customType === RESULT_TYPE &&
+        entry.details.tool_call_id === toolCallId &&
+        entry.details.outcome === "done",
+    );
+    if (settled) {
+      return envelope(res, 409, "workbench.session.action_settled", "The action is already done.");
+    }
+    append(session, "custom_message", {
+      customType: RESULT_TYPE,
+      display: false,
+      details: {
+        tool_call_id: toolCallId,
+        operation_id: offer.data.operation_id,
+        target_id: offer.data.target_id,
+        outcome: body.outcome,
+        error_code: body.outcome === "done" ? null : (body.error_code ?? null),
+      },
+    });
+    return json(res, 200, {
+      session_id: session.id,
+      tool_call_id: toolCallId,
+      outcome: body.outcome,
     });
   });
 
