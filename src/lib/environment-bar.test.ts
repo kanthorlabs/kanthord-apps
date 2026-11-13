@@ -163,7 +163,7 @@ describe("repair", () => {
     "answers the repair line of a repairing %s state",
     (status) => {
       expect(stepLineOf(state({ status, repairing: true, repairs: 2 }))).toBe(
-        "Repairing with env@1 · repair 2 of 3",
+        "Repairing with pe@1 · repair 2 of 3",
       );
     },
   );
@@ -179,7 +179,7 @@ describe("repair", () => {
     expect(repairText(0)).toBeNull();
   });
 
-  it("asks for the hint of a failed state with no repair and no enabled env@1", () => {
+  it("asks for the hint of a failed state with no repair and no enabled pe@1", () => {
     expect(needsRepairHint(failedState(), false)).toBe(true);
     expect(needsRepairHint(failedState(), true)).toBe(false);
     expect(needsRepairHint(failedState(), null)).toBe(false);

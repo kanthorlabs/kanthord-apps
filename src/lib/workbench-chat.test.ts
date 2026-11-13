@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
-import { agentWorking, chatItemsOf, summaryOf } from "./workbench-chat";
+import {
+  agentWorking,
+  chatItemsOf,
+  runErrorTargetId,
+  summaryOf,
+  workbenchPathsIn,
+} from "./workbench-chat";
 
 const IDLE: WorkbenchRunSnapshot = {
   streaming_message: null,
@@ -20,6 +26,8 @@ function message(id: string, body: Record<string, unknown>): WorkbenchSessionEnt
     message: body,
   };
 }
+
+const AT = Date.parse("2026-10-05T09:00:00.000Z");
 
 const CALL = { type: "toolCall", id: "call_1", name: "mission.node.list", arguments: { a: 1 } };
 
@@ -41,8 +49,8 @@ describe("chatItemsOf", () => {
     );
 
     expect(items).toEqual([
-      { kind: "user", id: "e1", text: "List the nodes" },
-      { kind: "assistant", id: "e2", text: "Reading.", streaming: false },
+      { kind: "user", id: "e1", text: "List the nodes", timestamp: AT },
+      { kind: "assistant", id: "e2", text: "Reading.", streaming: false, timestamp: AT },
       {
         kind: "tool-call",
         id: "e2:call_1",
@@ -99,6 +107,7 @@ describe("chatItemsOf", () => {
       id: "streaming",
       text: "Hel",
       streaming: true,
+      timestamp: null,
     });
   });
 });
@@ -111,8 +120,14 @@ describe("summaryOf", () => {
 });
 
 describe("agentWorking", () => {
-  const user = { kind: "user", id: "e1", text: "Hi" } as const;
-  const streamed = { kind: "assistant", id: "s", text: "Hel", streaming: true } as const;
+  const user = { kind: "user", id: "e1", text: "Hi", timestamp: AT } as const;
+  const streamed = {
+    kind: "assistant",
+    id: "s",
+    text: "Hel",
+    streaming: true,
+    timestamp: null,
+  } as const;
 
   it("shows the agent at work while a run is active and no text streams", () => {
     expect(agentWorking([user], { ...IDLE, run_active: true })).toBe(true);
@@ -128,5 +143,62 @@ describe("agentWorking", () => {
       }),
     ).toBe(false);
     expect(agentWorking([user], IDLE)).toBe(false);
+  });
+});
+
+describe("workbenchPathsIn", () => {
+  it("finds a path of two or more segments", () => {
+    expect(workbenchPathsIn("/missions/checkout/nodes/node_42")).toEqual([
+      { start: 0, end: 32, path: "/missions/checkout/nodes/node_42" },
+    ]);
+  });
+
+  it("finds a path inside a sentence with its exact bounds", () => {
+    const text = "Open /missions/checkout/nodes/node_42, then /projects/atlas. Done.";
+
+    const found = workbenchPathsIn(text);
+
+    expect(found.map((match) => text.slice(match.start, match.end))).toEqual([
+      "/missions/checkout/nodes/node_42",
+      "/projects/atlas",
+    ]);
+    expect(found[0]).toEqual({ start: 5, end: 37, path: "/missions/checkout/nodes/node_42" });
+  });
+
+  it("leaves a slash command as text", () => {
+    expect(workbenchPathsIn("Try /brief, /health or /new now.")).toEqual([]);
+  });
+
+  it("leaves a trailing slash and a double slash as text", () => {
+    expect(workbenchPathsIn("/health/ and //a/b")).toEqual([]);
+  });
+
+  it("leaves a path inside a URL as text", () => {
+    expect(workbenchPathsIn("See https://example.com/missions/checkout.")).toEqual([]);
+  });
+
+  it("keeps a dot inside a segment and drops the dot of the sentence end", () => {
+    const text = "Read /docs/plan.v2.md.";
+
+    expect(workbenchPathsIn(text).map((match) => match.path)).toEqual(["/docs/plan.v2.md"]);
+  });
+});
+
+describe("runErrorTargetId", () => {
+  it("names the last user item", () => {
+    const items = chatItemsOf(
+      [
+        message("e1", { role: "user", content: "First" }),
+        message("e2", { role: "assistant", content: [{ type: "text", text: "Hi" }] }),
+        message("e3", { role: "user", content: "Second" }),
+      ],
+      IDLE,
+    );
+
+    expect(runErrorTargetId(items)).toBe("e3");
+  });
+
+  it("names nothing when no user item exists", () => {
+    expect(runErrorTargetId([])).toBeNull();
   });
 });

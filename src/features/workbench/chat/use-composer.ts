@@ -10,8 +10,9 @@ export interface ComposerState {
 export function useComposer(
   disabled: boolean,
   send: (text: string) => Promise<boolean>,
+  initialDraft = "",
 ): ComposerState {
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialDraft);
   const text = draft.trim();
   const canSend = !disabled && text !== "";
 

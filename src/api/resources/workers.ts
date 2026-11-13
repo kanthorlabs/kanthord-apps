@@ -6,6 +6,7 @@ import type {
   AgentDeclaration,
   AgentEnablement,
   AgentEnablementPutBody,
+  AgentListItem,
   AgentModel,
   AgentPromptScope,
   AgentProviderAddBody,
@@ -60,25 +61,15 @@ export async function readAgentEnablement(agentName: string): Promise<AgentEnabl
 }
 
 export async function listAgents(): Promise<readonly AgentSummary[]> {
-  const [catalog, enablements] = await Promise.all([listWorkerCatalog(), listAgentEnablements()]);
-  const entries = await Promise.all(
-    catalog
-      .filter((item) => item.host === "kanthord")
-      .map((item) => readWorkerCatalogEntry(item.name)),
-  );
-  const workersByAgent = new Map<string, string[]>();
-  for (const entry of entries) {
-    if (entry.host !== "kanthord") continue;
-    for (const agentName of entry.agent_names)
-      workersByAgent.set(agentName, [...(workersByAgent.get(agentName) ?? []), entry.name]);
-  }
-  return [...workersByAgent.entries()]
-    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-    .map(([agentName, workerNames]) => ({
-      agentName,
-      workerNames,
-      enablement: enablements.find((enablement) => enablement.agent_name === agentName) ?? null,
-    }));
+  const items = await readAllPages<AgentListItem>("/api/agent");
+  return items.map((item) => ({
+    agentName: item.agent_name,
+    displayName: item.display_name,
+    workerNames: item.worker_names,
+    consumers: item.consumers,
+    toolCounts: item.tool_counts,
+    enablement: item.enablement,
+  }));
 }
 
 export async function readAgent(

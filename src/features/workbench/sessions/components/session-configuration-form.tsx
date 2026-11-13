@@ -1,28 +1,28 @@
 import { Link } from "react-router-dom";
 
-import type { AgentEnablement, WorkbenchSession } from "@/api/types";
+import type { AgentEnablement, WorkbenchConfiguration } from "@/api/types";
 import { ConfigurationFields } from "@/components/configuration-fields";
 import { RecordName } from "@/components/record-name";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
 import { agentPath, agentProviderCountText } from "@/lib/workbench-sessions";
-import { useSessionCreate } from "../use-session-create";
+import { useSessionStart } from "../use-session-start";
 
 interface SessionConfigurationFormProps {
   readonly agentName: string;
   readonly enablement: AgentEnablement;
   readonly onClose: () => void;
-  readonly onCreated: (session: WorkbenchSession) => void;
+  readonly onStart: (configuration: WorkbenchConfiguration) => void;
 }
 
 export function SessionConfigurationForm({
   agentName,
   enablement,
   onClose,
-  onCreated,
+  onStart,
 }: SessionConfigurationFormProps) {
-  const form = useSessionCreate(agentName, enablement, onCreated);
+  const form = useSessionStart(agentName, enablement, onStart);
   const { errors } = form;
 
   return (
@@ -35,10 +35,10 @@ export function SessionConfigurationForm({
       }}
     >
       <FieldGroup className="md:grid md:grid-cols-2">
-        {form.failure !== null && (
+        {form.switchFailure !== null && (
           <Alert variant="destructive" className="md:col-span-2">
-            <AlertTitle>The session was not created.</AlertTitle>
-            <AlertDescription>{form.failure}</AlertDescription>
+            <AlertTitle>The agent provider was not switched.</AlertTitle>
+            <AlertDescription>{form.switchFailure}</AlertDescription>
           </Alert>
         )}
         {form.modelsFailure !== null && (
@@ -62,9 +62,7 @@ export function SessionConfigurationForm({
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={form.submitting}>
-            Start Session
-          </Button>
+          <Button type="submit">Start Session</Button>
         </div>
       </FieldGroup>
     </form>

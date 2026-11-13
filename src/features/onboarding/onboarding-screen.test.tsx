@@ -48,7 +48,10 @@ const SSH: Credential = { ...ROUTER, name: "atlas-ssh", platform: "ssh" };
 
 const SWE: AgentSummary = {
   agentName: "swe@1",
+  displayName: "SWE",
   workerNames: ["coder@1"],
+  consumers: ["workbench", "worker"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
   enablement: {
     agent_name: "swe@1",
     state: "enabled",

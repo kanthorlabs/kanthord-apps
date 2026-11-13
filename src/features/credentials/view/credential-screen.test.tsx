@@ -149,8 +149,22 @@ beforeEach(() => {
 });
 
 const AGENTS: readonly AgentSummary[] = [
-  { agentName: "re@1", workerNames: ["reviewer@1"], enablement: null },
-  { agentName: "swe@1", workerNames: ["coder@1"], enablement: null },
+  {
+    agentName: "re@1",
+    displayName: "RE",
+    workerNames: ["reviewer@1"],
+    consumers: ["workbench", "worker"],
+    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+    enablement: null,
+  },
+  {
+    agentName: "swe@1",
+    displayName: "SWE",
+    workerNames: ["coder@1"],
+    consumers: ["workbench", "worker"],
+    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+    enablement: null,
+  },
 ];
 
 describe("CredentialScreen", () => {
@@ -303,7 +317,10 @@ describe("CredentialScreen", () => {
       AGENTS[0] as AgentSummary,
       {
         agentName: "swe@1",
+        displayName: "SWE",
         workerNames: ["coder@1"],
+        consumers: ["workbench", "worker"],
+        toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
         enablement: {
           agent_name: "swe@1",
           state: "disabled",

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,12 +71,33 @@ const RE: AgentDeclaration = {
       "This text is the shared standard.\n\nFraming of the final prompt.\n\nThe final reviewer text.",
   },
   tools: [
-    { name: "read", source: "builtin", input_schema: {} },
-    { name: "grep", source: "builtin", input_schema: {} },
+    { name: "read", source: "builtin", description: "", guard_class: null, input_schema: {} },
+    { name: "grep", source: "builtin", description: "", guard_class: null, input_schema: {} },
   ],
   chain: [],
   active_position: null,
   cooling: null,
+};
+
+const OPS: AgentDeclaration = {
+  ...RE,
+  agent_name: "ops@1",
+  tools: [
+    {
+      name: "project.list",
+      source: "operation",
+      description: "List the projects that the human owns.",
+      guard_class: "read",
+      input_schema: {},
+    },
+    {
+      name: "node.create",
+      source: "operation",
+      description: "Create a node after the human confirms a card.",
+      guard_class: "card",
+      input_schema: {},
+    },
+  ],
 };
 
 const ENABLEMENT: AgentEnablement = {
@@ -190,6 +211,66 @@ describe("AgentScreen", () => {
     expect(screen.getByText(/No enablement exists/)).toBeTruthy();
     const tools = within(screen.getByRole("list", { name: "Tools" })).getAllByRole("listitem");
     expect(tools.map((t) => t.textContent)).toEqual(["readbuiltin", "grepbuiltin"]);
+  });
+
+  it("shows the operation tools as chips with the badge operation", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(OPS);
+    mount();
+
+    const tools = within(await screen.findByRole("list", { name: "Tools" })).getAllByRole(
+      "listitem",
+    );
+    expect(tools).toHaveLength(2);
+    for (const tool of tools) expect(within(tool).getByText("operation")).toBeTruthy();
+  });
+
+  it("shows the class label, the description and the undo line with no hover", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(OPS);
+    mount();
+
+    const [read, card] = within(await screen.findByRole("list", { name: "Tools" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(read as HTMLElement).getByText("read")).toBeTruthy();
+    expect(
+      within(read as HTMLElement).getByText("List the projects that the human owns."),
+    ).toBeTruthy();
+    expect(within(read as HTMLElement).getByText("Reads only. Nothing to undo.")).toBeTruthy();
+    expect(within(card as HTMLElement).getByText("card")).toBeTruthy();
+    expect(within(card as HTMLElement).getByText("Waits on your card.")).toBeTruthy();
+  });
+
+  it("repeats the description and the undo line of a read chip on hover", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(OPS);
+    mount();
+
+    const [read] = within(await screen.findByRole("list", { name: "Tools" })).getAllByRole(
+      "listitem",
+    );
+    await userEvent.hover(read as HTMLElement);
+
+    await waitFor(
+      () => expect(screen.getAllByText("Reads only. Nothing to undo.")).toHaveLength(2),
+      {
+        timeout: 2000,
+      },
+    );
+    expect(screen.getAllByText("List the projects that the human owns.")).toHaveLength(2);
+  });
+
+  it("repeats the description and the undo line of a card chip on focus", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue(OPS);
+    mount();
+
+    const [, card] = within(await screen.findByRole("list", { name: "Tools" })).getAllByRole(
+      "listitem",
+    );
+    act(() => (card as HTMLElement).focus());
+
+    await waitFor(() => expect(screen.getAllByText("Waits on your card.")).toHaveLength(2), {
+      timeout: 2000,
+    });
+    expect(screen.getAllByText("Create a node after the human confirms a card.")).toHaveLength(2);
   });
 
   it("shows the fallback chain with no cooldown and marks the head active", async () => {

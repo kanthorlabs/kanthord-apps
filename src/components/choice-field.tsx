@@ -12,6 +12,7 @@ interface ChoiceFieldProps {
   readonly label: string;
   readonly value: string;
   readonly options: readonly string[];
+  readonly optionLabels?: Readonly<Record<string, string>>;
   readonly error: string | undefined;
   readonly description?: string;
   readonly disabledOptions?: readonly string[];
@@ -24,13 +25,14 @@ export function ChoiceField({
   label,
   value,
   options,
+  optionLabels = {},
   error,
   description,
   disabledOptions = [],
   note = null,
   onChange,
 }: ChoiceFieldProps) {
-  const items = options.map((option) => ({ value: option, label: option }));
+  const items = options.map((option) => ({ value: option, label: optionLabels[option] ?? option }));
   return (
     <Field data-invalid={error !== undefined}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>

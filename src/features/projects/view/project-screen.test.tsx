@@ -354,7 +354,7 @@ describe("ProjectScreen", () => {
       expect(within(bar).queryByRole("progressbar")).toBeNull();
     });
 
-    it("shows the repair line of a failed state that env@1 repairs", async () => {
+    it("shows the repair line of a failed state that pe@1 repairs", async () => {
       vi.mocked(projectsApi.listProjectEnvironments).mockResolvedValue([
         failedEnvironment({ repairing: true, repairs: 1 }),
       ]);
@@ -362,7 +362,7 @@ describe("ProjectScreen", () => {
 
       const bar = await screen.findByRole("alert", { name: "Environment" });
       expect(within(bar).getByText("Failed")).toBeTruthy();
-      expect(bar).toHaveTextContent("engine · Repairing with env@1 · repair 1 of 3");
+      expect(bar).toHaveTextContent("engine · Repairing with pe@1 · repair 1 of 3");
       expect(within(bar).queryByRole("progressbar")).toBeNull();
     });
 

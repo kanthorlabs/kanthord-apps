@@ -8,14 +8,17 @@ import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemGroup, ItemHeader, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
-import { newSessionUnavailableReason, workbenchSessionPath } from "@/lib/workbench-sessions";
+import { agentLabel } from "@/lib/agent-label";
+import { toolCountsLine } from "@/lib/agent-tools";
+import { newSessionPath } from "@/lib/workbench-new-session";
+import { newSessionUnavailableReason } from "@/lib/workbench-sessions";
 import { NewSessionButton } from "@/features/workbench/sessions/components/new-session-button";
 import { NewSessionDialog } from "@/features/workbench/sessions/components/new-session-dialog";
 import { ENABLEMENT_HASH } from "../agent/use-enablement-create";
 import { useAgents } from "./use-agents";
 
 function AgentItem({ agent }: { agent: AgentSummary }) {
-  const { agentName, workerNames, enablement } = agent;
+  const { agentName, workerNames, toolCounts, enablement, consumers } = agent;
   const navigate = useNavigate();
   const [starting, setStarting] = useState(false);
 
@@ -25,9 +28,9 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
         <ItemTitle>
           <Link
             to={`/agents/${encodeURIComponent(agentName)}`}
-            className="font-mono underline-offset-4 hover:underline"
+            className="underline-offset-4 hover:underline"
           >
-            {agentName}
+            {agentLabel(agent)}
           </Link>
         </ItemTitle>
         <Badge variant={enablementVariant(enablement)}>{enablementLabel(enablement)}</Badge>
@@ -44,7 +47,7 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
         <NewSessionButton
           size="sm"
           label={`New session with ${agentName}`}
-          unavailableReason={newSessionUnavailableReason(enablement?.state ?? null)}
+          unavailableReason={newSessionUnavailableReason(enablement?.state ?? null, consumers)}
           onStart={() => setStarting(true)}
         />
       </ItemHeader>
@@ -53,13 +56,15 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           agents={[agent]}
           initialAgentName={agentName}
           onClose={() => setStarting(false)}
-          onCreated={(session) => navigate(workbenchSessionPath(session.id))}
+          onStart={(agentName, configuration) => navigate(newSessionPath(agentName, configuration))}
         />
       )}
       <ItemContent className="min-w-0 gap-3">
         <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
           <dt className="text-muted-foreground">Workers</dt>
           <dd className="font-mono break-all">{workerNames.join(", ")}</dd>
+          <dt className="text-muted-foreground">Tools</dt>
+          <dd>{toolCountsLine(toolCounts)}</dd>
           {enablement !== null && (
             <>
               <dt className="text-muted-foreground">Agent providers</dt>

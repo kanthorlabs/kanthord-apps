@@ -1,4 +1,4 @@
-import type { AgentEnablementState, WorkbenchSessionListItem } from "@/api/types";
+import type { AgentConsumer, AgentEnablementState, WorkbenchSessionListItem } from "@/api/types";
 
 export function sessionsNewestFirst(
   items: readonly WorkbenchSessionListItem[],
@@ -17,7 +17,9 @@ export function workbenchSessionPath(sessionId: string): string {
 
 export function newSessionUnavailableReason(
   enablementState: AgentEnablementState | null,
+  consumers: readonly AgentConsumer[],
 ): string | null {
+  if (!consumers.includes("workbench")) return "This agent does not serve the Workbench.";
   return enablementState === "enabled" ? null : "Enable the agent before a session can start.";
 }
 

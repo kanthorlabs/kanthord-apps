@@ -113,7 +113,7 @@ export function needsRepairHint(state: EnvironmentState, envEnabled: boolean | n
 
 export function stepLineOf(state: EnvironmentState): string {
   if (state.repairing) {
-    return `Repairing with env@1 · repair ${state.repairs} of ${ENVIRONMENT_REPAIR_LIMIT}`;
+    return `Repairing with pe@1 · repair ${state.repairs} of ${ENVIRONMENT_REPAIR_LIMIT}`;
   }
   if (state.status === "failed") {
     return state.failure === null

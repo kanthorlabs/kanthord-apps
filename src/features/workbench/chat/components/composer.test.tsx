@@ -65,6 +65,8 @@ function mount() {
         resume_command: "pi --session ~/session.jsonl",
       }}
       enablement={ENABLEMENT}
+      ownerName="Ulrich"
+      agentDisplayName="SWE"
     />,
   );
 }

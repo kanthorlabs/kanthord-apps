@@ -67,7 +67,7 @@ const KNOWN_TEXTS = new Map(
     ...Object.values(REPOSITORY_PROMPTS),
     REVIEWER_PROMPT,
     FRAMING_TEXT,
-    ...["swe@1", "re@1", "env@1", "claude-code@1"].map(roleText),
+    ...["swe@1", "re@1", "pe@1", "claude-code@1"].map(roleText),
   ].map((text) => [pr.digestOf(text), text]),
 );
 const GATE_VIOLATION = "worker.turn.branch_changed";

@@ -1,12 +1,18 @@
 import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
 
 export type ChatItem =
-  | { readonly kind: "user"; readonly id: string; readonly text: string }
+  | {
+      readonly kind: "user";
+      readonly id: string;
+      readonly text: string;
+      readonly timestamp: number;
+    }
   | {
       readonly kind: "assistant";
       readonly id: string;
       readonly text: string;
       readonly streaming: boolean;
+      readonly timestamp: number | null;
     }
   | {
       readonly kind: "tool-call";
@@ -58,10 +64,12 @@ function assistantItems(
   message: Block,
   snapshot: WorkbenchRunSnapshot,
   streaming: boolean,
+  timestamp: number | null,
 ): readonly ChatItem[] {
   const blocks = blocksOf(message["content"]);
   const text = textOf(blocks);
-  const items: ChatItem[] = text === "" ? [] : [{ kind: "assistant", id, text, streaming }];
+  const items: ChatItem[] =
+    text === "" ? [] : [{ kind: "assistant", id, text, streaming, timestamp }];
   for (const block of blocks) {
     if (block["type"] !== "toolCall") continue;
     const callId = stringOf(block["id"]);
@@ -86,9 +94,18 @@ function entryItems(
   if (entry.type !== "message" || !isRecord(message)) return [];
   const role = message["role"];
   if (role === "user") {
-    return [{ kind: "user", id: entry.id, text: textOf(blocksOf(message["content"])) }];
+    return [
+      {
+        kind: "user",
+        id: entry.id,
+        text: textOf(blocksOf(message["content"])),
+        timestamp: Date.parse(entry.timestamp),
+      },
+    ];
   }
-  if (role === "assistant") return assistantItems(entry.id, message, snapshot, false);
+  if (role === "assistant") {
+    return assistantItems(entry.id, message, snapshot, false, Date.parse(entry.timestamp));
+  }
   if (role === "toolResult") {
     return [
       {
@@ -110,11 +127,35 @@ export function chatItemsOf(
   const items = entries.flatMap((entry) => entryItems(entry, snapshot));
   const streaming = snapshot.streaming_message;
   if (streaming === null || streaming["role"] !== "assistant") return items;
-  return [...items, ...assistantItems("streaming", streaming, snapshot, true)];
+  return [...items, ...assistantItems("streaming", streaming, snapshot, true, null)];
 }
 
 export function agentWorking(items: readonly ChatItem[], snapshot: WorkbenchRunSnapshot): boolean {
   if (!snapshot.run_active || snapshot.pending_approval !== null) return false;
   const last = items.at(-1);
   return !(last?.kind === "assistant" && last.streaming);
+}
+
+export interface WorkbenchPathMatch {
+  readonly start: number;
+  readonly end: number;
+  readonly path: string;
+}
+
+const PATH_SEGMENT = String.raw`[\w~-]+(?:\.[\w~-]+)*`;
+const WORKBENCH_PATH = new RegExp(
+  String.raw`(?<![\w/:.~-])/${PATH_SEGMENT}(?:/${PATH_SEGMENT})+`,
+  "g",
+);
+
+export function workbenchPathsIn(text: string): readonly WorkbenchPathMatch[] {
+  return [...text.matchAll(WORKBENCH_PATH)].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    path: match[0],
+  }));
+}
+
+export function runErrorTargetId(items: readonly ChatItem[]): string | null {
+  return items.filter((item) => item.kind === "user").at(-1)?.id ?? null;
 }

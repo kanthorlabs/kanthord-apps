@@ -247,15 +247,15 @@ export function EnvironmentSection({
       )}
       {state !== null && needsRepairHint(state, envEnabled) && (
         <div className="flex flex-col items-start gap-2 text-sm sm:flex-row sm:items-center">
-          <p className="min-w-0 break-words">Enable env@1 to let KanthorD repair it.</p>
+          <p className="min-w-0 break-words">Enable pe@1 to let KanthorD repair it.</p>
           <Button
             nativeButton={false}
-            render={<Link to="/agents/env@1#enablement" />}
+            render={<Link to="/agents/pe@1#enablement" />}
             variant="outline"
             size="sm"
             className="w-full sm:w-auto"
           >
-            Enable env@1
+            Enable pe@1
           </Button>
         </div>
       )}

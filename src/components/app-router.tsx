@@ -67,6 +67,7 @@ export function AppRouter() {
             <Route path="agents" element={<AgentsScreen />} />
             <Route path="agents/:agentName" element={<AgentScreen />} />
             <Route path="workbench" element={<SessionsScreen />} />
+            <Route path="workbench/new" element={<ChatScreen />} />
             <Route path="workbench/:sessionId" element={<ChatScreen />} />
             <Route path="llm" element={<CredentialsScreen key="llm" component="llm" />} />
             <Route path="llm/new" element={<CredentialFormScreen key="llm" component="llm" />} />

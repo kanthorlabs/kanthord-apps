@@ -80,9 +80,6 @@ afterEach(async () => {
   });
 });
 
-const CATALOG_ITEM = { declared_node_states: [], declared_intents: ["implement", "examine"] };
-const BUDGET = { resource_budget: { wall_time_ms: 1000 } };
-
 const SWE_ENABLEMENT = {
   agent_name: "swe@1",
   state: "enabled",
@@ -95,47 +92,76 @@ const SWE_ENABLEMENT = {
   revision: 2,
 };
 
-const CATALOG_ROUTES = {
-  "GET /api/worker/catalog?limit=1000": {
-    items: [
-      { name: "coder@1", host: "kanthord", ...CATALOG_ITEM },
-      { name: "harness@1", host: "external-harness", ...CATALOG_ITEM },
-      { name: "reviewer@1", host: "kanthord", ...CATALOG_ITEM },
-    ],
-    next_cursor: null,
-  },
-  "GET /api/worker/catalog/coder%401": {
-    name: "coder@1",
-    host: "kanthord",
-    method: "steps",
-    agent_names: ["swe@1"],
-    ...CATALOG_ITEM,
-    ...BUDGET,
-  },
-  "GET /api/worker/catalog/reviewer%401": {
-    name: "reviewer@1",
-    host: "kanthord",
-    method: "evaluation",
-    agent_names: ["re@1"],
-    ...CATALOG_ITEM,
-    ...BUDGET,
-  },
-  "GET /api/agent/enablement?limit=1000": { items: [SWE_ENABLEMENT], next_cursor: null },
+const NO_TOOLS = { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 };
+
+const OPS_ITEM = {
+  agent_name: "ops@1",
+  display_name: "Yumi",
+  worker_names: [],
+  consumers: ["workbench"],
+  tool_counts: { ...NO_TOOLS, operation: 3 },
+  enablement: null,
+};
+
+const RE_ITEM = {
+  agent_name: "re@1",
+  display_name: "RE",
+  worker_names: ["reviewer@1"],
+  consumers: ["workbench", "worker"],
+  tool_counts: { ...NO_TOOLS, builtin: 4 },
+  enablement: null,
+};
+
+const SWE_ITEM = {
+  agent_name: "swe@1",
+  display_name: "SWE",
+  worker_names: ["coder@1"],
+  consumers: ["workbench", "worker"],
+  tool_counts: { ...NO_TOOLS, builtin: 7, host: 1 },
+  enablement: SWE_ENABLEMENT,
 };
 
 describe("listAgents", () => {
-  it("joins the catalog agents with the enablement list through declared routes only", async () => {
-    await serve(CATALOG_ROUTES);
+  it("reads one agent list and no worker catalog route", async () => {
+    const routes = {
+      "GET /api/agent?limit=1000": { items: [OPS_ITEM, RE_ITEM, SWE_ITEM], next_cursor: null },
+    };
+    await serve(routes);
 
-    expect(await listAgents()).toEqual([
-      { agentName: "re@1", workerNames: ["reviewer@1"], enablement: null },
-      { agentName: "swe@1", workerNames: ["coder@1"], enablement: SWE_ENABLEMENT },
-    ]);
-    expect(seen.map((call) => call.url).sort()).toEqual(
-      Object.keys(CATALOG_ROUTES)
-        .map((key) => key.slice(4))
-        .sort(),
-    );
+    await listAgents();
+
+    expect(seen.map((call) => call.url)).toEqual(["/api/agent?limit=1000"]);
+  });
+
+  it("maps an agent that no worker names", async () => {
+    await serve({
+      "GET /api/agent?limit=1000": { items: [OPS_ITEM, RE_ITEM, SWE_ITEM], next_cursor: null },
+    });
+
+    const agents = await listAgents();
+
+    expect(agents.map((agent) => agent.agentName)).toEqual(["ops@1", "re@1", "swe@1"]);
+    expect(agents[0]).toEqual({
+      agentName: "ops@1",
+      displayName: "Yumi",
+      workerNames: [],
+      consumers: ["workbench"],
+      toolCounts: { ...NO_TOOLS, operation: 3 },
+      enablement: null,
+    });
+    expect(agents[2]?.enablement).toEqual(SWE_ENABLEMENT);
+  });
+
+  it("follows next_cursor across pages", async () => {
+    await serve({
+      "GET /api/agent?limit=1000": { items: [OPS_ITEM], next_cursor: "ops@1" },
+      "GET /api/agent?limit=1000&cursor=ops%401": { items: [RE_ITEM, SWE_ITEM], next_cursor: null },
+    });
+
+    const agents = await listAgents();
+
+    expect(agents.map((agent) => agent.agentName)).toEqual(["ops@1", "re@1", "swe@1"]);
+    expect(seen).toHaveLength(2);
   });
 });
 

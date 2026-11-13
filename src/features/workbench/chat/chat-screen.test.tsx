@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
@@ -10,6 +10,15 @@ import type { AgentDeclaration, WorkbenchSession } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
+vi.mock("@/features/auth/session/session-context", () => ({
+  useSession: () => ({
+    session: {
+      instance: { id: "i-local", name: "local", baseUrl: "http://localhost:31415" },
+      token: "jwt-1",
+      identity: { kind: "human", sub: "kanthorlabs", name: "Ulrich" },
+    },
+  }),
+}));
 
 import { ChatScreen } from "./chat-screen";
 
@@ -83,12 +92,57 @@ function mount() {
   );
 }
 
+const NEW_QUERY = new URLSearchParams({
+  agent_name: "ops@1",
+  agent_provider: "atlas-llm",
+  model_identifier: "qwen3-coder",
+  reasoning_effort: "off",
+});
+
+const OPS_SUMMARY = {
+  agentName: "ops@1",
+  displayName: "Yumi",
+  workerNames: [],
+  consumers: ["workbench"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3 },
+  enablement: null,
+} as const;
+
+function Where() {
+  const { pathname } = useLocation();
+  return <p>Path {pathname}</p>;
+}
+
+function mountNew(query: URLSearchParams = NEW_QUERY) {
+  return render(
+    <MemoryRouter initialEntries={[`/workbench/new?${query}`]}>
+      <Link to="/elsewhere">Leave</Link>
+      <Where />
+      <Routes>
+        <Route path="/workbench/new" element={<ChatScreen />} />
+        <Route path="/workbench/:sessionId" element={<ChatScreen />} />
+        <Route path="/elsewhere" element={<p>Elsewhere</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue(AGENT);
+  vi.mocked(workersApi.listAgents).mockResolvedValue([
+    {
+      agentName: "swe@1",
+      displayName: "SWE",
+      workerNames: ["coder@1"],
+      consumers: ["workbench", "worker"],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+      enablement: null,
+    },
+  ]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "gpt-5", reasoning_efforts: ["off"] },
   ]);
@@ -109,6 +163,27 @@ describe("ChatScreen", () => {
         expect.anything(),
       ),
     );
+  });
+
+  it("names the owner from the session and the agent from the agent list", async () => {
+    vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+      ...SESSION,
+      entries: [
+        ...SESSION.entries,
+        {
+          type: "message",
+          id: "e2",
+          parentId: "e1",
+          timestamp: "2026-10-05T09:01:00.000Z",
+          message: { role: "assistant", content: [{ type: "text", text: "Two nodes." }] },
+        },
+      ],
+    });
+    mount();
+
+    expect(await screen.findByText("Ulrich")).toBeTruthy();
+    expect(screen.getByText("SWE")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "SWE avatar" })).toBeTruthy();
   });
 
   it("offers the agent providers of the enablement of the agent", async () => {
@@ -142,5 +217,100 @@ describe("ChatScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("List the open nodes")).toBeTruthy();
+  });
+
+  describe("in new-session mode", () => {
+    beforeEach(() => {
+      vi.mocked(workersApi.listAgents).mockResolvedValue([OPS_SUMMARY]);
+      vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(SESSION);
+    });
+
+    it("greets with the display name of the agent and offers the composer", async () => {
+      mountNew();
+
+      expect(await screen.findByText(/Hello, I am Yumi\./)).toBeTruthy();
+      expect(screen.getByRole("textbox", { name: "Message" })).toBeEnabled();
+      expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("qwen3-coder");
+      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+    });
+
+    it("creates the conversation, then sends the message, then shows the conversation route", async () => {
+      vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(SESSION);
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+      });
+      mountNew();
+
+      await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "List nodes");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByText(`Path /workbench/${SESSION_ID}`)).toBeTruthy();
+      expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
+        agent_name: "ops@1",
+        agent_provider: "atlas-llm",
+        model_identifier: "qwen3-coder",
+        reasoning_effort: "off",
+      });
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "List nodes");
+      expect(
+        vi.mocked(workbenchApi.createWorkbenchSession).mock.invocationCallOrder[0],
+      ).toBeLessThan(vi.mocked(workbenchApi.sendWorkbenchMessage).mock.invocationCallOrder[0]!);
+      expect(await screen.findByText("List the open nodes")).toBeTruthy();
+    });
+
+    it("writes nothing when the owner leaves with no message", async () => {
+      mountNew();
+      await screen.findByText(/Hello, I am Yumi\./);
+
+      await userEvent.click(screen.getByRole("link", { name: "Leave" }));
+
+      expect(await screen.findByText("Elsewhere")).toBeTruthy();
+      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      expect(workbenchApi.configureWorkbenchSession).not.toHaveBeenCalled();
+    });
+
+    it("opens the created conversation, keeps the text and shows the error when the message fails", async () => {
+      vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(SESSION);
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockRejectedValue(
+        new ApiError("conflict", "The workbench session holds an active run.", 409),
+      );
+      mountNew();
+
+      await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "List nodes");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByText(`Path /workbench/${SESSION_ID}`)).toBeTruthy();
+      expect(await screen.findByRole("textbox", { name: "Message" })).toHaveValue("List nodes");
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "conflict The workbench session holds an active run.",
+      );
+    });
+
+    it("stays on the new-session route and keeps the text when the create fails", async () => {
+      vi.mocked(workbenchApi.createWorkbenchSession).mockRejectedValue(
+        new ApiError("refused", "The model is unknown.", 422),
+      );
+      mountNew();
+
+      await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "List nodes");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("refused The model is unknown.");
+      expect(screen.getByText("Path /workbench/new")).toBeTruthy();
+      expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("List nodes");
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+    });
+
+    it("shows the error line and sends nothing when the query is invalid", async () => {
+      mountNew(new URLSearchParams({ agent_name: "ops@1" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "The address of this page holds no valid agent provider, model, reasoning effort.",
+      );
+      expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
+      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+    });
   });
 });
