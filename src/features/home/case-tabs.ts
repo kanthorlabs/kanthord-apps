@@ -2,9 +2,7 @@ import { createWorkbenchSession, sendWorkbenchMessage } from "@/api/resources/wo
 import type { WorkbenchConfiguration } from "@/api/types";
 import { basePath } from "@/components/base-path";
 import { asApiError } from "@/hooks/use-resource";
-import { workbenchSessionPath } from "@/lib/workbench-sessions";
-
-import { YUMI_AGENT } from "./use-home";
+import { workbenchSessionPath, YUMI_AGENT } from "@/lib/workbench-sessions";
 
 export interface CaseTab {
   tab: Window;
@@ -42,11 +40,12 @@ export function createCaseTabs(): CaseTabs {
   async function send(entry: CaseTab, ask: CaseAsk): Promise<void> {
     try {
       await sendWorkbenchMessage(entry.sessionId, ask.request);
+      entry.sent = true;
     } catch (cause) {
+      entry.tab.location.replace(conversationUrlOf(entry.sessionId));
       ask.toasts.unsent(asApiError(cause).message, () => void deliver(ask));
       return;
     }
-    entry.sent = true;
     entry.tab.location.replace(conversationUrlOf(entry.sessionId));
   }
 

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import type { AttentionItem } from "@/lib/attention";
 
 import { caseRequestOf } from "./case-request";
-import { type CaseTabs, type CaseToasts, createCaseTabs } from "./case-tabs";
+import { type CaseToasts, createCaseTabs } from "./case-tabs";
 import type { HomeState } from "./use-home";
 
 const PAGE_TABS = createCaseTabs();
@@ -23,10 +23,7 @@ const TOASTS: CaseToasts = {
 
 export type AskYumiFor = (item: AttentionItem) => (() => void) | null;
 
-export function useAskYumi(
-  home: Pick<HomeState, "enabled" | "configuration">,
-  caseTabs: CaseTabs = PAGE_TABS,
-): AskYumiFor {
+export function useAskYumi(home: Pick<HomeState, "enabled" | "configuration">): AskYumiFor {
   const { enabled, configuration } = home;
   const defaultConfiguration = configuration.ok ? configuration.configuration : null;
 
@@ -35,13 +32,13 @@ export function useAskYumi(
       const request = caseRequestOf(item);
       if (!enabled || request === null) return null;
       return () =>
-        caseTabs.askYumi({
+        PAGE_TABS.askYumi({
           key: item.id,
           request,
           configuration: defaultConfiguration,
           toasts: TOASTS,
         });
     },
-    [enabled, defaultConfiguration, caseTabs],
+    [enabled, defaultConfiguration],
   );
 }

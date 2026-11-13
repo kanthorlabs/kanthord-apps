@@ -48,7 +48,7 @@ describe("targetLabel", () => {
     expect(targetLabel("/traces?state=error&from=1")).toBe("Traces");
     expect(targetLabel("/timeline?project_id=billing")).toBe("Timeline");
     expect(targetLabel("/scheduler")).toBe("Scheduler");
-    expect(targetLabel("/")).toBe("Overview");
+    expect(targetLabel("/")).toBe("Home");
   });
 
   it("rejects a path with no label", () => {

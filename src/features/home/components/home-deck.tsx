@@ -51,7 +51,7 @@ export function HomeDeck({ deck, overview, focusRef, askYumi }: HomeDeckProps) {
               startSubject={deck.order[0]?.subject ?? null}
               workforce={workforce}
               cooling={overview.cooling}
-              onStart={() => deck.select(deck.order[0]?.id ?? "")}
+              onStart={deck.selectFirst}
             />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm">{deck.countText}</p>
@@ -88,7 +88,7 @@ export function HomeDeck({ deck, overview, focusRef, askYumi }: HomeDeckProps) {
                 retryDetail={overview.retryDetail}
                 markActed={deck.markActed}
                 closeInboxItem={overview.inbox.close}
-                setDialogOpen={overview.setDialogOpen}
+                setDialogOpen={deck.setDialogOpen}
                 registerDialogCloser={NO_CLOSER}
                 gate={selectedGateOf(overview.gates, acting)}
                 jump={deck.select}
@@ -99,7 +99,7 @@ export function HomeDeck({ deck, overview, focusRef, askYumi }: HomeDeckProps) {
                     rank={deck.rank}
                     details={overview.details}
                     now={overview.now}
-                    held={overview.held.get(primary.id)?.length ?? 0}
+                    held={deck.primaryHeld}
                     gone={deck.gone}
                     askYumi={askYumi(primary)}
                   />

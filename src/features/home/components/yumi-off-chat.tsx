@@ -4,9 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Composer } from "@/features/workbench/chat/components/composer";
 import { useComposer } from "@/features/workbench/chat/use-composer";
-import { agentPath } from "@/lib/workbench-sessions";
-
-import { YUMI_AGENT } from "../use-home";
+import { agentPath, YUMI_AGENT } from "@/lib/workbench-sessions";
 
 interface YumiOffChatProps {
   readonly children: ReactNode;

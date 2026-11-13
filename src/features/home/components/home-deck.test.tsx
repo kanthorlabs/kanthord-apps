@@ -213,6 +213,7 @@ function overviewOf(
 ): OverviewState {
   return {
     status: "ready",
+    loaded: true,
     error: null,
     projects: [ATLAS, ORBIT],
     running: 1,
@@ -223,10 +224,7 @@ function overviewOf(
     boardItems: items,
     inbox: {
       open: items.filter((item) => item.kind === "inbox_item").length,
-      snoozed: 0,
-      hasMore: false,
       ready: true,
-      loadMore: vi.fn(),
       close: vi.fn(),
     },
     gates: new Map(),
@@ -254,8 +252,10 @@ function Harness({ overview }: { readonly overview: OverviewState }) {
     details: overview.details,
     now: overview.now,
     status: overview.status,
+    loaded: overview.loaded,
     inbox: overview.inbox.open,
     readFault: overview.faults.length > 0,
+    setDialogOpen: overview.setDialogOpen,
   });
   return (
     <MemoryRouter>

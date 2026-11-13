@@ -2,6 +2,7 @@ import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState }
 
 import type { AttentionDetails, AttentionItem } from "@/lib/attention";
 import type { BoardGate } from "@/lib/board-items";
+import type { ActedAct } from "@/lib/board-done";
 import type { BoardTabId } from "@/lib/board-tabs";
 import type { BoardSummary } from "@/lib/board-text";
 import {
@@ -32,8 +33,10 @@ export interface HomeDeckInput {
   readonly details: AttentionDetails;
   readonly now: number;
   readonly status: OverviewState["status"];
+  readonly loaded: boolean;
   readonly inbox: number;
   readonly readFault: boolean;
+  readonly setDialogOpen: OverviewState["setDialogOpen"];
 }
 
 interface DeckExit {
@@ -58,6 +61,7 @@ interface DeckState {
   readonly known: ReadonlySet<string> | null;
   readonly fresh: ReadonlySet<string>;
   readonly settled: ReadonlySet<string>;
+  readonly acted: ReadonlySet<string>;
   readonly last: LastKnown | null;
   readonly exit: DeckExit | null;
   readonly list: DeckList | null;
@@ -82,6 +86,7 @@ export interface HomeDeck {
   readonly order: readonly AttentionItem[];
   readonly rank: number;
   readonly primary: AttentionItem | null;
+  readonly primaryHeld: number;
   readonly secondary: DeckSecondary | null;
   readonly tilted: number;
   readonly gone: boolean;
@@ -94,7 +99,9 @@ export interface HomeDeck {
   readonly list: DeckListView | null;
   readonly step: (delta: number) => void;
   readonly select: (itemId: string) => void;
+  readonly selectFirst: () => void;
   readonly markActed: (itemId: string) => void;
+  readonly setDialogOpen: (itemId: string, nodeId: string, open: boolean, act?: ActedAct) => void;
   readonly toggleList: () => void;
   readonly setQuery: (query: string) => void;
   readonly setTab: (tab: BoardTabId | null) => void;
@@ -123,6 +130,7 @@ function keepOnly(ids: ReadonlySet<string>, present: ReadonlySet<string>): Reado
 
 interface Derived {
   readonly status: OverviewState["status"];
+  readonly loaded: boolean;
   readonly items: readonly AttentionItem[];
   readonly order: readonly AttentionItem[];
 }
@@ -138,13 +146,14 @@ function admit(state: DeckState, present: ReadonlySet<string>): DeckState {
   };
 }
 
-function advance(state: DeckState, { status, items, order }: Derived): DeckState {
+function advance(state: DeckState, { status, loaded, items, order }: Derived): DeckState {
   if (status !== "ready") return state;
   const present = new Set(items.map((item) => item.id));
-  const admitted = admit(state, present);
+  const admitted = loaded ? admit(state, present) : state;
   const cursorId = admitted.cursorId ?? order[0]?.id ?? null;
   const fresh = without(keepOnly(admitted.fresh, present), cursorId);
   const settled = keepOnly(admitted.settled, present);
+  const acted = keepOnly(admitted.acted, present);
   const index = order.findIndex((item) => item.id === cursorId);
   const item = order[index];
   const last =
@@ -153,16 +162,21 @@ function advance(state: DeckState, { status, items, order }: Derived): DeckState
       : { item, index };
   const exit =
     admitted.exit === null && cursorId !== null && item === undefined && last?.item.id === cursorId
-      ? { phase: "gone" as const, item: last.item, index: last.index }
+      ? {
+          phase: admitted.acted.has(cursorId) ? ("leave" as const) : ("gone" as const),
+          item: last.item,
+          index: last.index,
+        }
       : admitted.exit;
   const changed =
     admitted !== state ||
     cursorId !== admitted.cursorId ||
     !sameSet(fresh, admitted.fresh) ||
     !sameSet(settled, admitted.settled) ||
+    !sameSet(acted, admitted.acted) ||
     last !== admitted.last ||
     exit !== admitted.exit;
-  return changed ? { ...admitted, cursorId, fresh, settled, last, exit } : state;
+  return changed ? { ...admitted, cursorId, fresh, settled, acted, last, exit } : state;
 }
 
 function settle(state: DeckState, input: HomeDeckInput): DeckState {
@@ -201,6 +215,7 @@ function emptyState(): DeckState {
     known: null,
     fresh: NO_IDS,
     settled: NO_IDS,
+    acted: NO_IDS,
     last: null,
     exit: null,
     list: null,
@@ -209,7 +224,17 @@ function emptyState(): DeckState {
 }
 
 export function useHomeDeck(input: HomeDeckInput): HomeDeck {
-  const { items, held, gates, details, status, inbox, readFault } = input;
+  const {
+    items,
+    held,
+    gates,
+    details,
+    status,
+    loaded,
+    inbox,
+    readFault,
+    setDialogOpen: setOverviewDialogOpen,
+  } = input;
   const [state, setState] = useState(emptyState);
   const order = useMemo(
     () =>
@@ -220,7 +245,7 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
       ),
     [items, held, gates, state.settled],
   );
-  const current = advance(state, { status, items, order });
+  const current = advance(state, { status, loaded, items, order });
   if (current !== state) setState(current);
 
   const latest = useRef({ input, order, state: current });
@@ -272,6 +297,31 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
       live: null,
     }));
   }, []);
+
+  const selectFirst = useCallback(() => {
+    const first = latest.current.order[0];
+    if (first !== undefined) select(first.id);
+  }, [select]);
+
+  const noteActed = useCallback((itemId: string) => {
+    setState((prior) => {
+      const gone = prior.exit?.phase === "gone" && prior.exit.item.id === itemId;
+      if (prior.acted.has(itemId) && !gone) return prior;
+      return {
+        ...prior,
+        acted: new Set(prior.acted).add(itemId),
+        exit: gone && prior.exit !== null ? { ...prior.exit, phase: "leave" } : prior.exit,
+      };
+    });
+  }, []);
+
+  const setDialogOpen = useCallback(
+    (itemId: string, nodeId: string, open: boolean, act?: ActedAct) => {
+      setOverviewDialogOpen(itemId, nodeId, open);
+      if (!open && act !== undefined) noteActed(itemId);
+    },
+    [setOverviewDialogOpen, noteActed],
+  );
 
   const markActed = useCallback((itemId: string) => {
     const { order: shown, state: existing } = latest.current;
@@ -344,6 +394,7 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
     order,
     rank,
     primary,
+    primaryHeld: primary === null ? 0 : (held.get(primary.id)?.length ?? 0),
     secondary:
       next === undefined
         ? null
@@ -358,7 +409,6 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
       total: order.length,
       acts: acts.length,
       held: heldCountOf(acts, held),
-      inbox,
     }),
     summary: deckSummaryOf(order, { details, held, inbox, readFault }),
     live: current.live,
@@ -375,7 +425,9 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
           },
     step,
     select,
+    selectFirst,
     markActed,
+    setDialogOpen,
     toggleList,
     setQuery,
     setTab,

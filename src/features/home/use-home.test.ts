@@ -71,7 +71,7 @@ function serve(held: AgentEnablement | null, sessions: readonly WorkbenchSession
 }
 
 async function ready() {
-  const hook = renderHook(() => useHome(true));
+  const hook = renderHook(() => useHome());
   await waitFor(() => expect(hook.result.current.status).toBe("ready"));
   return hook;
 }
@@ -150,16 +150,6 @@ describe("useHome", () => {
     expect(listWorkbenchSessions).not.toHaveBeenCalled();
   });
 
-  it("reads nothing while Home is not active", () => {
-    serve(enablement());
-
-    const { result } = renderHook(() => useHome(false));
-
-    expect(result.current.status).toBe("idle");
-    expect(listAgents).not.toHaveBeenCalled();
-    expect(listWorkbenchSessions).not.toHaveBeenCalled();
-  });
-
   it("switches to new-session mode on New chat with no API call", async () => {
     serve(enablement(), [item("general")]);
     const { result } = await ready();
@@ -185,7 +175,7 @@ describe("useHome", () => {
     vi.mocked(listAgents).mockRejectedValueOnce(new ApiError("unavailable", "Down.", 503));
     vi.mocked(listAgents).mockResolvedValue([yumi(enablement())]);
     vi.mocked(listWorkbenchSessions).mockResolvedValue([]);
-    const hook = renderHook(() => useHome(true));
+    const hook = renderHook(() => useHome());
     await waitFor(() => expect(hook.result.current.status).toBe("error"));
     expect(hook.result.current.errorMessage).toBe("Down.");
 

@@ -157,6 +157,21 @@ describe("useOverview board state", () => {
   });
 });
 
+describe("useOverview loaded", () => {
+  it("holds loaded back while the setup read has no answer", async () => {
+    vi.mocked(listInboxItems).mockResolvedValue({
+      items: [],
+      next_cursor: null,
+      counts: { open: 0, snoozed: 0 },
+    });
+
+    const hook = render("/");
+
+    await waitFor(() => expect(hook.result.current.inbox.ready).toBe(true), { timeout: 2000 });
+    expect(hook.result.current.loaded).toBe(false);
+  });
+});
+
 describe("useOverview inbox absence", () => {
   const ABSENT = new ApiError("not_found", "No route.", 404, "gateway.routing.not_found");
 

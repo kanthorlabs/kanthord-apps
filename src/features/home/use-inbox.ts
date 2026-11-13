@@ -9,12 +9,9 @@ import { type InboxScope, readInboxScope } from "./read-inbox";
 export interface InboxState {
   readonly items: readonly InboxItem[];
   readonly open: number;
-  readonly snoozed: number;
-  readonly hasMore: boolean;
   readonly ready: boolean;
   readonly error: ApiError | null;
   readonly absent: boolean;
-  readonly loadMore: () => void;
   readonly close: (linkUpdateId: string) => void;
   readonly retry: () => void;
 }
@@ -36,13 +33,12 @@ function stillReturned(closed: ReadonlySet<string>, scope: InboxScope): Readonly
 export function useInbox(updatedAt: number | null): InboxState {
   const [reads, setReads] = useState<Reads>(NO_READS);
   const [closed, setClosed] = useState<ReadonlySet<string>>(NO_CLOSED);
-  const [pages, setPages] = useState(1);
   const [retries, setRetries] = useState(0);
 
   useEffect(() => {
     if (updatedAt === null) return;
     let live = true;
-    readInboxScope(null, pages).then(
+    readInboxScope(null).then(
       (scope) => {
         if (!live) return;
         setReads({ scope, error: null });
@@ -55,11 +51,9 @@ export function useInbox(updatedAt: number | null): InboxState {
     return () => {
       live = false;
     };
-  }, [updatedAt, pages, retries]);
+  }, [updatedAt, retries]);
 
   const { scope } = reads;
-  const loadMore = useCallback(() => setPages((current) => current + 1), []);
-
   const retry = useCallback(() => setRetries((current) => current + 1), []);
 
   const close = useCallback((linkUpdateId: string) => {
@@ -75,12 +69,9 @@ export function useInbox(updatedAt: number | null): InboxState {
   return {
     items,
     open: Math.max(0, (scope?.open ?? 0) - hidden),
-    snoozed: scope?.snoozed ?? 0,
-    hasMore: (scope?.nextCursor ?? null) !== null,
     ready: scope !== null || reads.error !== null,
     error: reads.error,
     absent: scope?.absent === true,
-    loadMore,
     close,
     retry,
   };

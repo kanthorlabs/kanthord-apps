@@ -230,7 +230,8 @@ describe("createCaseTabs", () => {
 
     expect(notices.unsent).toHaveBeenCalledWith("The daemon is down.", expect.any(Function));
     expect(tabs.tabs.get(KEY)).toEqual({ tab, sessionId: "session_1", sent: false });
-    expect(tab.location.replace).not.toHaveBeenCalled();
+    expect(tab.location.replace).toHaveBeenCalledTimes(1);
+    expect(tab.location.replace).toHaveBeenCalledWith("/workbench/session_1");
     const retry = notices.unsent.mock.calls[0]![1] as () => void;
     retry();
     await settled(tabs);
@@ -256,7 +257,7 @@ describe("createCaseTabs", () => {
     expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
     expect(sendWorkbenchMessage).toHaveBeenCalledTimes(2);
     expect(sendWorkbenchMessage).toHaveBeenLastCalledWith("session_1", REQUEST);
-    expect(tab.location.replace).toHaveBeenCalledTimes(1);
+    expect(tab.location.replace).toHaveBeenCalledTimes(2);
   });
 
   it("keeps one registry for each instance", async () => {

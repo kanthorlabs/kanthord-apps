@@ -1,5 +1,5 @@
 import type { AttentionDetails, AttentionItem } from "./attention";
-import { type BoardGate, boardProjectsOf, rankBoardItems } from "./board-items";
+import { type BoardGate, boardProjectsOf, compareAt, rankBoardItems } from "./board-items";
 import {
   BOARD_TABS,
   type BoardTab,
@@ -19,11 +19,6 @@ const SEPARATOR = " · ";
 const UTC_DAY_LENGTH = 10;
 const UTC_CLOCK_START = 11;
 const UTC_CLOCK_END = 16;
-
-function compareAt(left: number | null, right: number | null): number {
-  if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
-  return left - right;
-}
 
 export function deckOrderOf(
   items: readonly AttentionItem[],
@@ -76,12 +71,10 @@ export interface DeckCountInput {
   readonly total: number;
   readonly acts: number;
   readonly held: number;
-  readonly inbox: number;
 }
 
 export function deckCountTextOf(input: DeckCountInput): string {
-  const base = `${input.index + 1} of ${input.total} waiting${SEPARATOR}${counted(input.acts, "act", "acts")}${SEPARATOR}${heldText(input.held)}`;
-  return input.inbox > 0 ? `${base}${SEPARATOR}${input.inbox} inbox` : base;
+  return `${input.index + 1} of ${input.total} waiting${SEPARATOR}${counted(input.acts, "act", "acts")}${SEPARATOR}${heldText(input.held)}`;
 }
 
 export function waitingTextOf(at: number | null, now: number): string {

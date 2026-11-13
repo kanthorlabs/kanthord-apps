@@ -43,8 +43,10 @@ function inputOf(items: readonly AttentionItem[]): HomeDeckInput {
     details: DETAILS,
     now: 1_000,
     status: "ready",
+    loaded: true,
     inbox: 0,
     readFault: false,
+    setDialogOpen: vi.fn(),
   };
 }
 
@@ -180,6 +182,53 @@ describe("useHomeDeck exit", () => {
     expect(result.current.live).toBe("Done: Subject b · 2 items wait");
   });
 
+  it("skips the gone text and runs the exit at once for an item that closed a dialog with an act", () => {
+    const items = [fix("a", 100), fix("b", 200), fix("c", 300)];
+    const input = inputOf(items);
+    const { result, rerender } = renderHook((props: HomeDeckInput) => useHomeDeck(props), {
+      initialProps: input,
+    });
+    act(() => result.current.step(1));
+
+    act(() => result.current.setDialogOpen("b", "node_b", false, { id: "unblock" }));
+    expect(input.setDialogOpen).toHaveBeenCalledWith("b", "node_b", false);
+    rerender(inputOf([items[0] as AttentionItem, items[2] as AttentionItem]));
+
+    expect(result.current.gone).toBe(false);
+    expect(result.current.leaving).toBe(true);
+    advance(DECK_EXIT_MS);
+
+    expect(result.current.primary?.id).toBe("c");
+    expect(result.current.live).toBe("Done: Subject b · 2 items wait");
+  });
+
+  it("turns the gone text into the exit when the act arrives after the read dropped the item", () => {
+    const items = [fix("a", 100), fix("b", 200), fix("c", 300)];
+    const { result, rerender } = mount(items);
+    act(() => result.current.step(1));
+    rerender(inputOf([items[0] as AttentionItem, items[2] as AttentionItem]));
+    expect(result.current.gone).toBe(true);
+
+    act(() => result.current.setDialogOpen("b", "node_b", false, { id: "unblock" }));
+
+    expect(result.current.gone).toBe(false);
+    expect(result.current.leaving).toBe(true);
+    advance(DECK_EXIT_MS);
+    expect(result.current.primary?.id).toBe("c");
+    expect(result.current.live).toBe("Done: Subject b · 2 items wait");
+  });
+
+  it("shows the gone text for an item that closed a dialog with no act", () => {
+    const items = [fix("a", 100), fix("b", 200)];
+    const { result, rerender } = mount(items);
+    act(() => result.current.step(1));
+
+    act(() => result.current.setDialogOpen("b", "node_b", false));
+    rerender(inputOf([items[0] as AttentionItem]));
+
+    expect(result.current.gone).toBe(true);
+  });
+
   it("does nothing on step while an exit runs", () => {
     const { result } = mount([fix("a", 100), fix("b", 200)]);
 
@@ -305,6 +354,53 @@ describe("useHomeDeck new mark", () => {
 
     expect(result.current.secondary?.item.id).toBe("n");
     expect(result.current.secondary?.isNew).toBe(false);
+  });
+});
+
+describe("useHomeDeck first answers", () => {
+  it("marks no item new that arrives before the first answer of the other reads", () => {
+    const first = fix("a", 100);
+    const last = fix("z", 900);
+    const { result, rerender } = renderHook((props: HomeDeckInput) => useHomeDeck(props), {
+      initialProps: { ...inputOf([first, last]), loaded: false },
+    });
+    rerender({ ...inputOf([first, last, fix("n", 150)]), loaded: false });
+    rerender(inputOf([first, last, fix("n", 150)]));
+
+    expect(result.current.secondary).toMatchObject({ rank: 2, isNew: false });
+  });
+
+  it("holds the first known set until the other reads answer", () => {
+    const first = fix("a", 100);
+    const last = fix("z", 900);
+    const unloaded = { ...inputOf([first, last]), loaded: false };
+    const { result, rerender } = renderHook((props: HomeDeckInput) => useHomeDeck(props), {
+      initialProps: unloaded,
+    });
+    rerender(inputOf([first, last]));
+    rerender(inputOf([first, last, fix("n", 150)]));
+
+    expect(result.current.secondary).toMatchObject({ rank: 2, isNew: true });
+  });
+});
+
+describe("useHomeDeck first", () => {
+  it("selects the first item of the order", () => {
+    const { result } = mount([fix("a", 100), fix("b", 200)]);
+    act(() => result.current.step(1));
+
+    act(() => result.current.selectFirst());
+
+    expect(result.current.primary?.id).toBe("a");
+  });
+
+  it("counts the held nodes of the primary", () => {
+    const held = new Map([["a", ["n1", "n2"]]]);
+    const { result } = renderHook((props: HomeDeckInput) => useHomeDeck(props), {
+      initialProps: { ...inputOf([fix("a", 100)]), held },
+    });
+
+    expect(result.current.primaryHeld).toBe(2);
   });
 });
 

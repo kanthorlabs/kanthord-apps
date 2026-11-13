@@ -100,7 +100,7 @@ export function gateOf(item: AttentionItem, items: readonly AttentionItem[]): Bo
   };
 }
 
-function compareAt(left: number | null, right: number | null): number {
+export function compareAt(left: number | null, right: number | null): number {
   if (left === null || right === null) return left === right ? 0 : left === null ? 1 : -1;
   return left - right;
 }

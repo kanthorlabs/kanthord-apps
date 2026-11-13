@@ -133,14 +133,14 @@ describe("deckOrderOf", () => {
 });
 
 describe("deckCountTextOf", () => {
-  it("joins the position, the acts, the held nodes and the inbox", () => {
-    expect(deckCountTextOf({ index: 0, total: 241, acts: 63, held: 12, inbox: 178 })).toBe(
-      "1 of 241 waiting · 63 acts · 12 nodes wait · 178 inbox",
+  it("joins the position, the acts and the held nodes", () => {
+    expect(deckCountTextOf({ index: 0, total: 241, acts: 63, held: 12 })).toBe(
+      "1 of 241 waiting · 63 acts · 12 nodes wait",
     );
   });
 
-  it("drops the inbox part at 0 and names no waiting node", () => {
-    expect(deckCountTextOf({ index: 2, total: 5, acts: 1, held: 0, inbox: 0 })).toBe(
+  it("names no waiting node at 0", () => {
+    expect(deckCountTextOf({ index: 2, total: 5, acts: 1, held: 0 })).toBe(
       "3 of 5 waiting · 1 act · No node waits",
     );
   });

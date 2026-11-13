@@ -1,5 +1,7 @@
 import type { AgentConsumer, AgentEnablementState, WorkbenchSessionListItem } from "@/api/types";
 
+export const YUMI_AGENT = "ops@1";
+
 export function sessionsNewestFirst(
   items: readonly WorkbenchSessionListItem[],
 ): readonly WorkbenchSessionListItem[] {

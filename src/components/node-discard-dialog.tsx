@@ -14,12 +14,18 @@ import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import type { NodeDiscardState } from "@/hooks/use-node-discard";
 
-export function NodeDiscardDialog({ name, discard }: { name: string; discard: NodeDiscardState }) {
+interface NodeDiscardDialogProps {
+  readonly name: string;
+  readonly discard: NodeDiscardState;
+  readonly focusCancel?: boolean;
+}
+
+export function NodeDiscardDialog({ name, discard, focusCancel = false }: NodeDiscardDialogProps) {
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   return (
     <AlertDialog open={discard.open} onOpenChange={(open) => !open && discard.cancel()}>
-      <AlertDialogContent initialFocus={cancelRef}>
+      <AlertDialogContent initialFocus={focusCancel ? cancelRef : undefined}>
         <AlertDialogHeader>
           <AlertDialogTitle>Discard {name}?</AlertDialogTitle>
           <AlertDialogDescription>{discard.consequence}</AlertDialogDescription>

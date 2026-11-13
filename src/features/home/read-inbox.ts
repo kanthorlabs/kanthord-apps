@@ -4,36 +4,32 @@ import type { InboxItem } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 
 const PAGE_LIMIT = 100;
+const MAX_PAGES = 100;
 
 export interface InboxScope {
   readonly projectId: string | null;
   readonly items: readonly InboxItem[];
-  readonly nextCursor: string | null;
   readonly open: number;
-  readonly snoozed: number;
   readonly absent: boolean;
 }
 
-async function readPages(projectId: string | null, pages: number): Promise<InboxScope> {
+async function readPages(projectId: string | null): Promise<InboxScope> {
   const items: InboxItem[] = [];
   let cursor: string | null = null;
-  let open = 0;
-  let snoozed = 0;
-  for (let page = 0; page < pages; page += 1) {
+  for (let page = 0; page < MAX_PAGES; page += 1) {
     const list = await listInboxItems({ state: "open", projectId, limit: PAGE_LIMIT, cursor });
     items.push(...list.items);
-    ({ open, snoozed } = list.counts);
     cursor = list.next_cursor;
-    if (cursor === null) break;
+    if (cursor === null) return { projectId, items, open: list.counts.open, absent: false };
   }
-  return { projectId, items, nextCursor: cursor, open, snoozed, absent: false };
+  throw new Error(`The Inbox holds more than ${MAX_PAGES * PAGE_LIMIT} open threads.`);
 }
 
-export async function readInboxScope(projectId: string | null, pages: number): Promise<InboxScope> {
+export async function readInboxScope(projectId: string | null): Promise<InboxScope> {
   try {
-    return await readPages(projectId, pages);
+    return await readPages(projectId);
   } catch (cause: unknown) {
     if (!isRouteAbsent(asApiError(cause))) throw cause;
-    return { projectId, items: [], nextCursor: null, open: 0, snoozed: 0, absent: true };
+    return { projectId, items: [], open: 0, absent: true };
   }
 }

@@ -6,7 +6,9 @@ import { InlineError } from "@/features/workbench/chat/components/inline-error";
 import { NewSessionChat } from "@/features/workbench/chat/components/new-session-chat";
 import { SessionChat } from "@/features/workbench/chat/components/session-chat";
 
-import { type HomeState, YUMI_AGENT } from "../use-home";
+import { YUMI_AGENT } from "@/lib/workbench-sessions";
+
+import type { HomeState } from "../use-home";
 import { YumiOffChat } from "./yumi-off-chat";
 
 interface HomeChatProps {

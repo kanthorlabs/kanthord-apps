@@ -1,3 +1,5 @@
+import { YUMI_AGENT } from "@/lib/workbench-sessions";
+
 export type SlashCommandId = "brief" | "health" | "new";
 
 export interface SlashCommand {
@@ -19,14 +21,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     name: "/brief",
     description: "Report status and the actions that need you",
     text: "Report the system status and the actions that need me.",
-    agent: "ops@1",
+    agent: YUMI_AGENT,
   },
   {
     id: "health",
     name: "/health",
     description: "Check provider health (slow probe)",
     text: "Check the health of the gateway and the providers.",
-    agent: "ops@1",
+    agent: YUMI_AGENT,
   },
   {
     id: "new",

@@ -15,7 +15,7 @@ type NodeCaseItem = DecisionAttentionItem | FindingReviewItem | FollowupItem | O
 type FixKind = FixAttentionItem["kind"];
 
 interface FixAsk<K extends FixKind> {
-  readonly subject: (item: Extract<FixAttentionItem, { kind: K }>) => string;
+  readonly subject: (item: Extract<FixAttentionItem, { kind: K }>) => string | null;
   readonly ask: string;
 }
 
@@ -28,12 +28,6 @@ export const CASE_ASKS: Readonly<Record<NodeCaseItem["kind"], string>> = {
   merge_wait: "It waits for a human merge. Report what the merge needs.",
   delivery_unconfirmed: "Its delivery is not confirmed. Report what the confirmation needs.",
 };
-
-function firstBindingOf(item: Extract<FixAttentionItem, { kind: "agent_invalid" }>): string {
-  const [first] = item.bindings;
-  if (first === undefined) throw new Error(`agent_invalid item ${item.id} holds no binding`);
-  return first.binding;
-}
 
 export const FIX_ASKS: { readonly [K in FixKind]: FixAsk<K> } = {
   project_paused: {
@@ -54,8 +48,11 @@ export const FIX_ASKS: { readonly [K in FixKind]: FixAsk<K> } = {
     ask: "Explain why no worker takes them and recommend the setup change.",
   },
   agent_invalid: {
-    subject: (item) =>
-      `agent \`${item.agent}\` in binding \`${firstBindingOf(item)}\` of project \`${item.project.id}\``,
+    subject: (item) => {
+      const [first] = item.bindings;
+      if (first === undefined) return null;
+      return `agent \`${item.agent}\` in binding \`${first.binding}\` of project \`${item.project.id}\``;
+    },
     ask: "Explain the invalid configuration and recommend the fix.",
   },
   credential_refused: {
@@ -72,9 +69,11 @@ export function nodeCaseRequestOf(item: NodeCaseItem): string {
   return `${CASE_REQUEST_PREFIX}node \`${item.node.id}\` (${item.node.state}). ${CASE_ASKS[item.kind]}`;
 }
 
-export function fixCaseRequestOf(item: FixAttentionItem): string {
+export function fixCaseRequestOf(item: FixAttentionItem): string | null {
   const entry = FIX_ASKS[item.kind] as FixAsk<FixKind>;
-  return `${CASE_REQUEST_PREFIX}fix ${item.kind} ${entry.subject(item)}. ${entry.ask}`;
+  const subject = entry.subject(item);
+  if (subject === null) return null;
+  return `${CASE_REQUEST_PREFIX}fix ${item.kind} ${subject}. ${entry.ask}`;
 }
 
 export function caseRequestOf(item: AttentionItem): string | null {

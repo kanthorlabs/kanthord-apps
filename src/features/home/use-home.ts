@@ -6,10 +6,9 @@ import type { AgentEnablement, WorkbenchSessionListItem } from "@/api/types";
 import { type Resource, useResource } from "@/hooks/use-resource";
 import { configurationOf, type ConfigurationResult, draftOf } from "@/lib/workbench-configuration";
 import { type FirstSendFailure, invalidFieldsText } from "@/lib/workbench-new-session";
+import { YUMI_AGENT } from "@/lib/workbench-sessions";
 
 import { isCaseConversation } from "./case-request";
-
-export const YUMI_AGENT = "ops@1";
 
 export type HomeView =
   | { readonly kind: "new" }
@@ -20,7 +19,7 @@ export type HomeView =
     };
 
 export interface HomeState {
-  readonly status: "idle" | "loading" | "ready" | "error";
+  readonly status: "loading" | "ready" | "error";
   readonly errorMessage: string | null;
   readonly retry: () => void;
   readonly enabled: boolean;
@@ -54,8 +53,8 @@ function pending(resource: Resource<unknown>): boolean {
   return resource.data === null && resource.error === null;
 }
 
-export function useHome(active: boolean): HomeState {
-  const agents = useResource(() => (active ? listAgents() : Promise.resolve(null)), [active]);
+export function useHome(): HomeState {
+  const agents = useResource(listAgents, []);
   const yumi = agents.data?.find((agent) => agent.agentName === YUMI_AGENT) ?? null;
   const enablement = yumi?.enablement ?? null;
   const enabled = enablement?.state === "enabled";
@@ -90,8 +89,8 @@ export function useHome(active: boolean): HomeState {
   }, [reloadAgents, reloadSessions]);
 
   const error = agents.error ?? sessions.error;
-  const waiting = active && (pending(agents) || (enabled && pending(sessions)));
-  const status = !active ? "idle" : error !== null ? "error" : waiting ? "loading" : "ready";
+  const waiting = pending(agents) || (enabled && pending(sessions));
+  const status = error !== null ? "error" : waiting ? "loading" : "ready";
   const shown = status === "ready" && enabled ? view : null;
 
   return {

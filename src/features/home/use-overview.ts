@@ -7,6 +7,7 @@ import {
   type AttentionDetails,
   type AttentionItem,
   deriveAttention,
+  detailOf,
   detailTargetsOf,
   externalReadStateOf,
   type ProjectSnapshot,
@@ -29,15 +30,13 @@ import { useOverviewSnapshot } from "./use-overview-snapshot";
 
 interface InboxView {
   readonly open: number;
-  readonly snoozed: number;
-  readonly hasMore: boolean;
   readonly ready: boolean;
-  readonly loadMore: () => void;
   readonly close: (linkUpdateId: string) => void;
 }
 
 export interface OverviewState {
   readonly status: "loading" | "ready" | "empty" | "error";
+  readonly loaded: boolean;
   readonly error: ApiError | null;
   readonly projects: readonly Project[];
   readonly running: number;
@@ -252,8 +251,14 @@ export function useOverview(): OverviewState {
         ? "loading"
         : "error";
 
+  const loaded =
+    inbox.ready &&
+    (setupData !== null || setup.error !== null) &&
+    targets.every((target) => detailOf(details, target.node) !== null);
+
   return {
     status,
+    loaded,
     error: snapshot.error,
     projects,
     running: snapshots.reduce((total, entry) => total + claimedNodeCount(entry.nodes), 0),
@@ -264,10 +269,7 @@ export function useOverview(): OverviewState {
     boardItems,
     inbox: {
       open: inbox.open,
-      snoozed: inbox.snoozed,
-      hasMore: inbox.hasMore,
       ready: inbox.ready,
-      loadMore: inbox.loadMore,
       close: inbox.close,
     },
     gates,

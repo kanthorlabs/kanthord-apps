@@ -13,7 +13,6 @@ vi.mock("sonner", () => ({
 }));
 
 import { caseRequestOf } from "./case-request";
-import { createCaseTabs } from "./case-tabs";
 import { useAskYumi } from "./use-ask-yumi";
 
 const CONFIGURATION: WorkbenchConfiguration = {
@@ -27,13 +26,21 @@ const ENABLED = {
   configuration: { ok: true, configuration: CONFIGURATION },
 } as const;
 
-const BLOCKED = {
-  id: "blocked:node_1",
-  kind: "blocked",
-  group: "decisions",
-  subject: "SECRET-NAME",
-  node: { id: "node_1", state: "Blocked" },
-} as unknown as AttentionItem;
+let sequence = 0;
+let BLOCKED: AttentionItem;
+let KEY: string;
+let NAME: string;
+
+function blockedItem(): AttentionItem {
+  sequence += 1;
+  return {
+    id: `blocked:node_${sequence}`,
+    kind: "blocked",
+    group: "decisions",
+    subject: "SECRET-NAME",
+    node: { id: `node_${sequence}`, state: "Blocked" },
+  } as unknown as AttentionItem;
+}
 
 const APPROVAL = { id: "tool_approval:s1", kind: "tool_approval" } as unknown as AttentionItem;
 const INBOX = {
@@ -41,8 +48,6 @@ const INBOX = {
   kind: "inbox_item",
   group: "inbox",
 } as unknown as AttentionItem;
-
-const NAME = "kanthord-case-blocked:node_1";
 
 interface FakeTab {
   closed: boolean;
@@ -66,15 +71,17 @@ function session(id: string): WorkbenchSession {
 }
 
 function press(home: Parameters<typeof useAskYumi>[0] = ENABLED, item = BLOCKED) {
-  const caseTabs = createCaseTabs();
-  const { result } = renderHook(() => useAskYumi(home, caseTabs));
+  const { result } = renderHook(() => useAskYumi(home));
   const act = result.current(item);
   if (act === null) throw new Error("The item offers no Ask Yumi");
-  return { act, caseTabs };
+  return { act };
 }
 
 beforeEach(() => {
   vi.resetAllMocks();
+  BLOCKED = blockedItem();
+  KEY = BLOCKED.id;
+  NAME = `kanthord-case-${KEY}`;
   tab = { closed: false, location: { replace: vi.fn() }, focus: vi.fn(), close: vi.fn() };
   open = vi.spyOn(window, "open").mockReturnValue(tab as unknown as Window);
   vi.mocked(createWorkbenchSession).mockResolvedValue(session("session_1"));
@@ -88,10 +95,9 @@ afterEach(() => {
 
 describe("useAskYumi", () => {
   it("offers no act for a tool_approval item, an Inbox item or while Yumi is not enabled", () => {
-    const caseTabs = createCaseTabs();
-    const { result } = renderHook(() => useAskYumi(ENABLED, caseTabs));
+    const { result } = renderHook(() => useAskYumi(ENABLED));
     const off = renderHook(() =>
-      useAskYumi({ enabled: false, configuration: ENABLED.configuration }, caseTabs),
+      useAskYumi({ enabled: false, configuration: ENABLED.configuration }),
     );
 
     expect(result.current(APPROVAL)).toBeNull();
@@ -112,10 +118,10 @@ describe("useAskYumi", () => {
   });
 
   it("creates, sends the case request and points the tab at the conversation", async () => {
-    const { act, caseTabs } = press();
+    const { act } = press();
 
     act();
-    await waitFor(() => expect(caseTabs.tabs.get("blocked:node_1")?.sent).toBe(true));
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalled());
 
     expect(createWorkbenchSession).toHaveBeenCalledWith({ agent_name: "ops@1", ...CONFIGURATION });
     expect(sendWorkbenchMessage).toHaveBeenCalledWith("session_1", caseRequestOf(BLOCKED));
@@ -125,28 +131,28 @@ describe("useAskYumi", () => {
 
   it("points the tab at the base path under a base element", async () => {
     document.head.insertAdjacentHTML("beforeend", '<base href="/s/kanthord/">');
-    const { act, caseTabs } = press();
+    const { act } = press();
 
     act();
-    await waitFor(() => expect(caseTabs.tabs.get("blocked:node_1")?.sent).toBe(true));
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalled());
 
     expect(tab.location.replace).toHaveBeenCalledWith("/s/kanthord/workbench/session_1");
   });
 
   it("points the tab at /workbench with no base element and no double slash", async () => {
-    const { act, caseTabs } = press();
+    const { act } = press();
 
     act();
-    await waitFor(() => expect(caseTabs.tabs.get("blocked:node_1")?.sent).toBe(true));
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalled());
 
     expect(tab.location.replace).toHaveBeenCalledWith("/workbench/session_1");
     expect(tab.location.replace).not.toHaveBeenCalledWith("//workbench/session_1");
   });
 
   it("opens the same name and calls no resource on a click after a sent request", async () => {
-    const { act, caseTabs } = press();
+    const { act } = press();
     act();
-    await waitFor(() => expect(caseTabs.tabs.get("blocked:node_1")?.sent).toBe(true));
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalled());
     vi.mocked(createWorkbenchSession).mockClear();
     vi.mocked(sendWorkbenchMessage).mockClear();
 
@@ -160,17 +166,16 @@ describe("useAskYumi", () => {
 
   it("shows a toast and stores nothing when the tab is blocked", () => {
     open.mockReturnValue(null);
-    const { act, caseTabs } = press();
+    const { act } = press();
 
     act();
 
     expect(toast.error).toHaveBeenCalledWith("The browser blocked the case tab.");
     expect(createWorkbenchSession).not.toHaveBeenCalled();
-    expect(caseTabs.tabs.size).toBe(0);
   });
 
   it("closes the tab and shows a toast when the Yumi configuration is missing", () => {
-    const { act, caseTabs } = press({
+    const { act } = press({
       enabled: true,
       configuration: { ok: false, errors: { agentProvider: "Choose a value." } },
     });
@@ -180,14 +185,13 @@ describe("useAskYumi", () => {
     expect(tab.close).toHaveBeenCalledTimes(1);
     expect(toast.error).toHaveBeenCalledWith("Yumi has no default configuration.");
     expect(createWorkbenchSession).not.toHaveBeenCalled();
-    expect(caseTabs.tabs.size).toBe(0);
   });
 
   it("closes the tab and shows a toast when create fails", async () => {
     vi.mocked(createWorkbenchSession).mockRejectedValue(
       new ApiError("unavailable", "The daemon is down.", 503),
     );
-    const { act, caseTabs } = press();
+    const { act } = press();
 
     act();
 
@@ -197,14 +201,13 @@ describe("useAskYumi", () => {
       }),
     );
     expect(tab.close).toHaveBeenCalledTimes(1);
-    expect(caseTabs.tabs.size).toBe(0);
   });
 
   it("shows the unsent toast with Retry that sends once to the same session", async () => {
     vi.mocked(sendWorkbenchMessage).mockRejectedValueOnce(
       new ApiError("unavailable", "The daemon is down.", 503),
     );
-    const { act, caseTabs } = press();
+    const { act } = press();
 
     act();
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
@@ -213,9 +216,9 @@ describe("useAskYumi", () => {
     expect(options).toMatchObject({ description: "The daemon is down." });
     const action = (options as { action: { label: string; onClick: () => void } }).action;
     expect(action.label).toBe("Retry");
-    expect(tab.location.replace).not.toHaveBeenCalled();
+    expect(tab.location.replace).toHaveBeenCalledTimes(1);
     action.onClick();
-    await waitFor(() => expect(caseTabs.tabs.get("blocked:node_1")?.sent).toBe(true));
+    await waitFor(() => expect(tab.location.replace).toHaveBeenCalledTimes(2));
 
     expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
     expect(sendWorkbenchMessage).toHaveBeenCalledTimes(2);

@@ -115,8 +115,8 @@ describe("fixCaseRequestOf", () => {
   it.each(FIX_KINDS)("builds the %s request from ids only", (kind) => {
     const text = fixCaseRequestOf(fixItemOf(kind));
 
-    expect(text.startsWith(`Case: fix ${kind} `)).toBe(true);
-    expect(text.endsWith(FIX_ASKS[kind].ask)).toBe(true);
+    expect(text?.startsWith(`Case: fix ${kind} `)).toBe(true);
+    expect(text?.endsWith(FIX_ASKS[kind].ask)).toBe(true);
     expect(text).not.toContain(MARKER);
   });
 
@@ -157,10 +157,11 @@ describe("fixCaseRequestOf", () => {
     expect(fixCaseRequestOf(fixItemOf("project_paused"))).toContain("project `project_01J`");
   });
 
-  it("rejects an agent_invalid item with no binding", () => {
+  it("answers null for an agent_invalid item with no binding", () => {
     const item = { ...fixItemOf("agent_invalid"), bindings: [] } as unknown as FixAttentionItem;
 
-    expect(() => fixCaseRequestOf(item)).toThrow("holds no binding");
+    expect(fixCaseRequestOf(item)).toBeNull();
+    expect(caseRequestOf(item)).toBeNull();
   });
 });
 

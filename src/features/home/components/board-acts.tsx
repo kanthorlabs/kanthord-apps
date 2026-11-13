@@ -87,7 +87,7 @@ function DecisionActs({
       <NodeResumeDialog name={node.content.name} resume={acts.resume} />
       <NodeOverrideDialog name={node.content.name} override={acts.override} />
       <DependencyRemoveDialog name={node.content.name} remove={acts.remove} />
-      <NodeDiscardDialog name={node.content.name} discard={acts.discard} />
+      <NodeDiscardDialog name={node.content.name} discard={acts.discard} focusCancel />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -104,6 +104,8 @@ vi.mock("@/api/resources/scheduler", () => ({
 
 import { listTracePage, listTraceSpans } from "@/api/resources/tracking";
 import {
+  checkNode,
+  decideFinding,
   decideFollowup,
   decideProposals,
   discardNode,
@@ -119,6 +121,7 @@ import {
   listProjectFollowups,
   listUndecidedFindings,
   overrideNode,
+  pauseNode,
   readMission,
   readNodeRevision,
   removeDependency,
@@ -134,6 +137,7 @@ import {
 import { readLiveness } from "@/api/resources/gateway";
 import {
   listBindingAgents,
+  listBindings,
   listProjectEnvironments,
   listProjects,
   listWorkerBindings,
@@ -1164,6 +1168,76 @@ describe("HomeScreen gated Resume", () => {
   });
 });
 
+function missionFinding(overrides: Partial<MissionFinding> = {}): MissionFinding {
+  const human = overrides.source === "human";
+  return {
+    id: "finding_1",
+    node_id: "n1",
+    attempt: 1,
+    round: human ? null : 2,
+    assessment_id: "assessment_1",
+    source: "reviewer",
+    label: human ? "H1" : "S1",
+    kind: "suggestion",
+    action: "yes",
+    task_id: null,
+    ground: null,
+    name: "Trim the email",
+    description: "The form keeps the spaces around the email address.",
+    fix: "Trim the email address before the check.",
+    why: "A pasted address often holds a trailing space.",
+    route: "report",
+    status: "open",
+    fixed_assessment_id: null,
+    cause_owner: human ? "reviewer" : null,
+    created_by: human ? { kind: "human", account: "ulrich", name: "Ulrich" } : null,
+    created_at: 1,
+    decision: null,
+    decision_reason: null,
+    decided_by: null,
+    decided_at: null,
+    ...overrides,
+  };
+}
+
+function finding(
+  nodeId: string,
+  label: string,
+  name: string,
+  source: MissionFinding["source"] = "reviewer",
+): MissionFinding {
+  return missionFinding({
+    id: `finding_${nodeId}_${label}`,
+    node_id: nodeId,
+    assessment_id: `assessment_${nodeId}`,
+    source,
+    label,
+    name,
+    created_at: NOW - HOUR,
+  });
+}
+
+const GONE_TEXT = "The selected item no longer waits.";
+
+type NodeWorld = Record<string, readonly MissionNodeRecord[]>;
+
+async function confirmWithReason(name: string, reason: string) {
+  const user = userEvent.setup();
+  const dialog = await screen.findByRole("alertdialog");
+  await user.type(within(dialog).getByLabelText("Reason"), reason);
+  await user.click(within(dialog).getByRole("button", { name }));
+}
+
+async function openFindingSheet(user: ReturnType<typeof userEvent.setup>) {
+  await press(user, "Decide");
+  return screen.findByRole("dialog", { name: /^Decide findings of / });
+}
+
+async function expectDone(line: string) {
+  expect(await screen.findByText(line)).toBeVisible();
+  expect(screen.queryByText(GONE_TEXT)).toBeNull();
+}
+
 const GENERAL = "What needs me?";
 const BRIEF_TEXT = "Report the system status and the actions that need me.";
 
@@ -1299,6 +1373,29 @@ describe("HomeScreen Yumi chat", () => {
     expect(entry.compareDocumentPosition(deck) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(deck.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Brief me" })).toBeNull();
+  });
+});
+
+describe("HomeScreen chat beside the read states", () => {
+  it("shows the Yumi chat and the empty state of a server with no project", async () => {
+    serve({ yumi: "on", projects: [] });
+
+    renderScreen();
+
+    expect(await composerBox()).toBeVisible();
+    expect(await screen.findByText("No projects")).toBeVisible();
+  });
+
+  it("shows the Yumi chat and the alert when the project list fails", async () => {
+    serve({ yumi: "on" });
+    vi.mocked(listProjects).mockRejectedValue(
+      new ApiError("unreachable", "The daemon did not answer.", 0),
+    );
+
+    renderScreen();
+
+    expect(await composerBox()).toBeVisible();
+    expect(await screen.findByText("Home could not be read.")).toBeVisible();
   });
 });
 
@@ -1568,5 +1665,524 @@ describe("HomeScreen Ask Yumi", () => {
     await user.keyboard("{Escape}");
     expect(await findPrimary(/^Primary: Case audit/)).toBeVisible();
     open.mockRestore();
+  });
+});
+
+describe("HomeScreen settled exit after a decision act", () => {
+  it("lets the item leave after Unblock", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = { "prj-1": [blocked("n_a", "Audit log")] };
+    serve({ nodes });
+    vi.mocked(unblockNode).mockImplementation(async () => {
+      nodes["prj-1"] = [];
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const primary = await findPrimary();
+    await user.click(await within(primary).findByRole("button", { name: "Unblock" }));
+    await confirmWithReason("Unblock node", "Retry.");
+
+    await expectDone("Done: Audit log · 0 items wait");
+  });
+
+  it("lets the item leave after Decide of the proposals", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = {
+      "prj-1": [blocked("n_t", "Team workspaces", { intent: "examine" })],
+    };
+    serve({
+      nodes,
+      proposals: { n_t: [proposal("n_t", "Send the invite in the workspace language")] },
+    });
+    vi.mocked(decideProposals).mockImplementation(async () => {
+      nodes["prj-1"] = [];
+      return DECIDED;
+    });
+    renderScreen();
+
+    const primary = await findPrimary();
+    await waitFor(() =>
+      expect(within(primary).getByRole("button", { name: "Decide" })).toBeEnabled(),
+    );
+    await user.click(within(primary).getByRole("button", { name: "Decide" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(
+      within(dialog).getByRole("checkbox", { name: "Send the invite in the workspace language" }),
+    );
+    await confirmWithReason("Decide", "The fix is right.");
+
+    await expectDone("Done: Team workspaces · 0 items wait");
+  });
+
+  it("lets the item leave after Decide of the follow-up proposal", async () => {
+    const user = userEvent.setup();
+    const followups: Record<string, readonly MissionFollowupProposal[]> = {
+      "prj-1": [followup("n_f", 2)],
+    };
+    serve({ nodes: { "prj-1": [plain("n_f", "Sign-up form", "Completed")] }, followups });
+    vi.mocked(decideFollowup).mockImplementation(async () => {
+      followups["prj-1"] = [];
+      return {};
+    });
+    renderScreen();
+
+    const primary = await findPrimary();
+    await user.click(await within(primary).findByRole("button", { name: "Decide" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Create follow-up node" }));
+
+    await expectDone("Done: Sign-up form · 0 items wait");
+  });
+
+  it("lets the item leave after Override", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = { "prj-1": [blocked("n_a", "Audit log")] };
+    serve({ nodes });
+    vi.mocked(overrideNode).mockImplementation(async () => {
+      nodes["prj-1"] = [];
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    await findPrimary();
+    await press(user, "Override");
+    await confirmWithReason("Override node", "Verified by hand.");
+
+    await expectDone("Done: Audit log · 0 items wait");
+  });
+
+  it("lets the item leave after Resume", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = { "prj-1": [paused("n_p", "Compute the rates", 3)] };
+    serve({
+      nodes,
+      executions: {
+        n_p: [ended("e1", "n_p", { claim_state: "lost", ended_at: null, expired_at: NOW - HOUR })],
+      },
+    });
+    vi.mocked(resumeNode).mockImplementation(async () => {
+      nodes["prj-1"] = [];
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    const primary = await findPrimary();
+    await waitFor(() =>
+      expect(within(primary).getByRole("button", { name: "Resume" })).toBeEnabled(),
+    );
+    await user.click(within(primary).getByRole("button", { name: "Resume" }));
+    await confirmWithReason("Resume node", "Try again.");
+
+    await expectDone("Done: Compute the rates · 0 items wait");
+  });
+
+  it("lets the item leave after Remove dependency", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = {
+      "prj-1": [
+        pending("n_c", "Redirect the legacy links", ["n_b"]),
+        plain("n_b", "Drop the legacy checkout", "Discarded"),
+      ],
+    };
+    serve({ nodes });
+    vi.mocked(removeDependency).mockImplementation(async () => {
+      nodes["prj-1"] = [plain("n_b", "Drop the legacy checkout", "Discarded")];
+      return {} as MissionNodeChange;
+    });
+    renderScreen();
+
+    const primary = await findPrimary();
+    await user.click(
+      await within(primary).findByRole("button", {
+        name: "Remove dependency on Drop the legacy checkout",
+      }),
+    );
+    await confirmWithReason("Remove dependency", "The checkout is gone.");
+
+    await expectDone("Done: Redirect the legacy links · 0 items wait");
+  });
+
+  it("lets the item leave after Discard from More", async () => {
+    const user = userEvent.setup();
+    const nodes: NodeWorld = { "prj-1": [blocked("n_a", "Audit log")] };
+    serve({ nodes });
+    vi.mocked(discardNode).mockImplementation(async () => {
+      nodes["prj-1"] = [];
+      return {} as MissionControlResult;
+    });
+    renderScreen();
+
+    await findPrimary();
+    await press(user, "Discard");
+    await confirmWithReason("Discard node", "The feature moves.");
+
+    await expectDone("Done: Audit log · 0 items wait");
+  });
+
+  it("lets the item leave after the last decision of a finding", async () => {
+    const user = userEvent.setup();
+    const findings: Record<string, readonly MissionFinding[]> = {
+      "prj-1": [finding("n_s", "S1", "Trim the email")],
+    };
+    serve({ nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] }, findings });
+    vi.mocked(decideFinding).mockImplementation(async (findingId, body) => {
+      const decided = (findings["prj-1"] ?? []).find((item) => item.id === findingId);
+      if (decided === undefined) throw new Error(`No finding ${findingId}.`);
+      findings["prj-1"] = [];
+      return { ...decided, decision: body.decision, decision_reason: body.decision_reason };
+    });
+    renderScreen();
+
+    await findPrimary();
+    const sheet = await openFindingSheet(user);
+    await user.click(await within(sheet).findByRole("button", { name: "Dismiss the finding S1" }));
+    await confirmWithReason("Dismiss", "No defect.");
+
+    await expectDone("Done: Sign-up form · 0 items wait");
+    expect(decideFinding).toHaveBeenCalledWith("finding_n_s_S1", {
+      decision: "dismissed",
+      decision_reason: "No defect.",
+    });
+  });
+
+  it("keeps the card with the new count after one decision of two findings", async () => {
+    const user = userEvent.setup();
+    const findings: Record<string, readonly MissionFinding[]> = {
+      "prj-1": [
+        finding("n_s", "S1", "Trim the email"),
+        finding("n_s", "S2", "Submit while pending"),
+      ],
+    };
+    serve({ nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] }, findings });
+    vi.mocked(decideFinding).mockImplementation(async (findingId, body) => {
+      const decided = (findings["prj-1"] ?? []).find((item) => item.id === findingId);
+      if (decided === undefined) throw new Error(`No finding ${findingId}.`);
+      findings["prj-1"] = (findings["prj-1"] ?? []).filter((item) => item.id !== findingId);
+      return { ...decided, decision: body.decision, decision_reason: body.decision_reason };
+    });
+    renderScreen();
+
+    await findPrimary();
+    const sheet = await openFindingSheet(user);
+    await user.click(await within(sheet).findByRole("button", { name: "Dismiss the finding S1" }));
+    await confirmWithReason("Dismiss", "No defect.");
+
+    await waitFor(() =>
+      expect(within(sheet).queryByRole("button", { name: "Dismiss the finding S1" })).toBeNull(),
+    );
+    expect(within(sheet).getByRole("button", { name: "Dismiss the finding S2" })).toBeEnabled();
+    expect(screen.queryByText(/^Done:/)).toBeNull();
+  });
+});
+
+describe("HomeScreen Discard flow", () => {
+  it("discards after the reason and reads Home again", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-2": [blocked("n_b", "Localize the order email")] } });
+    renderScreen();
+
+    await findPrimary();
+    await press(user, "Discard");
+    const dialog = await screen.findByRole("alertdialog");
+    const action = within(dialog).getByRole("button", { name: "Discard node" });
+    expect(action).toBeDisabled();
+    await user.type(within(dialog).getByLabelText("Reason"), "The feature moves.");
+    await user.click(action);
+
+    expect(discardNode).toHaveBeenCalledWith("n_b", {
+      reason: "The feature moves.",
+      expected_mission_version: 7,
+      expected_state: "Blocked",
+      expected_attempt: 2,
+    });
+    await waitFor(() => expect(vi.mocked(listMissionNodes).mock.calls.length).toBeGreaterThan(2));
+  });
+});
+
+describe("HomeScreen review findings", () => {
+  it("accepts a finding with the reason in the body", async () => {
+    const user = userEvent.setup();
+    const target = finding("n_s", "S2", "Submit while pending");
+    serve({
+      nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] },
+      findings: { "prj-1": [target] },
+    });
+    vi.mocked(decideFinding).mockResolvedValue({ ...target, decision: "accepted" });
+    renderScreen();
+
+    await findPrimary();
+    const sheet = await openFindingSheet(user);
+    await user.click(await within(sheet).findByRole("button", { name: "Accept the finding S2" }));
+    await confirmWithReason("Accept", "The next mission adds it.");
+
+    expect(decideFinding).toHaveBeenCalledWith("finding_n_s_S2", {
+      decision: "accepted",
+      decision_reason: "The next mission adds it.",
+    });
+  });
+
+  it("names a node with only a human finding Found after delivery", async () => {
+    serve({
+      nodes: { "prj-1": [plain("n_s", "Sign-up form", "Completed")] },
+      findings: { "prj-1": [finding("n_s", "H1", "Duplicate account", "human")] },
+    });
+    renderScreen();
+
+    const primary = await findPrimary();
+
+    expect(within(primary).getByText(/Found after delivery · 1 finding/)).toBeVisible();
+  });
+});
+
+describe("HomeScreen retry and polling", () => {
+  it("disables Retry while the retry runs", async () => {
+    const user = userEvent.setup();
+    serve({ nodes: { "prj-1": [], "prj-2": [] } });
+    vi.mocked(listQueueJobs).mockImplementation(async (projectId) => {
+      if (projectId === "prj-2") throw new ApiError("unreachable", "The daemon did not answer.", 0);
+      return [];
+    });
+    renderScreen();
+    expect(
+      await screen.findByText(textContent(/Some records could not be read: atlas queue/)),
+    ).toBeInTheDocument();
+    let finish: () => void = () => undefined;
+    vi.mocked(listQueueJobs).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = () => resolve([]);
+        }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(screen.getByRole("button", { name: "Retry" })).toBeDisabled();
+    await act(async () => finish());
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("holds the poll while a dialog is open and reads at once after it closes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    serve({ nodes: { "prj-1": [blocked("n_a", "First item")] } });
+    renderScreen();
+
+    await findPrimary();
+    await press(user, "Discard");
+    await screen.findByRole("alertdialog");
+    const reads = vi.mocked(listProjects).mock.calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+
+    expect(vi.mocked(listProjects).mock.calls.length).toBe(reads);
+    await user.click(screen.getByRole("button", { name: "Keep the node" }));
+
+    await waitFor(() => expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads));
+  });
+
+  it("reads Home again every 15 s while no dialog is open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    serve({ nodes: { "prj-1": [blocked("n_a", "First item")] } });
+    renderScreen();
+    await findPrimary();
+    const reads = vi.mocked(listProjects).mock.calls.length;
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_100);
+    });
+
+    expect(vi.mocked(listProjects).mock.calls.length).toBeGreaterThan(reads);
+  });
+});
+
+describe("HomeScreen Inbox acts", () => {
+  const RUN = plain("n_run", "Running node", "Executing");
+  const DONE = plain("n_done", "Finished node", "Completed");
+  const IDLE = plain("n_idle", "Idle node", "Discarded");
+
+  function openWorld(inbox: InboxItem[], extra: Partial<Parameters<typeof serve>[0]> = {}) {
+    serve({ inbox, nodes: { "prj-1": [RUN, DONE, IDLE] }, ...extra });
+  }
+
+  function removeOnDone(inbox: InboxItem[], state: InboxItem["state"] = "done") {
+    vi.mocked(doneInboxItem).mockImplementation(async (id) => {
+      const at = inbox.findIndex((entry) => entry.link_update_id === id);
+      const [item] = inbox.splice(at, 1);
+      if (item === undefined) throw new Error("No item.");
+      return { ...item, state };
+    });
+  }
+
+  it("loads every page of the Inbox into the deck", async () => {
+    serve({
+      inbox: [
+        thread("link_update_a", { occurred_at: NOW - 3 * HOUR }),
+        thread("link_update_b", { occurred_at: NOW - 2 * HOUR }),
+        thread("link_update_c", { occurred_at: NOW - HOUR }),
+      ],
+      inboxPage: 1,
+    });
+
+    renderScreen();
+
+    await findPrimary();
+    expect(await screen.findByText(/^1 of 3 waiting/)).toBeVisible();
+    expect(listInboxItems).toHaveBeenCalledTimes(3);
+  });
+
+  it("sends the local time of Tomorrow 08:00 with Snooze", async () => {
+    const user = userEvent.setup();
+    const inbox = [thread("link_update_a")];
+    openWorld(inbox);
+    removeOnDone(inbox, "snoozed");
+    renderScreen();
+    const tomorrow = new Date();
+    const expected = new Date(
+      tomorrow.getFullYear(),
+      tomorrow.getMonth(),
+      tomorrow.getDate() + 1,
+      8,
+    ).getTime();
+
+    await findPrimary(/^Primary: acme\/shop#42/);
+    await press(user, "Snooze");
+    const dialog = await screen.findByRole("dialog", { name: /Snooze/ });
+    expect(within(dialog).getByRole("button", { name: "In 3 hours" })).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Tomorrow 08:00" }));
+
+    await waitFor(() =>
+      expect(doneInboxItem).toHaveBeenCalledWith("link_update_a", { snoozed_until: expected }),
+    );
+    await expectDone("Done: acme/shop#42 · 0 items wait");
+  });
+
+  it("keeps the card and says that a new update arrived when the answer is open", async () => {
+    const user = userEvent.setup();
+    const inbox = [thread("link_update_a")];
+    openWorld(inbox);
+    vi.mocked(doneInboxItem).mockResolvedValue({ ...(inbox[0] as InboxItem), state: "open" });
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: acme\/shop#42/);
+    await user.click(await within(primary).findByRole("button", { name: "Mark done" }));
+
+    expect(await within(primary).findByText("A new update arrived.")).toBeVisible();
+    expect(within(primary).getByRole("button", { name: "Mark done" })).toBeVisible();
+    expect(screen.queryByText(/^Done:/)).toBeNull();
+  });
+
+  it("shows the failure of Mark done and keeps the card", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a")]);
+    vi.mocked(doneInboxItem).mockRejectedValue(
+      new ApiError("not_found", "No such inbox item.", 404, "mission.inbox_item.not_found"),
+    );
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: acme\/shop#42/);
+    await user.click(await within(primary).findByRole("button", { name: "Mark done" }));
+
+    expect(await within(primary).findByRole("alert")).toHaveTextContent("No such inbox item.");
+    expect(within(primary).getByRole("button", { name: "Mark done" })).toBeVisible();
+    expect(screen.queryByText(/^Done:/)).toBeNull();
+  });
+
+  it("offers Pause for a running linked node only and pauses it with a reason", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a", { linked_node_ids: ["n_run", "n_done", "n_idle"] })]);
+    vi.mocked(pauseNode).mockResolvedValue({} as MissionControlResult);
+    renderScreen();
+
+    await findPrimary(/^Primary: acme\/shop#42/);
+    await user.click(await screen.findByRole("button", { name: /^More/ }));
+    const more = await screen.findByRole("dialog", { name: /^More acts on / });
+    expect(within(more).getAllByRole("button", { name: /^Pause / })).toHaveLength(1);
+    await user.click(within(more).getByRole("button", { name: "Pause Running node" }));
+    await confirmWithReason("Pause node", "Hold the work.");
+
+    await waitFor(() =>
+      expect(pauseNode).toHaveBeenCalledWith("n_run", {
+        reason: "Hold the work.",
+        expected_mission_version: 7,
+        expected_state: "Executing",
+        expected_attempt: 1,
+      }),
+    );
+  });
+
+  it("checks a linked node with Check now", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a", { linked_node_ids: ["n_done"] })]);
+    vi.mocked(checkNode).mockResolvedValue({ results: [], failures: [], link_updates: [] });
+    renderScreen();
+
+    await findPrimary(/^Primary: acme\/shop#42/);
+    await press(user, "Check now");
+
+    await waitFor(() =>
+      expect(checkNode).toHaveBeenCalledWith("n_done", { expected_mission_version: 7 }),
+    );
+  });
+
+  it("moves the cursor to the follow-up card of a linked node with Decide follow-up", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a", { linked_node_ids: ["n_done"] })], {
+      followups: { "prj-1": [followup("n_done", 2)] },
+    });
+    renderScreen();
+
+    await findPrimary(/^Primary: Finished node/);
+    await user.click(await screen.findByRole("button", { name: "Next ›" }));
+    await findPrimary(/^Primary: acme\/shop#42/);
+    await press(user, "Decide follow-up");
+
+    const card = await findPrimary(/^Primary: Finished node/);
+    expect(within(card).getByText("#1")).toBeVisible();
+  });
+
+  it("opens Create node with the conversation binding preselected", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a")]);
+    vi.mocked(listBindings).mockResolvedValue([
+      {
+        id: "binding_chat",
+        project_id: "prj-1",
+        name: "shop-github",
+        kind: "conversation",
+        resource_identity: "conversation:github:acme/shop",
+        revision: 1,
+        config: {},
+        created_at: 1,
+        removed_at: null,
+      },
+    ]);
+    renderScreen();
+
+    await findPrimary(/^Primary: acme\/shop#42/);
+    await press(user, "Create node");
+
+    const dialog = await screen.findByRole("dialog", { name: "Create node" });
+    expect(within(dialog).getByText("Body of link_update_a")).toBeVisible();
+    await waitFor(() =>
+      expect(within(dialog).getByRole("checkbox", { name: /shop-github/ })).toBeChecked(),
+    );
+    expect(within(dialog).getByLabelText("Requirement")).toHaveValue("");
+  });
+
+  it("opens Link to node with the open nodes of the project", async () => {
+    const user = userEvent.setup();
+    openWorld([thread("link_update_a")]);
+    vi.mocked(listBindings).mockResolvedValue([]);
+    renderScreen();
+
+    await findPrimary(/^Primary: acme\/shop#42/);
+    await press(user, "Link to node");
+
+    const dialog = await screen.findByRole("dialog", { name: /Link acme\/shop#42 to a node/ });
+    expect(within(dialog).getAllByRole("radio")).toHaveLength(1);
+    expect(within(dialog).getByRole("radio", { name: /Running node/ })).toBeVisible();
   });
 });
