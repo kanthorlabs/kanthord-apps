@@ -35,26 +35,33 @@ function failed(code: string | null): ActionCardItem["results"] {
 }
 
 describe("ActionCard", () => {
-  it("shows the header, the operation id, the label and the seen line", () => {
+  it("shows the pill, the operation id, the label and the fact bullets", () => {
     render(<ActionCard item={card()} canRun onRun={vi.fn()} />);
 
-    expect(screen.getByRole("heading", { name: "Action" })).toBeVisible();
+    const group = screen.getByRole("group", { name: "Action" });
+    expect(group).toHaveTextContent("Action");
     expect(screen.getByText("mission.node.discard")).toBeVisible();
     expect(screen.getByRole("button", { name: "Discard node_42" })).toBeEnabled();
-    expect(screen.getByText("Offered when the node was Blocked, attempt 2")).toBeVisible();
+    expect(screen.getAllByRole("listitem").map((entry) => entry.textContent)).toEqual([
+      "node: node_42",
+      "state: Blocked · attempt 2",
+    ]);
   });
 
   it.each([
-    [true, "Offered when the project was paused"],
-    [false, "Offered when the project was active"],
-  ])("states the project seen line for paused %s", (paused, line) => {
+    [true, "state: paused"],
+    [false, "state: active"],
+  ])("lists the project facts for paused %s", (paused, line) => {
     const item = card({
       offer: { ...card().offer, operation_id: "project.resume", seen: { paused } },
     });
 
     render(<ActionCard item={item} canRun onRun={vi.fn()} />);
 
-    expect(screen.getByText(line)).toBeVisible();
+    expect(screen.getAllByRole("listitem").map((entry) => entry.textContent)).toEqual([
+      "project: node_42",
+      line,
+    ]);
     expect(screen.getByRole("button", { name: "Resume node_42" })).toBeVisible();
   });
 
