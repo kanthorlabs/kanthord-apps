@@ -112,6 +112,8 @@ export function ChatEntry({ item, authors, runError }: ChatEntryProps) {
     );
   }
 
+  if (item.kind === "action-card") return null;
+
   const detail = toolResultText(item.name, item.text);
   return (
     <ToolRow
