@@ -175,6 +175,13 @@ export function chatItemsOf(
   ];
 }
 
+export function runLineIndexOf(items: readonly ChatItem[]): number {
+  const last = items.at(-1);
+  if (last === undefined || (last.kind === "assistant" && !last.streaming)) return items.length;
+  const lastUser = items.map((item) => item.kind).lastIndexOf("user");
+  return lastUser === -1 ? items.length : lastUser;
+}
+
 export function agentWorking(items: readonly ChatItem[], snapshot: WorkbenchRunSnapshot): boolean {
   if (!snapshot.run_active || snapshot.pending_approval !== null) return false;
   const last = items.at(-1);

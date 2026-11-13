@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Link, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -163,6 +163,26 @@ describe("ChatScreen", () => {
         expect.anything(),
       ),
     );
+  });
+
+  it("shows the run line with Stop under the request of a running session", async () => {
+    vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+      ...SESSION,
+      run_active: true,
+    });
+    vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+      session_id: SESSION_ID,
+      run_active: false,
+      cleared: [],
+    });
+    mount();
+
+    const line = await screen.findByRole("group", { name: "Run line" });
+    expect(line.previousElementSibling).toHaveTextContent("List the open nodes");
+    await userEvent.click(within(line).getByRole("button", { name: "Stop" }));
+
+    expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Run line" })).toBeNull());
   });
 
   it("names the owner from the session and the agent from the agent list", async () => {

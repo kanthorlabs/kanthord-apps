@@ -270,13 +270,15 @@ describe("ChatView", () => {
     mount(session([], true));
     await polls.answer({ snapshot: { run_active: true } });
 
-    expect(await screen.findByText("Running")).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Run line" })).toBeTruthy();
     expect(screen.getByText("The agent is working")).toBeTruthy();
     await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "next step");
 
     expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("next step");
     expect(screen.getByRole("button", { name: "Send" })).toBeEnabled();
-    expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+    expect(
+      within(screen.getByRole("group", { name: "Run line" })).getByRole("button", { name: "Stop" }),
+    ).toBeEnabled();
   });
 
   it("shows the error message of a failed run", async () => {
@@ -432,7 +434,7 @@ describe("ChatView", () => {
       "List the nodes",
       "queue",
     );
-    expect(await screen.findByText("Running")).toBeTruthy();
+    expect(await screen.findByRole("group", { name: "Run line" })).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("");
   });
 

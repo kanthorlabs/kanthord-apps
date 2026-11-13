@@ -313,10 +313,16 @@ describe("Composer", () => {
       expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "next", "queue");
     });
 
-    it("shows no Stop button", () => {
+    it("shows Stop on the run line and not in the composer", () => {
       mount("swe@1", true);
 
-      expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
+      const composerForm = screen.getByRole("form", { name: "Composer" });
+      expect(within(composerForm).queryByRole("button", { name: "Stop" })).toBeNull();
+      expect(
+        within(screen.getByRole("group", { name: "Run line" })).getByRole("button", {
+          name: "Stop",
+        }),
+      ).toBeEnabled();
       expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     });
 
@@ -397,6 +403,148 @@ describe("Composer", () => {
     });
 
     await waitFor(() => expect(box).toHaveValue("first\n\nsecond\n\nlater"));
+  });
+
+  describe("Stop", () => {
+    const QUEUE = [
+      { id: "queued_1", text: "first queued" },
+      { id: "queued_2", text: "second queued" },
+    ];
+
+    function withQueue(queue: readonly { id: string; text: string }[]) {
+      vi.mocked(workbenchApi.readWorkbenchEvents).mockResolvedValueOnce({
+        entries: [],
+        snapshot: {
+          streaming_message: null,
+          pending_tool_calls: [],
+          pending_approval: null,
+          queue,
+          run_active: true,
+          error_message: null,
+        },
+        version: 1,
+      });
+      mount("swe@1", true);
+    }
+
+    async function clickStop() {
+      const runLine = screen.getByRole("group", { name: "Run line" });
+      await userEvent.click(within(runLine).getByRole("button", { name: "Stop" }));
+    }
+
+    const box = () => screen.getByRole("combobox", { name: "Message" });
+
+    it("sends abort with no confirm when the queue is empty", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: [],
+      });
+      mount("swe@1", true);
+
+      await clickStop();
+
+      expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      await waitFor(() => expect(screen.queryByRole("group", { name: "Run line" })).toBeNull());
+    });
+
+    it("shows the confirm with the count when the queue holds messages", async () => {
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+
+      await clickStop();
+
+      const confirm = screen.getByRole("alertdialog");
+      expect(within(confirm).getByText("Stop the run?")).toBeInTheDocument();
+      expect(
+        within(confirm).getByText("Your 2 queued messages return to the composer."),
+      ).toBeInTheDocument();
+      expect(within(confirm).queryByText("Your draft sends next.")).toBeNull();
+      expect(within(confirm).queryByRole("button", { name: "Stop & send draft" })).toBeNull();
+      expect(workbenchApi.abortWorkbenchRun).not.toHaveBeenCalled();
+    });
+
+    it("says message in the singular and adds the draft line with a draft", async () => {
+      withQueue([QUEUE[0]!]);
+      await screen.findByRole("button", { name: /1 queued/ });
+      await userEvent.type(box(), "my draft");
+
+      await clickStop();
+
+      const confirm = screen.getByRole("alertdialog");
+      expect(
+        within(confirm).getByText("Your 1 queued message returns to the composer."),
+      ).toBeInTheDocument();
+      expect(within(confirm).getByText("Your draft sends next.")).toBeInTheDocument();
+      expect(within(confirm).getByRole("button", { name: "Stop & send draft" })).toBeEnabled();
+    });
+
+    it("keeps the run, the queue and the draft on Cancel", async () => {
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "my draft");
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cancel" }),
+      );
+
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(workbenchApi.abortWorkbenchRun).not.toHaveBeenCalled();
+      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      expect(screen.getByRole("group", { name: "Run line" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /2 queued/ })).toBeInTheDocument();
+      expect(box()).toHaveValue("my draft");
+    });
+
+    it("aborts, empties the queue list and refills the cleared texts before the draft", async () => {
+      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: false,
+        cleared: QUEUE,
+      });
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "my draft");
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
+      );
+
+      expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
+      await waitFor(() => expect(screen.queryByRole("button", { name: /queued/ })).toBeNull());
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(box()).toHaveValue("first queued\n\nsecond queued\n\nmy draft");
+    });
+
+    it("sends the draft with replace and leaves only the draft in the queue list", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        run_active: true,
+        queued_message_id: "queued_9",
+        cleared: QUEUE,
+      });
+      withQueue(QUEUE);
+      await screen.findByRole("button", { name: /2 queued/ });
+      await userEvent.type(box(), "my draft");
+      await clickStop();
+
+      await userEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop & send draft" }),
+      );
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+        SESSION_ID,
+        "my draft",
+        "replace",
+      );
+      const line = await screen.findByRole("button", { name: /1 queued/ });
+      expect(line).toHaveTextContent("my draft");
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+      expect(box()).toHaveValue("first queued\n\nsecond queued");
+    });
   });
 
   it("keeps Send disabled for an empty message", () => {

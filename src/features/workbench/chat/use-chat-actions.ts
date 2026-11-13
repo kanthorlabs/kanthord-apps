@@ -70,6 +70,10 @@ export function useChatActions(
             return;
           }
           const queued = { id: answer.queued_message_id, text };
+          if (delivery === "replace") {
+            patchSnapshot({ queue: [queued] });
+            return;
+          }
           patchSnapshot((current) => ({ queue: [...current.queue, queued] }));
         },
       ),

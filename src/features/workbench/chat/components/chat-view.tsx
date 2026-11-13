@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
@@ -18,6 +18,7 @@ import { InlineError } from "./inline-error";
 import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
 import { QueuedMessages } from "./queued-messages";
+import { RunLine } from "./run-line";
 
 const NO_REFILL = () => undefined;
 
@@ -74,6 +75,31 @@ export function ChatView({
   useEffect(() => {
     refillRef.current = composer.refill;
   }, [composer.refill]);
+  const [confirmingStop, setConfirmingStop] = useState(false);
+  const queueCount = snapshot.queue.length;
+  if (confirmingStop && (!snapshot.run_active || queueCount === 0)) setConfirmingStop(false);
+  const stop = useCallback(() => {
+    if (queueCount === 0) {
+      actions.abort();
+      return;
+    }
+    setConfirmingStop(true);
+  }, [queueCount, actions]);
+  const stopConfirm = confirmingStop
+    ? {
+        count: queueCount,
+        busy: actions.busy,
+        onStop: () => {
+          setConfirmingStop(false);
+          actions.abort();
+        },
+        onStopAndSend: () => {
+          setConfirmingStop(false);
+          composer.submit("replace");
+        },
+        onCancel: () => setConfirmingStop(false),
+      }
+    : null;
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active);
@@ -108,6 +134,7 @@ export function ChatView({
           items={items}
           authors={{ ownerName, agentName: session.agent_name, agentDisplayName }}
           runError={snapshot.error_message}
+          runLine={<RunLine runActive={snapshot.run_active} busy={actions.busy} onStop={stop} />}
         />
         {working && <AgentWorking seconds={elapsed} />}
         {snapshot.pending_approval !== null &&
@@ -142,7 +169,8 @@ export function ChatView({
           configuration={configuration}
           agentDisplayName={agentDisplayName}
           runActive={snapshot.run_active}
-          queued={snapshot.queue.length > 0}
+          queued={queueCount > 0}
+          stopConfirm={stopConfirm}
         />
         {composerFailures.map((failure) => (
           <InlineError key={failure.message} code={failure.code} message={failure.message} />
