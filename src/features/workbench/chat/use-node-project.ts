@@ -6,8 +6,10 @@ import { type Resource, useResource } from "@/hooks/use-resource";
 async function projectOfMission(missionId: string | null): Promise<string | null> {
   if (missionId === null) return null;
   const projects = await listProjects();
-  const missions = await Promise.all(projects.map((project) => readMission(project.id)));
-  const holder = missions.find((mission) => mission.id === missionId);
+  const reads = await Promise.allSettled(projects.map((project) => readMission(project.id)));
+  const holder = reads
+    .flatMap((read) => (read.status === "fulfilled" ? [read.value] : []))
+    .find((mission) => mission.id === missionId);
   if (holder === undefined) {
     throw new ApiError("not_found", `No project holds the mission ${missionId}.`, 404);
   }

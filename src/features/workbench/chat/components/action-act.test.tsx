@@ -203,6 +203,20 @@ describe("ActionAct on a node", () => {
     });
   });
 
+  it("opens the discard dialog when the mission read of an unrelated project fails", async () => {
+    serve(node("Executing"));
+    vi.mocked(listProjects).mockResolvedValue([{ ...project(null), id: "prj-2" }, project(null)]);
+    vi.mocked(readMission).mockImplementation(async (projectId) => {
+      if (projectId === "prj-2") throw new ApiError("unavailable", "down", 503);
+      return { id: "mission_1", project_id: "prj-1", version: 7 };
+    });
+    const user = mount(nodeCard("mission.node.discard"));
+
+    await user.click(screen.getByRole("button", { name: "Discard node_42" }));
+
+    expect(await screen.findByRole("alertdialog", { name: "Discard Audit log?" })).toBeVisible();
+  });
+
   it("shows the error and reports failed with the owning code of a 409", async () => {
     serve(node("Executing"));
     vi.mocked(discardNode).mockRejectedValue(
