@@ -256,6 +256,15 @@ export interface AgentProviderAddBody extends AgentProvider {
   readonly expected_revision: number;
 }
 
+export interface AgentListItem {
+  readonly agent_name: string;
+  readonly display_name: string;
+  readonly worker_names: readonly string[];
+  readonly consumers: readonly AgentConsumer[];
+  readonly tool_counts: Readonly<Record<AgentToolSource, number>>;
+  readonly enablement: AgentEnablement | null;
+}
+
 export interface AgentEnablementPutBody {
   readonly expected_revision?: number;
   readonly agent_providers: readonly AgentProvider[];
@@ -263,17 +272,24 @@ export interface AgentEnablementPutBody {
   readonly fallback_configurations: readonly AgentDefaultConfiguration[];
 }
 
+export type AgentConsumer = "workbench" | "worker";
+
 export interface AgentSummary {
   readonly agentName: string;
+  readonly displayName: string;
   readonly workerNames: readonly string[];
+  readonly consumers: readonly AgentConsumer[];
+  readonly toolCounts: Readonly<Record<AgentToolSource, number>>;
   readonly enablement: AgentEnablement | null;
 }
 
-export type AgentToolSource = "builtin" | "kanthord-mcp" | "host";
+export type AgentToolSource = "builtin" | "kanthord-mcp" | "host" | "operation";
 
 export interface AgentTool {
   readonly name: string;
   readonly source: AgentToolSource;
+  readonly description: string;
+  readonly guard_class: "read" | "card" | null;
   readonly input_schema: Readonly<Record<string, unknown>>;
 }
 

@@ -29,7 +29,10 @@ function credential(name: string, platform: string, ended = false): Credential {
 function agent(agentName: string, state: "enabled" | "disabled" | null): AgentSummary {
   return {
     agentName,
+    displayName: agentName,
     workerNames: ["coder@1"],
+    consumers: ["workbench", "worker"],
+    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
     enablement:
       state === null
         ? null

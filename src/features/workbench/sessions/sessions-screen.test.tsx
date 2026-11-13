@@ -49,8 +49,22 @@ const MODELS: Readonly<Record<string, readonly AgentModel[]>> = {
 
 function agents(enablement: AgentEnablement | null): readonly AgentSummary[] {
   return [
-    { agentName: "swe@1", workerNames: ["general-main"], enablement },
-    { agentName: "re@1", workerNames: ["general-main"], enablement: null },
+    {
+      agentName: "swe@1",
+      displayName: "SWE",
+      workerNames: ["general-main"],
+      consumers: ["workbench", "worker"],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+      enablement,
+    },
+    {
+      agentName: "re@1",
+      displayName: "RE",
+      workerNames: ["general-main"],
+      consumers: ["workbench", "worker"],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+      enablement: null,
+    },
   ];
 }
 

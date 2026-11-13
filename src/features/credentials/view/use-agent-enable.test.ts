@@ -37,10 +37,20 @@ const SWE_DISABLED: AgentEnablement = {
   revision: 4,
 };
 
-const RE_NEW: AgentSummary = { agentName: "re@1", workerNames: ["reviewer@1"], enablement: null };
+const RE_NEW: AgentSummary = {
+  agentName: "re@1",
+  displayName: "RE",
+  workerNames: ["reviewer@1"],
+  consumers: ["workbench", "worker"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+  enablement: null,
+};
 const SWE: AgentSummary = {
   agentName: "swe@1",
+  displayName: "SWE",
   workerNames: ["coder@1"],
+  consumers: ["workbench", "worker"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
   enablement: SWE_DISABLED,
 };
 
@@ -190,7 +200,10 @@ describe("useAgentEnable", () => {
       RE_NEW,
       {
         agentName: "pm@1",
+        displayName: "PM",
         workerNames: ["planner@1"],
+        consumers: ["workbench", "worker"],
+        toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
         enablement: {
           ...enabled("pm@1", 2),
           agent_providers: [

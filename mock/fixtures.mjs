@@ -154,10 +154,80 @@ export const WORKER_REGISTRATIONS = [
   },
 ];
 
+const toolCountsOf = (tools) => {
+  const counts = { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 };
+  for (const tool of tools) counts[tool.source] += 1;
+  return counts;
+};
+
+const builtinTool = (name) => ({
+  name,
+  source: "builtin",
+  description: "",
+  guard_class: null,
+  input_schema: TOOL_INPUT,
+});
+
+const OPS_TOOLS = [
+  {
+    name: "project.list",
+    source: "operation",
+    description: "List the projects that the human owns.",
+    guard_class: "read",
+    input_schema: TOOL_INPUT,
+  },
+  {
+    name: "node.get",
+    source: "operation",
+    description: "Read one node of a project.",
+    guard_class: "read",
+    input_schema: TOOL_INPUT,
+  },
+  {
+    name: "node.create",
+    source: "operation",
+    description: "Create a node of a project after the human confirms a card.",
+    guard_class: "card",
+    input_schema: TOOL_INPUT,
+  },
+];
+
+const RE_TOOLS = ["read", "grep", "find", "ls"].map(builtinTool);
+
+const SWE_TOOLS = [
+  ...["read", "edit", "write", "grep", "find", "ls", "bash"].map(builtinTool),
+  {
+    name: "evidence-upload",
+    source: "host",
+    description: "",
+    guard_class: null,
+    input_schema: TOOL_INPUT,
+  },
+];
+
 export const AGENT_DECLARATIONS = [
   {
-    agent_name: "re@1",
+    agent_name: "ops@1",
+    display_name: "Yumi",
     workbench: true,
+    worker_names: [],
+    consumers: ["workbench"],
+    configuration_schema: AGENT_CONFIGURATION_SCHEMA,
+    overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
+    enablement: null,
+    basePrompt: BASE_PROMPT,
+    agentPrompt: `## Role
+
+Your role is \`ops@1\`, Yumi, the operations assistant of the human.
+Your responsibility is the answer to a question about the projects of the human.`,
+    tool_counts: toolCountsOf(OPS_TOOLS),
+    tools: OPS_TOOLS,
+  },
+  {
+    agent_name: "re@1",
+    display_name: "RE",
+    workbench: true,
+    consumers: ["workbench", "worker"],
     worker_names: ["reviewer@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
@@ -183,15 +253,14 @@ Your role is \`re@1\`, the reviewer.
 Your responsibility is the assessment of a node.
 Judge the evidence against the criterion of the node and the default standard.
 Change no file of the repository.`,
-    tools: ["read", "grep", "find", "ls"].map((name) => ({
-      name,
-      source: "builtin",
-      input_schema: TOOL_INPUT,
-    })),
+    tool_counts: toolCountsOf(RE_TOOLS),
+    tools: RE_TOOLS,
   },
   {
     agent_name: "swe@1",
+    display_name: "SWE",
     workbench: true,
+    consumers: ["workbench", "worker"],
     worker_names: ["coder@1"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
@@ -215,14 +284,8 @@ Change no file of the repository.`,
 
 Your role is \`swe@1\`, the software engineer that performs the steps of a task.
 Your responsibility is the change that the task describes, in the workspace, to the default standard.`,
-    tools: [
-      ...["read", "edit", "write", "grep", "find", "ls", "bash"].map((name) => ({
-        name,
-        source: "builtin",
-        input_schema: TOOL_INPUT,
-      })),
-      { name: "evidence-upload", source: "host", input_schema: TOOL_INPUT },
-    ],
+    tool_counts: toolCountsOf(SWE_TOOLS),
+    tools: SWE_TOOLS,
   },
 ];
 

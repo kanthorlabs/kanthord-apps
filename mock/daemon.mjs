@@ -335,6 +335,25 @@ on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
     resource_budget: { wall_time_ms: 3600000 },
   });
 });
+on("GET", /^\/api\/agent$/, (_m, _b, res, _t, url) =>
+  json(
+    res,
+    200,
+    page(
+      agents
+        .map((a) => ({
+          agent_name: a.agent_name,
+          display_name: a.display_name,
+          worker_names: a.worker_names,
+          consumers: a.consumers,
+          tool_counts: a.tool_counts,
+          enablement: a.enablement,
+        }))
+        .sort((left, right) => (left.agent_name < right.agent_name ? -1 : 1)),
+      url,
+    ),
+  ),
+);
 on("GET", /^\/api\/agent\/enablement$/, (_m, _b, res) =>
   json(res, 200, page(agents.flatMap((a) => (a.enablement === null ? [] : [a.enablement])))),
 );

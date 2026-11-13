@@ -15,7 +15,10 @@ import { AgentsScreen } from "./agents-screen";
 
 const SWE: AgentSummary = {
   agentName: "swe@1",
+  displayName: "SWE",
   workerNames: ["coder@1"],
+  consumers: ["workbench", "worker"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
   enablement: {
     agent_name: "swe@1",
     state: "enabled",
@@ -33,7 +36,14 @@ const SWE: AgentSummary = {
   },
 };
 
-const RE: AgentSummary = { agentName: "re@1", workerNames: ["reviewer@1"], enablement: null };
+const RE: AgentSummary = {
+  agentName: "re@1",
+  displayName: "RE",
+  workerNames: ["reviewer@1"],
+  consumers: ["workbench", "worker"],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+  enablement: null,
+};
 
 function Opened() {
   const { sessionId } = useParams<{ sessionId: string }>();

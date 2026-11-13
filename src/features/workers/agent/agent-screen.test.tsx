@@ -71,8 +71,8 @@ const RE: AgentDeclaration = {
       "This text is the shared standard.\n\nFraming of the final prompt.\n\nThe final reviewer text.",
   },
   tools: [
-    { name: "read", source: "builtin", input_schema: {} },
-    { name: "grep", source: "builtin", input_schema: {} },
+    { name: "read", source: "builtin", description: "", guard_class: null, input_schema: {} },
+    { name: "grep", source: "builtin", description: "", guard_class: null, input_schema: {} },
   ],
   chain: [],
   active_position: null,
