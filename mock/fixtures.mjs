@@ -2401,6 +2401,62 @@ export const WORKBENCH_SESSIONS = [
       },
     ],
   },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP1",
+    agent_name: "ops@1",
+    created: SESSION_BASE + 3 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000201",
+        parentId: null,
+        timestamp: entryAt(4320),
+        message: { role: "user", content: "What needs me?" },
+      },
+      {
+        type: "message",
+        id: "e0000202",
+        parentId: "e0000201",
+        timestamp: entryAt(4321),
+        message: textMessage("assistant", "Two acts wait for you in the deck below."),
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP2",
+    agent_name: "ops@1",
+    created: SESSION_BASE + 4 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000301",
+        parentId: null,
+        timestamp: entryAt(5760),
+        message: {
+          role: "user",
+          content:
+            "Case: node `node_01J9ZQ4XKM3B6V8N2R5T7W0ND1` (Blocked). Explain why it is blocked and recommend how to unblock it.",
+        },
+      },
+      {
+        type: "message",
+        id: "e0000302",
+        parentId: "e0000301",
+        timestamp: entryAt(5761),
+        message: textMessage("assistant", "The node is blocked by an unmet criterion."),
+      },
+    ],
+  },
 ];
 
 const INSTANCE_KEY = "Qm9ndXMtaW5zdGFuY2Uta2V5LWZvci10aGUtbW9jay";

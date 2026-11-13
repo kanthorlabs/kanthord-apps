@@ -17,6 +17,7 @@ import {
   heldCountOf,
   heldOnTextOf,
   isAct,
+  queueEntryOf,
   waitingTextOf,
 } from "./home-deck";
 import { inboxItemsOf } from "./inbox-attention";
@@ -282,5 +283,34 @@ describe("deckListOf", () => {
 
     expect(list.rows.map((row) => row.rank)).toEqual([1, 2]);
     expect(list.count).toBe(4);
+  });
+});
+
+describe("queueEntryOf", () => {
+  const approval = (sessionId: string, at: number): ToolApprovalItem => ({
+    id: `tool_approval:${sessionId}`,
+    group: "decisions",
+    kind: "tool_approval",
+    subject: `Chat ${sessionId}`,
+    at,
+    sessionId,
+    toolCallId: "call_1",
+    agent: "ops@1",
+    operationId: "project.create",
+  });
+
+  it("answers the subject and the 1-based rank of the approval of the conversation", () => {
+    const order = [approval("s1", 1), approval("s2", 2)];
+
+    expect(queueEntryOf(order, "s2")).toEqual({
+      id: "tool_approval:s2",
+      subject: "Chat s2",
+      rank: 2,
+    });
+  });
+
+  it("answers null when the deck holds no approval of the conversation", () => {
+    expect(queueEntryOf([approval("s1", 1)], "s9")).toBeNull();
+    expect(queueEntryOf([approval("s1", 1)], null)).toBeNull();
   });
 });

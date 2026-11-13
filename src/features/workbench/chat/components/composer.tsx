@@ -16,12 +16,21 @@ import { ComposerPicker } from "./composer-picker";
 
 interface ComposerProps {
   readonly composer: ComposerState;
-  readonly configuration: ChatConfigurationState;
+  readonly configuration: ChatConfigurationState | null;
   readonly runActive: boolean;
   readonly onStop: () => void;
+  readonly placeholder?: string;
+  readonly inputDisabled?: boolean;
 }
 
-export function Composer({ composer, configuration, runActive, onStop }: ComposerProps) {
+export function Composer({
+  composer,
+  configuration,
+  runActive,
+  onStop,
+  placeholder = "Message the agent",
+  inputDisabled = false,
+}: ComposerProps) {
   const listId = useId();
   const optionId = (id: string) => `${listId}-${id}`;
   return (
@@ -72,7 +81,8 @@ export function Composer({ composer, configuration, runActive, onStop }: Compose
             composer.activeCommand === null ? undefined : optionId(composer.activeCommand.id)
           }
           aria-autocomplete="list"
-          placeholder="Message the agent"
+          placeholder={placeholder}
+          disabled={inputDisabled}
           rows={2}
           value={composer.draft}
           onChange={(event) => composer.setDraft(event.target.value)}
@@ -81,27 +91,31 @@ export function Composer({ composer, configuration, runActive, onStop }: Compose
           onKeyDown={composer.handleKey}
         />
         <InputGroupAddon align="block-end" className="flex-wrap gap-2">
-          <ComposerPicker
-            label="Agent Provider"
-            value={configuration.configuration.agent_provider}
-            options={configuration.agentProviders}
-            disabled={configuration.pending}
-            onChange={configuration.selectAgentProvider}
-          />
-          <ComposerPicker
-            label="Model"
-            value={configuration.configuration.model_identifier}
-            options={configuration.models}
-            disabled={configuration.pending}
-            onChange={configuration.selectModel}
-          />
-          <ComposerPicker
-            label="Reasoning Effort"
-            value={configuration.configuration.reasoning_effort}
-            options={configuration.reasoningEfforts}
-            disabled={configuration.pending}
-            onChange={configuration.selectReasoningEffort}
-          />
+          {configuration !== null && (
+            <>
+              <ComposerPicker
+                label="Agent Provider"
+                value={configuration.configuration.agent_provider}
+                options={configuration.agentProviders}
+                disabled={configuration.pending}
+                onChange={configuration.selectAgentProvider}
+              />
+              <ComposerPicker
+                label="Model"
+                value={configuration.configuration.model_identifier}
+                options={configuration.models}
+                disabled={configuration.pending}
+                onChange={configuration.selectModel}
+              />
+              <ComposerPicker
+                label="Reasoning Effort"
+                value={configuration.configuration.reasoning_effort}
+                options={configuration.reasoningEfforts}
+                disabled={configuration.pending}
+                onChange={configuration.selectReasoningEffort}
+              />
+            </>
+          )}
           <div className="ml-auto flex">
             {runActive ? (
               <InputGroupButton variant="default" size="icon-sm" aria-label="Stop" onClick={onStop}>

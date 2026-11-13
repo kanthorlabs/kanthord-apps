@@ -44,6 +44,22 @@ export function deckOrderOf(
   ];
 }
 
+export interface DeckQueueEntry {
+  readonly id: string;
+  readonly subject: string;
+  readonly rank: number;
+}
+
+export function queueEntryOf(
+  order: readonly AttentionItem[],
+  sessionId: string | null,
+): DeckQueueEntry | null {
+  if (sessionId === null) return null;
+  const index = order.findIndex((item) => item.id === `tool_approval:${sessionId}`);
+  const item = order[index];
+  return item === undefined ? null : { id: item.id, subject: item.subject, rank: index + 1 };
+}
+
 export function heldCountOf(
   cards: readonly AttentionItem[],
   held: ReadonlyMap<string, readonly string[]>,

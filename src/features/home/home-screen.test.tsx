@@ -24,6 +24,19 @@ vi.mock("@/api/resources/projects", () => ({
 vi.mock("@/api/resources/workers", () => ({
   listWorkerCatalog: vi.fn(),
   listWorkerRegistrations: vi.fn(),
+  listAgents: vi.fn(),
+  readAgent: vi.fn(),
+  listAgentProviderModels: vi.fn(),
+}));
+
+vi.mock("@/features/auth/session/session-context", () => ({
+  useSession: () => ({
+    session: {
+      instance: { id: "i-local", name: "local", baseUrl: "http://localhost:31415" },
+      token: "jwt-1",
+      identity: { kind: "human", sub: "kanthorlabs", name: "Ulrich" },
+    },
+  }),
 }));
 
 vi.mock("@/api/resources/credentials", () => ({
@@ -71,8 +84,11 @@ vi.mock("@/api/resources/mission", () => ({
 
 vi.mock("@/api/resources/workbench", () => ({
   listWorkbenchSessions: vi.fn(),
+  readWorkbenchSession: vi.fn(),
   readWorkbenchEvents: vi.fn(),
   approveWorkbenchCall: vi.fn(),
+  createWorkbenchSession: vi.fn(),
+  sendWorkbenchMessage: vi.fn(),
 }));
 
 vi.mock("@/api/resources/tracking", () => ({
@@ -132,11 +148,22 @@ import {
 } from "@/api/resources/scheduler";
 import {
   approveWorkbenchCall,
+  createWorkbenchSession,
   listWorkbenchSessions,
   readWorkbenchEvents,
+  readWorkbenchSession,
+  sendWorkbenchMessage,
 } from "@/api/resources/workbench";
-import { listWorkerCatalog, listWorkerRegistrations } from "@/api/resources/workers";
+import {
+  listAgentProviderModels,
+  listAgents,
+  listWorkerCatalog,
+  listWorkerRegistrations,
+  readAgent,
+} from "@/api/resources/workers";
 import type {
+  AgentDeclaration,
+  AgentEnablement,
   BindingAgentView,
   Credential,
   EnvironmentState,
@@ -160,6 +187,8 @@ import type {
   Project,
   SchedulerExecutionRecord,
   SchedulerJob,
+  WorkbenchRunSnapshot,
+  WorkbenchSession,
   WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
@@ -418,6 +447,7 @@ interface World {
   readonly credentials?: readonly Credential[];
   readonly liveness?: LivenessReport;
   readonly sessions?: readonly WorkbenchSessionListItem[];
+  readonly yumi?: "off" | "on" | "unconfigured";
   readonly environments?: Readonly<Record<string, readonly EnvironmentState[]>>;
   readonly findings?: Readonly<Record<string, readonly MissionFinding[]>>;
   readonly followups?: Readonly<Record<string, readonly MissionFollowupProposal[]>>;
@@ -446,7 +476,77 @@ const CATALOG: readonly WorkerCatalogItem[] = [
   },
 ];
 
+const YUMI_CONFIGURATION = {
+  agent_provider: "atlas-llm",
+  model_identifier: "qwen3-coder",
+  reasoning_effort: "off",
+} as const;
+
+function yumiEnablement(mode: "off" | "on" | "unconfigured"): AgentEnablement | null {
+  if (mode === "off") return null;
+  return {
+    agent_name: "ops@1",
+    state: "enabled",
+    agent_providers: [
+      { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-main" },
+    ],
+    default_configuration:
+      mode === "on" ? YUMI_CONFIGURATION : { ...YUMI_CONFIGURATION, agent_provider: "" },
+    fallback_configurations: [],
+    revision: 1,
+  };
+}
+
+function conversation(id: string, text: string): WorkbenchSession {
+  return {
+    id,
+    agent_name: "ops@1",
+    configuration: YUMI_CONFIGURATION,
+    entries: [
+      {
+        type: "message",
+        id: `entry_${id}`,
+        parentId: null,
+        timestamp: "2026-10-05T09:00:00.000Z",
+        message: { role: "user", content: text },
+      },
+    ],
+    run_active: false,
+    resume_command: "pi --session ~/session.jsonl",
+  };
+}
+
+const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
+  streaming_message: null,
+  pending_tool_calls: [],
+  pending_approval: null,
+  run_active: false,
+  error_message: null,
+};
+
+function followEvents(snapshot: WorkbenchRunSnapshot) {
+  vi.mocked(readWorkbenchEvents).mockImplementation(async (_id, _after, version) =>
+    version === null ? { entries: [], snapshot, version: 1 } : new Promise(() => undefined),
+  );
+}
+
 function serve(world: World) {
+  const enablement = yumiEnablement(world.yumi ?? "off");
+  vi.mocked(listAgents).mockResolvedValue([
+    {
+      agentName: "ops@1",
+      displayName: "Yumi",
+      workerNames: [],
+      consumers: ["workbench"],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3 },
+      enablement,
+    },
+  ]);
+  vi.mocked(readAgent).mockResolvedValue({ enablement } as AgentDeclaration);
+  vi.mocked(listAgentProviderModels).mockResolvedValue([]);
+  vi.mocked(readWorkbenchSession).mockImplementation(async (id) =>
+    conversation(id, "What needs me?"),
+  );
   vi.mocked(listProjects).mockResolvedValue(world.projects ?? [KANTHORD, ATLAS]);
   vi.mocked(readMission).mockImplementation(async (projectId) => ({
     id: `mission_${projectId}`,
@@ -528,18 +628,10 @@ function serve(world: World) {
       },
     ],
   });
-  vi.mocked(listWorkbenchSessions).mockResolvedValue(world.sessions ?? []);
-  vi.mocked(readWorkbenchEvents).mockResolvedValue({
-    entries: [],
-    snapshot: {
-      streaming_message: null,
-      pending_tool_calls: [],
-      pending_approval: null,
-      run_active: false,
-      error_message: null,
-    },
-    version: 1,
-  });
+  vi.mocked(listWorkbenchSessions).mockImplementation(async (agentName) =>
+    (world.sessions ?? []).filter((item) => agentName === null || item.agent_name === agentName),
+  );
+  followEvents(IDLE_SNAPSHOT);
   vi.mocked(approveWorkbenchCall).mockResolvedValue({
     session_id: "workbench_session_A",
     tool_call_id: "call_1",
@@ -698,7 +790,7 @@ afterEach(() => {
 });
 
 describe("HomeScreen layout", () => {
-  it("renders the heading Home and the deck as the last entry of the column", async () => {
+  it("renders the heading Home and the deck as the last entry before the composer", async () => {
     serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
 
     renderScreen();
@@ -707,7 +799,9 @@ describe("HomeScreen layout", () => {
     const deck = await screen.findByRole("region", { name: "Waiting acts" });
     const column = heading.parentElement?.parentElement;
     expect(column).toContainElement(deck);
-    expect(column?.lastElementChild).toBe(deck);
+    expect(deck.nextElementSibling).toContainElement(
+      screen.getByRole("form", { name: "Composer" }),
+    );
     expect(column).toHaveClass("max-w-[760px]", "mx-auto", "w-full");
   });
 
@@ -825,7 +919,7 @@ describe("HomeScreen scope", () => {
     expect(within(primary).getByText("kanthord")).toBeVisible();
     expect(screen.getByText(/^1 of 2 waiting/)).toBeVisible();
     expect(screen.getByText(/^Next #2 Localize the email/)).toBeVisible();
-    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /project/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^kanthord · / })).toBeNull();
     expect(screen.queryByRole("tab")).toBeNull();
   });
@@ -1065,5 +1159,231 @@ describe("HomeScreen gated Resume", () => {
     const credential = await findPrimary(/^Primary: openai-main/);
     expect(within(credential).getByText("#1")).toBeVisible();
     expect(within(credential).getByText("Provider refuses credential openai-main")).toBeVisible();
+  });
+});
+
+const GENERAL = "What needs me?";
+const BRIEF_TEXT = "Report the system status and the actions that need me.";
+
+function opsSession(
+  id: string,
+  patch: Partial<WorkbenchSessionListItem> = {},
+): WorkbenchSessionListItem {
+  return session(id, {
+    agent_name: "ops@1",
+    first_message: GENERAL,
+    run_active: false,
+    pending_approval: null,
+    ...patch,
+  });
+}
+
+function pendingApproval() {
+  followEvents({
+    ...IDLE_SNAPSHOT,
+    pending_approval: {
+      tool_call_id: "call_1",
+      operation_id: "project.create",
+      input: { name: "account-recovery" },
+    },
+    run_active: true,
+  });
+}
+
+function composerBox() {
+  return screen.findByRole("combobox", { name: "Message" });
+}
+
+describe("HomeScreen Yumi chat", () => {
+  it("makes no API call on New chat, then creates before it sends", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
+    vi.mocked(createWorkbenchSession).mockResolvedValue(conversation("workbench_session_Y2", "x"));
+    vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      session_id: "workbench_session_Y2",
+      run_active: true,
+    });
+    renderScreen();
+    expect(await screen.findByText(GENERAL)).toBeVisible();
+    vi.mocked(listWorkbenchSessions).mockClear();
+    vi.mocked(readWorkbenchSession).mockClear();
+
+    await user.click(screen.getByRole("button", { name: "New chat" }));
+
+    expect(await screen.findByText(/^Hello, I am Yumi\./)).toBeVisible();
+    expect(listWorkbenchSessions).not.toHaveBeenCalled();
+    expect(readWorkbenchSession).not.toHaveBeenCalled();
+    expect(createWorkbenchSession).not.toHaveBeenCalled();
+    expect(sendWorkbenchMessage).not.toHaveBeenCalled();
+    await user.type(await composerBox(), "Brief me on atlas");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => expect(readWorkbenchSession).toHaveBeenCalledWith("workbench_session_Y2"));
+    expect(createWorkbenchSession).toHaveBeenCalledTimes(1);
+    expect(createWorkbenchSession).toHaveBeenCalledWith({
+      agent_name: "ops@1",
+      ...YUMI_CONFIGURATION,
+    });
+    expect(sendWorkbenchMessage).toHaveBeenCalledWith("workbench_session_Y2", "Brief me on atlas");
+    expect(vi.mocked(createWorkbenchSession).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(sendWorkbenchMessage).mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("opens the newest general ops@1 conversation and none of the others", async () => {
+    serve({
+      yumi: "on",
+      sessions: [
+        opsSession("workbench_session_old", { modified: NOW - 5 * HOUR }),
+        opsSession("workbench_session_new", { modified: NOW - HOUR }),
+        opsSession("workbench_session_case", {
+          modified: NOW,
+          first_message: "Case: node `n` (Blocked). Explain.",
+        }),
+      ],
+    });
+
+    renderScreen();
+
+    await waitFor(() => expect(readWorkbenchSession).toHaveBeenCalledWith("workbench_session_new"));
+    expect(readWorkbenchSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends the fixed text of a picked /brief once", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
+    vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      session_id: "workbench_session_Y1",
+      run_active: true,
+    });
+    renderScreen();
+
+    await user.click(await composerBox());
+    await user.click(await screen.findByRole("option", { name: /\/brief/ }));
+
+    await waitFor(() => expect(sendWorkbenchMessage).toHaveBeenCalledTimes(1));
+    expect(sendWorkbenchMessage).toHaveBeenCalledWith("workbench_session_Y1", BRIEF_TEXT);
+    expect(screen.queryByRole("button", { name: "Brief me" })).toBeNull();
+  });
+
+  it("maps /new alone to New chat", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
+    renderScreen();
+    expect(await screen.findByText(GENERAL, { selector: "div" })).toBeVisible();
+    vi.mocked(readWorkbenchSession).mockClear();
+
+    await user.type(await composerBox(), "/new");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(await screen.findByText(/^Hello, I am Yumi\./)).toBeVisible();
+    expect(readWorkbenchSession).not.toHaveBeenCalled();
+    expect(sendWorkbenchMessage).not.toHaveBeenCalled();
+    expect(createWorkbenchSession).not.toHaveBeenCalled();
+  });
+
+  it("renders the deck after the last chat entry and before the composer", async () => {
+    serve({
+      yumi: "on",
+      sessions: [opsSession("workbench_session_Y1")],
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+    });
+
+    renderScreen();
+
+    const entry = await screen.findByText(GENERAL);
+    const deck = await screen.findByRole("region", { name: "Waiting acts" });
+    const composer = screen.getByRole("form", { name: "Composer" });
+    expect(entry.compareDocumentPosition(deck) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(deck.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Brief me" })).toBeNull();
+  });
+});
+
+describe("HomeScreen queue line", () => {
+  it("shows the approval of the Home conversation as one line that moves the cursor", async () => {
+    const user = userEvent.setup();
+    serve({
+      yumi: "on",
+      sessions: [
+        opsSession("workbench_session_Y1", {
+          run_active: true,
+          pending_approval: {
+            tool_call_id: "call_1",
+            operation_id: "project.create",
+          },
+        }),
+      ],
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+    });
+    pendingApproval();
+    renderScreen();
+
+    const line = await screen.findByText(/in your queue\.$/, { selector: "span" });
+    expect(line.parentElement).toHaveTextContent(`${GENERAL} is #1 in your queue.`);
+    expect(screen.queryByRole("group", { name: "Approval Required" })).toBeNull();
+    await user.click(await screen.findByRole("button", { name: "Next ›" }));
+    await findPrimary(/^Primary: Audit log/);
+    await user.click(screen.getByRole("button", { name: "Show #1 in the deck" }));
+
+    const primary = await findPrimary(new RegExp(`^Primary: ${GENERAL}`));
+    expect(within(primary).getByText("#1")).toBeVisible();
+    expect(within(primary).getByRole("button", { name: "Approve" })).toBeVisible();
+  });
+
+  it("leaves the chat unchanged for the approval of another conversation", async () => {
+    serve({
+      yumi: "on",
+      sessions: [
+        opsSession("workbench_session_Y1"),
+        session("workbench_session_A", { modified: NOW - 3 * HOUR }),
+      ],
+    });
+
+    renderScreen();
+
+    expect(await screen.findByText(GENERAL, { selector: "div" })).toBeVisible();
+    const primary = await findPrimary(/^Primary: Create the project account-recovery/);
+    expect(within(primary).getByRole("button", { name: "Approve" })).toBeVisible();
+    expect(screen.queryByText(/in your queue\./)).toBeNull();
+  });
+});
+
+describe("HomeScreen Yumi off", () => {
+  it("offers Enable Yumi, a disabled composer and a working deck", async () => {
+    serve({ nodes: { "prj-1": [blocked("n_a", "Audit log")] } });
+
+    renderScreen();
+
+    const link = await screen.findByRole("button", { name: "Enable Yumi" });
+    expect(link).toHaveAttribute("href", "/agents/ops%401");
+    expect(screen.getByText(/^Yumi is not enabled\./)).toBeVisible();
+    const box = screen.getByRole("combobox", { name: "Message" });
+    expect(box).toBeDisabled();
+    expect(box).toHaveAttribute("placeholder", "Enable Yumi to chat here.");
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "New chat" })).toBeNull();
+    const primary = await findPrimary(/^Primary: Audit log/);
+    expect(within(primary).getByRole("button", { name: "Unblock" })).toBeVisible();
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "ops@1" })).toBeNull();
+    expect(listWorkbenchSessions).not.toHaveBeenCalledWith("ops@1");
+  });
+});
+
+describe("HomeScreen missing Yumi configuration", () => {
+  it("shows the error line and sends nothing", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "unconfigured" });
+
+    renderScreen();
+
+    expect(await screen.findByText(/holds no valid agent provider/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    await user.click(screen.getByRole("combobox", { name: "Message" }));
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(createWorkbenchSession).not.toHaveBeenCalled();
+    expect(sendWorkbenchMessage).not.toHaveBeenCalled();
   });
 });

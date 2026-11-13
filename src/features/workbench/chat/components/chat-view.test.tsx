@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
@@ -87,7 +88,11 @@ function pollQueue() {
   };
 }
 
-function mount(held: WorkbenchSession, agentDisplayName = "SWE") {
+function mount(
+  held: WorkbenchSession,
+  agentDisplayName = "SWE",
+  slots: Partial<ComponentProps<typeof ChatView>> = {},
+) {
   return render(
     <MemoryRouter>
       <ChatView
@@ -95,6 +100,7 @@ function mount(held: WorkbenchSession, agentDisplayName = "SWE") {
         enablement={ENABLEMENT}
         ownerName="Ulrich"
         agentDisplayName={agentDisplayName}
+        {...slots}
       />
     </MemoryRouter>,
   );
@@ -319,6 +325,35 @@ describe("ChatView", () => {
     await waitFor(() =>
       expect(screen.queryByRole("group", { name: "Approval Required" })).toBeNull(),
     );
+  });
+
+  it("renders the approval line in place of the approval card", async () => {
+    const polls = pollQueue();
+    mount(session([], true), "SWE", { approvalLine: <p>Queued as #1</p> });
+
+    await polls.answer({
+      snapshot: {
+        run_active: true,
+        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+      },
+    });
+
+    expect(await screen.findByText("Queued as #1")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Approval Required" })).toBeNull();
+  });
+
+  it("renders the stream end after the stream and before the composer", async () => {
+    pollQueue();
+    mount(session([message("e1", { role: "user", content: "Hello" })]), "SWE", {
+      streamEnd: <p>Stream end</p>,
+    });
+
+    const end = await screen.findByText("Stream end");
+    const composer = screen.getByRole("form", { name: "Composer" });
+    expect(
+      screen.getByText("Hello").compareDocumentPosition(end) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(end.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("rejects a pending approval", async () => {

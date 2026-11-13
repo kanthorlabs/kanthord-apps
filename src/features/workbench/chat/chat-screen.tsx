@@ -3,13 +3,11 @@ import { useLocation, useParams, useSearchParams } from "react-router-dom";
 import { listAgents } from "@/api/resources/workers";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSession } from "@/features/auth/session/session-context";
 import { useResource } from "@/hooks/use-resource";
 import { firstSendFailureOf, newSessionRequestOf } from "@/lib/workbench-new-session";
-import { ChatView } from "./components/chat-view";
 import { InlineError } from "./components/inline-error";
 import { NewSessionChat } from "./components/new-session-chat";
-import { useWorkbenchSession } from "./use-workbench-session";
+import { SessionChat } from "./components/session-chat";
 
 function LoadingChat() {
   return (
@@ -50,34 +48,8 @@ function NewSessionScreen() {
 }
 
 function SessionScreen({ sessionId }: { sessionId: string }) {
-  const { session } = useSession();
-  if (session === null) throw new Error("The chat requires a signed-in session");
   const { state } = useLocation();
-  const { data: view, error, loading, reload } = useWorkbenchSession(sessionId);
-
-  if (loading) return <LoadingChat />;
-
-  if (error !== null || view === null) {
-    return (
-      <div className="flex flex-col items-start gap-2">
-        <p className="text-sm text-destructive">{error?.message}</p>
-        <Button variant="outline" size="sm" onClick={reload}>
-          Retry
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <ChatView
-      key={view.session.id}
-      session={view.session}
-      enablement={view.enablement}
-      ownerName={session.identity.name}
-      agentDisplayName={view.agentDisplayName}
-      firstSendFailure={firstSendFailureOf(state)}
-    />
-  );
+  return <SessionChat sessionId={sessionId} firstSendFailure={firstSendFailureOf(state)} />;
 }
 
 export function ChatScreen() {

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { RefreshStatus } from "@/components/refresh-status";
@@ -11,12 +12,17 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 
+import { queueEntryOf } from "@/lib/home-deck";
+
 import { AbsentSourcesNote } from "./components/absent-sources-note";
 import { FootprintAlert } from "./components/footprint-alert";
+import { HomeChat } from "./components/home-chat";
 import { HomeDeck } from "./components/home-deck";
 import { HomeSkeleton } from "./components/home-skeleton";
+import { QueueLine } from "./components/queue-line";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
+import { useHome } from "./use-home";
 import { useHomeDeck } from "./use-home-deck";
 import { useOverview } from "./use-overview";
 
@@ -37,6 +43,13 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
     inbox: overview.inbox.open,
     readFault,
   });
+  const home = useHome(overview.status === "ready");
+  const deckRef = useRef<HTMLDivElement>(null);
+  const queued = queueEntryOf(deck.order, home.sessionId);
+  const showQueued = (itemId: string) => {
+    deck.select(itemId);
+    deckRef.current?.focus();
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-[760px] min-w-0 flex-col gap-4">
@@ -49,6 +62,11 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
         )}
         {overview.status === "ready" && (
           <div className="flex items-center gap-2 md:ml-auto">
+            {home.enabled && (
+              <Button variant="outline" size="sm" onClick={home.newChat}>
+                New chat
+              </Button>
+            )}
             <RefreshStatus
               touch
               updatedAt={overview.updatedAt}
@@ -88,19 +106,28 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
       )}
 
       {overview.status === "ready" && (
-        <>
-          <SystemHealthAlert components={overview.unavailable} failure={overview.livenessFailure} />
-          <FootprintAlert />
-          {readFault && (
-            <ReadFaultsAlert
-              faults={overview.faults}
-              onRetry={overview.retryFaults}
-              disabled={overview.snapshotRunning}
-            />
-          )}
-          {overview.absent.length > 0 && <AbsentSourcesNote sources={overview.absent} />}
-          <HomeDeck deck={deck} overview={overview} />
-        </>
+        <HomeChat
+          home={home}
+          approvalLine={queued === null ? null : <QueueLine entry={queued} onShow={showQueued} />}
+          streamEnd={
+            <>
+              <SystemHealthAlert
+                components={overview.unavailable}
+                failure={overview.livenessFailure}
+              />
+              <FootprintAlert />
+              {readFault && (
+                <ReadFaultsAlert
+                  faults={overview.faults}
+                  onRetry={overview.retryFaults}
+                  disabled={overview.snapshotRunning}
+                />
+              )}
+              {overview.absent.length > 0 && <AbsentSourcesNote sources={overview.absent} />}
+              <HomeDeck deck={deck} overview={overview} focusRef={deckRef} />
+            </>
+          }
+        />
       )}
     </div>
   );

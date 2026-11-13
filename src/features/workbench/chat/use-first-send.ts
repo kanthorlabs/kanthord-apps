@@ -1,11 +1,10 @@
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import { createWorkbenchSession, sendWorkbenchMessage } from "@/api/resources/workbench";
 import type { WorkbenchConfiguration } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import type { ChatActionFailure } from "./use-chat-actions";
-import { workbenchSessionPath } from "@/lib/workbench-sessions";
+import type { FirstSendFailure } from "@/lib/workbench-new-session";
 
 export interface FirstSendState {
   readonly failure: ChatActionFailure | null;
@@ -13,16 +12,19 @@ export interface FirstSendState {
   readonly send: (text: string) => Promise<boolean>;
 }
 
+export type OpenCreatedSession = (sessionId: string, failure: FirstSendFailure | null) => void;
+
 export function useFirstSend(
   agentName: string,
-  configuration: WorkbenchConfiguration,
+  configuration: WorkbenchConfiguration | null,
+  open: OpenCreatedSession,
 ): FirstSendState {
-  const navigate = useNavigate();
   const [failure, setFailure] = useState<ChatActionFailure | null>(null);
   const [busy, setBusy] = useState(false);
 
   const send = useCallback(
     async (text: string): Promise<boolean> => {
+      if (configuration === null) return false;
       setFailure(null);
       setBusy(true);
       let sessionId: string;
@@ -38,16 +40,13 @@ export function useFirstSend(
         await sendWorkbenchMessage(sessionId, text);
       } catch (cause) {
         const error = asApiError(cause);
-        navigate(workbenchSessionPath(sessionId), {
-          replace: true,
-          state: { firstSendFailure: { draft: text, code: error.code, message: error.message } },
-        });
+        open(sessionId, { draft: text, code: error.code, message: error.message });
         return false;
       }
-      navigate(workbenchSessionPath(sessionId), { replace: true });
+      open(sessionId, null);
       return true;
     },
-    [agentName, configuration, navigate],
+    [agentName, configuration, open],
   );
 
   return { failure, busy, send };

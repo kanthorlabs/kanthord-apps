@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
@@ -24,6 +24,9 @@ interface ChatViewProps {
   readonly ownerName: string;
   readonly agentDisplayName: string;
   readonly firstSendFailure?: FirstSendFailure | null;
+  readonly streamEnd?: ReactNode;
+  readonly approvalLine?: ReactNode | null;
+  readonly onNew?: () => void;
 }
 
 export function ChatView({
@@ -32,6 +35,9 @@ export function ChatView({
   ownerName,
   agentDisplayName,
   firstSendFailure = null,
+  streamEnd = null,
+  approvalLine = null,
+  onNew,
 }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.run_active);
   const actions = useChatActions(
@@ -56,7 +62,7 @@ export function ChatView({
   );
   const composer = useComposer(snapshot.run_active || actions.busy, actions.send, {
     agentName: session.agent_name,
-    onNew: openNewChat,
+    onNew: onNew ?? openNewChat,
     initialDraft: firstSendFailure?.draft,
   });
   const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
@@ -91,23 +97,25 @@ export function ChatView({
           runError={snapshot.error_message}
         />
         {working && <AgentWorking seconds={elapsed} />}
-        {snapshot.pending_approval !== null && (
-          <ApprovalCard
-            approval={snapshot.pending_approval}
-            busy={actions.busy}
-            failure={approvalFailure}
-            onDecide={(approved) => {
-              if (snapshot.pending_approval !== null) {
-                actions.approve(snapshot.pending_approval.tool_call_id, approved);
-              }
-            }}
-          />
-        )}
+        {snapshot.pending_approval !== null &&
+          (approvalLine ?? (
+            <ApprovalCard
+              approval={snapshot.pending_approval}
+              busy={actions.busy}
+              failure={approvalFailure}
+              onDecide={(approved) => {
+                if (snapshot.pending_approval !== null) {
+                  actions.approve(snapshot.pending_approval.tool_call_id, approved);
+                }
+              }}
+            />
+          ))}
         {events.failure !== null && (
           <p role="status" className="text-sm text-muted-foreground">
             The connection to the session failed: {events.failure} Trying again.
           </p>
         )}
+        {streamEnd}
       </div>
       <div className="sticky bottom-0 bg-background pt-2">
         <Composer

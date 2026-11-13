@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { type Ref, useId } from "react";
 
 import { TouchTarget } from "@/components/touch-target";
 import { Button } from "@/components/ui/button";
@@ -18,12 +18,13 @@ import type { OverviewState } from "../use-overview";
 interface HomeDeckProps {
   readonly deck: HomeDeckState;
   readonly overview: OverviewState;
+  readonly focusRef?: Ref<HTMLDivElement>;
 }
 
 const NO_REF = () => undefined;
 const NO_CLOSER = () => undefined;
 
-export function HomeDeck({ deck, overview }: HomeDeckProps) {
+export function HomeDeck({ deck, overview, focusRef }: HomeDeckProps) {
   const listId = useId();
   const { primary } = deck;
   const workforce = workforceText(overview.running, overview.waiting);
@@ -32,7 +33,13 @@ export function HomeDeck({ deck, overview }: HomeDeckProps) {
 
   return (
     <section aria-label="Waiting acts" aria-keyshortcuts="ArrowLeft ArrowRight" className="min-w-0">
-      <div role="presentation" className="flex min-w-0 flex-col gap-3" onKeyDown={deck.onKeyDown}>
+      <div
+        ref={focusRef}
+        role="presentation"
+        tabIndex={-1}
+        className="flex min-w-0 flex-col gap-3 outline-none"
+        onKeyDown={deck.onKeyDown}
+      >
         {primary === null ? (
           <AllClear titleRef={NO_REF} fault={!overview.allClear} workforce={workforce} />
         ) : (
