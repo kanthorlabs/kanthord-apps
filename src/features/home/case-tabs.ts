@@ -16,7 +16,7 @@ export interface CaseToasts {
   readonly blocked: () => void;
   readonly missingConfiguration: () => void;
   readonly createFailed: (message: string) => void;
-  readonly unsent: (retry: () => void) => void;
+  readonly unsent: (message: string, retry: () => void) => void;
 }
 
 export interface CaseAsk {
@@ -42,8 +42,8 @@ export function createCaseTabs(): CaseTabs {
   async function send(entry: CaseTab, ask: CaseAsk): Promise<void> {
     try {
       await sendWorkbenchMessage(entry.sessionId, ask.request);
-    } catch {
-      ask.toasts.unsent(() => void deliver(ask));
+    } catch (cause) {
+      ask.toasts.unsent(asApiError(cause).message, () => void deliver(ask));
       return;
     }
     entry.sent = true;

@@ -228,9 +228,10 @@ describe("createCaseTabs", () => {
     tabs.askYumi(askOf({ toasts: notices }));
     await vi.waitFor(() => expect(notices.unsent).toHaveBeenCalledTimes(1));
 
+    expect(notices.unsent).toHaveBeenCalledWith("The daemon is down.", expect.any(Function));
     expect(tabs.tabs.get(KEY)).toEqual({ tab, sessionId: "session_1", sent: false });
     expect(tab.location.replace).not.toHaveBeenCalled();
-    const retry = notices.unsent.mock.calls[0]![0] as () => void;
+    const retry = notices.unsent.mock.calls[0]![1] as () => void;
     retry();
     await settled(tabs);
 

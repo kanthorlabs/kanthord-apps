@@ -14,8 +14,11 @@ const TOASTS: CaseToasts = {
   missingConfiguration: () => toast.error("Yumi has no default configuration."),
   createFailed: (message) =>
     toast.error("The case conversation could not start.", { description: message }),
-  unsent: (retry) =>
-    toast.error("The case request was not sent.", { action: { label: "Retry", onClick: retry } }),
+  unsent: (message, retry) =>
+    toast.error("The case request was not sent.", {
+      description: message,
+      action: { label: "Retry", onClick: retry },
+    }),
 };
 
 export type AskYumiFor = (item: AttentionItem) => (() => void) | null;

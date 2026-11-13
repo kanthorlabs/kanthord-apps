@@ -15,6 +15,10 @@ describe("breadcrumbTrail", () => {
     expect(breadcrumbTrail("/", labelOf)).toEqual([{ path: "/", label: "Home" }]);
   });
 
+  it("falls back to Home when no label is registered for the root", () => {
+    expect(breadcrumbTrail("/", () => undefined)).toEqual([{ path: "/", label: "Home" }]);
+  });
+
   it("builds one crumb per segment with the registered labels", () => {
     expect(breadcrumbTrail("/projects/project_1/edit", labelOf)).toEqual([
       { path: "/projects", label: "Projects" },

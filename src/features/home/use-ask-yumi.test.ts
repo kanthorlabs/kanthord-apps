@@ -210,6 +210,7 @@ describe("useAskYumi", () => {
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     const [message, options] = vi.mocked(toast.error).mock.calls[0]!;
     expect(message).toBe("The case request was not sent.");
+    expect(options).toMatchObject({ description: "The daemon is down." });
     const action = (options as { action: { label: string; onClick: () => void } }).action;
     expect(action.label).toBe("Retry");
     expect(tab.location.replace).not.toHaveBeenCalled();
