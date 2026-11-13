@@ -766,7 +766,9 @@ function renderScreen(entry = "/", onResume?: () => void) {
 }
 
 async function findPrimary(name: RegExp | string = /^Primary: /): Promise<HTMLElement> {
-  return screen.findByRole("group", { name });
+  const primary = await screen.findByRole("group", { name });
+  await waitFor(() => expect(within(primary).getAllByRole("button").length).toBeGreaterThan(0));
+  return primary;
 }
 
 async function press(user: ReturnType<typeof userEvent.setup>, name: string | RegExp) {
@@ -1328,7 +1330,7 @@ describe("HomeScreen queue line", () => {
 
     const primary = await findPrimary(new RegExp(`^Primary: ${GENERAL}`));
     expect(within(primary).getByText("#1")).toBeVisible();
-    expect(within(primary).getByRole("button", { name: "Approve" })).toBeVisible();
+    expect(await within(primary).findByRole("button", { name: "Approve" })).toBeVisible();
   });
 
   it("leaves the chat unchanged for the approval of another conversation", async () => {
@@ -1344,7 +1346,7 @@ describe("HomeScreen queue line", () => {
 
     expect(await screen.findByText(GENERAL, { selector: "div" })).toBeVisible();
     const primary = await findPrimary(/^Primary: Create the project account-recovery/);
-    expect(within(primary).getByRole("button", { name: "Approve" })).toBeVisible();
+    expect(await within(primary).findByRole("button", { name: "Approve" })).toBeVisible();
     expect(screen.queryByText(/in your queue\./)).toBeNull();
   });
 });
@@ -1417,7 +1419,7 @@ describe("HomeScreen Ask Yumi", () => {
 
     expect(within(primary).queryByRole("button", { name: "Ask Yumi" })).toBeNull();
     const more = await openMore(user, primary);
-    expect(within(more).getByRole("button", { name: "Ask Yumi" })).toBeVisible();
+    expect(await within(more).findByRole("button", { name: "Ask Yumi" })).toBeVisible();
   });
 
   it("sits in More of a no_taker card", async () => {
@@ -1434,7 +1436,7 @@ describe("HomeScreen Ask Yumi", () => {
 
     expect(within(primary).queryByRole("button", { name: "Ask Yumi" })).toBeNull();
     const more = await openMore(user, primary);
-    expect(within(more).getByRole("button", { name: "Ask Yumi" })).toBeVisible();
+    expect(await within(more).findByRole("button", { name: "Ask Yumi" })).toBeVisible();
   });
 
   it("is the lead act of an environment_failed card", async () => {
@@ -1444,7 +1446,7 @@ describe("HomeScreen Ask Yumi", () => {
 
     const primary = await findPrimary(/^Primary: engine/);
 
-    expect(within(primary).getByRole("button", { name: "Ask Yumi" })).toBeVisible();
+    expect(await within(primary).findByRole("button", { name: "Ask Yumi" })).toBeVisible();
     expect(within(primary).queryByRole("button", { name: "Open project" })).toBeNull();
     const more = await openMore(user, primary);
     expect(within(more).getByRole("button", { name: "Open project" })).toBeVisible();
@@ -1547,7 +1549,7 @@ describe("HomeScreen Ask Yumi", () => {
     await screen.findByText(GENERAL, { selector: "div" });
 
     const more = await openMore(user, primary);
-    await user.click(within(more).getByRole("button", { name: "Ask Yumi" }));
+    await user.click(await within(more).findByRole("button", { name: "Ask Yumi" }));
 
     await waitFor(() => expect(sendWorkbenchMessage).toHaveBeenCalledTimes(1));
     expect(open).toHaveBeenCalledWith("", expect.stringMatching(/^kanthord-case-blocked:/));
