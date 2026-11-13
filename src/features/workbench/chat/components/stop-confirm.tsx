@@ -26,8 +26,13 @@ export function StopConfirm({
 }: StopConfirmProps) {
   const title = `Stop the run and clear ${count} queued?`;
   return (
-    <Alert variant="destructive" role="alertdialog" aria-label={title} className="mb-2">
-      <AlertTitle>{title}</AlertTitle>
+    <Alert
+      variant="destructive"
+      role="alertdialog"
+      aria-label={title}
+      className="mb-2 rounded-[8px] border-destructive bg-destructive/10"
+    >
+      <AlertTitle className="font-bold text-destructive">{title}</AlertTitle>
       <AlertDescription>
         <p>
           <span>{queuedLine(count)}</span>
@@ -38,6 +43,7 @@ export function StopConfirm({
           <Button
             type="button"
             variant="destructive"
+            className="border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
             disabled={busy}
             onClick={hasDraft ? onStopAndSend : onStop}
           >
