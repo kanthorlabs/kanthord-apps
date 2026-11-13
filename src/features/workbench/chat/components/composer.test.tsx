@@ -402,7 +402,7 @@ describe("Composer", () => {
       ],
     });
 
-    await waitFor(() => expect(box).toHaveValue("first\nsecond\nlater"));
+    await waitFor(() => expect(box).toHaveValue("first\n\nsecond\n\nlater"));
   });
 
   describe("Stop", () => {
@@ -456,7 +456,7 @@ describe("Composer", () => {
       await clickStop();
 
       const confirm = screen.getByRole("alertdialog");
-      expect(within(confirm).getByText("Stop the run and clear 2 queued?")).toBeInTheDocument();
+      expect(within(confirm).getByText("Stop the run?")).toBeInTheDocument();
       expect(
         within(confirm).getByText("Your 2 queued messages return to the composer."),
       ).toBeInTheDocument();
@@ -548,7 +548,7 @@ describe("Composer", () => {
       expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
       await waitFor(() => expect(screen.queryByRole("button", { name: /queued/ })).toBeNull());
       expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(box()).toHaveValue("first queued\nsecond queued\n/new");
+      expect(box()).toHaveValue("first queued\n\nsecond queued\n\n/new");
     });
 
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
@@ -575,7 +575,7 @@ describe("Composer", () => {
       const line = await screen.findByRole("button", { name: /1 queued/ });
       expect(line).toHaveTextContent("my draft");
       expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(box()).toHaveValue("first queued\nsecond queued");
+      expect(box()).toHaveValue("first queued\n\nsecond queued");
     });
   });
 

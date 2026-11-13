@@ -9,7 +9,7 @@ function mount(props: Partial<StopConfirmProps> = {}) {
   render(<StopConfirm count={2} hasDraft={false} busy={false} {...handlers} {...props} />);
   return {
     ...handlers,
-    dialog: screen.getByRole("alertdialog", { name: /^Stop the run and clear \d+ queued\?$/ }),
+    dialog: screen.getByRole("alertdialog", { name: /^Stop the run\?$/ }),
   };
 }
 
@@ -17,7 +17,7 @@ describe("StopConfirm", () => {
   it("names the queued count in the plural and offers Stop and Cancel", async () => {
     const { dialog, onStop, onCancel } = mount();
 
-    expect(within(dialog).getByText("Stop the run and clear 2 queued?")).toBeInTheDocument();
+    expect(within(dialog).getByText("Stop the run?")).toBeInTheDocument();
     expect(
       within(dialog).getByText("Your 2 queued messages return to the composer."),
     ).toBeInTheDocument();

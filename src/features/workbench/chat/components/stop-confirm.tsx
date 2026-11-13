@@ -24,7 +24,7 @@ export function StopConfirm({
   onStopAndSend,
   onCancel,
 }: StopConfirmProps) {
-  const title = `Stop the run and clear ${count} queued?`;
+  const title = "Stop the run?";
   return (
     <Alert variant="destructive" role="alertdialog" aria-label={title} className="mb-2">
       <AlertTitle>{title}</AlertTitle>

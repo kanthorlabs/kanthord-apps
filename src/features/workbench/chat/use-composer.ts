@@ -10,7 +10,7 @@ import {
 } from "./slash-commands";
 
 const NEW_TAKES_NO_TEXT = "/new takes no text yet";
-const NEWLINE = "\n";
+const BLANK_LINE = "\n\n";
 
 export interface ComposerOptions {
   readonly agentName: string;
@@ -60,8 +60,8 @@ export function useComposer(
 
   const refill = useCallback((texts: readonly string[], notice?: string) => {
     if (texts.length === 0) return;
-    const joined = texts.join(NEWLINE);
-    setDraftValue((current) => (current === "" ? joined : `${joined}${NEWLINE}${current}`));
+    const joined = texts.join(BLANK_LINE);
+    setDraftValue((current) => (current === "" ? joined : `${joined}${BLANK_LINE}${current}`));
     if (notice !== undefined) setHint(notice);
   }, []);
 

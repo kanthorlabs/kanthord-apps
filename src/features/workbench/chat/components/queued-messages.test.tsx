@@ -247,7 +247,7 @@ describe("queued messages in the chat", () => {
 
     await act(async () => answer(removed("queued_1")));
 
-    await waitFor(() => expect(box()).toHaveValue("First queued message\nmy draft"));
+    await waitFor(() => expect(box()).toHaveValue("First queued message\n\nmy draft"));
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });
 
