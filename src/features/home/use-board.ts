@@ -10,6 +10,7 @@ import { initialSelectionOf } from "@/lib/board-selection";
 import { type BoardSummary, boardSummaryOf } from "@/lib/board-text";
 import { boardUrlOf } from "@/lib/board-url";
 import { BOARD_WIDTH, type BoardWidth } from "@/lib/board-width";
+import { heldCountOf, isAct } from "@/lib/home-deck";
 
 import { useBoardHistory, useOverviewItem } from "./use-board-history";
 import type { InboxView, OverviewState } from "./use-overview";
@@ -150,10 +151,6 @@ function cardsOf(
   );
 }
 
-function isAct(item: AttentionItem): boolean {
-  return item.kind !== "inbox_item";
-}
-
 function countsOf(
   ranked: readonly AttentionItem[],
   view: readonly AttentionItem[],
@@ -189,13 +186,6 @@ function countsOf(
       ]),
     ),
   };
-}
-
-function heldCountOf(
-  cards: readonly AttentionItem[],
-  held: ReadonlyMap<string, readonly string[]>,
-): number {
-  return new Set(cards.flatMap((card) => held.get(card.id) ?? [])).size;
 }
 
 function scopedProjectOf(projects: readonly Project[], id: string | null): string | null {
