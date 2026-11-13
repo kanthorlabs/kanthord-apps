@@ -70,6 +70,24 @@ describe("RunLine", () => {
     expect(onStop).toHaveBeenCalledTimes(1);
   });
 
+  it("shows Stop as a red text link without a background", () => {
+    render(
+      <RunLine
+        runActive
+        request={FIRST_REQUEST}
+        ownerName="Ulrich"
+        busy={false}
+        onStop={vi.fn()}
+      />,
+    );
+
+    const stop = within(screen.getByRole("group", { name: "Run line" })).getByRole("button", {
+      name: "Stop",
+    });
+    expect(stop).toHaveClass("text-destructive");
+    expect(stop.className).not.toMatch(/(^|\s)(dark:)?(hover:)?bg-(?!clip)/);
+  });
+
   it("shows no request text before the request entry of the run exists", () => {
     render(<RunLine runActive request={null} ownerName="Ulrich" busy={false} onStop={vi.fn()} />);
 

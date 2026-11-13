@@ -29,9 +29,9 @@ export function RunLine({ runActive, request, ownerName, busy, onStop }: RunLine
         </span>
       )}
       <Button
-        variant="destructive"
+        variant="link"
         size="xs"
-        className="ml-auto shrink-0"
+        className="ml-auto shrink-0 text-destructive"
         disabled={busy}
         onClick={onStop}
       >

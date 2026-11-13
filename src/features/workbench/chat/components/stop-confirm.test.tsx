@@ -55,4 +55,13 @@ describe("StopConfirm", () => {
     expect(within(dialog).getByRole("button", { name: "Stop" })).toBeDisabled();
     expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeEnabled();
   });
+
+  it("fills the confirm button with the destructive color", () => {
+    const { dialog } = mount();
+
+    const stop = within(dialog).getByRole("button", { name: "Stop" });
+    expect(stop).toHaveClass("bg-destructive", "border-destructive", "text-white");
+    expect(stop).not.toHaveClass("bg-destructive/10", "text-destructive");
+    expect(dialog).toHaveClass("border-destructive", "bg-destructive/10");
+  });
 });
