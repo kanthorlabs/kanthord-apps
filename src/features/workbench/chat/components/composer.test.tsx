@@ -382,7 +382,7 @@ describe("Composer", () => {
     );
   });
 
-  it("puts the cleared texts before the current draft, joined by a blank line", async () => {
+  it("puts the cleared texts before the current draft, joined by one newline", async () => {
     let answer: (value: WorkbenchMessageAnswer) => void = () => undefined;
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockReturnValue(
       new Promise((resolve) => (answer = resolve)),
@@ -402,7 +402,7 @@ describe("Composer", () => {
       ],
     });
 
-    await waitFor(() => expect(box).toHaveValue("first\n\nsecond\n\nlater"));
+    await waitFor(() => expect(box).toHaveValue("first\nsecond\nlater"));
   });
 
   describe("Stop", () => {
@@ -494,23 +494,6 @@ describe("Composer", () => {
       expect(within(confirm).getByRole("button", { name: "Stop" })).toBeEnabled();
     });
 
-    it("says how many cleared messages are back in the draft after Stop", async () => {
-      vi.mocked(workbenchApi.abortWorkbenchRun).mockResolvedValue({
-        session_id: SESSION_ID,
-        run_active: false,
-        cleared: QUEUE,
-      });
-      withQueue(QUEUE);
-      await screen.findByRole("button", { name: /2 queued/ });
-      await clickStop();
-
-      await userEvent.click(
-        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Stop" }),
-      );
-
-      expect(await screen.findByText("2 cleared messages are back in your draft")).toBeVisible();
-    });
-
     it("keeps the run, the queue and the draft on Cancel", async () => {
       withQueue(QUEUE);
       await screen.findByRole("button", { name: /2 queued/ });
@@ -548,7 +531,7 @@ describe("Composer", () => {
       expect(workbenchApi.abortWorkbenchRun).toHaveBeenCalledWith(SESSION_ID);
       await waitFor(() => expect(screen.queryByRole("button", { name: /queued/ })).toBeNull());
       expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(box()).toHaveValue("first queued\n\nsecond queued\n\n/new");
+      expect(box()).toHaveValue("first queued\nsecond queued\n/new");
     });
 
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
@@ -575,7 +558,7 @@ describe("Composer", () => {
       const line = await screen.findByRole("button", { name: /1 queued/ });
       expect(line).toHaveTextContent("my draft");
       expect(screen.queryByRole("alertdialog")).toBeNull();
-      expect(box()).toHaveValue("first queued\n\nsecond queued");
+      expect(box()).toHaveValue("first queued\nsecond queued");
     });
   });
 

@@ -14,7 +14,7 @@ import type { SnapshotPatch } from "./use-session-events";
 const QUEUED_NOT_FOUND = "workbench.session.queued_message_not_found";
 const ALREADY_STARTED = "The message already started.";
 
-type Refill = (texts: readonly string[], hint?: string) => void;
+type Refill = (texts: readonly string[]) => void;
 
 const NO_REFILL: Refill = () => undefined;
 
@@ -36,13 +36,6 @@ export interface ChatActionsState {
   readonly remove: (item: WorkbenchQueuedMessage) => void;
   readonly edit: (item: WorkbenchQueuedMessage) => void;
   readonly bindRefill: (refill: Refill) => () => void;
-}
-
-function clearedHint(count: number): string | undefined {
-  if (count === 0) return undefined;
-  return count === 1
-    ? "1 cleared message is back in your draft"
-    : `${count} cleared messages are back in your draft`;
 }
 
 function failureOf(
@@ -73,10 +66,7 @@ export function useChatActions(
   }, []);
 
   const refillCleared = useCallback((cleared: readonly WorkbenchQueuedMessage[]) => {
-    refillRef.current(
-      cleared.map((message) => message.text),
-      clearedHint(cleared.length),
-    );
+    refillRef.current(cleared.map((message) => message.text));
   }, []);
 
   const perform = useCallback(

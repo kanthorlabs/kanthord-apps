@@ -10,7 +10,7 @@ import {
 } from "./slash-commands";
 
 const NEW_TAKES_NO_TEXT = "/new takes no text yet";
-const BLANK_LINE = "\n\n";
+const NEWLINE = "\n";
 
 export interface ComposerOptions {
   readonly agentName: string;
@@ -28,7 +28,7 @@ export interface ComposerState {
   readonly hint: string | null;
   readonly setDraft: (draft: string) => void;
   readonly submit: (delivery?: WorkbenchMessageDelivery) => void;
-  readonly refill: (texts: readonly string[], hint?: string) => void;
+  readonly refill: (texts: readonly string[]) => void;
   readonly focus: () => void;
   readonly blur: () => void;
   readonly pick: (command: SlashCommand) => void;
@@ -58,11 +58,10 @@ export function useComposer(
     setHint(null);
   }, []);
 
-  const refill = useCallback((texts: readonly string[], notice?: string) => {
+  const refill = useCallback((texts: readonly string[]) => {
     if (texts.length === 0) return;
-    const joined = texts.join(BLANK_LINE);
-    setDraftValue((current) => (current === "" ? joined : `${joined}${BLANK_LINE}${current}`));
-    if (notice !== undefined) setHint(notice);
+    const joined = texts.join(NEWLINE);
+    setDraftValue((current) => (current === "" ? joined : `${joined}${NEWLINE}${current}`));
   }, []);
 
   const sendText = useCallback(
