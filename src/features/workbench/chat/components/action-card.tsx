@@ -30,6 +30,22 @@ const STATE_LINES: Readonly<Partial<Record<ActionCardState, string>>> = {
 const BUTTON_LAYOUT = "h-auto min-h-9 py-1.5 text-left whitespace-normal break-all";
 const DANGER_FILL = "bg-destructive text-destructive-foreground hover:bg-destructive/90";
 
+function cardErrorOf(
+  reportFailure: ApiError | null,
+  actLine: string | null,
+  failedCode: string | null | undefined,
+): CardError | null {
+  if (reportFailure !== null) {
+    return {
+      code: reportFailure.detail === "" ? null : reportFailure.detail,
+      message: NOT_RECORDED_LINE,
+    };
+  }
+  if (actLine !== null) return { code: null, message: actLine };
+  if (failedCode === undefined) return null;
+  return { code: failedCode, message: FAILED_LINE };
+}
+
 export function ActionCard({
   item,
   canRun,
@@ -44,17 +60,11 @@ export function ActionCard({
   const danger = isDangerOperation(offer.operation_id);
   const latest = item.results.at(-1);
   const failed = state === "live" && latest?.outcome === "failed" ? latest : null;
-  const failure: CardError | null =
-    reportFailure !== null
-      ? {
-          code: reportFailure.detail === "" ? null : reportFailure.detail,
-          message: NOT_RECORDED_LINE,
-        }
-      : actLine !== null
-        ? { code: null, message: actLine }
-        : failed === null
-          ? null
-          : { code: failed.error_code, message: FAILED_LINE };
+  const failure = cardErrorOf(
+    reportFailure,
+    actLine,
+    failed === null ? undefined : failed.error_code,
+  );
   const stateLine = STATE_LINES[state];
   const showButton = canRun && verb !== null && (state === "live" || state === "waiting");
   const border = danger || failure !== null ? "border-destructive" : "border-primary";
