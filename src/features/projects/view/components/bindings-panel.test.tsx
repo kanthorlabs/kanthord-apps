@@ -1957,7 +1957,7 @@ describe("BindingsPanel", () => {
     expect(credentialsApi.pinHostKey).toHaveBeenCalledWith("gitlab.com", {
       fingerprint: scan.fingerprint,
     });
-  }, 30_000);
+  });
 
   it("refuses an alias host in the address before the save", async () => {
     mount();
