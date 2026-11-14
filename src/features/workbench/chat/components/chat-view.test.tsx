@@ -838,7 +838,7 @@ describe("ChatView", () => {
 
       const error = screen.getByRole("alert");
       expect(error).toHaveTextContent(
-        "mission.evidence.content_unavailable The storage read failed.",
+        "mission.evidence.content_unavailable: The storage read failed.",
       );
       expect(error.previousElementSibling).toHaveClass("border-destructive");
     });

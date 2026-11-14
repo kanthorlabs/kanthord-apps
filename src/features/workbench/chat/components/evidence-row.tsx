@@ -60,7 +60,10 @@ export function EvidenceRow({ facts }: { readonly facts: EvidenceReadFacts }) {
         </p>
       </details>
       {error !== null && (
-        <InlineError code={error.detail === "" ? null : error.detail} message={error.message} />
+        <InlineError
+          code={null}
+          message={error.detail === "" ? error.message : `${error.detail}: ${error.message}`}
+        />
       )}
     </div>
   );

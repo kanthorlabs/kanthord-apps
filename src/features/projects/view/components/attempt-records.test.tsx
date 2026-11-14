@@ -163,7 +163,9 @@ describe("AttemptRecords evidence assets", () => {
 
     const region = screen.getByRole("region", { name: "Evidence" });
     const line = await within(region).findByRole("alert");
-    expect(line).toHaveTextContent("mission.evidence.content_unavailable The storage read failed.");
+    expect(line).toHaveTextContent(
+      "mission.evidence.content_unavailable: The storage read failed.",
+    );
     expect(downloadEvidenceAsset).toHaveBeenCalledWith("asset_produced");
     const row = line.parentElement as HTMLElement;
     expect(within(row).getByRole("button", { name: "Download" })).toBeInTheDocument();
