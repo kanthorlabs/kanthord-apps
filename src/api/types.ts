@@ -1638,7 +1638,8 @@ export interface WorkbenchActionOffer {
   readonly operation_id: string;
   readonly target_id: string;
   readonly seen:
-    { readonly state: NodeState; readonly attempt: number } | { readonly paused: boolean };
+    | { readonly name: string; readonly state: NodeState; readonly attempt: number }
+    | { readonly name: string; readonly paused: boolean };
 }
 
 export interface WorkbenchActionResult {

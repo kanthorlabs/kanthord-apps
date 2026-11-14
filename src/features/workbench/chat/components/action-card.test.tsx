@@ -14,7 +14,7 @@ function card(overrides: Partial<ActionCardItem> = {}): ActionCardItem {
       tool_call_id: "call_1",
       operation_id: "mission.node.discard",
       target_id: "node_42",
-      seen: { state: "Blocked", attempt: 2 },
+      seen: { name: "Add retry to payment client", state: "Blocked", attempt: 2 },
     },
     results: [],
     state: "live",
@@ -43,7 +43,7 @@ describe("ActionCard", () => {
     expect(screen.getByText("mission.node.discard")).toBeVisible();
     expect(screen.getByRole("button", { name: "Discard node_42" })).toBeEnabled();
     expect(screen.getAllByRole("listitem").map((entry) => entry.textContent)).toEqual([
-      "node: node_42",
+      "node: Add retry to payment client (node_42)",
       "state: Blocked · attempt 2",
     ]);
   });
@@ -53,13 +53,13 @@ describe("ActionCard", () => {
     [false, "state: active"],
   ])("lists the project facts for paused %s", (paused, line) => {
     const item = card({
-      offer: { ...card().offer, operation_id: "project.resume", seen: { paused } },
+      offer: { ...card().offer, operation_id: "project.resume", seen: { name: "Billing", paused } },
     });
 
     render(<ActionCard item={item} canRun onRun={vi.fn()} />);
 
     expect(screen.getAllByRole("listitem").map((entry) => entry.textContent)).toEqual([
-      "project: node_42",
+      "project: Billing (node_42)",
       line,
     ]);
     expect(screen.getByRole("button", { name: "Resume node_42" })).toBeVisible();

@@ -1514,7 +1514,7 @@ function offerConversation(targetId: string, operationId: string): WorkbenchSess
           tool_call_id: "call_offer",
           operation_id: operationId,
           target_id: targetId,
-          seen: { state: "Blocked", attempt: 2 },
+          seen: { name: "Add retry to payment client", state: "Blocked", attempt: 2 },
         },
       },
     ],

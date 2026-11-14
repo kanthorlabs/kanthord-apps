@@ -36,9 +36,10 @@ export function actionVerbOf(operationId: string): string | null {
 
 export function actionFactsOf(offer: WorkbenchActionOffer): readonly string[] {
   const { seen, target_id } = offer;
-  if ("state" in seen)
-    return [`node: ${target_id}`, `state: ${seen.state} · attempt ${seen.attempt}`];
-  return [`project: ${target_id}`, `state: ${seen.paused ? "paused" : "active"}`];
+  if ("state" in seen) {
+    return [`node: ${seen.name} (${target_id})`, `state: ${seen.state} · attempt ${seen.attempt}`];
+  }
+  return [`project: ${seen.name} (${target_id})`, `state: ${seen.paused ? "paused" : "active"}`];
 }
 
 export function isDangerOperation(operationId: string): boolean {
