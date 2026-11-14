@@ -1,3 +1,5 @@
+import { BINDING_SET, CREDENTIALS, PROJECT } from "./fixtures.mjs";
+
 const WAIT_WINDOW_MS = 25000;
 const WORD_DELAY_MS = 150;
 const STEP_DELAY_MS = 400;
@@ -6,6 +8,8 @@ const QUEUE_LIMIT = 10;
 const OFFER_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2";
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
+const SETUP_CREDENTIAL = "atlas-router";
+const SETUP_AGENT = "swe@1";
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const sessionId = () => {
@@ -15,6 +19,13 @@ const sessionId = () => {
   }
   return `workbench_session_0${tail}`;
 };
+
+const newestLiveRevision = (credential) =>
+  Math.max(
+    ...credential.revisions
+      .filter((revision) => revision.ended_at === null)
+      .map((revision) => revision.revision),
+  );
 
 const textMessage = (role, text) => ({ role, content: [{ type: "text", text }] });
 
@@ -122,6 +133,45 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     });
   };
 
+  const setupOffersOf = () => [
+    {
+      operation_id: "llm.credential.rotate",
+      target_id: SETUP_CREDENTIAL,
+      seen: {
+        revision: newestLiveRevision(CREDENTIALS.find((item) => item.name === SETUP_CREDENTIAL)),
+      },
+    },
+    {
+      operation_id: "project.bindingSet.write",
+      target_id: PROJECT.id,
+      seen: { version: BINDING_SET.version },
+    },
+    {
+      operation_id: "agent.enablement.put",
+      target_id: SETUP_AGENT,
+      seen: {
+        revision: agents.find((agent) => agent.agent_name === SETUP_AGENT).enablement.revision,
+      },
+    },
+  ];
+
+  const offerSetup = async (session, run) => {
+    const stamp = Date.now().toString(36);
+    for (const [index, offer] of setupOffersOf().entries()) {
+      const call = {
+        id: `call_${stamp}_${index}`,
+        name: "offer_action",
+        arguments: { operation_id: offer.operation_id, target_id: offer.target_id },
+      };
+      announce(session, call);
+      append(session, "custom", {
+        customType: RECORD_TYPE,
+        data: { kind: "action_offer", tool_call_id: call.id, ...offer },
+      });
+      await settle(session, run, call, { isError: false, text: '{"offered":true}' });
+    }
+  };
+
   const awaitApproval = (session, run, approval) =>
     new Promise((resolve) => {
       const state = stateOf(session);
@@ -174,6 +224,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         },
       });
       await settle(session, run, call, { isError: false, text: '{"offered":true}' });
+    } else if (/\bsetup\b/i.test(text)) {
+      await offerSetup(session, run);
     } else if (/\b(create|approve|mutation)\b/i.test(text)) {
       call.name = "project.create";
       call.arguments = { name: "account-recovery" };
