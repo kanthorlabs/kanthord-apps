@@ -22,7 +22,6 @@ import { causeChipText } from "@/lib/trace-cause";
 import { type GraphModel, nameOf } from "@/lib/mission-graph";
 import {
   actorText,
-  assetText,
   claimStateVariant,
   closingEventText,
   resolutionVariant,
@@ -32,6 +31,7 @@ import {
 import { useAttemptRecords } from "../use-attempt-records";
 import { useTraceSummaries } from "../use-trace-summaries";
 import { BindingList } from "./binding-list";
+import { EvidenceAssetRow } from "./evidence-asset-row";
 import { FactList } from "./fact-list";
 import { FindingSection } from "./finding-section";
 import { RecordSection } from "./record-section";
@@ -333,10 +333,7 @@ export function AttemptRecords({
                         </span>
                       )}
                       {item.assets.map((asset) => (
-                        <span key={asset.id} className="break-all">
-                          {assetText(asset)}
-                          {asset.published_at === null ? " (not published)" : ""}
-                        </span>
+                        <EvidenceAssetRow key={asset.id} asset={asset} />
                       ))}
                       {item.verification?.results.map((result, index) => (
                         <span key={`${index}-${result.command}`} className="break-all">
