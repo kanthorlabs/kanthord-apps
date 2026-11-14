@@ -7,6 +7,7 @@ import type { MissionEvidenceAsset } from "@/api/types";
 import {
   EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES,
   evidenceAssetAction,
+  evidenceSizeAction,
   useEvidenceDownload,
 } from "./use-evidence-download";
 
@@ -144,5 +145,12 @@ describe("evidenceAssetAction", () => {
         expired_at: null,
       }),
     ).toBe("none");
+  });
+});
+
+describe("evidenceSizeAction", () => {
+  it("downloads up to the cap and refuses above it", () => {
+    expect(evidenceSizeAction(EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES)).toBe("download");
+    expect(evidenceSizeAction(EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES + 1)).toBe("too_large");
   });
 });

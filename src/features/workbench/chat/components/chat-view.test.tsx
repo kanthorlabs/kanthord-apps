@@ -802,8 +802,9 @@ describe("ChatView", () => {
       mount(session([evidenceResult(120)]));
 
       const log = screen.getByRole("log", { name: "Transcript" });
-      expect(within(log).getByText("evidence_asset_1")).toBeTruthy();
-      expect(log).toHaveTextContent("text/plain, 120 bytes, range 10–110, truncated");
+      expect(within(log).getByText("evidence_read").tagName).toBe("CODE");
+      expect(log).toHaveTextContent("· evidence_asset_1 · text/plain · 0.1 KiB · bytes 10–109");
+      expect(log).toHaveTextContent("node_1 · attempt 2 · offset 10 · length 100 · truncated true");
       expect(log).not.toHaveTextContent(CONTENT_LINE);
 
       await userEvent.click(within(log).getByRole("button", { name: "Download" }));
@@ -837,7 +838,7 @@ describe("ChatView", () => {
 
       const error = screen.getByRole("alert");
       expect(error).toHaveTextContent(
-        "mission.evidence.content_unavailable: The storage read failed.",
+        "mission.evidence.content_unavailable The storage read failed.",
       );
       expect(error.previousElementSibling).toHaveClass("border-destructive");
     });

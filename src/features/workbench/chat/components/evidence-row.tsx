@@ -1,53 +1,67 @@
 import { Button } from "@/components/ui/button";
 import {
-  EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES,
+  evidenceSizeAction,
   useEvidenceDownload,
 } from "@/features/projects/view/use-evidence-download";
+import { byteText } from "@/lib/format";
 import type { EvidenceReadFacts } from "@/lib/workbench-chat";
 import { InlineError } from "./inline-error";
 
+function grouped(value: number): string {
+  return value.toLocaleString("en-US");
+}
+
+function rangeText({ offset, length }: EvidenceReadFacts): string {
+  return `bytes ${grouped(offset)}–${grouped(offset + length - 1)}`;
+}
+
 export function EvidenceRow({ facts }: { readonly facts: EvidenceReadFacts }) {
   const { download, pending, error } = useEvidenceDownload();
-  const downloadable = facts.size <= EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES;
+  const action = evidenceSizeAction(facts.size);
 
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <div
-        aria-label="Evidence read"
-        role="group"
+      <details
         className={
           error === null
-            ? "flex min-w-0 flex-col gap-1 rounded-md border px-3 py-2 text-sm"
-            : "flex min-w-0 flex-col gap-1 rounded-md border border-destructive px-3 py-2 text-sm"
+            ? "evrow min-w-0 rounded-md border px-3 py-2 text-sm"
+            : "evrow min-w-0 rounded-md border border-destructive px-3 py-2 text-sm"
         }
       >
-        <span className="font-mono text-xs break-all">{facts.asset_id}</span>
-        <span className="break-words text-muted-foreground">
-          {facts.media_type}, {facts.size} bytes, range {facts.offset}–{facts.offset + facts.length}
-          {facts.truncated ? ", truncated" : ""}
-        </span>
-        {downloadable ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            className="self-start"
-            disabled={pending}
-            onClick={() => void download(facts.asset_id)}
-          >
-            Download
-          </Button>
-        ) : (
-          <span className="break-words">
-            Too large for the dashboard. Use{" "}
-            <code className="font-mono text-xs break-all">
-              kanthord mission evidence asset content get {facts.asset_id}
-            </code>
-            .
+        <summary className="flex flex-wrap items-center gap-1.5">
+          <span className="text-muted-foreground">tool</span>
+          <code className="font-mono">evidence_read</code>
+          <span className="break-all">
+            · {facts.asset_id} · {facts.media_type} · {byteText(facts.size)} · {rangeText(facts)}
           </span>
-        )}
-      </div>
-      {error !== null && <InlineError code={null} message={`${error.detail}: ${error.message}`} />}
+          {action === "download" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              disabled={pending}
+              onClick={() => void download(facts.asset_id)}
+            >
+              Download
+            </Button>
+          ) : (
+            <span className="break-words">
+              Too large for the dashboard. Use{" "}
+              <code className="font-mono text-xs break-all">
+                kanthord mission evidence asset content get {facts.asset_id}
+              </code>
+              .
+            </span>
+          )}
+        </summary>
+        <p className="mt-1 font-mono text-[11.5px] break-words text-muted-foreground">
+          {facts.node_id} · attempt {grouped(facts.attempt)} · offset {grouped(facts.offset)} ·
+          length {grouped(facts.length)} · truncated {facts.truncated ? "true" : "false"}
+        </p>
+      </details>
+      {error !== null && (
+        <InlineError code={error.detail === "" ? null : error.detail} message={error.message} />
+      )}
     </div>
   );
 }

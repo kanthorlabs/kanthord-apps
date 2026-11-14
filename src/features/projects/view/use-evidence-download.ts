@@ -9,10 +9,14 @@ export const EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES = 536870912;
 
 export type EvidenceAssetAction = "download" | "too_large" | "none";
 
+export function evidenceSizeAction(size: number): "download" | "too_large" {
+  return size <= EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES ? "download" : "too_large";
+}
+
 export function evidenceAssetAction(asset: MissionEvidenceAsset): EvidenceAssetAction {
   if (asset.kind === "produced") return "download";
   if (asset.kind !== "object" || asset.published_at === null) return "none";
-  return asset.size <= EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES ? "download" : "too_large";
+  return evidenceSizeAction(asset.size);
 }
 
 export interface EvidenceDownloadState {
