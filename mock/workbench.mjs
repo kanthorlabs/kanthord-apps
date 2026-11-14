@@ -155,21 +155,19 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     },
   ];
 
-  const offerSetup = async (session, run) => {
-    const stamp = Date.now().toString(36);
-    for (const [index, offer] of setupOffersOf().entries()) {
-      const call = {
-        id: `call_${stamp}_${index}`,
-        name: "offer_action",
-        arguments: { operation_id: offer.operation_id, target_id: offer.target_id },
-      };
-      announce(session, call);
-      append(session, "custom", {
-        customType: RECORD_TYPE,
-        data: { kind: "action_offer", tool_call_id: call.id, ...offer },
-      });
-      await settle(session, run, call, { isError: false, text: '{"offered":true}' });
-    }
+  const offerSetup = async (session, run, operationId) => {
+    const offer = setupOffersOf().find((item) => item.operation_id === operationId);
+    const call = {
+      id: `call_${Date.now().toString(36)}`,
+      name: "offer_action",
+      arguments: { operation_id: offer.operation_id, target_id: offer.target_id },
+    };
+    announce(session, call);
+    append(session, "custom", {
+      customType: RECORD_TYPE,
+      data: { kind: "action_offer", tool_call_id: call.id, ...offer },
+    });
+    await settle(session, run, call, { isError: false, text: '{"offered":true}' });
   };
 
   const awaitApproval = (session, run, approval) =>
@@ -224,8 +222,12 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         },
       });
       await settle(session, run, call, { isError: false, text: '{"offered":true}' });
-    } else if (/\bsetup\b/i.test(text)) {
-      await offerSetup(session, run);
+    } else if (/\brotate\b/i.test(text)) {
+      await offerSetup(session, run, "llm.credential.rotate");
+    } else if (/\bbindings\b/i.test(text)) {
+      await offerSetup(session, run, "project.bindingSet.write");
+    } else if (/\bdefault\b/i.test(text)) {
+      await offerSetup(session, run, "agent.enablement.put");
     } else if (/\b(create|approve|mutation)\b/i.test(text)) {
       call.name = "project.create";
       call.arguments = { name: "account-recovery" };
