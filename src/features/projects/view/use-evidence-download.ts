@@ -2,9 +2,18 @@ import { useCallback, useState } from "react";
 
 import type { ApiError } from "@/api/errors";
 import { downloadEvidenceAsset } from "@/api/resources/mission";
+import type { MissionEvidenceAsset } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 
 export const EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES = 536870912;
+
+export type EvidenceAssetAction = "download" | "too_large" | "none";
+
+export function evidenceAssetAction(asset: MissionEvidenceAsset): EvidenceAssetAction {
+  if (asset.kind === "produced") return "download";
+  if (asset.kind !== "object" || asset.published_at === null) return "none";
+  return asset.size <= EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES ? "download" : "too_large";
+}
 
 export interface EvidenceDownloadState {
   readonly download: (assetId: string) => Promise<void>;

@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
 import { downloadEvidenceAsset } from "@/api/resources/mission";
-import { EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES, useEvidenceDownload } from "./use-evidence-download";
+import type { MissionEvidenceAsset } from "@/api/types";
+import {
+  EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES,
+  evidenceAssetAction,
+  useEvidenceDownload,
+} from "./use-evidence-download";
 
 vi.mock("@/api/resources/mission", () => ({ downloadEvidenceAsset: vi.fn() }));
 
@@ -81,5 +86,63 @@ describe("useEvidenceDownload", () => {
     await act(() => result.current.download("asset_1"));
 
     expect(result.current.error).toBeNull();
+  });
+});
+
+function objectAsset(size: number, publishedAt: number | null): MissionEvidenceAsset {
+  return {
+    id: "asset_1",
+    kind: "object",
+    address: { kind: "object", location: "s3://bucket/asset_1" },
+    storage_binding_id: "binding_1",
+    size,
+    media_type: "text/plain",
+    published_at: publishedAt,
+    expired_at: null,
+  };
+}
+
+describe("evidenceAssetAction", () => {
+  it("downloads a produced asset", () => {
+    const produced: MissionEvidenceAsset = {
+      id: "asset_1",
+      kind: "produced",
+      address: { kind: "produced", sha256: "a".repeat(64) },
+      published_at: null,
+      expired_at: null,
+    };
+    expect(evidenceAssetAction(produced)).toBe("download");
+  });
+
+  it("downloads a published object asset up to the cap", () => {
+    expect(evidenceAssetAction(objectAsset(EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES, 1))).toBe("download");
+  });
+
+  it("refuses a published object asset above the cap", () => {
+    expect(evidenceAssetAction(objectAsset(EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES + 1, 1))).toBe(
+      "too_large",
+    );
+  });
+
+  it("offers nothing for an unpublished object, a repository and a platform asset", () => {
+    expect(evidenceAssetAction(objectAsset(10, null))).toBe("none");
+    expect(
+      evidenceAssetAction({
+        id: "a",
+        kind: "repository",
+        address: { kind: "repository", binding_id: "b", commit: "c".repeat(40) },
+        published_at: 1,
+        expired_at: null,
+      }),
+    ).toBe("none");
+    expect(
+      evidenceAssetAction({
+        id: "a",
+        kind: "platform",
+        address: { kind: "pull_request", resource_identity: "repository:github:a/b", number: 4 },
+        published_at: 1,
+        expired_at: null,
+      }),
+    ).toBe("none");
   });
 });

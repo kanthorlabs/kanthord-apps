@@ -2,27 +2,13 @@ import type { MissionEvidenceAsset } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { assetText } from "@/lib/mission-labels";
 import { cn } from "cn";
-import { EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES, useEvidenceDownload } from "../use-evidence-download";
-
-function downloadable(asset: MissionEvidenceAsset): boolean {
-  if (asset.kind === "produced") return true;
-  return (
-    asset.kind === "object" &&
-    asset.published_at !== null &&
-    asset.size <= EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES
-  );
-}
-
-function tooLarge(asset: MissionEvidenceAsset): boolean {
-  return (
-    asset.kind === "object" &&
-    asset.published_at !== null &&
-    asset.size > EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES
-  );
-}
+import { InlineError } from "@/features/workbench/chat/components/inline-error";
+import { byteText } from "@/lib/format";
+import { evidenceAssetAction, useEvidenceDownload } from "../use-evidence-download";
 
 export function EvidenceAssetRow({ asset }: { readonly asset: MissionEvidenceAsset }) {
   const { download, pending, error } = useEvidenceDownload();
+  const action = evidenceAssetAction(asset);
 
   return (
     <span className="flex flex-col gap-0.5">
@@ -36,7 +22,8 @@ export function EvidenceAssetRow({ asset }: { readonly asset: MissionEvidenceAss
           {assetText(asset)}
           {asset.published_at === null ? " (not published)" : ""}
         </span>
-        {downloadable(asset) && (
+        {asset.kind === "object" && <span>{byteText(asset.size)}</span>}
+        {action === "download" && (
           <Button
             type="button"
             variant="outline"
@@ -48,7 +35,7 @@ export function EvidenceAssetRow({ asset }: { readonly asset: MissionEvidenceAss
           </Button>
         )}
       </span>
-      {tooLarge(asset) && (
+      {action === "too_large" && (
         <span className="break-words">
           Too large for the dashboard. Use{" "}
           <code className="font-mono text-xs break-all">
@@ -57,11 +44,7 @@ export function EvidenceAssetRow({ asset }: { readonly asset: MissionEvidenceAss
           .
         </span>
       )}
-      {error !== null && (
-        <span role="alert" className="break-words text-destructive">
-          {error.detail}: {error.message}
-        </span>
-      )}
+      {error !== null && <InlineError code={error.detail} message={error.message} />}
     </span>
   );
 }

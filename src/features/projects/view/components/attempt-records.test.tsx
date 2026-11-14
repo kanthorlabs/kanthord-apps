@@ -125,6 +125,12 @@ describe("AttemptRecords evidence assets", () => {
     expect(screen.getAllByRole("button", { name: "Download" })).toHaveLength(2);
   });
 
+  it("shows the size of an object asset with byteText", () => {
+    renderRecords([objectAsset("asset_size", 18637, 1)]);
+
+    expect(screen.getByText("18.2 KiB")).toBeInTheDocument();
+  });
+
   it("shows the CLI line with the asset id and no button for an object above 512 MiB", () => {
     renderRecords([objectAsset("asset_big", MAX + 1, 1)]);
 
@@ -155,15 +161,13 @@ describe("AttemptRecords evidence assets", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Download" }));
 
-    const line = await screen.findByText(
-      "mission.evidence.content_unavailable: The storage read failed.",
-    );
+    const region = screen.getByRole("region", { name: "Evidence" });
+    const line = await within(region).findByRole("alert");
+    expect(line).toHaveTextContent("mission.evidence.content_unavailable The storage read failed.");
     expect(downloadEvidenceAsset).toHaveBeenCalledWith("asset_produced");
     const row = line.parentElement as HTMLElement;
     expect(within(row).getByRole("button", { name: "Download" })).toBeInTheDocument();
     expect(line.previousElementSibling).toHaveClass("border-destructive");
-    expect(
-      within(screen.getByRole("region", { name: "Evidence" })).getAllByRole("alert"),
-    ).toHaveLength(1);
+    expect(within(region).getAllByRole("alert")).toHaveLength(1);
   });
 });
