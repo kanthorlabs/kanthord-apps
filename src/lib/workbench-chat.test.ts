@@ -473,4 +473,17 @@ describe("chatItemsOf action card", () => {
 
     expect(items).toEqual([]);
   });
+
+  it("renders nothing for a seen without a string name", () => {
+    const items = chatItemsOf(
+      [
+        record("e1", { ...offer("call_a"), seen: { state: "Blocked", attempt: 1 } }),
+        record("e2", { ...offer("call_b", "project.pause"), seen: { paused: true } }),
+        record("e3", { ...offer("call_c", "project.pause"), seen: { name: 7, paused: true } }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
+  });
 });
