@@ -768,7 +768,7 @@ describe("ChatView", () => {
     const CONTENT_LINE = "SECRET-CONTENT-LINE";
     const download = vi.fn();
 
-    function evidenceResult(size: number) {
+    function evidenceResult(size: number, length = 100) {
       const facts = {
         asset_id: "evidence_asset_1",
         node_id: "node_1",
@@ -776,7 +776,7 @@ describe("ChatView", () => {
         media_type: "text/plain",
         size,
         offset: 10,
-        length: 100,
+        length,
         truncated: true,
       };
       return message("e1", {
@@ -809,6 +809,15 @@ describe("ChatView", () => {
 
       await userEvent.click(within(log).getByRole("button", { name: "Download" }));
       expect(download).toHaveBeenCalledWith("evidence_asset_1");
+    });
+
+    it("shows 0 bytes for a length of 0", () => {
+      pollQueue();
+      mount(session([evidenceResult(120, 0)]));
+
+      const log = screen.getByRole("log", { name: "Transcript" });
+      expect(log).toHaveTextContent("· text/plain · 0.1 KiB · 0 bytes");
+      expect(log).not.toHaveTextContent("–-1");
     });
 
     it("shows the CLI line and no button above 512 MiB", () => {

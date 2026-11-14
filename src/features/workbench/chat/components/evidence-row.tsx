@@ -12,6 +12,7 @@ function grouped(value: number): string {
 }
 
 function rangeText({ offset, length }: EvidenceReadFacts): string {
+  if (length === 0) return "0 bytes";
   return `bytes ${grouped(offset)}–${grouped(offset + length - 1)}`;
 }
 
