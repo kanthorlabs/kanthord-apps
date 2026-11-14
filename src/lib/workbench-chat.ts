@@ -16,6 +16,9 @@ export const ACTION_VERBS: Readonly<Record<WorkbenchActionOperation, string>> = 
   "mission.node.pause": "Pause",
   "project.pause": "Pause",
   "project.resume": "Resume",
+  "llm.credential.rotate": "Rotate",
+  "project.bindingSet.write": "Edit bindings of",
+  "agent.enablement.put": "Edit default of",
 };
 
 export type ActionCardState = "done" | "superseded" | "unknown" | "waiting" | "live";
@@ -84,6 +87,8 @@ const RESULT_TYPE = "kanthord.workbench.action_result";
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
 const NODE_SEEN_KEYS = ["name", "state", "attempt"];
 const PROJECT_SEEN_KEYS = ["name", "paused"];
+const REVISION_SEEN_KEYS = ["revision"];
+const VERSION_SEEN_KEYS = ["version"];
 
 function isRecord(value: unknown): value is Block {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -118,6 +123,12 @@ function hasExactKeys(value: Block, keys: readonly string[]): boolean {
 
 function seenOf(value: unknown): WorkbenchActionOffer["seen"] | null {
   if (!isRecord(value)) return null;
+  if (hasExactKeys(value, REVISION_SEEN_KEYS)) {
+    return typeof value["revision"] === "number" ? { revision: value["revision"] } : null;
+  }
+  if (hasExactKeys(value, VERSION_SEEN_KEYS)) {
+    return typeof value["version"] === "number" ? { version: value["version"] } : null;
+  }
   const name = value["name"];
   if (typeof name !== "string") return null;
   if (hasExactKeys(value, PROJECT_SEEN_KEYS)) {

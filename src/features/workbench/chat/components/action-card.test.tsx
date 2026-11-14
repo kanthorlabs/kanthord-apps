@@ -65,6 +65,54 @@ describe("ActionCard", () => {
     expect(screen.getByRole("button", { name: "Resume node_42" })).toBeVisible();
   });
 
+  it("shows the credential label and the revision line", () => {
+    const item = card({
+      offer: {
+        ...card().offer,
+        operation_id: "llm.credential.rotate",
+        target_id: "anthropic-main",
+        seen: { revision: 3 },
+      },
+    });
+
+    render(<ActionCard item={item} canRun onRun={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Rotate anthropic-main" })).toBeEnabled();
+    expect(screen.getByText("Offered at revision 3")).toBeVisible();
+  });
+
+  it("shows the binding set version line", () => {
+    const item = card({
+      offer: {
+        ...card().offer,
+        operation_id: "project.bindingSet.write",
+        target_id: "project_01",
+        seen: { version: 7 },
+      },
+    });
+
+    render(<ActionCard item={item} canRun onRun={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Edit bindings of project_01" })).toBeVisible();
+    expect(screen.getByText("Offered at binding set version 7")).toBeVisible();
+  });
+
+  it("shows no button on a setup card when canRun is false", () => {
+    const item = card({
+      offer: {
+        ...card().offer,
+        operation_id: "agent.enablement.put",
+        target_id: "ops@1",
+        seen: { revision: 2 },
+      },
+    });
+
+    render(<ActionCard item={item} canRun={false} onRun={vi.fn()} />);
+
+    expect(screen.getByText("Offered at revision 2")).toBeVisible();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
   it("never shows the text of the assistant inside the card", () => {
     render(
       <>
