@@ -14,7 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { agentReadFailure } from "@/api/agent-read-failure";
 import { workbenchListPath } from "@/lib/workbench-sessions";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
-import { GUARD_CLASS_FACTS } from "@/lib/agent-tools";
+import { GUARD_CLASS_FACTS, toolUndoText } from "@/lib/agent-tools";
 import { providerRemovalBlock } from "@/lib/agent-provider-draft";
 import { AgentPromptCard } from "./components/agent-prompt-card";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
@@ -188,7 +188,7 @@ function ToolChip({ tool }: { tool: AgentTool }) {
         {guard !== null && (
           <>
             {tool.description !== "" && <p className="text-sm">{tool.description}</p>}
-            <p className="text-sm text-muted-foreground">{guard.undo}</p>
+            <p className="text-sm text-muted-foreground">{toolUndoText(tool.name, guard)}</p>
           </>
         )}
       </ItemContent>
@@ -219,7 +219,7 @@ function ToolChip({ tool }: { tool: AgentTool }) {
       <TooltipContent>
         <div className="flex flex-col gap-1">
           {tool.description !== "" && <p>{tool.description}</p>}
-          <p>{guard.undo}</p>
+          <p>{toolUndoText(tool.name, guard)}</p>
         </div>
       </TooltipContent>
     </Tooltip>

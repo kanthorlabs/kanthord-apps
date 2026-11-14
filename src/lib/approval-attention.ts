@@ -2,6 +2,8 @@ import type { WorkbenchSessionListItem } from "@/api/types";
 
 import { sessionTitle, workbenchSessionPath } from "./workbench-sessions";
 
+export const EVIDENCE_DOWNLOAD_OPERATION_ID = "mission.evidence.asset.content.download";
+
 export interface ToolApprovalItem {
   readonly id: string;
   readonly group: "decisions";

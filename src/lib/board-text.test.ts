@@ -668,6 +668,17 @@ describe("detailTitleOf", () => {
     expect(detailTitleOf(item, none)).toBe("swe@1 asks to run project.create");
   });
 
+  it("titles an evidence approval Evidence read", () => {
+    const item = itemOf(derive([], none, [SESSION]), "tool_approval:s1");
+
+    expect(
+      detailTitleOf(
+        { ...item, operationId: "mission.evidence.asset.content.download" } as typeof item,
+        none,
+      ),
+    ).toBe("Evidence read");
+  });
+
   it("titles a refused credential", () => {
     const items = derive([
       snapshot([node("n1", "Paused")], {

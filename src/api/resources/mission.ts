@@ -1,7 +1,8 @@
 import { newIdempotencyKey } from "@/lib/idempotency-key";
-import { request } from "../client";
+import { request, requestBlob } from "../client";
 import { readAllPages } from "../pages";
 import type {
+  EvidenceDownload,
   InboxItem,
   InboxItemDoneBody,
   InboxItemList,
@@ -105,6 +106,14 @@ export async function readNodeRevision(nodeId: string, revision: number): Promis
 
 export async function listNodeAttempts(nodeId: string): Promise<readonly MissionAttempt[]> {
   return readAllPages<MissionAttempt>(`/api/mission/node/${encodeURIComponent(nodeId)}/attempt`);
+}
+
+export async function downloadEvidenceAsset(assetId: string): Promise<EvidenceDownload> {
+  const { blob, headers } = await requestBlob(
+    `/api/mission/evidence/asset/${encodeURIComponent(assetId)}/content/download`,
+  );
+  const named = /filename="([^"]+)"/.exec(headers.get("content-disposition") ?? "");
+  return { blob, filename: named?.[1] ?? assetId };
 }
 
 export async function listNodeEvidence(

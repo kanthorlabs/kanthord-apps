@@ -32,7 +32,7 @@ function agent(agentName: string, state: "enabled" | "disabled" | null): AgentSu
     displayName: agentName,
     workerNames: ["coder@1"],
     consumers: ["workbench", "worker"],
-    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
     enablement:
       state === null
         ? null

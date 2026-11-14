@@ -283,7 +283,7 @@ export interface AgentSummary {
   readonly enablement: AgentEnablement | null;
 }
 
-export type AgentToolSource = "builtin" | "kanthord-mcp" | "host" | "operation";
+export type AgentToolSource = "builtin" | "kanthord-mcp" | "host" | "operation" | "workbench";
 
 export type AgentGuardClass = "read" | "card";
 
@@ -842,6 +842,11 @@ export type MissionEvidenceAsset =
       readonly media_type: string;
     })
   | (MissionAssetBase & { readonly kind: "platform"; readonly address: MissionPlatformAddress });
+
+export interface EvidenceDownload {
+  readonly blob: Blob;
+  readonly filename: string;
+}
 
 export interface MissionEvidence {
   readonly id: string;

@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { request, requestText, setConnection } from "./client";
+import { request, requestBlob, requestText, setConnection } from "./client";
 import { ApiError } from "./errors";
 
 let server: Server | null = null;
@@ -81,6 +81,85 @@ describe("requestText", () => {
 
   it("rejects without a connection", async () => {
     await expect(requestText("/api/openapi.yaml")).rejects.toMatchObject({
+      code: "unreachable",
+      message: "No server is connected.",
+    });
+  });
+});
+
+describe("requestBlob", () => {
+  async function serveBlob(
+    status: number,
+    headers: Record<string, string>,
+    body: string,
+  ): Promise<{ authorizations: string[]; port: number }> {
+    const authorizations: string[] = [];
+    const instance = createServer((req, res) => {
+      authorizations.push(req.headers.authorization ?? "");
+      res.writeHead(status, headers);
+      res.end(body);
+    });
+    server = instance;
+    await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
+    const port = (instance.address() as AddressInfo).port;
+    setConnection({ baseUrl: `http://127.0.0.1:${port}`, token: "jwt-1" });
+    return { authorizations, port };
+  }
+
+  it("sends the bearer token and answers the blob", async () => {
+    const { authorizations } = await serveBlob(
+      200,
+      { "content-type": "application/octet-stream" },
+      "bytes",
+    );
+    const answer = await requestBlob("/api/mission/evidence/asset/a/content/download");
+    expect(await answer.blob.text()).toBe("bytes");
+    expect(authorizations).toEqual(["Bearer jwt-1"]);
+  });
+
+  it("reads the file name of a cross-origin answer through the exposed header", async () => {
+    await serveBlob(
+      200,
+      {
+        "content-type": "application/octet-stream",
+        "content-disposition": 'attachment; filename="asset_1.txt"',
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "Content-Disposition",
+      },
+      "bytes",
+    );
+    const answer = await requestBlob("/api/mission/evidence/asset/asset_1/content/download");
+    expect(answer.headers.get("content-disposition")).toBe('attachment; filename="asset_1.txt"');
+  });
+
+  it("throws the envelope of a 502 as an ApiError", async () => {
+    await serveBlob(
+      502,
+      { "content-type": "application/json" },
+      JSON.stringify({
+        error: {
+          code: "mission.evidence.content_unavailable",
+          message: "The storage read failed.",
+        },
+      }),
+    );
+    const failure = await requestBlob("/x").catch((cause: unknown) => cause);
+    expect(failure).toBeInstanceOf(ApiError);
+    expect(failure).toMatchObject({
+      code: "malformed",
+      status: 502,
+      message: "The storage read failed.",
+      detail: "mission.evidence.content_unavailable",
+    });
+  });
+
+  it("throws a failed answer without JSON as an ApiError", async () => {
+    await serveBlob(502, { "content-type": "text/plain" }, "bad gateway");
+    await expect(requestBlob("/x")).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("rejects without a connection", async () => {
+    await expect(requestBlob("/x")).rejects.toMatchObject({
       code: "unreachable",
       message: "No server is connected.",
     });

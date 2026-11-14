@@ -68,6 +68,31 @@ export async function requestText(path: string): Promise<string> {
   return text;
 }
 
+export async function requestBlob(path: string): Promise<{ blob: Blob; headers: Headers }> {
+  const target = current;
+  if (target === null) throw new ApiError("unreachable", "No server is connected.", 0);
+  const url = joinUrl(target.baseUrl, path);
+  const headers: Record<string, string> = { accept: "*/*" };
+  if (target.token !== null) headers["authorization"] = `Bearer ${target.token}`;
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "GET", headers });
+  } catch {
+    throw new ApiError("unreachable", "The daemon did not answer.", 0, url);
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = null;
+    }
+    throw failureOf(response.status, body);
+  }
+  return { blob: await response.blob(), headers: response.headers };
+}
+
 export async function request<T>(
   path: string,
   init: {

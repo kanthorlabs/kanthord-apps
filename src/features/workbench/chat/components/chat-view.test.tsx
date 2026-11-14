@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
+import type * as EvidenceDownload from "@/features/projects/view/use-evidence-download";
 import type {
   AgentEnablement,
   WorkbenchRunSnapshot,
@@ -17,7 +18,12 @@ import type {
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
+vi.mock("@/features/projects/view/use-evidence-download", async (importOriginal) => ({
+  ...(await importOriginal<typeof EvidenceDownload>()),
+  useEvidenceDownload: vi.fn(),
+}));
 
+import { useEvidenceDownload } from "@/features/projects/view/use-evidence-download";
 import { ChatView } from "./chat-view";
 
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
@@ -756,5 +762,95 @@ describe("ChatView", () => {
     expect(await screen.findByText("Hel")).toBeTruthy();
     expect(screen.getByText("SWE")).toBeTruthy();
     expect(screen.getAllByText(/UTC$/)).toHaveLength(1);
+  });
+
+  describe("evidence row", () => {
+    const CONTENT_LINE = "SECRET-CONTENT-LINE";
+    const download = vi.fn();
+
+    function evidenceResult(size: number, length = 100) {
+      const facts = {
+        asset_id: "evidence_asset_1",
+        node_id: "node_1",
+        attempt: 2,
+        media_type: "text/plain",
+        size,
+        offset: 10,
+        length,
+        truncated: true,
+      };
+      return message("e1", {
+        role: "toolResult",
+        toolCallId: "call_1",
+        toolName: "evidence_read",
+        isError: false,
+        details: facts,
+        content: [
+          { type: "text", text: JSON.stringify(facts) },
+          { type: "text", text: CONTENT_LINE },
+        ],
+      });
+    }
+
+    beforeEach(() => {
+      download.mockReset();
+      vi.mocked(useEvidenceDownload).mockReturnValue({ download, pending: false, error: null });
+    });
+
+    it("renders the facts and Download and no content line", async () => {
+      pollQueue();
+      mount(session([evidenceResult(120)]));
+
+      const log = screen.getByRole("log", { name: "Transcript" });
+      expect(within(log).getByText("evidence_read").tagName).toBe("CODE");
+      expect(log).toHaveTextContent("· evidence_asset_1 · text/plain · 0.1 KiB · bytes 10–109");
+      expect(log).toHaveTextContent("node_1 · attempt 2 · offset 10 · length 100 · truncated true");
+      expect(log).not.toHaveTextContent(CONTENT_LINE);
+
+      await userEvent.click(within(log).getByRole("button", { name: "Download" }));
+      expect(download).toHaveBeenCalledWith("evidence_asset_1");
+      expect(log.querySelector("details")).not.toHaveAttribute("open");
+    });
+
+    it("shows 0 bytes for a length of 0", () => {
+      pollQueue();
+      mount(session([evidenceResult(120, 0)]));
+
+      const log = screen.getByRole("log", { name: "Transcript" });
+      expect(log).toHaveTextContent("· text/plain · 0.1 KiB · 0 bytes");
+      expect(log).not.toHaveTextContent("–-1");
+    });
+
+    it("shows the CLI line and no button above 512 MiB", () => {
+      pollQueue();
+      mount(session([evidenceResult(536870913)]));
+
+      const log = screen.getByRole("log", { name: "Transcript" });
+      expect(within(log).queryByRole("button", { name: "Download" })).toBeNull();
+      expect(log).toHaveTextContent(
+        "Too large for the dashboard. Use kanthord mission evidence asset content get evidence_asset_1.",
+      );
+    });
+
+    it("shows the error line directly under the row", () => {
+      pollQueue();
+      vi.mocked(useEvidenceDownload).mockReturnValue({
+        download,
+        pending: false,
+        error: new ApiError(
+          "malformed",
+          "The storage read failed.",
+          502,
+          "mission.evidence.content_unavailable",
+        ),
+      });
+      mount(session([evidenceResult(120)]));
+
+      const error = screen.getByRole("alert");
+      expect(error).toHaveTextContent(
+        "mission.evidence.content_unavailable: The storage read failed.",
+      );
+      expect(error.previousElementSibling).toHaveClass("border-destructive");
+    });
   });
 });

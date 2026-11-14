@@ -86,7 +86,7 @@ function agent(agentName: string, enabled: boolean): AgentSummary {
     displayName: agentName,
     workerNames: [agentName === "swe@1" ? "coder@1" : "reviewer@1"],
     consumers: ["workbench", "worker"],
-    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
     enablement: enabled
       ? {
           agent_name: agentName,
