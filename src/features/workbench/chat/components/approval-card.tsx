@@ -15,12 +15,7 @@ interface ApprovalCardProps {
   readonly onDecide: (approved: boolean) => void;
 }
 
-const EVIDENCE_FACTS = [
-  ["Node", "node_id"],
-  ["Attempt", "attempt"],
-  ["Asset", "asset_id"],
-  ["Kind", "kind"],
-] as const;
+const EVIDENCE_FACTS = ["node_id", "attempt", "asset_id", "kind"] as const;
 
 function EvidenceBody({
   approval,
@@ -29,15 +24,11 @@ function EvidenceBody({
   const { input } = approval;
   return (
     <CardContent className="grid min-w-0 gap-2 text-sm">
-      <div className="flex min-w-0 items-baseline gap-1.5">
-        <span className="shrink-0 text-muted-foreground">Agent</span>
-        <span className="min-w-0 break-words">{agentDisplayName}</span>
-      </div>
-      {EVIDENCE_FACTS.map(([label, key]) => (
-        <div key={key} className="flex min-w-0 items-baseline gap-1.5">
-          <span className="shrink-0 text-muted-foreground">{label}</span>
-          <span className="min-w-0 font-mono break-all">{String(input[key])}</span>
-        </div>
+      <p className="min-w-0 break-words">agent: {agentDisplayName}</p>
+      {EVIDENCE_FACTS.map((key) => (
+        <p key={key} className="min-w-0 font-mono break-all">
+          {key}: {String(input[key])}
+        </p>
       ))}
       <p>
         Approve lets this conversation read every evidence asset of node {String(input["node_id"])}{" "}
@@ -85,11 +76,11 @@ export function ApprovalCard({
         >
           <CardHeader>
             <h3 className="font-semibold leading-none">{title}</h3>
-            <p className="text-sm text-muted-foreground">
-              {evidence
-                ? "The agent asks to read evidence. The call waits for your decision."
-                : "The agent asks to run a mutation. The call waits for your decision."}
-            </p>
+            {!evidence && (
+              <p className="text-sm text-muted-foreground">
+                The agent asks to run a mutation. The call waits for your decision.
+              </p>
+            )}
           </CardHeader>
           {evidence ? (
             <EvidenceBody approval={approval} agentDisplayName={agentDisplayName} />

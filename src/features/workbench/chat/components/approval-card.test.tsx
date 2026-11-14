@@ -42,15 +42,16 @@ describe("ApprovalCard", () => {
 
     const card = screen.getByRole("group", { name: "Evidence read" });
     expect(within(card).getByRole("heading", { name: "Evidence read" })).toBeTruthy();
-    expect(within(card).getByText("RE")).toBeTruthy();
-    expect(within(card).getByText("node_42")).toBeTruthy();
-    expect(within(card).getByText("3")).toBeTruthy();
-    expect(within(card).getByText("evidence_asset_9")).toBeTruthy();
-    expect(within(card).getByText("object")).toBeTruthy();
+    expect(within(card).getByText("agent: RE")).toBeTruthy();
+    expect(within(card).getByText("node_id: node_42")).toBeTruthy();
+    expect(within(card).getByText("attempt: 3")).toBeTruthy();
+    expect(within(card).getByText("asset_id: evidence_asset_9")).toBeTruthy();
+    expect(within(card).getByText("kind: object")).toBeTruthy();
     expect(card).toHaveTextContent(
       "Approve lets this conversation read every evidence asset of node node_42 until kanthord restarts.",
     );
     expect(within(card).queryByText("Operation ID")).toBeNull();
+    expect(within(card).queryByText(/The agent asks to/)).toBeNull();
   });
 
   it("decides an evidence card with Approve and Reject", async () => {
