@@ -24,6 +24,8 @@ import type { CredentialRefusedItem } from "@/lib/fix-attention";
 export interface BoardRotate {
   readonly name: string;
   readonly missing: string | null;
+  readonly revision: number | null;
+  readonly loading: boolean;
   readonly shape: SecretShape | null;
   readonly keptHolders: readonly string[];
   readonly open: boolean;
@@ -40,6 +42,18 @@ export interface BoardRotate {
   readonly setSecret: (secret: SecretDraft) => void;
   readonly choose: (labels: readonly string[]) => void;
   readonly submit: () => void;
+}
+
+export interface RotatedCopies {
+  readonly revision: number;
+  readonly holders: readonly string[];
+  readonly server: boolean;
+}
+
+export interface NamedRotateOptions {
+  readonly reload: () => void;
+  readonly onActed: (rotated: RotatedCopies) => void;
+  readonly onOpenChange: (open: boolean) => void;
 }
 
 interface RotateContext {
@@ -63,26 +77,22 @@ function revisionOf(results: readonly PromiseSettledResult<Credential>[]) {
   return first === undefined ? null : newestLiveRevision(first.value);
 }
 
-function rotatedActOf(
+function rotatedOf(
   targets: readonly RotateTarget[],
   results: readonly PromiseSettledResult<Credential>[],
-  paused: number,
-): ActedAct | null {
+): RotatedCopies | null {
   const revision = revisionOf(results);
   if (revision === null) return null;
   const holders = targets.flatMap((target, index) =>
     target.holder !== SERVER && results[index]?.status === "fulfilled" ? [target.holder] : [],
   );
-  return { id: "rotate", revision: revision.revision, holders, paused };
+  return { revision: revision.revision, holders, server: results[0]?.status === "fulfilled" };
 }
 
-export function useBoardRotate(
-  item: CredentialRefusedItem,
-  { reload, paused, markActed, setDialogOpen }: RotateContext,
+export function useNamedRotate(
+  name: string,
+  { reload, onActed, onOpenChange }: NamedRotateOptions,
 ): BoardRotate {
-  const name = item.credential;
-  const itemId = item.id;
-  const nodeId = item.nodeIds[0] ?? itemId;
   const rows = useResource(() => listAllCredentials("llm"), [name]);
   const { reload: reloadRows } = rows;
   const platforms = useCredentialPlatforms("llm");
@@ -92,7 +102,7 @@ export function useBoardRotate(
   const [checked, setChecked] = useState<readonly string[]>(NO_HOLDERS);
   const [failure, setFailure] = useState<WriteFailure | null>(null);
   const [outcome, setOutcome] = useState<readonly string[]>(NO_LINES);
-  const [acted, setActed] = useState<ActedAct | null>(null);
+  const [acted, setActed] = useState<RotatedCopies | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const copy = rows.data?.find((row) => row.name === name && row.holder === SERVER) ?? null;
@@ -116,9 +126,9 @@ export function useBoardRotate(
 
   useEffect(() => {
     if (!open) return undefined;
-    setDialogOpen(itemId, nodeId, true);
-    return () => setDialogOpen(itemId, nodeId, false);
-  }, [itemId, nodeId, open, setDialogOpen]);
+    onOpenChange(true);
+    return () => onOpenChange(false);
+  }, [open, onOpenChange]);
 
   const start = useCallback(() => {
     if (missing !== null) return;
@@ -132,14 +142,14 @@ export function useBoardRotate(
   }, [missing]);
 
   const leave = useCallback(
-    (act: ActedAct | null) => {
+    (rotated: RotatedCopies | null) => {
       setSecret(EMPTY_SECRET);
       setOpen(false);
-      if (act === null) return;
-      markActed(itemId, act);
+      if (rotated === null) return;
+      onActed(rotated);
       reload();
     },
-    [markActed, itemId, reload],
+    [onActed, reload],
   );
 
   const close = useCallback(() => {
@@ -192,11 +202,11 @@ export function useBoardRotate(
           ? [{ holder: targets[index]?.holder ?? "", cause: result.reason as unknown }]
           : [],
       );
-      const act = rotatedActOf(targets, results, paused);
-      setActed(act);
+      const rotated = rotatedOf(targets, results);
+      setActed(rotated);
       if (lost.length === 0) {
         toast.success(`Rotated ${name} to revision ${revisionOf(results)?.revision ?? "?"}.`);
-        leave(act);
+        leave(rotated);
         return;
       }
       if (targets.length === 1) {
@@ -209,11 +219,13 @@ export function useBoardRotate(
         ),
       );
     });
-  }, [submitting, serverRevision, entry, secret, others, checked, name, paused, leave]);
+  }, [submitting, serverRevision, entry, secret, others, checked, name, leave]);
 
   return {
     name,
     missing,
+    revision: serverRevision,
+    loading: rows.loading || platforms.loading,
     shape: entry?.secret_shape ?? null,
     keptHolders: oauth ? holders.map((target) => target.holder) : NO_HOLDERS,
     open,
@@ -231,4 +243,26 @@ export function useBoardRotate(
     choose,
     submit,
   };
+}
+
+export function useBoardRotate(
+  item: CredentialRefusedItem,
+  { reload, paused, markActed, setDialogOpen }: RotateContext,
+): BoardRotate {
+  const nodeId = item.nodeIds[0] ?? item.id;
+  const onActed = useCallback(
+    (rotated: RotatedCopies) =>
+      markActed(item.id, {
+        id: "rotate",
+        revision: rotated.revision,
+        holders: rotated.holders,
+        paused,
+      }),
+    [markActed, item.id, paused],
+  );
+  const onOpenChange = useCallback(
+    (open: boolean) => setDialogOpen(item.id, nodeId, open),
+    [setDialogOpen, item.id, nodeId],
+  );
+  return useNamedRotate(item.credential, { reload, onActed, onOpenChange });
 }
