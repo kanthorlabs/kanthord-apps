@@ -86,7 +86,9 @@ export function ApprovalCard({
           <CardHeader>
             <h3 className="font-semibold leading-none">{title}</h3>
             <p className="text-sm text-muted-foreground">
-              The agent asks to run a mutation. The call waits for your decision.
+              {evidence
+                ? "The agent asks to read evidence. The call waits for your decision."
+                : "The agent asks to run a mutation. The call waits for your decision."}
             </p>
           </CardHeader>
           {evidence ? (

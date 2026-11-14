@@ -68,11 +68,8 @@ export async function requestText(path: string): Promise<string> {
   return text;
 }
 
-export async function requestBlob(
-  path: string,
-  connection?: Connection,
-): Promise<{ blob: Blob; headers: Headers }> {
-  const target = connection ?? current;
+export async function requestBlob(path: string): Promise<{ blob: Blob; headers: Headers }> {
+  const target = current;
   if (target === null) throw new ApiError("unreachable", "No server is connected.", 0);
   const url = joinUrl(target.baseUrl, path);
   const headers: Record<string, string> = { accept: "*/*" };
