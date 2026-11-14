@@ -44,7 +44,9 @@ export function EvidenceAssetRow({ asset }: { readonly asset: MissionEvidenceAss
           .
         </span>
       )}
-      {error !== null && <InlineError code={error.detail} message={error.message} />}
+      {error !== null && (
+        <InlineError code={error.detail === "" ? null : error.detail} message={error.message} />
+      )}
     </span>
   );
 }

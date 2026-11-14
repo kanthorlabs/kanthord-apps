@@ -170,4 +170,17 @@ describe("AttemptRecords evidence assets", () => {
     expect(line.previousElementSibling).toHaveClass("border-destructive");
     expect(within(region).getAllByRole("alert")).toHaveLength(1);
   });
+
+  it("shows the message alone when the error holds no code", async () => {
+    vi.mocked(downloadEvidenceAsset).mockRejectedValue(
+      new ApiError("unreachable", "No server is connected.", 0),
+    );
+    renderRecords([PRODUCED]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Download" }));
+
+    const region = screen.getByRole("region", { name: "Evidence" });
+    const line = await within(region).findByRole("alert");
+    expect(line.textContent).toBe("No server is connected.");
+  });
 });
