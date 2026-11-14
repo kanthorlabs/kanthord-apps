@@ -809,6 +809,7 @@ describe("ChatView", () => {
 
       await userEvent.click(within(log).getByRole("button", { name: "Download" }));
       expect(download).toHaveBeenCalledWith("evidence_asset_1");
+      expect(log.querySelector("details")).not.toHaveAttribute("open");
     });
 
     it("shows 0 bytes for a length of 0", () => {

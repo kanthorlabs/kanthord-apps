@@ -7,6 +7,8 @@ import { asApiError } from "@/hooks/use-resource";
 
 export const EVIDENCE_DOWNLOAD_BLOB_MAX_BYTES = 536870912;
 
+const OBJECT_URL_REVOKE_DELAY_MS = 1000;
+
 export type EvidenceAssetAction = "download" | "too_large" | "none";
 
 export function evidenceSizeAction(size: number): "download" | "too_large" {
@@ -36,7 +38,7 @@ function saveBlob(blob: Blob, filename: string): void {
     link.click();
     link.remove();
   } finally {
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), OBJECT_URL_REVOKE_DELAY_MS);
   }
 }
 

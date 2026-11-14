@@ -20,6 +20,7 @@ let clicked: { download: string; href: string }[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.useFakeTimers();
   clicked = [];
   Object.assign(URL, { createObjectURL, revokeObjectURL });
   vi.stubGlobal("open", open);
@@ -31,6 +32,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -51,6 +53,8 @@ describe("useEvidenceDownload", () => {
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(createObjectURL).toHaveBeenCalledWith(blob);
     expect(clicked).toEqual([{ download: "asset_1.txt", href: "blob:evidence-1" }]);
+    expect(revokeObjectURL).not.toHaveBeenCalled();
+    vi.runAllTimers();
     expect(revokeObjectURL).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:evidence-1");
     expect(open).not.toHaveBeenCalled();

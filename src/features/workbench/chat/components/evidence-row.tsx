@@ -41,7 +41,10 @@ export function EvidenceRow({ facts }: { readonly facts: EvidenceReadFacts }) {
               variant="outline"
               size="xs"
               disabled={pending}
-              onClick={() => void download(facts.asset_id)}
+              onClick={(event) => {
+                event.preventDefault();
+                void download(facts.asset_id);
+              }}
             >
               Download
             </Button>
