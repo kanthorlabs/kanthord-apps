@@ -92,7 +92,7 @@ const SWE_ENABLEMENT = {
   revision: 2,
 };
 
-const NO_TOOLS = { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 };
+const NO_TOOLS = { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 };
 
 const OPS_ITEM = {
   agent_name: "ops@1",

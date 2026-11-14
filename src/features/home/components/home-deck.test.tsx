@@ -597,6 +597,24 @@ describe("HomeDeck acts", () => {
     expect(within(sheet).getByRole("button", { name: "Open chat" })).toBeVisible();
   });
 
+  it("titles the deck card of an evidence approval Evidence read", () => {
+    vi.mocked(readWorkbenchEvents).mockResolvedValue(
+      pendingApproval({ node_id: "node_1", attempt: 1, asset_id: "asset_1", kind: "object" }),
+    );
+    mount(overviewOf([{ ...APPROVAL, operationId: "mission.evidence.asset.content.download" }]));
+
+    const card = screen.getByRole("group", { name: "Primary: Create project" });
+    expect(within(card).getByText("Evidence read")).toBeVisible();
+    expect(within(card).queryByText(/asks to run/)).toBeNull();
+  });
+
+  it("keeps the title of another tool approval", () => {
+    mount(overviewOf([APPROVAL]));
+
+    const card = screen.getByRole("group", { name: "Primary: Create project" });
+    expect(within(card).getByText("swe@1 asks to run project.create")).toBeVisible();
+  });
+
   it("leads a finding card with Decide, which opens the finding sheet", async () => {
     const user = userEvent.setup();
     mount(overviewOf([FINDINGS]));

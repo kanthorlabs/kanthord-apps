@@ -104,7 +104,7 @@ const OPS_SUMMARY = {
   displayName: "Yumi",
   workerNames: [],
   consumers: ["workbench"],
-  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3 },
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3, workbench: 0 },
   enablement: null,
 } as const;
 
@@ -139,7 +139,7 @@ beforeEach(() => {
       displayName: "SWE",
       workerNames: ["coder@1"],
       consumers: ["workbench", "worker"],
-      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
       enablement: null,
     },
   ]);

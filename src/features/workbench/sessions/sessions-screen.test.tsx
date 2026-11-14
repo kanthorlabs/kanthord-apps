@@ -53,7 +53,7 @@ function agents(enablement: AgentEnablement | null): readonly AgentSummary[] {
       displayName: "SWE",
       workerNames: ["general-main"],
       consumers: ["workbench", "worker"],
-      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
       enablement,
     },
     {
@@ -61,7 +61,7 @@ function agents(enablement: AgentEnablement | null): readonly AgentSummary[] {
       displayName: "RE",
       workerNames: ["general-main"],
       consumers: ["workbench", "worker"],
-      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
       enablement: null,
     },
   ];
@@ -72,7 +72,7 @@ const OPS: AgentSummary = {
   displayName: "Yumi",
   workerNames: [],
   consumers: ["workbench"],
-  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3 },
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3, workbench: 0 },
   enablement: { ...ENABLEMENT, agent_name: "ops@1" },
 };
 

@@ -136,6 +136,7 @@ export function ChatView({
           (approvalLine ?? (
             <ApprovalCard
               approval={snapshot.pending_approval}
+              agentDisplayName={agentDisplayName}
               busy={actions.busy}
               failure={approvalFailure}
               onDecide={(approved) => {

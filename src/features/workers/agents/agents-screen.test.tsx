@@ -18,7 +18,7 @@ const SWE: AgentSummary = {
   displayName: "SWE",
   workerNames: ["coder@1"],
   consumers: ["workbench", "worker"],
-  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
   enablement: {
     agent_name: "swe@1",
     state: "enabled",
@@ -41,7 +41,7 @@ const RE: AgentSummary = {
   displayName: "RE",
   workerNames: ["reviewer@1"],
   consumers: ["workbench", "worker"],
-  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 },
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
   enablement: null,
 };
 
@@ -50,7 +50,7 @@ const OPS: AgentSummary = {
   displayName: "Yumi",
   workerNames: [],
   consumers: ["workbench"],
-  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3 },
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3, workbench: 0 },
   enablement: null,
 };
 
@@ -96,7 +96,10 @@ describe("AgentsScreen", () => {
 
   it("shows the non-zero tool counts of a row and No tools for an agent with none", async () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue([
-      { ...SWE, toolCounts: { builtin: 7, "kanthord-mcp": 0, host: 1, operation: 7 } },
+      {
+        ...SWE,
+        toolCounts: { builtin: 7, "kanthord-mcp": 0, host: 1, operation: 7, workbench: 0 },
+      },
       RE,
     ]);
     mount();

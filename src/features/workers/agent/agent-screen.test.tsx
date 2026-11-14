@@ -240,6 +240,38 @@ describe("AgentScreen", () => {
     expect(within(card as HTMLElement).getByText("Waits on your card.")).toBeTruthy();
   });
 
+  it("shows the evidence_read chip with the class card, the source workbench and its hover text", async () => {
+    vi.mocked(workersApi.readAgent).mockResolvedValue({
+      ...RE,
+      tools: [
+        {
+          name: "evidence_read",
+          source: "workbench",
+          description: "Read the content of one evidence asset of a node.",
+          guard_class: "card",
+          input_schema: {},
+        },
+      ],
+    });
+    mount();
+
+    const [chip] = within(await screen.findByRole("list", { name: "Tools" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(chip as HTMLElement).getByText("card")).toBeTruthy();
+    expect(within(chip as HTMLElement).getByText("workbench")).toBeTruthy();
+    act(() => (chip as HTMLElement).focus());
+
+    await waitFor(
+      () =>
+        expect(
+          screen.getAllByText("Asks your approval once per node in a conversation."),
+        ).toHaveLength(2),
+      { timeout: 2000 },
+    );
+    expect(screen.queryByText("Waits on your card.")).toBeNull();
+  });
+
   it("repeats the description and the undo line of a read chip on hover", async () => {
     vi.mocked(workersApi.readAgent).mockResolvedValue(OPS);
     mount();

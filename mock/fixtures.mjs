@@ -155,7 +155,7 @@ export const WORKER_REGISTRATIONS = [
 ];
 
 const toolCountsOf = (tools) => {
-  const counts = { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0 };
+  const counts = { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 };
   for (const tool of tools) counts[tool.source] += 1;
   return counts;
 };
@@ -192,7 +192,16 @@ const OPS_TOOLS = [
   },
 ];
 
-const RE_TOOLS = ["read", "grep", "find", "ls"].map(builtinTool);
+const RE_TOOLS = [
+  ...["read", "grep", "find", "ls"].map(builtinTool),
+  {
+    name: "evidence_read",
+    source: "workbench",
+    description: "Read the content of one evidence asset of a node.",
+    guard_class: "card",
+    input_schema: TOOL_INPUT,
+  },
+];
 
 const SWE_TOOLS = [
   ...["read", "edit", "write", "grep", "find", "ls", "bash"].map(builtinTool),
@@ -2274,6 +2283,17 @@ const SESSION_BASE = Date.parse("2026-10-05T09:00:00.000Z");
 const entryAt = (index) => new Date(SESSION_BASE + index * 60000).toISOString();
 const textMessage = (role, text) => ({ role, content: [{ type: "text", text }] });
 
+const EVIDENCE_READ_FACTS = {
+  asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0AB4",
+  node_id: ids.webhook,
+  attempt: 1,
+  media_type: "text/plain",
+  size: 2048,
+  offset: 0,
+  length: 1024,
+  truncated: true,
+};
+
 export const WORKBENCH_SESSIONS = [
   {
     id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1",
@@ -2395,6 +2415,90 @@ export const WORKBENCH_SESSIONS = [
               id: "call_approval_01",
               name: "project.create",
               arguments: { name: "account-recovery" },
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB4",
+    agent_name: "re@1",
+    created: SESSION_BASE + 2 * 86400000 + 3600000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    approval: {
+      tool_call_id: "call_evidence_02",
+      operation_id: "mission.evidence.asset.content.download",
+      input: {
+        node_id: ids.webhook,
+        attempt: 1,
+        evidence_id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0RC2",
+        asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0AB5",
+        kind: "object",
+      },
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000401",
+        parentId: null,
+        timestamp: entryAt(3000),
+        message: { role: "user", content: "Read the evidence of the webhook handler" },
+      },
+      {
+        type: "message",
+        id: "e0000402",
+        parentId: "e0000401",
+        timestamp: entryAt(3001),
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              id: "call_evidence_01",
+              name: "evidence_read",
+              arguments: { asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0AB4" },
+            },
+          ],
+        },
+      },
+      {
+        type: "message",
+        id: "e0000403",
+        parentId: "e0000402",
+        timestamp: entryAt(3002),
+        message: {
+          role: "toolResult",
+          toolCallId: "call_evidence_01",
+          toolName: "evidence_read",
+          isError: false,
+          content: [
+            { type: "text", text: JSON.stringify(EVIDENCE_READ_FACTS) },
+            {
+              type: "text",
+              text: "Mock evidence content line one.\nMock evidence content line two.",
+            },
+          ],
+          details: EVIDENCE_READ_FACTS,
+        },
+      },
+      {
+        type: "message",
+        id: "e0000404",
+        parentId: "e0000403",
+        timestamp: entryAt(3003),
+        message: {
+          role: "assistant",
+          content: [
+            {
+              type: "toolCall",
+              id: "call_evidence_02",
+              name: "evidence_read",
+              arguments: { asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0AB5" },
             },
           ],
         },

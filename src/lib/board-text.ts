@@ -4,6 +4,7 @@ import type {
   FindingReviewItem,
   OutsideAttentionItem,
 } from "./attention";
+import { EVIDENCE_DOWNLOAD_OPERATION_ID } from "./approval-attention";
 import { type BoardTab, openProposalsReadOf } from "./board-tabs";
 import { counted } from "./counted";
 import { codeLabel, stopLabel } from "./execution-stop";
@@ -136,7 +137,11 @@ function lowerCauseOf(
 }
 
 export function detailTitleOf(item: AttentionItem, details: AttentionDetails): string {
-  if (item.kind === "tool_approval") return `${item.agent} asks to run ${item.operationId}`;
+  if (item.kind === "tool_approval") {
+    return item.operationId === EVIDENCE_DOWNLOAD_OPERATION_ID
+      ? "Evidence read"
+      : `${item.agent} asks to run ${item.operationId}`;
+  }
   if (item.kind === "inbox_item") return item.subject;
   if (item.kind === "credential_refused") return `Provider refuses credential ${item.credential}`;
   if (item.kind === "environment_failed") return `Environment ${item.binding} failed`;

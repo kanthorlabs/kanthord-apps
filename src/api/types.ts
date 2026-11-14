@@ -283,7 +283,7 @@ export interface AgentSummary {
   readonly enablement: AgentEnablement | null;
 }
 
-export type AgentToolSource = "builtin" | "kanthord-mcp" | "host" | "operation";
+export type AgentToolSource = "builtin" | "kanthord-mcp" | "host" | "operation" | "workbench";
 
 export type AgentGuardClass = "read" | "card";
 
