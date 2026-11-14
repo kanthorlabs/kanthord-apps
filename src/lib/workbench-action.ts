@@ -28,6 +28,21 @@ export function projectChangeLineOf(
   return changedLineOf(offer, paused ? "paused" : "active");
 }
 
+export function revisionChangeLineOf(
+  offer: WorkbenchActionOffer,
+  revision: number | null,
+): string | null {
+  const { seen } = offer;
+  if ("revision" in seen && seen.revision === revision) return null;
+  return changedLineOf(offer, revision === null ? "without a revision" : `revision ${revision}`);
+}
+
+export function versionChangeLineOf(offer: WorkbenchActionOffer, version: number): string | null {
+  const { seen } = offer;
+  if ("version" in seen && seen.version === version) return null;
+  return changedLineOf(offer, `binding set version ${version}`);
+}
+
 const DANGER_OPERATIONS: readonly string[] = ["mission.node.discard", "mission.node.override"];
 
 export function actionVerbOf(operationId: string): string | null {
