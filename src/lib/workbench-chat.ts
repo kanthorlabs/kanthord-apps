@@ -20,6 +20,17 @@ export const ACTION_VERBS: Readonly<Record<WorkbenchActionOperation, string>> = 
 
 export type ActionCardState = "done" | "superseded" | "unknown" | "waiting" | "live";
 
+export interface EvidenceReadFacts {
+  readonly asset_id: string;
+  readonly node_id: string;
+  readonly attempt: number;
+  readonly media_type: string;
+  readonly size: number;
+  readonly offset: number;
+  readonly length: number;
+  readonly truncated: boolean;
+}
+
 export type ChatItem =
   | {
       readonly kind: "user";
@@ -49,6 +60,11 @@ export type ChatItem =
       readonly isError: boolean;
     }
   | {
+      readonly kind: "evidence-row";
+      readonly id: string;
+      readonly facts: EvidenceReadFacts;
+    }
+  | {
       readonly kind: "action-card";
       readonly id: string;
       readonly offer: WorkbenchActionOffer;
@@ -62,6 +78,7 @@ type Block = Readonly<Record<string, unknown>>;
 
 const SUMMARY_LIMIT = 80;
 const OFFER_TOOL = "offer_action";
+const EVIDENCE_READ_TOOL = "evidence_read";
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
@@ -228,6 +245,51 @@ function assistantItems(
   return items;
 }
 
+function evidenceFactsOf(value: unknown): EvidenceReadFacts | null {
+  if (!isRecord(value)) return null;
+  const { asset_id, node_id, attempt, media_type, size, offset, length, truncated } = value;
+  if (
+    typeof asset_id !== "string" ||
+    typeof node_id !== "string" ||
+    typeof media_type !== "string" ||
+    typeof attempt !== "number" ||
+    typeof size !== "number" ||
+    typeof offset !== "number" ||
+    typeof length !== "number" ||
+    typeof truncated !== "boolean"
+  ) {
+    return null;
+  }
+  return { asset_id, node_id, attempt, media_type, size, offset, length, truncated };
+}
+
+function firstTextOf(blocks: readonly Block[]): string {
+  return textOf(blocks.filter((block) => block["type"] === "text").slice(0, 1));
+}
+
+function evidenceFactsOfResult(message: Block): EvidenceReadFacts | null {
+  const fromDetails = evidenceFactsOf(message["details"]);
+  if (fromDetails !== null) return fromDetails;
+  try {
+    return evidenceFactsOf(JSON.parse(firstTextOf(blocksOf(message["content"]))));
+  } catch {
+    return null;
+  }
+}
+
+function toolResultItems(id: string, message: Block): readonly ChatItem[] {
+  const name = stringOf(message["toolName"]);
+  const isError = message["isError"] === true;
+  if (name === EVIDENCE_READ_TOOL && !isError) {
+    const facts = evidenceFactsOfResult(message);
+    if (facts !== null) return [{ kind: "evidence-row", id, facts }];
+    return [
+      { kind: "tool-result", id, name, text: firstTextOf(blocksOf(message["content"])), isError },
+    ];
+  }
+  return [{ kind: "tool-result", id, name, text: textOf(blocksOf(message["content"])), isError }];
+}
+
 function entryItems(
   entry: WorkbenchSessionEntry,
   index: number,
@@ -260,15 +322,7 @@ function entryItems(
     );
   }
   if (role === "toolResult" && message["toolName"] !== OFFER_TOOL) {
-    return [
-      {
-        kind: "tool-result",
-        id: entry.id,
-        name: stringOf(message["toolName"]),
-        text: textOf(blocksOf(message["content"])),
-        isError: message["isError"] === true,
-      },
-    ];
+    return toolResultItems(entry.id, message);
   }
   return [];
 }

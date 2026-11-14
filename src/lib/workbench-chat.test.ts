@@ -468,3 +468,93 @@ describe("chatItemsOf action card", () => {
     expect(items).toEqual([]);
   });
 });
+
+describe("chatItemsOf evidence_read", () => {
+  const FACTS = {
+    asset_id: "evidence_asset_1",
+    node_id: "node_1",
+    attempt: 2,
+    media_type: "text/plain",
+    size: 120,
+    offset: 0,
+    length: 100,
+    truncated: true,
+  };
+  const CONTENT = "SECRET-CONTENT-LINE";
+
+  function result(extra: Record<string, unknown>, isError = false) {
+    return message("e1", {
+      role: "toolResult",
+      toolCallId: "call_1",
+      toolName: "evidence_read",
+      isError,
+      content: [
+        { type: "text", text: JSON.stringify(FACTS) },
+        { type: "text", text: CONTENT },
+      ],
+      ...extra,
+    });
+  }
+
+  it("maps a result to one evidence row with the facts of details and no content text", () => {
+    const items = chatItemsOf([result({ details: FACTS })], IDLE);
+
+    expect(items).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
+    expect(JSON.stringify(items)).not.toContain(CONTENT);
+  });
+
+  it("reads the facts from the first text block when details is absent", () => {
+    const items = chatItemsOf([result({})], IDLE);
+
+    expect(items).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
+    expect(JSON.stringify(items)).not.toContain(CONTENT);
+  });
+
+  it("reads the facts from the first text block when details is invalid", () => {
+    const items = chatItemsOf([result({ details: { asset_id: 7 } })], IDLE);
+
+    expect(items).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
+  });
+
+  it("keeps a failed result as a tool result with its error text", () => {
+    const text = "workbench.evidence.media_refused: The asset is not text.";
+    const items = chatItemsOf(
+      [
+        message("e1", {
+          role: "toolResult",
+          toolCallId: "call_1",
+          toolName: "evidence_read",
+          isError: true,
+          content: [{ type: "text", text }],
+        }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([
+      { kind: "tool-result", id: "e1", name: "evidence_read", text, isError: true },
+    ]);
+  });
+
+  it("keeps the content text out of a result whose facts are unreadable", () => {
+    const items = chatItemsOf(
+      [
+        message("e1", {
+          role: "toolResult",
+          toolCallId: "call_1",
+          toolName: "evidence_read",
+          isError: false,
+          content: [
+            { type: "text", text: "not json" },
+            { type: "text", text: CONTENT },
+          ],
+        }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([
+      { kind: "tool-result", id: "e1", name: "evidence_read", text: "not json", isError: false },
+    ]);
+  });
+});
