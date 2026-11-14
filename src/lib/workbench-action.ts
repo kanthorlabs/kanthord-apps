@@ -36,6 +36,8 @@ export function actionVerbOf(operationId: string): string | null {
 
 export function actionFactsOf(offer: WorkbenchActionOffer): readonly string[] {
   const { seen, target_id } = offer;
+  if ("revision" in seen) return [`Offered at revision ${seen.revision}`];
+  if ("version" in seen) return [`Offered at binding set version ${seen.version}`];
   if ("state" in seen) {
     return [`node: ${seen.name} (${target_id})`, `state: ${seen.state} · attempt ${seen.attempt}`];
   }

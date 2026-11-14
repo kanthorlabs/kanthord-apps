@@ -1630,7 +1630,10 @@ export type WorkbenchActionOperation =
   | "mission.node.override"
   | "mission.node.pause"
   | "project.pause"
-  | "project.resume";
+  | "project.resume"
+  | "llm.credential.rotate"
+  | "project.bindingSet.write"
+  | "agent.enablement.put";
 
 export interface WorkbenchActionOffer {
   readonly kind: "action_offer";
@@ -1639,7 +1642,9 @@ export interface WorkbenchActionOffer {
   readonly target_id: string;
   readonly seen:
     | { readonly name: string; readonly state: NodeState; readonly attempt: number }
-    | { readonly name: string; readonly paused: boolean };
+    | { readonly name: string; readonly paused: boolean }
+    | { readonly revision: number }
+    | { readonly version: number };
 }
 
 export interface WorkbenchActionResult {

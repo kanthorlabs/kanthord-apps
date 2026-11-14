@@ -334,7 +334,7 @@ function cardsOf(entries: readonly WorkbenchSessionEntry[], snapshot = IDLE) {
 }
 
 describe("ACTION_VERBS", () => {
-  it("holds exactly the eight card ids", () => {
+  it("holds exactly the eleven card ids", () => {
     expect(ACTION_VERBS).toEqual({
       "mission.node.resume": "Resume",
       "mission.node.unblock": "Unblock",
@@ -344,6 +344,9 @@ describe("ACTION_VERBS", () => {
       "mission.node.pause": "Pause",
       "project.pause": "Pause",
       "project.resume": "Resume",
+      "llm.credential.rotate": "Rotate",
+      "project.bindingSet.write": "Edit bindings of",
+      "agent.enablement.put": "Edit default of",
     });
   });
 });
@@ -454,6 +457,35 @@ describe("chatItemsOf action card", () => {
     ]);
 
     expect(cards.map((card) => card.offer.seen)).toEqual([{ name: "Billing", paused: false }]);
+  });
+
+  it.each([
+    ["llm.credential.rotate", "anthropic-main", { revision: 3 }],
+    ["project.bindingSet.write", "project_01", { version: 7 }],
+    ["agent.enablement.put", "ops@1", { revision: 5 }],
+  ])("maps the %s record to one card with its seen value", (operationId, targetId, seen) => {
+    const cards = cardsOf([
+      record("e1", { ...offer("call_a", operationId), target_id: targetId, seen }),
+    ]);
+
+    expect(
+      cards.map((card) => [card.offer.operation_id, card.offer.target_id, card.offer.seen]),
+    ).toEqual([[operationId, targetId, seen]]);
+    expect(cards.map((card) => card.state)).toEqual(["live"]);
+    expect(Object.keys(cards[0] ?? {}).sort()).toEqual(["id", "kind", "offer", "results", "state"]);
+  });
+
+  it("renders nothing for a revision or version seen with a wrong shape", () => {
+    const items = chatItemsOf(
+      [
+        record("e1", { ...offer("call_a", "llm.credential.rotate"), seen: { revision: "3" } }),
+        record("e2", { ...offer("call_b", "llm.credential.rotate"), seen: { revision: 3, x: 1 } }),
+        record("e3", { ...offer("call_c", "project.bindingSet.write"), seen: { version: null } }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
   });
 
   it("renders nothing for a record with an extra key or an unknown kind", () => {
