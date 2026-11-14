@@ -234,7 +234,7 @@ function assistantItems(
     text === "" ? [] : [{ kind: "assistant", id, text, streaming, timestamp }];
   for (const block of blocks) {
     if (block["type"] !== "toolCall") continue;
-    if (block["name"] === OFFER_TOOL) continue;
+    if (block["name"] === OFFER_TOOL || block["name"] === EVIDENCE_READ_TOOL) continue;
     const callId = stringOf(block["id"]);
     items.push({
       kind: "tool-call",

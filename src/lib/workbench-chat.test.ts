@@ -576,4 +576,25 @@ describe("chatItemsOf evidence_read", () => {
       { kind: "tool-result", id: "e1", name: "evidence_read", text: "not json", isError: false },
     ]);
   });
+
+  it("maps an evidence_read call to no tool call while it waits and after its result", () => {
+    const evidenceCall = {
+      type: "toolCall",
+      id: "call_1",
+      name: "evidence_read",
+      arguments: { asset_id: "evidence_asset_1" },
+    };
+    const nodeCall = { type: "toolCall", id: "call_2", name: "mission--node--get", arguments: {} };
+    const assistant = message("e0", { role: "assistant", content: [evidenceCall, nodeCall] });
+    const waiting = chatItemsOf([assistant], {
+      ...IDLE,
+      run_active: true,
+      pending_approval: { tool_call_id: "call_1" } as WorkbenchRunSnapshot["pending_approval"],
+    });
+    const settled = chatItemsOf([assistant, result({ details: FACTS })], IDLE);
+
+    expect(waiting.map((item) => item.kind)).toEqual(["tool-call"]);
+    expect(settled.map((item) => item.kind)).toEqual(["tool-call", "evidence-row"]);
+    expect(settled[0]).toMatchObject({ name: "mission--node--get" });
+  });
 });
