@@ -843,6 +843,11 @@ export type MissionEvidenceAsset =
     })
   | (MissionAssetBase & { readonly kind: "platform"; readonly address: MissionPlatformAddress });
 
+export interface EvidenceDownload {
+  readonly blob: Blob;
+  readonly filename: string;
+}
+
 export interface MissionEvidence {
   readonly id: string;
   readonly node_id: string;

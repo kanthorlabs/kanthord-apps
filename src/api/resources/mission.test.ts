@@ -14,6 +14,7 @@ import {
   decideProposals,
   discardNode,
   doneInboxItem,
+  downloadEvidenceAsset,
   exportMissionJson,
   getFinding,
   listInboxItems,
@@ -652,5 +653,44 @@ describe("mission finding resources", () => {
       cause_owner: "plan",
     });
     expect(seen[0]?.req.headers["idempotency-key"]).toMatch(IDEMPOTENCY_KEY);
+  });
+});
+
+describe("evidence download", () => {
+  async function serveDownload(headers: Record<string, string>): Promise<void> {
+    const instance = createServer((req, res) => {
+      seen.push({ req, body: "" });
+      res.writeHead(200, { "content-type": "application/octet-stream", ...headers });
+      res.end("content");
+    });
+    server = instance;
+    await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
+    setConnection({
+      baseUrl: `http://127.0.0.1:${(instance.address() as AddressInfo).port}`,
+      token: "jwt-1",
+    });
+  }
+
+  it("downloads the exact path and reads the file name from Content-Disposition", async () => {
+    await serveDownload({ "content-disposition": 'attachment; filename="asset_1.txt"' });
+
+    const download = await downloadEvidenceAsset("asset_1");
+    expect(seen[0]?.req.url).toBe("/api/mission/evidence/asset/asset_1/content/download");
+    expect(seen[0]?.req.headers.authorization).toBe("Bearer jwt-1");
+    expect(await download.blob.text()).toBe("content");
+    expect(download.filename).toBe("asset_1.txt");
+  });
+
+  it("encodes the asset id", async () => {
+    await serveDownload({});
+
+    await downloadEvidenceAsset("a/b");
+    expect(seen[0]?.req.url).toBe("/api/mission/evidence/asset/a%2Fb/content/download");
+  });
+
+  it("names the file after the asset id without Content-Disposition", async () => {
+    await serveDownload({});
+
+    expect((await downloadEvidenceAsset("asset_2")).filename).toBe("asset_2");
   });
 });

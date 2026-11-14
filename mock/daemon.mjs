@@ -1364,6 +1364,31 @@ on("GET", /^\/api\/mission\/node\/([^/]+)\/evidence$/, (m, _b, res, _t, url) =>
   json(res, 200, page(byAttempt(fx.GRAPH_EVIDENCE, decodeURIComponent(m[1]), url), url)),
 );
 
+const UNAVAILABLE_EVIDENCE_ASSET = "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0PM2";
+
+on("GET", /^\/api\/mission\/evidence\/asset\/([^/]+)\/content\/download$/, (m, _b, res) => {
+  const assetId = decodeURIComponent(m[1]);
+  if (assetId === UNAVAILABLE_EVIDENCE_ASSET)
+    return projectEnvelope(
+      res,
+      502,
+      "mission.evidence.content_unavailable",
+      "The storage read failed.",
+    );
+  const body = `Mock evidence content of ${assetId}.\n`;
+  res.writeHead(200, {
+    "content-type": "application/octet-stream",
+    "content-disposition": `attachment; filename="${assetId}.txt"`,
+    "x-evidence-media-type": "text/plain",
+    "x-evidence-size": String(Buffer.byteLength(body)),
+    "access-control-allow-origin": ORIGIN,
+    "access-control-expose-headers": "Content-Disposition,X-Evidence-Media-Type,X-Evidence-Size",
+    vary: "origin",
+    "cache-control": "no-store",
+  });
+  res.end(body);
+});
+
 on("GET", /^\/api\/mission\/node\/([^/]+)\/assessment$/, (m, _b, res, _t, url) =>
   json(res, 200, page(byAttempt(fx.GRAPH_ASSESSMENTS, decodeURIComponent(m[1]), url), url)),
 );
