@@ -116,7 +116,7 @@ function card(
 }
 
 function nodeCard(operationId: string, state: NodeState = "Executing") {
-  return card(operationId, "node_42", { state, attempt: 3 });
+  return card(operationId, "node_42", { name: "Add retry to payment client", state, attempt: 3 });
 }
 
 function mount(item: ActionCardItem) {
@@ -336,7 +336,7 @@ describe("ActionAct on a project", () => {
   it("resumes a paused project at once and reports done", async () => {
     vi.mocked(readProject).mockResolvedValue(project(5));
     vi.mocked(resumeProject).mockResolvedValue(project(null));
-    const user = mount(card("project.resume", "prj-1", { paused: true }));
+    const user = mount(card("project.resume", "prj-1", { name: "Billing", paused: true }));
 
     await user.click(screen.getByRole("button", { name: "Resume prj-1" }));
 
@@ -352,7 +352,7 @@ describe("ActionAct on a project", () => {
 
   it("shows Not available for a resume of an active project and calls no route", async () => {
     vi.mocked(readProject).mockResolvedValue(project(null));
-    const user = mount(card("project.resume", "prj-1", { paused: false }));
+    const user = mount(card("project.resume", "prj-1", { name: "Billing", paused: false }));
 
     await user.click(screen.getByRole("button", { name: "Resume prj-1" }));
 
@@ -363,7 +363,7 @@ describe("ActionAct on a project", () => {
 
   it("shows the change line when the pause state differs from seen", async () => {
     vi.mocked(readProject).mockResolvedValue(project(5));
-    const user = mount(card("project.pause", "prj-1", { paused: false }));
+    const user = mount(card("project.pause", "prj-1", { name: "Billing", paused: false }));
 
     await user.click(screen.getByRole("button", { name: "Pause prj-1" }));
 
@@ -376,7 +376,7 @@ describe("ActionAct on a project", () => {
   it("opens the pause dialog, then pauses on Confirm and reports done", async () => {
     vi.mocked(readProject).mockResolvedValue(project(null));
     vi.mocked(pauseProject).mockResolvedValue(project(5));
-    const user = mount(card("project.pause", "prj-1", { paused: false }));
+    const user = mount(card("project.pause", "prj-1", { name: "Billing", paused: false }));
 
     await user.click(screen.getByRole("button", { name: "Pause prj-1" }));
 
@@ -395,7 +395,7 @@ describe("ActionAct on a project", () => {
 
   it("calls no route and reports nothing when the pause dialog is cancelled", async () => {
     vi.mocked(readProject).mockResolvedValue(project(null));
-    const user = mount(card("project.pause", "prj-1", { paused: false }));
+    const user = mount(card("project.pause", "prj-1", { name: "Billing", paused: false }));
 
     await user.click(screen.getByRole("button", { name: "Pause prj-1" }));
     await user.click(await screen.findByRole("button", { name: "Keep the project active" }));
@@ -413,7 +413,7 @@ describe("ActionCardEntry report", () => {
     vi.mocked(readProject).mockResolvedValue(project(5));
     vi.mocked(resumeProject).mockResolvedValue(project(null));
     if (reportFailure !== null) vi.mocked(reportWorkbenchAction).mockRejectedValue(reportFailure);
-    const user = mount(card("project.resume", "prj-1", { paused: true }));
+    const user = mount(card("project.resume", "prj-1", { name: "Billing", paused: true }));
     await user.click(screen.getByRole("button", { name: "Resume prj-1" }));
   }
 
@@ -438,7 +438,7 @@ describe("ActionCardEntry report", () => {
     vi.mocked(resumeProject).mockRejectedValue(
       new ApiError("refused", "Refused.", 422, "Not A Code"),
     );
-    const user = mount(card("project.resume", "prj-1", { paused: true }));
+    const user = mount(card("project.resume", "prj-1", { name: "Billing", paused: true }));
 
     await user.click(screen.getByRole("button", { name: "Resume prj-1" }));
 

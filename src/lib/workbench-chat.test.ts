@@ -300,7 +300,7 @@ function offer(toolCallId: string, operationId = "mission.node.discard") {
     tool_call_id: toolCallId,
     operation_id: operationId,
     target_id: "node_1",
-    seen: { state: "Blocked", attempt: 2 },
+    seen: { name: "Add retry to payment client", state: "Blocked", attempt: 2 },
   };
 }
 
@@ -447,10 +447,13 @@ describe("chatItemsOf action card", () => {
 
   it("accepts the project seen shape", () => {
     const cards = cardsOf([
-      record("e1", { ...offer("call_a", "project.pause"), seen: { paused: false } }),
+      record("e1", {
+        ...offer("call_a", "project.pause"),
+        seen: { name: "Billing", paused: false },
+      }),
     ]);
 
-    expect(cards.map((card) => card.offer.seen)).toEqual([{ paused: false }]);
+    expect(cards.map((card) => card.offer.seen)).toEqual([{ name: "Billing", paused: false }]);
   });
 
   it("renders nothing for a record with an extra key or an unknown kind", () => {
@@ -458,9 +461,25 @@ describe("chatItemsOf action card", () => {
       [
         record("e1", { ...offer("call_a"), text: "Click me" }),
         record("e2", { ...offer("call_b"), kind: "other" }),
-        record("e3", { ...offer("call_c"), seen: { state: "Blocked", attempt: 1, extra: 1 } }),
-        record("e4", { ...offer("call_d"), seen: { state: "Nowhere", attempt: 1 } }),
+        record("e3", {
+          ...offer("call_c"),
+          seen: { name: "n", state: "Blocked", attempt: 1, extra: 1 },
+        }),
+        record("e4", { ...offer("call_d"), seen: { name: "n", state: "Nowhere", attempt: 1 } }),
         record("e5", offer("call_e"), { customType: "other.record" }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it("renders nothing for a seen without a string name", () => {
+    const items = chatItemsOf(
+      [
+        record("e1", { ...offer("call_a"), seen: { state: "Blocked", attempt: 1 } }),
+        record("e2", { ...offer("call_b", "project.pause"), seen: { paused: true } }),
+        record("e3", { ...offer("call_c", "project.pause"), seen: { name: 7, paused: true } }),
       ],
       IDLE,
     );

@@ -170,7 +170,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
           tool_call_id: call.id,
           operation_id: "mission.node.discard",
           target_id: OFFER_NODE_ID,
-          seen: { state: "Blocked", attempt: 1 },
+          seen: { name: "Add retry to payment client", state: "Blocked", attempt: 1 },
         },
       });
       await settle(session, run, call, { isError: false, text: '{"offered":true}' });
