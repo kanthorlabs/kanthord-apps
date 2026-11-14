@@ -132,7 +132,7 @@ export function AppShell() {
               </SidebarMenu>
             </SidebarFooter>
           </Sidebar>
-          <SidebarInset ref={insetRef}>
+          <SidebarInset ref={insetRef} className="min-w-0">
             <header
               ref={headerRef}
               className="sticky top-0 z-10 flex min-h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur sm:px-4"
