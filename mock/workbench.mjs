@@ -6,6 +6,9 @@ const STEP_DELAY_MS = 400;
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const QUEUE_LIMIT = 10;
 const OFFER_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2";
+const IMPORT_MISSION_ID = "mission_01J9ZQ4XKM3B6V8N2R5T7W0MS1";
+const IMPORT_UPDATE_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA3";
+const IMPORT_PREVIEW_DIGEST = "0123456789abcdef".repeat(4);
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
 const SETUP_CREDENTIAL = "atlas-router";
@@ -228,6 +231,49 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       await offerSetup(session, run, "project.bindingSet.write");
     } else if (/\bdefault\b/i.test(text)) {
       await offerSetup(session, run, "agent.enablement.put");
+    } else if (/\bimport\b/i.test(text)) {
+      call.name = "mission.import.apply";
+      call.arguments = {
+        params: { mission_id: IMPORT_MISSION_ID },
+        query: {},
+        body: {
+          format: "json",
+          mission_id: IMPORT_MISSION_ID,
+          mission_version: 1,
+          reason: "Add the retry node and update the payment client node.",
+          preview_digest: IMPORT_PREVIEW_DIGEST,
+          confirmed_retirements: [],
+          entries: [
+            {
+              id: IMPORT_UPDATE_NODE_ID,
+              filename: "payment-client.md",
+              intent: "implement",
+              name: "Add retry to payment client",
+              requirement: "The payment client retries a failed charge three times.",
+              criterion: "A failed charge is retried three times before it reports the error.",
+              verifications: ["pnpm test"],
+              bindings: [],
+            },
+            {
+              filename: "refund-flow.md",
+              intent: "implement",
+              name: "Add the refund flow",
+              requirement: "The payment client refunds a settled charge.",
+              criterion: "A refund request for a settled charge returns a refund id.",
+              verifications: ["pnpm test"],
+              bindings: [],
+            },
+          ],
+        },
+      };
+      announce(session, call);
+      await sleep(run, STEP_DELAY_MS);
+      const approved = await awaitApproval(session, run, {
+        tool_call_id: call.id,
+        operation_id: call.name,
+        input: call.arguments,
+      });
+      await answerApproval(session, run, call, approved);
     } else if (/\b(create|approve|mutation)\b/i.test(text)) {
       call.name = "project.create";
       call.arguments = { name: "account-recovery" };

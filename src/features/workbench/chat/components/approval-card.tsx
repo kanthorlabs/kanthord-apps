@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { EVIDENCE_DOWNLOAD_OPERATION_ID } from "@/lib/approval-attention";
 import type { ChatActionFailure } from "../use-chat-actions";
+import {
+  IMPORT_APPLY_OPERATION_ID,
+  type ImportEntryRow,
+  importEntryRowsOf,
+} from "./import-entries";
 import { InlineError } from "./inline-error";
 
 interface ApprovalCardProps {
@@ -38,9 +43,32 @@ function EvidenceBody({
   );
 }
 
+function ImportEntries({ rows }: { readonly rows: readonly ImportEntryRow[] }) {
+  return (
+    <ul className="grid min-w-0 gap-1" aria-label="Import entries">
+      {rows.map((row, index) => (
+        <li
+          key={`${row.filename}:${index}`}
+          className="flex min-w-0 flex-wrap items-baseline gap-x-2"
+        >
+          <span className="font-medium">{row.mark}</span>
+          <span className="text-muted-foreground">{row.kind}</span>
+          {row.intent !== null && <span className="text-muted-foreground">{row.intent}</span>}
+          <span className="min-w-0 font-mono break-all">{row.filename}</span>
+          <span className="min-w-0 break-words">{row.name}</span>
+          {row.id !== null && <span className="min-w-0 font-mono break-all">{row.id}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function GenericBody({ approval }: Pick<ApprovalCardProps, "approval">) {
+  const rows =
+    approval.operation_id === IMPORT_APPLY_OPERATION_ID ? importEntryRowsOf(approval.input) : null;
   return (
     <CardContent className="grid min-w-0 gap-2 text-sm">
+      {rows !== null && <ImportEntries rows={rows} />}
       <div className="flex min-w-0 items-baseline gap-1.5">
         <span className="shrink-0 text-muted-foreground">Operation ID</span>
         <span className="min-w-0 font-mono break-all">{approval.operation_id}</span>
