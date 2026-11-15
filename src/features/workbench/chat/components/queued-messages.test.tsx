@@ -160,6 +160,7 @@ function eventsWith(queue: readonly WorkbenchQueuedMessage[]): WorkbenchSessionE
       queue,
       run_active: true,
       error_message: null,
+      auto_mode: true,
     },
     version: 1,
   };

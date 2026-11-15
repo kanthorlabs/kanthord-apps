@@ -35,6 +35,7 @@ const IDLE: WorkbenchRunSnapshot = {
   queue: [],
   run_active: false,
   error_message: null,
+  auto_mode: true,
 };
 
 const ENABLEMENT: AgentEnablement = {
@@ -329,6 +330,7 @@ describe("ChatView", () => {
         pending_approval: {
           tool_call_id: "call_2",
           operation_id: "project.create",
+          guard: null,
           input: { name: "account-recovery" },
         },
       },
@@ -352,7 +354,12 @@ describe("ChatView", () => {
     await polls.answer({
       snapshot: {
         run_active: true,
-        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+        pending_approval: {
+          tool_call_id: "call_2",
+          operation_id: "project.create",
+          input: {},
+          guard: null,
+        },
       },
     });
 
@@ -380,7 +387,12 @@ describe("ChatView", () => {
     await polls.answer({
       snapshot: {
         run_active: true,
-        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+        pending_approval: {
+          tool_call_id: "call_2",
+          operation_id: "project.create",
+          input: {},
+          guard: null,
+        },
       },
     });
     await screen.findByRole("group", { name: "Approval Required" });
@@ -402,7 +414,12 @@ describe("ChatView", () => {
     await polls.answer({
       snapshot: {
         run_active: true,
-        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+        pending_approval: {
+          tool_call_id: "call_2",
+          operation_id: "project.create",
+          input: {},
+          guard: null,
+        },
       },
     });
     await userEvent.click(await screen.findByRole("button", { name: "Approve" }));
@@ -411,7 +428,12 @@ describe("ChatView", () => {
     await polls.answer({
       snapshot: {
         run_active: true,
-        pending_approval: { tool_call_id: "call_3", operation_id: "project.update", input: {} },
+        pending_approval: {
+          tool_call_id: "call_3",
+          operation_id: "project.update",
+          input: {},
+          guard: null,
+        },
       },
     });
 
@@ -432,7 +454,12 @@ describe("ChatView", () => {
     await polls.answer({
       snapshot: {
         run_active: true,
-        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+        pending_approval: {
+          tool_call_id: "call_2",
+          operation_id: "project.create",
+          input: {},
+          guard: null,
+        },
       },
     });
     await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
@@ -670,7 +697,12 @@ describe("ChatView", () => {
     await polls.answer({
       snapshot: {
         run_active: true,
-        pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+        pending_approval: {
+          tool_call_id: "call_2",
+          operation_id: "project.create",
+          input: {},
+          guard: null,
+        },
       },
     });
 

@@ -42,6 +42,7 @@ function idleSnapshot(runActive: boolean): WorkbenchRunSnapshot {
     queue: [],
     run_active: runActive,
     error_message: null,
+    auto_mode: true,
   };
 }
 

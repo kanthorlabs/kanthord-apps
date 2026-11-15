@@ -16,6 +16,7 @@ import {
   removeQueuedWorkbenchMessage,
   reportWorkbenchAction,
   sendWorkbenchMessage,
+  setWorkbenchAutoMode,
 } from "./workbench";
 
 const IDEMPOTENCY_KEY = /^idempotency_key_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
@@ -240,6 +241,17 @@ describe("approveWorkbenchCall", () => {
     await approveWorkbenchCall(SESSION_ID, "call_1", false);
 
     expect(JSON.parse(seen[0]!.body)).toEqual({ tool_call_id: "call_1", approved: false });
+  });
+});
+
+describe("setWorkbenchAutoMode", () => {
+  it("posts the switch to the auto-mode route with an idempotency key", async () => {
+    const answer = { session_id: SESSION_ID, enabled: false };
+    await serve({ [`POST ${PATH}/auto-mode`]: { body: answer } });
+
+    expect(await setWorkbenchAutoMode(SESSION_ID, false)).toEqual(answer);
+    expect(JSON.parse(seen[0]!.body)).toEqual({ enabled: false });
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 

@@ -527,6 +527,7 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
   queue: [],
   run_active: false,
   error_message: null,
+  auto_mode: true,
 };
 
 function followEvents(snapshot: WorkbenchRunSnapshot) {
@@ -1150,11 +1151,13 @@ describe("HomeScreen tool approval", () => {
         pending_approval: {
           tool_call_id: "call_1",
           operation_id: "project.create",
+          guard: null,
           input: { name: "account-recovery" },
         },
         queue: [],
         run_active: false,
         error_message: null,
+        auto_mode: true,
       },
       version: 1,
     });
@@ -1304,6 +1307,7 @@ function pendingApproval() {
     pending_approval: {
       tool_call_id: "call_1",
       operation_id: "project.create",
+      guard: null,
       input: { name: "account-recovery" },
     },
     queue: [],
@@ -1702,6 +1706,7 @@ describe("HomeScreen Ask Yumi", () => {
                 tool_call_id: "call_1",
                 operation_id: "project.create",
                 input: { name: "account-recovery" },
+                guard: null,
               },
             },
             version: 1,

@@ -231,6 +231,7 @@ Your role is \`ops@1\`, Yumi, the operations assistant of the human.
 Your responsibility is the answer to a question about the projects of the human.`,
     tool_counts: toolCountsOf(OPS_TOOLS),
     tools: OPS_TOOLS,
+    pinned_model_identifier: null,
   },
   {
     agent_name: "re@1",
@@ -264,6 +265,7 @@ Judge the evidence against the criterion of the node and the default standard.
 Change no file of the repository.`,
     tool_counts: toolCountsOf(RE_TOOLS),
     tools: RE_TOOLS,
+    pinned_model_identifier: null,
   },
   {
     agent_name: "swe@1",
@@ -295,6 +297,38 @@ Your role is \`swe@1\`, the software engineer that performs the steps of a task.
 Your responsibility is the change that the task describes, in the workspace, to the default standard.`,
     tool_counts: toolCountsOf(SWE_TOOLS),
     tools: SWE_TOOLS,
+    pinned_model_identifier: null,
+  },
+  {
+    agent_name: "guard@1",
+    display_name: "Guard",
+    workbench: false,
+    consumers: [],
+    worker_names: [],
+    configuration_schema: AGENT_CONFIGURATION_SCHEMA,
+    overridable_fields: [],
+    enablement: {
+      agent_name: "guard@1",
+      state: "enabled",
+      agent_providers: [
+        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-router" },
+      ],
+      default_configuration: {
+        agent_provider: "atlas-llm",
+        model_identifier: "claude-sonnet-5",
+        reasoning_effort: "off",
+      },
+      fallback_configurations: [],
+      revision: 1,
+    },
+    basePrompt: BASE_PROMPT,
+    agentPrompt: `## Role
+
+Your role is \`guard@1\`, the guard of the auto mode.
+Your responsibility is the verdict on one tool call of a workbench session.`,
+    tool_counts: toolCountsOf([]),
+    tools: [],
+    pinned_model_identifier: "claude-sonnet-5",
   },
 ];
 
@@ -2294,6 +2328,179 @@ const EVIDENCE_READ_FACTS = {
   truncated: true,
 };
 
+const GUARD_SESSION_PREFIX = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0GD";
+const GUARD_IMPORT_MISSION_ID = "mission_01J9ZQ4XKM3B6V8N2R5T7W0MS1";
+
+const guardSessionOf = (number, extra) => {
+  const entryId = (index) => `eg${number}${String(index).padStart(2, "0")}`;
+  const at = 7200 + number * 10;
+  return {
+    id: `${GUARD_SESSION_PREFIX}${number}`,
+    agent_name: "swe@1",
+    created: SESSION_BASE + (5 + number) * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    ...extra.session,
+    entries: extra.entries(entryId, at),
+  };
+};
+
+const guardCallEntriesOf = (entryId, at, request, call) => [
+  {
+    type: "message",
+    id: entryId(1),
+    parentId: null,
+    timestamp: entryAt(at),
+    message: { role: "user", content: request },
+  },
+  {
+    type: "message",
+    id: entryId(2),
+    parentId: entryId(1),
+    timestamp: entryAt(at + 1),
+    message: { role: "assistant", content: [{ type: "toolCall", ...call }] },
+  },
+];
+
+const guardPendingSessionOf = (number, request, call, guard) =>
+  guardSessionOf(number, {
+    session: {
+      approval: { tool_call_id: call.id, operation_id: call.name, input: call.arguments, guard },
+    },
+    entries: (entryId, at) => guardCallEntriesOf(entryId, at, request, call),
+  });
+
+const GUARD_CREATE_CALL = (number) => ({
+  id: `call_guard_${number}`,
+  name: "project.create",
+  arguments: { name: "account-recovery" },
+});
+
+const GUARD_RAN_CALLS = [
+  { id: "call_auto_01", name: "mission.node.list", reason: "reversible" },
+  {
+    id: "call_auto_02",
+    name: "mission.node.discard",
+    reason: "The call discards a node that stays in the record.",
+  },
+];
+
+const guardRanEntriesOf = (entryId, at) => {
+  const entries = [
+    {
+      type: "message",
+      id: entryId(1),
+      parentId: null,
+      timestamp: entryAt(at),
+      message: { role: "user", content: "Check the nodes of Account recovery" },
+    },
+  ];
+  for (const [index, call] of GUARD_RAN_CALLS.entries()) {
+    const base = 2 + index * 3;
+    entries.push(
+      {
+        type: "message",
+        id: entryId(base),
+        parentId: entryId(base - 1),
+        timestamp: entryAt(at + base),
+        message: {
+          role: "assistant",
+          content: [{ type: "toolCall", id: call.id, name: call.name, arguments: {} }],
+        },
+      },
+      {
+        type: "custom",
+        id: entryId(base + 1),
+        parentId: entryId(base),
+        timestamp: entryAt(at + base),
+        customType: "kanthord.workbench.record",
+        data: {
+          kind: "guard",
+          tool_call_id: call.id,
+          operation_id: call.name,
+          reason: call.reason,
+        },
+      },
+      {
+        type: "message",
+        id: entryId(base + 2),
+        parentId: entryId(base + 1),
+        timestamp: entryAt(at + base + 1),
+        message: {
+          role: "toolResult",
+          toolCallId: call.id,
+          toolName: call.name,
+          isError: false,
+          content: [{ type: "text", text: '{"items":[]}' }],
+        },
+      },
+    );
+  }
+  return entries;
+};
+
+const GUARD_SESSIONS = [
+  guardPendingSessionOf(1, "Create the project account-recovery", GUARD_CREATE_CALL(1), {
+    cause: "unavailable",
+    reason: null,
+    confidence: null,
+  }),
+  guardPendingSessionOf(2, "Create the project account-recovery", GUARD_CREATE_CALL(2), {
+    cause: "oversize",
+    reason: null,
+    confidence: null,
+  }),
+  guardPendingSessionOf(3, "Create the project account-recovery", GUARD_CREATE_CALL(3), {
+    cause: "no_verdict",
+    reason: null,
+    confidence: null,
+  }),
+  guardPendingSessionOf(4, "Create the project account-recovery", GUARD_CREATE_CALL(4), {
+    cause: "classifier",
+    reason: "The call creates a project and the record keeps no way to remove it.",
+    confidence: 0.62,
+  }),
+  guardPendingSessionOf(
+    5,
+    "Apply the mission import",
+    {
+      id: "call_guard_5",
+      name: "mission.import.apply",
+      arguments: {
+        params: { mission_id: GUARD_IMPORT_MISSION_ID },
+        query: {},
+        body: {
+          format: "json",
+          mission_id: GUARD_IMPORT_MISSION_ID,
+          mission_version: 1,
+          reason: "Add the refund flow.",
+          preview_digest: "0123456789abcdef".repeat(4),
+          confirmed_retirements: [],
+          entries: [
+            {
+              filename: "refund-flow.md",
+              intent: "implement",
+              name: "Add the refund flow",
+              requirement: "The payment client refunds a settled charge.",
+              criterion: "A refund request for a settled charge returns a refund id.",
+              verifications: ["pnpm test"],
+              bindings: [],
+            },
+          ],
+        },
+      },
+    },
+    { cause: "import", reason: null, confidence: null },
+  ),
+  guardSessionOf(6, {
+    session: {},
+    entries: guardRanEntriesOf,
+  }),
+];
+
 export const WORKBENCH_SESSIONS = [
   {
     id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1",
@@ -2384,6 +2591,7 @@ export const WORKBENCH_SESSIONS = [
       tool_call_id: "call_approval_01",
       operation_id: "project.create",
       input: { name: "account-recovery" },
+      guard: { cause: "auto_mode_off", reason: null, confidence: null },
     },
     entries: [
       {
@@ -2440,6 +2648,7 @@ export const WORKBENCH_SESSIONS = [
         asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0AB5",
         kind: "object",
       },
+      guard: null,
     },
     entries: [
       {
@@ -2561,6 +2770,7 @@ export const WORKBENCH_SESSIONS = [
       },
     ],
   },
+  ...GUARD_SESSIONS,
 ];
 
 const INSTANCE_KEY = "Qm9ndXMtaW5zdGFuY2Uta2V5LWZvci10aGUtbW9jay";

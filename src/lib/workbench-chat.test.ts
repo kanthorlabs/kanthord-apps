@@ -18,6 +18,7 @@ const IDLE: WorkbenchRunSnapshot = {
   queue: [],
   run_active: false,
   error_message: null,
+  auto_mode: true,
 };
 
 function message(id: string, body: Record<string, unknown>): WorkbenchSessionEntry {
@@ -89,7 +90,12 @@ describe("chatItemsOf", () => {
       ...IDLE,
       run_active: true,
       pending_tool_calls: ["call_1"],
-      pending_approval: { tool_call_id: "call_2", operation_id: "project.create", input: {} },
+      pending_approval: {
+        tool_call_id: "call_2",
+        operation_id: "project.create",
+        input: {},
+        guard: null,
+      },
     });
 
     expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual([
@@ -202,7 +208,7 @@ describe("agentWorking", () => {
       agentWorking([user], {
         ...IDLE,
         run_active: true,
-        pending_approval: { tool_call_id: "c1", operation_id: "o", input: {} },
+        pending_approval: { tool_call_id: "c1", operation_id: "o", input: {}, guard: null },
       }),
     ).toBe(false);
     expect(agentWorking([user], IDLE)).toBe(false);

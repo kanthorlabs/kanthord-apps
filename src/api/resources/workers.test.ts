@@ -273,6 +273,34 @@ describe("readAgent", () => {
   });
 });
 
+describe("readAgent guard fields", () => {
+  it("answers the pinned model identifier and the guard class of each tool", async () => {
+    const tool = (name: string, guardClass: string) => ({
+      name,
+      source: "operation",
+      description: "",
+      guard_class: guardClass,
+      input_schema: {},
+    });
+    const answer = {
+      agent_name: "guard@1",
+      pinned_model_identifier: "claude-sonnet-5",
+      tools: [tool("a", "read"), tool("b", "card"), tool("c", "reversible"), tool("d", "judged")],
+    };
+    await serve({ "GET /api/agent/guard%401": answer });
+
+    const agent = await readAgent("guard@1");
+
+    expect(agent.pinned_model_identifier).toBe("claude-sonnet-5");
+    expect(agent.tools.map((item) => item.guard_class)).toEqual([
+      "read",
+      "card",
+      "reversible",
+      "judged",
+    ]);
+  });
+});
+
 describe("resolveAgentPrompt", () => {
   it("gets agent.prompt.resolve with the execution and the agent", async () => {
     const answer = { parts: [], final: null, engine_version: "0.1.0" };

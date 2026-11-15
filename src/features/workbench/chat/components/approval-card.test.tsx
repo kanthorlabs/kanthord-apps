@@ -8,6 +8,7 @@ import { ApprovalCard } from "./approval-card";
 const EVIDENCE: WorkbenchPendingApproval = {
   tool_call_id: "call_1",
   operation_id: "mission.evidence.asset.content.download",
+  guard: null,
   input: {
     node_id: "node_42",
     attempt: 3,
@@ -20,12 +21,14 @@ const EVIDENCE: WorkbenchPendingApproval = {
 const MUTATION: WorkbenchPendingApproval = {
   tool_call_id: "call_2",
   operation_id: "project.create",
+  guard: null,
   input: { name: "account-recovery" },
 };
 
 const IMPORT: WorkbenchPendingApproval = {
   tool_call_id: "call_3",
   operation_id: "mission.import.apply",
+  guard: null,
   input: {
     body: {
       format: "json",
@@ -57,6 +60,7 @@ const IMPORT: WorkbenchPendingApproval = {
 const UNBLOCK: WorkbenchPendingApproval = {
   tool_call_id: "call_4",
   operation_id: "mission.node.unblock",
+  guard: null,
   input: { node_id: "node_7" },
 };
 

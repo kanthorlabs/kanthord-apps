@@ -32,6 +32,7 @@ const RE: AgentDeclaration = {
   ],
   active_position: null,
   cooling: null,
+  pinned_model_identifier: null,
 };
 
 function useAgentRows(agentName: string) {

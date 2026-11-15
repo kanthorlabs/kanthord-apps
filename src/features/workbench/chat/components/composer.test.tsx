@@ -357,6 +357,7 @@ describe("Composer", () => {
         queue: [{ id: "queued_1", text: "later" }],
         run_active: false,
         error_message: null,
+        auto_mode: true,
       },
       version: 1,
     });
@@ -421,6 +422,7 @@ describe("Composer", () => {
           queue,
           run_active: true,
           error_message: null,
+          auto_mode: true,
         },
         version: 1,
       });

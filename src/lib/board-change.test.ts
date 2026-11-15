@@ -7,6 +7,7 @@ import { changeAskedOf } from "./board-change";
 const PENDING: WorkbenchPendingApproval = {
   tool_call_id: "c1",
   operation_id: "project.create",
+  guard: null,
   input: { name: "alpha", labels: ["a", "b"], retries: 3, nested: { deep: true } },
 };
 

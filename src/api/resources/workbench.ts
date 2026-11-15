@@ -5,6 +5,7 @@ import type {
   WorkbenchActionReportAnswer,
   WorkbenchActionReportBody,
   WorkbenchApprovalAnswer,
+  WorkbenchAutoModeAnswer,
   WorkbenchConfiguration,
   WorkbenchMessageAnswer,
   WorkbenchMessageDelivery,
@@ -91,6 +92,13 @@ export async function approveWorkbenchCall(
     tool_call_id: toolCallId,
     approved,
   });
+}
+
+export async function setWorkbenchAutoMode(
+  sessionId: string,
+  enabled: boolean,
+): Promise<WorkbenchAutoModeAnswer> {
+  return post<WorkbenchAutoModeAnswer>(`${sessionPath(sessionId)}/auto-mode`, { enabled });
 }
 
 export async function reportWorkbenchAction(

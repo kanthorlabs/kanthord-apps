@@ -77,6 +77,7 @@ const RE: AgentDeclaration = {
   chain: [],
   active_position: null,
   cooling: null,
+  pinned_model_identifier: null,
 };
 
 const OPS: AgentDeclaration = {

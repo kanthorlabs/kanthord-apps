@@ -1073,6 +1073,7 @@ describe("BindingsPanel", () => {
       chain: [],
       active_position: null,
       cooling: null,
+      pinned_model_identifier: null,
       prompt: { final: null, parts: [] },
     });
     mount();
@@ -1121,6 +1122,7 @@ describe("BindingsPanel", () => {
       chain: [],
       active_position: null,
       cooling: null,
+      pinned_model_identifier: null,
       prompt: {
         final: null,
         parts: [

@@ -30,6 +30,15 @@ const newestLiveRevision = (credential) =>
       .map((revision) => revision.revision),
   );
 
+const GUARD_REFUSED_AGENT = "guard@1";
+const CLASSIFIER_GUARD = {
+  cause: "classifier",
+  reason: "The call creates a project and the record keeps no way to remove it.",
+  confidence: 0.62,
+};
+const AUTO_MODE_OFF_GUARD = { cause: "auto_mode_off", reason: null, confidence: null };
+const IMPORT_GUARD = { cause: "import", reason: null, confidence: null };
+
 const textMessage = (role, text) => ({ role, content: [{ type: "text", text }] });
 
 const textOf = (message) =>
@@ -50,6 +59,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         pending_approval: null,
         queue: [],
         error_message: null,
+        auto_mode: true,
         waiters: new Set(),
         version: 0,
       });
@@ -66,6 +76,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       queue: state.queue.map((item) => ({ ...item })),
       run_active: state.run !== null,
       error_message: state.error_message,
+      auto_mode: state.auto_mode,
     };
   };
 
@@ -272,6 +283,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         tool_call_id: call.id,
         operation_id: call.name,
         input: call.arguments,
+        guard: IMPORT_GUARD,
       });
       await answerApproval(session, run, call, approved);
     } else if (/\b(create|approve|mutation)\b/i.test(text)) {
@@ -283,6 +295,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         tool_call_id: call.id,
         operation_id: call.name,
         input: call.arguments,
+        guard: state.auto_mode ? CLASSIFIER_GUARD : AUTO_MODE_OFF_GUARD,
       });
       await answerApproval(session, run, call, approved);
     } else {
@@ -425,6 +438,14 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   });
 
   on("POST", /^\/api\/workbench\/session$/, (_m, body, res) => {
+    if (body?.agent_name === GUARD_REFUSED_AGENT) {
+      return envelope(
+        res,
+        409,
+        "workbench.session.agent_refused",
+        "The agent serves no workbench session.",
+      );
+    }
     if (!validConfiguration(res, body?.agent_name, body)) return;
     const session = {
       id: sessionId(),
@@ -530,6 +551,15 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     queue.splice(index, 1);
     notify(session);
     return json(res, 200, { session_id: session.id, queued_message_id: queuedMessageId });
+  });
+
+  on("POST", /^\/api\/workbench\/session\/([^/]+)\/auto-mode$/, (m, body, res) => {
+    const session = find(res, m[1]);
+    if (session === undefined) return;
+    const enabled = body?.enabled === true;
+    stateOf(session).auto_mode = enabled;
+    append(session, "custom", { customType: RECORD_TYPE, data: { kind: "auto_mode", enabled } });
+    return json(res, 200, { session_id: session.id, enabled });
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/approve$/, (m, body, res) => {
