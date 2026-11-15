@@ -14,10 +14,16 @@ interface EnablementFormProps {
   readonly agentName: string;
   readonly reload: () => void;
   readonly onEnabled?: () => void;
+  readonly pinnedModelIdentifier?: string | null;
 }
 
-export function EnablementForm({ agentName, reload, onEnabled }: EnablementFormProps) {
-  const form = useEnablementCreate(agentName, reload, onEnabled);
+export function EnablementForm({
+  agentName,
+  reload,
+  onEnabled,
+  pinnedModelIdentifier = null,
+}: EnablementFormProps) {
+  const form = useEnablementCreate(agentName, reload, onEnabled, pinnedModelIdentifier);
   const { draft, errors } = form;
   const nested = onEnabled !== undefined;
 
@@ -86,24 +92,32 @@ export function EnablementForm({ agentName, reload, onEnabled }: EnablementFormP
               New LLM credential
             </Button>
           )}
-          <SearchChoiceField
-            id="enablement-model"
-            label="Model identifier"
-            value={draft.modelIdentifier}
-            options={form.models}
-            error={errors["modelIdentifier"] ?? form.modelsFailure ?? undefined}
-            placeholder="Search models"
-            emptyText="No model matches."
-            onChange={form.selectModel}
-          />
-          <ChoiceField
-            id="enablement-effort"
-            label="Reasoning effort"
-            value={draft.reasoningEffort}
-            options={form.reasoningEfforts}
-            error={errors["reasoningEffort"]}
-            onChange={form.selectReasoningEffort}
-          />
+          {pinnedModelIdentifier === null ? (
+            <>
+              <SearchChoiceField
+                id="enablement-model"
+                label="Model identifier"
+                value={draft.modelIdentifier}
+                options={form.models}
+                error={errors["modelIdentifier"] ?? form.modelsFailure ?? undefined}
+                placeholder="Search models"
+                emptyText="No model matches."
+                onChange={form.selectModel}
+              />
+              <ChoiceField
+                id="enablement-effort"
+                label="Reasoning effort"
+                value={draft.reasoningEffort}
+                options={form.reasoningEfforts}
+                error={errors["reasoningEffort"]}
+                onChange={form.selectReasoningEffort}
+              />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground md:col-span-2">
+              The model is pinned. Only the credential changes.
+            </p>
+          )}
           <Button
             type="submit"
             disabled={form.submitting}

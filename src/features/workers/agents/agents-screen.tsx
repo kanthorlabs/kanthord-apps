@@ -44,12 +44,14 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
             Enable
           </Button>
         )}
-        <NewSessionButton
-          size="sm"
-          label={`New session with ${agentName}`}
-          unavailableReason={newSessionUnavailableReason(enablement?.state ?? null, consumers)}
-          onStart={() => setStarting(true)}
-        />
+        {consumers.includes("workbench") && (
+          <NewSessionButton
+            size="sm"
+            label={`New session with ${agentName}`}
+            unavailableReason={newSessionUnavailableReason(enablement?.state ?? null)}
+            onStart={() => setStarting(true)}
+          />
+        )}
       </ItemHeader>
       {starting && (
         <NewSessionDialog

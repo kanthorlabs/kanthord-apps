@@ -1196,4 +1196,132 @@ describe("AgentScreen", () => {
     await userEvent.click(save);
     expect(workersApi.putAgentEnablement).not.toHaveBeenCalled();
   });
+  describe("class chips of operation tools", () => {
+    const PAUSE = {
+      name: "mission.node.pause",
+      source: "operation",
+      description: "Pause one node of a mission.",
+      guard_class: "reversible",
+      input_schema: {},
+    } as const;
+    const UNBLOCK = {
+      name: "mission.node.unblock",
+      source: "operation",
+      description: "Unblock one blocked node of a mission.",
+      guard_class: "judged",
+      input_schema: {},
+    } as const;
+
+    it("shows the reversible class and its hover text on mission.node.pause", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue({ ...OPS, tools: [PAUSE] });
+      mount();
+
+      const [chip] = within(await screen.findByRole("list", { name: "Tools" })).getAllByRole(
+        "listitem",
+      );
+      expect(within(chip as HTMLElement).getByText("reversible")).toBeTruthy();
+      await userEvent.hover(chip as HTMLElement);
+
+      const hover = "Runs with no card while auto mode is on. One opposite call undoes it.";
+      await waitFor(() => expect(screen.getAllByText(hover)).toHaveLength(2), { timeout: 2000 });
+    });
+
+    it("shows the judged class and its hover text on mission.node.unblock", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue({ ...OPS, tools: [UNBLOCK] });
+      mount();
+
+      const [chip] = within(await screen.findByRole("list", { name: "Tools" })).getAllByRole(
+        "listitem",
+      );
+      expect(within(chip as HTMLElement).getByText("judged")).toBeTruthy();
+      await userEvent.hover(chip as HTMLElement);
+
+      const hover = "The guard decides. It runs with no card only when your message directs it.";
+      await waitFor(() => expect(screen.getAllByText(hover)).toHaveLength(2), { timeout: 2000 });
+    });
+  });
+
+  describe("a pinned agent", () => {
+    const GUARD: AgentDeclaration = {
+      ...RE,
+      agent_name: "guard@1",
+      overridable_fields: [],
+      tools: [],
+      pinned_model_identifier: "claude-sonnet-5",
+    };
+    const ANTHROPIC: Credential = {
+      ...ROUTER_MAIN,
+      name: "lab-anthropic",
+      platform: "anthropic",
+    };
+
+    it("shows the pinned model, the prompt parts and no model or effort picker", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD);
+      mount();
+
+      const form = await screen.findByRole("form", { name: "Enable guard@1" });
+      expect(screen.getByText("claude-sonnet-5")).toBeTruthy();
+      expect(screen.getByRole("list", { name: "KanthorD prompt" })).toBeTruthy();
+      expect(within(form).queryByRole("combobox", { name: "Model identifier" })).toBeNull();
+      expect(within(form).queryByRole("combobox", { name: "Reasoning effort" })).toBeNull();
+      expect(within(form).getByRole("combobox", { name: "LLM credential" })).toBeTruthy();
+    });
+
+    it("shows the credential state read-only with the pinned model and no default editor", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue({
+        ...GUARD,
+        enablement: {
+          agent_name: "guard@1",
+          state: "enabled",
+          agent_providers: [{ name: "lab", provider: "anthropic", credential: "lab-anthropic" }],
+          default_configuration: {
+            agent_provider: "lab",
+            model_identifier: "claude-sonnet-5",
+            reasoning_effort: "off",
+          },
+          fallback_configurations: [],
+          revision: 1,
+        },
+      });
+      mount();
+
+      expect(await screen.findByText("Pinned model")).toBeTruthy();
+      expect(
+        within(screen.getByRole("list", { name: "Agent providers" })).getByText("lab-anthropic"),
+      ).toBeTruthy();
+      expect(screen.getByRole("button", { name: /^Verify/ })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Edit default" })).toBeNull();
+      expect(screen.queryByText("Default reasoning effort")).toBeNull();
+    });
+
+    it("enables with the pin, effort off, no fallback and the chosen credential", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD);
+      vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ANTHROPIC]);
+      vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({
+        ...ENABLEMENT,
+        agent_name: "guard@1",
+        revision: 1,
+      });
+      mount();
+
+      const form = await screen.findByRole("form", { name: "Enable guard@1" });
+      await userEvent.type(within(form).getByLabelText("Agent provider name"), "lab");
+      await choose("LLM credential", "lab-anthropic (anthropic)");
+      await userEvent.click(within(form).getByRole("button", { name: "Enable agent" }));
+
+      expect(workersApi.listCredentialModels).not.toHaveBeenCalledWith(
+        "anthropic",
+        "lab-anthropic",
+      );
+      expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("guard@1", {
+        agent_providers: [{ name: "lab", provider: "anthropic", credential: "lab-anthropic" }],
+        default_configuration: {
+          agent_provider: "lab",
+          model_identifier: "claude-sonnet-5",
+          reasoning_effort: "off",
+        },
+        fallback_configurations: [],
+      });
+    });
+  });
 });

@@ -160,7 +160,7 @@ describe("AgentsScreen", () => {
     expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
   });
 
-  it("disables the New Session button of an enabled agent that does not serve the Workbench", async () => {
+  it("shows no New Session button for an enabled agent that does not serve the Workbench", async () => {
     const PE: AgentSummary = {
       ...SWE,
       agentName: "pe@1",
@@ -170,10 +170,29 @@ describe("AgentsScreen", () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue([PE]);
     mount();
 
-    expect(await screen.findByRole("button", { name: "New session with pe@1" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    expect(await screen.findByRole("link", { name: "PE (pe@1)" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "New session with pe@1" })).toBeNull();
+  });
+
+  it("lists guard@1 with no New Session button and keeps the button of ops@1", async () => {
+    const GUARD: AgentSummary = {
+      agentName: "guard@1",
+      displayName: "Guard",
+      workerNames: [],
+      consumers: [],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+      enablement: { ...SWE.enablement!, agent_name: "guard@1" },
+    };
+    vi.mocked(workersApi.listAgents).mockResolvedValue([
+      GUARD,
+      { ...OPS, enablement: SWE.enablement },
+    ]);
+    mount();
+
+    const items = await screen.findAllByRole("listitem");
+    expect(within(items[0]!).getByRole("link", { name: "Guard (guard@1)" })).toBeTruthy();
+    expect(within(items[0]!).queryByRole("button", { name: /New session/ })).toBeNull();
+    expect(within(items[1]!).getByRole("button", { name: "New session with ops@1" })).toBeEnabled();
   });
 
   it("reports a failed read", async () => {

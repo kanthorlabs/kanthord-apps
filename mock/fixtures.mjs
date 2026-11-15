@@ -190,6 +190,27 @@ const OPS_TOOLS = [
     guard_class: "card",
     input_schema: TOOL_INPUT,
   },
+  {
+    name: "mission.node.pause",
+    source: "operation",
+    description: "Pause one node of a mission.",
+    guard_class: "reversible",
+    input_schema: TOOL_INPUT,
+  },
+  {
+    name: "mission.node.unblock",
+    source: "operation",
+    description: "Unblock one blocked node of a mission.",
+    guard_class: "judged",
+    input_schema: TOOL_INPUT,
+  },
+  {
+    name: "mission.import.apply",
+    source: "operation",
+    description: "Apply a mission import after the human confirms a card.",
+    guard_class: "card",
+    input_schema: TOOL_INPUT,
+  },
 ];
 
 const RE_TOOLS = [

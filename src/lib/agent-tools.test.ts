@@ -33,6 +33,12 @@ describe("GUARD_CLASS_FACTS", () => {
       undo: "Reads only. Nothing to undo.",
     });
     expect(GUARD_CLASS_FACTS.card).toEqual({ variant: "default", undo: "Waits on your card." });
+    expect(GUARD_CLASS_FACTS.reversible.undo).toBe(
+      "Runs with no card while auto mode is on. One opposite call undoes it.",
+    );
+    expect(GUARD_CLASS_FACTS.judged.undo).toBe(
+      "The guard decides. It runs with no card only when your message directs it.",
+    );
   });
 });
 
