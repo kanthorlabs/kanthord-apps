@@ -143,6 +143,25 @@ describe("ChatView", () => {
     ).toBeNull();
   });
 
+  it("disables the Auto mode switch until the first poll answers", async () => {
+    const polls = pollQueue();
+    mount(session([], false));
+
+    expect(screen.getByRole("switch", { name: "Auto mode" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await polls.answer({ snapshot: { auto_mode: false } });
+
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Auto mode" })).not.toHaveAttribute(
+        "aria-disabled",
+        "true",
+      ),
+    );
+    expect(screen.getByRole("switch", { name: "Auto mode" })).not.toBeChecked();
+  });
+
   it("toggles auto mode while a run is active and shows the answer", async () => {
     const polls = pollQueue();
     vi.mocked(workbenchApi.setWorkbenchAutoMode).mockResolvedValue({

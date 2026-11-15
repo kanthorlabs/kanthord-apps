@@ -1294,6 +1294,45 @@ describe("AgentScreen", () => {
       expect(screen.queryByText("Default reasoning effort")).toBeNull();
     });
 
+    it("changes the credential of an enabled agent with the pinned model and effort off", async () => {
+      const enabled = {
+        agent_name: "guard@1",
+        state: "enabled" as const,
+        agent_providers: [
+          { name: "lab", provider: "anthropic" as const, credential: "lab-anthropic" },
+          { name: "spare", provider: "anthropic" as const, credential: "spare-anthropic" },
+        ],
+        default_configuration: {
+          agent_provider: "lab",
+          model_identifier: "claude-sonnet-5",
+          reasoning_effort: "off" as const,
+        },
+        fallback_configurations: [],
+        revision: 1,
+      };
+      vi.mocked(workersApi.readAgent).mockResolvedValue({ ...GUARD, enablement: enabled });
+      vi.mocked(workersApi.putAgentEnablement).mockResolvedValue({ ...enabled, revision: 2 });
+      mount();
+
+      await userEvent.click(await screen.findByRole("button", { name: "Change credential" }));
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).queryByRole("combobox", { name: "Model Identifier" })).toBeNull();
+      expect(within(sheet).queryByRole("combobox", { name: "Reasoning Effort" })).toBeNull();
+      await choose("Agent Provider", "spare · spare-anthropic");
+      await userEvent.click(within(sheet).getByRole("button", { name: "Save credential" }));
+
+      expect(workersApi.putAgentEnablement).toHaveBeenCalledWith("guard@1", {
+        expected_revision: 1,
+        agent_providers: enabled.agent_providers,
+        default_configuration: {
+          agent_provider: "spare",
+          model_identifier: "claude-sonnet-5",
+          reasoning_effort: "off",
+        },
+        fallback_configurations: [],
+      });
+    });
+
     it("enables with the pin, effort off, no fallback and the chosen credential", async () => {
       vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD);
       vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ANTHROPIC]);

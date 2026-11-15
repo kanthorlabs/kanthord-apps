@@ -31,6 +31,18 @@ describe("guardLineOf", () => {
       }),
     ).toBe("Guard: Model: the owner directs this unblock (0.90)");
   });
+
+  it("answers the no verdict line for a classifier guard with no reason", () => {
+    expect(guardLineOf({ cause: "classifier", reason: null, confidence: 0.9 })).toBe(
+      "Guard: no verdict",
+    );
+  });
+
+  it("leaves out the confidence when the classifier gives none", () => {
+    expect(guardLineOf({ cause: "classifier", reason: "it only reads", confidence: null })).toBe(
+      "Guard: Model: it only reads",
+    );
+  });
 });
 
 describe("ranWithoutApprovalLineOf", () => {

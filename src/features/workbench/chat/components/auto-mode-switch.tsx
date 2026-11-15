@@ -7,10 +7,16 @@ import { InlineError } from "./inline-error";
 interface AutoModeSwitchProps {
   readonly sessionId: string;
   readonly enabled: boolean;
+  readonly disabled?: boolean;
   readonly onEnabled: (enabled: boolean) => void;
 }
 
-export function AutoModeSwitch({ sessionId, enabled, onEnabled }: AutoModeSwitchProps) {
+export function AutoModeSwitch({
+  sessionId,
+  enabled,
+  disabled = false,
+  onEnabled,
+}: AutoModeSwitchProps) {
   const labelId = useId();
   const errorId = useId();
   const autoMode = useAutoMode(sessionId, onEnabled);
@@ -20,7 +26,7 @@ export function AutoModeSwitch({ sessionId, enabled, onEnabled }: AutoModeSwitch
         <span id={labelId}>Auto mode</span>
         <Switch
           checked={enabled}
-          disabled={autoMode.pending}
+          disabled={disabled || autoMode.pending}
           aria-labelledby={labelId}
           aria-describedby={autoMode.failure === null ? undefined : errorId}
           onCheckedChange={(checked) => void autoMode.toggle(checked)}

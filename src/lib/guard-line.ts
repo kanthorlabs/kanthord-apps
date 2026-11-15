@@ -16,8 +16,9 @@ export function modelTextOf(reason: string): string {
 
 export function guardLineOf(guard: WorkbenchPendingApprovalGuard): string {
   if (guard.cause !== "classifier") return FIXED_GUARD_LINES[guard.cause];
+  if (guard.reason === null) return FIXED_GUARD_LINES.no_verdict;
   const confidence = guard.confidence === null ? "" : ` (${guard.confidence.toFixed(2)})`;
-  return `Guard: ${modelTextOf(guard.reason ?? "no reason")}${confidence}`;
+  return `Guard: ${modelTextOf(guard.reason)}${confidence}`;
 }
 
 export function ranWithoutApprovalLineOf(reason: string): string {

@@ -19,6 +19,7 @@ import { providerRemovalBlock } from "@/lib/agent-provider-draft";
 import { AgentPromptCard } from "./components/agent-prompt-card";
 import { AgentProviderRemoveDialog } from "./components/agent-provider-remove-dialog";
 import { AgentProviderSheet } from "./components/agent-provider-sheet";
+import { PinnedCredentialSheet } from "./components/pinned-credential-sheet";
 import { ChainSection } from "./components/chain-section";
 import { DefaultConfigurationSheet } from "./components/default-configuration-sheet";
 import { EnablementForm } from "./components/enablement-form";
@@ -87,6 +88,39 @@ function EditDefault({
   );
 }
 
+function EditPinnedCredential({
+  agentName,
+  enablement,
+  pinnedModelIdentifier,
+  reload,
+}: {
+  readonly agentName: string;
+  readonly enablement: AgentEnablement;
+  readonly pinnedModelIdentifier: string;
+  readonly reload: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <PencilIcon aria-hidden="true" data-icon="inline-start" />
+        Change credential
+      </Button>
+      <PinnedCredentialSheet
+        agentName={agentName}
+        enablement={enablement}
+        pinnedModelIdentifier={pinnedModelIdentifier}
+        open={open}
+        onClose={() => setOpen(false)}
+        onSaved={() => {
+          setOpen(false);
+          reload();
+        }}
+      />
+    </>
+  );
+}
+
 function AgentProviderList({
   agentName,
   enablement,
@@ -142,15 +176,21 @@ function EnablementSection({
   pinnedModelIdentifier,
   reload,
 }: EnablementSectionProps) {
-  const pinned = pinnedModelIdentifier !== null;
   return (
     <Card>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold leading-none">Enablement</h2>
         {enablement !== null && (
           <div className="flex flex-wrap gap-2">
-            {!pinned && (
+            {pinnedModelIdentifier === null ? (
               <EditDefault agentName={agentName} enablement={enablement} reload={reload} />
+            ) : (
+              <EditPinnedCredential
+                agentName={agentName}
+                enablement={enablement}
+                pinnedModelIdentifier={pinnedModelIdentifier}
+                reload={reload}
+              />
             )}
             <AddAgentProvider agentName={agentName} enablement={enablement} reload={reload} />
           </div>
@@ -162,7 +202,7 @@ function EnablementSection({
             <p className="text-sm text-muted-foreground">
               No enablement exists. A human enables the agent before a worker binding can use it.
             </p>
-            {pinned && <PinnedModel identifier={pinnedModelIdentifier} />}
+            {pinnedModelIdentifier !== null && <PinnedModel identifier={pinnedModelIdentifier} />}
             <EnablementForm
               agentName={agentName}
               reload={reload}
@@ -183,7 +223,7 @@ function EnablementSection({
               <dd className="font-mono break-all">
                 {enablement.default_configuration.agent_provider}
               </dd>
-              {pinned ? (
+              {pinnedModelIdentifier !== null ? (
                 <>
                   <dt className="text-muted-foreground">Pinned model</dt>
                   <dd className="font-mono break-all">{pinnedModelIdentifier}</dd>

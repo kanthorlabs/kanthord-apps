@@ -120,6 +120,7 @@ export function ChatView({
         <AutoModeSwitch
           sessionId={session.id}
           enabled={snapshot.auto_mode}
+          disabled={!events.snapshotLoaded}
           onEnabled={onAutoMode}
         />
       </div>
