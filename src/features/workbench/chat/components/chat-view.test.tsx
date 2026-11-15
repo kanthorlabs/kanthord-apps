@@ -25,6 +25,7 @@ vi.mock("@/features/projects/view/use-evidence-download", async (importOriginal)
 
 import { useEvidenceDownload } from "@/features/projects/view/use-evidence-download";
 import { ChatView } from "./chat-view";
+import { NewSessionChat } from "./new-session-chat";
 
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 
@@ -126,6 +127,54 @@ beforeEach(() => {
 });
 
 describe("ChatView", () => {
+  it("holds the Auto mode switch in the header, outside the transcript and the run line", async () => {
+    const polls = pollQueue();
+    mount(session([message("e1", { role: "user", content: "Run" })], true));
+    await polls.answer({ snapshot: { run_active: true, auto_mode: false } });
+
+    const autoMode = await screen.findByRole("switch", { name: "Auto mode" });
+    expect(autoMode).not.toBeChecked();
+    expect(screen.getByRole("heading", { name: "swe@1" }).parentElement).toContainElement(autoMode);
+    expect(
+      within(screen.getByRole("log", { name: "Transcript" })).queryByRole("switch"),
+    ).toBeNull();
+    expect(
+      within(await screen.findByRole("group", { name: "Run line" })).queryByRole("switch"),
+    ).toBeNull();
+  });
+
+  it("toggles auto mode while a run is active and shows the answer", async () => {
+    const polls = pollQueue();
+    vi.mocked(workbenchApi.setWorkbenchAutoMode).mockResolvedValue({
+      session_id: SESSION_ID,
+      enabled: false,
+    });
+    mount(session([], true));
+    await polls.answer({ snapshot: { run_active: true, auto_mode: true } });
+
+    await userEvent.click(await screen.findByRole("switch", { name: "Auto mode" }));
+
+    expect(workbenchApi.setWorkbenchAutoMode).toHaveBeenCalledWith(SESSION_ID, false);
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: "Auto mode" })).not.toBeChecked(),
+    );
+  });
+
+  it("shows no Auto mode switch on the new-session route", () => {
+    render(
+      <MemoryRouter>
+        <NewSessionChat
+          agentName="swe@1"
+          agentDisplayName="SWE"
+          configuration={ENABLEMENT.default_configuration}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("switch", { name: "Auto mode" })).toBeNull();
+    expect(screen.queryByText("Auto mode")).toBeNull();
+  });
+
   it("shows the command name of an owner bubble with the fixed text of /brief", () => {
     pollQueue();
     mount(
