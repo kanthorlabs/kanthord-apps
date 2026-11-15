@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { WorkbenchPendingApproval } from "@/api/types";
+import type { WorkbenchGuardCause, WorkbenchPendingApproval } from "@/api/types";
 import { ApprovalCard } from "./approval-card";
 
 const EVIDENCE: WorkbenchPendingApproval = {
@@ -162,5 +162,56 @@ describe("ApprovalCard", () => {
     expect(within(card).getByRole("button", { name: "Approve" })).toBeTruthy();
     expect(within(card).getByRole("button", { name: "Reject" })).toBeTruthy();
     expect(within(card).queryAllByRole("listitem")).toHaveLength(0);
+  });
+  it.each([
+    ["import", "Guard: import always needs your approval"],
+    ["auto_mode_off", "Auto mode is off"],
+    ["unavailable", "Guard: unavailable"],
+    ["oversize", "Guard: the request is too large to judge"],
+    ["no_verdict", "Guard: no verdict"],
+  ] satisfies readonly (readonly [WorkbenchGuardCause, string])[])(
+    "shows the fixed guard line of the %s cause below the facts",
+    (cause, line) => {
+      mount({ ...MUTATION, guard: { cause, reason: null, confidence: null } });
+
+      const card = screen.getByRole("group", { name: "Approval Required" });
+      const guard = within(card).getByText(line);
+      const input = within(card).getByText(/"name": "account-recovery"/);
+      expect(input.compareDocumentPosition(guard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    },
+  );
+
+  it("shows the classifier reason as model text with the confidence in two decimals", () => {
+    mount({
+      ...MUTATION,
+      guard: { cause: "classifier", reason: "the owner directs this unblock", confidence: 0.9 },
+    });
+
+    expect(
+      screen.getByText("Guard: Model: the owner directs this unblock (0.90)"),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a classifier reason as plain text, never as Markdown or HTML", () => {
+    const reason = "**bold** <b>tag</b>";
+    mount({ ...MUTATION, guard: { cause: "classifier", reason, confidence: 0.5 } });
+
+    expect(screen.getByText(`Guard: Model: ${reason} (0.50)`)).toBeInTheDocument();
+    expect(screen.queryByRole("strong")).toBeNull();
+  });
+
+  it("shows no guard line when the guard is null", () => {
+    mount(EVIDENCE);
+
+    expect(screen.queryByText(/Guard:/)).toBeNull();
+    expect(screen.queryByText("Auto mode is off")).toBeNull();
+  });
+
+  it("shows the import guard line on an import card that keeps its entry rows", () => {
+    mount({ ...IMPORT, guard: { cause: "import", reason: null, confidence: null } });
+
+    const card = screen.getByRole("group", { name: "Approval Required" });
+    expect(within(card).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(card).getByText("Guard: import always needs your approval")).toBeTruthy();
   });
 });

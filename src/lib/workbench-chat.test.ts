@@ -61,6 +61,7 @@ describe("chatItemsOf", () => {
         name: "mission.node.list",
         input: JSON.stringify({ a: 1 }, null, 2),
         state: "done",
+        guard: null,
       },
       { kind: "tool-result", id: "e3", name: "mission.node.list", text: "refused", isError: true },
     ]);
@@ -338,6 +339,51 @@ const OFFER_CALL = { type: "toolCall", id: "call_a", name: "offer_action", argum
 function cardsOf(entries: readonly WorkbenchSessionEntry[], snapshot = IDLE) {
   return chatItemsOf(entries, snapshot).filter((item) => item.kind === "action-card");
 }
+
+describe("chatItemsOf guard records", () => {
+  const GUARD = {
+    kind: "guard",
+    tool_call_id: "call_1",
+    operation_id: "mission.node.list",
+    reason: "reversible",
+  };
+
+  it("joins a guard record to the tool call with the same tool call id", () => {
+    const items = chatItemsOf(
+      [
+        message("e1", { role: "assistant", content: [CALL] }),
+        record("e2", GUARD),
+        message("e3", { role: "assistant", content: [{ ...CALL, id: "call_2" }] }),
+      ],
+      IDLE,
+    );
+
+    const calls = items.filter((item) => item.kind === "tool-call");
+    expect(calls.map((item) => item.guard)).toEqual([GUARD, null]);
+    expect(items).toHaveLength(2);
+  });
+
+  it("yields no item for an auto_mode record or a guard record", () => {
+    const items = chatItemsOf(
+      [record("e1", { kind: "auto_mode", enabled: false }), record("e2", GUARD)],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it("ignores a guard record with a malformed field", () => {
+    const items = chatItemsOf(
+      [
+        message("e1", { role: "assistant", content: [CALL] }),
+        record("e2", { ...GUARD, reason: 7 }),
+      ],
+      IDLE,
+    );
+
+    expect(items.map((item) => item.kind === "tool-call" && item.guard)).toEqual([null]);
+  });
+});
 
 describe("ACTION_VERBS", () => {
   it("holds exactly the eleven card ids", () => {

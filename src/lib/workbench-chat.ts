@@ -3,6 +3,7 @@ import {
   type WorkbenchActionOffer,
   type WorkbenchActionOperation,
   type WorkbenchActionResult,
+  type WorkbenchGuardRecord,
   type WorkbenchRunSnapshot,
   type WorkbenchSessionEntry,
 } from "@/api/types";
@@ -54,6 +55,7 @@ export type ChatItem =
       readonly name: string;
       readonly input: string;
       readonly state: "done" | "running" | "awaiting-approval" | "no-result";
+      readonly guard: WorkbenchGuardRecord | null;
     }
   | {
       readonly kind: "tool-result";
@@ -84,6 +86,7 @@ const OFFER_TOOL = "offer_action";
 const EVIDENCE_READ_TOOL = "evidence_read";
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
+const GUARD_KEYS = ["kind", "tool_call_id", "operation_id", "reason"];
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
 const NODE_SEEN_KEYS = ["name", "state", "attempt"];
 const PROJECT_SEEN_KEYS = ["name", "paused"];
@@ -159,6 +162,21 @@ function offerOf(entry: WorkbenchSessionEntry): WorkbenchActionOffer | null {
   return { kind: "action_offer", tool_call_id, operation_id, target_id, seen };
 }
 
+function guardRecordOf(entry: WorkbenchSessionEntry): WorkbenchGuardRecord | null {
+  const data = entry["data"];
+  if (entry.type !== "custom" || entry["customType"] !== RECORD_TYPE) return null;
+  if (!isRecord(data) || !hasExactKeys(data, GUARD_KEYS) || data["kind"] !== "guard") return null;
+  const { tool_call_id, operation_id, reason } = data;
+  if (
+    typeof tool_call_id !== "string" ||
+    typeof operation_id !== "string" ||
+    typeof reason !== "string"
+  ) {
+    return null;
+  }
+  return { kind: "guard", tool_call_id, operation_id, reason };
+}
+
 function resultOf(entry: WorkbenchSessionEntry): WorkbenchActionResult | null {
   const details = entry["details"];
   if (entry.type !== "custom_message" || entry["customType"] !== RESULT_TYPE) return null;
@@ -181,6 +199,7 @@ interface ResultContext {
   readonly lastUserIndex: number;
   readonly lastOfferIndex: number;
   readonly actionResults: ReadonlyMap<string, readonly WorkbenchActionResult[]>;
+  readonly guards: ReadonlyMap<string, WorkbenchGuardRecord>;
 }
 
 function actionCardState(
@@ -253,6 +272,7 @@ function assistantItems(
       name: stringOf(block["name"]),
       input: JSON.stringify(block["arguments"] ?? {}, null, 2),
       state: callState(callId, index, snapshot, streaming, context),
+      guard: context.guards.get(callId) ?? null,
     });
   }
   return items;
@@ -343,6 +363,7 @@ function entryItems(
 function resultContextOf(entries: readonly WorkbenchSessionEntry[]): ResultContext {
   const resultIds = new Set<string>();
   const actionResults = new Map<string, WorkbenchActionResult[]>();
+  const guards = new Map<string, WorkbenchGuardRecord>();
   let lastUserIndex = -1;
   let lastOfferIndex = -1;
   entries.forEach((entry, index) => {
@@ -354,12 +375,14 @@ function resultContextOf(entries: readonly WorkbenchSessionEntry[]): ResultConte
         result,
       ]);
     }
+    const guard = guardRecordOf(entry);
+    if (guard !== null) guards.set(guard.tool_call_id, guard);
     if (offerOf(entry) !== null) lastOfferIndex = index;
     if (entry.type !== "message" || !isRecord(message)) return;
     if (message["role"] === "user") lastUserIndex = index;
     if (message["role"] === "toolResult") resultIds.add(stringOf(message["toolCallId"]));
   });
-  return { resultIds, lastUserIndex, lastOfferIndex, actionResults };
+  return { resultIds, lastUserIndex, lastOfferIndex, actionResults, guards };
 }
 
 export function chatItemsOf(

@@ -4,6 +4,7 @@ import type { WorkbenchPendingApproval } from "@/api/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { EVIDENCE_DOWNLOAD_OPERATION_ID } from "@/lib/approval-attention";
+import { guardLineOf } from "@/lib/guard-line";
 import type { ChatActionFailure } from "../use-chat-actions";
 import {
   IMPORT_APPLY_OPERATION_ID,
@@ -114,6 +115,11 @@ export function ApprovalCard({
             <EvidenceBody approval={approval} agentDisplayName={agentDisplayName} />
           ) : (
             <GenericBody approval={approval} />
+          )}
+          {approval.guard !== null && (
+            <CardContent className="min-w-0 text-sm break-words text-muted-foreground">
+              <p>{guardLineOf(approval.guard)}</p>
+            </CardContent>
           )}
           <CardFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end [&>button]:max-sm:w-full">
             <Button variant="outline" disabled={busy} onClick={() => onDecide(false)}>

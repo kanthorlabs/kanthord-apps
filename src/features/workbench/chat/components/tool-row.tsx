@@ -4,6 +4,8 @@ import { type ReactNode, useId } from "react";
 import { RevealPanel } from "@/components/reveal";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import type { WorkbenchGuardRecord } from "@/api/types";
+import { ranWithoutApprovalLineOf } from "@/lib/guard-line";
 import { summaryOf } from "@/lib/workbench-chat";
 import { InlineError } from "./inline-error";
 import { ToolDetail } from "./tool-detail";
@@ -14,9 +16,10 @@ interface ToolRowProps {
   readonly status: ReactNode;
   readonly detail: string;
   readonly error?: string;
+  readonly guard?: WorkbenchGuardRecord | null;
 }
 
-export function ToolRow({ label, name, status, detail, error }: ToolRowProps) {
+export function ToolRow({ label, name, status, detail, error, guard = null }: ToolRowProps) {
   const errorId = useId();
   return (
     <div className="flex min-w-0 flex-col gap-1">
@@ -53,6 +56,11 @@ export function ToolRow({ label, name, status, detail, error }: ToolRowProps) {
           </RevealPanel>
         </Collapsible>
       </div>
+      {guard !== null && (
+        <p className="min-w-0 px-3 text-xs break-words text-muted-foreground">
+          {ranWithoutApprovalLineOf(guard.reason)}
+        </p>
+      )}
       {error !== undefined && <InlineError id={errorId} code={null} message={error} />}
     </div>
   );
