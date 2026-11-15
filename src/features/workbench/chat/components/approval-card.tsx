@@ -53,6 +53,7 @@ function ImportEntries({ rows }: { readonly rows: readonly ImportEntryRow[] }) {
         >
           <span className="font-medium">{row.mark}</span>
           <span className="text-muted-foreground">{row.kind}</span>
+          {row.intent !== null && <span className="text-muted-foreground">{row.intent}</span>}
           <span className="min-w-0 font-mono break-all">{row.filename}</span>
           <span className="min-w-0 break-words">{row.name}</span>
           {row.id !== null && <span className="min-w-0 font-mono break-all">{row.id}</span>}

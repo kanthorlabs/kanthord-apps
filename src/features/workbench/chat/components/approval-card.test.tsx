@@ -129,11 +129,24 @@ describe("ApprovalCard", () => {
     expect(within(card).getByRole("button", { name: "Reject" })).toBeTruthy();
   });
 
-  it("renders the plain card when import entries are no array", () => {
-    mount({ ...IMPORT, input: { body: { format: "json" } } });
+  it.each([
+    ["the import entries are not an array", { body: { format: "json" } }],
+    ["the import input has no body", {}],
+    ["an import entry is not an object", { body: { format: "json", entries: ["x"] } }],
+    [
+      "an import entry has no name",
+      { body: { format: "json", entries: [{ filename: "a.md", node: "b.md" }] } },
+    ],
+    [
+      "an import entry id is not a string",
+      { body: { format: "json", entries: [{ id: 7, filename: "a.md", name: "A" }] } },
+    ],
+  ])("renders the plain card when %s", (_name, input) => {
+    mount({ ...IMPORT, input });
 
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(screen.getByText("mission.import.apply")).toBeTruthy();
+    expect(document.querySelector("pre")?.textContent).toBe(JSON.stringify(input, null, 2));
   });
 
   it("renders another operation with the id, the input JSON and no entry row", () => {

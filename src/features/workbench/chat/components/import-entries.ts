@@ -2,7 +2,8 @@ export const IMPORT_APPLY_OPERATION_ID = "mission.import.apply";
 
 export interface ImportEntryRow {
   readonly mark: "create" | "update";
-  readonly kind: string;
+  readonly kind: "node" | "task";
+  readonly intent: string | null;
   readonly filename: string;
   readonly name: string;
   readonly id: string | null;
@@ -14,14 +15,16 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 function rowOf(entry: unknown): ImportEntryRow | null {
   if (!isRecord(entry)) return null;
-  const { id, intent, filename, name } = entry;
+  const { id, intent, node, filename, name } = entry;
   if (typeof filename !== "string" || typeof name !== "string") return null;
+  if (id !== undefined && typeof id !== "string") return null;
   return {
     mark: id === undefined ? "create" : "update",
-    kind: typeof intent === "string" ? intent : "task",
+    kind: typeof node === "string" ? "task" : "node",
+    intent: typeof intent === "string" ? intent : null,
     filename,
     name,
-    id: id === undefined ? null : String(id),
+    id: id ?? null,
   };
 }
 
