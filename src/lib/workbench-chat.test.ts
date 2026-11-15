@@ -344,7 +344,7 @@ describe("chatItemsOf guard records", () => {
   const GUARD = {
     kind: "guard",
     tool_call_id: "call_1",
-    operation_id: "mission.node.list",
+    operation_id: "mission.node.pause",
     reason: "reversible",
   };
 

@@ -332,10 +332,10 @@ Your responsibility is the change that the task describes, in the workspace, to 
       agent_name: "guard@1",
       state: "enabled",
       agent_providers: [
-        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-router" },
+        { name: "guard-llm", provider: "anthropic", credential: "guard-anthropic" },
       ],
       default_configuration: {
-        agent_provider: "atlas-llm",
+        agent_provider: "guard-llm",
         model_identifier: "claude-sonnet-5",
         reasoning_effort: "off",
       },
@@ -2288,6 +2288,11 @@ export const CREDENTIALS = [
     revisions: [credentialRevision("0031", 1, null, Date.UTC(2026, 8, 3, 9, 0))],
   },
   {
+    name: "guard-anthropic",
+    platform: "anthropic",
+    revisions: [credentialRevision("0072", 1, null, Date.UTC(2026, 8, 6, 9, 0))],
+  },
+  {
     name: "bad-anthropic",
     platform: "anthropic",
     revisions: [credentialRevision("0041", 1, null, Date.UTC(2026, 8, 4, 9, 0) - DAY)],
@@ -2401,7 +2406,7 @@ const GUARD_CREATE_CALL = (number) => ({
 });
 
 const GUARD_RAN_CALLS = [
-  { id: "call_auto_01", name: "mission.node.list", reason: "reversible" },
+  { id: "call_auto_01", name: "mission.node.pause", reason: "reversible" },
   {
     id: "call_auto_02",
     name: "mission.node.discard",
@@ -2416,7 +2421,7 @@ const guardRanEntriesOf = (entryId, at) => {
       id: entryId(1),
       parentId: null,
       timestamp: entryAt(at),
-      message: { role: "user", content: "Check the nodes of Account recovery" },
+      message: { role: "user", content: "Pause and discard nodes of Account recovery" },
     },
   ];
   for (const [index, call] of GUARD_RAN_CALLS.entries()) {
@@ -2455,7 +2460,7 @@ const guardRanEntriesOf = (entryId, at) => {
           toolCallId: call.id,
           toolName: call.name,
           isError: false,
-          content: [{ type: "text", text: '{"items":[]}' }],
+          content: [{ type: "text", text: '{"ok":true}' }],
         },
       },
     );

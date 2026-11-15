@@ -39,7 +39,7 @@ function renderTranscript(extra: ReturnType<typeof recordEntry>) {
     timestamp: "2026-10-05T09:00:00.000Z",
     message: {
       role: "assistant",
-      content: [{ type: "toolCall", id: "call_1", name: "mission.node.list", arguments: {} }],
+      content: [{ type: "toolCall", id: "call_1", name: "mission.node.pause", arguments: {} }],
     },
   };
   for (const item of chatItemsOf([call, extra], IDLE)) {
@@ -101,7 +101,7 @@ describe("ToolRow", () => {
         recordEntry("e2", {
           kind: "guard",
           tool_call_id: "call_1",
-          operation_id: "mission.node.list",
+          operation_id: "mission.node.pause",
           reason: "reversible",
         }),
       );
@@ -112,7 +112,7 @@ describe("ToolRow", () => {
     it("renders no line for an auto_mode record", () => {
       renderTranscript(recordEntry("e2", { kind: "auto_mode", enabled: true }));
 
-      expect(screen.getByRole("button", { name: "Tool Call mission.node.list" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Tool Call mission.node.pause" })).toBeTruthy();
       expect(screen.queryByText(/Ran without approval/)).toBeNull();
       expect(screen.queryByText(/Auto mode/)).toBeNull();
     });
@@ -123,7 +123,7 @@ describe("ToolRow", () => {
       render(
         <ToolRow
           label="Tool Call"
-          name="mission.node.list"
+          name="mission.node.pause"
           detail="{}"
           status={null}
           guard={guard}
@@ -135,7 +135,7 @@ describe("ToolRow", () => {
       return {
         kind: "guard",
         tool_call_id: "call_1",
-        operation_id: "mission.node.list",
+        operation_id: "mission.node.pause",
         reason,
       };
     }

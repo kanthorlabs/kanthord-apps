@@ -1333,6 +1333,46 @@ describe("AgentScreen", () => {
       });
     });
 
+    it("keeps the sheet open and names the refusal when the pinned credential is not saved", async () => {
+      const enabled = {
+        agent_name: "guard@1",
+        state: "enabled" as const,
+        agent_providers: [
+          { name: "lab", provider: "anthropic" as const, credential: "lab-anthropic" },
+          { name: "spare", provider: "anthropic" as const, credential: "spare-anthropic" },
+        ],
+        default_configuration: {
+          agent_provider: "lab",
+          model_identifier: "claude-sonnet-5",
+          reasoning_effort: "off" as const,
+        },
+        fallback_configurations: [],
+        revision: 1,
+      };
+      vi.mocked(workersApi.readAgent).mockResolvedValue({ ...GUARD, enablement: enabled });
+      vi.mocked(workersApi.putAgentEnablement).mockRejectedValue(
+        new ApiError(
+          "conflict",
+          "The model of guard@1 is pinned.",
+          409,
+          "agent.configuration.model_pinned",
+        ),
+      );
+      mount();
+
+      expect(await screen.findByRole("button", { name: "Add agent provider" })).toBeTruthy();
+      await userEvent.click(screen.getByRole("button", { name: "Change credential" }));
+      const sheet = await screen.findByRole("dialog");
+      expect(
+        within(sheet).getByText(/To use a new credential, add an agent provider first\./),
+      ).toBeTruthy();
+      await choose("Agent Provider", "spare · spare-anthropic");
+      await userEvent.click(within(sheet).getByRole("button", { name: "Save credential" }));
+
+      expect(await within(sheet).findByText("The credential was not saved.")).toBeTruthy();
+      expect(screen.getByRole("dialog")).toBe(sheet);
+    });
+
     it("enables with the pin, effort off, no fallback and the chosen credential", async () => {
       vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD);
       vi.mocked(credentialsApi.listAllCredentials).mockResolvedValue([ANTHROPIC]);
