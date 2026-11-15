@@ -80,6 +80,7 @@ const AGENT: AgentDeclaration = {
   ],
   active_position: 0,
   cooling: null,
+  pinned_model_identifier: null,
 };
 
 function mount() {

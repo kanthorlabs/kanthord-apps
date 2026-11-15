@@ -786,6 +786,7 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
     overridable_fields: overridableFields,
     enablement,
     tools,
+    pinned_model_identifier: pinnedModelIdentifier,
   } = declaration;
   const workbench = binding === undefined && declaration.workbench === true;
   const parts = [
@@ -801,6 +802,7 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
     enablement,
     prompt: url.searchParams.get("view") === "final" ? { final } : { parts, final },
     tools,
+    pinned_model_identifier: pinnedModelIdentifier,
     ...enablementChainOf(enablement),
   });
 });

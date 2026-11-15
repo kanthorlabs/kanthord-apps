@@ -26,6 +26,7 @@ const CALL: ChatItem = {
   name: "mission.node.list",
   input: "{}",
   state: "running",
+  guard: null,
 };
 
 function transcript(items: readonly ChatItem[], runActive: boolean) {

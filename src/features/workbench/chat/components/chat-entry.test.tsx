@@ -15,6 +15,7 @@ describe("ChatEntry", () => {
           name: "mission.node.list",
           input: "{}",
           state: "no-result",
+          guard: null,
         }}
         authors={AUTHORS}
         runError={null}

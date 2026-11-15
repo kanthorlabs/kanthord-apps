@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -8,7 +8,7 @@ import {
   listCredentialModels,
   putAgentEnablement,
 } from "@/api/resources/workers";
-import type { AgentModel } from "@/api/types";
+import type { AgentModel, ReasoningEffort } from "@/api/types";
 import { asApiError, useResource } from "@/hooks/use-resource";
 import { useUnhealthyGuard } from "@/hooks/use-unhealthy-guard";
 import {
@@ -65,10 +65,13 @@ export const ENABLEMENT_HASH = "#enablement";
 
 const NO_ERRORS: EnablementErrors = {};
 
+const PINNED_EFFORT: ReasoningEffort = "off";
+
 export function useEnablementCreate(
   agentName: string,
   reload: () => void,
   onEnabled?: () => void,
+  pinnedModelIdentifier: string | null = null,
 ): EnablementCreateState {
   const [draft, setDraft] = useState<EnablementDraft>(EMPTY_ENABLEMENT);
   const [errors, setErrors] = useState<EnablementErrors>(NO_ERRORS);
@@ -111,6 +114,7 @@ export function useEnablementCreate(
       setModels(null);
       setModelsFailure(null);
       checkCredential(credential);
+      if (pinnedModelIdentifier !== null) return;
       const provider = providerOfCredential(usable, credential);
       if (provider === null) return;
       listCredentialModels(provider, credential).then(
@@ -129,7 +133,7 @@ export function useEnablementCreate(
         (cause: unknown) => setModelsFailure(asApiError(cause).message),
       );
     },
-    [usable, enablements.data, checkCredential],
+    [usable, enablements.data, checkCredential, pinnedModelIdentifier],
   );
 
   const reloadCredentials = credentials.reload;
@@ -170,9 +174,17 @@ export function useEnablementCreate(
     [],
   );
 
+  const effectiveDraft = useMemo(
+    () =>
+      pinnedModelIdentifier === null
+        ? draft
+        : { ...draft, modelIdentifier: pinnedModelIdentifier, reasoningEffort: PINNED_EFFORT },
+    [draft, pinnedModelIdentifier],
+  );
+
   const submit = useCallback(() => {
     if (submitting) return;
-    const result = enablementBodyOf(draft, usable);
+    const result = enablementBodyOf(effectiveDraft, usable);
     if (!result.ok) {
       setErrors(result.errors);
       return;
@@ -193,16 +205,16 @@ export function useEnablementCreate(
         setFailure(asApiError(cause).message);
       },
     );
-  }, [submitting, draft, usable, agentName, reload, onEnabled, returnTo, navigate]);
+  }, [submitting, effectiveDraft, usable, agentName, reload, onEnabled, returnTo, navigate]);
 
   const runGuard = guard.run;
   const guardedSubmit = useCallback(() => {
-    if (!enablementBodyOf(draft, usable).ok) {
+    if (!enablementBodyOf(effectiveDraft, usable).ok) {
       submit();
       return;
     }
     runGuard(draft.credential, submit);
-  }, [draft, usable, submit, runGuard]);
+  }, [effectiveDraft, draft.credential, usable, submit, runGuard]);
 
   return {
     draft,

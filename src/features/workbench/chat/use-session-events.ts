@@ -16,6 +16,7 @@ export type SnapshotPatch =
 export interface SessionEventsState {
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly snapshot: WorkbenchRunSnapshot;
+  readonly snapshotLoaded: boolean;
   readonly failure: string | null;
   readonly patchSnapshot: (patch: SnapshotPatch) => void;
 }
@@ -42,6 +43,7 @@ function idleSnapshot(runActive: boolean): WorkbenchRunSnapshot {
     queue: [],
     run_active: runActive,
     error_message: null,
+    auto_mode: true,
   };
 }
 
@@ -53,6 +55,7 @@ export function useSessionEvents(
   const [initialEntries] = useState(loadedEntries);
   const [entries, setEntries] = useState(initialEntries);
   const [snapshot, setSnapshot] = useState(() => idleSnapshot(initialRunActive));
+  const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
@@ -68,6 +71,7 @@ export function useSessionEvents(
           if (signal.aborted) return;
           setFailure(null);
           setSnapshot(events.snapshot);
+          setSnapshotLoaded(true);
           version = events.version;
           const last = events.entries.at(-1);
           if (last !== undefined) {
@@ -100,5 +104,5 @@ export function useSessionEvents(
     [],
   );
 
-  return { entries, snapshot, failure, patchSnapshot };
+  return { entries, snapshot, snapshotLoaded, failure, patchSnapshot };
 }

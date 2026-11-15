@@ -108,6 +108,7 @@ export function ChatEntry({
         label="Tool Call"
         name={item.name}
         detail={item.input}
+        guard={item.guard}
         status={
           item.state === "done" ? null : (
             <Badge variant="secondary">{CALL_STATE_LABEL[item.state]}</Badge>

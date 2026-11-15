@@ -285,7 +285,7 @@ export interface AgentSummary {
 
 export type AgentToolSource = "builtin" | "kanthord-mcp" | "host" | "operation" | "workbench";
 
-export type AgentGuardClass = "read" | "card";
+export type AgentGuardClass = "read" | "card" | "reversible" | "judged";
 
 export interface AgentTool {
   readonly name: string;
@@ -359,6 +359,7 @@ export interface AgentDeclaration {
   readonly chain: readonly AgentChainEntry[];
   readonly active_position: number | null;
   readonly cooling: AgentCooling | null;
+  readonly pinned_model_identifier: string | null;
 }
 
 export type AgentChainEntry = Omit<AgentSelection, "agent_name"> & {
@@ -1647,6 +1648,20 @@ export interface WorkbenchActionOffer {
     | { readonly version: number };
 }
 
+export interface WorkbenchGuardRecord {
+  readonly kind: "guard";
+  readonly tool_call_id: string;
+  readonly operation_id: string;
+  readonly reason: string;
+}
+
+export interface WorkbenchAutoModeRecord {
+  readonly kind: "auto_mode";
+  readonly enabled: boolean;
+}
+
+export type WorkbenchRecord = WorkbenchActionOffer | WorkbenchGuardRecord | WorkbenchAutoModeRecord;
+
 export interface WorkbenchActionResult {
   readonly tool_call_id: string;
   readonly operation_id: string;
@@ -1680,8 +1695,18 @@ export interface WorkbenchPendingApprovalSummary {
   readonly operation_id: string;
 }
 
+export type WorkbenchGuardCause =
+  "import" | "auto_mode_off" | "unavailable" | "oversize" | "no_verdict" | "classifier";
+
+export interface WorkbenchPendingApprovalGuard {
+  readonly cause: WorkbenchGuardCause;
+  readonly reason: string | null;
+  readonly confidence: number | null;
+}
+
 export interface WorkbenchPendingApproval extends WorkbenchPendingApprovalSummary {
   readonly input: Readonly<Record<string, unknown>>;
+  readonly guard: WorkbenchPendingApprovalGuard | null;
 }
 
 export interface WorkbenchQueuedMessage {
@@ -1698,6 +1723,7 @@ export interface WorkbenchRunSnapshot {
   readonly queue: readonly WorkbenchQueuedMessage[];
   readonly run_active: boolean;
   readonly error_message: string | null;
+  readonly auto_mode: boolean;
 }
 
 export interface WorkbenchSessionEvents {
@@ -1722,6 +1748,11 @@ export interface WorkbenchAbortAnswer {
 export interface WorkbenchQueueRemoveAnswer {
   readonly session_id: string;
   readonly queued_message_id: string;
+}
+
+export interface WorkbenchAutoModeAnswer {
+  readonly session_id: string;
+  readonly enabled: boolean;
 }
 
 export interface WorkbenchApprovalAnswer {

@@ -10,6 +10,14 @@ export interface GuardClassFacts {
 export const GUARD_CLASS_FACTS: Readonly<Record<AgentGuardClass, GuardClassFacts>> = {
   read: { variant: "secondary", undo: "Reads only. Nothing to undo." },
   card: { variant: "default", undo: "Waits on your card." },
+  reversible: {
+    variant: "secondary",
+    undo: "Runs with no card while auto mode is on. One opposite call undoes it.",
+  },
+  judged: {
+    variant: "default",
+    undo: "The guard decides. It runs with no card only when your message directs it.",
+  },
 };
 
 const TOOL_UNDO_OVERRIDES: Readonly<Record<string, string>> = {

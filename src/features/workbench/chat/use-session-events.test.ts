@@ -16,6 +16,7 @@ const IDLE: WorkbenchRunSnapshot = {
   queue: [],
   run_active: false,
   error_message: null,
+  auto_mode: true,
 };
 
 function entry(id: string): WorkbenchSessionEntry {

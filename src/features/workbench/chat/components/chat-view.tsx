@@ -14,6 +14,7 @@ import { useSessionEvents } from "../use-session-events";
 import { useStopConfirm } from "../use-stop-confirm";
 import { AgentWorking } from "./agent-working";
 import { ApprovalCard } from "./approval-card";
+import { AutoModeSwitch } from "./auto-mode-switch";
 import { ChatTranscript } from "./chat-transcript";
 import { InlineError } from "./inline-error";
 import { ResumeCommandButton } from "./resume-command-button";
@@ -58,7 +59,11 @@ export function ChatView({
     session.configuration,
     enablement,
   );
-  const { snapshot } = events;
+  const { snapshot, patchSnapshot } = events;
+  const onAutoMode = useCallback(
+    (enabled: boolean) => patchSnapshot({ auto_mode: enabled }),
+    [patchSnapshot],
+  );
   const navigate = useNavigate();
   const currentConfiguration = configuration.configuration;
   const openNewChat = useCallback(
@@ -112,6 +117,12 @@ export function ChatView({
           {session.id}
         </span>
         <ResumeCommandButton command={session.resume_command} />
+        <AutoModeSwitch
+          sessionId={session.id}
+          enabled={snapshot.auto_mode}
+          disabled={!events.snapshotLoaded}
+          onEnabled={onAutoMode}
+        />
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <ChatTranscript
