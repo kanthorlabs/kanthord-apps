@@ -9,6 +9,7 @@ import { AgentText } from "./agent-text";
 import { BubbleAuthor } from "./bubble-author";
 import { InlineError } from "./inline-error";
 import { EvidenceRow } from "./evidence-row";
+import { ForkEntry } from "./fork-entry";
 import { commandOfText } from "../slash-commands";
 import { ToolRow } from "./tool-row";
 
@@ -122,6 +123,8 @@ export function ChatEntry({
       </div>
     );
   }
+
+  if (item.kind === "fork") return <ForkEntry item={item} />;
 
   if (item.kind === "evidence-row") return <EvidenceRow facts={item.facts} />;
 

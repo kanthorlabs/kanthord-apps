@@ -33,6 +33,7 @@ interface ComposerProps {
   readonly stopConfirm?: StopConfirmProps | null;
   readonly placeholder?: string;
   readonly inputDisabled?: boolean;
+  readonly newCommandHint?: string;
 }
 
 export function Composer({
@@ -45,6 +46,7 @@ export function Composer({
   stopConfirm = null,
   placeholder,
   inputDisabled = false,
+  newCommandHint,
 }: ComposerProps) {
   const listId = useId();
   const pickersDisabled = runActive || queued;
@@ -89,7 +91,11 @@ export function Composer({
               >
                 <ItemContent>
                   <ItemTitle className="font-mono">{command.name}</ItemTitle>
-                  <ItemDescription>{command.description}</ItemDescription>
+                  <ItemDescription>
+                    {command.id === "new" && newCommandHint !== undefined
+                      ? newCommandHint
+                      : command.description}
+                  </ItemDescription>
                 </ItemContent>
               </Item>
             ))}

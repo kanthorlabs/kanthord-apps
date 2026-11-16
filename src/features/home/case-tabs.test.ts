@@ -59,6 +59,7 @@ function session(id: string): WorkbenchSession {
     members: [{ session_id: id, agent_name: "ops@1", display_name: "Yumi" }],
     entries: [],
     run_active: false,
+    forked_from: null,
     resume_command: "pi",
   };
 }

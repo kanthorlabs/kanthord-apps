@@ -634,6 +634,14 @@ const agentPartsOf = (agent, workbench) => [
   ...(workbench ? [filePartOf("workbench", "workbench.md", fx.WORKBENCH_PROMPT, false)] : []),
 ];
 
+const GUARD_AGENT = "guard@1";
+const GUARD_TASKS = ["call", "summary"];
+
+const guardPartsOf = (agent, task) =>
+  task === "summary"
+    ? [filePartOf("role", "guard-summary.md", agent.summaryPrompt, false)]
+    : [filePartOf("role", "guard.md", agent.agentPrompt, false)];
+
 const framingPartOf = (workbench) =>
   workbench
     ? filePartOf("framing", "framing-workbench", WORKBENCH_FRAMING, false, null)
@@ -770,6 +778,9 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
       { file: PROMPT_INVALID, path: `${AGENT_DIRECTORY}/${PROMPT_INVALID}`, reason: "too_large" },
     );
   }
+  const task = url.searchParams.get("task");
+  if (task !== null && declaration.agent_name !== GUARD_AGENT) return refuseValidation(res);
+  if (task !== null && !GUARD_TASKS.includes(task)) return refuseValidation(res);
   const projectId = url.searchParams.get("project_id");
   const bindingId = url.searchParams.get("binding_id");
   if ((projectId === null) !== (bindingId === null)) return refuseValidation(res);
@@ -789,11 +800,14 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
     pinned_model_identifier: pinnedModelIdentifier,
   } = declaration;
   const workbench = binding === undefined && declaration.workbench === true;
-  const parts = [
-    ...agentPartsOf(declaration, workbench),
-    ...(binding === undefined ? [] : bindingPartsOf(agentName, binding)),
-    framingPartOf(workbench),
-  ];
+  const parts =
+    agentName === GUARD_AGENT
+      ? guardPartsOf(declaration, task)
+      : [
+          ...agentPartsOf(declaration, workbench),
+          ...(binding === undefined ? [] : bindingPartsOf(agentName, binding)),
+          framingPartOf(workbench),
+        ];
   const final = pr.finalOf(parts);
   return json(res, 200, {
     agent_name: agentName,

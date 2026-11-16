@@ -62,6 +62,7 @@ function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): Workbe
     message_count: 2,
     first_message: "What needs me?",
     run_active: false,
+    forked_from: null,
     pending_approval: null,
     participants: [],
     ...patch,
@@ -108,6 +109,29 @@ describe("useHome", () => {
     const { result } = await ready();
 
     expect(result.current.sessionId).toBe("host-new");
+  });
+
+  it("skips a fork of a case conversation", async () => {
+    serve(enablement(), [
+      item("case", { modified: 20, first_message: "Case: node `n` (Blocked). Explain." }),
+      item("fork", { modified: 30, first_message: "Go on", forked_from: "case" }),
+      item("general", { modified: 10 }),
+    ]);
+
+    const { result } = await ready();
+
+    expect(result.current.sessionId).toBe("general");
+  });
+
+  it("opens a fork of a general conversation", async () => {
+    serve(enablement(), [
+      item("general", { modified: 10 }),
+      item("fork", { modified: 30, first_message: "Go on", forked_from: "general" }),
+    ]);
+
+    const { result } = await ready();
+
+    expect(result.current.sessionId).toBe("fork");
   });
 
   it("skips a case conversation", async () => {

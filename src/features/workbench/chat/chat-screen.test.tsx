@@ -45,6 +45,7 @@ const SESSION: WorkbenchSession = {
     },
   ],
   run_active: false,
+  forked_from: null,
   resume_command: "pi --session ~/session.jsonl",
 };
 
@@ -417,6 +418,180 @@ describe("ChatScreen", () => {
       });
       expect(await screen.findByText(`At /workbench/new?${query}`)).toBeTruthy();
     });
+
+    describe("with /new and text", () => {
+      const FORKED = { session_id: "workbench_session_FORK", run_active: true as const };
+      const message = () => screen.findByRole("combobox", { name: "Message" });
+
+      function pendingUntilAborted() {
+        vi.mocked(workbenchApi.forkWorkbenchSession).mockImplementation(
+          (_sessionId, input) =>
+            new Promise((_resolve, reject) => {
+              input.signal?.addEventListener("abort", () =>
+                reject(new ApiError("unreachable", "The request was aborted.", 0)),
+              );
+            }),
+        );
+      }
+
+      async function send(text: string) {
+        await userEvent.type(await message(), text);
+        await userEvent.click(screen.getByRole("button", { name: "Send" }));
+      }
+
+      it("forks once, also during a source run", async () => {
+        vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+          ...CONVERSATION,
+          run_active: true,
+        });
+        pendingUntilAborted();
+        mountConversation();
+        await screen.findByRole("group", { name: "Run line" });
+
+        await send("/new x");
+
+        expect(workbenchApi.forkWorkbenchSession).toHaveBeenCalledTimes(1);
+        expect(workbenchApi.forkWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
+          text: "x",
+          signal: expect.any(AbortSignal),
+        });
+        expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      });
+
+      it("shows Summarizing with Cancel above the composer and apart from the run line", async () => {
+        vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+          ...CONVERSATION,
+          run_active: true,
+        });
+        pendingUntilAborted();
+        mountConversation();
+        await screen.findByRole("group", { name: "Run line" });
+
+        await send("/new x");
+
+        const line = await screen.findByRole("group", { name: "Summarizing line" });
+        const composer = screen.getByRole("form", { name: "Composer" });
+        expect(line).toHaveTextContent("Summarizing…");
+        expect(within(line).getByRole("button", { name: "Cancel" })).toBeEnabled();
+        expect(
+          line.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        expect(
+          within(screen.getByRole("group", { name: "Run line" })).queryByText(/Summarizing/),
+        ).toBeNull();
+        expect(line).not.toContainElement(screen.getByRole("group", { name: "Run line" }));
+      });
+
+      it("pushes the forked conversation on success", async () => {
+        vi.mocked(workbenchApi.forkWorkbenchSession).mockResolvedValue(FORKED);
+        mountConversation();
+
+        await send("/new x");
+
+        expect(await screen.findByText(`At /workbench/${FORKED.session_id}`)).toBeTruthy();
+      });
+
+      it("aborts the call on Cancel and keeps the text", async () => {
+        pendingUntilAborted();
+        mountConversation();
+        await send("/new x");
+
+        await userEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+
+        await waitFor(() => expect(screen.queryByText("Summarizing…")).toBeNull());
+        const signal = vi.mocked(workbenchApi.forkWorkbenchSession).mock.calls[0]![1].signal;
+        expect(signal?.aborted).toBe(true);
+        expect(await message()).toHaveValue("/new x");
+        expect(screen.queryByRole("alert")).toBeNull();
+        expect(screen.getByText(`At /workbench/${SESSION_ID}`)).toBeTruthy();
+      });
+
+      it.each([
+        [
+          "refused",
+          { cause: "refused", reason: "The summary holds an order" },
+          "Guard refused the summary: The summary holds an order.",
+        ],
+        [
+          "unavailable",
+          { cause: "unavailable", reason: null },
+          "Guard is unavailable. Check guard@1 on the Agents page.",
+        ],
+        ["timeout", { cause: "timeout", reason: null }, "Guard refused the summary (timeout)."],
+        [
+          "no_verdict",
+          { cause: "no_verdict", reason: null },
+          "Guard refused the summary (no_verdict).",
+        ],
+        ["oversize", { cause: "oversize", reason: null }, "Guard refused the summary (oversize)."],
+      ])("shows the line of the cause %s and keeps the text", async (_cause, details, line) => {
+        vi.mocked(workbenchApi.forkWorkbenchSession).mockRejectedValue(
+          new ApiError(
+            "conflict",
+            "The daemon refused the request.",
+            409,
+            "workbench.fork.summary_refused",
+            details,
+          ),
+        );
+        mountConversation();
+
+        await send("/new x");
+
+        const alert = await screen.findByRole("alert");
+        expect(alert.textContent).toBe(`workbench.fork.summary_refused ${line}`);
+        expect(await message()).toHaveValue("/new x");
+      });
+
+      it("shows the code of summary_failed and keeps the text", async () => {
+        vi.mocked(workbenchApi.forkWorkbenchSession).mockRejectedValue(
+          new ApiError("malformed", "Bad gateway.", 502, "workbench.fork.summary_failed"),
+        );
+        mountConversation();
+
+        await send("/new x");
+
+        const alert = await screen.findByRole("alert");
+        expect(alert.textContent).toBe("workbench.fork.summary_failed ");
+        expect(await message()).toHaveValue("/new x");
+      });
+
+      it("calls fork once on a double Send", async () => {
+        pendingUntilAborted();
+        mountConversation();
+        await userEvent.type(await message(), "/new x");
+
+        const button = screen.getByRole("button", { name: "Send" });
+        await userEvent.click(button);
+        await userEvent.click(button);
+        await userEvent.keyboard("{Enter}");
+
+        expect(workbenchApi.forkWorkbenchSession).toHaveBeenCalledTimes(1);
+      });
+
+      it("names the host display name in the hint of /new", async () => {
+        mountConversation();
+
+        await userEvent.click(await message());
+        await userEvent.type(await message(), "/");
+
+        expect(
+          await screen.findByText(
+            "Start a new chat. With text, SWE's model summarizes this chat with your text as the instruction, and Guard checks the summary. Mention an agent to continue with it.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("opens the new-session route on /new alone and forks nothing", async () => {
+        mountConversation();
+
+        await send("/new");
+
+        expect(await screen.findByText(/^At \/workbench\/new\?/)).toBeTruthy();
+        expect(workbenchApi.forkWorkbenchSession).not.toHaveBeenCalled();
+        expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe("in new-session mode", () => {
@@ -509,16 +684,27 @@ describe("ChatScreen", () => {
       expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
     });
 
-    it("shows the hint and calls no resource on /new with text", async () => {
+    it("creates the conversation, then sends the text as the first message on /new with text", async () => {
+      vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(SESSION);
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        session_id: SESSION_ID,
+        agent_name: null,
+        run_active: true,
+        queued_message_id: null,
+        cleared: [],
+      });
       mountNew();
 
       await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "/new x");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
-      expect(screen.getByText("/new takes no text yet")).toBeTruthy();
-      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("/new x");
-      expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
-      expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      expect(await screen.findByText(`Path /workbench/${SESSION_ID}`)).toBeTruthy();
+      expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledTimes(1);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "x");
+      expect(workbenchApi.forkWorkbenchSession).not.toHaveBeenCalled();
+      expect(
+        vi.mocked(workbenchApi.createWorkbenchSession).mock.invocationCallOrder[0],
+      ).toBeLessThan(vi.mocked(workbenchApi.sendWorkbenchMessage).mock.invocationCallOrder[0]!);
     });
 
     it("writes nothing when the owner leaves with no message", async () => {

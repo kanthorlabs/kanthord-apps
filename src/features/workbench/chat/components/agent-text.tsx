@@ -1,20 +1,15 @@
 import type { Options } from "react-markdown";
 
-import { basePath } from "@/components/base-path";
 import { MarkdownText } from "@/components/markdown-text";
 import { workbenchPathsIn } from "@/lib/workbench-chat";
 import { remarkWorkbenchPaths } from "@/lib/workbench-path-links";
+import { openWorkbenchUrl, workbenchUrl } from "./workbench-url";
 
 const REMARK_PLUGINS = [remarkWorkbenchPaths];
 
 function isWorkbenchPath(href: string): boolean {
   const [match] = workbenchPathsIn(href);
   return match !== undefined && match.start === 0 && match.end === href.length;
-}
-
-function workbenchUrl(path: string): string {
-  const base = basePath();
-  return `${window.location.origin}${base === "/" ? "" : base}${path}`;
 }
 
 const COMPONENTS: Options["components"] = {
@@ -26,7 +21,7 @@ const COMPONENTS: Options["components"] = {
         href={url}
         onClick={(event) => {
           event.preventDefault();
-          window.open(url, "_blank");
+          openWorkbenchUrl(url);
         }}
       >
         {children}

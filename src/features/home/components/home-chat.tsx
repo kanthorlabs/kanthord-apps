@@ -70,6 +70,7 @@ export function HomeChat({ home, streamEnd, approvalLine, actionLineOf }: HomeCh
       approvalLine={approvalLine}
       actionLineOf={actionLineOf}
       onNew={home.newChat}
+      onForked={(forkSessionId) => home.open(forkSessionId, null)}
     />
   );
 }

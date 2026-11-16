@@ -15,6 +15,7 @@ function item(id: string, modified: number, patch: Partial<WorkbenchSessionListI
     message_count: 1,
     first_message: "",
     run_active: false,
+    forked_from: null,
     pending_approval: null,
     participants: [],
     ...patch,

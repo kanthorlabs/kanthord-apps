@@ -1255,16 +1255,93 @@ describe("AgentScreen", () => {
       platform: "anthropic",
     };
 
-    it("shows the pinned model, the prompt parts and no model or effort picker", async () => {
+    const GUARD_CALL_PART = {
+      ...RE.prompt.parts![1]!,
+      origin: "binary" as const,
+      path: "/data/agents/guard.md",
+      name: "guard.md",
+      text: "Your role is `guard@1`, the guard of the auto mode.",
+    };
+    const GUARD_SUMMARY_PART = {
+      ...GUARD_CALL_PART,
+      path: "/data/agents/guard-summary.md",
+      name: "guard-summary.md",
+      text: "Your role is `guard@1`, the guard of the summary.",
+    };
+    const GUARD_CALL: AgentDeclaration = {
+      ...GUARD,
+      prompt: { parts: [GUARD_CALL_PART], final: GUARD_CALL_PART.text },
+    };
+    const GUARD_SUMMARY: AgentDeclaration = {
+      ...GUARD,
+      prompt: { parts: [GUARD_SUMMARY_PART], final: GUARD_SUMMARY_PART.text },
+    };
+
+    beforeEach(() => {
+      vi.mocked(workersApi.readGuardTask).mockResolvedValue(GUARD_SUMMARY);
+    });
+
+    it("shows the pinned model, the prompt cards and no model or effort picker", async () => {
       vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD);
       mount();
 
       const form = await screen.findByRole("form", { name: "Enable guard@1" });
       expect(screen.getByText("claude-sonnet-5")).toBeTruthy();
-      expect(screen.getByRole("list", { name: "KanthorD prompt" })).toBeTruthy();
+      expect(await screen.findByRole("list", { name: "Guard call prompt" })).toBeTruthy();
       expect(within(form).queryByRole("combobox", { name: "Model identifier" })).toBeNull();
       expect(within(form).queryByRole("combobox", { name: "Reasoning effort" })).toBeNull();
       expect(within(form).getByRole("combobox", { name: "LLM credential" })).toBeTruthy();
+    });
+
+    it("reads the summary task and shows the guard.md and guard-summary.md cards read-only", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD_CALL);
+      mount();
+
+      const call = await screen.findByRole("list", { name: "Guard call prompt" });
+      const summary = await screen.findByRole("list", { name: "Guard summary prompt" });
+      expect(workersApi.readGuardTask).toHaveBeenCalledWith("summary");
+      expect(within(call).getByText("guard.md")).toBeTruthy();
+      expect(within(summary).getByText("guard-summary.md")).toBeTruthy();
+      expect(
+        screen.getAllByText(
+          "Read-only. kanthord ships this prompt. The agent directory never applies.",
+        ),
+      ).toHaveLength(2);
+      expect(screen.queryByText(/No override file at/)).toBeNull();
+      expect(screen.queryByText(/Change the file in the agent directory/)).toBeNull();
+    });
+
+    it("shows no control that edits or switches either prompt", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD_CALL);
+      mount();
+
+      const call = await screen.findByRole("list", { name: "Guard call prompt" });
+      const summary = await screen.findByRole("list", { name: "Guard summary prompt" });
+
+      for (const list of [call, summary]) {
+        expect(within(list).queryByRole("textbox")).toBeNull();
+        expect(within(list).queryByRole("combobox")).toBeNull();
+        expect(within(list).queryByRole("switch")).toBeNull();
+        expect(
+          within(list)
+            .queryAllByRole("button")
+            .map((button) => button.getAttribute("aria-label") ?? button.textContent),
+        ).toEqual(expect.not.arrayContaining([expect.stringMatching(/edit|switch|save|put|use/i)]));
+      }
+      expect(screen.queryByRole("combobox", { name: /prompt|effort/i })).toBeNull();
+    });
+
+    it("reports a failed summary read with Retry and keeps the call card", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue(GUARD_CALL);
+      vi.mocked(workersApi.readGuardTask).mockRejectedValueOnce(
+        new ApiError("unreachable", "The daemon did not answer.", 0),
+      );
+      mount();
+
+      expect(await screen.findByRole("list", { name: "Guard call prompt" })).toBeTruthy();
+      await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+
+      expect(await screen.findByRole("list", { name: "Guard summary prompt" })).toBeTruthy();
     });
 
     it("shows the credential state read-only with the pinned model and no default editor", async () => {

@@ -87,6 +87,7 @@ const OLD: WorkbenchSessionListItem = {
   message_count: 4,
   first_message: "List the open nodes",
   run_active: false,
+  forked_from: null,
   pending_approval: null,
   participants: [],
 };
@@ -101,6 +102,7 @@ const NEW: WorkbenchSessionListItem = {
   message_count: 2,
   first_message: "Read the plan of Billing",
   run_active: false,
+  forked_from: null,
   pending_approval: null,
   participants: [],
 };

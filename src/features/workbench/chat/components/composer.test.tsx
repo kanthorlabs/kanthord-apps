@@ -145,6 +145,7 @@ function mount(
           entries: conversation.entries ?? [],
           members: conversation.members ?? [HOST_MEMBER],
           run_active: runActive,
+          forked_from: null,
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={ENABLEMENT}
@@ -657,15 +658,20 @@ describe("Composer", () => {
       }
     });
 
-    it("shows the slash hint and no state text on the hint line", async () => {
+    it("forks on /new with text and leaves the hint line empty", async () => {
+      vi.mocked(workbenchApi.forkWorkbenchSession).mockReturnValue(new Promise(() => undefined));
       mount("swe@1", true);
 
       await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "/new x");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
-      const hint = screen.getByText("/new takes no text yet");
-      expect(hint).toHaveAttribute("role", "status");
-      expect(hint.textContent).toBe("/new takes no text yet");
+      expect(workbenchApi.forkWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
+        text: "x",
+        signal: expect.any(AbortSignal),
+      });
+      expect(
+        within(screen.getByRole("form", { name: "Composer" })).getByRole("status"),
+      ).toHaveTextContent("");
       expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
     });
   });
@@ -1017,7 +1023,9 @@ describe("Composer", () => {
       expect(screen.getByRole("option", { name: /\/health/ })).toHaveTextContent(
         "Check provider health (slow probe)",
       );
-      expect(screen.getByRole("option", { name: /\/new/ })).toHaveTextContent("New conversation");
+      expect(screen.getByRole("option", { name: /\/new/ })).toHaveTextContent(
+        /Start a new chat\. With text, .+'s model summarizes this chat with your text as the instruction, and Guard checks the summary\. Mention an agent to continue with it\./,
+      );
     });
 
     it("lists /brief, /health and /new in an ops@1 conversation", async () => {
@@ -1123,14 +1131,14 @@ describe("Composer", () => {
       expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
     });
 
-    it("shows the hint and sends nothing on /new with text", async () => {
+    it("forks and sends no message on /new with text", async () => {
+      vi.mocked(workbenchApi.forkWorkbenchSession).mockReturnValue(new Promise(() => undefined));
       mount("swe@1");
 
       await userEvent.type(box(), "/new x");
       await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
-      expect(screen.getByText("/new takes no text yet")).toBeInTheDocument();
-      expect(box()).toHaveValue("/new x");
+      expect(workbenchApi.forkWorkbenchSession).toHaveBeenCalledTimes(1);
       expect(screen.getByRole("status", { name: "Location" })).toHaveTextContent(
         `/workbench/${SESSION_ID}`,
       );

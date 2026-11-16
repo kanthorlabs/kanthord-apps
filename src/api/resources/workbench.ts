@@ -7,6 +7,7 @@ import type {
   WorkbenchApprovalAnswer,
   WorkbenchAutoModeAnswer,
   WorkbenchConfiguration,
+  WorkbenchForkAnswer,
   WorkbenchMessageAnswer,
   WorkbenchMessageDelivery,
   WorkbenchQueueRemoveAnswer,
@@ -17,6 +18,8 @@ import type {
 } from "../types";
 
 const SESSION_ROOT = "/api/workbench/session";
+
+export type ForkWorkbenchInput = { text: string; signal?: AbortSignal };
 
 function sessionPath(sessionId: string): string {
   return `${SESSION_ROOT}/${encodeURIComponent(sessionId)}`;
@@ -110,6 +113,18 @@ export async function reportWorkbenchAction(
     `${sessionPath(sessionId)}/action/${encodeURIComponent(toolCallId)}/report`,
     body,
   );
+}
+
+export async function forkWorkbenchSession(
+  sessionId: string,
+  input: ForkWorkbenchInput,
+): Promise<WorkbenchForkAnswer> {
+  return request<WorkbenchForkAnswer>(`${sessionPath(sessionId)}/fork`, {
+    method: "POST",
+    body: { text: input.text },
+    headers: idempotencyHeader(),
+    signal: input.signal,
+  });
 }
 
 export async function readWorkbenchEvents(

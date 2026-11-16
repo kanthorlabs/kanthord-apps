@@ -808,6 +808,7 @@ describe("deriveAttention tool_approval", () => {
     message_count: 2,
     first_message: "Create the project",
     run_active: true,
+    forked_from: null,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
     participants: [],
   };

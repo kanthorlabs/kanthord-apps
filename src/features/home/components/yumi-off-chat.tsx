@@ -14,7 +14,11 @@ const NO_SEND = () => Promise.resolve(false);
 const NO_CHANGE = () => undefined;
 
 export function YumiOffChat({ children }: YumiOffChatProps) {
-  const composer = useComposer(true, NO_SEND, { agentName: YUMI_AGENT, onNew: NO_CHANGE });
+  const composer = useComposer(true, NO_SEND, {
+    agentName: YUMI_AGENT,
+    onNew: NO_CHANGE,
+    fork: NO_SEND,
+  });
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">

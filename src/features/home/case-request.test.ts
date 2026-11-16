@@ -193,8 +193,12 @@ describe("caseRequestOf", () => {
 });
 
 describe("isCaseConversation", () => {
-  const sessionOf = (firstMessage: string): WorkbenchSessionListItem => ({
-    id: "s1",
+  const sessionOf = (
+    firstMessage: string,
+    id = "s1",
+    forkedFrom: string | null = null,
+  ): WorkbenchSessionListItem => ({
+    id,
     host_session_id: null,
     agent_name: "ops@1",
     display_name: "Yumi",
@@ -204,16 +208,48 @@ describe("isCaseConversation", () => {
     message_count: 1,
     first_message: firstMessage,
     run_active: false,
+    forked_from: forkedFrom,
     pending_approval: null,
     participants: [],
   });
+  const byId = (...items: readonly WorkbenchSessionListItem[]) =>
+    new Map(items.map((item) => [item.id, item]));
 
   it("is true for a first message that starts with the case prefix", () => {
-    expect(isCaseConversation(sessionOf(`Case: node \`n\` (Blocked). Ask.`))).toBe(true);
+    const item = sessionOf(`Case: node \`n\` (Blocked). Ask.`);
+    expect(isCaseConversation(item, byId(item))).toBe(true);
   });
 
   it("is false for another first message and for an empty one", () => {
-    expect(isCaseConversation(sessionOf("What needs me?"))).toBe(false);
-    expect(isCaseConversation(sessionOf(""))).toBe(false);
+    const general = sessionOf("What needs me?");
+    const empty = sessionOf("", "s2");
+    expect(isCaseConversation(general, byId(general, empty))).toBe(false);
+    expect(isCaseConversation(empty, byId(general, empty))).toBe(false);
+  });
+
+  it("is true for a fork of a case conversation, also through a chain of forks", () => {
+    const source = sessionOf(`Case: node \`n\` (Blocked). Ask.`, "source");
+    const fork = sessionOf("Go on", "fork", "source");
+    const nested = sessionOf("Again", "nested", "fork");
+    const items = byId(source, fork, nested);
+
+    expect(isCaseConversation(fork, items)).toBe(true);
+    expect(isCaseConversation(nested, items)).toBe(true);
+  });
+
+  it("is false for a fork of a general conversation and for a fork with an unknown source", () => {
+    const source = sessionOf("What needs me?", "source");
+    const fork = sessionOf("Go on", "fork", "source");
+    const orphan = sessionOf("Go on", "orphan", "missing");
+
+    expect(isCaseConversation(fork, byId(source, fork))).toBe(false);
+    expect(isCaseConversation(orphan, byId(source, orphan))).toBe(false);
+  });
+
+  it("stops on a cycle of forks", () => {
+    const left = sessionOf("Go on", "left", "right");
+    const right = sessionOf("Go on", "right", "left");
+
+    expect(isCaseConversation(left, byId(left, right))).toBe(false);
   });
 });

@@ -13,6 +13,7 @@ import {
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { workbenchSessionPath } from "@/lib/workbench-sessions";
 import { addresseeOf, configurationTargetOf, leadingMentionOf } from "@/lib/workbench-mention";
+import { newCommandHintOf } from "../slash-commands";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
@@ -30,6 +31,7 @@ import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
 import { QueuedMessages } from "./queued-messages";
 import { RunLine } from "./run-line";
+import { SummarizingLine } from "./summarizing-line";
 
 interface ChatViewProps {
   readonly session: WorkbenchSession;
@@ -40,6 +42,7 @@ interface ChatViewProps {
   readonly approvalLine?: ReactNode | null;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly onNew?: () => void;
+  readonly onForked?: (forkSessionId: string) => void;
 }
 
 export function ChatView({
@@ -51,6 +54,7 @@ export function ChatView({
   approvalLine = null,
   actionLineOf,
   onNew,
+  onForked,
 }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.members, session.run_active);
   const mentionAgents = useMentionAgents();
@@ -71,6 +75,10 @@ export function ChatView({
     (hostSessionId: string) => navigate(workbenchSessionPath(hostSessionId), { replace: true }),
     [navigate],
   );
+  const openFork = useCallback(
+    (forkSessionId: string) => navigate(workbenchSessionPath(forkSessionId)),
+    [navigate],
+  );
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
@@ -79,6 +87,7 @@ export function ChatView({
       : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
     mentionOf,
     openHost,
+    onForked ?? openFork,
   );
   const { snapshot, patchSnapshot } = events;
   const onAutoMode = useCallback(
@@ -90,6 +99,7 @@ export function ChatView({
   const composer = useComposer(actions.busy, actions.send, {
     agentName: session.agent_name,
     onNew: handleNew,
+    fork: actions.fork,
     initialDraft: firstSendFailure?.draft,
     mentionNames,
   });
@@ -128,8 +138,8 @@ export function ChatView({
   });
   const { members } = events;
   const items = useMemo(
-    () => chatItemsOf(events.entries, snapshot, members),
-    [events.entries, snapshot, members],
+    () => chatItemsOf(events.entries, snapshot, members, session.forked_from),
+    [events.entries, snapshot, members, session.forked_from],
   );
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active, runRequestOf(items)?.id ?? null);
@@ -228,8 +238,10 @@ export function ChatView({
           onEdit={actions.edit}
           onRemove={actions.remove}
         />
+        {actions.summarizing && <SummarizingLine onCancel={actions.cancelFork} />}
         <Composer
           composer={composer}
+          newCommandHint={newCommandHintOf(hostDisplayName)}
           configuration={target === null ? null : configuration}
           agentDisplayName={hostDisplayName}
           addressee={addressee}

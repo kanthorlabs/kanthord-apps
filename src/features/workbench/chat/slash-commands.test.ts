@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { commandListOf, parseSlashCommand, SLASH_COMMANDS } from "./slash-commands";
+import {
+  commandListOf,
+  newCommandHintOf,
+  parseSlashCommand,
+  SLASH_COMMANDS,
+} from "./slash-commands";
 
 const names = (draft: string, agent: string) =>
   commandListOf(draft, agent).map((command) => command.name);
@@ -55,6 +60,14 @@ describe("parseSlashCommand", () => {
 
   it("reads a draft with no known command as plain text", () => {
     expect(parseSlashCommand("hello")).toBeNull();
+  });
+});
+
+describe("newCommandHintOf", () => {
+  it("names the host display name", () => {
+    expect(newCommandHintOf("SWE")).toBe(
+      "Start a new chat. With text, SWE's model summarizes this chat with your text as the instruction, and Guard checks the summary. Mention an agent to continue with it.",
+    );
   });
 });
 

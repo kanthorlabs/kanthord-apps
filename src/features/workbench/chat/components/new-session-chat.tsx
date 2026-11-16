@@ -69,6 +69,7 @@ export function NewSessionChat({
   const composer = useComposer(first.busy || configuration === null, first.send, {
     agentName,
     onNew,
+    fork: first.send,
     mentionNames,
   });
   const addressee = addresseeOf(composer.draft, [], [], mentionNames);

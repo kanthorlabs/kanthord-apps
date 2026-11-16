@@ -17,6 +17,7 @@ interface SessionChatProps {
   readonly approvalLine?: ReactNode | null;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly onNew?: () => void;
+  readonly onForked?: (forkSessionId: string) => void;
 }
 
 export function SessionChat({
@@ -26,6 +27,7 @@ export function SessionChat({
   approvalLine = null,
   actionLineOf,
   onNew,
+  onForked,
 }: SessionChatProps) {
   const { session } = useSession();
   if (session === null) throw new Error("The chat requires a signed-in session");
@@ -68,6 +70,7 @@ export function SessionChat({
       approvalLine={approvalLine}
       actionLineOf={actionLineOf}
       onNew={onNew}
+      onForked={onForked}
     />
   );
 }

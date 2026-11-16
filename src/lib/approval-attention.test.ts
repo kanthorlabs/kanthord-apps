@@ -16,6 +16,7 @@ function session(patch: Partial<WorkbenchSessionListItem> = {}): WorkbenchSessio
     message_count: 2,
     first_message: "Create the project account-recovery",
     run_active: true,
+    forked_from: null,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
     participants: [],
     ...patch,
