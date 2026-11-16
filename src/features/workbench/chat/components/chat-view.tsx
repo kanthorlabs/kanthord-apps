@@ -8,6 +8,8 @@ import {
   agentWorking,
   chatItemsOf,
   memberOf,
+  PHASE_LABELS,
+  planMemberOf,
   runRequestOf,
 } from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
@@ -141,7 +143,11 @@ export function ChatView({
     () => chatItemsOf(events.entries, snapshot, members, session.forked_from),
     [events.entries, snapshot, members, session.forked_from],
   );
-  const working = agentWorking(items, snapshot);
+  const working = agentWorking(items, snapshot) && snapshot.phase === null;
+  const planning =
+    snapshot.phase === null
+      ? null
+      : { name: planMemberOf(members).display_name, phaseLabel: PHASE_LABELS[snapshot.phase] };
   const elapsed = useElapsedSeconds(snapshot.run_active, runRequestOf(items)?.id ?? null);
   useScrollToEnd(items, snapshot.pending_approval);
   const approvalFailure =
@@ -203,6 +209,7 @@ export function ChatView({
               ownerName={ownerName}
               busy={actions.busy}
               onStop={stopConfirm.stop}
+              planning={planning}
             />
           }
         />

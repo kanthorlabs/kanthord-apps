@@ -8,10 +8,18 @@ interface RunLineProps {
   readonly ownerName: string;
   readonly busy: boolean;
   readonly onStop: () => void;
+  readonly planning?: { readonly name: string; readonly phaseLabel: string } | null;
 }
 
-export function RunLine({ runActive, request, ownerName, busy, onStop }: RunLineProps) {
-  if (!runActive) return null;
+export function RunLine({
+  runActive,
+  request,
+  ownerName,
+  busy,
+  onStop,
+  planning = null,
+}: RunLineProps) {
+  if (!runActive && planning === null) return null;
   return (
     <div
       role="group"
@@ -19,7 +27,14 @@ export function RunLine({ runActive, request, ownerName, busy, onStop }: RunLine
       className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground"
     >
       <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
-      <span>Running</span>
+      {planning === null ? (
+        <span>Running</span>
+      ) : (
+        <>
+          <span>{planning.name} is planning</span>
+          <span>· {planning.phaseLabel}</span>
+        </>
+      )}
       {request !== null && (
         <span
           title={`This run: started by ${ownerName} at ${utcDateTime(request.timestamp)}`}

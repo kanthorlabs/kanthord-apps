@@ -10,6 +10,8 @@ import { BubbleAuthor } from "./bubble-author";
 import { InlineError } from "./inline-error";
 import { EvidenceRow } from "./evidence-row";
 import { ForkEntry } from "./fork-entry";
+import { PhaseGroupEntry } from "./phase-group-entry";
+import { PlanEntry } from "./plan-entry";
 import { commandOfText } from "../slash-commands";
 import { ToolRow } from "./tool-row";
 
@@ -134,7 +136,25 @@ export function ChatEntry({
     return <ActionCardEntry item={item} sessionId={sessionId} canRun={canRun} />;
   }
 
-  if (item.kind === "plan" || item.kind === "phase-group") return null;
+  if (item.kind === "plan") return <PlanEntry item={item} />;
+
+  if (item.kind === "phase-group") {
+    return (
+      <PhaseGroupEntry phase={item.phase}>
+        {item.items.map((child) => (
+          <ChatEntry
+            key={`${child.session_id}:${child.id}`}
+            item={child}
+            authors={authors}
+            runError={null}
+            actionLineOf={actionLineOf}
+            sessionId={sessionId}
+            canRun={canRun}
+          />
+        ))}
+      </PhaseGroupEntry>
+    );
+  }
 
   const detail = toolResultText(item.name, item.text);
   return (

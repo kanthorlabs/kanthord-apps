@@ -946,6 +946,7 @@ describe("chatItemsOf plan and phases", () => {
         text: "## Plan\n\n1. Step",
         unresolved: 2,
         author: "Jeremy",
+        timestamp: AT,
       },
     ]);
   });

@@ -101,6 +101,7 @@ type ChatItemBody =
       readonly text: string;
       readonly unresolved: WorkbenchPlanDetails["unresolved"];
       readonly author: string;
+      readonly timestamp: number;
     }
   | {
       readonly kind: "phase-group";
@@ -541,6 +542,7 @@ function planItemOf(entry: WorkbenchSessionEntry, author: string): ChatItemBody 
     text: textOf(blocksOf(entry["content"])),
     unresolved: unresolvedOf(entry),
     author,
+    timestamp: Date.parse(entry.timestamp),
   };
 }
 
@@ -548,7 +550,7 @@ function phaseOf(entry: WorkbenchSessionEntry): WorkbenchPhase | null {
   return entry.phase === "planner" || entry.phase === "reviewer" ? entry.phase : null;
 }
 
-function planMemberOf(members: readonly WorkbenchMember[]): WorkbenchMember {
+export function planMemberOf(members: readonly WorkbenchMember[]): WorkbenchMember {
   const member = members.find((candidate) => candidate.agent_name === PLAN_AGENT);
   if (member === undefined) throw new Error(`The conversation has no member ${PLAN_AGENT}`);
   return member;
