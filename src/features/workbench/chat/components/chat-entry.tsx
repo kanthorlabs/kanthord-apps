@@ -134,6 +134,8 @@ export function ChatEntry({
     return <ActionCardEntry item={item} sessionId={sessionId} canRun={canRun} />;
   }
 
+  if (item.kind === "plan" || item.kind === "phase-group") return null;
+
   const detail = toolResultText(item.name, item.text);
   return (
     <ToolRow

@@ -11,6 +11,7 @@ import {
   runErrorTargetId,
   runRequestOf,
   summaryOf,
+  unresolvedLine,
   workbenchPathsIn,
 } from "./workbench-chat";
 
@@ -891,5 +892,165 @@ describe("memberOf", () => {
 
   it("fails for an unknown session id", () => {
     expect(() => memberOf(MEMBERS, "none")).toThrow("The conversation has no member none");
+  });
+});
+
+describe("chatItemsOf plan and phases", () => {
+  const JEREMY: WorkbenchMember = {
+    session_id: "plan-host",
+    agent_name: "plan@1",
+    display_name: "Jeremy",
+  };
+  const PLAN_MEMBERS = [JEREMY];
+
+  function phaseEntry(
+    id: string,
+    sessionId: string,
+    phase: "planner" | "reviewer",
+    text: string,
+  ): WorkbenchSessionEntry {
+    return {
+      session_id: sessionId,
+      agent_name: JEREMY.agent_name,
+      type: "message",
+      id,
+      parentId: null,
+      timestamp: "2026-10-05T09:00:00.000Z",
+      phase,
+      message: { role: "assistant", content: [{ type: "text", text }] },
+    };
+  }
+
+  function planEntry(id: string, details: unknown): WorkbenchSessionEntry {
+    return {
+      session_id: JEREMY.session_id,
+      agent_name: JEREMY.agent_name,
+      type: "custom_message",
+      id,
+      parentId: null,
+      timestamp: "2026-10-05T09:00:00.000Z",
+      customType: "kanthord.workbench.plan",
+      content: "## Plan\n\n1. Step",
+      display: true,
+      details,
+    };
+  }
+
+  it("maps a plan entry to one plan item with the Jeremy display name", () => {
+    const items = chatItemsOf([planEntry("p1", { phases: [], unresolved: 2 })], IDLE, PLAN_MEMBERS);
+
+    expect(items.map(stripOrigin)).toEqual([
+      {
+        kind: "plan",
+        id: "p1",
+        text: "## Plan\n\n1. Step",
+        unresolved: 2,
+        author: "Jeremy",
+      },
+    ]);
+  });
+
+  it.each([
+    ["no details", undefined],
+    ["details that are no record", "text"],
+    ["an unknown unresolved value", { phases: [], unresolved: "many" }],
+  ])("maps %s to a plan item with unresolved null", (_name, details) => {
+    const [item] = chatItemsOf([planEntry("p1", details)], IDLE, PLAN_MEMBERS);
+
+    expect(item?.kind === "plan" ? item.unresolved : "no plan item").toBeNull();
+  });
+
+  it("keeps the missing mark of unresolved", () => {
+    const [item] = chatItemsOf(
+      [planEntry("p1", { phases: [], unresolved: "missing" })],
+      IDLE,
+      PLAN_MEMBERS,
+    );
+
+    expect(item?.kind === "plan" ? item.unresolved : null).toBe("missing");
+  });
+
+  it("collects phase entries into one group per phase session before the plan item", () => {
+    const items = chatItemsOf(
+      [
+        phaseEntry("a1", "phase-planner", "planner", "Draft one"),
+        phaseEntry("a2", "phase-planner", "planner", "Draft two"),
+        phaseEntry("b1", "phase-reviewer", "reviewer", "Review one"),
+        planEntry("p1", { phases: [], unresolved: null }),
+      ],
+      IDLE,
+      PLAN_MEMBERS,
+    );
+
+    expect(items.map((item) => item.kind)).toEqual(["phase-group", "phase-group", "plan"]);
+    const groups = items.flatMap((item) => (item.kind === "phase-group" ? [item] : []));
+    expect(groups.map((group) => group.phase)).toEqual(["planner", "reviewer"]);
+    expect(groups.map((group) => group.items.map((held) => held.id))).toEqual([
+      ["a1", "a2"],
+      ["b1"],
+    ]);
+    expect(groups[0]?.items.map((held) => held.display_name)).toEqual(["Jeremy", "Jeremy"]);
+  });
+
+  it("gives a new group to a second run with new phase sessions", () => {
+    const items = chatItemsOf(
+      [
+        phaseEntry("a1", "phase-planner-1", "planner", "Draft"),
+        planEntry("p1", { phases: [], unresolved: null }),
+        phaseEntry("a2", "phase-planner-2", "planner", "Draft"),
+        planEntry("p2", { phases: [], unresolved: null }),
+      ],
+      IDLE,
+      PLAN_MEMBERS,
+    );
+
+    expect(items.map((item) => item.kind)).toEqual(["phase-group", "plan", "phase-group", "plan"]);
+  });
+
+  it("shows the plan item and no phase group for entries with no phase", () => {
+    const items = chatItemsOf(
+      [
+        { ...message("e1", { role: "user", content: "Plan it" }), session_id: JEREMY.session_id },
+        planEntry("p1", { phases: [], unresolved: 1 }),
+      ],
+      IDLE,
+      PLAN_MEMBERS,
+    );
+
+    expect(items.map((item) => item.kind)).toEqual(["user", "plan"]);
+  });
+
+  it("streams the host text while the last entry is a phase entry", () => {
+    const items = chatItemsOf(
+      [phaseEntry("a1", "phase-planner", "planner", "Draft")],
+      {
+        ...IDLE,
+        run_active: true,
+        streaming_message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
+      },
+      PLAN_MEMBERS,
+    );
+
+    expect(items.map((item) => item.kind)).toEqual(["phase-group", "assistant"]);
+  });
+
+  it("fails for a phase entry when no member is plan@1", () => {
+    expect(() =>
+      chatItemsOf([phaseEntry("a1", "phase-planner", "planner", "Draft")], IDLE, MEMBERS),
+    ).toThrow("The conversation has no member plan@1");
+  });
+});
+
+describe("unresolvedLine", () => {
+  it("answers the line of a count", () => {
+    expect(unresolvedLine(2)).toBe("Review unresolved: 2 open action:YES findings");
+  });
+
+  it("answers the line of a missing Review section", () => {
+    expect(unresolvedLine("missing")).toBe("Review unresolved: no Review section");
+  });
+
+  it("answers null for null", () => {
+    expect(unresolvedLine(null)).toBeNull();
   });
 });

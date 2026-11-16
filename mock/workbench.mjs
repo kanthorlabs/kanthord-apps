@@ -97,9 +97,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       (candidate) => candidate.host_session_id === host.id && candidate.phase !== undefined,
     );
 
-  const phaseSessionFor = (host, phase) => {
-    const existing = phaseSessionsOf(host).find((candidate) => candidate.phase === phase);
-    if (existing !== undefined) return existing;
+  const newPhaseSession = (host, phase) => {
     const phaseSession = {
       id: sessionId(),
       host_session_id: host.id,
@@ -370,7 +368,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       notify(session);
       await sleep(run, STEP_DELAY_MS);
       if (run.cancelled) return;
-      const phaseSession = phaseSessionFor(session, phase);
+      const phaseSession = newPhaseSession(session, phase);
       append(phaseSession, "message", { phase, message: textMessage("assistant", text) });
       phases.push({ phase, session_id: phaseSession.id });
     }
