@@ -1371,6 +1371,31 @@ describe("AgentScreen", () => {
       expect(screen.queryByText("Default reasoning effort")).toBeNull();
     });
 
+    it("shows Change credential and Verify and no Disable, Add agent provider or Remove", async () => {
+      vi.mocked(workersApi.readAgent).mockResolvedValue({
+        ...GUARD,
+        enablement: {
+          agent_name: "guard@1",
+          state: "enabled",
+          agent_providers: [{ name: "lab", provider: "anthropic", credential: "lab-anthropic" }],
+          default_configuration: {
+            agent_provider: "lab",
+            model_identifier: "claude-sonnet-5",
+            reasoning_effort: "off",
+          },
+          fallback_configurations: [],
+          revision: 1,
+        },
+      });
+      mount();
+
+      expect(await screen.findByRole("button", { name: "Change credential" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: /^Verify/ })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /^Disable/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Add agent provider" })).toBeNull();
+      expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
+    });
+
     it("changes the credential of an enabled agent with the pinned model and effort off", async () => {
       const enabled = {
         agent_name: "guard@1",
@@ -1437,12 +1462,8 @@ describe("AgentScreen", () => {
       );
       mount();
 
-      expect(await screen.findByRole("button", { name: "Add agent provider" })).toBeTruthy();
-      await userEvent.click(screen.getByRole("button", { name: "Change credential" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Change credential" }));
       const sheet = await screen.findByRole("dialog");
-      expect(
-        within(sheet).getByText(/To use a new credential, add an agent provider first\./),
-      ).toBeTruthy();
       await choose("Agent Provider", "spare · spare-anthropic");
       await userEvent.click(within(sheet).getByRole("button", { name: "Save credential" }));
 

@@ -513,6 +513,11 @@ describe("ChatScreen", () => {
           "Guard refused the summary: The summary holds an order.",
         ],
         [
+          "refused with a period",
+          { cause: "refused", reason: "The summary holds an order." },
+          "Guard refused the summary: The summary holds an order.",
+        ],
+        [
           "unavailable",
           { cause: "unavailable", reason: null },
           "Guard is unavailable. Check guard@1 on the Agents page.",
@@ -552,7 +557,9 @@ describe("ChatScreen", () => {
         await send("/new x");
 
         const alert = await screen.findByRole("alert");
-        expect(alert.textContent).toBe("workbench.fork.summary_failed ");
+        expect(alert.textContent).toBe(
+          "workbench.fork.summary_failed The summary could not be made. Try again.",
+        );
         expect(await message()).toHaveValue("/new x");
       });
 

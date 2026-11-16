@@ -31,6 +31,8 @@ import { useGuardSummary } from "./use-guard-summary";
 import { useAgentProviderAdd } from "./use-agent-provider-add";
 import { useAgentProviderRemove } from "./use-agent-provider-remove";
 
+const GUARD_AGENT = "guard@1";
+
 interface EnablementSectionProps {
   readonly agentName: string;
   readonly enablement: AgentEnablement | null;
@@ -125,10 +127,12 @@ function EditPinnedCredential({
 function AgentProviderList({
   agentName,
   enablement,
+  removable,
   reload,
 }: {
   readonly agentName: string;
   readonly enablement: AgentEnablement;
+  readonly removable: boolean;
   readonly reload: () => void;
 }) {
   const remove = useAgentProviderRemove(agentName, enablement, reload);
@@ -148,11 +152,13 @@ function AgentProviderList({
             </ItemContent>
             <ItemActions className="basis-full flex-wrap md:justify-end">
               <CredentialVerifyAction component="llm" name={p.credential} />
-              <RemoveProviderButton
-                providerName={p.name}
-                block={providerRemovalBlock(enablement, p.name)}
-                onRemove={() => remove.request(p.name)}
-              />
+              {removable && (
+                <RemoveProviderButton
+                  providerName={p.name}
+                  block={providerRemovalBlock(enablement, p.name)}
+                  onRemove={() => remove.request(p.name)}
+                />
+              )}
             </ItemActions>
           </Item>
         ))}
@@ -177,6 +183,7 @@ function EnablementSection({
   pinnedModelIdentifier,
   reload,
 }: EnablementSectionProps) {
+  const editable = agentName !== GUARD_AGENT;
   return (
     <Card>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2">
@@ -193,7 +200,9 @@ function EnablementSection({
                 reload={reload}
               />
             )}
-            <AddAgentProvider agentName={agentName} enablement={enablement} reload={reload} />
+            {editable && (
+              <AddAgentProvider agentName={agentName} enablement={enablement} reload={reload} />
+            )}
           </div>
         )}
       </CardHeader>
@@ -212,11 +221,13 @@ function EnablementSection({
           </>
         ) : (
           <>
-            <EnablementSwitch
-              agentName={enablement.agent_name}
-              state={enablement.state}
-              reload={reload}
-            />
+            {editable && (
+              <EnablementSwitch
+                agentName={enablement.agent_name}
+                state={enablement.state}
+                reload={reload}
+              />
+            )}
             <dl className="grid grid-cols-1 gap-x-4 gap-y-1 text-sm sm:grid-cols-[auto_1fr]">
               <dt className="text-muted-foreground">Revision</dt>
               <dd className="tabular-nums">{enablement.revision}</dd>
@@ -240,7 +251,12 @@ function EnablementSection({
                 </>
               )}
             </dl>
-            <AgentProviderList agentName={agentName} enablement={enablement} reload={reload} />
+            <AgentProviderList
+              agentName={agentName}
+              enablement={enablement}
+              removable={editable}
+              reload={reload}
+            />
           </>
         )}
       </CardContent>
@@ -331,7 +347,6 @@ function PromptSection({ title, text }: { title: string; text: string | null }) 
   );
 }
 
-const GUARD_AGENT = "guard@1";
 const GUARD_PROMPT_DESCRIPTION =
   "Read-only. kanthord ships this prompt. The agent directory never applies.";
 
