@@ -333,7 +333,7 @@ function PromptSection({ title, text }: { title: string; text: string | null }) 
 
 const GUARD_AGENT = "guard@1";
 const GUARD_PROMPT_DESCRIPTION =
-  "Read-only. The server ships this prompt. Change the file in the agent directory on the server host.";
+  "Read-only. kanthord ships this prompt. The agent directory never applies.";
 
 function GuardSummaryCard() {
   const { data, error, loading, reload } = useGuardSummary();
@@ -357,6 +357,7 @@ function GuardSummaryCard() {
       title="Guard summary prompt"
       listLabel="Guard summary prompt"
       description={GUARD_PROMPT_DESCRIPTION}
+      pathNote={false}
     />
   );
 }
@@ -369,6 +370,7 @@ function GuardPromptCards({ callParts }: { readonly callParts: readonly PromptPa
         title="Guard call prompt"
         listLabel="Guard call prompt"
         description={GUARD_PROMPT_DESCRIPTION}
+        pathNote={false}
       />
       <GuardSummaryCard />
     </>

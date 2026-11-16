@@ -770,7 +770,7 @@ describe("ChatView", () => {
     const SOURCE_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0SRC";
     const SUMMARY = "The user asked for the node list.";
 
-    function forked() {
+    function forked(sourceTitle = "List the nodes") {
       const record: WorkbenchSessionEntry = {
         session_id: SESSION_ID,
         agent_name: "swe@1",
@@ -779,7 +779,7 @@ describe("ChatView", () => {
         parentId: null,
         timestamp: "2026-10-05T09:00:00.000Z",
         customType: "kanthord.workbench.record",
-        data: { kind: "fork", source_title: "List the nodes" },
+        data: { kind: "fork", source_title: sourceTitle },
       };
       return {
         ...session([
@@ -824,6 +824,23 @@ describe("ChatView", () => {
         screen.getByText("Guard checked it for orders and secrets, not for accuracy."),
       ).toBeTruthy();
       expect(screen.queryByText(new RegExp(WORKBENCH_FORK_PREFIX))).toBeNull();
+    });
+
+    it("names an empty source title an earlier conversation in the line and the block", async () => {
+      pollQueue();
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      mount(forked(""));
+
+      const link = screen.getByRole("link", { name: "an earlier conversation" });
+      expect(
+        screen.getByRole("button", { name: "Summary of an earlier conversation" }),
+      ).toBeTruthy();
+      await userEvent.click(link);
+
+      expect(open).toHaveBeenCalledWith(
+        `${window.location.origin}/workbench/${SOURCE_ID}`,
+        "_blank",
+      );
     });
   });
 

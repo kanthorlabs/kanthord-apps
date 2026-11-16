@@ -13,6 +13,7 @@ export interface ForkFailureLine {
 }
 
 const GUARD_UNAVAILABLE = "Guard is unavailable. Check guard@1 on the Agents page.";
+const CAUSES_WITH_LINE = ["timeout", "no_verdict", "oversize"];
 
 function stringField(details: unknown, field: string): string | null {
   if (typeof details !== "object" || details === null) return null;
@@ -25,6 +26,9 @@ function refusalMessageOf(details: unknown): string {
   const reason = stringField(details, "reason");
   if (cause === "refused" && reason !== null) return `Guard refused the summary: ${reason}.`;
   if (cause === "unavailable") return GUARD_UNAVAILABLE;
+  if (cause !== null && CAUSES_WITH_LINE.includes(cause)) {
+    return `Guard refused the summary (${cause}).`;
+  }
   return "";
 }
 

@@ -517,7 +517,13 @@ describe("ChatScreen", () => {
           { cause: "unavailable", reason: null },
           "Guard is unavailable. Check guard@1 on the Agents page.",
         ],
-        ["timeout", { cause: "timeout", reason: null }, ""],
+        ["timeout", { cause: "timeout", reason: null }, "Guard refused the summary (timeout)."],
+        [
+          "no_verdict",
+          { cause: "no_verdict", reason: null },
+          "Guard refused the summary (no_verdict).",
+        ],
+        ["oversize", { cause: "oversize", reason: null }, "Guard refused the summary (oversize)."],
       ])("shows the line of the cause %s and keeps the text", async (_cause, details, line) => {
         vi.mocked(workbenchApi.forkWorkbenchSession).mockRejectedValue(
           new ApiError(

@@ -14,10 +14,11 @@ interface AgentPromptCardProps {
   readonly title?: string;
   readonly listLabel?: string;
   readonly description?: string;
+  readonly pathNote?: boolean;
 }
 
-function PartFacts({ part }: { readonly part: PromptPart }) {
-  const note = promptPartPathNote(part);
+function PartFacts({ part, pathNote }: { readonly part: PromptPart; readonly pathNote: boolean }) {
+  const note = pathNote ? promptPartPathNote(part) : null;
   return (
     <>
       <Badge variant={part.origin === "file" ? "default" : "secondary"}>
@@ -42,6 +43,7 @@ export function AgentPromptCard({
   title = DEFAULT_TITLE,
   listLabel = DEFAULT_LIST_LABEL,
   description = DEFAULT_DESCRIPTION,
+  pathNote = true,
 }: AgentPromptCardProps) {
   return (
     <Card>
@@ -59,7 +61,7 @@ export function AgentPromptCard({
               text={part.text}
               dimmed={part.state !== "resolved"}
               badges={<Badge variant="outline">{promptLayerLabel(part.layer)}</Badge>}
-              facts={<PartFacts part={part} />}
+              facts={<PartFacts part={part} pathNote={pathNote} />}
             />
           ))}
         </div>

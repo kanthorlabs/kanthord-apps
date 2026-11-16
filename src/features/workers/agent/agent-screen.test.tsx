@@ -1257,11 +1257,14 @@ describe("AgentScreen", () => {
 
     const GUARD_CALL_PART = {
       ...RE.prompt.parts![1]!,
+      origin: "binary" as const,
+      path: "/data/agents/guard.md",
       name: "guard.md",
       text: "Your role is `guard@1`, the guard of the auto mode.",
     };
     const GUARD_SUMMARY_PART = {
       ...GUARD_CALL_PART,
+      path: "/data/agents/guard-summary.md",
       name: "guard-summary.md",
       text: "Your role is `guard@1`, the guard of the summary.",
     };
@@ -1299,7 +1302,13 @@ describe("AgentScreen", () => {
       expect(workersApi.readGuardTask).toHaveBeenCalledWith("summary");
       expect(within(call).getByText("guard.md")).toBeTruthy();
       expect(within(summary).getByText("guard-summary.md")).toBeTruthy();
-      expect(screen.getAllByText(/Read-only\. The server ships this prompt/)).toHaveLength(2);
+      expect(
+        screen.getAllByText(
+          "Read-only. kanthord ships this prompt. The agent directory never applies.",
+        ),
+      ).toHaveLength(2);
+      expect(screen.queryByText(/No override file at/)).toBeNull();
+      expect(screen.queryByText(/Change the file in the agent directory/)).toBeNull();
     });
 
     it("shows no control that edits or switches either prompt", async () => {
