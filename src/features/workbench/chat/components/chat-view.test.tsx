@@ -1143,6 +1143,16 @@ describe("ChatView plan and phases", () => {
     expect(within(log).getByRole("img", { name: "Jeremy avatar" })).toBeTruthy();
   });
 
+  it("puts the plan and the warning line in a bordered panel with a muted background", () => {
+    pollQueue();
+    mount(planSession([planEntry(2)]));
+
+    const panel = screen.getByRole("heading", { name: "Steps" }).closest("[data-slot=plan-panel]");
+    expect(panel).toHaveClass("border", "bg-muted/50");
+    expect(panel).toHaveTextContent("Review unresolved: 2 open action:YES findings");
+    expect(panel).not.toHaveTextContent("Jeremy");
+  });
+
   it("renders no raw HTML of the plan text", () => {
     pollQueue();
     mount(planSession([planEntry(null, "<b>bold</b> text")]));
@@ -1188,6 +1198,33 @@ describe("ChatView plan and phases", () => {
 
     expect(await screen.findByText("Draft of the steps")).toBeTruthy();
     expect(screen.queryByText("Review of the draft")).toBeNull();
+  });
+
+  it("styles the phase group trigger with a dashed border and muted small text", () => {
+    pollQueue();
+    mount(planSession([phaseEntry("a1", "planner", "Draft of the steps"), planEntry(null)]));
+
+    expect(screen.getByRole("button", { name: "Planner" })).toHaveClass(
+      "border-dashed",
+      "text-xs",
+      "text-muted-foreground",
+    );
+  });
+
+  it("shows no user bubble in a phase group", async () => {
+    pollQueue();
+    const opening: WorkbenchSessionEntry = {
+      ...phaseEntry("a0", "planner", ""),
+      message: { role: "user", content: "Draft the plan of the request." },
+    };
+    mount(
+      planSession([opening, phaseEntry("a1", "planner", "Draft of the steps"), planEntry(null)]),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Planner" }));
+
+    expect(await screen.findByText("Draft of the steps")).toBeTruthy();
+    expect(screen.queryByText("Draft the plan of the request.")).toBeNull();
   });
 
   it.each([

@@ -15,10 +15,15 @@ export function PlanEntry({ item }: PlanEntryProps) {
       <AgentAvatar agentName={item.agent_name} displayName={item.author} />
       <div className="flex min-w-0 flex-col items-start gap-1 break-words">
         <BubbleAuthor name={item.author} timestamp={item.timestamp} />
-        <AgentText text={item.text} />
-        {warning !== null && (
-          <p className="text-sm text-amber-600 dark:text-amber-500">{warning}</p>
-        )}
+        <div
+          data-slot="plan-panel"
+          className="flex min-w-0 flex-col items-start gap-2 rounded-md border bg-muted/50 p-3"
+        >
+          <AgentText text={item.text} />
+          {warning !== null && (
+            <p className="text-sm text-amber-600 dark:text-amber-500">{warning}</p>
+          )}
+        </div>
       </div>
     </div>
   );

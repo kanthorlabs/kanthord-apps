@@ -586,6 +586,7 @@ export function chatItemsOf(
   const groups = new Map<string, ChatItem[]>();
   entries.forEach((entry, index) => {
     const phase = phaseOf(entry);
+    if (phase !== null && userTextOf(entry) !== null) return;
     const origin = originOf(memberOfEntry(members, entry));
     const entryItemList = entryChatItems(entry, index, snapshot, context, origin);
     if (phase === null) return void items.push(...entryItemList);
