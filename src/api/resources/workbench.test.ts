@@ -10,6 +10,7 @@ import {
   approveWorkbenchCall,
   configureWorkbenchSession,
   createWorkbenchSession,
+  forkWorkbenchSession,
   listWorkbenchSessions,
   readWorkbenchEvents,
   readWorkbenchSession,
@@ -199,6 +200,78 @@ describe("sendWorkbenchMessage", () => {
 
     expect(failure).toBeInstanceOf(ApiError);
     expect((failure as ApiError).detail).toBe("workbench.session.run_active");
+  });
+});
+
+describe("forkWorkbenchSession", () => {
+  const FORKED = { session_id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB2", run_active: true };
+
+  it("posts the text to the fork path with an idempotency key", async () => {
+    await serve({ [`POST ${PATH}/fork`]: { status: 202, body: FORKED } });
+
+    const answer = await forkWorkbenchSession(SESSION_ID, { text: "Next topic" });
+
+    expect(answer).toEqual(FORKED);
+    expect(seen[0]!.method).toBe("POST");
+    expect(JSON.parse(seen[0]!.body)).toEqual({ text: "Next topic" });
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("rejects once the signal aborts", async () => {
+    await serve({ [`POST ${PATH}/fork`]: { status: 202, body: FORKED } });
+    const controller = new AbortController();
+    controller.abort();
+
+    const failure = await forkWorkbenchSession(SESSION_ID, {
+      text: "Next topic",
+      signal: controller.signal,
+    }).catch((cause: unknown) => cause);
+
+    expect(failure).toBeInstanceOf(ApiError);
+  });
+
+  it("rejects a refused summary with the code and the cause", async () => {
+    await serve({
+      [`POST ${PATH}/fork`]: {
+        status: 409,
+        body: {
+          error: {
+            code: "workbench.fork.summary_refused",
+            message: "The guard refused the summary.",
+            details: { cause: "refused", reason: "The summary holds an order." },
+          },
+        },
+      },
+    });
+
+    const failure = await forkWorkbenchSession(SESSION_ID, { text: "x" }).catch(
+      (cause: unknown) => cause,
+    );
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).detail).toBe("workbench.fork.summary_refused");
+    expect(((failure as ApiError).details as { cause: string }).cause).toBe("refused");
+  });
+
+  it("rejects a failed summary with the code", async () => {
+    await serve({
+      [`POST ${PATH}/fork`]: {
+        status: 502,
+        body: {
+          error: {
+            code: "workbench.fork.summary_failed",
+            message: "The summary failed.",
+          },
+        },
+      },
+    });
+
+    const failure = await forkWorkbenchSession(SESSION_ID, { text: "x" }).catch(
+      (cause: unknown) => cause,
+    );
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).detail).toBe("workbench.fork.summary_failed");
   });
 });
 

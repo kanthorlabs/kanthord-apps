@@ -213,6 +213,7 @@ function renderChat() {
           entries: [],
           members: [HOST_MEMBER],
           run_active: true,
+          forked_from: null,
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={null}

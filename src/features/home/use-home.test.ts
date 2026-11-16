@@ -62,6 +62,7 @@ function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): Workbe
     message_count: 2,
     first_message: "What needs me?",
     run_active: false,
+    forked_from: null,
     pending_approval: null,
     participants: [],
     ...patch,

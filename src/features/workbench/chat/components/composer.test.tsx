@@ -145,6 +145,7 @@ function mount(
           entries: conversation.entries ?? [],
           members: conversation.members ?? [HOST_MEMBER],
           run_active: runActive,
+          forked_from: null,
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={ENABLEMENT}

@@ -523,6 +523,7 @@ function conversation(id: string, text: string): WorkbenchSession {
       },
     ],
     run_active: false,
+    forked_from: null,
     resume_command: "pi --session ~/session.jsonl",
   };
 }
@@ -743,6 +744,7 @@ function session(
     message_count: 2,
     first_message: "Create the project account-recovery",
     run_active: true,
+    forked_from: null,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
     participants: [],
     ...patch,
@@ -1311,6 +1313,7 @@ function opsSession(
     agent_name: "ops@1",
     first_message: GENERAL,
     run_active: false,
+    forked_from: null,
     pending_approval: null,
     participants: [],
     ...patch,

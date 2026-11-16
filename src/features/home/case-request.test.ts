@@ -204,6 +204,7 @@ describe("isCaseConversation", () => {
     message_count: 1,
     first_message: firstMessage,
     run_active: false,
+    forked_from: null,
     pending_approval: null,
     participants: [],
   });

@@ -78,6 +78,7 @@ function session(
     members: [HOST],
     entries,
     run_active: runActive,
+    forked_from: null,
     resume_command: "pi --session ~/session.jsonl",
   };
 }
