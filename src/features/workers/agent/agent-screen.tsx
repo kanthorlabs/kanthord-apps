@@ -2,7 +2,7 @@ import { PencilIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import type { AgentEnablement, AgentTool } from "@/api/types";
+import type { AgentEnablement, AgentTool, PromptPart } from "@/api/types";
 import { EnablementSwitch } from "@/components/enablement-switch";
 import { RecordName } from "@/components/record-name";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,7 @@ import { PromptItem } from "@/components/prompt-item";
 import { CredentialVerifyAction } from "@/features/credentials/components/credential-verify-action";
 import { RemoveProviderButton } from "./components/remove-provider-button";
 import { useAgent } from "./use-agent";
+import { useGuardSummary } from "./use-guard-summary";
 import { useAgentProviderAdd } from "./use-agent-provider-add";
 import { useAgentProviderRemove } from "./use-agent-provider-remove";
 
@@ -330,6 +331,50 @@ function PromptSection({ title, text }: { title: string; text: string | null }) 
   );
 }
 
+const GUARD_AGENT = "guard@1";
+const GUARD_PROMPT_DESCRIPTION =
+  "Read-only. The server ships this prompt. Change the file in the agent directory on the server host.";
+
+function GuardSummaryCard() {
+  const { data, error, loading, reload } = useGuardSummary();
+
+  if (loading) return <Skeleton className="h-32 w-full" />;
+
+  if (error !== null || data === null) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm text-destructive">{error === null ? "" : agentReadFailure(error)}</p>
+        <Button variant="outline" size="sm" onClick={reload}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <AgentPromptCard
+      parts={data.prompt.parts ?? []}
+      title="Guard summary prompt"
+      listLabel="Guard summary prompt"
+      description={GUARD_PROMPT_DESCRIPTION}
+    />
+  );
+}
+
+function GuardPromptCards({ callParts }: { readonly callParts: readonly PromptPart[] }) {
+  return (
+    <>
+      <AgentPromptCard
+        parts={callParts}
+        title="Guard call prompt"
+        listLabel="Guard call prompt"
+        description={GUARD_PROMPT_DESCRIPTION}
+      />
+      <GuardSummaryCard />
+    </>
+  );
+}
+
 export function AgentScreen() {
   const { agentName = "" } = useParams<{ agentName: string }>();
   const { data, error, loading, reload } = useAgent(agentName);
@@ -402,7 +447,12 @@ export function AgentScreen() {
         cooling={agent.cooling}
         readAt={readAt}
       />
-      {agent.prompt.parts !== undefined && <AgentPromptCard parts={agent.prompt.parts} />}
+      {agent.prompt.parts !== undefined &&
+        (agent.agent_name === GUARD_AGENT ? (
+          <GuardPromptCards callParts={agent.prompt.parts} />
+        ) : (
+          <AgentPromptCard parts={agent.prompt.parts} />
+        ))}
       <PromptSection
         title={
           agent.prompt.parts?.some((part) => part.part === "workbench")

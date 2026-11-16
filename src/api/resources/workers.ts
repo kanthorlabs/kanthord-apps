@@ -12,6 +12,7 @@ import type {
   AgentProviderAddBody,
   AgentProviderKind,
   AgentSummary,
+  GuardTaskValue,
   PlacementStatus,
   PromptResolveAnswer,
   WorkerCatalogEntry,
@@ -81,6 +82,12 @@ export async function readAgent(
       ? ""
       : `?${new URLSearchParams({ project_id: scope.projectId, binding_id: scope.bindingId })}`;
   return request<AgentDeclaration>(`/api/agent/${encodeURIComponent(agentName)}${query}`);
+}
+
+export async function readGuardTask(task: GuardTaskValue): Promise<AgentDeclaration> {
+  return request<AgentDeclaration>(
+    `/api/agent/${encodeURIComponent("guard@1")}?${new URLSearchParams({ task })}`,
+  );
 }
 
 export async function resolveAgentPrompt(

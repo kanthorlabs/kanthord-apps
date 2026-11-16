@@ -1680,6 +1680,10 @@ export interface WorkbenchForkRecord {
 export type WorkbenchRecord =
   WorkbenchActionOffer | WorkbenchGuardRecord | WorkbenchAutoModeRecord | WorkbenchForkRecord;
 
+export const GuardTask = { Call: "call", Summary: "summary" } as const;
+
+export type GuardTaskValue = (typeof GuardTask)[keyof typeof GuardTask];
+
 export const WORKBENCH_FORK_PREFIX = "Forked from Workbench conversation ";
 
 export const WORKBENCH_FORK_FRAME =

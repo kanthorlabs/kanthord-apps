@@ -4,8 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { promptLayerLabel, promptPartOrigin, promptPartPathNote } from "@/lib/prompt-part";
 
+const DEFAULT_TITLE = "KanthorD prompt (layer 1)";
+const DEFAULT_LIST_LABEL = "KanthorD prompt";
+const DEFAULT_DESCRIPTION =
+  "Read-only. The server reads these files for every agent. Then it joins the Repository prompt and the Binding prompt of each repository, and closes with the framing. Change a file in the agent directory on the server host.";
+
 interface AgentPromptCardProps {
   readonly parts: readonly PromptPart[];
+  readonly title?: string;
+  readonly listLabel?: string;
+  readonly description?: string;
 }
 
 function PartFacts({ part }: { readonly part: PromptPart }) {
@@ -29,23 +37,20 @@ function PartFacts({ part }: { readonly part: PromptPart }) {
   );
 }
 
-export function AgentPromptCard({ parts }: AgentPromptCardProps) {
+export function AgentPromptCard({
+  parts,
+  title = DEFAULT_TITLE,
+  listLabel = DEFAULT_LIST_LABEL,
+  description = DEFAULT_DESCRIPTION,
+}: AgentPromptCardProps) {
   return (
     <Card>
       <CardHeader>
-        <h2 className="font-semibold leading-none">KanthorD prompt (layer 1)</h2>
-        <CardDescription>
-          Read-only. The server reads these files for every agent. Then it joins the Repository
-          prompt and the Binding prompt of each repository, and closes with the framing. Change a
-          file in the agent directory on the server host.
-        </CardDescription>
+        <h2 className="font-semibold leading-none">{title}</h2>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div
-          role="list"
-          aria-label="KanthorD prompt"
-          className="grid grid-cols-[minmax(0,1fr)] gap-2"
-        >
+        <div role="list" aria-label={listLabel} className="grid grid-cols-[minmax(0,1fr)] gap-2">
           {parts.map((part) => (
             <PromptItem
               key={`${part.part}:${part.name}`}
