@@ -366,6 +366,7 @@ describe("SessionsScreen", () => {
     const query = new URLSearchParams(route.textContent?.replace(/^New /, ""));
     expect(Object.fromEntries(query)).toEqual({
       agent_name: "swe@1",
+      display_name: "SWE",
       ...ENABLEMENT.default_configuration,
     });
   });
@@ -396,6 +397,7 @@ describe("SessionsScreen", () => {
     const query = new URLSearchParams(route.textContent?.replace(/^New /, ""));
     expect(Object.fromEntries(query)).toEqual({
       agent_name: "swe@1",
+      display_name: "SWE",
       agent_provider: "openai-org",
       model_identifier: "gpt-5",
       reasoning_effort: "high",

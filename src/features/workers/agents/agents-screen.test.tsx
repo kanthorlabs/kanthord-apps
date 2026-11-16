@@ -156,7 +156,11 @@ describe("AgentsScreen", () => {
     const route = await screen.findByText(/^New \?/);
     expect(
       Object.fromEntries(new URLSearchParams(route.textContent?.replace(/^New /, ""))),
-    ).toEqual({ agent_name: "swe@1", ...SWE.enablement!.default_configuration });
+    ).toEqual({
+      agent_name: "swe@1",
+      display_name: SWE.displayName,
+      ...SWE.enablement!.default_configuration,
+    });
     expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
   });
 

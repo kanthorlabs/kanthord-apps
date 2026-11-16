@@ -27,7 +27,17 @@ describe("newSessionRequestOf", () => {
     expect(newSessionRequestOf(url.searchParams)).toEqual({
       ok: true,
       agentName: "ops@1",
+      agentDisplayName: null,
       configuration: CONFIGURATION,
+    });
+  });
+
+  it("reads back the display name that newSessionPath carries", () => {
+    const url = new URL(newSessionPath("ops@1", CONFIGURATION, "Yumi"), "http://localhost");
+
+    expect(newSessionRequestOf(url.searchParams)).toMatchObject({
+      ok: true,
+      agentDisplayName: "Yumi",
     });
   });
 

@@ -276,17 +276,7 @@ describe("ChatScreen", () => {
     });
 
     it("shows the greeting of the default template with the display name and the model", async () => {
-      vi.mocked(workersApi.listAgents).mockResolvedValue([
-        {
-          agentName: "ops@1",
-          displayName: "Yumi",
-          workerNames: [],
-          consumers: ["workbench"],
-          toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
-          enablement: AGENT.enablement,
-        },
-      ]);
-      mountNew();
+      mountNew(new URLSearchParams([...NEW_QUERY, ["display_name", "Yumi"]]));
 
       expect(
         await screen.findByText("Hi, I am Yumi on qwen3-coder. What do you need?"),

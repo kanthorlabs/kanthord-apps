@@ -10,7 +10,13 @@ function NewSessionScreen() {
   const request = newSessionRequestOf(params);
 
   if (!request.ok) return <InlineError code={null} message={request.message} />;
-  return <NewSessionChat agentName={request.agentName} configuration={request.configuration} />;
+  return (
+    <NewSessionChat
+      agentName={request.agentName}
+      agentDisplayName={request.agentDisplayName}
+      configuration={request.configuration}
+    />
+  );
 }
 
 function SessionScreen({ sessionId }: { sessionId: string }) {

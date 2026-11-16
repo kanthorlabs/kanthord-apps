@@ -23,7 +23,6 @@ export interface HomeState {
   readonly errorMessage: string | null;
   readonly retry: () => void;
   readonly enabled: boolean;
-  readonly displayName: string;
   readonly configuration: ConfigurationResult;
   readonly configurationError: string | null;
   readonly view: HomeView | null;
@@ -101,7 +100,6 @@ export function useHome(): HomeState {
     errorMessage: error?.message ?? null,
     retry,
     enabled,
-    displayName: yumi?.displayName ?? "Yumi",
     configuration,
     configurationError,
     view: shown,

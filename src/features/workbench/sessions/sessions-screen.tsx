@@ -95,7 +95,9 @@ export function SessionsScreen() {
           agents={agents}
           initialAgentName={null}
           onClose={() => setStarting(false)}
-          onStart={(agentName, configuration) => navigate(newSessionPath(agentName, configuration))}
+          onStart={(agentName, configuration, agentDisplayName) =>
+            navigate(newSessionPath(agentName, configuration, agentDisplayName))
+          }
         />
       )}
       <DataList

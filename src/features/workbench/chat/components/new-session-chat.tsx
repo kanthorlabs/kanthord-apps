@@ -72,14 +72,10 @@ export function NewSessionChat({
     mentionNames,
   });
   const addressee = addresseeOf(composer.draft, [], [], mentionNames);
-  const displayName =
-    agentDisplayName ??
-    mentionAgents.agents.find((agent) => agent.agentName === agentName)?.displayName ??
-    null;
   const greeting =
-    displayName === null || configuration === null
+    agentDisplayName === null || configuration === null
       ? "Write your first message below to start the conversation."
-      : `Hi, I am ${displayName} on ${configuration.model_identifier}. What do you need?`;
+      : `Hi, I am ${agentDisplayName} on ${configuration.model_identifier}. What do you need?`;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -90,7 +86,7 @@ export function NewSessionChat({
         <Composer
           composer={composer}
           configuration={fixedConfiguration(configuration)}
-          agentDisplayName={displayName ?? agentName}
+          agentDisplayName={agentDisplayName ?? agentName}
           addressee={addressee}
           runActive={false}
           queued={false}

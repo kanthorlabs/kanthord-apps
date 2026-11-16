@@ -51,7 +51,6 @@ export function HomeChat({ home, streamEnd, approvalLine, actionLineOf }: HomeCh
     return (
       <NewSessionChat
         agentName={YUMI_AGENT}
-        agentDisplayName={home.displayName}
         configuration={home.configuration.ok ? home.configuration.configuration : null}
         configurationError={home.configurationError}
         onOpen={home.open}

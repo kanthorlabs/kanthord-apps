@@ -58,7 +58,9 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           agents={[agent]}
           initialAgentName={agentName}
           onClose={() => setStarting(false)}
-          onStart={(agentName, configuration) => navigate(newSessionPath(agentName, configuration))}
+          onStart={(agentName, configuration, agentDisplayName) =>
+            navigate(newSessionPath(agentName, configuration, agentDisplayName))
+          }
         />
       )}
       <ItemContent className="min-w-0 gap-3">
