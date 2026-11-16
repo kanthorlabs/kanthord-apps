@@ -64,8 +64,9 @@ export function useComposer(
   const activeCommand = listOpen ? (commands[activeIndex] ?? null) : null;
   const mentions = useMemo(() => mentionSuggestionsOf(draft, mentionNames), [draft, mentionNames]);
   const mentionsOpen = !disabled && focused && !dismissed && mentions.length > 0;
-  const activeMention = mentionsOpen ? (mentions[activeIndex] ?? null) : null;
+  const activeMention = mentionsOpen ? (mentions[Math.max(activeIndex, 0)] ?? null) : null;
   const optionCount = listOpen ? commands.length : mentionsOpen ? mentions.length : 0;
+  const currentIndex = mentionsOpen ? Math.max(activeIndex, 0) : activeIndex;
 
   const setDraft = useCallback((value: string) => {
     setDraftValue(value);
@@ -167,12 +168,14 @@ export function useComposer(
       if (optionCount > 0 && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
         event.preventDefault();
         const step = event.key === "ArrowDown" ? 1 : -1;
-        setActiveIndex((index) =>
-          index < 0 ? (step > 0 ? 0 : optionCount - 1) : (index + step + optionCount) % optionCount,
+        const entry = step > 0 ? 0 : optionCount - 1;
+        setActiveIndex(
+          currentIndex < 0 ? entry : (currentIndex + step + optionCount) % optionCount,
         );
         return;
       }
-      if (event.key !== "Enter" || event.shiftKey) return;
+      const picksMention = event.key === "Tab" && !event.shiftKey && activeMention !== null;
+      if (!picksMention && (event.key !== "Enter" || event.shiftKey)) return;
       event.preventDefault();
       if (activeCommand !== null) {
         pick(activeCommand);
@@ -184,7 +187,7 @@ export function useComposer(
       }
       submit();
     },
-    [optionCount, activeCommand, activeMention, pick, pickMention, submit],
+    [optionCount, currentIndex, activeCommand, activeMention, pick, pickMention, submit],
   );
 
   return {

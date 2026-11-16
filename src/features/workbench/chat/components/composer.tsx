@@ -55,7 +55,9 @@ export function Composer({
   const activeOptionId =
     composer.activeCommand === null ? undefined : optionId(composer.activeCommand.id);
   const activeMentionId =
-    composer.activeMention === null ? undefined : optionId(`mention-${composer.activeMention}`);
+    composer.activeMention === null
+      ? undefined
+      : optionId(`mention-${composer.mentions.indexOf(composer.activeMention)}`);
   return (
     <form
       aria-label="Composer"
@@ -103,10 +105,10 @@ export function Composer({
             className="gap-0"
             onMouseDown={(event) => event.preventDefault()}
           >
-            {composer.mentions.map((name) => (
+            {composer.mentions.map((name, index) => (
               <Item
                 key={name}
-                id={optionId(`mention-${name}`)}
+                id={optionId(`mention-${index}`)}
                 role="option"
                 size="xs"
                 aria-selected={composer.activeMention === name}
@@ -123,11 +125,6 @@ export function Composer({
         </Card>
       )}
       {stopConfirm !== null && <StopConfirm {...stopConfirm} />}
-      {addressee !== null && (
-        <Badge variant="outline" aria-label="Addressee" className="mb-1">
-          To {addressee.displayName}
-        </Badge>
-      )}
       <InputGroup>
         <div className="flex w-full items-end gap-2 pr-2">
           <InputGroupTextarea
@@ -183,6 +180,12 @@ export function Composer({
           </InputGroupAddon>
         )}
       </InputGroup>
+      {addressee !== null && (
+        <Badge variant="outline" aria-label="Addressee" className="mt-1">
+          To @{addressee.displayName}
+          {addressee.source === "last-answer" && " (last answer)"}
+        </Badge>
+      )}
       <p role="status" className="mt-1 min-h-5 text-sm text-muted-foreground">
         {composer.hint}
       </p>

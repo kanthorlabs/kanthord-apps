@@ -39,7 +39,11 @@ const CLASSIFIER_GUARD = {
 const AUTO_MODE_OFF_GUARD = { cause: "auto_mode_off", reason: null, confidence: null };
 const IMPORT_GUARD = { cause: "import", reason: null, confidence: null };
 
-const textMessage = (role, text) => ({ role, content: [{ type: "text", text }] });
+const textMessage = (role, text) => ({
+  role,
+  content: [{ type: "text", text }],
+  ...(role === "assistant" ? { stopReason: "stop" } : {}),
+});
 
 const textOf = (message) =>
   typeof message?.content === "string"

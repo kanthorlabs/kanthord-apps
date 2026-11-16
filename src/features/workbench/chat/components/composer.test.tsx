@@ -100,6 +100,7 @@ const AGENTS: readonly AgentSummary[] = [
   summary("re@1", "RE", RE_ENABLEMENT, ["workbench", "worker"]),
   summary("swe@1", "SWE", ENABLEMENT, ["workbench", "worker"]),
   summary("guard@1", "Guard", ENABLEMENT, []),
+  summary("sa@1", "Software Architecture", { ...ENABLEMENT, agent_name: "sa@1" }, ["workbench"]),
 ];
 
 const GUEST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1";
@@ -109,7 +110,7 @@ const GUEST_MEMBER: WorkbenchMember = {
   display_name: "RE",
 };
 
-function answer(member: WorkbenchMember, id: string): WorkbenchSessionEntry {
+function answer(member: WorkbenchMember, id: string, stopReason = "stop"): WorkbenchSessionEntry {
   return {
     session_id: member.session_id,
     agent_name: member.agent_name,
@@ -117,7 +118,11 @@ function answer(member: WorkbenchMember, id: string): WorkbenchSessionEntry {
     id,
     parentId: null,
     timestamp: "2026-10-05T09:00:00.000Z",
-    message: { role: "assistant", content: [{ type: "text", text: `Answer ${id}` }] },
+    message: {
+      role: "assistant",
+      content: [{ type: "text", text: `Answer ${id}` }],
+      stopReason,
+    },
   };
 }
 
@@ -183,7 +188,7 @@ describe("Composer mentions", () => {
       within(list)
         .getAllByRole("option")
         .map((option) => option.textContent),
-    ).toEqual(["RE", "SWE"]);
+    ).toEqual(["RE", "SWE", "Software Architecture"]);
     expect(within(list).queryByText("Guard")).toBeNull();
   });
 
@@ -206,12 +211,54 @@ describe("Composer mentions", () => {
   it("inserts the active suggestion on Enter without sending", async () => {
     mount();
 
-    await typeInMessage("@s");
+    await typeInMessage("@swe");
     await screen.findByRole("listbox", { name: "Mentions" });
     await userEvent.keyboard("{ArrowDown}{Enter}");
 
     expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@SWE ");
     expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+  });
+
+  it("makes the first match active and inserts it on Enter without sending", async () => {
+    mount();
+
+    await typeInMessage("@R");
+    await screen.findByRole("listbox", { name: "Mentions" });
+    await userEvent.keyboard("{Enter}");
+
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE ");
+    expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+  });
+
+  it("inserts the active suggestion on Tab", async () => {
+    mount();
+
+    await typeInMessage("@S");
+    await screen.findByRole("listbox", { name: "Mentions" });
+    await userEvent.keyboard("{ArrowDown}{Tab}");
+
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue(
+      "@Software Architecture ",
+    );
+    expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+  });
+
+  it("names one existing option as the active descendant for a space-separated name", async () => {
+    mount();
+
+    await typeInMessage("@S");
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    const box = screen.getByRole("combobox", { name: "Message" });
+    const options = within(list).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["SWE", "Software Architecture"]);
+    expect(box.getAttribute("aria-activedescendant")).toBe(options[0]?.id);
+
+    await userEvent.keyboard("{ArrowDown}");
+
+    const active = box.getAttribute("aria-activedescendant") ?? "";
+    expect(active).toBe(options[1]?.id);
+    expect(active).not.toMatch(/\s/);
+    expect(document.querySelectorAll(`[id="${active}"]`)).toHaveLength(1);
   });
 
   it("opens no list for an @ later in the draft", async () => {
@@ -253,6 +300,55 @@ describe("Composer addressee", () => {
     expect(screen.getByLabelText("Addressee")).toHaveTextContent("SWE");
   });
 
+  it.each([
+    ["@RE, why", "RE"],
+    ["@RE{Shift>}{Enter}{/Shift}", "RE"],
+    ["@re look", "RE"],
+    ["@Software Architecture plan", "Software Architecture"],
+  ])("routes the draft %s to %s", async (draft, target) => {
+    mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), draft);
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(new RegExp(`^To @${target}$`));
+  });
+
+  it("does not route a name that continues with a name character", async () => {
+    mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@REX look");
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @SWE \(last answer\)$/);
+  });
+
+  it("labels the last responder with the last answer", () => {
+    mount("swe@1", false, {
+      members: BOTH,
+      entries: [answer(HOST_MEMBER, "e1"), answer(GUEST_MEMBER, "e2")],
+    });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @RE \(last answer\)$/);
+  });
+
+  it("counts only final answers for the last responder", () => {
+    mount("swe@1", false, {
+      members: BOTH,
+      entries: [answer(HOST_MEMBER, "e1"), answer(GUEST_MEMBER, "e2", "aborted")],
+    });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @SWE \(last answer\)$/);
+  });
+
+  it("shows the addressee below the input", () => {
+    mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
+
+    const input = screen.getByRole("combobox", { name: "Message" });
+    const chip = screen.getByLabelText("Addressee");
+    expect(input.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("shows the matched display name of an agent that is not yet a member and disables the pickers", async () => {
     mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
     await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
@@ -261,6 +357,40 @@ describe("Composer addressee", () => {
 
     expect(screen.getByLabelText("Addressee")).toHaveTextContent("RE");
     expect(await screen.findByRole("combobox", { name: "Model" })).toBeDisabled();
+  });
+
+  it("shows a queued tagged message as to its mention before the next poll", async () => {
+    vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      session_id: SESSION_ID,
+      agent_name: "swe@1",
+      run_active: true,
+      queued_message_id: "queued_1",
+      cleared: [],
+    });
+    mount("swe@1", true, { members: BOTH, entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@RE look{Enter}");
+    await userEvent.click(await screen.findByRole("button", { name: /1 queued/ }));
+
+    expect(await screen.findByText("to @RE")).toBeTruthy();
+  });
+
+  it("shows a queued untagged message as to last answer", async () => {
+    vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      session_id: SESSION_ID,
+      agent_name: "swe@1",
+      run_active: true,
+      queued_message_id: "queued_1",
+      cleared: [],
+    });
+    mount("swe@1", true, { members: BOTH, entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "look{Enter}");
+    await userEvent.click(await screen.findByRole("button", { name: /1 queued/ }));
+
+    expect(await screen.findByText("to last answer")).toBeTruthy();
   });
 
   it("configures the session id of the addressee member", async () => {

@@ -11,7 +11,7 @@ import {
   runRequestOf,
 } from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
-import { addresseeOf, configurationTargetOf } from "@/lib/workbench-mention";
+import { addresseeOf, configurationTargetOf, leadingMentionOf } from "@/lib/workbench-mention";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
@@ -52,12 +52,26 @@ export function ChatView({
   onNew,
 }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.members, session.run_active);
+  const mentionAgents = useMentionAgents();
+  const mentionNames = useMemo(
+    () => mentionAgents.agents.map((agent) => agent.displayName),
+    [mentionAgents.agents],
+  );
+  const mentionOf = useCallback(
+    (text: string) =>
+      leadingMentionOf(text, [
+        ...events.members.map((member) => member.display_name),
+        ...mentionNames,
+      ]),
+    [events.members, mentionNames],
+  );
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
     firstSendFailure === null
       ? null
       : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
+    mentionOf,
   );
   const { snapshot, patchSnapshot } = events;
   const onAutoMode = useCallback(
@@ -67,11 +81,6 @@ export function ChatView({
   const navigate = useNavigate();
   const newChat = useRef<() => void>(() => undefined);
   const handleNew = useCallback(() => newChat.current(), []);
-  const mentionAgents = useMentionAgents();
-  const mentionNames = useMemo(
-    () => mentionAgents.agents.map((agent) => agent.displayName),
-    [mentionAgents.agents],
-  );
   const composer = useComposer(actions.busy, actions.send, {
     agentName: session.agent_name,
     onNew: handleNew,

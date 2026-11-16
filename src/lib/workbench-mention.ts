@@ -9,6 +9,7 @@ import type {
 export interface Addressee {
   readonly displayName: string;
   readonly member: WorkbenchMember | null;
+  readonly source: "mention" | "last-answer";
 }
 
 export interface ConfigurationTarget {
@@ -30,29 +31,40 @@ export function mentionSuggestionsOf(draft: string, names: readonly string[]): r
   return names.filter((name) => name.toLowerCase().startsWith(prefix));
 }
 
-function leadingMentionOf(draft: string, names: readonly string[]): string | null {
-  const matches = names.filter(
-    (name) => draft.startsWith(`@${name}`) && /^(\s|$)/.test(draft.slice(name.length + 1)),
+const NAME_CHARACTER = /[A-Za-z0-9 _-]/;
+
+export function leadingMentionOf(draft: string, names: readonly string[]): string | null {
+  if (!draft.startsWith("@")) return null;
+  const text = draft.slice(1).toLowerCase();
+  const byLength = [...names].sort((a, b) => b.length - a.length);
+  return (
+    byLength.find((name) => {
+      const lowered = name.toLowerCase();
+      if (!text.startsWith(lowered)) return false;
+      const next = text.charAt(lowered.length);
+      return next === "" || /\s/.test(next) || !NAME_CHARACTER.test(next);
+    }) ?? null
   );
-  return matches.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
+function isFinalAnswer(entry: WorkbenchSessionEntry): boolean {
+  const message = entry["message"];
+  return (
+    entry.type === "message" &&
+    typeof message === "object" &&
+    message !== null &&
+    "role" in message &&
+    message.role === "assistant" &&
+    "stopReason" in message &&
+    message.stopReason === "stop"
+  );
 }
 
 function lastResponderOf(
   members: readonly WorkbenchMember[],
   entries: readonly WorkbenchSessionEntry[],
 ): WorkbenchMember | null {
-  const answer = entries
-    .filter((entry) => {
-      const message = entry["message"];
-      return (
-        entry.type === "message" &&
-        typeof message === "object" &&
-        message !== null &&
-        "role" in message &&
-        message.role === "assistant"
-      );
-    })
-    .at(-1);
+  const answer = entries.filter(isFinalAnswer).at(-1);
   const responder = members.find((member) => member.session_id === answer?.session_id);
   return responder ?? members[0] ?? null;
 }
@@ -67,10 +79,12 @@ export function addresseeOf(
   const mention = leadingMentionOf(draft, [...memberNames, ...names]);
   if (mention !== null) {
     const member = members.find((candidate) => candidate.display_name === mention) ?? null;
-    return { displayName: mention, member };
+    return { displayName: mention, member, source: "mention" };
   }
   const responder = lastResponderOf(members, entries);
-  return responder === null ? null : { displayName: responder.display_name, member: responder };
+  return responder === null
+    ? null
+    : { displayName: responder.display_name, member: responder, source: "last-answer" };
 }
 
 export function configurationTargetOf(

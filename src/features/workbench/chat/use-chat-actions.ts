@@ -53,10 +53,13 @@ function failureOf(
   return { cause, toolCallId, code: error.code, message: error.message };
 }
 
+const UNTAGGED = (): string | null => null;
+
 export function useChatActions(
   sessionId: string,
   patchSnapshot: (patch: SnapshotPatch) => void,
   initialFailure: ChatActionFailure | null = null,
+  mentionOf: (text: string) => string | null = UNTAGGED,
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
@@ -113,7 +116,7 @@ export function useChatActions(
             id: answer.queued_message_id,
             text,
             agent_name: answer.agent_name,
-            display_name: null,
+            display_name: mentionOf(text),
           };
           if (delivery === "replace") {
             patchSnapshot({ queue: [queued] });
@@ -122,7 +125,7 @@ export function useChatActions(
           patchSnapshot((current) => ({ queue: [...current.queue, queued] }));
         },
       ),
-    [perform, sessionId, patchSnapshot, refillCleared],
+    [perform, sessionId, patchSnapshot, refillCleared, mentionOf],
   );
 
   const abort = useCallback(() => {
