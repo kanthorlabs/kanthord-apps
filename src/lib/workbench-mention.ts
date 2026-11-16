@@ -1,9 +1,10 @@
-import type {
-  AgentEnablement,
-  AgentSummary,
-  WorkbenchConfiguration,
-  WorkbenchMember,
-  WorkbenchSessionEntry,
+import {
+  type AgentEnablement,
+  type AgentSummary,
+  WORKBENCH_PLAN_ENTRY,
+  type WorkbenchConfiguration,
+  type WorkbenchMember,
+  type WorkbenchSessionEntry,
 } from "@/api/types";
 
 export interface Addressee {
@@ -47,7 +48,11 @@ export function leadingMentionOf(draft: string, names: readonly string[]): strin
   );
 }
 
-function isFinalAnswer(entry: WorkbenchSessionEntry): boolean {
+function isPlanEntry(entry: WorkbenchSessionEntry): boolean {
+  return entry.type === "custom_message" && entry["customType"] === WORKBENCH_PLAN_ENTRY;
+}
+
+function isAssistantStop(entry: WorkbenchSessionEntry): boolean {
   const message = entry["message"];
   return (
     entry.type === "message" &&
@@ -58,6 +63,11 @@ function isFinalAnswer(entry: WorkbenchSessionEntry): boolean {
     "stopReason" in message &&
     message.stopReason === "stop"
   );
+}
+
+function isFinalAnswer(entry: WorkbenchSessionEntry): boolean {
+  if (entry.phase !== undefined) return false;
+  return isPlanEntry(entry) || isAssistantStop(entry);
 }
 
 function lastResponderOf(

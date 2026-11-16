@@ -540,6 +540,7 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
   run_active: false,
   error_message: null,
   auto_mode: true,
+  phase: null,
 };
 
 function followEvents(snapshot: WorkbenchRunSnapshot) {
@@ -1179,6 +1180,7 @@ describe("HomeScreen tool approval", () => {
         run_active: false,
         error_message: null,
         auto_mode: true,
+        phase: null,
       },
       version: 1,
     });

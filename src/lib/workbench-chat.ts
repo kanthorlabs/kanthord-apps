@@ -2,12 +2,14 @@ import {
   NODE_STATES,
   WORKBENCH_FORK_FRAME,
   WORKBENCH_FORK_PREFIX,
+  WORKBENCH_PLAN_ENTRY,
   type WorkbenchActionOffer,
   type WorkbenchActionOperation,
   type WorkbenchActionResult,
   type WorkbenchForkRecord,
   type WorkbenchGuardRecord,
   type WorkbenchMember,
+  type WorkbenchPlanDetails,
   type WorkbenchRunSnapshot,
   type WorkbenchSessionEntry,
 } from "@/api/types";
@@ -92,9 +94,30 @@ type ChatItemBody =
       readonly source_title: string;
       readonly source_id: string;
       readonly summary: string;
+    }
+  | {
+      readonly kind: "plan";
+      readonly id: string;
+      readonly text: string;
+      readonly unresolved: WorkbenchPlanDetails["unresolved"];
+      readonly author: string;
+      readonly timestamp: number;
+    }
+  | {
+      readonly kind: "phase-group";
+      readonly id: string;
+      readonly phase: WorkbenchPhase;
+      readonly items: readonly ChatItem[];
     };
 
 export type ChatItem = ChatItemBody & ChatItemOrigin;
+
+type WorkbenchPhase = NonNullable<WorkbenchRunSnapshot["phase"]>;
+
+export const PHASE_LABELS: Readonly<Record<WorkbenchPhase, string>> = {
+  planner: "Planner",
+  reviewer: "Reviewer",
+};
 
 export type ActionCardItem = Extract<ChatItem, { kind: "action-card" }>;
 
@@ -105,6 +128,7 @@ const OFFER_TOOL = "offer_action";
 const EVIDENCE_READ_TOOL = "evidence_read";
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
+const PLAN_AGENT = "plan@1";
 const FORK_ACK = "I read the summary of the earlier conversation.";
 const FORK_KEYS = ["kind", "source_title"];
 const GUARD_KEYS = ["kind", "tool_call_id", "operation_id", "reason"];
@@ -495,6 +519,62 @@ function originOf(member: WorkbenchMember): ChatItemOrigin {
   };
 }
 
+export function unresolvedLine(unresolved: WorkbenchPlanDetails["unresolved"]): string | null {
+  if (unresolved === null) return null;
+  if (unresolved === "missing") return "Review unresolved: no Review section";
+  return `Review unresolved: ${unresolved} open action:YES findings`;
+}
+
+function unresolvedOf(entry: WorkbenchSessionEntry): WorkbenchPlanDetails["unresolved"] {
+  const details = entry["details"];
+  if (!isRecord(details)) return null;
+  const unresolved = details["unresolved"];
+  return typeof unresolved === "number" || unresolved === "missing" ? unresolved : null;
+}
+
+function planItemOf(entry: WorkbenchSessionEntry, author: string): ChatItemBody | null {
+  if (entry.type !== "custom_message" || entry["customType"] !== WORKBENCH_PLAN_ENTRY) {
+    return null;
+  }
+  return {
+    kind: "plan",
+    id: entry.id,
+    text: textOf(blocksOf(entry["content"])),
+    unresolved: unresolvedOf(entry),
+    author,
+    timestamp: Date.parse(entry.timestamp),
+  };
+}
+
+function phaseOf(entry: WorkbenchSessionEntry): WorkbenchPhase | null {
+  return entry.phase === "planner" || entry.phase === "reviewer" ? entry.phase : null;
+}
+
+export function planMemberOf(members: readonly WorkbenchMember[]): WorkbenchMember {
+  const member = members.find((candidate) => candidate.agent_name === PLAN_AGENT);
+  if (member === undefined) throw new Error(`The conversation has no member ${PLAN_AGENT}`);
+  return member;
+}
+
+function memberOfEntry(
+  members: readonly WorkbenchMember[],
+  entry: WorkbenchSessionEntry,
+): WorkbenchMember {
+  return phaseOf(entry) === null ? memberOf(members, entry.session_id) : planMemberOf(members);
+}
+
+function entryChatItems(
+  entry: WorkbenchSessionEntry,
+  index: number,
+  snapshot: WorkbenchRunSnapshot,
+  context: ResultContext,
+  origin: ChatItemOrigin,
+): readonly ChatItem[] {
+  const plan = planItemOf(entry, origin.display_name);
+  const bodies = plan === null ? entryItems(entry, index, snapshot, context) : [plan];
+  return bodies.map((body) => ({ ...body, ...origin }));
+}
+
 export function chatItemsOf(
   entries: readonly WorkbenchSessionEntry[],
   snapshot: WorkbenchRunSnapshot,
@@ -502,15 +582,30 @@ export function chatItemsOf(
   forkedFrom: string | null = null,
 ): readonly ChatItem[] {
   const context = resultContextOf(entries, forkedFrom);
-  const items = entries.flatMap((entry, index) => {
-    const origin = originOf(memberOf(members, entry.session_id));
-    return entryItems(entry, index, snapshot, context).map((item) => ({ ...item, ...origin }));
+  const items: ChatItem[] = [];
+  const groups = new Map<string, ChatItem[]>();
+  entries.forEach((entry, index) => {
+    const phase = phaseOf(entry);
+    if (phase !== null && userTextOf(entry) !== null) return;
+    const origin = originOf(memberOfEntry(members, entry));
+    const entryItemList = entryChatItems(entry, index, snapshot, context, origin);
+    if (phase === null) return void items.push(...entryItemList);
+    const held = groups.get(entry.session_id);
+    if (held !== undefined) return void held.push(...entryItemList);
+    const groupItems = [...entryItemList];
+    groups.set(entry.session_id, groupItems);
+    items.push({
+      kind: "phase-group",
+      id: `phase:${entry.session_id}`,
+      phase,
+      items: groupItems,
+      ...origin,
+    });
   });
   const streaming = snapshot.streaming_message;
   if (streaming === null || streaming["role"] !== "assistant") return items;
   const lastEntry = entries.at(-1);
-  const streamingMember =
-    lastEntry === undefined ? members[0] : memberOf(members, lastEntry.session_id);
+  const streamingMember = lastEntry === undefined ? members[0] : memberOfEntry(members, lastEntry);
   if (streamingMember === undefined) throw new Error("The conversation has no member");
   return [
     ...items,

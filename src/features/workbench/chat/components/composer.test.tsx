@@ -126,6 +126,21 @@ function answer(member: WorkbenchMember, id: string, stopReason = "stop"): Workb
   };
 }
 
+function planEntry(member: WorkbenchMember, id: string): WorkbenchSessionEntry {
+  return {
+    session_id: member.session_id,
+    agent_name: member.agent_name,
+    type: "custom_message",
+    id,
+    parentId: null,
+    timestamp: "2026-10-05T09:00:00.000Z",
+    customType: "kanthord.workbench.plan",
+    content: "## Plan",
+    display: true,
+    details: { phases: [], unresolved: null },
+  };
+}
+
 function mount(
   agentName = "swe@1",
   runActive = false,
@@ -340,6 +355,27 @@ describe("Composer addressee", () => {
     });
 
     expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @SWE \(last answer\)$/);
+  });
+
+  it("labels Jeremy with the last answer after a plan entry", () => {
+    const jeremy = { session_id: GUEST_ID, agent_name: "plan@1", display_name: "Jeremy" };
+    mount("swe@1", false, {
+      members: [HOST_MEMBER, jeremy],
+      entries: [answer(HOST_MEMBER, "e1"), planEntry(jeremy, "e2")],
+    });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @Jeremy \(last answer\)$/);
+  });
+
+  it("counts no entry with a phase field as a final answer", () => {
+    const jeremy = { session_id: GUEST_ID, agent_name: "plan@1", display_name: "Jeremy" };
+    const phaseSession = { ...jeremy, session_id: `${GUEST_ID}-phase` };
+    mount("swe@1", false, {
+      members: [HOST_MEMBER, jeremy],
+      entries: [answer(jeremy, "e1"), { ...answer(phaseSession, "e2"), phase: "reviewer" }],
+    });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @Jeremy \(last answer\)$/);
   });
 
   it("shows the addressee below the input", () => {
@@ -688,6 +724,7 @@ describe("Composer", () => {
         run_active: false,
         error_message: null,
         auto_mode: true,
+        phase: null,
       },
       version: 1,
     });
@@ -755,6 +792,7 @@ describe("Composer", () => {
           run_active: true,
           error_message: null,
           auto_mode: true,
+          phase: null,
         },
         version: 1,
       });

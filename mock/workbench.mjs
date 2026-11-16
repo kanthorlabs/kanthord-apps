@@ -11,6 +11,18 @@ const IMPORT_UPDATE_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA3";
 const IMPORT_PREVIEW_DIGEST = "0123456789abcdef".repeat(4);
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
+const PLAN_TYPE = "kanthord.workbench.plan";
+const PLAN_AGENT = "plan@1";
+const PLAN_PHASES = [
+  { phase: "planner", text: "I read the request and drafted the steps of the plan." },
+  { phase: "reviewer", text: "I reviewed the draft and left two action:YES findings open." },
+];
+const PHASE_PROMPTS = {
+  planner: "Draft the plan for the request of the owner.",
+  reviewer: "Review the draft plan and list every finding.",
+};
+const PLAN_TEXT =
+  "## Plan\n\n1. Add the retry to the payment client.\n2. Cover the retry with a test.\n\n**Risk:** the retry must stop after three attempts.";
 const SETUP_CREDENTIAL = "atlas-router";
 const SETUP_AGENT = "swe@1";
 const NAME_CHARACTER = /[A-Za-z0-9 _-]/;
@@ -80,7 +92,47 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       : session;
 
   const participantsOf = (host) =>
-    sessions.filter((candidate) => candidate.host_session_id === host.id);
+    sessions.filter(
+      (candidate) => candidate.host_session_id === host.id && candidate.phase === undefined,
+    );
+
+  const conversationEntriesOf = (host) =>
+    [host, ...participantsOf(host)]
+      .flatMap((member) => member.entries)
+      .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+
+  const namedPhaseSessionIds = (host) => {
+    const ids = new Set(stateOf(host).phase_session_ids);
+    for (const entry of conversationEntriesOf(host)) {
+      if (entry.customType !== PLAN_TYPE) continue;
+      for (const { session_id } of entry.details.phases) ids.add(session_id);
+    }
+    return ids;
+  };
+
+  const phaseSessionsOf = (host) => {
+    const named = namedPhaseSessionIds(host);
+    return sessions.filter(
+      (candidate) =>
+        candidate.host_session_id === host.id &&
+        candidate.phase !== undefined &&
+        named.has(candidate.id),
+    );
+  };
+
+  const newPhaseSession = (member, phase) => {
+    const phaseSession = {
+      id: sessionId(),
+      host_session_id: conversationOf(member).id,
+      agent_name: member.agent_name,
+      phase,
+      created: Date.now(),
+      configuration: { ...member.configuration },
+      entries: [],
+    };
+    sessions.push(phaseSession);
+    return phaseSession;
+  };
 
   const displayNameOf = (agentName) =>
     agents.find((agent) => agent.agent_name === agentName).display_name;
@@ -94,7 +146,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
 
   const entriesAfter = (host, after) => {
     const cursor = cursorOf(host, after);
-    return [host, ...participantsOf(host)]
+    return [host, ...participantsOf(host), ...phaseSessionsOf(host)]
       .flatMap((member) => {
         const entryId = cursor.get(member.id);
         const index =
@@ -121,12 +173,14 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   };
 
   const isFinalAnswer = (entry) =>
-    entry.type === "message" &&
-    entry.message.role === "assistant" &&
-    entry.message.stopReason === "stop";
+    entry.phase === undefined &&
+    (entry.customType === PLAN_TYPE ||
+      (entry.type === "message" &&
+        entry.message.role === "assistant" &&
+        entry.message.stopReason === "stop"));
 
   const lastAnswerer = (host) => {
-    const answer = entriesAfter(host, null).filter(isFinalAnswer).at(-1);
+    const answer = conversationEntriesOf(host).filter(isFinalAnswer).at(-1);
     return sessions.find((candidate) => candidate.id === answer?.session_id) ?? host;
   };
 
@@ -168,6 +222,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         queue: [],
         error_message: null,
         auto_mode: true,
+        phase: null,
+        phase_session_ids: [],
         waiters: new Set(),
         version: 0,
       });
@@ -185,6 +241,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       run_active: state.run !== null,
       error_message: state.error_message,
       auto_mode: state.auto_mode,
+      phase: state.phase,
     };
   };
 
@@ -329,7 +386,35 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     );
   };
 
+  const playPlan = async (session, run) => {
+    const state = stateOf(session);
+    const phases = [];
+    for (const { phase, text } of PLAN_PHASES) {
+      const phaseSession = newPhaseSession(session, phase);
+      state.phase = phase;
+      state.phase_session_ids.push(phaseSession.id);
+      append(phaseSession, "message", {
+        phase,
+        message: { role: "user", content: PHASE_PROMPTS[phase] },
+      });
+      await sleep(run, STEP_DELAY_MS);
+      if (run.cancelled) return;
+      append(phaseSession, "message", { phase, message: textMessage("assistant", text) });
+      phases.push({ phase, session_id: phaseSession.id });
+    }
+    await sleep(run, STEP_DELAY_MS);
+    if (run.cancelled) return;
+    state.phase = null;
+    append(session, "custom_message", {
+      customType: PLAN_TYPE,
+      content: PLAN_TEXT,
+      display: true,
+      details: { phases, unresolved: 2 },
+    });
+  };
+
   const play = async (session, run, text) => {
+    if (session.agent_name === PLAN_AGENT) return playPlan(session, run);
     const state = stateOf(session);
     await sleep(run, STEP_DELAY_MS);
     const call = {
@@ -444,6 +529,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     const state = stateOf(session);
     if (state.run !== run) return;
     state.run = null;
+    state.phase = null;
+    state.phase_session_ids = [];
     state.streaming_message = null;
     state.pending_tool_calls = [];
     state.pending_approval = null;
@@ -486,6 +573,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     run.cancelled = true;
     run.cancel?.();
     state.run = null;
+    state.phase = null;
+    state.phase_session_ids = [];
     state.streaming_message = null;
     state.pending_tool_calls = [];
     state.pending_approval = null;
@@ -552,7 +641,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
 
   const listItemOf = (session) => {
     const isHost = !session.host_session_id;
-    const entries = isHost ? entriesAfter(session, null) : session.entries;
+    const entries = isHost ? conversationEntriesOf(session) : session.entries;
     const messages = entries.filter((entry) => entry.type === "message");
     const first = messages.find((entry) => entry.message.role === "user");
     const forked = session.forked_from !== undefined;

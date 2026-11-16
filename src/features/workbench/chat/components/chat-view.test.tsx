@@ -41,6 +41,7 @@ const IDLE: WorkbenchRunSnapshot = {
   run_active: false,
   error_message: null,
   auto_mode: true,
+  phase: null,
 };
 
 const ENABLEMENT: AgentEnablement = {
@@ -1082,5 +1083,179 @@ describe("ChatView", () => {
       );
       expect(error.previousElementSibling).toHaveClass("border-destructive");
     });
+  });
+});
+
+describe("ChatView plan and phases", () => {
+  const JEREMY: WorkbenchMember = {
+    session_id: SESSION_ID,
+    agent_name: "plan@1",
+    display_name: "Jeremy",
+  };
+
+  function planSession(entries: readonly WorkbenchSessionEntry[], runActive = false) {
+    return { ...session(entries, runActive), agent_name: "plan@1", members: [JEREMY] };
+  }
+
+  function planEntry(
+    unresolved: unknown,
+    content = "## Steps\n\n- Add the retry",
+  ): WorkbenchSessionEntry {
+    return {
+      session_id: SESSION_ID,
+      agent_name: "plan@1",
+      type: "custom_message",
+      id: "p1",
+      parentId: null,
+      timestamp: "2026-10-05T09:00:00.000Z",
+      customType: "kanthord.workbench.plan",
+      content,
+      display: true,
+      details: { phases: [], unresolved },
+    };
+  }
+
+  function phaseEntry(
+    id: string,
+    phase: "planner" | "reviewer",
+    text: string,
+  ): WorkbenchSessionEntry {
+    return {
+      session_id: `phase-${phase}`,
+      agent_name: "plan@1",
+      type: "message",
+      id,
+      parentId: null,
+      timestamp: "2026-10-05T09:00:00.000Z",
+      phase,
+      message: { role: "assistant", content: [{ type: "text", text }] },
+    };
+  }
+
+  it("renders the plan as Markdown with the author", () => {
+    pollQueue();
+    mount(planSession([planEntry(null)]));
+
+    const log = screen.getByRole("log", { name: "Transcript" });
+    expect(within(log).getByRole("heading", { name: "Steps" })).toBeTruthy();
+    expect(within(log).getByRole("listitem")).toHaveTextContent("Add the retry");
+    expect(within(log).getByText("Jeremy")).toBeTruthy();
+    expect(within(log).getByRole("img", { name: "Jeremy avatar" })).toBeTruthy();
+  });
+
+  it("puts the plan and the warning line in a bordered panel with a muted background", () => {
+    pollQueue();
+    mount(planSession([planEntry(2)]));
+
+    const panel = screen.getByRole("heading", { name: "Steps" }).closest("[data-slot=plan-panel]");
+    expect(panel).toHaveClass("border", "bg-muted/50");
+    expect(panel).toHaveTextContent("Review unresolved: 2 open action:YES findings");
+    expect(panel).not.toHaveTextContent("Jeremy");
+  });
+
+  it("renders no raw HTML of the plan text", () => {
+    pollQueue();
+    mount(planSession([planEntry(null, "<b>bold</b> text")]));
+
+    const log = screen.getByRole("log", { name: "Transcript" });
+    expect(log.querySelector("b")).toBeNull();
+  });
+
+  it.each([
+    [2, "Review unresolved: 2 open action:YES findings"],
+    ["missing", "Review unresolved: no Review section"],
+  ])("shows the warning line for %s", (unresolved, line) => {
+    pollQueue();
+    mount(planSession([planEntry(unresolved)]));
+
+    expect(screen.getByText(line)).toBeTruthy();
+  });
+
+  it("shows no warning line for null", () => {
+    pollQueue();
+    mount(planSession([planEntry(null)]));
+
+    expect(screen.queryByText(/Review unresolved/)).toBeNull();
+  });
+
+  it("renders the phase groups collapsed and expands one on a click", async () => {
+    pollQueue();
+    mount(
+      planSession([
+        phaseEntry("a1", "planner", "Draft of the steps"),
+        phaseEntry("b1", "reviewer", "Review of the draft"),
+        planEntry(null),
+      ]),
+    );
+
+    const planner = screen.getByRole("button", { name: "Planner" });
+    const reviewer = screen.getByRole("button", { name: "Reviewer" });
+    expect(planner).toHaveAttribute("aria-expanded", "false");
+    expect(reviewer).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Draft of the steps")).toBeNull();
+
+    await userEvent.click(planner);
+
+    expect(await screen.findByText("Draft of the steps")).toBeTruthy();
+    expect(screen.queryByText("Review of the draft")).toBeNull();
+  });
+
+  it("styles the phase group trigger with a dashed border and muted small text", () => {
+    pollQueue();
+    mount(planSession([phaseEntry("a1", "planner", "Draft of the steps"), planEntry(null)]));
+
+    expect(screen.getByRole("button", { name: "Planner" })).toHaveClass(
+      "border-dashed",
+      "text-xs",
+      "text-muted-foreground",
+    );
+  });
+
+  it("shows no user bubble in a phase group", async () => {
+    pollQueue();
+    const opening: WorkbenchSessionEntry = {
+      ...phaseEntry("a0", "planner", ""),
+      message: { role: "user", content: "Draft the plan of the request." },
+    };
+    mount(
+      planSession([opening, phaseEntry("a1", "planner", "Draft of the steps"), planEntry(null)]),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Planner" }));
+
+    expect(await screen.findByText("Draft of the steps")).toBeTruthy();
+    expect(screen.queryByText("Draft the plan of the request.")).toBeNull();
+  });
+
+  it.each([
+    ["planner", "Planner"],
+    ["reviewer", "Reviewer"],
+  ] as const)("reads Jeremy is planning with %s on the run line", async (phase, label) => {
+    const polls = pollQueue();
+    mount(planSession([message("e1", { role: "user", content: "Plan it" })], true));
+
+    await polls.answer({ members: [JEREMY], snapshot: { run_active: true, phase } });
+
+    const line = await screen.findByRole("group", { name: "Run line" });
+    await waitFor(() => expect(line).toHaveTextContent("Jeremy is planning"));
+    expect(line).toHaveTextContent(label);
+    expect(screen.queryByText("The agent is working")).toBeNull();
+  });
+
+  it("keeps the working line for a run with no phase", () => {
+    pollQueue();
+    mount(session([message("e1", { role: "user", content: "Hi" })], true));
+
+    expect(screen.getByText("The agent is working")).toBeTruthy();
+    expect(screen.queryByText(/is planning/)).toBeNull();
+  });
+
+  it("renders the plan item and no phase group for entries with no phase", () => {
+    pollQueue();
+    mount(planSession([planEntry(1)]));
+
+    expect(screen.getByRole("heading", { name: "Steps" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Planner" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Reviewer" })).toBeNull();
   });
 });
