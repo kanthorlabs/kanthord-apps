@@ -105,7 +105,12 @@ export function useChatActions(
             patchSnapshot({ run_active: true, error_message: null, queue: [] });
             return;
           }
-          const queued = { id: answer.queued_message_id, text };
+          const queued = {
+            id: answer.queued_message_id,
+            text,
+            agent_name: answer.agent_name,
+            display_name: null,
+          };
           if (delivery === "replace") {
             patchSnapshot({ queue: [queued] });
             return;

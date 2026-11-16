@@ -1603,9 +1603,17 @@ export interface WorkbenchSessionCreateBody extends WorkbenchConfiguration {
   readonly agent_name: string;
 }
 
+export interface WorkbenchMember {
+  readonly session_id: string;
+  readonly agent_name: string;
+  readonly display_name: string;
+}
+
 export interface WorkbenchSessionListItem {
   readonly id: string;
+  readonly host_session_id: string | null;
   readonly agent_name: string;
+  readonly display_name: string;
   readonly name: string | null;
   readonly created: number;
   readonly modified: number;
@@ -1613,9 +1621,12 @@ export interface WorkbenchSessionListItem {
   readonly first_message: string;
   readonly run_active: boolean;
   readonly pending_approval: WorkbenchPendingApprovalSummary | null;
+  readonly participants: readonly WorkbenchSessionListItem[];
 }
 
 export interface WorkbenchSessionEntry {
+  readonly session_id: string;
+  readonly agent_name: string;
   readonly type: string;
   readonly id: string;
   readonly parentId: string | null;
@@ -1685,6 +1696,7 @@ export interface WorkbenchSession {
   readonly id: string;
   readonly agent_name: string;
   readonly configuration: WorkbenchConfiguration;
+  readonly members: readonly WorkbenchMember[];
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly run_active: boolean;
   readonly resume_command: string;
@@ -1705,6 +1717,7 @@ export interface WorkbenchPendingApprovalGuard {
 }
 
 export interface WorkbenchPendingApproval extends WorkbenchPendingApprovalSummary {
+  readonly session_id: string;
   readonly input: Readonly<Record<string, unknown>>;
   readonly guard: WorkbenchPendingApprovalGuard | null;
 }
@@ -1712,6 +1725,8 @@ export interface WorkbenchPendingApproval extends WorkbenchPendingApprovalSummar
 export interface WorkbenchQueuedMessage {
   readonly id: string;
   readonly text: string;
+  readonly agent_name: string | null;
+  readonly display_name: string | null;
 }
 
 export type WorkbenchMessageDelivery = "queue" | "replace";
@@ -1727,6 +1742,7 @@ export interface WorkbenchRunSnapshot {
 }
 
 export interface WorkbenchSessionEvents {
+  readonly members: readonly WorkbenchMember[];
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly snapshot: WorkbenchRunSnapshot;
   readonly version: number;
@@ -1734,6 +1750,7 @@ export interface WorkbenchSessionEvents {
 
 export interface WorkbenchMessageAnswer {
   readonly session_id: string;
+  readonly agent_name: string | null;
   readonly run_active: true;
   readonly queued_message_id: string | null;
   readonly cleared: readonly WorkbenchQueuedMessage[];

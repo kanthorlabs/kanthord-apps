@@ -46,11 +46,93 @@ const textOf = (message) =>
     ? message.content
     : (message?.content ?? []).map((block) => block.text ?? "").join("");
 
+const publicQueueItem = ({ id, text, agent_name, display_name }) => ({
+  id,
+  text,
+  agent_name,
+  display_name,
+});
+
+const cursorOf = (host, after) => {
+  if (after === null) return new Map();
+  if (!after.includes(":")) return new Map([[host.id, after]]);
+  return new Map(after.split(",").map((pair) => pair.split(":")));
+};
+
 export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   const live = new Map();
   let entrySequence = 100;
 
-  const stateOf = (session) => {
+  const conversationOf = (session) =>
+    session.host_session_id
+      ? sessions.find((candidate) => candidate.id === session.host_session_id)
+      : session;
+
+  const participantsOf = (host) =>
+    sessions.filter((candidate) => candidate.host_session_id === host.id);
+
+  const displayNameOf = (agentName) =>
+    agents.find((agent) => agent.agent_name === agentName).display_name;
+
+  const membersOf = (host) =>
+    [host, ...participantsOf(host)].map((member) => ({
+      session_id: member.id,
+      agent_name: member.agent_name,
+      display_name: displayNameOf(member.agent_name),
+    }));
+
+  const entriesAfter = (host, after) => {
+    const cursor = cursorOf(host, after);
+    return [host, ...participantsOf(host)]
+      .flatMap((member) => {
+        const entryId = cursor.get(member.id);
+        const index =
+          entryId === undefined ? -1 : member.entries.findIndex((entry) => entry.id === entryId);
+        return member.entries.slice(index + 1);
+      })
+      .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+  };
+
+  const mentionedAgent = (host, text) =>
+    agents
+      .filter(
+        (agent) =>
+          agent.workbench === true &&
+          (agent.agent_name === host.agent_name || agent.enablement?.state === "enabled") &&
+          text.startsWith(`@${agent.display_name}`) &&
+          /^(\s|$)/.test(text.slice(agent.display_name.length + 1)),
+      )
+      .sort((a, b) => b.display_name.length - a.display_name.length)[0];
+
+  const participantFor = (host, agent) => {
+    const existing = participantsOf(host).find(
+      (candidate) => candidate.agent_name === agent.agent_name,
+    );
+    if (existing !== undefined) return existing;
+    const participant = {
+      id: sessionId(),
+      host_session_id: host.id,
+      agent_name: agent.agent_name,
+      created: Date.now(),
+      configuration: { ...agent.enablement.default_configuration },
+      entries: [],
+    };
+    sessions.push(participant);
+    return participant;
+  };
+
+  const addresseeOf = (host, text) => {
+    const agent = mentionedAgent(host, text);
+    if (agent === undefined) return { target: host, tag: null };
+    const target = agent.agent_name === host.agent_name ? host : participantFor(host, agent);
+    return {
+      target,
+      tag: { agent_name: agent.agent_name, display_name: agent.display_name },
+    };
+  };
+
+  const stateOf = (conversationMember) => {
+    const session = conversationOf(conversationMember);
     if (!live.has(session.id)) {
       live.set(session.id, {
         run: null,
@@ -73,7 +155,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       streaming_message: state.streaming_message,
       pending_tool_calls: [...state.pending_tool_calls],
       pending_approval: state.pending_approval,
-      queue: state.queue.map((item) => ({ ...item })),
+      queue: state.queue.map(publicQueueItem),
       run_active: state.run !== null,
       error_message: state.error_message,
       auto_mode: state.auto_mode,
@@ -86,18 +168,30 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     for (const wake of [...state.waiters]) wake();
   };
 
-  const append = (session, type, payload) => {
-    const last = session.entries.at(-1);
+  const entryOf = (session, type, payload) => {
     entrySequence += 1;
-    session.entries.push({
+    return {
+      session_id: session.id,
+      agent_name: session.agent_name,
       type,
       id: `e${String(entrySequence).padStart(7, "0")}`,
-      parentId: last?.id ?? null,
+      parentId: session.entries.at(-1)?.id ?? null,
       timestamp: new Date().toISOString(),
       ...payload,
-    });
+    };
+  };
+
+  const append = (session, type, payload) => {
+    session.entries.push(entryOf(session, type, payload));
     notify(session);
   };
+
+  for (const session of sessions) {
+    for (const entry of session.entries) {
+      entry.session_id ??= session.id;
+      entry.agent_name ??= session.agent_name;
+    }
+  }
 
   const sleep = (run, ms) =>
     new Promise((resolve) => {
@@ -187,7 +281,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   const awaitApproval = (session, run, approval) =>
     new Promise((resolve) => {
       const state = stateOf(session);
-      state.pending_approval = approval;
+      state.pending_approval = { ...approval, session_id: session.id };
       notify(session);
       run.decide = (approved) => {
         state.pending_approval = null;
@@ -329,21 +423,27 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     state.pending_approval = null;
     const next = state.queue.shift();
     if (next === undefined) return notify(session);
-    startRun(session, next.text);
+    startRun(next.target, next.text);
   };
 
   const clearQueue = (session) => {
     const state = stateOf(session);
-    const cleared = state.queue.splice(0);
+    const cleared = state.queue.splice(0).map(publicQueueItem);
     notify(session);
     return cleared;
   };
 
-  const enqueue = (session, text) => {
+  const enqueue = (target, tag, text) => {
     entrySequence += 1;
-    const item = { id: `workbench_queued_message_${entrySequence}`, text };
-    stateOf(session).queue.push(item);
-    notify(session);
+    const item = {
+      id: `workbench_queued_message_${entrySequence}`,
+      text,
+      target,
+      agent_name: tag?.agent_name ?? null,
+      display_name: tag?.display_name ?? null,
+    };
+    stateOf(target).queue.push(item);
+    notify(target);
     return item;
   };
 
@@ -395,6 +495,18 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     return session;
   };
 
+  const findHost = (res, id) => {
+    const session = find(res, id);
+    if (session === undefined) return;
+    if (!session.host_session_id) return session;
+    envelope(
+      res,
+      409,
+      "workbench.session.not_host",
+      "The workbench session is a participant. Send the request to the host session.",
+    );
+  };
+
   const validConfiguration = (res, agentName, body) => {
     const enablement = agents.find((agent) => agent.agent_name === agentName)?.enablement;
     const reasons = [];
@@ -411,29 +523,42 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     return false;
   };
 
+  const listItemOf = (session) => {
+    const isHost = !session.host_session_id;
+    const entries = isHost ? entriesAfter(session, null) : session.entries;
+    const messages = entries.filter((entry) => entry.type === "message");
+    const first = messages.find((entry) => entry.message.role === "user");
+    const state = stateOf(session);
+    return {
+      id: session.id,
+      host_session_id: session.host_session_id ?? null,
+      agent_name: session.agent_name,
+      display_name: displayNameOf(session.agent_name),
+      name: null,
+      created: session.created,
+      modified: Date.parse(entries.at(-1)?.timestamp ?? "") || session.created,
+      message_count: messages.length,
+      first_message: textOf(first?.message),
+      run_active: isHost && state.run !== null,
+      pending_approval:
+        isHost && state.pending_approval
+          ? {
+              tool_call_id: state.pending_approval.tool_call_id,
+              operation_id: state.pending_approval.operation_id,
+            }
+          : null,
+      participants: isHost ? participantsOf(session).map(listItemOf) : [],
+    };
+  };
+
   on("GET", /^\/api\/workbench\/session$/, (_m, _b, res, _t, url) => {
     const agentName = url.searchParams.get("agent_name");
     const items = sessions
-      .filter((session) => agentName === null || session.agent_name === agentName)
-      .map((session) => {
-        const messages = session.entries.filter((entry) => entry.type === "message");
-        const first = messages.find((entry) => entry.message.role === "user");
-        const state = stateOf(session);
-        return {
-          id: session.id,
-          agent_name: session.agent_name,
-          name: null,
-          created: session.created,
-          modified: Date.parse(session.entries.at(-1)?.timestamp ?? "") || session.created,
-          message_count: messages.length,
-          first_message: textOf(first?.message),
-          run_active: state.run !== null,
-          pending_approval: state.pending_approval && {
-            tool_call_id: state.pending_approval.tool_call_id,
-            operation_id: state.pending_approval.operation_id,
-          },
-        };
-      });
+      .filter(
+        (session) =>
+          !session.host_session_id && (agentName === null || session.agent_name === agentName),
+      )
+      .map(listItemOf);
     return json(res, 200, { items });
   });
 
@@ -458,25 +583,35 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       },
       entries: [],
     };
+    session.entries.push(
+      entryOf(session, "message", {
+        message: textMessage(
+          "assistant",
+          `Hello, I am ${displayNameOf(session.agent_name)}. What do you need?`,
+        ),
+      }),
+    );
     sessions.push(session);
     return json(res, 200, {
       id: session.id,
       agent_name: session.agent_name,
       configuration: session.configuration,
-      entries: [],
+      members: membersOf(session),
+      entries: session.entries,
       run_active: false,
       resume_command: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agent_name}/${session.id}.jsonl`,
     });
   });
 
   on("GET", /^\/api\/workbench\/session\/([^/]+)$/, (m, _b, res) => {
-    const session = find(res, m[1]);
+    const session = findHost(res, m[1]);
     if (session === undefined) return;
     return json(res, 200, {
       id: session.id,
       agent_name: session.agent_name,
       configuration: session.configuration,
-      entries: session.entries,
+      members: membersOf(session),
+      entries: entriesAfter(session, null),
       run_active: stateOf(session).run !== null,
       resume_command: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agent_name}/${session.id}.jsonl`,
     });
@@ -494,23 +629,25 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/message$/, (m, body, res) => {
-    const session = find(res, m[1]);
+    const session = findHost(res, m[1]);
     if (session === undefined) return;
     const state = stateOf(session);
+    const { target, tag } = addresseeOf(session, body.text);
     const answer = (queuedMessageId, cleared) =>
       json(res, 202, {
-        session_id: session.id,
+        session_id: target.id,
+        agent_name: tag?.agent_name ?? null,
         run_active: true,
         queued_message_id: queuedMessageId,
         cleared,
       });
     if (state.run === null) {
-      startRun(session, body.text);
+      startRun(target, body.text);
       return answer(null, []);
     }
     if (body.delivery === "replace") {
       const cleared = clearQueue(session);
-      const item = enqueue(session, body.text);
+      const item = enqueue(target, tag, body.text);
       interruptRun(session);
       return answer(item.id, cleared);
     }
@@ -522,12 +659,12 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         "The workbench session queue is full.",
       );
     }
-    const item = enqueue(session, body.text);
+    const item = enqueue(target, tag, body.text);
     return answer(item.id, []);
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/abort$/, (m, _b, res) => {
-    const session = find(res, m[1]);
+    const session = findHost(res, m[1]);
     if (session === undefined) return;
     const cleared = clearQueue(session);
     cancelRun(session);
@@ -535,7 +672,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   });
 
   on("DELETE", /^\/api\/workbench\/session\/([^/]+)\/queue\/([^/]+)$/, (m, _b, res) => {
-    const session = find(res, m[1]);
+    const session = findHost(res, m[1]);
     if (session === undefined) return;
     const queue = stateOf(session).queue;
     const queuedMessageId = decodeURIComponent(m[2]);
@@ -554,7 +691,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/auto-mode$/, (m, body, res) => {
-    const session = find(res, m[1]);
+    const session = findHost(res, m[1]);
     if (session === undefined) return;
     const enabled = body?.enabled === true;
     stateOf(session).auto_mode = enabled;
@@ -628,19 +765,17 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   });
 
   on("GET", /^\/api\/workbench\/session\/([^/]+)\/events$/, (m, _b, res, _t, url) => {
-    const session = find(res, m[1]);
+    const session = findHost(res, m[1]);
     if (session === undefined) return;
     const after = url.searchParams.get("after");
     const version = url.searchParams.get("version");
     const state = stateOf(session);
-    const changes = () => {
-      const index = after === null ? -1 : session.entries.findIndex((entry) => entry.id === after);
-      return {
-        entries: session.entries.slice(index + 1),
-        snapshot: snapshotOf(session),
-        version: state.version,
-      };
-    };
+    const changes = () => ({
+      members: membersOf(session),
+      entries: entriesAfter(session, after),
+      snapshot: snapshotOf(session),
+      version: state.version,
+    });
     const current = changes();
     if (current.entries.length > 0 || version !== String(state.version)) {
       return json(res, 200, current);

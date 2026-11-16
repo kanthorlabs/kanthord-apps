@@ -2796,6 +2796,60 @@ export const WORKBENCH_SESSIONS = [
       },
     ],
   },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP3",
+    host_session_id: null,
+    agent_name: "ops@1",
+    created: SESSION_BASE + 5 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000401",
+        parentId: null,
+        timestamp: entryAt(7200),
+        message: textMessage("assistant", "Hello, I am Yumi. What do you need?"),
+      },
+      {
+        type: "message",
+        id: "e0000402",
+        parentId: "e0000401",
+        timestamp: entryAt(7203),
+        message: textMessage("assistant", "RE reviewed the node. Ask me for the next step."),
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1",
+    host_session_id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP3",
+    agent_name: "re@1",
+    created: SESSION_BASE + 5 * 86400000 + 60000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000501",
+        parentId: null,
+        timestamp: entryAt(7201),
+        message: { role: "user", content: "@RE Review the retry of the payment client." },
+      },
+      {
+        type: "message",
+        id: "e0000502",
+        parentId: "e0000501",
+        timestamp: entryAt(7202),
+        message: textMessage("assistant", "The retry stops after three attempts. I found no gap."),
+      },
+    ],
+  },
   ...GUARD_SESSIONS,
 ];
 
