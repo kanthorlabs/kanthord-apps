@@ -125,6 +125,9 @@ function card(
   seen: WorkbenchActionOffer["seen"],
 ): ActionCardItem {
   return {
+    session_id: "session_1",
+    agent_name: "swe@1",
+    display_name: "SWE",
     kind: "action-card",
     id: "e1",
     offer: {

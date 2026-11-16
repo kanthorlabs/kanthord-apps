@@ -20,9 +20,10 @@ import { ChatView } from "./chat-view";
 import { QueuedMessages } from "./queued-messages";
 
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
+const HOST_MEMBER = { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" };
 
-const ONE = { id: "queued_1", text: "First queued message" };
-const TWO = { id: "queued_2", text: "Second queued message" };
+const ONE = { id: "queued_1", text: "First queued message", agent_name: null, display_name: null };
+const TWO = { id: "queued_2", text: "Second queued message", agent_name: null, display_name: null };
 
 const TRIGGER = /queued/;
 
@@ -32,7 +33,12 @@ function Harness({ initial }: { readonly initial: readonly WorkbenchQueuedMessag
     <>
       <button
         type="button"
-        onClick={() => setQueue((held) => [...held, { id: "queued_9", text: "Added later" }])}
+        onClick={() =>
+          setQueue((held) => [
+            ...held,
+            { id: "queued_9", text: "Added later", agent_name: null, display_name: null },
+          ])
+        }
       >
         Add item
       </button>
@@ -153,6 +159,7 @@ const CONFIGURATION = {
 function eventsWith(queue: readonly WorkbenchQueuedMessage[]): WorkbenchSessionEvents {
   return {
     entries: [],
+    members: [HOST_MEMBER],
     snapshot: {
       streaming_message: null,
       pending_tool_calls: [],
@@ -188,12 +195,12 @@ function renderChat() {
           agent_name: "swe@1",
           configuration: CONFIGURATION,
           entries: [],
+          members: [HOST_MEMBER],
           run_active: true,
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={null}
         ownerName="Ulrich"
-        agentDisplayName="SWE"
       />
     </MemoryRouter>,
   );

@@ -6,21 +6,30 @@ import { type ChatItem, runRequestOf } from "@/lib/workbench-chat";
 import { ChatTranscript } from "./chat-transcript";
 import { RunLine } from "./run-line";
 
-const AUTHORS = { ownerName: "Ulrich", agentName: "swe@1", agentDisplayName: "SWE" };
+const AUTHORS = { ownerName: "Ulrich" };
+const ORIGIN = { session_id: "session_1", agent_name: "swe@1", display_name: "SWE" };
 
 const AT = Date.parse("2026-10-05T09:00:00.000Z");
 
-const FIRST: ChatItem = { kind: "user", id: "u1", text: "First request", timestamp: AT };
+const FIRST: ChatItem = { ...ORIGIN, kind: "user", id: "u1", text: "First request", timestamp: AT };
 const FIRST_REQUEST = FIRST as Extract<ChatItem, { kind: "user" }>;
 const ANSWER: ChatItem = {
+  ...ORIGIN,
   kind: "assistant",
   id: "a1",
   text: "First answer",
   streaming: false,
   timestamp: AT,
 };
-const SECOND: ChatItem = { kind: "user", id: "u2", text: "Second request", timestamp: AT };
-const CALL: ChatItem = {
+const SECOND: ChatItem = {
+  ...ORIGIN,
+  kind: "user",
+  id: "u2",
+  text: "Second request",
+  timestamp: AT,
+};
+const CALL: Extract<ChatItem, { kind: "tool-call" }> = {
+  ...ORIGIN,
   kind: "tool-call",
   id: "a2:call_1",
   name: "mission.node.list",

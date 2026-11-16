@@ -58,7 +58,6 @@ export function SessionChat({
       session={view.session}
       enablement={view.enablement}
       ownerName={session.identity.name}
-      agentDisplayName={view.agentDisplayName}
       firstSendFailure={firstSendFailure}
       streamEnd={streamEnd}
       approvalLine={approvalLine}

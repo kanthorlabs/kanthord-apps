@@ -73,6 +73,26 @@ describe("useBoardToolActs", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("approves on the session of the member that made the call", async () => {
+    vi.mocked(approveWorkbenchCall).mockResolvedValue({} as never);
+    const { result } = mount(
+      readsOf({
+        status: "ready",
+        data: {
+          session_id: "s2",
+          tool_call_id: "c1",
+          operation_id: "project.create",
+          input: {},
+          guard: null,
+        },
+      }),
+    );
+
+    act(() => result.current.approve());
+
+    await waitFor(() => expect(approveWorkbenchCall).toHaveBeenCalledWith("s2", "c1", true));
+  });
+
   it("rejects with false and names the subject in the toast", async () => {
     vi.mocked(approveWorkbenchCall).mockResolvedValue({} as never);
     const { result } = mount();

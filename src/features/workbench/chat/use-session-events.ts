@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { readWorkbenchEvents } from "@/api/resources/workbench";
 import type { ApiErrorCode } from "@/api/errors";
-import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
+import type { WorkbenchMember, WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 
 export const EVENTS_BACKOFF_MS = 1000;
@@ -14,6 +14,7 @@ export type SnapshotPatch =
   | ((current: WorkbenchRunSnapshot) => Partial<WorkbenchRunSnapshot>);
 
 export interface SessionEventsState {
+  readonly members: readonly WorkbenchMember[];
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly snapshot: WorkbenchRunSnapshot;
   readonly snapshotLoaded: boolean;
@@ -47,13 +48,34 @@ function idleSnapshot(runActive: boolean): WorkbenchRunSnapshot {
   };
 }
 
+function cursorOf(
+  members: readonly WorkbenchMember[],
+  lastEntryIds: ReadonlyMap<string, string>,
+): string | null {
+  const [host] = members;
+  if (members.length === 1 && host !== undefined) return lastEntryIds.get(host.session_id) ?? null;
+  const pairs = members.flatMap((member) => {
+    const entryId = lastEntryIds.get(member.session_id);
+    return entryId === undefined ? [] : [{ sessionId: member.session_id, entryId }];
+  });
+  if (pairs.length === 0) return null;
+  return pairs.map((pair) => `${pair.sessionId}:${pair.entryId}`).join(",");
+}
+
+function entryKey(entry: WorkbenchSessionEntry): string {
+  return `${entry.session_id}:${entry.id}`;
+}
+
 export function useSessionEvents(
   sessionId: string,
   loadedEntries: readonly WorkbenchSessionEntry[],
+  loadedMembers: readonly WorkbenchMember[],
   initialRunActive: boolean,
 ): SessionEventsState {
   const [initialEntries] = useState(loadedEntries);
+  const [initialMembers] = useState(loadedMembers);
   const [entries, setEntries] = useState(initialEntries);
+  const [members, setMembers] = useState(initialMembers);
   const [snapshot, setSnapshot] = useState(() => idleSnapshot(initialRunActive));
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -63,22 +85,25 @@ export function useSessionEvents(
     const { signal } = controller;
 
     async function follow() {
-      let after = initialEntries.at(-1)?.id ?? null;
+      const lastEntryIds = new Map(initialEntries.map((entry) => [entry.session_id, entry.id]));
+      let currentMembers = initialMembers;
       let version: number | null = null;
       while (!signal.aborted) {
         try {
+          const after = cursorOf(currentMembers, lastEntryIds);
           const events = await readWorkbenchEvents(sessionId, after, version, signal);
           if (signal.aborted) return;
           setFailure(null);
           setSnapshot(events.snapshot);
           setSnapshotLoaded(true);
           version = events.version;
-          const last = events.entries.at(-1);
-          if (last !== undefined) {
-            after = last.id;
+          currentMembers = events.members;
+          setMembers(events.members);
+          if (events.entries.length > 0) {
+            for (const entry of events.entries) lastEntryIds.set(entry.session_id, entry.id);
             setEntries((held) => {
-              const known = new Set(held.map((entry) => entry.id));
-              return [...held, ...events.entries.filter((entry) => !known.has(entry.id))];
+              const known = new Set(held.map(entryKey));
+              return [...held, ...events.entries.filter((entry) => !known.has(entryKey(entry)))];
             });
           }
         } catch (cause) {
@@ -93,7 +118,7 @@ export function useSessionEvents(
 
     void follow();
     return () => controller.abort();
-  }, [sessionId, initialEntries]);
+  }, [sessionId, initialEntries, initialMembers]);
 
   const patchSnapshot = useCallback(
     (patch: SnapshotPatch) =>
@@ -104,5 +129,5 @@ export function useSessionEvents(
     [],
   );
 
-  return { entries, snapshot, snapshotLoaded, failure, patchSnapshot };
+  return { members, entries, snapshot, snapshotLoaded, failure, patchSnapshot };
 }

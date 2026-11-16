@@ -11,7 +11,7 @@ import { type OpenCreatedSession, useFirstSend } from "../use-first-send";
 
 interface NewSessionChatProps {
   readonly agentName: string;
-  readonly agentDisplayName: string;
+  readonly agentDisplayName?: string | null;
   readonly configuration: WorkbenchConfiguration | null;
   readonly configurationError?: string | null;
   readonly onOpen?: OpenCreatedSession;
@@ -41,7 +41,7 @@ function fixedConfiguration(
 
 export function NewSessionChat({
   agentName,
-  agentDisplayName,
+  agentDisplayName = null,
   configuration,
   configurationError = null,
   onOpen,
@@ -67,14 +67,15 @@ export function NewSessionChat({
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       <h2 className="font-mono text-lg font-semibold">{agentName}</h2>
       <p className="text-sm">
-        Hello, I am {agentDisplayName}. Write your first message below to start the conversation.
+        {agentDisplayName === null ? "" : `Hello, I am ${agentDisplayName}. `}Write your first
+        message below to start the conversation.
       </p>
       {streamEnd}
       <div className="sticky bottom-0 mt-auto bg-background pt-2">
         <Composer
           composer={composer}
           configuration={fixedConfiguration(configuration)}
-          agentDisplayName={agentDisplayName}
+          agentDisplayName={agentDisplayName ?? agentName}
           runActive={false}
           queued={false}
           inputDisabled={configuration === null}

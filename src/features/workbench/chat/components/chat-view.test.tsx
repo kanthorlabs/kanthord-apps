@@ -10,6 +10,7 @@ import * as workersApi from "@/api/resources/workers";
 import type * as EvidenceDownload from "@/features/projects/view/use-evidence-download";
 import type {
   AgentEnablement,
+  WorkbenchMember,
   WorkbenchRunSnapshot,
   WorkbenchSession,
   WorkbenchSessionEntry,
@@ -28,6 +29,8 @@ import { ChatView } from "./chat-view";
 import { NewSessionChat } from "./new-session-chat";
 
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
+
+const HOST: WorkbenchMember = { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" };
 
 const IDLE: WorkbenchRunSnapshot = {
   streaming_message: null,
@@ -54,6 +57,8 @@ const ENABLEMENT: AgentEnablement = {
 
 function message(id: string, body: Record<string, unknown>): WorkbenchSessionEntry {
   return {
+    session_id: SESSION_ID,
+    agent_name: "swe@1",
     type: "message",
     id,
     parentId: null,
@@ -70,6 +75,7 @@ function session(
     id: SESSION_ID,
     agent_name: "swe@1",
     configuration: ENABLEMENT.default_configuration,
+    members: [HOST],
     entries,
     run_active: runActive,
     resume_command: "pi --session ~/session.jsonl",
@@ -84,11 +90,13 @@ function pollQueue() {
   );
   return {
     async answer(events: {
+      members?: WorkbenchSessionEvents["members"];
       entries?: WorkbenchSessionEvents["entries"];
       snapshot?: Partial<WorkbenchRunSnapshot>;
     }) {
       await waitFor(() => expect(waiting.length).toBeGreaterThan(0));
       waiting.shift()?.({
+        members: events.members ?? [HOST],
         entries: events.entries ?? [],
         snapshot: { ...IDLE, ...events.snapshot },
         version: ++version,
@@ -97,20 +105,10 @@ function pollQueue() {
   };
 }
 
-function mount(
-  held: WorkbenchSession,
-  agentDisplayName = "SWE",
-  slots: Partial<ComponentProps<typeof ChatView>> = {},
-) {
+function mount(held: WorkbenchSession, slots: Partial<ComponentProps<typeof ChatView>> = {}) {
   return render(
     <MemoryRouter>
-      <ChatView
-        session={held}
-        enablement={ENABLEMENT}
-        ownerName="Ulrich"
-        agentDisplayName={agentDisplayName}
-        {...slots}
-      />
+      <ChatView session={held} enablement={ENABLEMENT} ownerName="Ulrich" {...slots} />
     </MemoryRouter>,
   );
 }
@@ -396,6 +394,7 @@ describe("ChatView", () => {
       snapshot: {
         run_active: true,
         pending_approval: {
+          session_id: SESSION_ID,
           tool_call_id: "call_2",
           operation_id: "project.create",
           guard: null,
@@ -415,14 +414,49 @@ describe("ChatView", () => {
     );
   });
 
+  it("approves a call of a participant on the session id of that participant", async () => {
+    const polls = pollQueue();
+    const guest = { session_id: "workbench_session_RE1", agent_name: "re@1", display_name: "Ruby" };
+    vi.mocked(workbenchApi.approveWorkbenchCall).mockResolvedValue({
+      session_id: guest.session_id,
+      tool_call_id: "call_7",
+      approved: true,
+    });
+    mount(session([], true));
+
+    await polls.answer({
+      members: [HOST, guest],
+      snapshot: {
+        run_active: true,
+        pending_approval: {
+          session_id: guest.session_id,
+          tool_call_id: "call_7",
+          operation_id: "project.create",
+          guard: null,
+          input: { name: "account-recovery" },
+        },
+      },
+    });
+    const card = await screen.findByRole("group", { name: "Approval Required" });
+
+    await userEvent.click(within(card).getByRole("button", { name: "Approve" }));
+
+    expect(workbenchApi.approveWorkbenchCall).toHaveBeenCalledWith(
+      guest.session_id,
+      "call_7",
+      true,
+    );
+  });
+
   it("renders the approval line in place of the approval card", async () => {
     const polls = pollQueue();
-    mount(session([], true), "SWE", { approvalLine: <p>Queued as #1</p> });
+    mount(session([], true), { approvalLine: <p>Queued as #1</p> });
 
     await polls.answer({
       snapshot: {
         run_active: true,
         pending_approval: {
+          session_id: SESSION_ID,
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -437,7 +471,7 @@ describe("ChatView", () => {
 
   it("renders the stream end after the stream and before the composer", async () => {
     pollQueue();
-    mount(session([message("e1", { role: "user", content: "Hello" })]), "SWE", {
+    mount(session([message("e1", { role: "user", content: "Hello" })]), {
       streamEnd: <p>Stream end</p>,
     });
 
@@ -456,6 +490,7 @@ describe("ChatView", () => {
       snapshot: {
         run_active: true,
         pending_approval: {
+          session_id: SESSION_ID,
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -483,6 +518,7 @@ describe("ChatView", () => {
       snapshot: {
         run_active: true,
         pending_approval: {
+          session_id: SESSION_ID,
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -497,6 +533,7 @@ describe("ChatView", () => {
       snapshot: {
         run_active: true,
         pending_approval: {
+          session_id: SESSION_ID,
           tool_call_id: "call_3",
           operation_id: "project.update",
           input: {},
@@ -523,6 +560,7 @@ describe("ChatView", () => {
       snapshot: {
         run_active: true,
         pending_approval: {
+          session_id: SESSION_ID,
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -539,6 +577,7 @@ describe("ChatView", () => {
     pollQueue();
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],
@@ -576,6 +615,7 @@ describe("ChatView", () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: "queued_1",
         cleared: [],
@@ -594,6 +634,7 @@ describe("ChatView", () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: "queued_1",
         cleared: [],
@@ -611,6 +652,7 @@ describe("ChatView", () => {
     it("keeps the error message when the message is queued", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: "queued_1",
         cleared: [],
@@ -625,6 +667,7 @@ describe("ChatView", () => {
     it("clears the error message when the send starts a run", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: null,
         cleared: [],
@@ -639,9 +682,10 @@ describe("ChatView", () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: null,
-        cleared: [{ id: "queued_1", text: "queued one" }],
+        cleared: [{ id: "queued_1", text: "queued one", agent_name: null, display_name: null }],
       });
       mount(session([], true));
 
@@ -766,6 +810,7 @@ describe("ChatView", () => {
       snapshot: {
         run_active: true,
         pending_approval: {
+          session_id: SESSION_ID,
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -821,15 +866,17 @@ describe("ChatView", () => {
 
   it("shows the display name, the entry time and an avatar on an agent bubble", () => {
     pollQueue();
-    mount(
-      {
-        ...session([
-          message("e1", { role: "assistant", content: [{ type: "text", text: "Hello." }] }),
-        ]),
-        agent_name: "ops@1",
-      },
-      "Yumi",
-    );
+    const yumi = { session_id: SESSION_ID, agent_name: "ops@1", display_name: "Yumi" };
+    mount({
+      ...session([
+        {
+          ...message("e1", { role: "assistant", content: [{ type: "text", text: "Hello." }] }),
+          agent_name: "ops@1",
+        },
+      ]),
+      agent_name: "ops@1",
+      members: [yumi],
+    });
 
     expect(screen.getByText("Yumi")).toBeTruthy();
     expect(screen.getByText("2026-10-05 09:00 UTC")).toHaveAttribute(

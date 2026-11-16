@@ -3,7 +3,13 @@ import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
-import { type ActionCardItem, agentWorking, chatItemsOf, runRequestOf } from "@/lib/workbench-chat";
+import {
+  type ActionCardItem,
+  agentWorking,
+  chatItemsOf,
+  memberOf,
+  runRequestOf,
+} from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
@@ -26,7 +32,6 @@ interface ChatViewProps {
   readonly session: WorkbenchSession;
   readonly enablement: AgentEnablement | null;
   readonly ownerName: string;
-  readonly agentDisplayName: string;
   readonly firstSendFailure?: FirstSendFailure | null;
   readonly streamEnd?: ReactNode;
   readonly approvalLine?: ReactNode | null;
@@ -38,14 +43,13 @@ export function ChatView({
   session,
   enablement,
   ownerName,
-  agentDisplayName,
   firstSendFailure = null,
   streamEnd = null,
   approvalLine = null,
   actionLineOf,
   onNew,
 }: ChatViewProps) {
-  const events = useSessionEvents(session.id, session.entries, session.run_active);
+  const events = useSessionEvents(session.id, session.entries, session.members, session.run_active);
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
@@ -84,7 +88,12 @@ export function ChatView({
     actions,
     composer,
   });
-  const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
+  const { members } = events;
+  const hostDisplayName = memberOf(members, session.id).display_name;
+  const items = useMemo(
+    () => chatItemsOf(events.entries, snapshot, members),
+    [events.entries, snapshot, members],
+  );
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active, runRequestOf(items)?.id ?? null);
   useScrollToEnd(items, snapshot.pending_approval);
@@ -127,7 +136,7 @@ export function ChatView({
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <ChatTranscript
           items={items}
-          authors={{ ownerName, agentName: session.agent_name, agentDisplayName }}
+          authors={{ ownerName }}
           runError={snapshot.error_message}
           actionLineOf={actionLineOf}
           sessionId={session.id}
@@ -147,12 +156,14 @@ export function ChatView({
           (approvalLine ?? (
             <ApprovalCard
               approval={snapshot.pending_approval}
-              agentDisplayName={agentDisplayName}
+              agentDisplayName={
+                memberOf(members, snapshot.pending_approval.session_id).display_name
+              }
               busy={actions.busy}
               failure={approvalFailure}
               onDecide={(approved) => {
                 if (snapshot.pending_approval !== null) {
-                  actions.approve(snapshot.pending_approval.tool_call_id, approved);
+                  actions.approve(snapshot.pending_approval, approved);
                 }
               }}
             />
@@ -175,7 +186,7 @@ export function ChatView({
         <Composer
           composer={composer}
           configuration={configuration}
-          agentDisplayName={agentDisplayName}
+          agentDisplayName={hostDisplayName}
           runActive={snapshot.run_active}
           queued={queueCount > 0}
           stopConfirm={stopConfirm.confirm}

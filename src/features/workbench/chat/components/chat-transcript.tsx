@@ -32,7 +32,7 @@ export function ChatTranscript({
       )}
       {items.map((item) => (
         <ChatEntry
-          key={item.id}
+          key={`${item.session_id}:${item.id}`}
           item={item}
           authors={authors}
           runError={item.id === targetId ? runError : null}

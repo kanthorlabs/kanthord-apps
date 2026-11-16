@@ -47,13 +47,15 @@ export function useBoardToolActs(
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<ActFailure | null>(null);
   const { id, sessionId, toolCallId, subject } = item;
+  const approval = reads.session?.status === "ready" ? reads.session.data : null;
+  const approvalSessionId = approval?.session_id ?? sessionId;
 
   const send = useCallback(
     function attempt(approved: boolean) {
       if (sending) return;
       setSending(true);
       setFailure(null);
-      approveWorkbenchCall(sessionId, toolCallId, approved).then(
+      approveWorkbenchCall(approvalSessionId, toolCallId, approved).then(
         () => {
           setSending(false);
           toast.success(`${approved ? "Approved" : "Rejected"} ${subject}.`);
@@ -70,7 +72,7 @@ export function useBoardToolActs(
         },
       );
     },
-    [sending, sessionId, toolCallId, subject, id, markActed, reload],
+    [sending, approvalSessionId, toolCallId, subject, id, markActed, reload],
   );
 
   const approve = useCallback(() => send(true), [send]);

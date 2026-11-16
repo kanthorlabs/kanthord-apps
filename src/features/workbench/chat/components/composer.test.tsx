@@ -11,6 +11,7 @@ import type {
   AgentModel,
   WorkbenchConfiguration,
   WorkbenchMessageAnswer,
+  WorkbenchQueuedMessage,
 } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
@@ -19,6 +20,7 @@ vi.mock("@/api/resources/workers");
 import { ChatView } from "./chat-view";
 
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
+const HOST_MEMBER = { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" };
 
 const CONFIGURATION: WorkbenchConfiguration = {
   agent_provider: "atlas-llm",
@@ -74,12 +76,12 @@ function mount(agentName = "swe@1", runActive = false) {
           agent_name: agentName,
           configuration: CONFIGURATION,
           entries: [],
+          members: [HOST_MEMBER],
           run_active: runActive,
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={ENABLEMENT}
         ownerName="Ulrich"
-        agentDisplayName="SWE"
       />
     </MemoryRouter>,
   );
@@ -268,6 +270,7 @@ describe("Composer", () => {
   it("sends the message with Enter and keeps a new line for Shift+Enter", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],
@@ -289,6 +292,7 @@ describe("Composer", () => {
   describe("during a run", () => {
     const ACCEPTED = {
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: "queued_1",
       cleared: [],
@@ -350,11 +354,12 @@ describe("Composer", () => {
   it("disables the three pickers while the queue holds a message and no run is active", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents).mockResolvedValueOnce({
       entries: [],
+      members: [HOST_MEMBER],
       snapshot: {
         streaming_message: null,
         pending_tool_calls: [],
         pending_approval: null,
-        queue: [{ id: "queued_1", text: "later" }],
+        queue: [{ id: "queued_1", text: "later", agent_name: null, display_name: null }],
         run_active: false,
         error_message: null,
         auto_mode: true,
@@ -395,11 +400,12 @@ describe("Composer", () => {
 
     answer({
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [
-        { id: "queued_1", text: "first" },
-        { id: "queued_2", text: "second" },
+        { id: "queued_1", text: "first", agent_name: null, display_name: null },
+        { id: "queued_2", text: "second", agent_name: null, display_name: null },
       ],
     });
 
@@ -408,13 +414,14 @@ describe("Composer", () => {
 
   describe("Stop", () => {
     const QUEUE = [
-      { id: "queued_1", text: "first queued" },
-      { id: "queued_2", text: "second queued" },
+      { id: "queued_1", text: "first queued", agent_name: null, display_name: null },
+      { id: "queued_2", text: "second queued", agent_name: null, display_name: null },
     ];
 
-    function withQueue(queue: readonly { id: string; text: string }[]) {
+    function withQueue(queue: readonly WorkbenchQueuedMessage[]) {
       vi.mocked(workbenchApi.readWorkbenchEvents).mockResolvedValueOnce({
         entries: [],
+        members: [HOST_MEMBER],
         snapshot: {
           streaming_message: null,
           pending_tool_calls: [],
@@ -578,6 +585,7 @@ describe("Composer", () => {
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: "queued_9",
         cleared: QUEUE,
@@ -614,6 +622,7 @@ describe("Composer", () => {
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
     const SENT = {
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],

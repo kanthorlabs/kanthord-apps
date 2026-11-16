@@ -7,7 +7,11 @@ import {
   sendWorkbenchMessage,
 } from "@/api/resources/workbench";
 import type { ApiError } from "@/api/errors";
-import type { WorkbenchMessageDelivery, WorkbenchQueuedMessage } from "@/api/types";
+import type {
+  WorkbenchMessageDelivery,
+  WorkbenchPendingApproval,
+  WorkbenchQueuedMessage,
+} from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import type { SnapshotPatch } from "./use-session-events";
 
@@ -32,7 +36,7 @@ export interface ChatActionsState {
   readonly busy: boolean;
   readonly send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>;
   readonly abort: () => void;
-  readonly approve: (toolCallId: string, approved: boolean) => void;
+  readonly approve: (approval: WorkbenchPendingApproval, approved: boolean) => void;
   readonly remove: (item: WorkbenchQueuedMessage) => void;
   readonly edit: (item: WorkbenchQueuedMessage) => void;
   readonly bindRefill: (refill: Refill) => () => void;
@@ -133,15 +137,15 @@ export function useChatActions(
   }, [perform, sessionId, patchSnapshot, refillCleared]);
 
   const approve = useCallback(
-    (toolCallId: string, approved: boolean) => {
+    (approval: WorkbenchPendingApproval, approved: boolean) => {
       void perform(
         "approve",
-        () => approveWorkbenchCall(sessionId, toolCallId, approved),
+        () => approveWorkbenchCall(approval.session_id, approval.tool_call_id, approved),
         () => patchSnapshot({ pending_approval: null }),
-        toolCallId,
+        approval.tool_call_id,
       );
     },
-    [perform, sessionId, patchSnapshot],
+    [perform, patchSnapshot],
   );
 
   const dequeue = useCallback(

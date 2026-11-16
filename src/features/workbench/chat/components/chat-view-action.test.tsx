@@ -35,8 +35,11 @@ const SESSION: WorkbenchSession = {
   id: SESSION_ID,
   agent_name: "swe@1",
   configuration: ENABLEMENT.default_configuration,
+  members: [{ session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" }],
   entries: [
     {
+      session_id: SESSION_ID,
+      agent_name: "swe@1",
       type: "custom",
       id: "e1",
       parentId: null,
@@ -89,12 +92,7 @@ describe("ChatView action card", () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <ChatView
-          session={SESSION}
-          enablement={ENABLEMENT}
-          ownerName="Ulrich"
-          agentDisplayName="SWE"
-        />
+        <ChatView session={SESSION} enablement={ENABLEMENT} ownerName="Ulrich" />
       </MemoryRouter>,
     );
 

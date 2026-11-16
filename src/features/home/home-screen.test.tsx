@@ -501,13 +501,20 @@ function yumiEnablement(mode: "off" | "on" | "unconfigured"): AgentEnablement | 
   };
 }
 
+function hostOf(id: string) {
+  return { session_id: id, agent_name: "ops@1", display_name: "Yumi" };
+}
+
 function conversation(id: string, text: string): WorkbenchSession {
   return {
     id,
     agent_name: "ops@1",
     configuration: YUMI_CONFIGURATION,
+    members: [hostOf(id)],
     entries: [
       {
+        session_id: id,
+        agent_name: "ops@1",
         type: "message",
         id: `entry_${id}`,
         parentId: null,
@@ -531,8 +538,10 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
 };
 
 function followEvents(snapshot: WorkbenchRunSnapshot) {
-  vi.mocked(readWorkbenchEvents).mockImplementation(async (_id, _after, version) =>
-    version === null ? { entries: [], snapshot, version: 1 } : new Promise(() => undefined),
+  vi.mocked(readWorkbenchEvents).mockImplementation(async (id, _after, version) =>
+    version === null
+      ? { members: [hostOf(id)], entries: [], snapshot, version: 1 }
+      : new Promise(() => undefined),
   );
 }
 
@@ -831,6 +840,7 @@ describe("HomeScreen layout", () => {
     });
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y1",
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],
@@ -1144,11 +1154,13 @@ describe("HomeScreen tool approval", () => {
       waits ? [session("workbench_session_A")] : [],
     );
     vi.mocked(readWorkbenchEvents).mockResolvedValue({
+      members: [hostOf("workbench_session_A")],
       entries: [],
       snapshot: {
         streaming_message: null,
         pending_tool_calls: [],
         pending_approval: {
+          session_id: "workbench_session_A",
           tool_call_id: "call_1",
           operation_id: "project.create",
           guard: null,
@@ -1305,6 +1317,7 @@ function pendingApproval() {
   followEvents({
     ...IDLE_SNAPSHOT,
     pending_approval: {
+      session_id: "workbench_session_Y1",
       tool_call_id: "call_1",
       operation_id: "project.create",
       guard: null,
@@ -1326,6 +1339,7 @@ describe("HomeScreen Yumi chat", () => {
     vi.mocked(createWorkbenchSession).mockResolvedValue(conversation("workbench_session_Y2", "x"));
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y2",
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],
@@ -1381,6 +1395,7 @@ describe("HomeScreen Yumi chat", () => {
     serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_Y1",
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],
@@ -1508,6 +1523,8 @@ function offerConversation(targetId: string, operationId: string): WorkbenchSess
     entries: [
       ...base.entries,
       {
+        session_id: "workbench_session_Y1",
+        agent_name: "ops@1",
         type: "custom",
         id: "entry_offer",
         parentId: null,
@@ -1699,10 +1716,12 @@ describe("HomeScreen Ask Yumi", () => {
     vi.mocked(readWorkbenchEvents).mockImplementation(async (id, _after, version) =>
       id === "workbench_session_A"
         ? {
+            members: [hostOf(id)],
             entries: [],
             snapshot: {
               ...IDLE_SNAPSHOT,
               pending_approval: {
+                session_id: id,
                 tool_call_id: "call_1",
                 operation_id: "project.create",
                 input: { name: "account-recovery" },
@@ -1712,7 +1731,7 @@ describe("HomeScreen Ask Yumi", () => {
             version: 1,
           }
         : version === null
-          ? { entries: [], snapshot: IDLE_SNAPSHOT, version: 1 }
+          ? { members: [hostOf(id)], entries: [], snapshot: IDLE_SNAPSHOT, version: 1 }
           : new Promise(() => undefined),
     );
     renderScreen();
@@ -1761,6 +1780,7 @@ describe("HomeScreen Ask Yumi", () => {
     );
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
       session_id: "workbench_session_CASE",
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],
