@@ -72,20 +72,25 @@ export function NewSessionChat({
     mentionNames,
   });
   const addressee = addresseeOf(composer.draft, [], [], mentionNames);
+  const displayName =
+    agentDisplayName ??
+    mentionAgents.agents.find((agent) => agent.agentName === agentName)?.displayName ??
+    null;
+  const greeting =
+    displayName === null || configuration === null
+      ? "Write your first message below to start the conversation."
+      : `Hi, I am ${displayName} on ${configuration.model_identifier}. What do you need?`;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       <h2 className="font-mono text-lg font-semibold">{agentName}</h2>
-      <p className="text-sm">
-        {agentDisplayName === null ? "" : `Hello, I am ${agentDisplayName}. `}Write your first
-        message below to start the conversation.
-      </p>
+      <p className="text-sm">{greeting}</p>
       {streamEnd}
       <div className="sticky bottom-0 mt-auto bg-background pt-2">
         <Composer
           composer={composer}
           configuration={fixedConfiguration(configuration)}
-          agentDisplayName={agentDisplayName ?? agentName}
+          agentDisplayName={displayName ?? agentName}
           addressee={addressee}
           runActive={false}
           queued={false}

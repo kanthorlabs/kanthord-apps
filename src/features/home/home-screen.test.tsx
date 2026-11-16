@@ -734,7 +734,9 @@ function session(
 ): WorkbenchSessionListItem {
   return {
     id,
+    host_session_id: null,
     agent_name: "swe@1",
+    display_name: "SWE",
     name: null,
     created: NOW - 2 * HOUR,
     modified: NOW - HOUR,
@@ -742,6 +744,7 @@ function session(
     first_message: "Create the project account-recovery",
     run_active: true,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+    participants: [],
     ...patch,
   };
 }
@@ -1309,6 +1312,7 @@ function opsSession(
     first_message: GENERAL,
     run_active: false,
     pending_approval: null,
+    participants: [],
     ...patch,
   });
 }
@@ -1351,7 +1355,9 @@ describe("HomeScreen Yumi chat", () => {
 
     await user.click(screen.getByRole("button", { name: "New chat" }));
 
-    expect(await screen.findByText(/^Hello, I am Yumi\./)).toBeVisible();
+    expect(
+      await screen.findByText("Hi, I am Yumi on qwen3-coder. What do you need?"),
+    ).toBeVisible();
     expect(listWorkbenchSessions).not.toHaveBeenCalled();
     expect(readWorkbenchSession).not.toHaveBeenCalled();
     expect(createWorkbenchSession).not.toHaveBeenCalled();
@@ -1420,7 +1426,9 @@ describe("HomeScreen Yumi chat", () => {
     await user.type(await composerBox(), "/new");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
-    expect(await screen.findByText(/^Hello, I am Yumi\./)).toBeVisible();
+    expect(
+      await screen.findByText("Hi, I am Yumi on qwen3-coder. What do you need?"),
+    ).toBeVisible();
     expect(readWorkbenchSession).not.toHaveBeenCalled();
     expect(sendWorkbenchMessage).not.toHaveBeenCalled();
     expect(createWorkbenchSession).not.toHaveBeenCalled();

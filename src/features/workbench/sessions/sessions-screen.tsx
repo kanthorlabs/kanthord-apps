@@ -24,6 +24,20 @@ export function SessionsScreen() {
     useWorkbenchSessions();
   const [starting, setStarting] = useState(false);
 
+  const renderParticipant = (host: WorkbenchSessionListItem, item: WorkbenchSessionListItem) => (
+    <DataListItem
+      key={item.id}
+      title={item.display_name}
+      status={<Badge variant="secondary">{item.agent_name}</Badge>}
+      fields={[{ label: "Modified", value: utcDateTime(item.modified) }]}
+      select={{
+        label: `Open ${item.display_name} in ${sessionTitle(host)}`,
+        disabled: false,
+        onSelect: () => navigate(workbenchSessionPath(item.host_session_id ?? host.id)),
+      }}
+    />
+  );
+
   const renderItem = (item: WorkbenchSessionListItem) => {
     const title = sessionTitle(item);
     return (
@@ -31,9 +45,21 @@ export function SessionsScreen() {
         title={title}
         status={
           <>
-            <Badge variant="secondary">{item.agent_name}</Badge>
+            <Badge variant="secondary">{item.display_name}</Badge>
+            <Badge variant="outline">{item.agent_name}</Badge>
             <Badge variant="outline">{counted(item.message_count, "message", "messages")}</Badge>
           </>
+        }
+        detail={
+          item.participants.length === 0 ? undefined : (
+            <div
+              role="list"
+              aria-label={`Participants of ${title}`}
+              className="ml-6 flex flex-col gap-2"
+            >
+              {item.participants.map((participant) => renderParticipant(item, participant))}
+            </div>
+          )
         }
         description={<span className="font-mono">{item.id}</span>}
         fields={[

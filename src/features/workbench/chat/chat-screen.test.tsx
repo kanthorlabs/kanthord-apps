@@ -275,11 +275,22 @@ describe("ChatScreen", () => {
       vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(SESSION);
     });
 
-    it("shows no agent greeting and offers the composer", async () => {
+    it("shows the greeting of the default template with the display name and the model", async () => {
+      vi.mocked(workersApi.listAgents).mockResolvedValue([
+        {
+          agentName: "ops@1",
+          displayName: "Yumi",
+          workerNames: [],
+          consumers: ["workbench"],
+          toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+          enablement: AGENT.enablement,
+        },
+      ]);
       mountNew();
 
-      expect(await screen.findByText(/Write your first message below/)).toBeTruthy();
-      expect(screen.queryByText(/Hello, I am/)).toBeNull();
+      expect(
+        await screen.findByText("Hi, I am Yumi on qwen3-coder. What do you need?"),
+      ).toBeTruthy();
       expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
       expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("qwen3-coder");
       expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();

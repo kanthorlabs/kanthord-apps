@@ -42,7 +42,10 @@ function newestGeneralOf(
   items: readonly WorkbenchSessionListItem[],
 ): WorkbenchSessionListItem | null {
   return items
-    .filter((item) => !isCaseConversation(item) && item.first_message !== "")
+    .filter(
+      (item) =>
+        item.host_session_id === null && !isCaseConversation(item) && item.first_message !== "",
+    )
     .reduce<WorkbenchSessionListItem | null>(
       (newest, item) => (newest === null || item.modified > newest.modified ? item : newest),
       null,

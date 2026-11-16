@@ -195,7 +195,9 @@ describe("caseRequestOf", () => {
 describe("isCaseConversation", () => {
   const sessionOf = (firstMessage: string): WorkbenchSessionListItem => ({
     id: "s1",
+    host_session_id: null,
     agent_name: "ops@1",
+    display_name: "Yumi",
     name: null,
     created: 1,
     modified: 1,
@@ -203,6 +205,7 @@ describe("isCaseConversation", () => {
     first_message: firstMessage,
     run_active: false,
     pending_approval: null,
+    participants: [],
   });
 
   it("is true for a first message that starts with the case prefix", () => {
