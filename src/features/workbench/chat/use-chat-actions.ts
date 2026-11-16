@@ -1,8 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   abortWorkbenchRun,
   approveWorkbenchCall,
+  forkWorkbenchSession,
   removeQueuedWorkbenchMessage,
   sendWorkbenchMessage,
 } from "@/api/resources/workbench";
@@ -13,7 +15,8 @@ import type {
   WorkbenchQueuedMessage,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import { hostSessionIdOf } from "@/lib/workbench-sessions";
+import { forkFailureOf } from "@/lib/workbench-fork";
+import { hostSessionIdOf, workbenchSessionPath } from "@/lib/workbench-sessions";
 import type { SnapshotPatch } from "./use-session-events";
 
 const QUEUED_NOT_FOUND = "workbench.session.queued_message_not_found";
@@ -23,7 +26,7 @@ type Refill = (texts: readonly string[], cleared?: boolean) => void;
 
 const NO_REFILL: Refill = () => undefined;
 
-export type ChatActionCause = "send" | "abort" | "approve" | "queue";
+export type ChatActionCause = "send" | "abort" | "approve" | "queue" | "fork";
 
 export interface ChatActionFailure {
   readonly cause: ChatActionCause;
@@ -35,7 +38,10 @@ export interface ChatActionFailure {
 export interface ChatActionsState {
   readonly failure: ChatActionFailure | null;
   readonly busy: boolean;
+  readonly summarizing: boolean;
   readonly send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>;
+  readonly fork: (text: string) => Promise<boolean>;
+  readonly cancelFork: () => void;
   readonly abort: () => void;
   readonly approve: (approval: WorkbenchPendingApproval, approved: boolean) => void;
   readonly remove: (item: WorkbenchQueuedMessage) => void;
@@ -66,7 +72,17 @@ export function useChatActions(
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
   const refillRef = useRef<Refill>(NO_REFILL);
+  const forkAbortRef = useRef<AbortController | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(
+    () => () => {
+      forkAbortRef.current?.abort();
+    },
+    [],
+  );
 
   const bindRefill = useCallback((refill: Refill) => {
     refillRef.current = refill;
@@ -134,6 +150,34 @@ export function useChatActions(
     [perform, sessionId, patchSnapshot, refillCleared, mentionOf],
   );
 
+  const fork = useCallback(
+    async (text: string): Promise<boolean> => {
+      if (forkAbortRef.current !== null) return false;
+      const controller = new AbortController();
+      forkAbortRef.current = controller;
+      setFailure(null);
+      setBusy(true);
+      setSummarizing(true);
+      try {
+        const answer = await forkWorkbenchSession(sessionId, { text, signal: controller.signal });
+        navigate(workbenchSessionPath(answer.session_id));
+        return true;
+      } catch (failed) {
+        if (!controller.signal.aborted) {
+          setFailure({ cause: "fork", ...forkFailureOf(asApiError(failed)) });
+        }
+        return false;
+      } finally {
+        forkAbortRef.current = null;
+        setSummarizing(false);
+        setBusy(false);
+      }
+    },
+    [sessionId, navigate],
+  );
+
+  const cancelFork = useCallback(() => forkAbortRef.current?.abort(), []);
+
   const abort = useCallback(() => {
     void perform(
       "abort",
@@ -176,5 +220,17 @@ export function useChatActions(
   const remove = useCallback((item: WorkbenchQueuedMessage) => dequeue(item, false), [dequeue]);
   const edit = useCallback((item: WorkbenchQueuedMessage) => dequeue(item, true), [dequeue]);
 
-  return { failure, busy, send, abort, approve, remove, edit, bindRefill };
+  return {
+    failure,
+    busy,
+    summarizing,
+    send,
+    fork,
+    cancelFork,
+    abort,
+    approve,
+    remove,
+    edit,
+    bindRefill,
+  };
 }

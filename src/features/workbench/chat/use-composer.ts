@@ -10,7 +10,6 @@ import {
   type SlashCommand,
 } from "./slash-commands";
 
-const NEW_TAKES_NO_TEXT = "/new takes no text yet";
 const NEWLINE = "\n";
 const NO_NAMES: readonly string[] = [];
 
@@ -22,6 +21,7 @@ function clearedHint(count: number): string {
 export interface ComposerOptions {
   readonly agentName: string;
   readonly onNew: () => void;
+  readonly fork: (text: string) => Promise<boolean>;
   readonly initialDraft?: string;
   readonly mentionNames?: readonly string[];
 }
@@ -50,7 +50,7 @@ export interface ComposerState {
 export function useComposer(
   disabled: boolean,
   send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>,
-  { agentName, onNew, initialDraft = "", mentionNames = NO_NAMES }: ComposerOptions,
+  { agentName, onNew, fork, initialDraft = "", mentionNames = NO_NAMES }: ComposerOptions,
 ): ComposerState {
   const [draft, setDraftValue] = useState(initialDraft);
   const [focused, setFocused] = useState(false);
@@ -89,17 +89,22 @@ export function useComposer(
     [prepend],
   );
 
-  const sendText = useCallback(
-    (value: string, delivery: WorkbenchMessageDelivery) => {
+  const dispatch = useCallback(
+    (run: () => Promise<boolean>) => {
       const previous = draft;
       setDraftValue("");
       setDismissed(true);
       setHint(null);
-      void send(value, delivery).then((sent) => {
-        if (!sent && previous !== "") prepend([previous]);
+      void run().then((done) => {
+        if (!done && previous !== "") prepend([previous]);
       });
     },
-    [send, draft, prepend],
+    [draft, prepend],
+  );
+
+  const sendText = useCallback(
+    (value: string, delivery: WorkbenchMessageDelivery) => dispatch(() => send(value, delivery)),
+    [dispatch, send],
   );
 
   const runNew = useCallback(() => {
@@ -142,12 +147,13 @@ export function useComposer(
         return;
       }
       if (parsed.text !== null) {
-        setHint(NEW_TAKES_NO_TEXT);
+        const forkText = parsed.text;
+        dispatch(() => fork(forkText));
         return;
       }
       runNew();
     },
-    [canSend, draft, agentName, text, sendText, runNew],
+    [canSend, draft, agentName, text, sendText, dispatch, fork, runNew],
   );
 
   const focus = useCallback(() => {

@@ -39,6 +39,10 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
 ];
 
+export function newCommandHintOf(hostDisplayName: string): string {
+  return `Start a new chat. With text, ${hostDisplayName}'s model summarizes this chat with your text as the instruction, and Guard checks the summary. Mention an agent to continue with it.`;
+}
+
 const NEW_PATTERN = /^\/new(?:\s+([\s\S]+))?$/;
 
 export function parseSlashCommand(draft: string): ParsedSlashCommand | null {

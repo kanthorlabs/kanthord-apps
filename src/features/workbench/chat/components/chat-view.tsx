@@ -13,6 +13,7 @@ import {
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { workbenchSessionPath } from "@/lib/workbench-sessions";
 import { addresseeOf, configurationTargetOf, leadingMentionOf } from "@/lib/workbench-mention";
+import { newCommandHintOf } from "../slash-commands";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
@@ -30,6 +31,7 @@ import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
 import { QueuedMessages } from "./queued-messages";
 import { RunLine } from "./run-line";
+import { SummarizingLine } from "./summarizing-line";
 
 interface ChatViewProps {
   readonly session: WorkbenchSession;
@@ -90,6 +92,7 @@ export function ChatView({
   const composer = useComposer(actions.busy, actions.send, {
     agentName: session.agent_name,
     onNew: handleNew,
+    fork: actions.fork,
     initialDraft: firstSendFailure?.draft,
     mentionNames,
   });
@@ -228,8 +231,10 @@ export function ChatView({
           onEdit={actions.edit}
           onRemove={actions.remove}
         />
+        {actions.summarizing && <SummarizingLine onCancel={actions.cancelFork} />}
         <Composer
           composer={composer}
+          newCommandHint={newCommandHintOf(hostDisplayName)}
           configuration={target === null ? null : configuration}
           agentDisplayName={hostDisplayName}
           addressee={addressee}
