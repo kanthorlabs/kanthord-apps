@@ -83,7 +83,7 @@ export function PinnedCredentialSheet({ open, onClose, ...form }: PinnedCredenti
           <SheetDescription>
             The model is pinned to {form.pinnedModelIdentifier}. Only the agent provider, and so its
             credential, changes. A save writes the next revision after revision{" "}
-            {form.enablement.revision}. To use a new credential, add an agent provider first.
+            {form.enablement.revision}.
           </SheetDescription>
         </SheetHeader>
         {open && <PinnedCredentialForm key={form.enablement.revision} {...form} />}
