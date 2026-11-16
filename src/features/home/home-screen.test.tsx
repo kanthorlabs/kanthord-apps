@@ -89,6 +89,7 @@ vi.mock("@/api/resources/workbench", () => ({
   approveWorkbenchCall: vi.fn(),
   createWorkbenchSession: vi.fn(),
   sendWorkbenchMessage: vi.fn(),
+  forkWorkbenchSession: vi.fn(),
 }));
 
 vi.mock("@/api/resources/tracking", () => ({
@@ -153,6 +154,7 @@ import {
 import {
   approveWorkbenchCall,
   createWorkbenchSession,
+  forkWorkbenchSession,
   listWorkbenchSessions,
   readWorkbenchEvents,
   readWorkbenchSession,
@@ -193,6 +195,7 @@ import type {
   SchedulerJob,
   WorkbenchRunSnapshot,
   WorkbenchSession,
+  WorkbenchSessionEntry,
   WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
@@ -201,6 +204,7 @@ import type {
 
 import { textContent } from "../../../test/text-content";
 
+import { WORKBENCH_FORK_FRAME, WORKBENCH_FORK_PREFIX } from "@/api/types";
 import { HomeScreen } from "./home-screen";
 
 let NOW = 0;
@@ -1452,6 +1456,180 @@ describe("HomeScreen Yumi chat", () => {
     expect(entry.compareDocumentPosition(deck) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(deck.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Brief me" })).toBeNull();
+  });
+});
+
+function forkOf(id: string, sourceId: string): WorkbenchSession {
+  const base = conversation(id, "Go on");
+  const stamp = "2026-10-05T09:00:00.000Z";
+  const entry = (
+    entryId: string,
+    type: string,
+    payload: Record<string, unknown>,
+  ): WorkbenchSessionEntry => ({
+    session_id: id,
+    agent_name: "ops@1",
+    type,
+    id: entryId,
+    parentId: null,
+    timestamp: stamp,
+    ...payload,
+  });
+  return {
+    ...base,
+    forked_from: sourceId,
+    entries: [
+      entry("f1", "custom", {
+        customType: "kanthord.workbench.record",
+        data: { kind: "fork", source_title: GENERAL },
+      }),
+      entry("f2", "message", {
+        message: {
+          role: "user",
+          content: `${WORKBENCH_FORK_PREFIX}${sourceId}.${WORKBENCH_FORK_FRAME}\n\nThe summary.`,
+        },
+      }),
+      entry("f3", "message", { message: { role: "user", content: "Go on" } }),
+    ],
+  };
+}
+
+function pendingUntilAborted() {
+  vi.mocked(forkWorkbenchSession).mockImplementation(
+    (_sessionId, input) =>
+      new Promise((_resolve, reject) => {
+        input.signal?.addEventListener("abort", () =>
+          reject(new ApiError("unreachable", "The request was aborted.", 0)),
+        );
+      }),
+  );
+}
+
+describe("HomeScreen fork", () => {
+  const SOURCE = "workbench_session_Y1";
+  const FORK = "workbench_session_F1";
+
+  async function sendFork(user: ReturnType<typeof userEvent.setup>, text = "/new x") {
+    await user.type(await composerBox(), text);
+    await user.click(screen.getByRole("button", { name: "Send" }));
+  }
+
+  it("forks the Home conversation once and switches the Home chat to the fork", async () => {
+    const user = userEvent.setup();
+    serve({
+      yumi: "on",
+      sessions: [opsSession(SOURCE)],
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+    });
+    vi.mocked(forkWorkbenchSession).mockResolvedValue({ session_id: FORK, run_active: true });
+    renderScreen();
+    expect(await screen.findByText(GENERAL, { selector: "div" })).toBeVisible();
+    vi.mocked(readWorkbenchSession).mockImplementation(async (id) =>
+      id === FORK ? forkOf(FORK, SOURCE) : conversation(id, GENERAL),
+    );
+
+    await sendFork(user);
+
+    expect(await screen.findByText(/^Forked from/)).toBeVisible();
+    expect(forkWorkbenchSession).toHaveBeenCalledTimes(1);
+    expect(forkWorkbenchSession).toHaveBeenCalledWith(SOURCE, {
+      text: "x",
+      signal: expect.any(AbortSignal),
+    });
+    expect(readWorkbenchSession).toHaveBeenCalledWith(FORK);
+    const fork = screen.getByText(/^Forked from/);
+    const deck = await screen.findByRole("region", { name: "Waiting acts" });
+    const composer = screen.getByRole("form", { name: "Composer" });
+    expect(fork.compareDocumentPosition(deck) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(deck.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows Summarizing between the deck and the composer and calls fork once on a double Send", async () => {
+    const user = userEvent.setup();
+    serve({
+      yumi: "on",
+      sessions: [opsSession(SOURCE)],
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+    });
+    pendingUntilAborted();
+    renderScreen();
+    await screen.findByText(GENERAL, { selector: "div" });
+    await user.type(await composerBox(), "/new x");
+    const send = screen.getByRole("button", { name: "Send" });
+
+    await user.click(send);
+    await user.click(send);
+    await user.keyboard("{Enter}");
+
+    const line = await screen.findByRole("group", { name: "Summarizing line" });
+    const deck = screen.getByRole("region", { name: "Waiting acts" });
+    const composer = screen.getByRole("form", { name: "Composer" });
+    expect(line).toHaveTextContent("Summarizing…");
+    expect(deck.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(line.compareDocumentPosition(composer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(forkWorkbenchSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts on Cancel and keeps the text in the Home composer", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", sessions: [opsSession(SOURCE)] });
+    pendingUntilAborted();
+    renderScreen();
+    await screen.findByText(GENERAL, { selector: "div" });
+    await sendFork(user);
+
+    await user.click(await screen.findByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByText("Summarizing…")).toBeNull());
+    expect(vi.mocked(forkWorkbenchSession).mock.calls[0]![1].signal?.aborted).toBe(true);
+    expect(await composerBox()).toHaveValue("/new x");
+    expect(screen.queryByText(/^Forked from/)).toBeNull();
+  });
+
+  it("keeps the text and shows the line of the cause on a refusal", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", sessions: [opsSession(SOURCE)] });
+    vi.mocked(forkWorkbenchSession).mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "The daemon refused the request.",
+        409,
+        "workbench.fork.summary_refused",
+        { cause: "refused", reason: "The summary holds an order" },
+      ),
+    );
+    renderScreen();
+    await screen.findByText(GENERAL, { selector: "div" });
+
+    await sendFork(user);
+
+    expect(
+      await screen.findByText("Guard refused the summary: The summary holds an order."),
+    ).toBeVisible();
+    expect(await composerBox()).toHaveValue("/new x");
+  });
+
+  it("creates, then sends the text as the first message when no Home conversation exists", async () => {
+    const user = userEvent.setup();
+    serve({ yumi: "on", sessions: [] });
+    vi.mocked(createWorkbenchSession).mockResolvedValue(conversation("workbench_session_Y2", "x"));
+    vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      session_id: "workbench_session_Y2",
+      agent_name: null,
+      run_active: true,
+      queued_message_id: null,
+      cleared: [],
+    });
+    renderScreen();
+
+    await sendFork(user);
+
+    await waitFor(() => expect(readWorkbenchSession).toHaveBeenCalledWith("workbench_session_Y2"));
+    expect(forkWorkbenchSession).not.toHaveBeenCalled();
+    expect(sendWorkbenchMessage).toHaveBeenCalledWith("workbench_session_Y2", "x");
+    expect(vi.mocked(createWorkbenchSession).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(sendWorkbenchMessage).mock.invocationCallOrder[0]!,
+    );
   });
 });
 

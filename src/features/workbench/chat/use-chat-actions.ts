@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 
 import {
   abortWorkbenchRun,
@@ -16,7 +15,7 @@ import type {
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import { forkFailureOf } from "@/lib/workbench-fork";
-import { hostSessionIdOf, workbenchSessionPath } from "@/lib/workbench-sessions";
+import { hostSessionIdOf } from "@/lib/workbench-sessions";
 import type { SnapshotPatch } from "./use-session-events";
 
 const QUEUED_NOT_FOUND = "workbench.session.queued_message_not_found";
@@ -62,6 +61,7 @@ function failureOf(
 
 const UNTAGGED = (): string | null => null;
 const NO_NOT_HOST = (): void => undefined;
+const NO_FORKED = (): void => undefined;
 
 export function useChatActions(
   sessionId: string,
@@ -69,13 +69,13 @@ export function useChatActions(
   initialFailure: ChatActionFailure | null = null,
   mentionOf: (text: string) => string | null = UNTAGGED,
   onNotHost: (hostSessionId: string) => void = NO_NOT_HOST,
+  onForked: (forkSessionId: string) => void = NO_FORKED,
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const refillRef = useRef<Refill>(NO_REFILL);
   const forkAbortRef = useRef<AbortController | null>(null);
-  const navigate = useNavigate();
 
   useEffect(
     () => () => {
@@ -160,7 +160,7 @@ export function useChatActions(
       setSummarizing(true);
       try {
         const answer = await forkWorkbenchSession(sessionId, { text, signal: controller.signal });
-        navigate(workbenchSessionPath(answer.session_id));
+        onForked(answer.session_id);
         return true;
       } catch (failed) {
         if (!controller.signal.aborted) {
@@ -173,7 +173,7 @@ export function useChatActions(
         setBusy(false);
       }
     },
-    [sessionId, navigate],
+    [sessionId, onForked],
   );
 
   const cancelFork = useCallback(() => forkAbortRef.current?.abort(), []);

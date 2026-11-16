@@ -82,6 +82,16 @@ export function caseRequestOf(item: AttentionItem): string | null {
   return nodeCaseRequestOf(item);
 }
 
-export function isCaseConversation(item: WorkbenchSessionListItem): boolean {
-  return item.first_message.startsWith(CASE_REQUEST_PREFIX);
+export function isCaseConversation(
+  item: WorkbenchSessionListItem,
+  itemsById: ReadonlyMap<string, WorkbenchSessionListItem>,
+): boolean {
+  let current = item;
+  for (let hop = 0; hop <= itemsById.size; hop += 1) {
+    if (current.first_message.startsWith(CASE_REQUEST_PREFIX)) return true;
+    const source = current.forked_from === null ? undefined : itemsById.get(current.forked_from);
+    if (source === undefined) return false;
+    current = source;
+  }
+  return false;
 }

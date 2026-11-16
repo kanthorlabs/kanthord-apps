@@ -42,6 +42,7 @@ interface ChatViewProps {
   readonly approvalLine?: ReactNode | null;
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly onNew?: () => void;
+  readonly onForked?: (forkSessionId: string) => void;
 }
 
 export function ChatView({
@@ -53,6 +54,7 @@ export function ChatView({
   approvalLine = null,
   actionLineOf,
   onNew,
+  onForked,
 }: ChatViewProps) {
   const events = useSessionEvents(session.id, session.entries, session.members, session.run_active);
   const mentionAgents = useMentionAgents();
@@ -73,6 +75,10 @@ export function ChatView({
     (hostSessionId: string) => navigate(workbenchSessionPath(hostSessionId), { replace: true }),
     [navigate],
   );
+  const openFork = useCallback(
+    (forkSessionId: string) => navigate(workbenchSessionPath(forkSessionId)),
+    [navigate],
+  );
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
@@ -81,6 +87,7 @@ export function ChatView({
       : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
     mentionOf,
     openHost,
+    onForked ?? openFork,
   );
   const { snapshot, patchSnapshot } = events;
   const onAutoMode = useCallback(

@@ -41,10 +41,13 @@ function yumiConfigurationOf(enablement: AgentEnablement | null): ConfigurationR
 function newestGeneralOf(
   items: readonly WorkbenchSessionListItem[],
 ): WorkbenchSessionListItem | null {
+  const itemsById = new Map(items.map((item) => [item.id, item]));
   return items
     .filter(
       (item) =>
-        item.host_session_id === null && !isCaseConversation(item) && item.first_message !== "",
+        item.host_session_id === null &&
+        !isCaseConversation(item, itemsById) &&
+        item.first_message !== "",
     )
     .reduce<WorkbenchSessionListItem | null>(
       (newest, item) => (newest === null || item.modified > newest.modified ? item : newest),
