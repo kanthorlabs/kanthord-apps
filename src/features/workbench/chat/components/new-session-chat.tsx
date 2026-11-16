@@ -1,12 +1,14 @@
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { WorkbenchConfiguration } from "@/api/types";
+import { addresseeOf } from "@/lib/workbench-mention";
 import { workbenchSessionPath } from "@/lib/workbench-sessions";
 import { Composer } from "./composer";
 import { InlineError } from "./inline-error";
 import type { ChatConfigurationState } from "../use-chat-configuration";
 import { useComposer } from "../use-composer";
+import { useMentionAgents } from "../use-mention-agents";
 import { type OpenCreatedSession, useFirstSend } from "../use-first-send";
 
 interface NewSessionChatProps {
@@ -33,6 +35,7 @@ function fixedConfiguration(
     modelsFailure: null,
     failure: null,
     pending: true,
+    disabled: false,
     selectAgentProvider: NO_CHANGE,
     selectModel: NO_CHANGE,
     selectReasoningEffort: NO_CHANGE,
@@ -58,10 +61,17 @@ export function NewSessionChat({
     [navigate],
   );
   const first = useFirstSend(agentName, configuration, onOpen ?? openByRoute);
+  const mentionAgents = useMentionAgents();
+  const mentionNames = useMemo(
+    () => mentionAgents.agents.map((agent) => agent.displayName),
+    [mentionAgents.agents],
+  );
   const composer = useComposer(first.busy || configuration === null, first.send, {
     agentName,
     onNew,
+    mentionNames,
   });
+  const addressee = addresseeOf(composer.draft, [], [], mentionNames);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -76,11 +86,15 @@ export function NewSessionChat({
           composer={composer}
           configuration={fixedConfiguration(configuration)}
           agentDisplayName={agentDisplayName ?? agentName}
+          addressee={addressee}
           runActive={false}
           queued={false}
           inputDisabled={configuration === null}
         />
         {configurationError !== null && <InlineError code={null} message={configurationError} />}
+        {mentionAgents.failure !== null && (
+          <InlineError code={null} message={mentionAgents.failure} />
+        )}
         {first.failure !== null && (
           <InlineError code={first.failure.code} message={first.failure.message} />
         )}

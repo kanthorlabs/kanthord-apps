@@ -96,6 +96,22 @@ describe("QueuedMessages", () => {
     expect(line).not.toHaveTextContent("Next:");
   });
 
+  it("shows the tagged target from the server display name and the last answer for an untagged item", async () => {
+    const tagged = {
+      id: "queued_3",
+      text: "Check the retry",
+      agent_name: "re@1",
+      display_name: "RE",
+    };
+    render(<Harness initial={[tagged, ONE]} />);
+
+    await userEvent.click(screen.getByRole("button", { name: TRIGGER }));
+
+    const [first, second] = await screen.findAllByRole("listitem");
+    expect(first).toHaveTextContent("to @RE");
+    expect(second).toHaveTextContent("to last answer");
+  });
+
   it("keeps the open state while the queue changes", async () => {
     render(<Harness initial={[ONE, TWO]} />);
     await userEvent.click(screen.getByRole("button", { name: TRIGGER }));
@@ -225,6 +241,7 @@ describe("queued messages in the chat", () => {
       () => new Promise(() => undefined),
     );
     vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([]);
+    vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   });
 
   it("removes a row with the queue remove call and drops it after the answer 200", async () => {

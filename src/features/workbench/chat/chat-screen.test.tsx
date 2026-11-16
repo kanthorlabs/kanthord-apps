@@ -128,6 +128,7 @@ beforeEach(() => {
     () => new Promise(() => undefined),
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue(AGENT);
+  vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "gpt-5", reasoning_efforts: ["off"] },
   ]);
@@ -274,12 +275,11 @@ describe("ChatScreen", () => {
       vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(SESSION);
     });
 
-    it("reads no display name from the agent list and offers the composer", async () => {
+    it("shows no agent greeting and offers the composer", async () => {
       mountNew();
 
       expect(await screen.findByText(/Write your first message below/)).toBeTruthy();
       expect(screen.queryByText(/Hello, I am/)).toBeNull();
-      expect(workersApi.listAgents).not.toHaveBeenCalled();
       expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
       expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("qwen3-coder");
       expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
@@ -311,6 +311,41 @@ describe("ChatScreen", () => {
         vi.mocked(workbenchApi.createWorkbenchSession).mock.invocationCallOrder[0],
       ).toBeLessThan(vi.mocked(workbenchApi.sendWorkbenchMessage).mock.invocationCallOrder[0]!);
       expect(await screen.findByText("List the open nodes")).toBeTruthy();
+    });
+
+    it("lists the enabled session agents for an @ in the first message and shows the addressee", async () => {
+      vi.mocked(workersApi.listAgents).mockResolvedValue([
+        {
+          agentName: "re@1",
+          displayName: "RE",
+          workerNames: [],
+          consumers: ["workbench"],
+          toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+          enablement: AGENT.enablement,
+        },
+        {
+          agentName: "guard@1",
+          displayName: "Guard",
+          workerNames: [],
+          consumers: [],
+          toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+          enablement: AGENT.enablement,
+        },
+      ]);
+      mountNew();
+
+      await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "@");
+      const list = await screen.findByRole("listbox", { name: "Mentions" });
+      expect(
+        within(list)
+          .getAllByRole("option")
+          .map((option) => option.textContent),
+      ).toEqual(["RE"]);
+      await userEvent.click(within(list).getByRole("option", { name: "RE" }));
+
+      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE ");
+      expect(screen.getByLabelText("Addressee")).toHaveTextContent("RE");
     });
 
     it("keeps the route and calls no resource on /new alone", async () => {

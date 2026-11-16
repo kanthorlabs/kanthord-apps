@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useMemo } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
@@ -11,11 +11,13 @@ import {
   runRequestOf,
 } from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
+import { addresseeOf, configurationTargetOf } from "@/lib/workbench-mention";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
 import { useComposer } from "../use-composer";
 import { useElapsedSeconds } from "../use-elapsed-seconds";
+import { useMentionAgents } from "../use-mention-agents";
 import { useSessionEvents } from "../use-session-events";
 import { useStopConfirm } from "../use-stop-confirm";
 import { AgentWorking } from "./agent-working";
@@ -57,27 +59,47 @@ export function ChatView({
       ? null
       : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
   );
-  const configuration = useChatConfiguration(
-    session.id,
-    session.agent_name,
-    session.configuration,
-    enablement,
-  );
   const { snapshot, patchSnapshot } = events;
   const onAutoMode = useCallback(
     (enabled: boolean) => patchSnapshot({ auto_mode: enabled }),
     [patchSnapshot],
   );
   const navigate = useNavigate();
-  const currentConfiguration = configuration.configuration;
-  const openNewChat = useCallback(
-    () => navigate(newSessionPath(session.agent_name, currentConfiguration)),
-    [navigate, session.agent_name, currentConfiguration],
+  const newChat = useRef<() => void>(() => undefined);
+  const handleNew = useCallback(() => newChat.current(), []);
+  const mentionAgents = useMentionAgents();
+  const mentionNames = useMemo(
+    () => mentionAgents.agents.map((agent) => agent.displayName),
+    [mentionAgents.agents],
   );
   const composer = useComposer(actions.busy, actions.send, {
     agentName: session.agent_name,
-    onNew: onNew ?? openNewChat,
+    onNew: handleNew,
     initialDraft: firstSendFailure?.draft,
+    mentionNames,
+  });
+  const addressee = useMemo(
+    () => addresseeOf(composer.draft, events.members, events.entries, mentionNames),
+    [composer.draft, events.members, events.entries, mentionNames],
+  );
+  const host = useMemo(
+    () => ({
+      sessionId: session.id,
+      agentName: session.agent_name,
+      configuration: session.configuration,
+      enablement,
+    }),
+    [session.id, session.agent_name, session.configuration, enablement],
+  );
+  const target = configurationTargetOf(addressee, host, mentionAgents.agents);
+  const shown = target ?? host;
+  const configuration = useChatConfiguration(shown);
+  const openNewChat = useCallback(
+    () => navigate(newSessionPath(shown.agentName, configuration.configuration)),
+    [navigate, shown.agentName, configuration.configuration],
+  );
+  useEffect(() => {
+    newChat.current = onNew ?? openNewChat;
   });
   const { bindRefill } = actions;
   useEffect(() => bindRefill(composer.refill), [bindRefill, composer.refill]);
@@ -113,6 +135,7 @@ export function ChatView({
     configuration.modelsFailure === null
       ? null
       : { code: null, message: configuration.modelsFailure },
+    mentionAgents.failure === null ? null : { code: null, message: mentionAgents.failure },
   ].filter((failure) => failure !== null);
 
   return (
@@ -185,8 +208,9 @@ export function ChatView({
         />
         <Composer
           composer={composer}
-          configuration={configuration}
+          configuration={target === null ? null : configuration}
           agentDisplayName={hostDisplayName}
+          addressee={addressee}
           runActive={snapshot.run_active}
           queued={queueCount > 0}
           stopConfirm={stopConfirm.confirm}

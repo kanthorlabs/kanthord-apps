@@ -119,6 +119,7 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
   ]);
