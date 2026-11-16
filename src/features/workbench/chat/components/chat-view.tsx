@@ -11,6 +11,7 @@ import {
   runRequestOf,
 } from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
+import { workbenchSessionPath } from "@/lib/workbench-sessions";
 import { addresseeOf, configurationTargetOf, leadingMentionOf } from "@/lib/workbench-mention";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
@@ -65,6 +66,11 @@ export function ChatView({
       ]),
     [events.members, mentionNames],
   );
+  const navigate = useNavigate();
+  const openHost = useCallback(
+    (hostSessionId: string) => navigate(workbenchSessionPath(hostSessionId), { replace: true }),
+    [navigate],
+  );
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
@@ -72,13 +78,13 @@ export function ChatView({
       ? null
       : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
     mentionOf,
+    openHost,
   );
   const { snapshot, patchSnapshot } = events;
   const onAutoMode = useCallback(
     (enabled: boolean) => patchSnapshot({ auto_mode: enabled }),
     [patchSnapshot],
   );
-  const navigate = useNavigate();
   const newChat = useRef<() => void>(() => undefined);
   const handleNew = useCallback(() => newChat.current(), []);
   const composer = useComposer(actions.busy, actions.send, {
@@ -100,12 +106,13 @@ export function ChatView({
     }),
     [session.id, session.agent_name, session.configuration, enablement],
   );
+  const hostDisplayName = memberOf(events.members, session.id).display_name;
   const target = configurationTargetOf(addressee, host, mentionAgents.agents);
   const shown = target ?? host;
   const configuration = useChatConfiguration(shown);
   const openNewChat = useCallback(
-    () => navigate(newSessionPath(shown.agentName, configuration.configuration)),
-    [navigate, shown.agentName, configuration.configuration],
+    () => navigate(newSessionPath(session.agent_name, session.configuration, hostDisplayName)),
+    [navigate, session.agent_name, session.configuration, hostDisplayName],
   );
   useEffect(() => {
     newChat.current = onNew ?? openNewChat;
@@ -120,7 +127,6 @@ export function ChatView({
     composer,
   });
   const { members } = events;
-  const hostDisplayName = memberOf(members, session.id).display_name;
   const items = useMemo(
     () => chatItemsOf(events.entries, snapshot, members),
     [events.entries, snapshot, members],
@@ -150,7 +156,7 @@ export function ChatView({
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-mono text-lg font-semibold">{session.agent_name}</h2>
+        <h2 className="font-mono text-lg font-semibold">{hostDisplayName} conversation</h2>
         <Badge variant={snapshot.run_active ? "default" : "outline"}>
           {snapshot.run_active ? "Running" : "Idle"}
         </Badge>
@@ -158,6 +164,13 @@ export function ChatView({
           {session.id}
         </span>
         <ResumeCommandButton command={session.resume_command} />
+        <div role="group" aria-label="Members" className="flex flex-wrap gap-1">
+          {members.map((member) => (
+            <Badge key={member.session_id} variant="secondary">
+              {member.display_name}
+            </Badge>
+          ))}
+        </div>
         <AutoModeSwitch
           sessionId={session.id}
           enabled={snapshot.auto_mode}

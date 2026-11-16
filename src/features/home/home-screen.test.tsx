@@ -1356,7 +1356,7 @@ describe("HomeScreen Yumi chat", () => {
     await user.click(screen.getByRole("button", { name: "New chat" }));
 
     expect(
-      await screen.findByText("Write your first message below to start the conversation."),
+      await screen.findByText("Hi, I am Yumi on qwen3-coder. What do you need?"),
     ).toBeVisible();
     expect(listWorkbenchSessions).not.toHaveBeenCalled();
     expect(readWorkbenchSession).not.toHaveBeenCalled();
@@ -1427,7 +1427,7 @@ describe("HomeScreen Yumi chat", () => {
     await user.click(screen.getByRole("button", { name: "Send" }));
 
     expect(
-      await screen.findByText("Write your first message below to start the conversation."),
+      await screen.findByText("Hi, I am Yumi on qwen3-coder. What do you need?"),
     ).toBeVisible();
     expect(readWorkbenchSession).not.toHaveBeenCalled();
     expect(sendWorkbenchMessage).not.toHaveBeenCalled();

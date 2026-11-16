@@ -191,7 +191,7 @@ describe("ChatScreen", () => {
     mount();
 
     expect(await screen.findByText("Ulrich")).toBeTruthy();
-    expect(screen.getByText("SWE")).toBeTruthy();
+    expect(within(screen.getByRole("log", { name: "Transcript" })).getByText("SWE")).toBeTruthy();
     expect(screen.getByRole("img", { name: "SWE avatar" })).toBeTruthy();
   });
 
@@ -268,6 +268,155 @@ describe("ChatScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("List the open nodes")).toBeTruthy();
+  });
+
+  describe("with a participant", () => {
+    const GUEST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1";
+    const HOST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0HO1";
+    const RE_AGENT = {
+      agentName: "re@1",
+      displayName: "RE",
+      workerNames: [],
+      consumers: ["workbench" as const],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+      enablement: AGENT.enablement,
+    };
+    const CONVERSATION: WorkbenchSession = {
+      ...SESSION,
+      members: [
+        { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" },
+        { session_id: GUEST_ID, agent_name: "re@1", display_name: "RE" },
+      ],
+      entries: [
+        ...SESSION.entries,
+        {
+          session_id: GUEST_ID,
+          agent_name: "re@1",
+          type: "message",
+          id: "e1",
+          parentId: null,
+          timestamp: "2026-10-05T09:01:00.000Z",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "RE reviews." }],
+            stopReason: "stop",
+          },
+        },
+      ],
+    };
+
+    function Where() {
+      const { pathname, search } = useLocation();
+      return <p>{`At ${pathname}${search}`}</p>;
+    }
+
+    function mountConversation() {
+      return render(
+        <MemoryRouter initialEntries={[`/workbench/${SESSION_ID}`]}>
+          <Where />
+          <Routes>
+            <Route path="/workbench/new" element={<p>New chat</p>} />
+            <Route path="/workbench/:sessionId" element={<ChatScreen />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    }
+
+    beforeEach(() => {
+      vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(CONVERSATION);
+      vi.mocked(workersApi.listAgents).mockResolvedValue([RE_AGENT]);
+    });
+
+    it("titles the header with the host display name and shows one chip per member", async () => {
+      mountConversation();
+
+      expect(await screen.findByRole("heading", { name: "SWE conversation" })).toBeTruthy();
+      const chips = screen.getByRole("group", { name: "Members" });
+      expect(
+        within(chips)
+          .getAllByText(/./)
+          .map((chip) => chip.textContent),
+      ).toEqual(["SWE", "RE"]);
+      expect(
+        screen.getByRole("heading", { name: "SWE conversation" }).parentElement,
+      ).toContainElement(chips);
+      expect(
+        screen.getByRole("heading", { name: "SWE conversation" }).parentElement,
+      ).toContainElement(screen.getByRole("switch", { name: "Auto mode" }));
+    });
+
+    it("keeps the draft and shows the code when a mention send answers 404", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockRejectedValue(
+        new ApiError(
+          "not_found",
+          "The agent is not in the catalog.",
+          404,
+          "agent.catalog.not_found",
+        ),
+      );
+      mountConversation();
+
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "@RE look");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "not_found The agent is not in the catalog.",
+      );
+      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE look");
+      expect(screen.getByText(`At /workbench/${SESSION_ID}`)).toBeTruthy();
+    });
+
+    it("opens the host session when a send answers 409 workbench.session.not_host", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockRejectedValue(
+        new ApiError(
+          "conflict",
+          "The workbench session is a participant.",
+          409,
+          "workbench.session.not_host",
+          { host_session_id: HOST_ID },
+        ),
+      );
+      mountConversation();
+
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "hello");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByText(`At /workbench/${HOST_ID}`)).toBeTruthy();
+      expect(workbenchApi.readWorkbenchSession).toHaveBeenLastCalledWith(HOST_ID);
+    });
+
+    it("opens the host session when the read answers 409 workbench.session.not_host", async () => {
+      vi.mocked(workbenchApi.readWorkbenchSession).mockRejectedValueOnce(
+        new ApiError(
+          "conflict",
+          "The workbench session is a participant.",
+          409,
+          "workbench.session.not_host",
+          { host_session_id: HOST_ID },
+        ),
+      );
+      mountConversation();
+
+      expect(await screen.findByText(`At /workbench/${HOST_ID}`)).toBeTruthy();
+      expect(await screen.findByRole("heading", { name: "SWE conversation" })).toBeTruthy();
+    });
+
+    it("opens /new with the host agent, the host configuration and the host display name", async () => {
+      mountConversation();
+
+      await screen.findByText("RE reviews.");
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "/new");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      const query = new URLSearchParams({
+        agent_name: "swe@1",
+        agent_provider: "atlas-llm",
+        model_identifier: "gpt-5",
+        reasoning_effort: "off",
+        display_name: "SWE",
+      });
+      expect(await screen.findByText(`At /workbench/new?${query}`)).toBeTruthy();
+    });
   });
 
   describe("in new-session mode", () => {

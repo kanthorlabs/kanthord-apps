@@ -25,6 +25,7 @@ export interface HomeState {
   readonly enabled: boolean;
   readonly configuration: ConfigurationResult;
   readonly configurationError: string | null;
+  readonly displayName: string | null;
   readonly view: HomeView | null;
   readonly sessionId: string | null;
   readonly newChat: () => void;
@@ -102,6 +103,7 @@ export function useHome(): HomeState {
     enabled,
     configuration,
     configurationError,
+    displayName: yumi?.displayName ?? null,
     view: shown,
     sessionId: shown?.kind === "session" ? shown.sessionId : null,
     newChat,

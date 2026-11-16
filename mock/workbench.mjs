@@ -13,6 +13,7 @@ const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
 const SETUP_CREDENTIAL = "atlas-router";
 const SETUP_AGENT = "swe@1";
+const NAME_CHARACTER = /[A-Za-z0-9 _-]/;
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const sessionId = () => {
@@ -97,16 +98,33 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   };
 
-  const mentionedAgent = (host, text) =>
-    agents
+  const mentionedAgent = (host, text) => {
+    if (!text.startsWith("@")) return undefined;
+    const lowered = text.slice(1).toLowerCase();
+    return agents
       .filter(
         (agent) =>
           agent.workbench === true &&
-          (agent.agent_name === host.agent_name || agent.enablement?.state === "enabled") &&
-          text.startsWith(`@${agent.display_name}`) &&
-          /^(\s|$)/.test(text.slice(agent.display_name.length + 1)),
+          (agent.agent_name === host.agent_name || agent.enablement?.state === "enabled"),
       )
-      .sort((a, b) => b.display_name.length - a.display_name.length)[0];
+      .sort((a, b) => b.display_name.length - a.display_name.length)
+      .find((agent) => {
+        const name = agent.display_name.toLowerCase();
+        if (!lowered.startsWith(name)) return false;
+        const next = lowered.charAt(name.length);
+        return next === "" || /\s/.test(next) || !NAME_CHARACTER.test(next);
+      });
+  };
+
+  const isFinalAnswer = (entry) =>
+    entry.type === "message" &&
+    entry.message.role === "assistant" &&
+    entry.message.stopReason === "stop";
+
+  const lastAnswerer = (host) => {
+    const answer = entriesAfter(host, null).filter(isFinalAnswer).at(-1);
+    return sessions.find((candidate) => candidate.id === answer?.session_id) ?? host;
+  };
 
   const participantFor = (host, agent) => {
     const existing = participantsOf(host).find(
@@ -127,7 +145,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
 
   const addresseeOf = (host, text) => {
     const agent = mentionedAgent(host, text);
-    if (agent === undefined) return { target: host, tag: null };
+    if (agent === undefined) return { target: lastAnswerer(host), tag: null };
     const target = agent.agent_name === host.agent_name ? host : participantFor(host, agent);
     return {
       target,
@@ -508,6 +526,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       409,
       "workbench.session.not_host",
       "The workbench session is a participant. Send the request to the host session.",
+      { host_session_id: session.host_session_id },
     );
   };
 
@@ -591,7 +610,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       entryOf(session, "message", {
         message: textMessage(
           "assistant",
-          `Hello, I am ${displayNameOf(session.agent_name)}. What do you need?`,
+          `Hi, I am ${displayNameOf(session.agent_name)} on ${session.configuration.model_identifier}. What do you need?`,
         ),
       }),
     );
@@ -636,24 +655,32 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     const session = findHost(res, m[1]);
     if (session === undefined) return;
     const state = stateOf(session);
+    if (body.text.startsWith("@") && mentionedAgent(session, body.text) === undefined) {
+      return envelope(
+        res,
+        404,
+        "agent.catalog.not_found",
+        "The agent of the leading mention is not in the catalog.",
+      );
+    }
     const { target, tag } = addresseeOf(session, body.text);
-    const answer = (queuedMessageId, cleared) =>
+    const answer = (queuedMessageId, agentName, cleared) =>
       json(res, 202, {
-        session_id: target.id,
-        agent_name: tag?.agent_name ?? null,
+        session_id: session.id,
+        agent_name: agentName,
         run_active: true,
         queued_message_id: queuedMessageId,
         cleared,
       });
     if (state.run === null) {
       startRun(target, body.text);
-      return answer(null, []);
+      return answer(null, target.agent_name, []);
     }
     if (body.delivery === "replace") {
       const cleared = clearQueue(session);
       const item = enqueue(target, tag, body.text);
       interruptRun(session);
-      return answer(item.id, cleared);
+      return answer(item.id, tag?.agent_name ?? null, cleared);
     }
     if (state.queue.length >= QUEUE_LIMIT) {
       return envelope(
@@ -664,7 +691,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       );
     }
     const item = enqueue(target, tag, body.text);
-    return answer(item.id, []);
+    return answer(item.id, tag?.agent_name ?? null, []);
   });
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/abort$/, (m, _b, res) => {

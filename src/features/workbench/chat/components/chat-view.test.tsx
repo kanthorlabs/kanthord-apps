@@ -133,7 +133,9 @@ describe("ChatView", () => {
 
     const autoMode = await screen.findByRole("switch", { name: "Auto mode" });
     expect(autoMode).not.toBeChecked();
-    expect(screen.getByRole("heading", { name: "swe@1" }).parentElement).toContainElement(autoMode);
+    expect(
+      screen.getByRole("heading", { name: "SWE conversation" }).parentElement,
+    ).toContainElement(autoMode);
     expect(
       within(screen.getByRole("log", { name: "Transcript" })).queryByRole("switch"),
     ).toBeNull();
@@ -879,7 +881,7 @@ describe("ChatView", () => {
       members: [yumi],
     });
 
-    expect(screen.getByText("Yumi")).toBeTruthy();
+    expect(within(screen.getByRole("log", { name: "Transcript" })).getByText("Yumi")).toBeTruthy();
     expect(screen.getByText("2026-10-05 09:00 UTC")).toHaveAttribute(
       "datetime",
       "2026-10-05T09:00:00.000Z",
@@ -908,7 +910,7 @@ describe("ChatView", () => {
     });
 
     expect(await screen.findByText("Hel")).toBeTruthy();
-    expect(screen.getByText("SWE")).toBeTruthy();
+    expect(within(screen.getByRole("log", { name: "Transcript" })).getByText("SWE")).toBeTruthy();
     expect(screen.getAllByText(/UTC$/)).toHaveLength(1);
   });
 

@@ -13,6 +13,7 @@ import type {
   WorkbenchQueuedMessage,
 } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
+import { hostSessionIdOf } from "@/lib/workbench-sessions";
 import type { SnapshotPatch } from "./use-session-events";
 
 const QUEUED_NOT_FOUND = "workbench.session.queued_message_not_found";
@@ -54,12 +55,14 @@ function failureOf(
 }
 
 const UNTAGGED = (): string | null => null;
+const NO_NOT_HOST = (): void => undefined;
 
 export function useChatActions(
   sessionId: string,
   patchSnapshot: (patch: SnapshotPatch) => void,
   initialFailure: ChatActionFailure | null = null,
   mentionOf: (text: string) => string | null = UNTAGGED,
+  onNotHost: (hostSessionId: string) => void = NO_NOT_HOST,
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
@@ -92,13 +95,16 @@ export function useChatActions(
         onDone(await action());
         return true;
       } catch (failed) {
-        setFailure(failureOf(cause, asApiError(failed), toolCallId));
+        const error = asApiError(failed);
+        const hostSessionId = hostSessionIdOf(error);
+        if (hostSessionId === null) setFailure(failureOf(cause, error, toolCallId));
+        else onNotHost(hostSessionId);
         return false;
       } finally {
         setBusy(false);
       }
     },
-    [],
+    [onNotHost],
   );
 
   const send = useCallback(

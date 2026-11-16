@@ -17,6 +17,19 @@ export function workbenchSessionPath(sessionId: string): string {
   return `/workbench/${encodeURIComponent(sessionId)}`;
 }
 
+interface NotHostFailure {
+  readonly status: number;
+  readonly detail: string;
+  readonly details?: unknown;
+}
+
+export function hostSessionIdOf(error: NotHostFailure): string | null {
+  if (error.status !== 409 || error.detail !== "workbench.session.not_host") return null;
+  if (typeof error.details !== "object" || error.details === null) return null;
+  const hostSessionId: unknown = Reflect.get(error.details, "host_session_id");
+  return typeof hostSessionId === "string" ? hostSessionId : null;
+}
+
 export function newSessionUnavailableReason(
   enablementState: AgentEnablementState | null,
 ): string | null {

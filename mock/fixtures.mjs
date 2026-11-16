@@ -2812,7 +2812,7 @@ export const WORKBENCH_SESSIONS = [
         id: "e0000401",
         parentId: null,
         timestamp: entryAt(7200),
-        message: textMessage("assistant", "Hello, I am Yumi. What do you need?"),
+        message: textMessage("assistant", "Hi, I am Yumi on qwen3-coder. What do you need?"),
       },
       {
         type: "message",
