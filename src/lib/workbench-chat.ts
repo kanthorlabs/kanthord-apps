@@ -1,8 +1,11 @@
 import {
   NODE_STATES,
+  WORKBENCH_FORK_FRAME,
+  WORKBENCH_FORK_PREFIX,
   type WorkbenchActionOffer,
   type WorkbenchActionOperation,
   type WorkbenchActionResult,
+  type WorkbenchForkRecord,
   type WorkbenchGuardRecord,
   type WorkbenchMember,
   type WorkbenchRunSnapshot,
@@ -82,6 +85,13 @@ type ChatItemBody =
       readonly offer: WorkbenchActionOffer;
       readonly results: readonly WorkbenchActionResult[];
       readonly state: ActionCardState;
+    }
+  | {
+      readonly kind: "fork";
+      readonly id: string;
+      readonly source_title: string;
+      readonly source_id: string;
+      readonly summary: string;
     };
 
 export type ChatItem = ChatItemBody & ChatItemOrigin;
@@ -95,6 +105,8 @@ const OFFER_TOOL = "offer_action";
 const EVIDENCE_READ_TOOL = "evidence_read";
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
+const FORK_ACK = "I read the summary of the earlier conversation.";
+const FORK_KEYS = ["kind", "source_title"];
 const GUARD_KEYS = ["kind", "tool_call_id", "operation_id", "reason"];
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
 const NODE_SEEN_KEYS = ["name", "state", "attempt"];
@@ -186,6 +198,34 @@ function guardRecordOf(entry: WorkbenchSessionEntry): WorkbenchGuardRecord | nul
   return { kind: "guard", tool_call_id, operation_id, reason };
 }
 
+function forkRecordOf(entry: WorkbenchSessionEntry): WorkbenchForkRecord | null {
+  const data = entry["data"];
+  if (entry.type !== "custom" || entry["customType"] !== RECORD_TYPE) return null;
+  if (!isRecord(data) || !hasExactKeys(data, FORK_KEYS) || data["kind"] !== "fork") return null;
+  const { source_title } = data;
+  return typeof source_title === "string" ? { kind: "fork", source_title } : null;
+}
+
+function userTextOf(entry: WorkbenchSessionEntry | undefined): string | null {
+  const message = entry?.["message"];
+  if (entry?.type !== "message" || !isRecord(message) || message["role"] !== "user") return null;
+  return textOf(blocksOf(message["content"]));
+}
+
+function isForkAck(entry: WorkbenchSessionEntry | undefined): boolean {
+  const message = entry?.["message"];
+  if (entry?.type !== "message" || !isRecord(message) || message["role"] !== "assistant") {
+    return false;
+  }
+  return textOf(blocksOf(message["content"])) === FORK_ACK;
+}
+
+function forkSummaryOf(text: string | null, sourceId: string | null): string | null {
+  if (text === null || sourceId === null) return null;
+  const opening = `${WORKBENCH_FORK_PREFIX}${sourceId}.${WORKBENCH_FORK_FRAME}`;
+  return text.startsWith(opening) ? text.slice(opening.length).trim() : null;
+}
+
 function resultOf(entry: WorkbenchSessionEntry): WorkbenchActionResult | null {
   const details = entry["details"];
   if (entry.type !== "custom_message" || entry["customType"] !== RESULT_TYPE) return null;
@@ -209,6 +249,9 @@ interface ResultContext {
   readonly lastOfferIndex: number;
   readonly actionResults: ReadonlyMap<string, readonly WorkbenchActionResult[]>;
   readonly guards: ReadonlyMap<string, WorkbenchGuardRecord>;
+  readonly forkedFrom: string | null;
+  readonly forkSummaries: ReadonlyMap<number, string>;
+  readonly hiddenIndexes: ReadonlySet<number>;
 }
 
 function actionCardState(
@@ -332,12 +375,33 @@ function toolResultItems(id: string, message: Block): readonly ChatItemBody[] {
   return [{ kind: "tool-result", id, name, text: textOf(blocksOf(message["content"])), isError }];
 }
 
+function forkItems(
+  entry: WorkbenchSessionEntry,
+  index: number,
+  context: ResultContext,
+): readonly ChatItemBody[] {
+  const fork = forkRecordOf(entry);
+  const summary = context.forkSummaries.get(index);
+  if (fork === null || summary === undefined || context.forkedFrom === null) return [];
+  return [
+    {
+      kind: "fork",
+      id: entry.id,
+      source_title: fork.source_title,
+      source_id: context.forkedFrom,
+      summary,
+    },
+  ];
+}
+
 function entryItems(
   entry: WorkbenchSessionEntry,
   index: number,
   snapshot: WorkbenchRunSnapshot,
   context: ResultContext,
 ): readonly ChatItemBody[] {
+  if (context.hiddenIndexes.has(index)) return [];
+  if (context.forkSummaries.has(index)) return forkItems(entry, index, context);
   if (entry.type === "custom") return actionCardItems(entry, index, snapshot, context);
   const message = entry["message"];
   if (entry.type !== "message" || !isRecord(message)) return [];
@@ -369,7 +433,12 @@ function entryItems(
   return [];
 }
 
-function resultContextOf(entries: readonly WorkbenchSessionEntry[]): ResultContext {
+function resultContextOf(
+  entries: readonly WorkbenchSessionEntry[],
+  forkedFrom: string | null,
+): ResultContext {
+  const forkSummaries = new Map<number, string>();
+  const hiddenIndexes = new Set<number>();
   const resultIds = new Set<string>();
   const actionResults = new Map<string, WorkbenchActionResult[]>();
   const guards = new Map<string, WorkbenchGuardRecord>();
@@ -386,12 +455,30 @@ function resultContextOf(entries: readonly WorkbenchSessionEntry[]): ResultConte
     }
     const guard = guardRecordOf(entry);
     if (guard !== null) guards.set(guard.tool_call_id, guard);
+    const summary =
+      forkRecordOf(entry) === null
+        ? null
+        : forkSummaryOf(userTextOf(entries[index + 1]), forkedFrom);
+    if (summary !== null) {
+      forkSummaries.set(index, summary);
+      hiddenIndexes.add(index + 1);
+      if (isForkAck(entries[index + 2])) hiddenIndexes.add(index + 2);
+    }
     if (offerOf(entry) !== null) lastOfferIndex = index;
     if (entry.type !== "message" || !isRecord(message)) return;
     if (message["role"] === "user") lastUserIndex = index;
     if (message["role"] === "toolResult") resultIds.add(stringOf(message["toolCallId"]));
   });
-  return { resultIds, lastUserIndex, lastOfferIndex, actionResults, guards };
+  return {
+    resultIds,
+    lastUserIndex,
+    lastOfferIndex,
+    actionResults,
+    guards,
+    forkedFrom,
+    forkSummaries,
+    hiddenIndexes,
+  };
 }
 
 export function memberOf(members: readonly WorkbenchMember[], sessionId: string): WorkbenchMember {
@@ -412,8 +499,9 @@ export function chatItemsOf(
   entries: readonly WorkbenchSessionEntry[],
   snapshot: WorkbenchRunSnapshot,
   members: readonly WorkbenchMember[],
+  forkedFrom: string | null = null,
 ): readonly ChatItem[] {
-  const context = resultContextOf(entries);
+  const context = resultContextOf(entries, forkedFrom);
   const items = entries.flatMap((entry, index) => {
     const origin = originOf(memberOf(members, entry.session_id));
     return entryItems(entry, index, snapshot, context).map((item) => ({ ...item, ...origin }));

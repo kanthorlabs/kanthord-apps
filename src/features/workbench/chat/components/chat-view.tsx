@@ -128,8 +128,8 @@ export function ChatView({
   });
   const { members } = events;
   const items = useMemo(
-    () => chatItemsOf(events.entries, snapshot, members),
-    [events.entries, snapshot, members],
+    () => chatItemsOf(events.entries, snapshot, members, session.forked_from),
+    [events.entries, snapshot, members, session.forked_from],
   );
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active, runRequestOf(items)?.id ?? null);

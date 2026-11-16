@@ -16,6 +16,7 @@ import type {
   WorkbenchSessionEntry,
   WorkbenchSessionEvents,
 } from "@/api/types";
+import { WORKBENCH_FORK_FRAME, WORKBENCH_FORK_PREFIX } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
@@ -763,6 +764,67 @@ describe("ChatView", () => {
       `${window.location.origin}/missions/checkout/nodes/node_42`,
       "_blank",
     );
+  });
+
+  describe("fork", () => {
+    const SOURCE_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0SRC";
+    const SUMMARY = "The user asked for the node list.";
+
+    function forked() {
+      const record: WorkbenchSessionEntry = {
+        session_id: SESSION_ID,
+        agent_name: "swe@1",
+        type: "custom",
+        id: "e3",
+        parentId: null,
+        timestamp: "2026-10-05T09:00:00.000Z",
+        customType: "kanthord.workbench.record",
+        data: { kind: "fork", source_title: "List the nodes" },
+      };
+      return {
+        ...session([
+          record,
+          message("e4", {
+            role: "user",
+            content: `${WORKBENCH_FORK_PREFIX}${SOURCE_ID}.${WORKBENCH_FORK_FRAME}\n\n${SUMMARY}`,
+          }),
+          message("e7", { role: "user", content: "Go on" }),
+        ]),
+        forked_from: SOURCE_ID,
+      };
+    }
+
+    it("shows the Forked from line and opens the source in a new tab with the opener", async () => {
+      pollQueue();
+      const open = vi.spyOn(window, "open").mockReturnValue(null);
+      mount(forked());
+
+      expect(screen.getByText(/^Forked from/)).toBeTruthy();
+      await userEvent.click(screen.getByRole("link", { name: "List the nodes" }));
+
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(open).toHaveBeenCalledWith(
+        `${window.location.origin}/workbench/${SOURCE_ID}`,
+        "_blank",
+      );
+    });
+
+    it("collapses the summary block and shows the summary and the guard line when opened", async () => {
+      pollQueue();
+      mount(forked());
+
+      const trigger = screen.getByRole("button", { name: "Summary of List the nodes" });
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByText(SUMMARY)).toBeNull();
+
+      await userEvent.click(trigger);
+
+      expect(await screen.findByText(SUMMARY)).toBeTruthy();
+      expect(
+        screen.getByText("Guard checked it for orders and secrets, not for accuracy."),
+      ).toBeTruthy();
+      expect(screen.queryByText(new RegExp(WORKBENCH_FORK_PREFIX))).toBeNull();
+    });
   });
 
   it("keeps a slash command in agent text as plain text", () => {

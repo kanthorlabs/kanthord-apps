@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkbenchMember, WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
+import { WORKBENCH_FORK_FRAME, WORKBENCH_FORK_PREFIX } from "@/api/types";
 import {
   ACTION_VERBS,
   agentWorking,
@@ -817,6 +818,68 @@ describe("chatItemsOf evidence_read", () => {
     expect(waiting.map((item) => item.kind)).toEqual(["tool-call"]);
     expect(settled.map((item) => item.kind)).toEqual(["tool-call", "evidence-row"]);
     expect(settled[0]).toMatchObject({ name: "mission--node--get" });
+  });
+});
+
+describe("chatItemsOf fork", () => {
+  const SOURCE_ID = "workbench_session_SOURCE";
+  const SUMMARY = "The user asked for the node list.";
+
+  function forkRecord(): WorkbenchSessionEntry {
+    return {
+      session_id: HOST.session_id,
+      agent_name: HOST.agent_name,
+      type: "custom",
+      id: "e3",
+      parentId: null,
+      timestamp: "2026-10-05T09:00:00.000Z",
+      customType: "kanthord.workbench.record",
+      data: { kind: "fork", source_title: "List the nodes" },
+    };
+  }
+
+  const forkEntries = [
+    forkRecord(),
+    message("e4", {
+      role: "user",
+      content: `${WORKBENCH_FORK_PREFIX}${SOURCE_ID}.${WORKBENCH_FORK_FRAME}\n\n${SUMMARY}`,
+    }),
+    message("e5", {
+      role: "assistant",
+      content: [{ type: "text", text: "I read the summary of the earlier conversation." }],
+    }),
+    message("e7", { role: "user", content: "Go on" }),
+  ];
+
+  it("maps the fork record and the fork user message to one fork item", () => {
+    const items = chatItemsOf(forkEntries, IDLE, MEMBERS, SOURCE_ID);
+
+    expect(items.map(stripOrigin)).toEqual([
+      {
+        kind: "fork",
+        id: "e3",
+        source_title: "List the nodes",
+        source_id: SOURCE_ID,
+        summary: SUMMARY,
+      },
+      { kind: "user", id: "e7", text: "Go on", timestamp: AT },
+    ]);
+  });
+
+  it("keeps the prefix, the source id and the frame out of the summary", () => {
+    const [fork] = chatItemsOf(forkEntries, IDLE, MEMBERS, SOURCE_ID);
+
+    const summary = fork?.kind === "fork" ? fork.summary : "";
+    expect(summary).toBe(SUMMARY);
+    expect(summary).not.toContain(WORKBENCH_FORK_PREFIX);
+    expect(summary).not.toContain(SOURCE_ID);
+    expect(summary).not.toContain(WORKBENCH_FORK_FRAME);
+  });
+
+  it("gives no bubble for the fork user message and none for the ack", () => {
+    const items = chatItemsOf(forkEntries, IDLE, MEMBERS, SOURCE_ID);
+
+    expect(items.map((item) => item.kind)).toEqual(["fork", "user"]);
   });
 });
 
