@@ -346,7 +346,7 @@ describe("ChatScreen", () => {
       await userEvent.click(within(list).getByRole("option", { name: "RE" }));
 
       expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE ");
-      expect(screen.getByLabelText("Addressee")).toHaveTextContent("RE");
+      expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @RE$/);
     });
 
     it("keeps the route and calls no resource on /new alone", async () => {
