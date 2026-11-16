@@ -11,6 +11,14 @@ const IMPORT_UPDATE_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA3";
 const IMPORT_PREVIEW_DIGEST = "0123456789abcdef".repeat(4);
 const RECORD_TYPE = "kanthord.workbench.record";
 const RESULT_TYPE = "kanthord.workbench.action_result";
+const PLAN_TYPE = "kanthord.workbench.plan";
+const PLAN_AGENT = "plan@1";
+const PLAN_PHASES = [
+  { phase: "planner", text: "I read the request and drafted the steps of the plan." },
+  { phase: "reviewer", text: "I reviewed the draft and left two action:YES findings open." },
+];
+const PLAN_TEXT =
+  "## Plan\n\n1. Add the retry to the payment client.\n2. Cover the retry with a test.\n\n**Risk:** the retry must stop after three attempts.";
 const SETUP_CREDENTIAL = "atlas-router";
 const SETUP_AGENT = "swe@1";
 const NAME_CHARACTER = /[A-Za-z0-9 _-]/;
@@ -80,7 +88,30 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       : session;
 
   const participantsOf = (host) =>
-    sessions.filter((candidate) => candidate.host_session_id === host.id);
+    sessions.filter(
+      (candidate) => candidate.host_session_id === host.id && candidate.phase === undefined,
+    );
+
+  const phaseSessionsOf = (host) =>
+    sessions.filter(
+      (candidate) => candidate.host_session_id === host.id && candidate.phase !== undefined,
+    );
+
+  const phaseSessionFor = (host, phase) => {
+    const existing = phaseSessionsOf(host).find((candidate) => candidate.phase === phase);
+    if (existing !== undefined) return existing;
+    const phaseSession = {
+      id: sessionId(),
+      host_session_id: host.id,
+      agent_name: host.agent_name,
+      phase,
+      created: Date.now(),
+      configuration: { ...host.configuration },
+      entries: [],
+    };
+    sessions.push(phaseSession);
+    return phaseSession;
+  };
 
   const displayNameOf = (agentName) =>
     agents.find((agent) => agent.agent_name === agentName).display_name;
@@ -94,7 +125,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
 
   const entriesAfter = (host, after) => {
     const cursor = cursorOf(host, after);
-    return [host, ...participantsOf(host)]
+    return [host, ...participantsOf(host), ...phaseSessionsOf(host)]
       .flatMap((member) => {
         const entryId = cursor.get(member.id);
         const index =
@@ -168,6 +199,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         queue: [],
         error_message: null,
         auto_mode: true,
+        phase: null,
         waiters: new Set(),
         version: 0,
       });
@@ -185,6 +217,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       run_active: state.run !== null,
       error_message: state.error_message,
       auto_mode: state.auto_mode,
+      phase: state.phase,
     };
   };
 
@@ -329,7 +362,31 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     );
   };
 
+  const playPlan = async (session, run) => {
+    const state = stateOf(session);
+    const phases = [];
+    for (const { phase, text } of PLAN_PHASES) {
+      state.phase = phase;
+      notify(session);
+      await sleep(run, STEP_DELAY_MS);
+      if (run.cancelled) return;
+      const phaseSession = phaseSessionFor(session, phase);
+      append(phaseSession, "message", { phase, message: textMessage("assistant", text) });
+      phases.push({ phase, session_id: phaseSession.id });
+    }
+    await sleep(run, STEP_DELAY_MS);
+    if (run.cancelled) return;
+    state.phase = null;
+    append(session, "custom_message", {
+      customType: PLAN_TYPE,
+      content: PLAN_TEXT,
+      display: true,
+      details: { phases, unresolved: 2 },
+    });
+  };
+
   const play = async (session, run, text) => {
+    if (session.agent_name === PLAN_AGENT) return playPlan(session, run);
     const state = stateOf(session);
     await sleep(run, STEP_DELAY_MS);
     const call = {
@@ -444,6 +501,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     const state = stateOf(session);
     if (state.run !== run) return;
     state.run = null;
+    state.phase = null;
     state.streaming_message = null;
     state.pending_tool_calls = [];
     state.pending_approval = null;
@@ -486,6 +544,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     run.cancelled = true;
     run.cancel?.();
     state.run = null;
+    state.phase = null;
     state.streaming_message = null;
     state.pending_tool_calls = [];
     state.pending_approval = null;

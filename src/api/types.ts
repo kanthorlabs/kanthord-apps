@@ -1632,7 +1632,18 @@ export interface WorkbenchSessionEntry {
   readonly id: string;
   readonly parentId: string | null;
   readonly timestamp: string;
+  readonly phase?: "planner" | "reviewer";
   readonly [field: string]: unknown;
+}
+
+export const WORKBENCH_PLAN_ENTRY = "kanthord.workbench.plan";
+
+export interface WorkbenchPlanDetails {
+  readonly phases: readonly {
+    readonly phase: "planner" | "reviewer";
+    readonly session_id: string;
+  }[];
+  readonly unresolved: number | "missing" | null;
 }
 
 export type WorkbenchActionOperation =
@@ -1772,6 +1783,7 @@ export interface WorkbenchRunSnapshot {
   readonly run_active: boolean;
   readonly error_message: string | null;
   readonly auto_mode: boolean;
+  readonly phase: "planner" | "reviewer" | null;
 }
 
 export interface WorkbenchSessionEvents {

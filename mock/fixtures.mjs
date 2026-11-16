@@ -321,6 +321,37 @@ Your responsibility is the change that the task describes, in the workspace, to 
     pinned_model_identifier: null,
   },
   {
+    agent_name: "plan@1",
+    display_name: "Jeremy",
+    workbench: true,
+    consumers: ["workbench"],
+    worker_names: [],
+    configuration_schema: AGENT_CONFIGURATION_SCHEMA,
+    overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
+    enablement: {
+      agent_name: "plan@1",
+      state: "enabled",
+      agent_providers: [
+        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-router" },
+      ],
+      default_configuration: {
+        agent_provider: "atlas-llm",
+        model_identifier: "qwen3-coder",
+        reasoning_effort: "off",
+      },
+      fallback_configurations: [],
+      revision: 1,
+    },
+    basePrompt: BASE_PROMPT,
+    agentPrompt: `## Role
+
+Your role is \`plan@1\`, Jeremy, the planner.
+Your responsibility is the plan of a change that the human describes.`,
+    tool_counts: toolCountsOf([]),
+    tools: [],
+    pinned_model_identifier: null,
+  },
+  {
     agent_name: "guard@1",
     display_name: "Guard",
     workbench: false,

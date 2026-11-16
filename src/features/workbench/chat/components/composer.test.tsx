@@ -688,6 +688,7 @@ describe("Composer", () => {
         run_active: false,
         error_message: null,
         auto_mode: true,
+        phase: null,
       },
       version: 1,
     });
@@ -755,6 +756,7 @@ describe("Composer", () => {
           run_active: true,
           error_message: null,
           auto_mode: true,
+          phase: null,
         },
         version: 1,
       });

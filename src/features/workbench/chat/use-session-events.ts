@@ -45,6 +45,7 @@ function idleSnapshot(runActive: boolean): WorkbenchRunSnapshot {
     run_active: runActive,
     error_message: null,
     auto_mode: true,
+    phase: null,
   };
 }
 
