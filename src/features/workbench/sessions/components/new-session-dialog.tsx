@@ -16,7 +16,11 @@ interface NewSessionDialogProps {
   readonly agents: readonly AgentSummary[];
   readonly initialAgentName: string | null;
   readonly onClose: () => void;
-  readonly onStart: (agentName: string, configuration: WorkbenchConfiguration) => void;
+  readonly onStart: (
+    agentName: string,
+    configuration: WorkbenchConfiguration,
+    agentDisplayName: string | null,
+  ) => void;
 }
 
 export function NewSessionDialog({
@@ -60,7 +64,7 @@ export function NewSessionDialog({
             agentName={agentName}
             enablement={choice.enablement}
             onClose={onClose}
-            onStart={(configuration) => onStart(agentName, configuration)}
+            onStart={(configuration) => onStart(agentName, configuration, choice.agentDisplayName)}
           />
         ) : (
           <FieldGroup className="md:grid md:grid-cols-2">

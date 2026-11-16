@@ -5,6 +5,7 @@ import type { WorkbenchPendingApproval } from "@/api/types";
 import { changeAskedOf } from "./board-change";
 
 const PENDING: WorkbenchPendingApproval = {
+  session_id: "session_1",
   tool_call_id: "c1",
   operation_id: "project.create",
   guard: null,

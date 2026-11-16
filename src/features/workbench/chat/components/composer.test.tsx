@@ -9,8 +9,12 @@ import * as workersApi from "@/api/resources/workers";
 import type {
   AgentEnablement,
   AgentModel,
+  AgentSummary,
   WorkbenchConfiguration,
+  WorkbenchMember,
   WorkbenchMessageAnswer,
+  WorkbenchQueuedMessage,
+  WorkbenchSessionEntry,
 } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
@@ -19,6 +23,7 @@ vi.mock("@/api/resources/workers");
 import { ChatView } from "./chat-view";
 
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
+const HOST_MEMBER = { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" };
 
 const CONFIGURATION: WorkbenchConfiguration = {
   agent_provider: "atlas-llm",
@@ -64,7 +69,71 @@ function Where() {
   return <output aria-label="Location">{`${pathname}${search}`}</output>;
 }
 
-function mount(agentName = "swe@1", runActive = false) {
+const RE_ENABLEMENT: AgentEnablement = {
+  ...ENABLEMENT,
+  agent_name: "re@1",
+  default_configuration: {
+    agent_provider: "atlas-llm",
+    model_identifier: "qwen3-next",
+    reasoning_effort: "off",
+  },
+};
+
+function summary(
+  agentName: string,
+  displayName: string,
+  enablement: AgentEnablement | null,
+  consumers: AgentSummary["consumers"],
+): AgentSummary {
+  return {
+    agentName,
+    displayName,
+    workerNames: [],
+    consumers,
+    toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+    enablement,
+  };
+}
+
+const AGENTS: readonly AgentSummary[] = [
+  summary("ops@1", "Yumi", null, ["workbench"]),
+  summary("re@1", "RE", RE_ENABLEMENT, ["workbench", "worker"]),
+  summary("swe@1", "SWE", ENABLEMENT, ["workbench", "worker"]),
+  summary("guard@1", "Guard", ENABLEMENT, []),
+  summary("sa@1", "Software Architecture", { ...ENABLEMENT, agent_name: "sa@1" }, ["workbench"]),
+];
+
+const GUEST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1";
+const GUEST_MEMBER: WorkbenchMember = {
+  session_id: GUEST_ID,
+  agent_name: "re@1",
+  display_name: "RE",
+};
+
+function answer(member: WorkbenchMember, id: string, stopReason = "stop"): WorkbenchSessionEntry {
+  return {
+    session_id: member.session_id,
+    agent_name: member.agent_name,
+    type: "message",
+    id,
+    parentId: null,
+    timestamp: "2026-10-05T09:00:00.000Z",
+    message: {
+      role: "assistant",
+      content: [{ type: "text", text: `Answer ${id}` }],
+      stopReason,
+    },
+  };
+}
+
+function mount(
+  agentName = "swe@1",
+  runActive = false,
+  conversation: {
+    readonly members?: readonly WorkbenchMember[];
+    readonly entries?: readonly WorkbenchSessionEntry[];
+  } = {},
+) {
   return render(
     <MemoryRouter initialEntries={[`/workbench/${SESSION_ID}`]}>
       <Where />
@@ -73,13 +142,13 @@ function mount(agentName = "swe@1", runActive = false) {
           id: SESSION_ID,
           agent_name: agentName,
           configuration: CONFIGURATION,
-          entries: [],
+          entries: conversation.entries ?? [],
+          members: conversation.members ?? [HOST_MEMBER],
           run_active: runActive,
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={ENABLEMENT}
         ownerName="Ulrich"
-        agentDisplayName="SWE"
       />
     </MemoryRouter>,
   );
@@ -93,6 +162,7 @@ beforeEach(() => {
   vi.mocked(workbenchApi.configureWorkbenchSession).mockImplementation(
     async (_sessionId, body) => body,
   );
+  vi.mocked(workersApi.listAgents).mockResolvedValue(AGENTS);
   vi.mocked(workersApi.listAgentProviderModels).mockImplementation(
     async (_agentName, providerName) => MODELS[providerName] ?? [],
   );
@@ -101,6 +171,257 @@ beforeEach(() => {
 function optionNames(): string[] {
   return screen.queryAllByRole("option").map((option) => option.textContent ?? "");
 }
+
+describe("Composer mentions", () => {
+  async function typeInMessage(text: string) {
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), text);
+  }
+
+  it("lists the enabled session agents by display name after an @ at the start", async () => {
+    mount();
+
+    await typeInMessage("@");
+
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    expect(
+      within(list)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["RE", "SWE", "Software Architecture"]);
+    expect(within(list).queryByText("Guard")).toBeNull();
+  });
+
+  it("filters by the typed prefix and inserts the full display name with a space", async () => {
+    mount();
+
+    await typeInMessage("@r");
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    expect(
+      within(list)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["RE"]);
+    await userEvent.click(within(list).getByRole("option", { name: "RE" }));
+
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE ");
+    expect(screen.queryByRole("listbox", { name: "Mentions" })).toBeNull();
+  });
+
+  it("inserts the active suggestion on Enter without sending", async () => {
+    mount();
+
+    await typeInMessage("@swe");
+    await screen.findByRole("listbox", { name: "Mentions" });
+    await userEvent.keyboard("{ArrowDown}{Enter}");
+
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@SWE ");
+    expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+  });
+
+  it("makes the first match active and inserts it on Enter without sending", async () => {
+    mount();
+
+    await typeInMessage("@R");
+    await screen.findByRole("listbox", { name: "Mentions" });
+    await userEvent.keyboard("{Enter}");
+
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE ");
+    expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+  });
+
+  it("inserts the active suggestion on Tab", async () => {
+    mount();
+
+    await typeInMessage("@S");
+    await screen.findByRole("listbox", { name: "Mentions" });
+    await userEvent.keyboard("{ArrowDown}{Tab}");
+
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue(
+      "@Software Architecture ",
+    );
+    expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+  });
+
+  it("names one existing option as the active descendant for a space-separated name", async () => {
+    mount();
+
+    await typeInMessage("@S");
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    const box = screen.getByRole("combobox", { name: "Message" });
+    const options = within(list).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["SWE", "Software Architecture"]);
+    expect(box.getAttribute("aria-activedescendant")).toBe(options[0]?.id);
+
+    await userEvent.keyboard("{ArrowDown}");
+
+    const active = box.getAttribute("aria-activedescendant") ?? "";
+    expect(active).toBe(options[1]?.id);
+    expect(active).not.toMatch(/\s/);
+    expect(document.querySelectorAll(`[id="${active}"]`)).toHaveLength(1);
+  });
+
+  it("opens no list for an @ later in the draft", async () => {
+    mount();
+
+    await typeInMessage("hello @");
+
+    expect(screen.queryByRole("listbox", { name: "Mentions" })).toBeNull();
+  });
+});
+
+describe("Composer addressee", () => {
+  const BOTH = [HOST_MEMBER, GUEST_MEMBER];
+
+  it("shows the host for the greeting", () => {
+    mount("swe@1", false, { members: BOTH, entries: [answer(HOST_MEMBER, "e1")] });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent("SWE");
+  });
+
+  it("shows the last responder when a guest answered after the host", () => {
+    mount("swe@1", false, {
+      members: BOTH,
+      entries: [answer(HOST_MEMBER, "e1"), answer(GUEST_MEMBER, "e2")],
+    });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent("RE");
+  });
+
+  it("shows the target of a leading mention in the draft over the last responder", async () => {
+    mount("swe@1", false, {
+      members: BOTH,
+      entries: [answer(HOST_MEMBER, "e1"), answer(GUEST_MEMBER, "e2")],
+    });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@SWE look");
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent("SWE");
+  });
+
+  it.each([
+    ["@RE, why", "RE"],
+    ["@RE{Shift>}{Enter}{/Shift}", "RE"],
+    ["@re look", "RE"],
+    ["@Software Architecture plan", "Software Architecture"],
+  ])("routes the draft %s to %s", async (draft, target) => {
+    mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), draft);
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(new RegExp(`^To @${target}$`));
+  });
+
+  it("does not route a name that continues with a name character", async () => {
+    mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@REX look");
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @SWE \(last answer\)$/);
+  });
+
+  it("labels the last responder with the last answer", () => {
+    mount("swe@1", false, {
+      members: BOTH,
+      entries: [answer(HOST_MEMBER, "e1"), answer(GUEST_MEMBER, "e2")],
+    });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @RE \(last answer\)$/);
+  });
+
+  it("counts only final answers for the last responder", () => {
+    mount("swe@1", false, {
+      members: BOTH,
+      entries: [answer(HOST_MEMBER, "e1"), answer(GUEST_MEMBER, "e2", "aborted")],
+    });
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @SWE \(last answer\)$/);
+  });
+
+  it("shows the addressee below the input", () => {
+    mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
+
+    const input = screen.getByRole("combobox", { name: "Message" });
+    const chip = screen.getByLabelText("Addressee");
+    expect(input.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows the matched display name of an agent that is not yet a member and disables the pickers", async () => {
+    mount("swe@1", false, { entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@RE look");
+
+    expect(screen.getByLabelText("Addressee")).toHaveTextContent("RE");
+    expect(await screen.findByRole("combobox", { name: "Model" })).toBeDisabled();
+  });
+
+  it("shows a queued tagged message as to its mention before the next poll", async () => {
+    vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      session_id: SESSION_ID,
+      agent_name: "swe@1",
+      run_active: true,
+      queued_message_id: "queued_1",
+      cleared: [],
+    });
+    mount("swe@1", true, { members: BOTH, entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@RE look{Enter}");
+    await userEvent.click(await screen.findByRole("button", { name: /1 queued/ }));
+
+    expect(await screen.findByText("to @RE")).toBeTruthy();
+  });
+
+  it("shows a queued untagged message as to last answer", async () => {
+    vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      session_id: SESSION_ID,
+      agent_name: "swe@1",
+      run_active: true,
+      queued_message_id: "queued_1",
+      cleared: [],
+    });
+    mount("swe@1", true, { members: BOTH, entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "look{Enter}");
+    await userEvent.click(await screen.findByRole("button", { name: /1 queued/ }));
+
+    expect(await screen.findByText("to last answer")).toBeTruthy();
+  });
+
+  it("configures the session id of the addressee member", async () => {
+    mount("swe@1", false, { members: BOTH, entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+    await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@RE look");
+
+    await waitFor(() =>
+      expect(workersApi.listAgentProviderModels).toHaveBeenCalledWith("re@1", "atlas-llm"),
+    );
+    await choose("Reasoning Effort", "low");
+
+    expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(GUEST_ID, {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-next",
+      reasoning_effort: "low",
+    });
+  });
+
+  it("configures the host session while the addressee is the host", async () => {
+    mount("swe@1", false, { members: BOTH, entries: [answer(HOST_MEMBER, "e1")] });
+    await waitFor(() => expect(workersApi.listAgentProviderModels).toHaveBeenCalled());
+
+    await choose("Reasoning Effort", "high");
+
+    expect(workbenchApi.configureWorkbenchSession).toHaveBeenCalledWith(SESSION_ID, {
+      ...CONFIGURATION,
+      reasoning_effort: "high",
+    });
+  });
+});
 
 describe("Composer", () => {
   it("shows the configuration of the session in three pickers", () => {
@@ -268,6 +589,7 @@ describe("Composer", () => {
   it("sends the message with Enter and keeps a new line for Shift+Enter", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],
@@ -289,6 +611,7 @@ describe("Composer", () => {
   describe("during a run", () => {
     const ACCEPTED = {
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: "queued_1",
       cleared: [],
@@ -350,11 +673,12 @@ describe("Composer", () => {
   it("disables the three pickers while the queue holds a message and no run is active", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents).mockResolvedValueOnce({
       entries: [],
+      members: [HOST_MEMBER],
       snapshot: {
         streaming_message: null,
         pending_tool_calls: [],
         pending_approval: null,
-        queue: [{ id: "queued_1", text: "later" }],
+        queue: [{ id: "queued_1", text: "later", agent_name: null, display_name: null }],
         run_active: false,
         error_message: null,
         auto_mode: true,
@@ -395,11 +719,12 @@ describe("Composer", () => {
 
     answer({
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [
-        { id: "queued_1", text: "first" },
-        { id: "queued_2", text: "second" },
+        { id: "queued_1", text: "first", agent_name: null, display_name: null },
+        { id: "queued_2", text: "second", agent_name: null, display_name: null },
       ],
     });
 
@@ -408,13 +733,14 @@ describe("Composer", () => {
 
   describe("Stop", () => {
     const QUEUE = [
-      { id: "queued_1", text: "first queued" },
-      { id: "queued_2", text: "second queued" },
+      { id: "queued_1", text: "first queued", agent_name: null, display_name: null },
+      { id: "queued_2", text: "second queued", agent_name: null, display_name: null },
     ];
 
-    function withQueue(queue: readonly { id: string; text: string }[]) {
+    function withQueue(queue: readonly WorkbenchQueuedMessage[]) {
       vi.mocked(workbenchApi.readWorkbenchEvents).mockResolvedValueOnce({
         entries: [],
+        members: [HOST_MEMBER],
         snapshot: {
           streaming_message: null,
           pending_tool_calls: [],
@@ -578,6 +904,7 @@ describe("Composer", () => {
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: "queued_9",
         cleared: QUEUE,
@@ -614,6 +941,7 @@ describe("Composer", () => {
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
     const SENT = {
       session_id: SESSION_ID,
+      agent_name: null,
       run_active: true,
       queued_message_id: null,
       cleared: [],

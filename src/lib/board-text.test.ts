@@ -83,7 +83,9 @@ const PROJECT: Project = {
 
 const SESSION: WorkbenchSessionListItem = {
   id: "s1",
+  host_session_id: null,
   agent_name: "swe@1",
+  display_name: "SWE",
   name: null,
   created: 1,
   modified: 2,
@@ -91,6 +93,7 @@ const SESSION: WorkbenchSessionListItem = {
   first_message: "Create",
   run_active: true,
   pending_approval: { tool_call_id: "c1", operation_id: "project.create" },
+  participants: [],
 };
 
 function node(

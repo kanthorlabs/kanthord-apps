@@ -1,15 +1,24 @@
-import { type ReactNode, useCallback, useEffect, useMemo } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { AgentEnablement, WorkbenchSession } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
-import { type ActionCardItem, agentWorking, chatItemsOf, runRequestOf } from "@/lib/workbench-chat";
+import {
+  type ActionCardItem,
+  agentWorking,
+  chatItemsOf,
+  memberOf,
+  runRequestOf,
+} from "@/lib/workbench-chat";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
+import { workbenchSessionPath } from "@/lib/workbench-sessions";
+import { addresseeOf, configurationTargetOf, leadingMentionOf } from "@/lib/workbench-mention";
 import { useScrollToEnd } from "../use-scroll-to-end";
 import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
 import { useComposer } from "../use-composer";
 import { useElapsedSeconds } from "../use-elapsed-seconds";
+import { useMentionAgents } from "../use-mention-agents";
 import { useSessionEvents } from "../use-session-events";
 import { useStopConfirm } from "../use-stop-confirm";
 import { AgentWorking } from "./agent-working";
@@ -26,7 +35,6 @@ interface ChatViewProps {
   readonly session: WorkbenchSession;
   readonly enablement: AgentEnablement | null;
   readonly ownerName: string;
-  readonly agentDisplayName: string;
   readonly firstSendFailure?: FirstSendFailure | null;
   readonly streamEnd?: ReactNode;
   readonly approvalLine?: ReactNode | null;
@@ -38,42 +46,76 @@ export function ChatView({
   session,
   enablement,
   ownerName,
-  agentDisplayName,
   firstSendFailure = null,
   streamEnd = null,
   approvalLine = null,
   actionLineOf,
   onNew,
 }: ChatViewProps) {
-  const events = useSessionEvents(session.id, session.entries, session.run_active);
+  const events = useSessionEvents(session.id, session.entries, session.members, session.run_active);
+  const mentionAgents = useMentionAgents();
+  const mentionNames = useMemo(
+    () => mentionAgents.agents.map((agent) => agent.displayName),
+    [mentionAgents.agents],
+  );
+  const mentionOf = useCallback(
+    (text: string) =>
+      leadingMentionOf(text, [
+        ...events.members.map((member) => member.display_name),
+        ...mentionNames,
+      ]),
+    [events.members, mentionNames],
+  );
+  const navigate = useNavigate();
+  const openHost = useCallback(
+    (hostSessionId: string) => navigate(workbenchSessionPath(hostSessionId), { replace: true }),
+    [navigate],
+  );
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
     firstSendFailure === null
       ? null
       : { cause: "send", code: firstSendFailure.code, message: firstSendFailure.message },
-  );
-  const configuration = useChatConfiguration(
-    session.id,
-    session.agent_name,
-    session.configuration,
-    enablement,
+    mentionOf,
+    openHost,
   );
   const { snapshot, patchSnapshot } = events;
   const onAutoMode = useCallback(
     (enabled: boolean) => patchSnapshot({ auto_mode: enabled }),
     [patchSnapshot],
   );
-  const navigate = useNavigate();
-  const currentConfiguration = configuration.configuration;
-  const openNewChat = useCallback(
-    () => navigate(newSessionPath(session.agent_name, currentConfiguration)),
-    [navigate, session.agent_name, currentConfiguration],
-  );
+  const newChat = useRef<() => void>(() => undefined);
+  const handleNew = useCallback(() => newChat.current(), []);
   const composer = useComposer(actions.busy, actions.send, {
     agentName: session.agent_name,
-    onNew: onNew ?? openNewChat,
+    onNew: handleNew,
     initialDraft: firstSendFailure?.draft,
+    mentionNames,
+  });
+  const addressee = useMemo(
+    () => addresseeOf(composer.draft, events.members, events.entries, mentionNames),
+    [composer.draft, events.members, events.entries, mentionNames],
+  );
+  const host = useMemo(
+    () => ({
+      sessionId: session.id,
+      agentName: session.agent_name,
+      configuration: session.configuration,
+      enablement,
+    }),
+    [session.id, session.agent_name, session.configuration, enablement],
+  );
+  const hostDisplayName = memberOf(events.members, session.id).display_name;
+  const target = configurationTargetOf(addressee, host, mentionAgents.agents);
+  const shown = target ?? host;
+  const configuration = useChatConfiguration(shown);
+  const openNewChat = useCallback(
+    () => navigate(newSessionPath(session.agent_name, session.configuration, hostDisplayName)),
+    [navigate, session.agent_name, session.configuration, hostDisplayName],
+  );
+  useEffect(() => {
+    newChat.current = onNew ?? openNewChat;
   });
   const { bindRefill } = actions;
   useEffect(() => bindRefill(composer.refill), [bindRefill, composer.refill]);
@@ -84,7 +126,11 @@ export function ChatView({
     actions,
     composer,
   });
-  const items = useMemo(() => chatItemsOf(events.entries, snapshot), [events.entries, snapshot]);
+  const { members } = events;
+  const items = useMemo(
+    () => chatItemsOf(events.entries, snapshot, members),
+    [events.entries, snapshot, members],
+  );
   const working = agentWorking(items, snapshot);
   const elapsed = useElapsedSeconds(snapshot.run_active, runRequestOf(items)?.id ?? null);
   useScrollToEnd(items, snapshot.pending_approval);
@@ -104,12 +150,13 @@ export function ChatView({
     configuration.modelsFailure === null
       ? null
       : { code: null, message: configuration.modelsFailure },
+    mentionAgents.failure === null ? null : { code: null, message: mentionAgents.failure },
   ].filter((failure) => failure !== null);
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 className="font-mono text-lg font-semibold">{session.agent_name}</h2>
+        <h2 className="font-mono text-lg font-semibold">{hostDisplayName} conversation</h2>
         <Badge variant={snapshot.run_active ? "default" : "outline"}>
           {snapshot.run_active ? "Running" : "Idle"}
         </Badge>
@@ -117,6 +164,13 @@ export function ChatView({
           {session.id}
         </span>
         <ResumeCommandButton command={session.resume_command} />
+        <div role="group" aria-label="Members" className="flex flex-wrap gap-1">
+          {members.map((member) => (
+            <Badge key={member.session_id} variant="secondary">
+              {member.display_name}
+            </Badge>
+          ))}
+        </div>
         <AutoModeSwitch
           sessionId={session.id}
           enabled={snapshot.auto_mode}
@@ -127,7 +181,7 @@ export function ChatView({
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <ChatTranscript
           items={items}
-          authors={{ ownerName, agentName: session.agent_name, agentDisplayName }}
+          authors={{ ownerName }}
           runError={snapshot.error_message}
           actionLineOf={actionLineOf}
           sessionId={session.id}
@@ -147,12 +201,14 @@ export function ChatView({
           (approvalLine ?? (
             <ApprovalCard
               approval={snapshot.pending_approval}
-              agentDisplayName={agentDisplayName}
+              agentDisplayName={
+                memberOf(members, snapshot.pending_approval.session_id).display_name
+              }
               busy={actions.busy}
               failure={approvalFailure}
               onDecide={(approved) => {
                 if (snapshot.pending_approval !== null) {
-                  actions.approve(snapshot.pending_approval.tool_call_id, approved);
+                  actions.approve(snapshot.pending_approval, approved);
                 }
               }}
             />
@@ -174,8 +230,9 @@ export function ChatView({
         />
         <Composer
           composer={composer}
-          configuration={configuration}
-          agentDisplayName={agentDisplayName}
+          configuration={target === null ? null : configuration}
+          agentDisplayName={hostDisplayName}
+          addressee={addressee}
           runActive={snapshot.run_active}
           queued={queueCount > 0}
           stopConfirm={stopConfirm.confirm}

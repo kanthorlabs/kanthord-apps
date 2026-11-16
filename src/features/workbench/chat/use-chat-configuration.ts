@@ -2,10 +2,11 @@ import { useCallback, useState } from "react";
 
 import { configureWorkbenchSession } from "@/api/resources/workbench";
 import { listAgentProviderModels } from "@/api/resources/workers";
-import type { AgentEnablement, ReasoningEffort, WorkbenchConfiguration } from "@/api/types";
+import type { ReasoningEffort, WorkbenchConfiguration } from "@/api/types";
 import { useAgentProviderModels } from "@/hooks/use-agent-provider-models";
 import { asApiError } from "@/hooks/use-resource";
 import { reasoningEffortOf } from "@/lib/enablement-draft";
+import type { ConfigurationTarget } from "@/lib/workbench-mention";
 import {
   effortAfterModelChange,
   effortOptions,
@@ -21,25 +22,29 @@ export interface ChatConfigurationState {
   readonly modelsFailure: string | null;
   readonly failure: string | null;
   readonly pending: boolean;
+  readonly disabled: boolean;
   readonly selectAgentProvider: (value: string | null) => void;
   readonly selectModel: (value: string | null) => void;
   readonly selectReasoningEffort: (value: string | null) => void;
 }
 
-export function useChatConfiguration(
-  sessionId: string,
-  agentName: string,
-  initial: WorkbenchConfiguration,
-  enablement: AgentEnablement | null,
-): ChatConfigurationState {
-  const [configuration, setConfiguration] = useState(initial);
+export function useChatConfiguration({
+  sessionId,
+  agentName,
+  configuration: initial,
+  enablement,
+}: ConfigurationTarget): ChatConfigurationState {
+  const [configured, setConfigured] = useState<Readonly<Record<string, WorkbenchConfiguration>>>(
+    {},
+  );
+  const configuration = (sessionId === null ? undefined : configured[sessionId]) ?? initial;
   const [failure, setFailure] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const providerModels = useAgentProviderModels(agentName, configuration.agent_provider);
 
   const change = useCallback(
     (patch: Promise<Partial<WorkbenchConfiguration>> | Partial<WorkbenchConfiguration>) => {
-      if (pending) return;
+      if (pending || sessionId === null) return;
       setFailure(null);
       setPending(true);
       Promise.resolve(patch)
@@ -47,7 +52,7 @@ export function useChatConfiguration(
         .then(
           (answer) => {
             setPending(false);
-            setConfiguration(answer);
+            setConfigured((held) => ({ ...held, [sessionId]: answer }));
           },
           (cause: unknown) => {
             setPending(false);
@@ -122,6 +127,7 @@ export function useChatConfiguration(
     modelsFailure: providerModels.failure,
     failure,
     pending,
+    disabled: sessionId === null,
     selectAgentProvider,
     selectModel,
     selectReasoningEffort,

@@ -7,6 +7,9 @@ import { ActionCard } from "./action-card";
 
 function card(overrides: Partial<ActionCardItem> = {}): ActionCardItem {
   return {
+    session_id: "session_1",
+    agent_name: "swe@1",
+    display_name: "SWE",
     kind: "action-card",
     id: "e1",
     offer: {

@@ -248,7 +248,9 @@ describe("boardTabOf", () => {
   it("answers tool for a tool approval", () => {
     const session: WorkbenchSessionListItem = {
       id: "s1",
+      host_session_id: null,
       agent_name: "swe@1",
+      display_name: "SWE",
       name: null,
       created: 1,
       modified: 2,
@@ -256,6 +258,7 @@ describe("boardTabOf", () => {
       first_message: "Create",
       run_active: true,
       pending_approval: { tool_call_id: "c1", operation_id: "project.create" },
+      participants: [],
     };
 
     const item = onlyItem(derive([], new Map(), [session]));

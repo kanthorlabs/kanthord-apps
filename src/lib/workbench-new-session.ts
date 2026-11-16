@@ -14,6 +14,7 @@ export type NewSessionRequest =
   | {
       readonly ok: true;
       readonly agentName: string;
+      readonly agentDisplayName: string | null;
       readonly configuration: WorkbenchConfiguration;
     }
   | { readonly ok: false; readonly message: string };
@@ -24,13 +25,19 @@ export interface FirstSendFailure {
   readonly message: string;
 }
 
-export function newSessionPath(agentName: string, configuration: WorkbenchConfiguration): string {
-  return `${NEW_SESSION_PATH}?${new URLSearchParams({
+export function newSessionPath(
+  agentName: string,
+  configuration: WorkbenchConfiguration,
+  agentDisplayName: string | null = null,
+): string {
+  const params = new URLSearchParams({
     agent_name: agentName,
     agent_provider: configuration.agent_provider,
     model_identifier: configuration.model_identifier,
     reasoning_effort: configuration.reasoning_effort,
-  })}`;
+  });
+  if (agentDisplayName !== null) params.set("display_name", agentDisplayName);
+  return `${NEW_SESSION_PATH}?${params}`;
 }
 
 export function invalidFieldsText(errors: Readonly<Record<string, string>>): string {
@@ -47,7 +54,14 @@ export function newSessionRequestOf(params: URLSearchParams): NewSessionRequest 
     modelIdentifier: params.get("model_identifier") ?? "",
     reasoningEffort: reasoningEffortOf(params.get("reasoning_effort")),
   });
-  if (result.ok) return { ok: true, agentName, configuration: result.configuration };
+  if (result.ok) {
+    return {
+      ok: true,
+      agentName,
+      agentDisplayName: params.get("display_name"),
+      configuration: result.configuration,
+    };
+  }
   return {
     ok: false,
     message: `The address of this page holds no valid ${invalidFieldsText(result.errors)}.`,

@@ -799,7 +799,9 @@ describe("externalReadStateOf", () => {
 describe("deriveAttention tool_approval", () => {
   const waiting: WorkbenchSessionListItem = {
     id: "workbench_session_A",
+    host_session_id: null,
     agent_name: "swe@1",
+    display_name: "SWE",
     name: null,
     created: 1,
     modified: 700,
@@ -807,6 +809,7 @@ describe("deriveAttention tool_approval", () => {
     first_message: "Create the project",
     run_active: true,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+    participants: [],
   };
 
   it("sorts the approval after the node decisions and ahead of the fixes", () => {

@@ -18,10 +18,13 @@ const IDLE: WorkbenchRunSnapshot = {
   auto_mode: true,
 };
 
-const AUTHORS = { ownerName: "Owner", agentName: "agent", agentDisplayName: "Agent" };
+const AUTHORS = { ownerName: "Owner" };
+const MEMBERS = [{ session_id: "session_1", agent_name: "swe@1", display_name: "SWE" }];
 
 function recordEntry(id: string, data: Record<string, unknown>) {
   return {
+    session_id: "session_1",
+    agent_name: "swe@1",
     type: "custom",
     id,
     parentId: null,
@@ -33,6 +36,8 @@ function recordEntry(id: string, data: Record<string, unknown>) {
 
 function renderTranscript(extra: ReturnType<typeof recordEntry>) {
   const call = {
+    session_id: "session_1",
+    agent_name: "swe@1",
     type: "message",
     id: "e1",
     parentId: null,
@@ -42,7 +47,7 @@ function renderTranscript(extra: ReturnType<typeof recordEntry>) {
       content: [{ type: "toolCall", id: "call_1", name: "mission.node.pause", arguments: {} }],
     },
   };
-  for (const item of chatItemsOf([call, extra], IDLE)) {
+  for (const item of chatItemsOf([call, extra], IDLE, MEMBERS)) {
     render(<ChatEntry item={item} authors={AUTHORS} runError={null} sessionId="session_1" />);
   }
 }

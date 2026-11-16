@@ -316,6 +316,16 @@ describe("readWorkbenchEvents", () => {
     expect(await readWorkbenchEvents(SESSION_ID, "entry-9", 4)).toEqual(EVENTS);
   });
 
+  it("sends a multi-pair after unchanged", async () => {
+    const after = "session-1:entry-9,session-2:entry-4";
+    await serve({
+      [`GET ${PATH}/events?after=${encodeURIComponent(after)}&version=4`]: { body: EVENTS },
+    });
+
+    expect(await readWorkbenchEvents(SESSION_ID, after, 4)).toEqual(EVENTS);
+    expect(new URL(seen[0]!.url, "http://x").searchParams.get("after")).toBe(after);
+  });
+
   it("sends no after before the first entry", async () => {
     await serve({ [`GET ${PATH}/events`]: { body: EVENTS } });
 

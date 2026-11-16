@@ -22,8 +22,6 @@ const NO_RESULT_LINE = "No result. The run ended before this call finished.";
 
 export interface ChatAuthors {
   readonly ownerName: string;
-  readonly agentName: string;
-  readonly agentDisplayName: string;
 }
 
 interface UserMessageProps {
@@ -92,9 +90,9 @@ export function ChatEntry({
   if (item.kind === "assistant") {
     return (
       <div aria-busy={item.streaming} className="flex min-w-0 items-start gap-2">
-        <AgentAvatar agentName={authors.agentName} displayName={authors.agentDisplayName} />
+        <AgentAvatar agentName={item.agent_name} displayName={item.display_name} />
         <div className="flex min-w-0 flex-col items-start gap-1 break-words">
-          <BubbleAuthor name={authors.agentDisplayName} timestamp={item.timestamp} />
+          <BubbleAuthor name={item.display_name} timestamp={item.timestamp} />
           <AgentText text={item.text} />
           {item.streaming && <Badge variant="outline">Streaming</Badge>}
         </div>

@@ -1,6 +1,7 @@
 import { ArrowUpIcon } from "lucide-react";
 import { useId } from "react";
 
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
 import {
@@ -10,6 +11,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import type { Addressee } from "@/lib/workbench-mention";
 import type { ChatConfigurationState } from "../use-chat-configuration";
 import type { ComposerState } from "../use-composer";
 import { ComposerPicker } from "./composer-picker";
@@ -25,6 +27,7 @@ interface ComposerProps {
   readonly composer: ComposerState;
   readonly configuration: ChatConfigurationState | null;
   readonly agentDisplayName: string;
+  readonly addressee?: Addressee | null;
   readonly runActive: boolean;
   readonly queued: boolean;
   readonly stopConfirm?: StopConfirmProps | null;
@@ -36,6 +39,7 @@ export function Composer({
   composer,
   configuration,
   agentDisplayName,
+  addressee = null,
   runActive,
   queued,
   stopConfirm = null,
@@ -47,6 +51,13 @@ export function Composer({
   const inputPlaceholder =
     placeholder ?? (runActive ? RUNNING_PLACEHOLDER : idlePlaceholder(agentDisplayName));
   const optionId = (id: string) => `${listId}-${id}`;
+  const expanded = composer.listOpen || composer.mentionsOpen;
+  const activeOptionId =
+    composer.activeCommand === null ? undefined : optionId(composer.activeCommand.id);
+  const activeMentionId =
+    composer.activeMention === null
+      ? undefined
+      : optionId(`mention-${composer.mentions.indexOf(composer.activeMention)}`);
   return (
     <form
       aria-label="Composer"
@@ -85,17 +96,43 @@ export function Composer({
           </ItemGroup>
         </Card>
       )}
+      {composer.mentionsOpen && (
+        <Card size="sm" className="absolute right-0 bottom-full left-0 z-40 mb-2 py-1">
+          <ItemGroup
+            id={listId}
+            role="listbox"
+            aria-label="Mentions"
+            className="gap-0"
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {composer.mentions.map((name, index) => (
+              <Item
+                key={name}
+                id={optionId(`mention-${index}`)}
+                role="option"
+                size="xs"
+                aria-selected={composer.activeMention === name}
+                data-active={composer.activeMention === name}
+                className="cursor-pointer data-[active=true]:bg-muted"
+                onClick={() => composer.pickMention(name)}
+              >
+                <ItemContent>
+                  <ItemTitle>{name}</ItemTitle>
+                </ItemContent>
+              </Item>
+            ))}
+          </ItemGroup>
+        </Card>
+      )}
       {stopConfirm !== null && <StopConfirm {...stopConfirm} />}
       <InputGroup>
         <div className="flex w-full items-end gap-2 pr-2">
           <InputGroupTextarea
             role="combobox"
             aria-label="Message"
-            aria-expanded={composer.listOpen}
-            aria-controls={composer.listOpen ? listId : undefined}
-            aria-activedescendant={
-              composer.activeCommand === null ? undefined : optionId(composer.activeCommand.id)
-            }
+            aria-expanded={expanded}
+            aria-controls={expanded ? listId : undefined}
+            aria-activedescendant={activeOptionId ?? activeMentionId}
             aria-autocomplete="list"
             placeholder={inputPlaceholder}
             disabled={inputDisabled}
@@ -123,26 +160,32 @@ export function Composer({
               label="Agent Provider"
               value={configuration.configuration.agent_provider}
               options={configuration.agentProviders}
-              disabled={configuration.pending || pickersDisabled}
+              disabled={configuration.pending || configuration.disabled || pickersDisabled}
               onChange={configuration.selectAgentProvider}
             />
             <ComposerPicker
               label="Model"
               value={configuration.configuration.model_identifier}
               options={configuration.models}
-              disabled={configuration.pending || pickersDisabled}
+              disabled={configuration.pending || configuration.disabled || pickersDisabled}
               onChange={configuration.selectModel}
             />
             <ComposerPicker
               label="Reasoning Effort"
               value={configuration.configuration.reasoning_effort}
               options={configuration.reasoningEfforts}
-              disabled={configuration.pending || pickersDisabled}
+              disabled={configuration.pending || configuration.disabled || pickersDisabled}
               onChange={configuration.selectReasoningEffort}
             />
           </InputGroupAddon>
         )}
       </InputGroup>
+      {addressee !== null && (
+        <Badge variant="outline" aria-label="Addressee" className="mt-1">
+          To @{addressee.displayName}
+          {addressee.source === "last-answer" && " (last answer)"}
+        </Badge>
+      )}
       <p role="status" className="mt-1 min-h-5 text-sm text-muted-foreground">
         {composer.hint}
       </p>

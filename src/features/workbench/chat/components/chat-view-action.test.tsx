@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { pauseProject, readProject } from "@/api/resources/projects";
 import { readWorkbenchEvents, reportWorkbenchAction } from "@/api/resources/workbench";
-import { listAgentProviderModels } from "@/api/resources/workers";
+import { listAgentProviderModels, listAgents } from "@/api/resources/workers";
 import type { AgentEnablement, Project, WorkbenchSession } from "@/api/types";
 import { ChatView } from "./chat-view";
 
@@ -35,8 +35,11 @@ const SESSION: WorkbenchSession = {
   id: SESSION_ID,
   agent_name: "swe@1",
   configuration: ENABLEMENT.default_configuration,
+  members: [{ session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" }],
   entries: [
     {
+      session_id: SESSION_ID,
+      agent_name: "swe@1",
       type: "custom",
       id: "e1",
       parentId: null,
@@ -69,6 +72,7 @@ function project(pausedAt: number | null): Project {
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(readWorkbenchEvents).mockImplementation(() => new Promise(() => undefined));
+  vi.mocked(listAgents).mockResolvedValue([]);
   vi.mocked(listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
   ]);
@@ -89,12 +93,7 @@ describe("ChatView action card", () => {
     const user = userEvent.setup();
     render(
       <MemoryRouter>
-        <ChatView
-          session={SESSION}
-          enablement={ENABLEMENT}
-          ownerName="Ulrich"
-          agentDisplayName="SWE"
-        />
+        <ChatView session={SESSION} enablement={ENABLEMENT} ownerName="Ulrich" />
       </MemoryRouter>,
     );
 

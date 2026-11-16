@@ -45,6 +45,9 @@ export function QueuedMessages({ queue, busy, failure, onEdit, onRemove }: Queue
                       <p className="min-w-0 grow text-sm break-words whitespace-pre-wrap">
                         {item.text}
                       </p>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {item.display_name === null ? "to last answer" : `to @${item.display_name}`}
+                      </span>
                       <Button variant="link" size="sm" disabled={busy} onClick={() => onEdit(item)}>
                         Edit
                       </Button>

@@ -2341,7 +2341,11 @@ export const PINNED_CREDENTIAL_REVISIONS = ["credential_01J9ZQ4XKM3B6V8N2R5T7W00
 
 const SESSION_BASE = Date.parse("2026-10-05T09:00:00.000Z");
 const entryAt = (index) => new Date(SESSION_BASE + index * 60000).toISOString();
-const textMessage = (role, text) => ({ role, content: [{ type: "text", text }] });
+const textMessage = (role, text) => ({
+  role,
+  content: [{ type: "text", text }],
+  ...(role === "assistant" ? { stopReason: "stop" } : {}),
+});
 
 const EVIDENCE_READ_FACTS = {
   asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0AB4",
@@ -2793,6 +2797,60 @@ export const WORKBENCH_SESSIONS = [
         parentId: "e0000301",
         timestamp: entryAt(5761),
         message: textMessage("assistant", "The node is blocked by an unmet criterion."),
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP3",
+    host_session_id: null,
+    agent_name: "ops@1",
+    created: SESSION_BASE + 5 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000401",
+        parentId: null,
+        timestamp: entryAt(7200),
+        message: textMessage("assistant", "Hi, I am Yumi on qwen3-coder. What do you need?"),
+      },
+      {
+        type: "message",
+        id: "e0000402",
+        parentId: "e0000401",
+        timestamp: entryAt(7203),
+        message: textMessage("assistant", "RE reviewed the node. Ask me for the next step."),
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1",
+    host_session_id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0OP3",
+    agent_name: "re@1",
+    created: SESSION_BASE + 5 * 86400000 + 60000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000501",
+        parentId: null,
+        timestamp: entryAt(7201),
+        message: { role: "user", content: "@RE Review the retry of the payment client." },
+      },
+      {
+        type: "message",
+        id: "e0000502",
+        parentId: "e0000501",
+        timestamp: entryAt(7202),
+        message: textMessage("assistant", "The retry stops after three attempts. I found no gap."),
       },
     ],
   },

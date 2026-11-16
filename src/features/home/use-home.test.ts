@@ -53,7 +53,9 @@ function yumi(held: AgentEnablement | null): AgentSummary {
 function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): WorkbenchSessionListItem {
   return {
     id,
+    host_session_id: null,
     agent_name: "ops@1",
+    display_name: "Yumi",
     name: null,
     created: 1,
     modified: 1,
@@ -61,6 +63,7 @@ function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): Workbe
     first_message: "What needs me?",
     run_active: false,
     pending_approval: null,
+    participants: [],
     ...patch,
   };
 }
@@ -93,6 +96,18 @@ describe("useHome", () => {
     expect(listWorkbenchSessions).toHaveBeenCalledWith("ops@1");
     expect(result.current.view).toEqual({ kind: "session", sessionId: "newest", failure: null });
     expect(result.current.sessionId).toBe("newest");
+  });
+
+  it("skips a participant item and opens the latest host item by modified", async () => {
+    serve(enablement(), [
+      item("participant", { modified: 40, host_session_id: "host-new" }),
+      item("host-new", { modified: 30 }),
+      item("host-old", { modified: 10 }),
+    ]);
+
+    const { result } = await ready();
+
+    expect(result.current.sessionId).toBe("host-new");
   });
 
   it("skips a case conversation", async () => {

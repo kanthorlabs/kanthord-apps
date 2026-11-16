@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useCallback, useMemo, useState } from "react";
 
 import type { WorkbenchMessageDelivery } from "@/api/types";
+import { mentionSuggestionsOf } from "@/lib/workbench-mention";
 import {
   commandListOf,
   isCommandAvailable,
@@ -11,6 +12,7 @@ import {
 
 const NEW_TAKES_NO_TEXT = "/new takes no text yet";
 const NEWLINE = "\n";
+const NO_NAMES: readonly string[] = [];
 
 function clearedHint(count: number): string {
   const noun = count === 1 ? "cleared message is" : "cleared messages are";
@@ -21,6 +23,7 @@ export interface ComposerOptions {
   readonly agentName: string;
   readonly onNew: () => void;
   readonly initialDraft?: string;
+  readonly mentionNames?: readonly string[];
 }
 
 export interface ComposerState {
@@ -30,6 +33,9 @@ export interface ComposerState {
   readonly commands: readonly SlashCommand[];
   readonly listOpen: boolean;
   readonly activeCommand: SlashCommand | null;
+  readonly mentions: readonly string[];
+  readonly mentionsOpen: boolean;
+  readonly activeMention: string | null;
   readonly hint: string | null;
   readonly setDraft: (draft: string) => void;
   readonly submit: (delivery?: WorkbenchMessageDelivery) => void;
@@ -37,13 +43,14 @@ export interface ComposerState {
   readonly focus: () => void;
   readonly blur: () => void;
   readonly pick: (command: SlashCommand) => void;
+  readonly pickMention: (name: string) => void;
   readonly handleKey: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
 }
 
 export function useComposer(
   disabled: boolean,
   send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>,
-  { agentName, onNew, initialDraft = "" }: ComposerOptions,
+  { agentName, onNew, initialDraft = "", mentionNames = NO_NAMES }: ComposerOptions,
 ): ComposerState {
   const [draft, setDraftValue] = useState(initialDraft);
   const [focused, setFocused] = useState(false);
@@ -55,6 +62,11 @@ export function useComposer(
   const commands = useMemo(() => commandListOf(draft, agentName), [draft, agentName]);
   const listOpen = !disabled && focused && !dismissed && commands.length > 0;
   const activeCommand = listOpen ? (commands[activeIndex] ?? null) : null;
+  const mentions = useMemo(() => mentionSuggestionsOf(draft, mentionNames), [draft, mentionNames]);
+  const mentionsOpen = !disabled && focused && !dismissed && mentions.length > 0;
+  const activeMention = mentionsOpen ? (mentions[Math.max(activeIndex, 0)] ?? null) : null;
+  const optionCount = listOpen ? commands.length : mentionsOpen ? mentions.length : 0;
+  const currentIndex = mentionsOpen ? Math.max(activeIndex, 0) : activeIndex;
 
   const setDraft = useCallback((value: string) => {
     setDraftValue(value);
@@ -108,6 +120,14 @@ export function useComposer(
     [disabled, runNew, sendText],
   );
 
+  const pickMention = useCallback(
+    (name: string) => {
+      if (disabled) return;
+      setDraft(`@${name} `);
+    },
+    [disabled, setDraft],
+  );
+
   const submit = useCallback(
     (delivery: WorkbenchMessageDelivery = "queue") => {
       if (!canSend) return;
@@ -140,32 +160,34 @@ export function useComposer(
   const handleKey = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
       if (event.nativeEvent.isComposing) return;
-      if (listOpen && event.key === "Escape") {
+      if (optionCount > 0 && event.key === "Escape") {
         event.preventDefault();
         setDismissed(true);
         return;
       }
-      if (listOpen && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      if (optionCount > 0 && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
         event.preventDefault();
         const step = event.key === "ArrowDown" ? 1 : -1;
-        setActiveIndex((index) =>
-          index < 0
-            ? step > 0
-              ? 0
-              : commands.length - 1
-            : (index + step + commands.length) % commands.length,
+        const entry = step > 0 ? 0 : optionCount - 1;
+        setActiveIndex(
+          currentIndex < 0 ? entry : (currentIndex + step + optionCount) % optionCount,
         );
         return;
       }
-      if (event.key !== "Enter" || event.shiftKey) return;
+      const picksMention = event.key === "Tab" && !event.shiftKey && activeMention !== null;
+      if (!picksMention && (event.key !== "Enter" || event.shiftKey)) return;
       event.preventDefault();
       if (activeCommand !== null) {
         pick(activeCommand);
         return;
       }
+      if (activeMention !== null) {
+        pickMention(activeMention);
+        return;
+      }
       submit();
     },
-    [listOpen, commands.length, activeCommand, pick, submit],
+    [optionCount, currentIndex, activeCommand, activeMention, pick, pickMention, submit],
   );
 
   return {
@@ -175,6 +197,9 @@ export function useComposer(
     commands,
     listOpen,
     activeCommand,
+    mentions,
+    mentionsOpen,
+    activeMention,
     hint,
     setDraft,
     submit,
@@ -182,6 +207,7 @@ export function useComposer(
     focus,
     blur,
     pick,
+    pickMention,
     handleKey,
   };
 }

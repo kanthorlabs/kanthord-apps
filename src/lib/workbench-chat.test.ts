@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
+import type { WorkbenchMember, WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
 import {
   ACTION_VERBS,
   agentWorking,
+  type ChatItem,
   chatItemsOf,
+  memberOf,
   runErrorTargetId,
   runRequestOf,
   summaryOf,
@@ -21,8 +23,26 @@ const IDLE: WorkbenchRunSnapshot = {
   auto_mode: true,
 };
 
+const HOST: WorkbenchMember = { session_id: "host-1", agent_name: "ops@1", display_name: "Yumi" };
+const GUEST: WorkbenchMember = { session_id: "guest-1", agent_name: "re@1", display_name: "RE" };
+const MEMBERS = [HOST, GUEST];
+
+function stripOrigin<T extends ChatItem>(item: T) {
+  const { session_id: _s, agent_name: _a, display_name: _d, ...body } = item;
+  return body;
+}
+
+function bodyItemsOf(
+  entries: readonly WorkbenchSessionEntry[],
+  snapshot: WorkbenchRunSnapshot,
+): readonly ChatItem[] {
+  return chatItemsOf(entries, snapshot, MEMBERS);
+}
+
 function message(id: string, body: Record<string, unknown>): WorkbenchSessionEntry {
   return {
+    session_id: HOST.session_id,
+    agent_name: HOST.agent_name,
     type: "message",
     id,
     parentId: null,
@@ -37,7 +57,7 @@ const CALL = { type: "toolCall", id: "call_1", name: "mission.node.list", argume
 
 describe("chatItemsOf", () => {
   it("keeps user, assistant, tool call and tool result entries in order", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         message("e1", { role: "user", content: "List the nodes" }),
         message("e2", { role: "assistant", content: [{ type: "text", text: "Reading." }, CALL] }),
@@ -52,7 +72,7 @@ describe("chatItemsOf", () => {
       IDLE,
     );
 
-    expect(items).toEqual([
+    expect(items.map(stripOrigin)).toEqual([
       { kind: "user", id: "e1", text: "List the nodes", timestamp: AT },
       { kind: "assistant", id: "e2", text: "Reading.", streaming: false, timestamp: AT },
       {
@@ -67,10 +87,101 @@ describe("chatItemsOf", () => {
     ]);
   });
 
-  it("skips the entries that are no message and the thinking blocks", () => {
-    const items = chatItemsOf(
+  it("labels each item with the member of its session in the order of the entries", () => {
+    const guest = (id: string, body: Record<string, unknown>): WorkbenchSessionEntry => ({
+      ...message(id, body),
+      session_id: GUEST.session_id,
+      agent_name: GUEST.agent_name,
+    });
+
+    const items = bodyItemsOf(
       [
-        { type: "model_change", id: "e0", parentId: null, timestamp: "t" },
+        message("e1", {
+          role: "assistant",
+          content: [{ type: "text", text: "Hello, I am Yumi." }],
+        }),
+        guest("e1", { role: "assistant", content: [{ type: "text", text: "RE here." }] }),
+        message("e2", { role: "assistant", content: [{ type: "text", text: "Back to Yumi." }] }),
+      ],
+      IDLE,
+    );
+
+    expect(
+      items.map((item) => [
+        item.kind === "assistant" && item.text,
+        item.session_id,
+        item.display_name,
+      ]),
+    ).toEqual([
+      ["Hello, I am Yumi.", "host-1", "Yumi"],
+      ["RE here.", "guest-1", "RE"],
+      ["Back to Yumi.", "host-1", "Yumi"],
+    ]);
+    expect(items.map((item) => item.agent_name)).toEqual(["ops@1", "re@1", "ops@1"]);
+  });
+
+  it("renders the greeting as the first host assistant item", () => {
+    const items = bodyItemsOf(
+      [message("e1", { role: "assistant", content: "Hello, I am Yumi." })],
+      IDLE,
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      kind: "assistant",
+      text: "Hello, I am Yumi.",
+      session_id: "host-1",
+      display_name: "Yumi",
+    });
+  });
+
+  it("renders nothing for a relay entry", () => {
+    const relay: WorkbenchSessionEntry = {
+      session_id: GUEST.session_id,
+      agent_name: GUEST.agent_name,
+      type: "custom_message",
+      id: "e5",
+      parentId: null,
+      timestamp: "2026-10-05T09:00:00.000Z",
+      customType: "kanthord.workbench.relay",
+      display: false,
+      message: { role: "user", content: "Relayed text" },
+    };
+
+    expect(bodyItemsOf([relay], IDLE)).toEqual([]);
+  });
+
+  it("labels the streaming text with the member of the last entry", () => {
+    const entries = [
+      { ...message("e1", { role: "user", content: "@RE look" }), session_id: GUEST.session_id },
+    ];
+
+    const items = bodyItemsOf(entries, {
+      ...IDLE,
+      run_active: true,
+      streaming_message: { role: "assistant", content: [{ type: "text", text: "Looking" }] },
+    });
+
+    expect(items.at(-1)).toMatchObject({ streaming: true, display_name: "RE", agent_name: "re@1" });
+  });
+
+  it("fails when an entry names a session that is no member", () => {
+    const stranger = { ...message("e1", { role: "user", content: "Hi" }), session_id: "other" };
+
+    expect(() => bodyItemsOf([stranger], IDLE)).toThrow("The conversation has no member other");
+  });
+
+  it("skips the entries that are no message and the thinking blocks", () => {
+    const items = bodyItemsOf(
+      [
+        {
+          session_id: HOST.session_id,
+          agent_name: HOST.agent_name,
+          type: "model_change",
+          id: "e0",
+          parentId: null,
+          timestamp: "t",
+        },
         message("e1", { role: "assistant", content: [{ type: "thinking", thinking: "hmm" }] }),
       ],
       IDLE,
@@ -87,11 +198,12 @@ describe("chatItemsOf", () => {
       }),
     ];
 
-    const items = chatItemsOf(entries, {
+    const items = bodyItemsOf(entries, {
       ...IDLE,
       run_active: true,
       pending_tool_calls: ["call_1"],
       pending_approval: {
+        session_id: HOST.session_id,
         tool_call_id: "call_2",
         operation_id: "project.create",
         input: {},
@@ -108,7 +220,7 @@ describe("chatItemsOf", () => {
   it("marks a call with no result as no-result when no run is active", () => {
     const entries = [message("e2", { role: "assistant", content: [CALL] })];
 
-    const items = chatItemsOf(entries, IDLE);
+    const items = bodyItemsOf(entries, IDLE);
 
     expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual(["no-result"]);
   });
@@ -119,7 +231,7 @@ describe("chatItemsOf", () => {
       message("e3", { role: "user", content: "Again" }),
     ];
 
-    const items = chatItemsOf(entries, { ...IDLE, run_active: true });
+    const items = bodyItemsOf(entries, { ...IDLE, run_active: true });
 
     expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual([
       "no-result",
@@ -130,7 +242,7 @@ describe("chatItemsOf", () => {
   it("keeps a pending call running while the run is active", () => {
     const entries = [message("e2", { role: "assistant", content: [CALL] })];
 
-    const items = chatItemsOf(entries, {
+    const items = bodyItemsOf(entries, {
       ...IDLE,
       run_active: true,
       pending_tool_calls: ["call_1"],
@@ -153,10 +265,10 @@ describe("chatItemsOf", () => {
       }),
     ];
 
-    const items = chatItemsOf(entries, IDLE);
+    const items = bodyItemsOf(entries, IDLE);
 
     expect(items.map((item) => item.kind === "tool-call" && item.state)).toEqual(["done", false]);
-    expect(items.at(-1)).toEqual({
+    expect(stripOrigin(items.at(-1)!)).toEqual({
       kind: "tool-result",
       id: "e3",
       name: "mission.node.list",
@@ -166,13 +278,13 @@ describe("chatItemsOf", () => {
   });
 
   it("appends the streaming partial message after the entries", () => {
-    const items = chatItemsOf([message("e1", { role: "user", content: "Hi" })], {
+    const items = bodyItemsOf([message("e1", { role: "user", content: "Hi" })], {
       ...IDLE,
       run_active: true,
       streaming_message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
     });
 
-    expect(items.at(-1)).toEqual({
+    expect(stripOrigin(items.at(-1)!)).toEqual({
       kind: "assistant",
       id: "streaming",
       text: "Hel",
@@ -190,8 +302,14 @@ describe("summaryOf", () => {
 });
 
 describe("agentWorking", () => {
-  const user = { kind: "user", id: "e1", text: "Hi", timestamp: AT } as const;
+  const origin = {
+    session_id: HOST.session_id,
+    agent_name: HOST.agent_name,
+    display_name: HOST.display_name,
+  };
+  const user = { ...origin, kind: "user", id: "e1", text: "Hi", timestamp: AT } as const;
   const streamed = {
+    ...origin,
     kind: "assistant",
     id: "s",
     text: "Hel",
@@ -209,7 +327,13 @@ describe("agentWorking", () => {
       agentWorking([user], {
         ...IDLE,
         run_active: true,
-        pending_approval: { tool_call_id: "c1", operation_id: "o", input: {}, guard: null },
+        pending_approval: {
+          session_id: HOST.session_id,
+          tool_call_id: "c1",
+          operation_id: "o",
+          input: {},
+          guard: null,
+        },
       }),
     ).toBe(false);
     expect(agentWorking([user], IDLE)).toBe(false);
@@ -256,7 +380,7 @@ describe("workbenchPathsIn", () => {
 
 describe("runErrorTargetId", () => {
   it("names the last user item", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         message("e1", { role: "user", content: "First" }),
         message("e2", { role: "assistant", content: [{ type: "text", text: "Hi" }] }),
@@ -279,7 +403,7 @@ describe("runRequestOf", () => {
   const SECOND = message("e3", { role: "user", content: "Second" });
 
   it("names the latest user item", () => {
-    const items = chatItemsOf([FIRST, CALLED, SECOND], IDLE);
+    const items = bodyItemsOf([FIRST, CALLED, SECOND], IDLE);
 
     expect(runRequestOf(items)).toMatchObject({ kind: "user", id: "e3", text: "Second" });
   });
@@ -291,6 +415,8 @@ describe("runRequestOf", () => {
 
 function record(id: string, data: Record<string, unknown>, extra = {}): WorkbenchSessionEntry {
   return {
+    session_id: HOST.session_id,
+    agent_name: HOST.agent_name,
     type: "custom",
     id,
     parentId: null,
@@ -318,6 +444,8 @@ function actionResult(
   errorCode: string | null,
 ): WorkbenchSessionEntry {
   return {
+    session_id: HOST.session_id,
+    agent_name: HOST.agent_name,
     type: "custom_message",
     id,
     parentId: null,
@@ -337,7 +465,7 @@ function actionResult(
 const OFFER_CALL = { type: "toolCall", id: "call_a", name: "offer_action", arguments: {} };
 
 function cardsOf(entries: readonly WorkbenchSessionEntry[], snapshot = IDLE) {
-  return chatItemsOf(entries, snapshot).filter((item) => item.kind === "action-card");
+  return bodyItemsOf(entries, snapshot).filter((item) => item.kind === "action-card");
 }
 
 describe("chatItemsOf guard records", () => {
@@ -349,7 +477,7 @@ describe("chatItemsOf guard records", () => {
   };
 
   it("joins a guard record to the tool call with the same tool call id", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         message("e1", { role: "assistant", content: [CALL] }),
         record("e2", GUARD),
@@ -364,7 +492,7 @@ describe("chatItemsOf guard records", () => {
   });
 
   it("yields no item for an auto_mode record or a guard record", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [record("e1", { kind: "auto_mode", enabled: false }), record("e2", GUARD)],
       IDLE,
     );
@@ -373,7 +501,7 @@ describe("chatItemsOf guard records", () => {
   });
 
   it("ignores a guard record with a malformed field", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         message("e1", { role: "assistant", content: [CALL] }),
         record("e2", { ...GUARD, reason: 7 }),
@@ -405,7 +533,7 @@ describe("ACTION_VERBS", () => {
 
 describe("chatItemsOf action card", () => {
   it("maps the record to one card and hides the offer_action call and its result", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         message("e1", { role: "assistant", content: [OFFER_CALL] }),
         record("e2", offer("call_a")),
@@ -420,7 +548,7 @@ describe("chatItemsOf action card", () => {
       IDLE,
     );
 
-    expect(items).toEqual([
+    expect(items.map(stripOrigin)).toEqual([
       {
         kind: "action-card",
         id: "e2",
@@ -524,11 +652,20 @@ describe("chatItemsOf action card", () => {
       cards.map((card) => [card.offer.operation_id, card.offer.target_id, card.offer.seen]),
     ).toEqual([[operationId, targetId, seen]]);
     expect(cards.map((card) => card.state)).toEqual(["live"]);
-    expect(Object.keys(cards[0] ?? {}).sort()).toEqual(["id", "kind", "offer", "results", "state"]);
+    expect(Object.keys(cards[0] ?? {}).sort()).toEqual([
+      "agent_name",
+      "display_name",
+      "id",
+      "kind",
+      "offer",
+      "results",
+      "session_id",
+      "state",
+    ]);
   });
 
   it("renders nothing for a revision or version seen with a wrong shape", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         record("e1", { ...offer("call_a", "llm.credential.rotate"), seen: { revision: "3" } }),
         record("e2", { ...offer("call_b", "llm.credential.rotate"), seen: { revision: 3, x: 1 } }),
@@ -541,7 +678,7 @@ describe("chatItemsOf action card", () => {
   });
 
   it("renders nothing for a record with an extra key or an unknown kind", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         record("e1", { ...offer("call_a"), text: "Click me" }),
         record("e2", { ...offer("call_b"), kind: "other" }),
@@ -559,7 +696,7 @@ describe("chatItemsOf action card", () => {
   });
 
   it("renders nothing for a seen without a string name", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         record("e1", { ...offer("call_a"), seen: { state: "Blocked", attempt: 1 } }),
         record("e2", { ...offer("call_b", "project.pause"), seen: { paused: true } }),
@@ -600,28 +737,28 @@ describe("chatItemsOf evidence_read", () => {
   }
 
   it("maps a result to one evidence row with the facts of details and no content text", () => {
-    const items = chatItemsOf([result({ details: FACTS })], IDLE);
+    const items = bodyItemsOf([result({ details: FACTS })], IDLE);
 
-    expect(items).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
+    expect(items.map(stripOrigin)).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
     expect(JSON.stringify(items)).not.toContain(CONTENT);
   });
 
   it("reads the facts from the first text block when details is absent", () => {
-    const items = chatItemsOf([result({})], IDLE);
+    const items = bodyItemsOf([result({})], IDLE);
 
-    expect(items).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
+    expect(items.map(stripOrigin)).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
     expect(JSON.stringify(items)).not.toContain(CONTENT);
   });
 
   it("reads the facts from the first text block when details is invalid", () => {
-    const items = chatItemsOf([result({ details: { asset_id: 7 } })], IDLE);
+    const items = bodyItemsOf([result({ details: { asset_id: 7 } })], IDLE);
 
-    expect(items).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
+    expect(items.map(stripOrigin)).toEqual([{ kind: "evidence-row", id: "e1", facts: FACTS }]);
   });
 
   it("keeps a failed result as a tool result with its error text", () => {
     const text = "workbench.evidence.media_refused: The asset is not text.";
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         message("e1", {
           role: "toolResult",
@@ -634,13 +771,13 @@ describe("chatItemsOf evidence_read", () => {
       IDLE,
     );
 
-    expect(items).toEqual([
+    expect(items.map(stripOrigin)).toEqual([
       { kind: "tool-result", id: "e1", name: "evidence_read", text, isError: true },
     ]);
   });
 
   it("keeps the content text out of a result whose facts are unreadable", () => {
-    const items = chatItemsOf(
+    const items = bodyItemsOf(
       [
         message("e1", {
           role: "toolResult",
@@ -656,7 +793,7 @@ describe("chatItemsOf evidence_read", () => {
       IDLE,
     );
 
-    expect(items).toEqual([
+    expect(items.map(stripOrigin)).toEqual([
       { kind: "tool-result", id: "e1", name: "evidence_read", text: "not json", isError: false },
     ]);
   });
@@ -670,15 +807,25 @@ describe("chatItemsOf evidence_read", () => {
     };
     const nodeCall = { type: "toolCall", id: "call_2", name: "mission--node--get", arguments: {} };
     const assistant = message("e0", { role: "assistant", content: [evidenceCall, nodeCall] });
-    const waiting = chatItemsOf([assistant], {
+    const waiting = bodyItemsOf([assistant], {
       ...IDLE,
       run_active: true,
       pending_approval: { tool_call_id: "call_1" } as WorkbenchRunSnapshot["pending_approval"],
     });
-    const settled = chatItemsOf([assistant, result({ details: FACTS })], IDLE);
+    const settled = bodyItemsOf([assistant, result({ details: FACTS })], IDLE);
 
     expect(waiting.map((item) => item.kind)).toEqual(["tool-call"]);
     expect(settled.map((item) => item.kind)).toEqual(["tool-call", "evidence-row"]);
     expect(settled[0]).toMatchObject({ name: "mission--node--get" });
+  });
+});
+
+describe("memberOf", () => {
+  it("reads the member by its session id", () => {
+    expect(memberOf(MEMBERS, "guest-1")).toBe(GUEST);
+  });
+
+  it("fails for an unknown session id", () => {
+    expect(() => memberOf(MEMBERS, "none")).toThrow("The conversation has no member none");
   });
 });

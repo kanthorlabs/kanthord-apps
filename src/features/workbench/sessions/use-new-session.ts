@@ -7,6 +7,7 @@ export interface NewSessionChoice {
   readonly agentName: string | null;
   readonly agentOptions: readonly string[];
   readonly agentLabels: Readonly<Record<string, string>>;
+  readonly agentDisplayName: string | null;
   readonly enablement: AgentEnablement | null;
   readonly selectAgent: (value: string | null) => void;
 }
@@ -19,7 +20,7 @@ export function useNewSession(
   const enabled = agents.filter(
     (agent) => agent.enablement?.state === "enabled" && agent.consumers.includes("workbench"),
   );
-  const enablement = enabled.find((agent) => agent.agentName === agentName)?.enablement ?? null;
+  const chosen = enabled.find((agent) => agent.agentName === agentName) ?? null;
 
   const selectAgent = (value: string | null) => {
     if (value !== null) setAgentName(value);
@@ -29,7 +30,8 @@ export function useNewSession(
     agentName,
     agentOptions: enabled.map((agent) => agent.agentName),
     agentLabels: Object.fromEntries(enabled.map((agent) => [agent.agentName, agentLabel(agent)])),
-    enablement,
+    agentDisplayName: chosen?.displayName ?? null,
+    enablement: chosen?.enablement ?? null,
     selectAgent,
   };
 }

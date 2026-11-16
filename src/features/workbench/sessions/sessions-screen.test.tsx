@@ -78,7 +78,9 @@ const OPS: AgentSummary = {
 
 const OLD: WorkbenchSessionListItem = {
   id: "workbench_session_OLD",
+  host_session_id: null,
   agent_name: "swe@1",
+  display_name: "SWE",
   name: null,
   created: Date.parse("2026-10-01T09:00:00Z"),
   modified: Date.parse("2026-10-01T10:00:00Z"),
@@ -86,10 +88,13 @@ const OLD: WorkbenchSessionListItem = {
   first_message: "List the open nodes",
   run_active: false,
   pending_approval: null,
+  participants: [],
 };
 const NEW: WorkbenchSessionListItem = {
   id: "workbench_session_NEW",
+  host_session_id: null,
   agent_name: "swe@1",
+  display_name: "SWE",
   name: "Billing plan",
   created: Date.parse("2026-10-05T09:00:00Z"),
   modified: Date.parse("2026-10-05T10:00:00Z"),
@@ -97,6 +102,7 @@ const NEW: WorkbenchSessionListItem = {
   first_message: "Read the plan of Billing",
   run_active: false,
   pending_approval: null,
+  participants: [],
 };
 
 function NewRoute() {
@@ -157,6 +163,45 @@ describe("SessionsScreen", () => {
     expect(within(rows[0]!).getByText("re@1")).toBeTruthy();
     expect(within(rows[1]!).getByText("swe@1")).toBeTruthy();
     expect(screen.getByRole("combobox", { name: "Agent" })).toHaveTextContent("All agents");
+  });
+
+  it("nests a participant row under its host and lists no participant at the top level", async () => {
+    const guest = {
+      ...OLD,
+      id: "workbench_session_GUEST",
+      host_session_id: NEW.id,
+      agent_name: "re@1",
+      display_name: "Ruby",
+    };
+    serve([OLD, { ...NEW, participants: [guest] }]);
+    mount("/workbench");
+
+    const top = await screen.findByRole("list", { name: "Sessions" });
+    const nested = await within(top).findByRole("list", { name: "Participants of Billing plan" });
+    expect(within(nested).getByText("Ruby")).toBeTruthy();
+    expect(within(nested).getByText("re@1")).toBeTruthy();
+    const hostRows = within(top)
+      .getAllByRole("listitem")
+      .filter((row) => !nested.contains(row));
+    expect(hostRows).toHaveLength(2);
+    expect(within(hostRows[0]!).getByText("SWE")).toBeTruthy();
+  });
+
+  it("opens the chat of the host from a participant row", async () => {
+    const guest = { ...OLD, id: "workbench_session_GUEST", host_session_id: NEW.id };
+    serve([{ ...NEW, participants: [{ ...guest, display_name: "Ruby" }] }]);
+    mount("/workbench");
+
+    await userEvent.click(await screen.findByRole("button", { name: "Open Ruby in Billing plan" }));
+
+    expect(await screen.findByText(`Opened ${NEW.id}`)).toBeTruthy();
+  });
+
+  it("shows Empty Session for a greeted conversation with no human message", async () => {
+    serve([{ ...OLD, first_message: "", message_count: 1 }]);
+    mount("/workbench");
+
+    expect(await screen.findByRole("button", { name: "Open Empty Session" })).toBeTruthy();
   });
 
   it("counts the messages of a session in the singular and the plural", async () => {
@@ -321,6 +366,7 @@ describe("SessionsScreen", () => {
     const query = new URLSearchParams(route.textContent?.replace(/^New /, ""));
     expect(Object.fromEntries(query)).toEqual({
       agent_name: "swe@1",
+      display_name: "SWE",
       ...ENABLEMENT.default_configuration,
     });
   });
@@ -351,6 +397,7 @@ describe("SessionsScreen", () => {
     const query = new URLSearchParams(route.textContent?.replace(/^New /, ""));
     expect(Object.fromEntries(query)).toEqual({
       agent_name: "swe@1",
+      display_name: "SWE",
       agent_provider: "openai-org",
       model_identifier: "gpt-5",
       reasoning_effort: "high",

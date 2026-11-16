@@ -32,8 +32,11 @@ const SESSION: WorkbenchSession = {
     model_identifier: "gpt-5",
     reasoning_effort: "off",
   },
+  members: [{ session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" }],
   entries: [
     {
+      session_id: SESSION_ID,
+      agent_name: "swe@1",
       type: "message",
       id: "e1",
       parentId: null,
@@ -100,15 +103,6 @@ const NEW_QUERY = new URLSearchParams({
   reasoning_effort: "off",
 });
 
-const OPS_SUMMARY = {
-  agentName: "ops@1",
-  displayName: "Yumi",
-  workerNames: [],
-  consumers: ["workbench"],
-  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 3, workbench: 0 },
-  enablement: null,
-} as const;
-
 function Where() {
   const { pathname } = useLocation();
   return <p>Path {pathname}</p>;
@@ -134,16 +128,7 @@ beforeEach(() => {
     () => new Promise(() => undefined),
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue(AGENT);
-  vi.mocked(workersApi.listAgents).mockResolvedValue([
-    {
-      agentName: "swe@1",
-      displayName: "SWE",
-      workerNames: ["coder@1"],
-      consumers: ["workbench", "worker"],
-      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
-      enablement: null,
-    },
-  ]);
+  vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "gpt-5", reasoning_efforts: ["off"] },
   ]);
@@ -187,12 +172,14 @@ describe("ChatScreen", () => {
     await waitFor(() => expect(screen.queryByRole("group", { name: "Run line" })).toBeNull());
   });
 
-  it("names the owner from the session and the agent from the agent list", async () => {
+  it("names the owner from the session and the agent from the members", async () => {
     vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
       ...SESSION,
       entries: [
         ...SESSION.entries,
         {
+          session_id: SESSION_ID,
+          agent_name: "swe@1",
           type: "message",
           id: "e2",
           parentId: "e1",
@@ -204,8 +191,50 @@ describe("ChatScreen", () => {
     mount();
 
     expect(await screen.findByText("Ulrich")).toBeTruthy();
-    expect(screen.getByText("SWE")).toBeTruthy();
+    expect(within(screen.getByRole("log", { name: "Transcript" })).getByText("SWE")).toBeTruthy();
     expect(screen.getByRole("img", { name: "SWE avatar" })).toBeTruthy();
+  });
+
+  it("renders the entries of two members in answer order under their display names", async () => {
+    const GUEST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1";
+    const assistant = (id: string, sessionId: string, agentName: string, text: string) => ({
+      session_id: sessionId,
+      agent_name: agentName,
+      type: "message",
+      id,
+      parentId: null,
+      timestamp: "2026-10-05T09:00:00.000Z",
+      message: { role: "assistant", content: [{ type: "text", text }] },
+    });
+    vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+      ...SESSION,
+      members: [
+        { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" },
+        { session_id: GUEST_ID, agent_name: "re@1", display_name: "Ruby" },
+      ],
+      entries: [
+        assistant("e1", SESSION_ID, "swe@1", "Hello, I am SWE."),
+        assistant("e1", GUEST_ID, "re@1", "Ruby reviews."),
+        assistant("e2", SESSION_ID, "swe@1", "Thanks, Ruby."),
+      ],
+    });
+    mount();
+
+    const log = await screen.findByRole("log", { name: "Transcript" });
+    expect(
+      within(log)
+        .getAllByText(/^(SWE|Ruby)$/)
+        .map((node) => node.textContent),
+    ).toEqual(["SWE", "Ruby", "SWE"]);
+    expect(within(log).getByRole("img", { name: "Ruby avatar" })).toBeTruthy();
+    await waitFor(() =>
+      expect(workbenchApi.readWorkbenchEvents).toHaveBeenCalledWith(
+        SESSION_ID,
+        `${SESSION_ID}:e2,${GUEST_ID}:e1`,
+        null,
+        expect.anything(),
+      ),
+    );
   });
 
   it("offers the agent providers of the enablement of the agent", async () => {
@@ -241,16 +270,166 @@ describe("ChatScreen", () => {
     expect(await screen.findByText("List the open nodes")).toBeTruthy();
   });
 
+  describe("with a participant", () => {
+    const GUEST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1";
+    const HOST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0HO1";
+    const RE_AGENT = {
+      agentName: "re@1",
+      displayName: "RE",
+      workerNames: [],
+      consumers: ["workbench" as const],
+      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+      enablement: AGENT.enablement,
+    };
+    const CONVERSATION: WorkbenchSession = {
+      ...SESSION,
+      members: [
+        { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" },
+        { session_id: GUEST_ID, agent_name: "re@1", display_name: "RE" },
+      ],
+      entries: [
+        ...SESSION.entries,
+        {
+          session_id: GUEST_ID,
+          agent_name: "re@1",
+          type: "message",
+          id: "e1",
+          parentId: null,
+          timestamp: "2026-10-05T09:01:00.000Z",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "RE reviews." }],
+            stopReason: "stop",
+          },
+        },
+      ],
+    };
+
+    function Where() {
+      const { pathname, search } = useLocation();
+      return <p>{`At ${pathname}${search}`}</p>;
+    }
+
+    function mountConversation() {
+      return render(
+        <MemoryRouter initialEntries={[`/workbench/${SESSION_ID}`]}>
+          <Where />
+          <Routes>
+            <Route path="/workbench/new" element={<p>New chat</p>} />
+            <Route path="/workbench/:sessionId" element={<ChatScreen />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+    }
+
+    beforeEach(() => {
+      vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(CONVERSATION);
+      vi.mocked(workersApi.listAgents).mockResolvedValue([RE_AGENT]);
+    });
+
+    it("titles the header with the host display name and shows one chip per member", async () => {
+      mountConversation();
+
+      expect(await screen.findByRole("heading", { name: "SWE conversation" })).toBeTruthy();
+      const chips = screen.getByRole("group", { name: "Members" });
+      expect(
+        within(chips)
+          .getAllByText(/./)
+          .map((chip) => chip.textContent),
+      ).toEqual(["SWE", "RE"]);
+      expect(
+        screen.getByRole("heading", { name: "SWE conversation" }).parentElement,
+      ).toContainElement(chips);
+      expect(
+        screen.getByRole("heading", { name: "SWE conversation" }).parentElement,
+      ).toContainElement(screen.getByRole("switch", { name: "Auto mode" }));
+    });
+
+    it("keeps the draft and shows the code when a mention send answers 404", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockRejectedValue(
+        new ApiError(
+          "not_found",
+          "The agent is not in the catalog.",
+          404,
+          "agent.catalog.not_found",
+        ),
+      );
+      mountConversation();
+
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "@RE look");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "not_found The agent is not in the catalog.",
+      );
+      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE look");
+      expect(screen.getByText(`At /workbench/${SESSION_ID}`)).toBeTruthy();
+    });
+
+    it("opens the host session when a send answers 409 workbench.session.not_host", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockRejectedValue(
+        new ApiError(
+          "conflict",
+          "The workbench session is a participant.",
+          409,
+          "workbench.session.not_host",
+          { host_session_id: HOST_ID },
+        ),
+      );
+      mountConversation();
+
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "hello");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByText(`At /workbench/${HOST_ID}`)).toBeTruthy();
+      expect(workbenchApi.readWorkbenchSession).toHaveBeenLastCalledWith(HOST_ID);
+    });
+
+    it("opens the host session when the read answers 409 workbench.session.not_host", async () => {
+      vi.mocked(workbenchApi.readWorkbenchSession).mockRejectedValueOnce(
+        new ApiError(
+          "conflict",
+          "The workbench session is a participant.",
+          409,
+          "workbench.session.not_host",
+          { host_session_id: HOST_ID },
+        ),
+      );
+      mountConversation();
+
+      expect(await screen.findByText(`At /workbench/${HOST_ID}`)).toBeTruthy();
+      expect(await screen.findByRole("heading", { name: "SWE conversation" })).toBeTruthy();
+    });
+
+    it("opens /new with the host agent, the host configuration and the host display name", async () => {
+      mountConversation();
+
+      await screen.findByText("RE reviews.");
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "/new");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      const query = new URLSearchParams({
+        agent_name: "swe@1",
+        agent_provider: "atlas-llm",
+        model_identifier: "gpt-5",
+        reasoning_effort: "off",
+        display_name: "SWE",
+      });
+      expect(await screen.findByText(`At /workbench/new?${query}`)).toBeTruthy();
+    });
+  });
+
   describe("in new-session mode", () => {
     beforeEach(() => {
-      vi.mocked(workersApi.listAgents).mockResolvedValue([OPS_SUMMARY]);
       vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(SESSION);
     });
 
-    it("greets with the display name of the agent and offers the composer", async () => {
-      mountNew();
+    it("shows the greeting of the default template with the display name and the model", async () => {
+      mountNew(new URLSearchParams([...NEW_QUERY, ["display_name", "Yumi"]]));
 
-      expect(await screen.findByText(/Hello, I am Yumi\./)).toBeTruthy();
+      expect(
+        await screen.findByText("Hi, I am Yumi on qwen3-coder. What do you need?"),
+      ).toBeTruthy();
       expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
       expect(screen.getByRole("combobox", { name: "Model" })).toHaveTextContent("qwen3-coder");
       expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
@@ -260,6 +439,7 @@ describe("ChatScreen", () => {
       vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(SESSION);
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         session_id: SESSION_ID,
+        agent_name: null,
         run_active: true,
         queued_message_id: null,
         cleared: [],
@@ -281,6 +461,41 @@ describe("ChatScreen", () => {
         vi.mocked(workbenchApi.createWorkbenchSession).mock.invocationCallOrder[0],
       ).toBeLessThan(vi.mocked(workbenchApi.sendWorkbenchMessage).mock.invocationCallOrder[0]!);
       expect(await screen.findByText("List the open nodes")).toBeTruthy();
+    });
+
+    it("lists the enabled session agents for an @ in the first message and shows the addressee", async () => {
+      vi.mocked(workersApi.listAgents).mockResolvedValue([
+        {
+          agentName: "re@1",
+          displayName: "RE",
+          workerNames: [],
+          consumers: ["workbench"],
+          toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+          enablement: AGENT.enablement,
+        },
+        {
+          agentName: "guard@1",
+          displayName: "Guard",
+          workerNames: [],
+          consumers: [],
+          toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+          enablement: AGENT.enablement,
+        },
+      ]);
+      mountNew();
+
+      await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "@");
+      const list = await screen.findByRole("listbox", { name: "Mentions" });
+      expect(
+        within(list)
+          .getAllByRole("option")
+          .map((option) => option.textContent),
+      ).toEqual(["RE"]);
+      await userEvent.click(within(list).getByRole("option", { name: "RE" }));
+
+      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("@RE ");
+      expect(screen.getByLabelText("Addressee")).toHaveTextContent(/^To @RE$/);
     });
 
     it("keeps the route and calls no resource on /new alone", async () => {
@@ -308,7 +523,7 @@ describe("ChatScreen", () => {
 
     it("writes nothing when the owner leaves with no message", async () => {
       mountNew();
-      await screen.findByText(/Hello, I am Yumi\./);
+      await screen.findByText(/Write your first message below/);
 
       await userEvent.click(screen.getByRole("link", { name: "Leave" }));
 

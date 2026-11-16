@@ -7,8 +7,13 @@ import {
   sendWorkbenchMessage,
 } from "@/api/resources/workbench";
 import type { ApiError } from "@/api/errors";
-import type { WorkbenchMessageDelivery, WorkbenchQueuedMessage } from "@/api/types";
+import type {
+  WorkbenchMessageDelivery,
+  WorkbenchPendingApproval,
+  WorkbenchQueuedMessage,
+} from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
+import { hostSessionIdOf } from "@/lib/workbench-sessions";
 import type { SnapshotPatch } from "./use-session-events";
 
 const QUEUED_NOT_FOUND = "workbench.session.queued_message_not_found";
@@ -32,7 +37,7 @@ export interface ChatActionsState {
   readonly busy: boolean;
   readonly send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>;
   readonly abort: () => void;
-  readonly approve: (toolCallId: string, approved: boolean) => void;
+  readonly approve: (approval: WorkbenchPendingApproval, approved: boolean) => void;
   readonly remove: (item: WorkbenchQueuedMessage) => void;
   readonly edit: (item: WorkbenchQueuedMessage) => void;
   readonly bindRefill: (refill: Refill) => () => void;
@@ -49,10 +54,15 @@ function failureOf(
   return { cause, toolCallId, code: error.code, message: error.message };
 }
 
+const UNTAGGED = (): string | null => null;
+const NO_NOT_HOST = (): void => undefined;
+
 export function useChatActions(
   sessionId: string,
   patchSnapshot: (patch: SnapshotPatch) => void,
   initialFailure: ChatActionFailure | null = null,
+  mentionOf: (text: string) => string | null = UNTAGGED,
+  onNotHost: (hostSessionId: string) => void = NO_NOT_HOST,
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
@@ -85,13 +95,16 @@ export function useChatActions(
         onDone(await action());
         return true;
       } catch (failed) {
-        setFailure(failureOf(cause, asApiError(failed), toolCallId));
+        const error = asApiError(failed);
+        const hostSessionId = hostSessionIdOf(error);
+        if (hostSessionId === null) setFailure(failureOf(cause, error, toolCallId));
+        else onNotHost(hostSessionId);
         return false;
       } finally {
         setBusy(false);
       }
     },
-    [],
+    [onNotHost],
   );
 
   const send = useCallback(
@@ -105,7 +118,12 @@ export function useChatActions(
             patchSnapshot({ run_active: true, error_message: null, queue: [] });
             return;
           }
-          const queued = { id: answer.queued_message_id, text };
+          const queued = {
+            id: answer.queued_message_id,
+            text,
+            agent_name: answer.agent_name,
+            display_name: mentionOf(text),
+          };
           if (delivery === "replace") {
             patchSnapshot({ queue: [queued] });
             return;
@@ -113,7 +131,7 @@ export function useChatActions(
           patchSnapshot((current) => ({ queue: [...current.queue, queued] }));
         },
       ),
-    [perform, sessionId, patchSnapshot, refillCleared],
+    [perform, sessionId, patchSnapshot, refillCleared, mentionOf],
   );
 
   const abort = useCallback(() => {
@@ -128,15 +146,15 @@ export function useChatActions(
   }, [perform, sessionId, patchSnapshot, refillCleared]);
 
   const approve = useCallback(
-    (toolCallId: string, approved: boolean) => {
+    (approval: WorkbenchPendingApproval, approved: boolean) => {
       void perform(
         "approve",
-        () => approveWorkbenchCall(sessionId, toolCallId, approved),
+        () => approveWorkbenchCall(approval.session_id, approval.tool_call_id, approved),
         () => patchSnapshot({ pending_approval: null }),
-        toolCallId,
+        approval.tool_call_id,
       );
     },
-    [perform, sessionId, patchSnapshot],
+    [perform, patchSnapshot],
   );
 
   const dequeue = useCallback(

@@ -23,9 +23,9 @@ export interface HomeState {
   readonly errorMessage: string | null;
   readonly retry: () => void;
   readonly enabled: boolean;
-  readonly displayName: string;
   readonly configuration: ConfigurationResult;
   readonly configurationError: string | null;
+  readonly displayName: string | null;
   readonly view: HomeView | null;
   readonly sessionId: string | null;
   readonly newChat: () => void;
@@ -42,7 +42,10 @@ function newestGeneralOf(
   items: readonly WorkbenchSessionListItem[],
 ): WorkbenchSessionListItem | null {
   return items
-    .filter((item) => !isCaseConversation(item) && item.first_message !== "")
+    .filter(
+      (item) =>
+        item.host_session_id === null && !isCaseConversation(item) && item.first_message !== "",
+    )
     .reduce<WorkbenchSessionListItem | null>(
       (newest, item) => (newest === null || item.modified > newest.modified ? item : newest),
       null,
@@ -98,9 +101,9 @@ export function useHome(): HomeState {
     errorMessage: error?.message ?? null,
     retry,
     enabled,
-    displayName: yumi?.displayName ?? "Yumi",
     configuration,
     configurationError,
+    displayName: yumi?.displayName ?? null,
     view: shown,
     sessionId: shown?.kind === "session" ? shown.sessionId : null,
     newChat,

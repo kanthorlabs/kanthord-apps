@@ -3,13 +3,16 @@ import { describe, expect, it } from "vitest";
 
 import { ChatEntry } from "./chat-entry";
 
-const AUTHORS = { ownerName: "Owner", agentName: "agent", agentDisplayName: "Agent" };
+const AUTHORS = { ownerName: "Owner" };
 
 describe("ChatEntry", () => {
   it("shows the No Result badge and line for a call with no result", () => {
     render(
       <ChatEntry
         item={{
+          session_id: "session_1",
+          agent_name: "swe@1",
+          display_name: "SWE",
           kind: "tool-call",
           id: "e1:call_1",
           name: "mission.node.list",

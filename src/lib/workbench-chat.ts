@@ -4,6 +4,7 @@ import {
   type WorkbenchActionOperation,
   type WorkbenchActionResult,
   type WorkbenchGuardRecord,
+  type WorkbenchMember,
   type WorkbenchRunSnapshot,
   type WorkbenchSessionEntry,
 } from "@/api/types";
@@ -35,7 +36,13 @@ export interface EvidenceReadFacts {
   readonly truncated: boolean;
 }
 
-export type ChatItem =
+export interface ChatItemOrigin {
+  readonly session_id: string;
+  readonly agent_name: string;
+  readonly display_name: string;
+}
+
+type ChatItemBody =
   | {
       readonly kind: "user";
       readonly id: string;
@@ -76,6 +83,8 @@ export type ChatItem =
       readonly results: readonly WorkbenchActionResult[];
       readonly state: ActionCardState;
     };
+
+export type ChatItem = ChatItemBody & ChatItemOrigin;
 
 export type ActionCardItem = Extract<ChatItem, { kind: "action-card" }>;
 
@@ -220,7 +229,7 @@ function actionCardItems(
   index: number,
   snapshot: WorkbenchRunSnapshot,
   context: ResultContext,
-): readonly ChatItem[] {
+): readonly ChatItemBody[] {
   const offer = offerOf(entry);
   if (offer === null) return [];
   const results = context.actionResults.get(offer.tool_call_id) ?? [];
@@ -241,7 +250,7 @@ function callState(
   snapshot: WorkbenchRunSnapshot,
   streaming: boolean,
   context: ResultContext,
-): Extract<ChatItem, { kind: "tool-call" }>["state"] {
+): Extract<ChatItemBody, { kind: "tool-call" }>["state"] {
   if (snapshot.pending_approval?.tool_call_id === callId) return "awaiting-approval";
   if (streaming || snapshot.pending_tool_calls.includes(callId)) return "running";
   if (context.resultIds.has(callId)) return "done";
@@ -257,10 +266,10 @@ function assistantItems(
   timestamp: number | null,
   index: number,
   context: ResultContext,
-): readonly ChatItem[] {
+): readonly ChatItemBody[] {
   const blocks = blocksOf(message["content"]);
   const text = textOf(blocks);
-  const items: ChatItem[] =
+  const items: ChatItemBody[] =
     text === "" ? [] : [{ kind: "assistant", id, text, streaming, timestamp }];
   for (const block of blocks) {
     if (block["type"] !== "toolCall") continue;
@@ -310,7 +319,7 @@ function evidenceFactsOfResult(message: Block): EvidenceReadFacts | null {
   }
 }
 
-function toolResultItems(id: string, message: Block): readonly ChatItem[] {
+function toolResultItems(id: string, message: Block): readonly ChatItemBody[] {
   const name = stringOf(message["toolName"]);
   const isError = message["isError"] === true;
   if (name === EVIDENCE_READ_TOOL && !isError) {
@@ -328,7 +337,7 @@ function entryItems(
   index: number,
   snapshot: WorkbenchRunSnapshot,
   context: ResultContext,
-): readonly ChatItem[] {
+): readonly ChatItemBody[] {
   if (entry.type === "custom") return actionCardItems(entry, index, snapshot, context);
   const message = entry["message"];
   if (entry.type !== "message" || !isRecord(message)) return [];
@@ -385,17 +394,41 @@ function resultContextOf(entries: readonly WorkbenchSessionEntry[]): ResultConte
   return { resultIds, lastUserIndex, lastOfferIndex, actionResults, guards };
 }
 
+export function memberOf(members: readonly WorkbenchMember[], sessionId: string): WorkbenchMember {
+  const member = members.find((candidate) => candidate.session_id === sessionId);
+  if (member === undefined) throw new Error(`The conversation has no member ${sessionId}`);
+  return member;
+}
+
+function originOf(member: WorkbenchMember): ChatItemOrigin {
+  return {
+    session_id: member.session_id,
+    agent_name: member.agent_name,
+    display_name: member.display_name,
+  };
+}
+
 export function chatItemsOf(
   entries: readonly WorkbenchSessionEntry[],
   snapshot: WorkbenchRunSnapshot,
+  members: readonly WorkbenchMember[],
 ): readonly ChatItem[] {
   const context = resultContextOf(entries);
-  const items = entries.flatMap((entry, index) => entryItems(entry, index, snapshot, context));
+  const items = entries.flatMap((entry, index) => {
+    const origin = originOf(memberOf(members, entry.session_id));
+    return entryItems(entry, index, snapshot, context).map((item) => ({ ...item, ...origin }));
+  });
   const streaming = snapshot.streaming_message;
   if (streaming === null || streaming["role"] !== "assistant") return items;
+  const lastEntry = entries.at(-1);
+  const streamingMember =
+    lastEntry === undefined ? members[0] : memberOf(members, lastEntry.session_id);
+  if (streamingMember === undefined) throw new Error("The conversation has no member");
   return [
     ...items,
-    ...assistantItems("streaming", streaming, snapshot, true, null, entries.length, context),
+    ...assistantItems("streaming", streaming, snapshot, true, null, entries.length, context).map(
+      (item) => ({ ...item, ...originOf(streamingMember) }),
+    ),
   ];
 }
 

@@ -56,6 +56,7 @@ function session(id: string): WorkbenchSession {
     id,
     agent_name: "ops@1",
     configuration: CONFIGURATION,
+    members: [{ session_id: id, agent_name: "ops@1", display_name: "Yumi" }],
     entries: [],
     run_active: false,
     resume_command: "pi",
@@ -74,6 +75,7 @@ beforeEach(() => {
   vi.mocked(createWorkbenchSession).mockResolvedValue(session("session_1"));
   vi.mocked(sendWorkbenchMessage).mockResolvedValue({
     session_id: "session_1",
+    agent_name: null,
     run_active: true,
     queued_message_id: null,
     cleared: [],

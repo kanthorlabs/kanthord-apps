@@ -7,7 +7,9 @@ import { approvalChatPathOf, approvalItemsOf } from "./approval-attention";
 function session(patch: Partial<WorkbenchSessionListItem> = {}): WorkbenchSessionListItem {
   return {
     id: "workbench_session_A",
+    host_session_id: null,
     agent_name: "swe@1",
+    display_name: "SWE",
     name: null,
     created: 1,
     modified: 500,
@@ -15,6 +17,7 @@ function session(patch: Partial<WorkbenchSessionListItem> = {}): WorkbenchSessio
     first_message: "Create the project account-recovery",
     run_active: true,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+    participants: [],
     ...patch,
   };
 }
