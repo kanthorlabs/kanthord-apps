@@ -31,6 +31,16 @@ const HOST: WorkbenchMember = {
   display_name: "Yumi",
 };
 const GUEST: WorkbenchMember = { session_id: "session-2", agent_name: "re@1", display_name: "RE" };
+const PLANNER: WorkbenchMember = {
+  session_id: "phase-planner",
+  agent_name: "ops@1",
+  display_name: "Yumi",
+};
+const REVIEWER: WorkbenchMember = {
+  session_id: "phase-reviewer",
+  agent_name: "ops@1",
+  display_name: "Yumi",
+};
 
 function entry(id: string, member: WorkbenchMember = HOST): WorkbenchSessionEntry {
   return {
@@ -114,6 +124,79 @@ describe("useSessionEvents", () => {
       "session-1:e4",
       "session-2:e4",
     ]);
+  });
+
+  it("sends one pair per member and one pair per phase session after phase entries", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents)
+      .mockResolvedValueOnce({
+        entries: [entry("e3", PLANNER), entry("e4", REVIEWER), entry("e5", HOST)],
+        members: [HOST, GUEST],
+        snapshot: IDLE,
+        version: 1,
+      })
+      .mockImplementation(never);
+
+    renderHook(() =>
+      useSessionEvents("session-1", [entry("e1"), entry("e2", GUEST)], [HOST, GUEST], false),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const calls = vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls;
+    expect(calls.map((call) => call[1])).toEqual([
+      "session-1:e1,session-2:e2",
+      "session-1:e5,session-2:e2,phase-planner:e3,phase-reviewer:e4",
+    ]);
+  });
+
+  it("shows no phase entry twice on a resumed poll", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents)
+      .mockResolvedValueOnce({
+        entries: [entry("e3", PLANNER), entry("e4", REVIEWER)],
+        members: [HOST],
+        snapshot: IDLE,
+        version: 1,
+      })
+      .mockResolvedValueOnce({
+        entries: [entry("e5", PLANNER)],
+        members: [HOST],
+        snapshot: IDLE,
+        version: 2,
+      })
+      .mockImplementation(never);
+
+    const { result } = renderHook(() =>
+      useSessionEvents("session-1", [entry("e1"), entry("e2", PLANNER)], [HOST], false),
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    const calls = vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls;
+    expect(calls.map((call) => call[1])).toEqual([
+      "session-1:e1,phase-planner:e2",
+      "session-1:e1,phase-planner:e3,phase-reviewer:e4",
+      "session-1:e1,phase-planner:e5,phase-reviewer:e4",
+    ]);
+    expect(result.current.entries.map((held) => `${held.session_id}:${held.id}`)).toEqual([
+      "session-1:e1",
+      "phase-planner:e2",
+      "phase-planner:e3",
+      "phase-reviewer:e4",
+      "phase-planner:e5",
+    ]);
+  });
+
+  it("sends the pair form for one member that holds a phase pair", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
+
+    renderHook(() => useSessionEvents("session-1", [entry("e1", PLANNER)], [HOST], false));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls[0]?.[1]).toBe("phase-planner:e1");
   });
 
   it("keeps the order of the answer and sorts nothing", async () => {

@@ -54,10 +54,14 @@ function cursorOf(
   lastEntryIds: ReadonlyMap<string, string>,
 ): string | null {
   const [host] = members;
-  if (members.length === 1 && host !== undefined) return lastEntryIds.get(host.session_id) ?? null;
-  const pairs = members.flatMap((member) => {
-    const entryId = lastEntryIds.get(member.session_id);
-    return entryId === undefined ? [] : [{ sessionId: member.session_id, entryId }];
+  const memberIds = members.map((member) => member.session_id);
+  const phaseIds = [...lastEntryIds.keys()].filter((sessionId) => !memberIds.includes(sessionId));
+  if (members.length === 1 && host !== undefined && phaseIds.length === 0) {
+    return lastEntryIds.get(host.session_id) ?? null;
+  }
+  const pairs = [...memberIds, ...phaseIds].flatMap((sessionId) => {
+    const entryId = lastEntryIds.get(sessionId);
+    return entryId === undefined ? [] : [{ sessionId, entryId }];
   });
   if (pairs.length === 0) return null;
   return pairs.map((pair) => `${pair.sessionId}:${pair.entryId}`).join(",");
