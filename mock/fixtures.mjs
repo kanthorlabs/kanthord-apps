@@ -2341,7 +2341,11 @@ export const PINNED_CREDENTIAL_REVISIONS = ["credential_01J9ZQ4XKM3B6V8N2R5T7W00
 
 const SESSION_BASE = Date.parse("2026-10-05T09:00:00.000Z");
 const entryAt = (index) => new Date(SESSION_BASE + index * 60000).toISOString();
-const textMessage = (role, text) => ({ role, content: [{ type: "text", text }] });
+const textMessage = (role, text) => ({
+  role,
+  content: [{ type: "text", text }],
+  ...(role === "assistant" ? { stopReason: "stop" } : {}),
+});
 
 const EVIDENCE_READ_FACTS = {
   asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0AB4",

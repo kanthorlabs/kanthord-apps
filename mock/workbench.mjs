@@ -98,15 +98,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   };
 
-  const mentionedAgent = (host, text) => {
-    if (!text.startsWith("@")) return undefined;
+  const hasMentionToken = (text) => /^@\S/.test(text);
+
+  const mentionedAgent = (text) => {
+    if (!hasMentionToken(text)) return undefined;
     const lowered = text.slice(1).toLowerCase();
     return agents
-      .filter(
-        (agent) =>
-          agent.workbench === true &&
-          (agent.agent_name === host.agent_name || agent.enablement?.state === "enabled"),
-      )
+      .filter((agent) => agent.workbench === true)
       .sort((a, b) => b.display_name.length - a.display_name.length)
       .find((agent) => {
         const name = agent.display_name.toLowerCase();
@@ -144,7 +142,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
   };
 
   const addresseeOf = (host, text) => {
-    const agent = mentionedAgent(host, text);
+    const agent = mentionedAgent(text);
     if (agent === undefined) return { target: lastAnswerer(host), tag: null };
     const target = agent.agent_name === host.agent_name ? host : participantFor(host, agent);
     return {
@@ -445,7 +443,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     state.pending_approval = null;
     const next = state.queue.shift();
     if (next === undefined) return notify(session);
-    startRun(next.target, next.text);
+    startRun(next.target ?? lastAnswerer(conversationOf(session)), next.text);
   };
 
   const clearQueue = (session) => {
@@ -455,17 +453,17 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     return cleared;
   };
 
-  const enqueue = (target, tag, text) => {
+  const enqueue = (session, target, tag, text) => {
     entrySequence += 1;
     const item = {
       id: `workbench_queued_message_${entrySequence}`,
       text,
-      target,
+      target: tag === null ? null : target,
       agent_name: tag?.agent_name ?? null,
       display_name: tag?.display_name ?? null,
     };
-    stateOf(target).queue.push(item);
-    notify(target);
+    stateOf(session).queue.push(item);
+    notify(session);
     return item;
   };
 
@@ -655,12 +653,21 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     const session = findHost(res, m[1]);
     if (session === undefined) return;
     const state = stateOf(session);
-    if (body.text.startsWith("@") && mentionedAgent(session, body.text) === undefined) {
+    const mentioned = mentionedAgent(body.text);
+    if (hasMentionToken(body.text) && mentioned === undefined) {
       return envelope(
         res,
         404,
         "agent.catalog.not_found",
         "The agent of the leading mention is not in the catalog.",
+      );
+    }
+    if (mentioned !== undefined && mentioned.enablement?.state !== "enabled") {
+      return envelope(
+        res,
+        400,
+        "agent.enablement.unavailable",
+        "Agent configuration is unavailable or invalid.",
       );
     }
     const { target, tag } = addresseeOf(session, body.text);
@@ -678,7 +685,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
     }
     if (body.delivery === "replace") {
       const cleared = clearQueue(session);
-      const item = enqueue(target, tag, body.text);
+      const item = enqueue(session, target, tag, body.text);
       interruptRun(session);
       return answer(item.id, tag?.agent_name ?? null, cleared);
     }
@@ -690,7 +697,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         "The workbench session queue is full.",
       );
     }
-    const item = enqueue(target, tag, body.text);
+    const item = enqueue(session, target, tag, body.text);
     return answer(item.id, tag?.agent_name ?? null, []);
   });
 
