@@ -234,6 +234,7 @@ export function ChatView({
               }
               busy={actions.busy}
               failure={approvalFailure}
+              onAllowed={() => patchSnapshot({ pending_approval: null })}
               onDecide={(approved) => {
                 if (snapshot.pending_approval !== null) {
                   actions.approve(snapshot.pending_approval, approved);

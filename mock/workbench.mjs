@@ -1,6 +1,7 @@
 import {
   BINDING_SET,
   CREDENTIALS,
+  EVIDENCE_NODE_NAME,
   GUEST_INVITE_TTL_MS,
   GUEST_KEEPALIVE_MS,
   GUEST_MESSAGE_MAX_BYTES,
@@ -17,6 +18,7 @@ const STEP_DELAY_MS = 400;
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const QUEUE_LIMIT = 10;
 const OFFER_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2";
+const EVIDENCE_OPERATION = "mission.evidence.asset.content.download";
 const IMPORT_MISSION_ID = "mission_01J9ZQ4XKM3B6V8N2R5T7W0MS1";
 const IMPORT_UPDATE_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA3";
 const IMPORT_PREVIEW_DIGEST = "0123456789abcdef".repeat(4);
@@ -510,6 +512,25 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
         guard: IMPORT_GUARD,
       });
       await answerApproval(session, run, call, approved);
+    } else if (/\bevidence\b/i.test(text)) {
+      call.name = EVIDENCE_OPERATION;
+      call.arguments = {
+        node_id: OFFER_NODE_ID,
+        attempt: 1,
+        evidence_id: "evidence_01J9ZQ4XKM3B6V8N2R5T7W0EV1",
+        asset_id: "evidence_asset_01J9ZQ4XKM3B6V8N2R5T7W0EA1",
+        kind: "object",
+        shared: isShared(conversationOf(session)),
+      };
+      announce(session, call);
+      await sleep(run, STEP_DELAY_MS);
+      const approved = await awaitApproval(session, run, {
+        tool_call_id: call.id,
+        operation_id: call.name,
+        input: call.arguments,
+        guard: null,
+      });
+      await answerApproval(session, run, call, approved);
     } else if (/\b(create|approve|mutation)\b/i.test(text)) {
       call.name = "project.create";
       call.arguments = { name: "account-recovery" };
@@ -942,6 +963,15 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
         409,
         "workbench.session.approval_not_found",
         "The session holds no pending approval for that call.",
+      );
+    }
+    const sharedEvidence = state.pending_approval.input?.shared === true && body.approved === true;
+    if (sharedEvidence && body.node_name !== EVIDENCE_NODE_NAME) {
+      return envelope(
+        res,
+        409,
+        "workbench.evidence.name_mismatch",
+        "The typed name does not match the node name.",
       );
     }
     state.run.decide(body.approved === true);

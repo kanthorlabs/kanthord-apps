@@ -2566,6 +2566,8 @@ const GUARD_SESSIONS = [
   }),
 ];
 
+export const EVIDENCE_NODE_NAME = "Add password reset";
+
 export const GUEST_OWNER_NAME = "Kanthor Labs";
 
 export const GUEST_INVITE_TTL_MS = 24 * 60 * 60 * 1000;
