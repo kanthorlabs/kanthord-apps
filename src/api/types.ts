@@ -1794,11 +1794,74 @@ export interface WorkbenchSessionEvents {
 }
 
 export interface WorkbenchMessageAnswer {
+  readonly kind: "note" | "run";
   readonly session_id: string;
   readonly agent_name: string | null;
   readonly run_active: true;
   readonly queued_message_id: string | null;
   readonly cleared: readonly WorkbenchQueuedMessage[];
+}
+
+export interface WorkbenchInviteCreateBody {
+  readonly invitee_name: string;
+}
+
+export interface WorkbenchInvite {
+  readonly id: string;
+  readonly invitee_name: string;
+  readonly expires_at: number;
+}
+
+export interface WorkbenchInviteCreated extends WorkbenchInvite {
+  readonly session_id: string;
+  readonly invite_token: string;
+}
+
+export interface WorkbenchInviteRevokeAnswer {
+  readonly id: string;
+}
+
+export interface WorkbenchInviteJoinBody {
+  readonly invite_token: string;
+  readonly name: string;
+}
+
+export interface WorkbenchInviteJoinAnswer {
+  readonly guest_token: string;
+  readonly guest_id: string;
+  readonly name: string;
+  readonly session_id: string;
+  readonly expires_at: number;
+}
+
+export interface WorkbenchGuestSession {
+  readonly session_id: string;
+  readonly title: string;
+  readonly members: readonly WorkbenchMember[];
+  readonly owner_name: string;
+  readonly entries: readonly WorkbenchSessionEntry[];
+  readonly run_active: boolean;
+}
+
+export interface WorkbenchGuestState {
+  readonly run_active: boolean;
+  readonly display_name: string;
+  readonly auto_mode: boolean;
+  readonly streaming: boolean;
+}
+
+export interface WorkbenchGuestMessageBody {
+  readonly text: string;
+}
+
+export interface WorkbenchGuestMessageAnswer {
+  readonly kind: "note";
+}
+
+export interface WorkbenchNoteRecord {
+  readonly kind: "note";
+  readonly text: string;
+  readonly author: { readonly kind: "owner" | "guest"; readonly name: string };
 }
 
 export interface WorkbenchAbortAnswer {

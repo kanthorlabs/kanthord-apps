@@ -1,4 +1,5 @@
 import { API_ERROR_CODES, ApiError, type ApiErrorCode } from "./errors";
+import { parseSse, type SseEvent } from "./sse";
 
 export interface Connection {
   readonly baseUrl: string;
@@ -137,4 +138,38 @@ export async function request<T>(
   if (!response.ok) throw failureOf(response.status, body);
 
   return body as T;
+}
+
+export async function* openStream(
+  path: string,
+  options: { signal?: AbortSignal; connection?: Connection } = {},
+): AsyncGenerator<SseEvent> {
+  const target = options.connection ?? current;
+  if (target === null) throw new ApiError("unreachable", "No server is connected.", 0);
+
+  const url = joinUrl(target.baseUrl, path);
+  const headers: Record<string, string> = { accept: "text/event-stream" };
+  if (target.token !== null) headers["authorization"] = `Bearer ${target.token}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "GET", headers, signal: options.signal });
+  } catch {
+    throw new ApiError("unreachable", "The daemon did not answer.", 0, url);
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = null;
+    }
+    throw failureOf(response.status, body);
+  }
+  if (response.body === null)
+    throw new ApiError("malformed", "The daemon sent no stream.", response.status);
+
+  yield* parseSse(response.body);
 }

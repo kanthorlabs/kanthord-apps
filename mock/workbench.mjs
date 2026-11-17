@@ -1,4 +1,15 @@
-import { BINDING_SET, CREDENTIALS, PROJECT } from "./fixtures.mjs";
+import {
+  BINDING_SET,
+  CREDENTIALS,
+  GUEST_INVITE_TTL_MS,
+  GUEST_KEEPALIVE_MS,
+  GUEST_MESSAGE_MAX_BYTES,
+  GUEST_NAME_MAX_CHARS,
+  GUEST_OWNER_NAME,
+  GUEST_STREAM_ENTRIES_DELAY_MS,
+  GUEST_STREAM_STATE_DELAY_MS,
+  PROJECT,
+} from "./fixtures.mjs";
 
 const WAIT_WINDOW_MS = 25000;
 const WORD_DELAY_MS = 150;
@@ -33,6 +44,14 @@ const FORK_TEXT_MAX_BYTES = 4096;
 const FORK_TITLE_MAX_CHARS = 120;
 const FORK_SUMMARY = "The earlier conversation listed the nodes of the mission and ended there.";
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
+
+const randomTail = () => {
+  let tail = "";
+  for (let index = 0; index < 25; index += 1) {
+    tail += ULID_ALPHABET[Math.floor(Math.random() * ULID_ALPHABET.length)];
+  }
+  return tail;
+};
 
 const sessionId = () => {
   let tail = "";
@@ -82,7 +101,7 @@ const cursorOf = (host, after) => {
   return new Map(after.split(",").map((pair) => pair.split(":")));
 };
 
-export function registerWorkbench({ on, json, envelope, agents, sessions }) {
+export function registerWorkbench({ on, json, envelope, agents, sessions, origin }) {
   const live = new Map();
   let entrySequence = 100;
 
@@ -834,9 +853,21 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
         "Agent configuration is unavailable or invalid.",
       );
     }
+    if (isShared(session) && !hasMentionToken(body.text)) {
+      append(session, "custom", {
+        customType: RECORD_TYPE,
+        data: {
+          kind: "note",
+          text: body.text,
+          author: { kind: "owner", name: GUEST_OWNER_NAME },
+        },
+      });
+      return json(res, 202, { kind: "note", session_id: session.id });
+    }
     const { target, tag } = addresseeOf(session, body.text);
     const answer = (queuedMessageId, agentName, cleared) =>
       json(res, 202, {
+        kind: "run",
         session_id: session.id,
         agent_name: agentName,
         run_active: true,
@@ -994,5 +1025,201 @@ export function registerWorkbench({ on, json, envelope, agents, sessions }) {
       clearTimeout(timer);
       state.waiters.delete(answer);
     });
+  });
+
+  const invites = new Map();
+  const guests = new Map();
+  const guestStreams = new Set();
+
+  const liveInvites = (host) =>
+    [...invites.values()].filter(
+      (invite) => invite.session_id === host.id && invite.expires_at > Date.now(),
+    );
+
+  const isShared = (host) => liveInvites(host).length > 0;
+
+  const publicInvite = ({ id, invitee_name, expires_at }) => ({ id, invitee_name, expires_at });
+
+  const validInviteeName = (name) =>
+    typeof name === "string" &&
+    name.trim() !== "" &&
+    name.length <= GUEST_NAME_MAX_CHARS &&
+    [...name].every((character) => NAME_CHARACTER.test(character));
+
+  on("POST", /^\/api\/workbench\/session\/([^/]+)\/invite$/, (m, body, res) => {
+    const session = findHost(res, m[1]);
+    if (session === undefined) return;
+    if (!validInviteeName(body?.invitee_name)) {
+      return envelope(
+        res,
+        400,
+        "workbench.invite.name_invalid",
+        "The invitee name is empty, too long or holds an unsupported character.",
+      );
+    }
+    const invite = {
+      id: `invite_0${randomTail()}`,
+      session_id: session.id,
+      invitee_name: body.invitee_name.trim(),
+      expires_at: Date.now() + GUEST_INVITE_TTL_MS,
+      invite_token: `mock-invite-${randomTail()}`,
+    };
+    invites.set(invite.id, invite);
+    return json(res, 201, {
+      ...publicInvite(invite),
+      session_id: invite.session_id,
+      invite_token: invite.invite_token,
+    });
+  });
+
+  on("GET", /^\/api\/workbench\/session\/([^/]+)\/invite$/, (m, _b, res) => {
+    const session = findHost(res, m[1]);
+    if (session === undefined) return;
+    return json(res, 200, { items: liveInvites(session).map(publicInvite) });
+  });
+
+  on("DELETE", /^\/api\/workbench\/invite\/([^/]+)$/, (m, _b, res) => {
+    const invite = invites.get(decodeURIComponent(m[1]));
+    if (invite === undefined) {
+      return envelope(res, 404, "workbench.invite.not_found", "The invite does not exist.");
+    }
+    invites.delete(invite.id);
+    for (const stream of [...guestStreams]) {
+      if (stream.inviteId === invite.id) stream.close();
+    }
+    return json(res, 200, { id: invite.id });
+  });
+
+  on("POST", /^\/api\/workbench\/invite\/join$/, (_m, body, res) => {
+    const invite = [...invites.values()].find(
+      (candidate) =>
+        candidate.invite_token === body?.invite_token && candidate.expires_at > Date.now(),
+    );
+    if (invite === undefined) {
+      return envelope(res, 404, "workbench.invite.not_found", "The invite does not exist.");
+    }
+    if (!validInviteeName(body?.name)) {
+      return envelope(
+        res,
+        400,
+        "workbench.invite.name_invalid",
+        "The name is empty, too long or holds an unsupported character.",
+      );
+    }
+    const guest = {
+      guest_token: `mock-guest-${randomTail()}`,
+      guest_id: `guest_0${randomTail()}`,
+      name: body.name.trim(),
+      session_id: invite.session_id,
+      expires_at: invite.expires_at,
+      invite_id: invite.id,
+    };
+    guests.set(guest.guest_token, guest);
+    return json(res, 200, {
+      guest_token: guest.guest_token,
+      guest_id: guest.guest_id,
+      name: guest.name,
+      session_id: guest.session_id,
+      expires_at: guest.expires_at,
+    });
+  });
+
+  const guestOf = (res, token) => {
+    const guest = guests.get(token);
+    const invite = guest === undefined ? undefined : invites.get(guest.invite_id);
+    if (invite !== undefined && invite.expires_at > Date.now()) return guest;
+    envelope(res, 401, "gateway.jwt.invite_ended", "The invite of this guest ended.");
+  };
+
+  on("GET", /^\/api\/workbench\/guest\/session$/, (_m, _b, res, token) => {
+    const guest = guestOf(res, token);
+    if (guest === undefined) return;
+    const session = sessions.find((candidate) => candidate.id === guest.session_id);
+    return json(res, 200, {
+      session_id: session.id,
+      title: forkTitleOf(session),
+      members: membersOf(session),
+      owner_name: GUEST_OWNER_NAME,
+      entries: entriesAfter(session, null),
+      run_active: stateOf(session).run !== null,
+    });
+  });
+
+  on("POST", /^\/api\/workbench\/guest\/session\/message$/, (_m, body, res, token) => {
+    const guest = guestOf(res, token);
+    if (guest === undefined) return;
+    const text = body?.text;
+    if (
+      typeof text !== "string" ||
+      text.trim() === "" ||
+      Buffer.byteLength(text) > GUEST_MESSAGE_MAX_BYTES
+    ) {
+      return envelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+        { path: ["body", "text"], code: "custom" },
+      ]);
+    }
+    const session = sessions.find((candidate) => candidate.id === guest.session_id);
+    append(session, "custom", {
+      customType: RECORD_TYPE,
+      data: { kind: "note", text, author: { kind: "guest", name: guest.name } },
+    });
+    return json(res, 202, { kind: "note" });
+  });
+
+  on("GET", /^\/api\/workbench\/guest\/session\/stream$/, (_m, _b, res, token, url) => {
+    const guest = guestOf(res, token);
+    if (guest === undefined) return;
+    const session = sessions.find((candidate) => candidate.id === guest.session_id);
+    const state = stateOf(session);
+    const sent = new Set();
+    const timers = [];
+
+    const frame = (event, data) => {
+      if (!res.writableEnded) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    const sendState = () =>
+      frame("state", {
+        run_active: state.run !== null,
+        display_name: displayNameOf(session.agent_name),
+        auto_mode: state.auto_mode,
+        streaming: state.streaming_message !== null,
+      });
+    const sendEntries = () => {
+      const entries = entriesAfter(session, after).filter((entry) => !sent.has(entry.id));
+      if (entries.length === 0) return;
+      for (const entry of entries) sent.add(entry.id);
+      frame("entries", { entries });
+    };
+    const after = url.searchParams.get("after");
+    const follow = () => {
+      sendEntries();
+      sendState();
+    };
+
+    const close = () => {
+      for (const timer of timers) clearTimeout(timer);
+      clearInterval(keepalive);
+      state.waiters.delete(follow);
+      guestStreams.delete(stream);
+      if (!res.writableEnded) res.end();
+    };
+    const stream = { inviteId: guest.invite_id, close };
+    const keepalive = setInterval(() => {
+      if (!res.writableEnded) res.write(": keepalive\n\n");
+    }, GUEST_KEEPALIVE_MS);
+
+    res.writeHead(200, {
+      "content-type": "text/event-stream",
+      "cache-control": "no-store",
+      connection: "keep-alive",
+      "access-control-allow-origin": origin,
+      vary: "origin",
+    });
+    res.write(": keepalive\n\n");
+    guestStreams.add(stream);
+    state.waiters.add(follow);
+    timers.push(setTimeout(sendState, GUEST_STREAM_STATE_DELAY_MS));
+    timers.push(setTimeout(() => sendEntries(), GUEST_STREAM_ENTRIES_DELAY_MS));
+    res.on("close", close);
   });
 }

@@ -398,6 +398,7 @@ describe("Composer addressee", () => {
 
   it("shows a queued tagged message as to its mention before the next poll", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: "swe@1",
       run_active: true,
@@ -415,6 +416,7 @@ describe("Composer addressee", () => {
 
   it("shows a queued untagged message as to last answer", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: "swe@1",
       run_active: true,
@@ -625,6 +627,7 @@ describe("Composer", () => {
 
   it("sends the message with Enter and keeps a new line for Shift+Enter", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -647,6 +650,7 @@ describe("Composer", () => {
 
   describe("during a run", () => {
     const ACCEPTED = {
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -761,6 +765,7 @@ describe("Composer", () => {
     await userEvent.type(box, "later");
 
     answer({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -947,6 +952,7 @@ describe("Composer", () => {
 
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -984,6 +990,7 @@ describe("Composer", () => {
     const BRIEF_TEXT = "Report the system status and the actions that need me.";
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
     const SENT = {
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,

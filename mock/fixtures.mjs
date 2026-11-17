@@ -2566,6 +2566,20 @@ const GUARD_SESSIONS = [
   }),
 ];
 
+export const GUEST_OWNER_NAME = "Kanthor Labs";
+
+export const GUEST_INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+
+export const GUEST_NAME_MAX_CHARS = 64;
+
+export const GUEST_MESSAGE_MAX_BYTES = 16384;
+
+export const GUEST_KEEPALIVE_MS = 15000;
+
+export const GUEST_STREAM_STATE_DELAY_MS = 300;
+
+export const GUEST_STREAM_ENTRIES_DELAY_MS = 900;
+
 export const WORKBENCH_SESSIONS = [
   {
     id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1",

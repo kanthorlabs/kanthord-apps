@@ -582,6 +582,7 @@ describe("ChatView", () => {
   it("sends the message, clears the draft and starts the run state at once", async () => {
     pollQueue();
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -620,6 +621,7 @@ describe("ChatView", () => {
     it("adds a queued message to the snapshot queue before the next poll", async () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -639,6 +641,7 @@ describe("ChatView", () => {
     it("shows the row of a queued message before the next poll", async () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -657,6 +660,7 @@ describe("ChatView", () => {
 
     it("keeps the error message when the message is queued", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -672,6 +676,7 @@ describe("ChatView", () => {
 
     it("clears the error message when the send starts a run", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -687,6 +692,7 @@ describe("ChatView", () => {
     it("puts the cleared texts back into the composer", async () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
