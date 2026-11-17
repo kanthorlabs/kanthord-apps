@@ -3,7 +3,14 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { request, requestBlob, requestText, setConnection } from "./client";
+import {
+  type Connection,
+  openStream,
+  request,
+  requestBlob,
+  requestText,
+  setConnection,
+} from "./client";
 import { ApiError } from "./errors";
 
 let server: Server | null = null;
@@ -163,5 +170,76 @@ describe("requestBlob", () => {
       code: "unreachable",
       message: "No server is connected.",
     });
+  });
+});
+
+const GUEST_BEARER = "guest-bearer-1";
+const OWNER_BEARER = "owner-bearer-1";
+
+describe("openStream", () => {
+  async function serveStream(
+    status: number,
+    headers: Record<string, string>,
+    body: string,
+  ): Promise<{ authorizations: string[]; connection: Connection }> {
+    const authorizations: string[] = [];
+    const instance = createServer((req, res) => {
+      authorizations.push(req.headers.authorization ?? "");
+      res.writeHead(status, headers);
+      res.end(body);
+    });
+    server = instance;
+    await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
+    const port = (instance.address() as AddressInfo).port;
+    return {
+      authorizations,
+      connection: { baseUrl: `http://127.0.0.1:${port}`, token: GUEST_BEARER },
+    };
+  }
+
+  it("sends the bearer header of the passed connection and yields the parsed events", async () => {
+    const { authorizations, connection } = await serveStream(
+      200,
+      { "content-type": "text/event-stream" },
+      ': keepalive\n\nevent: state\ndata: {"run_active":false}\n\n',
+    );
+    setConnection({ baseUrl: connection.baseUrl, token: OWNER_BEARER });
+
+    const events = [];
+    for await (const event of openStream("/api/workbench/guest/session/stream", { connection })) {
+      events.push(event);
+    }
+
+    expect(events).toEqual([{ event: "state", data: '{"run_active":false}' }]);
+    expect(authorizations).toEqual([`Bearer ${GUEST_BEARER}`]);
+  });
+
+  it("maps a 401 answer through failureOf", async () => {
+    const { connection } = await serveStream(
+      401,
+      { "content-type": "application/json" },
+      JSON.stringify({
+        error: { code: "gateway.jwt.invite_ended", message: "The invite ended." },
+      }),
+    );
+
+    const failure = await openStream("/api/workbench/guest/session/stream", { connection })
+      .next()
+      .catch((cause: unknown) => cause);
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect(failure).toMatchObject({
+      code: "unauthorized",
+      status: 401,
+      message: "The invite ended.",
+      detail: "gateway.jwt.invite_ended",
+    });
+  });
+
+  it("rejects without a connection", async () => {
+    const failure = await openStream("/api/workbench/guest/session/stream")
+      .next()
+      .catch((cause: unknown) => cause);
+    expect(failure).toMatchObject({ code: "unreachable", message: "No server is connected." });
   });
 });

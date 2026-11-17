@@ -90,6 +90,7 @@ vi.mock("@/api/resources/workbench", () => ({
   createWorkbenchSession: vi.fn(),
   sendWorkbenchMessage: vi.fn(),
   forkWorkbenchSession: vi.fn(),
+  listInvites: vi.fn(),
 }));
 
 vi.mock("@/api/resources/tracking", () => ({
@@ -155,6 +156,7 @@ import {
   approveWorkbenchCall,
   createWorkbenchSession,
   forkWorkbenchSession,
+  listInvites,
   listWorkbenchSessions,
   readWorkbenchEvents,
   readWorkbenchSession,
@@ -809,6 +811,7 @@ async function press(user: ReturnType<typeof userEvent.setup>, name: string | Re
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(listInvites).mockResolvedValue([]);
   NOW = Date.now();
 });
 
@@ -849,6 +852,7 @@ describe("HomeScreen layout", () => {
       nodes: { "prj-1": [blocked("n_a", "Audit log")] },
     });
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: "workbench_session_Y1",
       agent_name: null,
       run_active: true,
@@ -1351,6 +1355,7 @@ describe("HomeScreen Yumi chat", () => {
     serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
     vi.mocked(createWorkbenchSession).mockResolvedValue(conversation("workbench_session_Y2", "x"));
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: "workbench_session_Y2",
       agent_name: null,
       run_active: true,
@@ -1409,6 +1414,7 @@ describe("HomeScreen Yumi chat", () => {
     const user = userEvent.setup();
     serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: "workbench_session_Y1",
       agent_name: null,
       run_active: true,
@@ -1616,6 +1622,7 @@ describe("HomeScreen fork", () => {
     serve({ yumi: "on", sessions: [] });
     vi.mocked(createWorkbenchSession).mockResolvedValue(conversation("workbench_session_Y2", "x"));
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: "workbench_session_Y2",
       agent_name: null,
       run_active: true,
@@ -1970,6 +1977,7 @@ describe("HomeScreen Ask Yumi", () => {
       conversation("workbench_session_CASE", "x"),
     );
     vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: "workbench_session_CASE",
       agent_name: null,
       run_active: true,

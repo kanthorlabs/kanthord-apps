@@ -172,6 +172,7 @@ function mount(
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
   );
@@ -398,6 +399,7 @@ describe("Composer addressee", () => {
 
   it("shows a queued tagged message as to its mention before the next poll", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: "swe@1",
       run_active: true,
@@ -415,6 +417,7 @@ describe("Composer addressee", () => {
 
   it("shows a queued untagged message as to last answer", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: "swe@1",
       run_active: true,
@@ -625,6 +628,7 @@ describe("Composer", () => {
 
   it("sends the message with Enter and keeps a new line for Shift+Enter", async () => {
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -647,6 +651,7 @@ describe("Composer", () => {
 
   describe("during a run", () => {
     const ACCEPTED = {
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -761,6 +766,7 @@ describe("Composer", () => {
     await userEvent.type(box, "later");
 
     answer({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -947,6 +953,7 @@ describe("Composer", () => {
 
     it("sends the draft with replace and leaves only the draft in the queue list", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -984,6 +991,7 @@ describe("Composer", () => {
     const BRIEF_TEXT = "Report the system status and the actions that need me.";
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
     const SENT = {
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -1192,6 +1200,93 @@ describe("Composer", () => {
       await userEvent.type(box(), "/");
 
       expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
+    });
+  });
+
+  describe("in a shared conversation", () => {
+    const box = () => screen.getByRole("combobox", { name: "Message" });
+    const YUMI_MEMBER: WorkbenchMember = {
+      session_id: SESSION_ID,
+      agent_name: "ops@1",
+      display_name: "Yumi",
+    };
+    const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+    const BRIEF_TEXT = "Report the system status and the actions that need me.";
+    const HEALTH_TEXT = "Check the health of the gateway and the providers.";
+    const SENT = {
+      kind: "run",
+      session_id: SESSION_ID,
+      agent_name: null,
+      run_active: true,
+      queued_message_id: null,
+      cleared: [],
+    } as const;
+
+    beforeEach(() => {
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue([INVITE]);
+    });
+
+    it("shows the note placeholder in the composer", async () => {
+      mount("ops@1", false, { members: [YUMI_MEMBER] });
+
+      await waitFor(() =>
+        expect(box()).toHaveAttribute(
+          "placeholder",
+          "Note to everyone · start with @ to ask an agent",
+        ),
+      );
+    });
+
+    it("reads Note to everyone for an untagged draft", async () => {
+      mount("ops@1", false, { members: [YUMI_MEMBER] });
+
+      expect(await screen.findByText("Note to everyone")).toBeInTheDocument();
+
+      await userEvent.type(box(), "remember this");
+
+      expect(screen.getByText("Note to everyone")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Addressee")).toBeNull();
+    });
+
+    it("reads To @Yumi for a draft with a leading mention", async () => {
+      mount("ops@1", false, { members: [YUMI_MEMBER] });
+      await screen.findByText("Note to everyone");
+
+      await userEvent.type(box(), "@Yumi what is new");
+
+      expect(await screen.findByText("To @Yumi")).toBeInTheDocument();
+      expect(screen.queryByText("Note to everyone")).toBeNull();
+    });
+
+    it("sends /brief with the host mention in front", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("ops@1", false, { members: [YUMI_MEMBER] });
+      await screen.findByText("Note to everyone");
+
+      await userEvent.type(box(), "/brief");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledTimes(1);
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+        SESSION_ID,
+        `@Yumi ${BRIEF_TEXT}`,
+        "queue",
+      );
+    });
+
+    it("sends /health with the host mention in front from the command list", async () => {
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(SENT);
+      mount("ops@1", false, { members: [YUMI_MEMBER] });
+      await screen.findByText("Note to everyone");
+      await userEvent.click(box());
+
+      await userEvent.click(await screen.findByRole("option", { name: /\/health/ }));
+
+      expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+        SESSION_ID,
+        `@Yumi ${HEALTH_TEXT}`,
+        "queue",
+      );
     });
   });
 });

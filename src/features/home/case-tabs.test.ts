@@ -75,6 +75,7 @@ beforeEach(() => {
   vi.mocked(basePath).mockReturnValue("/");
   vi.mocked(createWorkbenchSession).mockResolvedValue(session("session_1"));
   vi.mocked(sendWorkbenchMessage).mockResolvedValue({
+    kind: "run",
     session_id: "session_1",
     agent_name: null,
     run_active: true,

@@ -1,17 +1,37 @@
 import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const owner = vi.hoisted(() => ({
+  signedIn: true,
+  session: {
+    instance: { id: "i-local", name: "local", baseUrl: "http://localhost:31415" },
+    token: "jwt-1",
+    identity: { kind: "human", sub: "kanthorlabs", name: "Ulrich" },
+  },
+}));
 
 vi.mock("@/features/auth/session/session-context", () => ({
   useSession: () => ({
-    session: {
-      instance: { id: "i-local", name: "local", baseUrl: "http://localhost:31415" },
-      token: "jwt-1",
-      identity: { kind: "human", sub: "kanthorlabs", name: "Ulrich" },
-    },
+    session: owner.signedIn ? owner.session : null,
     signOut: vi.fn(),
   }),
+}));
+
+vi.mock("@/features/auth/login/login-screen", () => ({
+  LoginScreen: () => <p>Login body</p>,
+}));
+
+vi.mock("@/features/guest/join-screen", () => ({
+  JoinScreen: () => {
+    const { pathname } = useLocation();
+    return <p>{`Join body ${pathname}`}</p>;
+  },
+}));
+
+vi.mock("@/features/guest/guest-screen", () => ({
+  GuestScreen: () => <p>Guest body</p>,
 }));
 
 vi.mock("@/features/projects/project-context", () => {
@@ -61,13 +81,20 @@ vi.mock("@/features/footprint/view/footprint-cleanup-screen", () => ({
 
 import { AppRouter } from "./app-router";
 
+const INVITE = "5b0f8f0e-3a54-4a0b-9d5e-2f3f6a1c7a10";
+
 describe("AppRouter", () => {
+  afterEach(() => {
+    owner.signedIn = true;
+  });
+
   it("serves the scheduler at its own route", () => {
     window.history.pushState({}, "", "/scheduler");
 
     render(<AppRouter />);
 
     expect(screen.getByText("Scheduler body")).toBeInTheDocument();
+    expect(screen.getByText("kanthord")).toBeInTheDocument();
   });
 
   it("serves the timeline at its own route", () => {
@@ -104,5 +131,53 @@ describe("AppRouter", () => {
     window.history.pushState({}, "", "/footprint/workspace");
     render(<AppRouter />);
     expect(screen.getByText("Footprint kind body")).toBeInTheDocument();
+  });
+
+  it("serves the join screen with no owner session", () => {
+    owner.signedIn = false;
+    window.history.pushState({}, "", `/join/${INVITE}`);
+
+    render(<AppRouter />);
+
+    expect(screen.getByText(`Join body /join/${INVITE}`)).toBeInTheDocument();
+    expect(screen.queryByText("Login body")).not.toBeInTheDocument();
+  });
+
+  it("serves the guest screen with no owner session", () => {
+    owner.signedIn = false;
+    window.history.pushState({}, "", "/guest");
+
+    render(<AppRouter />);
+
+    expect(screen.getByText("Guest body")).toBeInTheDocument();
+    expect(screen.queryByText("Login body")).not.toBeInTheDocument();
+  });
+
+  it("serves the login screen at another route with no owner session", () => {
+    owner.signedIn = false;
+    window.history.pushState({}, "", "/scheduler");
+
+    render(<AppRouter />);
+
+    expect(screen.getByText("Login body")).toBeInTheDocument();
+    expect(screen.queryByText("Scheduler body")).not.toBeInTheDocument();
+  });
+
+  it("serves the join screen outside the shell with an owner session", () => {
+    window.history.pushState({}, "", `/join/${INVITE}`);
+
+    render(<AppRouter />);
+
+    expect(screen.getByText(`Join body /join/${INVITE}`)).toBeInTheDocument();
+    expect(screen.queryByText("kanthord")).not.toBeInTheDocument();
+  });
+
+  it("serves the guest screen outside the shell with an owner session", () => {
+    window.history.pushState({}, "", "/guest");
+
+    render(<AppRouter />);
+
+    expect(screen.getByText("Guest body")).toBeInTheDocument();
+    expect(screen.queryByText("kanthord")).not.toBeInTheDocument();
   });
 });

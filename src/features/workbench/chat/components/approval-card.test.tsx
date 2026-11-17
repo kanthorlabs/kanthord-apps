@@ -1,9 +1,27 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { WorkbenchGuardCause, WorkbenchPendingApproval } from "@/api/types";
+import { ApiError } from "@/api/errors";
+import { readMissionNode } from "@/api/resources/mission";
+import { approveWorkbenchCall } from "@/api/resources/workbench";
+import type { MissionNodeRecord, WorkbenchGuardCause, WorkbenchPendingApproval } from "@/api/types";
 import { ApprovalCard } from "./approval-card";
+
+vi.mock("@/api/resources/mission", () => ({ readMissionNode: vi.fn() }));
+vi.mock("@/api/resources/workbench", () => ({ approveWorkbenchCall: vi.fn() }));
+
+const readMock = vi.mocked(readMissionNode);
+const approveMock = vi.mocked(approveWorkbenchCall);
+
+function nodeNamed(name: string): MissionNodeRecord {
+  return { id: "node_42", content: { name } } as unknown as MissionNodeRecord;
+}
+
+beforeEach(() => {
+  readMock.mockReset();
+  approveMock.mockReset();
+});
 
 const EVIDENCE: WorkbenchPendingApproval = {
   session_id: "session_1",
@@ -68,6 +86,11 @@ const UNBLOCK: WorkbenchPendingApproval = {
   input: { node_id: "node_7" },
 };
 
+const SHARED_EVIDENCE: WorkbenchPendingApproval = {
+  ...EVIDENCE,
+  input: { ...EVIDENCE.input, shared: true },
+};
+
 function mount(approval: WorkbenchPendingApproval, onDecide = vi.fn()) {
   render(
     <ApprovalCard
@@ -93,7 +116,7 @@ describe("ApprovalCard", () => {
     expect(within(card).getByText("asset_id: evidence_asset_9")).toBeTruthy();
     expect(within(card).getByText("kind: object")).toBeTruthy();
     expect(card).toHaveTextContent(
-      "Approve lets this conversation read every evidence asset of node node_42 until kanthord restarts.",
+      "Approve lets this conversation read every evidence asset of node node_42 until kanthord restarts or the conversation is shared.",
     );
     expect(within(card).queryByText("Operation ID")).toBeNull();
     expect(within(card).queryByText(/The agent asks to/)).toBeNull();
@@ -217,5 +240,138 @@ describe("ApprovalCard", () => {
     const card = screen.getByRole("group", { name: "Approval Required" });
     expect(within(card).getAllByRole("listitem")).toHaveLength(2);
     expect(within(card).getByText("Guard: import always needs your approval")).toBeTruthy();
+  });
+
+  describe("the evidence card of a shared conversation", () => {
+    const TITLE = "Evidence read in a shared conversation";
+
+    function mountShared(onAllowed = vi.fn(), onDecide = vi.fn()) {
+      render(
+        <ApprovalCard
+          approval={SHARED_EVIDENCE}
+          agentDisplayName="RE"
+          busy={false}
+          failure={null}
+          onDecide={onDecide}
+          onAllowed={onAllowed}
+        />,
+      );
+      return { onAllowed, onDecide };
+    }
+
+    it("keeps the plain card with an unshared evidence call", () => {
+      mount(EVIDENCE);
+
+      expect(screen.queryByRole("group", { name: TITLE })).toBeNull();
+      expect(screen.getByRole("button", { name: "Approve" })).toBeTruthy();
+    });
+
+    it("shows the title, the warning with the agent name, the facts and the grant line", async () => {
+      readMock.mockResolvedValue(nodeNamed("Add password reset"));
+      mountShared();
+
+      const card = await screen.findByRole("group", { name: TITLE });
+      expect(within(card).getByRole("heading", { name: TITLE })).toBeTruthy();
+      expect(card).toHaveTextContent(
+        "Guests see every answer in this conversation. RE can quote this evidence to them.",
+      );
+      expect(within(card).getByText("node_id: node_42")).toBeTruthy();
+      expect(within(card).getByText("attempt: 3")).toBeTruthy();
+      expect(within(card).getByText("asset_id: evidence_asset_9")).toBeTruthy();
+      expect(within(card).getByText("kind: object")).toBeTruthy();
+      expect(card).toHaveTextContent(
+        "Allow lets this conversation read every evidence asset of node node_42 until kanthord restarts or a new invite is created.",
+      );
+      expect(card.parentElement).toHaveClass("border-destructive");
+    });
+
+    it("shows the node name in the destructive colour and as the placeholder", async () => {
+      readMock.mockResolvedValue(nodeNamed("Add password reset"));
+      mountShared();
+
+      const name = await screen.findByText("Add password reset");
+      expect(name).toHaveClass("text-destructive");
+      expect(name.parentElement).toHaveTextContent("Type Add password reset to allow");
+      expect(screen.getByPlaceholderText("Add password reset")).toHaveValue("");
+    });
+
+    it("keeps Allow disabled until the typed text equals the node name", async () => {
+      readMock.mockResolvedValue(nodeNamed("Add password reset"));
+      mountShared();
+      const field = await screen.findByPlaceholderText("Add password reset");
+      const allow = screen.getByRole("button", { name: "Allow" });
+      expect(allow).toBeDisabled();
+
+      await userEvent.type(field, "add password reset");
+      expect(allow).toBeDisabled();
+
+      await userEvent.clear(field);
+      await userEvent.type(field, "Add password reset ");
+      expect(allow).toBeDisabled();
+
+      await userEvent.clear(field);
+      await userEvent.type(field, "Add password reset");
+      expect(allow).toBeEnabled();
+    });
+
+    it("sends the typed name as node_name and reports the allow", async () => {
+      readMock.mockResolvedValue(nodeNamed("Add password reset"));
+      approveMock.mockResolvedValue({
+        session_id: "session_1",
+        tool_call_id: "call_1",
+        approved: true,
+      });
+      const { onAllowed } = mountShared();
+      await userEvent.type(
+        await screen.findByPlaceholderText("Add password reset"),
+        "Add password reset",
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Allow" }));
+
+      await waitFor(() =>
+        expect(approveMock).toHaveBeenCalledWith("session_1", "call_1", true, "Add password reset"),
+      );
+      await waitFor(() => expect(onAllowed).toHaveBeenCalledTimes(1));
+    });
+
+    it("shows the mismatch line and the fresh name after a 409", async () => {
+      readMock
+        .mockResolvedValueOnce(nodeNamed("Add password reset"))
+        .mockResolvedValue(nodeNamed("Add password recovery"));
+      approveMock.mockRejectedValue(
+        new ApiError(
+          "conflict",
+          "The typed name does not match.",
+          409,
+          "workbench.evidence.name_mismatch",
+        ),
+      );
+      mountShared();
+      await userEvent.type(
+        await screen.findByPlaceholderText("Add password reset"),
+        "Add password reset",
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Allow" }));
+
+      const line = await screen.findByRole("alert");
+      expect(line).toHaveTextContent(
+        "workbench.evidence.name_mismatch The typed name does not match the node name. The card read the node again.",
+      );
+      expect(await screen.findByText("Add password recovery")).toHaveClass("text-destructive");
+      expect(screen.getByPlaceholderText("Add password recovery")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Allow" })).toBeDisabled();
+    });
+
+    it("rejects through onDecide", async () => {
+      readMock.mockResolvedValue(nodeNamed("Add password reset"));
+      const { onDecide } = mountShared();
+      await screen.findByPlaceholderText("Add password reset");
+
+      await userEvent.click(screen.getByRole("button", { name: "Reject" }));
+
+      expect(onDecide).toHaveBeenCalledWith(false);
+    });
   });
 });

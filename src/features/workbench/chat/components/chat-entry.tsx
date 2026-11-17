@@ -10,6 +10,8 @@ import { BubbleAuthor } from "./bubble-author";
 import { InlineError } from "./inline-error";
 import { EvidenceRow } from "./evidence-row";
 import { ForkEntry } from "./fork-entry";
+import { GuestActionEntry } from "./guest-action-entry";
+import { NoteEntry } from "./note-entry";
 import { PhaseGroupEntry } from "./phase-group-entry";
 import { PlanEntry } from "./plan-entry";
 import { commandOfText } from "../slash-commands";
@@ -69,6 +71,7 @@ interface ChatEntryProps {
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly sessionId: string;
   readonly canRun?: boolean;
+  readonly forkLinked?: boolean;
 }
 
 export function ChatEntry({
@@ -78,6 +81,7 @@ export function ChatEntry({
   actionLineOf,
   sessionId,
   canRun = false,
+  forkLinked = true,
 }: ChatEntryProps) {
   if (item.kind === "user") {
     return (
@@ -126,7 +130,11 @@ export function ChatEntry({
     );
   }
 
-  if (item.kind === "fork") return <ForkEntry item={item} />;
+  if (item.kind === "fork") return <ForkEntry item={item} linked={forkLinked} />;
+
+  if (item.kind === "note") return <NoteEntry item={item} />;
+
+  if (item.kind === "guest-action") return <GuestActionEntry item={item} />;
 
   if (item.kind === "evidence-row") return <EvidenceRow facts={item.facts} />;
 
@@ -150,6 +158,7 @@ export function ChatEntry({
             actionLineOf={actionLineOf}
             sessionId={sessionId}
             canRun={canRun}
+            forkLinked={forkLinked}
           />
         ))}
       </PhaseGroupEntry>

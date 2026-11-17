@@ -3,19 +3,25 @@ import type { AddressInfo } from "node:net";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { setConnection } from "../client";
+import { connectionBaseUrl, setConnection } from "../client";
 import { ApiError } from "../errors";
 import {
   abortWorkbenchRun,
   approveWorkbenchCall,
   configureWorkbenchSession,
+  createInvite,
   createWorkbenchSession,
   forkWorkbenchSession,
+  joinInvite,
+  listInvites,
   listWorkbenchSessions,
+  readGuestSession,
   readWorkbenchEvents,
   readWorkbenchSession,
   removeQueuedWorkbenchMessage,
   reportWorkbenchAction,
+  revokeInvite,
+  sendGuestMessage,
   sendWorkbenchMessage,
   setWorkbenchAutoMode,
 } from "./workbench";
@@ -27,6 +33,7 @@ interface Seen {
   readonly url: string;
   readonly body: string;
   readonly idempotencyKey: string | undefined;
+  readonly authorization: string | undefined;
 }
 
 let server: Server | null = null;
@@ -47,6 +54,7 @@ async function serve(routes: Readonly<Record<string, { status?: number; body: un
         url,
         body,
         idempotencyKey: typeof header === "string" ? header : undefined,
+        authorization: req.headers.authorization,
       });
       const route = routes[`${method} ${url}`];
       res.writeHead(route === undefined ? 404 : (route.status ?? 200), {
@@ -61,6 +69,10 @@ async function serve(routes: Readonly<Record<string, { status?: number; body: un
     baseUrl: `http://127.0.0.1:${(instance.address() as AddressInfo).port}`,
     token: "jwt-1",
   });
+}
+
+function connectionBase(): string {
+  return connectionBaseUrl() ?? "";
 }
 
 afterEach(async () => {
@@ -315,6 +327,22 @@ describe("approveWorkbenchCall", () => {
 
     expect(JSON.parse(seen[0]!.body)).toEqual({ tool_call_id: "call_1", approved: false });
   });
+
+  it("sends the node name when given", async () => {
+    await serve({
+      [`POST ${PATH}/approve`]: {
+        body: { session_id: SESSION_ID, tool_call_id: "call_1", approved: true },
+      },
+    });
+
+    await approveWorkbenchCall(SESSION_ID, "call_1", true, "api-node");
+
+    expect(JSON.parse(seen[0]!.body)).toEqual({
+      tool_call_id: "call_1",
+      approved: true,
+      node_name: "api-node",
+    });
+  });
 });
 
 describe("setWorkbenchAutoMode", () => {
@@ -415,5 +443,115 @@ describe("readWorkbenchEvents", () => {
     );
 
     expect((failure as ApiError).code).toBe("unreachable");
+  });
+});
+
+describe("invites", () => {
+  const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+
+  it("creates an invite for the session", async () => {
+    await serve({
+      [`POST ${PATH}/invite`]: {
+        status: 201,
+        body: { ...INVITE, session_id: SESSION_ID, invite_token: "invite-secret" },
+      },
+    });
+
+    const created = await createInvite(SESSION_ID, { invitee_name: "Dana" });
+
+    expect(JSON.parse(seen[0]!.body)).toEqual({ invitee_name: "Dana" });
+    expect(created.invite_token).toBe("invite-secret");
+  });
+
+  it("lists the invites of the session", async () => {
+    await serve({ [`GET ${PATH}/invite`]: { body: { items: [INVITE] } } });
+
+    expect(await listInvites(SESSION_ID)).toEqual([INVITE]);
+  });
+
+  it("revokes an invite by id", async () => {
+    await serve({ ["DELETE /api/workbench/invite/invite_1"]: { body: { id: "invite_1" } } });
+
+    expect(await revokeInvite("invite_1")).toEqual({ id: "invite_1" });
+  });
+
+  it("reads the invite code of a refused join from the detail", async () => {
+    await serve({
+      ["POST /api/workbench/invite/join"]: {
+        status: 404,
+        body: { error: { code: "workbench.invite.not_found", message: "No such invite." } },
+      },
+    });
+
+    const failure = await joinInvite({ invite_token: "x", name: "Dana" }).catch(
+      (cause: unknown) => cause,
+    );
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).detail).toBe("workbench.invite.not_found");
+  });
+});
+
+describe("joinInvite", () => {
+  it("posts the invite token and the name with no authorization", async () => {
+    await serve({
+      ["POST /api/workbench/invite/join"]: {
+        body: {
+          guest_token: "guest-issued",
+          guest_id: "guest_1",
+          name: "Dana",
+          session_id: SESSION_ID,
+          expires_at: 1790000000000,
+        },
+      },
+    });
+
+    const answer = await joinInvite({ invite_token: "invite-secret", name: "Dana" });
+
+    expect(JSON.parse(seen[0]!.body)).toEqual({ invite_token: "invite-secret", name: "Dana" });
+    expect(seen[0]!.authorization).toBeUndefined();
+    expect(answer.session_id).toBe(SESSION_ID);
+  });
+});
+
+describe("guest calls", () => {
+  const GUEST_BEARER = "guest-bearer-1";
+
+  it("reads the guest session with the passed connection", async () => {
+    await serve({
+      ["GET /api/workbench/guest/session"]: {
+        body: {
+          session_id: SESSION_ID,
+          title: "Shared",
+          members: [],
+          owner_name: "Kanthor Labs",
+          entries: [],
+          run_active: false,
+        },
+      },
+    });
+
+    const session = await readGuestSession({
+      baseUrl: connectionBase(),
+      token: GUEST_BEARER,
+    });
+
+    expect(session.title).toBe("Shared");
+    expect(seen[0]!.authorization).toBe(`Bearer ${GUEST_BEARER}`);
+  });
+
+  it("posts the guest message with the passed connection", async () => {
+    await serve({
+      ["POST /api/workbench/guest/session/message"]: { status: 202, body: { kind: "note" } },
+    });
+
+    const answer = await sendGuestMessage(
+      { baseUrl: connectionBase(), token: GUEST_BEARER },
+      { text: "Hello" },
+    );
+
+    expect(JSON.parse(seen[0]!.body)).toEqual({ text: "Hello" });
+    expect(seen[0]!.authorization).toBe(`Bearer ${GUEST_BEARER}`);
+    expect(answer).toEqual({ kind: "note" });
   });
 });

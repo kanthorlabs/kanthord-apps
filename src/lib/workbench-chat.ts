@@ -9,6 +9,7 @@ import {
   type WorkbenchForkRecord,
   type WorkbenchGuardRecord,
   type WorkbenchMember,
+  type WorkbenchNoteRecord,
   type WorkbenchPlanDetails,
   type WorkbenchRunSnapshot,
   type WorkbenchSessionEntry,
@@ -92,8 +93,22 @@ type ChatItemBody =
       readonly kind: "fork";
       readonly id: string;
       readonly source_title: string;
-      readonly source_id: string;
+      readonly source_id: string | null;
       readonly summary: string;
+    }
+  | {
+      readonly kind: "guest-action";
+      readonly id: string;
+      readonly operation_id: string;
+      readonly target_id: string;
+      readonly result: string | null;
+    }
+  | {
+      readonly kind: "note";
+      readonly id: string;
+      readonly text: string;
+      readonly author: WorkbenchNoteRecord["author"];
+      readonly timestamp: number;
     }
   | {
       readonly kind: "plan";
@@ -131,6 +146,8 @@ const RESULT_TYPE = "kanthord.workbench.action_result";
 const PLAN_AGENT = "plan@1";
 const FORK_ACK = "I read the summary of the earlier conversation.";
 const FORK_KEYS = ["kind", "source_title"];
+const NOTE_KEYS = ["kind", "text", "author"];
+const NOTE_AUTHOR_KEYS = ["kind", "name"];
 const GUARD_KEYS = ["kind", "tool_call_id", "operation_id", "reason"];
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
 const NODE_SEEN_KEYS = ["name", "state", "attempt"];
@@ -230,6 +247,33 @@ function forkRecordOf(entry: WorkbenchSessionEntry): WorkbenchForkRecord | null 
   return typeof source_title === "string" ? { kind: "fork", source_title } : null;
 }
 
+function noteRecordOf(entry: WorkbenchSessionEntry): WorkbenchNoteRecord | null {
+  const data = entry["data"];
+  if (entry.type !== "custom" || entry["customType"] !== RECORD_TYPE) return null;
+  if (!isRecord(data) || !hasExactKeys(data, NOTE_KEYS) || data["kind"] !== "note") return null;
+  const { text, author } = data;
+  if (typeof text !== "string" || !isRecord(author) || !hasExactKeys(author, NOTE_AUTHOR_KEYS)) {
+    return null;
+  }
+  const { kind, name } = author;
+  if ((kind !== "owner" && kind !== "guest") || typeof name !== "string") return null;
+  return { kind: "note", text, author: { kind, name } };
+}
+
+function noteItems(entry: WorkbenchSessionEntry): readonly ChatItemBody[] {
+  const note = noteRecordOf(entry);
+  if (note === null) return [];
+  return [
+    {
+      kind: "note",
+      id: entry.id,
+      text: note.text,
+      author: note.author,
+      timestamp: Date.parse(entry.timestamp),
+    },
+  ];
+}
+
 function userTextOf(entry: WorkbenchSessionEntry | undefined): string | null {
   const message = entry?.["message"];
   if (entry?.type !== "message" || !isRecord(message) || message["role"] !== "user") return null;
@@ -248,6 +292,15 @@ function forkSummaryOf(text: string | null, sourceId: string | null): string | n
   if (text === null || sourceId === null) return null;
   const opening = `${WORKBENCH_FORK_PREFIX}${sourceId}.${WORKBENCH_FORK_FRAME}`;
   return text.startsWith(opening) ? text.slice(opening.length).trim() : null;
+}
+
+export function forkSourceIdOf(entries: readonly WorkbenchSessionEntry[]): string | null {
+  const index = entries.findIndex((entry) => forkRecordOf(entry) !== null);
+  const text = index === -1 ? null : userTextOf(entries[index + 1]);
+  if (text === null || !text.startsWith(WORKBENCH_FORK_PREFIX)) return null;
+  const rest = text.slice(WORKBENCH_FORK_PREFIX.length);
+  const end = rest.indexOf(".");
+  return end === -1 ? null : rest.slice(0, end);
 }
 
 function resultOf(entry: WorkbenchSessionEntry): WorkbenchActionResult | null {
@@ -426,6 +479,7 @@ function entryItems(
 ): readonly ChatItemBody[] {
   if (context.hiddenIndexes.has(index)) return [];
   if (context.forkSummaries.has(index)) return forkItems(entry, index, context);
+  if (noteRecordOf(entry) !== null) return noteItems(entry);
   if (entry.type === "custom") return actionCardItems(entry, index, snapshot, context);
   const message = entry["message"];
   if (entry.type !== "message" || !isRecord(message)) return [];

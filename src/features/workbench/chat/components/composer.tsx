@@ -11,6 +11,7 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { GUEST_NOTE_HINT } from "@/lib/guest-chat";
 import type { Addressee } from "@/lib/workbench-mention";
 import type { ChatConfigurationState } from "../use-chat-configuration";
 import type { ComposerState } from "../use-composer";
@@ -18,9 +19,14 @@ import { ComposerPicker } from "./composer-picker";
 import { StopConfirm, type StopConfirmProps } from "./stop-confirm";
 
 const RUNNING_PLACEHOLDER = "Message · sends after this run";
+const SHARED_PLACEHOLDER = "Note to everyone · start with @ to ask an agent";
 
 function idlePlaceholder(agentDisplayName: string): string {
   return `Message ${agentDisplayName} · / for commands`;
+}
+
+function sharedHintOf(addressee: Addressee | null): string {
+  return addressee?.source === "mention" ? `To @${addressee.displayName}` : GUEST_NOTE_HINT;
 }
 
 interface ComposerProps {
@@ -34,6 +40,7 @@ interface ComposerProps {
   readonly placeholder?: string;
   readonly inputDisabled?: boolean;
   readonly newCommandHint?: string;
+  readonly shared?: boolean;
 }
 
 export function Composer({
@@ -47,11 +54,17 @@ export function Composer({
   placeholder,
   inputDisabled = false,
   newCommandHint,
+  shared = false,
 }: ComposerProps) {
   const listId = useId();
   const pickersDisabled = runActive || queued;
   const inputPlaceholder =
-    placeholder ?? (runActive ? RUNNING_PLACEHOLDER : idlePlaceholder(agentDisplayName));
+    placeholder ??
+    (shared
+      ? SHARED_PLACEHOLDER
+      : runActive
+        ? RUNNING_PLACEHOLDER
+        : idlePlaceholder(agentDisplayName));
   const optionId = (id: string) => `${listId}-${id}`;
   const expanded = composer.listOpen || composer.mentionsOpen;
   const activeOptionId =
@@ -186,14 +199,14 @@ export function Composer({
           </InputGroupAddon>
         )}
       </InputGroup>
-      {addressee !== null && (
+      {!shared && addressee !== null && (
         <Badge variant="outline" aria-label="Addressee" className="mt-1">
           To @{addressee.displayName}
           {addressee.source === "last-answer" && " (last answer)"}
         </Badge>
       )}
       <p role="status" className="mt-1 min-h-5 text-sm text-muted-foreground">
-        {composer.hint}
+        {composer.hint ?? (shared ? sharedHintOf(addressee) : null)}
       </p>
     </form>
   );

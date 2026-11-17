@@ -122,6 +122,7 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
@@ -582,6 +583,7 @@ describe("ChatView", () => {
   it("sends the message, clears the draft and starts the run state at once", async () => {
     pollQueue();
     vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+      kind: "run",
       session_id: SESSION_ID,
       agent_name: null,
       run_active: true,
@@ -620,6 +622,7 @@ describe("ChatView", () => {
     it("adds a queued message to the snapshot queue before the next poll", async () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -639,6 +642,7 @@ describe("ChatView", () => {
     it("shows the row of a queued message before the next poll", async () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -657,6 +661,7 @@ describe("ChatView", () => {
 
     it("keeps the error message when the message is queued", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -672,6 +677,7 @@ describe("ChatView", () => {
 
     it("clears the error message when the send starts a run", async () => {
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -687,6 +693,7 @@ describe("ChatView", () => {
     it("puts the cleared texts back into the composer", async () => {
       pollQueue();
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -1257,5 +1264,121 @@ describe("ChatView plan and phases", () => {
     expect(screen.getByRole("heading", { name: "Steps" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Planner" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Reviewer" })).toBeNull();
+  });
+
+  describe("in a shared conversation", () => {
+    const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+    const RUN_ANSWER = {
+      kind: "run",
+      session_id: SESSION_ID,
+      agent_name: null,
+      run_active: true,
+      queued_message_id: null,
+      cleared: [],
+    } as const;
+
+    function noteEntry(id: string, text: string): WorkbenchSessionEntry {
+      return {
+        session_id: SESSION_ID,
+        agent_name: "swe@1",
+        type: "custom",
+        id,
+        parentId: null,
+        timestamp: "2026-10-05T09:00:00.000Z",
+        customType: "kanthord.workbench.record",
+        data: { kind: "note", text, author: { kind: "owner", name: "Ulrich" } },
+      };
+    }
+
+    beforeEach(() => {
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue([INVITE]);
+    });
+
+    it("clears the composer on an untagged note and shows the note with no running item", async () => {
+      const polls = pollQueue();
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "note",
+        session_id: SESSION_ID,
+      });
+      mount(session());
+      await screen.findByText("Note to everyone");
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "Remember **this**");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+      await polls.answer({ entries: [noteEntry("e9", "Remember **this**")] });
+
+      expect(await screen.findByText("Remember **this**")).toHaveClass("whitespace-pre-wrap");
+      expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("");
+      expect(screen.queryByRole("group", { name: "Run line" })).toBeNull();
+      expect(screen.getByText("Idle")).toBeTruthy();
+      expect(screen.queryByText("guest")).toBeNull();
+    });
+
+    it("reads the invite list again when a run answers an untagged send", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(RUN_ANSWER);
+      mount(session());
+      await screen.findByText("Note to everyone");
+      expect(workbenchApi.listInvites).toHaveBeenCalledTimes(1);
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "hello");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      await waitFor(() => expect(workbenchApi.listInvites).toHaveBeenCalledTimes(2));
+    });
+
+    it("reads the invite list only once for a tagged run", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue(RUN_ANSWER);
+      mount(session());
+      await screen.findByText("Note to everyone");
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "@SWE hello");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByRole("group", { name: "Run line" })).toBeTruthy();
+      expect(workbenchApi.listInvites).toHaveBeenCalledTimes(1);
+    });
+
+    it("reads the invite list again when a note answers an unshared conversation", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.listInvites).mockResolvedValueOnce([]).mockResolvedValue([INVITE]);
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "note",
+        session_id: SESSION_ID,
+      });
+      mount(session());
+      await waitFor(() => expect(workbenchApi.listInvites).toHaveBeenCalledTimes(1));
+
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "hello");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      expect(await screen.findByText("Note to everyone")).toBeTruthy();
+      expect(workbenchApi.listInvites).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("the Share button", () => {
+    it("shows in the header of a session", async () => {
+      pollQueue();
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
+      mount(session());
+
+      expect(await screen.findByRole("button", { name: "Share" })).toBeTruthy();
+    });
+
+    it("stays hidden on the new-session route", () => {
+      render(
+        <MemoryRouter>
+          <NewSessionChat
+            agentName="swe@1"
+            agentDisplayName="SWE"
+            configuration={ENABLEMENT.default_configuration}
+          />
+        </MemoryRouter>,
+      );
+
+      expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+    });
   });
 });

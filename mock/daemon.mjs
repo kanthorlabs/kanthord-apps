@@ -142,7 +142,12 @@ const json = (res, status, body) => {
   res.end(body === null ? "" : JSON.stringify(body));
 };
 
-const PUBLIC = [{ method: "GET", path: "/api/liveness" }];
+const PUBLIC = [
+  { method: "GET", path: "/api/liveness" },
+  { method: "POST", path: "/api/workbench/invite/join" },
+];
+
+const GUEST_PATH = /^\/api\/workbench\/guest\/session(\/|$)/;
 
 on("GET", /^\/api\/liveness$/, (_m, _b, res) => {
   if (!UNHEALTHY) return json(res, 200, { status: "ok", services: HEALTHY_SERVICES });
@@ -3710,6 +3715,7 @@ registerWorkbench({
   envelope: projectEnvelope,
   agents,
   sessions: workbenchSessions,
+  origin: ORIGIN,
 });
 
 registerTracking({
@@ -3754,7 +3760,9 @@ createServer((req, res) => {
     const route = routes.find((r) => r.method === req.method && r.pattern.test(url.pathname));
     if (!route) return projectEnvelope(res, 404, "gateway.routing.not_found", "Route not found.");
 
-    const open = PUBLIC.some((p) => p.method === req.method && p.path === url.pathname);
+    const open =
+      GUEST_PATH.test(url.pathname) ||
+      PUBLIC.some((p) => p.method === req.method && p.path === url.pathname);
     if (!open && token !== DEV_TOKEN) {
       return projectEnvelope(
         res,

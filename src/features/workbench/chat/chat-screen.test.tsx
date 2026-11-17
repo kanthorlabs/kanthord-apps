@@ -125,6 +125,7 @@ function mountNew(query: URLSearchParams = NEW_QUERY) {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
   );
@@ -620,6 +621,7 @@ describe("ChatScreen", () => {
     it("creates the conversation, then sends the message, then shows the conversation route", async () => {
       vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(SESSION);
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,
@@ -694,6 +696,7 @@ describe("ChatScreen", () => {
     it("creates the conversation, then sends the text as the first message on /new with text", async () => {
       vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(SESSION);
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
         session_id: SESSION_ID,
         agent_name: null,
         run_active: true,

@@ -56,6 +56,7 @@ function Where() {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
   vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(CASE_SESSION);
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),

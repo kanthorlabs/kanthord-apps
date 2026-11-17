@@ -12,6 +12,7 @@ import {
   planMemberOf,
   runRequestOf,
 } from "@/lib/workbench-chat";
+import { forkTitleOf } from "@/lib/share-invite";
 import { type FirstSendFailure, newSessionPath } from "@/lib/workbench-new-session";
 import { workbenchSessionPath } from "@/lib/workbench-sessions";
 import { addresseeOf, configurationTargetOf, leadingMentionOf } from "@/lib/workbench-mention";
@@ -21,6 +22,7 @@ import { useChatActions } from "../use-chat-actions";
 import { useChatConfiguration } from "../use-chat-configuration";
 import { useComposer } from "../use-composer";
 import { useElapsedSeconds } from "../use-elapsed-seconds";
+import { useInvites } from "../use-invites";
 import { useMentionAgents } from "../use-mention-agents";
 import { useSessionEvents } from "../use-session-events";
 import { useStopConfirm } from "../use-stop-confirm";
@@ -33,6 +35,7 @@ import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
 import { QueuedMessages } from "./queued-messages";
 import { RunLine } from "./run-line";
+import { ShareDialog } from "./share-dialog";
 import { SummarizingLine } from "./summarizing-line";
 
 interface ChatViewProps {
@@ -81,6 +84,7 @@ export function ChatView({
     (forkSessionId: string) => navigate(workbenchSessionPath(forkSessionId)),
     [navigate],
   );
+  const invites = useInvites(session.id);
   const actions = useChatActions(
     session.id,
     events.patchSnapshot,
@@ -90,12 +94,14 @@ export function ChatView({
     mentionOf,
     openHost,
     onForked ?? openFork,
+    invites,
   );
   const { snapshot, patchSnapshot } = events;
   const onAutoMode = useCallback(
     (enabled: boolean) => patchSnapshot({ auto_mode: enabled }),
     [patchSnapshot],
   );
+  const hostDisplayName = memberOf(events.members, session.id).display_name;
   const newChat = useRef<() => void>(() => undefined);
   const handleNew = useCallback(() => newChat.current(), []);
   const composer = useComposer(actions.busy, actions.send, {
@@ -104,6 +110,7 @@ export function ChatView({
     fork: actions.fork,
     initialDraft: firstSendFailure?.draft,
     mentionNames,
+    hostMention: invites.shared ? hostDisplayName : null,
   });
   const addressee = useMemo(
     () => addresseeOf(composer.draft, events.members, events.entries, mentionNames),
@@ -118,7 +125,6 @@ export function ChatView({
     }),
     [session.id, session.agent_name, session.configuration, enablement],
   );
-  const hostDisplayName = memberOf(events.members, session.id).display_name;
   const target = configurationTargetOf(addressee, host, mentionAgents.agents);
   const shown = target ?? host;
   const configuration = useChatConfiguration(shown);
@@ -180,6 +186,11 @@ export function ChatView({
           {session.id}
         </span>
         <ResumeCommandButton command={session.resume_command} />
+        <ShareDialog
+          sessionId={session.id}
+          forkTitle={forkTitleOf(session.forked_from, items)}
+          invites={invites}
+        />
         <div role="group" aria-label="Members" className="flex flex-wrap gap-1">
           {members.map((member) => (
             <Badge key={member.session_id} variant="secondary">
@@ -223,6 +234,7 @@ export function ChatView({
               }
               busy={actions.busy}
               failure={approvalFailure}
+              onAllowed={() => patchSnapshot({ pending_approval: null })}
               onDecide={(approved) => {
                 if (snapshot.pending_approval !== null) {
                   actions.approve(snapshot.pending_approval, approved);
@@ -255,6 +267,7 @@ export function ChatView({
           runActive={snapshot.run_active}
           queued={queueCount > 0}
           stopConfirm={stopConfirm.confirm}
+          shared={invites.shared}
         />
         {composerFailures.map((failure) => (
           <InlineError key={failure.message} code={failure.code} message={failure.message} />

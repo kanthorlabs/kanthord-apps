@@ -11,6 +11,7 @@ import {
   type ImportEntryRow,
   importEntryRowsOf,
 } from "./import-entries";
+import { EvidenceDangerCard } from "./evidence-danger-card";
 import { InlineError } from "./inline-error";
 
 interface ApprovalCardProps {
@@ -19,8 +20,10 @@ interface ApprovalCardProps {
   readonly busy: boolean;
   readonly failure: ChatActionFailure | null;
   readonly onDecide: (approved: boolean) => void;
+  readonly onAllowed?: () => void;
 }
 
+const NO_ALLOWED = (): void => undefined;
 const EVIDENCE_FACTS = ["node_id", "attempt", "asset_id", "kind"] as const;
 
 function EvidenceBody({
@@ -38,7 +41,7 @@ function EvidenceBody({
       ))}
       <p>
         Approve lets this conversation read every evidence asset of node {String(input["node_id"])}{" "}
-        until kanthord restarts.
+        until kanthord restarts or the conversation is shared.
       </p>
     </CardContent>
   );
@@ -90,9 +93,22 @@ export function ApprovalCard({
   busy,
   failure,
   onDecide,
+  onAllowed = NO_ALLOWED,
 }: ApprovalCardProps) {
   const errorId = useId();
   const evidence = approval.operation_id === EVIDENCE_DOWNLOAD_OPERATION_ID;
+  if (evidence && approval.input["shared"] === true) {
+    return (
+      <EvidenceDangerCard
+        approval={approval}
+        agentDisplayName={agentDisplayName}
+        busy={busy}
+        failure={failure}
+        onDecide={onDecide}
+        onAllowed={onAllowed}
+      />
+    );
+  }
   const title = evidence ? "Evidence read" : "Approval Required";
   return (
     <div className="flex min-w-0 flex-col gap-1">
