@@ -1847,7 +1847,11 @@ export interface WorkbenchGuestState {
   readonly run_active: boolean;
   readonly display_name: string;
   readonly auto_mode: boolean;
-  readonly streaming: boolean;
+  readonly streaming: string | null;
+}
+
+export interface WorkbenchGuestEntriesFrame {
+  readonly entries: readonly WorkbenchSessionEntry[];
 }
 
 export interface WorkbenchGuestMessageBody {

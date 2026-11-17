@@ -22,7 +22,7 @@ export interface SessionEventsState {
   readonly patchSnapshot: (patch: SnapshotPatch) => void;
 }
 
-function pause(ms: number, signal: AbortSignal): Promise<void> {
+export function pause(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     const timer = setTimeout(resolve, ms);
     signal.addEventListener(
@@ -67,7 +67,7 @@ function cursorOf(
   return pairs.map((pair) => `${pair.sessionId}:${pair.entryId}`).join(",");
 }
 
-function entryKey(entry: WorkbenchSessionEntry): string {
+export function entryKey(entry: WorkbenchSessionEntry): string {
   return `${entry.session_id}:${entry.id}`;
 }
 

@@ -13,6 +13,7 @@ interface ChatTranscriptProps {
   readonly actionLineOf?: (item: ActionCardItem) => ReactNode | null;
   readonly sessionId: string;
   readonly canRun?: boolean;
+  readonly forkLinked?: boolean;
 }
 
 export function ChatTranscript({
@@ -23,6 +24,7 @@ export function ChatTranscript({
   actionLineOf,
   sessionId,
   canRun,
+  forkLinked,
 }: ChatTranscriptProps) {
   const targetId = runError === null ? null : runErrorTargetId(items);
   return (
@@ -39,6 +41,7 @@ export function ChatTranscript({
           actionLineOf={actionLineOf}
           sessionId={sessionId}
           canRun={canRun}
+          forkLinked={forkLinked}
         />
       ))}
       {runLine}

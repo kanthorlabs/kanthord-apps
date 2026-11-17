@@ -13,23 +13,32 @@ const GUARD_LINE = "Guard checked it for orders and secrets, not for accuracy.";
 
 type ForkItem = Extract<ChatItem, { kind: "fork" }>;
 
-export function ForkEntry({ item }: { readonly item: ForkItem }) {
+interface ForkEntryProps {
+  readonly item: ForkItem;
+  readonly linked?: boolean;
+}
+
+export function ForkEntry({ item, linked = true }: ForkEntryProps) {
   const url = workbenchUrl(workbenchSessionPath(item.source_id));
   const title = item.source_title === "" ? NO_TITLE : item.source_title;
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <p className="min-w-0 text-sm break-words text-muted-foreground">
         Forked from{" "}
-        <a
-          href={url}
-          className="underline"
-          onClick={(event) => {
-            event.preventDefault();
-            openWorkbenchUrl(url);
-          }}
-        >
-          {title}
-        </a>
+        {linked ? (
+          <a
+            href={url}
+            className="underline"
+            onClick={(event) => {
+              event.preventDefault();
+              openWorkbenchUrl(url);
+            }}
+          >
+            {title}
+          </a>
+        ) : (
+          title
+        )}
       </p>
       <div className="min-w-0 rounded-md border">
         <Collapsible>

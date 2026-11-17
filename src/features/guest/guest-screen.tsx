@@ -2,9 +2,9 @@ import { GuestChat } from "./guest-chat";
 import { useGuestSession } from "./use-guest-session";
 
 export function GuestScreen() {
-  const { guest } = useGuestSession();
+  const { connection } = useGuestSession();
 
-  if (guest === null) {
+  if (connection === null) {
     return (
       <main className="flex min-h-svh justify-center bg-muted/40 px-4 py-10">
         <p>Open your invite link again.</p>
@@ -12,5 +12,5 @@ export function GuestScreen() {
     );
   }
 
-  return <GuestChat />;
+  return <GuestChat connection={connection} />;
 }

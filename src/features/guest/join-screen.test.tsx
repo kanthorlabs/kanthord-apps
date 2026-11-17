@@ -6,6 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GuestScreen } from "./guest-screen";
 import { JoinScreen } from "./join-screen";
 
+vi.mock("./guest-chat", () => ({
+  GuestChat: () => <p>Guest chat</p>,
+}));
+
 const INVITE = "5b0f8f0e-3a54-4a0b-9d5e-2f3f6a1c7a10";
 const ISSUED = "issued-guest-credential";
 const JOINED = {

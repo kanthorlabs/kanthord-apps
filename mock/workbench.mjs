@@ -1182,7 +1182,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
         run_active: state.run !== null,
         display_name: displayNameOf(session.agent_name),
         auto_mode: state.auto_mode,
-        streaming: state.streaming_message !== null,
+        streaming: state.streaming_message === null ? null : textOf(state.streaming_message),
       });
     const sendEntries = () => {
       const entries = entriesAfter(session, after).filter((entry) => !sent.has(entry.id));

@@ -14,7 +14,7 @@ export function JoinScreen() {
   const join = useJoin(token);
   const { nameError, failure } = join;
 
-  if (join.session.guest !== null) return <GuestChat />;
+  if (join.session.connection !== null) return <GuestChat connection={join.session.connection} />;
 
   return (
     <main className="flex min-h-svh justify-center bg-muted/40 px-4 py-10">
