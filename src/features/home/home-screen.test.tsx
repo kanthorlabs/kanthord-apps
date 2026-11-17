@@ -90,6 +90,7 @@ vi.mock("@/api/resources/workbench", () => ({
   createWorkbenchSession: vi.fn(),
   sendWorkbenchMessage: vi.fn(),
   forkWorkbenchSession: vi.fn(),
+  listInvites: vi.fn(),
 }));
 
 vi.mock("@/api/resources/tracking", () => ({
@@ -155,6 +156,7 @@ import {
   approveWorkbenchCall,
   createWorkbenchSession,
   forkWorkbenchSession,
+  listInvites,
   listWorkbenchSessions,
   readWorkbenchEvents,
   readWorkbenchSession,
@@ -809,6 +811,7 @@ async function press(user: ReturnType<typeof userEvent.setup>, name: string | Re
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(listInvites).mockResolvedValue([]);
   NOW = Date.now();
 });
 

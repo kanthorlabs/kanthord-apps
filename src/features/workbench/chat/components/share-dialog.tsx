@@ -1,0 +1,142 @@
+import { useState } from "react";
+
+import { DataList } from "@/components/data-list";
+import { DataListItem } from "@/components/data-list-item";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { utcDateTime } from "@/lib/format";
+import type { InvitesState } from "../use-invites";
+import { useShareInvite } from "../use-share-invite";
+import { InlineError } from "./inline-error";
+
+interface ShareDialogProps {
+  readonly sessionId: string;
+  readonly forkTitle: string | null;
+  readonly invites: InvitesState;
+}
+
+export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps) {
+  const [open, setOpen] = useState(false);
+  const share = useShareInvite(sessionId, invites.reload);
+  const { reset } = share;
+  const failed = share.createFailure !== null || share.revokeFailure !== null;
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+        Share
+      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) reset();
+        }}
+      >
+        <DialogContent
+          className={
+            failed
+              ? "max-h-[90dvh] overflow-y-auto border border-destructive sm:max-w-xl"
+              : "max-h-[90dvh] overflow-y-auto sm:max-w-xl"
+          }
+        >
+          <DialogHeader>
+            <DialogTitle>Share this conversation</DialogTitle>
+            <DialogDescription>
+              Guests see the whole history of this conversation. The link expires in 7 days.
+            </DialogDescription>
+            {forkTitle !== null && (
+              <p className="text-sm break-words text-muted-foreground">
+                This conversation carries a summary of {forkTitle}. Guests see the summary.
+              </p>
+            )}
+          </DialogHeader>
+          <form
+            noValidate
+            aria-label="Create link"
+            className="flex min-w-0 flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void share.create();
+            }}
+          >
+            <FieldGroup>
+              <Field>
+                <FieldLabel htmlFor="share-invitee-name">Invitee name</FieldLabel>
+                <Input
+                  id="share-invitee-name"
+                  autoComplete="off"
+                  value={share.name}
+                  onChange={(event) => share.setName(event.target.value)}
+                />
+              </Field>
+              <div>
+                <Button type="submit" disabled={!share.valid || share.pending}>
+                  Create link
+                </Button>
+              </div>
+              {share.createFailure !== null && (
+                <InlineError
+                  code={share.createFailure.code}
+                  message={share.createFailure.message}
+                />
+              )}
+            </FieldGroup>
+          </form>
+          {share.link !== null && (
+            <div className="flex min-w-0 items-center gap-2">
+              <Input readOnly aria-label="Invite link" value={share.link} />
+              <Button type="button" variant="outline" onClick={share.copy}>
+                Copy
+              </Button>
+            </div>
+          )}
+          <DataList
+            label="Invites"
+            items={invites.invites}
+            getKey={(invite) => invite.id}
+            status={invites.status}
+            error={invites.error}
+            pending={false}
+            onRetry={invites.reload}
+            emptyText="No live invites."
+            renderItem={(invite) => (
+              <DataListItem
+                title={invite.invitee_name}
+                description={`Expires ${utcDateTime(invite.expires_at)}`}
+                actions={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={`Revoke ${invite.invitee_name}`}
+                    disabled={share.revokingId === invite.id}
+                    onClick={() => void share.revoke(invite.id)}
+                  >
+                    Revoke
+                  </Button>
+                }
+                notice={
+                  share.revokeFailure?.inviteId === invite.id ? (
+                    <InlineError
+                      code={share.revokeFailure.line.code}
+                      message={share.revokeFailure.line.message}
+                    />
+                  ) : undefined
+                }
+              />
+            )}
+          />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

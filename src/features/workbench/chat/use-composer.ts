@@ -24,6 +24,7 @@ export interface ComposerOptions {
   readonly fork: (text: string) => Promise<boolean>;
   readonly initialDraft?: string;
   readonly mentionNames?: readonly string[];
+  readonly hostMention?: string | null;
 }
 
 export interface ComposerState {
@@ -50,7 +51,14 @@ export interface ComposerState {
 export function useComposer(
   disabled: boolean,
   send: (text: string, delivery: WorkbenchMessageDelivery) => Promise<boolean>,
-  { agentName, onNew, fork, initialDraft = "", mentionNames = NO_NAMES }: ComposerOptions,
+  {
+    agentName,
+    onNew,
+    fork,
+    initialDraft = "",
+    mentionNames = NO_NAMES,
+    hostMention = null,
+  }: ComposerOptions,
 ): ComposerState {
   const [draft, setDraftValue] = useState(initialDraft);
   const [focused, setFocused] = useState(false);
@@ -107,6 +115,12 @@ export function useComposer(
     [dispatch, send],
   );
 
+  const commandTextOf = useCallback(
+    (commandText: string) =>
+      hostMention === null ? commandText : `@${hostMention} ${commandText}`,
+    [hostMention],
+  );
+
   const runNew = useCallback(() => {
     setDraftValue("");
     onNew();
@@ -120,9 +134,9 @@ export function useComposer(
         runNew();
         return;
       }
-      sendText(command.text, "queue");
+      sendText(commandTextOf(command.text), "queue");
     },
-    [disabled, runNew, sendText],
+    [disabled, runNew, sendText, commandTextOf],
   );
 
   const pickMention = useCallback(
@@ -143,7 +157,7 @@ export function useComposer(
         return;
       }
       if (command.text !== null) {
-        sendText(command.text, delivery);
+        sendText(commandTextOf(command.text), delivery);
         return;
       }
       if (parsed.text !== null) {
@@ -153,7 +167,7 @@ export function useComposer(
       }
       runNew();
     },
-    [canSend, draft, agentName, text, sendText, dispatch, fork, runNew],
+    [canSend, draft, agentName, text, sendText, commandTextOf, dispatch, fork, runNew],
   );
 
   const focus = useCallback(() => {

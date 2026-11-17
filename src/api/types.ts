@@ -1793,14 +1793,21 @@ export interface WorkbenchSessionEvents {
   readonly version: number;
 }
 
-export interface WorkbenchMessageAnswer {
-  readonly kind: "note" | "run";
+export interface WorkbenchMessageNoteAnswer {
+  readonly kind: "note";
+  readonly session_id: string;
+}
+
+export interface WorkbenchMessageRunAnswer {
+  readonly kind: "run";
   readonly session_id: string;
   readonly agent_name: string | null;
   readonly run_active: true;
   readonly queued_message_id: string | null;
   readonly cleared: readonly WorkbenchQueuedMessage[];
 }
+
+export type WorkbenchMessageAnswer = WorkbenchMessageNoteAnswer | WorkbenchMessageRunAnswer;
 
 export interface WorkbenchInviteCreateBody {
   readonly invitee_name: string;

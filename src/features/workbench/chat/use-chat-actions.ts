@@ -59,6 +59,12 @@ function failureOf(
   return { cause, toolCallId, code: error.code, message: error.message };
 }
 
+export interface SharedMark {
+  readonly shared: boolean;
+  readonly reload: () => void;
+}
+
+const NOT_SHARED: SharedMark = { shared: false, reload: () => undefined };
 const UNTAGGED = (): string | null => null;
 const NO_NOT_HOST = (): void => undefined;
 const NO_FORKED = (): void => undefined;
@@ -70,6 +76,7 @@ export function useChatActions(
   mentionOf: (text: string) => string | null = UNTAGGED,
   onNotHost: (hostSessionId: string) => void = NO_NOT_HOST,
   onForked: (forkSessionId: string) => void = NO_FORKED,
+  { shared, reload }: SharedMark = NOT_SHARED,
 ): ChatActionsState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(initialFailure);
   const [busy, setBusy] = useState(false);
@@ -129,6 +136,9 @@ export function useChatActions(
         "send",
         () => sendWorkbenchMessage(sessionId, text, delivery),
         (answer) => {
+          const expected = shared && mentionOf(text) === null ? "note" : "run";
+          if (answer.kind !== expected) reload();
+          if (answer.kind === "note") return;
           refillCleared(answer.cleared);
           if (answer.queued_message_id === null) {
             patchSnapshot({ run_active: true, error_message: null, queue: [] });
@@ -147,7 +157,7 @@ export function useChatActions(
           patchSnapshot((current) => ({ queue: [...current.queue, queued] }));
         },
       ),
-    [perform, sessionId, patchSnapshot, refillCleared, mentionOf],
+    [perform, sessionId, patchSnapshot, refillCleared, mentionOf, shared, reload],
   );
 
   const fork = useCallback(
