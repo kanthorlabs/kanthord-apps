@@ -9,6 +9,8 @@ import { CredentialScreen } from "@/features/credentials/view/credential-screen"
 import { FootprintScreen } from "@/features/footprint/list/footprint-screen";
 import { FootprintCleanupScreen } from "@/features/footprint/view/footprint-cleanup-screen";
 import { FootprintKindScreen } from "@/features/footprint/view/footprint-kind-screen";
+import { GuestScreen } from "@/features/guest/guest-screen";
+import { JoinScreen } from "@/features/guest/join-screen";
 import { MachineFormScreen } from "@/features/machines/form/machine-form-screen";
 import { MachinesScreen } from "@/features/machines/list/machines-screen";
 import { MachineScreen } from "@/features/machines/view/machine-screen";
@@ -35,74 +37,78 @@ import { AppToaster } from "./app-toaster";
 import { ParentRedirect } from "./parent-redirect";
 
 export function AppRouter() {
+  return (
+    <BrowserRouter basename={basePath()}>
+      <Routes>
+        <Route path="join/:token" element={<JoinScreen />} />
+        <Route path="guest" element={<GuestScreen />} />
+        <Route path="*" element={<OwnerRoutes />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function OwnerRoutes() {
   const { session } = useSession();
 
   if (session === null) return <LoginScreen />;
 
   return (
     <ProjectProvider>
-      <BrowserRouter basename={basePath()}>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route index element={<OnboardingScreen />} />
-            <Route path="projects" element={<ProjectsScreen />} />
-            <Route path="projects/new" element={<ProjectFormScreen />} />
-            <Route path="projects/:projectId" element={<ProjectScreen />} />
-            <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
-            <Route path="scheduler" element={<SchedulerScreen />} />
-            <Route path="traces" element={<TracesScreen />} />
-            <Route path="traces/:traceId" element={<TraceScreen />} />
-            <Route path="timeline" element={<TimelineScreen />} />
-            <Route path="analytics" element={<AnalyticsScreen />} />
-            <Route path="workers" element={<WorkersScreen />} />
-            <Route path="workers/:workerName" element={<WorkerScreen />} />
-            <Route path="workers/:workerName/instances" element={<ParentRedirect />} />
-            <Route
-              path="workers/:workerName/instances/:instanceName"
-              element={<InstanceScreen />}
-            />
-            <Route path="machines" element={<MachinesScreen />} />
-            <Route path="machines/new" element={<MachineFormScreen />} />
-            <Route path="machines/:machineName" element={<MachineScreen />} />
-            <Route path="agents" element={<AgentsScreen />} />
-            <Route path="agents/:agentName" element={<AgentScreen />} />
-            <Route path="workbench" element={<SessionsScreen />} />
-            <Route path="workbench/new" element={<ChatScreen />} />
-            <Route path="workbench/:sessionId" element={<ChatScreen />} />
-            <Route path="llm" element={<CredentialsScreen key="llm" component="llm" />} />
-            <Route path="llm/new" element={<CredentialFormScreen key="llm" component="llm" />} />
-            <Route
-              path="llm/:credentialName"
-              element={<CredentialScreen key="llm" component="llm" />}
-            />
-            <Route
-              path="repositories"
-              element={<CredentialsScreen key="repository" component="repository" />}
-            />
-            <Route
-              path="repositories/new"
-              element={<CredentialFormScreen key="repository" component="repository" />}
-            />
-            <Route path="repositories/:credentialName" element={<RepositoryScreen />} />
-            <Route
-              path="storage"
-              element={<CredentialsScreen key="storage" component="storage" />}
-            />
-            <Route
-              path="storage/new"
-              element={<CredentialFormScreen key="storage" component="storage" />}
-            />
-            <Route
-              path="storage/:credentialName"
-              element={<CredentialScreen key="storage" component="storage" />}
-            />
-            <Route path="footprint" element={<FootprintScreen />} />
-            <Route path="footprint/cleanups" element={<ParentRedirect />} />
-            <Route path="footprint/cleanups/:cleanupId" element={<FootprintCleanupScreen />} />
-            <Route path="footprint/:kind" element={<FootprintKindScreen />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={<OnboardingScreen />} />
+          <Route path="projects" element={<ProjectsScreen />} />
+          <Route path="projects/new" element={<ProjectFormScreen />} />
+          <Route path="projects/:projectId" element={<ProjectScreen />} />
+          <Route path="projects/:projectId/edit" element={<ProjectFormScreen />} />
+          <Route path="scheduler" element={<SchedulerScreen />} />
+          <Route path="traces" element={<TracesScreen />} />
+          <Route path="traces/:traceId" element={<TraceScreen />} />
+          <Route path="timeline" element={<TimelineScreen />} />
+          <Route path="analytics" element={<AnalyticsScreen />} />
+          <Route path="workers" element={<WorkersScreen />} />
+          <Route path="workers/:workerName" element={<WorkerScreen />} />
+          <Route path="workers/:workerName/instances" element={<ParentRedirect />} />
+          <Route path="workers/:workerName/instances/:instanceName" element={<InstanceScreen />} />
+          <Route path="machines" element={<MachinesScreen />} />
+          <Route path="machines/new" element={<MachineFormScreen />} />
+          <Route path="machines/:machineName" element={<MachineScreen />} />
+          <Route path="agents" element={<AgentsScreen />} />
+          <Route path="agents/:agentName" element={<AgentScreen />} />
+          <Route path="workbench" element={<SessionsScreen />} />
+          <Route path="workbench/new" element={<ChatScreen />} />
+          <Route path="workbench/:sessionId" element={<ChatScreen />} />
+          <Route path="llm" element={<CredentialsScreen key="llm" component="llm" />} />
+          <Route path="llm/new" element={<CredentialFormScreen key="llm" component="llm" />} />
+          <Route
+            path="llm/:credentialName"
+            element={<CredentialScreen key="llm" component="llm" />}
+          />
+          <Route
+            path="repositories"
+            element={<CredentialsScreen key="repository" component="repository" />}
+          />
+          <Route
+            path="repositories/new"
+            element={<CredentialFormScreen key="repository" component="repository" />}
+          />
+          <Route path="repositories/:credentialName" element={<RepositoryScreen />} />
+          <Route path="storage" element={<CredentialsScreen key="storage" component="storage" />} />
+          <Route
+            path="storage/new"
+            element={<CredentialFormScreen key="storage" component="storage" />}
+          />
+          <Route
+            path="storage/:credentialName"
+            element={<CredentialScreen key="storage" component="storage" />}
+          />
+          <Route path="footprint" element={<FootprintScreen />} />
+          <Route path="footprint/cleanups" element={<ParentRedirect />} />
+          <Route path="footprint/cleanups/:cleanupId" element={<FootprintCleanupScreen />} />
+          <Route path="footprint/:kind" element={<FootprintKindScreen />} />
+        </Route>
+      </Routes>
       <AppToaster />
     </ProjectProvider>
   );
