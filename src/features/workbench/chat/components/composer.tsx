@@ -19,6 +19,7 @@ import { ComposerPicker } from "./composer-picker";
 import { StopConfirm, type StopConfirmProps } from "./stop-confirm";
 
 const RUNNING_PLACEHOLDER = "Message · sends after this run";
+const SHARED_PLACEHOLDER = "Note to everyone · start with @ to ask an agent";
 
 function idlePlaceholder(agentDisplayName: string): string {
   return `Message ${agentDisplayName} · / for commands`;
@@ -58,7 +59,12 @@ export function Composer({
   const listId = useId();
   const pickersDisabled = runActive || queued;
   const inputPlaceholder =
-    placeholder ?? (runActive ? RUNNING_PLACEHOLDER : idlePlaceholder(agentDisplayName));
+    placeholder ??
+    (shared
+      ? SHARED_PLACEHOLDER
+      : runActive
+        ? RUNNING_PLACEHOLDER
+        : idlePlaceholder(agentDisplayName));
   const optionId = (id: string) => `${listId}-${id}`;
   const expanded = composer.listOpen || composer.mentionsOpen;
   const activeOptionId =

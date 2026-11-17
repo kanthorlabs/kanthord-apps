@@ -73,7 +73,7 @@ describe("ShareDialog", () => {
     const button = screen.getByRole("button", { name: "Create link" });
     expect(button).toBeDisabled();
 
-    if (name !== "") await userEvent.type(screen.getByLabelText("Invitee name"), name);
+    if (name !== "") await userEvent.type(screen.getByLabelText("Invite for (required)"), name);
 
     expect(button).toBeDisabled();
     expect(createMock).not.toHaveBeenCalled();
@@ -82,7 +82,7 @@ describe("ShareDialog", () => {
   it("enables Create link for a name of 1 to 64 characters", async () => {
     await open();
 
-    await userEvent.type(screen.getByLabelText("Invitee name"), "x".repeat(64));
+    await userEvent.type(screen.getByLabelText("Invite for (required)"), "x".repeat(64));
 
     expect(screen.getByRole("button", { name: "Create link" })).toBeEnabled();
   });
@@ -97,15 +97,15 @@ describe("ShareDialog", () => {
     });
     await open();
 
-    await userEvent.type(screen.getByLabelText("Invitee name"), "Dana Lee & Co");
+    await userEvent.type(screen.getByLabelText("Invite for (required)"), "Dana Lee & Co");
     await userEvent.click(screen.getByRole("button", { name: "Create link" }));
 
-    const link = await screen.findByLabelText("Invite link");
+    const link = await screen.findByLabelText("Invite link (copy now, shown once)");
     expect(createMock).toHaveBeenCalledWith(SESSION_ID, { invitee_name: "Dana Lee & Co" });
     expect(link).toHaveValue(
       `${window.location.origin}/join/${INVITE_TOKEN}#name=Dana%20Lee%20%26%20Co`,
     );
-    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
@@ -122,10 +122,12 @@ describe("ShareDialog", () => {
     });
     await open();
 
-    await userEvent.type(screen.getByLabelText("Invitee name"), "Dana");
+    await userEvent.type(screen.getByLabelText("Invite for (required)"), "Dana");
     await userEvent.click(screen.getByRole("button", { name: "Create link" }));
 
-    const link = (await screen.findByLabelText("Invite link")) as HTMLInputElement;
+    const link = (await screen.findByLabelText(
+      "Invite link (copy now, shown once)",
+    )) as HTMLInputElement;
     expect(link.value.startsWith(`${window.location.origin}/dash/join/`)).toBe(true);
     expect(link.value.endsWith("#name=Dana")).toBe(true);
   });
@@ -141,14 +143,24 @@ describe("ShareDialog", () => {
     );
     const dialog = await open();
 
-    await userEvent.type(screen.getByLabelText("Invitee name"), "Dana");
+    await userEvent.type(screen.getByLabelText("Invite for (required)"), "Dana");
     await userEvent.click(screen.getByRole("button", { name: "Create link" }));
 
     const line = await screen.findByRole("alert");
     expect(line).toHaveTextContent("workbench.invite.name_invalid The invitee name is not valid.");
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(dialog).toHaveClass("border-destructive");
-    expect(screen.queryByLabelText("Invite link")).toBeNull();
+    expect(screen.queryByLabelText("Invite link (copy now, shown once)")).toBeNull();
+  });
+
+  it("closes the dialog with Done", async () => {
+    const dialog = await open();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Share this conversation" })).toBeNull(),
+    );
   });
 
   it("lists each live invite with its name, its expiry and Revoke", async () => {

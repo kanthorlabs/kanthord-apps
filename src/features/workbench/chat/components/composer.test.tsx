@@ -1226,6 +1226,17 @@ describe("Composer", () => {
       vi.mocked(workbenchApi.listInvites).mockResolvedValue([INVITE]);
     });
 
+    it("shows the note placeholder in the composer", async () => {
+      mount("ops@1", false, { members: [YUMI_MEMBER] });
+
+      await waitFor(() =>
+        expect(box()).toHaveAttribute(
+          "placeholder",
+          "Note to everyone · start with @ to ask an agent",
+        ),
+      );
+    });
+
     it("reads Note to everyone for an untagged draft", async () => {
       mount("ops@1", false, { members: [YUMI_MEMBER] });
 

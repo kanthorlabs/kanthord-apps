@@ -15,8 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -81,7 +83,7 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
           >
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="share-invitee-name">Invitee name</FieldLabel>
+                <FieldLabel htmlFor="share-invitee-name">Invite for (required)</FieldLabel>
                 <Input
                   id="share-invitee-name"
                   autoComplete="off"
@@ -104,9 +106,9 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
           </form>
           {share.link !== null && (
             <div className="flex min-w-0 items-center gap-2">
-              <Input readOnly aria-label="Invite link" value={share.link} />
+              <Input readOnly aria-label="Invite link (copy now, shown once)" value={share.link} />
               <Button type="button" variant="outline" onClick={share.copy}>
-                Copy
+                Copy link
               </Button>
             </div>
           )}
@@ -146,6 +148,9 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
               />
             )}
           />
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Done</DialogClose>
+          </DialogFooter>
           <AlertDialog open={revoking !== null} onOpenChange={(next) => !next && setRevoking(null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
