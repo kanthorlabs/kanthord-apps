@@ -175,9 +175,24 @@ describe("ShareDialog", () => {
     await open(null, invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT }]));
 
     await userEvent.click(screen.getByRole("button", { name: "Revoke Dana" }));
+    expect(revokeMock).not.toHaveBeenCalled();
+    const confirm = await screen.findByRole("alertdialog");
+    expect(confirm).toHaveTextContent("Revoke the invite of Dana?");
+    await userEvent.click(within(confirm).getByRole("button", { name: "Revoke invite" }));
 
     await waitFor(() => expect(revokeMock).toHaveBeenCalledWith("invite_1"));
     await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps the invite when the confirmation is cancelled", async () => {
+    await open(null, invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT }]));
+
+    await userEvent.click(screen.getByRole("button", { name: "Revoke Dana" }));
+    const confirm = await screen.findByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "Keep the invite" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(revokeMock).not.toHaveBeenCalled();
   });
 
   it("shows one error line in the row of an invite that fails to revoke", async () => {
@@ -187,6 +202,8 @@ describe("ShareDialog", () => {
     await open(null, invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT }]));
 
     await userEvent.click(screen.getByRole("button", { name: "Revoke Dana" }));
+    const confirm = await screen.findByRole("alertdialog");
+    await userEvent.click(within(confirm).getByRole("button", { name: "Revoke invite" }));
 
     const line = await screen.findByRole("alert");
     expect(line).toHaveTextContent("workbench.invite.not_found The invite does not exist.");

@@ -2,6 +2,16 @@ import { useState } from "react";
 
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,6 +35,7 @@ interface ShareDialogProps {
 
 export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps) {
   const [open, setOpen] = useState(false);
+  const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(null);
   const share = useShareInvite(sessionId, invites.reload);
   const { reset } = share;
   const failed = share.createFailure !== null || share.revokeFailure !== null;
@@ -119,7 +130,7 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
                     size="sm"
                     aria-label={`Revoke ${invite.invitee_name}`}
                     disabled={share.revokingId === invite.id}
-                    onClick={() => void share.revoke(invite.id)}
+                    onClick={() => setRevoking({ id: invite.id, name: invite.invitee_name })}
                   >
                     Revoke
                   </Button>
@@ -135,6 +146,28 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
               />
             )}
           />
+          <AlertDialog open={revoking !== null} onOpenChange={(next) => !next && setRevoking(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Revoke the invite of {revoking?.name}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  The guest loses access to this conversation at once. The link stops working.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep the invite</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={() => {
+                    if (revoking !== null) void share.revoke(revoking.id);
+                    setRevoking(null);
+                  }}
+                >
+                  Revoke invite
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </DialogContent>
       </Dialog>
     </>
