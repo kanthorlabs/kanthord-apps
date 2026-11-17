@@ -62,11 +62,14 @@ afterEach(() => {
   document.querySelector("base")?.remove();
 });
 
+const NAME_LABEL = "Your name (prefilled from the invite, you can change it)";
+
 describe("JoinScreen", () => {
   it("prefills the name from the fragment and keeps it editable", async () => {
     renderJoin();
 
-    const field = screen.getByLabelText("Name");
+    expect(screen.getByText("Join a shared conversation")).toBeInTheDocument();
+    const field = screen.getByLabelText(NAME_LABEL);
     expect(field).toHaveValue("Dana Lee");
 
     await userEvent.clear(field);
@@ -96,7 +99,7 @@ describe("JoinScreen", () => {
 
   it("posts the edited name, stores the answer and shows the guest chat", async () => {
     renderJoin();
-    const field = screen.getByLabelText("Name");
+    const field = screen.getByLabelText(NAME_LABEL);
     await userEvent.clear(field);
     await userEvent.type(field, "Sam");
 
@@ -128,7 +131,7 @@ describe("JoinScreen", () => {
 
   it("requires a name of 1 to 64 nonblank characters before it sends", async () => {
     renderJoin();
-    const field = screen.getByLabelText("Name");
+    const field = screen.getByLabelText(NAME_LABEL);
 
     await userEvent.clear(field);
     await userEvent.type(field, "   ");
@@ -174,8 +177,8 @@ describe("JoinScreen", () => {
 
     const line = await screen.findByRole("alert");
     expect(line).toHaveTextContent("workbench.invite.name_invalid The name is not valid.");
-    expect(screen.getByLabelText("Name")).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByLabelText("Name").parentElement).toContainElement(line);
+    expect(screen.getByLabelText(NAME_LABEL)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText(NAME_LABEL).parentElement).toContainElement(line);
   });
 });
 

@@ -10,6 +10,7 @@ import { BubbleAuthor } from "./bubble-author";
 import { InlineError } from "./inline-error";
 import { EvidenceRow } from "./evidence-row";
 import { ForkEntry } from "./fork-entry";
+import { GuestActionEntry } from "./guest-action-entry";
 import { NoteEntry } from "./note-entry";
 import { PhaseGroupEntry } from "./phase-group-entry";
 import { PlanEntry } from "./plan-entry";
@@ -132,6 +133,8 @@ export function ChatEntry({
   if (item.kind === "fork") return <ForkEntry item={item} linked={forkLinked} />;
 
   if (item.kind === "note") return <NoteEntry item={item} />;
+
+  if (item.kind === "guest-action") return <GuestActionEntry item={item} />;
 
   if (item.kind === "evidence-row") return <EvidenceRow facts={item.facts} />;
 

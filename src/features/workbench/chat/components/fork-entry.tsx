@@ -19,13 +19,13 @@ interface ForkEntryProps {
 }
 
 export function ForkEntry({ item, linked = true }: ForkEntryProps) {
-  const url = workbenchUrl(workbenchSessionPath(item.source_id));
+  const url = item.source_id === null ? null : workbenchUrl(workbenchSessionPath(item.source_id));
   const title = item.source_title === "" ? NO_TITLE : item.source_title;
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <p className="min-w-0 text-sm break-words text-muted-foreground">
         Forked from{" "}
-        {linked ? (
+        {linked && url !== null ? (
           <a
             href={url}
             className="underline"

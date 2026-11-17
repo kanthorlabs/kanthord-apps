@@ -1841,24 +1841,57 @@ export interface WorkbenchInviteJoinAnswer {
   readonly expires_at: number;
 }
 
+export type WorkbenchGuestBlock =
+  | { readonly type: "text"; readonly text: string }
+  | { readonly type: "toolCall"; readonly name: string };
+
+interface WorkbenchGuestEntryBase {
+  readonly id: string;
+  readonly session_id: string;
+  readonly agent_name: string;
+  readonly timestamp: string;
+}
+
+export type WorkbenchGuestEntry =
+  | (WorkbenchGuestEntryBase & { readonly kind: "user"; readonly text: string })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "assistant";
+      readonly content: readonly WorkbenchGuestBlock[];
+    })
+  | (WorkbenchGuestEntryBase & { readonly kind: "summary"; readonly text: string })
+  | (WorkbenchGuestEntryBase & { readonly kind: "plan"; readonly markdown: string })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "action_result";
+      readonly tool_call_id: string;
+      readonly text: string;
+    })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "note";
+      readonly text: string;
+      readonly author: WorkbenchNoteRecord["author"];
+    })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "action_offer";
+      readonly tool_call_id: string;
+      readonly operation_id: string;
+      readonly target_id: string;
+    })
+  | (WorkbenchGuestEntryBase & { readonly kind: "fork"; readonly source_title: string });
+
 export interface WorkbenchGuestSession {
   readonly session_id: string;
-  readonly title: string;
+  readonly title: string | null;
   readonly members: readonly WorkbenchMember[];
   readonly owner_name: string;
-  readonly entries: readonly WorkbenchSessionEntry[];
+  readonly entries: readonly WorkbenchGuestEntry[];
   readonly run_active: boolean;
 }
 
 export interface WorkbenchGuestState {
   readonly run_active: boolean;
-  readonly display_name: string;
+  readonly display_name: string | null;
   readonly auto_mode: boolean;
-  readonly streaming: string | null;
-}
-
-export interface WorkbenchGuestEntriesFrame {
-  readonly entries: readonly WorkbenchSessionEntry[];
+  readonly streaming: { readonly content: readonly WorkbenchGuestBlock[] } | null;
 }
 
 export interface WorkbenchGuestMessageBody {

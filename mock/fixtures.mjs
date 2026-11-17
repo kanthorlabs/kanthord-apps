@@ -244,7 +244,20 @@ export const AGENT_DECLARATIONS = [
     consumers: ["workbench"],
     configuration_schema: AGENT_CONFIGURATION_SCHEMA,
     overridable_fields: ["agent_provider", "model_identifier", "reasoning_effort"],
-    enablement: null,
+    enablement: {
+      agent_name: "ops@1",
+      state: "enabled",
+      agent_providers: [
+        { name: "atlas-llm", provider: "openai-compatible", credential: "atlas-router" },
+      ],
+      default_configuration: {
+        agent_provider: "atlas-llm",
+        model_identifier: "qwen3-coder",
+        reasoning_effort: "off",
+      },
+      fallback_configurations: [],
+      revision: 1,
+    },
     basePrompt: BASE_PROMPT,
     agentPrompt: `## Role
 
@@ -2570,7 +2583,7 @@ export const EVIDENCE_NODE_NAME = "Add password reset";
 
 export const GUEST_OWNER_NAME = "Kanthor Labs";
 
-export const GUEST_INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+export const GUEST_INVITE_TTL_MS = 604800000;
 
 export const GUEST_NAME_MAX_CHARS = 64;
 

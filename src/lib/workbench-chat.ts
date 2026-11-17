@@ -93,8 +93,15 @@ type ChatItemBody =
       readonly kind: "fork";
       readonly id: string;
       readonly source_title: string;
-      readonly source_id: string;
+      readonly source_id: string | null;
       readonly summary: string;
+    }
+  | {
+      readonly kind: "guest-action";
+      readonly id: string;
+      readonly operation_id: string;
+      readonly target_id: string;
+      readonly result: string | null;
     }
   | {
       readonly kind: "note";

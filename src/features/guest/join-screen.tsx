@@ -25,7 +25,7 @@ export function JoinScreen() {
         )}
       >
         <CardHeader>
-          <CardTitle>Join the conversation</CardTitle>
+          <CardTitle>Join a shared conversation</CardTitle>
           <CardDescription>Enter the name that the others see in the chat.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -39,7 +39,9 @@ export function JoinScreen() {
           >
             <FieldGroup>
               <Field data-invalid={nameError !== null}>
-                <FieldLabel htmlFor="join-name">Name</FieldLabel>
+                <FieldLabel htmlFor="join-name">
+                  Your name (prefilled from the invite, you can change it)
+                </FieldLabel>
                 <Input
                   id="join-name"
                   autoComplete="off"

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import {
   BINDING_SET,
   CREDENTIALS,
@@ -558,7 +560,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
 
   const startRun = (session, text) => {
     const state = stateOf(session);
-    const run = { cancelled: false, cancel: null, decide: null };
+    const run = { cancelled: false, cancel: null, decide: null, agent_name: session.agent_name };
     state.run = run;
     state.error_message = null;
     append(session, "message", { message: { role: "user", content: text } });
@@ -1057,6 +1059,94 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     });
   });
 
+  const guestBlocksOf = (content) => {
+    if (typeof content === "string") return [{ type: "text", text: content }];
+    return (content ?? []).flatMap((block) => {
+      if (block.type === "text" && typeof block.text === "string") {
+        return [{ type: "text", text: block.text }];
+      }
+      if (block.type === "toolCall" && typeof block.name === "string") {
+        return [{ type: "toolCall", name: block.name }];
+      }
+      return [];
+    });
+  };
+
+  const guestMessageBody = (message) => {
+    if (message?.role === "user") {
+      const text = textOf(message);
+      if (!text.startsWith(FORK_PREFIX)) return { kind: "user", text };
+      const frameAt = text.indexOf(FORK_FRAME);
+      if (frameAt === -1) return null;
+      return { kind: "summary", text: text.slice(frameAt + FORK_FRAME.length).trim() };
+    }
+    if (message?.role !== "assistant") return null;
+    const content = guestBlocksOf(message.content);
+    return content.length === 0 ? null : { kind: "assistant", content };
+  };
+
+  const guestRecordBody = ({ data }) => {
+    if (data?.kind === "note") {
+      return {
+        kind: "note",
+        text: data.text,
+        author: { kind: data.author.kind, name: data.author.name },
+      };
+    }
+    if (data?.kind === "action_offer") {
+      return {
+        kind: "action_offer",
+        tool_call_id: data.tool_call_id,
+        operation_id: data.operation_id,
+        target_id: data.target_id,
+      };
+    }
+    if (data?.kind === "fork") return { kind: "fork", source_title: data.source_title };
+    return null;
+  };
+
+  const guestResultBody = ({ details }) => {
+    if (details?.outcome === "done") {
+      return {
+        kind: "action_result",
+        tool_call_id: details.tool_call_id,
+        text: "Done by the owner.",
+      };
+    }
+    if (details?.outcome !== "failed") return null;
+    const text =
+      typeof details.error_code === "string" ? `Failed: ${details.error_code}.` : "Failed.";
+    return { kind: "action_result", tool_call_id: details.tool_call_id, text };
+  };
+
+  const guestBodyOf = (entry) => {
+    if (entry.type === "message") return guestMessageBody(entry.message);
+    if (entry.type === "custom_message" && entry.customType === PLAN_TYPE) {
+      return { kind: "plan", markdown: entry.content };
+    }
+    if (entry.type === "custom_message" && entry.customType === RESULT_TYPE) {
+      return guestResultBody(entry);
+    }
+    if (entry.type === "custom" && entry.customType === RECORD_TYPE) return guestRecordBody(entry);
+    return null;
+  };
+
+  const guestEntriesAfter = (host, after) =>
+    entriesAfter(host, after).flatMap((entry) => {
+      if (entry.phase !== undefined) return [];
+      const body = guestBodyOf(entry);
+      if (body === null) return [];
+      return [
+        {
+          id: entry.id,
+          session_id: entry.session_id,
+          agent_name: entry.agent_name,
+          timestamp: entry.timestamp,
+          ...body,
+        },
+      ];
+    });
+
   const invites = new Map();
   const guests = new Map();
   const guestStreams = new Set();
@@ -1071,10 +1161,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
   const publicInvite = ({ id, invitee_name, expires_at }) => ({ id, invitee_name, expires_at });
 
   const validInviteeName = (name) =>
-    typeof name === "string" &&
-    name.trim() !== "" &&
-    name.length <= GUEST_NAME_MAX_CHARS &&
-    [...name].every((character) => NAME_CHARACTER.test(character));
+    typeof name === "string" && name.trim() !== "" && name.length <= GUEST_NAME_MAX_CHARS;
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/invite$/, (m, body, res) => {
     const session = findHost(res, m[1]);
@@ -1084,18 +1171,18 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
         res,
         400,
         "workbench.invite.name_invalid",
-        "The invitee name is empty, too long or holds an unsupported character.",
+        "The invitee name is blank or longer than 64 characters.",
       );
     }
     const invite = {
-      id: `invite_0${randomTail()}`,
+      id: `workbench_invite_0${randomTail()}`,
       session_id: session.id,
       invitee_name: body.invitee_name.trim(),
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
-      invite_token: `mock-invite-${randomTail()}`,
+      invite_token: randomUUID(),
     };
     invites.set(invite.id, invite);
-    return json(res, 201, {
+    return json(res, 200, {
       ...publicInvite(invite),
       session_id: invite.session_id,
       invite_token: invite.invite_token,
@@ -1133,7 +1220,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
         res,
         400,
         "workbench.invite.name_invalid",
-        "The name is empty, too long or holds an unsupported character.",
+        "The name is blank or longer than 64 characters.",
       );
     }
     const guest = {
@@ -1167,10 +1254,10 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     const session = sessions.find((candidate) => candidate.id === guest.session_id);
     return json(res, 200, {
       session_id: session.id,
-      title: forkTitleOf(session),
+      title: forkTitleOf(session) || null,
       members: membersOf(session),
       owner_name: GUEST_OWNER_NAME,
-      entries: entriesAfter(session, null),
+      entries: guestEntriesAfter(session, null),
       run_active: stateOf(session).run !== null,
     });
   });
@@ -1210,15 +1297,18 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     const sendState = () =>
       frame("state", {
         run_active: state.run !== null,
-        display_name: displayNameOf(session.agent_name),
+        display_name: state.run === null ? null : displayNameOf(state.run.agent_name),
         auto_mode: state.auto_mode,
-        streaming: state.streaming_message === null ? null : textOf(state.streaming_message),
+        streaming:
+          state.streaming_message === null
+            ? null
+            : { content: guestBlocksOf(state.streaming_message.content) },
       });
     const sendEntries = () => {
-      const entries = entriesAfter(session, after).filter((entry) => !sent.has(entry.id));
+      const entries = guestEntriesAfter(session, after).filter((entry) => !sent.has(entry.id));
       if (entries.length === 0) return;
       for (const entry of entries) sent.add(entry.id);
-      frame("entries", { entries });
+      frame("entries", entries);
     };
     const after = url.searchParams.get("after");
     const follow = () => {

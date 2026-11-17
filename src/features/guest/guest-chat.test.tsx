@@ -1,16 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { openStream } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { readGuestSession, sendGuestMessage } from "@/api/resources/workbench";
-import {
-  WORKBENCH_FORK_FRAME,
-  WORKBENCH_FORK_PREFIX,
-  type WorkbenchGuestSession,
-  type WorkbenchGuestState,
-  type WorkbenchSessionEntry,
+import type {
+  WorkbenchGuestBlock,
+  WorkbenchGuestEntry,
+  WorkbenchGuestSession,
+  WorkbenchGuestState,
 } from "@/api/types";
 import { GuestChat } from "./guest-chat";
 
@@ -27,7 +26,6 @@ const sendMock = vi.mocked(sendGuestMessage);
 const GUEST_BEARER = "guest-bearer-1";
 const CONNECTION = { baseUrl: "http://localhost:31415", token: GUEST_BEARER };
 const SESSION_ID = "workbench_session_1";
-const RECORD_TYPE = "kanthord.workbench.record";
 const IDLE: WorkbenchGuestState = {
   run_active: false,
   display_name: "SWE",
@@ -35,38 +33,37 @@ const IDLE: WorkbenchGuestState = {
   streaming: null,
 };
 
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+type EntryBody = DistributiveOmit<
+  WorkbenchGuestEntry,
+  "id" | "session_id" | "agent_name" | "timestamp"
+>;
+
 let sequence = 0;
 
-function entry(
-  type: string,
-  fields: Readonly<Record<string, unknown>>,
-  sessionId = SESSION_ID,
-): WorkbenchSessionEntry {
+function entry(body: EntryBody, sessionId = SESSION_ID): WorkbenchGuestEntry {
   sequence += 1;
   return {
+    id: `e${String(sequence).padStart(4, "0")}`,
     session_id: sessionId,
     agent_name: "swe@1",
-    type,
-    id: `e${String(sequence).padStart(4, "0")}`,
-    parentId: null,
     timestamp: "2026-10-05T09:00:00.000Z",
-    ...fields,
-  };
+    ...body,
+  } as WorkbenchGuestEntry;
 }
 
-const userMessage = (text: string) =>
-  entry("message", { message: { role: "user", content: text } });
+const userMessage = (text: string) => entry({ kind: "user", text });
 
-const assistantMessage = (content: readonly unknown[]) =>
-  entry("message", { message: { role: "assistant", content, stopReason: "stop" } });
+const assistantMessage = (content: readonly WorkbenchGuestBlock[]) =>
+  entry({ kind: "assistant", content });
 
 const noteRecord = (kind: "owner" | "guest", name: string, text: string) =>
-  entry("custom", {
-    customType: RECORD_TYPE,
-    data: { kind: "note", text, author: { kind, name } },
-  });
+  entry({ kind: "note", text, author: { kind, name } });
 
-function session(entries: readonly WorkbenchSessionEntry[]): WorkbenchGuestSession {
+function session(
+  entries: readonly WorkbenchGuestEntry[],
+  fields: Partial<WorkbenchGuestSession> = {},
+): WorkbenchGuestSession {
   return {
     session_id: SESSION_ID,
     title: "Account recovery",
@@ -74,13 +71,18 @@ function session(entries: readonly WorkbenchSessionEntry[]): WorkbenchGuestSessi
     owner_name: "Kanthor Labs",
     entries,
     run_active: false,
+    ...fields,
   };
 }
 
-function serve(entries: readonly WorkbenchSessionEntry[], state: WorkbenchGuestState = IDLE) {
-  readMock.mockResolvedValue(session(entries));
+function serve(
+  entries: readonly WorkbenchGuestEntry[],
+  state: WorkbenchGuestState | null = IDLE,
+  fields: Partial<WorkbenchGuestSession> = {},
+) {
+  readMock.mockResolvedValue(session(entries, fields));
   openStreamMock.mockImplementation(async function* (_path, options) {
-    yield { event: "state", data: JSON.stringify(state) };
+    if (state !== null) yield { event: "state", data: JSON.stringify(state) };
     await new Promise<void>((resolve) => {
       options?.signal?.addEventListener("abort", () => resolve(), { once: true });
     });
@@ -102,7 +104,12 @@ describe("GuestChat", () => {
         assistantMessage([{ type: "text", text: "Here are the nodes." }]),
         noteRecord("owner", "Kanthor Labs", "A note from the owner"),
       ],
-      { run_active: true, display_name: "SWE", auto_mode: false, streaming: "Reading the" },
+      {
+        run_active: true,
+        display_name: "SWE",
+        auto_mode: false,
+        streaming: { content: [{ type: "text", text: "Reading the" }] },
+      },
     );
 
     render(<GuestChat connection={CONNECTION} />);
@@ -118,6 +125,43 @@ describe("GuestChat", () => {
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
+  });
+
+  it("shows the owner line and one chip for each member by display name", async () => {
+    serve([], null, {
+      members: [
+        { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" },
+        { session_id: "workbench_session_2", agent_name: "plan@1", display_name: "Plan" },
+      ],
+    });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("Shared by Kanthor Labs · guest view")).toBeInTheDocument();
+    const chips = within(screen.getByRole("list", { name: "Members" })).getAllByRole("listitem");
+    expect(chips.map((chip) => chip.textContent)).toEqual(["SWE", "Plan"]);
+  });
+
+  it("shows no auto mode badge before the first state frame", async () => {
+    serve([userMessage("List the nodes")], null);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("List the nodes")).toBeInTheDocument();
+    expect(screen.queryByText(/Auto mode/)).not.toBeInTheDocument();
+  });
+
+  it("shows the no-title line for a null or an empty title", async () => {
+    serve([], IDLE, { title: null });
+    const first = render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByRole("heading", { name: "Shared conversation" })).toBeInTheDocument();
+    first.unmount();
+
+    serve([], IDLE, { title: "" });
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByRole("heading", { name: "Shared conversation" })).toBeInTheDocument();
   });
 
   it("badges a guest note and renders its text literally", async () => {
@@ -140,50 +184,45 @@ describe("GuestChat", () => {
     expect(await screen.findByText("**x** and `code`")).toBeInTheDocument();
   });
 
-  it("shows the tool name with no input and no output", async () => {
+  it("shows the tool name of an assistant entry with no input and no output", async () => {
     serve([
       assistantMessage([
-        {
-          type: "toolCall",
-          id: "call_1",
-          name: "mission.node.list",
-          arguments: { secret: "arg-7" },
-        },
-        { type: "futureField", payload: "frame-extra-9" },
+        { type: "text", text: "Checking." },
+        { type: "toolCall", name: "mission.node.list" },
       ]),
-      entry("message", {
-        message: {
-          role: "toolResult",
-          toolCallId: "call_1",
-          toolName: "mission.node.list",
-          isError: false,
-          content: [{ type: "text", text: "output-3" }],
-          details: { leaked: "details-5" },
-        },
-      }),
     ]);
 
     render(<GuestChat connection={CONNECTION} />);
 
-    expect(
-      await screen.findByRole("button", { name: "Tool Call mission.node.list" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/arg-7/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/output-3/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/details-5/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/frame-extra-9/)).not.toBeInTheDocument();
+    expect(await screen.findByText("Checking.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tool Call mission.node.list" })).toBeInTheDocument();
     expect(screen.queryByText("Tool Result")).not.toBeInTheDocument();
+  });
+
+  it("builds the streaming message from text blocks and tool names", async () => {
+    serve([], {
+      run_active: true,
+      display_name: null,
+      auto_mode: true,
+      streaming: {
+        content: [
+          { type: "text", text: "Reading the" },
+          { type: "toolCall", name: "mission.node.list" },
+        ],
+      },
+    });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("Reading the")).toBeInTheDocument();
+    expect(screen.getByText("Streaming")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /mission\.node\.list/ })).toBeInTheDocument();
   });
 
   it("shows the title of a fork with no link and the summary block", async () => {
     serve([
-      entry("custom", {
-        customType: RECORD_TYPE,
-        data: { kind: "fork", source_title: "Account recovery plan" },
-      }),
-      userMessage(
-        `${WORKBENCH_FORK_PREFIX}workbench_session_src.${WORKBENCH_FORK_FRAME}\n\nThe summary.`,
-      ),
+      entry({ kind: "fork", source_title: "Account recovery plan" }),
+      entry({ kind: "summary", text: "The summary." }),
     ]);
 
     render(<GuestChat connection={CONNECTION} />);
@@ -197,23 +236,30 @@ describe("GuestChat", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders an action offer with no button", async () => {
+  it("renders a plan entry as the plan item", async () => {
+    serve([entry({ kind: "plan", markdown: "Step one of the plan" })]);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("Step one of the plan")).toBeInTheDocument();
+  });
+
+  it("renders an action offer with its result and no button", async () => {
     serve([
-      entry("custom", {
-        customType: RECORD_TYPE,
-        data: {
-          kind: "action_offer",
-          tool_call_id: "call_9",
-          operation_id: "mission.node.resume",
-          target_id: "node_1",
-          seen: { name: "api", state: "Paused", attempt: 1 },
-        },
+      entry({
+        kind: "action_offer",
+        tool_call_id: "call_9",
+        operation_id: "mission.node.resume",
+        target_id: "node_1",
       }),
+      entry({ kind: "action_result", tool_call_id: "call_9", text: "Done by the owner." }),
     ]);
 
     render(<GuestChat connection={CONNECTION} />);
 
-    expect(await screen.findByRole("group", { name: "Action" })).toBeInTheDocument();
+    const card = await screen.findByRole("group", { name: "Action" });
+    expect(card).toHaveTextContent("mission.node.resume");
+    expect(card).toHaveTextContent("Done by the owner.");
     expect(screen.queryByRole("button", { name: /node_1/ })).not.toBeInTheDocument();
   });
 
@@ -267,48 +313,23 @@ describe("GuestChat", () => {
     expect(field).toHaveValue("a long note");
   });
 
-  it("renders no evidence row and no Download", async () => {
+  it("renders no evidence row and no Download for an evidence_read call", async () => {
     serve([
       assistantMessage([
-        {
-          type: "toolCall",
-          id: "call_e",
-          name: "evidence_read",
-          arguments: { asset_id: "asset_1" },
-        },
+        { type: "toolCall", name: "evidence_read" },
+        { type: "text", text: "Read it." },
       ]),
-      entry("message", {
-        message: {
-          role: "toolResult",
-          toolCallId: "call_e",
-          toolName: "evidence_read",
-          isError: false,
-          content: [{ type: "text", text: "evidence-body-4" }],
-          details: {
-            asset_id: "asset_1",
-            node_id: "node_1",
-            attempt: 1,
-            media_type: "text/plain",
-            size: 10,
-            offset: 0,
-            length: 10,
-            truncated: false,
-          },
-        },
-      }),
     ]);
 
     render(<GuestChat connection={CONNECTION} />);
 
-    expect(await screen.findByRole("log", { name: "Transcript" })).toBeInTheDocument();
+    expect(await screen.findByText("Read it.")).toBeInTheDocument();
     expect(screen.queryByText(/evidence_read/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/asset_1/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/evidence-body-4/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Download/ })).not.toBeInTheDocument();
   });
 
-  it("ends the chat with one error line on a 401", async () => {
-    readMock.mockResolvedValue(session([]));
+  it("keeps the feed, shows one error line under it and disables the composer on a 401", async () => {
+    readMock.mockResolvedValue(session([userMessage("List the nodes")]));
     openStreamMock.mockImplementation(() => {
       throw new ApiError(
         "unauthorized",
@@ -322,7 +343,26 @@ describe("GuestChat", () => {
 
     const line = await screen.findByRole("alert");
     expect(line).toHaveTextContent("gateway.jwt.invite_ended The invite of this guest ended.");
-    expect(line.closest("[data-slot=card]")).toHaveClass("border-destructive");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByText("List the nodes")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Message" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
+  it("shows the error box when the first read ends with a 401", async () => {
+    readMock.mockRejectedValue(
+      new ApiError(
+        "unauthorized",
+        "The invite of this guest ended.",
+        401,
+        "gateway.jwt.invite_ended",
+      ),
+    );
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    const line = await screen.findByRole("alert");
+    expect(line).toHaveTextContent("gateway.jwt.invite_ended");
     expect(screen.queryByRole("combobox", { name: "Message" })).not.toBeInTheDocument();
   });
 });

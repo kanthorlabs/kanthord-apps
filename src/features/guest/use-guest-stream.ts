@@ -4,13 +4,12 @@ import { type Connection, openStream } from "@/api/client";
 import type { ApiError, ApiErrorCode } from "@/api/errors";
 import { readGuestSession } from "@/api/resources/workbench";
 import type {
-  WorkbenchGuestEntriesFrame,
+  WorkbenchGuestEntry,
   WorkbenchGuestSession,
   WorkbenchGuestState,
   WorkbenchMember,
-  WorkbenchSessionEntry,
 } from "@/api/types";
-import { entryKey, EVENTS_BACKOFF_MS, pause } from "@/features/workbench/chat/use-session-events";
+import { EVENTS_BACKOFF_MS, pause } from "@/features/workbench/chat/use-session-events";
 import { asApiError } from "@/hooks/use-resource";
 import type { GuestLine } from "@/lib/guest-chat";
 
@@ -25,9 +24,13 @@ export interface GuestStreamFailure extends GuestLine {
 export interface GuestStreamState {
   readonly session: WorkbenchGuestSession | null;
   readonly members: readonly WorkbenchMember[];
-  readonly entries: readonly WorkbenchSessionEntry[];
+  readonly entries: readonly WorkbenchGuestEntry[];
   readonly state: WorkbenchGuestState | null;
   readonly failure: GuestStreamFailure | null;
+}
+
+function entryKey(entry: WorkbenchGuestEntry): string {
+  return `${entry.session_id}:${entry.id}`;
 }
 
 function cursorOf(lastEntryIds: ReadonlyMap<string, string>): string | null {
@@ -47,7 +50,7 @@ function failureOf(error: ApiError): GuestStreamFailure {
 export function useGuestStream(connection: Connection): GuestStreamState {
   const [session, setSession] = useState<WorkbenchGuestSession | null>(null);
   const [members, setMembers] = useState<readonly WorkbenchMember[]>([]);
-  const [entries, setEntries] = useState<readonly WorkbenchSessionEntry[]>([]);
+  const [entries, setEntries] = useState<readonly WorkbenchGuestEntry[]>([]);
   const [state, setState] = useState<WorkbenchGuestState | null>(null);
   const [failure, setFailure] = useState<GuestStreamFailure | null>(null);
 
@@ -57,7 +60,7 @@ export function useGuestStream(connection: Connection): GuestStreamState {
     const lastEntryIds = new Map<string, string>();
     const knownSessionIds = new Set<string>();
 
-    function remember(incoming: readonly WorkbenchSessionEntry[]) {
+    function remember(incoming: readonly WorkbenchGuestEntry[]) {
       for (const entry of incoming) {
         lastEntryIds.set(entry.session_id, entry.id);
         knownSessionIds.add(entry.session_id);
@@ -72,15 +75,9 @@ export function useGuestStream(connection: Connection): GuestStreamState {
       setSession(loaded);
       setMembers(loaded.members);
       setEntries(loaded.entries);
-      setState({
-        run_active: loaded.run_active,
-        display_name: "",
-        auto_mode: true,
-        streaming: null,
-      });
     }
 
-    async function take(incoming: readonly WorkbenchSessionEntry[]) {
+    async function take(incoming: readonly WorkbenchGuestEntry[]) {
       if (incoming.some((entry) => !knownSessionIds.has(entry.session_id))) {
         const fresh = await readGuestSession(connection);
         if (signal.aborted) return;
@@ -100,7 +97,7 @@ export function useGuestStream(connection: Connection): GuestStreamState {
         if (signal.aborted) return;
         setFailure(null);
         if (frame.event === "entries") {
-          await take((JSON.parse(frame.data) as WorkbenchGuestEntriesFrame).entries);
+          await take(JSON.parse(frame.data) as readonly WorkbenchGuestEntry[]);
         }
         if (frame.event === "state") setState(JSON.parse(frame.data) as WorkbenchGuestState);
       }

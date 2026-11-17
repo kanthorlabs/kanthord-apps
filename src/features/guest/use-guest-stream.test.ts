@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openStream } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { readGuestSession } from "@/api/resources/workbench";
-import type { WorkbenchGuestSession, WorkbenchSessionEntry } from "@/api/types";
+import type { WorkbenchGuestEntry, WorkbenchGuestSession } from "@/api/types";
 import { useGuestStream } from "./use-guest-stream";
 
 vi.mock("@/api/client", () => ({ openStream: vi.fn() }));
@@ -20,19 +20,18 @@ const MEMBERS = [
   { session_id: "s2", agent_name: "plan@1", display_name: "Plan" },
 ];
 
-function entry(sessionId: string, id: string): WorkbenchSessionEntry {
+function entry(sessionId: string, id: string): WorkbenchGuestEntry {
   return {
     session_id: sessionId,
     agent_name: "swe@1",
-    type: "message",
     id,
-    parentId: null,
     timestamp: "2026-10-05T09:00:00.000Z",
-    message: { role: "user", content: id },
+    kind: "user",
+    text: id,
   };
 }
 
-function session(entries: readonly WorkbenchSessionEntry[]): WorkbenchGuestSession {
+function session(entries: readonly WorkbenchGuestEntry[]): WorkbenchGuestSession {
   return {
     session_id: "s1",
     title: "Shared",
@@ -43,8 +42,8 @@ function session(entries: readonly WorkbenchSessionEntry[]): WorkbenchGuestSessi
   };
 }
 
-function entriesFrame(...entries: readonly WorkbenchSessionEntry[]) {
-  return { event: "entries", data: JSON.stringify({ entries }) };
+function entriesFrame(...entries: readonly WorkbenchGuestEntry[]) {
+  return { event: "entries", data: JSON.stringify(entries) };
 }
 
 async function* framesOf(...frames: readonly { event: string; data: string }[]) {
@@ -109,13 +108,13 @@ describe("useGuestStream", () => {
 
   it("replaces the state on each state frame", async () => {
     readMock.mockResolvedValue(session([]));
-    const frame = (streaming: string | null) => ({
+    const frame = (text: string | null) => ({
       event: "state",
       data: JSON.stringify({
         run_active: true,
         display_name: "SWE",
         auto_mode: false,
-        streaming,
+        streaming: text === null ? null : { content: [{ type: "text", text }] },
       }),
     });
     openStreamMock.mockReturnValue(framesOf(frame("one"), frame("two")));
@@ -127,8 +126,39 @@ describe("useGuestStream", () => {
       run_active: true,
       display_name: "SWE",
       auto_mode: false,
-      streaming: "two",
+      streaming: { content: [{ type: "text", text: "two" }] },
     });
+  });
+
+  it("keeps the state null until the first state frame", async () => {
+    readMock.mockResolvedValue(session([]));
+    openStreamMock.mockReturnValue(framesOf());
+
+    const { result } = renderHook(() => useGuestStream(CONNECTION));
+    await advance(0);
+
+    expect(result.current.session).not.toBeNull();
+    expect(result.current.state).toBeNull();
+  });
+
+  it("keeps a null display name of the state frame", async () => {
+    readMock.mockResolvedValue(session([]));
+    openStreamMock.mockReturnValue(
+      framesOf({
+        event: "state",
+        data: JSON.stringify({
+          run_active: false,
+          display_name: null,
+          auto_mode: true,
+          streaming: null,
+        }),
+      }),
+    );
+
+    const { result } = renderHook(() => useGuestStream(CONNECTION));
+    await advance(0);
+
+    expect(result.current.state?.display_name).toBeNull();
   });
 
   it("stops on a 401 with no further request", async () => {
