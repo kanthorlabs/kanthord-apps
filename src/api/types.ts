@@ -1986,6 +1986,11 @@ export type WorkbenchGuestEntry =
       readonly operation_id: string;
       readonly target_id: string;
     })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "scope_stop";
+      readonly tool_call_id: string;
+      readonly operation_id: string;
+    })
   | (WorkbenchGuestEntryBase & { readonly kind: "fork"; readonly source_title: string })
   | (WorkbenchGuestEntryBase & {
       readonly kind: "author";

@@ -1,4 +1,9 @@
-import type { WorkbenchPendingApproval, WorkbenchPendingApprovalGuard } from "@/api/types";
+import type {
+  WorkbenchGuardRecord,
+  WorkbenchPendingApproval,
+  WorkbenchPendingApprovalGuard,
+} from "@/api/types";
+import type { ToolCallResult } from "./workbench-chat";
 
 const REVERSIBLE_REASON = "reversible";
 
@@ -25,6 +30,29 @@ export function guardLineOf(guard: WorkbenchPendingApprovalGuard): string {
 export function ranWithoutApprovalLineOf(reason: string): string {
   const text = reason === REVERSIBLE_REASON ? reason : modelTextOf(reason);
   return `Ran without approval: ${text}`;
+}
+
+function errorCodeOf(text: string): string {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    const error =
+      typeof parsed === "object" && parsed !== null ? Reflect.get(parsed, "error") : null;
+    const code =
+      typeof error === "object" && error !== null ? Reflect.get(error, "code") : undefined;
+    return typeof code === "string" ? code : text.trim();
+  } catch {
+    return text.trim();
+  }
+}
+
+export function guardRecordLineOf(
+  guard: WorkbenchGuardRecord,
+  result: ToolCallResult | null,
+): string | null {
+  if (guard.grant === undefined) return ranWithoutApprovalLineOf(guard.reason);
+  if (result === null) return null;
+  if (result.isError) return `Refused: ${errorCodeOf(result.text)}`;
+  return `Ran without approval for ${guard.grant.author.name} (guest): ${guard.reason}`;
 }
 
 export function guestRequestLineOf(approval: WorkbenchPendingApproval): string | null {

@@ -36,7 +36,10 @@ function recordEntry(id: string, data: Record<string, unknown>) {
   };
 }
 
-function renderTranscript(extra: ReturnType<typeof recordEntry>) {
+function renderTranscript(
+  extra: ReturnType<typeof recordEntry>,
+  result: { isError: boolean; text: string } | null = null,
+) {
   const call = {
     session_id: "session_1",
     agent_name: "swe@1",
@@ -49,7 +52,23 @@ function renderTranscript(extra: ReturnType<typeof recordEntry>) {
       content: [{ type: "toolCall", id: "call_1", name: "mission.node.pause", arguments: {} }],
     },
   };
-  for (const item of chatItemsOf([call, extra], IDLE, MEMBERS)) {
+  const resultEntry = {
+    session_id: "session_1",
+    agent_name: "swe@1",
+    type: "message",
+    id: "e3",
+    parentId: null,
+    timestamp: "2026-10-05T09:00:00.000Z",
+    message: {
+      role: "toolResult",
+      toolCallId: "call_1",
+      toolName: "mission.node.pause",
+      isError: result?.isError ?? false,
+      content: [{ type: "text", text: result?.text ?? "" }],
+    },
+  };
+  const entries = result === null ? [call, extra] : [call, extra, resultEntry];
+  for (const item of chatItemsOf(entries, IDLE, MEMBERS)) {
     render(<ChatEntry item={item} authors={AUTHORS} runError={null} sessionId="session_1" />);
   }
 }
@@ -167,6 +186,126 @@ describe("ToolRow", () => {
       renderGuarded(null);
 
       expect(screen.queryByText(/Ran without approval/)).toBeNull();
+    });
+  });
+
+  describe("granted guard record", () => {
+    const GRANT = { invite_id: "invite_77", author: { kind: "guest", name: "Anna" } } as const;
+    const GRANTED: WorkbenchGuardRecord = {
+      kind: "guard",
+      tool_call_id: "call_1",
+      operation_id: "mission.node.pause",
+      reason: "reversible",
+      grant: GRANT,
+    };
+
+    function renderGranted(result: { isError: boolean; text: string } | null) {
+      render(
+        <ToolRow
+          label="Tool Call"
+          name="mission.node.pause"
+          detail="{}"
+          status={null}
+          guard={GRANTED}
+          result={result}
+        />,
+      );
+    }
+
+    it("reads the guest name and the reason for a successful result", () => {
+      renderGranted({ isError: false, text: "{}" });
+
+      expect(
+        screen.getByText("Ran without approval for Anna (guest): reversible"),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Ran without approval:/)).toBeNull();
+    });
+
+    it("reads the code of an error result", () => {
+      renderGranted({ isError: true, text: "gateway.grant.refused" });
+
+      expect(screen.getByText("Refused: gateway.grant.refused")).toBeInTheDocument();
+      expect(screen.queryByText(/Ran without approval/)).toBeNull();
+    });
+
+    it("reads the code of an error result that holds an error envelope", () => {
+      renderGranted({
+        isError: true,
+        text: JSON.stringify({ error: { code: "gateway.grant.refused", message: "No." } }),
+      });
+
+      expect(screen.getByText("Refused: gateway.grant.refused")).toBeInTheDocument();
+    });
+
+    it("shows no line before the result arrives", () => {
+      renderGranted(null);
+
+      expect(screen.queryByText(/Ran without approval/)).toBeNull();
+      expect(screen.queryByText(/Refused/)).toBeNull();
+    });
+
+    it("shows the invite id in the expanded detail", async () => {
+      renderGranted({ isError: false, text: "{}" });
+      expect(screen.queryByText("Invite: invite_77")).toBeNull();
+
+      await userEvent.click(screen.getByRole("button", { name: "Tool Call mission.node.pause" }));
+
+      expect(screen.getByText("Invite: invite_77")).toBeInTheDocument();
+    });
+
+    it("shows no invite line for a guard record with no grant", async () => {
+      render(
+        <ToolRow
+          label="Tool Call"
+          name="mission.node.pause"
+          detail="{}"
+          status={null}
+          guard={{ ...GRANTED, grant: undefined }}
+        />,
+      );
+
+      await userEvent.click(screen.getByRole("button", { name: "Tool Call mission.node.pause" }));
+
+      expect(screen.queryByText(/Invite:/)).toBeNull();
+    });
+  });
+
+  describe("scope stop record of the transcript", () => {
+    it("renders the fixed line with the tool name in the owner chat", () => {
+      renderTranscript(
+        recordEntry("e2", {
+          kind: "scope_stop",
+          tool_call_id: "call_1",
+          operation_id: "mission.node.discard",
+        }),
+      );
+
+      expect(
+        screen.getByText(
+          "The run ended: mission--node--discard names a record that is not available in this conversation. Ask the owner if you need it.",
+        ),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("granted guard record of the transcript", () => {
+    it("reads the line of a granted call with a successful result", async () => {
+      renderTranscript(
+        recordEntry("e2", {
+          kind: "guard",
+          tool_call_id: "call_1",
+          operation_id: "mission.node.pause",
+          reason: "reversible",
+          grant: { invite_id: "invite_77", author: { kind: "guest", name: "Anna" } },
+        }),
+        { isError: false, text: "{}" },
+      );
+
+      expect(
+        screen.getByText("Ran without approval for Anna (guest): reversible"),
+      ).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "Tool Call mission.node.pause" }));
+      expect(screen.getByText("Invite: invite_77")).toBeInTheDocument();
     });
   });
 });

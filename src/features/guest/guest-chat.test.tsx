@@ -507,6 +507,72 @@ describe("GuestChat", () => {
     expect(await screen.findByText("The owner approves every act.")).toBeInTheDocument();
   });
 
+  it("shows the ids of the grant under the projects header", async () => {
+    serve([], IDLE, {
+      projects: [{ id: "project_a", name: "Alpha" }],
+      granted_operations: [
+        { operation_id: "mission.node.pause", guard_class: "reversible" },
+        { operation_id: "project.create", guard_class: "judged" },
+      ],
+    });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(
+      await screen.findByText("You may run without approval: mission.node.pause, project.create."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("The owner approves every act.")).not.toBeInTheDocument();
+  });
+
+  it("shows the auto mode line when auto mode is off", async () => {
+    serve([], { ...IDLE, auto_mode: false });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(
+      await screen.findByText("Auto mode is off: the owner approves every act."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no auto mode line when auto mode is on", async () => {
+    serve([], IDLE);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    await screen.findByRole("heading", { name: "Account recovery" });
+    expect(screen.queryByText(/Auto mode is off/)).not.toBeInTheDocument();
+  });
+
+  it("renders the scope stop line with the tool name", async () => {
+    serve([
+      entry({ kind: "scope_stop", tool_call_id: "call_1", operation_id: "mission.node.discard" }),
+    ]);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(
+      await screen.findByText(
+        "The run ended: mission--node--discard names a record that is not available in this conversation. Ask the owner if you need it.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("renders no request, no request count and no request_owner_act row", async () => {
+    serve([
+      assistantMessage([
+        { type: "text", text: "I ask the owner." },
+        { type: "toolCall", name: "request_owner_act" },
+      ]),
+    ]);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("I ask the owner.")).toBeInTheDocument();
+    expect(screen.queryByText(/request_owner_act/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/request/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Run on|Reject/ })).not.toBeInTheDocument();
+  });
+
   it("shows no approval line when the session has no project", async () => {
     serve([], IDLE, { projects: [] });
 

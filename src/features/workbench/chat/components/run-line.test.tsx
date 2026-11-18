@@ -36,6 +36,7 @@ const CALL: Extract<ChatItem, { kind: "tool-call" }> = {
   input: "{}",
   state: "running",
   guard: null,
+  result: null,
 };
 
 function transcript(items: readonly ChatItem[], runActive: boolean) {

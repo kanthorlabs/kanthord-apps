@@ -8,17 +8,27 @@ const TOKEN_CLASS: Readonly<Record<JsonTokenKind, string | undefined>> = {
   plain: undefined,
 };
 
-export function ToolDetail({ detail }: { detail: string }) {
+interface ToolDetailProps {
+  readonly detail: string;
+  readonly inviteId?: string | undefined;
+}
+
+export function ToolDetail({ detail, inviteId }: ToolDetailProps) {
   const tokens = jsonTokens(detail);
   return (
-    <pre className="max-h-64 overflow-auto px-3 pb-3 font-mono text-xs break-words whitespace-pre-wrap">
-      {tokens === null
-        ? detail
-        : tokens.map((token, index) => (
-            <span key={index} className={TOKEN_CLASS[token.kind]}>
-              {token.text}
-            </span>
-          ))}
-    </pre>
+    <>
+      <pre className="max-h-64 overflow-auto px-3 pb-3 font-mono text-xs break-words whitespace-pre-wrap">
+        {tokens === null
+          ? detail
+          : tokens.map((token, index) => (
+              <span key={index} className={TOKEN_CLASS[token.kind]}>
+                {token.text}
+              </span>
+            ))}
+      </pre>
+      {inviteId !== undefined && (
+        <p className="px-3 pb-3 font-mono text-xs break-all">Invite: {inviteId}</p>
+      )}
+    </>
   );
 }

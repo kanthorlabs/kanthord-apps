@@ -8,7 +8,7 @@ import { ChatTranscript } from "@/features/workbench/chat/components/chat-transc
 import { Composer } from "@/features/workbench/chat/components/composer";
 import { InlineError } from "@/features/workbench/chat/components/inline-error";
 import { useScrollToEnd } from "@/features/workbench/chat/use-scroll-to-end";
-import { guestItemsOf } from "@/lib/guest-chat";
+import { GUEST_AUTO_MODE_OFF_LINE, guestGrantLineOf, guestItemsOf } from "@/lib/guest-chat";
 import { projectRefLabel } from "@/lib/share-invite";
 import { GuestQueueLine } from "./guest-queue-line";
 import { GuestRunLine } from "./guest-run-line";
@@ -67,8 +67,13 @@ export function GuestChat({ connection }: { readonly connection: Connection }) {
             <p className="text-sm break-words text-muted-foreground">
               Projects: {session.projects.map(projectRefLabel).join(", ")}
             </p>
-            <p className="text-sm text-muted-foreground">The owner approves every act.</p>
+            <p className="text-sm break-words text-muted-foreground">
+              {guestGrantLineOf(session.granted_operations)}
+            </p>
           </>
+        )}
+        {state?.auto_mode === false && (
+          <p className="text-sm text-muted-foreground">{GUEST_AUTO_MODE_OFF_LINE}</p>
         )}
         <ul aria-label="Members" className="flex flex-wrap gap-2">
           {members.map((member) => (

@@ -1167,6 +1167,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
         target_id: data.target_id,
       };
     }
+    if (data?.kind === "scope_stop") {
+      return {
+        kind: "scope_stop",
+        tool_call_id: data.tool_call_id,
+        operation_id: data.operation_id,
+      };
+    }
     if (data?.kind === "fork") return { kind: "fork", source_title: data.source_title };
     if (data?.kind === "author") {
       return { kind: "author", author: { kind: "guest", name: data.author.name } };
