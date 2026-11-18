@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 
 import type { ApiError } from "@/api/errors";
-import type { Project } from "@/api/types";
+import type { Project, WorkbenchSessionListItem } from "@/api/types";
 import {
   type AttentionContext,
   type AttentionDetails,
@@ -13,6 +13,7 @@ import {
   type ProjectSnapshot,
 } from "@/lib/attention";
 import { type BoardGate, gateOf, heldNodeIdsOf } from "@/lib/board-items";
+import { type HomeNotice, homeNoticesOf } from "@/lib/home-notice";
 import { inboxItemsOf } from "@/lib/inbox-attention";
 import { unavailableComponentsOf } from "@/lib/liveness-alert";
 import {
@@ -51,6 +52,7 @@ export interface OverviewState {
   readonly snapshots: readonly ProjectSnapshot[];
   readonly faults: readonly ReadFault[];
   readonly absent: readonly string[];
+  readonly notices: readonly HomeNotice[];
   readonly allClear: boolean;
   readonly details: AttentionDetails;
   readonly retryDetail: (nodeId: string) => void;
@@ -64,6 +66,7 @@ export interface OverviewState {
 
 const NO_FAULTS: readonly ReadFault[] = [];
 const NO_COMPONENTS: readonly string[] = [];
+const NO_SESSIONS: readonly WorkbenchSessionListItem[] = [];
 
 export function useOverview(): OverviewState {
   const [openDialogs, setOpenDialogs] = useState<ReadonlySet<string>>(new Set());
@@ -184,6 +187,8 @@ export function useOverview(): OverviewState {
     [data, inbox.absent],
   );
 
+  const notices = useMemo(() => homeNoticesOf(data?.sessions ?? NO_SESSIONS), [data]);
+
   const setDialogOpen = useCallback(
     (itemId: string, nodeId: string, open: boolean) => {
       setOpenDialogs((current) => {
@@ -277,6 +282,7 @@ export function useOverview(): OverviewState {
     snapshots,
     faults,
     absent,
+    notices,
     allClear:
       faults.length === 0 &&
       externalReads.pending === 0 &&

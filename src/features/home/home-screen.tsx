@@ -20,6 +20,7 @@ import { FootprintAlert } from "./components/footprint-alert";
 import { HomeChat } from "./components/home-chat";
 import { HomeDeck } from "./components/home-deck";
 import { HomeSkeleton } from "./components/home-skeleton";
+import { NoticeLine } from "./components/notice-line";
 import { QueueLine } from "./components/queue-line";
 import { ReadFaultsAlert } from "./components/read-faults-alert";
 import { SystemHealthAlert } from "./components/system-health-alert";
@@ -103,6 +104,9 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
             />
           )}
           {overview.absent.length > 0 && <AbsentSourcesNote sources={overview.absent} />}
+          {overview.notices.map((notice) => (
+            <NoticeLine key={notice.sessionId} notice={notice} />
+          ))}
           <HomeDeck deck={deck} overview={overview} focusRef={deckRef} askYumi={askYumi} />
         </>
       )}
