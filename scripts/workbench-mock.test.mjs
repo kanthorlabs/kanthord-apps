@@ -368,14 +368,16 @@ describe("workbench mock notice", () => {
 
   it("answers null after an owner note in the shared conversation", () => {
     const daemon = noticeDaemon();
-    daemon.call("POST", `/api/workbench/session/${NOTICE_SESSION_ID}/invite`, {
+    const invite = daemon.call("POST", `/api/workbench/session/${NOTICE_SESSION_ID}/invite`, {
       invitee_name: "Dana",
       project_ids: ["project_a"],
       granted_operations: ["mission.node.pause"],
     });
-    daemon.call("POST", `/api/workbench/session/${NOTICE_SESSION_ID}/message`, {
+    const note = daemon.call("POST", `/api/workbench/session/${NOTICE_SESSION_ID}/message`, {
       text: "Thanks, I saw it.",
     });
+    expect(invite.status).toBe(200);
+    expect(note.body.kind).toBe("note");
 
     expect(noticeOfList(daemon)).toBeNull();
   });

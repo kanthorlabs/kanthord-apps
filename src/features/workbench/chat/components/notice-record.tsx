@@ -21,7 +21,7 @@ function NoticeBlock({ project }: { readonly project: WorkbenchNoticeProject }) 
             role="listitem"
             className="flex min-w-0 flex-wrap items-center gap-2"
           >
-            <span className="min-w-0 break-words">{node.name}</span>
+            <span className="min-w-0 flex-1 break-words">{node.name}</span>
             <Badge
               variant={node.state === "Completed" ? "default" : "outline"}
               className={
@@ -32,17 +32,19 @@ function NoticeBlock({ project }: { readonly project: WorkbenchNoticeProject }) 
             >
               {node.state}
             </Badge>
-            <span className="text-muted-foreground">{utcDateTime(node.ended_at)}</span>
+            <span className="text-xs text-muted-foreground">{utcDateTime(node.ended_at)}</span>
           </div>
         ))}
       </div>
       {project.project_id !== undefined && (
-        <Link
-          to={`/projects/${encodeURIComponent(project.project_id)}`}
-          className="w-fit text-sm underline"
-        >
-          Open project
-        </Link>
+        <div className="mt-0.5 border-t pt-1.5">
+          <Link
+            to={`/projects/${encodeURIComponent(project.project_id)}`}
+            className="w-fit text-sm underline"
+          >
+            Open project
+          </Link>
+        </div>
       )}
     </div>
   );
