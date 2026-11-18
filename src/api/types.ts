@@ -1785,8 +1785,11 @@ export interface WorkbenchSession {
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly run_active: boolean;
   readonly forked_from: string | null;
-  readonly scope_requests: readonly ScopeRequest[];
   readonly resume_command: string;
+}
+
+export interface WorkbenchSessionGet extends WorkbenchSession {
+  readonly scope_requests: readonly ScopeRequest[];
 }
 
 export interface WorkbenchPendingApprovalSummary {

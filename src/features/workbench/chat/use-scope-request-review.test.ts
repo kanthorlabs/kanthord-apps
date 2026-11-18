@@ -99,6 +99,30 @@ describe("useScopeRequestReview", () => {
     ]);
   });
 
+  it("reads each node id and shows one fact line for each node", async () => {
+    const OTHER = {
+      ...NODE,
+      id: "node_2",
+      state: "Executing",
+      content: { name: "Add cache" },
+    } as MissionNodeRecord;
+    readNodeMock.mockImplementation(async (id) => (id === "node_2" ? OTHER : NODE));
+    const { result } = await settled({
+      ...REQUEST,
+      operation_id: "mission.dependency.add",
+      ids: ["node_1", "node_2", "project_x"],
+      expected_keys: ["expected_mission_version"],
+    });
+
+    expect(readNodeMock).toHaveBeenCalledWith("node_1");
+    expect(readNodeMock).toHaveBeenCalledWith("node_2");
+    expect(result.current.facts).toEqual([
+      "Node Add retry · Blocked · attempt 2",
+      "Node Add cache · Executing · attempt 2",
+      "Project Secret Project · running",
+    ]);
+  });
+
   it.each([
     ["an empty name", ""],
     ["a case-changed name", "secret project"],

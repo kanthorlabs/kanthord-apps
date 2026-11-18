@@ -27,6 +27,7 @@ import type {
   WorkbenchSession,
   WorkbenchSessionCreateBody,
   WorkbenchSessionEvents,
+  WorkbenchSessionGet,
   WorkbenchSessionListItem,
 } from "../types";
 
@@ -64,8 +65,8 @@ export async function createWorkbenchSession(
   return post<WorkbenchSession>(SESSION_ROOT, body);
 }
 
-export async function readWorkbenchSession(sessionId: string): Promise<WorkbenchSession> {
-  return request<WorkbenchSession>(sessionPath(sessionId));
+export async function readWorkbenchSession(sessionId: string): Promise<WorkbenchSessionGet> {
+  return request<WorkbenchSessionGet>(sessionPath(sessionId));
 }
 
 export async function configureWorkbenchSession(

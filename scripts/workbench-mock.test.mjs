@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AGENT_DECLARATIONS } from "../mock/fixtures.mjs";
+import { AGENT_DECLARATIONS, PROJECT_ATLAS, PROJECT_ORBIT } from "../mock/fixtures.mjs";
 import { registerWorkbench } from "../mock/workbench.mjs";
 
 const HOST_ID = "workbench_session_0HOSTHOSTHOSTHOSTHOSTHOST";
@@ -28,7 +28,7 @@ const mockDaemon = () => {
     envelope: (res, status, code) => res.reply({ status, body: { error: { code } } }),
     agents: structuredClone(AGENT_DECLARATIONS),
     sessions,
-    projects: [{ id: "project_a", name: "Alpha" }],
+    projects: [{ id: "project_a", name: "Alpha" }, PROJECT_ORBIT, PROJECT_ATLAS],
   });
   const call = (method, path, body = {}, token = null) => {
     const url = new URL(path, "http://mock");
@@ -229,6 +229,114 @@ describe("workbench mock plan run", () => {
         tool_call_id: stop.data.tool_call_id,
         operation_id: "mission.node.pause",
       });
+    });
+  });
+
+  describe("the grant and the scope request", () => {
+    const INVITE_PATH = `/api/workbench/session/${HOST_ID}/invite`;
+    const ENGINE_GRANTABLE = [
+      "mission.dependency.add",
+      "mission.dependency.remove",
+      "mission.node.block",
+      "mission.node.check",
+      "mission.node.pause",
+      "mission.node.priority.set",
+      "mission.node.resume",
+      "mission.node.unblock",
+      "project.pause",
+      "project.resume",
+    ];
+    const ENGINE_EXPECTED = {
+      expected_attempt: 1,
+      expected_mission_version: 1,
+      expected_state: "Running",
+    };
+
+    const invited = (daemon) => {
+      const invite = daemon.call("POST", INVITE_PATH, {
+        invitee_name: "Dana",
+        project_ids: ["project_a"],
+        granted_operations: [],
+      }).body;
+      const [request] = daemon.call("GET", `/api/workbench/session/${HOST_ID}`).body.scope_requests;
+      return { invite, request };
+    };
+
+    const approve = (daemon, request, body) =>
+      daemon.call(
+        "POST",
+        `/api/workbench/session/${HOST_ID}/scope-request/${request.id}/approve`,
+        body,
+      );
+
+    it("answers 400 gateway.request.validation_failed for a missing granted_operations", () => {
+      const daemon = mockDaemon();
+
+      const answer = daemon.call("POST", INVITE_PATH, {
+        invitee_name: "Dana",
+        project_ids: ["project_a"],
+      });
+
+      expect(answer.status).toBe(400);
+      expect(answer.body.error.code).toBe("gateway.request.validation_failed");
+    });
+
+    it("seeds a request that targets a project outside the invite", () => {
+      const daemon = mockDaemon();
+
+      const { invite, request } = invited(daemon);
+
+      expect(invite.id).toBe(request.invite_id);
+      expect(request.project_id).not.toBe("project_a");
+      expect(request.operation_id).toBe("mission.node.pause");
+      expect(request.expected_keys).toEqual([
+        "expected_attempt",
+        "expected_mission_version",
+        "expected_state",
+      ]);
+      expect(request.expires_at).toBe(invite.expires_at);
+      expect(request.input).toEqual({
+        params: { node_id: request.target_id },
+        body: { reason: expect.any(String) },
+      });
+    });
+
+    it("refuses a name in another case and accepts the exact name", () => {
+      const daemon = mockDaemon();
+      const { request } = invited(daemon);
+      const name = [PROJECT_ORBIT, PROJECT_ATLAS].find(
+        (project) => project.id === request.project_id,
+      ).name;
+
+      const refused = approve(daemon, request, {
+        project_name: name.toUpperCase(),
+        expected: ENGINE_EXPECTED,
+      });
+      const accepted = approve(daemon, request, { project_name: name, expected: ENGINE_EXPECTED });
+
+      expect(refused.status).toBe(409);
+      expect(refused.body.error.code).toBe("workbench.scope_request.name_mismatch");
+      expect(accepted.status).toBe(200);
+      expect(accepted.body).toEqual({
+        request_id: request.id,
+        outcome: "done",
+        error_code: null,
+      });
+    });
+
+    it("lists the grantable set of the engine with no card or read entry", () => {
+      const daemon = mockDaemon();
+
+      const { grantable } = daemon.call("GET", INVITE_PATH).body;
+
+      expect(grantable).toHaveLength(10);
+      expect(grantable.map((operation) => operation.operation_id).sort()).toEqual(ENGINE_GRANTABLE);
+      expect(grantable.filter((operation) => operation.guard_class === "judged")).toHaveLength(2);
+      expect(
+        grantable.some((operation) =>
+          /^(card|read)\b|\.(card|read)\b/.test(operation.operation_id),
+        ),
+      ).toBe(false);
     });
   });
 });

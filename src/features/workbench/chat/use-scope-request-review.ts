@@ -54,7 +54,8 @@ export function useScopeRequestReview(
   const [typed, setTypedValue] = useState("");
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<GuestLine | null>(null);
-  const nodeId = request.ids.find((id) => id.startsWith(NODE_ID_PREFIX)) ?? null;
+  const nodeIds = request.ids.filter((id) => id.startsWith(NODE_ID_PREFIX));
+  const nodeKey = nodeIds.join();
   const holdsProject = request.ids.some((id) => id.startsWith(PROJECT_ID_PREFIX));
   const project = useResource(() => readProject(request.project_id), [request.project_id]);
   const { reload: reloadProject } = project;
@@ -63,29 +64,33 @@ export function useScopeRequestReview(
     () => (needsMission ? readMission(request.project_id) : Promise.resolve(null)),
     [request.project_id, needsMission],
   );
-  const node = useResource(
-    () => (nodeId === null ? Promise.resolve(null) : readMissionNode(nodeId)),
-    [nodeId],
+  const nodes = useResource(
+    () => Promise.all(nodeIds.map((nodeId) => readMissionNode(nodeId))),
+    [nodeKey],
   );
   const invites = useResource(() => listInvites(sessionId), [sessionId]);
-  const reads = [project, mission, node, invites];
+  const reads = [project, mission, nodes, invites];
   const settled = reads.every((read) => !read.loading);
   const readFailure = reads.find((read) => read.error !== null)?.error?.message ?? null;
   const ready = settled && readFailure === null;
   const confirmName = project.data?.name ?? null;
   const matches = confirmName !== null && confirmName !== "" && typed === confirmName;
-  const available = expectedAvailable(request.expected_keys, nodeId !== null);
+  const available = expectedAvailable(request.expected_keys, nodeIds.length > 0);
   const missionVersion = mission.data?.version ?? null;
   const expected =
     ready && available && (!needsMission || missionVersion !== null)
-      ? expectedOf(request.expected_keys, { missionVersion, node: node.data })
+      ? expectedOf(request.expected_keys, {
+          missionVersion,
+          node:
+            nodes.data?.find((node) => node.id === request.target_id) ?? nodes.data?.[0] ?? null,
+        })
       : null;
   const canApprove =
     request.state === "open" && ready && available && matches && expected !== null && !pending;
   const facts = [
-    node.data === null
-      ? null
-      : `Node ${node.data.content.name} · ${node.data.state} · attempt ${node.data.attempt}`,
+    ...(nodes.data ?? []).map(
+      (node) => `Node ${node.content.name} · ${node.state} · attempt ${node.attempt}`,
+    ),
     holdsProject && project.data !== null
       ? `Project ${project.data.name} · ${project.data.paused_at === null ? "running" : "paused"}`
       : null,

@@ -196,8 +196,8 @@ import type {
   SchedulerExecutionRecord,
   SchedulerJob,
   WorkbenchRunSnapshot,
-  WorkbenchSession,
   WorkbenchSessionEntry,
+  WorkbenchSessionGet,
   WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
@@ -511,7 +511,7 @@ function hostOf(id: string) {
   return { session_id: id, agent_name: "ops@1", display_name: "Yumi" };
 }
 
-function conversation(id: string, text: string): WorkbenchSession {
+function conversation(id: string, text: string): WorkbenchSessionGet {
   return {
     id,
     agent_name: "ops@1",
@@ -1559,7 +1559,7 @@ describe("HomeScreen Yumi chat", () => {
   });
 });
 
-function forkOf(id: string, sourceId: string): WorkbenchSession {
+function forkOf(id: string, sourceId: string): WorkbenchSessionGet {
   const base = conversation(id, "Go on");
   const stamp = "2026-10-05T09:00:00.000Z";
   const entry = (
@@ -1806,7 +1806,7 @@ describe("HomeScreen queue line", () => {
   });
 });
 
-function offerConversation(targetId: string, operationId: string): WorkbenchSession {
+function offerConversation(targetId: string, operationId: string): WorkbenchSessionGet {
   const base = conversation("workbench_session_Y1", GENERAL);
   return {
     ...base,

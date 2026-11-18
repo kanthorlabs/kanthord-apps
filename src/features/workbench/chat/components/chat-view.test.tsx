@@ -13,9 +13,9 @@ import type {
   ScopeRequest,
   WorkbenchMember,
   WorkbenchRunSnapshot,
-  WorkbenchSession,
   WorkbenchSessionEntry,
   WorkbenchSessionEvents,
+  WorkbenchSessionGet,
 } from "@/api/types";
 import { WORKBENCH_FORK_FRAME, WORKBENCH_FORK_PREFIX } from "@/api/types";
 
@@ -92,7 +92,7 @@ function message(id: string, body: Record<string, unknown>): WorkbenchSessionEnt
 function session(
   entries: readonly WorkbenchSessionEntry[] = [],
   runActive = false,
-): WorkbenchSession {
+): WorkbenchSessionGet {
   return {
     id: SESSION_ID,
     agent_name: "swe@1",
@@ -131,7 +131,7 @@ function pollQueue() {
   };
 }
 
-function mount(held: WorkbenchSession, slots: Partial<ComponentProps<typeof ChatView>> = {}) {
+function mount(held: WorkbenchSessionGet, slots: Partial<ComponentProps<typeof ChatView>> = {}) {
   return render(
     <MemoryRouter>
       <ChatView session={held} enablement={ENABLEMENT} ownerName="Ulrich" {...slots} />

@@ -81,8 +81,8 @@ const GRANTABLE_OPERATIONS = [
     description,
   })),
 ];
-const SCOPE_REQUEST_TTL_MS = 10 * 60 * 1000;
 const SCOPE_REQUEST_OPERATION = "mission.node.pause";
+const SCOPE_REQUEST_REASON = "Pause the node before the next attempt.";
 const SCOPE_REQUEST_EXPECTED_KEYS = [
   "expected_attempt",
   "expected_mission_version",
@@ -902,7 +902,6 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       entries: session.entries,
       run_active: false,
       forked_from: null,
-      scope_requests: [],
       resume_command: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agent_name}/${session.id}.jsonl`,
     });
   });
@@ -1367,13 +1366,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     description: GRANTABLE_OPERATIONS.find(
       (operation) => operation.operation_id === SCOPE_REQUEST_OPERATION,
     ).description,
-    input: { node_id: target.node_id },
+    input: { params: { node_id: target.node_id }, body: { reason: SCOPE_REQUEST_REASON } },
     target_id: target.node_id,
     ids: [target.node_id],
     project_id: target.project_id,
     expected_keys: SCOPE_REQUEST_EXPECTED_KEYS,
     created_at: Date.now(),
-    expires_at: Date.now() + SCOPE_REQUEST_TTL_MS,
+    expires_at: invite.expires_at,
     state: "open",
     error_code: null,
   });

@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { AgentEnablement, WorkbenchSession } from "@/api/types";
+import type { AgentEnablement, WorkbenchSessionGet } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import {
   type ActionCardItem,
@@ -40,7 +40,7 @@ import { ShareDialog } from "./share-dialog";
 import { SummarizingLine } from "./summarizing-line";
 
 interface ChatViewProps {
-  readonly session: WorkbenchSession;
+  readonly session: WorkbenchSessionGet;
   readonly enablement: AgentEnablement | null;
   readonly ownerName: string;
   readonly firstSendFailure?: FirstSendFailure | null;
