@@ -53,18 +53,21 @@ const FORK_TEXT_MAX_BYTES = 4096;
 const FORK_TITLE_MAX_CHARS = 120;
 const FORK_SUMMARY = "The earlier conversation listed the nodes of the mission and ended there.";
 const REVERSIBLE_OPERATIONS = [
-  ["mission.node.pause", "Pause a node of a mission."],
-  ["mission.node.resume", "Resume a paused node of a mission."],
-  ["mission.node.ready", "Mark a node of a mission ready."],
-  ["mission.finding.create", "Create a finding of a mission."],
-  ["mission.finding.update", "Update a finding of a mission."],
-  ["project.pause", "Pause a project."],
-  ["project.resume", "Resume a paused project."],
-  ["project.update", "Update the name of a project."],
+  ["mission.node.pause", "Pause a node and revoke its live claim."],
+  ["mission.node.resume", "Resume a paused node with external-action precedence."],
+  [
+    "mission.node.check",
+    "Check unresolved external requests and read each external link of the current revision on demand.",
+  ],
+  ["mission.node.priority.set", "Set the priority of a mission node."],
+  ["mission.dependency.add", "Add a mission dependency."],
+  ["mission.dependency.remove", "Remove a mission dependency."],
+  ["project.pause", "Pause a project so that it admits no claim."],
+  ["project.resume", "Resume a paused project so that it admits claims."],
 ];
 const JUDGED_OPERATIONS = [
-  ["mission.node.block", "Block a node of a mission."],
-  ["mission.node.unblock", "Unblock a blocked node of a mission."],
+  ["mission.node.unblock", "Unblock a node and pin its next attempt atomically."],
+  ["mission.node.block", "Block a paused node and close its attempt."],
 ];
 const GRANTABLE_OPERATIONS = [
   ...REVERSIBLE_OPERATIONS.map(([operation_id, description]) => ({
