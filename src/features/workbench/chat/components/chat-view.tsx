@@ -35,6 +35,7 @@ import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
 import { QueuedMessages } from "./queued-messages";
 import { RunLine } from "./run-line";
+import { ScopeRequestList } from "./scope-request-list";
 import { ShareDialog } from "./share-dialog";
 import { SummarizingLine } from "./summarizing-line";
 
@@ -248,6 +249,15 @@ export function ChatView({
           </p>
         )}
         {streamEnd}
+        <ScopeRequestList
+          sessionId={session.id}
+          requests={snapshot.scope_requests}
+          onResolved={(requestId) =>
+            patchSnapshot({
+              scope_requests: snapshot.scope_requests.filter((request) => request.id !== requestId),
+            })
+          }
+        />
       </div>
       <div className="sticky bottom-0 bg-background pt-2">
         <QueuedMessages

@@ -1832,7 +1832,7 @@ export interface ScopeRequest {
   readonly description: string;
   readonly input: Readonly<Record<string, unknown>>;
   readonly target_id: string;
-  readonly ids: Readonly<Record<string, unknown>>;
+  readonly ids: Readonly<Record<string, string>>;
   readonly project_id: string;
   readonly expected_keys: readonly string[];
   readonly created_at: number;

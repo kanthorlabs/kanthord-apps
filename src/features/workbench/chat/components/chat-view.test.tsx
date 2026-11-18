@@ -153,6 +153,51 @@ describe("ChatView", () => {
     ).toBeNull();
   });
 
+  it("shows the requests outside the shared projects from the snapshot above the composer", async () => {
+    const polls = pollQueue();
+    mount(session([], false));
+    await polls.answer({
+      snapshot: {
+        scope_requests: [
+          {
+            id: "scope_request_1",
+            invite_id: "invite_1",
+            invitee_name: "Dana Lee",
+            guest_name: "Dana",
+            agent_name: "swe@1",
+            operation_id: "mission.node.discard",
+            description: "Discard a node.",
+            input: {},
+            target_id: "node_1",
+            ids: { node_id: "node_1" },
+            project_id: "project_x",
+            expected_keys: [],
+            created_at: Date.now(),
+            expires_at: Date.now() + 60_000,
+            state: "open",
+            error_code: null,
+          },
+        ],
+      },
+    });
+
+    const list = await screen.findByRole("region", {
+      name: "Requests outside the shared projects",
+    });
+    expect(list).toHaveTextContent("Requested in a run started by Dana (guest)");
+    expect(within(list).getByRole("button", { name: "Review" })).toBeVisible();
+  });
+
+  it("shows no request list when the snapshot holds no request", async () => {
+    const polls = pollQueue();
+    mount(session([], false));
+    await polls.answer({ snapshot: { auto_mode: true } });
+
+    expect(
+      screen.queryByRole("heading", { name: "Requests outside the shared projects" }),
+    ).toBeNull();
+  });
+
   it("disables the Auto mode switch until the first poll answers", async () => {
     const polls = pollQueue();
     mount(session([], false));
