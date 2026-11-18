@@ -8,6 +8,10 @@ import { type ChatItem, type ChatItemOrigin, memberOf } from "./workbench-chat";
 
 export const GUEST_NOTE_HINT = "Note to everyone";
 
+export function waitingToolNameOf(operationId: string): string {
+  return operationId.replaceAll(".", "--");
+}
+
 const VALIDATION_FAILED = "gateway.request.validation_failed";
 const NOTE_TOO_LONG = "The note is too long. Send at most 16384 bytes.";
 const STREAMING_ITEM_ID = "streaming";
@@ -86,6 +90,7 @@ function resultsOf(entries: readonly WorkbenchGuestEntry[]): ReadonlyMap<string,
 
 function entryItemsOf(
   entry: WorkbenchGuestEntry,
+  previous: WorkbenchGuestEntry | undefined,
   next: WorkbenchGuestEntry | undefined,
   results: ReadonlyMap<string, string>,
   origin: ChatItemOrigin,
@@ -94,7 +99,18 @@ function entryItemsOf(
   const timestamp = Date.parse(entry.timestamp);
   switch (entry.kind) {
     case "user":
-      return [{ kind: "user", id, text: entry.text, timestamp, ...origin }];
+      return [
+        {
+          kind: "user",
+          id,
+          text: entry.text,
+          timestamp,
+          ...(previous?.kind === "author" ? { guest: previous.author.name } : {}),
+          ...origin,
+        },
+      ];
+    case "queue_clear":
+      return [{ kind: "queue-clear", id, count: entry.count, cause: entry.cause, ...origin }];
     case "assistant":
       return blockItemsOf(id, entry.content, false, timestamp, origin);
     case "plan":
@@ -136,6 +152,7 @@ function entryItemsOf(
       ];
     case "summary":
     case "action_result":
+    case "author":
       return [];
   }
 }
@@ -147,7 +164,13 @@ export function guestItemsOf(
 ): readonly ChatItem[] {
   const results = resultsOf(entries);
   const items = entries.flatMap((entry, index) =>
-    entryItemsOf(entry, entries[index + 1], results, originOf(memberOf(members, entry.session_id))),
+    entryItemsOf(
+      entry,
+      entries[index - 1],
+      entries[index + 1],
+      results,
+      originOf(memberOf(members, entry.session_id)),
+    ),
   );
   if (state === null || state.streaming === null) return items;
   const lastEntry = entries.at(-1);

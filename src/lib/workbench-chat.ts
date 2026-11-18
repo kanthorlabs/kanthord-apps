@@ -11,6 +11,7 @@ import {
   type WorkbenchMember,
   type WorkbenchNoteRecord,
   type WorkbenchPlanDetails,
+  type WorkbenchQueueClearRecord,
   type WorkbenchRunSnapshot,
   type WorkbenchSessionEntry,
 } from "@/api/types";
@@ -54,6 +55,7 @@ type ChatItemBody =
       readonly id: string;
       readonly text: string;
       readonly timestamp: number;
+      readonly guest?: string;
     }
   | {
       readonly kind: "assistant";
@@ -109,6 +111,12 @@ type ChatItemBody =
       readonly text: string;
       readonly author: WorkbenchNoteRecord["author"];
       readonly timestamp: number;
+    }
+  | {
+      readonly kind: "queue-clear";
+      readonly id: string;
+      readonly count: number;
+      readonly cause: WorkbenchQueueClearRecord["cause"];
     }
   | {
       readonly kind: "plan";

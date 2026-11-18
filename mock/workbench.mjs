@@ -1135,6 +1135,12 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       };
     }
     if (data?.kind === "fork") return { kind: "fork", source_title: data.source_title };
+    if (data?.kind === "author") {
+      return { kind: "author", author: { kind: "guest", name: data.author.name } };
+    }
+    if (data?.kind === "queue_clear") {
+      return { kind: "queue_clear", count: data.count, cause: data.cause };
+    }
     return null;
   };
 

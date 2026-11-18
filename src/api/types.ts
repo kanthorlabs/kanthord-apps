@@ -1915,7 +1915,16 @@ export type WorkbenchGuestEntry =
       readonly operation_id: string;
       readonly target_id: string;
     })
-  | (WorkbenchGuestEntryBase & { readonly kind: "fork"; readonly source_title: string });
+  | (WorkbenchGuestEntryBase & { readonly kind: "fork"; readonly source_title: string })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "author";
+      readonly author: WorkbenchAuthorRecord["author"];
+    })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "queue_clear";
+      readonly count: number;
+      readonly cause: WorkbenchQueueClearRecord["cause"];
+    });
 
 export interface WorkbenchGuestSession {
   readonly session_id: string;
