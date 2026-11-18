@@ -90,6 +90,7 @@ const OLD: WorkbenchSessionListItem = {
   forked_from: null,
   pending_approval: null,
   scope_requests: 0,
+  notice: null,
   participants: [],
 };
 const NEW: WorkbenchSessionListItem = {
@@ -106,6 +107,7 @@ const NEW: WorkbenchSessionListItem = {
   forked_from: null,
   pending_approval: null,
   scope_requests: 0,
+  notice: null,
   participants: [],
 };
 

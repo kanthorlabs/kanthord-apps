@@ -755,6 +755,7 @@ function session(
     forked_from: null,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
     scope_requests: 0,
+    notice: null,
     participants: [],
     ...patch,
   };
@@ -1416,6 +1417,7 @@ function opsSession(
     forked_from: null,
     pending_approval: null,
     scope_requests: 0,
+    notice: null,
     participants: [],
     ...patch,
   });

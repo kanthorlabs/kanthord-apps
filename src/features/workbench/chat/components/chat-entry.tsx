@@ -153,6 +153,8 @@ export function ChatEntry({
 
   if (item.kind === "plan") return <PlanEntry item={item} />;
 
+  if (item.kind === "notice") return null;
+
   if (item.kind === "phase-group") {
     return (
       <PhaseGroupEntry phase={item.phase}>

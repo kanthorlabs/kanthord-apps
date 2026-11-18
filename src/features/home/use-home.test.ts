@@ -65,6 +65,7 @@ function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): Workbe
     forked_from: null,
     pending_approval: null,
     scope_requests: 0,
+    notice: null,
     participants: [],
     ...patch,
   };

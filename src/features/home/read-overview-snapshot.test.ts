@@ -77,6 +77,7 @@ const SESSION: WorkbenchSessionListItem = {
   forked_from: null,
   pending_approval: { tool_call_id: "c1", operation_id: "project.create" },
   scope_requests: 0,
+  notice: null,
   participants: [],
 };
 
