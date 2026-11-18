@@ -151,7 +151,9 @@ export function guestItemsOf(
   );
   if (state === null || state.streaming === null) return items;
   const lastEntry = entries.at(-1);
-  const member = lastEntry === undefined ? members[0] : memberOf(members, lastEntry.session_id);
+  const named = members.find((candidate) => candidate.display_name === state.display_name);
+  const member =
+    named ?? (lastEntry === undefined ? members[0] : memberOf(members, lastEntry.session_id));
   if (member === undefined) throw new Error("The conversation has no member");
   const origin = {
     ...originOf(member),

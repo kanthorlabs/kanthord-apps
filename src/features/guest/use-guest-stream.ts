@@ -12,9 +12,11 @@ import type {
 import { EVENTS_BACKOFF_MS, pause } from "@/features/workbench/chat/use-session-events";
 import { asApiError } from "@/hooks/use-resource";
 import type { GuestLine } from "@/lib/guest-chat";
+import { forgetGuestSession } from "./use-guest-session";
 
 const STREAM_PATH = "/api/workbench/guest/session/stream";
 const JITTER_MS = 1000;
+const INVITE_ENDED = "gateway.jwt.invite_ended";
 const FINAL_FAILURES: readonly ApiErrorCode[] = ["unauthorized", "forbidden", "not_found"];
 
 export interface GuestStreamFailure extends GuestLine {
@@ -115,6 +117,7 @@ export function useGuestStream(connection: Connection): GuestStreamState {
         } catch (cause) {
           if (signal.aborted) return;
           const error = asApiError(cause);
+          if (error.status === 401 && error.detail === INVITE_ENDED) forgetGuestSession();
           setFailure(failureOf(error));
           if (FINAL_FAILURES.includes(error.code)) return;
         }

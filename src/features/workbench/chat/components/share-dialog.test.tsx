@@ -109,6 +109,28 @@ describe("ShareDialog", () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it("shows the visible label of the link field after Create link", async () => {
+    createMock.mockResolvedValue({
+      id: "invite_1",
+      session_id: SESSION_ID,
+      invitee_name: "Dana",
+      expires_at: EXPIRES_AT,
+      invite_token: INVITE_TOKEN,
+    });
+    const dialog = await open();
+    await userEvent.type(screen.getByLabelText("Invite for (required)"), "Dana");
+    expect(within(dialog).queryByText("Invite link (copy now, shown once)")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Create link" }));
+
+    const label = await within(dialog).findByText("Invite link (copy now, shown once)");
+    expect(label.tagName).toBe("LABEL");
+    expect(label).toBeVisible();
+    expect(screen.getByLabelText("Invite link (copy now, shown once)")).toBe(
+      document.getElementById(label.getAttribute("for") ?? ""),
+    );
+  });
+
   it("puts the base path between the origin and join", async () => {
     const base = document.createElement("base");
     base.setAttribute("href", "/dash/");

@@ -18,7 +18,6 @@ interface EvidenceDangerCardProps {
 }
 
 const TITLE = "Evidence read in a shared conversation";
-const EVIDENCE_FACTS = ["node_id", "attempt", "asset_id", "kind"] as const;
 
 export function EvidenceDangerCard({
   approval,
@@ -50,11 +49,14 @@ export function EvidenceDangerCard({
             </p>
           </CardHeader>
           <CardContent className="grid min-w-0 gap-2 text-sm">
-            {EVIDENCE_FACTS.map((key) => (
-              <p key={key} className="min-w-0 font-mono break-all">
-                {key}: {String(input[key])}
-              </p>
-            ))}
+            <p className="min-w-0 font-mono break-all">agent: {agentDisplayName}</p>
+            <p className="min-w-0 font-mono break-all">
+              node: {allow.nodeName ?? "…"} ({String(input["node_id"])}) · attempt{" "}
+              {String(input["attempt"])}
+            </p>
+            <p className="min-w-0 font-mono break-all">
+              asset_id: {String(input["asset_id"])} · kind: {String(input["kind"])}
+            </p>
             <p>
               Allow lets this conversation read every evidence asset of node{" "}
               {String(input["node_id"])} until kanthord restarts or a new invite is created.

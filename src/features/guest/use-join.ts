@@ -40,7 +40,7 @@ function failureOf(error: ApiError): JoinFailure {
 }
 
 export function useJoin(token: string): JoinState {
-  const session = useGuestSession();
+  const session = useGuestSession(false);
   const { store } = session;
   const [name, setNameValue] = useState(nameFromFragment);
   const [nameError, setNameError] = useState<JoinFailure | string | null>(null);

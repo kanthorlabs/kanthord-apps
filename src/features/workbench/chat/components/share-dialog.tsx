@@ -105,12 +105,17 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
             </FieldGroup>
           </form>
           {share.link !== null && (
-            <div className="flex min-w-0 items-center gap-2">
-              <Input readOnly aria-label="Invite link (copy now, shown once)" value={share.link} />
-              <Button type="button" variant="outline" onClick={share.copy}>
-                Copy link
-              </Button>
-            </div>
+            <Field>
+              <FieldLabel htmlFor="share-invite-link">
+                Invite link (copy now, shown once)
+              </FieldLabel>
+              <div className="flex min-w-0 items-center gap-2">
+                <Input id="share-invite-link" readOnly value={share.link} />
+                <Button type="button" variant="outline" onClick={share.copy}>
+                  Copy link
+                </Button>
+              </div>
+            </Field>
           )}
           <DataList
             label="Invites"

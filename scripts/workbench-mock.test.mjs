@@ -122,4 +122,37 @@ describe("workbench mock plan run", () => {
 
     expect(item.message_count).toBe(1);
   });
+
+  describe("the invite name", () => {
+    const createInvite = (daemon, name) =>
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, { invitee_name: name });
+
+    it("accepts a 64-character name with spaces around it and stores it trimmed", () => {
+      const daemon = mockDaemon();
+      const name = "x".repeat(64);
+
+      const invite = createInvite(daemon, `  ${name}  `);
+
+      expect(invite.status).toBe(200);
+      expect(invite.body.invitee_name).toBe(name);
+      const joined = daemon.call("POST", "/api/workbench/invite/join", {
+        invite_token: invite.body.invite_token,
+        name: ` ${name} `,
+      });
+      expect(joined.status).toBe(200);
+      expect(joined.body.name).toBe(name);
+    });
+
+    it("refuses an empty name after trim", () => {
+      const daemon = mockDaemon();
+      const invite = createInvite(daemon, "Dana");
+
+      expect(createInvite(daemon, "   ").status).toBe(400);
+      const joined = daemon.call("POST", "/api/workbench/invite/join", {
+        invite_token: invite.body.invite_token,
+        name: "   ",
+      });
+      expect(joined.status).toBe(400);
+    });
+  });
 });

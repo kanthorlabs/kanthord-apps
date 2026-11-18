@@ -275,14 +275,21 @@ describe("ApprovalCard", () => {
       expect(card).toHaveTextContent(
         "Guests see every answer in this conversation. RE can quote this evidence to them.",
       );
-      expect(within(card).getByText("node_id: node_42")).toBeTruthy();
-      expect(within(card).getByText("attempt: 3")).toBeTruthy();
-      expect(within(card).getByText("asset_id: evidence_asset_9")).toBeTruthy();
-      expect(within(card).getByText("kind: object")).toBeTruthy();
+      expect(within(card).getByText("agent: RE")).toBeTruthy();
+      expect(within(card).getByText("node: Add password reset (node_42) · attempt 3")).toBeTruthy();
+      expect(within(card).getByText("asset_id: evidence_asset_9 · kind: object")).toBeTruthy();
       expect(card).toHaveTextContent(
         "Allow lets this conversation read every evidence asset of node node_42 until kanthord restarts or a new invite is created.",
       );
       expect(card.parentElement).toHaveClass("border-destructive");
+    });
+
+    it("shows an ellipsis in place of the node name while the name loads", async () => {
+      readMock.mockReturnValue(new Promise(() => {}));
+      mountShared();
+
+      const card = await screen.findByRole("group", { name: TITLE });
+      expect(within(card).getByText("node: … (node_42) · attempt 3")).toBeTruthy();
     });
 
     it("shows the node name in the destructive colour and as the placeholder", async () => {

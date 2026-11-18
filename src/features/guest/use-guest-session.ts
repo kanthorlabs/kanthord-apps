@@ -35,8 +35,14 @@ function restore(): WorkbenchInviteJoinAnswer | null {
   }
 }
 
-export function useGuestSession(): GuestSessionState {
-  const [guest, setGuest] = useState<WorkbenchInviteJoinAnswer | null>(restore);
+export function forgetGuestSession() {
+  window.sessionStorage.removeItem(STORAGE_KEY);
+}
+
+export function useGuestSession(restoreStored = true): GuestSessionState {
+  const [guest, setGuest] = useState<WorkbenchInviteJoinAnswer | null>(
+    restoreStored ? restore : null,
+  );
 
   const store = useCallback((answer: WorkbenchInviteJoinAnswer) => {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(answer));
