@@ -31,6 +31,8 @@ const IDLE: WorkbenchGuestState = {
   display_name: "SWE",
   auto_mode: true,
   streaming: null,
+  waiting_for_approval: null,
+  queue: [],
 };
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -71,6 +73,8 @@ function session(
     owner_name: "Kanthor Labs",
     entries,
     run_active: false,
+    projects: [],
+    mention_names: [],
     ...fields,
   };
 }
@@ -109,6 +113,8 @@ describe("GuestChat", () => {
         display_name: "SWE",
         auto_mode: false,
         streaming: { content: [{ type: "text", text: "Reading the" }] },
+        waiting_for_approval: null,
+        queue: [],
       },
     );
 
@@ -210,6 +216,8 @@ describe("GuestChat", () => {
           { type: "toolCall", name: "mission.node.list" },
         ],
       },
+      waiting_for_approval: null,
+      queue: [],
     });
 
     render(<GuestChat connection={CONNECTION} />);

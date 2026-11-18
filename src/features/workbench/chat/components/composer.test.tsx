@@ -1210,7 +1210,12 @@ describe("Composer", () => {
       agent_name: "ops@1",
       display_name: "Yumi",
     };
-    const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+    const INVITE = {
+      id: "invite_1",
+      invitee_name: "Dana",
+      expires_at: 1790000000000,
+      projects: [],
+    };
     const BRIEF_TEXT = "Report the system status and the actions that need me.";
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
     const SENT = {

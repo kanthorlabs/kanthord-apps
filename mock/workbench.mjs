@@ -6,6 +6,7 @@ import {
   EVIDENCE_NODE_NAME,
   GUEST_INVITE_TTL_MS,
   GUEST_KEEPALIVE_MS,
+  GUEST_MENTION_NAMES,
   GUEST_MESSAGE_MAX_BYTES,
   GUEST_NAME_MAX_CHARS,
   GUEST_OWNER_NAME,
@@ -99,13 +100,15 @@ const publicQueueItem = ({ id, text, agent_name, display_name }) => ({
   display_name,
 });
 
+const OWNER_REQUESTER = { kind: "owner", name: GUEST_OWNER_NAME };
+
 const cursorOf = (host, after) => {
   if (after === null) return new Map();
   if (!after.includes(":")) return new Map([[host.id, after]]);
   return new Map(after.split(",").map((pair) => pair.split(":")));
 };
 
-export function registerWorkbench({ on, json, envelope, agents, sessions, origin }) {
+export function registerWorkbench({ on, json, envelope, agents, sessions, projects, origin }) {
   const live = new Map();
   let entrySequence = 100;
 
@@ -387,7 +390,11 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
   const awaitApproval = (session, run, approval) =>
     new Promise((resolve) => {
       const state = stateOf(session);
-      state.pending_approval = { ...approval, session_id: session.id };
+      state.pending_approval = {
+        ...approval,
+        session_id: session.id,
+        requested_by: approval.requested_by ?? run.requested_by,
+      };
       notify(session);
       run.decide = (approved) => {
         state.pending_approval = null;
@@ -558,11 +565,23 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     }
   };
 
-  const startRun = (session, text) => {
+  const startRun = (session, text, guestName = null) => {
     const state = stateOf(session);
-    const run = { cancelled: false, cancel: null, decide: null, agent_name: session.agent_name };
+    const run = {
+      cancelled: false,
+      cancel: null,
+      decide: null,
+      agent_name: session.agent_name,
+      requested_by: guestName === null ? OWNER_REQUESTER : { kind: "guest", name: guestName },
+    };
     state.run = run;
     state.error_message = null;
+    if (guestName !== null) {
+      append(session, "custom", {
+        customType: RECORD_TYPE,
+        data: { kind: "author", author: { kind: "guest", name: guestName } },
+      });
+    }
     append(session, "message", { message: { role: "user", content: text } });
     play(session, run, text).finally(() => finish(session, run));
   };
@@ -578,17 +597,23 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     state.pending_approval = null;
     const next = state.queue.shift();
     if (next === undefined) return notify(session);
-    startRun(next.target ?? lastAnswerer(conversationOf(session)), next.text);
+    startRun(next.target ?? lastAnswerer(conversationOf(session)), next.text, next.guest_name);
   };
 
-  const clearQueue = (session) => {
+  const clearQueue = (session, cause) => {
     const state = stateOf(session);
     const cleared = state.queue.splice(0).map(publicQueueItem);
+    if (cleared.length > 0) {
+      append(session, "custom", {
+        customType: RECORD_TYPE,
+        data: { kind: "queue_clear", count: cleared.length, cause },
+      });
+    }
     notify(session);
     return cleared;
   };
 
-  const enqueue = (session, target, tag, text) => {
+  const enqueue = (session, target, tag, text, guestName = null) => {
     entrySequence += 1;
     const item = {
       id: `workbench_queued_message_${entrySequence}`,
@@ -596,6 +621,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
       target: tag === null ? null : target,
       agent_name: tag?.agent_name ?? null,
       display_name: tag?.display_name ?? null,
+      guest_name: guestName,
+      author_name: guestName ?? GUEST_OWNER_NAME,
     };
     stateOf(session).queue.push(item);
     notify(session);
@@ -640,7 +667,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
 
   for (const session of sessions) {
     if (session.approval === undefined) continue;
-    const run = { cancelled: false, cancel: null, decide: null };
+    const run = {
+      cancelled: false,
+      cancel: null,
+      decide: null,
+      agent_name: session.agent_name,
+      requested_by: OWNER_REQUESTER,
+    };
     resumeApproval(session, run).finally(() => finish(session, run));
   }
 
@@ -902,7 +935,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
       return answer(null, target.agent_name, []);
     }
     if (body.delivery === "replace") {
-      const cleared = clearQueue(session);
+      const cleared = clearQueue(session, "replace");
       const item = enqueue(session, target, tag, body.text);
       interruptRun(session);
       return answer(item.id, tag?.agent_name ?? null, cleared);
@@ -922,7 +955,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/abort$/, (m, _b, res) => {
     const session = findHost(res, m[1]);
     if (session === undefined) return;
-    const cleared = clearQueue(session);
+    const cleared = clearQueue(session, "stop");
     cancelRun(session);
     return json(res, 200, { session_id: session.id, run_active: false, cleared });
   });
@@ -1158,7 +1191,37 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
 
   const isShared = (host) => liveInvites(host).length > 0;
 
-  const publicInvite = ({ id, invitee_name, expires_at }) => ({ id, invitee_name, expires_at });
+  const projectRefOf = (id) => ({
+    id,
+    name: projects.find((project) => project.id === id)?.name ?? null,
+  });
+
+  const guestQueueItem = (session, { id, target, author_name }) => {
+    const addressee = target ?? lastAnswerer(session);
+    return {
+      id,
+      agent_name: addressee.agent_name,
+      display_name: displayNameOf(addressee.agent_name),
+      author_name,
+    };
+  };
+
+  const publicInvite = ({ id, invitee_name, expires_at, project_ids }) => ({
+    id,
+    invitee_name,
+    expires_at,
+    projects: project_ids.map(projectRefOf),
+  });
+
+  const liveProjectIds = (host) => liveInvites(host)[0]?.project_ids ?? null;
+
+  const validProjectIds = (ids) =>
+    Array.isArray(ids) &&
+    ids.length > 0 &&
+    new Set(ids).size === ids.length &&
+    ids.every((id) => projects.some((project) => project.id === id));
+
+  const sameIds = (left, right) => left.join() === right.join();
 
   const normalizedName = (name) => (typeof name === "string" ? name.trim().normalize("NFC") : null);
 
@@ -1178,9 +1241,28 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
         "The invitee name is blank or longer than 64 characters.",
       );
     }
+    if (!validProjectIds(body?.project_ids)) {
+      return envelope(
+        res,
+        400,
+        "workbench.invite.project_invalid",
+        "The invite needs at least one existing project, with no repeat.",
+      );
+    }
+    const projectIds = [...body.project_ids].sort();
+    const liveIds = liveProjectIds(session);
+    if (liveIds !== null && !sameIds(liveIds, projectIds)) {
+      return envelope(
+        res,
+        409,
+        "workbench.invite.scope_mismatch",
+        "A live invite of this conversation holds another set of projects.",
+      );
+    }
     const invite = {
       id: `workbench_invite_0${randomTail()}`,
       session_id: session.id,
+      project_ids: projectIds,
       invitee_name: normalizedName(body.invitee_name),
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
       invite_token: randomUUID(),
@@ -1196,7 +1278,10 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
   on("GET", /^\/api\/workbench\/session\/([^/]+)\/invite$/, (m, _b, res) => {
     const session = findHost(res, m[1]);
     if (session === undefined) return;
-    return json(res, 200, { items: liveInvites(session).map(publicInvite) });
+    return json(res, 200, {
+      items: liveInvites(session).map(publicInvite),
+      project_ids: liveProjectIds(session),
+    });
   });
 
   on("DELETE", /^\/api\/workbench\/invite\/([^/]+)$/, (m, _b, res) => {
@@ -1263,6 +1348,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
       owner_name: GUEST_OWNER_NAME,
       entries: guestEntriesAfter(session, null),
       run_active: stateOf(session).run !== null,
+      projects: invites.get(guest.invite_id).project_ids.map(projectRefOf),
+      mention_names: GUEST_MENTION_NAMES,
     });
   });
 
@@ -1280,11 +1367,42 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
       ]);
     }
     const session = sessions.find((candidate) => candidate.id === guest.session_id);
-    append(session, "custom", {
-      customType: RECORD_TYPE,
-      data: { kind: "note", text, author: { kind: "guest", name: guest.name } },
-    });
-    return json(res, 202, { kind: "note" });
+    const mentioned = mentionedAgent(text);
+    if (mentioned === undefined) {
+      append(session, "custom", {
+        customType: RECORD_TYPE,
+        data: { kind: "note", text, author: { kind: "guest", name: guest.name } },
+      });
+      return json(res, 202, { kind: "note" });
+    }
+    if (!GUEST_MENTION_NAMES.includes(mentioned.display_name)) {
+      return envelope(
+        res,
+        409,
+        "workbench.guest.agent_refused",
+        "A guest cannot start a run with this agent.",
+      );
+    }
+    const state = stateOf(session);
+    const { target, tag } = addresseeOf(session, text);
+    if (state.run === null) {
+      startRun(target, text, guest.name);
+      return json(res, 202, {
+        kind: "run",
+        agent_name: target.agent_name,
+        queued_message_id: null,
+      });
+    }
+    if (state.queue.length >= QUEUE_LIMIT) {
+      return envelope(
+        res,
+        409,
+        "workbench.session.queue_full",
+        "The workbench session queue is full.",
+      );
+    }
+    const item = enqueue(session, target, tag, text, guest.name);
+    return json(res, 202, { kind: "run", agent_name: tag.agent_name, queued_message_id: item.id });
   });
 
   on("GET", /^\/api\/workbench\/guest\/session\/stream$/, (_m, _b, res, token, url) => {
@@ -1307,6 +1425,11 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
           state.streaming_message === null
             ? null
             : { content: guestBlocksOf(state.streaming_message.content) },
+        waiting_for_approval:
+          state.pending_approval === null
+            ? null
+            : { operation_id: state.pending_approval.operation_id },
+        queue: state.queue.map((item) => guestQueueItem(session, item)),
       });
     const sendEntries = () => {
       const entries = guestEntriesAfter(session, after).filter((entry) => !sent.has(entry.id));
@@ -1346,4 +1469,23 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     timers.push(setTimeout(() => sendEntries(), GUEST_STREAM_ENTRIES_DELAY_MS));
     res.on("close", close);
   });
+
+  const seeded = sessions.find((session) => session.approval?.requested_by?.kind === "guest");
+  if (seeded !== undefined && projects.length >= 2) {
+    invites.set("workbench_invite_0SEEDED", {
+      id: "workbench_invite_0SEEDED",
+      session_id: seeded.id,
+      project_ids: projects
+        .slice(0, 2)
+        .map((project) => project.id)
+        .sort(),
+      invitee_name: seeded.approval.requested_by.name,
+      expires_at: Date.now() + GUEST_INVITE_TTL_MS,
+      invite_token: "mock-seeded-invite-token",
+    });
+    for (const text of ["@Yumi list the open nodes", "@Jeremy plan the retry"]) {
+      const { target, tag } = addresseeOf(seeded, text);
+      enqueue(seeded, target, tag, text, seeded.approval.requested_by.name);
+    }
+  }
 }

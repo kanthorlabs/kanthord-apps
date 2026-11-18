@@ -1175,6 +1175,7 @@ describe("HomeScreen tool approval", () => {
         pending_tool_calls: [],
         pending_approval: {
           session_id: "workbench_session_A",
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_1",
           operation_id: "project.create",
           guard: null,
@@ -1335,6 +1336,7 @@ function pendingApproval() {
     ...IDLE_SNAPSHOT,
     pending_approval: {
       session_id: "workbench_session_Y1",
+      requested_by: { kind: "owner", name: "Kanthor Labs" },
       tool_call_id: "call_1",
       operation_id: "project.create",
       guard: null,
@@ -1920,6 +1922,7 @@ describe("HomeScreen Ask Yumi", () => {
               ...IDLE_SNAPSHOT,
               pending_approval: {
                 session_id: id,
+                requested_by: { kind: "owner", name: "Kanthor Labs" },
                 tool_call_id: "call_1",
                 operation_id: "project.create",
                 input: { name: "account-recovery" },

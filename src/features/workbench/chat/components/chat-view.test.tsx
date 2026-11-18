@@ -402,6 +402,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           guard: null,
@@ -437,6 +438,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: guest.session_id,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_7",
           operation_id: "project.create",
           guard: null,
@@ -464,6 +466,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -498,6 +501,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -526,6 +530,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -541,6 +546,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_3",
           operation_id: "project.update",
           input: {},
@@ -568,6 +574,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -902,6 +909,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -1267,7 +1275,12 @@ describe("ChatView plan and phases", () => {
   });
 
   describe("in a shared conversation", () => {
-    const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+    const INVITE = {
+      id: "invite_1",
+      invitee_name: "Dana",
+      expires_at: 1790000000000,
+      projects: [],
+    };
     const RUN_ANSWER = {
       kind: "run",
       session_id: SESSION_ID,

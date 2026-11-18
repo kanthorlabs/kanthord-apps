@@ -24,6 +24,8 @@ function streamingState(displayName: string | null): WorkbenchGuestState {
     display_name: displayName,
     auto_mode: true,
     streaming: { content: [{ type: "text", text: "Reading the" }] },
+    waiting_for_approval: null,
+    queue: [],
   };
 }
 

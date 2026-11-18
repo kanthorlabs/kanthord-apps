@@ -25,6 +25,7 @@ beforeEach(() => {
 
 const EVIDENCE: WorkbenchPendingApproval = {
   session_id: "session_1",
+  requested_by: { kind: "owner", name: "Kanthor Labs" },
   tool_call_id: "call_1",
   operation_id: "mission.evidence.asset.content.download",
   guard: null,
@@ -39,6 +40,7 @@ const EVIDENCE: WorkbenchPendingApproval = {
 
 const MUTATION: WorkbenchPendingApproval = {
   session_id: "session_1",
+  requested_by: { kind: "owner", name: "Kanthor Labs" },
   tool_call_id: "call_2",
   operation_id: "project.create",
   guard: null,
@@ -47,6 +49,7 @@ const MUTATION: WorkbenchPendingApproval = {
 
 const IMPORT: WorkbenchPendingApproval = {
   session_id: "session_1",
+  requested_by: { kind: "owner", name: "Kanthor Labs" },
   tool_call_id: "call_3",
   operation_id: "mission.import.apply",
   guard: null,
@@ -80,6 +83,7 @@ const IMPORT: WorkbenchPendingApproval = {
 
 const UNBLOCK: WorkbenchPendingApproval = {
   session_id: "session_1",
+  requested_by: { kind: "owner", name: "Kanthor Labs" },
   tool_call_id: "call_4",
   operation_id: "mission.node.unblock",
   guard: null,

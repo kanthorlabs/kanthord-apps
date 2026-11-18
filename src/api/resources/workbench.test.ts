@@ -447,7 +447,12 @@ describe("readWorkbenchEvents", () => {
 });
 
 describe("invites", () => {
-  const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+  const INVITE = {
+    id: "invite_1",
+    invitee_name: "Dana",
+    expires_at: 1790000000000,
+    projects: [{ id: "project_a", name: "Alpha" }],
+  };
 
   it("creates an invite for the session", async () => {
     await serve({
@@ -457,14 +462,22 @@ describe("invites", () => {
       },
     });
 
-    const created = await createInvite(SESSION_ID, { invitee_name: "Dana" });
+    const created = await createInvite(SESSION_ID, {
+      invitee_name: "Dana",
+      project_ids: ["project_b", "project_a", "project_c"],
+    });
 
-    expect(JSON.parse(seen[0]!.body)).toEqual({ invitee_name: "Dana" });
+    expect(JSON.parse(seen[0]!.body)).toEqual({
+      invitee_name: "Dana",
+      project_ids: ["project_a", "project_b", "project_c"],
+    });
     expect(created.invite_token).toBe("invite-secret");
   });
 
   it("lists the invites of the session", async () => {
-    await serve({ [`GET ${PATH}/invite`]: { body: { items: [INVITE] } } });
+    await serve({
+      [`GET ${PATH}/invite`]: { body: { items: [INVITE], project_ids: ["project_a"] } },
+    });
 
     expect(await listInvites(SESSION_ID)).toEqual([INVITE]);
   });

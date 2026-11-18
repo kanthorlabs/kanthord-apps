@@ -207,6 +207,7 @@ describe("chatItemsOf", () => {
       pending_tool_calls: ["call_1"],
       pending_approval: {
         session_id: HOST.session_id,
+        requested_by: { kind: "owner", name: "Kanthor Labs" },
         tool_call_id: "call_2",
         operation_id: "project.create",
         input: {},
@@ -332,6 +333,7 @@ describe("agentWorking", () => {
         run_active: true,
         pending_approval: {
           session_id: HOST.session_id,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "c1",
           operation_id: "o",
           input: {},

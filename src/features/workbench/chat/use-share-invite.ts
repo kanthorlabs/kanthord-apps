@@ -44,7 +44,7 @@ export function useShareInvite(sessionId: string, onChanged: () => void): ShareI
     setPending(true);
     setCreateFailure(null);
     try {
-      const created = await createInvite(sessionId, { invitee_name: inviteeName });
+      const created = await createInvite(sessionId, { invitee_name: inviteeName, project_ids: [] });
       setLink(inviteLinkOf(window.location.origin, basePath(), created.invite_token, inviteeName));
       setNameValue("");
       onChanged();

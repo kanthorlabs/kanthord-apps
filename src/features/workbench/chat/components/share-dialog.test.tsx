@@ -93,6 +93,7 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana Lee & Co",
       expires_at: EXPIRES_AT,
+      projects: [],
       invite_token: INVITE_TOKEN,
     });
     await open();
@@ -101,7 +102,10 @@ describe("ShareDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create link" }));
 
     const link = await screen.findByLabelText("Invite link (copy now, shown once)");
-    expect(createMock).toHaveBeenCalledWith(SESSION_ID, { invitee_name: "Dana Lee & Co" });
+    expect(createMock).toHaveBeenCalledWith(SESSION_ID, {
+      invitee_name: "Dana Lee & Co",
+      project_ids: [],
+    });
     expect(link).toHaveValue(
       `${window.location.origin}/join/${INVITE_TOKEN}#name=Dana%20Lee%20%26%20Co`,
     );
@@ -115,6 +119,7 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
+      projects: [],
       invite_token: INVITE_TOKEN,
     });
     const dialog = await open();
@@ -140,6 +145,7 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
+      projects: [],
       invite_token: INVITE_TOKEN,
     });
     await open();
@@ -189,8 +195,8 @@ describe("ShareDialog", () => {
     await open(
       null,
       invitesOf([
-        { id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT },
-        { id: "invite_2", invitee_name: "Sam", expires_at: EXPIRES_AT + 3_600_000 },
+        { id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT, projects: [] },
+        { id: "invite_2", invitee_name: "Sam", expires_at: EXPIRES_AT + 3_600_000, projects: [] },
       ]),
     );
 
@@ -206,7 +212,10 @@ describe("ShareDialog", () => {
 
   it("revokes an invite and reads the list again", async () => {
     revokeMock.mockResolvedValue({ id: "invite_1" });
-    await open(null, invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT }]));
+    await open(
+      null,
+      invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT, projects: [] }]),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Revoke Dana" }));
     expect(revokeMock).not.toHaveBeenCalled();
@@ -219,7 +228,10 @@ describe("ShareDialog", () => {
   });
 
   it("keeps the invite when the confirmation is cancelled", async () => {
-    await open(null, invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT }]));
+    await open(
+      null,
+      invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT, projects: [] }]),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Revoke Dana" }));
     const confirm = await screen.findByRole("alertdialog");
@@ -233,7 +245,10 @@ describe("ShareDialog", () => {
     revokeMock.mockRejectedValue(
       new ApiError("not_found", "The invite does not exist.", 404, "workbench.invite.not_found"),
     );
-    await open(null, invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT }]));
+    await open(
+      null,
+      invitesOf([{ id: "invite_1", invitee_name: "Dana", expires_at: EXPIRES_AT, projects: [] }]),
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Revoke Dana" }));
     const confirm = await screen.findByRole("alertdialog");

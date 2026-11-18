@@ -39,6 +39,8 @@ function session(entries: readonly WorkbenchGuestEntry[]): WorkbenchGuestSession
     owner_name: "Kanthor Labs",
     entries,
     run_active: false,
+    projects: [],
+    mention_names: [],
   };
 }
 

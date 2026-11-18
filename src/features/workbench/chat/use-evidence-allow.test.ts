@@ -15,6 +15,7 @@ const approveMock = vi.mocked(approveWorkbenchCall);
 
 const APPROVAL: WorkbenchPendingApproval = {
   session_id: "session_1",
+  requested_by: { kind: "owner", name: "Kanthor Labs" },
   tool_call_id: "call_1",
   operation_id: "mission.evidence.asset.content.download",
   guard: null,
