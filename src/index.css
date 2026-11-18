@@ -58,6 +58,8 @@
   --avatar-7: oklch(0.5 0.16 300);
   --avatar-8: oklch(0.5 0.16 345);
   --avatar-foreground: oklch(0.985 0 0);
+  --notice: #1f7a4d;
+  --notice-soft: #e3f3ea;
 }
 
 .dark {
@@ -104,6 +106,8 @@
   --flow-seq-3: oklch(0.72 0.12 255);
   --flow-seq-4: oklch(0.8 0.1 255);
   --flow-seq-5: oklch(0.88 0.07 255);
+  --notice: #5cc48d;
+  --notice-soft: #16301f;
 }
 
 @theme inline {
@@ -132,6 +136,8 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-edge-waiting: var(--edge-waiting);
+  --color-notice: var(--notice);
+  --color-notice-soft: var(--notice-soft);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

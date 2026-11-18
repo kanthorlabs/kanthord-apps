@@ -833,12 +833,16 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       entries[index - 1]?.type === "custom" &&
       entries[index - 1].customType === RECORD_TYPE &&
       entries[index - 1].data?.kind === "author";
+    const ownerNote = (entry) =>
+      entry.type === "custom" &&
+      entry.customType === RECORD_TYPE &&
+      entry.data?.kind === "note" &&
+      entry.data.author?.kind === "owner";
     const answered = entries.some(
       (entry, index) =>
         index > at &&
-        entry.type === "message" &&
-        entry.message.role === "user" &&
-        !guestAuthored(index),
+        (ownerNote(entry) ||
+          (entry.type === "message" && entry.message.role === "user" && !guestAuthored(index))),
     );
     if (answered) return null;
     return entries[at].data.projects

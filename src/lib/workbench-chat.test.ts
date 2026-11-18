@@ -1245,7 +1245,7 @@ describe("chatItemsOf notice records", () => {
   });
 
   it("maps a watch record to no item", () => {
-    const items = bodyItemsOf([record("e1", { kind: "watch", watch_entry_id: "watch_1" })], IDLE);
+    const items = bodyItemsOf([record("e1", { kind: "watch", node_ids: ["node_1"] })], IDLE);
 
     expect(items).toEqual([]);
   });

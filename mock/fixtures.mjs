@@ -2948,14 +2948,14 @@ export const WORKBENCH_SESSIONS = [
         id: "e0000601",
         parentId: null,
         timestamp: entryAt(8000),
-        message: { role: "user", content: "Watch the shop nodes and tell me when they end." },
+        message: { role: "user", content: "Watch the atlas nodes and tell me when they end." },
       },
       {
         type: "message",
         id: "e0000602",
         parentId: "e0000601",
         timestamp: entryAt(8001),
-        message: textMessage("assistant", "I watch the nodes of the shop project."),
+        message: textMessage("assistant", "I watch the nodes of the atlas project."),
       },
       {
         type: "custom",
@@ -2964,12 +2964,27 @@ export const WORKBENCH_SESSIONS = [
         timestamp: entryAt(8002),
         customType: "kanthord.workbench.record",
         data: {
+          kind: "watch",
+          node_ids: [
+            "node_01J9ZQ4XKM3B6V8N2R5T7W0NT1",
+            "node_01J9ZQ4XKM3B6V8N2R5T7W0NT2",
+            "node_01J9ZQ4XKM3B6V8N2R5T7W0NT3",
+          ],
+        },
+      },
+      {
+        type: "custom",
+        id: "e0000604",
+        parentId: "e0000603",
+        timestamp: entryAt(8003),
+        customType: "kanthord.workbench.record",
+        data: {
           kind: "notice",
-          watch_entry_id: "e0000602",
+          watch_entry_id: "e0000603",
           projects: [
             {
               project_id: PROJECT_ATLAS.id,
-              name: "shop",
+              name: PROJECT_ATLAS.name,
               nodes: [
                 {
                   node_id: "node_01J9ZQ4XKM3B6V8N2R5T7W0NT1",

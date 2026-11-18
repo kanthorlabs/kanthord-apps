@@ -39,7 +39,8 @@ describe("NoticeRecord", () => {
     );
 
     const block = screen.getByRole("group", { name: "shop · 2 Completed, 1 Discarded" });
-    const rows = within(block).getAllByRole("listitem");
+    const list = within(block).getByRole("list", { name: "Nodes of shop" });
+    const rows = within(list).getAllByRole("listitem");
     expect(rows).toHaveLength(3);
     expect(rows[0]).toHaveTextContent("Node a");
     expect(rows[0]).toHaveTextContent("Completed");
@@ -50,6 +51,20 @@ describe("NoticeRecord", () => {
       "href",
       "/projects/project_1",
     );
+  });
+
+  it("colors the Completed badge with the notice color and not the Discarded badge", () => {
+    renderNotice(
+      notice({
+        project_id: "project_1",
+        name: "shop",
+        nodes: [node("a", "Completed"), node("c", "Discarded")],
+      }),
+    );
+
+    const list = screen.getByRole("list", { name: "Nodes of shop" });
+    expect(within(list).getByText("Completed")).toHaveClass("text-notice");
+    expect(within(list).getByText("Discarded")).not.toHaveClass("text-notice");
   });
 
   it("leaves out a state with a count of zero", () => {

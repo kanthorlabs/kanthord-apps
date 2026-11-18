@@ -1,16 +1,6 @@
 import { Link } from "react-router-dom";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Item,
-  ItemActions,
-  ItemContent,
-  ItemDescription,
-  ItemFooter,
-  ItemGroup,
-  ItemHeader,
-  ItemTitle,
-} from "@/components/ui/item";
 import type { WorkbenchNoticeProject, WorkbenchNoticeRecord } from "@/api/types";
 import { utcDateTime } from "@/lib/format";
 import { noticeHeader } from "@/lib/workbench-notice";
@@ -18,39 +8,43 @@ import { noticeHeader } from "@/lib/workbench-notice";
 function NoticeBlock({ project }: { readonly project: WorkbenchNoticeProject }) {
   const header = noticeHeader(project);
   return (
-    <Item
-      variant="outline"
-      className="min-w-0 flex-col items-stretch"
+    <div
+      className="grid min-w-0 max-w-full gap-1 rounded-md border border-notice bg-notice-soft px-3 py-2.5 text-sm"
       role="group"
       aria-label={header}
     >
-      <ItemHeader>
-        <ItemTitle className="min-w-0 break-words">{header}</ItemTitle>
-      </ItemHeader>
-      <ItemGroup aria-label={`Nodes of ${project.name}`} className="min-w-0 gap-2">
+      <p className="min-w-0 break-words font-bold">{header}</p>
+      <div role="list" aria-label={`Nodes of ${project.name}`} className="grid min-w-0 gap-1">
         {project.nodes.map((node) => (
-          <Item key={node.node_id} role="listitem" size="sm" className="min-w-0 px-0">
-            <ItemContent className="min-w-0">
-              <ItemTitle className="min-w-0 break-words">{node.name}</ItemTitle>
-              <ItemDescription>{utcDateTime(node.ended_at)}</ItemDescription>
-            </ItemContent>
-            <ItemActions>
-              <Badge variant="outline">{node.state}</Badge>
-            </ItemActions>
-          </Item>
-        ))}
-      </ItemGroup>
-      {project.project_id !== undefined && (
-        <ItemFooter>
-          <Link
-            to={`/projects/${encodeURIComponent(project.project_id)}`}
-            className="text-sm underline"
+          <div
+            key={node.node_id}
+            role="listitem"
+            className="flex min-w-0 flex-wrap items-center gap-2"
           >
-            Open project
-          </Link>
-        </ItemFooter>
+            <span className="min-w-0 break-words">{node.name}</span>
+            <Badge
+              variant={node.state === "Completed" ? "default" : "outline"}
+              className={
+                node.state === "Completed"
+                  ? "border-0 bg-notice-soft text-notice"
+                  : "text-muted-foreground"
+              }
+            >
+              {node.state}
+            </Badge>
+            <span className="text-muted-foreground">{utcDateTime(node.ended_at)}</span>
+          </div>
+        ))}
+      </div>
+      {project.project_id !== undefined && (
+        <Link
+          to={`/projects/${encodeURIComponent(project.project_id)}`}
+          className="w-fit text-sm underline"
+        >
+          Open project
+        </Link>
       )}
-    </Item>
+    </div>
   );
 }
 
