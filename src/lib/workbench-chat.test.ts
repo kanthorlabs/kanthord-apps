@@ -1057,3 +1057,66 @@ describe("unresolvedLine", () => {
     expect(unresolvedLine(null)).toBeNull();
   });
 });
+
+function userAt(id: string, text: string, sessionId = HOST.session_id): WorkbenchSessionEntry {
+  return { ...message(id, { role: "user", content: text }), session_id: sessionId };
+}
+
+function authorRecord(id: string, name: string, sessionId = HOST.session_id) {
+  return {
+    ...record(id, { kind: "author", author: { kind: "guest", name } }),
+    session_id: sessionId,
+  };
+}
+
+describe("chatItemsOf guest-started runs", () => {
+  it("labels only the user message that follows an author record", () => {
+    const items = bodyItemsOf(
+      [authorRecord("e1", "Anna"), userAt("e2", "from the guest"), userAt("e3", "from the owner")],
+      IDLE,
+    ).filter((item) => item.kind === "user");
+
+    expect(items.map((item) => item.guest)).toEqual(["Anna", undefined]);
+  });
+
+  it("renders no item for an author record or a queue_clear record", () => {
+    const items = bodyItemsOf(
+      [authorRecord("e1", "Anna"), record("e2", { kind: "queue_clear", count: 2, cause: "stop" })],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
+  });
+
+  it("labels an action offer after a guest-labelled user message", () => {
+    const entries = [
+      authorRecord("e1", "Anna"),
+      userAt("e2", "discard the node"),
+      actionResult("e3", "call_x", "done", null),
+      record("e4", offer("call_a")),
+    ];
+
+    expect(cardsOf(entries).map((item) => item.guest)).toEqual(["Anna"]);
+  });
+
+  it("carries no guest line for an action offer after a later owner user message", () => {
+    const entries = [
+      authorRecord("e1", "Anna"),
+      userAt("e2", "discard the node"),
+      userAt("e3", "now my own request"),
+      record("e4", offer("call_a")),
+    ];
+
+    expect(cardsOf(entries).map((item) => item.guest)).toEqual([undefined]);
+  });
+
+  it("reads the author record of the session of the user message only", () => {
+    const entries = [
+      authorRecord("e1", "Anna", GUEST.session_id),
+      userAt("e2", "owner text in the host session"),
+    ];
+
+    const users = bodyItemsOf(entries, IDLE).filter((item) => item.kind === "user");
+    expect(users.map((item) => item.guest)).toEqual([undefined]);
+  });
+});

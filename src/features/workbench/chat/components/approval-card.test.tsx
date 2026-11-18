@@ -212,6 +212,31 @@ describe("ApprovalCard", () => {
     },
   );
 
+  it("shows the guest request line and the exact input JSON for a guest-started run", () => {
+    mount({
+      ...MUTATION,
+      requested_by: { kind: "guest", name: "Anna" },
+      guard: { cause: "guest_run", reason: null, confidence: null },
+    });
+
+    const card = screen.getByRole("group", { name: "Approval Required" });
+    expect(
+      within(card).getByText("Requested in a run started by Anna (guest)"),
+    ).toBeInTheDocument();
+    expect(card).not.toHaveTextContent("Guard:");
+    expect(card.querySelector("pre")?.textContent).toBe(
+      JSON.stringify({ name: "account-recovery" }, null, 2),
+    );
+    expect(within(card).getByRole("button", { name: "Approve" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Reject" })).toBeInTheDocument();
+  });
+
+  it("shows no guest request line when the owner started the run", () => {
+    mount(MUTATION);
+
+    expect(screen.queryByText(/Requested in a run started by/)).not.toBeInTheDocument();
+  });
+
   it("shows the classifier reason as model text with the confidence in two decimals", () => {
     mount({
       ...MUTATION,

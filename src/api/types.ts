@@ -1778,7 +1778,13 @@ export interface WorkbenchPendingApprovalSummary {
 }
 
 export type WorkbenchGuardCause =
-  "import" | "auto_mode_off" | "unavailable" | "oversize" | "no_verdict" | "classifier";
+  | "import"
+  | "auto_mode_off"
+  | "unavailable"
+  | "oversize"
+  | "no_verdict"
+  | "classifier"
+  | "guest_run";
 
 export interface WorkbenchPendingApprovalGuard {
   readonly cause: WorkbenchGuardCause;

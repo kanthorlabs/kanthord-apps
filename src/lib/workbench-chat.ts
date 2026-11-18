@@ -6,6 +6,7 @@ import {
   type WorkbenchActionOffer,
   type WorkbenchActionOperation,
   type WorkbenchActionResult,
+  type WorkbenchAuthorRecord,
   type WorkbenchForkRecord,
   type WorkbenchGuardRecord,
   type WorkbenchMember,
@@ -90,6 +91,7 @@ type ChatItemBody =
       readonly offer: WorkbenchActionOffer;
       readonly results: readonly WorkbenchActionResult[];
       readonly state: ActionCardState;
+      readonly guest?: string;
     }
   | {
       readonly kind: "fork";
@@ -156,6 +158,7 @@ const FORK_ACK = "I read the summary of the earlier conversation.";
 const FORK_KEYS = ["kind", "source_title"];
 const NOTE_KEYS = ["kind", "text", "author"];
 const NOTE_AUTHOR_KEYS = ["kind", "name"];
+const AUTHOR_KEYS = ["kind", "author"];
 const GUARD_KEYS = ["kind", "tool_call_id", "operation_id", "reason"];
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
 const NODE_SEEN_KEYS = ["name", "state", "attempt"];
@@ -268,6 +271,17 @@ function noteRecordOf(entry: WorkbenchSessionEntry): WorkbenchNoteRecord | null 
   return { kind: "note", text, author: { kind, name } };
 }
 
+function authorRecordOf(entry: WorkbenchSessionEntry): WorkbenchAuthorRecord | null {
+  const data = entry["data"];
+  if (entry.type !== "custom" || entry["customType"] !== RECORD_TYPE) return null;
+  if (!isRecord(data) || !hasExactKeys(data, AUTHOR_KEYS) || data["kind"] !== "author") return null;
+  const { author } = data;
+  if (!isRecord(author) || !hasExactKeys(author, NOTE_AUTHOR_KEYS)) return null;
+  const { kind, name } = author;
+  if (kind !== "guest" || typeof name !== "string") return null;
+  return { kind: "author", author: { kind, name } };
+}
+
 function noteItems(entry: WorkbenchSessionEntry): readonly ChatItemBody[] {
   const note = noteRecordOf(entry);
   if (note === null) return [];
@@ -337,6 +351,8 @@ interface ResultContext {
   readonly forkedFrom: string | null;
   readonly forkSummaries: ReadonlyMap<number, string>;
   readonly hiddenIndexes: ReadonlySet<number>;
+  readonly userGuests: ReadonlyMap<number, string>;
+  readonly offerGuests: ReadonlyMap<number, string>;
 }
 
 function actionCardState(
@@ -350,6 +366,10 @@ function actionCardState(
   if (context.lastUserIndex > index || context.lastOfferIndex > index) return "superseded";
   if (!Object.hasOwn(ACTION_VERBS, offer.operation_id)) return "unknown";
   return snapshot.run_active ? "waiting" : "live";
+}
+
+function guestOf(name: string | undefined): { readonly guest: string } | Record<string, never> {
+  return name === undefined ? {} : { guest: name };
 }
 
 function actionCardItems(
@@ -368,6 +388,7 @@ function actionCardItems(
       offer,
       results,
       state: actionCardState(offer, results, index, snapshot, context),
+      ...guestOf(context.offerGuests.get(index)),
     },
   ];
 }
@@ -499,6 +520,7 @@ function entryItems(
         id: entry.id,
         text: textOf(blocksOf(message["content"])),
         timestamp: Date.parse(entry.timestamp),
+        ...guestOf(context.userGuests.get(index)),
       },
     ];
   }
@@ -528,6 +550,10 @@ function resultContextOf(
   const resultIds = new Set<string>();
   const actionResults = new Map<string, WorkbenchActionResult[]>();
   const guards = new Map<string, WorkbenchGuardRecord>();
+  const userGuests = new Map<number, string>();
+  const offerGuests = new Map<number, string>();
+  const pendingAuthors = new Map<string, string>();
+  const runGuests = new Map<string, string | undefined>();
   let lastUserIndex = -1;
   let lastOfferIndex = -1;
   entries.forEach((entry, index) => {
@@ -550,9 +576,21 @@ function resultContextOf(
       hiddenIndexes.add(index + 1);
       if (isForkAck(entries[index + 2])) hiddenIndexes.add(index + 2);
     }
-    if (offerOf(entry) !== null) lastOfferIndex = index;
+    const author = authorRecordOf(entry);
+    if (author !== null) pendingAuthors.set(entry.session_id, author.author.name);
+    if (offerOf(entry) !== null) {
+      lastOfferIndex = index;
+      const guest = runGuests.get(entry.session_id);
+      if (guest !== undefined) offerGuests.set(index, guest);
+    }
     if (entry.type !== "message" || !isRecord(message)) return;
-    if (message["role"] === "user") lastUserIndex = index;
+    if (message["role"] === "user") {
+      lastUserIndex = index;
+      const guest = pendingAuthors.get(entry.session_id);
+      pendingAuthors.delete(entry.session_id);
+      runGuests.set(entry.session_id, guest);
+      if (guest !== undefined) userGuests.set(index, guest);
+    }
     if (message["role"] === "toolResult") resultIds.add(stringOf(message["toolCallId"]));
   });
   return {
@@ -564,6 +602,8 @@ function resultContextOf(
     forkedFrom,
     forkSummaries,
     hiddenIndexes,
+    userGuests,
+    offerGuests,
   };
 }
 

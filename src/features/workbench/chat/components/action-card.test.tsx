@@ -51,6 +51,13 @@ describe("ActionCard", () => {
     ]);
   });
 
+  it("shows the guest line and keeps the button for a guest-started run", () => {
+    render(<ActionCard item={card({ guest: "Anna" })} canRun onRun={vi.fn()} />);
+
+    expect(screen.getByText("Offered in a run started by Anna (guest)")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Discard node_42" })).toBeEnabled();
+  });
+
   it.each([
     [true, "state: paused"],
     [false, "state: active"],
