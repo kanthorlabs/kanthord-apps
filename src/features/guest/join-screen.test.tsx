@@ -147,6 +147,19 @@ describe("JoinScreen", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("counts the name after trim and NFC, as the engine does", async () => {
+    renderJoin();
+    const field = screen.getByLabelText(NAME_LABEL);
+    await userEvent.clear(field);
+    await userEvent.click(field);
+    await userEvent.paste(` ${"é".repeat(64)} `);
+
+    await userEvent.click(screen.getByRole("button", { name: "Join" }));
+
+    expect(await screen.findByText("Guest chat")).toBeInTheDocument();
+    expect(JSON.parse(sent[0]!.body)).toEqual({ invite_token: INVITE, name: "é".repeat(64) });
+  });
+
   it("shows one error line under the form for an unknown invite", async () => {
     vi.stubGlobal(
       "fetch",

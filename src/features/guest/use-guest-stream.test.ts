@@ -180,6 +180,7 @@ describe("useGuestStream", () => {
   });
 
   it("stops on a 401 with no further request", async () => {
+    window.sessionStorage.setItem("kanthord.guest", "{}");
     readMock.mockResolvedValue(session([]));
     openStreamMock.mockImplementation(() => {
       throw new ApiError(
@@ -195,6 +196,7 @@ describe("useGuestStream", () => {
     await advance(10_000);
 
     expect(openStreamMock).toHaveBeenCalledTimes(1);
+    expect(window.sessionStorage.getItem("kanthord.guest")).toBeNull();
     expect(result.current.failure).toEqual({
       code: "gateway.jwt.invite_ended",
       message: "The invite of this guest ended.",
