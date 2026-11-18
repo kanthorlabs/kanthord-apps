@@ -1,3 +1,4 @@
+import type { WorkbenchProjectRef } from "@/api/types";
 import type { ChatItem } from "./workbench-chat";
 
 const NAME_MAX_CHARACTERS = 64;
@@ -6,6 +7,10 @@ const NO_FORK_TITLE = "an earlier conversation";
 export function inviteeNameValid(name: string): boolean {
   const trimmed = name.trim();
   return trimmed !== "" && [...trimmed].length <= NAME_MAX_CHARACTERS;
+}
+
+export function projectRefLabel(project: WorkbenchProjectRef): string {
+  return project.name ?? project.id;
 }
 
 export function forkTitleOf(forkedFrom: string | null, items: readonly ChatItem[]): string | null {
