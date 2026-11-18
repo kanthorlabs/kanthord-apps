@@ -8,6 +8,11 @@ import { type ChatItem, type ChatItemOrigin, memberOf } from "./workbench-chat";
 
 export const GUEST_NOTE_HINT = "Note to everyone";
 
+export function queueClearSentence(count: number, cause: "stop" | "replace"): string {
+  const action = cause === "stop" ? "stopped" : "replaced";
+  return `The owner ${action} the run. ${count} queued messages were cleared.`;
+}
+
 export function waitingToolNameOf(operationId: string): string {
   return operationId.replaceAll(".", "--");
 }

@@ -479,7 +479,10 @@ describe("invites", () => {
       [`GET ${PATH}/invite`]: { body: { items: [INVITE], project_ids: ["project_a"] } },
     });
 
-    expect(await listInvites(SESSION_ID)).toEqual([INVITE]);
+    expect(await listInvites(SESSION_ID)).toEqual({
+      items: [INVITE],
+      project_ids: ["project_a"],
+    });
   });
 
   it("revokes an invite by id", async () => {

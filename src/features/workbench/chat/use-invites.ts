@@ -4,6 +4,7 @@ import { listInvites } from "@/api/resources/workbench";
 import type { WorkbenchInvite, WorkbenchProjectRef } from "@/api/types";
 import type { DataListStatus } from "@/components/data-list";
 import { asApiError } from "@/hooks/use-resource";
+import { lockedProjectsOf } from "@/lib/share-invite";
 
 export interface InvitesState {
   readonly invites: readonly WorkbenchInvite[];
@@ -16,6 +17,7 @@ export interface InvitesState {
 
 export function useInvites(sessionId: string): InvitesState {
   const [invites, setInvites] = useState<readonly WorkbenchInvite[]>([]);
+  const [lockedIds, setLockedIds] = useState<readonly string[] | null>(null);
   const [status, setStatus] = useState<DataListStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -23,9 +25,10 @@ export function useInvites(sessionId: string): InvitesState {
   useEffect(() => {
     let live = true;
     listInvites(sessionId).then(
-      (items) => {
+      (answer) => {
         if (!live) return;
-        setInvites(items);
+        setInvites(answer.items);
+        setLockedIds(answer.project_ids);
         setError(null);
         setStatus("ready");
       },
@@ -47,7 +50,7 @@ export function useInvites(sessionId: string): InvitesState {
     status,
     error,
     shared: invites.length > 0,
-    lockedProjects: invites[0]?.projects ?? null,
+    lockedProjects: lockedProjectsOf(lockedIds, invites),
     reload,
   };
 }

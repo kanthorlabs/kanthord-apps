@@ -12,7 +12,6 @@ import type {
   WorkbenchGuestMessageAnswer,
   WorkbenchGuestMessageBody,
   WorkbenchGuestSession,
-  WorkbenchInvite,
   WorkbenchInviteCreateBody,
   WorkbenchInviteCreated,
   WorkbenchInviteJoinAnswer,
@@ -165,9 +164,8 @@ export async function createInvite(
   });
 }
 
-export async function listInvites(sessionId: string): Promise<readonly WorkbenchInvite[]> {
-  const answer = await request<WorkbenchInviteListAnswer>(`${sessionPath(sessionId)}/invite`);
-  return answer.items;
+export async function listInvites(sessionId: string): Promise<WorkbenchInviteListAnswer> {
+  return request<WorkbenchInviteListAnswer>(`${sessionPath(sessionId)}/invite`);
 }
 
 export async function revokeInvite(inviteId: string): Promise<WorkbenchInviteRevokeAnswer> {

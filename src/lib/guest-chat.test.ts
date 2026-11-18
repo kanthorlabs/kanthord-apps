@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkbenchGuestEntry, WorkbenchGuestState, WorkbenchMember } from "@/api/types";
-import { guestItemsOf } from "./guest-chat";
+import { guestItemsOf, queueClearSentence } from "./guest-chat";
 
 const RE_SESSION = "workbench_session_1";
 const YUMI_SESSION = "workbench_session_2";
@@ -57,5 +57,14 @@ describe("guestItemsOf", () => {
       agent_name: "yumi@1",
       display_name: "Ghost",
     });
+  });
+});
+
+describe("queueClearSentence", () => {
+  it.each([
+    ["stop", "The owner stopped the run. 2 queued messages were cleared."],
+    ["replace", "The owner replaced the run. 2 queued messages were cleared."],
+  ] as const)("names the %s cause and the count", (cause, sentence) => {
+    expect(queueClearSentence(2, cause)).toBe(sentence);
   });
 });

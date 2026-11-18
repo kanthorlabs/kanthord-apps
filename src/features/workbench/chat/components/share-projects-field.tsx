@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/combobox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { useResource } from "@/hooks/use-resource";
-import { projectRefLabel } from "@/lib/share-invite";
+import { projectLabelOf, projectRefLabel } from "@/lib/share-invite";
 import { InlineError } from "./inline-error";
 
 const LOCKED_LINE =
@@ -39,8 +39,7 @@ export function ShareProjectsField({
   const anchor = useComboboxAnchor();
   const projects = useResource(listProjects, []);
   const listed = projects.data ?? [];
-  const names = new Map(listed.map((project) => [project.id, project.name]));
-  const labelOf = (id: string) => names.get(id) ?? id;
+  const labelOf = (id: string) => projectLabelOf(listed, id);
 
   if (locked !== null) {
     return (

@@ -811,7 +811,7 @@ async function press(user: ReturnType<typeof userEvent.setup>, name: string | Re
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(listInvites).mockResolvedValue([]);
+  vi.mocked(listInvites).mockResolvedValue({ items: [], project_ids: null });
   NOW = Date.now();
 });
 
