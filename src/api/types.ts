@@ -1736,6 +1736,8 @@ export const WORKBENCH_INVITE_PROJECT_INVALID = "workbench.invite.project_invali
 
 export const WORKBENCH_INVITE_SCOPE_MISMATCH = "workbench.invite.scope_mismatch";
 
+export const WORKBENCH_INVITE_GRANT_INVALID = "workbench.invite.grant_invalid";
+
 export const WORKBENCH_GUEST_AGENT_REFUSED = "workbench.guest.agent_refused";
 
 export const GATEWAY_SCOPE_NOT_FOUND = "gateway.scope.not_found";

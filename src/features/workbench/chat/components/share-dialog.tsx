@@ -29,7 +29,9 @@ import { projectRefLabel } from "@/lib/share-invite";
 import type { InvitesState } from "../use-invites";
 import { useShareInvite } from "../use-share-invite";
 import { useShareProjects } from "../use-share-projects";
+import { CreatedGrant, InviteGrant } from "./invite-grant";
 import { InlineError } from "./inline-error";
+import { ShareGrantField } from "./share-grant-field";
 import { ShareProjectsField } from "./share-projects-field";
 
 interface ShareDialogProps {
@@ -114,6 +116,12 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
                 exceeded={share.projectsExceeded}
                 onChange={share.setProjectIds}
               />
+              <ShareGrantField
+                name={share.name}
+                grantable={invites.grantable}
+                checked={share.grantedIds}
+                onChange={share.setGrantedIds}
+              />
               <div>
                 <Button type="submit" disabled={!share.valid || share.pending}>
                   Create link
@@ -138,6 +146,7 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
                   Copy link
                 </Button>
               </div>
+              <CreatedGrant granted={share.createdGrant} />
             </Field>
           )}
           <DataList
@@ -154,9 +163,12 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
                 title={invite.invitee_name}
                 description={`Expires ${utcDateTime(invite.expires_at)}`}
                 detail={
-                  <p className="text-sm break-words text-muted-foreground">
-                    Projects: {invite.projects.map(projectRefLabel).join(", ")}
-                  </p>
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <p className="text-sm break-words text-muted-foreground">
+                      Projects: {invite.projects.map(projectRefLabel).join(", ")}
+                    </p>
+                    <InviteGrant granted={invite.granted_operations} />
+                  </div>
                 }
                 actions={
                   <Button

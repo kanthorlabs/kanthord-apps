@@ -1,4 +1,11 @@
-import type { WorkbenchInvite, WorkbenchProjectRef } from "@/api/types";
+import type {
+  GrantableOperation,
+  GrantedOperation,
+  GuardClass,
+  WorkbenchInvite,
+  WorkbenchProjectRef,
+} from "@/api/types";
+import type { GuestLine } from "./guest-chat";
 import type { ChatItem } from "./workbench-chat";
 
 const NAME_MAX_CHARACTERS = 64;
@@ -48,4 +55,89 @@ export function inviteLinkOf(
 ): string {
   const base = basePath === "/" ? "" : basePath;
   return `${origin}${base}/join/${inviteToken}#name=${encodeURIComponent(inviteeName)}`;
+}
+
+export type GrantGuardClass = Extract<GuardClass, "reversible" | "judged">;
+
+export interface GrantGroup {
+  readonly guardClass: GrantGuardClass;
+  readonly label: string;
+  readonly line: (name: string) => string;
+  readonly operations: readonly GrantableOperation[];
+}
+
+export type GroupCheckState = "all" | "some" | "none";
+
+const GRANT_GROUP_TEXTS: readonly Pick<GrantGroup, "guardClass" | "label" | "line">[] = [
+  {
+    guardClass: "reversible",
+    label: "Reversible acts",
+    line: () => "Run at once. One opposite call undoes each act.",
+  },
+  {
+    guardClass: "judged",
+    label: "Judged acts",
+    line: (name) => `Run when the Guard finds that ${name}'s message directs them.`,
+  },
+];
+
+export function grantGroupsOf(grantable: readonly GrantableOperation[]): readonly GrantGroup[] {
+  return GRANT_GROUP_TEXTS.map((group) => ({
+    ...group,
+    operations: grantable.filter((operation) => operation.guard_class === group.guardClass),
+  })).filter((group) => group.operations.length > 0);
+}
+
+export function groupCheckStateOf(
+  operations: readonly GrantableOperation[],
+  checked: readonly string[],
+): GroupCheckState {
+  const count = operations.filter((operation) => checked.includes(operation.operation_id)).length;
+  if (count === 0) return "none";
+  return count === operations.length ? "all" : "some";
+}
+
+export function withGroupChecked(
+  checked: readonly string[],
+  operations: readonly GrantableOperation[],
+  on: boolean,
+): readonly string[] {
+  const ids = operations.map((operation) => operation.operation_id);
+  const others = checked.filter((id) => !ids.includes(id));
+  return on ? [...others, ...ids] : others;
+}
+
+export function withOperationChecked(
+  checked: readonly string[],
+  operationId: string,
+  on: boolean,
+): readonly string[] {
+  const others = checked.filter((id) => id !== operationId);
+  return on ? [...others, operationId] : others;
+}
+
+export function grantSummaryOf(granted: readonly GrantedOperation[]): string | null {
+  if (granted.length === 0) return null;
+  const parts = GRANT_GROUP_TEXTS.map(
+    ({ guardClass }) =>
+      [
+        guardClass,
+        granted.filter((operation) => operation.guard_class === guardClass).length,
+      ] as const,
+  )
+    .filter(([, count]) => count > 0)
+    .map(([guardClass, count]) => `${count} ${guardClass}`);
+  return `Without approval: ${parts.join(", ")}`;
+}
+
+export function refusedIdsOf(details: unknown): readonly string[] {
+  return Array.isArray(details)
+    ? details.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+export function withRefusedIds(line: GuestLine, details: unknown): GuestLine {
+  const ids = refusedIdsOf(details);
+  if (ids.length === 0) return line;
+  return { code: line.code, message: `${line.message} Refused: ${ids.join(", ")}.` };
 }
