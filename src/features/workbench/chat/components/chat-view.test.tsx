@@ -122,7 +122,7 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
@@ -402,6 +402,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           guard: null,
@@ -437,6 +438,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: guest.session_id,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_7",
           operation_id: "project.create",
           guard: null,
@@ -464,6 +466,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -498,6 +501,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -526,6 +530,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -541,6 +546,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_3",
           operation_id: "project.update",
           input: {},
@@ -568,6 +574,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -902,6 +909,7 @@ describe("ChatView", () => {
         run_active: true,
         pending_approval: {
           session_id: SESSION_ID,
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "call_2",
           operation_id: "project.create",
           input: {},
@@ -1267,7 +1275,12 @@ describe("ChatView plan and phases", () => {
   });
 
   describe("in a shared conversation", () => {
-    const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+    const INVITE = {
+      id: "invite_1",
+      invitee_name: "Dana",
+      expires_at: 1790000000000,
+      projects: [],
+    };
     const RUN_ANSWER = {
       kind: "run",
       session_id: SESSION_ID,
@@ -1291,7 +1304,7 @@ describe("ChatView plan and phases", () => {
     }
 
     beforeEach(() => {
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue([INVITE]);
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [INVITE], project_ids: [] });
     });
 
     it("clears the composer on an untagged note and shows the note with no running item", async () => {
@@ -1342,7 +1355,9 @@ describe("ChatView plan and phases", () => {
 
     it("reads the invite list again when a note answers an unshared conversation", async () => {
       pollQueue();
-      vi.mocked(workbenchApi.listInvites).mockResolvedValueOnce([]).mockResolvedValue([INVITE]);
+      vi.mocked(workbenchApi.listInvites)
+        .mockResolvedValueOnce({ items: [], project_ids: null })
+        .mockResolvedValue({ items: [INVITE], project_ids: [] });
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         kind: "note",
         session_id: SESSION_ID,
@@ -1361,7 +1376,7 @@ describe("ChatView plan and phases", () => {
   describe("the Share button", () => {
     it("shows in the header of a session", async () => {
       pollQueue();
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
       mount(session());
 
       expect(await screen.findByRole("button", { name: "Share" })).toBeTruthy();

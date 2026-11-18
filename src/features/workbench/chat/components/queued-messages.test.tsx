@@ -239,7 +239,7 @@ const box = () => screen.getByRole("combobox", { name: "Message" });
 describe("queued messages in the chat", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
+    vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
       () => new Promise(() => undefined),
     );

@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { listInvites } from "@/api/resources/workbench";
-import type { WorkbenchInvite } from "@/api/types";
+import type { WorkbenchInvite, WorkbenchProjectRef } from "@/api/types";
 import type { DataListStatus } from "@/components/data-list";
 import { asApiError } from "@/hooks/use-resource";
+import { lockedProjectsOf } from "@/lib/share-invite";
 
 export interface InvitesState {
   readonly invites: readonly WorkbenchInvite[];
   readonly status: DataListStatus;
   readonly error: string | null;
   readonly shared: boolean;
+  readonly lockedProjects: readonly WorkbenchProjectRef[] | null;
   readonly reload: () => void;
 }
 
 export function useInvites(sessionId: string): InvitesState {
   const [invites, setInvites] = useState<readonly WorkbenchInvite[]>([]);
+  const [lockedIds, setLockedIds] = useState<readonly string[] | null>(null);
   const [status, setStatus] = useState<DataListStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
@@ -22,9 +25,10 @@ export function useInvites(sessionId: string): InvitesState {
   useEffect(() => {
     let live = true;
     listInvites(sessionId).then(
-      (items) => {
+      (answer) => {
         if (!live) return;
-        setInvites(items);
+        setInvites(answer.items);
+        setLockedIds(answer.project_ids);
         setError(null);
         setStatus("ready");
       },
@@ -41,5 +45,12 @@ export function useInvites(sessionId: string): InvitesState {
 
   const reload = useCallback(() => setNonce((value) => value + 1), []);
 
-  return { invites, status, error, shared: invites.length > 0, reload };
+  return {
+    invites,
+    status,
+    error,
+    shared: invites.length > 0,
+    lockedProjects: lockedProjectsOf(lockedIds, invites),
+    reload,
+  };
 }

@@ -2,58 +2,92 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { createInvite, revokeInvite } from "@/api/resources/workbench";
+import { WORKBENCH_INVITE_PROJECT_INVALID, WORKBENCH_INVITE_SCOPE_MISMATCH } from "@/api/types";
 import { basePath } from "@/components/base-path";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { asApiError } from "@/hooks/use-resource";
 import { type GuestLine, guestLineOf } from "@/lib/guest-chat";
-import { inviteeNameValid, inviteLinkOf } from "@/lib/share-invite";
+import {
+  inviteeNameValid,
+  inviteLinkOf,
+  MAX_INVITE_PROJECTS,
+  projectCountValid,
+} from "@/lib/share-invite";
+
+const PROJECT_FAILURE_CODES: readonly string[] = [
+  WORKBENCH_INVITE_PROJECT_INVALID,
+  WORKBENCH_INVITE_SCOPE_MISMATCH,
+];
 
 export interface ShareInviteState {
   readonly name: string;
+  readonly projectIds: readonly string[];
   readonly valid: boolean;
+  readonly projectsExceeded: boolean;
   readonly link: string | null;
   readonly pending: boolean;
   readonly createFailure: GuestLine | null;
+  readonly projectFailure: GuestLine | null;
   readonly revokingId: string | null;
   readonly revokeFailure: { readonly inviteId: string; readonly line: GuestLine } | null;
   readonly setName: (value: string) => void;
+  readonly setProjectIds: (value: readonly string[]) => void;
   readonly create: () => Promise<void>;
   readonly revoke: (inviteId: string) => Promise<void>;
   readonly copy: () => void;
   readonly reset: () => void;
 }
 
-export function useShareInvite(sessionId: string, onChanged: () => void): ShareInviteState {
+export function useShareInvite(
+  sessionId: string,
+  onChanged: () => void,
+  lockedProjectIds: readonly string[] | null,
+): ShareInviteState {
   const [name, setNameValue] = useState("");
+  const [chosenIds, setChosenIds] = useState<readonly string[]>([]);
   const [link, setLink] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [createFailure, setCreateFailure] = useState<GuestLine | null>(null);
+  const [failure, setFailure] = useState<GuestLine | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokeFailure, setRevokeFailure] = useState<ShareInviteState["revokeFailure"]>(null);
   const write = useClipboard();
-  const valid = inviteeNameValid(name);
+  const projectIds = lockedProjectIds ?? chosenIds;
+  const valid = inviteeNameValid(name) && projectCountValid(projectIds.length);
+  const projectsExceeded = projectIds.length > MAX_INVITE_PROJECTS;
+  const projectFailure =
+    failure?.code != null && PROJECT_FAILURE_CODES.includes(failure.code) ? failure : null;
+  const createFailure = projectFailure === null ? failure : null;
 
   const setName = useCallback((value: string) => {
     setNameValue(value);
-    setCreateFailure(null);
+    setFailure(null);
+  }, []);
+
+  const setProjectIds = useCallback((value: readonly string[]) => {
+    setChosenIds(value);
+    setFailure(null);
   }, []);
 
   const create = useCallback(async () => {
     if (!valid || pending) return;
     const inviteeName = name.trim();
     setPending(true);
-    setCreateFailure(null);
+    setFailure(null);
     try {
-      const created = await createInvite(sessionId, { invitee_name: inviteeName });
+      const created = await createInvite(sessionId, {
+        invitee_name: inviteeName,
+        project_ids: [...projectIds].sort(),
+      });
       setLink(inviteLinkOf(window.location.origin, basePath(), created.invite_token, inviteeName));
       setNameValue("");
+      setChosenIds([]);
       onChanged();
     } catch (cause) {
-      setCreateFailure(guestLineOf(asApiError(cause)));
+      setFailure(guestLineOf(asApiError(cause)));
     } finally {
       setPending(false);
     }
-  }, [valid, pending, name, sessionId, onChanged]);
+  }, [valid, pending, name, projectIds, sessionId, onChanged]);
 
   const revoke = useCallback(
     async (inviteId: string) => {
@@ -81,20 +115,25 @@ export function useShareInvite(sessionId: string, onChanged: () => void): ShareI
 
   const reset = useCallback(() => {
     setNameValue("");
+    setChosenIds([]);
     setLink(null);
-    setCreateFailure(null);
+    setFailure(null);
     setRevokeFailure(null);
   }, []);
 
   return {
     name,
+    projectIds,
     valid,
+    projectsExceeded,
     link,
     pending,
     createFailure,
+    projectFailure,
     revokingId,
     revokeFailure,
     setName,
+    setProjectIds,
     create,
     revoke,
     copy,

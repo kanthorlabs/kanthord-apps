@@ -1,4 +1,11 @@
-export function GuestRunLine({ runActive }: { readonly runActive: boolean }) {
+import { waitingToolNameOf } from "@/lib/guest-chat";
+
+interface GuestRunLineProps {
+  readonly runActive: boolean;
+  readonly waitingOperationId: string | null;
+}
+
+export function GuestRunLine({ runActive, waitingOperationId }: GuestRunLineProps) {
   if (!runActive) return null;
   return (
     <div
@@ -7,7 +14,14 @@ export function GuestRunLine({ runActive }: { readonly runActive: boolean }) {
       className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground"
     >
       <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
-      <span>Running</span>
+      {waitingOperationId === null ? (
+        <span>Running</span>
+      ) : (
+        <span className="min-w-0 break-words">
+          Waiting for the owner to approve{" "}
+          <code className="font-mono">{waitingToolNameOf(waitingOperationId)}</code>
+        </span>
+      )}
     </div>
   );
 }

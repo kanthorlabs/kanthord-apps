@@ -2583,6 +2583,8 @@ export const EVIDENCE_NODE_NAME = "Add password reset";
 
 export const GUEST_OWNER_NAME = "Kanthor Labs";
 
+export const GUEST_MENTION_NAMES = ["Yumi", "Jeremy"];
+
 export const GUEST_INVITE_TTL_MS = 604800000;
 
 export const GUEST_NAME_MAX_CHARS = 64;
@@ -2684,8 +2686,9 @@ export const WORKBENCH_SESSIONS = [
     approval: {
       tool_call_id: "call_approval_01",
       operation_id: "project.create",
+      requested_by: { kind: "guest", name: "Dana Lee" },
       input: { name: "account-recovery" },
-      guard: { cause: "auto_mode_off", reason: null, confidence: null },
+      guard: { cause: "guest_run", reason: null, confidence: null },
     },
     entries: [
       {

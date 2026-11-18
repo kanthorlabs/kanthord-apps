@@ -3715,6 +3715,7 @@ registerWorkbench({
   envelope: projectEnvelope,
   agents,
   sessions: workbenchSessions,
+  projects,
   origin: ORIGIN,
 });
 

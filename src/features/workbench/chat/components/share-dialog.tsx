@@ -25,9 +25,12 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { utcDateTime } from "@/lib/format";
+import { projectRefLabel } from "@/lib/share-invite";
 import type { InvitesState } from "../use-invites";
 import { useShareInvite } from "../use-share-invite";
+import { useShareProjects } from "../use-share-projects";
 import { InlineError } from "./inline-error";
+import { ShareProjectsField } from "./share-projects-field";
 
 interface ShareDialogProps {
   readonly sessionId: string;
@@ -38,7 +41,8 @@ interface ShareDialogProps {
 export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps) {
   const [open, setOpen] = useState(false);
   const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(null);
-  const share = useShareInvite(sessionId, invites.reload);
+  const { lockedIds } = useShareProjects(null, invites.lockedProjects);
+  const share = useShareInvite(sessionId, invites.reload, lockedIds);
   const { reset } = share;
   const failed = share.createFailure !== null || share.revokeFailure !== null;
 
@@ -66,6 +70,18 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
             <DialogDescription>
               Guests see the whole history of this conversation. The link expires in 7 days.
             </DialogDescription>
+            <p className="text-sm text-muted-foreground">
+              A guest who mentions an agent reads and acts only on the selected projects. Guest runs
+              read the bindings and agent configurations of these projects, credential names
+              included, and no credential list, worker catalog, cooldown or health data.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Guests see every answer in this conversation, including your own runs.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Agents in guest runs read the earlier answers too. Share a new conversation to keep
+              other projects out.
+            </p>
             {forkTitle !== null && (
               <p className="text-sm break-words text-muted-foreground">
                 This conversation carries a summary of {forkTitle}. Guests see the summary.
@@ -91,6 +107,13 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
                   onChange={(event) => share.setName(event.target.value)}
                 />
               </Field>
+              <ShareProjectsField
+                selected={share.projectIds}
+                locked={invites.lockedProjects}
+                failure={share.projectFailure}
+                exceeded={share.projectsExceeded}
+                onChange={share.setProjectIds}
+              />
               <div>
                 <Button type="submit" disabled={!share.valid || share.pending}>
                   Create link
@@ -130,6 +153,11 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
               <DataListItem
                 title={invite.invitee_name}
                 description={`Expires ${utcDateTime(invite.expires_at)}`}
+                detail={
+                  <p className="text-sm break-words text-muted-foreground">
+                    Projects: {invite.projects.map(projectRefLabel).join(", ")}
+                  </p>
+                }
                 actions={
                   <Button
                     type="button"

@@ -12,11 +12,11 @@ import type {
   WorkbenchGuestMessageAnswer,
   WorkbenchGuestMessageBody,
   WorkbenchGuestSession,
-  WorkbenchInvite,
   WorkbenchInviteCreateBody,
   WorkbenchInviteCreated,
   WorkbenchInviteJoinAnswer,
   WorkbenchInviteJoinBody,
+  WorkbenchInviteListAnswer,
   WorkbenchInviteRevokeAnswer,
   WorkbenchMessageAnswer,
   WorkbenchMessageDelivery,
@@ -158,14 +158,14 @@ export async function createInvite(
   sessionId: string,
   body: WorkbenchInviteCreateBody,
 ): Promise<WorkbenchInviteCreated> {
-  return post<WorkbenchInviteCreated>(`${sessionPath(sessionId)}/invite`, body);
+  return post<WorkbenchInviteCreated>(`${sessionPath(sessionId)}/invite`, {
+    ...body,
+    project_ids: [...body.project_ids].sort(),
+  });
 }
 
-export async function listInvites(sessionId: string): Promise<readonly WorkbenchInvite[]> {
-  const answer = await request<{ items: readonly WorkbenchInvite[] }>(
-    `${sessionPath(sessionId)}/invite`,
-  );
-  return answer.items;
+export async function listInvites(sessionId: string): Promise<WorkbenchInviteListAnswer> {
+  return request<WorkbenchInviteListAnswer>(`${sessionPath(sessionId)}/invite`);
 }
 
 export async function revokeInvite(inviteId: string): Promise<WorkbenchInviteRevokeAnswer> {

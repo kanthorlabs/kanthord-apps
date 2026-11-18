@@ -172,7 +172,7 @@ function mount(
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue([]);
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
   );
@@ -1210,7 +1210,12 @@ describe("Composer", () => {
       agent_name: "ops@1",
       display_name: "Yumi",
     };
-    const INVITE = { id: "invite_1", invitee_name: "Dana", expires_at: 1790000000000 };
+    const INVITE = {
+      id: "invite_1",
+      invitee_name: "Dana",
+      expires_at: 1790000000000,
+      projects: [],
+    };
     const BRIEF_TEXT = "Report the system status and the actions that need me.";
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
     const SENT = {
@@ -1223,7 +1228,7 @@ describe("Composer", () => {
     } as const;
 
     beforeEach(() => {
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue([INVITE]);
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [INVITE], project_ids: [] });
     });
 
     it("shows the note placeholder in the composer", async () => {

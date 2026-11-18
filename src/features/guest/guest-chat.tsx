@@ -9,15 +9,21 @@ import { Composer } from "@/features/workbench/chat/components/composer";
 import { InlineError } from "@/features/workbench/chat/components/inline-error";
 import { useScrollToEnd } from "@/features/workbench/chat/use-scroll-to-end";
 import { guestItemsOf } from "@/lib/guest-chat";
+import { projectRefLabel } from "@/lib/share-invite";
+import { GuestQueueLine } from "./guest-queue-line";
 import { GuestRunLine } from "./guest-run-line";
 import { useGuestComposer } from "./use-guest-composer";
 import { useGuestStream } from "./use-guest-stream";
 
 const NO_TITLE = "Shared conversation";
+const NO_NAMES: readonly string[] = [];
 
 export function GuestChat({ connection }: { readonly connection: Connection }) {
   const { session, members, entries, state, failure } = useGuestStream(connection);
-  const { composer, failure: sendFailure } = useGuestComposer(connection);
+  const { composer, failure: sendFailure } = useGuestComposer(
+    connection,
+    session?.mention_names ?? NO_NAMES,
+  );
   const items = useMemo(() => guestItemsOf(entries, state, members), [entries, state, members]);
   useScrollToEnd(items, null);
   const ended = failure?.final === true;
@@ -56,6 +62,14 @@ export function GuestChat({ connection }: { readonly connection: Connection }) {
           )}
         </div>
         <p className="text-sm text-muted-foreground">Shared by {session.owner_name} · guest view</p>
+        {session.projects.length > 0 && (
+          <>
+            <p className="text-sm break-words text-muted-foreground">
+              Projects: {session.projects.map(projectRefLabel).join(", ")}
+            </p>
+            <p className="text-sm text-muted-foreground">The owner approves every act.</p>
+          </>
+        )}
         <ul aria-label="Members" className="flex flex-wrap gap-2">
           {members.map((member) => (
             <li key={member.session_id}>
@@ -68,13 +82,19 @@ export function GuestChat({ connection }: { readonly connection: Connection }) {
         items={items}
         authors={{ ownerName: session.owner_name }}
         runError={null}
-        runLine={<GuestRunLine runActive={state?.run_active ?? session.run_active} />}
+        runLine={
+          <GuestRunLine
+            runActive={state?.run_active ?? session.run_active}
+            waitingOperationId={state?.waiting_for_approval?.operation_id ?? null}
+          />
+        }
         sessionId={session.session_id}
         forkLinked={false}
       />
       {failure !== null && !ended && <ConnectionLine message={failure.message} />}
       {failure !== null && ended && <InlineError code={failure.code} message={failure.message} />}
       <div className="sticky bottom-0 bg-background pt-2">
+        {state !== null && <GuestQueueLine queue={state.queue} />}
         <Composer
           composer={ended ? { ...composer, canSend: false } : composer}
           configuration={null}
@@ -83,6 +103,7 @@ export function GuestChat({ connection }: { readonly connection: Connection }) {
           queued={false}
           placeholder="Write a note"
           inputDisabled={ended}
+          invalid={sendFailure !== null}
         />
         {sendFailure !== null && (
           <InlineError code={sendFailure.code} message={sendFailure.message} />

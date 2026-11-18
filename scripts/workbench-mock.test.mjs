@@ -28,6 +28,7 @@ const mockDaemon = () => {
     envelope: (res, status, code) => res.reply({ status, body: { error: { code } } }),
     agents: structuredClone(AGENT_DECLARATIONS),
     sessions,
+    projects: [{ id: "project_a", name: "Alpha" }],
   });
   const call = (method, path, body = {}) => {
     const url = new URL(path, "http://mock");
@@ -125,7 +126,10 @@ describe("workbench mock plan run", () => {
 
   describe("the invite name", () => {
     const createInvite = (daemon, name) =>
-      daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, { invitee_name: name });
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, {
+        invitee_name: name,
+        project_ids: ["project_a"],
+      });
 
     it("accepts a 64-character name with spaces around it and stores it trimmed", () => {
       const daemon = mockDaemon();

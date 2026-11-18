@@ -1688,8 +1688,24 @@ export interface WorkbenchForkRecord {
   readonly source_title: string;
 }
 
+export interface WorkbenchAuthorRecord {
+  readonly kind: "author";
+  readonly author: { readonly kind: "guest"; readonly name: string };
+}
+
+export interface WorkbenchQueueClearRecord {
+  readonly kind: "queue_clear";
+  readonly count: number;
+  readonly cause: "stop" | "replace";
+}
+
 export type WorkbenchRecord =
-  WorkbenchActionOffer | WorkbenchGuardRecord | WorkbenchAutoModeRecord | WorkbenchForkRecord;
+  | WorkbenchActionOffer
+  | WorkbenchGuardRecord
+  | WorkbenchAutoModeRecord
+  | WorkbenchForkRecord
+  | WorkbenchAuthorRecord
+  | WorkbenchQueueClearRecord;
 
 export const GuardTask = { Call: "call", Summary: "summary" } as const;
 
@@ -1703,6 +1719,16 @@ export const WORKBENCH_FORK_FRAME =
 export const WORKBENCH_FORK_SUMMARY_REFUSED = "workbench.fork.summary_refused";
 
 export const WORKBENCH_FORK_SUMMARY_FAILED = "workbench.fork.summary_failed";
+
+export const WORKBENCH_INVITE_PROJECT_INVALID = "workbench.invite.project_invalid";
+
+export const WORKBENCH_INVITE_SCOPE_MISMATCH = "workbench.invite.scope_mismatch";
+
+export const WORKBENCH_GUEST_AGENT_REFUSED = "workbench.guest.agent_refused";
+
+export const GATEWAY_SCOPE_NOT_FOUND = "gateway.scope.not_found";
+
+export const GATEWAY_SCOPE_REFUSED = "gateway.scope.refused";
 
 export type WorkbenchForkCause = "refused" | "unavailable" | "timeout" | "no_verdict" | "oversize";
 
@@ -1752,7 +1778,13 @@ export interface WorkbenchPendingApprovalSummary {
 }
 
 export type WorkbenchGuardCause =
-  "import" | "auto_mode_off" | "unavailable" | "oversize" | "no_verdict" | "classifier";
+  | "import"
+  | "auto_mode_off"
+  | "unavailable"
+  | "oversize"
+  | "no_verdict"
+  | "classifier"
+  | "guest_run";
 
 export interface WorkbenchPendingApprovalGuard {
   readonly cause: WorkbenchGuardCause;
@@ -1762,6 +1794,7 @@ export interface WorkbenchPendingApprovalGuard {
 
 export interface WorkbenchPendingApproval extends WorkbenchPendingApprovalSummary {
   readonly session_id: string;
+  readonly requested_by: { readonly kind: "owner" | "guest"; readonly name: string };
   readonly input: Readonly<Record<string, unknown>>;
   readonly guard: WorkbenchPendingApprovalGuard | null;
 }
@@ -1809,14 +1842,26 @@ export interface WorkbenchMessageRunAnswer {
 
 export type WorkbenchMessageAnswer = WorkbenchMessageNoteAnswer | WorkbenchMessageRunAnswer;
 
+export interface WorkbenchProjectRef {
+  readonly id: string;
+  readonly name: string | null;
+}
+
 export interface WorkbenchInviteCreateBody {
   readonly invitee_name: string;
+  readonly project_ids: readonly string[];
 }
 
 export interface WorkbenchInvite {
   readonly id: string;
   readonly invitee_name: string;
   readonly expires_at: number;
+  readonly projects: readonly WorkbenchProjectRef[];
+}
+
+export interface WorkbenchInviteListAnswer {
+  readonly items: readonly WorkbenchInvite[];
+  readonly project_ids: readonly string[] | null;
 }
 
 export interface WorkbenchInviteCreated extends WorkbenchInvite {
@@ -1876,7 +1921,17 @@ export type WorkbenchGuestEntry =
       readonly operation_id: string;
       readonly target_id: string;
     })
-  | (WorkbenchGuestEntryBase & { readonly kind: "fork"; readonly source_title: string });
+  | (WorkbenchGuestEntryBase & { readonly kind: "fork"; readonly source_title: string })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "author";
+      readonly author: WorkbenchAuthorRecord["author"];
+    })
+  | (WorkbenchGuestEntryBase & {
+      readonly kind: "queue_clear";
+      readonly count: number;
+      readonly cause: WorkbenchQueueClearRecord["cause"];
+      readonly text: string;
+    });
 
 export interface WorkbenchGuestSession {
   readonly session_id: string;
@@ -1885,6 +1940,15 @@ export interface WorkbenchGuestSession {
   readonly owner_name: string;
   readonly entries: readonly WorkbenchGuestEntry[];
   readonly run_active: boolean;
+  readonly projects: readonly WorkbenchProjectRef[];
+  readonly mention_names: readonly string[];
+}
+
+export interface WorkbenchGuestQueueItem {
+  readonly id: string;
+  readonly agent_name: string | null;
+  readonly display_name: string | null;
+  readonly author_name: string;
 }
 
 export interface WorkbenchGuestState {
@@ -1892,15 +1956,26 @@ export interface WorkbenchGuestState {
   readonly display_name: string | null;
   readonly auto_mode: boolean;
   readonly streaming: { readonly content: readonly WorkbenchGuestBlock[] } | null;
+  readonly waiting_for_approval: { readonly operation_id: string } | null;
+  readonly queue: readonly WorkbenchGuestQueueItem[];
 }
 
 export interface WorkbenchGuestMessageBody {
   readonly text: string;
 }
 
-export interface WorkbenchGuestMessageAnswer {
+export interface WorkbenchGuestMessageNoteAnswer {
   readonly kind: "note";
 }
+
+export interface WorkbenchGuestMessageRunAnswer {
+  readonly kind: "run";
+  readonly agent_name: string;
+  readonly queued_message_id: string | null;
+}
+
+export type WorkbenchGuestMessageAnswer =
+  WorkbenchGuestMessageNoteAnswer | WorkbenchGuestMessageRunAnswer;
 
 export interface WorkbenchNoteRecord {
   readonly kind: "note";

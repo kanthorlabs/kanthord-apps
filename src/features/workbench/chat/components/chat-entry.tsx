@@ -13,6 +13,7 @@ import { ForkEntry } from "./fork-entry";
 import { GuestActionEntry } from "./guest-action-entry";
 import { NoteEntry } from "./note-entry";
 import { PhaseGroupEntry } from "./phase-group-entry";
+import { QueueClearEntry } from "./queue-clear-entry";
 import { PlanEntry } from "./plan-entry";
 import { commandOfText } from "../slash-commands";
 import { ToolRow } from "./tool-row";
@@ -87,7 +88,7 @@ export function ChatEntry({
     return (
       <UserMessage
         text={item.text}
-        author={authors.ownerName}
+        author={item.guest === undefined ? authors.ownerName : `${item.guest} (guest)`}
         timestamp={item.timestamp}
         error={runError}
       />
@@ -143,6 +144,8 @@ export function ChatEntry({
     if (line !== null) return <>{line}</>;
     return <ActionCardEntry item={item} sessionId={sessionId} canRun={canRun} />;
   }
+
+  if (item.kind === "queue-clear") return <QueueClearEntry item={item} />;
 
   if (item.kind === "plan") return <PlanEntry item={item} />;
 

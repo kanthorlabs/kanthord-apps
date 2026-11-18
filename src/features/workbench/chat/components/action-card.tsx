@@ -94,6 +94,11 @@ export function ActionCard({
             </li>
           ))}
         </ul>
+        {item.guest !== undefined && (
+          <p className="text-[12.5px] wrap-anywhere text-muted-foreground">
+            Offered in a run started by {item.guest} (guest)
+          </p>
+        )}
         {stateLine !== undefined && <p className="text-sm">{stateLine}</p>}
         {showButton && (
           <div className="flex justify-start">

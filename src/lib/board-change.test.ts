@@ -6,6 +6,7 @@ import { changeAskedOf } from "./board-change";
 
 const PENDING: WorkbenchPendingApproval = {
   session_id: "session_1",
+  requested_by: { kind: "owner", name: "Kanthor Labs" },
   tool_call_id: "c1",
   operation_id: "project.create",
   guard: null,

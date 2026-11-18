@@ -80,6 +80,7 @@ describe("useBoardToolActs", () => {
         status: "ready",
         data: {
           session_id: "s2",
+          requested_by: { kind: "owner", name: "Kanthor Labs" },
           tool_call_id: "c1",
           operation_id: "project.create",
           input: {},

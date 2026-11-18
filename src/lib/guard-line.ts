@@ -1,4 +1,4 @@
-import type { WorkbenchPendingApprovalGuard } from "@/api/types";
+import type { WorkbenchPendingApproval, WorkbenchPendingApprovalGuard } from "@/api/types";
 
 const REVERSIBLE_REASON = "reversible";
 
@@ -8,6 +8,7 @@ const FIXED_GUARD_LINES = {
   unavailable: "Guard: unavailable",
   oversize: "Guard: the request is too large to judge",
   no_verdict: "Guard: no verdict",
+  guest_run: "Guard: a guest started this run",
 } as const;
 
 export function modelTextOf(reason: string): string {
@@ -24,4 +25,18 @@ export function guardLineOf(guard: WorkbenchPendingApprovalGuard): string {
 export function ranWithoutApprovalLineOf(reason: string): string {
   const text = reason === REVERSIBLE_REASON ? reason : modelTextOf(reason);
   return `Ran without approval: ${text}`;
+}
+
+export function guestRequestLineOf(approval: WorkbenchPendingApproval): string | null {
+  const { requested_by } = approval;
+  return requested_by.kind === "guest"
+    ? `Requested in a run started by ${requested_by.name} (guest)`
+    : null;
+}
+
+export function approvalLinesOf(approval: WorkbenchPendingApproval): readonly string[] {
+  const request = guestRequestLineOf(approval);
+  const { guard } = approval;
+  const guardLine = guard === null || guard.cause === "guest_run" ? null : guardLineOf(guard);
+  return [request, guardLine].filter((line) => line !== null);
 }

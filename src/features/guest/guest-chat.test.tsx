@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -31,6 +31,8 @@ const IDLE: WorkbenchGuestState = {
   display_name: "SWE",
   auto_mode: true,
   streaming: null,
+  waiting_for_approval: null,
+  queue: [],
 };
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
@@ -71,6 +73,8 @@ function session(
     owner_name: "Kanthor Labs",
     entries,
     run_active: false,
+    projects: [],
+    mention_names: [],
     ...fields,
   };
 }
@@ -109,6 +113,8 @@ describe("GuestChat", () => {
         display_name: "SWE",
         auto_mode: false,
         streaming: { content: [{ type: "text", text: "Reading the" }] },
+        waiting_for_approval: null,
+        queue: [],
       },
     );
 
@@ -210,6 +216,8 @@ describe("GuestChat", () => {
           { type: "toolCall", name: "mission.node.list" },
         ],
       },
+      waiting_for_approval: null,
+      queue: [],
     });
 
     render(<GuestChat connection={CONNECTION} />);
@@ -347,6 +355,176 @@ describe("GuestChat", () => {
     expect(screen.getByText("List the nodes")).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Message" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
+  it("lists only the mention names of the guest session and sends a run mention", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    sendMock.mockResolvedValue({ kind: "run", agent_name: "ops@1", queued_message_id: null });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@");
+
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    expect(
+      within(list)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Yumi", "Jeremy"]);
+    expect(within(list).queryByText("SWE")).not.toBeInTheDocument();
+
+    await userEvent.click(within(list).getByRole("option", { name: "Yumi" }));
+    await userEvent.type(field, "list the nodes");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendMock).toHaveBeenCalledWith(CONNECTION, { text: "@Yumi list the nodes" });
+    await waitFor(() => expect(field).toHaveValue(""));
+  });
+
+  it("shows the agent_refused line under the composer, keeps the draft and marks it", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    sendMock.mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "A guest cannot start a run with this agent.",
+        409,
+        "workbench.guest.agent_refused",
+      ),
+    );
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@SWE do it");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const line = await screen.findByRole("alert");
+    expect(line).toHaveTextContent(
+      "workbench.guest.agent_refused A guest cannot start a run with this agent.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(field).toHaveValue("@SWE do it");
+    expect(field).toBeInvalid();
+  });
+
+  it("shows the queue as a count and rows with no text, no Edit and no Remove", async () => {
+    serve([], {
+      ...IDLE,
+      run_active: true,
+      queue: [
+        { id: "q1", agent_name: "ops@1", display_name: "Yumi", author_name: "Dana" },
+        { id: "q2", agent_name: "plan@1", display_name: "Jeremy", author_name: "Sam" },
+      ],
+    });
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("2 queued")).toBeInTheDocument();
+    expect(screen.getByText("Next: to @Yumi · Dana")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /2 queued/ }));
+
+    const rows = within(await screen.findByRole("list", { name: "Queued runs" })).getAllByRole(
+      "listitem",
+    );
+    expect(rows.map((row) => row.textContent)).toEqual(["to @Yumi · Dana", "to @Jeremy · Sam"]);
+    expect(screen.queryByRole("button", { name: /Edit|Remove|Stop/ })).not.toBeInTheDocument();
+  });
+
+  it("shows the waiting line with the tool name and drops it when the field clears", async () => {
+    const waiting = {
+      ...IDLE,
+      run_active: true,
+      waiting_for_approval: { operation_id: "mission.node.pause" },
+    };
+    readMock.mockResolvedValue(session([]));
+    let clear: () => void = () => undefined;
+    openStreamMock.mockImplementation(async function* (_path, options) {
+      yield { event: "state", data: JSON.stringify(waiting) };
+      await new Promise<void>((resolve) => {
+        clear = resolve;
+        options?.signal?.addEventListener("abort", () => resolve(), { once: true });
+      });
+      if (options?.signal?.aborted === true) return;
+      yield { event: "state", data: JSON.stringify({ ...waiting, waiting_for_approval: null }) };
+      await new Promise<void>((resolve) => {
+        options?.signal?.addEventListener("abort", () => resolve(), { once: true });
+      });
+    });
+    render(<GuestChat connection={CONNECTION} />);
+
+    const line = await screen.findByRole("group", { name: "Run line" });
+    expect(line).toHaveTextContent("Waiting for the owner to approve mission--node--pause");
+    expect(screen.queryByRole("button", { name: /Approve|Reject|Stop/ })).not.toBeInTheDocument();
+
+    clear();
+
+    await waitFor(() =>
+      expect(screen.getByRole("group", { name: "Run line" })).toHaveTextContent("Running"),
+    );
+    expect(screen.queryByText(/Waiting for the owner/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["stop", "The owner stopped the run. 2 queued messages were cleared."],
+    ["replace", "The owner replaced the run. 2 queued messages were cleared."],
+  ] as const)("shows the queue_clear line for the %s cause", async (cause, line) => {
+    serve([entry({ kind: "queue_clear", count: 2, cause, text: line })]);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText(line)).toBeInTheDocument();
+  });
+
+  it("labels a user message that an author record precedes with the guest name", async () => {
+    serve([
+      entry({ kind: "author", author: { kind: "guest", name: "Dana" } }),
+      userMessage("@Yumi list the nodes"),
+    ]);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("@Yumi list the nodes")).toBeInTheDocument();
+    expect(screen.getByText("Dana (guest)")).toBeInTheDocument();
+  });
+
+  it("shows the projects header with the id of a null name", async () => {
+    serve([], IDLE, {
+      projects: [
+        { id: "project_a", name: "Alpha" },
+        { id: "project_x", name: null },
+      ],
+    });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("Projects: Alpha, project_x")).toBeInTheDocument();
+  });
+
+  it("shows the approval line under the projects header", async () => {
+    serve([], IDLE, { projects: [{ id: "project_a", name: "Alpha" }] });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("The owner approves every act.")).toBeInTheDocument();
+  });
+
+  it("shows no approval line when the session has no project", async () => {
+    serve([], IDLE, { projects: [] });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    await screen.findByRole("heading", { name: "Account recovery" });
+    expect(screen.queryByText("The owner approves every act.")).not.toBeInTheDocument();
+  });
+
+  it("shows the author name only for a queued row with no addressee", async () => {
+    serve([], {
+      ...IDLE,
+      run_active: true,
+      queue: [{ id: "q1", agent_name: null, display_name: null, author_name: "Dana" }],
+    });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("Next: Dana")).toBeInTheDocument();
   });
 
   it("shows the error box when the first read ends with a 401", async () => {

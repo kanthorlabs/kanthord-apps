@@ -41,6 +41,7 @@ interface ComposerProps {
   readonly inputDisabled?: boolean;
   readonly newCommandHint?: string;
   readonly shared?: boolean;
+  readonly invalid?: boolean;
 }
 
 export function Composer({
@@ -55,6 +56,7 @@ export function Composer({
   inputDisabled = false,
   newCommandHint,
   shared = false,
+  invalid = false,
 }: ComposerProps) {
   const listId = useId();
   const pickersDisabled = runActive || queued;
@@ -153,6 +155,7 @@ export function Composer({
             aria-controls={expanded ? listId : undefined}
             aria-activedescendant={activeOptionId ?? activeMentionId}
             aria-autocomplete="list"
+            aria-invalid={invalid || undefined}
             placeholder={inputPlaceholder}
             disabled={inputDisabled}
             rows={2}

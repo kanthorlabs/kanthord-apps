@@ -1,12 +1,22 @@
 import type {
   WorkbenchGuestBlock,
   WorkbenchGuestEntry,
+  WorkbenchGuestQueueItem,
   WorkbenchGuestState,
   WorkbenchMember,
 } from "@/api/types";
 import { type ChatItem, type ChatItemOrigin, memberOf } from "./workbench-chat";
 
 export const GUEST_NOTE_HINT = "Note to everyone";
+
+export function guestQueueRowOf(item: WorkbenchGuestQueueItem): string {
+  if (item.display_name === null) return item.author_name;
+  return `to @${item.display_name} · ${item.author_name}`;
+}
+
+export function waitingToolNameOf(operationId: string): string {
+  return operationId.replaceAll(".", "--");
+}
 
 const VALIDATION_FAILED = "gateway.request.validation_failed";
 const NOTE_TOO_LONG = "The note is too long. Send at most 16384 bytes.";
@@ -84,17 +94,43 @@ function resultsOf(entries: readonly WorkbenchGuestEntry[]): ReadonlyMap<string,
   return results;
 }
 
+function guestAuthorsOf(entries: readonly WorkbenchGuestEntry[]): ReadonlyMap<string, string> {
+  const pending = new Map<string, string>();
+  const authors = new Map<string, string>();
+  for (const entry of entries) {
+    if (entry.kind === "author") pending.set(entry.session_id, entry.author.name);
+    if (entry.kind !== "user") continue;
+    const name = pending.get(entry.session_id);
+    pending.delete(entry.session_id);
+    if (name !== undefined) authors.set(entry.id, name);
+  }
+  return authors;
+}
+
 function entryItemsOf(
   entry: WorkbenchGuestEntry,
+  authors: ReadonlyMap<string, string>,
   next: WorkbenchGuestEntry | undefined,
   results: ReadonlyMap<string, string>,
   origin: ChatItemOrigin,
 ): readonly ChatItem[] {
   const { id } = entry;
+  const guest = authors.get(id);
   const timestamp = Date.parse(entry.timestamp);
   switch (entry.kind) {
     case "user":
-      return [{ kind: "user", id, text: entry.text, timestamp, ...origin }];
+      return [
+        {
+          kind: "user",
+          id,
+          text: entry.text,
+          timestamp,
+          ...(guest === undefined ? {} : { guest }),
+          ...origin,
+        },
+      ];
+    case "queue_clear":
+      return [{ kind: "queue-clear", id, text: entry.text, ...origin }];
     case "assistant":
       return blockItemsOf(id, entry.content, false, timestamp, origin);
     case "plan":
@@ -136,6 +172,7 @@ function entryItemsOf(
       ];
     case "summary":
     case "action_result":
+    case "author":
       return [];
   }
 }
@@ -146,8 +183,15 @@ export function guestItemsOf(
   members: readonly WorkbenchMember[],
 ): readonly ChatItem[] {
   const results = resultsOf(entries);
+  const authors = guestAuthorsOf(entries);
   const items = entries.flatMap((entry, index) =>
-    entryItemsOf(entry, entries[index + 1], results, originOf(memberOf(members, entry.session_id))),
+    entryItemsOf(
+      entry,
+      authors,
+      entries[index + 1],
+      results,
+      originOf(memberOf(members, entry.session_id)),
+    ),
   );
   if (state === null || state.streaming === null) return items;
   const lastEntry = entries.at(-1);
