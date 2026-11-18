@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AGENT_DECLARATIONS, PROJECT_ATLAS, PROJECT_ORBIT } from "../mock/fixtures.mjs";
+import {
+  AGENT_DECLARATIONS,
+  PROJECT_ATLAS,
+  PROJECT_ORBIT,
+  WORKBENCH_SESSIONS,
+} from "../mock/fixtures.mjs";
 import { registerWorkbench } from "../mock/workbench.mjs";
 
 const HOST_ID = "workbench_session_0HOSTHOSTHOSTHOSTHOSTHOST";
@@ -45,7 +50,7 @@ const mockDaemon = () => {
     );
     return answer;
   };
-  return { call };
+  return { call, sessions };
 };
 
 const entriesOf = (daemon) => daemon.call("GET", `/api/workbench/session/${HOST_ID}`).body.entries;
@@ -338,5 +343,42 @@ describe("workbench mock plan run", () => {
         ),
       ).toBe(false);
     });
+  });
+});
+
+describe("workbench mock notice", () => {
+  const NOTICE_SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0NT1";
+
+  const noticeDaemon = () => {
+    const daemon = mockDaemon();
+    daemon.sessions.push(
+      structuredClone(WORKBENCH_SESSIONS.find((session) => session.id === NOTICE_SESSION_ID)),
+    );
+    return daemon;
+  };
+
+  const noticeOfList = (daemon) =>
+    daemon
+      .call("GET", "/api/workbench/session")
+      .body.items.find((item) => item.id === NOTICE_SESSION_ID).notice;
+
+  it("answers the notice of the last notice record on the list item", () => {
+    expect(noticeOfList(noticeDaemon())).toBe("atlas · 2 Completed, 1 Discarded");
+  });
+
+  it("answers null after an owner note in the shared conversation", () => {
+    const daemon = noticeDaemon();
+    const invite = daemon.call("POST", `/api/workbench/session/${NOTICE_SESSION_ID}/invite`, {
+      invitee_name: "Dana",
+      project_ids: ["project_a"],
+      granted_operations: ["mission.node.pause"],
+    });
+    const note = daemon.call("POST", `/api/workbench/session/${NOTICE_SESSION_ID}/message`, {
+      text: "Thanks, I saw it.",
+    });
+    expect(invite.status).toBe(200);
+    expect(note.body.kind).toBe("note");
+
+    expect(noticeOfList(daemon)).toBeNull();
   });
 });

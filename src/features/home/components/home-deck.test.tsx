@@ -232,6 +232,7 @@ function overviewOf(
     snapshots: [],
     faults: [],
     absent: [],
+    notices: [],
     allClear: items.length === 0,
     details,
     retryDetail: vi.fn(),

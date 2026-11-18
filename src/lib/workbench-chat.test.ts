@@ -1215,3 +1215,55 @@ describe("chatItemsOf scope stop", () => {
     expect(items).toEqual([]);
   });
 });
+
+describe("chatItemsOf notice records", () => {
+  const NODE = {
+    node_id: "node_1",
+    name: "Add retry",
+    state: "Completed",
+    ended_at: 1_700_000_000_000,
+  };
+  const notice = (project: Record<string, unknown>) => ({
+    kind: "notice",
+    watch_entry_id: "watch_1",
+    projects: [project],
+  });
+
+  it("maps a notice record to one notice item at its place", () => {
+    const data = notice({ project_id: "project_1", name: "shop", nodes: [NODE] });
+    const items = bodyItemsOf(
+      [
+        message("e1", { role: "user", content: "Hi" }),
+        record("e2", data),
+        message("e3", { role: "user", content: "Thanks" }),
+      ],
+      IDLE,
+    );
+
+    expect(items.map((item) => item.kind)).toEqual(["user", "notice", "user"]);
+    expect(items.map(stripOrigin)[1]).toEqual({ kind: "notice", id: "e2", notice: data });
+  });
+
+  it("maps a watch record to no item", () => {
+    const items = bodyItemsOf([record("e1", { kind: "watch", node_ids: ["node_1"] })], IDLE);
+
+    expect(items).toEqual([]);
+  });
+
+  it("maps a notice record with an unknown state to no item", () => {
+    const data = notice({
+      project_id: "project_1",
+      name: "shop",
+      nodes: [{ ...NODE, state: "Executing" }],
+    });
+
+    expect(bodyItemsOf([record("e1", data)], IDLE)).toEqual([]);
+  });
+
+  it("maps a guest-shaped notice with no project_id to one notice item", () => {
+    const data = notice({ name: "shop", nodes: [NODE] });
+    const items = bodyItemsOf([record("e1", data)], IDLE);
+
+    expect(items.map(stripOrigin)).toEqual([{ kind: "notice", id: "e1", notice: data }]);
+  });
+});

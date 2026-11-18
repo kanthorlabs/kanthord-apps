@@ -11,6 +11,9 @@ import {
   type WorkbenchGuardRecord,
   type WorkbenchMember,
   type WorkbenchNoteRecord,
+  type WorkbenchNoticeNode,
+  type WorkbenchNoticeProject,
+  type WorkbenchNoticeRecord,
   type WorkbenchPlanDetails,
   type WorkbenchRunSnapshot,
   type WorkbenchScopeStopRecord,
@@ -134,6 +137,7 @@ type ChatItemBody =
       readonly author: string;
       readonly timestamp: number;
     }
+  | { readonly kind: "notice"; readonly id: string; readonly notice: WorkbenchNoticeRecord }
   | {
       readonly kind: "phase-group";
       readonly id: string;
@@ -329,6 +333,44 @@ function authorRecordOf(entry: WorkbenchSessionEntry): WorkbenchAuthorRecord | n
   const { kind, name } = author;
   if (kind !== "guest" || typeof name !== "string") return null;
   return { kind: "author", author: { kind, name } };
+}
+
+function noticeNodeOf(value: unknown): WorkbenchNoticeNode | null {
+  if (!isRecord(value)) return null;
+  const { node_id, name, state, ended_at } = value;
+  if (typeof node_id !== "string" || typeof name !== "string") return null;
+  if (state !== "Completed" && state !== "Discarded") return null;
+  return typeof ended_at === "number" ? { node_id, name, state, ended_at } : null;
+}
+
+function noticeProjectOf(value: unknown): WorkbenchNoticeProject | null {
+  if (!isRecord(value)) return null;
+  const { project_id, name, nodes } = value;
+  if (typeof name !== "string" || !Array.isArray(nodes) || nodes.length === 0) return null;
+  if (project_id !== undefined && typeof project_id !== "string") return null;
+  const parsed = nodes.map(noticeNodeOf);
+  const valid = parsed.filter((node) => node !== null);
+  if (valid.length !== parsed.length) return null;
+  return project_id === undefined ? { name, nodes: valid } : { project_id, name, nodes: valid };
+}
+
+function noticeRecordOf(entry: WorkbenchSessionEntry): WorkbenchNoticeRecord | null {
+  const data = entry["data"];
+  if (entry.type !== "custom" || entry["customType"] !== RECORD_TYPE) return null;
+  if (!isRecord(data) || data["kind"] !== "notice") return null;
+  const { watch_entry_id, projects } = data;
+  if (typeof watch_entry_id !== "string" || !Array.isArray(projects) || projects.length === 0) {
+    return null;
+  }
+  const parsed = projects.map(noticeProjectOf);
+  const valid = parsed.filter((project) => project !== null);
+  if (valid.length !== parsed.length) return null;
+  return { kind: "notice", watch_entry_id, projects: valid };
+}
+
+function noticeItems(entry: WorkbenchSessionEntry): readonly ChatItemBody[] {
+  const notice = noticeRecordOf(entry);
+  return notice === null ? [] : [{ kind: "notice", id: entry.id, notice }];
 }
 
 function noteItems(entry: WorkbenchSessionEntry): readonly ChatItemBody[] {
@@ -561,6 +603,7 @@ function entryItems(
   if (context.forkSummaries.has(index)) return forkItems(entry, index, context);
   if (noteRecordOf(entry) !== null) return noteItems(entry);
   if (scopeStopRecordOf(entry) !== null) return scopeStopItems(entry);
+  if (noticeRecordOf(entry) !== null) return noticeItems(entry);
   if (entry.type === "custom") return actionCardItems(entry, index, snapshot, context);
   const message = entry["message"];
   if (entry.type !== "message" || !isRecord(message)) return [];

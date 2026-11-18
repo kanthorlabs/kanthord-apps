@@ -19,6 +19,7 @@ function listItem(id: string, patch: Partial<WorkbenchSessionListItem>): Workben
     forked_from: null,
     pending_approval: null,
     scope_requests: 0,
+    notice: null,
     participants: [],
     ...patch,
   };

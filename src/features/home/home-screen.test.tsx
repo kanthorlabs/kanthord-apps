@@ -755,6 +755,7 @@ function session(
     forked_from: null,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
     scope_requests: 0,
+    notice: null,
     participants: [],
     ...patch,
   };
@@ -915,6 +916,81 @@ describe("HomeScreen layout", () => {
     await user.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("All clear")).toBeInTheDocument();
+  });
+});
+
+describe("HomeScreen notice line", () => {
+  const NOTICE = "shop · 2 Completed, 1 Discarded";
+  const IDLE_LIST = { run_active: false, pending_approval: null };
+
+  it("shows the line above the deck with Open chat to the conversation", async () => {
+    serve({
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+      sessions: [
+        session("workbench_session_A", { ...IDLE_LIST, name: "Release plan", notice: NOTICE }),
+      ],
+    });
+
+    renderScreen();
+
+    const line = await screen.findByText(`Release plan: ${NOTICE}`);
+    const deck = await screen.findByRole("region", { name: "Waiting acts" });
+    expect(line.compareDocumentPosition(deck) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open chat" })).toHaveAttribute(
+      "href",
+      "/workbench/workbench_session_A",
+    );
+  });
+
+  it("shows no line for a null notice", async () => {
+    serve({
+      nodes: { "prj-1": [blocked("n_a", "Audit log")] },
+      sessions: [session("workbench_session_A", IDLE_LIST)],
+    });
+
+    renderScreen();
+
+    await findPrimary();
+    expect(screen.queryByRole("button", { name: "Open chat" })).toBeNull();
+  });
+
+  it("leaves the primary and the deck unchanged", async () => {
+    const world = { nodes: { "prj-1": [blocked("n_a", "Audit log")] } };
+    serve({ ...world, sessions: [session("workbench_session_A", IDLE_LIST)] });
+    const first = renderScreen();
+    await findPrimary();
+    const without = (await screen.findByRole("region", { name: "Waiting acts" })).textContent;
+    first.unmount();
+    vi.resetAllMocks();
+    vi.mocked(listInvites).mockResolvedValue({ items: [], grantable: [], project_ids: null });
+
+    serve({
+      ...world,
+      sessions: [session("workbench_session_A", { ...IDLE_LIST, notice: NOTICE })],
+    });
+    renderScreen();
+    await screen.findByRole("button", { name: "Open chat" });
+    const primary = await findPrimary();
+
+    expect(screen.getAllByRole("group", { name: /^Primary: / })).toHaveLength(1);
+    expect(primary).toHaveAccessibleName(/Audit log/);
+    expect(screen.getByRole("region", { name: "Waiting acts" }).textContent).toBe(without);
+  });
+
+  it("is never driven by the list read of the Home chat", async () => {
+    serve({ yumi: "on", sessions: [opsSession("workbench_session_Y1")] });
+    vi.mocked(listWorkbenchSessions).mockImplementation(async (agentName) =>
+      agentName === null
+        ? [session("workbench_session_A", IDLE_LIST)]
+        : [opsSession("workbench_session_Y1", { notice: NOTICE })],
+    );
+
+    renderScreen();
+
+    expect(await screen.findByText(GENERAL)).toBeInTheDocument();
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(NOTICE))).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open chat" })).toBeNull();
   });
 });
 
@@ -1416,6 +1492,7 @@ function opsSession(
     forked_from: null,
     pending_approval: null,
     scope_requests: 0,
+    notice: null,
     participants: [],
     ...patch,
   });

@@ -1623,6 +1623,7 @@ export interface WorkbenchSessionListItem {
   readonly forked_from: string | null;
   readonly pending_approval: WorkbenchPendingApprovalSummary | null;
   readonly scope_requests: number;
+  readonly notice: string | null;
   readonly participants: readonly WorkbenchSessionParticipantItem[];
 }
 
@@ -1712,6 +1713,27 @@ export interface WorkbenchQueueClearRecord {
   readonly cause: "stop" | "replace";
 }
 
+export type WorkbenchNoticeState = "Completed" | "Discarded";
+
+export interface WorkbenchNoticeNode {
+  readonly node_id: string;
+  readonly name: string;
+  readonly state: WorkbenchNoticeState;
+  readonly ended_at: number;
+}
+
+export interface WorkbenchNoticeProject {
+  readonly project_id?: string;
+  readonly name: string;
+  readonly nodes: readonly WorkbenchNoticeNode[];
+}
+
+export interface WorkbenchNoticeRecord {
+  readonly kind: "notice";
+  readonly watch_entry_id: string;
+  readonly projects: readonly WorkbenchNoticeProject[];
+}
+
 export type WorkbenchRecord =
   | WorkbenchActionOffer
   | WorkbenchGuardRecord
@@ -1719,7 +1741,8 @@ export type WorkbenchRecord =
   | WorkbenchAutoModeRecord
   | WorkbenchForkRecord
   | WorkbenchAuthorRecord
-  | WorkbenchQueueClearRecord;
+  | WorkbenchQueueClearRecord
+  | WorkbenchNoticeRecord;
 
 export const GuardTask = { Call: "call", Summary: "summary" } as const;
 
@@ -2011,7 +2034,8 @@ export type WorkbenchGuestEntry =
       readonly count: number;
       readonly cause: WorkbenchQueueClearRecord["cause"];
       readonly text: string;
-    });
+    })
+  | (WorkbenchGuestEntryBase & WorkbenchNoticeRecord);
 
 export interface WorkbenchGuestSession {
   readonly session_id: string;

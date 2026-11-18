@@ -140,6 +140,19 @@ function entryItemsOf(
       return [{ kind: "scope-stop", id, text: scopeStopLineOf(entry.operation_id), ...origin }];
     case "queue_clear":
       return [{ kind: "queue-clear", id, text: entry.text, ...origin }];
+    case "notice":
+      return [
+        {
+          kind: "notice",
+          id,
+          notice: {
+            kind: "notice",
+            watch_entry_id: entry.watch_entry_id,
+            projects: entry.projects,
+          },
+          ...origin,
+        },
+      ];
     case "assistant":
       return blockItemsOf(id, entry.content, false, timestamp, origin);
     case "plan":

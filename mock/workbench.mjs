@@ -814,6 +814,42 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     return false;
   };
 
+  const noticeStats = (nodes) =>
+    ["Completed", "Discarded"]
+      .map((state) => [state, nodes.filter((node) => node.state === state).length])
+      .filter(([, count]) => count > 0)
+      .map(([state, count]) => `${count} ${state}`)
+      .join(", ");
+
+  const noticeOf = (entries) => {
+    const at = entries.findLastIndex(
+      (entry) =>
+        entry.type === "custom" &&
+        entry.customType === RECORD_TYPE &&
+        entry.data?.kind === "notice",
+    );
+    if (at === -1) return null;
+    const guestAuthored = (index) =>
+      entries[index - 1]?.type === "custom" &&
+      entries[index - 1].customType === RECORD_TYPE &&
+      entries[index - 1].data?.kind === "author";
+    const ownerNote = (entry) =>
+      entry.type === "custom" &&
+      entry.customType === RECORD_TYPE &&
+      entry.data?.kind === "note" &&
+      entry.data.author?.kind === "owner";
+    const answered = entries.some(
+      (entry, index) =>
+        index > at &&
+        (ownerNote(entry) ||
+          (entry.type === "message" && entry.message.role === "user" && !guestAuthored(index))),
+    );
+    if (answered) return null;
+    return entries[at].data.projects
+      .map((project) => `${project.name} · ${noticeStats(project.nodes)}`)
+      .join("; ");
+  };
+
   const participantItemOf = (session) => {
     const isHost = !session.host_session_id;
     const entries = isHost ? conversationEntriesOf(session) : session.entries;
@@ -840,6 +876,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
               operation_id: state.pending_approval.operation_id,
             }
           : null,
+      notice: isHost ? noticeOf(entries) : null,
       participants: [],
     };
   };
@@ -1256,6 +1293,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       };
     }
     if (data?.kind === "fork") return { kind: "fork", source_title: data.source_title };
+    if (data?.kind === "notice") {
+      return {
+        kind: "notice",
+        watch_entry_id: data.watch_entry_id,
+        projects: data.projects.map(({ name, nodes }) => ({ name, nodes })),
+      };
+    }
     if (data?.kind === "author") {
       return { kind: "author", author: { kind: "guest", name: data.author.name } };
     }
