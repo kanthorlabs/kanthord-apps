@@ -30,6 +30,7 @@ import {
   outsideActsOf,
   outsideReadOf,
   projectPausedActsOf,
+  scopeRequestActsOf,
   toolApprovalActsOf,
 } from "@/lib/board-acts";
 import { type BoardGate, pausedNodeCountOf } from "@/lib/board-items";
@@ -245,6 +246,8 @@ function ItemActs({
       return <OutsideActs store={store} item={item} {...context} />;
     case "tool_approval":
       return <ToolApprovalActs store={store} item={item} {...context} />;
+    case "scope_request":
+      return <StaticActs store={store} acts={scopeRequestActsOf(item)} />;
     case "credential_refused":
       return <CredentialRefusedActs store={store} item={item} {...context} />;
     case "environment_failed":

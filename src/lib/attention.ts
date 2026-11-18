@@ -21,6 +21,7 @@ import type {
 } from "@/api/types";
 
 import { approvalItemsOf, type ToolApprovalItem } from "./approval-attention";
+import { type ScopeRequestItem, scopeRequestItemsOf } from "./scope-request-attention";
 import { PAUSE_CAUSE_LABELS, pauseCauseOf, type PauseDerivation } from "./execution-stop";
 import { deliveryRequestsOf, hasOpenAttempt, humanMergeRequestOf } from "./external-requests";
 import { type FixAttentionItem, fixItemsOf } from "./fix-attention";
@@ -180,6 +181,7 @@ export type AttentionItem =
   | FindingReviewItem
   | FollowupItem
   | ToolApprovalItem
+  | ScopeRequestItem
   | FixAttentionItem
   | OutsideAttentionItem
   | InboxAttentionItem;
@@ -200,6 +202,7 @@ const KIND_ORDER: readonly AttentionItem["kind"][] = [
   "finding_review",
   "followup_proposal",
   "tool_approval",
+  "scope_request",
   "project_paused",
   "no_taker",
   "agent_invalid",
@@ -512,6 +515,7 @@ export function deriveAttention(
     ...snapshots.flatMap(findingItemsOf),
     ...snapshots.flatMap(followupItemsOf),
     ...approvalItemsOf(context.sessions),
+    ...scopeRequestItemsOf(context.sessions),
     ...fixItemsOf(snapshots, context),
   ].sort(compareItems);
 }

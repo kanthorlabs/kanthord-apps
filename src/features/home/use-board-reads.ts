@@ -105,6 +105,7 @@ function useSettled<T>(key: string, read: (() => Promise<T>) | null, none: T): R
 
 function readKeyOf(item: AttentionItem): string {
   if (item.kind === "tool_approval") return `${item.id}:${item.toolCallId}`;
+  if (item.kind === "scope_request") return item.id;
   if (item.group === "fixes" || item.group === "inbox") return item.id;
   const execution = item.kind === "paused" ? item.pause?.execution?.execution_id : undefined;
   return `${item.id}:${detailKeyOf(item.node)}:${execution ?? ""}`;

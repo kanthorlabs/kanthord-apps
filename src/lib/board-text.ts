@@ -44,6 +44,8 @@ function pausedCauseOf(item: Extract<AttentionItem, { kind: "paused" }>): string
 
 export function cardCauseOf(item: AttentionItem): string {
   switch (item.kind) {
+    case "scope_request":
+      return `Shared conversation${FACT_SEPARATOR}A guest run asked for an act on a project that is not shared.`;
     case "tool_approval":
       return `Waits for approval${FACT_SEPARATOR}${item.agent}${FACT_SEPARATOR}${item.operationId}`;
     case "credential_refused":
@@ -103,7 +105,7 @@ export function workforceText(running: number, waiting: number): string {
 export interface BoardSummaryInput {
   readonly count: number;
   readonly held: number;
-  readonly start: { readonly subject: string; readonly tab: BoardTab } | null;
+  readonly start: { readonly subject: string; readonly tab: Pick<BoardTab, "name"> } | null;
   readonly readFault: boolean;
   readonly inbox: number;
 }
@@ -130,7 +132,7 @@ export function boardSummaryOf(input: BoardSummaryInput): BoardSummary {
 }
 
 function lowerCauseOf(
-  item: Exclude<AttentionItem, { kind: "tool_approval" | "inbox_item" }>,
+  item: Exclude<AttentionItem, { kind: "tool_approval" | "scope_request" | "inbox_item" }>,
 ): string {
   const cause = item.kind === "paused" ? pausedCauseOf(item) : item.cause;
   return cause.toLowerCase();
@@ -141,6 +143,9 @@ export function detailTitleOf(item: AttentionItem, details: AttentionDetails): s
     return item.operationId === EVIDENCE_DOWNLOAD_OPERATION_ID
       ? "Evidence read"
       : `${item.agent} asks to run ${item.operationId}`;
+  }
+  if (item.kind === "scope_request") {
+    return `${item.subject}: ${counted(item.count, "request", "requests")} outside the shared projects`;
   }
   if (item.kind === "inbox_item") return item.subject;
   if (item.kind === "credential_refused") return `Provider refuses credential ${item.credential}`;

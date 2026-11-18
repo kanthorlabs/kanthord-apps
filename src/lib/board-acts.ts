@@ -1,4 +1,5 @@
 import { approvalChatPathOf, type ToolApprovalItem } from "./approval-attention";
+import { scopeRequestChatPathOf, type ScopeRequestItem } from "./scope-request-attention";
 import {
   type AttentionDetails,
   type AttentionItem,
@@ -463,6 +464,17 @@ export function toolApprovalActsOf(
     to: approvalChatPathOf(item),
   };
   return present([approve, reject, chat]);
+}
+
+export function scopeRequestActsOf(item: ScopeRequestItem): readonly BoardAct[] {
+  return [
+    {
+      type: "link",
+      id: "open_conversation",
+      label: "Open conversation",
+      to: scopeRequestChatPathOf(item),
+    },
+  ];
 }
 
 function openActOf(item: FixAttentionItem): LinkAct {

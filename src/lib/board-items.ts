@@ -12,7 +12,7 @@ export interface BoardGate {
 }
 
 export function itemNodeIdsOf(item: AttentionItem): readonly string[] {
-  if (item.kind === "tool_approval") return [];
+  if (item.kind === "tool_approval" || item.kind === "scope_request") return [];
   if (item.kind === "inbox_item") return item.inbox.linked_node_ids;
   if (item.group === "fixes") return item.nodeIds;
   return [item.node.id];
@@ -72,7 +72,7 @@ export function pausedNodeCountOf(
 }
 
 export function boardProjectsOf(item: AttentionItem): readonly Project[] {
-  if (item.kind === "tool_approval") return [];
+  if (item.kind === "tool_approval" || item.kind === "scope_request") return [];
   if (item.group === "fixes") return item.projects;
   return [item.project];
 }
