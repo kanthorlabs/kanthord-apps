@@ -30,7 +30,7 @@ const mockDaemon = () => {
     sessions,
     projects: [{ id: "project_a", name: "Alpha" }],
   });
-  const call = (method, path, body = {}) => {
+  const call = (method, path, body = {}, token = null) => {
     const url = new URL(path, "http://mock");
     const route = routes.find(
       (candidate) => candidate.method === method && candidate.pattern.test(url.pathname),
@@ -40,7 +40,7 @@ const mockDaemon = () => {
       url.pathname.match(route.pattern),
       body,
       { reply: (a) => (answer = a) },
-      null,
+      token,
       url,
     );
     return answer;
@@ -158,6 +158,77 @@ describe("workbench mock plan run", () => {
         name: "   ",
       });
       expect(joined.status).toBe(400);
+    });
+  });
+
+  describe("the granted guest run", () => {
+    const guestSession = (daemon) => {
+      const invite = daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, {
+        invitee_name: "Dana",
+        project_ids: ["project_a"],
+        granted_operations: ["mission.node.pause"],
+      });
+      const joined = daemon.call("POST", "/api/workbench/invite/join", {
+        invite_token: invite.body.invite_token,
+        name: "Dana",
+      });
+      return { invite: invite.body, token: joined.body.guest_token };
+    };
+
+    const guardOf = (entries) =>
+      entries.find((entry) => entry.type === "custom" && entry.data?.kind === "guard");
+
+    const resultOf = (entries) =>
+      entries.find((entry) => entry.message?.role === "toolResult").message;
+
+    const runGuest = async (daemon, token, text) => {
+      daemon.call("POST", "/api/workbench/guest/session/message", { text }, token);
+      await vi.waitFor(
+        () => expect(entriesOf(daemon).at(-1).message?.role).toBe("assistant"),
+        WAIT,
+      );
+    };
+
+    it("records a guard with the grant and a successful result", async () => {
+      const daemon = mockDaemon();
+      const { invite, token } = guestSession(daemon);
+
+      await runGuest(daemon, token, "@Yumi use the granted act");
+
+      const entries = entriesOf(daemon);
+      expect(guardOf(entries).data).toMatchObject({
+        reason: "reversible",
+        grant: { invite_id: invite.id, author: { kind: "guest", name: "Dana" } },
+      });
+      expect(resultOf(entries).isError).toBe(false);
+    });
+
+    it("records a guard with the grant and a refused result", async () => {
+      const daemon = mockDaemon();
+      const { token } = guestSession(daemon);
+
+      await runGuest(daemon, token, "@Yumi the refused act");
+
+      const entries = entriesOf(daemon);
+      expect(guardOf(entries).data.grant.author.name).toBe("Dana");
+      expect(resultOf(entries)).toMatchObject({ isError: true });
+      expect(resultOf(entries).content[0].text).toContain("gateway.grant.refused");
+    });
+
+    it("carries the scope_stop record in the owner feed and in the guest feed", async () => {
+      const daemon = mockDaemon();
+      const { token } = guestSession(daemon);
+
+      await runGuest(daemon, token, "@Yumi act outside the shared projects");
+
+      const stop = entriesOf(daemon).find((entry) => entry.data?.kind === "scope_stop");
+      expect(stop.data.operation_id).toBe("mission.node.discard");
+      const guestEntries = daemon.call("GET", "/api/workbench/guest/session", {}, token).body
+        .entries;
+      expect(guestEntries.find((entry) => entry.kind === "scope_stop")).toMatchObject({
+        tool_call_id: stop.data.tool_call_id,
+        operation_id: "mission.node.discard",
+      });
     });
   });
 });

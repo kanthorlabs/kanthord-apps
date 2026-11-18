@@ -198,6 +198,7 @@ describe("useScopeRequestReview", () => {
     });
 
     expect(readNodeMock).not.toHaveBeenCalled();
+    expect(readMissionMock).not.toHaveBeenCalled();
     expect(result.current.facts).toEqual(["Project Secret Project · running"]);
     act(() => result.current.setTyped(PROJECT_NAME));
     expect(result.current.canApprove).toBe(true);
@@ -208,6 +209,22 @@ describe("useScopeRequestReview", () => {
       project_name: PROJECT_NAME,
       expected: {},
     });
+  });
+
+  it("approves a project request on a project with no mission", async () => {
+    readMissionMock.mockRejectedValue(new Error("no mission"));
+    const { result } = await settled({
+      ...REQUEST,
+      operation_id: "project.pause",
+      target_id: "project_x",
+      ids: { project_id: "project_x" },
+      expected_keys: [],
+    });
+
+    act(() => result.current.setTyped(PROJECT_NAME));
+
+    expect(result.current.readFailure).toBeNull();
+    expect(result.current.canApprove).toBe(true);
   });
 
   it("shows the code first for a 409 refusal and keeps the dialog open", async () => {

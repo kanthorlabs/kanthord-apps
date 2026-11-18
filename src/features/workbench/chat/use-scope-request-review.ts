@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import { readMissionNode } from "@/api/resources/mission";
+import { readMission, readMissionNode } from "@/api/resources/mission";
 import { readProject } from "@/api/resources/projects";
 import { approveScopeRequest, listInvites, rejectScopeRequest } from "@/api/resources/workbench";
 import type { ScopeRequest } from "@/api/types";
@@ -15,8 +15,8 @@ import {
   UNAVAILABLE_REASON,
 } from "@/lib/scope-request";
 import { lockedProjectsOf, projectRefLabel } from "@/lib/share-invite";
-import { useMission } from "../../projects/view/use-mission";
 
+const MISSION_KEY = "expected_mission_version";
 const NAME_MISMATCH = "workbench.scope_request.name_mismatch";
 const MISMATCH_LINE =
   "The typed name does not match the project name. The dialog read the project again.";
@@ -55,7 +55,11 @@ export function useScopeRequestReview(
   const holdsProject = "project_id" in request.ids;
   const project = useResource(() => readProject(request.project_id), [request.project_id]);
   const { reload: reloadProject } = project;
-  const mission = useMission(request.project_id);
+  const needsMission = request.expected_keys.includes(MISSION_KEY);
+  const mission = useResource(
+    () => (needsMission ? readMission(request.project_id) : Promise.resolve(null)),
+    [request.project_id, needsMission],
+  );
   const node = useResource(
     () => (nodeId === null ? Promise.resolve(null) : readMissionNode(nodeId)),
     [nodeId],
@@ -70,7 +74,7 @@ export function useScopeRequestReview(
   const available = expectedAvailable(request.expected_keys, nodeId !== null);
   const missionVersion = mission.data?.version ?? null;
   const expected =
-    ready && available && missionVersion !== null
+    ready && available && (!needsMission || missionVersion !== null)
       ? expectedOf(request.expected_keys, { missionVersion, node: node.data })
       : null;
   const canApprove =

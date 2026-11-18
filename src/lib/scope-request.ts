@@ -20,7 +20,7 @@ const NODE_KEYS = [
 const KNOWN_KEYS: readonly string[] = ["expected_mission_version", ...NODE_KEYS];
 
 export interface ExpectedReads {
-  readonly missionVersion: number;
+  readonly missionVersion: number | null;
   readonly node: {
     readonly state: NodeState;
     readonly attempt: number;
@@ -41,7 +41,7 @@ export function expectedOf(
 ): Readonly<Record<string, number | string>> {
   const { missionVersion, node } = reads;
   const values: Readonly<Record<string, number | string | undefined>> = {
-    expected_mission_version: missionVersion,
+    expected_mission_version: missionVersion ?? undefined,
     expected_state: node?.state,
     expected_attempt: node?.attempt,
     expected_revision: node?.visible_revision,

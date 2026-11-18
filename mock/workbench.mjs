@@ -472,6 +472,56 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     });
   };
 
+  const GRANTED_OPERATION = "mission.node.pause";
+  const GRANT_REFUSED_TEXT = '{"error":{"code":"gateway.grant.refused"}}';
+
+  const playGrantedCall = async (session, run, call, result) => {
+    const guest = run.requested_by;
+    const invite = liveInvites(session).find((item) => item.invitee_name === guest.name);
+    call.name = GRANTED_OPERATION;
+    call.arguments = { node_id: OFFER_NODE_ID };
+    announce(session, call);
+    append(session, "custom", {
+      customType: RECORD_TYPE,
+      data: {
+        kind: "guard",
+        tool_call_id: call.id,
+        operation_id: call.name,
+        reason: "reversible",
+        grant: { invite_id: invite.id, author: { kind: "guest", name: guest.name } },
+      },
+    });
+    await settle(session, run, call, result);
+  };
+
+  const playScopeStop = async (session, run, call) => {
+    call.name = SCOPE_REQUEST_OPERATION;
+    call.arguments = { node_id: OFFER_NODE_ID };
+    announce(session, call);
+    append(session, "custom", {
+      customType: RECORD_TYPE,
+      data: { kind: "scope_stop", tool_call_id: call.id, operation_id: call.name },
+    });
+    await settle(session, run, call, { isError: true, text: GRANT_REFUSED_TEXT });
+  };
+
+  const guestScriptOf = (session, run, text) => {
+    if (run.requested_by.kind !== "guest") return null;
+    if (!liveInvites(session).some((item) => item.invitee_name === run.requested_by.name)) {
+      return null;
+    }
+    if (/\bgranted\b/i.test(text)) {
+      return (call) =>
+        playGrantedCall(session, run, call, { isError: false, text: '{"paused":true}' });
+    }
+    if (/\brefused\b/i.test(text)) {
+      return (call) =>
+        playGrantedCall(session, run, call, { isError: true, text: GRANT_REFUSED_TEXT });
+    }
+    if (/\boutside\b/i.test(text)) return (call) => playScopeStop(session, run, call);
+    return null;
+  };
+
   const play = async (session, run, text) => {
     if (session.agent_name === PLAN_AGENT) return playPlan(session, run);
     const state = stateOf(session);
@@ -481,11 +531,14 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       name: "mission.node.list",
       arguments: {},
     };
+    const guestScript = guestScriptOf(session, run, text);
     if (/\bfail\b/i.test(text)) {
       state.error_message = "The model provider refused the request.";
       return;
     }
-    if (/\bdiscard\b/i.test(text)) {
+    if (guestScript !== null) {
+      await guestScript(call);
+    } else if (/\bdiscard\b/i.test(text)) {
       call.name = "offer_action";
       call.arguments = { operation_id: "mission.node.discard", target_id: OFFER_NODE_ID };
       announce(session, call);
