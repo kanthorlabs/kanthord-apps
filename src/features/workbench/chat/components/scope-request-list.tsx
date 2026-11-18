@@ -4,8 +4,9 @@ import type { ScopeRequest } from "@/api/types";
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Button } from "@/components/ui/button";
+import { useNow } from "@/features/traces/trace/use-now";
+import { MINUTE_MS } from "@/lib/format";
 import { requestAgeLineOf, requestedByLineOf, SCOPE_REQUEST_HELPER } from "@/lib/scope-request";
-import { useMinuteNow } from "../use-minute-now";
 import { ScopeRequestDialog } from "./scope-request-dialog";
 
 interface ScopeRequestListProps {
@@ -16,7 +17,7 @@ interface ScopeRequestListProps {
 
 export function ScopeRequestList({ sessionId, requests, onResolved }: ScopeRequestListProps) {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
-  const now = useMinuteNow();
+  const now = useNow(true, MINUTE_MS);
   const open = requests.filter((request) => request.state === "open");
   const reviewing = open.find((request) => request.id === reviewingId);
   if (open.length === 0) return null;

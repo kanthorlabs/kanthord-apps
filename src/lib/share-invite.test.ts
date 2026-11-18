@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { WorkbenchInvite } from "@/api/types";
 import {
+  grantedOperationsOf,
   grantSummaryOf,
   groupCheckStateOf,
   lockedProjectsOf,
@@ -63,14 +64,29 @@ describe("grant helpers", () => {
     expect(grantSummaryOf([])).toBeNull();
   });
 
-  it("counts a grant by guard class and omits an empty class", () => {
+  it("counts a grant by guard class and prints an empty class as zero", () => {
     const reversible = { operation_id: "a", guard_class: "reversible" } as const;
     const judged = { operation_id: "c", guard_class: "judged" } as const;
 
     expect(grantSummaryOf([reversible, reversible, judged])).toBe(
       "Without approval: 2 reversible, 1 judged",
     );
-    expect(grantSummaryOf([judged])).toBe("Without approval: 1 judged");
+    expect(grantSummaryOf([reversible, reversible])).toBe(
+      "Without approval: 2 reversible, 0 judged",
+    );
+    expect(grantSummaryOf([judged])).toBe("Without approval: 0 reversible, 1 judged");
+  });
+
+  it("maps granted ids through the grantable list to their guard classes", () => {
+    const grantable = [
+      { operation_id: "a", guard_class: "reversible", description: "A." },
+      { operation_id: "c", guard_class: "judged", description: "C." },
+    ] as const;
+
+    expect(grantedOperationsOf(["c", "a"], grantable)).toEqual([
+      { operation_id: "c", guard_class: "judged" },
+      { operation_id: "a", guard_class: "reversible" },
+    ]);
   });
 
   it("reports none, some and all for a group", () => {

@@ -1,5 +1,7 @@
 import type { NodeState, ScopeRequest } from "@/api/types";
 
+import { HOUR_MS, MINUTE_MS } from "./format";
+
 export const UNAVAILABLE_REASON = "This request cannot be approved from this dashboard version.";
 
 export const SAFER_PATH =
@@ -8,8 +10,6 @@ export const SAFER_PATH =
 export const SCOPE_REQUEST_HELPER =
   "Guests do not see these requests. Tell a guest about a request only when you mean to show that the record exists.";
 
-const MINUTE_MS = 60_000;
-const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 const NODE_KEYS = [
   "expected_state",
@@ -64,8 +64,28 @@ export function requestedLineOf(request: ScopeRequest): string {
   return `${requestedByLineOf(request)} · invite for ${request.invitee_name}`;
 }
 
-export function consequenceOf(request: ScopeRequest, projectName: string): string {
-  return `This runs ${request.operation_id} on ${request.target_id} in project ${projectName}. ${projectName} is not shared in this conversation. ${request.guest_name} (guest) cannot see it. The act runs as your own act. Nothing about it enters this conversation. Anything that you or your own runs write here reaches every guest.`;
+export interface ConsequencePart {
+  readonly text: string;
+  readonly bold: boolean;
+}
+
+export function consequenceOf(
+  request: ScopeRequest,
+  projectName: string,
+): readonly ConsequencePart[] {
+  return [
+    {
+      text: `This runs ${request.operation_id} on ${request.target_id} in project `,
+      bold: false,
+    },
+    { text: projectName, bold: true },
+    { text: ". ", bold: false },
+    { text: projectName, bold: true },
+    {
+      text: ` is not shared in this conversation. ${request.guest_name} (guest) cannot see it. The act runs as your own act. Nothing about it enters this conversation. Anything that you or your own runs write here reaches every guest.`,
+      bold: false,
+    },
+  ];
 }
 
 export function ageTextOf(createdAt: number, now: number): string {

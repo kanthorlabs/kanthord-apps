@@ -37,7 +37,7 @@ const REQUEST: ScopeRequest = {
   description: "Discard a node.",
   input: { node_id: "node_1" },
   target_id: "node_1",
-  ids: { node_id: "node_1" },
+  ids: ["node_1"],
   project_id: "project_x",
   expected_keys: ["expected_mission_version", "expected_state", "expected_attempt"],
   created_at: Date.parse("2026-10-05T09:00:00.000Z"),
@@ -87,6 +87,16 @@ describe("useScopeRequestReview", () => {
     expect(result.current.confirmName).toBe(PROJECT_NAME);
     expect(result.current.sharedNames).toEqual(["project_a", "project_b"]);
     expect(result.current.facts).toEqual(["Node Add retry · Blocked · attempt 2"]);
+  });
+
+  it("classifies each id by its prefix and shows the facts of the node and the project", async () => {
+    const { result } = await settled({ ...REQUEST, ids: ["node_1", "project_x"] });
+
+    expect(readNodeMock).toHaveBeenCalledWith("node_1");
+    expect(result.current.facts).toEqual([
+      "Node Add retry · Blocked · attempt 2",
+      "Project Secret Project · running",
+    ]);
   });
 
   it.each([
@@ -193,7 +203,7 @@ describe("useScopeRequestReview", () => {
       ...REQUEST,
       operation_id: "project.pause",
       target_id: "project_x",
-      ids: { project_id: "project_x" },
+      ids: ["project_x"],
       expected_keys: [],
     });
 
@@ -217,7 +227,7 @@ describe("useScopeRequestReview", () => {
       ...REQUEST,
       operation_id: "project.pause",
       target_id: "project_x",
-      ids: { project_id: "project_x" },
+      ids: ["project_x"],
       expected_keys: [],
     });
 
@@ -284,9 +294,12 @@ describe("useScopeRequestReview", () => {
   it("states the consequence and the safer path", async () => {
     const { result } = await settled();
 
-    expect(result.current.consequence).toBe(
+    expect(result.current.consequence?.map((part) => part.text).join("")).toBe(
       "This runs mission.node.discard on node_1 in project Secret Project. Secret Project is not shared in this conversation. Dana (guest) cannot see it. The act runs as your own act. Nothing about it enters this conversation. Anything that you or your own runs write here reaches every guest.",
     );
+    expect(
+      result.current.consequence?.filter((part) => part.bold).map((part) => part.text),
+    ).toEqual([PROJECT_NAME, PROJECT_NAME]);
     expect(result.current.saferPath).toBe(
       "Reject keeps the project hidden. To share the project, revoke the invites and share a new conversation.",
     );

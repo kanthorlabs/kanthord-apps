@@ -185,8 +185,8 @@ function eventsWith(queue: readonly WorkbenchQueuedMessage[]): WorkbenchSessionE
       error_message: null,
       auto_mode: true,
       phase: null,
-      scope_requests: [],
     },
+    scope_requests: [],
     version: 1,
   };
 }
@@ -216,6 +216,7 @@ function renderChat() {
           members: [HOST_MEMBER],
           run_active: true,
           forked_from: null,
+          scope_requests: [],
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={null}

@@ -44,7 +44,7 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
   const [open, setOpen] = useState(false);
   const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(null);
   const { lockedIds } = useShareProjects(null, invites.lockedProjects);
-  const share = useShareInvite(sessionId, invites.reload, lockedIds);
+  const share = useShareInvite(sessionId, invites.reload, lockedIds, invites.grantable);
   const { reset } = share;
   const failed = share.createFailure !== null || share.revokeFailure !== null;
 

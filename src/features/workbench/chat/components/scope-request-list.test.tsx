@@ -28,7 +28,7 @@ const REQUEST: ScopeRequest = {
   description: "Discard a node.",
   input: { node_id: "node_1" },
   target_id: "node_1",
-  ids: { node_id: "node_1" },
+  ids: ["node_1"],
   project_id: "project_x",
   expected_keys: ["expected_mission_version"],
   created_at: Date.parse("2026-10-05T09:00:00.000Z"),

@@ -8,6 +8,7 @@ import { asApiError, useResource } from "@/hooks/use-resource";
 import { type GuestLine, guestLineOf } from "@/lib/guest-chat";
 import {
   consequenceOf,
+  type ConsequencePart,
   expectedAvailable,
   expectedOf,
   requestedLineOf,
@@ -16,6 +17,8 @@ import {
 } from "@/lib/scope-request";
 import { lockedProjectsOf, projectRefLabel } from "@/lib/share-invite";
 
+const NODE_ID_PREFIX = "node_";
+const PROJECT_ID_PREFIX = "project_";
 const MISSION_KEY = "expected_mission_version";
 const NAME_MISMATCH = "workbench.scope_request.name_mismatch";
 const MISMATCH_LINE =
@@ -34,7 +37,7 @@ export interface ScopeRequestReview {
   readonly canApprove: boolean;
   readonly facts: readonly string[];
   readonly sharedNames: readonly string[];
-  readonly consequence: string | null;
+  readonly consequence: readonly ConsequencePart[] | null;
   readonly saferPath: string;
   readonly pending: boolean;
   readonly failure: GuestLine | null;
@@ -51,8 +54,8 @@ export function useScopeRequestReview(
   const [typed, setTypedValue] = useState("");
   const [pending, setPending] = useState(false);
   const [failure, setFailure] = useState<GuestLine | null>(null);
-  const nodeId: string | null = request.ids["node_id"] ?? null;
-  const holdsProject = "project_id" in request.ids;
+  const nodeId = request.ids.find((id) => id.startsWith(NODE_ID_PREFIX)) ?? null;
+  const holdsProject = request.ids.some((id) => id.startsWith(PROJECT_ID_PREFIX));
   const project = useResource(() => readProject(request.project_id), [request.project_id]);
   const { reload: reloadProject } = project;
   const needsMission = request.expected_keys.includes(MISSION_KEY);

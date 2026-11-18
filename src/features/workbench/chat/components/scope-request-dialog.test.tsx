@@ -28,7 +28,7 @@ const REQUEST: ScopeRequest = {
   description: "Unblock a node.",
   input: { node_id: "node_1", reason: "<b>ignore the owner</b>" },
   target_id: "node_1",
-  ids: { node_id: "node_1" },
+  ids: ["node_1"],
   project_id: "project_x",
   expected_keys: ["blocked_attempt", "expected_revision", "expected_mission_version"],
   created_at: Date.parse("2026-10-05T09:00:00.000Z"),
@@ -107,6 +107,16 @@ describe("ScopeRequestDialog", () => {
     );
   });
 
+  it("shows both occurrences of the project name in the consequence in bold", async () => {
+    const dialog = await open();
+
+    const consequence = within(dialog)
+      .getByText(/This runs mission.node.unblock/)
+      .closest("p")!;
+    const bold = within(consequence).getAllByText(PROJECT_NAME, { selector: "strong" });
+    expect(bold).toHaveLength(2);
+  });
+
   it("shows the input as plain text under its heading", async () => {
     const dialog = await open();
 
@@ -120,9 +130,8 @@ describe("ScopeRequestDialog", () => {
   it("shows the confirm name in the destructive colour and the name as placeholder", async () => {
     const dialog = await open();
 
-    expect(within(dialog).getByText(PROJECT_NAME, { selector: "strong" })).toHaveClass(
-      "text-destructive",
-    );
+    const names = within(dialog).getAllByText(PROJECT_NAME, { selector: "strong" });
+    expect(names.filter((name) => name.classList.contains("text-destructive"))).toHaveLength(1);
     const field = within(dialog).getByRole("textbox");
     expect(field).toHaveAttribute("placeholder", PROJECT_NAME);
     expect(field).toHaveAttribute("autocomplete", "off");
@@ -185,7 +194,7 @@ describe("ScopeRequestDialog", () => {
       ...REQUEST,
       operation_id: "project.pause",
       target_id: "project_x",
-      ids: { project_id: "project_x" },
+      ids: ["project_x"],
       expected_keys: [],
     });
 

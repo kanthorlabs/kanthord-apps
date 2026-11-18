@@ -24,10 +24,6 @@ export function guestGrantLineOf(granted: readonly GrantedOperation[]): string {
   return `You may run without approval: ${granted.map((operation) => operation.operation_id).join(", ")}.`;
 }
 
-export function waitingToolNameOf(operationId: string): string {
-  return operationId.replaceAll(".", "--");
-}
-
 const VALIDATION_FAILED = "gateway.request.validation_failed";
 const NOTE_TOO_LONG = "The note is too long. Send at most 16384 bytes.";
 const STREAMING_ITEM_ID = "streaming";

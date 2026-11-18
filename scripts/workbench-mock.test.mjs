@@ -222,12 +222,12 @@ describe("workbench mock plan run", () => {
       await runGuest(daemon, token, "@Yumi act outside the shared projects");
 
       const stop = entriesOf(daemon).find((entry) => entry.data?.kind === "scope_stop");
-      expect(stop.data.operation_id).toBe("mission.node.discard");
+      expect(stop.data.operation_id).toBe("mission.node.pause");
       const guestEntries = daemon.call("GET", "/api/workbench/guest/session", {}, token).body
         .entries;
       expect(guestEntries.find((entry) => entry.kind === "scope_stop")).toMatchObject({
         tool_call_id: stop.data.tool_call_id,
-        operation_id: "mission.node.discard",
+        operation_id: "mission.node.pause",
       });
     });
   });

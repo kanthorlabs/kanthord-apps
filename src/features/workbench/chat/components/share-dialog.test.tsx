@@ -137,7 +137,6 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana Lee & Co",
       expires_at: EXPIRES_AT,
-      projects: [],
       granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
@@ -166,7 +165,6 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
-      projects: [],
       granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
@@ -194,7 +192,6 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
-      projects: [],
       granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
@@ -461,7 +458,6 @@ describe("ShareDialog grant", () => {
     session_id: SESSION_ID,
     invitee_name: "Dana",
     expires_at: EXPIRES_AT,
-    projects: [ALPHA_PROJECT],
     invite_token: INVITE_TOKEN,
   };
 
@@ -483,6 +479,20 @@ describe("ShareDialog grant", () => {
       expect(box).not.toBeChecked();
     }
     expect(within(dialog).queryByText(/Anyone who holds this link/)).toBeNull();
+  });
+
+  it("hides the nothing-checked line while a box is checked and shows it again when none is", async () => {
+    const dialog = await open();
+    await fillName();
+    const box = within(dialog).getByRole("checkbox", { name: "project.pause" });
+
+    await userEvent.click(box);
+
+    expect(within(dialog).queryByText(/Nothing checked/)).toBeNull();
+    await userEvent.click(box);
+    expect(dialog).toHaveTextContent(
+      "Nothing checked: you approve every act in a run that Dana starts.",
+    );
   });
 
   it("shows the group labels, the group lines and each operation with its description", async () => {
@@ -543,10 +553,7 @@ describe("ShareDialog grant", () => {
   it("sends the checked ids sorted and shows the grant read-only beside the link", async () => {
     createMock.mockResolvedValue({
       ...CREATED,
-      granted_operations: [
-        { operation_id: "mission.node.pause", guard_class: "reversible" },
-        { operation_id: "project.create", guard_class: "judged" },
-      ],
+      granted_operations: ["mission.node.pause", "project.create"],
     });
     const dialog = await open();
     await fillName();
@@ -600,6 +607,19 @@ describe("ShareDialog grant", () => {
 
     const list = screen.getByRole("region", { name: "Invites" });
     expect(within(list).getByText("Approval for every act")).toBeInTheDocument();
+  });
+
+  it("prints a zero count for a class that the grant does not hold", async () => {
+    const granted = [
+      { operation_id: "mission.node.pause", guard_class: "reversible" },
+      { operation_id: "project.pause", guard_class: "reversible" },
+    ] as const;
+    await open(null, invitesOf(["project_a"], [{ ...DANA_INVITE, granted_operations: granted }]));
+    const list = screen.getByRole("region", { name: "Invites" });
+
+    expect(
+      within(list).getByRole("button", { name: "Without approval: 2 reversible, 0 judged" }),
+    ).toBeInTheDocument();
   });
 
   it("counts the grant by class and shows the ids on expand", async () => {

@@ -43,7 +43,17 @@ export function ScopeRequestDialog({
         <div className="grid min-w-0 gap-3 text-sm">
           {!review.settled && <p role="status">Reading the project…</p>}
           {review.readFailure !== null && <InlineError code={null} message={review.readFailure} />}
-          {review.consequence !== null && <p className="break-words">{review.consequence}</p>}
+          {review.consequence !== null && (
+            <p className="break-words">
+              {review.consequence.map((part, index) =>
+                part.bold ? (
+                  <strong key={index}>{part.text}</strong>
+                ) : (
+                  <span key={index}>{part.text}</span>
+                ),
+              )}
+            </p>
+          )}
           {review.facts.length > 0 && (
             <ul aria-label="Facts of the request" className="grid min-w-0 gap-1">
               {review.facts.map((fact) => (

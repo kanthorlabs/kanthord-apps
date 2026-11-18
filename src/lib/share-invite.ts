@@ -116,17 +116,24 @@ export function withOperationChecked(
   return on ? [...others, operationId] : others;
 }
 
+export function grantedOperationsOf(
+  operationIds: readonly string[],
+  grantable: readonly GrantableOperation[],
+): readonly GrantedOperation[] {
+  return operationIds.flatMap((operationId) => {
+    const operation = grantable.find((candidate) => candidate.operation_id === operationId);
+    return operation === undefined
+      ? []
+      : [{ operation_id: operation.operation_id, guard_class: operation.guard_class }];
+  });
+}
+
 export function grantSummaryOf(granted: readonly GrantedOperation[]): string | null {
   if (granted.length === 0) return null;
   const parts = GRANT_GROUP_TEXTS.map(
     ({ guardClass }) =>
-      [
-        guardClass,
-        granted.filter((operation) => operation.guard_class === guardClass).length,
-      ] as const,
-  )
-    .filter(([, count]) => count > 0)
-    .map(([guardClass, count]) => `${count} ${guardClass}`);
+      `${granted.filter((operation) => operation.guard_class === guardClass).length} ${guardClass}`,
+  );
   return `Without approval: ${parts.join(", ")}`;
 }
 

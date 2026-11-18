@@ -34,4 +34,18 @@ describe("useNow", () => {
 
     expect(result.current).toBe(START);
   });
+
+  it("advances at the tick that the caller gives", () => {
+    const { result } = renderHook(() => useNow(true, 60_000));
+
+    act(() => {
+      vi.advanceTimersByTime(59_000);
+    });
+    expect(result.current).toBe(START);
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(result.current).toBe(START + 60_000);
+  });
 });

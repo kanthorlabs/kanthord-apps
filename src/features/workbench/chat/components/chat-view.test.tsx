@@ -10,6 +10,7 @@ import * as workersApi from "@/api/resources/workers";
 import type * as EvidenceDownload from "@/features/projects/view/use-evidence-download";
 import type {
   AgentEnablement,
+  ScopeRequest,
   WorkbenchMember,
   WorkbenchRunSnapshot,
   WorkbenchSession,
@@ -42,7 +43,6 @@ const IDLE: WorkbenchRunSnapshot = {
   error_message: null,
   auto_mode: true,
   phase: null,
-  scope_requests: [],
 };
 
 const ENABLEMENT: AgentEnablement = {
@@ -56,6 +56,25 @@ const ENABLEMENT: AgentEnablement = {
   },
   fallback_configurations: [],
   revision: 2,
+};
+
+const SCOPE_REQUEST: ScopeRequest = {
+  id: "scope_request_1",
+  invite_id: "invite_1",
+  invitee_name: "Dana Lee",
+  guest_name: "Dana",
+  agent_name: "swe@1",
+  operation_id: "mission.node.discard",
+  description: "Discard a node.",
+  input: {},
+  target_id: "node_1",
+  ids: ["node_1"],
+  project_id: "project_x",
+  expected_keys: [],
+  created_at: Date.now(),
+  expires_at: Date.now() + 60_000,
+  state: "open",
+  error_code: null,
 };
 
 function message(id: string, body: Record<string, unknown>): WorkbenchSessionEntry {
@@ -82,6 +101,7 @@ function session(
     entries,
     run_active: runActive,
     forked_from: null,
+    scope_requests: [],
     resume_command: "pi --session ~/session.jsonl",
   };
 }
@@ -97,12 +117,14 @@ function pollQueue() {
       members?: WorkbenchSessionEvents["members"];
       entries?: WorkbenchSessionEvents["entries"];
       snapshot?: Partial<WorkbenchRunSnapshot>;
+      scope_requests?: WorkbenchSessionEvents["scope_requests"];
     }) {
       await waitFor(() => expect(waiting.length).toBeGreaterThan(0));
       waiting.shift()?.({
         members: events.members ?? [HOST],
         entries: events.entries ?? [],
         snapshot: { ...IDLE, ...events.snapshot },
+        scope_requests: events.scope_requests ?? [],
         version: ++version,
       });
     },
@@ -153,32 +175,11 @@ describe("ChatView", () => {
     ).toBeNull();
   });
 
-  it("shows the requests outside the shared projects from the snapshot above the composer", async () => {
+  it("shows the requests outside the shared projects from the events answer above the composer", async () => {
     const polls = pollQueue();
     mount(session([], false));
     await polls.answer({
-      snapshot: {
-        scope_requests: [
-          {
-            id: "scope_request_1",
-            invite_id: "invite_1",
-            invitee_name: "Dana Lee",
-            guest_name: "Dana",
-            agent_name: "swe@1",
-            operation_id: "mission.node.discard",
-            description: "Discard a node.",
-            input: {},
-            target_id: "node_1",
-            ids: { node_id: "node_1" },
-            project_id: "project_x",
-            expected_keys: [],
-            created_at: Date.now(),
-            expires_at: Date.now() + 60_000,
-            state: "open",
-            error_code: null,
-          },
-        ],
-      },
+      scope_requests: [SCOPE_REQUEST],
     });
 
     const list = await screen.findByRole("region", {
@@ -188,7 +189,19 @@ describe("ChatView", () => {
     expect(within(list).getByRole("button", { name: "Review" })).toBeVisible();
   });
 
-  it("shows no request list when the snapshot holds no request", async () => {
+  it("shows the requests of the session get before the first answer", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    mount({ ...session([], false), scope_requests: [SCOPE_REQUEST] });
+
+    const list = await screen.findByRole("region", {
+      name: "Requests outside the shared projects",
+    });
+    expect(within(list).getByRole("button", { name: "Review" })).toBeVisible();
+  });
+
+  it("shows no request list when the answer holds no request", async () => {
     const polls = pollQueue();
     mount(session([], false));
     await polls.answer({ snapshot: { auto_mode: true } });

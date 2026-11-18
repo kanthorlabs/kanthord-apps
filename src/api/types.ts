@@ -1623,8 +1623,10 @@ export interface WorkbenchSessionListItem {
   readonly forked_from: string | null;
   readonly pending_approval: WorkbenchPendingApprovalSummary | null;
   readonly scope_requests: number;
-  readonly participants: readonly WorkbenchSessionListItem[];
+  readonly participants: readonly WorkbenchSessionParticipantItem[];
 }
+
+export type WorkbenchSessionParticipantItem = Omit<WorkbenchSessionListItem, "scope_requests">;
 
 export interface WorkbenchSessionEntry {
   readonly session_id: string;
@@ -1783,6 +1785,7 @@ export interface WorkbenchSession {
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly run_active: boolean;
   readonly forked_from: string | null;
+  readonly scope_requests: readonly ScopeRequest[];
   readonly resume_command: string;
 }
 
@@ -1832,7 +1835,7 @@ export interface ScopeRequest {
   readonly description: string;
   readonly input: Readonly<Record<string, unknown>>;
   readonly target_id: string;
-  readonly ids: Readonly<Record<string, string>>;
+  readonly ids: readonly string[];
   readonly project_id: string;
   readonly expected_keys: readonly string[];
   readonly created_at: number;
@@ -1865,13 +1868,13 @@ export interface WorkbenchRunSnapshot {
   readonly error_message: string | null;
   readonly auto_mode: boolean;
   readonly phase: "planner" | "reviewer" | null;
-  readonly scope_requests: readonly ScopeRequest[];
 }
 
 export interface WorkbenchSessionEvents {
   readonly members: readonly WorkbenchMember[];
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly snapshot: WorkbenchRunSnapshot;
+  readonly scope_requests: readonly ScopeRequest[];
   readonly version: number;
 }
 
@@ -1929,9 +1932,13 @@ export interface WorkbenchInviteListAnswer {
   readonly project_ids: readonly string[] | null;
 }
 
-export interface WorkbenchInviteCreated extends WorkbenchInvite {
+export interface WorkbenchInviteCreated extends Omit<
+  WorkbenchInvite,
+  "projects" | "granted_operations"
+> {
   readonly session_id: string;
   readonly invite_token: string;
+  readonly granted_operations: readonly string[];
 }
 
 export interface WorkbenchInviteRevokeAnswer {

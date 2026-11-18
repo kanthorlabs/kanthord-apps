@@ -161,6 +161,7 @@ function mount(
           members: conversation.members ?? [HOST_MEMBER],
           run_active: runActive,
           forked_from: null,
+          scope_requests: [],
           resume_command: "pi --session ~/session.jsonl",
         }}
         enablement={ENABLEMENT}
@@ -734,8 +735,8 @@ describe("Composer", () => {
         error_message: null,
         auto_mode: true,
         phase: null,
-        scope_requests: [],
       },
+      scope_requests: [],
       version: 1,
     });
     mount();
@@ -804,8 +805,8 @@ describe("Composer", () => {
           error_message: null,
           auto_mode: true,
           phase: null,
-          scope_requests: [],
         },
+        scope_requests: [],
         version: 1,
       });
       mount("swe@1", true);

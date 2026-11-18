@@ -56,6 +56,7 @@ const SESSION: WorkbenchSession = {
   ],
   run_active: false,
   forked_from: null,
+  scope_requests: [],
   resume_command: "pi --session ~/session.jsonl",
 };
 

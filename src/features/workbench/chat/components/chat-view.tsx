@@ -62,7 +62,13 @@ export function ChatView({
   onNew,
   onForked,
 }: ChatViewProps) {
-  const events = useSessionEvents(session.id, session.entries, session.members, session.run_active);
+  const events = useSessionEvents(
+    session.id,
+    session.entries,
+    session.members,
+    session.run_active,
+    session.scope_requests,
+  );
   const mentionAgents = useMentionAgents();
   const mentionNames = useMemo(
     () => mentionAgents.agents.map((agent) => agent.displayName),
@@ -251,12 +257,8 @@ export function ChatView({
         {streamEnd}
         <ScopeRequestList
           sessionId={session.id}
-          requests={snapshot.scope_requests}
-          onResolved={(requestId) =>
-            patchSnapshot({
-              scope_requests: snapshot.scope_requests.filter((request) => request.id !== requestId),
-            })
-          }
+          requests={events.scopeRequests}
+          onResolved={events.resolveScopeRequest}
         />
       </div>
       <div className="sticky bottom-0 bg-background pt-2">

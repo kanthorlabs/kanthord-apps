@@ -1967,6 +1967,17 @@ export const ATLAS_MISSION = {
   version: 1,
 };
 
+export const ORBIT_NODES = [
+  {
+    ...graphNode("YG1", "rotate-key.md", content("Rotate the orbit key", [REPO]), {
+      state: "Executing",
+      attempt: 1,
+      pinned_by_attempts: [1],
+    }),
+    mission_id: `mission_${PROJECT_ORBIT.id}`,
+  },
+];
+
 export const ATLAS_NODES = [
   atlasNode("YF1", "examine", "checkout.md", "Checkout", {
     state: "Pending",

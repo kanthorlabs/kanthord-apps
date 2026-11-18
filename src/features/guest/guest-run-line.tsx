@@ -1,4 +1,4 @@
-import { waitingToolNameOf } from "@/lib/guest-chat";
+import { toolNameOf } from "@/lib/tool-name";
 
 interface GuestRunLineProps {
   readonly runActive: boolean;
@@ -19,7 +19,7 @@ export function GuestRunLine({ runActive, waitingOperationId }: GuestRunLineProp
       ) : (
         <span className="min-w-0 break-words">
           Waiting for the owner to approve{" "}
-          <code className="font-mono">{waitingToolNameOf(waitingOperationId)}</code>
+          <code className="font-mono">{toolNameOf(waitingOperationId)}</code>
         </span>
       )}
     </div>

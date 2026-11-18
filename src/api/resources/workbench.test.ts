@@ -469,7 +469,14 @@ describe("invites", () => {
     await serve({
       [`POST ${PATH}/invite`]: {
         status: 201,
-        body: { ...INVITE, session_id: SESSION_ID, invite_token: "invite-secret" },
+        body: {
+          id: INVITE.id,
+          session_id: SESSION_ID,
+          invitee_name: INVITE.invitee_name,
+          expires_at: INVITE.expires_at,
+          invite_token: "invite-secret",
+          granted_operations: ["mission.node.pause", "project.resume"],
+        },
       },
     });
 
@@ -485,6 +492,7 @@ describe("invites", () => {
       granted_operations: ["mission.node.pause", "project.resume"],
     });
     expect(created.invite_token).toBe("invite-secret");
+    expect(created.granted_operations).toEqual(["mission.node.pause", "project.resume"]);
   });
 
   it("lists the invites of the session", async () => {

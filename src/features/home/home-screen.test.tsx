@@ -530,6 +530,7 @@ function conversation(id: string, text: string): WorkbenchSession {
     ],
     run_active: false,
     forked_from: null,
+    scope_requests: [],
     resume_command: "pi --session ~/session.jsonl",
   };
 }
@@ -543,13 +544,12 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
   error_message: null,
   auto_mode: true,
   phase: null,
-  scope_requests: [],
 };
 
 function followEvents(snapshot: WorkbenchRunSnapshot) {
   vi.mocked(readWorkbenchEvents).mockImplementation(async (id, _after, version) =>
     version === null
-      ? { members: [hostOf(id)], entries: [], snapshot, version: 1 }
+      ? { members: [hostOf(id)], entries: [], snapshot, scope_requests: [], version: 1 }
       : new Promise(() => undefined),
   );
 }
@@ -1188,8 +1188,8 @@ describe("HomeScreen tool approval", () => {
         error_message: null,
         auto_mode: true,
         phase: null,
-        scope_requests: [],
       },
+      scope_requests: [],
       version: 1,
     });
     vi.mocked(approveWorkbenchCall).mockImplementation(async () => {
@@ -1265,7 +1265,13 @@ describe("HomeScreen Outside request", () => {
     });
     vi.mocked(readWorkbenchEvents).mockImplementation(async (id, _after, version) =>
       version === null
-        ? { members: [hostOf(id)], entries: [], snapshot: IDLE_SNAPSHOT, version: 1 }
+        ? {
+            members: [hostOf(id)],
+            entries: [],
+            snapshot: IDLE_SNAPSHOT,
+            scope_requests: [],
+            version: 1,
+          }
         : new Promise(() => undefined),
     );
     renderScreen();
@@ -2013,10 +2019,17 @@ describe("HomeScreen Ask Yumi", () => {
                 guard: null,
               },
             },
+            scope_requests: [],
             version: 1,
           }
         : version === null
-          ? { members: [hostOf(id)], entries: [], snapshot: IDLE_SNAPSHOT, version: 1 }
+          ? {
+              members: [hostOf(id)],
+              entries: [],
+              snapshot: IDLE_SNAPSHOT,
+              scope_requests: [],
+              version: 1,
+            }
           : new Promise(() => undefined),
     );
     renderScreen();

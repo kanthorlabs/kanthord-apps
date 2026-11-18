@@ -74,9 +74,11 @@ export function ShareGrantField({ name, grantable, checked, onChange }: ShareGra
       <h3 id="share-grant-heading" className="font-semibold">
         What {who} may do without your approval
       </h3>
-      <FieldDescription>
-        Nothing checked: you approve every act in a run that {who} starts.
-      </FieldDescription>
+      {checked.length === 0 && (
+        <FieldDescription>
+          Nothing checked: you approve every act in a run that {who} starts.
+        </FieldDescription>
+      )}
       {grantGroupsOf(grantable).map((group) => (
         <GrantGroupControl
           key={group.guardClass}

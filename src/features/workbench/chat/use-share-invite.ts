@@ -3,6 +3,7 @@ import { toast } from "sonner";
 
 import { createInvite, revokeInvite } from "@/api/resources/workbench";
 import {
+  type GrantableOperation,
   type GrantedOperation,
   WORKBENCH_INVITE_GRANT_INVALID,
   WORKBENCH_INVITE_PROJECT_INVALID,
@@ -13,6 +14,7 @@ import { useClipboard } from "@/hooks/use-clipboard";
 import { asApiError } from "@/hooks/use-resource";
 import { type GuestLine, guestLineOf } from "@/lib/guest-chat";
 import {
+  grantedOperationsOf,
   inviteeNameValid,
   inviteLinkOf,
   MAX_INVITE_PROJECTS,
@@ -51,6 +53,7 @@ export function useShareInvite(
   sessionId: string,
   onChanged: () => void,
   lockedProjectIds: readonly string[] | null,
+  grantable: readonly GrantableOperation[],
 ): ShareInviteState {
   const [name, setNameValue] = useState("");
   const [chosenIds, setChosenIds] = useState<readonly string[]>([]);
@@ -96,7 +99,7 @@ export function useShareInvite(
         granted_operations: [...grantedIds].sort(),
       });
       setLink(inviteLinkOf(window.location.origin, basePath(), created.invite_token, inviteeName));
-      setCreatedGrant(created.granted_operations);
+      setCreatedGrant(grantedOperationsOf(created.granted_operations, grantable));
       setNameValue("");
       setChosenIds([]);
       setGrantedIdsValue([]);
@@ -112,7 +115,7 @@ export function useShareInvite(
     } finally {
       setPending(false);
     }
-  }, [valid, pending, name, projectIds, grantedIds, sessionId, onChanged]);
+  }, [valid, pending, name, projectIds, grantedIds, grantable, sessionId, onChanged]);
 
   const revoke = useCallback(
     async (inviteId: string) => {

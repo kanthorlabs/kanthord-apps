@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { WorkbenchSessionListItem } from "@/api/types";
+import type { WorkbenchSessionListItem, WorkbenchSessionParticipantItem } from "@/api/types";
 import { DataList } from "@/components/data-list";
 import { DataListItem } from "@/components/data-list-item";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,10 @@ export function SessionsScreen() {
     useWorkbenchSessions();
   const [starting, setStarting] = useState(false);
 
-  const renderParticipant = (host: WorkbenchSessionListItem, item: WorkbenchSessionListItem) => (
+  const renderParticipant = (
+    host: WorkbenchSessionListItem,
+    item: WorkbenchSessionParticipantItem,
+  ) => (
     <DataListItem
       key={item.id}
       title={item.display_name}

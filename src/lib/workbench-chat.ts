@@ -16,6 +16,7 @@ import {
   type WorkbenchScopeStopRecord,
   type WorkbenchSessionEntry,
 } from "@/api/types";
+import { toolNameOf } from "./tool-name";
 
 export const ACTION_VERBS: Readonly<Record<WorkbenchActionOperation, string>> = {
   "mission.node.resume": "Resume",
@@ -148,7 +149,7 @@ export interface ToolCallResult {
 export type ChatItem = ChatItemBody & ChatItemOrigin;
 
 export function scopeStopLineOf(operationId: string): string {
-  return `The run ended: ${operationId.replaceAll(".", "--")} names a record that is not available in this conversation. Ask the owner if you need it.`;
+  return `The run ended: ${toolNameOf(operationId)} names a record that is not available in this conversation. Ask the owner if you need it.`;
 }
 
 type WorkbenchPhase = NonNullable<WorkbenchRunSnapshot["phase"]>;
