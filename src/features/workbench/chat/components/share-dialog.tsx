@@ -28,6 +28,7 @@ import { utcDateTime } from "@/lib/format";
 import { projectRefLabel } from "@/lib/share-invite";
 import type { InvitesState } from "../use-invites";
 import { useShareInvite } from "../use-share-invite";
+import { useShareProjects } from "../use-share-projects";
 import { InlineError } from "./inline-error";
 import { ShareProjectsField } from "./share-projects-field";
 
@@ -40,11 +41,8 @@ interface ShareDialogProps {
 export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps) {
   const [open, setOpen] = useState(false);
   const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(null);
-  const share = useShareInvite(
-    sessionId,
-    invites.reload,
-    invites.lockedProjects?.map((project) => project.id) ?? null,
-  );
+  const { lockedIds } = useShareProjects(null, invites.lockedProjects);
+  const share = useShareInvite(sessionId, invites.reload, lockedIds);
   const { reset } = share;
   const failed = share.createFailure !== null || share.revokeFailure !== null;
 
@@ -113,6 +111,7 @@ export function ShareDialog({ sessionId, forkTitle, invites }: ShareDialogProps)
                 selected={share.projectIds}
                 locked={invites.lockedProjects}
                 failure={share.projectFailure}
+                exceeded={share.projectsExceeded}
                 onChange={share.setProjectIds}
               />
               <div>

@@ -466,7 +466,7 @@ describe("GuestChat", () => {
     ["stop", "The owner stopped the run. 2 queued messages were cleared."],
     ["replace", "The owner replaced the run. 2 queued messages were cleared."],
   ] as const)("shows the queue_clear line for the %s cause", async (cause, line) => {
-    serve([entry({ kind: "queue_clear", count: 2, cause })]);
+    serve([entry({ kind: "queue_clear", count: 2, cause, text: line })]);
 
     render(<GuestChat connection={CONNECTION} />);
 
@@ -496,6 +496,35 @@ describe("GuestChat", () => {
     render(<GuestChat connection={CONNECTION} />);
 
     expect(await screen.findByText("Projects: Alpha, project_x")).toBeInTheDocument();
+  });
+
+  it("shows the approval line under the projects header", async () => {
+    serve([], IDLE, { projects: [{ id: "project_a", name: "Alpha" }] });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("The owner approves every act.")).toBeInTheDocument();
+  });
+
+  it("shows no approval line when the session has no project", async () => {
+    serve([], IDLE, { projects: [] });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    await screen.findByRole("heading", { name: "Account recovery" });
+    expect(screen.queryByText("The owner approves every act.")).not.toBeInTheDocument();
+  });
+
+  it("shows the author name only for a queued row with no addressee", async () => {
+    serve([], {
+      ...IDLE,
+      run_active: true,
+      queue: [{ id: "q1", agent_name: null, display_name: null, author_name: "Dana" }],
+    });
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("Next: Dana")).toBeInTheDocument();
   });
 
   it("shows the error box when the first read ends with a 401", async () => {

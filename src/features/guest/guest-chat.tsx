@@ -63,9 +63,12 @@ export function GuestChat({ connection }: { readonly connection: Connection }) {
         </div>
         <p className="text-sm text-muted-foreground">Shared by {session.owner_name} · guest view</p>
         {session.projects.length > 0 && (
-          <p className="text-sm break-words text-muted-foreground">
-            Projects: {session.projects.map(projectRefLabel).join(", ")}
-          </p>
+          <>
+            <p className="text-sm break-words text-muted-foreground">
+              Projects: {session.projects.map(projectRefLabel).join(", ")}
+            </p>
+            <p className="text-sm text-muted-foreground">The owner approves every act.</p>
+          </>
         )}
         <ul aria-label="Members" className="flex flex-wrap gap-2">
           {members.map((member) => (

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { WorkbenchInvite } from "@/api/types";
-import { lockedProjectsOf, projectLabelOf } from "./share-invite";
+import { lockedProjectsOf, projectCountValid, projectLabelOf } from "./share-invite";
 
 const INVITE: WorkbenchInvite = {
   id: "invite_1",
@@ -9,6 +9,17 @@ const INVITE: WorkbenchInvite = {
   expires_at: 1790000000000,
   projects: [{ id: "project_a", name: "Alpha" }],
 };
+
+describe("projectCountValid", () => {
+  it.each([
+    [0, false],
+    [1, true],
+    [50, true],
+    [51, false],
+  ])("answers %i projects with %s", (count, valid) => {
+    expect(projectCountValid(count)).toBe(valid);
+  });
+});
 
 describe("projectLabelOf", () => {
   it("names a listed project and falls back to the id", () => {

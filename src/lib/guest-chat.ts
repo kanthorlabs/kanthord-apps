@@ -1,6 +1,7 @@
 import type {
   WorkbenchGuestBlock,
   WorkbenchGuestEntry,
+  WorkbenchGuestQueueItem,
   WorkbenchGuestState,
   WorkbenchMember,
 } from "@/api/types";
@@ -8,9 +9,9 @@ import { type ChatItem, type ChatItemOrigin, memberOf } from "./workbench-chat";
 
 export const GUEST_NOTE_HINT = "Note to everyone";
 
-export function queueClearSentence(count: number, cause: "stop" | "replace"): string {
-  const action = cause === "stop" ? "stopped" : "replaced";
-  return `The owner ${action} the run. ${count} queued messages were cleared.`;
+export function guestQueueRowOf(item: WorkbenchGuestQueueItem): string {
+  if (item.display_name === null) return item.author_name;
+  return `to @${item.display_name} · ${item.author_name}`;
 }
 
 export function waitingToolNameOf(operationId: string): string {
@@ -93,14 +94,28 @@ function resultsOf(entries: readonly WorkbenchGuestEntry[]): ReadonlyMap<string,
   return results;
 }
 
+function guestAuthorsOf(entries: readonly WorkbenchGuestEntry[]): ReadonlyMap<string, string> {
+  const pending = new Map<string, string>();
+  const authors = new Map<string, string>();
+  for (const entry of entries) {
+    if (entry.kind === "author") pending.set(entry.session_id, entry.author.name);
+    if (entry.kind !== "user") continue;
+    const name = pending.get(entry.session_id);
+    pending.delete(entry.session_id);
+    if (name !== undefined) authors.set(entry.id, name);
+  }
+  return authors;
+}
+
 function entryItemsOf(
   entry: WorkbenchGuestEntry,
-  previous: WorkbenchGuestEntry | undefined,
+  authors: ReadonlyMap<string, string>,
   next: WorkbenchGuestEntry | undefined,
   results: ReadonlyMap<string, string>,
   origin: ChatItemOrigin,
 ): readonly ChatItem[] {
   const { id } = entry;
+  const guest = authors.get(id);
   const timestamp = Date.parse(entry.timestamp);
   switch (entry.kind) {
     case "user":
@@ -110,12 +125,12 @@ function entryItemsOf(
           id,
           text: entry.text,
           timestamp,
-          ...(previous?.kind === "author" ? { guest: previous.author.name } : {}),
+          ...(guest === undefined ? {} : { guest }),
           ...origin,
         },
       ];
     case "queue_clear":
-      return [{ kind: "queue-clear", id, count: entry.count, cause: entry.cause, ...origin }];
+      return [{ kind: "queue-clear", id, text: entry.text, ...origin }];
     case "assistant":
       return blockItemsOf(id, entry.content, false, timestamp, origin);
     case "plan":
@@ -168,10 +183,11 @@ export function guestItemsOf(
   members: readonly WorkbenchMember[],
 ): readonly ChatItem[] {
   const results = resultsOf(entries);
+  const authors = guestAuthorsOf(entries);
   const items = entries.flatMap((entry, index) =>
     entryItemsOf(
       entry,
-      entries[index - 1],
+      authors,
       entries[index + 1],
       results,
       originOf(memberOf(members, entry.session_id)),

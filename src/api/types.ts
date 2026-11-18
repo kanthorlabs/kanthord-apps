@@ -1930,6 +1930,7 @@ export type WorkbenchGuestEntry =
       readonly kind: "queue_clear";
       readonly count: number;
       readonly cause: WorkbenchQueueClearRecord["cause"];
+      readonly text: string;
     });
 
 export interface WorkbenchGuestSession {
@@ -1945,8 +1946,8 @@ export interface WorkbenchGuestSession {
 
 export interface WorkbenchGuestQueueItem {
   readonly id: string;
-  readonly agent_name: string;
-  readonly display_name: string;
+  readonly agent_name: string | null;
+  readonly display_name: string | null;
   readonly author_name: string;
 }
 

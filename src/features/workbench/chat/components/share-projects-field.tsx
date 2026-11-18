@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/combobox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { useResource } from "@/hooks/use-resource";
-import { projectLabelOf, projectRefLabel } from "@/lib/share-invite";
+import { projectRefLabel } from "@/lib/share-invite";
+import { useShareProjects } from "../use-share-projects";
 import { InlineError } from "./inline-error";
 
+const LABEL = "Projects (required, 1 to 50)";
 const LOCKED_LINE =
   "Every invite of this conversation shares these projects. Revoke every invite to change them.";
 
@@ -27,6 +29,7 @@ interface ShareProjectsFieldProps {
   readonly selected: readonly string[];
   readonly locked: readonly WorkbenchProjectRef[] | null;
   readonly failure: GuestLine | null;
+  readonly exceeded: boolean;
   readonly onChange: (ids: readonly string[]) => void;
 }
 
@@ -34,17 +37,17 @@ export function ShareProjectsField({
   selected,
   locked,
   failure,
+  exceeded,
   onChange,
 }: ShareProjectsFieldProps) {
   const anchor = useComboboxAnchor();
   const projects = useResource(listProjects, []);
-  const listed = projects.data ?? [];
-  const labelOf = (id: string) => projectLabelOf(listed, id);
+  const { projectIds, labelOf } = useShareProjects(projects.data, locked);
 
   if (locked !== null) {
     return (
       <Field>
-        <FieldLabel>Projects</FieldLabel>
+        <FieldLabel>{LABEL}</FieldLabel>
         <ul aria-label="Projects of the live invites" className="flex flex-wrap gap-1.5">
           {locked.map((project) => (
             <li key={project.id}>
@@ -59,10 +62,10 @@ export function ShareProjectsField({
 
   return (
     <Field>
-      <FieldLabel htmlFor="share-projects">Projects</FieldLabel>
+      <FieldLabel htmlFor="share-projects">{LABEL}</FieldLabel>
       <Combobox
         multiple
-        items={listed.map((project) => project.id)}
+        items={projectIds}
         value={[...selected]}
         onValueChange={onChange}
         itemToStringLabel={labelOf}
@@ -74,7 +77,7 @@ export function ShareProjectsField({
                 {ids.map((id) => (
                   <ComboboxChip key={id}>{labelOf(id)}</ComboboxChip>
                 ))}
-                <ComboboxChipsInput id="share-projects" />
+                <ComboboxChipsInput id="share-projects" placeholder="Search projects…" />
               </>
             )}
           </ComboboxValue>
@@ -95,14 +98,15 @@ export function ShareProjectsField({
           type="button"
           variant="outline"
           size="sm"
-          disabled={listed.length === 0}
-          onClick={() => onChange(listed.map((project) => project.id))}
+          disabled={projectIds.length === 0}
+          onClick={() => onChange(projectIds)}
         >
           Select all
         </Button>
       </div>
       {projects.error !== null && <InlineError code={null} message={projects.error.message} />}
       {selected.length === 0 && <FieldDescription>Select at least one project.</FieldDescription>}
+      {exceeded && <FieldDescription>Select at most 50 projects.</FieldDescription>}
       {failure !== null && <InlineError code={failure.code} message={failure.message} />}
     </Field>
   );

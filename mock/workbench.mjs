@@ -80,6 +80,7 @@ const CLASSIFIER_GUARD = {
   confidence: 0.62,
 };
 const AUTO_MODE_OFF_GUARD = { cause: "auto_mode_off", reason: null, confidence: null };
+const GUEST_RUN_GUARD = { cause: "guest_run", reason: null, confidence: null };
 const IMPORT_GUARD = { cause: "import", reason: null, confidence: null };
 
 const textMessage = (role, text) => ({
@@ -390,10 +391,12 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
   const awaitApproval = (session, run, approval) =>
     new Promise((resolve) => {
       const state = stateOf(session);
+      const requestedBy = approval.requested_by ?? run.requested_by;
       state.pending_approval = {
         ...approval,
+        guard: requestedBy.kind === "guest" ? GUEST_RUN_GUARD : approval.guard,
         session_id: session.id,
-        requested_by: approval.requested_by ?? run.requested_by,
+        requested_by: requestedBy,
       };
       notify(session);
       run.decide = (approved) => {
@@ -1118,6 +1121,9 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     return content.length === 0 ? null : { kind: "assistant", content };
   };
 
+  const queueClearText = ({ count, cause }) =>
+    `The owner ${cause === "stop" ? "stopped" : "replaced"} the run. ${count} queued messages were cleared.`;
+
   const guestRecordBody = ({ data }) => {
     if (data?.kind === "note") {
       return {
@@ -1139,7 +1145,12 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       return { kind: "author", author: { kind: "guest", name: data.author.name } };
     }
     if (data?.kind === "queue_clear") {
-      return { kind: "queue_clear", count: data.count, cause: data.cause };
+      return {
+        kind: "queue_clear",
+        count: data.count,
+        cause: data.cause,
+        text: queueClearText(data),
+      };
     }
     return null;
   };

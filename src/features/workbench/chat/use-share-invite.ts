@@ -7,7 +7,12 @@ import { basePath } from "@/components/base-path";
 import { useClipboard } from "@/hooks/use-clipboard";
 import { asApiError } from "@/hooks/use-resource";
 import { type GuestLine, guestLineOf } from "@/lib/guest-chat";
-import { inviteeNameValid, inviteLinkOf } from "@/lib/share-invite";
+import {
+  inviteeNameValid,
+  inviteLinkOf,
+  MAX_INVITE_PROJECTS,
+  projectCountValid,
+} from "@/lib/share-invite";
 
 const PROJECT_FAILURE_CODES: readonly string[] = [
   WORKBENCH_INVITE_PROJECT_INVALID,
@@ -18,6 +23,7 @@ export interface ShareInviteState {
   readonly name: string;
   readonly projectIds: readonly string[];
   readonly valid: boolean;
+  readonly projectsExceeded: boolean;
   readonly link: string | null;
   readonly pending: boolean;
   readonly createFailure: GuestLine | null;
@@ -46,7 +52,8 @@ export function useShareInvite(
   const [revokeFailure, setRevokeFailure] = useState<ShareInviteState["revokeFailure"]>(null);
   const write = useClipboard();
   const projectIds = lockedProjectIds ?? chosenIds;
-  const valid = inviteeNameValid(name) && projectIds.length > 0;
+  const valid = inviteeNameValid(name) && projectCountValid(projectIds.length);
+  const projectsExceeded = projectIds.length > MAX_INVITE_PROJECTS;
   const projectFailure =
     failure?.code != null && PROJECT_FAILURE_CODES.includes(failure.code) ? failure : null;
   const createFailure = projectFailure === null ? failure : null;
@@ -118,6 +125,7 @@ export function useShareInvite(
     name,
     projectIds,
     valid,
+    projectsExceeded,
     link,
     pending,
     createFailure,

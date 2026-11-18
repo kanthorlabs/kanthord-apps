@@ -2,11 +2,16 @@ import type { WorkbenchInvite, WorkbenchProjectRef } from "@/api/types";
 import type { ChatItem } from "./workbench-chat";
 
 const NAME_MAX_CHARACTERS = 64;
+export const MAX_INVITE_PROJECTS = 50;
 const NO_FORK_TITLE = "an earlier conversation";
 
 export function inviteeNameValid(name: string): boolean {
   const trimmed = name.trim();
   return trimmed !== "" && [...trimmed].length <= NAME_MAX_CHARACTERS;
+}
+
+export function projectCountValid(count: number): boolean {
+  return count >= 1 && count <= MAX_INVITE_PROJECTS;
 }
 
 export function projectRefLabel(project: WorkbenchProjectRef): string {

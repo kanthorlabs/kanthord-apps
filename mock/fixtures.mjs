@@ -2688,7 +2688,7 @@ export const WORKBENCH_SESSIONS = [
       operation_id: "project.create",
       requested_by: { kind: "guest", name: "Dana Lee" },
       input: { name: "account-recovery" },
-      guard: { cause: "auto_mode_off", reason: null, confidence: null },
+      guard: { cause: "guest_run", reason: null, confidence: null },
     },
     entries: [
       {
