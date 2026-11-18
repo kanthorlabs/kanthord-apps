@@ -474,6 +474,41 @@ describe("GuestChat", () => {
     expect(await screen.findByText(line)).toBeInTheDocument();
   });
 
+  it("shows a projected notice with the header and the rows and no Open project link", async () => {
+    serve([
+      entry({
+        kind: "notice",
+        watch_entry_id: "watch_1",
+        projects: [
+          {
+            name: "shop",
+            nodes: [
+              {
+                node_id: "node_1",
+                name: "Add retry",
+                state: "Completed",
+                ended_at: 1_794_405_900_000,
+              },
+              {
+                node_id: "node_2",
+                name: "Drop cache",
+                state: "Discarded",
+                ended_at: 1_794_405_960_000,
+              },
+            ],
+          },
+        ],
+      }),
+    ]);
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    expect(await screen.findByText("shop · 1 Completed, 1 Discarded")).toBeInTheDocument();
+    expect(screen.getByText("Add retry")).toBeInTheDocument();
+    expect(screen.getByText("Drop cache")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open project" })).not.toBeInTheDocument();
+  });
+
   it("labels a user message that an author record precedes with the guest name", async () => {
     serve([
       entry({ kind: "author", author: { kind: "guest", name: "Dana" } }),

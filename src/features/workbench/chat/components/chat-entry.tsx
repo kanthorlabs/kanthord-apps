@@ -12,6 +12,7 @@ import { EvidenceRow } from "./evidence-row";
 import { ForkEntry } from "./fork-entry";
 import { GuestActionEntry } from "./guest-action-entry";
 import { NoteEntry } from "./note-entry";
+import { NoticeRecord } from "./notice-record";
 import { PhaseGroupEntry } from "./phase-group-entry";
 import { QueueClearEntry } from "./queue-clear-entry";
 import { ScopeStopEntry } from "./scope-stop-entry";
@@ -153,7 +154,7 @@ export function ChatEntry({
 
   if (item.kind === "plan") return <PlanEntry item={item} />;
 
-  if (item.kind === "notice") return null;
+  if (item.kind === "notice") return <NoticeRecord notice={item.notice} />;
 
   if (item.kind === "phase-group") {
     return (

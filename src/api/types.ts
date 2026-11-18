@@ -2034,7 +2034,8 @@ export type WorkbenchGuestEntry =
       readonly count: number;
       readonly cause: WorkbenchQueueClearRecord["cause"];
       readonly text: string;
-    });
+    })
+  | (WorkbenchGuestEntryBase & WorkbenchNoticeRecord);
 
 export interface WorkbenchGuestSession {
   readonly session_id: string;
