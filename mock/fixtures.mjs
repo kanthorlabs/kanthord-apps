@@ -2932,6 +2932,70 @@ export const WORKBENCH_SESSIONS = [
       },
     ],
   },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0NT1",
+    agent_name: "swe@1",
+    name: "Release plan",
+    created: SESSION_BASE + 6 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000601",
+        parentId: null,
+        timestamp: entryAt(8000),
+        message: { role: "user", content: "Watch the shop nodes and tell me when they end." },
+      },
+      {
+        type: "message",
+        id: "e0000602",
+        parentId: "e0000601",
+        timestamp: entryAt(8001),
+        message: textMessage("assistant", "I watch the nodes of the shop project."),
+      },
+      {
+        type: "custom",
+        id: "e0000603",
+        parentId: "e0000602",
+        timestamp: entryAt(8002),
+        customType: "kanthord.workbench.record",
+        data: {
+          kind: "notice",
+          watch_entry_id: "e0000602",
+          projects: [
+            {
+              project_id: PROJECT_ATLAS.id,
+              name: "shop",
+              nodes: [
+                {
+                  node_id: "node_01J9ZQ4XKM3B6V8N2R5T7W0NT1",
+                  name: "Add cart totals",
+                  state: "Completed",
+                  ended_at: SESSION_BASE + 8000 * 60000,
+                },
+                {
+                  node_id: "node_01J9ZQ4XKM3B6V8N2R5T7W0NT2",
+                  name: "Add the discount code",
+                  state: "Completed",
+                  ended_at: SESSION_BASE + 8001 * 60000,
+                },
+                {
+                  node_id: "node_01J9ZQ4XKM3B6V8N2R5T7W0NT3",
+                  name: "Drop the legacy checkout",
+                  state: "Discarded",
+                  ended_at: SESSION_BASE + 8002 * 60000,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  },
   ...GUARD_SESSIONS,
 ];
 

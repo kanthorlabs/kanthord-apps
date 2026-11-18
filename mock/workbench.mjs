@@ -814,6 +814,30 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     return false;
   };
 
+  const noticeStats = (nodes) =>
+    ["Completed", "Discarded"]
+      .map((state) => [state, nodes.filter((node) => node.state === state).length])
+      .filter(([, count]) => count > 0)
+      .map(([state, count]) => `${count} ${state}`)
+      .join(", ");
+
+  const noticeOf = (entries) => {
+    const at = entries.findLastIndex(
+      (entry) =>
+        entry.type === "custom" &&
+        entry.customType === RECORD_TYPE &&
+        entry.data?.kind === "notice",
+    );
+    if (at === -1) return null;
+    const answered = entries
+      .slice(at + 1)
+      .some((entry) => entry.type === "message" && entry.message.role === "user");
+    if (answered) return null;
+    return entries[at].data.projects
+      .map((project) => `${project.name} · ${noticeStats(project.nodes)}`)
+      .join("; ");
+  };
+
   const participantItemOf = (session) => {
     const isHost = !session.host_session_id;
     const entries = isHost ? conversationEntriesOf(session) : session.entries;
@@ -840,6 +864,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
               operation_id: state.pending_approval.operation_id,
             }
           : null,
+      notice: isHost ? noticeOf(entries) : null,
       participants: [],
     };
   };
@@ -1256,6 +1281,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       };
     }
     if (data?.kind === "fork") return { kind: "fork", source_title: data.source_title };
+    if (data?.kind === "notice") {
+      return {
+        kind: "notice",
+        watch_entry_id: data.watch_entry_id,
+        projects: data.projects.map(({ name, nodes }) => ({ name, nodes })),
+      };
+    }
     if (data?.kind === "author") {
       return { kind: "author", author: { kind: "guest", name: data.author.name } };
     }
