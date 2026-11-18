@@ -829,9 +829,17 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
         entry.data?.kind === "notice",
     );
     if (at === -1) return null;
-    const answered = entries
-      .slice(at + 1)
-      .some((entry) => entry.type === "message" && entry.message.role === "user");
+    const guestAuthored = (index) =>
+      entries[index - 1]?.type === "custom" &&
+      entries[index - 1].customType === RECORD_TYPE &&
+      entries[index - 1].data?.kind === "author";
+    const answered = entries.some(
+      (entry, index) =>
+        index > at &&
+        entry.type === "message" &&
+        entry.message.role === "user" &&
+        !guestAuthored(index),
+    );
     if (answered) return null;
     return entries[at].data.projects
       .map((project) => `${project.name} · ${noticeStats(project.nodes)}`)
