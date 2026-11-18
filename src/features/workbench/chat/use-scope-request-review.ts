@@ -81,8 +81,7 @@ export function useScopeRequestReview(
     ready && available && (!needsMission || missionVersion !== null)
       ? expectedOf(request.expected_keys, {
           missionVersion,
-          node:
-            nodes.data?.find((node) => node.id === request.target_id) ?? nodes.data?.[0] ?? null,
+          node: nodes.data?.find((node) => node.id === request.target_id) ?? null,
         })
       : null;
   const canApprove =
