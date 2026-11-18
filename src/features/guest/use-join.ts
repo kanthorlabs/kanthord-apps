@@ -40,7 +40,7 @@ function failureOf(error: ApiError): JoinFailure {
 }
 
 export function useJoin(token: string): JoinState {
-  const session = useGuestSession();
+  const session = useGuestSession(false);
   const { store } = session;
   const [name, setNameValue] = useState(nameFromFragment);
   const [nameError, setNameError] = useState<JoinFailure | string | null>(null);
@@ -58,8 +58,8 @@ export function useJoin(token: string): JoinState {
   }, []);
 
   const submit = useCallback(async () => {
-    const trimmed = name.trim();
-    if (trimmed === "" || [...trimmed].length > NAME_MAX_CHARACTERS) {
+    const trimmed = name.trim().normalize("NFC");
+    if (trimmed === "" || trimmed.length > NAME_MAX_CHARACTERS) {
       setNameError(NAME_REQUIRED);
       return;
     }

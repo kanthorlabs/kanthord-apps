@@ -161,7 +161,26 @@ describe("useGuestStream", () => {
     expect(result.current.state?.display_name).toBeNull();
   });
 
+  it("removes the stored guest session on a 401 invite_ended and keeps the error line", async () => {
+    window.sessionStorage.setItem("kanthord.guest", "{}");
+    readMock.mockRejectedValue(
+      new ApiError(
+        "unauthorized",
+        "The invite of this guest ended.",
+        401,
+        "gateway.jwt.invite_ended",
+      ),
+    );
+
+    const { result } = renderHook(() => useGuestStream(CONNECTION));
+    await advance(0);
+
+    expect(window.sessionStorage.getItem("kanthord.guest")).toBeNull();
+    expect(result.current.failure?.code).toBe("gateway.jwt.invite_ended");
+  });
+
   it("stops on a 401 with no further request", async () => {
+    window.sessionStorage.setItem("kanthord.guest", "{}");
     readMock.mockResolvedValue(session([]));
     openStreamMock.mockImplementation(() => {
       throw new ApiError(
@@ -177,6 +196,7 @@ describe("useGuestStream", () => {
     await advance(10_000);
 
     expect(openStreamMock).toHaveBeenCalledTimes(1);
+    expect(window.sessionStorage.getItem("kanthord.guest")).toBeNull();
     expect(result.current.failure).toEqual({
       code: "gateway.jwt.invite_ended",
       message: "The invite of this guest ended.",

@@ -147,6 +147,19 @@ describe("JoinScreen", () => {
     expect(sent).toHaveLength(0);
   });
 
+  it("counts the name after trim and NFC, as the engine does", async () => {
+    renderJoin();
+    const field = screen.getByLabelText(NAME_LABEL);
+    await userEvent.clear(field);
+    await userEvent.click(field);
+    await userEvent.paste(` ${"é".repeat(64)} `);
+
+    await userEvent.click(screen.getByRole("button", { name: "Join" }));
+
+    expect(await screen.findByText("Guest chat")).toBeInTheDocument();
+    expect(JSON.parse(sent[0]!.body)).toEqual({ invite_token: INVITE, name: "é".repeat(64) });
+  });
+
   it("shows one error line under the form for an unknown invite", async () => {
     vi.stubGlobal(
       "fetch",
@@ -179,6 +192,24 @@ describe("JoinScreen", () => {
     expect(line).toHaveTextContent("workbench.invite.name_invalid The name is not valid.");
     expect(screen.getByLabelText(NAME_LABEL)).toHaveAttribute("aria-invalid", "true");
     expect(screen.getByLabelText(NAME_LABEL).parentElement).toContainElement(line);
+  });
+});
+
+describe("JoinScreen with a stored session", () => {
+  it("shows the join form for the token of the link and keeps the stored session until the join answers", async () => {
+    const ENDED = { ...JOINED, guest_token: "ended-guest-credential" };
+    window.sessionStorage.setItem("kanthord.guest", JSON.stringify(ENDED));
+
+    renderJoin();
+
+    expect(screen.getByRole("form", { name: "Join" })).toBeInTheDocument();
+    expect(screen.queryByText("Guest chat")).not.toBeInTheDocument();
+    expect(JSON.parse(window.sessionStorage.getItem("kanthord.guest") ?? "null")).toEqual(ENDED);
+
+    await userEvent.click(screen.getByRole("button", { name: "Join" }));
+
+    expect(await screen.findByText("Guest chat")).toBeInTheDocument();
+    expect(JSON.parse(window.sessionStorage.getItem("kanthord.guest") ?? "null")).toEqual(JOINED);
   });
 });
 

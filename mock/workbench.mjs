@@ -1160,8 +1160,12 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
 
   const publicInvite = ({ id, invitee_name, expires_at }) => ({ id, invitee_name, expires_at });
 
-  const validInviteeName = (name) =>
-    typeof name === "string" && name.trim() !== "" && name.length <= GUEST_NAME_MAX_CHARS;
+  const normalizedName = (name) => (typeof name === "string" ? name.trim().normalize("NFC") : null);
+
+  const validInviteeName = (name) => {
+    const normalized = normalizedName(name);
+    return normalized !== null && normalized !== "" && normalized.length <= GUEST_NAME_MAX_CHARS;
+  };
 
   on("POST", /^\/api\/workbench\/session\/([^/]+)\/invite$/, (m, body, res) => {
     const session = findHost(res, m[1]);
@@ -1177,7 +1181,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     const invite = {
       id: `workbench_invite_0${randomTail()}`,
       session_id: session.id,
-      invitee_name: body.invitee_name.trim(),
+      invitee_name: normalizedName(body.invitee_name),
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
       invite_token: randomUUID(),
     };
@@ -1226,7 +1230,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, origin
     const guest = {
       guest_token: `mock-guest-${randomTail()}`,
       guest_id: `guest_0${randomTail()}`,
-      name: body.name.trim(),
+      name: normalizedName(body.name),
       session_id: invite.session_id,
       expires_at: invite.expires_at,
       invite_id: invite.id,
