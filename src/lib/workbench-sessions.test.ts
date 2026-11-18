@@ -17,6 +17,7 @@ function item(id: string, modified: number, patch: Partial<WorkbenchSessionListI
     run_active: false,
     forked_from: null,
     pending_approval: null,
+    scope_requests: 0,
     participants: [],
     ...patch,
   };

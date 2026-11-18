@@ -72,7 +72,7 @@ function project(pausedAt: number | null): Project {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(listInvites).mockResolvedValue({ items: [], grantable: [], project_ids: null });
   vi.mocked(readWorkbenchEvents).mockImplementation(() => new Promise(() => undefined));
   vi.mocked(listAgents).mockResolvedValue([]);
   vi.mocked(listAgentProviderModels).mockResolvedValue([

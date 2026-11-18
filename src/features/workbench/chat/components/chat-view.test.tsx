@@ -42,6 +42,7 @@ const IDLE: WorkbenchRunSnapshot = {
   error_message: null,
   auto_mode: true,
   phase: null,
+  scope_requests: [],
 };
 
 const ENABLEMENT: AgentEnablement = {
@@ -122,7 +123,11 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+    items: [],
+    grantable: [],
+    project_ids: null,
+  });
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
@@ -1280,6 +1285,7 @@ describe("ChatView plan and phases", () => {
       invitee_name: "Dana",
       expires_at: 1790000000000,
       projects: [],
+      granted_operations: [],
     };
     const RUN_ANSWER = {
       kind: "run",
@@ -1304,7 +1310,11 @@ describe("ChatView plan and phases", () => {
     }
 
     beforeEach(() => {
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [INVITE], project_ids: [] });
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+        items: [INVITE],
+        grantable: [],
+        project_ids: [],
+      });
     });
 
     it("clears the composer on an untagged note and shows the note with no running item", async () => {
@@ -1356,8 +1366,8 @@ describe("ChatView plan and phases", () => {
     it("reads the invite list again when a note answers an unshared conversation", async () => {
       pollQueue();
       vi.mocked(workbenchApi.listInvites)
-        .mockResolvedValueOnce({ items: [], project_ids: null })
-        .mockResolvedValue({ items: [INVITE], project_ids: [] });
+        .mockResolvedValueOnce({ items: [], grantable: [], project_ids: null })
+        .mockResolvedValue({ items: [INVITE], grantable: [], project_ids: [] });
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         kind: "note",
         session_id: SESSION_ID,
@@ -1376,7 +1386,11 @@ describe("ChatView plan and phases", () => {
   describe("the Share button", () => {
     it("shows in the header of a session", async () => {
       pollQueue();
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+        items: [],
+        grantable: [],
+        project_ids: null,
+      });
       mount(session());
 
       expect(await screen.findByRole("button", { name: "Share" })).toBeTruthy();

@@ -8,6 +8,7 @@ const INVITE: WorkbenchInvite = {
   invitee_name: "Dana",
   expires_at: 1790000000000,
   projects: [{ id: "project_a", name: "Alpha" }],
+  granted_operations: [],
 };
 
 describe("projectCountValid", () => {

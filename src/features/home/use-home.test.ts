@@ -64,6 +64,7 @@ function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): Workbe
     run_active: false,
     forked_from: null,
     pending_approval: null,
+    scope_requests: 0,
     participants: [],
     ...patch,
   };

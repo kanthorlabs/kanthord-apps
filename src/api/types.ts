@@ -1622,6 +1622,7 @@ export interface WorkbenchSessionListItem {
   readonly run_active: boolean;
   readonly forked_from: string | null;
   readonly pending_approval: WorkbenchPendingApprovalSummary | null;
+  readonly scope_requests: number;
   readonly participants: readonly WorkbenchSessionListItem[];
 }
 
@@ -1676,6 +1677,16 @@ export interface WorkbenchGuardRecord {
   readonly tool_call_id: string;
   readonly operation_id: string;
   readonly reason: string;
+  readonly grant?: {
+    readonly invite_id: string;
+    readonly author: WorkbenchAuthorRecord["author"];
+  };
+}
+
+export interface WorkbenchScopeStopRecord {
+  readonly kind: "scope_stop";
+  readonly tool_call_id: string;
+  readonly operation_id: string;
 }
 
 export interface WorkbenchAutoModeRecord {
@@ -1702,6 +1713,7 @@ export interface WorkbenchQueueClearRecord {
 export type WorkbenchRecord =
   | WorkbenchActionOffer
   | WorkbenchGuardRecord
+  | WorkbenchScopeStopRecord
   | WorkbenchAutoModeRecord
   | WorkbenchForkRecord
   | WorkbenchAuthorRecord
@@ -1808,6 +1820,40 @@ export interface WorkbenchQueuedMessage {
 
 export type WorkbenchMessageDelivery = "queue" | "replace";
 
+export interface ScopeRequest {
+  readonly id: string;
+  readonly invite_id: string;
+  readonly invitee_name: string;
+  readonly guest_name: string;
+  readonly agent_name: string;
+  readonly operation_id: string;
+  readonly description: string;
+  readonly input: Readonly<Record<string, unknown>>;
+  readonly target_id: string;
+  readonly ids: Readonly<Record<string, unknown>>;
+  readonly project_id: string;
+  readonly expected_keys: readonly string[];
+  readonly created_at: number;
+  readonly expires_at: number;
+  readonly state: "open" | "running";
+  readonly error_code: string | null;
+}
+
+export interface ScopeRequestApproveBody {
+  readonly project_name: string;
+  readonly expected: Readonly<Record<string, number | string>>;
+}
+
+export interface ScopeRequestApproveResult {
+  readonly request_id: string;
+  readonly outcome: "done" | "failed";
+  readonly error_code: string | null;
+}
+
+export interface ScopeRequestRejectResult {
+  readonly request_id: string;
+}
+
 export interface WorkbenchRunSnapshot {
   readonly streaming_message: Readonly<Record<string, unknown>> | null;
   readonly pending_tool_calls: readonly string[];
@@ -1817,6 +1863,7 @@ export interface WorkbenchRunSnapshot {
   readonly error_message: string | null;
   readonly auto_mode: boolean;
   readonly phase: "planner" | "reviewer" | null;
+  readonly scope_requests: readonly ScopeRequest[];
 }
 
 export interface WorkbenchSessionEvents {
@@ -1847,9 +1894,23 @@ export interface WorkbenchProjectRef {
   readonly name: string | null;
 }
 
+export type GuardClass = "read" | "reversible" | "judged" | "card";
+
+export interface GrantedOperation {
+  readonly operation_id: string;
+  readonly guard_class: GuardClass;
+}
+
+export interface GrantableOperation {
+  readonly operation_id: string;
+  readonly guard_class: GuardClass;
+  readonly description: string;
+}
+
 export interface WorkbenchInviteCreateBody {
   readonly invitee_name: string;
   readonly project_ids: readonly string[];
+  readonly granted_operations: readonly string[];
 }
 
 export interface WorkbenchInvite {
@@ -1857,10 +1918,12 @@ export interface WorkbenchInvite {
   readonly invitee_name: string;
   readonly expires_at: number;
   readonly projects: readonly WorkbenchProjectRef[];
+  readonly granted_operations: readonly GrantedOperation[];
 }
 
 export interface WorkbenchInviteListAnswer {
   readonly items: readonly WorkbenchInvite[];
+  readonly grantable: readonly GrantableOperation[];
   readonly project_ids: readonly string[] | null;
 }
 
@@ -1941,6 +2004,7 @@ export interface WorkbenchGuestSession {
   readonly entries: readonly WorkbenchGuestEntry[];
   readonly run_active: boolean;
   readonly projects: readonly WorkbenchProjectRef[];
+  readonly granted_operations: readonly GrantedOperation[];
   readonly mention_names: readonly string[];
 }
 

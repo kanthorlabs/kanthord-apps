@@ -185,6 +185,7 @@ function eventsWith(queue: readonly WorkbenchQueuedMessage[]): WorkbenchSessionE
       error_message: null,
       auto_mode: true,
       phase: null,
+      scope_requests: [],
     },
     version: 1,
   };
@@ -239,7 +240,11 @@ const box = () => screen.getByRole("combobox", { name: "Message" });
 describe("queued messages in the chat", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+    vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+      items: [],
+      grantable: [],
+      project_ids: null,
+    });
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
       () => new Promise(() => undefined),
     );

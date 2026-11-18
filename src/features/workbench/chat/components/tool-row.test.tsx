@@ -17,6 +17,7 @@ const IDLE: WorkbenchRunSnapshot = {
   error_message: null,
   auto_mode: true,
   phase: null,
+  scope_requests: [],
 };
 
 const AUTHORS = { ownerName: "Owner" };

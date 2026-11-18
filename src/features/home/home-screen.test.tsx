@@ -543,6 +543,7 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
   error_message: null,
   auto_mode: true,
   phase: null,
+  scope_requests: [],
 };
 
 function followEvents(snapshot: WorkbenchRunSnapshot) {
@@ -753,6 +754,7 @@ function session(
     run_active: true,
     forked_from: null,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+    scope_requests: 0,
     participants: [],
     ...patch,
   };
@@ -811,7 +813,7 @@ async function press(user: ReturnType<typeof userEvent.setup>, name: string | Re
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(listInvites).mockResolvedValue({ items: [], grantable: [], project_ids: null });
   NOW = Date.now();
 });
 
@@ -1186,6 +1188,7 @@ describe("HomeScreen tool approval", () => {
         error_message: null,
         auto_mode: true,
         phase: null,
+        scope_requests: [],
       },
       version: 1,
     });
@@ -1326,6 +1329,7 @@ function opsSession(
     run_active: false,
     forked_from: null,
     pending_approval: null,
+    scope_requests: 0,
     participants: [],
     ...patch,
   });

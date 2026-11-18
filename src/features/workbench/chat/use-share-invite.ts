@@ -77,6 +77,7 @@ export function useShareInvite(
       const created = await createInvite(sessionId, {
         invitee_name: inviteeName,
         project_ids: [...projectIds].sort(),
+        granted_operations: [],
       });
       setLink(inviteLinkOf(window.location.origin, basePath(), created.invite_token, inviteeName));
       setNameValue("");

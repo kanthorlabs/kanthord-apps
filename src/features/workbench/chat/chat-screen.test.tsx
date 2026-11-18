@@ -125,7 +125,11 @@ function mountNew(query: URLSearchParams = NEW_QUERY) {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+    items: [],
+    grantable: [],
+    project_ids: null,
+  });
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
   );

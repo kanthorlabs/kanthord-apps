@@ -172,7 +172,11 @@ function mount(
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+    items: [],
+    grantable: [],
+    project_ids: null,
+  });
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
   );
@@ -730,6 +734,7 @@ describe("Composer", () => {
         error_message: null,
         auto_mode: true,
         phase: null,
+        scope_requests: [],
       },
       version: 1,
     });
@@ -799,6 +804,7 @@ describe("Composer", () => {
           error_message: null,
           auto_mode: true,
           phase: null,
+          scope_requests: [],
         },
         version: 1,
       });
@@ -1215,6 +1221,7 @@ describe("Composer", () => {
       invitee_name: "Dana",
       expires_at: 1790000000000,
       projects: [],
+      granted_operations: [],
     };
     const BRIEF_TEXT = "Report the system status and the actions that need me.";
     const HEALTH_TEXT = "Check the health of the gateway and the providers.";
@@ -1228,7 +1235,11 @@ describe("Composer", () => {
     } as const;
 
     beforeEach(() => {
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [INVITE], project_ids: [] });
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+        items: [INVITE],
+        grantable: [],
+        project_ids: [],
+      });
     });
 
     it("shows the note placeholder in the composer", async () => {

@@ -74,6 +74,7 @@ function session(
     entries,
     run_active: false,
     projects: [],
+    granted_operations: [],
     mention_names: [],
     ...fields,
   };

@@ -129,6 +129,7 @@ describe("workbench mock plan run", () => {
       daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, {
         invitee_name: name,
         project_ids: ["project_a"],
+        granted_operations: [],
       });
 
     it("accepts a 64-character name with spaces around it and stores it trimmed", () => {

@@ -29,6 +29,7 @@ const DANA_INVITE = {
   invitee_name: "Dana",
   expires_at: EXPIRES_AT,
   projects: [ALPHA_PROJECT],
+  granted_operations: [],
 };
 
 const PROJECTS = [
@@ -129,6 +130,7 @@ describe("ShareDialog", () => {
       invitee_name: "Dana Lee & Co",
       expires_at: EXPIRES_AT,
       projects: [],
+      granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
     await open();
@@ -141,6 +143,7 @@ describe("ShareDialog", () => {
     expect(createMock).toHaveBeenCalledWith(SESSION_ID, {
       invitee_name: "Dana Lee & Co",
       project_ids: ["project_a", "project_b", "project_c"],
+      granted_operations: [],
     });
     expect(link).toHaveValue(
       `${window.location.origin}/join/${INVITE_TOKEN}#name=Dana%20Lee%20%26%20Co`,
@@ -156,6 +159,7 @@ describe("ShareDialog", () => {
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
       projects: [],
+      granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
     const dialog = await open();
@@ -183,6 +187,7 @@ describe("ShareDialog", () => {
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
       projects: [],
+      granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
     await open();
@@ -285,6 +290,7 @@ describe("ShareDialog", () => {
               { id: "project_a", name: "Alpha" },
               { id: "project_x", name: null },
             ],
+            granted_operations: [],
           },
         ],
       ),
@@ -358,6 +364,7 @@ describe("ShareDialog", () => {
             invitee_name: "Sam",
             expires_at: EXPIRES_AT + 3_600_000,
             projects: [ALPHA_PROJECT],
+            granted_operations: [],
           },
         ],
       ),
@@ -387,6 +394,7 @@ describe("ShareDialog", () => {
               { id: "project_a", name: "Alpha" },
               { id: "project_x", name: null },
             ],
+            granted_operations: [],
           },
         ],
       ),

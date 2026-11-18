@@ -46,6 +46,7 @@ function idleSnapshot(runActive: boolean): WorkbenchRunSnapshot {
     error_message: null,
     auto_mode: true,
     phase: null,
+    scope_requests: [],
   };
 }
 

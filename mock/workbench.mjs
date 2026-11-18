@@ -48,6 +48,31 @@ const FORK_FRAME =
 const FORK_TEXT_MAX_BYTES = 4096;
 const FORK_TITLE_MAX_CHARS = 120;
 const FORK_SUMMARY = "The earlier conversation listed the nodes of the mission and ended there.";
+const GRANTABLE_OPERATIONS = [
+  {
+    operation_id: "mission.node.discard",
+    guard_class: "card",
+    description: "Discard a node of a mission.",
+  },
+  {
+    operation_id: "mission.node.list",
+    guard_class: "read",
+    description: "List the nodes of a mission.",
+  },
+  {
+    operation_id: "mission.node.pause",
+    guard_class: "reversible",
+    description: "Pause a node of a mission.",
+  },
+  {
+    operation_id: "project.create",
+    guard_class: "judged",
+    description: "Create a project.",
+  },
+];
+const SCOPE_REQUEST_TTL_MS = 10 * 60 * 1000;
+const SCOPE_REQUEST_OPERATION = "mission.node.discard";
+const SCOPE_REQUEST_EXPECTED_KEYS = ["attempt", "state"];
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const randomTail = () => {
@@ -269,6 +294,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       error_message: state.error_message,
       auto_mode: state.auto_mode,
       phase: state.phase,
+      scope_requests: scopeRequestsOf(session),
     };
   };
 
@@ -743,6 +769,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
               operation_id: state.pending_approval.operation_id,
             }
           : null,
+      scope_requests: isHost ? scopeRequestsOf(session).length : 0,
       participants: isHost ? participantsOf(session).map(listItemOf) : [],
     };
   };
@@ -1223,12 +1250,71 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     };
   };
 
-  const publicInvite = ({ id, invitee_name, expires_at, project_ids }) => ({
+  const grantedOperationsOf = (operationIds) =>
+    GRANTABLE_OPERATIONS.filter((operation) => operationIds.includes(operation.operation_id)).map(
+      ({ operation_id, guard_class }) => ({ operation_id, guard_class }),
+    );
+
+  const publicInvite = ({ id, invitee_name, expires_at, project_ids, granted_operations }) => ({
     id,
     invitee_name,
     expires_at,
     projects: project_ids.map(projectRefOf),
+    granted_operations: grantedOperationsOf(granted_operations),
   });
+
+  const scopeRequestsByHost = new Map();
+
+  const newScopeRequest = (host, invite) => ({
+    id: `workbench_scope_request_0${randomTail()}`,
+    invite_id: invite.id,
+    invitee_name: invite.invitee_name,
+    guest_name: invite.invitee_name,
+    agent_name: host.agent_name,
+    operation_id: SCOPE_REQUEST_OPERATION,
+    description: GRANTABLE_OPERATIONS.find(
+      (operation) => operation.operation_id === SCOPE_REQUEST_OPERATION,
+    ).description,
+    input: { node_id: OFFER_NODE_ID },
+    target_id: OFFER_NODE_ID,
+    ids: { node_id: OFFER_NODE_ID },
+    project_id: PROJECT.id,
+    expected_keys: SCOPE_REQUEST_EXPECTED_KEYS,
+    created_at: Date.now(),
+    expires_at: Date.now() + SCOPE_REQUEST_TTL_MS,
+    state: "open",
+    error_code: null,
+  });
+
+  function scopeRequestsOf(host) {
+    const invite = liveInvites(host)[0];
+    if (invite === undefined) return [];
+    if (!scopeRequestsByHost.has(host.id)) {
+      scopeRequestsByHost.set(host.id, [newScopeRequest(host, invite)]);
+    }
+    return scopeRequestsByHost.get(host.id).filter((request) => invites.has(request.invite_id));
+  }
+
+  const findScopeRequest = (res, host, requestId) => {
+    const request = scopeRequestsOf(host).find(
+      (candidate) => candidate.id === decodeURIComponent(requestId),
+    );
+    if (request === undefined) {
+      envelope(
+        res,
+        404,
+        "workbench.scope_request.not_found",
+        "The workbench session holds no scope request with that id.",
+      );
+    }
+    return request;
+  };
+
+  const removeScopeRequest = (host, request) => {
+    const requests = scopeRequestsByHost.get(host.id);
+    requests.splice(requests.indexOf(request), 1);
+    notify(host);
+  };
 
   const liveProjectIds = (host) => liveInvites(host)[0]?.project_ids ?? null;
 
@@ -1266,6 +1352,19 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
         "The invite needs at least one existing project, with no repeat.",
       );
     }
+    const grantableIds = GRANTABLE_OPERATIONS.map((operation) => operation.operation_id);
+    const refusedIds = Array.isArray(body?.granted_operations)
+      ? body.granted_operations.filter((id) => !grantableIds.includes(id))
+      : null;
+    if (refusedIds === null || refusedIds.length > 0) {
+      return envelope(
+        res,
+        400,
+        "workbench.invite.grant_invalid",
+        "The invite grants an operation that the owner cannot grant.",
+        refusedIds ?? [],
+      );
+    }
     const projectIds = [...body.project_ids].sort();
     const liveIds = liveProjectIds(session);
     if (liveIds !== null && !sameIds(liveIds, projectIds)) {
@@ -1280,6 +1379,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       id: `workbench_invite_0${randomTail()}`,
       session_id: session.id,
       project_ids: projectIds,
+      granted_operations: [...new Set(body.granted_operations)].sort(),
       invitee_name: normalizedName(body.invitee_name),
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
       invite_token: randomUUID(),
@@ -1297,9 +1397,57 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     if (session === undefined) return;
     return json(res, 200, {
       items: liveInvites(session).map(publicInvite),
+      grantable: GRANTABLE_OPERATIONS,
       project_ids: liveProjectIds(session),
     });
   });
+
+  const expectedMatches = (expected, keys) =>
+    expected !== null &&
+    typeof expected === "object" &&
+    Object.keys(expected).sort().join() === keys.join();
+
+  on(
+    "POST",
+    /^\/api\/workbench\/session\/([^/]+)\/scope-request\/([^/]+)\/approve$/,
+    (m, body, res) => {
+      const session = findHost(res, m[1]);
+      if (session === undefined) return;
+      const request = findScopeRequest(res, session, m[2]);
+      if (request === undefined) return;
+      if (body?.project_name !== projectRefOf(request.project_id).name) {
+        return envelope(
+          res,
+          409,
+          "workbench.scope_request.name_mismatch",
+          "The typed name does not match the project name.",
+        );
+      }
+      if (!expectedMatches(body.expected, request.expected_keys)) {
+        return envelope(
+          res,
+          400,
+          "workbench.scope_request.expected_invalid",
+          "The expected values do not match the keys of the request.",
+        );
+      }
+      removeScopeRequest(session, request);
+      return json(res, 200, { request_id: request.id, outcome: "done", error_code: null });
+    },
+  );
+
+  on(
+    "POST",
+    /^\/api\/workbench\/session\/([^/]+)\/scope-request\/([^/]+)\/reject$/,
+    (m, _b, res) => {
+      const session = findHost(res, m[1]);
+      if (session === undefined) return;
+      const request = findScopeRequest(res, session, m[2]);
+      if (request === undefined) return;
+      removeScopeRequest(session, request);
+      return json(res, 200, { request_id: request.id });
+    },
+  );
 
   on("DELETE", /^\/api\/workbench\/invite\/([^/]+)$/, (m, _b, res) => {
     const invite = invites.get(decodeURIComponent(m[1]));
@@ -1366,6 +1514,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       entries: guestEntriesAfter(session, null),
       run_active: stateOf(session).run !== null,
       projects: invites.get(guest.invite_id).project_ids.map(projectRefOf),
+      granted_operations: grantedOperationsOf(invites.get(guest.invite_id).granted_operations),
       mention_names: GUEST_MENTION_NAMES,
     });
   });
@@ -1496,6 +1645,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
         .slice(0, 2)
         .map((project) => project.id)
         .sort(),
+      granted_operations: ["mission.node.pause"],
       invitee_name: seeded.approval.requested_by.name,
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
       invite_token: "mock-seeded-invite-token",

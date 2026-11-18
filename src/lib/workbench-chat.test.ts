@@ -24,6 +24,7 @@ const IDLE: WorkbenchRunSnapshot = {
   error_message: null,
   auto_mode: true,
   phase: null,
+  scope_requests: [],
 };
 
 const HOST: WorkbenchMember = { session_id: "host-1", agent_name: "ops@1", display_name: "Yumi" };
