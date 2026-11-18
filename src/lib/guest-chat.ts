@@ -1,11 +1,12 @@
 import type {
+  GrantedOperation,
   WorkbenchGuestBlock,
   WorkbenchGuestEntry,
   WorkbenchGuestQueueItem,
   WorkbenchGuestState,
   WorkbenchMember,
 } from "@/api/types";
-import { type ChatItem, type ChatItemOrigin, memberOf } from "./workbench-chat";
+import { type ChatItem, type ChatItemOrigin, memberOf, scopeStopLineOf } from "./workbench-chat";
 
 export const GUEST_NOTE_HINT = "Note to everyone";
 
@@ -14,14 +15,19 @@ export function guestQueueRowOf(item: WorkbenchGuestQueueItem): string {
   return `to @${item.display_name} · ${item.author_name}`;
 }
 
-export function waitingToolNameOf(operationId: string): string {
-  return operationId.replaceAll(".", "--");
+const OWNER_APPROVES_LINE = "The owner approves every act.";
+
+export const GUEST_AUTO_MODE_OFF_LINE = "Auto mode is off: the owner approves every act.";
+
+export function guestGrantLineOf(granted: readonly GrantedOperation[]): string {
+  if (granted.length === 0) return OWNER_APPROVES_LINE;
+  return `You may run without approval: ${granted.map((operation) => operation.operation_id).join(", ")}.`;
 }
 
 const VALIDATION_FAILED = "gateway.request.validation_failed";
 const NOTE_TOO_LONG = "The note is too long. Send at most 16384 bytes.";
 const STREAMING_ITEM_ID = "streaming";
-const HIDDEN_TOOLS: readonly string[] = ["offer_action", "evidence_read"];
+const HIDDEN_TOOLS: readonly string[] = ["offer_action", "evidence_read", "request_owner_act"];
 
 interface NoteFailure {
   readonly code: string;
@@ -80,6 +86,7 @@ function blockItemsOf(
       input: "",
       state: streaming ? "running" : "done",
       guard: null,
+      result: null,
       ...origin,
     });
   });
@@ -129,6 +136,8 @@ function entryItemsOf(
           ...origin,
         },
       ];
+    case "scope_stop":
+      return [{ kind: "scope-stop", id, text: scopeStopLineOf(entry.operation_id), ...origin }];
     case "queue_clear":
       return [{ kind: "queue-clear", id, text: entry.text, ...origin }];
     case "assistant":

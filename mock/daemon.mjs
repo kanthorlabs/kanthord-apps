@@ -119,7 +119,10 @@ const emptyProjectState = (projectId) => ({
   executions: [],
 });
 
-projectStates.set(fx.PROJECT_ORBIT.id, emptyProjectState(fx.PROJECT_ORBIT.id));
+projectStates.set(fx.PROJECT_ORBIT.id, {
+  ...emptyProjectState(fx.PROJECT_ORBIT.id),
+  nodes: structuredClone(fx.ORBIT_NODES),
+});
 
 const stateOfProject = (projectId) => projectStates.get(projectId);
 const stateOfMission = (missionId) =>

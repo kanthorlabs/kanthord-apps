@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentDeclaration, WorkbenchSession } from "@/api/types";
+import type { AgentDeclaration, WorkbenchSessionGet } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
@@ -24,7 +24,7 @@ import { ChatScreen } from "./chat-screen";
 
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 
-const SESSION: WorkbenchSession = {
+const SESSION: WorkbenchSessionGet = {
   id: SESSION_ID,
   agent_name: "swe@1",
   configuration: {
@@ -46,6 +46,7 @@ const SESSION: WorkbenchSession = {
   ],
   run_active: false,
   forked_from: null,
+  scope_requests: [],
   resume_command: "pi --session ~/session.jsonl",
 };
 
@@ -125,7 +126,11 @@ function mountNew(query: URLSearchParams = NEW_QUERY) {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+    items: [],
+    grantable: [],
+    project_ids: null,
+  });
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
   );
@@ -283,7 +288,7 @@ describe("ChatScreen", () => {
       toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
       enablement: AGENT.enablement,
     };
-    const CONVERSATION: WorkbenchSession = {
+    const CONVERSATION: WorkbenchSessionGet = {
       ...SESSION,
       members: [
         { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" },

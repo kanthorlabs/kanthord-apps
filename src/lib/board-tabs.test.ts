@@ -259,6 +259,7 @@ describe("boardTabOf", () => {
       run_active: true,
       forked_from: null,
       pending_approval: { tool_call_id: "c1", operation_id: "project.create" },
+      scope_requests: 0,
       participants: [],
     };
 

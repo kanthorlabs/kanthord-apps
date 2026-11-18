@@ -7,8 +7,8 @@ export function utcShortDateTime(ms: number): string {
 }
 
 const SECOND_MS = 1_000;
-const MINUTE_MS = 60 * SECOND_MS;
-const HOUR_MS = 60 * MINUTE_MS;
+export const MINUTE_MS = 60 * SECOND_MS;
+export const HOUR_MS = 60 * MINUTE_MS;
 const MILLISECOND_STEPS = 10;
 
 export function durationText(ms: number): string {

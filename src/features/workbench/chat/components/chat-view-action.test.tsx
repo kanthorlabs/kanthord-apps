@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pauseProject, readProject } from "@/api/resources/projects";
 import { listInvites, readWorkbenchEvents, reportWorkbenchAction } from "@/api/resources/workbench";
 import { listAgentProviderModels, listAgents } from "@/api/resources/workers";
-import type { AgentEnablement, Project, WorkbenchSession } from "@/api/types";
+import type { AgentEnablement, Project, WorkbenchSessionGet } from "@/api/types";
 import { ChatView } from "./chat-view";
 
 vi.mock("@/api/resources/projects");
@@ -31,7 +31,7 @@ const ENABLEMENT: AgentEnablement = {
   revision: 2,
 };
 
-const SESSION: WorkbenchSession = {
+const SESSION: WorkbenchSessionGet = {
   id: SESSION_ID,
   agent_name: "swe@1",
   configuration: ENABLEMENT.default_configuration,
@@ -56,6 +56,7 @@ const SESSION: WorkbenchSession = {
   ],
   run_active: false,
   forked_from: null,
+  scope_requests: [],
   resume_command: "pi --session ~/session.jsonl",
 };
 
@@ -72,7 +73,7 @@ function project(pausedAt: number | null): Project {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(listInvites).mockResolvedValue({ items: [], grantable: [], project_ids: null });
   vi.mocked(readWorkbenchEvents).mockImplementation(() => new Promise(() => undefined));
   vi.mocked(listAgents).mockResolvedValue([]);
   vi.mocked(listAgentProviderModels).mockResolvedValue([

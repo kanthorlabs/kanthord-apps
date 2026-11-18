@@ -2,7 +2,7 @@ import type { Project } from "@/api/types";
 
 import type { AttentionDetails, AttentionItem } from "./attention";
 import { boardProjectsOf } from "./board-items";
-import { boardTabNamed, boardTabOf } from "./board-tabs";
+import { boardTabLabelOf } from "./board-tabs";
 import { cardCauseOf, cardLabelOf, detailTitleOf } from "./board-text";
 import { heldOnTextOf, waitingTextOf } from "./home-deck";
 
@@ -29,7 +29,7 @@ export function deckCardTextOf(
   held: number,
 ): DeckCardText {
   return {
-    tab: boardTabNamed(boardTabOf(item, details)).name,
+    tab: boardTabLabelOf(item, details).name,
     projects: boardProjectsOf(item),
     waiting: waitingTextOf(item.at, now),
     heldOn: heldOnTextOf(held),
@@ -45,7 +45,7 @@ export function deckRowTextOf(
   now: number,
 ): DeckRowText {
   return {
-    tab: boardTabNamed(boardTabOf(item, details)).short,
+    tab: boardTabLabelOf(item, details).short,
     waiting: waitingTextOf(item.at, now),
     cause: cardCauseOf(item),
   };

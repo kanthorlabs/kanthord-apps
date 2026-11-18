@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import * as workbenchApi from "@/api/resources/workbench";
 import type {
+  ScopeRequest,
   WorkbenchMember,
   WorkbenchRunSnapshot,
   WorkbenchSessionEntry,
@@ -53,6 +54,25 @@ function entry(id: string, member: WorkbenchMember = HOST): WorkbenchSessionEntr
   };
 }
 
+const REQUEST: ScopeRequest = {
+  id: "workbench_scope_request_1",
+  invite_id: "workbench_invite_1",
+  invitee_name: "Anna",
+  guest_name: "Anna",
+  agent_name: "ops@1",
+  operation_id: "mission.node.pause",
+  description: "Pause a node of a mission.",
+  input: { node_id: "node_1" },
+  target_id: "node_1",
+  ids: ["node_1"],
+  project_id: "project_1",
+  expected_keys: ["expected_state"],
+  created_at: 1,
+  expires_at: 2,
+  state: "open",
+  error_code: null,
+};
+
 const never = () => new Promise<never>(() => undefined);
 
 beforeEach(() => {
@@ -71,12 +91,13 @@ describe("useSessionEvents", () => {
         entries: [entry("e3"), entry("e4")],
         members: [HOST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 1,
       })
       .mockImplementation(never);
 
     const { result } = renderHook(() =>
-      useSessionEvents("session-1", [entry("e1"), entry("e2")], [HOST], false),
+      useSessionEvents("session-1", [entry("e1"), entry("e2")], [HOST], false, []),
     );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -93,18 +114,20 @@ describe("useSessionEvents", () => {
         entries: [entry("e3", GUEST)],
         members: [HOST, GUEST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 1,
       })
       .mockResolvedValueOnce({
         entries: [entry("e3", GUEST), entry("e4", HOST), entry("e4", GUEST)],
         members: [HOST, GUEST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 2,
       })
       .mockImplementation(never);
 
     const { result } = renderHook(() =>
-      useSessionEvents("session-1", [entry("e1"), entry("e2")], [HOST], false),
+      useSessionEvents("session-1", [entry("e1"), entry("e2")], [HOST], false, []),
     );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -132,12 +155,13 @@ describe("useSessionEvents", () => {
         entries: [entry("e3", PLANNER), entry("e4", REVIEWER), entry("e5", HOST)],
         members: [HOST, GUEST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 1,
       })
       .mockImplementation(never);
 
     renderHook(() =>
-      useSessionEvents("session-1", [entry("e1"), entry("e2", GUEST)], [HOST, GUEST], false),
+      useSessionEvents("session-1", [entry("e1"), entry("e2", GUEST)], [HOST, GUEST], false, []),
     );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -156,18 +180,20 @@ describe("useSessionEvents", () => {
         entries: [entry("e3", PLANNER), entry("e4", REVIEWER)],
         members: [HOST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 1,
       })
       .mockResolvedValueOnce({
         entries: [entry("e5", PLANNER)],
         members: [HOST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 2,
       })
       .mockImplementation(never);
 
     const { result } = renderHook(() =>
-      useSessionEvents("session-1", [entry("e1"), entry("e2", PLANNER)], [HOST], false),
+      useSessionEvents("session-1", [entry("e1"), entry("e2", PLANNER)], [HOST], false, []),
     );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -191,7 +217,7 @@ describe("useSessionEvents", () => {
   it("sends the pair form for one member that holds a phase pair", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
 
-    renderHook(() => useSessionEvents("session-1", [entry("e1", PLANNER)], [HOST], false));
+    renderHook(() => useSessionEvents("session-1", [entry("e1", PLANNER)], [HOST], false, []));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -205,11 +231,14 @@ describe("useSessionEvents", () => {
         entries: [entry("e9", GUEST), entry("e3", HOST)],
         members: [HOST, GUEST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 1,
       })
       .mockImplementation(never);
 
-    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST, GUEST], false));
+    const { result } = renderHook(() =>
+      useSessionEvents("session-1", [], [HOST, GUEST], false, []),
+    );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -219,10 +248,16 @@ describe("useSessionEvents", () => {
 
   it("sends the version of the last answer with the next poll", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents)
-      .mockResolvedValueOnce({ entries: [], members: [HOST], snapshot: IDLE, version: 7 })
+      .mockResolvedValueOnce({
+        entries: [],
+        members: [HOST],
+        snapshot: IDLE,
+        scope_requests: [],
+        version: 7,
+      })
       .mockImplementation(never);
 
-    renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -234,7 +269,7 @@ describe("useSessionEvents", () => {
   it("polls without after for a session that holds no entry", async () => {
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
 
-    renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -249,10 +284,16 @@ describe("useSessionEvents", () => {
       streaming_message: { role: "assistant", content: [{ type: "text", text: "Hel" }] },
     };
     vi.mocked(workbenchApi.readWorkbenchEvents)
-      .mockResolvedValueOnce({ entries: [], members: [HOST], snapshot, version: 1 })
+      .mockResolvedValueOnce({
+        entries: [],
+        members: [HOST],
+        snapshot,
+        scope_requests: [],
+        version: 1,
+      })
       .mockImplementation(never);
 
-    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -266,12 +307,13 @@ describe("useSessionEvents", () => {
         entries: [entry("e1"), entry("e2")],
         members: [HOST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 1,
       })
       .mockImplementation(never);
 
     const { result } = renderHook(() =>
-      useSessionEvents("session-1", [entry("e1")], [HOST], false),
+      useSessionEvents("session-1", [entry("e1")], [HOST], false, []),
     );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -287,11 +329,12 @@ describe("useSessionEvents", () => {
         entries: [entry("e1")],
         members: [HOST],
         snapshot: IDLE,
+        scope_requests: [],
         version: 1,
       })
       .mockImplementation(never);
 
-    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
@@ -313,7 +356,7 @@ describe("useSessionEvents", () => {
       new ApiError("not_found", "The workbench session does not exist.", 404),
     );
 
-    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(EVENTS_BACKOFF_MS * 3);
     });
@@ -328,13 +371,13 @@ describe("useSessionEvents", () => {
       () => new Promise((resolve) => (answer = resolve)),
     );
 
-    const { unmount } = renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    const { unmount } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     const signal = vi.mocked(workbenchApi.readWorkbenchEvents).mock.calls[0]?.[3];
     unmount();
-    answer({ entries: [], members: [HOST], snapshot: IDLE, version: 1 });
+    answer({ entries: [], members: [HOST], snapshot: IDLE, scope_requests: [], version: 1 });
     await vi.advanceTimersByTimeAsync(EVENTS_BACKOFF_MS * 3);
 
     expect(signal?.aborted).toBe(true);
@@ -344,7 +387,7 @@ describe("useSessionEvents", () => {
   it("holds an idle snapshot with an empty queue before the first answer", () => {
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
 
-    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
 
     expect(result.current.snapshot).toEqual(IDLE);
     expect(result.current.snapshot.queue).toEqual([]);
@@ -353,9 +396,42 @@ describe("useSessionEvents", () => {
   it("patches the snapshot until the next answer replaces it", () => {
     vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
 
-    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false));
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
     act(() => result.current.patchSnapshot({ run_active: true }));
 
     expect(result.current.snapshot.run_active).toBe(true);
+  });
+
+  it("holds the scope requests of the session get and replaces them with each answer", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents)
+      .mockResolvedValueOnce({
+        entries: [],
+        members: [HOST],
+        snapshot: IDLE,
+        scope_requests: [REQUEST],
+        version: 1,
+      })
+      .mockImplementation(never);
+
+    const { result } = renderHook(() => useSessionEvents("session-1", [], [HOST], false, []));
+    expect(result.current.scopeRequests).toEqual([]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(result.current.scopeRequests).toEqual([REQUEST]);
+    expect(result.current.snapshot).toEqual(IDLE);
+  });
+
+  it("starts with the scope requests of the session get and drops a resolved one", () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(never);
+
+    const { result } = renderHook(() =>
+      useSessionEvents("session-1", [], [HOST], false, [REQUEST]),
+    );
+    expect(result.current.scopeRequests).toEqual([REQUEST]);
+    act(() => result.current.resolveScopeRequest(REQUEST.id));
+
+    expect(result.current.scopeRequests).toEqual([]);
   });
 });

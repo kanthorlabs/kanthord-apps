@@ -7,6 +7,7 @@ import { connectionBaseUrl, setConnection } from "../client";
 import { ApiError } from "../errors";
 import {
   abortWorkbenchRun,
+  approveScopeRequest,
   approveWorkbenchCall,
   configureWorkbenchSession,
   createInvite,
@@ -18,6 +19,7 @@ import {
   readGuestSession,
   readWorkbenchEvents,
   readWorkbenchSession,
+  rejectScopeRequest,
   removeQueuedWorkbenchMessage,
   reportWorkbenchAction,
   revokeInvite,
@@ -452,35 +454,57 @@ describe("invites", () => {
     invitee_name: "Dana",
     expires_at: 1790000000000,
     projects: [{ id: "project_a", name: "Alpha" }],
+    granted_operations: [{ operation_id: "mission.node.pause", guard_class: "reversible" }],
   };
+
+  const GRANTABLE = [
+    {
+      operation_id: "mission.node.pause",
+      guard_class: "reversible",
+      description: "Pause a node of a mission.",
+    },
+  ];
 
   it("creates an invite for the session", async () => {
     await serve({
       [`POST ${PATH}/invite`]: {
         status: 201,
-        body: { ...INVITE, session_id: SESSION_ID, invite_token: "invite-secret" },
+        body: {
+          id: INVITE.id,
+          session_id: SESSION_ID,
+          invitee_name: INVITE.invitee_name,
+          expires_at: INVITE.expires_at,
+          invite_token: "invite-secret",
+          granted_operations: ["mission.node.pause", "project.resume"],
+        },
       },
     });
 
     const created = await createInvite(SESSION_ID, {
       invitee_name: "Dana",
       project_ids: ["project_b", "project_a", "project_c"],
+      granted_operations: ["project.resume", "mission.node.pause"],
     });
 
     expect(JSON.parse(seen[0]!.body)).toEqual({
       invitee_name: "Dana",
       project_ids: ["project_a", "project_b", "project_c"],
+      granted_operations: ["mission.node.pause", "project.resume"],
     });
     expect(created.invite_token).toBe("invite-secret");
+    expect(created.granted_operations).toEqual(["mission.node.pause", "project.resume"]);
   });
 
   it("lists the invites of the session", async () => {
     await serve({
-      [`GET ${PATH}/invite`]: { body: { items: [INVITE], project_ids: ["project_a"] } },
+      [`GET ${PATH}/invite`]: {
+        body: { items: [INVITE], grantable: GRANTABLE, project_ids: ["project_a"] },
+      },
     });
 
     expect(await listInvites(SESSION_ID)).toEqual({
       items: [INVITE],
+      grantable: GRANTABLE,
       project_ids: ["project_a"],
     });
   });
@@ -505,6 +529,67 @@ describe("invites", () => {
 
     expect(failure).toBeInstanceOf(ApiError);
     expect((failure as ApiError).detail).toBe("workbench.invite.not_found");
+  });
+});
+
+describe("scope requests", () => {
+  const REQUEST_PATH = `${PATH}/scope-request/scope_request_1`;
+  const BODY = { project_name: "kanthord", expected: { revision: 3 } };
+
+  it("approves with the method, the path, the body and an idempotency key", async () => {
+    const answer = { request_id: "scope_request_1", outcome: "done", error_code: null };
+    await serve({ [`POST ${REQUEST_PATH}/approve`]: { body: answer } });
+
+    expect(await approveScopeRequest(SESSION_ID, "scope_request_1", BODY)).toEqual(answer);
+
+    expect(seen[0]!.method).toBe("POST");
+    expect(JSON.parse(seen[0]!.body)).toEqual(BODY);
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+  });
+
+  it("sends a new idempotency key for each approve call", async () => {
+    await serve({
+      [`POST ${REQUEST_PATH}/approve`]: {
+        body: { request_id: "scope_request_1", outcome: "done", error_code: null },
+      },
+    });
+
+    await approveScopeRequest(SESSION_ID, "scope_request_1", BODY);
+    await approveScopeRequest(SESSION_ID, "scope_request_1", BODY);
+
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+    expect(seen[1]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
+    expect(seen[0]!.idempotencyKey).not.toBe(seen[1]!.idempotencyKey);
+  });
+
+  it("rejects an approve refusal as an ApiError", async () => {
+    await serve({
+      [`POST ${REQUEST_PATH}/approve`]: {
+        status: 409,
+        body: {
+          error: { code: "workbench.scope_request.name_mismatch", message: "Name mismatch." },
+        },
+      },
+    });
+
+    const failure = await approveScopeRequest(SESSION_ID, "scope_request_1", BODY).catch(
+      (cause: unknown) => cause,
+    );
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).detail).toBe("workbench.scope_request.name_mismatch");
+  });
+
+  it("rejects with an empty body and an idempotency key", async () => {
+    await serve({ [`POST ${REQUEST_PATH}/reject`]: { body: { request_id: "scope_request_1" } } });
+
+    expect(await rejectScopeRequest(SESSION_ID, "scope_request_1")).toEqual({
+      request_id: "scope_request_1",
+    });
+
+    expect(seen[0]!.method).toBe("POST");
+    expect(JSON.parse(seen[0]!.body)).toEqual({});
+    expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
 });
 

@@ -2,6 +2,9 @@ import { newIdempotencyKey } from "@/lib/idempotency-key";
 import { ApiError } from "../errors";
 import { type Connection, connectionBaseUrl, request } from "../client";
 import type {
+  ScopeRequestApproveBody,
+  ScopeRequestApproveResult,
+  ScopeRequestRejectResult,
   WorkbenchAbortAnswer,
   WorkbenchActionReportAnswer,
   WorkbenchActionReportBody,
@@ -24,6 +27,7 @@ import type {
   WorkbenchSession,
   WorkbenchSessionCreateBody,
   WorkbenchSessionEvents,
+  WorkbenchSessionGet,
   WorkbenchSessionListItem,
 } from "../types";
 
@@ -61,8 +65,8 @@ export async function createWorkbenchSession(
   return post<WorkbenchSession>(SESSION_ROOT, body);
 }
 
-export async function readWorkbenchSession(sessionId: string): Promise<WorkbenchSession> {
-  return request<WorkbenchSession>(sessionPath(sessionId));
+export async function readWorkbenchSession(sessionId: string): Promise<WorkbenchSessionGet> {
+  return request<WorkbenchSessionGet>(sessionPath(sessionId));
 }
 
 export async function configureWorkbenchSession(
@@ -161,7 +165,27 @@ export async function createInvite(
   return post<WorkbenchInviteCreated>(`${sessionPath(sessionId)}/invite`, {
     ...body,
     project_ids: [...body.project_ids].sort(),
+    granted_operations: [...body.granted_operations].sort(),
   });
+}
+
+function scopeRequestPath(sessionId: string, requestId: string): string {
+  return `${sessionPath(sessionId)}/scope-request/${encodeURIComponent(requestId)}`;
+}
+
+export async function approveScopeRequest(
+  sessionId: string,
+  requestId: string,
+  body: ScopeRequestApproveBody,
+): Promise<ScopeRequestApproveResult> {
+  return post<ScopeRequestApproveResult>(`${scopeRequestPath(sessionId, requestId)}/approve`, body);
+}
+
+export async function rejectScopeRequest(
+  sessionId: string,
+  requestId: string,
+): Promise<ScopeRequestRejectResult> {
+  return post<ScopeRequestRejectResult>(`${scopeRequestPath(sessionId, requestId)}/reject`, {});
 }
 
 export async function listInvites(sessionId: string): Promise<WorkbenchInviteListAnswer> {

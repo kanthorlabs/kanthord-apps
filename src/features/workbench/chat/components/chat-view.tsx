@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
-import type { AgentEnablement, WorkbenchSession } from "@/api/types";
+import type { AgentEnablement, WorkbenchSessionGet } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import {
   type ActionCardItem,
@@ -35,11 +35,12 @@ import { ResumeCommandButton } from "./resume-command-button";
 import { Composer } from "./composer";
 import { QueuedMessages } from "./queued-messages";
 import { RunLine } from "./run-line";
+import { ScopeRequestList } from "./scope-request-list";
 import { ShareDialog } from "./share-dialog";
 import { SummarizingLine } from "./summarizing-line";
 
 interface ChatViewProps {
-  readonly session: WorkbenchSession;
+  readonly session: WorkbenchSessionGet;
   readonly enablement: AgentEnablement | null;
   readonly ownerName: string;
   readonly firstSendFailure?: FirstSendFailure | null;
@@ -61,7 +62,13 @@ export function ChatView({
   onNew,
   onForked,
 }: ChatViewProps) {
-  const events = useSessionEvents(session.id, session.entries, session.members, session.run_active);
+  const events = useSessionEvents(
+    session.id,
+    session.entries,
+    session.members,
+    session.run_active,
+    session.scope_requests,
+  );
   const mentionAgents = useMentionAgents();
   const mentionNames = useMemo(
     () => mentionAgents.agents.map((agent) => agent.displayName),
@@ -248,6 +255,11 @@ export function ChatView({
           </p>
         )}
         {streamEnd}
+        <ScopeRequestList
+          sessionId={session.id}
+          requests={events.scopeRequests}
+          onResolved={events.resolveScopeRequest}
+        />
       </div>
       <div className="sticky bottom-0 bg-background pt-2">
         <QueuedMessages

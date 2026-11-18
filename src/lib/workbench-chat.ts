@@ -13,8 +13,10 @@ import {
   type WorkbenchNoteRecord,
   type WorkbenchPlanDetails,
   type WorkbenchRunSnapshot,
+  type WorkbenchScopeStopRecord,
   type WorkbenchSessionEntry,
 } from "@/api/types";
+import { toolNameOf } from "./tool-name";
 
 export const ACTION_VERBS: Readonly<Record<WorkbenchActionOperation, string>> = {
   "mission.node.resume": "Resume",
@@ -71,6 +73,7 @@ type ChatItemBody =
       readonly input: string;
       readonly state: "done" | "running" | "awaiting-approval" | "no-result";
       readonly guard: WorkbenchGuardRecord | null;
+      readonly result: ToolCallResult | null;
     }
   | {
       readonly kind: "tool-result";
@@ -114,6 +117,11 @@ type ChatItemBody =
       readonly timestamp: number;
     }
   | {
+      readonly kind: "scope-stop";
+      readonly id: string;
+      readonly text: string;
+    }
+  | {
       readonly kind: "queue-clear";
       readonly id: string;
       readonly text: string;
@@ -133,7 +141,16 @@ type ChatItemBody =
       readonly items: readonly ChatItem[];
     };
 
+export interface ToolCallResult {
+  readonly isError: boolean;
+  readonly text: string;
+}
+
 export type ChatItem = ChatItemBody & ChatItemOrigin;
+
+export function scopeStopLineOf(operationId: string): string {
+  return `The run ended: ${toolNameOf(operationId)} names a record that is not available in this conversation. Ask the owner if you need it.`;
+}
 
 type WorkbenchPhase = NonNullable<WorkbenchRunSnapshot["phase"]>;
 
@@ -158,6 +175,9 @@ const NOTE_KEYS = ["kind", "text", "author"];
 const NOTE_AUTHOR_KEYS = ["kind", "name"];
 const AUTHOR_KEYS = ["kind", "author"];
 const GUARD_KEYS = ["kind", "tool_call_id", "operation_id", "reason"];
+const GRANTED_GUARD_KEYS = [...GUARD_KEYS, "grant"];
+const GRANT_KEYS = ["invite_id", "author"];
+const SCOPE_STOP_KEYS = ["kind", "tool_call_id", "operation_id"];
 const OFFER_KEYS = ["kind", "tool_call_id", "operation_id", "target_id", "seen"];
 const NODE_SEEN_KEYS = ["name", "state", "attempt"];
 const PROJECT_SEEN_KEYS = ["name", "paused"];
@@ -236,7 +256,9 @@ function offerOf(entry: WorkbenchSessionEntry): WorkbenchActionOffer | null {
 function guardRecordOf(entry: WorkbenchSessionEntry): WorkbenchGuardRecord | null {
   const data = entry["data"];
   if (entry.type !== "custom" || entry["customType"] !== RECORD_TYPE) return null;
-  if (!isRecord(data) || !hasExactKeys(data, GUARD_KEYS) || data["kind"] !== "guard") return null;
+  if (!isRecord(data) || data["kind"] !== "guard") return null;
+  const granted = hasExactKeys(data, GRANTED_GUARD_KEYS);
+  if (!granted && !hasExactKeys(data, GUARD_KEYS)) return null;
   const { tool_call_id, operation_id, reason } = data;
   if (
     typeof tool_call_id !== "string" ||
@@ -245,7 +267,36 @@ function guardRecordOf(entry: WorkbenchSessionEntry): WorkbenchGuardRecord | nul
   ) {
     return null;
   }
-  return { kind: "guard", tool_call_id, operation_id, reason };
+  if (!granted) return { kind: "guard", tool_call_id, operation_id, reason };
+  const grant = grantOf(data["grant"]);
+  return grant === null ? null : { kind: "guard", tool_call_id, operation_id, reason, grant };
+}
+
+function grantOf(value: unknown): WorkbenchGuardRecord["grant"] | null {
+  if (!isRecord(value) || !hasExactKeys(value, GRANT_KEYS)) return null;
+  const { invite_id, author } = value;
+  if (typeof invite_id !== "string" || !isRecord(author)) return null;
+  if (!hasExactKeys(author, NOTE_AUTHOR_KEYS)) return null;
+  const { kind, name } = author;
+  if (kind !== "guest" || typeof name !== "string") return null;
+  return { invite_id, author: { kind, name } };
+}
+
+function scopeStopRecordOf(entry: WorkbenchSessionEntry): WorkbenchScopeStopRecord | null {
+  const data = entry["data"];
+  if (entry.type !== "custom" || entry["customType"] !== RECORD_TYPE) return null;
+  if (!isRecord(data) || !hasExactKeys(data, SCOPE_STOP_KEYS) || data["kind"] !== "scope_stop") {
+    return null;
+  }
+  const { tool_call_id, operation_id } = data;
+  if (typeof tool_call_id !== "string" || typeof operation_id !== "string") return null;
+  return { kind: "scope_stop", tool_call_id, operation_id };
+}
+
+function scopeStopItems(entry: WorkbenchSessionEntry): readonly ChatItemBody[] {
+  const stop = scopeStopRecordOf(entry);
+  if (stop === null) return [];
+  return [{ kind: "scope-stop", id: entry.id, text: scopeStopLineOf(stop.operation_id) }];
 }
 
 function forkRecordOf(entry: WorkbenchSessionEntry): WorkbenchForkRecord | null {
@@ -342,6 +393,7 @@ function resultOf(entry: WorkbenchSessionEntry): WorkbenchActionResult | null {
 
 interface ResultContext {
   readonly resultIds: ReadonlySet<string>;
+  readonly callResults: ReadonlyMap<string, ToolCallResult>;
   readonly lastUserIndex: number;
   readonly lastOfferIndex: number;
   readonly actionResults: ReadonlyMap<string, readonly WorkbenchActionResult[]>;
@@ -429,6 +481,7 @@ function assistantItems(
       input: JSON.stringify(block["arguments"] ?? {}, null, 2),
       state: callState(callId, index, snapshot, streaming, context),
       guard: context.guards.get(callId) ?? null,
+      result: context.callResults.get(callId) ?? null,
     });
   }
   return items;
@@ -507,6 +560,7 @@ function entryItems(
   if (context.hiddenIndexes.has(index)) return [];
   if (context.forkSummaries.has(index)) return forkItems(entry, index, context);
   if (noteRecordOf(entry) !== null) return noteItems(entry);
+  if (scopeStopRecordOf(entry) !== null) return scopeStopItems(entry);
   if (entry.type === "custom") return actionCardItems(entry, index, snapshot, context);
   const message = entry["message"];
   if (entry.type !== "message" || !isRecord(message)) return [];
@@ -546,6 +600,7 @@ function resultContextOf(
   const forkSummaries = new Map<number, string>();
   const hiddenIndexes = new Set<number>();
   const resultIds = new Set<string>();
+  const callResults = new Map<string, ToolCallResult>();
   const actionResults = new Map<string, WorkbenchActionResult[]>();
   const guards = new Map<string, WorkbenchGuardRecord>();
   const userGuests = new Map<number, string>();
@@ -589,10 +644,17 @@ function resultContextOf(
       runGuests.set(entry.session_id, guest);
       if (guest !== undefined) userGuests.set(index, guest);
     }
-    if (message["role"] === "toolResult") resultIds.add(stringOf(message["toolCallId"]));
+    if (message["role"] !== "toolResult") return;
+    const callId = stringOf(message["toolCallId"]);
+    resultIds.add(callId);
+    callResults.set(callId, {
+      isError: message["isError"] === true,
+      text: textOf(blocksOf(message["content"])),
+    });
   });
   return {
     resultIds,
+    callResults,
     lastUserIndex,
     lastOfferIndex,
     actionResults,

@@ -10,11 +10,12 @@ import * as workersApi from "@/api/resources/workers";
 import type * as EvidenceDownload from "@/features/projects/view/use-evidence-download";
 import type {
   AgentEnablement,
+  ScopeRequest,
   WorkbenchMember,
   WorkbenchRunSnapshot,
-  WorkbenchSession,
   WorkbenchSessionEntry,
   WorkbenchSessionEvents,
+  WorkbenchSessionGet,
 } from "@/api/types";
 import { WORKBENCH_FORK_FRAME, WORKBENCH_FORK_PREFIX } from "@/api/types";
 
@@ -57,6 +58,25 @@ const ENABLEMENT: AgentEnablement = {
   revision: 2,
 };
 
+const SCOPE_REQUEST: ScopeRequest = {
+  id: "scope_request_1",
+  invite_id: "invite_1",
+  invitee_name: "Dana Lee",
+  guest_name: "Dana",
+  agent_name: "swe@1",
+  operation_id: "mission.node.discard",
+  description: "Discard a node.",
+  input: {},
+  target_id: "node_1",
+  ids: ["node_1"],
+  project_id: "project_x",
+  expected_keys: [],
+  created_at: Date.now(),
+  expires_at: Date.now() + 60_000,
+  state: "open",
+  error_code: null,
+};
+
 function message(id: string, body: Record<string, unknown>): WorkbenchSessionEntry {
   return {
     session_id: SESSION_ID,
@@ -72,7 +92,7 @@ function message(id: string, body: Record<string, unknown>): WorkbenchSessionEnt
 function session(
   entries: readonly WorkbenchSessionEntry[] = [],
   runActive = false,
-): WorkbenchSession {
+): WorkbenchSessionGet {
   return {
     id: SESSION_ID,
     agent_name: "swe@1",
@@ -81,6 +101,7 @@ function session(
     entries,
     run_active: runActive,
     forked_from: null,
+    scope_requests: [],
     resume_command: "pi --session ~/session.jsonl",
   };
 }
@@ -96,19 +117,21 @@ function pollQueue() {
       members?: WorkbenchSessionEvents["members"];
       entries?: WorkbenchSessionEvents["entries"];
       snapshot?: Partial<WorkbenchRunSnapshot>;
+      scope_requests?: WorkbenchSessionEvents["scope_requests"];
     }) {
       await waitFor(() => expect(waiting.length).toBeGreaterThan(0));
       waiting.shift()?.({
         members: events.members ?? [HOST],
         entries: events.entries ?? [],
         snapshot: { ...IDLE, ...events.snapshot },
+        scope_requests: events.scope_requests ?? [],
         version: ++version,
       });
     },
   };
 }
 
-function mount(held: WorkbenchSession, slots: Partial<ComponentProps<typeof ChatView>> = {}) {
+function mount(held: WorkbenchSessionGet, slots: Partial<ComponentProps<typeof ChatView>> = {}) {
   return render(
     <MemoryRouter>
       <ChatView session={held} enablement={ENABLEMENT} ownerName="Ulrich" {...slots} />
@@ -122,7 +145,11 @@ afterEach(() => {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+    items: [],
+    grantable: [],
+    project_ids: null,
+  });
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
@@ -145,6 +172,42 @@ describe("ChatView", () => {
     ).toBeNull();
     expect(
       within(await screen.findByRole("group", { name: "Run line" })).queryByRole("switch"),
+    ).toBeNull();
+  });
+
+  it("shows the requests outside the shared projects from the events answer above the composer", async () => {
+    const polls = pollQueue();
+    mount(session([], false));
+    await polls.answer({
+      scope_requests: [SCOPE_REQUEST],
+    });
+
+    const list = await screen.findByRole("region", {
+      name: "Requests outside the shared projects",
+    });
+    expect(list).toHaveTextContent("Requested in a run started by Dana (guest)");
+    expect(within(list).getByRole("button", { name: "Review" })).toBeVisible();
+  });
+
+  it("shows the requests of the session get before the first answer", async () => {
+    vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
+      () => new Promise(() => undefined),
+    );
+    mount({ ...session([], false), scope_requests: [SCOPE_REQUEST] });
+
+    const list = await screen.findByRole("region", {
+      name: "Requests outside the shared projects",
+    });
+    expect(within(list).getByRole("button", { name: "Review" })).toBeVisible();
+  });
+
+  it("shows no request list when the answer holds no request", async () => {
+    const polls = pollQueue();
+    mount(session([], false));
+    await polls.answer({ snapshot: { auto_mode: true } });
+
+    expect(
+      screen.queryByRole("heading", { name: "Requests outside the shared projects" }),
     ).toBeNull();
   });
 
@@ -1280,6 +1343,7 @@ describe("ChatView plan and phases", () => {
       invitee_name: "Dana",
       expires_at: 1790000000000,
       projects: [],
+      granted_operations: [],
     };
     const RUN_ANSWER = {
       kind: "run",
@@ -1304,7 +1368,11 @@ describe("ChatView plan and phases", () => {
     }
 
     beforeEach(() => {
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [INVITE], project_ids: [] });
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+        items: [INVITE],
+        grantable: [],
+        project_ids: [],
+      });
     });
 
     it("clears the composer on an untagged note and shows the note with no running item", async () => {
@@ -1356,8 +1424,8 @@ describe("ChatView plan and phases", () => {
     it("reads the invite list again when a note answers an unshared conversation", async () => {
       pollQueue();
       vi.mocked(workbenchApi.listInvites)
-        .mockResolvedValueOnce({ items: [], project_ids: null })
-        .mockResolvedValue({ items: [INVITE], project_ids: [] });
+        .mockResolvedValueOnce({ items: [], grantable: [], project_ids: null })
+        .mockResolvedValue({ items: [INVITE], grantable: [], project_ids: [] });
       vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
         kind: "note",
         session_id: SESSION_ID,
@@ -1376,7 +1444,11 @@ describe("ChatView plan and phases", () => {
   describe("the Share button", () => {
     it("shows in the header of a session", async () => {
       pollQueue();
-      vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+      vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+        items: [],
+        grantable: [],
+        project_ids: null,
+      });
       mount(session());
 
       expect(await screen.findByRole("button", { name: "Share" })).toBeTruthy();

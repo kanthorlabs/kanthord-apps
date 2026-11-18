@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 
 import { readWorkbenchEvents } from "@/api/resources/workbench";
 import type { ApiErrorCode } from "@/api/errors";
-import type { WorkbenchMember, WorkbenchRunSnapshot, WorkbenchSessionEntry } from "@/api/types";
+import type {
+  ScopeRequest,
+  WorkbenchMember,
+  WorkbenchRunSnapshot,
+  WorkbenchSessionEntry,
+} from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 
 export const EVENTS_BACKOFF_MS = 1000;
@@ -17,9 +22,11 @@ export interface SessionEventsState {
   readonly members: readonly WorkbenchMember[];
   readonly entries: readonly WorkbenchSessionEntry[];
   readonly snapshot: WorkbenchRunSnapshot;
+  readonly scopeRequests: readonly ScopeRequest[];
   readonly snapshotLoaded: boolean;
   readonly failure: string | null;
   readonly patchSnapshot: (patch: SnapshotPatch) => void;
+  readonly resolveScopeRequest: (requestId: string) => void;
 }
 
 export function pause(ms: number, signal: AbortSignal): Promise<void> {
@@ -76,12 +83,14 @@ export function useSessionEvents(
   loadedEntries: readonly WorkbenchSessionEntry[],
   loadedMembers: readonly WorkbenchMember[],
   initialRunActive: boolean,
+  loadedScopeRequests: readonly ScopeRequest[],
 ): SessionEventsState {
   const [initialEntries] = useState(loadedEntries);
   const [initialMembers] = useState(loadedMembers);
   const [entries, setEntries] = useState(initialEntries);
   const [members, setMembers] = useState(initialMembers);
   const [snapshot, setSnapshot] = useState(() => idleSnapshot(initialRunActive));
+  const [scopeRequests, setScopeRequests] = useState(loadedScopeRequests);
   const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -100,6 +109,7 @@ export function useSessionEvents(
           if (signal.aborted) return;
           setFailure(null);
           setSnapshot(events.snapshot);
+          setScopeRequests(events.scope_requests);
           setSnapshotLoaded(true);
           version = events.version;
           currentMembers = events.members;
@@ -134,5 +144,20 @@ export function useSessionEvents(
     [],
   );
 
-  return { members, entries, snapshot, snapshotLoaded, failure, patchSnapshot };
+  const resolveScopeRequest = useCallback(
+    (requestId: string) =>
+      setScopeRequests((held) => held.filter((request) => request.id !== requestId)),
+    [],
+  );
+
+  return {
+    members,
+    entries,
+    snapshot,
+    scopeRequests,
+    snapshotLoaded,
+    failure,
+    patchSnapshot,
+    resolveScopeRequest,
+  };
 }

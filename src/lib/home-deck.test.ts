@@ -6,6 +6,7 @@ import type { AttentionItem } from "./attention";
 import type { BoardGate } from "./board-items";
 import { BOARD_TAB } from "./board-tabs";
 import type { ToolApprovalItem } from "./approval-attention";
+import type { ScopeRequestItem } from "./scope-request-attention";
 import {
   DECK_GONE_TEXT,
   deckCountTextOf,
@@ -69,6 +70,18 @@ function tool(id: string, at: number): ToolApprovalItem {
   };
 }
 
+function scopeRequest(id: string, at: number): ScopeRequestItem {
+  return {
+    id,
+    group: "decisions",
+    kind: "scope_request",
+    subject: `Requests of ${id}`,
+    at,
+    sessionId: `session-${id}`,
+    count: 1,
+  };
+}
+
 function inboxThread(id: string, overrides: Partial<InboxItem> = {}): InboxItem {
   return {
     link_update_id: id,
@@ -103,6 +116,36 @@ describe("deckOrderOf", () => {
     const items = [fix("gated", 1), fix("held", 2), tool("late", 900), tool("early", 800)];
 
     expect(idsOf(deckOrderOf(items, held, gates))).toEqual(["early", "late", "held", "gated"]);
+  });
+
+  it("ranks a scope request before a gated or held item", () => {
+    const held = new Map([["held", ["n1", "n2"]]]);
+    const gates = new Map([["gated", { itemId: "x", need: "Rotate", short: "Rotate" }]]);
+    const items = [fix("gated", 1), fix("held", 2), scopeRequest("request", 900)];
+
+    expect(idsOf(deckOrderOf(items, held, gates))).toEqual(["request", "held", "gated"]);
+  });
+
+  it("ranks a scope request and a tool approval in one order, oldest first", () => {
+    const items = [
+      tool("approval-late", 900),
+      scopeRequest("request-early", 800),
+      scopeRequest("request-late", 1000),
+      tool("approval-mid", 850),
+    ];
+
+    expect(idsOf(deckOrderOf(items, none, noGates))).toEqual([
+      "request-early",
+      "approval-mid",
+      "approval-late",
+      "request-late",
+    ]);
+  });
+
+  it("orders a scope request and a tool approval of one age by id", () => {
+    const items = [tool("b", 800), scopeRequest("a", 800)];
+
+    expect(idsOf(deckOrderOf(items, none, noGates))).toEqual(["a", "b"]);
   });
 
   it("keeps the order of rankBoardItems for the other items", () => {
@@ -343,5 +386,26 @@ describe("offerQueueEntryOf", () => {
     expect(
       offerQueueEntryOf(order, { operation_id: "other.act", target_id: "node_42" }),
     ).toBeNull();
+  });
+});
+
+describe("scope request item in the tab views", () => {
+  it("counts the item in no tab chip", () => {
+    expect(deckTabsOf([scopeRequest("r", 1)], details)).toEqual([]);
+  });
+
+  it("lists the item with no tab filter and drops it for a tab filter", () => {
+    const order = [scopeRequest("r", 1), tool("t", 2)];
+    const query = { query: "", tab: null, shown: 10 };
+
+    expect(idsOf(deckListOf(order, details, query).rows.map((row) => row.item))).toEqual([
+      "r",
+      "t",
+    ]);
+    expect(
+      idsOf(
+        deckListOf(order, details, { ...query, tab: BOARD_TAB.Tool }).rows.map((row) => row.item),
+      ),
+    ).toEqual(["t"]);
   });
 });

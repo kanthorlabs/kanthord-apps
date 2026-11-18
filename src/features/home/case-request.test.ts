@@ -210,6 +210,7 @@ describe("isCaseConversation", () => {
     run_active: false,
     forked_from: forkedFrom,
     pending_approval: null,
+    scope_requests: 0,
     participants: [],
   });
   const byId = (...items: readonly WorkbenchSessionListItem[]) =>

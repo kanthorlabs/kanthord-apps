@@ -19,6 +19,7 @@ describe("ChatEntry", () => {
           input: "{}",
           state: "no-result",
           guard: null,
+          result: null,
         }}
         authors={AUTHORS}
         runError={null}

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/api/errors";
 import { listProjects } from "@/api/resources/projects";
 import { createInvite, revokeInvite } from "@/api/resources/workbench";
-import type { Project } from "@/api/types";
+import type { GrantableOperation, Project } from "@/api/types";
 import { lockedProjectsOf } from "@/lib/share-invite";
 import type { InvitesState } from "../use-invites";
 import { ShareDialog } from "./share-dialog";
@@ -29,6 +29,7 @@ const DANA_INVITE = {
   invitee_name: "Dana",
   expires_at: EXPIRES_AT,
   projects: [ALPHA_PROJECT],
+  granted_operations: [],
 };
 
 const PROJECTS = [
@@ -36,6 +37,12 @@ const PROJECTS = [
   { id: "project_a", name: "Alpha" },
   { id: "project_c", name: "Gamma" },
 ] as Project[];
+
+const GRANTABLE: readonly GrantableOperation[] = [
+  { operation_id: "mission.node.pause", guard_class: "reversible", description: "Pause a node." },
+  { operation_id: "project.pause", guard_class: "reversible", description: "Pause a project." },
+  { operation_id: "project.create", guard_class: "judged", description: "Create a project." },
+];
 
 const listProjectsMock = vi.mocked(listProjects);
 const createMock = vi.mocked(createInvite);
@@ -45,9 +52,11 @@ const reload = vi.fn();
 function invitesOf(
   project_ids: readonly string[] | null = null,
   items: InvitesState["invites"] = [],
+  grantable: InvitesState["grantable"] = GRANTABLE,
 ): InvitesState {
   return {
     invites: items,
+    grantable,
     status: "ready",
     error: null,
     shared: items.length > 0,
@@ -128,7 +137,7 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana Lee & Co",
       expires_at: EXPIRES_AT,
-      projects: [],
+      granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
     await open();
@@ -141,6 +150,7 @@ describe("ShareDialog", () => {
     expect(createMock).toHaveBeenCalledWith(SESSION_ID, {
       invitee_name: "Dana Lee & Co",
       project_ids: ["project_a", "project_b", "project_c"],
+      granted_operations: [],
     });
     expect(link).toHaveValue(
       `${window.location.origin}/join/${INVITE_TOKEN}#name=Dana%20Lee%20%26%20Co`,
@@ -155,7 +165,7 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
-      projects: [],
+      granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
     const dialog = await open();
@@ -182,7 +192,7 @@ describe("ShareDialog", () => {
       session_id: SESSION_ID,
       invitee_name: "Dana",
       expires_at: EXPIRES_AT,
-      projects: [],
+      granted_operations: [],
       invite_token: INVITE_TOKEN,
     });
     await open();
@@ -285,6 +295,7 @@ describe("ShareDialog", () => {
               { id: "project_a", name: "Alpha" },
               { id: "project_x", name: null },
             ],
+            granted_operations: [],
           },
         ],
       ),
@@ -358,6 +369,7 @@ describe("ShareDialog", () => {
             invitee_name: "Sam",
             expires_at: EXPIRES_AT + 3_600_000,
             projects: [ALPHA_PROJECT],
+            granted_operations: [],
           },
         ],
       ),
@@ -387,6 +399,7 @@ describe("ShareDialog", () => {
               { id: "project_a", name: "Alpha" },
               { id: "project_x", name: null },
             ],
+            granted_operations: [],
           },
         ],
       ),
@@ -436,5 +449,196 @@ describe("ShareDialog", () => {
     const list = screen.getByRole("region", { name: "Invites" });
     expect(within(within(list).getByRole("listitem")).getByRole("alert")).toBe(line);
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe("ShareDialog grant", () => {
+  const CREATED = {
+    id: "invite_1",
+    session_id: SESSION_ID,
+    invitee_name: "Dana",
+    expires_at: EXPIRES_AT,
+    invite_token: INVITE_TOKEN,
+  };
+
+  async function fillName(name = "Dana") {
+    await userEvent.type(screen.getByLabelText("Invite for (required)"), name);
+  }
+
+  it("checks nothing by default and shows the nothing-checked line", async () => {
+    const dialog = await open();
+    await fillName();
+
+    expect(
+      within(dialog).getByRole("heading", { name: "What Dana may do without your approval" }),
+    ).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(
+      "Nothing checked: you approve every act in a run that Dana starts.",
+    );
+    for (const box of within(dialog).getAllByRole("checkbox")) {
+      expect(box).not.toBeChecked();
+    }
+    expect(within(dialog).queryByText(/Anyone who holds this link/)).toBeNull();
+  });
+
+  it("hides the nothing-checked line while a box is checked and shows it again when none is", async () => {
+    const dialog = await open();
+    await fillName();
+    const box = within(dialog).getByRole("checkbox", { name: "project.pause" });
+
+    await userEvent.click(box);
+
+    expect(within(dialog).queryByText(/Nothing checked/)).toBeNull();
+    await userEvent.click(box);
+    expect(dialog).toHaveTextContent(
+      "Nothing checked: you approve every act in a run that Dana starts.",
+    );
+  });
+
+  it("shows the group labels, the group lines and each operation with its description", async () => {
+    const dialog = await open();
+    await fillName();
+
+    expect(within(dialog).getByRole("checkbox", { name: "Reversible acts" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox", { name: "Judged acts" })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Run at once. One opposite call undoes each act.");
+    expect(dialog).toHaveTextContent("Run when the Guard finds that Dana's message directs them.");
+    expect(
+      within(dialog).getByRole("checkbox", { name: "mission.node.pause" }),
+    ).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Pause a project.");
+    expect(dialog).toHaveTextContent("Create a project.");
+  });
+
+  it("shows the indeterminate state for a partial group and checks the group on click", async () => {
+    const dialog = await open();
+    const group = within(dialog).getByRole("checkbox", { name: "Reversible acts" });
+
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "mission.node.pause" }));
+
+    expect(group).toHaveAttribute("aria-checked", "mixed");
+    await userEvent.click(group);
+    expect(group).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "mission.node.pause" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "project.pause" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "project.create" })).not.toBeChecked();
+  });
+
+  it("checks one operation with a single checkbox", async () => {
+    const dialog = await open();
+
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "project.create" }));
+
+    expect(within(dialog).getByRole("checkbox", { name: "project.create" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "Judged acts" })).toBeChecked();
+    expect(within(dialog).getByRole("checkbox", { name: "project.pause" })).not.toBeChecked();
+  });
+
+  it("shows the warning above Create link only while something is checked", async () => {
+    const dialog = await open();
+    await fillName();
+    const box = within(dialog).getByRole("checkbox", { name: "project.pause" });
+
+    await userEvent.click(box);
+
+    const warning = within(dialog).getByText(
+      "Anyone who holds this link can run the checked acts in your name, on the selected projects, without your approval, until the link expires or you revoke it. Auto mode off stops them.",
+    );
+    const create = within(dialog).getByRole("button", { name: "Create link" });
+    expect(warning.compareDocumentPosition(create) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await userEvent.click(box);
+    expect(within(dialog).queryByText(/Anyone who holds this link/)).toBeNull();
+  });
+
+  it("sends the checked ids sorted and shows the grant read-only beside the link", async () => {
+    createMock.mockResolvedValue({
+      ...CREATED,
+      granted_operations: ["mission.node.pause", "project.create"],
+    });
+    const dialog = await open();
+    await fillName();
+    await selectAll();
+
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "project.create" }));
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "mission.node.pause" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create link" }));
+
+    await screen.findByLabelText("Invite link (copy now, shown once)");
+    expect(createMock).toHaveBeenCalledWith(SESSION_ID, {
+      invitee_name: "Dana",
+      project_ids: ["project_a", "project_b", "project_c"],
+      granted_operations: ["mission.node.pause", "project.create"],
+    });
+    const grant = within(dialog).getByRole("region", { name: "Grant of this link" });
+    expect(grant).toHaveTextContent("Without approval: 1 reversible, 1 judged");
+    const ids = within(grant).getByRole("list", { name: "Acts of this link without approval" });
+    expect(ids).toHaveTextContent("mission.node.pause");
+    expect(ids).toHaveTextContent("project.create");
+    expect(within(grant).queryByRole("checkbox")).toBeNull();
+  });
+
+  it("shows the code first and the refused ids for a grant_invalid answer", async () => {
+    createMock.mockRejectedValue(
+      new ApiError(
+        "refused",
+        "The invite grants an act that the owner cannot grant.",
+        400,
+        "workbench.invite.grant_invalid",
+        ["project.create", "mission.node.discard"],
+      ),
+    );
+    const dialog = await open();
+    await fillName();
+    await selectAll();
+    await userEvent.click(within(dialog).getByRole("checkbox", { name: "project.create" }));
+    await userEvent.click(screen.getByRole("button", { name: "Create link" }));
+
+    const line = await screen.findAllByRole("alert");
+    const error = line.find((node) =>
+      node.textContent?.startsWith("workbench.invite.grant_invalid"),
+    );
+    expect(error).toHaveTextContent(
+      "workbench.invite.grant_invalid The invite grants an act that the owner cannot grant. Refused: project.create, mission.node.discard.",
+    );
+  });
+
+  it("shows Approval for every act for an invite with an empty grant", async () => {
+    await open(null, invitesOf(["project_a"], [DANA_INVITE]));
+
+    const list = screen.getByRole("region", { name: "Invites" });
+    expect(within(list).getByText("Approval for every act")).toBeInTheDocument();
+  });
+
+  it("prints a zero count for a class that the grant does not hold", async () => {
+    const granted = [
+      { operation_id: "mission.node.pause", guard_class: "reversible" },
+      { operation_id: "project.pause", guard_class: "reversible" },
+    ] as const;
+    await open(null, invitesOf(["project_a"], [{ ...DANA_INVITE, granted_operations: granted }]));
+    const list = screen.getByRole("region", { name: "Invites" });
+
+    expect(
+      within(list).getByRole("button", { name: "Without approval: 2 reversible, 0 judged" }),
+    ).toBeInTheDocument();
+  });
+
+  it("counts the grant by class and shows the ids on expand", async () => {
+    const granted = [
+      { operation_id: "mission.node.pause", guard_class: "reversible" },
+      { operation_id: "project.pause", guard_class: "reversible" },
+      { operation_id: "project.create", guard_class: "judged" },
+    ] as const;
+    await open(null, invitesOf(["project_a"], [{ ...DANA_INVITE, granted_operations: granted }]));
+    const list = screen.getByRole("region", { name: "Invites" });
+
+    const trigger = within(list).getByRole("button", {
+      name: "Without approval: 2 reversible, 1 judged",
+    });
+    await userEvent.click(trigger);
+
+    const ids = await within(list).findByRole("list", { name: "Acts without approval" });
+    expect(ids).toHaveTextContent("mission.node.pause");
+    expect(ids).toHaveTextContent("project.pause");
+    expect(ids).toHaveTextContent("project.create");
   });
 });

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  ATLAS_NODES,
   BINDING_SET,
   CREDENTIALS,
   EVIDENCE_NODE_NAME,
@@ -12,7 +13,10 @@ import {
   GUEST_OWNER_NAME,
   GUEST_STREAM_ENTRIES_DELAY_MS,
   GUEST_STREAM_STATE_DELAY_MS,
+  ORBIT_NODES,
   PROJECT,
+  PROJECT_ATLAS,
+  PROJECT_ORBIT,
 } from "./fixtures.mjs";
 
 const WAIT_WINDOW_MS = 25000;
@@ -48,6 +52,46 @@ const FORK_FRAME =
 const FORK_TEXT_MAX_BYTES = 4096;
 const FORK_TITLE_MAX_CHARS = 120;
 const FORK_SUMMARY = "The earlier conversation listed the nodes of the mission and ended there.";
+const REVERSIBLE_OPERATIONS = [
+  ["mission.node.pause", "Pause a node and revoke its live claim."],
+  ["mission.node.resume", "Resume a paused node with external-action precedence."],
+  [
+    "mission.node.check",
+    "Check unresolved external requests and read each external link of the current revision on demand.",
+  ],
+  ["mission.node.priority.set", "Set the priority of a mission node."],
+  ["mission.dependency.add", "Add a mission dependency."],
+  ["mission.dependency.remove", "Remove a mission dependency."],
+  ["project.pause", "Pause a project so that it admits no claim."],
+  ["project.resume", "Resume a paused project so that it admits claims."],
+];
+const JUDGED_OPERATIONS = [
+  ["mission.node.unblock", "Unblock a node and pin its next attempt atomically."],
+  ["mission.node.block", "Block a paused node and close its attempt."],
+];
+const GRANTABLE_OPERATIONS = [
+  ...REVERSIBLE_OPERATIONS.map(([operation_id, description]) => ({
+    operation_id,
+    guard_class: "reversible",
+    description,
+  })),
+  ...JUDGED_OPERATIONS.map(([operation_id, description]) => ({
+    operation_id,
+    guard_class: "judged",
+    description,
+  })),
+];
+const SCOPE_REQUEST_OPERATION = "mission.node.pause";
+const SCOPE_REQUEST_REASON = "Pause the node before the next attempt.";
+const SCOPE_REQUEST_EXPECTED_KEYS = [
+  "expected_attempt",
+  "expected_mission_version",
+  "expected_state",
+];
+const OUTSIDE_TARGETS = [
+  { project_id: PROJECT_ORBIT.id, node_id: ORBIT_NODES[0].id },
+  { project_id: PROJECT_ATLAS.id, node_id: ATLAS_NODES[1].id },
+];
 const EFFORTS = ["off", "minimal", "low", "medium", "high", "xhigh", "max"];
 
 const randomTail = () => {
@@ -446,6 +490,56 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     });
   };
 
+  const GRANTED_OPERATION = "mission.node.pause";
+  const GRANT_REFUSED_TEXT = '{"error":{"code":"gateway.grant.refused"}}';
+
+  const playGrantedCall = async (session, run, call, result) => {
+    const guest = run.requested_by;
+    const invite = liveInvites(session).find((item) => item.invitee_name === guest.name);
+    call.name = GRANTED_OPERATION;
+    call.arguments = { node_id: OFFER_NODE_ID };
+    announce(session, call);
+    append(session, "custom", {
+      customType: RECORD_TYPE,
+      data: {
+        kind: "guard",
+        tool_call_id: call.id,
+        operation_id: call.name,
+        reason: "reversible",
+        grant: { invite_id: invite.id, author: { kind: "guest", name: guest.name } },
+      },
+    });
+    await settle(session, run, call, result);
+  };
+
+  const playScopeStop = async (session, run, call) => {
+    call.name = SCOPE_REQUEST_OPERATION;
+    call.arguments = { node_id: OFFER_NODE_ID };
+    announce(session, call);
+    append(session, "custom", {
+      customType: RECORD_TYPE,
+      data: { kind: "scope_stop", tool_call_id: call.id, operation_id: call.name },
+    });
+    await settle(session, run, call, { isError: true, text: GRANT_REFUSED_TEXT });
+  };
+
+  const guestScriptOf = (session, run, text) => {
+    if (run.requested_by.kind !== "guest") return null;
+    if (!liveInvites(session).some((item) => item.invitee_name === run.requested_by.name)) {
+      return null;
+    }
+    if (/\bgranted\b/i.test(text)) {
+      return (call) =>
+        playGrantedCall(session, run, call, { isError: false, text: '{"paused":true}' });
+    }
+    if (/\brefused\b/i.test(text)) {
+      return (call) =>
+        playGrantedCall(session, run, call, { isError: true, text: GRANT_REFUSED_TEXT });
+    }
+    if (/\boutside\b/i.test(text)) return (call) => playScopeStop(session, run, call);
+    return null;
+  };
+
   const play = async (session, run, text) => {
     if (session.agent_name === PLAN_AGENT) return playPlan(session, run);
     const state = stateOf(session);
@@ -455,11 +549,14 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       name: "mission.node.list",
       arguments: {},
     };
+    const guestScript = guestScriptOf(session, run, text);
     if (/\bfail\b/i.test(text)) {
       state.error_message = "The model provider refused the request.";
       return;
     }
-    if (/\bdiscard\b/i.test(text)) {
+    if (guestScript !== null) {
+      await guestScript(call);
+    } else if (/\bdiscard\b/i.test(text)) {
       call.name = "offer_action";
       call.arguments = { operation_id: "mission.node.discard", target_id: OFFER_NODE_ID };
       announce(session, call);
@@ -717,7 +814,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     return false;
   };
 
-  const listItemOf = (session) => {
+  const participantItemOf = (session) => {
     const isHost = !session.host_session_id;
     const entries = isHost ? conversationEntriesOf(session) : session.entries;
     const messages = entries.filter((entry) => entry.type === "message");
@@ -743,7 +840,16 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
               operation_id: state.pending_approval.operation_id,
             }
           : null,
-      participants: isHost ? participantsOf(session).map(listItemOf) : [],
+      participants: [],
+    };
+  };
+
+  const listItemOf = (session) => {
+    const isHost = !session.host_session_id;
+    return {
+      ...participantItemOf(session),
+      scope_requests: isHost ? scopeRequestsOf(session).length : 0,
+      participants: isHost ? participantsOf(session).map(participantItemOf) : [],
     };
   };
 
@@ -811,6 +917,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       entries: entriesAfter(session, null),
       run_active: stateOf(session).run !== null,
       forked_from: session.forked_from ?? null,
+      scope_requests: scopeRequestsOf(session),
       resume_command: `pi --session ~/.local/state/kanthord/pi/sessions/workbench/${session.agent_name}/${session.id}.jsonl`,
     });
   });
@@ -1075,6 +1182,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       members: membersOf(session),
       entries: entriesAfter(session, after),
       snapshot: snapshotOf(session),
+      scope_requests: scopeRequestsOf(session),
       version: state.version,
     });
     const current = changes();
@@ -1138,6 +1246,13 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
         tool_call_id: data.tool_call_id,
         operation_id: data.operation_id,
         target_id: data.target_id,
+      };
+    }
+    if (data?.kind === "scope_stop") {
+      return {
+        kind: "scope_stop",
+        tool_call_id: data.tool_call_id,
+        operation_id: data.operation_id,
       };
     }
     if (data?.kind === "fork") return { kind: "fork", source_title: data.source_title };
@@ -1223,12 +1338,78 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     };
   };
 
-  const publicInvite = ({ id, invitee_name, expires_at, project_ids }) => ({
+  const grantedOperationsOf = (operationIds) =>
+    GRANTABLE_OPERATIONS.filter((operation) => operationIds.includes(operation.operation_id)).map(
+      ({ operation_id, guard_class }) => ({ operation_id, guard_class }),
+    );
+
+  const publicInvite = ({ id, invitee_name, expires_at, project_ids, granted_operations }) => ({
     id,
     invitee_name,
     expires_at,
     projects: project_ids.map(projectRefOf),
+    granted_operations: grantedOperationsOf(granted_operations),
   });
+
+  const scopeRequestsByHost = new Map();
+
+  const unsharedTargetOf = (invite) =>
+    OUTSIDE_TARGETS.find((target) => !invite.project_ids.includes(target.project_id));
+
+  const newScopeRequest = (host, invite, target) => ({
+    id: `workbench_scope_request_0${randomTail()}`,
+    invite_id: invite.id,
+    invitee_name: invite.invitee_name,
+    guest_name: invite.invitee_name,
+    agent_name: host.agent_name,
+    operation_id: SCOPE_REQUEST_OPERATION,
+    description: GRANTABLE_OPERATIONS.find(
+      (operation) => operation.operation_id === SCOPE_REQUEST_OPERATION,
+    ).description,
+    input: { params: { node_id: target.node_id }, body: { reason: SCOPE_REQUEST_REASON } },
+    target_id: target.node_id,
+    ids: [target.node_id],
+    project_id: target.project_id,
+    expected_keys: SCOPE_REQUEST_EXPECTED_KEYS,
+    created_at: Date.now(),
+    expires_at: invite.expires_at,
+    state: "open",
+    error_code: null,
+  });
+
+  function scopeRequestsOf(host) {
+    const invite = liveInvites(host)[0];
+    if (invite === undefined) return [];
+    if (!scopeRequestsByHost.has(host.id)) {
+      const target = unsharedTargetOf(invite);
+      scopeRequestsByHost.set(
+        host.id,
+        target === undefined ? [] : [newScopeRequest(host, invite, target)],
+      );
+    }
+    return scopeRequestsByHost.get(host.id).filter((request) => invites.has(request.invite_id));
+  }
+
+  const findScopeRequest = (res, host, requestId) => {
+    const request = scopeRequestsOf(host).find(
+      (candidate) => candidate.id === decodeURIComponent(requestId),
+    );
+    if (request === undefined) {
+      envelope(
+        res,
+        404,
+        "workbench.scope_request.not_found",
+        "The workbench session holds no scope request with that id.",
+      );
+    }
+    return request;
+  };
+
+  const removeScopeRequest = (host, request) => {
+    const requests = scopeRequestsByHost.get(host.id);
+    requests.splice(requests.indexOf(request), 1);
+    notify(host);
+  };
 
   const liveProjectIds = (host) => liveInvites(host)[0]?.project_ids ?? null;
 
@@ -1266,6 +1447,22 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
         "The invite needs at least one existing project, with no repeat.",
       );
     }
+    if (!Array.isArray(body?.granted_operations)) {
+      return envelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+        { path: ["body", "granted_operations"], code: "invalid_type" },
+      ]);
+    }
+    const grantableIds = GRANTABLE_OPERATIONS.map((operation) => operation.operation_id);
+    const refusedIds = body.granted_operations.filter((id) => !grantableIds.includes(id));
+    if (refusedIds.length > 0) {
+      return envelope(
+        res,
+        400,
+        "workbench.invite.grant_invalid",
+        "The invite grants an operation that the owner cannot grant.",
+        refusedIds,
+      );
+    }
     const projectIds = [...body.project_ids].sort();
     const liveIds = liveProjectIds(session);
     if (liveIds !== null && !sameIds(liveIds, projectIds)) {
@@ -1280,15 +1477,19 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       id: `workbench_invite_0${randomTail()}`,
       session_id: session.id,
       project_ids: projectIds,
+      granted_operations: [...new Set(body.granted_operations)].sort(),
       invitee_name: normalizedName(body.invitee_name),
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
       invite_token: randomUUID(),
     };
     invites.set(invite.id, invite);
     return json(res, 200, {
-      ...publicInvite(invite),
+      id: invite.id,
       session_id: invite.session_id,
+      invitee_name: invite.invitee_name,
+      expires_at: invite.expires_at,
       invite_token: invite.invite_token,
+      granted_operations: invite.granted_operations,
     });
   });
 
@@ -1297,9 +1498,57 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     if (session === undefined) return;
     return json(res, 200, {
       items: liveInvites(session).map(publicInvite),
+      grantable: GRANTABLE_OPERATIONS,
       project_ids: liveProjectIds(session),
     });
   });
+
+  const expectedMatches = (expected, keys) =>
+    expected !== null &&
+    typeof expected === "object" &&
+    Object.keys(expected).sort().join() === keys.join();
+
+  on(
+    "POST",
+    /^\/api\/workbench\/session\/([^/]+)\/scope-request\/([^/]+)\/approve$/,
+    (m, body, res) => {
+      const session = findHost(res, m[1]);
+      if (session === undefined) return;
+      const request = findScopeRequest(res, session, m[2]);
+      if (request === undefined) return;
+      if (body?.project_name !== projectRefOf(request.project_id).name) {
+        return envelope(
+          res,
+          409,
+          "workbench.scope_request.name_mismatch",
+          "The typed name does not match the project name.",
+        );
+      }
+      if (!expectedMatches(body.expected, request.expected_keys)) {
+        return envelope(
+          res,
+          400,
+          "workbench.scope_request.expected_invalid",
+          "The expected values do not match the keys of the request.",
+        );
+      }
+      removeScopeRequest(session, request);
+      return json(res, 200, { request_id: request.id, outcome: "done", error_code: null });
+    },
+  );
+
+  on(
+    "POST",
+    /^\/api\/workbench\/session\/([^/]+)\/scope-request\/([^/]+)\/reject$/,
+    (m, _b, res) => {
+      const session = findHost(res, m[1]);
+      if (session === undefined) return;
+      const request = findScopeRequest(res, session, m[2]);
+      if (request === undefined) return;
+      removeScopeRequest(session, request);
+      return json(res, 200, { request_id: request.id });
+    },
+  );
 
   on("DELETE", /^\/api\/workbench\/invite\/([^/]+)$/, (m, _b, res) => {
     const invite = invites.get(decodeURIComponent(m[1]));
@@ -1366,6 +1615,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       entries: guestEntriesAfter(session, null),
       run_active: stateOf(session).run !== null,
       projects: invites.get(guest.invite_id).project_ids.map(projectRefOf),
+      granted_operations: grantedOperationsOf(invites.get(guest.invite_id).granted_operations),
       mention_names: GUEST_MENTION_NAMES,
     });
   });
@@ -1496,6 +1746,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
         .slice(0, 2)
         .map((project) => project.id)
         .sort(),
+      granted_operations: ["mission.node.pause"],
       invitee_name: seeded.approval.requested_by.name,
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
       invite_token: "mock-seeded-invite-token",

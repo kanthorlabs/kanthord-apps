@@ -5,8 +5,8 @@ import { RevealPanel } from "@/components/reveal";
 import { Collapsible, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
 import type { WorkbenchGuardRecord } from "@/api/types";
-import { ranWithoutApprovalLineOf } from "@/lib/guard-line";
-import { summaryOf } from "@/lib/workbench-chat";
+import { guardRecordLineOf } from "@/lib/guard-line";
+import { summaryOf, type ToolCallResult } from "@/lib/workbench-chat";
 import { InlineError } from "./inline-error";
 import { ToolDetail } from "./tool-detail";
 
@@ -17,10 +17,20 @@ interface ToolRowProps {
   readonly detail: string;
   readonly error?: string;
   readonly guard?: WorkbenchGuardRecord | null;
+  readonly result?: ToolCallResult | null;
 }
 
-export function ToolRow({ label, name, status, detail, error, guard = null }: ToolRowProps) {
+export function ToolRow({
+  label,
+  name,
+  status,
+  detail,
+  error,
+  guard = null,
+  result = null,
+}: ToolRowProps) {
   const errorId = useId();
+  const guardLine = guard === null ? null : guardRecordLineOf(guard, result);
   return (
     <div className="flex min-w-0 flex-col gap-1">
       <div
@@ -52,14 +62,12 @@ export function ToolRow({ label, name, status, detail, error, guard = null }: To
           </CollapsibleTrigger>
           <RevealPanel>
             <p className="px-3 pb-1 font-mono text-xs break-all">{name}</p>
-            <ToolDetail detail={detail} />
+            <ToolDetail detail={detail} inviteId={guard?.grant?.invite_id} />
           </RevealPanel>
         </Collapsible>
       </div>
-      {guard !== null && (
-        <p className="min-w-0 px-3 text-xs break-words text-muted-foreground">
-          {ranWithoutApprovalLineOf(guard.reason)}
-        </p>
+      {guardLine !== null && (
+        <p className="min-w-0 px-3 text-xs break-words text-muted-foreground">{guardLine}</p>
       )}
       {error !== undefined && <InlineError id={errorId} code={null} message={error} />}
     </div>

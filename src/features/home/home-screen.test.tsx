@@ -196,8 +196,8 @@ import type {
   SchedulerExecutionRecord,
   SchedulerJob,
   WorkbenchRunSnapshot,
-  WorkbenchSession,
   WorkbenchSessionEntry,
+  WorkbenchSessionGet,
   WorkbenchSessionListItem,
   WorkerBindingRecord,
   WorkerCatalogItem,
@@ -511,7 +511,7 @@ function hostOf(id: string) {
   return { session_id: id, agent_name: "ops@1", display_name: "Yumi" };
 }
 
-function conversation(id: string, text: string): WorkbenchSession {
+function conversation(id: string, text: string): WorkbenchSessionGet {
   return {
     id,
     agent_name: "ops@1",
@@ -530,6 +530,7 @@ function conversation(id: string, text: string): WorkbenchSession {
     ],
     run_active: false,
     forked_from: null,
+    scope_requests: [],
     resume_command: "pi --session ~/session.jsonl",
   };
 }
@@ -548,7 +549,7 @@ const IDLE_SNAPSHOT: WorkbenchRunSnapshot = {
 function followEvents(snapshot: WorkbenchRunSnapshot) {
   vi.mocked(readWorkbenchEvents).mockImplementation(async (id, _after, version) =>
     version === null
-      ? { members: [hostOf(id)], entries: [], snapshot, version: 1 }
+      ? { members: [hostOf(id)], entries: [], snapshot, scope_requests: [], version: 1 }
       : new Promise(() => undefined),
   );
 }
@@ -753,6 +754,7 @@ function session(
     run_active: true,
     forked_from: null,
     pending_approval: { tool_call_id: "call_1", operation_id: "project.create" },
+    scope_requests: 0,
     participants: [],
     ...patch,
   };
@@ -811,7 +813,7 @@ async function press(user: ReturnType<typeof userEvent.setup>, name: string | Re
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(listInvites).mockResolvedValue({ items: [], grantable: [], project_ids: null });
   NOW = Date.now();
 });
 
@@ -1187,6 +1189,7 @@ describe("HomeScreen tool approval", () => {
         auto_mode: true,
         phase: null,
       },
+      scope_requests: [],
       version: 1,
     });
     vi.mocked(approveWorkbenchCall).mockImplementation(async () => {
@@ -1207,6 +1210,92 @@ describe("HomeScreen tool approval", () => {
     expect(await screen.findByText("All clear")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: /^Primary: / })).toBeNull();
     expect(approveWorkbenchCall).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("HomeScreen Outside request", () => {
+  const REQUESTS = { run_active: false, pending_approval: null };
+
+  it.each([
+    [1, "Create the project account-recovery: 1 request outside the shared projects"],
+    [3, "Create the project account-recovery: 3 requests outside the shared projects"],
+  ])("shows one Outside request card for %i open requests", async (count, title) => {
+    serve({ sessions: [session("workbench_session_A", { ...REQUESTS, scope_requests: count })] });
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: Create the project account-recovery/);
+
+    expect(within(primary).getByText("Outside request")).toBeVisible();
+    expect(within(primary).getByText(title)).toBeVisible();
+    expect(
+      within(primary).getByText(
+        "Shared conversation · A guest run asked for an act on a project that is not shared.",
+      ),
+    ).toBeVisible();
+    expect(screen.getAllByRole("group", { name: /^Primary: / })).toHaveLength(1);
+  });
+
+  it("shows no card for a conversation with no open request", async () => {
+    serve({ sessions: [session("workbench_session_A", { ...REQUESTS, scope_requests: 0 })] });
+    renderScreen();
+
+    expect(await screen.findByText("All clear")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /^Primary: / })).toBeNull();
+  });
+
+  it("leads with Open conversation, which links to the conversation", async () => {
+    serve({ sessions: [session("workbench_session_A", { ...REQUESTS, scope_requests: 1 })] });
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: Create the project account-recovery/);
+
+    expect(within(primary).getByRole("button", { name: "Open conversation" })).toHaveAttribute(
+      "href",
+      "/workbench/workbench_session_A",
+    );
+  });
+
+  it("shows no approve control and no Ask Yumi", async () => {
+    serve({
+      yumi: "on",
+      sessions: [
+        opsSession("workbench_session_Y1"),
+        session("workbench_session_A", { ...REQUESTS, scope_requests: 1 }),
+      ],
+    });
+    vi.mocked(readWorkbenchEvents).mockImplementation(async (id, _after, version) =>
+      version === null
+        ? {
+            members: [hostOf(id)],
+            entries: [],
+            snapshot: IDLE_SNAPSHOT,
+            scope_requests: [],
+            version: 1,
+          }
+        : new Promise(() => undefined),
+    );
+    renderScreen();
+
+    const primary = await findPrimary(/^Primary: Create the project account-recovery/);
+
+    expect(within(primary).queryByRole("button", { name: /^Approve|^Reject/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Ask Yumi" })).toBeNull();
+    const more = within(primary).queryByRole("button", { name: /^More/ });
+    if (more !== null) {
+      await userEvent.click(more);
+      expect(
+        within(await screen.findByRole("dialog")).queryByRole("button", { name: "Ask Yumi" }),
+      ).toBeNull();
+    }
+  });
+
+  it("reads the count from the one session list and adds no read", async () => {
+    serve({ sessions: [session("workbench_session_A", { ...REQUESTS, scope_requests: 1 })] });
+    renderScreen();
+
+    await findPrimary(/^Primary: Create the project account-recovery/);
+
+    expect(readWorkbenchEvents).not.toHaveBeenCalled();
   });
 });
 
@@ -1326,6 +1415,7 @@ function opsSession(
     run_active: false,
     forked_from: null,
     pending_approval: null,
+    scope_requests: 0,
     participants: [],
     ...patch,
   });
@@ -1469,7 +1559,7 @@ describe("HomeScreen Yumi chat", () => {
   });
 });
 
-function forkOf(id: string, sourceId: string): WorkbenchSession {
+function forkOf(id: string, sourceId: string): WorkbenchSessionGet {
   const base = conversation(id, "Go on");
   const stamp = "2026-10-05T09:00:00.000Z";
   const entry = (
@@ -1716,7 +1806,7 @@ describe("HomeScreen queue line", () => {
   });
 });
 
-function offerConversation(targetId: string, operationId: string): WorkbenchSession {
+function offerConversation(targetId: string, operationId: string): WorkbenchSessionGet {
   const base = conversation("workbench_session_Y1", GENERAL);
   return {
     ...base,
@@ -1929,10 +2019,17 @@ describe("HomeScreen Ask Yumi", () => {
                 guard: null,
               },
             },
+            scope_requests: [],
             version: 1,
           }
         : version === null
-          ? { members: [hostOf(id)], entries: [], snapshot: IDLE_SNAPSHOT, version: 1 }
+          ? {
+              members: [hostOf(id)],
+              entries: [],
+              snapshot: IDLE_SNAPSHOT,
+              scope_requests: [],
+              version: 1,
+            }
           : new Promise(() => undefined),
     );
     renderScreen();

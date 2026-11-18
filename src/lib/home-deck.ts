@@ -5,14 +5,14 @@ import {
   BOARD_TABS,
   type BoardTab,
   type BoardTabId,
-  boardTabNamed,
+  boardTabLabelOf,
   boardTabOf,
 } from "./board-tabs";
 import { type BoardSummary, boardSummaryOf, cardCauseOf, heldText } from "./board-text";
 import { counted } from "./counted";
 import { durationText, utcShortDateTime } from "./format";
 
-const DECK_FIRST_KINDS: readonly AttentionItem["kind"][] = ["tool_approval"];
+const DECK_FIRST_KINDS: readonly AttentionItem["kind"][] = ["tool_approval", "scope_request"];
 export const DECK_PAGE_SIZE = 50;
 export const DECK_GONE_TEXT = "The selected item no longer waits.";
 
@@ -130,7 +130,7 @@ export function deckSummaryOf(
     start:
       first === undefined
         ? null
-        : { subject: first.subject, tab: boardTabNamed(boardTabOf(first, input.details)) },
+        : { subject: first.subject, tab: boardTabLabelOf(first, input.details) },
     readFault: input.readFault,
     inbox: input.inbox,
   });

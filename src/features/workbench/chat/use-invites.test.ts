@@ -11,6 +11,7 @@ const INVITE = {
   invitee_name: "Dana",
   expires_at: 1790000000000,
   projects: [{ id: "project_a", name: "Alpha" }],
+  granted_operations: [],
 };
 
 beforeEach(() => {
@@ -21,6 +22,7 @@ describe("useInvites", () => {
   it("locks the set from the project_ids of the answer", async () => {
     vi.mocked(listInvites).mockResolvedValue({
       items: [INVITE],
+      grantable: [],
       project_ids: ["project_a", "project_b"],
     });
 
@@ -35,7 +37,7 @@ describe("useInvites", () => {
   });
 
   it("holds no lock when the answer holds no project_ids", async () => {
-    vi.mocked(listInvites).mockResolvedValue({ items: [], project_ids: null });
+    vi.mocked(listInvites).mockResolvedValue({ items: [], grantable: [], project_ids: null });
 
     const { result } = renderHook(() => useInvites("workbench_session_1"));
 

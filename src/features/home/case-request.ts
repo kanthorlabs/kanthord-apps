@@ -77,7 +77,13 @@ function fixCaseRequestOf(item: FixAttentionItem): string | null {
 }
 
 export function caseRequestOf(item: AttentionItem): string | null {
-  if (item.kind === "tool_approval" || item.kind === "inbox_item") return null;
+  if (
+    item.kind === "tool_approval" ||
+    item.kind === "scope_request" ||
+    item.kind === "inbox_item"
+  ) {
+    return null;
+  }
   if (item.group === "fixes") return fixCaseRequestOf(item);
   return nodeCaseRequestOf(item);
 }

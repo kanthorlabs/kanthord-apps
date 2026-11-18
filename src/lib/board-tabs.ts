@@ -103,8 +103,10 @@ function isProposalItem(item: BlockedItem, details: AttentionDetails): boolean {
   return open === null || open.length > 0;
 }
 
-export function boardTabOf(item: AttentionItem, details: AttentionDetails): BoardTabId {
+export function boardTabOf(item: AttentionItem, details: AttentionDetails): BoardTabId | null {
   switch (item.kind) {
+    case "scope_request":
+      return null;
     case "tool_approval":
       return BOARD_TAB.Tool;
     case "project_paused":
@@ -140,4 +142,17 @@ export function boardTabNamed(id: BoardTabId): BoardTab {
   const tab = boardTabById(id);
   if (tab === undefined) throw new Error(`No board tab ${id}.`);
   return tab;
+}
+
+const OUTSIDE_REQUEST_TAB: Pick<BoardTab, "name" | "short"> = {
+  name: "Outside request",
+  short: "Outside request",
+};
+
+export function boardTabLabelOf(
+  item: AttentionItem,
+  details: AttentionDetails,
+): Pick<BoardTab, "name" | "short"> {
+  const id = boardTabOf(item, details);
+  return id === null ? OUTSIDE_REQUEST_TAB : boardTabNamed(id);
 }

@@ -85,6 +85,7 @@ describe("chatItemsOf", () => {
         input: JSON.stringify({ a: 1 }, null, 2),
         state: "done",
         guard: null,
+        result: { isError: true, text: "refused" },
       },
       { kind: "tool-result", id: "e3", name: "mission.node.list", text: "refused", isError: true },
     ]);
@@ -1118,5 +1119,99 @@ describe("chatItemsOf guest-started runs", () => {
 
     const users = bodyItemsOf(entries, IDLE).filter((item) => item.kind === "user");
     expect(users.map((item) => item.guest)).toEqual([undefined]);
+  });
+});
+
+describe("chatItemsOf grant records", () => {
+  const GRANT = { invite_id: "invite_1", author: { kind: "guest", name: "Anna" } };
+  const GRANTED = {
+    kind: "guard",
+    tool_call_id: "call_1",
+    operation_id: "mission.node.pause",
+    reason: "reversible",
+    grant: GRANT,
+  };
+
+  it("joins a guard record with a grant to its tool call", () => {
+    const items = bodyItemsOf(
+      [message("e1", { role: "assistant", content: [CALL] }), record("e2", GRANTED)],
+      IDLE,
+    );
+
+    const calls = items.filter((item) => item.kind === "tool-call");
+    expect(calls.map((item) => item.guard)).toEqual([GRANTED]);
+  });
+
+  it("joins the tool result to its tool call", () => {
+    const items = bodyItemsOf(
+      [
+        message("e1", { role: "assistant", content: [CALL] }),
+        record("e2", GRANTED),
+        message("e3", {
+          role: "toolResult",
+          toolCallId: "call_1",
+          toolName: "mission.node.list",
+          isError: false,
+          content: [{ type: "text", text: "ok" }],
+        }),
+      ],
+      IDLE,
+    );
+
+    const calls = items.filter((item) => item.kind === "tool-call");
+    expect(calls.map((item) => item.result)).toEqual([{ isError: false, text: "ok" }]);
+  });
+
+  it.each([
+    ["a grant that holds an owner author", { ...GRANT, author: { kind: "owner", name: "Anna" } }],
+    ["a grant with an extra key", { ...GRANT, extra: 1 }],
+    ["a grant that is not a record", "invite_1"],
+  ])("drops a guard record with %s", (_label, grant) => {
+    const items = bodyItemsOf(
+      [message("e1", { role: "assistant", content: [CALL] }), record("e2", { ...GRANTED, grant })],
+      IDLE,
+    );
+
+    const calls = items.filter((item) => item.kind === "tool-call");
+    expect(calls.map((item) => item.guard)).toEqual([null]);
+  });
+});
+
+describe("chatItemsOf scope stop", () => {
+  it("renders the fixed line with the operation id as a tool name", () => {
+    const items = bodyItemsOf(
+      [
+        record("e1", {
+          kind: "scope_stop",
+          tool_call_id: "call_1",
+          operation_id: "mission.node.discard",
+        }),
+      ],
+      IDLE,
+    );
+
+    expect(items.map(stripOrigin)).toEqual([
+      {
+        kind: "scope-stop",
+        id: "e1",
+        text: "The run ended: mission--node--discard names a record that is not available in this conversation. Ask the owner if you need it.",
+      },
+    ]);
+  });
+
+  it("drops a scope stop record with an extra key", () => {
+    const items = bodyItemsOf(
+      [
+        record("e1", {
+          kind: "scope_stop",
+          tool_call_id: "call_1",
+          operation_id: "mission.node.discard",
+          extra: 1,
+        }),
+      ],
+      IDLE,
+    );
+
+    expect(items).toEqual([]);
   });
 });

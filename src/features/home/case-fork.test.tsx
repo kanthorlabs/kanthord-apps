@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
-import type { WorkbenchSession } from "@/api/types";
+import type { WorkbenchSessionGet } from "@/api/types";
 
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
@@ -24,7 +24,7 @@ import { ChatScreen } from "@/features/workbench/chat/chat-screen";
 const CASE_ID = "workbench_session_CASE";
 const FORK_ID = "workbench_session_FORK";
 
-const CASE_SESSION: WorkbenchSession = {
+const CASE_SESSION: WorkbenchSessionGet = {
   id: CASE_ID,
   agent_name: "ops@1",
   configuration: {
@@ -46,6 +46,7 @@ const CASE_SESSION: WorkbenchSession = {
   ],
   run_active: false,
   forked_from: null,
+  scope_requests: [],
   resume_command: "pi --session ~/session.jsonl",
 };
 
@@ -56,7 +57,11 @@ function Where() {
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(workbenchApi.listInvites).mockResolvedValue({ items: [], project_ids: null });
+  vi.mocked(workbenchApi.listInvites).mockResolvedValue({
+    items: [],
+    grantable: [],
+    project_ids: null,
+  });
   vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue(CASE_SESSION);
   vi.mocked(workbenchApi.readWorkbenchEvents).mockImplementation(
     () => new Promise(() => undefined),
