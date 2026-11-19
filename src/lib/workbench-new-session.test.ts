@@ -28,7 +28,23 @@ describe("newSessionRequestOf", () => {
       ok: true,
       agentName: "ops@1",
       agentDisplayName: null,
+      variantId: null,
       configuration: CONFIGURATION,
+    });
+  });
+
+  it("reads back the variant id that newSessionPath carries", () => {
+    const url = new URL(
+      newSessionPath("swe@1", CONFIGURATION, "SWE", "agent_variant_1"),
+      "http://localhost",
+    );
+
+    expect(url.searchParams.get("variant_id")).toBe("agent_variant_1");
+    expect(newSessionRequestOf(url.searchParams)).toMatchObject({
+      ok: true,
+      agentName: "swe@1",
+      agentDisplayName: "SWE",
+      variantId: "agent_variant_1",
     });
   });
 

@@ -15,6 +15,7 @@ export type NewSessionRequest =
       readonly ok: true;
       readonly agentName: string;
       readonly agentDisplayName: string | null;
+      readonly variantId: string | null;
       readonly configuration: WorkbenchConfiguration;
     }
   | { readonly ok: false; readonly message: string };
@@ -29,6 +30,7 @@ export function newSessionPath(
   agentName: string,
   configuration: WorkbenchConfiguration,
   agentDisplayName: string | null = null,
+  variantId: string | null = null,
 ): string {
   const params = new URLSearchParams({
     agent_name: agentName,
@@ -37,6 +39,7 @@ export function newSessionPath(
     reasoning_effort: configuration.reasoning_effort,
   });
   if (agentDisplayName !== null) params.set("display_name", agentDisplayName);
+  if (variantId !== null) params.set("variant_id", variantId);
   return `${NEW_SESSION_PATH}?${params}`;
 }
 
@@ -55,10 +58,12 @@ export function newSessionRequestOf(params: URLSearchParams): NewSessionRequest 
     reasoningEffort: reasoningEffortOf(params.get("reasoning_effort")),
   });
   if (result.ok) {
+    const variantId = params.get("variant_id") ?? "";
     return {
       ok: true,
       agentName,
       agentDisplayName: params.get("display_name"),
+      variantId: variantId === "" ? null : variantId,
       configuration: result.configuration,
     };
   }

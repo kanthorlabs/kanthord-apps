@@ -16,6 +16,14 @@ const CONFIGURATION = {
 };
 const WAIT = { timeout: 5000, interval: 25 };
 
+const VARIANT = {
+  id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA1",
+  agent_name: "swe@1",
+  display_name: "Software Architecture",
+  instruction: "Weigh each change against the structure.",
+  revision: 1,
+};
+
 const mockDaemon = () => {
   const routes = [];
   const sessions = [
@@ -33,6 +41,7 @@ const mockDaemon = () => {
     envelope: (res, status, code) => res.reply({ status, body: { error: { code } } }),
     agents: structuredClone(AGENT_DECLARATIONS),
     sessions,
+    variants: [VARIANT],
     projects: [{ id: "project_a", name: "Alpha" }, PROJECT_ORBIT, PROJECT_ATLAS],
   });
   const call = (method, path, body = {}, token = null) => {
@@ -380,5 +389,60 @@ describe("workbench mock notice", () => {
     expect(note.body.kind).toBe("note");
 
     expect(noticeOfList(daemon)).toBeNull();
+  });
+});
+
+describe("workbench mock variant session", () => {
+  const createBody = (variantId) => ({
+    agent_name: "swe@1",
+    ...CONFIGURATION,
+    ...(variantId === undefined ? {} : { variant_id: variantId }),
+  });
+
+  it("carries the variant id and the variant name in the create, list and get answers", () => {
+    const daemon = mockDaemon();
+
+    const created = daemon.call("POST", "/api/workbench/session", createBody(VARIANT.id)).body;
+    const listed = daemon
+      .call("GET", "/api/workbench/session")
+      .body.items.find((item) => item.id === created.id);
+    const read = daemon.call("GET", `/api/workbench/session/${created.id}`).body;
+
+    expect(created.variant_id).toBe(VARIANT.id);
+    expect(created.members[0].display_name).toBe(VARIANT.display_name);
+    expect(listed.variant_id).toBe(VARIANT.id);
+    expect(listed.display_name).toBe(VARIANT.display_name);
+    expect(read.variant_id).toBe(VARIANT.id);
+  });
+
+  it("answers a null variant id for a base session", () => {
+    const daemon = mockDaemon();
+
+    const created = daemon.call("POST", "/api/workbench/session", createBody(undefined)).body;
+
+    expect(created.variant_id).toBeNull();
+    expect(created.members[0].display_name).toBe("SWE");
+  });
+
+  it("refuses a variant that does not exist", () => {
+    const daemon = mockDaemon();
+
+    const answer = daemon.call(
+      "POST",
+      "/api/workbench/session",
+      createBody("agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0ZZZ"),
+    );
+
+    expect(answer.status).toBe(404);
+    expect(answer.body.error.code).toBe("agent.variant.not_found");
+  });
+
+  it("refuses a malformed variant id", () => {
+    const daemon = mockDaemon();
+
+    const answer = daemon.call("POST", "/api/workbench/session", createBody("agent_variant_none"));
+
+    expect(answer.status).toBe(400);
+    expect(answer.body.error.code).toBe("gateway.request.validation_failed");
   });
 });

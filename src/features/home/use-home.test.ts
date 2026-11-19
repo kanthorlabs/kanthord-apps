@@ -55,6 +55,7 @@ function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): Workbe
     id,
     host_session_id: null,
     agent_name: "ops@1",
+    variant_id: null,
     display_name: "Yumi",
     name: null,
     created: 1,
@@ -111,6 +112,25 @@ describe("useHome", () => {
     const { result } = await ready();
 
     expect(result.current.sessionId).toBe("host-new");
+  });
+
+  it("opens the older base session when a newer ops@1 session is a variant session", async () => {
+    serve(enablement(), [
+      item("base", { modified: 10 }),
+      item("variant", { modified: 30, variant_id: "agent_variant_1", display_name: "Ops Variant" }),
+    ]);
+
+    const { result } = await ready();
+
+    expect(result.current.sessionId).toBe("base");
+  });
+
+  it("opens in new-session mode when every ops@1 session is a variant session", async () => {
+    serve(enablement(), [item("variant", { variant_id: "agent_variant_1" })]);
+
+    const { result } = await ready();
+
+    expect(result.current.view).toEqual({ kind: "new" });
   });
 
   it("skips a fork of a case conversation", async () => {

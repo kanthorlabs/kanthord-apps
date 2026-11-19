@@ -109,6 +109,8 @@ export function ChatView({
     [patchSnapshot],
   );
   const hostDisplayName = memberOf(events.members, session.id).display_name;
+  const variantBase =
+    session.variant_id === null ? null : mentionAgents.displayNameOf(session.agent_name);
   const newChat = useRef<() => void>(() => undefined);
   const handleNew = useCallback(() => newChat.current(), []);
   const composer = useComposer(actions.busy, actions.send, {
@@ -136,8 +138,23 @@ export function ChatView({
   const shown = target ?? host;
   const configuration = useChatConfiguration(shown);
   const openNewChat = useCallback(
-    () => navigate(newSessionPath(session.agent_name, session.configuration, hostDisplayName)),
-    [navigate, session.agent_name, session.configuration, hostDisplayName],
+    () =>
+      navigate(
+        newSessionPath(
+          session.agent_name,
+          session.configuration,
+          variantBase ?? hostDisplayName,
+          session.variant_id,
+        ),
+      ),
+    [
+      navigate,
+      session.agent_name,
+      session.configuration,
+      session.variant_id,
+      variantBase,
+      hostDisplayName,
+    ],
   );
   useEffect(() => {
     newChat.current = onNew ?? openNewChat;
@@ -186,6 +203,9 @@ export function ChatView({
     <div className="flex min-w-0 flex-1 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="font-mono text-lg font-semibold">{hostDisplayName} conversation</h2>
+        {variantBase !== null && (
+          <span className="text-sm text-muted-foreground">variant of {variantBase}</span>
+        )}
         <Badge variant={snapshot.run_active ? "default" : "outline"}>
           {snapshot.run_active ? "Running" : "Idle"}
         </Badge>

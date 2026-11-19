@@ -4,6 +4,7 @@ import { createWorkbenchSession, sendWorkbenchMessage } from "@/api/resources/wo
 import type { WorkbenchConfiguration } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import type { ChatActionFailure } from "./use-chat-actions";
+import { engineCodeOf } from "@/lib/agent-variant";
 import type { FirstSendFailure } from "@/lib/workbench-new-session";
 
 export interface FirstSendState {
@@ -18,6 +19,7 @@ export function useFirstSend(
   agentName: string,
   configuration: WorkbenchConfiguration | null,
   open: OpenCreatedSession,
+  variantId: string | null = null,
 ): FirstSendState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,10 +31,15 @@ export function useFirstSend(
       setBusy(true);
       let sessionId: string;
       try {
-        sessionId = (await createWorkbenchSession({ agent_name: agentName, ...configuration })).id;
+        const body = {
+          agent_name: agentName,
+          ...(variantId === null ? {} : { variant_id: variantId }),
+          ...configuration,
+        };
+        sessionId = (await createWorkbenchSession(body)).id;
       } catch (cause) {
         const error = asApiError(cause);
-        setFailure({ cause: "send", code: error.code, message: error.message });
+        setFailure({ cause: "send", code: engineCodeOf(error), message: error.message });
         setBusy(false);
         return false;
       }
@@ -46,7 +53,7 @@ export function useFirstSend(
       open(sessionId, null);
       return true;
     },
-    [agentName, configuration, open],
+    [agentName, configuration, open, variantId],
   );
 
   return { failure, busy, send };

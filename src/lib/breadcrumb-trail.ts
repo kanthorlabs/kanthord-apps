@@ -9,6 +9,7 @@ const SEGMENT_LABELS: Readonly<Record<string, string>> = {
   workbench: "Workbench",
   instances: "Instances",
   cleanups: "Cleanups",
+  variants: "Variants",
 };
 
 function segmentLabel(segment: string): string {

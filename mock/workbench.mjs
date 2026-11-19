@@ -18,6 +18,7 @@ import {
   PROJECT_ATLAS,
   PROJECT_ORBIT,
 } from "./fixtures.mjs";
+import { VARIANT_ID } from "./variants.mjs";
 
 const WAIT_WINDOW_MS = 25000;
 const WORD_DELAY_MS = 150;
@@ -153,7 +154,16 @@ const cursorOf = (host, after) => {
   return new Map(after.split(",").map((pair) => pair.split(":")));
 };
 
-export function registerWorkbench({ on, json, envelope, agents, sessions, projects, origin }) {
+export function registerWorkbench({
+  on,
+  json,
+  envelope,
+  agents,
+  sessions,
+  variants,
+  projects,
+  origin,
+}) {
   const live = new Map();
   let entrySequence = 100;
 
@@ -208,11 +218,15 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
   const displayNameOf = (agentName) =>
     agents.find((agent) => agent.agent_name === agentName).display_name;
 
+  const sessionDisplayNameOf = (session) =>
+    variants.find((variant) => variant.id === session.variant_id)?.display_name ??
+    displayNameOf(session.agent_name);
+
   const membersOf = (host) =>
     [host, ...participantsOf(host)].map((member) => ({
       session_id: member.id,
       agent_name: member.agent_name,
-      display_name: displayNameOf(member.agent_name),
+      display_name: sessionDisplayNameOf(member),
     }));
 
   const entriesAfter = (host, after) => {
@@ -861,7 +875,8 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       id: session.id,
       host_session_id: session.host_session_id ?? null,
       agent_name: session.agent_name,
-      display_name: displayNameOf(session.agent_name),
+      variant_id: session.variant_id ?? null,
+      display_name: sessionDisplayNameOf(session),
       name: session.name ?? null,
       created: session.created,
       modified: Date.parse(entries.at(-1)?.timestamp ?? "") || session.created,
@@ -911,9 +926,22 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       );
     }
     if (!validConfiguration(res, body?.agent_name, body)) return;
+    if (body.variant_id !== undefined && !VARIANT_ID.test(body.variant_id)) {
+      return envelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+        { path: ["body", "variant_id"], code: "custom" },
+      ]);
+    }
+    const variant =
+      body.variant_id === undefined
+        ? undefined
+        : variants.find((item) => item.id === body.variant_id);
+    if (body.variant_id !== undefined && variant?.agent_name !== body.agent_name) {
+      return envelope(res, 404, "agent.variant.not_found", "The variant does not exist.");
+    }
     const session = {
       id: sessionId(),
       agent_name: body.agent_name,
+      ...(variant === undefined ? {} : { variant_id: variant.id }),
       created: Date.now(),
       configuration: {
         agent_provider: body.agent_provider,
@@ -926,7 +954,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
       entryOf(session, "message", {
         message: textMessage(
           "assistant",
-          `Hi, I am ${displayNameOf(session.agent_name)} on ${session.configuration.model_identifier}. What do you need?`,
+          `Hi, I am ${sessionDisplayNameOf(session)} on ${session.configuration.model_identifier}. What do you need?`,
         ),
       }),
     );
@@ -934,6 +962,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     return json(res, 200, {
       id: session.id,
       agent_name: session.agent_name,
+      variant_id: session.variant_id ?? null,
       configuration: session.configuration,
       members: membersOf(session),
       entries: session.entries,
@@ -949,6 +978,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     return json(res, 200, {
       id: session.id,
       agent_name: session.agent_name,
+      variant_id: session.variant_id ?? null,
       configuration: session.configuration,
       members: membersOf(session),
       entries: entriesAfter(session, null),
@@ -1000,6 +1030,7 @@ export function registerWorkbench({ on, json, envelope, agents, sessions, projec
     const session = {
       id: sessionId(),
       agent_name: source.agent_name,
+      ...(source.variant_id === undefined ? {} : { variant_id: source.variant_id }),
       created: Date.now(),
       name: body.text,
       forked_from: source.id,

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
-import type { AgentSummary } from "@/api/types";
+import type { AgentSummary, AgentVariantItem } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Item, ItemContent, ItemGroup, ItemHeader, ItemTitle } from "@/components/ui/item";
 import { Skeleton } from "@/components/ui/skeleton";
+import { variantPath } from "@/lib/agent-variant";
 import { enablementLabel, enablementVariant } from "@/lib/agent-enablement";
 import { agentLabel } from "@/lib/agent-label";
 import { toolCountsLine } from "@/lib/agent-tools";
@@ -16,11 +17,20 @@ import { NewSessionButton } from "@/features/workbench/sessions/components/new-s
 import { NewSessionDialog } from "@/features/workbench/sessions/components/new-session-dialog";
 import { ENABLEMENT_HASH } from "../agent/use-enablement-create";
 import { useAgents } from "./use-agents";
+import { useAgentVariants } from "@/hooks/use-agent-variants";
+import { VariantCreateDialog } from "./variant-create-dialog";
 
-function AgentItem({ agent }: { agent: AgentSummary }) {
+interface AgentItemProps {
+  readonly agent: AgentSummary;
+  readonly variants: readonly AgentVariantItem[];
+}
+
+function AgentItem({ agent, variants }: AgentItemProps) {
   const { agentName, workerNames, toolCounts, enablement, consumers } = agent;
   const navigate = useNavigate();
   const [starting, setStarting] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const sessionAgent = consumers.includes("workbench");
 
   return (
     <Item variant="outline" role="listitem">
@@ -44,7 +54,7 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
             Enable
           </Button>
         )}
-        {consumers.includes("workbench") && (
+        {sessionAgent && (
           <NewSessionButton
             size="sm"
             label={`New session with ${agentName}`}
@@ -58,9 +68,17 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
           agents={[agent]}
           initialAgentName={agentName}
           onClose={() => setStarting(false)}
-          onStart={(agentName, configuration, agentDisplayName) =>
-            navigate(newSessionPath(agentName, configuration, agentDisplayName))
+          onStart={(agentName, configuration, agentDisplayName, variantId) =>
+            navigate(newSessionPath(agentName, configuration, agentDisplayName, variantId))
           }
+        />
+      )}
+      {creating && (
+        <VariantCreateDialog
+          agentName={agentName}
+          displayName={agent.displayName}
+          onClose={() => setCreating(false)}
+          onCreated={(variant) => navigate(variantPath(variant.agent_name, variant.id))}
         />
       )}
       <ItemContent className="min-w-0 gap-3">
@@ -84,13 +102,50 @@ function AgentItem({ agent }: { agent: AgentSummary }) {
             </>
           )}
         </dl>
+        {sessionAgent && (
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+              <span className="text-sm text-muted-foreground md:mr-auto">Variants</span>
+              <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
+                New variant
+              </Button>
+            </div>
+            {variants.length > 0 && (
+              <ItemGroup aria-label={`Variants of ${agentName}`} className="gap-2">
+                {variants.map((variant) => (
+                  <Item key={variant.id} variant="muted" size="sm" role="listitem">
+                    <ItemTitle>
+                      <Link
+                        to={variantPath(agentName, variant.id)}
+                        className="underline-offset-4 hover:underline"
+                      >
+                        {variant.display_name} (v{variant.revision})
+                      </Link>
+                    </ItemTitle>
+                  </Item>
+                ))}
+              </ItemGroup>
+            )}
+          </div>
+        )}
       </ItemContent>
     </Item>
   );
 }
 
 export function AgentsScreen() {
-  const { data: agents, error, loading, reload } = useAgents();
+  const agentsRead = useAgents();
+  const variantsRead = useAgentVariants();
+  const agents = agentsRead.data;
+  const variants = variantsRead.data ?? [];
+  const error = agentsRead.error ?? variantsRead.error;
+  const loading = agentsRead.loading || variantsRead.loading;
+  const { reload: reloadAgents } = agentsRead;
+  const { reload: reloadVariants } = variantsRead;
+  const reload = () => {
+    reloadAgents();
+    reloadVariants();
+  };
 
   if (loading) {
     return (
@@ -125,7 +180,11 @@ export function AgentsScreen() {
   return (
     <ItemGroup aria-label="Agents" className="gap-4">
       {agents.map((agent) => (
-        <AgentItem key={agent.agentName} agent={agent} />
+        <AgentItem
+          key={agent.agentName}
+          agent={agent}
+          variants={variants.filter((variant) => variant.agent_name === agent.agentName)}
+        />
       ))}
     </ItemGroup>
   );

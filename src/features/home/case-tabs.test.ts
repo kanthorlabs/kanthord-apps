@@ -55,6 +55,7 @@ function session(id: string): WorkbenchSession {
   return {
     id,
     agent_name: "ops@1",
+    variant_id: null,
     configuration: CONFIGURATION,
     members: [{ session_id: id, agent_name: "ops@1", display_name: "Yumi" }],
     entries: [],

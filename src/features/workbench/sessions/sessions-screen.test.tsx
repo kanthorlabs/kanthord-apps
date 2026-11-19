@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-route
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
 import type {
@@ -13,6 +14,7 @@ import type {
   WorkbenchSessionListItem,
 } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
@@ -80,6 +82,7 @@ const OLD: WorkbenchSessionListItem = {
   id: "workbench_session_OLD",
   host_session_id: null,
   agent_name: "swe@1",
+  variant_id: null,
   display_name: "SWE",
   name: null,
   created: Date.parse("2026-10-01T09:00:00Z"),
@@ -97,6 +100,7 @@ const NEW: WorkbenchSessionListItem = {
   id: "workbench_session_NEW",
   host_session_id: null,
   agent_name: "swe@1",
+  variant_id: null,
   display_name: "SWE",
   name: "Billing plan",
   created: Date.parse("2026-10-05T09:00:00Z"),
@@ -138,6 +142,7 @@ function serve(
   enablement: AgentEnablement | null = ENABLEMENT,
 ) {
   vi.mocked(workbenchApi.listWorkbenchSessions).mockResolvedValue(items);
+  vi.mocked(agentApi.listAgentVariants).mockResolvedValue([]);
   vi.mocked(workersApi.listAgents).mockResolvedValue(agents(enablement));
   vi.mocked(workersApi.listAgentProviderModels).mockImplementation(
     async (_agentName, providerName) => MODELS[providerName] ?? [],
@@ -208,6 +213,19 @@ describe("SessionsScreen", () => {
     mount("/workbench");
 
     expect(await screen.findByRole("button", { name: "Open Empty Session" })).toBeTruthy();
+  });
+
+  it("shows the variant name on a variant row and the base name on a base row", async () => {
+    serve([{ ...NEW, variant_id: "agent_variant_1", display_name: "Software Architecture" }, OLD]);
+    mount("/workbench");
+
+    const rows = within(await screen.findByRole("list", { name: "Sessions" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(rows[0]!).getByText("Software Architecture")).toBeTruthy();
+    expect(within(rows[0]!).getByText("swe@1")).toBeTruthy();
+    expect(within(rows[1]!).getByText("SWE")).toBeTruthy();
+    expect(within(rows[1]!).queryByText("Software Architecture")).toBeNull();
   });
 
   it("counts the messages of a session in the singular and the plural", async () => {

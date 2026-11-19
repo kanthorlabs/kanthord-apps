@@ -4,10 +4,12 @@ import { Link, MemoryRouter, Route, Routes, useLocation } from "react-router-dom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentDeclaration, WorkbenchSessionGet } from "@/api/types";
+import type { AgentDeclaration, AgentVariant, WorkbenchSessionGet } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 vi.mock("@/features/auth/session/session-context", () => ({
@@ -27,6 +29,7 @@ const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 const SESSION: WorkbenchSessionGet = {
   id: SESSION_ID,
   agent_name: "swe@1",
+  variant_id: null,
   configuration: {
     agent_provider: "atlas-llm",
     model_identifier: "gpt-5",
@@ -288,6 +291,7 @@ describe("ChatScreen", () => {
       toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
       enablement: AGENT.enablement,
     };
+    const SWE_AGENT = { ...RE_AGENT, agentName: "swe@1", displayName: "SWE" };
     const CONVERSATION: WorkbenchSessionGet = {
       ...SESSION,
       members: [
@@ -595,6 +599,26 @@ describe("ChatScreen", () => {
         ).toBeTruthy();
       });
 
+      it("carries the variant id and the base display name when /new leaves a variant conversation", async () => {
+        vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+          ...CONVERSATION,
+          variant_id: "agent_variant_1",
+          members: [
+            { ...CONVERSATION.members[0]!, display_name: "Software Architecture" },
+            ...CONVERSATION.members.slice(1),
+          ],
+        });
+        vi.mocked(workersApi.listAgents).mockResolvedValue([SWE_AGENT, RE_AGENT]);
+        mountConversation();
+
+        await send("/new");
+
+        const at = await screen.findByText(/^At \/workbench\/new\?/);
+        const query = new URLSearchParams(at.textContent?.replace(/^At [^?]*\?/, ""));
+        expect(query.get("variant_id")).toBe("agent_variant_1");
+        expect(query.get("display_name")).toBe("SWE");
+      });
+
       it("opens the new-session route on /new alone and forks nothing", async () => {
         mountConversation();
 
@@ -764,6 +788,132 @@ describe("ChatScreen", () => {
       expect(screen.getByText("Path /workbench/new")).toBeTruthy();
       expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("List nodes");
       expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+    });
+
+    describe("with a variant", () => {
+      const VARIANT: AgentVariant = {
+        id: "agent_variant_1",
+        agent_name: "swe@1",
+        display_name: "Software Architecture",
+        instruction: "Weigh each change.",
+        revision: 1,
+      };
+      const VARIANT_QUERY = new URLSearchParams({
+        agent_name: "swe@1",
+        variant_id: VARIANT.id,
+        agent_provider: "atlas-llm",
+        model_identifier: "qwen3-coder",
+        reasoning_effort: "off",
+      });
+
+      beforeEach(() => {
+        vi.mocked(agentApi.readAgentVariant).mockResolvedValue(VARIANT);
+        vi.mocked(workersApi.listAgents).mockResolvedValue([
+          {
+            agentName: "swe@1",
+            displayName: "SWE",
+            workerNames: [],
+            consumers: ["workbench"],
+            toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+            enablement: AGENT.enablement,
+          },
+        ]);
+      });
+
+      it("reads the variant, shows its greeting and its base, and calls no write", async () => {
+        mountNew(VARIANT_QUERY);
+
+        expect(
+          await screen.findByText(
+            "Hi, I am Software Architecture on qwen3-coder. What do you need?",
+          ),
+        ).toBeTruthy();
+        expect(screen.getByRole("heading", { name: "Software Architecture" })).toBeTruthy();
+        expect(await screen.findByText("variant of SWE")).toBeTruthy();
+        expect(agentApi.readAgentVariant).toHaveBeenCalledWith("agent_variant_1");
+        expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
+        expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+        expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+        expect(agentApi.createAgentVariant).not.toHaveBeenCalled();
+        expect(agentApi.updateAgentVariant).not.toHaveBeenCalled();
+        expect(agentApi.deleteAgentVariant).not.toHaveBeenCalled();
+      });
+
+      it("creates the session with the variant id, then sends the message, in this order", async () => {
+        vi.mocked(workbenchApi.createWorkbenchSession).mockResolvedValue(SESSION);
+        vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+          kind: "run",
+          session_id: SESSION_ID,
+          agent_name: null,
+          run_active: true,
+          queued_message_id: null,
+          cleared: [],
+        });
+        mountNew(VARIANT_QUERY);
+
+        await userEvent.type(
+          await screen.findByRole("combobox", { name: "Message" }),
+          "List nodes",
+        );
+        await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+        expect(await screen.findByText(`Path /workbench/${SESSION_ID}`)).toBeTruthy();
+        expect(workbenchApi.createWorkbenchSession).toHaveBeenCalledWith({
+          agent_name: "swe@1",
+          variant_id: "agent_variant_1",
+          agent_provider: "atlas-llm",
+          model_identifier: "qwen3-coder",
+          reasoning_effort: "off",
+        });
+        expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(SESSION_ID, "List nodes");
+        expect(
+          vi.mocked(workbenchApi.createWorkbenchSession).mock.invocationCallOrder[0],
+        ).toBeLessThan(vi.mocked(workbenchApi.sendWorkbenchMessage).mock.invocationCallOrder[0]!);
+      });
+
+      it("writes nothing when the owner leaves with no message", async () => {
+        mountNew(VARIANT_QUERY);
+        await screen.findByText(/Hi, I am Software Architecture/);
+
+        await userEvent.click(screen.getByRole("link", { name: "Leave" }));
+
+        expect(await screen.findByText("Elsewhere")).toBeTruthy();
+        expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+        expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      });
+
+      it("shows the not-found line under the composer when the variant read answers 404", async () => {
+        vi.mocked(agentApi.readAgentVariant).mockRejectedValue(
+          new ApiError("not_found", "The variant does not exist.", 404, "agent.variant.not_found"),
+        );
+        mountNew(VARIANT_QUERY);
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "agent.variant.not_found The variant does not exist.",
+        );
+        expect(screen.getByRole("combobox", { name: "Message" })).toBeTruthy();
+        expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();
+      });
+
+      it("keeps the text and shows the code first when the create answers 404", async () => {
+        vi.mocked(workbenchApi.createWorkbenchSession).mockRejectedValue(
+          new ApiError("not_found", "The variant does not exist.", 404, "agent.variant.not_found"),
+        );
+        mountNew(VARIANT_QUERY);
+
+        await userEvent.type(
+          await screen.findByRole("combobox", { name: "Message" }),
+          "List nodes",
+        );
+        await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+        expect(await screen.findByRole("alert")).toHaveTextContent(
+          "agent.variant.not_found The variant does not exist.",
+        );
+        expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue("List nodes");
+        expect(screen.getByText("Path /workbench/new")).toBeTruthy();
+        expect(workbenchApi.sendWorkbenchMessage).not.toHaveBeenCalled();
+      });
     });
 
     it("shows the error line and sends nothing when the query is invalid", async () => {

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
+import { InlineError } from "@/features/workbench/chat/components/inline-error";
 import { useNewSession } from "../use-new-session";
 import { SessionConfigurationForm } from "./session-configuration-form";
 
@@ -20,6 +21,7 @@ interface NewSessionDialogProps {
     agentName: string,
     configuration: WorkbenchConfiguration,
     agentDisplayName: string | null,
+    variantId: string | null,
   ) => void;
 }
 
@@ -46,12 +48,20 @@ export function NewSessionDialog({
           <ChoiceField
             id="new-session-agent"
             label="Agent"
-            value={choice.agentName ?? ""}
+            value={choice.value ?? ""}
             options={choice.agentOptions}
             optionLabels={choice.agentLabels}
             error={undefined}
             onChange={choice.selectAgent}
           />
+          {choice.variantsFailure !== null && (
+            <div className="md:col-span-2">
+              <InlineError
+                code={choice.variantsFailure.code}
+                message={choice.variantsFailure.message}
+              />
+            </div>
+          )}
           {choice.agentOptions.length === 0 && (
             <FieldDescription className="md:col-span-2">
               No agent is enabled. Enable an agent on the Agents page.
@@ -60,11 +70,13 @@ export function NewSessionDialog({
         </FieldGroup>
         {agentName !== null && choice.enablement !== null ? (
           <SessionConfigurationForm
-            key={agentName}
+            key={choice.value}
             agentName={agentName}
             enablement={choice.enablement}
             onClose={onClose}
-            onStart={(configuration) => onStart(agentName, configuration, choice.agentDisplayName)}
+            onStart={(configuration) =>
+              onStart(agentName, configuration, choice.agentDisplayName, choice.variantId)
+            }
           />
         ) : (
           <FieldGroup className="md:grid md:grid-cols-2">

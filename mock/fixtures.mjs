@@ -3011,6 +3011,33 @@ export const WORKBENCH_SESSIONS = [
       },
     ],
   },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0VS1",
+    agent_name: "swe@1",
+    variant_id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA1",
+    created: SESSION_BASE + 7 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000501",
+        parentId: null,
+        timestamp: entryAt(10080),
+        message: { role: "user", content: "Review the structure of the cart module" },
+      },
+      {
+        type: "message",
+        id: "e0000502",
+        parentId: "e0000501",
+        timestamp: entryAt(10081),
+        message: textMessage("assistant", "The cart module mixes pricing and checkout rules."),
+      },
+    ],
+  },
   ...GUARD_SESSIONS,
 ];
 
@@ -3293,3 +3320,16 @@ export const INSTANCE_COPY_REPORTS = [
     reported_by: "mac-studio",
   },
 ];
+
+export const AGENT_VARIANTS = [
+  {
+    id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA1",
+    agent_name: "swe@1",
+    display_name: "Software Architecture",
+    instruction:
+      "Weigh each change against the structure of the codebase.\nName the module that owns each new behaviour before you write it.",
+    revision: 1,
+  },
+];
+
+export const AGENT_VARIANT_INSTRUCTION_MAX_BYTES = 32768;

@@ -34,6 +34,7 @@ const ENABLEMENT: AgentEnablement = {
 const SESSION: WorkbenchSessionGet = {
   id: SESSION_ID,
   agent_name: "swe@1",
+  variant_id: null,
   configuration: ENABLEMENT.default_configuration,
   members: [{ session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" }],
   entries: [

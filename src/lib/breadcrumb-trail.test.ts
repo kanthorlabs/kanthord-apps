@@ -41,6 +41,15 @@ describe("breadcrumbTrail", () => {
     ]);
   });
 
+  it("names the variants segment of an agent", () => {
+    expect(breadcrumbTrail("/agents/swe%401/variants/agent_variant_1", labelOf)).toEqual([
+      { path: "/agents", label: "agents" },
+      { path: "/agents/swe%401", label: "swe@1" },
+      { path: "/agents/swe%401/variants", label: "Variants" },
+      { path: "/agents/swe%401/variants/agent_variant_1", label: "agent_variant_1" },
+    ]);
+  });
+
   it("names the workbench of an agent", () => {
     expect(breadcrumbTrail("/agents/swe%401/workbench", labelOf)).toEqual([
       { path: "/agents", label: "agents" },

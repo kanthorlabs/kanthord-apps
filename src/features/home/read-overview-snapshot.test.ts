@@ -67,6 +67,7 @@ const SESSION: WorkbenchSessionListItem = {
   id: "s1",
   host_session_id: null,
   agent_name: "swe@1",
+  variant_id: null,
   display_name: "SWE",
   name: null,
   created: 1,

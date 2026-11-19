@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { WorkbenchConfiguration } from "@/api/types";
+import type { VariantLine } from "@/lib/agent-variant";
 import { addresseeOf } from "@/lib/workbench-mention";
 import { workbenchSessionPath } from "@/lib/workbench-sessions";
 import { Composer } from "./composer";
@@ -11,10 +12,17 @@ import { useComposer } from "../use-composer";
 import { useMentionAgents } from "../use-mention-agents";
 import { type OpenCreatedSession, useFirstSend } from "../use-first-send";
 
+export interface NewSessionVariant {
+  readonly id: string;
+  readonly baseDisplayName: string | null;
+  readonly failure: VariantLine | null;
+}
+
 interface NewSessionChatProps {
   readonly agentName: string;
   readonly agentDisplayName?: string | null;
   readonly configuration: WorkbenchConfiguration | null;
+  readonly variant?: NewSessionVariant | null;
   readonly configurationError?: string | null;
   readonly onOpen?: OpenCreatedSession;
   readonly onNew?: () => void;
@@ -46,6 +54,7 @@ export function NewSessionChat({
   agentName,
   agentDisplayName = null,
   configuration,
+  variant = null,
   configurationError = null,
   onOpen,
   onNew = NO_CHANGE,
@@ -60,7 +69,7 @@ export function NewSessionChat({
       }),
     [navigate],
   );
-  const first = useFirstSend(agentName, configuration, onOpen ?? openByRoute);
+  const first = useFirstSend(agentName, configuration, onOpen ?? openByRoute, variant?.id ?? null);
   const mentionAgents = useMentionAgents();
   const mentionNames = useMemo(
     () => mentionAgents.agents.map((agent) => agent.displayName),
@@ -72,6 +81,7 @@ export function NewSessionChat({
     fork: first.send,
     mentionNames,
   });
+  const variantFailure = variant?.failure ?? null;
   const addressee = addresseeOf(composer.draft, [], [], mentionNames);
   const greeting =
     agentDisplayName === null || configuration === null
@@ -80,7 +90,12 @@ export function NewSessionChat({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4">
-      <h2 className="font-mono text-lg font-semibold">{agentName}</h2>
+      <h2 className="font-mono text-lg font-semibold">
+        {variant === null ? agentName : (agentDisplayName ?? agentName)}
+      </h2>
+      {variant !== null && variant.baseDisplayName !== null && (
+        <p className="text-sm text-muted-foreground">variant of {variant.baseDisplayName}</p>
+      )}
       <p className="text-sm">{greeting}</p>
       {streamEnd}
       <div className="sticky bottom-0 mt-auto bg-background pt-2">
@@ -96,6 +111,9 @@ export function NewSessionChat({
         {configurationError !== null && <InlineError code={null} message={configurationError} />}
         {mentionAgents.failure !== null && (
           <InlineError code={null} message={mentionAgents.failure} />
+        )}
+        {variantFailure !== null && (
+          <InlineError code={variantFailure.code} message={variantFailure.message} />
         )}
         {first.failure !== null && (
           <InlineError code={first.failure.code} message={first.failure.message} />

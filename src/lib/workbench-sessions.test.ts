@@ -8,6 +8,7 @@ function item(id: string, modified: number, patch: Partial<WorkbenchSessionListI
     id,
     host_session_id: null,
     agent_name: "swe@1",
+    variant_id: null,
     display_name: "SWE",
     name: null,
     created: 0,

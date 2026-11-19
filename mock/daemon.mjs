@@ -15,6 +15,7 @@ import { registerInstances } from "./instances.mjs";
 import { registerMachines } from "./machines.mjs";
 import * as pr from "./prompts.mjs";
 import { registerTracking } from "./tracking.mjs";
+import { registerVariants, VARIANT_ID } from "./variants.mjs";
 import { registerWorkbench } from "./workbench.mjs";
 
 const PORT = Number(process.env.KANTHORD_HTTP_PORT ?? 31415);
@@ -74,6 +75,7 @@ const agents = structuredClone(fx.AGENT_DECLARATIONS).map((agent) =>
   EMPTY ? { ...agent, enablement: null } : agent,
 );
 const workbenchSessions = EMPTY ? [] : structuredClone(fx.WORKBENCH_SESSIONS);
+const agentVariants = EMPTY ? [] : structuredClone(fx.AGENT_VARIANTS);
 const inboxItems = EMPTY ? [] : structuredClone(fx.INBOX_ITEMS);
 const projectStates = new Map([
   [
@@ -342,6 +344,14 @@ on("GET", /^\/api\/worker\/catalog\/([^/]+)$/, (m, _b, res) => {
     agent_names: agentNames,
     resource_budget: { wall_time_ms: 3600000 },
   });
+});
+registerVariants({
+  on,
+  json,
+  envelope: projectEnvelope,
+  agents,
+  variants: agentVariants,
+  hasSession: (variantId) => workbenchSessions.some((session) => session.variant_id === variantId),
 });
 on("GET", /^\/api\/agent$/, (_m, _b, res, _t, url) =>
   json(
@@ -636,9 +646,43 @@ const filePartOf = (part, name, text, overridden, layer = 1) => ({
   text,
 });
 
-const agentPartsOf = (agent, workbench) => [
+const variantPartOf = (variant) => ({
+  layer: 1,
+  part: "variant",
+  name: variant.display_name,
+  origin: "database",
+  path: null,
+  binding_id: null,
+  commit: null,
+  digest: digestOf(variant.instruction),
+  heading: null,
+  state: "resolved",
+  text: variant.instruction,
+});
+
+const identityPartOf = (agent, variant) => {
+  const name = variant === undefined ? agent.display_name : variant.display_name;
+  const text = `Your name is ${name}. A human addresses you as @${name}. A name in another prompt layer addresses a different assistant.`;
+  return {
+    layer: 1,
+    part: "identity",
+    name: "identity",
+    origin: "binary",
+    path: `${AGENT_DIRECTORY}/prompts/identity.md`,
+    binding_id: null,
+    commit: null,
+    digest: digestOf(text),
+    heading: null,
+    state: "resolved",
+    text,
+  };
+};
+
+const agentPartsOf = (agent, workbench, variant) => [
   filePartOf("standard", "base.md", agent.basePrompt, false),
+  identityPartOf(agent, variant),
   filePartOf("role", `${agent.agent_name}.md`, agent.agentPrompt, agent.roleOverridden === true),
+  ...(variant === undefined ? [] : [variantPartOf(variant)]),
   ...(workbench ? [filePartOf("workbench", "workbench.md", fx.WORKBENCH_PROMPT, false)] : []),
 ];
 
@@ -786,6 +830,21 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
       { file: PROMPT_INVALID, path: `${AGENT_DIRECTORY}/${PROMPT_INVALID}`, reason: "too_large" },
     );
   }
+  const variantId = url.searchParams.get("variant_id");
+  if (variantId !== null && !VARIANT_ID.test(variantId)) {
+    return projectEnvelope(
+      res,
+      400,
+      "gateway.request.validation_failed",
+      "Request validation failed.",
+      [{ path: ["query", "variant_id"], code: "custom" }],
+    );
+  }
+  const variant =
+    variantId === null ? undefined : agentVariants.find((item) => item.id === variantId);
+  if (variantId !== null && variant?.agent_name !== declaration.agent_name) {
+    return projectEnvelope(res, 404, "agent.variant.not_found", "The variant does not exist.");
+  }
   const task = url.searchParams.get("task");
   if (task !== null && declaration.agent_name !== GUARD_AGENT) return refuseValidation(res);
   if (task !== null && !GUARD_TASKS.includes(task)) return refuseValidation(res);
@@ -812,7 +871,7 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
     agentName === GUARD_AGENT
       ? guardPartsOf(declaration, task)
       : [
-          ...agentPartsOf(declaration, workbench),
+          ...agentPartsOf(declaration, workbench, variant),
           ...(binding === undefined ? [] : bindingPartsOf(agentName, binding)),
           framingPartOf(workbench),
         ];
@@ -3718,6 +3777,7 @@ registerWorkbench({
   envelope: projectEnvelope,
   agents,
   sessions: workbenchSessions,
+  variants: agentVariants,
   projects,
   origin: ORIGIN,
 });

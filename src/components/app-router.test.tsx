@@ -67,6 +67,20 @@ vi.mock("@/features/workers/worker/worker-screen", () => ({
   },
 }));
 
+vi.mock("@/features/workers/agent/agent-screen", () => ({
+  AgentScreen: () => {
+    const { pathname } = useLocation();
+    return <p>{`Agent page ${pathname}`}</p>;
+  },
+}));
+
+vi.mock("@/features/workers/variant/variant-screen", () => ({
+  VariantScreen: () => {
+    const { pathname } = useLocation();
+    return <p>{`Variant page ${pathname}`}</p>;
+  },
+}));
+
 vi.mock("@/features/footprint/list/footprint-screen", () => ({
   FootprintScreen: () => <p>Footprint body</p>,
 }));
@@ -111,6 +125,24 @@ describe("AppRouter", () => {
     render(<AppRouter />);
 
     expect(screen.getByText("Worker page /workers/coder@1?project=prj-b")).toBeInTheDocument();
+  });
+
+  it("serves the variant page under its agent", () => {
+    window.history.pushState({}, "", "/agents/swe%401/variants/agent_variant_1");
+
+    render(<AppRouter />);
+
+    expect(
+      screen.getByText("Variant page /agents/swe%401/variants/agent_variant_1"),
+    ).toBeInTheDocument();
+  });
+
+  it("redirects the variants path to the agent page", () => {
+    window.history.pushState({}, "", "/agents/swe%401/variants");
+
+    render(<AppRouter />);
+
+    expect(screen.getByText("Agent page /agents/swe@1")).toBeInTheDocument();
   });
 
   it("serves the analytics page at its own route", () => {
