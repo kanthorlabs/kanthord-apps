@@ -785,7 +785,9 @@ describe("Composer", () => {
         streaming_message: null,
         pending_tool_calls: [],
         pending_approval: null,
-        queue: [{ id: "queued_1", text: "later", agent_name: null, display_name: null }],
+        queue: [
+          { id: "queued_1", text: "later", agent_name: null, variant_id: null, display_name: null },
+        ],
         run_active: false,
         error_message: null,
         auto_mode: true,
@@ -833,8 +835,8 @@ describe("Composer", () => {
       run_active: true,
       queued_message_id: null,
       cleared: [
-        { id: "queued_1", text: "first", agent_name: null, display_name: null },
-        { id: "queued_2", text: "second", agent_name: null, display_name: null },
+        { id: "queued_1", text: "first", agent_name: null, variant_id: null, display_name: null },
+        { id: "queued_2", text: "second", agent_name: null, variant_id: null, display_name: null },
       ],
     });
 
@@ -843,8 +845,20 @@ describe("Composer", () => {
 
   describe("Stop", () => {
     const QUEUE = [
-      { id: "queued_1", text: "first queued", agent_name: null, display_name: null },
-      { id: "queued_2", text: "second queued", agent_name: null, display_name: null },
+      {
+        id: "queued_1",
+        text: "first queued",
+        agent_name: null,
+        variant_id: null,
+        display_name: null,
+      },
+      {
+        id: "queued_2",
+        text: "second queued",
+        agent_name: null,
+        variant_id: null,
+        display_name: null,
+      },
     ];
 
     function withQueue(queue: readonly WorkbenchQueuedMessage[]) {

@@ -813,7 +813,15 @@ describe("ChatView", () => {
         agent_name: null,
         run_active: true,
         queued_message_id: null,
-        cleared: [{ id: "queued_1", text: "queued one", agent_name: null, display_name: null }],
+        cleared: [
+          {
+            id: "queued_1",
+            text: "queued one",
+            agent_name: null,
+            variant_id: null,
+            display_name: null,
+          },
+        ],
       });
       mount(session([], true));
 

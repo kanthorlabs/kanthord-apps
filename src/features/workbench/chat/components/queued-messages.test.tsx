@@ -24,8 +24,20 @@ import { QueuedMessages } from "./queued-messages";
 const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 const HOST_MEMBER = { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" };
 
-const ONE = { id: "queued_1", text: "First queued message", agent_name: null, display_name: null };
-const TWO = { id: "queued_2", text: "Second queued message", agent_name: null, display_name: null };
+const ONE = {
+  id: "queued_1",
+  text: "First queued message",
+  agent_name: null,
+  variant_id: null,
+  display_name: null,
+};
+const TWO = {
+  id: "queued_2",
+  text: "Second queued message",
+  agent_name: null,
+  variant_id: null,
+  display_name: null,
+};
 
 const TRIGGER = /queued/;
 
@@ -38,7 +50,13 @@ function Harness({ initial }: { readonly initial: readonly WorkbenchQueuedMessag
         onClick={() =>
           setQueue((held) => [
             ...held,
-            { id: "queued_9", text: "Added later", agent_name: null, display_name: null },
+            {
+              id: "queued_9",
+              text: "Added later",
+              agent_name: null,
+              variant_id: null,
+              display_name: null,
+            },
           ])
         }
       >
@@ -103,6 +121,7 @@ describe("QueuedMessages", () => {
       id: "queued_3",
       text: "Check the retry",
       agent_name: "re@1",
+      variant_id: null,
       display_name: "RE",
     };
     render(<Harness initial={[tagged, ONE]} />);

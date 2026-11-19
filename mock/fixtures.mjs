@@ -2616,6 +2616,8 @@ export const GUEST_STREAM_STATE_DELAY_MS = 300;
 
 export const GUEST_STREAM_ENTRIES_DELAY_MS = 900;
 
+export const VARIANT_CONVERSATION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0VQ1";
+
 export const WORKBENCH_SESSIONS = [
   {
     id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1",
@@ -2937,6 +2939,54 @@ export const WORKBENCH_SESSIONS = [
         parentId: "e0000501",
         timestamp: entryAt(7202),
         message: textMessage("assistant", "The retry stops after three attempts. I found no gap."),
+      },
+    ],
+  },
+  {
+    id: VARIANT_CONVERSATION_ID,
+    host_session_id: null,
+    agent_name: "ops@1",
+    created: SESSION_BASE + 6 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000601",
+        parentId: null,
+        timestamp: entryAt(8640),
+        message: textMessage("assistant", "Hi, I am Yumi on qwen3-coder. What do you need?"),
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0VQ2",
+    host_session_id: VARIANT_CONVERSATION_ID,
+    agent_name: "swe@1",
+    variant_id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA1",
+    created: SESSION_BASE + 6 * 86400000 + 60000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000602",
+        parentId: null,
+        timestamp: entryAt(8641),
+        message: { role: "user", content: "@Software Architecture Review the cart module." },
+      },
+      {
+        type: "message",
+        id: "e0000603",
+        parentId: "e0000602",
+        timestamp: entryAt(8642),
+        message: textMessage("assistant", "The cart module mixes pricing and checkout rules."),
       },
     ],
   },

@@ -4,6 +4,7 @@ import {
   AGENT_DECLARATIONS,
   PROJECT_ATLAS,
   PROJECT_ORBIT,
+  VARIANT_CONVERSATION_ID,
   WORKBENCH_SESSIONS,
 } from "../mock/fixtures.mjs";
 import { registerWorkbench } from "../mock/workbench.mjs";
@@ -24,7 +25,7 @@ const VARIANT = {
   revision: 1,
 };
 
-const mockDaemon = () => {
+const mockDaemon = (extraSessions = []) => {
   const routes = [];
   const sessions = [
     {
@@ -34,6 +35,7 @@ const mockDaemon = () => {
       configuration: CONFIGURATION,
       entries: [],
     },
+    ...extraSessions,
   ];
   registerWorkbench({
     on: (method, pattern, handler) => routes.push({ method, pattern, handler }),
@@ -136,6 +138,76 @@ describe("workbench mock plan run", () => {
     const [item] = daemon.call("GET", "/api/workbench/session").body.items;
 
     expect(item.message_count).toBe(1);
+  });
+
+  describe("the variant conversation", () => {
+    const eventsOf = (daemon) =>
+      daemon.call("GET", `/api/workbench/session/${VARIANT_CONVERSATION_ID}/events`).body;
+
+    it("routes a leading variant mention to a member keyed by agent_name and variant_id", () => {
+      const daemon = mockDaemon();
+      const hostId = daemon.sessions[0].id;
+
+      daemon.call("POST", `/api/workbench/session/${hostId}/message`, {
+        text: "@Software Architecture review it",
+      });
+      const { members } = daemon.call("GET", `/api/workbench/session/${hostId}/events`).body;
+
+      expect(members.map(({ agent_name, display_name }) => [agent_name, display_name])).toEqual([
+        ["ops@1", "Yumi"],
+        ["swe@1", "Software Architecture"],
+      ]);
+      expect(daemon.sessions.at(-1)).toMatchObject({ agent_name: "swe@1", variant_id: VARIANT.id });
+    });
+
+    it("refuses a guest run on a variant mention", () => {
+      const daemon = mockDaemon();
+      const invite = daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, {
+        invitee_name: "Dana",
+        project_ids: ["project_a"],
+        granted_operations: ["mission.node.pause"],
+      });
+      const joined = daemon.call("POST", "/api/workbench/invite/join", {
+        invite_token: invite.body.invite_token,
+        name: "Dana",
+      });
+
+      const refused = daemon.call(
+        "POST",
+        "/api/workbench/guest/session/message",
+        { text: "@Software Architecture do it" },
+        joined.body.guest_token,
+      );
+
+      expect(refused.status).toBe(409);
+      expect(refused.body.error.code).toBe("workbench.guest.agent_refused");
+    });
+
+    it("serves a Yumi host, a Software Architecture member of swe@1 and one queued variant item", () => {
+      const daemon = mockDaemon(
+        structuredClone(
+          WORKBENCH_SESSIONS.filter(
+            (session) =>
+              session.id === VARIANT_CONVERSATION_ID ||
+              session.host_session_id === VARIANT_CONVERSATION_ID,
+          ),
+        ),
+      );
+
+      const { members, snapshot } = eventsOf(daemon);
+
+      expect(members.map(({ agent_name, display_name }) => [agent_name, display_name])).toEqual([
+        ["ops@1", "Yumi"],
+        ["swe@1", "Software Architecture"],
+      ]);
+      expect(snapshot.queue).toEqual([
+        expect.objectContaining({
+          agent_name: "swe@1",
+          variant_id: VARIANT.id,
+          display_name: "Software Architecture",
+        }),
+      ]);
+    });
   });
 
   describe("the invite name", () => {

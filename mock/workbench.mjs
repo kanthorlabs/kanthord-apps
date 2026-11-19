@@ -9,6 +9,7 @@ import {
   GUEST_KEEPALIVE_MS,
   GUEST_MENTION_NAMES,
   GUEST_VARIANT_MEMBER,
+  VARIANT_CONVERSATION_ID,
   GUEST_MESSAGE_MAX_BYTES,
   GUEST_NAME_MAX_CHARS,
   GUEST_OWNER_NAME,
@@ -140,10 +141,11 @@ const textOf = (message) =>
     ? message.content
     : (message?.content ?? []).map((block) => block.text ?? "").join("");
 
-const publicQueueItem = ({ id, text, agent_name, display_name }) => ({
+const publicQueueItem = ({ id, text, agent_name, variant_id, display_name }) => ({
   id,
   text,
   agent_name,
+  variant_id,
   display_name,
 });
 
@@ -244,11 +246,21 @@ export function registerWorkbench({
 
   const hasMentionToken = (text) => /^@\S/.test(text);
 
+  const mentionableOf = () => {
+    const bases = agents.filter((agent) => agent.workbench === true);
+    const ofVariants = variants.flatMap((variant) => {
+      const base = bases.find((agent) => agent.agent_name === variant.agent_name);
+      return base === undefined
+        ? []
+        : [{ ...base, display_name: variant.display_name, variant_id: variant.id }];
+    });
+    return [...bases.map((agent) => ({ ...agent, variant_id: null })), ...ofVariants];
+  };
+
   const mentionedAgent = (text) => {
     if (!hasMentionToken(text)) return undefined;
     const lowered = text.slice(1).toLowerCase();
-    return agents
-      .filter((agent) => agent.workbench === true)
+    return mentionableOf()
       .sort((a, b) => b.display_name.length - a.display_name.length)
       .find((agent) => {
         const name = agent.display_name.toLowerCase();
@@ -272,13 +284,16 @@ export function registerWorkbench({
 
   const participantFor = (host, agent) => {
     const existing = participantsOf(host).find(
-      (candidate) => candidate.agent_name === agent.agent_name,
+      (candidate) =>
+        candidate.agent_name === agent.agent_name &&
+        (candidate.variant_id ?? null) === agent.variant_id,
     );
     if (existing !== undefined) return existing;
     const participant = {
       id: sessionId(),
       host_session_id: host.id,
       agent_name: agent.agent_name,
+      ...(agent.variant_id === null ? {} : { variant_id: agent.variant_id }),
       created: Date.now(),
       configuration: { ...agent.enablement.default_configuration },
       entries: [],
@@ -290,10 +305,16 @@ export function registerWorkbench({
   const addresseeOf = (host, text) => {
     const agent = mentionedAgent(text);
     if (agent === undefined) return { target: lastAnswerer(host), tag: null };
-    const target = agent.agent_name === host.agent_name ? host : participantFor(host, agent);
+    const isHost =
+      agent.agent_name === host.agent_name && agent.variant_id === (host.variant_id ?? null);
+    const target = isHost ? host : participantFor(host, agent);
     return {
       target,
-      tag: { agent_name: agent.agent_name, display_name: agent.display_name },
+      tag: {
+        agent_name: agent.agent_name,
+        variant_id: agent.variant_id,
+        display_name: agent.display_name,
+      },
     };
   };
 
@@ -735,6 +756,7 @@ export function registerWorkbench({
       text,
       target: tag === null ? null : target,
       agent_name: tag?.agent_name ?? null,
+      variant_id: tag?.variant_id ?? null,
       display_name: tag?.display_name ?? null,
       guest_name: guestName,
       author_name: guestName ?? GUEST_OWNER_NAME,
@@ -1409,7 +1431,7 @@ export function registerWorkbench({
     return {
       id,
       agent_name: addressee.agent_name,
-      display_name: displayNameOf(addressee.agent_name),
+      display_name: sessionDisplayNameOf(addressee),
       author_name,
     };
   };
@@ -1831,5 +1853,12 @@ export function registerWorkbench({
       const { target, tag } = addresseeOf(seeded, text);
       enqueue(seeded, target, tag, text, seeded.approval.requested_by.name);
     }
+  }
+
+  const variantConversation = sessions.find((session) => session.id === VARIANT_CONVERSATION_ID);
+  if (variantConversation !== undefined) {
+    const text = "@Software Architecture check the pricing rules of the cart";
+    const { target, tag } = addresseeOf(variantConversation, text);
+    enqueue(variantConversation, target, tag, text);
   }
 }

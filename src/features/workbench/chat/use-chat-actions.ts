@@ -148,6 +148,7 @@ export function useChatActions(
             id: answer.queued_message_id,
             text,
             agent_name: answer.agent_name,
+            variant_id: null,
             display_name: mentionOf(text),
           };
           if (delivery === "replace") {

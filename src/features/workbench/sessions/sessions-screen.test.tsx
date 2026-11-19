@@ -198,6 +198,23 @@ describe("SessionsScreen", () => {
     expect(within(hostRows[0]!).getByText("SWE")).toBeTruthy();
   });
 
+  it("nests a variant participant row under its host with the variant display name", async () => {
+    const variantGuest = {
+      ...OLD,
+      id: "workbench_session_VARIANT",
+      host_session_id: NEW.id,
+      variant_id: "agent_variant_1",
+      display_name: "Software Architecture",
+    };
+    serve([{ ...NEW, participants: [variantGuest] }]);
+    mount("/workbench");
+
+    const nested = await screen.findByRole("list", { name: "Participants of Billing plan" });
+    expect(within(nested).getByText("Software Architecture")).toBeTruthy();
+    expect(within(nested).getByText("swe@1")).toBeTruthy();
+    expect(within(nested).queryByText("SWE")).toBeNull();
+  });
+
   it("opens the chat of the host from a participant row", async () => {
     const guest = { ...OLD, id: "workbench_session_GUEST", host_session_id: NEW.id };
     serve([{ ...NEW, participants: [{ ...guest, display_name: "Ruby" }] }]);
