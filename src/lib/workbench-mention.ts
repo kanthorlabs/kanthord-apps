@@ -1,11 +1,13 @@
 import {
   type AgentEnablement,
   type AgentSummary,
+  type AgentVariantItem,
   WORKBENCH_PLAN_ENTRY,
   type WorkbenchConfiguration,
   type WorkbenchMember,
   type WorkbenchSessionEntry,
 } from "@/api/types";
+import { variantLabel } from "@/lib/agent-variant";
 
 export interface Addressee {
   readonly displayName: string;
@@ -24,6 +26,28 @@ export function mentionAgentsOf(agents: readonly AgentSummary[]): readonly Agent
   return agents.filter(
     (agent) => agent.enablement?.state === "enabled" && agent.consumers.includes("workbench"),
   );
+}
+
+export interface MentionOption {
+  readonly name: string;
+  readonly label: string;
+  readonly variantId: string | null;
+}
+
+export function mentionOptionsOf(
+  agents: readonly AgentSummary[],
+  variants: readonly AgentVariantItem[],
+): readonly MentionOption[] {
+  return agents.flatMap((agent) => [
+    { name: agent.displayName, label: agent.displayName, variantId: null },
+    ...variants
+      .filter((variant) => variant.agent_name === agent.agentName)
+      .map((variant) => ({
+        name: variant.display_name,
+        label: variantLabel(variant, agent),
+        variantId: variant.id,
+      })),
+  ]);
 }
 
 export function mentionSuggestionsOf(draft: string, names: readonly string[]): readonly string[] {
@@ -106,11 +130,17 @@ export function configurationTargetOf(
     readonly enablement: AgentEnablement | null;
   },
   agents: readonly AgentSummary[],
+  variants: readonly AgentVariantItem[],
 ): ConfigurationTarget | null {
   if (addressee === null || addressee.member?.session_id === host.sessionId) return host;
+  const variantBase = variants.find(
+    (variant) => variant.display_name === addressee.displayName,
+  )?.agent_name;
   const summary =
     addressee.member === null
-      ? agents.find((agent) => agent.displayName === addressee.displayName)
+      ? agents.find(
+          (agent) => agent.displayName === addressee.displayName || agent.agentName === variantBase,
+        )
       : agents.find((agent) => agent.agentName === addressee.member?.agent_name);
   const enablement = summary?.enablement ?? null;
   if (summary === undefined || enablement === null) return null;

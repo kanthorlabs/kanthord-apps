@@ -12,6 +12,7 @@ import {
 
 const NEWLINE = "\n";
 const NO_NAMES: readonly string[] = [];
+const NO_LABELS: Readonly<Record<string, string>> = {};
 
 function clearedHint(count: number): string {
   const noun = count === 1 ? "cleared message is" : "cleared messages are";
@@ -24,6 +25,7 @@ export interface ComposerOptions {
   readonly fork: (text: string) => Promise<boolean>;
   readonly initialDraft?: string;
   readonly mentionNames?: readonly string[];
+  readonly mentionLabels?: Readonly<Record<string, string>>;
   readonly hostMention?: string | null;
 }
 
@@ -35,6 +37,7 @@ export interface ComposerState {
   readonly listOpen: boolean;
   readonly activeCommand: SlashCommand | null;
   readonly mentions: readonly string[];
+  readonly mentionLabels?: Readonly<Record<string, string>>;
   readonly mentionsOpen: boolean;
   readonly activeMention: string | null;
   readonly hint: string | null;
@@ -57,6 +60,7 @@ export function useComposer(
     fork,
     initialDraft = "",
     mentionNames = NO_NAMES,
+    mentionLabels = NO_LABELS,
     hostMention = null,
   }: ComposerOptions,
 ): ComposerState {
@@ -218,6 +222,7 @@ export function useComposer(
     listOpen,
     activeCommand,
     mentions,
+    mentionLabels,
     mentionsOpen,
     activeMention,
     hint,

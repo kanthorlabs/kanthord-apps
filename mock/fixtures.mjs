@@ -2594,8 +2594,6 @@ export const EVIDENCE_NODE_NAME = "Add password reset";
 
 export const GUEST_OWNER_NAME = "Kanthor Labs";
 
-export const GUEST_MENTION_NAMES = ["Yumi", "Jeremy"];
-
 export const GUEST_INVITE_TTL_MS = 604800000;
 
 export const GUEST_NAME_MAX_CHARS = 64;
@@ -2607,6 +2605,8 @@ export const GUEST_KEEPALIVE_MS = 15000;
 export const GUEST_STREAM_STATE_DELAY_MS = 300;
 
 export const GUEST_STREAM_ENTRIES_DELAY_MS = 900;
+
+export const VARIANT_CONVERSATION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0VQ1";
 
 export const WORKBENCH_SESSIONS = [
   {
@@ -2929,6 +2929,85 @@ export const WORKBENCH_SESSIONS = [
         parentId: "e0000501",
         timestamp: entryAt(7202),
         message: textMessage("assistant", "The retry stops after three attempts. I found no gap."),
+      },
+    ],
+  },
+  {
+    id: VARIANT_CONVERSATION_ID,
+    host_session_id: null,
+    agent_name: "ops@1",
+    created: SESSION_BASE + 3 * 86400000 + 43200000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    approval: {
+      tool_call_id: "call_variant_01",
+      operation_id: "project.create",
+      input: { name: "cart-review" },
+      guard: { cause: "auto_mode_off", reason: null, confidence: null },
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000601",
+        parentId: null,
+        timestamp: entryAt(5040),
+        message: textMessage("assistant", "Hi, I am Yumi on qwen3-coder. What do you need?"),
+      },
+      {
+        type: "message",
+        id: "e0000604",
+        parentId: "e0000601",
+        timestamp: entryAt(5043),
+        message: { role: "user", content: "Create the project cart-review" },
+      },
+      {
+        type: "message",
+        id: "e0000605",
+        parentId: "e0000604",
+        timestamp: entryAt(5044),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I create the project now." },
+            {
+              type: "toolCall",
+              id: "call_variant_01",
+              name: "project.create",
+              arguments: { name: "cart-review" },
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0VQ2",
+    host_session_id: VARIANT_CONVERSATION_ID,
+    agent_name: "swe@1",
+    variant_id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA1",
+    created: SESSION_BASE + 3 * 86400000 + 43200000 + 60000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000602",
+        parentId: null,
+        timestamp: entryAt(5041),
+        message: { role: "user", content: "@Software Architecture Review the cart module." },
+      },
+      {
+        type: "message",
+        id: "e0000603",
+        parentId: "e0000602",
+        timestamp: entryAt(5042),
+        message: textMessage("assistant", "The cart module mixes pricing and checkout rules."),
       },
     ],
   },
@@ -3328,6 +3407,13 @@ export const AGENT_VARIANTS = [
     display_name: "Software Architecture",
     instruction:
       "Weigh each change against the structure of the codebase.\nName the module that owns each new behaviour before you write it.",
+    revision: 1,
+  },
+  {
+    id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA2",
+    agent_name: "ops@1",
+    display_name: "Night Ops",
+    instruction: "Answer for the night shift.\nName the project that each answer concerns.",
     revision: 1,
   },
 ];

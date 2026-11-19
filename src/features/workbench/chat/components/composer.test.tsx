@@ -4,12 +4,14 @@ import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
 import type {
   AgentEnablement,
   AgentModel,
   AgentSummary,
+  AgentVariantItem,
   WorkbenchConfiguration,
   WorkbenchMember,
   WorkbenchMessageAnswer,
@@ -17,6 +19,7 @@ import type {
   WorkbenchSessionEntry,
 } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
@@ -100,8 +103,14 @@ const AGENTS: readonly AgentSummary[] = [
   summary("re@1", "RE", RE_ENABLEMENT, ["workbench", "worker"]),
   summary("swe@1", "SWE", ENABLEMENT, ["workbench", "worker"]),
   summary("guard@1", "Guard", ENABLEMENT, []),
-  summary("sa@1", "Software Architecture", { ...ENABLEMENT, agent_name: "sa@1" }, ["workbench"]),
 ];
+
+const VARIANT: AgentVariantItem = {
+  id: "agent_variant_1",
+  agent_name: "swe@1",
+  display_name: "Software Architecture",
+  revision: 1,
+};
 
 const GUEST_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0RE1";
 const GUEST_MEMBER: WorkbenchMember = {
@@ -186,6 +195,7 @@ beforeEach(() => {
     async (_sessionId, body) => body,
   );
   vi.mocked(workersApi.listAgents).mockResolvedValue(AGENTS);
+  vi.mocked(agentApi.listAgentVariants).mockResolvedValue([VARIANT]);
   vi.mocked(workersApi.listAgentProviderModels).mockImplementation(
     async (_agentName, providerName) => MODELS[providerName] ?? [],
   );
@@ -211,8 +221,49 @@ describe("Composer mentions", () => {
       within(list)
         .getAllByRole("option")
         .map((option) => option.textContent),
-    ).toEqual(["RE", "SWE", "Software Architecture"]);
+    ).toEqual(["RE", "SWE", "Software Architecture (variant of SWE)"]);
     expect(within(list).queryByText("Guard")).toBeNull();
+  });
+
+  it("suggests a variant of an enabled agent with its base display name", async () => {
+    mount();
+
+    await typeInMessage("@soft");
+
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    expect(
+      within(list)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Software Architecture (variant of SWE)"]);
+  });
+
+  it("inserts the full variant name and one space on a pick", async () => {
+    mount();
+
+    await typeInMessage("@soft");
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    await userEvent.click(
+      within(list).getByRole("option", { name: "Software Architecture (variant of SWE)" }),
+    );
+
+    expect(screen.getByRole("combobox", { name: "Message" })).toHaveValue(
+      "@Software Architecture ",
+    );
+  });
+
+  it("omits a variant of a disabled base agent", async () => {
+    vi.mocked(agentApi.listAgentVariants).mockResolvedValue([
+      VARIANT,
+      { ...VARIANT, id: "agent_variant_2", agent_name: "ops@1", display_name: "Ops Variant" },
+    ]);
+    mount();
+
+    await typeInMessage("@");
+
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    expect(within(list).getByText("Software Architecture (variant of SWE)")).toBeTruthy();
+    expect(within(list).queryByText(/Ops Variant/)).toBeNull();
   });
 
   it("filters by the typed prefix and inserts the full display name with a space", async () => {
@@ -273,7 +324,10 @@ describe("Composer mentions", () => {
     const list = await screen.findByRole("listbox", { name: "Mentions" });
     const box = screen.getByRole("combobox", { name: "Message" });
     const options = within(list).getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual(["SWE", "Software Architecture"]);
+    expect(options.map((option) => option.textContent)).toEqual([
+      "SWE",
+      "Software Architecture (variant of SWE)",
+    ]);
     expect(box.getAttribute("aria-activedescendant")).toBe(options[0]?.id);
 
     await userEvent.keyboard("{ArrowDown}");
@@ -731,7 +785,9 @@ describe("Composer", () => {
         streaming_message: null,
         pending_tool_calls: [],
         pending_approval: null,
-        queue: [{ id: "queued_1", text: "later", agent_name: null, display_name: null }],
+        queue: [
+          { id: "queued_1", text: "later", agent_name: null, variant_id: null, display_name: null },
+        ],
         run_active: false,
         error_message: null,
         auto_mode: true,
@@ -779,8 +835,8 @@ describe("Composer", () => {
       run_active: true,
       queued_message_id: null,
       cleared: [
-        { id: "queued_1", text: "first", agent_name: null, display_name: null },
-        { id: "queued_2", text: "second", agent_name: null, display_name: null },
+        { id: "queued_1", text: "first", agent_name: null, variant_id: null, display_name: null },
+        { id: "queued_2", text: "second", agent_name: null, variant_id: null, display_name: null },
       ],
     });
 
@@ -789,8 +845,20 @@ describe("Composer", () => {
 
   describe("Stop", () => {
     const QUEUE = [
-      { id: "queued_1", text: "first queued", agent_name: null, display_name: null },
-      { id: "queued_2", text: "second queued", agent_name: null, display_name: null },
+      {
+        id: "queued_1",
+        text: "first queued",
+        agent_name: null,
+        variant_id: null,
+        display_name: null,
+      },
+      {
+        id: "queued_2",
+        text: "second queued",
+        agent_name: null,
+        variant_id: null,
+        display_name: null,
+      },
     ];
 
     function withQueue(queue: readonly WorkbenchQueuedMessage[]) {

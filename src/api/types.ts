@@ -1874,6 +1874,7 @@ export interface WorkbenchQueuedMessage {
   readonly id: string;
   readonly text: string;
   readonly agent_name: string | null;
+  readonly variant_id: string | null;
   readonly display_name: string | null;
 }
 

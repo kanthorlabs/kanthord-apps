@@ -4,6 +4,7 @@ import {
   AGENT_DECLARATIONS,
   PROJECT_ATLAS,
   PROJECT_ORBIT,
+  VARIANT_CONVERSATION_ID,
   WORKBENCH_SESSIONS,
 } from "../mock/fixtures.mjs";
 import { registerWorkbench } from "../mock/workbench.mjs";
@@ -24,7 +25,18 @@ const VARIANT = {
   revision: 1,
 };
 
-const mockDaemon = () => {
+const NIGHT_OPS = {
+  id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA2",
+  agent_name: "ops@1",
+  display_name: "Night Ops",
+  instruction: "Answer for the night shift.",
+  revision: 1,
+};
+
+const mockDaemon = (
+  extraSessions = [],
+  { variants = [{ ...VARIANT }], agents = structuredClone(AGENT_DECLARATIONS) } = {},
+) => {
   const routes = [];
   const sessions = [
     {
@@ -34,32 +46,48 @@ const mockDaemon = () => {
       configuration: CONFIGURATION,
       entries: [],
     },
+    ...extraSessions,
   ];
   registerWorkbench({
     on: (method, pattern, handler) => routes.push({ method, pattern, handler }),
     json: (res, status, body) => res.reply({ status, body }),
-    envelope: (res, status, code) => res.reply({ status, body: { error: { code } } }),
-    agents: structuredClone(AGENT_DECLARATIONS),
+    envelope: (res, status, code, _message, details = null) =>
+      res.reply({ status, body: { error: { code, details } } }),
+    agents,
     sessions,
-    variants: [VARIANT],
+    variants,
     projects: [{ id: "project_a", name: "Alpha" }, PROJECT_ORBIT, PROJECT_ATLAS],
   });
-  const call = (method, path, body = {}, token = null) => {
+  const dispatch = (method, path, body, res, token) => {
     const url = new URL(path, "http://mock");
     const route = routes.find(
       (candidate) => candidate.method === method && candidate.pattern.test(url.pathname),
     );
+    route.handler(url.pathname.match(route.pattern), body, res, token, url);
+  };
+  const call = (method, path, body = {}, token = null) => {
     let answer;
-    route.handler(
-      url.pathname.match(route.pattern),
-      body,
-      { reply: (a) => (answer = a) },
-      token,
-      url,
-    );
+    dispatch(method, path, body, { reply: (a) => (answer = a) }, token);
     return answer;
   };
-  return { call, sessions };
+  const stream = (path, token) => {
+    const frames = [];
+    let onClose = () => undefined;
+    const res = {
+      writableEnded: false,
+      writeHead: () => undefined,
+      write: (chunk) => frames.push(chunk),
+      end() {
+        this.writableEnded = true;
+      },
+      on: (_event, handler) => {
+        onClose = handler;
+      },
+    };
+    dispatch("GET", path, {}, res, token);
+    return { frames, close: () => onClose() };
+  };
+  return { call, stream, sessions, variants, agents };
 };
 
 const entriesOf = (daemon) => daemon.call("GET", `/api/workbench/session/${HOST_ID}`).body.entries;
@@ -136,6 +164,76 @@ describe("workbench mock plan run", () => {
     const [item] = daemon.call("GET", "/api/workbench/session").body.items;
 
     expect(item.message_count).toBe(1);
+  });
+
+  describe("the variant conversation", () => {
+    const eventsOf = (daemon) =>
+      daemon.call("GET", `/api/workbench/session/${VARIANT_CONVERSATION_ID}/events`).body;
+
+    it("routes a leading variant mention to a member keyed by agent_name and variant_id", () => {
+      const daemon = mockDaemon();
+      const hostId = daemon.sessions[0].id;
+
+      daemon.call("POST", `/api/workbench/session/${hostId}/message`, {
+        text: "@Software Architecture review it",
+      });
+      const { members } = daemon.call("GET", `/api/workbench/session/${hostId}/events`).body;
+
+      expect(members.map(({ agent_name, display_name }) => [agent_name, display_name])).toEqual([
+        ["ops@1", "Yumi"],
+        ["swe@1", "Software Architecture"],
+      ]);
+      expect(daemon.sessions.at(-1)).toMatchObject({ agent_name: "swe@1", variant_id: VARIANT.id });
+    });
+
+    it("refuses a guest run on a variant mention", () => {
+      const daemon = mockDaemon();
+      const invite = daemon.call("POST", `/api/workbench/session/${HOST_ID}/invite`, {
+        invitee_name: "Dana",
+        project_ids: ["project_a"],
+        granted_operations: ["mission.node.pause"],
+      });
+      const joined = daemon.call("POST", "/api/workbench/invite/join", {
+        invite_token: invite.body.invite_token,
+        name: "Dana",
+      });
+
+      const refused = daemon.call(
+        "POST",
+        "/api/workbench/guest/session/message",
+        { text: "@Software Architecture do it" },
+        joined.body.guest_token,
+      );
+
+      expect(refused.status).toBe(409);
+      expect(refused.body.error.code).toBe("workbench.guest.agent_refused");
+    });
+
+    it("serves a Yumi host, a Software Architecture member of swe@1 and one queued variant item", () => {
+      const daemon = mockDaemon(
+        structuredClone(
+          WORKBENCH_SESSIONS.filter(
+            (session) =>
+              session.id === VARIANT_CONVERSATION_ID ||
+              session.host_session_id === VARIANT_CONVERSATION_ID,
+          ),
+        ),
+      );
+
+      const { members, snapshot } = eventsOf(daemon);
+
+      expect(members.map(({ agent_name, display_name }) => [agent_name, display_name])).toEqual([
+        ["ops@1", "Yumi"],
+        ["swe@1", "Software Architecture"],
+      ]);
+      expect(snapshot.queue).toEqual([
+        expect.objectContaining({
+          agent_name: "swe@1",
+          variant_id: VARIANT.id,
+          display_name: "Software Architecture",
+        }),
+      ]);
+    });
   });
 
   describe("the invite name", () => {
@@ -444,5 +542,257 @@ describe("workbench mock variant session", () => {
 
     expect(answer.status).toBe(400);
     expect(answer.body.error.code).toBe("gateway.request.validation_failed");
+  });
+});
+
+describe("workbench mock variant gate", () => {
+  const SEEDED_VARIANT_TOKEN = "mock-seeded-variant-invite-token";
+  const GUEST_MESSAGE = "/api/workbench/guest/session/message";
+  const GUEST_STREAM = "/api/workbench/guest/session/stream";
+
+  const variantConversationOf = () =>
+    structuredClone(
+      WORKBENCH_SESSIONS.filter(
+        (session) =>
+          session.id === VARIANT_CONVERSATION_ID ||
+          session.host_session_id === VARIANT_CONVERSATION_ID,
+      ),
+    );
+
+  const eventsOf = (daemon, id = HOST_ID) =>
+    daemon.call("GET", `/api/workbench/session/${id}/events`).body;
+
+  const joinWith = (daemon, inviteToken) =>
+    daemon.call("POST", "/api/workbench/invite/join", { invite_token: inviteToken, name: "Dana" })
+      .body.guest_token;
+
+  const guestOf = (daemon, sessionId = HOST_ID) => {
+    const invite = daemon.call("POST", `/api/workbench/session/${sessionId}/invite`, {
+      invitee_name: "Dana",
+      project_ids: ["project_a"],
+      granted_operations: ["mission.node.pause"],
+    });
+    return joinWith(daemon, invite.body.invite_token);
+  };
+
+  const guestSays = (daemon, token, text) => daemon.call("POST", GUEST_MESSAGE, { text }, token);
+
+  const stateFrameOf = (frames) => {
+    const frame = frames.find((chunk) => chunk.startsWith("event: state"));
+    return frame === undefined ? undefined : JSON.parse(frame.split("data: ")[1]);
+  };
+
+  const stopRun = (daemon, id = HOST_ID) =>
+    daemon.call("POST", `/api/workbench/session/${id}/abort`);
+
+  describe("the guest mention names", () => {
+    it("lists each agent with no builtin tool and the variants of those agents", () => {
+      const daemon = mockDaemon([], { variants: [{ ...VARIANT }, { ...NIGHT_OPS }] });
+      const token = guestOf(daemon);
+
+      const { mention_names } = daemon.call("GET", "/api/workbench/guest/session", {}, token).body;
+
+      expect(mention_names).toEqual(["Yumi", "Jeremy", "Night Ops"]);
+    });
+
+    it("accepts a variant of a guest-mentionable agent and refuses a variant of another agent", () => {
+      const daemon = mockDaemon([], { variants: [{ ...VARIANT }, { ...NIGHT_OPS }] });
+      const token = guestOf(daemon);
+
+      const accepted = guestSays(daemon, token, "@Night Ops list the nodes");
+      const refused = guestSays(daemon, token, "@Software Architecture do it");
+
+      expect(accepted.status).toBe(202);
+      expect(accepted.body.kind).toBe("run");
+      expect(refused.status).toBe(409);
+      expect(refused.body.error.code).toBe("workbench.guest.agent_refused");
+      stopRun(daemon);
+    });
+
+    it("serves a seeded guest invite on the conversation with a variant member", () => {
+      const daemon = mockDaemon(variantConversationOf(), {
+        variants: [{ ...VARIANT }, { ...NIGHT_OPS }],
+      });
+
+      const token = joinWith(daemon, SEEDED_VARIANT_TOKEN);
+      const read = daemon.call("GET", "/api/workbench/guest/session", {}, token).body;
+
+      expect(read.session_id).toBe(VARIANT_CONVERSATION_ID);
+      expect(read.members.map((member) => member.display_name)).toEqual([
+        "Yumi",
+        "Software Architecture",
+      ]);
+      expect(read.mention_names).toContain("Night Ops");
+    });
+  });
+
+  describe("the guest message refusal order", () => {
+    it("answers 404 agent.catalog.not_found with the mention for an unknown name", () => {
+      const daemon = mockDaemon();
+      const token = guestOf(daemon);
+
+      const refused = guestSays(daemon, token, "@Nobody list the nodes");
+
+      expect(refused.status).toBe(404);
+      expect(refused.body.error).toEqual({
+        code: "agent.catalog.not_found",
+        details: { mention: "Nobody" },
+      });
+    });
+
+    it("answers 400 agent.enablement.unavailable before the guest refusal", () => {
+      const agents = structuredClone(AGENT_DECLARATIONS);
+      agents.find((agent) => agent.agent_name === "swe@1").enablement.state = "disabled";
+      const daemon = mockDaemon([], { agents });
+      const token = guestOf(daemon);
+
+      const refused = guestSays(daemon, token, "@SWE do it");
+
+      expect(refused.status).toBe(400);
+      expect(refused.body.error).toEqual({
+        code: "agent.enablement.unavailable",
+        details: { agent_name: "swe@1" },
+      });
+    });
+
+    it("answers 409 workbench.guest.agent_refused for an enabled agent with a builtin tool", () => {
+      const daemon = mockDaemon();
+      const token = guestOf(daemon);
+
+      const refused = guestSays(daemon, token, "@SWE do it");
+
+      expect(refused.status).toBe(409);
+      expect(refused.body.error).toEqual({
+        code: "workbench.guest.agent_refused",
+        details: { agent_name: "swe@1" },
+      });
+    });
+
+    it("keeps a guest message with no mention as a note", () => {
+      const daemon = mockDaemon();
+      const token = guestOf(daemon);
+
+      const answer = guestSays(daemon, token, "hello there");
+
+      expect(answer.status).toBe(202);
+      expect(answer.body.kind).toBe("note");
+    });
+  });
+
+  describe("the owner mention refusal", () => {
+    it("sends the mention in the details of agent.catalog.not_found", () => {
+      const daemon = mockDaemon();
+
+      const refused = daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, {
+        text: "@Nobody list the nodes",
+      });
+
+      expect(refused.status).toBe(404);
+      expect(refused.body.error).toEqual({
+        code: "agent.catalog.not_found",
+        details: { mention: "Nobody" },
+      });
+    });
+  });
+
+  describe("the guest stream", () => {
+    it("labels a variant run with the display name of the running session", async () => {
+      const daemon = mockDaemon();
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, {
+        text: "@Software Architecture review it",
+      });
+      const token = guestOf(daemon);
+
+      const opened = daemon.stream(GUEST_STREAM, token);
+      await vi.waitFor(() => expect(stateFrameOf(opened.frames)).toBeDefined(), WAIT);
+
+      expect(stateFrameOf(opened.frames)).toMatchObject({
+        run_active: true,
+        display_name: "Software Architecture",
+      });
+      opened.close();
+      stopRun(daemon);
+    });
+
+    it("gives an untagged queue item no agent_name and no display_name", async () => {
+      const daemon = mockDaemon();
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, { text: "first" });
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, { text: "and then" });
+      const token = guestOf(daemon);
+
+      const opened = daemon.stream(GUEST_STREAM, token);
+      await vi.waitFor(() => expect(stateFrameOf(opened.frames)).toBeDefined(), WAIT);
+
+      expect(stateFrameOf(opened.frames).queue).toEqual([
+        expect.objectContaining({ agent_name: null, display_name: null }),
+      ]);
+      opened.close();
+      stopRun(daemon);
+    });
+  });
+
+  describe("the queued variant item", () => {
+    const queueVariantItem = (daemon, text = "@Software Architecture next") => {
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, { text: "@Yumi hold on" });
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, { text });
+    };
+
+    it("answers the current variant name after a rename", () => {
+      const daemon = mockDaemon();
+      queueVariantItem(daemon);
+      daemon.variants[0].display_name = "Architecture";
+
+      const [item] = eventsOf(daemon).snapshot.queue;
+
+      expect(item).toMatchObject({ variant_id: VARIANT.id, display_name: "Architecture" });
+      stopRun(daemon);
+    });
+
+    it("drops an item whose variant no longer exists and sets error_message", async () => {
+      const daemon = mockDaemon();
+      queueVariantItem(daemon);
+      daemon.variants.splice(0);
+
+      await vi.waitFor(() => expect(eventsOf(daemon).snapshot.run_active).toBe(false), WAIT);
+
+      expect(eventsOf(daemon).snapshot).toMatchObject({
+        queue: [],
+        error_message: "The agent variant does not exist.",
+      });
+    });
+
+    it("continues with the next item after it drops a stale item", async () => {
+      const daemon = mockDaemon();
+      queueVariantItem(daemon);
+      daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, { text: "@Yumi then me" });
+      daemon.variants.splice(0);
+
+      await vi.waitFor(
+        () => expect(JSON.stringify(entriesOf(daemon))).toContain("@Yumi then me"),
+        WAIT,
+      );
+
+      expect(eventsOf(daemon).snapshot).toMatchObject({
+        run_active: true,
+        queue: [],
+        error_message: "The agent variant does not exist.",
+      });
+      stopRun(daemon);
+    });
+  });
+
+  describe("the seeded variant conversation", () => {
+    it("holds an active run with one queued variant item", () => {
+      const daemon = mockDaemon(variantConversationOf(), {
+        variants: [{ ...VARIANT }, { ...NIGHT_OPS }],
+      });
+
+      const { snapshot } = eventsOf(daemon, VARIANT_CONVERSATION_ID);
+
+      expect(snapshot.run_active).toBe(true);
+      expect(snapshot.auto_mode).toBe(false);
+      expect(snapshot.queue).toHaveLength(1);
+      stopRun(daemon, VARIANT_CONVERSATION_ID);
+    });
   });
 });

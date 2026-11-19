@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo } from "react";
+import { type ReactNode, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 
 import type { WorkbenchConfiguration } from "@/api/types";
@@ -71,15 +71,13 @@ export function NewSessionChat({
   );
   const first = useFirstSend(agentName, configuration, onOpen ?? openByRoute, variant?.id ?? null);
   const mentionAgents = useMentionAgents();
-  const mentionNames = useMemo(
-    () => mentionAgents.agents.map((agent) => agent.displayName),
-    [mentionAgents.agents],
-  );
+  const mentionNames = mentionAgents.names;
   const composer = useComposer(first.busy || configuration === null, first.send, {
     agentName,
     onNew,
     fork: first.send,
     mentionNames,
+    mentionLabels: mentionAgents.labels,
   });
   const variantFailure = variant?.failure ?? null;
   const addressee = addresseeOf(composer.draft, [], [], mentionNames);
