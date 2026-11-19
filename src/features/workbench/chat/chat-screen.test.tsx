@@ -139,6 +139,7 @@ beforeEach(() => {
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue(AGENT);
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+  vi.mocked(agentApi.listAgentVariants).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "gpt-5", reasoning_efforts: ["off"] },
   ]);
@@ -354,6 +355,42 @@ describe("ChatScreen", () => {
       expect(
         screen.getByRole("heading", { name: "SWE conversation" }).parentElement,
       ).toContainElement(screen.getByRole("switch", { name: "Auto mode" }));
+    });
+
+    it("sends a message that starts with the variant name after a variant pick", async () => {
+      vi.mocked(workersApi.listAgents).mockResolvedValue([SWE_AGENT, RE_AGENT]);
+      vi.mocked(agentApi.listAgentVariants).mockResolvedValue([
+        {
+          id: "agent_variant_1",
+          agent_name: "swe@1",
+          display_name: "Software Architecture",
+          revision: 1,
+        },
+      ]);
+      vi.mocked(workbenchApi.sendWorkbenchMessage).mockResolvedValue({
+        kind: "run",
+        session_id: SESSION_ID,
+        agent_name: "swe@1",
+        run_active: true,
+        queued_message_id: "queued_1",
+        cleared: [],
+      });
+      mountConversation();
+
+      await userEvent.type(await screen.findByRole("combobox", { name: "Message" }), "@soft");
+      await userEvent.click(
+        await screen.findByRole("option", { name: "Software Architecture (variant of SWE)" }),
+      );
+      await userEvent.type(screen.getByRole("combobox", { name: "Message" }), "plan it");
+      await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+      await waitFor(() =>
+        expect(workbenchApi.sendWorkbenchMessage).toHaveBeenCalledWith(
+          SESSION_ID,
+          "@Software Architecture plan it",
+          "queue",
+        ),
+      );
     });
 
     it("keeps the draft and shows the code when a mention send answers 404", async () => {

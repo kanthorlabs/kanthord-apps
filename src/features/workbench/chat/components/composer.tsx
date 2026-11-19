@@ -138,7 +138,7 @@ export function Composer({
                 onClick={() => composer.pickMention(name)}
               >
                 <ItemContent>
-                  <ItemTitle>{name}</ItemTitle>
+                  <ItemTitle>{composer.mentionLabels?.[name] ?? name}</ItemTitle>
                 </ItemContent>
               </Item>
             ))}

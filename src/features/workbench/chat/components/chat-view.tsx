@@ -70,10 +70,7 @@ export function ChatView({
     session.scope_requests,
   );
   const mentionAgents = useMentionAgents();
-  const mentionNames = useMemo(
-    () => mentionAgents.agents.map((agent) => agent.displayName),
-    [mentionAgents.agents],
-  );
+  const mentionNames = mentionAgents.names;
   const mentionOf = useCallback(
     (text: string) =>
       leadingMentionOf(text, [
@@ -119,6 +116,7 @@ export function ChatView({
     fork: actions.fork,
     initialDraft: firstSendFailure?.draft,
     mentionNames,
+    mentionLabels: mentionAgents.labels,
     hostMention: invites.shared ? hostDisplayName : null,
   });
   const addressee = useMemo(

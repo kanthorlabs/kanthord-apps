@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
 import type {
@@ -13,6 +14,7 @@ import type {
   WorkbenchSessionEvents,
 } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
@@ -252,6 +254,7 @@ describe("queued messages in the chat", () => {
     );
     vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([]);
     vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+    vi.mocked(agentApi.listAgentVariants).mockResolvedValue([]);
   });
 
   it("removes a row with the queue remove call and drops it after the answer 200", async () => {

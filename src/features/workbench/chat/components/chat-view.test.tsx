@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
 import type * as EvidenceDownload from "@/features/projects/view/use-evidence-download";
@@ -19,6 +20,7 @@ import type {
 } from "@/api/types";
 import { WORKBENCH_FORK_FRAME, WORKBENCH_FORK_PREFIX } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 vi.mock("@/features/projects/view/use-evidence-download", async (importOriginal) => ({
@@ -152,6 +154,7 @@ beforeEach(() => {
     project_ids: null,
   });
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+  vi.mocked(agentApi.listAgentVariants).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
   ]);

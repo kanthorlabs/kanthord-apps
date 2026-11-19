@@ -1,11 +1,13 @@
 import {
   type AgentEnablement,
   type AgentSummary,
+  type AgentVariantItem,
   WORKBENCH_PLAN_ENTRY,
   type WorkbenchConfiguration,
   type WorkbenchMember,
   type WorkbenchSessionEntry,
 } from "@/api/types";
+import { variantLabel } from "@/lib/agent-variant";
 
 export interface Addressee {
   readonly displayName: string;
@@ -24,6 +26,23 @@ export function mentionAgentsOf(agents: readonly AgentSummary[]): readonly Agent
   return agents.filter(
     (agent) => agent.enablement?.state === "enabled" && agent.consumers.includes("workbench"),
   );
+}
+
+export interface MentionOption {
+  readonly name: string;
+  readonly label: string;
+}
+
+export function mentionOptionsOf(
+  agents: readonly AgentSummary[],
+  variants: readonly AgentVariantItem[],
+): readonly MentionOption[] {
+  return agents.flatMap((agent) => [
+    { name: agent.displayName, label: agent.displayName },
+    ...variants
+      .filter((variant) => variant.agent_name === agent.agentName)
+      .map((variant) => ({ name: variant.display_name, label: variantLabel(variant, agent) })),
+  ]);
 }
 
 export function mentionSuggestionsOf(draft: string, names: readonly string[]): readonly string[] {
