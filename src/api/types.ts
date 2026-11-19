@@ -301,6 +301,7 @@ export type PromptOrigin = (typeof PROMPT_ORIGINS)[number];
 
 export const PROMPT_PART_KINDS = [
   "standard",
+  "identity",
   "role",
   "variant",
   "workbench",

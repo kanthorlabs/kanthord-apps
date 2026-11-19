@@ -1,9 +1,17 @@
+import type { AgentVariant } from "@/api/types";
+
 export const VARIANT_NAME_INVALID = "agent.variant.name_invalid";
 export const VARIANT_NAME_TAKEN = "agent.variant.name_taken";
+export const VARIANT_NOT_FOUND = "agent.variant.not_found";
+export const VARIANT_REVISION_CONFLICT = "agent.variant.revision_conflict";
+export const VARIANT_IN_USE = "agent.variant.in_use";
 export const VALIDATION_FAILED = "gateway.request.validation_failed";
 
 export const VARIANT_NAME_RULE = "1 to 40 letters, digits, spaces, _ or -, starting with a letter.";
+export const IN_USE_LINE = "This variant has sessions. Rename it or change its instruction.";
 export const INSTRUCTION_LINE = "The instruction is blank or above 32768 bytes.";
+
+export const NEXT_SESSION_NOTICE = "Takes effect at the next agent session";
 
 const VARIANT_NAME = /^\p{L}[\p{L}\p{Nd} _-]{0,39}$/u;
 
@@ -50,4 +58,31 @@ export function variantFailureOf(error: VariantRefusal): VariantFailure {
   }
   const code = error.status === 0 || error.detail === "" ? error.code : error.detail;
   return { field: "form", line: { code, message: error.message } };
+}
+
+export function currentVariantOf(details: unknown): AgentVariant | null {
+  if (typeof details !== "object" || details === null) return null;
+  const row: unknown = Reflect.get(details, "current");
+  if (typeof row !== "object" || row === null) return null;
+  const id: unknown = Reflect.get(row, "id");
+  const agentName: unknown = Reflect.get(row, "agent_name");
+  const displayName: unknown = Reflect.get(row, "display_name");
+  const instruction: unknown = Reflect.get(row, "instruction");
+  const revision: unknown = Reflect.get(row, "revision");
+  if (
+    typeof id !== "string" ||
+    typeof agentName !== "string" ||
+    typeof displayName !== "string" ||
+    typeof instruction !== "string" ||
+    typeof revision !== "number"
+  ) {
+    return null;
+  }
+  return {
+    id,
+    agent_name: agentName,
+    display_name: displayName,
+    instruction,
+    revision,
+  };
 }

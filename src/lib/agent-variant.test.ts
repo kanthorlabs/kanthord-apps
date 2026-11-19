@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  currentVariantOf,
   INSTRUCTION_LINE,
   variantFailureOf,
   variantNameValid,
@@ -96,5 +97,25 @@ describe("variantFailureOf", () => {
     const error = refusal("unreachable", "The daemon did not answer.", 0);
 
     expect(variantFailureOf(error).line.code).toBe("unreachable");
+  });
+});
+
+describe("currentVariantOf", () => {
+  const row = {
+    id: "agent_variant_1",
+    agent_name: "swe@1",
+    display_name: "Software Architecture",
+    instruction: "Text.",
+    revision: 3,
+  };
+
+  it("reads the current row of a revision conflict", () => {
+    expect(currentVariantOf({ current: row })).toEqual(row);
+  });
+
+  it("answers null when the details hold no complete row", () => {
+    expect(currentVariantOf(undefined)).toBeNull();
+    expect(currentVariantOf({})).toBeNull();
+    expect(currentVariantOf({ current: { ...row, revision: "3" } })).toBeNull();
   });
 });

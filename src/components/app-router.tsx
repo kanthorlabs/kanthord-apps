@@ -30,6 +30,7 @@ import { AgentScreen } from "@/features/workers/agent/agent-screen";
 import { AgentsScreen } from "@/features/workers/agents/agents-screen";
 import { WorkersScreen } from "@/features/workers/catalogue/workers-screen";
 import { InstanceScreen } from "@/features/workers/instance/instance-screen";
+import { VariantScreen } from "@/features/workers/variant/variant-screen";
 import { WorkerScreen } from "@/features/workers/worker/worker-screen";
 import { basePath } from "@/components/base-path";
 import { AppShell } from "./app-shell";
@@ -76,6 +77,8 @@ function OwnerRoutes() {
           <Route path="machines/:machineName" element={<MachineScreen />} />
           <Route path="agents" element={<AgentsScreen />} />
           <Route path="agents/:agentName" element={<AgentScreen />} />
+          <Route path="agents/:agentName/variants" element={<ParentRedirect />} />
+          <Route path="agents/:agentName/variants/:variantId" element={<VariantScreen />} />
           <Route path="workbench" element={<SessionsScreen />} />
           <Route path="workbench/new" element={<ChatScreen />} />
           <Route path="workbench/:sessionId" element={<ChatScreen />} />
