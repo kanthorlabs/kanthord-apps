@@ -46,6 +46,7 @@ function newestGeneralOf(
     .filter(
       (item) =>
         item.host_session_id === null &&
+        item.variant_id === null &&
         !isCaseConversation(item, itemsById) &&
         item.first_message !== "",
     )

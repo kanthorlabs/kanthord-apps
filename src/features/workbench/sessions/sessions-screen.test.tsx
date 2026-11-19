@@ -215,6 +215,19 @@ describe("SessionsScreen", () => {
     expect(await screen.findByRole("button", { name: "Open Empty Session" })).toBeTruthy();
   });
 
+  it("shows the variant name on a variant row and the base name on a base row", async () => {
+    serve([{ ...NEW, variant_id: "agent_variant_1", display_name: "Software Architecture" }, OLD]);
+    mount("/workbench");
+
+    const rows = within(await screen.findByRole("list", { name: "Sessions" })).getAllByRole(
+      "listitem",
+    );
+    expect(within(rows[0]!).getByText("Software Architecture")).toBeTruthy();
+    expect(within(rows[0]!).getByText("swe@1")).toBeTruthy();
+    expect(within(rows[1]!).getByText("SWE")).toBeTruthy();
+    expect(within(rows[1]!).queryByText("Software Architecture")).toBeNull();
+  });
+
   it("counts the messages of a session in the singular and the plural", async () => {
     serve([OLD, { ...NEW, message_count: 1 }]);
     mount("/workbench");

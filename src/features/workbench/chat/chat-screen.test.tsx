@@ -291,6 +291,7 @@ describe("ChatScreen", () => {
       toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
       enablement: AGENT.enablement,
     };
+    const SWE_AGENT = { ...RE_AGENT, agentName: "swe@1", displayName: "SWE" };
     const CONVERSATION: WorkbenchSessionGet = {
       ...SESSION,
       members: [
@@ -596,6 +597,26 @@ describe("ChatScreen", () => {
             "Start a new chat. With text, SWE's model summarizes this chat with your text as the instruction, and Guard checks the summary. Mention an agent to continue with it.",
           ),
         ).toBeTruthy();
+      });
+
+      it("carries the variant id and the base display name when /new leaves a variant conversation", async () => {
+        vi.mocked(workbenchApi.readWorkbenchSession).mockResolvedValue({
+          ...CONVERSATION,
+          variant_id: "agent_variant_1",
+          members: [
+            { ...CONVERSATION.members[0]!, display_name: "Software Architecture" },
+            ...CONVERSATION.members.slice(1),
+          ],
+        });
+        vi.mocked(workersApi.listAgents).mockResolvedValue([SWE_AGENT, RE_AGENT]);
+        mountConversation();
+
+        await send("/new");
+
+        const at = await screen.findByText(/^At \/workbench\/new\?/);
+        const query = new URLSearchParams(at.textContent?.replace(/^At [^?]*\?/, ""));
+        expect(query.get("variant_id")).toBe("agent_variant_1");
+        expect(query.get("display_name")).toBe("SWE");
       });
 
       it("opens the new-session route on /new alone and forks nothing", async () => {

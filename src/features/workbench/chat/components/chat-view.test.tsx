@@ -158,6 +158,47 @@ beforeEach(() => {
 });
 
 describe("ChatView", () => {
+  it("shows the variant name and the base display name in the header of a variant session", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([
+      {
+        agentName: "swe@1",
+        displayName: "SWE",
+        workerNames: [],
+        consumers: ["workbench", "worker"],
+        toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+        enablement: ENABLEMENT,
+      },
+    ]);
+    mount({
+      ...session(),
+      variant_id: "agent_variant_1",
+      members: [{ ...HOST, display_name: "Software Architecture" }],
+    });
+
+    expect(
+      await screen.findByRole("heading", { name: "Software Architecture conversation" }),
+    ).toBeTruthy();
+    expect(await screen.findByText("variant of SWE")).toBeTruthy();
+  });
+
+  it("shows no variant text in the header of a base session", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([
+      {
+        agentName: "swe@1",
+        displayName: "SWE",
+        workerNames: [],
+        consumers: ["workbench", "worker"],
+        toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+        enablement: ENABLEMENT,
+      },
+    ]);
+    mount(session());
+
+    expect(await screen.findByRole("heading", { name: "SWE conversation" })).toBeTruthy();
+    await waitFor(() => expect(workersApi.listAgents).toHaveBeenCalled());
+    expect(screen.queryByText(/variant of/)).toBeNull();
+  });
+
   it("holds the Auto mode switch in the header, outside the transcript and the run line", async () => {
     const polls = pollQueue();
     mount(session([message("e1", { role: "user", content: "Run" })], true));
