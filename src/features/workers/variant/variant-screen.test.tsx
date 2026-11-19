@@ -199,20 +199,63 @@ describe("VariantScreen", () => {
     mount();
 
     const sheet = await openEditor();
-    await userEvent.clear(within(sheet).getByLabelText("Instruction"));
-    await userEvent.type(within(sheet).getByLabelText("Instruction"), "  ");
+    await userEvent.type(within(sheet).getByLabelText("Instruction"), " More.");
     await userEvent.click(within(sheet).getByRole("button", { name: "Save variant" }));
 
     const line = await within(sheet).findByRole("alert");
     expect(line).toHaveTextContent(
       "gateway.request.validation_failed The instruction is blank or above 32768 bytes.",
     );
-    expect(line.closest('[data-slot="field"]')).toContainElement(
-      within(sheet).getByLabelText("Instruction"),
-    );
-    expect(within(sheet).getByLabelText("Instruction")).toHaveValue("  ");
+    expect(
+      within(sheet).getByRole("textbox", {
+        name: "Instruction",
+        description: /gateway\.request\.validation_failed The instruction is blank/,
+      }),
+    ).toHaveValue("Weigh each change against the structure. More.");
     expect(screen.queryByText("Takes effect at the next agent session")).toBeNull();
   });
+
+  it.each([
+    ["a blank instruction", "   "],
+    ["an instruction above 32768 bytes", "é".repeat(16385)],
+  ])("shows the instruction line and sends no request for %s", async (_label, instruction) => {
+    mount();
+
+    const sheet = await openEditor();
+    await userEvent.clear(within(sheet).getByLabelText("Instruction"));
+    await userEvent.click(within(sheet).getByLabelText("Instruction"));
+    await userEvent.paste(instruction);
+    await userEvent.click(within(sheet).getByRole("button", { name: "Save variant" }));
+
+    expect(await within(sheet).findByRole("alert")).toHaveTextContent(
+      "gateway.request.validation_failed The instruction is blank or above 32768 bytes.",
+    );
+    expect(
+      within(sheet).getByRole("textbox", {
+        name: "Instruction",
+        description: /gateway\.request\.validation_failed The instruction is blank/,
+      }),
+    ).toHaveValue(instruction);
+    expect(agentApi.updateAgentVariant).not.toHaveBeenCalled();
+  });
+
+  it.each(["Café", "a  b"])(
+    "shows the name line and sends no request for the name %j",
+    async (value) => {
+      mount();
+
+      const sheet = await openEditor();
+      const name = within(sheet).getByLabelText("Display name");
+      await userEvent.clear(name);
+      await userEvent.type(name, value);
+      await userEvent.click(within(sheet).getByRole("button", { name: "Save variant" }));
+
+      expect(await within(sheet).findByRole("alert")).toHaveTextContent(
+        "1 to 40 letters, digits, spaces, _ or -, starting with a letter.",
+      );
+      expect(agentApi.updateAgentVariant).not.toHaveBeenCalled();
+    },
+  );
 
   it("deletes behind a confirmation with the current revision and opens the agents page", async () => {
     vi.mocked(agentApi.deleteAgentVariant).mockResolvedValue(undefined);
@@ -260,6 +303,22 @@ describe("VariantScreen", () => {
       "href",
       "/agents",
     );
+    expect(agentApi.readAgentVariantPrompt).not.toHaveBeenCalled();
+  });
+
+  it("shows the not-found state for a malformed variant id", async () => {
+    vi.mocked(agentApi.readAgentVariant).mockRejectedValue(
+      new ApiError(
+        "malformed",
+        "Request validation failed.",
+        400,
+        "gateway.request.validation_failed",
+        [{ path: ["params", "variant_id"], code: "custom" }],
+      ),
+    );
+    mount();
+
+    expect(await screen.findByText("Variant not found.")).toBeTruthy();
     expect(agentApi.readAgentVariantPrompt).not.toHaveBeenCalled();
   });
 

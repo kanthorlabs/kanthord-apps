@@ -3,12 +3,7 @@ import { useCallback, useState } from "react";
 import { createAgentVariant } from "@/api/resources/agent";
 import type { AgentVariant } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
-import {
-  VARIANT_NAME_RULE,
-  type VariantFailure,
-  variantFailureOf,
-  variantNameValid,
-} from "@/lib/agent-variant";
+import { variantDraftFailureOf, type VariantFailure, variantFailureOf } from "@/lib/agent-variant";
 
 export interface VariantCreateState {
   readonly name: string;
@@ -41,8 +36,9 @@ export function useVariantCreate(
 
   const submit = useCallback(async () => {
     const displayName = name.trim();
-    if (!variantNameValid(displayName)) {
-      setFailure({ field: "name", line: { code: null, message: VARIANT_NAME_RULE } });
+    const refused = variantDraftFailureOf(displayName, instruction);
+    if (refused !== null) {
+      setFailure(refused);
       return;
     }
     setPending(true);

@@ -660,8 +660,26 @@ const variantPartOf = (variant) => ({
   text: variant.instruction,
 });
 
+const identityPartOf = (agent, variant) => {
+  const text = `Your name is ${variant === undefined ? agent.display_name : variant.display_name}.`;
+  return {
+    layer: 1,
+    part: "identity",
+    name: "identity",
+    origin: "binary",
+    path: null,
+    binding_id: null,
+    commit: null,
+    digest: digestOf(text),
+    heading: null,
+    state: "resolved",
+    text,
+  };
+};
+
 const agentPartsOf = (agent, workbench, variant) => [
   filePartOf("standard", "base.md", agent.basePrompt, false),
+  identityPartOf(agent, variant),
   filePartOf("role", `${agent.agent_name}.md`, agent.agentPrompt, agent.roleOverridden === true),
   ...(variant === undefined ? [] : [variantPartOf(variant)]),
   ...(workbench ? [filePartOf("workbench", "workbench.md", fx.WORKBENCH_PROMPT, false)] : []),

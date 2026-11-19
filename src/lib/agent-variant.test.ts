@@ -4,7 +4,9 @@ import {
   currentVariantOf,
   INSTRUCTION_LINE,
   variantFailureOf,
+  variantInstructionValid,
   variantLabel,
+  variantMissing,
   variantNameValid,
   variantPath,
   type VariantRefusal,
@@ -24,6 +26,39 @@ describe("variantNameValid", () => {
     expect(variantNameValid("1st")).toBe(false);
     expect(variantNameValid(" Name")).toBe(false);
     expect(variantNameValid("Name!")).toBe(false);
+    expect(variantNameValid("Café")).toBe(false);
+    expect(variantNameValid("a  b")).toBe(false);
+    expect(variantNameValid("a ")).toBe(false);
+  });
+});
+
+describe("variantInstructionValid", () => {
+  it("refuses a blank instruction and one above 32768 UTF-8 bytes", () => {
+    expect(variantInstructionValid("Text.")).toBe(true);
+    expect(variantInstructionValid("a".repeat(32768))).toBe(true);
+    expect(variantInstructionValid("é".repeat(16384))).toBe(true);
+    expect(variantInstructionValid("  \n")).toBe(false);
+    expect(variantInstructionValid("a".repeat(32769))).toBe(false);
+    expect(variantInstructionValid("é".repeat(16385))).toBe(false);
+  });
+});
+
+describe("variantMissing", () => {
+  it("accepts a not_found answer and a malformed variant id answer only", () => {
+    expect(variantMissing({ detail: "agent.variant.not_found", details: null })).toBe(true);
+    expect(
+      variantMissing({
+        detail: "gateway.request.validation_failed",
+        details: [{ path: ["params", "variant_id"], code: "custom" }],
+      }),
+    ).toBe(true);
+    expect(
+      variantMissing({
+        detail: "gateway.request.validation_failed",
+        details: [{ path: ["body", "instruction"], code: "custom" }],
+      }),
+    ).toBe(false);
+    expect(variantMissing({ detail: "", details: undefined })).toBe(false);
   });
 });
 

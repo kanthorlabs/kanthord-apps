@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FieldDescription, FieldGroup } from "@/components/ui/field";
+import { InlineError } from "@/features/workbench/chat/components/inline-error";
 import { useNewSession } from "../use-new-session";
 import { SessionConfigurationForm } from "./session-configuration-form";
 
@@ -54,9 +55,12 @@ export function NewSessionDialog({
             onChange={choice.selectAgent}
           />
           {choice.variantsFailure !== null && (
-            <p role="alert" className="text-sm text-destructive md:col-span-2">
-              {choice.variantsFailure}
-            </p>
+            <div className="md:col-span-2">
+              <InlineError
+                code={choice.variantsFailure.code}
+                message={choice.variantsFailure.message}
+              />
+            </div>
           )}
           {choice.agentOptions.length === 0 && (
             <FieldDescription className="md:col-span-2">

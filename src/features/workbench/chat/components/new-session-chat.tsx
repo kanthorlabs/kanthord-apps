@@ -14,7 +14,7 @@ import { type OpenCreatedSession, useFirstSend } from "../use-first-send";
 
 export interface NewSessionVariant {
   readonly id: string;
-  readonly baseDisplayName: string;
+  readonly baseDisplayName: string | null;
   readonly failure: VariantLine | null;
 }
 
@@ -93,7 +93,7 @@ export function NewSessionChat({
       <h2 className="font-mono text-lg font-semibold">
         {variant === null ? agentName : (agentDisplayName ?? agentName)}
       </h2>
-      {variant !== null && (
+      {variant !== null && variant.baseDisplayName !== null && (
         <p className="text-sm text-muted-foreground">variant of {variant.baseDisplayName}</p>
       )}
       <p className="text-sm">{greeting}</p>

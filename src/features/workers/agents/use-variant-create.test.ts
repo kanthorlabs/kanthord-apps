@@ -57,6 +57,17 @@ describe("useVariantCreate", () => {
     expect(onCreated).not.toHaveBeenCalled();
   });
 
+  it("refuses a blank instruction before any call", async () => {
+    const { hook, onCreated } = filled();
+    act(() => hook.result.current.setInstruction("  "));
+
+    await act(() => hook.result.current.submit());
+
+    expect(hook.result.current.failure?.field).toBe("instruction");
+    expect(agentApi.createAgentVariant).not.toHaveBeenCalled();
+    expect(onCreated).not.toHaveBeenCalled();
+  });
+
   it("keeps the draft and the failure of a refused create, and clears the failure on an edit", async () => {
     vi.mocked(agentApi.createAgentVariant).mockRejectedValue(
       new ApiError("conflict", "Taken.", 409, "agent.variant.name_taken"),

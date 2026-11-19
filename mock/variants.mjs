@@ -4,10 +4,15 @@ import { AGENT_VARIANT_INSTRUCTION_MAX_BYTES } from "./fixtures.mjs";
 
 const GUARD_AGENT = "guard@1";
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const VARIANT_NAME = /^\p{L}[\p{L}\p{Nd} _-]{0,39}$/u;
+const VARIANT_NAME = /^[A-Za-z][A-Za-z0-9_-]*( [A-Za-z0-9_-]+)*$/;
+const VARIANT_NAME_MAX_CHARS = 40;
+const VARIANT_ID = /^agent_variant_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 
 const variantIdOf = () =>
-  `agent_variant_${Array.from(randomBytes(26), (byte) => ULID_ALPHABET[byte % 32]).join("")}`;
+  `agent_variant_${Array.from(
+    randomBytes(26),
+    (byte, index) => ULID_ALPHABET[index === 0 ? byte % 8 : byte % 32],
+  ).join("")}`;
 
 const itemOf = ({ id, agent_name, display_name, revision }) => ({
   id,
@@ -39,7 +44,7 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
     return null;
   };
 
-  const nameInvalid = (name) => !VARIANT_NAME.test(name);
+  const nameInvalid = (name) => name.length > VARIANT_NAME_MAX_CHARS || !VARIANT_NAME.test(name);
 
   const refuseName = (res, name, selfId) => {
     if (nameInvalid(name)) {
@@ -66,7 +71,14 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
   };
 
   const variantOrRefuse = (res, rawId) => {
-    const variant = variants.find((item) => item.id === decodeURIComponent(rawId));
+    const id = decodeURIComponent(rawId);
+    if (!VARIANT_ID.test(id)) {
+      envelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+        { path: ["params", "variant_id"], code: "custom" },
+      ]);
+      return null;
+    }
+    const variant = variants.find((item) => item.id === id);
     if (variant !== undefined) return variant;
     envelope(res, 404, "agent.variant.not_found", "The variant does not exist.");
     return null;
@@ -79,13 +91,19 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
       409,
       "agent.variant.revision_conflict",
       "The variant changed since it was read.",
-      { current: structuredClone(variant) },
+      { variant_id: variant.id, current: structuredClone(variant) },
     );
   };
 
   on("GET", /^\/api\/agent\/variant$/, (_m, _b, res) =>
     json(res, 200, {
-      items: [...variants].sort((left, right) => (left.id < right.id ? -1 : 1)).map(itemOf),
+      items: [...variants]
+        .sort(
+          (left, right) =>
+            left.agent_name.localeCompare(right.agent_name) ||
+            left.display_name.localeCompare(right.display_name),
+        )
+        .map(itemOf),
     }),
   );
 
@@ -93,7 +111,18 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
     const invalid = refuseBody(res, body, ["agent_name", "display_name"]);
     if (invalid !== null) return invalid;
     const base = agents.find((agent) => agent.agent_name === body.agent_name);
-    if (base === undefined || body.agent_name === GUARD_AGENT || base.workbench !== true) {
+    if (base === undefined) {
+      return envelope(
+        res,
+        404,
+        "agent.catalog.not_found",
+        "The agent is absent from the catalog.",
+        {
+          agent_name: body.agent_name,
+        },
+      );
+    }
+    if (body.agent_name === GUARD_AGENT || base.workbench !== true) {
       return envelope(res, 409, "agent.variant.base_refused", "The agent serves no variant.");
     }
     const refused = refuseName(res, body.display_name, null);
@@ -122,8 +151,8 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
     const variant = variantOrRefuse(res, m[1]);
     if (variant === null) return undefined;
     const refused =
-      refuseName(res, body.display_name, variant.id) ??
-      refuseRevision(res, variant, body.expected_revision);
+      refuseRevision(res, variant, body.expected_revision) ??
+      refuseName(res, body.display_name, variant.id);
     if (refused !== null) return refused;
     variant.display_name = body.display_name;
     variant.instruction = body.instruction;
@@ -138,11 +167,9 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
     const refused = refuseRevision(res, variant, body.expected_revision);
     if (refused !== null) return refused;
     if (hasSession(variant.id)) {
-      return envelope(res, 409, "agent.variant.in_use", "A workbench session uses the variant.", {
-        variant_id: variant.id,
-      });
+      return envelope(res, 409, "agent.variant.in_use", "A workbench session uses the variant.");
     }
     variants.splice(variants.indexOf(variant), 1);
-    return json(res, 204, null);
+    return json(res, 200, { id: variant.id });
   });
 };

@@ -206,7 +206,9 @@ describe("NewSessionDialog", () => {
     mount([SWE]);
 
     const dialog = await screen.findByRole("dialog");
-    expect(await within(dialog).findByText("The variants did not load.")).toBeTruthy();
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "unavailable The variants did not load.",
+    );
     await userEvent.click(within(dialog).getByRole("combobox", { name: "Agent" }));
     expect(await screen.findByRole("option", { name: "SWE (swe@1)" })).toBeTruthy();
   });

@@ -53,6 +53,17 @@ describe("useVariantUpdate", () => {
     expect(onSaved).toHaveBeenCalledTimes(1);
   });
 
+  it("refuses an instruction above 32768 bytes before any call", async () => {
+    const { hook, onSaved } = started();
+    act(() => hook.result.current.setInstruction("é".repeat(16385)));
+
+    await act(() => hook.result.current.submit());
+
+    expect(hook.result.current.failure?.field).toBe("instruction");
+    expect(agentApi.updateAgentVariant).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
   it("keeps the draft on a conflict and sends the revision of the current row next", async () => {
     const current = { ...VARIANT, revision: 5 };
     vi.mocked(agentApi.updateAgentVariant)

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NEXT_SESSION_NOTICE, VARIANT_NOT_FOUND } from "@/lib/agent-variant";
+import { NEXT_SESSION_NOTICE, variantMissing } from "@/lib/agent-variant";
 import { AgentPromptCard } from "../agent/components/agent-prompt-card";
 import { useVariant } from "./use-variant";
 import { useVariantDelete } from "./use-variant-delete";
@@ -101,7 +101,7 @@ export function VariantScreen() {
     );
   }
 
-  if (error?.detail === VARIANT_NOT_FOUND) {
+  if (error !== null && variantMissing(error)) {
     return (
       <Empty>
         <EmptyHeader>

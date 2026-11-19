@@ -17,11 +17,17 @@ import { useVariantCreate } from "./use-variant-create";
 
 interface VariantCreateDialogProps {
   readonly agentName: string;
+  readonly displayName: string;
   readonly onClose: () => void;
   readonly onCreated: (variant: AgentVariant) => void;
 }
 
-export function VariantCreateDialog({ agentName, onClose, onCreated }: VariantCreateDialogProps) {
+export function VariantCreateDialog({
+  agentName,
+  displayName,
+  onClose,
+  onCreated,
+}: VariantCreateDialogProps) {
   const create = useVariantCreate(agentName, onCreated);
   const { failure } = create;
   const nameLine = failure?.field === "name" ? failure.line : null;
@@ -32,7 +38,9 @@ export function VariantCreateDialog({ agentName, onClose, onCreated }: VariantCr
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>New variant of {agentName}</DialogTitle>
+          <DialogTitle>
+            New variant of {displayName} ({agentName})
+          </DialogTitle>
           <DialogDescription>
             A variant adds its instruction to the prompt of {agentName}. A change takes effect at
             the next session of the agent.
@@ -54,24 +62,45 @@ export function VariantCreateDialog({ agentName, onClose, onCreated }: VariantCr
                 id="variant-name"
                 autoComplete="off"
                 aria-invalid={nameLine !== null}
-                aria-describedby="variant-name-rule"
+                aria-describedby={
+                  nameLine === null ? "variant-name-rule" : "variant-name-rule variant-name-error"
+                }
                 value={create.name}
                 onChange={(event) => create.setName(event.target.value)}
               />
               <FieldDescription id="variant-name-rule">{VARIANT_NAME_RULE}</FieldDescription>
-              {nameLine !== null && <InlineError code={nameLine.code} message={nameLine.message} />}
+              {nameLine !== null && (
+                <InlineError
+                  id="variant-name-error"
+                  code={nameLine.code}
+                  message={nameLine.message}
+                />
+              )}
             </Field>
             <Field data-invalid={instructionLine !== null}>
               <FieldLabel htmlFor="variant-instruction">Instruction</FieldLabel>
               <Textarea
                 id="variant-instruction"
                 aria-invalid={instructionLine !== null}
+                aria-describedby={
+                  instructionLine === null
+                    ? "variant-inherited"
+                    : "variant-inherited variant-instruction-error"
+                }
                 className="max-h-[40dvh] min-h-40"
                 value={create.instruction}
                 onChange={(event) => create.setInstruction(event.target.value)}
               />
+              <FieldDescription id="variant-inherited">
+                Inherited from {displayName}: tools, enablement, providers, default configuration,
+                base prompt parts, guard
+              </FieldDescription>
               {instructionLine !== null && (
-                <InlineError code={instructionLine.code} message={instructionLine.message} />
+                <InlineError
+                  id="variant-instruction-error"
+                  code={instructionLine.code}
+                  message={instructionLine.message}
+                />
               )}
             </Field>
             {formLine !== null && <InlineError code={formLine.code} message={formLine.message} />}

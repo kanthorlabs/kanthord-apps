@@ -5,11 +5,10 @@ import type { AgentVariant } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import {
   currentVariantOf,
-  VARIANT_NAME_RULE,
   VARIANT_REVISION_CONFLICT,
+  variantDraftFailureOf,
   type VariantFailure,
   variantFailureOf,
-  variantNameValid,
 } from "@/lib/agent-variant";
 
 export interface VariantUpdateState {
@@ -63,8 +62,9 @@ export function useVariantUpdate(variant: AgentVariant, onSaved: () => void): Va
 
   const submit = useCallback(async () => {
     const displayName = name.trim();
-    if (!variantNameValid(displayName)) {
-      setFailure({ field: "name", line: { code: null, message: VARIANT_NAME_RULE } });
+    const refused = variantDraftFailureOf(displayName, instruction);
+    if (refused !== null) {
+      setFailure(refused);
       return;
     }
     setPending(true);

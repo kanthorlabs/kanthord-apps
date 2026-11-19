@@ -8,6 +8,7 @@ import {
 import { InlineError } from "./components/inline-error";
 import { NewSessionChat } from "./components/new-session-chat";
 import { SessionChat } from "./components/session-chat";
+import { useMentionAgents } from "./use-mention-agents";
 import { useNewSessionVariant } from "./use-new-session-variant";
 
 type ValidRequest = Extract<NewSessionRequest, { ok: true }>;
@@ -20,6 +21,7 @@ function VariantNewSession({
   readonly variantId: string;
 }) {
   const { variant, failure } = useNewSessionVariant(variantId);
+  const { displayNameOf } = useMentionAgents();
   return (
     <NewSessionChat
       agentName={request.agentName}
@@ -27,7 +29,7 @@ function VariantNewSession({
       configuration={request.configuration}
       variant={{
         id: variantId,
-        baseDisplayName: request.agentDisplayName ?? request.agentName,
+        baseDisplayName: displayNameOf(request.agentName),
         failure,
       }}
     />

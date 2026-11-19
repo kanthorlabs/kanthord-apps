@@ -279,7 +279,15 @@ describe("AgentsScreen", () => {
     mount();
 
     const dialog = await openNewVariant("swe@1");
+    expect(
+      within(dialog).getByRole("heading", { name: "New variant of SWE (swe@1)" }),
+    ).toBeTruthy();
     expect(within(dialog).getByText(/1 to 40 letters, digits, spaces, _ or -/)).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "Inherited from SWE: tools, enablement, providers, default configuration, base prompt parts, guard",
+      ),
+    ).toBeTruthy();
     await fillVariant(dialog, "Software Architecture", "Weigh each change.");
 
     expect(agentApi.createAgentVariant).toHaveBeenCalledWith({
@@ -305,6 +313,53 @@ describe("AgentsScreen", () => {
     expect(agentApi.createAgentVariant).not.toHaveBeenCalled();
   });
 
+  it.each(["Café", "a  b"])(
+    "shows the name line and sends no request for the name %j",
+    async (name) => {
+      vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
+      mount();
+
+      const dialog = await openNewVariant("swe@1");
+      await fillVariant(dialog, name, "Text.");
+
+      expect(
+        within(dialog).getByRole("textbox", {
+          name: "Display name",
+          description: /starting with a letter\.$/,
+        }),
+      ).toHaveValue(name);
+      expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+        "1 to 40 letters, digits, spaces, _ or -, starting with a letter.",
+      );
+      expect(agentApi.createAgentVariant).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ["a blank instruction", "   "],
+    ["an instruction above 32768 bytes", "é".repeat(16385)],
+  ])("shows the instruction line and sends no request for %s", async (_label, instruction) => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
+    mount();
+
+    const dialog = await openNewVariant("swe@1");
+    await userEvent.type(within(dialog).getByLabelText("Display name"), "Software Architecture");
+    await userEvent.click(within(dialog).getByLabelText("Instruction"));
+    await userEvent.paste(instruction);
+    await userEvent.click(within(dialog).getByRole("button", { name: "Create variant" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "gateway.request.validation_failed The instruction is blank or above 32768 bytes.",
+    );
+    expect(
+      within(dialog).getByRole("textbox", {
+        name: "Instruction",
+        description: /gateway\.request\.validation_failed The instruction is blank/,
+      }),
+    ).toHaveValue(instruction);
+    expect(agentApi.createAgentVariant).not.toHaveBeenCalled();
+  });
+
   it("shows a name_taken answer under the name field and keeps the draft", async () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
     vi.mocked(agentApi.createAgentVariant).mockRejectedValue(
@@ -317,10 +372,12 @@ describe("AgentsScreen", () => {
 
     const line = await within(dialog).findByRole("alert");
     expect(line).toHaveTextContent("agent.variant.name_taken Another variant uses the name.");
-    expect(line.closest('[data-slot="field"]')).toContainElement(
-      within(dialog).getByLabelText("Display name"),
-    );
-    expect(within(dialog).getByLabelText("Display name")).toHaveValue("Software Architecture");
+    expect(
+      within(dialog).getByRole("textbox", {
+        name: "Display name",
+        description: /agent\.variant\.name_taken Another variant uses the name\./,
+      }),
+    ).toHaveValue("Software Architecture");
     expect(within(dialog).getByLabelText("Instruction")).toHaveValue("Weigh each change.");
     expect(screen.queryByText(/^Variant page/)).toBeNull();
   });
@@ -345,9 +402,12 @@ describe("AgentsScreen", () => {
     expect(line).toHaveTextContent(
       "gateway.request.validation_failed The instruction is blank or above 32768 bytes.",
     );
-    expect(line.closest('[data-slot="field"]')).toContainElement(
-      within(dialog).getByLabelText("Instruction"),
-    );
+    expect(
+      within(dialog).getByRole("textbox", {
+        name: "Instruction",
+        description: /gateway\.request\.validation_failed The instruction is blank/,
+      }),
+    ).toHaveValue("Weigh each change.");
     expect(within(dialog).getByLabelText("Display name")).toHaveValue("Software Architecture");
     expect(within(dialog).getByLabelText("Instruction")).toHaveValue("Weigh each change.");
   });

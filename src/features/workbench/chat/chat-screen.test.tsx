@@ -800,7 +800,6 @@ describe("ChatScreen", () => {
       };
       const VARIANT_QUERY = new URLSearchParams({
         agent_name: "swe@1",
-        display_name: "SWE",
         variant_id: VARIANT.id,
         agent_provider: "atlas-llm",
         model_identifier: "qwen3-coder",
@@ -809,6 +808,16 @@ describe("ChatScreen", () => {
 
       beforeEach(() => {
         vi.mocked(agentApi.readAgentVariant).mockResolvedValue(VARIANT);
+        vi.mocked(workersApi.listAgents).mockResolvedValue([
+          {
+            agentName: "swe@1",
+            displayName: "SWE",
+            workerNames: [],
+            consumers: ["workbench"],
+            toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+            enablement: AGENT.enablement,
+          },
+        ]);
       });
 
       it("reads the variant, shows its greeting and its base, and calls no write", async () => {
@@ -820,7 +829,7 @@ describe("ChatScreen", () => {
           ),
         ).toBeTruthy();
         expect(screen.getByRole("heading", { name: "Software Architecture" })).toBeTruthy();
-        expect(screen.getByText("variant of SWE")).toBeTruthy();
+        expect(await screen.findByText("variant of SWE")).toBeTruthy();
         expect(agentApi.readAgentVariant).toHaveBeenCalledWith("agent_variant_1");
         expect(screen.getByRole("combobox", { name: "Message" })).toBeEnabled();
         expect(workbenchApi.createWorkbenchSession).not.toHaveBeenCalled();

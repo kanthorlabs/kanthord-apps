@@ -17,7 +17,7 @@ import { NewSessionButton } from "@/features/workbench/sessions/components/new-s
 import { NewSessionDialog } from "@/features/workbench/sessions/components/new-session-dialog";
 import { ENABLEMENT_HASH } from "../agent/use-enablement-create";
 import { useAgents } from "./use-agents";
-import { useAgentVariants } from "./use-agent-variants";
+import { useAgentVariants } from "@/hooks/use-agent-variants";
 import { VariantCreateDialog } from "./variant-create-dialog";
 
 interface AgentItemProps {
@@ -76,6 +76,7 @@ function AgentItem({ agent, variants }: AgentItemProps) {
       {creating && (
         <VariantCreateDialog
           agentName={agentName}
+          displayName={agent.displayName}
           onClose={() => setCreating(false)}
           onCreated={(variant) => navigate(variantPath(variant.agent_name, variant.id))}
         />
@@ -103,8 +104,8 @@ function AgentItem({ agent, variants }: AgentItemProps) {
         </dl>
         {sessionAgent && (
           <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-muted-foreground">Variants</span>
+            <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+              <span className="text-sm text-muted-foreground md:mr-auto">Variants</span>
               <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
                 New variant
               </Button>

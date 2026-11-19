@@ -47,13 +47,21 @@ export function VariantEditSheet({ edit }: { readonly edit: VariantUpdateState }
                   id="variant-edit-name"
                   autoComplete="off"
                   aria-invalid={nameLine !== null}
-                  aria-describedby="variant-edit-name-rule"
+                  aria-describedby={
+                    nameLine === null
+                      ? "variant-edit-name-rule"
+                      : "variant-edit-name-rule variant-edit-name-error"
+                  }
                   value={edit.name}
                   onChange={(event) => edit.setName(event.target.value)}
                 />
                 <FieldDescription id="variant-edit-name-rule">{VARIANT_NAME_RULE}</FieldDescription>
                 {nameLine !== null && (
-                  <InlineError code={nameLine.code} message={nameLine.message} />
+                  <InlineError
+                    id="variant-edit-name-error"
+                    code={nameLine.code}
+                    message={nameLine.message}
+                  />
                 )}
               </Field>
               <Field data-invalid={instructionLine !== null}>
@@ -61,12 +69,19 @@ export function VariantEditSheet({ edit }: { readonly edit: VariantUpdateState }
                 <Textarea
                   id="variant-edit-instruction"
                   aria-invalid={instructionLine !== null}
+                  aria-describedby={
+                    instructionLine === null ? undefined : "variant-edit-instruction-error"
+                  }
                   className="max-h-[50dvh] min-h-60"
                   value={edit.instruction}
                   onChange={(event) => edit.setInstruction(event.target.value)}
                 />
                 {instructionLine !== null && (
-                  <InlineError code={instructionLine.code} message={instructionLine.message} />
+                  <InlineError
+                    id="variant-edit-instruction-error"
+                    code={instructionLine.code}
+                    message={instructionLine.message}
+                  />
                 )}
               </Field>
               {formLine !== null && <InlineError code={formLine.code} message={formLine.message} />}

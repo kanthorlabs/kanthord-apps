@@ -1,9 +1,9 @@
 import { useState } from "react";
 
 import type { AgentEnablement, AgentSummary } from "@/api/types";
-import { useAgentVariants } from "@/features/workers/agents/use-agent-variants";
+import { useAgentVariants } from "@/hooks/use-agent-variants";
 import { agentLabel } from "@/lib/agent-label";
-import { variantLabel } from "@/lib/agent-variant";
+import { engineCodeOf, variantLabel, type VariantLine } from "@/lib/agent-variant";
 
 export interface NewSessionChoice {
   readonly value: string | null;
@@ -13,7 +13,7 @@ export interface NewSessionChoice {
   readonly agentLabels: Readonly<Record<string, string>>;
   readonly agentDisplayName: string | null;
   readonly enablement: AgentEnablement | null;
-  readonly variantsFailure: string | null;
+  readonly variantsFailure: VariantLine | null;
   readonly selectAgent: (value: string | null) => void;
 }
 
@@ -54,7 +54,10 @@ export function useNewSession(
     },
     agentDisplayName: chosen?.displayName ?? null,
     enablement: chosen?.enablement ?? null,
-    variantsFailure: variants.error?.message ?? null,
+    variantsFailure:
+      variants.error === null
+        ? null
+        : { code: engineCodeOf(variants.error), message: variants.error.message },
     selectAgent,
   };
 }

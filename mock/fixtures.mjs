@@ -3011,6 +3011,33 @@ export const WORKBENCH_SESSIONS = [
       },
     ],
   },
+  {
+    id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0VS1",
+    agent_name: "swe@1",
+    variant_id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA1",
+    created: SESSION_BASE + 7 * 86400000,
+    configuration: {
+      agent_provider: "atlas-llm",
+      model_identifier: "qwen3-coder",
+      reasoning_effort: "off",
+    },
+    entries: [
+      {
+        type: "message",
+        id: "e0000501",
+        parentId: null,
+        timestamp: entryAt(10080),
+        message: { role: "user", content: "Review the structure of the cart module" },
+      },
+      {
+        type: "message",
+        id: "e0000502",
+        parentId: "e0000501",
+        timestamp: entryAt(10081),
+        message: textMessage("assistant", "The cart module mixes pricing and checkout rules."),
+      },
+    ],
+  },
   ...GUARD_SESSIONS,
 ];
 

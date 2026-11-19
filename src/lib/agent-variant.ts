@@ -13,7 +13,9 @@ export const INSTRUCTION_LINE = "The instruction is blank or above 32768 bytes."
 
 export const NEXT_SESSION_NOTICE = "Takes effect at the next agent session";
 
-const VARIANT_NAME = /^\p{L}[\p{L}\p{Nd} _-]{0,39}$/u;
+const VARIANT_NAME = /^[A-Za-z][A-Za-z0-9_-]*( [A-Za-z0-9_-]+)*$/;
+const VARIANT_NAME_MAX_CHARS = 40;
+const INSTRUCTION_MAX_BYTES = 32768;
 
 export interface VariantRefusal {
   readonly code: string;
@@ -31,22 +33,47 @@ export type VariantFailure =
   | { readonly field: "form"; readonly line: VariantLine };
 
 export function variantNameValid(name: string): boolean {
-  return VARIANT_NAME.test(name);
+  return name.length <= VARIANT_NAME_MAX_CHARS && VARIANT_NAME.test(name);
+}
+
+export function variantInstructionValid(instruction: string): boolean {
+  return (
+    instruction.trim() !== "" &&
+    new TextEncoder().encode(instruction).length <= INSTRUCTION_MAX_BYTES
+  );
+}
+
+export function variantDraftFailureOf(name: string, instruction: string): VariantFailure | null {
+  if (!variantNameValid(name)) {
+    return { field: "name", line: { code: null, message: VARIANT_NAME_RULE } };
+  }
+  if (!variantInstructionValid(instruction)) {
+    return {
+      field: "instruction",
+      line: { code: VALIDATION_FAILED, message: INSTRUCTION_LINE },
+    };
+  }
+  return null;
 }
 
 export function variantPath(agentName: string, variantId: string): string {
   return `/agents/${encodeURIComponent(agentName)}/variants/${encodeURIComponent(variantId)}`;
 }
 
-function holdsInstructionPath(details: unknown): boolean {
+function holdsPath(details: unknown, scope: string, field: string): boolean {
   if (!Array.isArray(details)) return false;
   return details.some((issue: unknown) => {
     if (typeof issue !== "object" || issue === null) return false;
     const path: unknown = Reflect.get(issue, "path");
-    return (
-      Array.isArray(path) && path.length === 2 && path[0] === "body" && path[1] === "instruction"
-    );
+    return Array.isArray(path) && path.length === 2 && path[0] === scope && path[1] === field;
   });
+}
+
+export function variantMissing(error: Pick<VariantRefusal, "detail" | "details">): boolean {
+  return (
+    error.detail === VARIANT_NOT_FOUND ||
+    (error.detail === VALIDATION_FAILED && holdsPath(error.details, "params", "variant_id"))
+  );
 }
 
 export function engineCodeOf(error: Pick<VariantRefusal, "code" | "detail" | "status">): string {
@@ -57,7 +84,7 @@ export function variantFailureOf(error: VariantRefusal): VariantFailure {
   if (error.detail === VARIANT_NAME_INVALID || error.detail === VARIANT_NAME_TAKEN) {
     return { field: "name", line: { code: error.detail, message: error.message } };
   }
-  if (error.detail === VALIDATION_FAILED && holdsInstructionPath(error.details)) {
+  if (error.detail === VALIDATION_FAILED && holdsPath(error.details, "body", "instruction")) {
     return { field: "instruction", line: { code: VALIDATION_FAILED, message: INSTRUCTION_LINE } };
   }
   return { field: "form", line: { code: engineCodeOf(error), message: error.message } };
