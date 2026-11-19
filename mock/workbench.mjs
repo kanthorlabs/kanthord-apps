@@ -7,7 +7,6 @@ import {
   EVIDENCE_NODE_NAME,
   GUEST_INVITE_TTL_MS,
   GUEST_KEEPALIVE_MS,
-  GUEST_MENTION_NAMES,
   VARIANT_CONVERSATION_ID,
   GUEST_MESSAGE_MAX_BYTES,
   GUEST_NAME_MAX_CHARS,
@@ -140,14 +139,6 @@ const textOf = (message) =>
     ? message.content
     : (message?.content ?? []).map((block) => block.text ?? "").join("");
 
-const publicQueueItem = ({ id, text, agent_name, variant_id, display_name }) => ({
-  id,
-  text,
-  agent_name,
-  variant_id,
-  display_name,
-});
-
 const OWNER_REQUESTER = { kind: "owner", name: GUEST_OWNER_NAME };
 
 const cursorOf = (host, after) => {
@@ -243,7 +234,20 @@ export function registerWorkbench({
       .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   };
 
+  const publicQueueItem = ({ id, text, agent_name, variant_id, display_name }) => ({
+    id,
+    text,
+    agent_name,
+    variant_id,
+    display_name:
+      variant_id === null
+        ? display_name
+        : (variants.find((variant) => variant.id === variant_id)?.display_name ?? display_name),
+  });
+
   const hasMentionToken = (text) => /^@\S/.test(text);
+
+  const mentionOf = (text) => text.match(/^@(\S+)/)[1];
 
   const mentionableOf = () => {
     const bases = agents.filter((agent) => agent.workbench === true);
@@ -256,10 +260,10 @@ export function registerWorkbench({
     return [...bases.map((agent) => ({ ...agent, variant_id: null })), ...ofVariants];
   };
 
-  const mentionedAgent = (text) => {
+  const leadingAgentOf = (text, candidates) => {
     if (!hasMentionToken(text)) return undefined;
     const lowered = text.slice(1).toLowerCase();
-    return mentionableOf()
+    return candidates
       .sort((a, b) => b.display_name.length - a.display_name.length)
       .find((agent) => {
         const name = agent.display_name.toLowerCase();
@@ -268,6 +272,24 @@ export function registerWorkbench({
         return next === "" || /\s/.test(next) || !NAME_CHARACTER.test(next);
       });
   };
+
+  const mentionedAgent = (text) => leadingAgentOf(text, mentionableOf());
+
+  const orphanVariantOf = (text) =>
+    leadingAgentOf(
+      text,
+      variants.filter(
+        (variant) =>
+          !agents.some(
+            (agent) => agent.agent_name === variant.agent_name && agent.workbench === true,
+          ),
+      ),
+    );
+
+  const guestMentionNamesOf = () =>
+    mentionableOf()
+      .filter((agent) => agent.tools.every((tool) => tool.source !== "builtin"))
+      .map((agent) => agent.display_name);
 
   const isFinalAnswer = (entry) =>
     entry.phase === undefined &&
@@ -707,6 +729,7 @@ export function registerWorkbench({
       cancel: null,
       decide: null,
       agent_name: session.agent_name,
+      session,
       requested_by: guestName === null ? OWNER_REQUESTER : { kind: "guest", name: guestName },
     };
     state.run = run;
@@ -730,9 +753,19 @@ export function registerWorkbench({
     state.streaming_message = null;
     state.pending_tool_calls = [];
     state.pending_approval = null;
-    const next = state.queue.shift();
+    const next = nextQueuedOf(state);
     if (next === undefined) return notify(session);
     startRun(next.target ?? lastAnswerer(conversationOf(session)), next.text, next.guest_name);
+  };
+
+  const nextQueuedOf = (state) => {
+    for (let next = state.queue.shift(); next !== undefined; next = state.queue.shift()) {
+      if (next.variant_id === null || variants.some((variant) => variant.id === next.variant_id)) {
+        return next;
+      }
+      state.error_message = "The agent variant does not exist.";
+    }
+    return undefined;
   };
 
   const clearQueue = (session, cause) => {
@@ -808,6 +841,7 @@ export function registerWorkbench({
       cancel: null,
       decide: null,
       agent_name: session.agent_name,
+      session,
       requested_by: OWNER_REQUESTER,
     };
     resumeApproval(session, run).finally(() => finish(session, run));
@@ -1099,6 +1133,7 @@ export function registerWorkbench({
         404,
         "agent.catalog.not_found",
         "The agent of the leading mention is not in the catalog.",
+        { mention: mentionOf(body.text) },
       );
     }
     if (mentioned !== undefined && mentioned.enablement?.state !== "enabled") {
@@ -1425,15 +1460,12 @@ export function registerWorkbench({
     name: projects.find((project) => project.id === id)?.name ?? null,
   });
 
-  const guestQueueItem = (session, { id, target, author_name }) => {
-    const addressee = target ?? lastAnswerer(session);
-    return {
-      id,
-      agent_name: addressee.agent_name,
-      display_name: sessionDisplayNameOf(addressee),
-      author_name,
-    };
-  };
+  const guestQueueItem = ({ id, target, author_name }) => ({
+    id,
+    agent_name: target?.agent_name ?? null,
+    display_name: target === null ? null : sessionDisplayNameOf(target),
+    author_name,
+  });
 
   const grantedOperationsOf = (operationIds) =>
     GRANTABLE_OPERATIONS.filter((operation) => operationIds.includes(operation.operation_id)).map(
@@ -1713,7 +1745,7 @@ export function registerWorkbench({
       run_active: stateOf(session).run !== null,
       projects: invites.get(guest.invite_id).project_ids.map(projectRefOf),
       granted_operations: grantedOperationsOf(invites.get(guest.invite_id).granted_operations),
-      mention_names: GUEST_MENTION_NAMES,
+      mention_names: guestMentionNamesOf(),
     });
   });
 
@@ -1731,15 +1763,35 @@ export function registerWorkbench({
       ]);
     }
     const session = sessions.find((candidate) => candidate.id === guest.session_id);
-    const mentioned = mentionedAgent(text);
-    if (mentioned === undefined) {
+    if (!hasMentionToken(text)) {
       append(session, "custom", {
         customType: RECORD_TYPE,
         data: { kind: "note", text, author: { kind: "guest", name: guest.name } },
       });
       return json(res, 202, { kind: "note" });
     }
-    if (!GUEST_MENTION_NAMES.includes(mentioned.display_name)) {
+    const mentioned = mentionedAgent(text);
+    if (mentioned === undefined && orphanVariantOf(text) !== undefined) {
+      return envelope(res, 404, "agent.variant.not_found", "The variant does not exist.");
+    }
+    if (mentioned === undefined) {
+      return envelope(
+        res,
+        404,
+        "agent.catalog.not_found",
+        "The agent of the leading mention is not in the catalog.",
+        { mention: mentionOf(text) },
+      );
+    }
+    if (mentioned.enablement?.state !== "enabled") {
+      return envelope(
+        res,
+        400,
+        "agent.enablement.unavailable",
+        "Agent configuration is unavailable or invalid.",
+      );
+    }
+    if (!guestMentionNamesOf().includes(mentioned.display_name)) {
       return envelope(
         res,
         409,
@@ -1783,7 +1835,7 @@ export function registerWorkbench({
     const sendState = () =>
       frame("state", {
         run_active: state.run !== null,
-        display_name: state.run === null ? null : displayNameOf(state.run.agent_name),
+        display_name: state.run === null ? null : sessionDisplayNameOf(state.run.session),
         auto_mode: state.auto_mode,
         streaming:
           state.streaming_message === null
@@ -1793,7 +1845,7 @@ export function registerWorkbench({
           state.pending_approval === null
             ? null
             : { operation_id: state.pending_approval.operation_id },
-        queue: state.queue.map((item) => guestQueueItem(session, item)),
+        queue: state.queue.map(guestQueueItem),
       });
     const sendEntries = () => {
       const entries = guestEntriesAfter(session, after).filter((entry) => !sent.has(entry.id));
@@ -1856,6 +1908,18 @@ export function registerWorkbench({
 
   const variantConversation = sessions.find((session) => session.id === VARIANT_CONVERSATION_ID);
   if (variantConversation !== undefined) {
+    invites.set("workbench_invite_0VARIANT", {
+      id: "workbench_invite_0VARIANT",
+      session_id: variantConversation.id,
+      project_ids: projects
+        .slice(0, 2)
+        .map((project) => project.id)
+        .sort(),
+      granted_operations: ["mission.node.pause"],
+      invitee_name: "Dana Lee",
+      expires_at: Date.now() + GUEST_INVITE_TTL_MS,
+      invite_token: "mock-seeded-variant-invite-token",
+    });
     const text = "@Software Architecture check the pricing rules of the cart";
     const { target, tag } = addresseeOf(variantConversation, text);
     enqueue(variantConversation, target, tag, text);

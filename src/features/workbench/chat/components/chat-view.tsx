@@ -71,13 +71,16 @@ export function ChatView({
   );
   const mentionAgents = useMentionAgents();
   const mentionNames = mentionAgents.names;
+  const { variantIdOf } = mentionAgents;
   const mentionOf = useCallback(
-    (text: string) =>
-      leadingMentionOf(text, [
+    (text: string) => {
+      const name = leadingMentionOf(text, [
         ...events.members.map((member) => member.display_name),
         ...mentionNames,
-      ]),
-    [events.members, mentionNames],
+      ]);
+      return name === null ? null : { name, variantId: variantIdOf(name) };
+    },
+    [events.members, mentionNames, variantIdOf],
   );
   const navigate = useNavigate();
   const openHost = useCallback(
@@ -132,7 +135,12 @@ export function ChatView({
     }),
     [session.id, session.agent_name, session.configuration, enablement],
   );
-  const target = configurationTargetOf(addressee, host, mentionAgents.agents);
+  const target = configurationTargetOf(
+    addressee,
+    host,
+    mentionAgents.agents,
+    mentionAgents.variants,
+  );
   const shown = target ?? host;
   const configuration = useChatConfiguration(shown);
   const openNewChat = useCallback(

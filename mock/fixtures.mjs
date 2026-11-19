@@ -2594,8 +2594,6 @@ export const EVIDENCE_NODE_NAME = "Add password reset";
 
 export const GUEST_OWNER_NAME = "Kanthor Labs";
 
-export const GUEST_MENTION_NAMES = ["Yumi", "Jeremy"];
-
 export const GUEST_INVITE_TTL_MS = 604800000;
 
 export const GUEST_NAME_MAX_CHARS = 64;
@@ -2944,6 +2942,12 @@ export const WORKBENCH_SESSIONS = [
       model_identifier: "qwen3-coder",
       reasoning_effort: "off",
     },
+    approval: {
+      tool_call_id: "call_variant_01",
+      operation_id: "project.create",
+      input: { name: "cart-review" },
+      guard: { cause: "auto_mode_off", reason: null, confidence: null },
+    },
     entries: [
       {
         type: "message",
@@ -2951,6 +2955,31 @@ export const WORKBENCH_SESSIONS = [
         parentId: null,
         timestamp: entryAt(8640),
         message: textMessage("assistant", "Hi, I am Yumi on qwen3-coder. What do you need?"),
+      },
+      {
+        type: "message",
+        id: "e0000604",
+        parentId: "e0000601",
+        timestamp: entryAt(8643),
+        message: { role: "user", content: "Create the project cart-review" },
+      },
+      {
+        type: "message",
+        id: "e0000605",
+        parentId: "e0000604",
+        timestamp: entryAt(8644),
+        message: {
+          role: "assistant",
+          content: [
+            { type: "text", text: "I create the project now." },
+            {
+              type: "toolCall",
+              id: "call_variant_01",
+              name: "project.create",
+              arguments: { name: "cart-review" },
+            },
+          ],
+        },
       },
     ],
   },
@@ -3378,6 +3407,13 @@ export const AGENT_VARIANTS = [
     display_name: "Software Architecture",
     instruction:
       "Weigh each change against the structure of the codebase.\nName the module that owns each new behaviour before you write it.",
+    revision: 1,
+  },
+  {
+    id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA2",
+    agent_name: "ops@1",
+    display_name: "Night Ops",
+    instruction: "Answer for the night shift.\nName the project that each answer concerns.",
     revision: 1,
   },
 ];

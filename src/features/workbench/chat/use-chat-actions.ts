@@ -59,13 +59,18 @@ function failureOf(
   return { cause, toolCallId, code: error.code, message: error.message };
 }
 
+export interface Mention {
+  readonly name: string;
+  readonly variantId: string | null;
+}
+
 export interface SharedMark {
   readonly shared: boolean;
   readonly reload: () => void;
 }
 
 const NOT_SHARED: SharedMark = { shared: false, reload: () => undefined };
-const UNTAGGED = (): string | null => null;
+const UNTAGGED = (): Mention | null => null;
 const NO_NOT_HOST = (): void => undefined;
 const NO_FORKED = (): void => undefined;
 
@@ -73,7 +78,7 @@ export function useChatActions(
   sessionId: string,
   patchSnapshot: (patch: SnapshotPatch) => void,
   initialFailure: ChatActionFailure | null = null,
-  mentionOf: (text: string) => string | null = UNTAGGED,
+  mentionOf: (text: string) => Mention | null = UNTAGGED,
   onNotHost: (hostSessionId: string) => void = NO_NOT_HOST,
   onForked: (forkSessionId: string) => void = NO_FORKED,
   { shared, reload }: SharedMark = NOT_SHARED,
@@ -144,12 +149,13 @@ export function useChatActions(
             patchSnapshot({ run_active: true, error_message: null, queue: [] });
             return;
           }
+          const mention = mentionOf(text);
           const queued = {
             id: answer.queued_message_id,
             text,
             agent_name: answer.agent_name,
-            variant_id: null,
-            display_name: mentionOf(text),
+            variant_id: mention?.variantId ?? null,
+            display_name: mention?.name ?? null,
           };
           if (delivery === "replace") {
             patchSnapshot({ queue: [queued] });
