@@ -3306,5 +3306,3 @@ export const AGENT_VARIANTS = [
 ];
 
 export const AGENT_VARIANT_INSTRUCTION_MAX_BYTES = 32768;
-
-export const AGENT_VARIANT_NAME_MAX_CHARS = 64;

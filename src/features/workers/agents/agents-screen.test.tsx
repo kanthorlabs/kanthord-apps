@@ -1,13 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
-import type { AgentSummary } from "@/api/types";
+import type { AgentSummary, AgentVariant } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
@@ -59,18 +61,60 @@ function NewRoute() {
   return <p>New {search}</p>;
 }
 
+function VariantRoute() {
+  const { pathname } = useLocation();
+  return <p>Variant page {pathname}</p>;
+}
+
 function mount() {
   return render(
     <MemoryRouter initialEntries={["/agents"]}>
       <Routes>
         <Route path="/agents" element={<AgentsScreen />} />
         <Route path="/workbench/new" element={<NewRoute />} />
+        <Route path="/agents/:agentName/variants/:variantId" element={<VariantRoute />} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
+const VARIANT: AgentVariant = {
+  id: "agent_variant_1",
+  agent_name: "swe@1",
+  display_name: "Software Architecture",
+  instruction: "Weigh each change against the structure.",
+  revision: 1,
+};
+
+const GUARD: AgentSummary = {
+  agentName: "guard@1",
+  displayName: "Guard",
+  workerNames: [],
+  consumers: [],
+  toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
+  enablement: { ...SWE.enablement!, agent_name: "guard@1" },
+};
+
+async function openNewVariant(agentName: string) {
+  const row = (
+    await screen.findByRole("link", { name: new RegExp(`\\(${agentName}\\)$`) })
+  ).closest('[role="listitem"]') as HTMLElement;
+  await userEvent.click(within(row).getByRole("button", { name: "New variant" }));
+  return screen.findByRole("dialog");
+}
+
+async function fillVariant(dialog: HTMLElement, name: string, instruction: string) {
+  await userEvent.type(within(dialog).getByLabelText("Display name"), name);
+  await userEvent.type(within(dialog).getByLabelText("Instruction"), instruction);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Create variant" }));
+}
+
 describe("AgentsScreen", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+    vi.mocked(agentApi.listAgentVariants).mockResolvedValue([]);
+  });
+
   it("lists a catalog agent that has no enablement", async () => {
     vi.mocked(workersApi.listAgents).mockResolvedValue([RE, SWE]);
     mount();
@@ -179,14 +223,6 @@ describe("AgentsScreen", () => {
   });
 
   it("lists guard@1 with no New Session button and keeps the button of ops@1", async () => {
-    const GUARD: AgentSummary = {
-      agentName: "guard@1",
-      displayName: "Guard",
-      workerNames: [],
-      consumers: [],
-      toolCounts: { builtin: 0, "kanthord-mcp": 0, host: 0, operation: 0, workbench: 0 },
-      enablement: { ...SWE.enablement!, agent_name: "guard@1" },
-    };
     vi.mocked(workersApi.listAgents).mockResolvedValue([
       GUARD,
       { ...OPS, enablement: SWE.enablement },
@@ -206,6 +242,124 @@ describe("AgentsScreen", () => {
     mount();
 
     expect(await screen.findByText("The daemon did not answer.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("lists the variants of the swe@1 row with the revision and links to the variant page", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([RE, SWE]);
+    vi.mocked(agentApi.listAgentVariants).mockResolvedValue([VARIANT]);
+    mount();
+
+    const list = await screen.findByRole("list", { name: "Variants of swe@1" });
+    const link = within(list).getByRole("link", { name: "Software Architecture (v1)" });
+    expect(link).toHaveAttribute("href", "/agents/swe%401/variants/agent_variant_1");
+    expect(screen.queryByRole("list", { name: "Variants of re@1" })).toBeNull();
+    expect(agentApi.listAgentVariants).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(link);
+
+    expect(
+      await screen.findByText("Variant page /agents/swe%401/variants/agent_variant_1"),
+    ).toBeTruthy();
+  });
+
+  it("offers New variant on each session agent row and none on guard@1", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([GUARD, OPS, SWE]);
+    mount();
+
+    const items = await screen.findAllByRole("listitem");
+    expect(within(items[0]!).queryByRole("button", { name: "New variant" })).toBeNull();
+    expect(within(items[1]!).getByRole("button", { name: "New variant" })).toBeTruthy();
+    expect(within(items[2]!).getByRole("button", { name: "New variant" })).toBeTruthy();
+  });
+
+  it("creates a variant of swe@1 and opens the variant page", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
+    vi.mocked(agentApi.createAgentVariant).mockResolvedValue(VARIANT);
+    mount();
+
+    const dialog = await openNewVariant("swe@1");
+    expect(within(dialog).getByText(/1 to 40 letters, digits, spaces, _ or -/)).toBeTruthy();
+    await fillVariant(dialog, "Software Architecture", "Weigh each change.");
+
+    expect(agentApi.createAgentVariant).toHaveBeenCalledWith({
+      agent_name: "swe@1",
+      display_name: "Software Architecture",
+      instruction: "Weigh each change.",
+    });
+    expect(
+      await screen.findByText("Variant page /agents/swe%401/variants/agent_variant_1"),
+    ).toBeTruthy();
+  });
+
+  it("refuses a name that breaks the rule under the name field before any call", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
+    mount();
+
+    const dialog = await openNewVariant("swe@1");
+    await fillVariant(dialog, "1st", "Text.");
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+      "1 to 40 letters, digits, spaces, _ or -, starting with a letter.",
+    );
+    expect(agentApi.createAgentVariant).not.toHaveBeenCalled();
+  });
+
+  it("shows a name_taken answer under the name field and keeps the draft", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
+    vi.mocked(agentApi.createAgentVariant).mockRejectedValue(
+      new ApiError("conflict", "Another variant uses the name.", 409, "agent.variant.name_taken"),
+    );
+    mount();
+
+    const dialog = await openNewVariant("swe@1");
+    await fillVariant(dialog, "Software Architecture", "Weigh each change.");
+
+    const line = await within(dialog).findByRole("alert");
+    expect(line).toHaveTextContent("agent.variant.name_taken Another variant uses the name.");
+    expect(line.closest('[data-slot="field"]')).toContainElement(
+      within(dialog).getByLabelText("Display name"),
+    );
+    expect(within(dialog).getByLabelText("Display name")).toHaveValue("Software Architecture");
+    expect(within(dialog).getByLabelText("Instruction")).toHaveValue("Weigh each change.");
+    expect(screen.queryByText(/^Variant page/)).toBeNull();
+  });
+
+  it("shows the instruction line under the editor for a validation answer and keeps the draft", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
+    vi.mocked(agentApi.createAgentVariant).mockRejectedValue(
+      new ApiError(
+        "malformed",
+        "Request validation failed.",
+        400,
+        "gateway.request.validation_failed",
+        [{ path: ["body", "instruction"], code: "custom" }],
+      ),
+    );
+    mount();
+
+    const dialog = await openNewVariant("swe@1");
+    await fillVariant(dialog, "Software Architecture", "Weigh each change.");
+
+    const line = await within(dialog).findByRole("alert");
+    expect(line).toHaveTextContent(
+      "gateway.request.validation_failed The instruction is blank or above 32768 bytes.",
+    );
+    expect(line.closest('[data-slot="field"]')).toContainElement(
+      within(dialog).getByLabelText("Instruction"),
+    );
+    expect(within(dialog).getByLabelText("Display name")).toHaveValue("Software Architecture");
+    expect(within(dialog).getByLabelText("Instruction")).toHaveValue("Weigh each change.");
+  });
+
+  it("reports a failed variant read", async () => {
+    vi.mocked(workersApi.listAgents).mockResolvedValue([SWE]);
+    vi.mocked(agentApi.listAgentVariants).mockRejectedValue(
+      new ApiError("unavailable", "The variants did not load.", 503),
+    );
+    mount();
+
+    expect(await screen.findByText("The variants did not load.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 });

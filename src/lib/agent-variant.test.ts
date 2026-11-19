@@ -1,0 +1,100 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  INSTRUCTION_LINE,
+  variantFailureOf,
+  variantNameValid,
+  variantPath,
+  type VariantRefusal,
+} from "./agent-variant";
+
+describe("variantNameValid", () => {
+  it("accepts 1 to 40 letters, digits, spaces, underscores and hyphens that start with a letter", () => {
+    expect(variantNameValid("Software Architecture")).toBe(true);
+    expect(variantNameValid("a")).toBe(true);
+    expect(variantNameValid("Review_2-fast")).toBe(true);
+    expect(variantNameValid("a".repeat(40))).toBe(true);
+  });
+
+  it("refuses a blank name, a name above 40 characters and a bad first or other character", () => {
+    expect(variantNameValid("")).toBe(false);
+    expect(variantNameValid("a".repeat(41))).toBe(false);
+    expect(variantNameValid("1st")).toBe(false);
+    expect(variantNameValid(" Name")).toBe(false);
+    expect(variantNameValid("Name!")).toBe(false);
+  });
+});
+
+describe("variantPath", () => {
+  it("encodes each segment", () => {
+    expect(variantPath("swe@1", "agent_variant_1")).toBe(
+      "/agents/swe%401/variants/agent_variant_1",
+    );
+  });
+});
+
+function refusal(
+  code: string,
+  message: string,
+  status: number,
+  detail = "",
+  details?: unknown,
+): VariantRefusal {
+  return { code, message, status, detail, details };
+}
+
+describe("variantFailureOf", () => {
+  it("puts a name_taken answer under the name field with its code first", () => {
+    const error = refusal("conflict", "The name is taken.", 409, "agent.variant.name_taken");
+
+    expect(variantFailureOf(error)).toEqual({
+      field: "name",
+      line: { code: "agent.variant.name_taken", message: "The name is taken." },
+    });
+  });
+
+  it("puts a name_invalid answer under the name field", () => {
+    const error = refusal("malformed", "Bad name.", 400, "agent.variant.name_invalid");
+
+    expect(variantFailureOf(error).field).toBe("name");
+  });
+
+  it("puts an instruction validation answer under the editor with the fixed line", () => {
+    const error = refusal(
+      "malformed",
+      "Request validation failed.",
+      400,
+      "gateway.request.validation_failed",
+      [{ path: ["body", "instruction"], code: "custom" }],
+    );
+
+    expect(variantFailureOf(error)).toEqual({
+      field: "instruction",
+      line: { code: "gateway.request.validation_failed", message: INSTRUCTION_LINE },
+    });
+  });
+
+  it("keeps a validation answer for another path on the form", () => {
+    const error = refusal(
+      "malformed",
+      "Request validation failed.",
+      400,
+      "gateway.request.validation_failed",
+      [{ path: ["body", "agent_name"], code: "custom" }],
+    );
+
+    expect(variantFailureOf(error)).toEqual({
+      field: "form",
+      line: {
+        code: "gateway.request.validation_failed",
+        message: "Request validation failed.",
+      },
+    });
+  });
+
+  it("falls back to the error code when the answer names no engine code", () => {
+    const error = refusal("unreachable", "The daemon did not answer.", 0);
+
+    expect(variantFailureOf(error).line.code).toBe("unreachable");
+  });
+});

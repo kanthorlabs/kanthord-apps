@@ -1,10 +1,10 @@
 import { randomBytes } from "node:crypto";
 
-import { AGENT_VARIANT_INSTRUCTION_MAX_BYTES, AGENT_VARIANT_NAME_MAX_CHARS } from "./fixtures.mjs";
+import { AGENT_VARIANT_INSTRUCTION_MAX_BYTES } from "./fixtures.mjs";
 
 const GUARD_AGENT = "guard@1";
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
-const CONTROL_CHARACTER = /\p{Cc}/u;
+const VARIANT_NAME = /^\p{L}[\p{L}\p{Nd} _-]{0,39}$/u;
 
 const variantIdOf = () =>
   `agent_variant_${Array.from(randomBytes(26), (byte) => ULID_ALPHABET[byte % 32]).join("")}`;
@@ -39,11 +39,7 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
     return null;
   };
 
-  const nameInvalid = (name) =>
-    name !== name.trim() ||
-    name === "" ||
-    [...name].length > AGENT_VARIANT_NAME_MAX_CHARS ||
-    CONTROL_CHARACTER.test(name);
+  const nameInvalid = (name) => !VARIANT_NAME.test(name);
 
   const refuseName = (res, name, selfId) => {
     if (nameInvalid(name)) {
@@ -51,7 +47,7 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
         res,
         400,
         "agent.variant.name_invalid",
-        "The variant name is blank, has outer spaces or a control character, or is too long.",
+        "The variant name must be 1 to 40 letters, digits, spaces, _ or -, starting with a letter.",
       );
     }
     const folded = name.toLowerCase();
