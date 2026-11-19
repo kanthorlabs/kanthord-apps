@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
 
 import { createWorkbenchSession, sendWorkbenchMessage } from "@/api/resources/workbench";
-import type { ApiError } from "@/api/errors";
 import type { WorkbenchConfiguration } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import type { ChatActionFailure } from "./use-chat-actions";
+import { engineCodeOf } from "@/lib/agent-variant";
 import type { FirstSendFailure } from "@/lib/workbench-new-session";
 
 export interface FirstSendState {
@@ -14,10 +14,6 @@ export interface FirstSendState {
 }
 
 export type OpenCreatedSession = (sessionId: string, failure: FirstSendFailure | null) => void;
-
-function codeOf(error: ApiError): string {
-  return error.status === 0 || error.detail === "" ? error.code : error.detail;
-}
 
 export function useFirstSend(
   agentName: string,
@@ -43,7 +39,7 @@ export function useFirstSend(
         sessionId = (await createWorkbenchSession(body)).id;
       } catch (cause) {
         const error = asApiError(cause);
-        setFailure({ cause: "send", code: codeOf(error), message: error.message });
+        setFailure({ cause: "send", code: engineCodeOf(error), message: error.message });
         setBusy(false);
         return false;
       }

@@ -49,6 +49,10 @@ function holdsInstructionPath(details: unknown): boolean {
   });
 }
 
+export function engineCodeOf(error: Pick<VariantRefusal, "code" | "detail" | "status">): string {
+  return error.status === 0 || error.detail === "" ? error.code : error.detail;
+}
+
 export function variantFailureOf(error: VariantRefusal): VariantFailure {
   if (error.detail === VARIANT_NAME_INVALID || error.detail === VARIANT_NAME_TAKEN) {
     return { field: "name", line: { code: error.detail, message: error.message } };
@@ -56,8 +60,7 @@ export function variantFailureOf(error: VariantRefusal): VariantFailure {
   if (error.detail === VALIDATION_FAILED && holdsInstructionPath(error.details)) {
     return { field: "instruction", line: { code: VALIDATION_FAILED, message: INSTRUCTION_LINE } };
   }
-  const code = error.status === 0 || error.detail === "" ? error.code : error.detail;
-  return { field: "form", line: { code, message: error.message } };
+  return { field: "form", line: { code: engineCodeOf(error), message: error.message } };
 }
 
 export function currentVariantOf(details: unknown): AgentVariant | null {
