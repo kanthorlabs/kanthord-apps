@@ -2594,7 +2594,15 @@ export const EVIDENCE_NODE_NAME = "Add password reset";
 
 export const GUEST_OWNER_NAME = "Kanthor Labs";
 
-export const GUEST_MENTION_NAMES = ["Yumi", "Jeremy"];
+export const GUEST_VARIANT_NAME = "Night Ops";
+
+export const GUEST_MENTION_NAMES = ["Yumi", "Jeremy", GUEST_VARIANT_NAME];
+
+export const GUEST_VARIANT_MEMBER = {
+  session_id: "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0NO1",
+  agent_name: "ops@1",
+  display_name: GUEST_VARIANT_NAME,
+};
 
 export const GUEST_INVITE_TTL_MS = 604800000;
 

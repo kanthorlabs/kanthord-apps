@@ -8,6 +8,7 @@ import {
   GUEST_INVITE_TTL_MS,
   GUEST_KEEPALIVE_MS,
   GUEST_MENTION_NAMES,
+  GUEST_VARIANT_MEMBER,
   GUEST_MESSAGE_MAX_BYTES,
   GUEST_NAME_MAX_CHARS,
   GUEST_OWNER_NAME,
@@ -1685,7 +1686,7 @@ export function registerWorkbench({
     return json(res, 200, {
       session_id: session.id,
       title: forkTitleOf(session) || null,
-      members: membersOf(session),
+      members: [...membersOf(session), GUEST_VARIANT_MEMBER],
       owner_name: GUEST_OWNER_NAME,
       entries: guestEntriesAfter(session, null),
       run_active: stateOf(session).run !== null,

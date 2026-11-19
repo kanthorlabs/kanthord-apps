@@ -382,6 +382,78 @@ describe("GuestChat", () => {
     await waitFor(() => expect(field).toHaveValue(""));
   });
 
+  it("suggests a variant name from mention_names and inserts it whole with one space", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy", "Night Ops"] });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@ni");
+
+    const list = await screen.findByRole("listbox", { name: "Mentions" });
+    expect(
+      within(list)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Night Ops"]);
+
+    await userEvent.click(within(list).getByRole("option", { name: "Night Ops" }));
+
+    expect(field).toHaveValue("@Night Ops ");
+    expect(screen.queryByRole("listbox", { name: "Mentions" })).not.toBeInTheDocument();
+  });
+
+  it("shows the agent_refused line for a variant mention, keeps the draft and marks it", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy", "Night Ops"] });
+    sendMock.mockRejectedValue(
+      new ApiError(
+        "conflict",
+        "A guest cannot start a run with this agent.",
+        409,
+        "workbench.guest.agent_refused",
+      ),
+    );
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@Software Architecture do it");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const line = await screen.findByRole("alert");
+    expect(line).toHaveTextContent(
+      "workbench.guest.agent_refused A guest cannot start a run with this agent.",
+    );
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(sendMock).toHaveBeenCalledWith(CONNECTION, { text: "@Software Architecture do it" });
+    expect(field).toHaveValue("@Software Architecture do it");
+    expect(field).toBeInvalid();
+  });
+
+  it("labels the bubble of a variant member with the display name of its members entry", async () => {
+    const VARIANT_ID = "workbench_session_2";
+    serve(
+      [
+        assistantMessage([{ type: "text", text: "From the base." }]),
+        entry(
+          { kind: "assistant", content: [{ type: "text", text: "From the variant." }] },
+          VARIANT_ID,
+        ),
+      ],
+      null,
+      {
+        members: [
+          { session_id: SESSION_ID, agent_name: "swe@1", display_name: "SWE" },
+          { session_id: VARIANT_ID, agent_name: "swe@1", display_name: "Software Architecture" },
+        ],
+      },
+    );
+
+    render(<GuestChat connection={CONNECTION} />);
+
+    await screen.findByText("From the variant.");
+    expect(screen.getAllByText("Software Architecture")).toHaveLength(2);
+    expect(screen.getAllByText("SWE")).toHaveLength(2);
+  });
+
   it("shows the agent_refused line under the composer, keeps the draft and marks it", async () => {
     serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
     sendMock.mockRejectedValue(
