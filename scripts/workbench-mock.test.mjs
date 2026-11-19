@@ -640,22 +640,6 @@ describe("workbench mock variant gate", () => {
       });
     });
 
-    it("answers 404 agent.variant.not_found for a variant whose agent is not mentionable", () => {
-      const orphan = {
-        ...VARIANT,
-        id: "agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0VA3",
-        agent_name: "guard@1",
-        display_name: "Guard Rail",
-      };
-      const daemon = mockDaemon([], { variants: [{ ...VARIANT }, orphan] });
-      const token = guestOf(daemon);
-
-      const refused = guestSays(daemon, token, "@Guard Rail go");
-
-      expect(refused.status).toBe(404);
-      expect(refused.body.error.code).toBe("agent.variant.not_found");
-    });
-
     it("answers 400 agent.enablement.unavailable before the guest refusal", () => {
       const agents = structuredClone(AGENT_DECLARATIONS);
       agents.find((agent) => agent.agent_name === "swe@1").enablement.state = "disabled";
@@ -665,7 +649,10 @@ describe("workbench mock variant gate", () => {
       const refused = guestSays(daemon, token, "@SWE do it");
 
       expect(refused.status).toBe(400);
-      expect(refused.body.error.code).toBe("agent.enablement.unavailable");
+      expect(refused.body.error).toEqual({
+        code: "agent.enablement.unavailable",
+        details: { agent_name: "swe@1" },
+      });
     });
 
     it("answers 409 workbench.guest.agent_refused for an enabled agent with a builtin tool", () => {
@@ -675,7 +662,10 @@ describe("workbench mock variant gate", () => {
       const refused = guestSays(daemon, token, "@SWE do it");
 
       expect(refused.status).toBe(409);
-      expect(refused.body.error.code).toBe("workbench.guest.agent_refused");
+      expect(refused.body.error).toEqual({
+        code: "workbench.guest.agent_refused",
+        details: { agent_name: "swe@1" },
+      });
     });
 
     it("keeps a guest message with no mention as a note", () => {
@@ -782,7 +772,11 @@ describe("workbench mock variant gate", () => {
         WAIT,
       );
 
-      expect(eventsOf(daemon).snapshot).toMatchObject({ run_active: true, queue: [] });
+      expect(eventsOf(daemon).snapshot).toMatchObject({
+        run_active: true,
+        queue: [],
+        error_message: "The agent variant does not exist.",
+      });
       stopRun(daemon);
     });
   });
@@ -796,6 +790,7 @@ describe("workbench mock variant gate", () => {
       const { snapshot } = eventsOf(daemon, VARIANT_CONVERSATION_ID);
 
       expect(snapshot.run_active).toBe(true);
+      expect(snapshot.auto_mode).toBe(false);
       expect(snapshot.queue).toHaveLength(1);
       stopRun(daemon, VARIANT_CONVERSATION_ID);
     });

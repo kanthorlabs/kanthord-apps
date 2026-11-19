@@ -275,17 +275,6 @@ export function registerWorkbench({
 
   const mentionedAgent = (text) => leadingAgentOf(text, mentionableOf());
 
-  const orphanVariantOf = (text) =>
-    leadingAgentOf(
-      text,
-      variants.filter(
-        (variant) =>
-          !agents.some(
-            (agent) => agent.agent_name === variant.agent_name && agent.workbench === true,
-          ),
-      ),
-    );
-
   const guestMentionNamesOf = () =>
     mentionableOf()
       .filter((agent) => agent.tools.every((tool) => tool.source !== "builtin"))
@@ -722,7 +711,7 @@ export function registerWorkbench({
     }
   };
 
-  const startRun = (session, text, guestName = null) => {
+  const startRun = (session, text, guestName = null, clearError = true) => {
     const state = stateOf(session);
     const run = {
       cancelled: false,
@@ -733,7 +722,7 @@ export function registerWorkbench({
       requested_by: guestName === null ? OWNER_REQUESTER : { kind: "guest", name: guestName },
     };
     state.run = run;
-    state.error_message = null;
+    if (clearError) state.error_message = null;
     if (guestName !== null) {
       append(session, "custom", {
         customType: RECORD_TYPE,
@@ -755,7 +744,12 @@ export function registerWorkbench({
     state.pending_approval = null;
     const next = nextQueuedOf(state);
     if (next === undefined) return notify(session);
-    startRun(next.target ?? lastAnswerer(conversationOf(session)), next.text, next.guest_name);
+    startRun(
+      next.target ?? lastAnswerer(conversationOf(session)),
+      next.text,
+      next.guest_name,
+      false,
+    );
   };
 
   const nextQueuedOf = (state) => {
@@ -1142,6 +1136,7 @@ export function registerWorkbench({
         400,
         "agent.enablement.unavailable",
         "Agent configuration is unavailable or invalid.",
+        { agent_name: mentioned.agent_name },
       );
     }
     if (isShared(session) && !hasMentionToken(body.text)) {
@@ -1771,9 +1766,6 @@ export function registerWorkbench({
       return json(res, 202, { kind: "note" });
     }
     const mentioned = mentionedAgent(text);
-    if (mentioned === undefined && orphanVariantOf(text) !== undefined) {
-      return envelope(res, 404, "agent.variant.not_found", "The variant does not exist.");
-    }
     if (mentioned === undefined) {
       return envelope(
         res,
@@ -1789,6 +1781,7 @@ export function registerWorkbench({
         400,
         "agent.enablement.unavailable",
         "Agent configuration is unavailable or invalid.",
+        { agent_name: mentioned.agent_name },
       );
     }
     if (!guestMentionNamesOf().includes(mentioned.display_name)) {
@@ -1797,6 +1790,7 @@ export function registerWorkbench({
         409,
         "workbench.guest.agent_refused",
         "A guest cannot start a run with this agent.",
+        { agent_name: mentioned.agent_name },
       );
     }
     const state = stateOf(session);
@@ -1920,6 +1914,7 @@ export function registerWorkbench({
       expires_at: Date.now() + GUEST_INVITE_TTL_MS,
       invite_token: "mock-seeded-variant-invite-token",
     });
+    stateOf(variantConversation).auto_mode = false;
     const text = "@Software Architecture check the pricing rules of the cart";
     const { target, tag } = addresseeOf(variantConversation, text);
     enqueue(variantConversation, target, tag, text);
