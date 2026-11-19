@@ -3,10 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
 import type { WorkbenchSessionGet } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 vi.mock("@/features/auth/session/session-context", () => ({
@@ -69,6 +71,7 @@ beforeEach(() => {
   );
   vi.mocked(workersApi.readAgent).mockResolvedValue({ enablement: null } as never);
   vi.mocked(workersApi.listAgents).mockResolvedValue([]);
+  vi.mocked(agentApi.listAgentVariants).mockResolvedValue([]);
   vi.mocked(workersApi.listAgentProviderModels).mockResolvedValue([]);
 });
 

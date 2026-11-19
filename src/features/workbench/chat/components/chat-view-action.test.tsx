@@ -3,12 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { listAgentVariants } from "@/api/resources/agent";
 import { pauseProject, readProject } from "@/api/resources/projects";
 import { listInvites, readWorkbenchEvents, reportWorkbenchAction } from "@/api/resources/workbench";
 import { listAgentProviderModels, listAgents } from "@/api/resources/workers";
 import type { AgentEnablement, Project, WorkbenchSessionGet } from "@/api/types";
 import { ChatView } from "./chat-view";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/projects");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
@@ -77,6 +79,7 @@ beforeEach(() => {
   vi.mocked(listInvites).mockResolvedValue({ items: [], grantable: [], project_ids: null });
   vi.mocked(readWorkbenchEvents).mockImplementation(() => new Promise(() => undefined));
   vi.mocked(listAgents).mockResolvedValue([]);
+  vi.mocked(listAgentVariants).mockResolvedValue([]);
   vi.mocked(listAgentProviderModels).mockResolvedValue([
     { model_identifier: "qwen3-coder", reasoning_efforts: ["off"] },
   ]);

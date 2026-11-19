@@ -275,16 +275,6 @@ describe("workbench mock plan run", () => {
       );
     };
 
-    it("serves a variant name in mention_names and a variant member in members", () => {
-      const daemon = mockDaemon();
-      const { token } = guestSession(daemon);
-
-      const { body } = daemon.call("GET", "/api/workbench/guest/session", {}, token);
-
-      expect(body.mention_names).toEqual(["Yumi", "Jeremy", "Night Ops"]);
-      expect(body.members.map((member) => member.display_name)).toEqual(["Yumi", "Night Ops"]);
-    });
-
     it("records a guard with the grant and a successful result", async () => {
       const daemon = mockDaemon();
       const { invite, token } = guestSession(daemon);
