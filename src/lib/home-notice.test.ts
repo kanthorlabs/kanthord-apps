@@ -10,6 +10,7 @@ function item(id: string, patch: Partial<WorkbenchSessionListItem> = {}): Workbe
     id,
     host_session_id: null,
     agent_name: "ops@1",
+    variant_id: null,
     display_name: "Yumi",
     name: "Release plan",
     created: 1_000,

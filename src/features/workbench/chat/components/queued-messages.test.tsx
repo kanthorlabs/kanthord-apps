@@ -211,6 +211,7 @@ function renderChat() {
         session={{
           id: SESSION_ID,
           agent_name: "swe@1",
+          variant_id: null,
           configuration: CONFIGURATION,
           entries: [],
           members: [HOST_MEMBER],

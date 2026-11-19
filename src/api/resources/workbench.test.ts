@@ -150,6 +150,30 @@ describe("createWorkbenchSession", () => {
     expect(JSON.parse(seen[0]!.body)).toEqual({ agent_name: "swe@1", ...CONFIGURATION });
     expect(seen[0]!.idempotencyKey).toMatch(IDEMPOTENCY_KEY);
   });
+
+  it("sends variant_id when the body holds it", async () => {
+    await serve({ "POST /api/workbench/session": { body: SESSION } });
+
+    await createWorkbenchSession({
+      agent_name: "swe@1",
+      variant_id: "agent_variant_1",
+      ...CONFIGURATION,
+    });
+
+    expect(JSON.parse(seen[0]!.body)).toEqual({
+      agent_name: "swe@1",
+      variant_id: "agent_variant_1",
+      ...CONFIGURATION,
+    });
+  });
+
+  it("omits variant_id when the body has none", async () => {
+    await serve({ "POST /api/workbench/session": { body: SESSION } });
+
+    await createWorkbenchSession({ agent_name: "swe@1", ...CONFIGURATION });
+
+    expect(JSON.parse(seen[0]!.body)).not.toHaveProperty("variant_id");
+  });
 });
 
 describe("readWorkbenchSession", () => {

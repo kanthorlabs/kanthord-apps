@@ -515,6 +515,7 @@ function conversation(id: string, text: string): WorkbenchSessionGet {
   return {
     id,
     agent_name: "ops@1",
+    variant_id: null,
     configuration: YUMI_CONFIGURATION,
     members: [hostOf(id)],
     entries: [
@@ -745,6 +746,7 @@ function session(
     id,
     host_session_id: null,
     agent_name: "swe@1",
+    variant_id: null,
     display_name: "SWE",
     name: null,
     created: NOW - 2 * HOUR,

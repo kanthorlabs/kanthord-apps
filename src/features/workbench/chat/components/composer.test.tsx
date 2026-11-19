@@ -156,6 +156,7 @@ function mount(
         session={{
           id: SESSION_ID,
           agent_name: agentName,
+          variant_id: null,
           configuration: CONFIGURATION,
           entries: conversation.entries ?? [],
           members: conversation.members ?? [HOST_MEMBER],

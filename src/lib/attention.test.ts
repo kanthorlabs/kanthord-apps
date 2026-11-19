@@ -801,6 +801,7 @@ describe("deriveAttention tool_approval", () => {
     id: "workbench_session_A",
     host_session_id: null,
     agent_name: "swe@1",
+    variant_id: null,
     display_name: "SWE",
     name: null,
     created: 1,

@@ -9,6 +9,7 @@ function listItem(id: string, patch: Partial<WorkbenchSessionListItem>): Workben
     id,
     host_session_id: null,
     agent_name: "swe@1",
+    variant_id: null,
     display_name: "SWE",
     name: "Account recovery",
     created: 1,

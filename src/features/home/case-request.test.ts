@@ -201,6 +201,7 @@ describe("isCaseConversation", () => {
     id,
     host_session_id: null,
     agent_name: "ops@1",
+    variant_id: null,
     display_name: "Yumi",
     name: null,
     created: 1,

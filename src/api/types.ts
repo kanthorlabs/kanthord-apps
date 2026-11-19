@@ -302,6 +302,7 @@ export type PromptOrigin = (typeof PROMPT_ORIGINS)[number];
 export const PROMPT_PART_KINDS = [
   "standard",
   "role",
+  "variant",
   "workbench",
   "instruction_file",
   "repository",
@@ -347,6 +348,29 @@ export interface PromptResolveAnswer {
   readonly parts: readonly PromptPart[];
   readonly final: string | null;
   readonly engine_version: string;
+}
+
+export interface AgentVariantItem {
+  readonly id: string;
+  readonly agent_name: string;
+  readonly display_name: string;
+  readonly revision: number;
+}
+
+export interface AgentVariant extends AgentVariantItem {
+  readonly instruction: string;
+}
+
+export interface AgentVariantCreateBody {
+  readonly agent_name: string;
+  readonly display_name: string;
+  readonly instruction: string;
+}
+
+export interface AgentVariantUpdateBody {
+  readonly display_name: string;
+  readonly instruction: string;
+  readonly expected_revision: number;
 }
 
 export interface AgentDeclaration {
@@ -1601,6 +1625,7 @@ export interface WorkbenchConfiguration {
 
 export interface WorkbenchSessionCreateBody extends WorkbenchConfiguration {
   readonly agent_name: string;
+  readonly variant_id?: string;
 }
 
 export interface WorkbenchMember {
@@ -1613,6 +1638,7 @@ export interface WorkbenchSessionListItem {
   readonly id: string;
   readonly host_session_id: string | null;
   readonly agent_name: string;
+  readonly variant_id: string | null;
   readonly display_name: string;
   readonly name: string | null;
   readonly created: number;
@@ -1803,6 +1829,7 @@ export interface WorkbenchActionReportAnswer {
 export interface WorkbenchSession {
   readonly id: string;
   readonly agent_name: string;
+  readonly variant_id: string | null;
   readonly configuration: WorkbenchConfiguration;
   readonly members: readonly WorkbenchMember[];
   readonly entries: readonly WorkbenchSessionEntry[];

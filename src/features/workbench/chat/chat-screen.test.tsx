@@ -27,6 +27,7 @@ const SESSION_ID = "workbench_session_01J9ZQ4XKM3B6V8N2R5T7W0AB1";
 const SESSION: WorkbenchSessionGet = {
   id: SESSION_ID,
   agent_name: "swe@1",
+  variant_id: null,
   configuration: {
     agent_provider: "atlas-llm",
     model_identifier: "gpt-5",

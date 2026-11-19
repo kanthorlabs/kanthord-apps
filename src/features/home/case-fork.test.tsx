@@ -27,6 +27,7 @@ const FORK_ID = "workbench_session_FORK";
 const CASE_SESSION: WorkbenchSessionGet = {
   id: CASE_ID,
   agent_name: "ops@1",
+  variant_id: null,
   configuration: {
     agent_provider: "atlas-llm",
     model_identifier: "qwen3-coder",

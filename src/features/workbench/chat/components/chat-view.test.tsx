@@ -96,6 +96,7 @@ function session(
   return {
     id: SESSION_ID,
     agent_name: "swe@1",
+    variant_id: null,
     configuration: ENABLEMENT.default_configuration,
     members: [HOST],
     entries,
