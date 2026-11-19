@@ -68,8 +68,8 @@ function AgentItem({ agent, variants }: AgentItemProps) {
           agents={[agent]}
           initialAgentName={agentName}
           onClose={() => setStarting(false)}
-          onStart={(agentName, configuration, agentDisplayName) =>
-            navigate(newSessionPath(agentName, configuration, agentDisplayName))
+          onStart={(agentName, configuration, agentDisplayName, variantId) =>
+            navigate(newSessionPath(agentName, configuration, agentDisplayName, variantId))
           }
         />
       )}

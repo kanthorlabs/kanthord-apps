@@ -1,4 +1,4 @@
-import type { AgentVariant } from "@/api/types";
+import type { AgentSummary, AgentVariant, AgentVariantItem } from "@/api/types";
 
 export const VARIANT_NAME_INVALID = "agent.variant.name_invalid";
 export const VARIANT_NAME_TAKEN = "agent.variant.name_taken";
@@ -85,4 +85,11 @@ export function currentVariantOf(details: unknown): AgentVariant | null {
     instruction,
     revision,
   };
+}
+
+export function variantLabel(
+  variant: Pick<AgentVariantItem, "display_name">,
+  base: Pick<AgentSummary, "displayName">,
+): string {
+  return `${variant.display_name} (variant of ${base.displayName})`;
 }

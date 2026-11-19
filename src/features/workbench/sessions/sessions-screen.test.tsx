@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation, useParams } from "react-route
 import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/api/errors";
+import * as agentApi from "@/api/resources/agent";
 import * as workbenchApi from "@/api/resources/workbench";
 import * as workersApi from "@/api/resources/workers";
 import type {
@@ -13,6 +14,7 @@ import type {
   WorkbenchSessionListItem,
 } from "@/api/types";
 
+vi.mock("@/api/resources/agent");
 vi.mock("@/api/resources/workbench");
 vi.mock("@/api/resources/workers");
 
@@ -140,6 +142,7 @@ function serve(
   enablement: AgentEnablement | null = ENABLEMENT,
 ) {
   vi.mocked(workbenchApi.listWorkbenchSessions).mockResolvedValue(items);
+  vi.mocked(agentApi.listAgentVariants).mockResolvedValue([]);
   vi.mocked(workersApi.listAgents).mockResolvedValue(agents(enablement));
   vi.mocked(workersApi.listAgentProviderModels).mockImplementation(
     async (_agentName, providerName) => MODELS[providerName] ?? [],

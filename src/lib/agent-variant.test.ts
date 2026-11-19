@@ -4,6 +4,7 @@ import {
   currentVariantOf,
   INSTRUCTION_LINE,
   variantFailureOf,
+  variantLabel,
   variantNameValid,
   variantPath,
   type VariantRefusal,
@@ -117,5 +118,13 @@ describe("currentVariantOf", () => {
     expect(currentVariantOf(undefined)).toBeNull();
     expect(currentVariantOf({})).toBeNull();
     expect(currentVariantOf({ current: { ...row, revision: "3" } })).toBeNull();
+  });
+});
+
+describe("variantLabel", () => {
+  it("names the variant and the display name of its base", () => {
+    expect(variantLabel({ display_name: "Software Architecture" }, { displayName: "SWE" })).toBe(
+      "Software Architecture (variant of SWE)",
+    );
   });
 });

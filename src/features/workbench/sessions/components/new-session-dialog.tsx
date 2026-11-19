@@ -20,6 +20,7 @@ interface NewSessionDialogProps {
     agentName: string,
     configuration: WorkbenchConfiguration,
     agentDisplayName: string | null,
+    variantId: string | null,
   ) => void;
 }
 
@@ -46,12 +47,17 @@ export function NewSessionDialog({
           <ChoiceField
             id="new-session-agent"
             label="Agent"
-            value={choice.agentName ?? ""}
+            value={choice.value ?? ""}
             options={choice.agentOptions}
             optionLabels={choice.agentLabels}
             error={undefined}
             onChange={choice.selectAgent}
           />
+          {choice.variantsFailure !== null && (
+            <p role="alert" className="text-sm text-destructive md:col-span-2">
+              {choice.variantsFailure}
+            </p>
+          )}
           {choice.agentOptions.length === 0 && (
             <FieldDescription className="md:col-span-2">
               No agent is enabled. Enable an agent on the Agents page.
@@ -60,11 +66,13 @@ export function NewSessionDialog({
         </FieldGroup>
         {agentName !== null && choice.enablement !== null ? (
           <SessionConfigurationForm
-            key={agentName}
+            key={choice.value}
             agentName={agentName}
             enablement={choice.enablement}
             onClose={onClose}
-            onStart={(configuration) => onStart(agentName, configuration, choice.agentDisplayName)}
+            onStart={(configuration) =>
+              onStart(agentName, configuration, choice.agentDisplayName, choice.variantId)
+            }
           />
         ) : (
           <FieldGroup className="md:grid md:grid-cols-2">

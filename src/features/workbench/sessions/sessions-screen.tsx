@@ -98,8 +98,8 @@ export function SessionsScreen() {
           agents={agents}
           initialAgentName={null}
           onClose={() => setStarting(false)}
-          onStart={(agentName, configuration, agentDisplayName) =>
-            navigate(newSessionPath(agentName, configuration, agentDisplayName))
+          onStart={(agentName, configuration, agentDisplayName, variantId) =>
+            navigate(newSessionPath(agentName, configuration, agentDisplayName, variantId))
           }
         />
       )}

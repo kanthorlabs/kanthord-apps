@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 
 import { createWorkbenchSession, sendWorkbenchMessage } from "@/api/resources/workbench";
+import type { ApiError } from "@/api/errors";
 import type { WorkbenchConfiguration } from "@/api/types";
 import { asApiError } from "@/hooks/use-resource";
 import type { ChatActionFailure } from "./use-chat-actions";
@@ -14,10 +15,15 @@ export interface FirstSendState {
 
 export type OpenCreatedSession = (sessionId: string, failure: FirstSendFailure | null) => void;
 
+function codeOf(error: ApiError): string {
+  return error.status === 0 || error.detail === "" ? error.code : error.detail;
+}
+
 export function useFirstSend(
   agentName: string,
   configuration: WorkbenchConfiguration | null,
   open: OpenCreatedSession,
+  variantId: string | null = null,
 ): FirstSendState {
   const [failure, setFailure] = useState<ChatActionFailure | null>(null);
   const [busy, setBusy] = useState(false);
@@ -29,10 +35,15 @@ export function useFirstSend(
       setBusy(true);
       let sessionId: string;
       try {
-        sessionId = (await createWorkbenchSession({ agent_name: agentName, ...configuration })).id;
+        const body = {
+          agent_name: agentName,
+          ...(variantId === null ? {} : { variant_id: variantId }),
+          ...configuration,
+        };
+        sessionId = (await createWorkbenchSession(body)).id;
       } catch (cause) {
         const error = asApiError(cause);
-        setFailure({ cause: "send", code: error.code, message: error.message });
+        setFailure({ cause: "send", code: codeOf(error), message: error.message });
         setBusy(false);
         return false;
       }
@@ -46,7 +57,7 @@ export function useFirstSend(
       open(sessionId, null);
       return true;
     },
-    [agentName, configuration, open],
+    [agentName, configuration, open, variantId],
   );
 
   return { failure, busy, send };

@@ -1,15 +1,47 @@
 import { useLocation, useParams, useSearchParams } from "react-router-dom";
 
-import { firstSendFailureOf, newSessionRequestOf } from "@/lib/workbench-new-session";
+import {
+  firstSendFailureOf,
+  type NewSessionRequest,
+  newSessionRequestOf,
+} from "@/lib/workbench-new-session";
 import { InlineError } from "./components/inline-error";
 import { NewSessionChat } from "./components/new-session-chat";
 import { SessionChat } from "./components/session-chat";
+import { useNewSessionVariant } from "./use-new-session-variant";
+
+type ValidRequest = Extract<NewSessionRequest, { ok: true }>;
+
+function VariantNewSession({
+  request,
+  variantId,
+}: {
+  readonly request: ValidRequest;
+  readonly variantId: string;
+}) {
+  const { variant, failure } = useNewSessionVariant(variantId);
+  return (
+    <NewSessionChat
+      agentName={request.agentName}
+      agentDisplayName={variant?.display_name ?? null}
+      configuration={request.configuration}
+      variant={{
+        id: variantId,
+        baseDisplayName: request.agentDisplayName ?? request.agentName,
+        failure,
+      }}
+    />
+  );
+}
 
 function NewSessionScreen() {
   const [params] = useSearchParams();
   const request = newSessionRequestOf(params);
 
   if (!request.ok) return <InlineError code={null} message={request.message} />;
+  if (request.variantId !== null) {
+    return <VariantNewSession request={request} variantId={request.variantId} />;
+  }
   return (
     <NewSessionChat
       agentName={request.agentName}
