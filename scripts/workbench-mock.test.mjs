@@ -427,9 +427,22 @@ describe("workbench mock variant session", () => {
   it("refuses a variant that does not exist", () => {
     const daemon = mockDaemon();
 
-    const answer = daemon.call("POST", "/api/workbench/session", createBody("agent_variant_none"));
+    const answer = daemon.call(
+      "POST",
+      "/api/workbench/session",
+      createBody("agent_variant_01J9ZQ4XKM3B6V8N2R5T7W0ZZZ"),
+    );
 
     expect(answer.status).toBe(404);
     expect(answer.body.error.code).toBe("agent.variant.not_found");
+  });
+
+  it("refuses a malformed variant id", () => {
+    const daemon = mockDaemon();
+
+    const answer = daemon.call("POST", "/api/workbench/session", createBody("agent_variant_none"));
+
+    expect(answer.status).toBe(400);
+    expect(answer.body.error.code).toBe("gateway.request.validation_failed");
   });
 });

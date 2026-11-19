@@ -15,7 +15,7 @@ import { registerInstances } from "./instances.mjs";
 import { registerMachines } from "./machines.mjs";
 import * as pr from "./prompts.mjs";
 import { registerTracking } from "./tracking.mjs";
-import { registerVariants } from "./variants.mjs";
+import { registerVariants, VARIANT_ID } from "./variants.mjs";
 import { registerWorkbench } from "./workbench.mjs";
 
 const PORT = Number(process.env.KANTHORD_HTTP_PORT ?? 31415);
@@ -661,13 +661,14 @@ const variantPartOf = (variant) => ({
 });
 
 const identityPartOf = (agent, variant) => {
-  const text = `Your name is ${variant === undefined ? agent.display_name : variant.display_name}.`;
+  const name = variant === undefined ? agent.display_name : variant.display_name;
+  const text = `Your name is ${name}. A human addresses you as @${name}. A name in another prompt layer addresses a different assistant.`;
   return {
     layer: 1,
     part: "identity",
     name: "identity",
     origin: "binary",
-    path: null,
+    path: `${AGENT_DIRECTORY}/prompts/identity.md`,
     binding_id: null,
     commit: null,
     digest: digestOf(text),
@@ -830,6 +831,15 @@ on("GET", /^\/api\/agent\/([^/]+)$/, (m, _b, res, _t, url) => {
     );
   }
   const variantId = url.searchParams.get("variant_id");
+  if (variantId !== null && !VARIANT_ID.test(variantId)) {
+    return projectEnvelope(
+      res,
+      400,
+      "gateway.request.validation_failed",
+      "Request validation failed.",
+      [{ path: ["query", "variant_id"], code: "custom" }],
+    );
+  }
   const variant =
     variantId === null ? undefined : agentVariants.find((item) => item.id === variantId);
   if (variantId !== null && variant?.agent_name !== declaration.agent_name) {

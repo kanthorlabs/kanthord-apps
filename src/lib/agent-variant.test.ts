@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   currentVariantOf,
   INSTRUCTION_LINE,
+  VALIDATION_FAILED,
+  VARIANT_NAME_RULE,
+  variantDraftFailureOf,
   variantFailureOf,
   variantInstructionValid,
   variantLabel,
@@ -29,6 +32,30 @@ describe("variantNameValid", () => {
     expect(variantNameValid("Café")).toBe(false);
     expect(variantNameValid("a  b")).toBe(false);
     expect(variantNameValid("a ")).toBe(false);
+  });
+});
+
+describe("variantDraftFailureOf", () => {
+  it("answers null for a valid draft", () => {
+    expect(variantDraftFailureOf("Software Architecture", "Text.")).toBeNull();
+  });
+
+  it("answers the name line for a bad name", () => {
+    expect(variantDraftFailureOf("Café", "Text.")).toEqual({
+      field: "name",
+      line: { code: null, message: VARIANT_NAME_RULE },
+    });
+  });
+
+  it("answers the instruction line for a blank instruction", () => {
+    expect(variantDraftFailureOf("Software Architecture", "  ")).toEqual({
+      field: "instruction",
+      line: { code: VALIDATION_FAILED, message: INSTRUCTION_LINE },
+    });
+  });
+
+  it("answers the name line when the name and the instruction are both bad", () => {
+    expect(variantDraftFailureOf("a  b", "")?.field).toBe("name");
   });
 });
 

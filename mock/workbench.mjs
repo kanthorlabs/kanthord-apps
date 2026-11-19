@@ -18,6 +18,7 @@ import {
   PROJECT_ATLAS,
   PROJECT_ORBIT,
 } from "./fixtures.mjs";
+import { VARIANT_ID } from "./variants.mjs";
 
 const WAIT_WINDOW_MS = 25000;
 const WORD_DELAY_MS = 150;
@@ -925,6 +926,11 @@ export function registerWorkbench({
       );
     }
     if (!validConfiguration(res, body?.agent_name, body)) return;
+    if (body.variant_id !== undefined && !VARIANT_ID.test(body.variant_id)) {
+      return envelope(res, 400, "gateway.request.validation_failed", "Request validation failed.", [
+        { path: ["body", "variant_id"], code: "custom" },
+      ]);
+    }
     const variant =
       body.variant_id === undefined
         ? undefined

@@ -6,13 +6,15 @@ const GUARD_AGENT = "guard@1";
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const VARIANT_NAME = /^[A-Za-z][A-Za-z0-9_-]*( [A-Za-z0-9_-]+)*$/;
 const VARIANT_NAME_MAX_CHARS = 40;
-const VARIANT_ID = /^agent_variant_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
+export const VARIANT_ID = /^agent_variant_[0-7][0-9A-HJKMNP-TV-Z]{25}$/;
 
 const variantIdOf = () =>
   `agent_variant_${Array.from(
     randomBytes(26),
     (byte, index) => ULID_ALPHABET[index === 0 ? byte % 8 : byte % 32],
   ).join("")}`;
+
+const compareCodeUnits = (left, right) => (left < right ? -1 : left > right ? 1 : 0);
 
 const itemOf = ({ id, agent_name, display_name, revision }) => ({
   id,
@@ -100,8 +102,8 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
       items: [...variants]
         .sort(
           (left, right) =>
-            left.agent_name.localeCompare(right.agent_name) ||
-            left.display_name.localeCompare(right.display_name),
+            compareCodeUnits(left.agent_name, right.agent_name) ||
+            compareCodeUnits(left.display_name, right.display_name),
         )
         .map(itemOf),
     }),
@@ -112,15 +114,7 @@ export const registerVariants = ({ on, json, envelope, agents, variants, hasSess
     if (invalid !== null) return invalid;
     const base = agents.find((agent) => agent.agent_name === body.agent_name);
     if (base === undefined) {
-      return envelope(
-        res,
-        404,
-        "agent.catalog.not_found",
-        "The agent is absent from the catalog.",
-        {
-          agent_name: body.agent_name,
-        },
-      );
+      return envelope(res, 404, "agent.catalog.not_found", "The agent is absent from the catalog.");
     }
     if (body.agent_name === GUARD_AGENT || base.workbench !== true) {
       return envelope(res, 409, "agent.variant.base_refused", "The agent serves no variant.");
