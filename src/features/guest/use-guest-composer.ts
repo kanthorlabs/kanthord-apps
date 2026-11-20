@@ -4,7 +4,7 @@ import type { Connection } from "@/api/client";
 import { sendGuestMessage } from "@/api/resources/workbench";
 import { asApiError } from "@/hooks/use-resource";
 import { GUEST_NOTE_HINT, type GuestLine, guestLineOf } from "@/lib/guest-chat";
-import { mentionSuggestionsOf } from "@/lib/workbench-mention";
+import { guestMentionRefusalOf, mentionSuggestionsOf } from "@/lib/workbench-mention";
 import type { ComposerState } from "@/features/workbench/chat/use-composer";
 
 export interface GuestComposerState {
@@ -54,13 +54,18 @@ export function useGuestComposer(
 
   const submit = useCallback(() => {
     if (!canSend) return;
+    const refusal = guestMentionRefusalOf(text, mentionNames);
+    if (refusal !== null) {
+      setFailure({ code: null, message: refusal });
+      return;
+    }
     setPending(true);
     setFailure(null);
     sendGuestMessage(connection, { text })
       .then(() => setDraftValue(""))
       .catch((cause: unknown) => setFailure(guestLineOf(asApiError(cause))))
       .finally(() => setPending(false));
-  }, [canSend, connection, text]);
+  }, [canSend, connection, text, mentionNames]);
 
   const handleKey = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {

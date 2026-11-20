@@ -125,7 +125,7 @@ describe("main Workbench scenario on the mock", () => {
       const guest = { token: joined.body.guest_token };
 
       const read = await answerOf(8, client.call("GET", "/api/workbench/guest/session", guest));
-      expect(read.body.mention_names.length).toBeGreaterThan(0);
+      expect(read.body.mention_names.length).toBeGreaterThanOrEqual(2);
 
       const run = await answerOf(
         9,
@@ -145,6 +145,18 @@ describe("main Workbench scenario on the mock", () => {
       );
       expect(note.status).toBe(202);
       expect(note.body.kind).toBe("note");
+      const unknown = await answerOf(
+        9,
+        client.call("POST", "/api/workbench/guest/session/message", {
+          ...guest,
+          body: { text: "@Unknown hi" },
+        }),
+      );
+      expect(unknown.status).toBe(404);
+      expect(unknown.body.error).toMatchObject({
+        code: "agent.catalog.not_found",
+        details: { mention: "Unknown" },
+      });
     },
     SCENARIO_TIMEOUT_MS,
   );

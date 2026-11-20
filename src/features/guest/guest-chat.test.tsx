@@ -322,6 +322,93 @@ describe("GuestChat", () => {
     expect(field).toHaveValue("a long note");
   });
 
+  it("refuses a leading mention outside mention_names, sends nothing and keeps the draft", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@Unknown hi");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(field).toHaveValue("@Unknown hi");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "A guest can ask only Yumi or Jeremy in this conversation.",
+    );
+    expect(field).toBeInvalid();
+  });
+
+  it("sends a leading mention that mention_names holds", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "RE"] });
+    sendMock.mockResolvedValue({ kind: "run", agent_name: "re@1", queued_message_id: null });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@RE hi");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendMock).toHaveBeenCalledWith(CONNECTION, { text: "@RE hi" });
+    await waitFor(() => expect(field).toHaveValue(""));
+  });
+
+  it.each(["@yumi hi", "@Yumi, status?", "hi @Unknown"])("sends %s", async (text) => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    sendMock.mockResolvedValue({ kind: "run", agent_name: "ops@1", queued_message_id: null });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, text);
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendMock).toHaveBeenCalledWith(CONNECTION, { text });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("drops the refusal line when the invite ends", async () => {
+    readMock.mockResolvedValue(session([], { mention_names: ["Yumi", "Jeremy"] }));
+    let end: () => void = () => undefined;
+    openStreamMock.mockImplementation(async function* (_path, options) {
+      yield { event: "state", data: JSON.stringify(IDLE) };
+      await new Promise<void>((resolve) => {
+        end = resolve;
+        options?.signal?.addEventListener("abort", () => resolve(), { once: true });
+      });
+      if (options?.signal?.aborted === true) return;
+      throw new ApiError(
+        "unauthorized",
+        "The invite of this guest ended.",
+        401,
+        "gateway.jwt.invite_ended",
+      );
+    });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+    await userEvent.type(field, "@Unknown hi");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("alert");
+
+    end();
+
+    await waitFor(() => expect(field).toBeDisabled());
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("gateway.jwt.invite_ended");
+    expect(field).toHaveValue("@Unknown hi");
+    expect(field).toBeValid();
+  });
+
+  it("removes the refusal line when the draft changes", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+    await userEvent.type(field, "@Unknown hi");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("alert");
+
+    await userEvent.type(field, "!");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("renders no evidence row and no Download for an evidence_read call", async () => {
     serve([
       assistantMessage([
@@ -403,7 +490,7 @@ describe("GuestChat", () => {
   });
 
   it("shows the agent_refused line for a variant mention, keeps the draft and marks it", async () => {
-    serve([], IDLE, { mention_names: ["Yumi", "Jeremy", "Night Ops"] });
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy", "Software Architecture"] });
     sendMock.mockRejectedValue(
       new ApiError(
         "conflict",
@@ -467,7 +554,7 @@ describe("GuestChat", () => {
     render(<GuestChat connection={CONNECTION} />);
     const field = await screen.findByRole("combobox", { name: "Message" });
 
-    await userEvent.type(field, "@SWE do it");
+    await userEvent.type(field, "@Yumi Ops do it");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
 
     const line = await screen.findByRole("alert");
@@ -475,7 +562,7 @@ describe("GuestChat", () => {
       "workbench.guest.agent_refused A guest cannot start a run with this agent.",
     );
     expect(screen.getAllByRole("alert")).toHaveLength(1);
-    expect(field).toHaveValue("@SWE do it");
+    expect(field).toHaveValue("@Yumi Ops do it");
     expect(field).toBeInvalid();
   });
 
