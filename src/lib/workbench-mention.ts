@@ -72,6 +72,21 @@ export function leadingMentionOf(draft: string, names: readonly string[]): strin
   );
 }
 
+function namesLineOf(names: readonly string[]): string {
+  if (names.length < 2) return names.join("");
+  return `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
+}
+
+export function guestMentionRefusalOf(
+  text: string,
+  mentionNames: readonly string[],
+): string | null {
+  if (!text.startsWith("@") || text.length === 1 || /\s/.test(text.charAt(1))) return null;
+  if (leadingMentionOf(text, mentionNames) !== null) return null;
+  if (mentionNames.length === 0) return "A guest can ask no agent in this conversation.";
+  return `A guest can ask only ${namesLineOf(mentionNames)} in this conversation.`;
+}
+
 function isPlanEntry(entry: WorkbenchSessionEntry): boolean {
   return entry.type === "custom_message" && entry["customType"] === WORKBENCH_PLAN_ENTRY;
 }

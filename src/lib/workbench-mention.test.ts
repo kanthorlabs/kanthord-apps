@@ -6,7 +6,7 @@ import type {
   AgentVariantItem,
   WorkbenchConfiguration,
 } from "@/api/types";
-import { configurationTargetOf } from "./workbench-mention";
+import { configurationTargetOf, guestMentionRefusalOf } from "./workbench-mention";
 
 const CONFIGURATION: WorkbenchConfiguration = {
   agent_provider: "atlas-llm",
@@ -67,5 +67,42 @@ describe("configurationTargetOf", () => {
     );
 
     expect(target).toBeNull();
+  });
+});
+
+describe("guestMentionRefusalOf", () => {
+  const NAMES = ["Yumi", "Jeremy"];
+  const LINE = "A guest can ask only Yumi or Jeremy in this conversation.";
+
+  it("answers null for a known leading mention, in any case, before punctuation", () => {
+    expect(guestMentionRefusalOf("@Yumi hi", NAMES)).toBeNull();
+    expect(guestMentionRefusalOf("@yumi hi", NAMES)).toBeNull();
+    expect(guestMentionRefusalOf("@Yumi, status?", NAMES)).toBeNull();
+  });
+
+  it("refuses a name that does not end after the known name", () => {
+    expect(guestMentionRefusalOf("@Yumix hi", NAMES)).toBe(LINE);
+  });
+
+  it("answers null for a note with no leading mention", () => {
+    expect(guestMentionRefusalOf("hi @Unknown", NAMES)).toBeNull();
+    expect(guestMentionRefusalOf("@ hi", NAMES)).toBeNull();
+    expect(guestMentionRefusalOf("@", NAMES)).toBeNull();
+  });
+
+  it("refuses an unknown leading mention", () => {
+    expect(guestMentionRefusalOf("@Unknown hi", NAMES)).toBe(LINE);
+  });
+
+  it("joins three names and answers the no-agent line for an empty list", () => {
+    expect(guestMentionRefusalOf("@Unknown hi", ["Yumi", "Jeremy", "Night Ops"])).toBe(
+      "A guest can ask only Yumi, Jeremy or Night Ops in this conversation.",
+    );
+    expect(guestMentionRefusalOf("@Unknown hi", ["Yumi"])).toBe(
+      "A guest can ask only Yumi in this conversation.",
+    );
+    expect(guestMentionRefusalOf("@Unknown hi", [])).toBe(
+      "A guest can ask no agent in this conversation.",
+    );
   });
 });

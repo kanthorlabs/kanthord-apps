@@ -322,6 +322,48 @@ describe("GuestChat", () => {
     expect(field).toHaveValue("a long note");
   });
 
+  it("refuses a leading mention outside mention_names, sends nothing and keeps the draft", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@Unknown hi");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(field).toHaveValue("@Unknown hi");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "A guest can ask only Yumi or Jeremy in this conversation.",
+    );
+    expect(field).toBeInvalid();
+  });
+
+  it("sends a leading mention that mention_names holds", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "RE"] });
+    sendMock.mockResolvedValue({ kind: "run", agent_name: "re@1", queued_message_id: null });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+
+    await userEvent.type(field, "@RE hi");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendMock).toHaveBeenCalledWith(CONNECTION, { text: "@RE hi" });
+    await waitFor(() => expect(field).toHaveValue(""));
+  });
+
+  it("removes the refusal line when the draft changes", async () => {
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    render(<GuestChat connection={CONNECTION} />);
+    const field = await screen.findByRole("combobox", { name: "Message" });
+    await userEvent.type(field, "@Unknown hi");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    await screen.findByRole("alert");
+
+    await userEvent.type(field, "!");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("renders no evidence row and no Download for an evidence_read call", async () => {
     serve([
       assistantMessage([
@@ -403,7 +445,7 @@ describe("GuestChat", () => {
   });
 
   it("shows the agent_refused line for a variant mention, keeps the draft and marks it", async () => {
-    serve([], IDLE, { mention_names: ["Yumi", "Jeremy", "Night Ops"] });
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy", "Software Architecture"] });
     sendMock.mockRejectedValue(
       new ApiError(
         "conflict",
@@ -455,7 +497,7 @@ describe("GuestChat", () => {
   });
 
   it("shows the agent_refused line under the composer, keeps the draft and marks it", async () => {
-    serve([], IDLE, { mention_names: ["Yumi", "Jeremy"] });
+    serve([], IDLE, { mention_names: ["Yumi", "Jeremy", "SWE"] });
     sendMock.mockRejectedValue(
       new ApiError(
         "conflict",
