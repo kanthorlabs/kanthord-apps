@@ -1,0 +1,244 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  post:
+    operationId: project.create
+    tags:
+      - project
+    description: Create a project with an empty binding set.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: true
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: ../shared/components.yaml#/components/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/project.create.Input/properties/body"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/project.create.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+  get:
+    operationId: project.list
+    tags:
+      - project
+    description: List projects in descending identity order.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/project.list.Input/properties/query/properties/limi\
+            t"
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/project.list.Input/properties/query/properties/curs\
+            or"
+      - name: id
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/project.list.Input/properties/query/properties/id"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/project.list.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    project.create.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties: {}
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: object
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 63
+              pattern: ^[a-z][a-z0-9-]*$
+          required:
+            - name
+          additionalProperties: false
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    project.create.Output:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        binding_set_version:
+          type: integer
+          exclusiveMinimum: 0
+          maximum: 9007199254740991
+        created_at:
+          type: integer
+          minimum: -9007199254740991
+          maximum: 9007199254740991
+        paused_at:
+          anyOf:
+            - type: integer
+              minimum: -9007199254740991
+              maximum: 9007199254740991
+            - type: "null"
+        workspace_directory:
+          type: string
+      required:
+        - id
+        - name
+        - binding_set_version
+        - created_at
+        - paused_at
+        - workspace_directory
+      additionalProperties: false
+    project.list.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties: {}
+          additionalProperties: false
+        query:
+          type: object
+          properties:
+            limit:
+              default: 100
+              type: integer
+              minimum: 1
+              maximum: 1000
+            cursor:
+              type: string
+              minLength: 1
+            id:
+              maxItems: 50
+              type: array
+              items:
+                type: string
+                minLength: 34
+                maxLength: 34
+                pattern: ^project_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                description: project_ followed by a canonical 26-character uppercase ULID.
+          required: []
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    project.list.Output:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              name:
+                type: string
+              binding_set_version:
+                type: integer
+                exclusiveMinimum: 0
+                maximum: 9007199254740991
+              created_at:
+                type: integer
+                minimum: -9007199254740991
+                maximum: 9007199254740991
+              paused_at:
+                anyOf:
+                  - type: integer
+                    minimum: -9007199254740991
+                    maximum: 9007199254740991
+                  - type: "null"
+              workspace_directory:
+                type: string
+            required:
+              - id
+              - name
+              - binding_set_version
+              - created_at
+              - paused_at
+              - workspace_directory
+            additionalProperties: false
+        next_cursor:
+          anyOf:
+            - type: string
+            - type: "null"
+      required:
+        - items
+        - next_cursor
+      additionalProperties: false

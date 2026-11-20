@@ -1,0 +1,384 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  post:
+    operationId: scheduler.work.pull
+    tags:
+      - scheduler
+    description: Pull compatible work, waiting up to 90 seconds when none is available.
+    x-access-policy: client
+    x-timeout-ms: 120000
+    x-mutation: true
+    x-kanthord-lifetime: wait
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: ../shared/components.yaml#/components/parameters/IdempotencyKey
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/scheduler.work.pull.Input/properties/body"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/scheduler.work.pull.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    scheduler.work.pull.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties: {}
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: object
+          properties:
+            resource_identity:
+              type: string
+              minLength: 1
+            runtime_identity:
+              type: string
+              minLength: 46
+              maxLength: 46
+              pattern: ^worker_registration_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: worker_registration_ followed by a canonical 26-character uppercase
+                ULID.
+          required:
+            - resource_identity
+            - runtime_identity
+          additionalProperties: false
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    scheduler.work.pull.Output:
+      oneOf:
+        - type: object
+          properties:
+            kind:
+              type: string
+              const: claimed
+            execution:
+              type: object
+              properties:
+                execution_id:
+                  type: string
+                  minLength: 36
+                  maxLength: 36
+                  pattern: ^execution_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                  description: execution_ followed by a canonical 26-character uppercase ULID.
+                project_id:
+                  type: string
+                  minLength: 34
+                  maxLength: 34
+                  pattern: ^project_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                  description: project_ followed by a canonical 26-character uppercase ULID.
+                node_id:
+                  type: string
+                  minLength: 31
+                  maxLength: 31
+                  pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                  description: node_ followed by a canonical 26-character uppercase ULID.
+                claimant:
+                  type: object
+                  properties:
+                    worker_binding_id:
+                      type: string
+                      minLength: 34
+                      maxLength: 34
+                      pattern: ^binding_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                      description: binding_ followed by a canonical 26-character uppercase ULID.
+                    resource_identity:
+                      type: string
+                      minLength: 1
+                    runtime_identity:
+                      type: string
+                      minLength: 46
+                      maxLength: 46
+                      pattern: ^worker_registration_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                      description: worker_registration_ followed by a canonical 26-character uppercase
+                        ULID.
+                    client_id:
+                      type: string
+                      minLength: 42
+                      maxLength: 42
+                      pattern: ^client_identity_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                      description: client_identity_ followed by a canonical 26-character uppercase
+                        ULID.
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 64
+                  required:
+                    - worker_binding_id
+                    - resource_identity
+                    - runtime_identity
+                  additionalProperties: false
+                attempt:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                pinned_revision:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+                node_branch:
+                  type: string
+                  minLength: 1
+                credentials:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 37
+                    maxLength: 37
+                    pattern: ^credential_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                    description: credential_ followed by a canonical 26-character uppercase ULID.
+                agent_selections:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      agent_name:
+                        type: string
+                        minLength: 1
+                      position:
+                        type: integer
+                        minimum: 0
+                        maximum: 9007199254740991
+                      level:
+                        type: string
+                        enum:
+                          - enablement
+                          - binding
+                      agent_provider:
+                        type: string
+                        minLength: 1
+                      provider:
+                        type: string
+                        minLength: 1
+                      credential:
+                        type: string
+                        minLength: 1
+                      model_identifier:
+                        type: string
+                        minLength: 1
+                      reasoning_effort:
+                        type: string
+                        minLength: 1
+                    required:
+                      - agent_name
+                      - position
+                      - level
+                      - agent_provider
+                      - provider
+                      - credential
+                      - model_identifier
+                      - reasoning_effort
+                    additionalProperties: false
+                claim_state:
+                  type: string
+                  enum:
+                    - running
+                    - lost
+                    - finished
+                expired_at:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                  description: Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).
+                created_at:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+                  description: Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).
+                ended_at:
+                  anyOf:
+                    - type: integer
+                      minimum: 0
+                      maximum: 9007199254740991
+                      description: Unix timestamp in milliseconds since 1970-01-01T00:00:00Z (UTC).
+                    - type: "null"
+                stop:
+                  anyOf:
+                    - type: object
+                      properties:
+                        reason:
+                          type: string
+                          enum:
+                            - operation_failed
+                            - judgement_invalid
+                            - report_absent
+                            - action_unsettled
+                            - assessment_absent
+                            - budget_end
+                            - provider_failed
+                            - no_progress
+                            - environment_failed
+                            - instance_archived
+                            - instance_lost
+                            - worker_stopped
+                            - human_paused
+                        code:
+                          anyOf:
+                            - type: string
+                              minLength: 1
+                            - type: "null"
+                        detail:
+                          type: string
+                          minLength: 1
+                          maxLength: 2048
+                        cause:
+                          type: object
+                          properties:
+                            category:
+                              type: string
+                              enum:
+                                - prompt
+                                - plan
+                                - worker_action
+                                - llm_provider
+                                - model
+                                - environment
+                                - infrastructure
+                                - human
+                                - unattributed
+                            assigner:
+                              type: string
+                              enum:
+                                - rule
+                                - reviewer
+                                - human
+                            subcategory:
+                              type: string
+                              enum:
+                                - context_missing
+                                - instruction_conflict
+                                - rule_absent
+                                - source_invalid
+                                - criterion_unstated
+                                - requirement_conflict
+                                - dependency
+                                - verification_context
+                                - verification_insufficient
+                                - decomposition
+                                - oversized
+                                - gate_commit
+                                - merge_base
+                                - release_gate
+                                - review_flow
+                                - step_failed
+                                - rate_limited
+                                - quota_exhausted
+                                - unavailable
+                                - work_defect
+                                - standard_violation
+                                - verification_failed
+                                - no_progress
+                                - reply_invalid
+                                - protocol_violation
+                                - output_truncated
+                                - budget_exhausted
+                                - judgement_wrong
+                                - setup_failed
+                                - command_absent
+                                - affected_invalid
+                                - affected_timeout
+                                - flaky_verification
+                                - verification_hang
+                                - repository_hook
+                                - verification_killed
+                                - network
+                                - disk_low
+                                - execution_lost
+                                - prompt_record
+                                - intervention
+                                - configuration
+                            suspects:
+                              type: array
+                              items:
+                                type: string
+                                enum:
+                                  - prompt
+                                  - plan
+                                  - worker_action
+                                  - llm_provider
+                                  - model
+                                  - environment
+                                  - infrastructure
+                                  - human
+                                  - unattributed
+                          required:
+                            - category
+                            - assigner
+                          additionalProperties: false
+                      required:
+                        - reason
+                        - code
+                      additionalProperties: false
+                    - type: "null"
+                trace_id:
+                  type: string
+                  pattern: ^[0-9a-f]{32}$
+                root_span_id:
+                  type: string
+                  pattern: ^[0-9a-f]{16}$
+              required:
+                - execution_id
+                - project_id
+                - node_id
+                - claimant
+                - attempt
+                - pinned_revision
+                - node_branch
+                - credentials
+                - agent_selections
+                - claim_state
+                - expired_at
+                - created_at
+                - ended_at
+                - stop
+                - trace_id
+                - root_span_id
+              additionalProperties: false
+          required:
+            - kind
+            - execution
+          additionalProperties: false
+        - type: object
+          properties:
+            kind:
+              type: string
+              const: no-work
+          required:
+            - kind
+          additionalProperties: false

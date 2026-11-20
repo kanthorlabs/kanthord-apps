@@ -1,0 +1,523 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  get:
+    operationId: agent.get
+    tags:
+      - agent
+    description: Get an agent declaration, its current enablement and the chain view
+      of that enablement.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: agent_name
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/params/properties/agent_\
+            name"
+      - name: view
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/query/properties/view"
+      - name: task
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/query/properties/task"
+      - name: project_id
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/query/properties/project\
+            _id"
+      - name: binding_id
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/query/properties/binding\
+            _id"
+      - name: node_id
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/query/properties/node_id"
+      - name: attempt
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/query/properties/attempt"
+      - name: variant_id
+        in: query
+        required: false
+        schema:
+          $ref: "#/components/schemas/agent.get.Input/properties/query/properties/variant\
+            _id"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/agent.get.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    agent.get.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            agent_name:
+              type: string
+              minLength: 1
+          required:
+            - agent_name
+          additionalProperties: false
+        query:
+          type: object
+          properties:
+            view:
+              type: string
+              enum:
+                - final
+            task:
+              type: string
+              enum:
+                - call
+                - summary
+            project_id:
+              type: string
+              minLength: 1
+            binding_id:
+              type: string
+              minLength: 1
+            node_id:
+              type: string
+              minLength: 1
+            attempt:
+              type: integer
+              exclusiveMinimum: 0
+              maximum: 9007199254740991
+            variant_id:
+              type: string
+              minLength: 40
+              maxLength: 40
+              pattern: ^agent_variant_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: agent_variant_ followed by a canonical 26-character uppercase ULID.
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    agent.get.Output:
+      type: object
+      properties:
+        agent_name:
+          type: string
+          minLength: 1
+        display_name:
+          type: string
+          minLength: 1
+        configuration_schema:
+          type: object
+          propertyNames:
+            type: string
+          additionalProperties: {}
+        overridable_fields:
+          type: array
+          items:
+            type: string
+        pinned_model_identifier:
+          anyOf:
+            - type: string
+              minLength: 1
+            - type: "null"
+        prompt:
+          type: object
+          properties:
+            parts:
+              type: array
+              items:
+                type: object
+                properties:
+                  layer:
+                    anyOf:
+                      - type: number
+                        enum:
+                          - 1
+                          - 2
+                          - 3
+                      - type: "null"
+                  part:
+                    type: string
+                    enum:
+                      - standard
+                      - identity
+                      - role
+                      - variant
+                      - workbench
+                      - instruction_file
+                      - repository
+                      - binding
+                      - framing
+                  name:
+                    type: string
+                    minLength: 1
+                  origin:
+                    type: string
+                    enum:
+                      - binary
+                      - file
+                      - database
+                      - repository
+                  path:
+                    anyOf:
+                      - type: string
+                      - type: "null"
+                  binding_id:
+                    anyOf:
+                      - type: string
+                        minLength: 1
+                      - type: "null"
+                  commit:
+                    anyOf:
+                      - type: string
+                        pattern: ^(?:[0-9a-f]{40}|[0-9a-f]{64})$
+                      - type: "null"
+                  digest:
+                    anyOf:
+                      - type: string
+                        pattern: ^[0-9a-f]{64}$
+                      - type: "null"
+                  heading:
+                    anyOf:
+                      - type: string
+                        minLength: 1
+                      - type: "null"
+                  state:
+                    type: string
+                    enum:
+                      - resolved
+                      - changed
+                      - invalid
+                      - unreachable
+                  text:
+                    anyOf:
+                      - type: string
+                      - type: "null"
+                required:
+                  - layer
+                  - part
+                  - name
+                  - origin
+                  - path
+                  - binding_id
+                  - commit
+                  - digest
+                  - heading
+                  - state
+                  - text
+                additionalProperties: false
+            final:
+              anyOf:
+                - type: string
+                - type: "null"
+          required:
+            - final
+          additionalProperties: false
+        tools:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                minLength: 1
+              source:
+                type: string
+                enum:
+                  - host
+                  - builtin
+                  - operation
+                  - workbench
+                  - kanthord-mcp
+              input_schema:
+                type: object
+                propertyNames:
+                  type: string
+                additionalProperties: {}
+              description:
+                type: string
+              guard_class:
+                anyOf:
+                  - type: string
+                    enum:
+                      - read
+                      - card
+                      - reversible
+                      - judged
+                  - type: "null"
+            required:
+              - name
+              - source
+              - input_schema
+              - description
+              - guard_class
+            additionalProperties: false
+        enablement:
+          anyOf:
+            - type: object
+              properties:
+                agent_name:
+                  type: string
+                state:
+                  type: string
+                  enum:
+                    - enabled
+                    - disabled
+                agent_providers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                        minLength: 1
+                      provider:
+                        type: string
+                        enum:
+                          - openai-compatible
+                          - amazon-bedrock
+                          - ant-ling
+                          - anthropic
+                          - anthropic-subscription
+                          - azure
+                          - baseten
+                          - cerebras
+                          - cloudflare-ai-gateway
+                          - cloudflare-workers-ai
+                          - deepseek
+                          - fireworks
+                          - github-copilot
+                          - google
+                          - google-vertex
+                          - groq
+                          - huggingface
+                          - kimi-coding
+                          - meta
+                          - minimax
+                          - minimax-cn
+                          - mistral
+                          - moonshotai
+                          - moonshotai-cn
+                          - nvidia
+                          - openai
+                          - openai-codex
+                          - opencode
+                          - opencode-go
+                          - openrouter
+                          - qwen-token-plan
+                          - qwen-token-plan-cn
+                          - qwen-token-plan-individual
+                          - radius
+                          - together
+                          - typesafe
+                          - vercel-ai-gateway
+                          - xai
+                          - xiaomi
+                          - xiaomi-token-plan-ams
+                          - xiaomi-token-plan-cn
+                          - xiaomi-token-plan-sgp
+                          - zai
+                          - zai-coding-cn
+                      credential:
+                        type: string
+                        minLength: 1
+                    required:
+                      - name
+                      - provider
+                      - credential
+                    additionalProperties: false
+                default_configuration:
+                  type: object
+                  properties:
+                    agent_provider:
+                      type: string
+                      minLength: 1
+                    model_identifier:
+                      type: string
+                      minLength: 1
+                    reasoning_effort:
+                      type: string
+                      enum:
+                        - off
+                        - minimal
+                        - low
+                        - medium
+                        - high
+                        - xhigh
+                        - max
+                  required:
+                    - agent_provider
+                    - model_identifier
+                    - reasoning_effort
+                  additionalProperties: false
+                fallback_configurations:
+                  maxItems: 7
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      agent_provider:
+                        type: string
+                        minLength: 1
+                      model_identifier:
+                        type: string
+                        minLength: 1
+                      reasoning_effort:
+                        type: string
+                        enum:
+                          - off
+                          - minimal
+                          - low
+                          - medium
+                          - high
+                          - xhigh
+                          - max
+                    required:
+                      - agent_provider
+                      - model_identifier
+                      - reasoning_effort
+                    additionalProperties: false
+                revision:
+                  type: integer
+                  exclusiveMinimum: 0
+                  maximum: 9007199254740991
+              required:
+                - agent_name
+                - state
+                - agent_providers
+                - default_configuration
+                - fallback_configurations
+                - revision
+              additionalProperties: false
+            - type: "null"
+        chain:
+          type: array
+          items:
+            type: object
+            properties:
+              position:
+                type: integer
+                minimum: 0
+                maximum: 9007199254740991
+              level:
+                type: string
+                enum:
+                  - enablement
+                  - binding
+              agent_provider:
+                type: string
+                minLength: 1
+              provider:
+                type: string
+                minLength: 1
+              credential:
+                type: string
+                minLength: 1
+              model_identifier:
+                type: string
+                minLength: 1
+              reasoning_effort:
+                type: string
+                minLength: 1
+              cooldown:
+                anyOf:
+                  - type: object
+                    properties:
+                      strikes:
+                        type: integer
+                        exclusiveMinimum: 0
+                        maximum: 9007199254740991
+                      available_at:
+                        type: integer
+                        minimum: 0
+                        maximum: 9007199254740991
+                    required:
+                      - strikes
+                      - available_at
+                    additionalProperties: false
+                  - type: "null"
+            required:
+              - position
+              - level
+              - agent_provider
+              - provider
+              - credential
+              - model_identifier
+              - reasoning_effort
+              - cooldown
+            additionalProperties: false
+        active_position:
+          anyOf:
+            - type: integer
+              minimum: 0
+              maximum: 9007199254740991
+            - type: "null"
+        cooling:
+          anyOf:
+            - type: object
+              properties:
+                code:
+                  type: string
+                  const: agent.configuration.chain_cooling
+                available_at:
+                  type: integer
+                  minimum: 0
+                  maximum: 9007199254740991
+              required:
+                - code
+                - available_at
+              additionalProperties: false
+            - type: "null"
+      required:
+        - agent_name
+        - display_name
+        - configuration_schema
+        - overridable_fields
+        - pinned_model_identifier
+        - prompt
+        - tools
+        - enablement
+        - chain
+        - active_position
+        - cooling
+      additionalProperties: false

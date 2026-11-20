@@ -1,0 +1,276 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  get:
+    operationId: mission.externalAction.get
+    tags:
+      - mission
+    description: Get a required external action of an attempt.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: node_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/mission.externalAction.get.Input/properties/params/\
+            properties/node_id"
+      - name: attempt
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/mission.externalAction.get.Input/properties/params/\
+            properties/attempt"
+      - name: action_key
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/mission.externalAction.get.Input/properties/params/\
+            properties/action_key"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/mission.externalAction.get.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    mission.externalAction.get.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            node_id:
+              type: string
+              minLength: 31
+              maxLength: 31
+              pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: node_ followed by a canonical 26-character uppercase ULID.
+            attempt:
+              type: integer
+              minimum: 1
+              maximum: 9007199254740991
+            action_key:
+              type: string
+              pattern: ^[a-z][a-z0-9-]{0,62}\.(pull_request|push|reply\.[0-9])$
+          required:
+            - node_id
+            - attempt
+            - action_key
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    mission.externalAction.get.Output:
+      type: object
+      properties:
+        node_id:
+          type: string
+          minLength: 31
+          maxLength: 31
+          pattern: ^node_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+          description: node_ followed by a canonical 26-character uppercase ULID.
+        attempt:
+          type: integer
+          minimum: 0
+          maximum: 9007199254740991
+        action:
+          oneOf:
+            - type: object
+              properties:
+                key:
+                  type: string
+                  pattern: ^[a-z][a-z0-9-]{0,62}\.(pull_request|push|reply\.[0-9])$
+                binding_id:
+                  type: string
+                  minLength: 34
+                  maxLength: 34
+                  pattern: ^binding_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                  description: binding_ followed by a canonical 26-character uppercase ULID.
+                follows:
+                  anyOf:
+                    - type: string
+                      pattern: ^[a-z][a-z0-9-]{0,62}\.(pull_request|push|reply\.[0-9])$
+                    - type: "null"
+                action:
+                  type: string
+                  enum:
+                    - pull_request
+                    - push
+                expected_end_state:
+                  type: string
+                  enum:
+                    - pull_request_merged
+                    - base_branch_pushed
+                configuration:
+                  type: object
+                  properties:
+                    base_branch:
+                      type: string
+                      minLength: 1
+                    landing:
+                      default: human
+                      type: string
+                      enum:
+                        - human
+                        - kanthord
+                  required:
+                    - base_branch
+                    - landing
+                  additionalProperties: false
+              required:
+                - key
+                - binding_id
+                - follows
+                - action
+                - expected_end_state
+                - configuration
+              additionalProperties: false
+            - type: object
+              properties:
+                key:
+                  type: string
+                  pattern: ^[a-z][a-z0-9-]{0,62}\.(pull_request|push|reply\.[0-9])$
+                binding_id:
+                  type: string
+                  minLength: 34
+                  maxLength: 34
+                  pattern: ^binding_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+                  description: binding_ followed by a canonical 26-character uppercase ULID.
+                follows:
+                  anyOf:
+                    - type: string
+                      pattern: ^[a-z][a-z0-9-]{0,62}\.(pull_request|push|reply\.[0-9])$
+                    - type: "null"
+                action:
+                  type: string
+                  const: reply
+                expected_end_state:
+                  type: string
+                  const: posted
+                configuration:
+                  type: object
+                  properties:
+                    external_link:
+                      oneOf:
+                        - type: object
+                          properties:
+                            kind:
+                              type: string
+                              const: github_issue
+                            resource_identity:
+                              type: string
+                              pattern: ^conversation:github:[^/\s:]+\/[^/\s:]+$
+                            number:
+                              type: integer
+                              exclusiveMinimum: 0
+                              maximum: 9007199254740991
+                          required:
+                            - kind
+                            - resource_identity
+                            - number
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            kind:
+                              type: string
+                              const: jira_issue
+                            resource_identity:
+                              type: string
+                              pattern: ^conversation:jira:[a-z0-9][a-z0-9-]*\.atlassian\.net\/[A-Z][A-Z0-9_]{1,9}$
+                            key:
+                              type: string
+                          required:
+                            - kind
+                            - resource_identity
+                            - key
+                          additionalProperties: false
+                        - type: object
+                          properties:
+                            kind:
+                              type: string
+                              const: slack_thread
+                            resource_identity:
+                              type: string
+                              pattern: ^conversation:slack:T[A-Z0-9]{2,31}$
+                            channel:
+                              type: string
+                              pattern: ^[CG][A-Z0-9]{2,31}$
+                            thread_ts:
+                              type: string
+                              pattern: ^[0-9]+\.[0-9]{6}$
+                          required:
+                            - kind
+                            - resource_identity
+                            - channel
+                            - thread_ts
+                          additionalProperties: false
+                  required:
+                    - external_link
+                  additionalProperties: false
+              required:
+                - key
+                - binding_id
+                - follows
+                - action
+                - expected_end_state
+                - configuration
+              additionalProperties: false
+        requested:
+          type: boolean
+        request_evidence_id:
+          anyOf:
+            - type: string
+              minLength: 35
+              maxLength: 35
+              pattern: ^evidence_[0-7][0-9A-HJKMNP-TV-Z]{25}$
+              description: evidence_ followed by a canonical 26-character uppercase ULID.
+            - type: "null"
+        resolution:
+          type: string
+          enum:
+            - unrequested
+            - unresolved
+            - expected-end
+            - other-end
+      required:
+        - node_id
+        - attempt
+        - action
+        - requested
+        - request_evidence_id
+        - resolution
+      additionalProperties: false

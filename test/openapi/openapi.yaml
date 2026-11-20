@@ -1,0 +1,522 @@
+# Generated from the operation registry by kanthord gateway openapi.
+openapi: 3.1.0
+info:
+  title: kanthord
+  version: 28.0.1
+paths:
+  /api/agent/cooldown/{credential}:
+    $ref: ./openapi/agent/cooldown.clear.yaml#/pathItem
+  /api/agent/cooldown:
+    $ref: ./openapi/agent/cooldown.list.yaml#/pathItem
+  /api/agent/enablement/{agent_name}/disable:
+    $ref: ./openapi/agent/enablement.disable.yaml#/pathItem
+  /api/agent/enablement/{agent_name}/enable:
+    $ref: ./openapi/agent/enablement.enable.yaml#/pathItem
+  /api/agent/enablement/{agent_name}:
+    $ref: ./openapi/agent/enablement.get.yaml#/pathItem
+  /api/agent/enablement:
+    $ref: ./openapi/agent/enablement.list.yaml#/pathItem
+  /api/agent/enablement/{agent_name}/provider:
+    $ref: ./openapi/agent/enablement.provider.add.yaml#/pathItem
+  /api/agent/enablement/{agent_name}/provider/{provider_name}/model:
+    $ref: ./openapi/agent/enablement.provider.model.list.yaml#/pathItem
+  /api/agent/enablement/{agent_name}/provider/{provider_name}:
+    $ref: ./openapi/agent/enablement.provider.remove.yaml#/pathItem
+  /api/agent/{agent_name}:
+    $ref: ./openapi/agent/get.yaml#/pathItem
+  /api/agent:
+    $ref: ./openapi/agent/list.yaml#/pathItem
+  /api/agent/model:
+    $ref: ./openapi/agent/model.list.yaml#/pathItem
+  /api/agent/prompt/resolve:
+    $ref: ./openapi/agent/prompt.resolve.yaml#/pathItem
+  /api/agent/variant:
+    $ref: ./openapi/agent/variant.create.yaml#/pathItem
+  /api/agent/variant/{variant_id}:
+    $ref: ./openapi/agent/variant.delete.yaml#/pathItem
+  /api/footprint/alert/{alert_id}/acknowledge:
+    $ref: ./openapi/footprint/alert.acknowledge.yaml#/pathItem
+  /api/footprint/alert:
+    $ref: ./openapi/footprint/alert.list.yaml#/pathItem
+  /api/footprint/backup/delete:
+    $ref: ./openapi/footprint/backup.delete.yaml#/pathItem
+  /api/footprint/kind/{kind}/candidate:
+    $ref: ./openapi/footprint/candidate.list.yaml#/pathItem
+  /api/footprint/cleanup/{cleanup_id}/cancel:
+    $ref: ./openapi/footprint/cleanup.cancel.yaml#/pathItem
+  /api/footprint/cleanup:
+    $ref: ./openapi/footprint/cleanup.create.yaml#/pathItem
+  /api/footprint/cleanup/{cleanup_id}:
+    $ref: ./openapi/footprint/cleanup.get.yaml#/pathItem
+  /api/footprint/kind/{kind}/item:
+    $ref: ./openapi/footprint/item.list.yaml#/pathItem
+  /api/footprint/kind/{kind}:
+    $ref: ./openapi/footprint/kind.get.yaml#/pathItem
+  /api/footprint/measure:
+    $ref: ./openapi/footprint/measure.run.yaml#/pathItem
+  /api/footprint:
+    $ref: ./openapi/footprint/summary.get.yaml#/pathItem
+  /api/healthcheck:
+    $ref: ./openapi/gateway/healthcheck.yaml#/pathItem
+  /api/liveness:
+    $ref: ./openapi/gateway/liveness.yaml#/pathItem
+  /api/openapi.yaml:
+    $ref: ./openapi/gateway/openapi.yaml#/pathItem
+  /api/openapi/{service}/{file}:
+    $ref: ./openapi/gateway/openapiFile.yaml#/pathItem
+  /api/auth/verify:
+    $ref: ./openapi/gateway/verify.yaml#/pathItem
+  /api/intake/credential/{credential_name}/archive:
+    $ref: ./openapi/intake/credential.archive.yaml#/pathItem
+  /api/intake/credential/check:
+    $ref: ./openapi/intake/credential.check.yaml#/pathItem
+  /api/intake/credential:
+    $ref: ./openapi/intake/credential.create.yaml#/pathItem
+  /api/intake/credential/{credential_name}:
+    $ref: ./openapi/intake/credential.get.yaml#/pathItem
+  /api/intake/credential/platform:
+    $ref: ./openapi/intake/credential.platform_list.yaml#/pathItem
+  /api/intake/credential/{credential_name}/revision/{revision}/revoke:
+    $ref: ./openapi/intake/credential.revoke.yaml#/pathItem
+  /api/intake/credential/{credential_name}/revision:
+    $ref: ./openapi/intake/credential.rotate.yaml#/pathItem
+  /api/intake/credential/{credential_name}/metadata:
+    $ref: ./openapi/intake/credential.update_metadata.yaml#/pathItem
+  /api/intake/credential/{credential_name}/verify:
+    $ref: ./openapi/intake/credential.verify.yaml#/pathItem
+  /api/intake/inbound:
+    $ref: ./openapi/intake/inbound.create.yaml#/pathItem
+  /api/intake/inbound/{inbound_id}:
+    $ref: ./openapi/intake/inbound.delete.yaml#/pathItem
+  /api/intake/event/delete:
+    $ref: ./openapi/intake/inbound.event.delete.yaml#/pathItem
+  /api/intake/event/{inbound_event_id}/discard:
+    $ref: ./openapi/intake/inbound.event.discard.yaml#/pathItem
+  /api/intake/event/{inbound_event_id}:
+    $ref: ./openapi/intake/inbound.event.get.yaml#/pathItem
+  /api/intake/event:
+    $ref: ./openapi/intake/inbound.event.list.yaml#/pathItem
+  /hooks/{inbound_id}:
+    $ref: ./openapi/intake/inbound.event.receive.yaml#/pathItem
+  /api/intake/event/{inbound_event_id}/retry:
+    $ref: ./openapi/intake/inbound.event.retry.yaml#/pathItem
+  /api/intake/outbound/delete:
+    $ref: ./openapi/intake/outbound.request.delete.yaml#/pathItem
+  /api/intake/outbound/{outbound_request_id}/discard:
+    $ref: ./openapi/intake/outbound.request.discard.yaml#/pathItem
+  /api/intake/outbound/{outbound_request_id}:
+    $ref: ./openapi/intake/outbound.request.get.yaml#/pathItem
+  /api/intake/outbound:
+    $ref: ./openapi/intake/outbound.request.list.yaml#/pathItem
+  /api/llm/credential/{credential_name}/archive:
+    $ref: ./openapi/llm/credential.archive.yaml#/pathItem
+  /api/llm/credential/check:
+    $ref: ./openapi/llm/credential.check.yaml#/pathItem
+  /api/llm/credential:
+    $ref: ./openapi/llm/credential.create.yaml#/pathItem
+  /api/llm/credential/{credential_name}:
+    $ref: ./openapi/llm/credential.get.yaml#/pathItem
+  /api/llm/credential/login:
+    $ref: ./openapi/llm/credential.login.yaml#/pathItem
+  /api/llm/credential/login/{session_id}/code:
+    $ref: ./openapi/llm/credential.login_code.yaml#/pathItem
+  /api/llm/credential/login/{session_id}/report:
+    $ref: ./openapi/llm/credential.login_report.yaml#/pathItem
+  /api/llm/credential/login/{session_id}:
+    $ref: ./openapi/llm/credential.login_status.yaml#/pathItem
+  /api/llm/credential/platform:
+    $ref: ./openapi/llm/credential.platform_list.yaml#/pathItem
+  /api/llm/credential/{credential_name}/report:
+    $ref: ./openapi/llm/credential.report.yaml#/pathItem
+  /api/llm/credential/{credential_name}/revision/{revision}/revoke:
+    $ref: ./openapi/llm/credential.revoke.yaml#/pathItem
+  /api/llm/credential/{credential_name}/revision:
+    $ref: ./openapi/llm/credential.rotate.yaml#/pathItem
+  /api/llm/credential/{credential_name}/sealed:
+    $ref: ./openapi/llm/credential.sealed.yaml#/pathItem
+  /api/llm/credential/{credential_name}/metadata:
+    $ref: ./openapi/llm/credential.update_metadata.yaml#/pathItem
+  /api/llm/credential/{credential_name}/verify:
+    $ref: ./openapi/llm/credential.verify.yaml#/pathItem
+  /api/llm/model/check:
+    $ref: ./openapi/llm/model.check.yaml#/pathItem
+  /api/llm/provider/check:
+    $ref: ./openapi/llm/provider.check.yaml#/pathItem
+  /api/mission/assessment/{assessment_id}:
+    $ref: ./openapi/mission/assessment.get.yaml#/pathItem
+  /api/mission/node/{node_id}/assessment:
+    $ref: ./openapi/mission/assessment.list.yaml#/pathItem
+  /api/mission/node/{node_id}/attempt/{attempt}:
+    $ref: ./openapi/mission/attempt.get.yaml#/pathItem
+  /api/mission/node/{node_id}/attempt:
+    $ref: ./openapi/mission/attempt.list.yaml#/pathItem
+  /api/mission/node/{node_id}/criterion:
+    $ref: ./openapi/mission/criterion.set.yaml#/pathItem
+  /api/mission/node/{node_id}/dependency/{depends_on_id}:
+    $ref: ./openapi/mission/dependency.add.yaml#/pathItem
+  /api/mission/{mission_id}/edge:
+    $ref: ./openapi/mission/edge.list.yaml#/pathItem
+  /api/mission/evidence/asset/{asset_id}/complete:
+    $ref: ./openapi/mission/evidence.asset.complete.yaml#/pathItem
+  /api/mission/evidence/asset/{asset_id}/content/download:
+    $ref: ./openapi/mission/evidence.asset.content.download.yaml#/pathItem
+  /api/mission/evidence/asset/{asset_id}/content:
+    $ref: ./openapi/mission/evidence.asset.content.get.yaml#/pathItem
+  /api/mission/evidence/asset/{asset_id}:
+    $ref: ./openapi/mission/evidence.asset.delete.yaml#/pathItem
+  /api/mission/evidence/{evidence_id}:
+    $ref: ./openapi/mission/evidence.delete.yaml#/pathItem
+  /api/mission/node/{node_id}/evidence:
+    $ref: ./openapi/mission/evidence.list.yaml#/pathItem
+  /api/mission/node/{node_id}/evidence/request:
+    $ref: ./openapi/mission/evidence.request.yaml#/pathItem
+  /api/mission/execution/{execution_id}/cleared-outcome:
+    $ref: ./openapi/mission/execution.clearedOutcome.get.yaml#/pathItem
+  /api/mission/execution/{execution_id}/cleared-assessment:
+    $ref: ./openapi/mission/execution.cleared_assessment.get.yaml#/pathItem
+  /api/mission/execution/{execution_id}/dependency/evidence:
+    $ref: ./openapi/mission/execution.dependency.evidence.list.yaml#/pathItem
+  /api/mission/execution/{execution_id}/dependency:
+    $ref: ./openapi/mission/execution.dependency.list.yaml#/pathItem
+  /api/mission/execution/{execution_id}/dependency/outcome:
+    $ref: ./openapi/mission/execution.dependency.outcome.list.yaml#/pathItem
+  /api/mission/execution/{execution_id}/evidence/asset/{asset_id}/content:
+    $ref: ./openapi/mission/execution.evidence.asset.content.get.yaml#/pathItem
+  /api/mission/execution/{execution_id}/evidence:
+    $ref: ./openapi/mission/execution.evidence.list.yaml#/pathItem
+  /api/mission/execution/{execution_id}/pinned-revision:
+    $ref: ./openapi/mission/execution.pinnedRevision.get.yaml#/pathItem
+  /api/mission/execution/{execution_id}/review-round:
+    $ref: ./openapi/mission/execution.review_round.get.yaml#/pathItem
+  /api/mission/execution/{execution_id}/revision/{revision}:
+    $ref: ./openapi/mission/execution.revision.get.yaml#/pathItem
+  /api/mission/execution/{execution_id}/revision:
+    $ref: ./openapi/mission/execution.revision.list.yaml#/pathItem
+  /api/mission/execution/{execution_id}/rework-assessment:
+    $ref: ./openapi/mission/execution.rework_assessment.get.yaml#/pathItem
+  /api/mission/{mission_id}/export:
+    $ref: ./openapi/mission/export.yaml#/pathItem
+  /api/mission/node/{node_id}/attempt/{attempt}/external-action/{action_key}:
+    $ref: ./openapi/mission/externalAction.get.yaml#/pathItem
+  /api/mission/node/{node_id}/external-action:
+    $ref: ./openapi/mission/externalAction.list.yaml#/pathItem
+  /api/mission/node/{node_id}/finding:
+    $ref: ./openapi/mission/finding.create.yaml#/pathItem
+  /api/mission/finding/{finding_id}/decide:
+    $ref: ./openapi/mission/finding.decide.yaml#/pathItem
+  /api/mission/finding/{finding_id}:
+    $ref: ./openapi/mission/finding.get.yaml#/pathItem
+  /api/mission/project/{project_id}/undecided-finding:
+    $ref: ./openapi/mission/finding.undecided.list.yaml#/pathItem
+  /api/mission/node/{node_id}/followup/decide:
+    $ref: ./openapi/mission/followup.decide.yaml#/pathItem
+  /api/mission/project/{project_id}/followup:
+    $ref: ./openapi/mission/followup.list.yaml#/pathItem
+  /api/mission/project/{project_id}:
+    $ref: ./openapi/mission/get.yaml#/pathItem
+  /api/mission/{mission_id}/import:
+    $ref: ./openapi/mission/import.apply.yaml#/pathItem
+  /api/mission/{mission_id}/import/preview:
+    $ref: ./openapi/mission/import.preview.yaml#/pathItem
+  /api/mission/inbox-item/{link_update_id}/done:
+    $ref: ./openapi/mission/inbox_item.done.yaml#/pathItem
+  /api/mission/inbox-item:
+    $ref: ./openapi/mission/inbox_item.list.yaml#/pathItem
+  /api/mission/node/{node_id}/link-update:
+    $ref: ./openapi/mission/link_update.list.yaml#/pathItem
+  /api/mission/node/{node_id}/block:
+    $ref: ./openapi/mission/node.block.yaml#/pathItem
+  /api/mission/node/{node_id}/check:
+    $ref: ./openapi/mission/node.check.yaml#/pathItem
+  /api/mission/{mission_id}/node:
+    $ref: ./openapi/mission/node.create.yaml#/pathItem
+  /api/mission/node/{node_id}/discard:
+    $ref: ./openapi/mission/node.discard.yaml#/pathItem
+  /api/mission/node/{node_id}:
+    $ref: ./openapi/mission/node.get.yaml#/pathItem
+  /api/mission/node/{node_id}/override:
+    $ref: ./openapi/mission/node.override.yaml#/pathItem
+  /api/mission/node/{node_id}/pause:
+    $ref: ./openapi/mission/node.pause.yaml#/pathItem
+  /api/mission/node/{node_id}/priority:
+    $ref: ./openapi/mission/node.priority.set.yaml#/pathItem
+  /api/mission/node/{node_id}/ready:
+    $ref: ./openapi/mission/node.ready.yaml#/pathItem
+  /api/mission/{mission_id}/rebind:
+    $ref: ./openapi/mission/node.rebind.yaml#/pathItem
+  /api/mission/node/{node_id}/resume:
+    $ref: ./openapi/mission/node.resume.yaml#/pathItem
+  /api/mission/node/{node_id}/retire:
+    $ref: ./openapi/mission/node.retire.yaml#/pathItem
+  /api/mission/node/{node_id}/retire/preview:
+    $ref: ./openapi/mission/node.retire.preview.yaml#/pathItem
+  /api/mission/node/{node_id}/revision/{revision}:
+    $ref: ./openapi/mission/node.revision.get.yaml#/pathItem
+  /api/mission/node/{node_id}/revision:
+    $ref: ./openapi/mission/node.revision.list.yaml#/pathItem
+  /api/mission/node/{node_id}/unblock:
+    $ref: ./openapi/mission/node.unblock.yaml#/pathItem
+  /api/mission/outcome/{outcome_id}:
+    $ref: ./openapi/mission/outcome.get.yaml#/pathItem
+  /api/mission/node/{node_id}/outcome:
+    $ref: ./openapi/mission/outcome.list.yaml#/pathItem
+  /api/mission/assessment/{assessment_id}/decide:
+    $ref: ./openapi/mission/proposal.decide.yaml#/pathItem
+  /api/mission/node/{node_id}/proposal:
+    $ref: ./openapi/mission/proposal.list.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}/agent/{agent_name}:
+    $ref: ./openapi/project/agentConfiguration.get.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}/agent:
+    $ref: ./openapi/project/agentConfiguration.list.yaml#/pathItem
+  /api/project/{project_id}/binding/check:
+    $ref: ./openapi/project/binding.check.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}/environment:
+    $ref: ./openapi/project/binding.environment.get.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}/environment/rebuild:
+    $ref: ./openapi/project/binding.environment.rebuild.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}:
+    $ref: ./openapi/project/binding.get.yaml#/pathItem
+  /api/project/{project_id}/binding:
+    $ref: ./openapi/project/binding.list.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}/suite-pass/plan:
+    $ref: ./openapi/project/binding.suite_pass.plan.get.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}/verify:
+    $ref: ./openapi/project/binding.verify.yaml#/pathItem
+  /api/project/{project_id}/binding/{binding_id}/revision:
+    $ref: ./openapi/project/bindingRevision.list.yaml#/pathItem
+  /api/project/{project_id}/binding-set:
+    $ref: ./openapi/project/bindingSet.get.yaml#/pathItem
+  /api/project:
+    $ref: ./openapi/project/create.yaml#/pathItem
+  /api/project/credential/{credential_name}/archive:
+    $ref: ./openapi/project/credential.archive.yaml#/pathItem
+  /api/project/credential/check:
+    $ref: ./openapi/project/credential.check.yaml#/pathItem
+  /api/project/credential:
+    $ref: ./openapi/project/credential.create.yaml#/pathItem
+  /api/project/credential/{credential_name}:
+    $ref: ./openapi/project/credential.get.yaml#/pathItem
+  /api/project/credential/platform:
+    $ref: ./openapi/project/credential.platform_list.yaml#/pathItem
+  /api/project/credential/{credential_name}/revision/{revision}/revoke:
+    $ref: ./openapi/project/credential.revoke.yaml#/pathItem
+  /api/project/credential/{credential_name}/revision:
+    $ref: ./openapi/project/credential.rotate.yaml#/pathItem
+  /api/project/credential/{credential_name}/metadata:
+    $ref: ./openapi/project/credential.update_metadata.yaml#/pathItem
+  /api/project/credential/{credential_name}/verify:
+    $ref: ./openapi/project/credential.verify.yaml#/pathItem
+  /api/project/environment/cache-volume/delete:
+    $ref: ./openapi/project/environment.cache_volume.delete.yaml#/pathItem
+  /api/project/environment/delete:
+    $ref: ./openapi/project/environment.delete.yaml#/pathItem
+  /api/project/{project_id}/environment:
+    $ref: ./openapi/project/environment.list.yaml#/pathItem
+  /api/project/{project_id}:
+    $ref: ./openapi/project/get.yaml#/pathItem
+  /api/project/{project_id}/pause:
+    $ref: ./openapi/project/pause.yaml#/pathItem
+  /api/project/{project_id}/resume:
+    $ref: ./openapi/project/resume.yaml#/pathItem
+  /api/repository/credential/{credential_name}/archive:
+    $ref: ./openapi/repository/credential.archive.yaml#/pathItem
+  /api/repository/credential/check:
+    $ref: ./openapi/repository/credential.check.yaml#/pathItem
+  /api/repository/credential:
+    $ref: ./openapi/repository/credential.create.yaml#/pathItem
+  /api/repository/credential/{credential_name}:
+    $ref: ./openapi/repository/credential.get.yaml#/pathItem
+  /api/repository/credential/platform:
+    $ref: ./openapi/repository/credential.platform_list.yaml#/pathItem
+  /api/repository/credential/{credential_name}/revision/{revision}/revoke:
+    $ref: ./openapi/repository/credential.revoke.yaml#/pathItem
+  /api/repository/credential/{credential_name}/revision:
+    $ref: ./openapi/repository/credential.rotate.yaml#/pathItem
+  /api/repository/credential/ssh/key:
+    $ref: ./openapi/repository/credential.ssh_key_create.yaml#/pathItem
+  /api/repository/credential/{credential_name}/ssh/key:
+    $ref: ./openapi/repository/credential.ssh_key_rotate.yaml#/pathItem
+  /api/repository/credential/{credential_name}/metadata:
+    $ref: ./openapi/repository/credential.update_metadata.yaml#/pathItem
+  /api/repository/credential/{credential_name}/verify:
+    $ref: ./openapi/repository/credential.verify.yaml#/pathItem
+  /api/repository/host-key:
+    $ref: ./openapi/repository/host_key.list.yaml#/pathItem
+  /api/repository/host-key/{host}:
+    $ref: ./openapi/repository/host_key.pin.yaml#/pathItem
+  /api/repository/host-key/scan:
+    $ref: ./openapi/repository/host_key.scan.yaml#/pathItem
+  /api/scheduler/claim/{execution_id}:
+    $ref: ./openapi/scheduler/claim.get.yaml#/pathItem
+  /api/scheduler/execution/{execution_id}:
+    $ref: ./openapi/scheduler/execution.get.yaml#/pathItem
+  /api/scheduler/project/{project_id}/execution:
+    $ref: ./openapi/scheduler/execution.list.yaml#/pathItem
+  /api/scheduler/execution/{execution_id}/release:
+    $ref: ./openapi/scheduler/execution.release.yaml#/pathItem
+  /api/scheduler/project/{project_id}/queue:
+    $ref: ./openapi/scheduler/queue.list.yaml#/pathItem
+  /api/scheduler/project/{project_id}/queue/peek:
+    $ref: ./openapi/scheduler/queue.peek.yaml#/pathItem
+  /api/scheduler/work/pull:
+    $ref: ./openapi/scheduler/work.pull.yaml#/pathItem
+  /api/storage/credential/{credential_name}/archive:
+    $ref: ./openapi/storage/credential.archive.yaml#/pathItem
+  /api/storage/credential/check:
+    $ref: ./openapi/storage/credential.check.yaml#/pathItem
+  /api/storage/credential:
+    $ref: ./openapi/storage/credential.create.yaml#/pathItem
+  /api/storage/credential/{credential_name}:
+    $ref: ./openapi/storage/credential.get.yaml#/pathItem
+  /api/storage/credential/platform:
+    $ref: ./openapi/storage/credential.platform_list.yaml#/pathItem
+  /api/storage/credential/{credential_name}/revision/{revision}/revoke:
+    $ref: ./openapi/storage/credential.revoke.yaml#/pathItem
+  /api/storage/credential/{credential_name}/revision:
+    $ref: ./openapi/storage/credential.rotate.yaml#/pathItem
+  /api/storage/credential/{credential_name}/metadata:
+    $ref: ./openapi/storage/credential.update_metadata.yaml#/pathItem
+  /api/storage/credential/{credential_name}/verify:
+    $ref: ./openapi/storage/credential.verify.yaml#/pathItem
+  /api/tracking/analytics/cost:
+    $ref: ./openapi/tracking/analytics.cost.yaml#/pathItem
+  /api/tracking/analytics/duration:
+    $ref: ./openapi/tracking/analytics.duration.yaml#/pathItem
+  /api/tracking/analytics/flow:
+    $ref: ./openapi/tracking/analytics.flow.yaml#/pathItem
+  /api/tracking/trace/{trace_id}/cause/label:
+    $ref: ./openapi/tracking/cause.label.yaml#/pathItem
+  /api/tracking/facet:
+    $ref: ./openapi/tracking/facet.get.yaml#/pathItem
+  /api/tracking/trace/{trace_id}/session/{session_id}/entry/{entry_id}:
+    $ref: ./openapi/tracking/session.entry.get.yaml#/pathItem
+  /api/tracking/trace/{trace_id}/session/{session_id}/entry:
+    $ref: ./openapi/tracking/session.entry.list.yaml#/pathItem
+  /api/tracking/trace/{trace_id}/session/{session_id}/entry/{entry_id}/full:
+    $ref: ./openapi/tracking/session.entry.rebuild.yaml#/pathItem
+  /api/tracking/trace/{trace_id}/span:
+    $ref: ./openapi/tracking/span.list.yaml#/pathItem
+  /api/tracking/execution/{execution_id}/telemetry:
+    $ref: ./openapi/tracking/telemetry.write.yaml#/pathItem
+  /api/tracking/trace/{trace_id}/text/{text_id}:
+    $ref: ./openapi/tracking/text.get.yaml#/pathItem
+  /api/tracking/timeline:
+    $ref: ./openapi/tracking/timeline.list.yaml#/pathItem
+  /api/tracking/trace/delete:
+    $ref: ./openapi/tracking/trace.delete.yaml#/pathItem
+  /api/tracking/trace/{trace_id}:
+    $ref: ./openapi/tracking/trace.get.yaml#/pathItem
+  /api/tracking/trace:
+    $ref: ./openapi/tracking/trace.list.yaml#/pathItem
+  /api/workbench/guest/session:
+    $ref: ./openapi/workbench/guest.get.yaml#/pathItem
+  /api/workbench/guest/session/message:
+    $ref: ./openapi/workbench/guest.message.yaml#/pathItem
+  /api/workbench/guest/session/stream:
+    $ref: ./openapi/workbench/guest.stream.yaml#/pathItem
+  /api/workbench/session/{session_id}/invite:
+    $ref: ./openapi/workbench/invite.create.yaml#/pathItem
+  /api/workbench/invite/join:
+    $ref: ./openapi/workbench/invite.join.yaml#/pathItem
+  /api/workbench/invite/{invite_id}:
+    $ref: ./openapi/workbench/invite.revoke.yaml#/pathItem
+  /api/workbench/session/{session_id}/abort:
+    $ref: ./openapi/workbench/session.abort.yaml#/pathItem
+  /api/workbench/session/{session_id}/action/{tool_call_id}/report:
+    $ref: ./openapi/workbench/session.action.report.yaml#/pathItem
+  /api/workbench/session/{session_id}/approve:
+    $ref: ./openapi/workbench/session.approve.yaml#/pathItem
+  /api/workbench/session/{session_id}/auto-mode:
+    $ref: ./openapi/workbench/session.autoMode.set.yaml#/pathItem
+  /api/workbench/session/{session_id}/configuration:
+    $ref: ./openapi/workbench/session.configure.yaml#/pathItem
+  /api/workbench/session:
+    $ref: ./openapi/workbench/session.create.yaml#/pathItem
+  /api/workbench/session/{session_id}/events:
+    $ref: ./openapi/workbench/session.events.yaml#/pathItem
+  /api/workbench/session/{session_id}/fork:
+    $ref: ./openapi/workbench/session.fork.yaml#/pathItem
+  /api/workbench/session/{session_id}:
+    $ref: ./openapi/workbench/session.get.yaml#/pathItem
+  /api/workbench/session/{session_id}/message:
+    $ref: ./openapi/workbench/session.message.yaml#/pathItem
+  /api/workbench/session/{session_id}/queue/{queued_message_id}:
+    $ref: ./openapi/workbench/session.queue.remove.yaml#/pathItem
+  /api/workbench/session/{session_id}/scope-request/{request_id}/approve:
+    $ref: ./openapi/workbench/session.scopeRequest.approve.yaml#/pathItem
+  /api/workbench/session/{session_id}/scope-request/{request_id}/reject:
+    $ref: ./openapi/workbench/session.scopeRequest.reject.yaml#/pathItem
+  /api/worker/execution/{execution_id}/action/request:
+    $ref: ./openapi/worker/action.request.yaml#/pathItem
+  /api/worker/catalog/{worker_name}:
+    $ref: ./openapi/worker/catalog.get.yaml#/pathItem
+  /api/worker/catalog:
+    $ref: ./openapi/worker/catalog.list.yaml#/pathItem
+  /api/worker/credential:
+    $ref: ./openapi/worker/credential.yaml#/pathItem
+  /api/worker/credential/lease:
+    $ref: ./openapi/worker/credential.lease.yaml#/pathItem
+  /api/worker/execution/{execution_id}/change-request:
+    $ref: ./openapi/worker/execution.change_request.get.yaml#/pathItem
+  /api/worker/execution/{execution_id}/failed-check:
+    $ref: ./openapi/worker/execution.failed_check.get.yaml#/pathItem
+  /api/worker/execution/{execution_id}/link-update:
+    $ref: ./openapi/worker/execution.link_update.get.yaml#/pathItem
+  /api/worker/execution/{execution_id}/setup:
+    $ref: ./openapi/worker/execution.setup.get.yaml#/pathItem
+  /api/worker/footprint:
+    $ref: ./openapi/worker/footprint.report.yaml#/pathItem
+  /api/worker/handover:
+    $ref: ./openapi/worker/handover.yaml#/pathItem
+  /api/worker/heartbeat:
+    $ref: ./openapi/worker/heartbeat.yaml#/pathItem
+  /api/worker/instance/{instance_name}/archive:
+    $ref: ./openapi/worker/instance.archive.yaml#/pathItem
+  /api/worker/instance/connect:
+    $ref: ./openapi/worker/instance.connect.yaml#/pathItem
+  /api/worker/instance:
+    $ref: ./openapi/worker/instance.create.yaml#/pathItem
+  /api/worker/instance/{instance_name}:
+    $ref: ./openapi/worker/instance.get.yaml#/pathItem
+  /api/worker/instance/heartbeat:
+    $ref: ./openapi/worker/instance.heartbeat.yaml#/pathItem
+  /api/worker/instance/{instance_name}/revision:
+    $ref: ./openapi/worker/instance.rotate.yaml#/pathItem
+  /api/worker/instance/{instance_name}/session/delete:
+    $ref: ./openapi/worker/instance.session.delete.yaml#/pathItem
+  /api/worker/instance/token:
+    $ref: ./openapi/worker/instance.token.yaml#/pathItem
+  /api/worker/instance/{instance_name}/tool-output/delete:
+    $ref: ./openapi/worker/instance.tool_output.delete.yaml#/pathItem
+  /api/worker/instance/work:
+    $ref: ./openapi/worker/instance.work.yaml#/pathItem
+  /api/worker/instance/{instance_name}/workspace/delete:
+    $ref: ./openapi/worker/instance.workspace.delete.yaml#/pathItem
+  /api/worker/machine/{machine_name}/archive:
+    $ref: ./openapi/worker/machine.archive.yaml#/pathItem
+  /api/worker/machine:
+    $ref: ./openapi/worker/machine.create.yaml#/pathItem
+  /api/worker/machine/{machine_name}:
+    $ref: ./openapi/worker/machine.get.yaml#/pathItem
+  /api/worker/machine/{machine_name}/revision:
+    $ref: ./openapi/worker/machine.rotate.yaml#/pathItem
+  /api/worker/placement:
+    $ref: ./openapi/worker/placement.list.yaml#/pathItem
+  /api/worker/register:
+    $ref: ./openapi/worker/register.yaml#/pathItem
+  /api/worker/registration/{runtime_identity}:
+    $ref: ./openapi/worker/registration.deregister.yaml#/pathItem
+  /api/worker/registration:
+    $ref: ./openapi/worker/registration.list.yaml#/pathItem
+  /api/worker/registration/{runtime_identity}/resume:
+    $ref: ./openapi/worker/registration.resume.yaml#/pathItem
+  /api/worker/session-read/{read_id}/report:
+    $ref: ./openapi/worker/session_read.report.yaml#/pathItem
+  /api/worker/slot-image/delete:
+    $ref: ./openapi/worker/slot_image.delete.yaml#/pathItem
+  /api/worker/ssh/sign:
+    $ref: ./openapi/worker/ssh.sign.yaml#/pathItem
+components:
+  securitySchemes:
+    bearerAuth:
+      $ref: ./openapi/shared/components.yaml#/components/securitySchemes/bearerAuth

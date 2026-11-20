@@ -1,0 +1,203 @@
+# Generated from the operation registry by kanthord gateway openapi.
+pathItem:
+  post:
+    operationId: project.binding.verify
+    tags:
+      - project
+    description: Verify one repository binding address and credential.
+    x-access-policy: human
+    x-timeout-ms: 30000
+    x-mutation: false
+    x-kanthord-lifetime: unary
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: project_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/project.binding.verify.Input/properties/params/prop\
+            erties/project_id"
+      - name: binding_id
+        in: path
+        required: true
+        schema:
+          $ref: "#/components/schemas/project.binding.verify.Input/properties/params/prop\
+            erties/binding_id"
+    responses:
+      "200":
+        description: Completed result
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/project.binding.verify.Output"
+      "400":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "401":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "403":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "404":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "409":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "413":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "415":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "500":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "503":
+        $ref: ../shared/components.yaml#/components/responses/Error
+      "504":
+        $ref: ../shared/components.yaml#/components/responses/Error
+components:
+  schemas:
+    project.binding.verify.Input:
+      type: object
+      properties:
+        params:
+          type: object
+          properties:
+            project_id:
+              type: string
+              minLength: 1
+            binding_id:
+              type: string
+              minLength: 1
+          required:
+            - project_id
+            - binding_id
+          additionalProperties: false
+        query:
+          type: object
+          properties: {}
+          additionalProperties: false
+        body:
+          type: "null"
+      required:
+        - params
+        - query
+        - body
+      additionalProperties: false
+    project.binding.verify.Output:
+      type: object
+      properties:
+        address:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - healthy
+                - unhealthy
+                - unknown
+            capability:
+              type: string
+              minLength: 1
+            failure_reason:
+              anyOf:
+                - type: string
+                  enum:
+                    - host_key_unknown
+                    - key_refused
+                    - repository_not_found
+                    - host_unreachable
+                    - address_invalid
+                    - unauthorized
+                    - forbidden
+                    - rate_limited
+                    - unreachable
+                    - invalid_response
+                    - host_key_changed
+                    - identity_unavailable
+                    - held_by_instance
+                    - deadline_exceeded
+                    - unclassified
+                - type: "null"
+          required:
+            - status
+            - capability
+            - failure_reason
+          additionalProperties: false
+        ssh_credential:
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - healthy
+                - unhealthy
+                - unknown
+            capability:
+              type: string
+              minLength: 1
+            failure_reason:
+              anyOf:
+                - type: string
+                  enum:
+                    - host_key_unknown
+                    - key_refused
+                    - repository_not_found
+                    - host_unreachable
+                    - address_invalid
+                    - unauthorized
+                    - forbidden
+                    - rate_limited
+                    - unreachable
+                    - invalid_response
+                    - host_key_changed
+                    - identity_unavailable
+                    - held_by_instance
+                    - deadline_exceeded
+                    - unclassified
+                - type: "null"
+          required:
+            - status
+            - capability
+            - failure_reason
+          additionalProperties: false
+        credential:
+          anyOf:
+            - type: object
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - healthy
+                    - unhealthy
+                    - unknown
+                capability:
+                  type: string
+                  minLength: 1
+                failure_reason:
+                  anyOf:
+                    - type: string
+                      enum:
+                        - host_key_unknown
+                        - key_refused
+                        - repository_not_found
+                        - host_unreachable
+                        - address_invalid
+                        - unauthorized
+                        - forbidden
+                        - rate_limited
+                        - unreachable
+                        - invalid_response
+                        - host_key_changed
+                        - identity_unavailable
+                        - held_by_instance
+                        - deadline_exceeded
+                        - unclassified
+                    - type: "null"
+              required:
+                - status
+                - capability
+                - failure_reason
+              additionalProperties: false
+            - type: "null"
+      required:
+        - address
+        - ssh_credential
+        - credential
+      additionalProperties: false
