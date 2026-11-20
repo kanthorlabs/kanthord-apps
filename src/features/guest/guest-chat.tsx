@@ -108,9 +108,9 @@ export function GuestChat({ connection }: { readonly connection: Connection }) {
           queued={false}
           placeholder="Write a note"
           inputDisabled={ended}
-          invalid={sendFailure !== null}
+          invalid={!ended && sendFailure !== null}
         />
-        {sendFailure !== null && (
+        {!ended && sendFailure !== null && (
           <InlineError code={sendFailure.code} message={sendFailure.message} />
         )}
       </div>
