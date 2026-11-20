@@ -847,7 +847,7 @@ describe("deriveAttention tool_approval", () => {
     });
 
     expect(items).toMatchObject([
-      { id: "tool_approval:workbench_session_A", at: 700, operationId: "project.create" },
+      { id: "tool_approval:workbench_session_A:call_1", at: 700, operationId: "project.create" },
     ]);
   });
 });

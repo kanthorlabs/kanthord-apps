@@ -59,6 +59,7 @@ interface LastKnown {
 
 interface DeckState {
   readonly cursorId: string | null;
+  readonly following: boolean;
   readonly known: ReadonlySet<string> | null;
   readonly fresh: ReadonlySet<string>;
   readonly settled: ReadonlySet<string>;
@@ -152,7 +153,10 @@ function advance(state: DeckState, { status, loaded, items, order }: Derived): D
   if (status !== "ready") return state;
   const present = new Set(items.map((item) => item.id));
   const admitted = loaded ? admit(state, present) : state;
-  const cursorId = admitted.cursorId ?? order[0]?.id ?? null;
+  const cursorId = admitted.following
+    ? (order[0]?.id ?? null)
+    : (admitted.cursorId ?? order[0]?.id ?? null);
+  const following = admitted.following && !loaded;
   const fresh = without(keepOnly(admitted.fresh, present), cursorId);
   const settled = keepOnly(admitted.settled, present);
   const acted = keepOnly(admitted.acted, present);
@@ -173,12 +177,13 @@ function advance(state: DeckState, { status, loaded, items, order }: Derived): D
   const changed =
     admitted !== state ||
     cursorId !== admitted.cursorId ||
+    following !== admitted.following ||
     !sameSet(fresh, admitted.fresh) ||
     !sameSet(settled, admitted.settled) ||
     !sameSet(acted, admitted.acted) ||
     last !== admitted.last ||
     exit !== admitted.exit;
-  return changed ? { ...admitted, cursorId, fresh, settled, acted, last, exit } : state;
+  return changed ? { ...admitted, cursorId, following, fresh, settled, acted, last, exit } : state;
 }
 
 function settle(state: DeckState, input: HomeDeckInput): DeckState {
@@ -196,6 +201,7 @@ function settle(state: DeckState, input: HomeDeckInput): DeckState {
     ...state,
     settled,
     exit: null,
+    following: false,
     cursorId: target?.id ?? null,
     fresh: without(state.fresh, target?.id ?? null),
     last: target === undefined ? null : { item: target, index },
@@ -214,6 +220,7 @@ function isGroupTarget(target: Element): boolean {
 function emptyState(): DeckState {
   return {
     cursorId: null,
+    following: true,
     known: null,
     fresh: NO_IDS,
     settled: NO_IDS,
@@ -284,6 +291,7 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
     setState((prior) => ({
       ...prior,
       cursorId: target.id,
+      following: false,
       fresh: without(prior.fresh, target.id),
       live: null,
     }));
@@ -295,6 +303,7 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
     setState((prior) => ({
       ...prior,
       cursorId: itemId,
+      following: false,
       fresh: without(prior.fresh, itemId),
       list: null,
       live: null,
@@ -333,7 +342,7 @@ export function useHomeDeck(input: HomeDeckInput): HomeDeck {
     if (item === undefined || existing.exit !== null) return;
     setState((prior) =>
       itemId === prior.cursorId
-        ? { ...prior, exit: { phase: "leave", item, index: at }, live: null }
+        ? { ...prior, following: false, exit: { phase: "leave", item, index: at }, live: null }
         : {
             ...prior,
             settled: new Set(prior.settled).add(itemId),

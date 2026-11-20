@@ -23,7 +23,7 @@ export function approvalItemsOf(
     session.run_active && session.pending_approval !== null
       ? [
           {
-            id: `tool_approval:${session.id}`,
+            id: `tool_approval:${session.id}:${session.pending_approval.tool_call_id}`,
             group: "decisions",
             kind: "tool_approval",
             subject: sessionTitle(session),

@@ -144,14 +144,14 @@ describe("useOverview board state", () => {
   it("derives the board items over every project", () => {
     const { boardItems, snapshots } = render("/").result.current;
 
-    expect(idsOf(boardItems)).toEqual(["blocked:a1", "blocked:b1", "tool_approval:s1"]);
+    expect(idsOf(boardItems)).toEqual(["blocked:a1", "blocked:b1", "tool_approval:s1:c1"]);
     expect(snapshots.map((entry) => entry.project.id)).toEqual(["prj-1", "prj-2"]);
   });
 
   it("reads every project and ignores a project query", () => {
     const state = render("/?project=prj-2").result.current;
 
-    expect(idsOf(state.boardItems)).toEqual(["blocked:a1", "blocked:b1", "tool_approval:s1"]);
+    expect(idsOf(state.boardItems)).toEqual(["blocked:a1", "blocked:b1", "tool_approval:s1:c1"]);
     expect(state.snapshots).toHaveLength(2);
     expect(state.waiting).toBe(3);
   });
@@ -160,7 +160,7 @@ describe("useOverview board state", () => {
     const { held } = render("/").result.current;
 
     expect(held.get("blocked:a1")).toEqual(["a1"]);
-    expect(held.get("tool_approval:s1")).toEqual([]);
+    expect(held.get("tool_approval:s1:c1")).toEqual([]);
   });
 });
 
