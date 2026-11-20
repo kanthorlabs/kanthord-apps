@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AGENT_DECLARATIONS,
+  GUEST_APPROVAL_CONVERSATION_ID,
   PROJECT_ATLAS,
   PROJECT_ORBIT,
   VARIANT_CONVERSATION_ID,
@@ -816,5 +817,79 @@ describe("workbench mock members", () => {
 
     expect(owner.map((member) => member.configuration)).toEqual([CONFIGURATION]);
     expect(guest.map((member) => "configuration" in member)).toEqual([false]);
+  });
+});
+
+describe("workbench mock A1 scenarios", () => {
+  const GUEST_APPROVAL_TOOL_CALL_ID = "call_guest_approval_01";
+
+  const guestApprovalSessions = () =>
+    structuredClone(
+      WORKBENCH_SESSIONS.filter(
+        (session) =>
+          session.id === GUEST_APPROVAL_CONVERSATION_ID ||
+          session.approval?.requested_by?.kind === "guest",
+      ),
+    );
+
+  const snapshotOf = (daemon, id) =>
+    daemon.call("GET", `/api/workbench/session/${id}/events`).body.snapshot;
+
+  it("offers the credential rotation with the name and the revision of the credential", async () => {
+    const daemon = mockDaemon();
+
+    daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, { text: "rotate it" });
+    await vi.waitFor(() => expect(planDone(daemon)).toBe(true), WAIT);
+
+    const offer = entriesOf(daemon)
+      .map((entry) => entry.data)
+      .find(
+        (data) => data?.kind === "action_offer" && data.operation_id === "llm.credential.rotate",
+      );
+    expect(offer.seen).toEqual({ name: offer.target_id, revision: expect.any(Number) });
+  });
+
+  it("holds the guest-requested approval of the Yumi conversation", () => {
+    const daemon = mockDaemon(guestApprovalSessions());
+
+    const { pending_approval, run_active } = snapshotOf(daemon, GUEST_APPROVAL_CONVERSATION_ID);
+
+    expect(run_active).toBe(true);
+    expect(pending_approval).toMatchObject({
+      tool_call_id: GUEST_APPROVAL_TOOL_CALL_ID,
+      requested_by: { kind: "guest", name: "Anna" },
+    });
+  });
+
+  it("raises a second approval with a new tool call id for a message with again", async () => {
+    const daemon = mockDaemon(guestApprovalSessions());
+    const id = GUEST_APPROVAL_CONVERSATION_ID;
+
+    const approved = daemon.call("POST", `/api/workbench/session/${id}/approve`, {
+      tool_call_id: GUEST_APPROVAL_TOOL_CALL_ID,
+      approved: true,
+    });
+    await vi.waitFor(() => expect(snapshotOf(daemon, id).run_active).toBe(false), WAIT);
+    daemon.call("POST", `/api/workbench/session/${id}/message`, { text: "do it again" });
+    await vi.waitFor(() => expect(snapshotOf(daemon, id).pending_approval).not.toBeNull(), WAIT);
+
+    expect(approved.status).toBe(200);
+    const second = snapshotOf(daemon, id).pending_approval;
+    expect(second.tool_call_id).not.toBe(GUEST_APPROVAL_TOOL_CALL_ID);
+    expect(second.operation_id).toBe("project.create");
+  });
+
+  it("answers a message with table with a Markdown table of 2 columns and 2 rows", async () => {
+    const daemon = mockDaemon();
+
+    daemon.call("POST", `/api/workbench/session/${HOST_ID}/message`, { text: "show a table" });
+    await vi.waitFor(() => expect(planDone(daemon)).toBe(true), WAIT);
+
+    const answer = entriesOf(daemon)
+      .filter((entry) => entry.message?.role === "assistant")
+      .map((entry) => entry.message.content.map((block) => block.text ?? "").join(""))
+      .find((text) => text.includes("| --- | --- |"));
+    const rows = answer.split("\n").filter((line) => line.startsWith("|"));
+    expect(rows.map((row) => row.split("|").length - 2)).toEqual([2, 2, 2, 2]);
   });
 });

@@ -23,6 +23,8 @@ import { VARIANT_ID } from "./variants.mjs";
 const WAIT_WINDOW_MS = 25000;
 const WORD_DELAY_MS = 150;
 const STEP_DELAY_MS = 400;
+const MARKDOWN_TABLE_ANSWER =
+  "Two nodes wait:\n\n| Node | State |\n| --- | --- |\n| Add retry | Blocked |\n| Add refund | Ready |";
 const ULID_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const QUEUE_LIMIT = 10;
 const OFFER_NODE_ID = "node_01J9ZQ4XKM3B6V8N2R5T7W0YA2";
@@ -688,7 +690,12 @@ export function registerWorkbench({
         guard: null,
       });
       await answerApproval(session, run, call, approved);
-    } else if (/\b(create|approve|mutation)\b/i.test(text)) {
+    } else if (/\btable\b/i.test(text)) {
+      announce(session, call);
+      await settle(session, run, call, { isError: false, text: '{"items":[]}' });
+      if (!run.cancelled) await stream(session, run, MARKDOWN_TABLE_ANSWER);
+      return;
+    } else if (/\b(create|approve|mutation|again)\b/i.test(text)) {
       call.name = "project.create";
       call.arguments = { name: "account-recovery" };
       announce(session, call);

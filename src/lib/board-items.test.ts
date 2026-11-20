@@ -265,7 +265,9 @@ describe("itemNodeIdsOf", () => {
   });
 
   it("answers an empty list for a tool approval", () => {
-    expect(itemNodeIdsOf(itemOf(derive([], new Map(), [SESSION]), "tool_approval:s1:c1"))).toEqual([]);
+    expect(itemNodeIdsOf(itemOf(derive([], new Map(), [SESSION]), "tool_approval:s1:c1"))).toEqual(
+      [],
+    );
   });
 });
 
