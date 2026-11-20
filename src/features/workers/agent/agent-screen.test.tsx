@@ -1368,6 +1368,7 @@ describe("AgentScreen", () => {
       expect(
         within(screen.getByRole("list", { name: "Agent providers" })).getByText("lab-anthropic"),
       ).toBeTruthy();
+      expect(screen.getByText("Credential").nextElementSibling?.textContent).toBe("lab-anthropic");
       expect(screen.getByRole("button", { name: /^Verify/ })).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Edit default" })).toBeNull();
       expect(screen.queryByText("Default reasoning effort")).toBeNull();

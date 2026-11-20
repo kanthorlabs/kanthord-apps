@@ -110,4 +110,35 @@ describe("ChatView action card", () => {
     await waitFor(() => expect(screen.getByRole("group", { name: "Action" })).toHaveFocus());
     expect(screen.queryByRole("listbox", { name: "Commands" })).toBeNull();
   });
+
+  it("shows the credential name and revision on a credential setup card", async () => {
+    const credentialSession: WorkbenchSessionGet = {
+      ...SESSION,
+      entries: [
+        {
+          session_id: SESSION_ID,
+          agent_name: "swe@1",
+          type: "custom",
+          id: "e1",
+          parentId: null,
+          timestamp: "2026-10-05T09:00:00.000Z",
+          customType: "kanthord.workbench.record",
+          data: {
+            kind: "action_offer",
+            tool_call_id: "call_1",
+            operation_id: "llm.credential.rotate",
+            target_id: "codex-main",
+            seen: { name: "codex-main", revision: 3 },
+          },
+        },
+      ],
+    };
+    render(
+      <MemoryRouter>
+        <ChatView session={credentialSession} enablement={ENABLEMENT} ownerName="Ulrich" />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("credential: codex-main, revision 3")).toBeInTheDocument();
+  });
 });

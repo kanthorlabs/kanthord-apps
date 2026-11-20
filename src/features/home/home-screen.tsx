@@ -53,11 +53,7 @@ export function HomeScreen({ onResume }: HomeScreenProps) {
   const askYumi = useAskYumi(home);
   const deckRef = useRef<HTMLDivElement>(null);
   const queued = queueEntryOf(deck.order, home.sessionId);
-  const onPendingApproval = useApprovalQueueRefresh({
-    ready: overview.status === "ready" && overview.loaded,
-    queued: queued !== null,
-    refresh: overview.refresh,
-  });
+  const onPendingApproval = useApprovalQueueRefresh({ overview, queued });
   const showQueued = (itemId: string) => {
     deck.select(itemId);
     deckRef.current?.focus();
